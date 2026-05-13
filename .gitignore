@@ -1,0 +1,11 @@
+build/
+iso_root/
+__pycache__/
+*.py[cod]
+*.pyo
+*.iso
+*.hdd
+*.elf
+*.o
+*.d
+regs[R_EAX]=*

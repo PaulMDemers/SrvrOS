@@ -1,0 +1,4 @@
+srvros initramfs
+
+This archive is loaded by Limine as a boot module and parsed by the kernel.
+

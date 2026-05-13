@@ -1,0 +1,53 @@
+#ifndef SRVROS_SYSCALL_NUMBERS_H
+#define SRVROS_SYSCALL_NUMBERS_H
+
+#define SYS_WRITE 1
+#define SYS_EXIT 2
+#define SYS_OPEN 3
+#define SYS_READ 4
+#define SYS_CLOSE 5
+#define SYS_LIST 6
+#define SYS_SPAWN 7
+#define SYS_NET_LISTEN 8
+#define SYS_NET_ACCEPT 9
+#define SYS_FS_WRITE 10
+#define SYS_CONSOLE_INFO 11
+#define SYS_CONSOLE_CLEAR 12
+#define SYS_CONSOLE_GOTOXY 13
+#define SYS_KEY_SCAN 14
+#define SYS_GFX_INFO 15
+#define SYS_GFX_PUT_PIXEL 16
+#define SYS_GFX_FILL_RECT 17
+#define SYS_MOUSE_SCAN 18
+#define SYS_SPAWN_BG 19
+#define SYS_GUI_REGISTER 20
+#define SYS_GUI_SEND 21
+#define SYS_GUI_RECV 22
+#define SYS_YIELD 23
+#define SYS_SPAWN_ARGS 24
+#define SYS_PROC_LIST 25
+#define SYS_KILL 26
+#define SYS_SPAWN_BG_ARGS 27
+#define SYS_STAT 28
+#define SYS_FS_APPEND 29
+#define SYS_SEEK 30
+#define SYS_SPAWN_ARGS_REDIRECT 31
+#define SYS_UNLINK 32
+#define SYS_OPEN_MODE 33
+#define SYS_WAIT 34
+#define SYS_MKDIR 35
+#define SYS_NET_DHCP 36
+#define SYS_RENAME 37
+#define SYS_RMDIR 38
+#define SYS_NET_STATUS 39
+#define SYS_NET_DNS 40
+
+#define SRV_OPEN_READ 0x01
+#define SRV_OPEN_WRITE 0x02
+#define SRV_OPEN_CREATE 0x04
+#define SRV_OPEN_TRUNC 0x08
+#define SRV_OPEN_APPEND 0x10
+
+#define SRV_WAIT_NOHANG 0x01
+
+#endif
