@@ -116,9 +116,30 @@ int atoi(const char *text) {
     return (int)atol(text);
 }
 
+int abs(int value) {
+    return value < 0 ? -value : value;
+}
+
 long atol(const char *text) {
+    return strtol(text, 0, 10);
+}
+
+static int digit_value(int c) {
+    if (c >= '0' && c <= '9') {
+        return c - '0';
+    }
+    if (c >= 'a' && c <= 'z') {
+        return c - 'a' + 10;
+    }
+    if (c >= 'A' && c <= 'Z') {
+        return c - 'A' + 10;
+    }
+    return -1;
+}
+
+long long strtoll(const char *text, char **endptr, int base) {
     long sign = 1;
-    long value = 0;
+    long long value = 0;
     while (*text == ' ' || *text == '\t') {
         text++;
     }
@@ -128,16 +149,40 @@ long atol(const char *text) {
     } else if (*text == '+') {
         text++;
     }
-    while (*text >= '0' && *text <= '9') {
-        value = value * 10 + (*text - '0');
+    if ((base == 0 || base == 16) && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+        base = 16;
+        text += 2;
+    } else if (base == 0 && text[0] == '0') {
+        base = 8;
+        text++;
+    } else if (base == 0) {
+        base = 10;
+    }
+    while (digit_value(*text) >= 0 && digit_value(*text) < base) {
+        value = value * base + digit_value(*text);
         text++;
     }
+    if (endptr != 0) {
+        *endptr = (char *)text;
+    }
     return value * sign;
+}
+
+long strtol(const char *text, char **endptr, int base) {
+    return (long)strtoll(text, endptr, base);
+}
+
+unsigned long strtoul(const char *text, char **endptr, int base) {
+    return (unsigned long)strtoll(text, endptr, base);
 }
 
 char *getenv(const char *name) {
     (void)name;
     return 0;
+}
+
+void abort(void) {
+    _exit(127);
 }
 
 void exit(int status) {

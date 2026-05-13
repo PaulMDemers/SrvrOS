@@ -205,6 +205,12 @@ kernel, and a minimal Unix-like userspace.
   exFAT, reads it back, and verifies decompression.
 - Increase the generated exFAT test volume and make image generation fail fast
   if future ports exceed the declared cluster heap.
+- Expand the early POSIX/libc layer with `setjmp`/`longjmp`, `ctype`,
+  C-locale helpers, signal stubs, additional string/stdio/stdlib/time calls,
+  and integer-safe math macros.
+- Add `/fat/bin/lua`, a Lua 5.4.8 interpreter built from a generated clean
+  upstream copy in an integer-number srvros profile, with script and `-e` smoke
+  coverage.
 
 ## Next milestones
 
@@ -220,8 +226,8 @@ kernel, and a minimal Unix-like userspace.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 6. Grow the userspace library into a real libc-shaped layer: shared startup,
-   fuller `stdio`, scan/format helpers, `setjmp`/`longjmp`, better allocator
-   growth, and common app build rules.
+   fuller `stdio`, scan/format helpers, better allocator growth, and common app
+   build rules.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:
@@ -231,3 +237,6 @@ kernel, and a minimal Unix-like userspace.
    better process termination on bad pointers.
 10. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
+11. Harden process teardown and kernel heap bookkeeping under repeated large
+   interpreter launches.
+12. Add FPU/SSE save/restore for full floating-point userspace ports.

@@ -49,9 +49,9 @@ editor clients:
   framebuffer drawing, mouse polling, BMP helpers, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   time, cwd, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
-- Minimal `stdio` support and the first third-party library port smoke:
-  `/fat/bin/zlibdemo` links pinned zlib and verifies compress/decompress on
-  srvros.
+- Minimal `stdio` plus early libc/POSIX shims for third-party ports:
+  `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
+  5.4.8 integer-profile interpreter.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 
@@ -148,6 +148,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ service webd start
 / $ posixdemo
 / $ zlibdemo
+/ $ lua -e "print('hello from lua', 6*7)"
 ```
 
 Then from the host:
@@ -198,6 +199,7 @@ python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1

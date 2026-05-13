@@ -25,8 +25,8 @@ server.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,
   malloc, time, cwd, IPv4, DNS, and TCP server socket APIs.
 - Adds minimal `stdio`, stages zlib and Lua as pinned submodules under
-  `ports/upstream`, and ships `/fat/bin/zlibdemo` as the first third-party
-  library port smoke.
+  `ports/upstream`, ships `/fat/bin/zlibdemo`, and adds `/fat/bin/lua` as an
+  integer-profile Lua 5.4.8 interpreter.
 - Includes early GUI/windowing experiments and sample GUI apps.
 - Includes QEMU smoke tests for CLI, processes, directories, DHCP, DNS, web
   serving, and filesystem stress.
@@ -50,6 +50,7 @@ python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --line-wait 3
 ```
 
@@ -65,6 +66,12 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - The GUI stack is a prototype and not yet a general application ABI.
 - `stdio` is deliberately small: enough for early command-line ports, not a full
   ISO C implementation.
+- Lua currently uses integer numbers and excludes `math`, `io`, `os`,
+  `package`, and dynamic loading. Full Lua floating numbers need kernel FPU/SSE
+  context support.
+- Repeated large Lua process launches in one boot still need kernel heap/process
+  teardown hardening; the release smoke covers one script execution per fresh
+  boot.
 
 ### Next Release Themes
 

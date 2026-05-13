@@ -73,7 +73,7 @@ static int resolve_command(char *out, size_t capacity, const char *command) {
 
 static void print_help(void) {
     cli_puts("builtins: help exit source . path cd pwd clear echo jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv wc grep head stat ps kill hello webd desktop calcgui notesgui textedit imgedit posixdemo zlibdemo\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv wc grep head stat ps kill hello webd desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ; between commands, append & for background\n");
     cli_puts("redirection: command > file, command >> file\n");
 }

@@ -24,6 +24,7 @@ python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
 ```
@@ -50,6 +51,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   and clean resolver failure for a non-resolving name.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, zlib
   compress/decompress verification, exFAT binary file write/read/unlink, and
+  post-run `fsck`.
+- `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
+  integer arithmetic, formatted output through the Lua base library, and
   post-run `fsck`.
 - `web_smoke.py`: login shell init script, background `webd`, and host HTTP
   fetch through QEMU user networking.

@@ -34,6 +34,7 @@ USER_TEXTEDIT := build/userspace/textedit.elf
 USER_IMGEDIT := build/userspace/imgedit.elf
 USER_POSIXDEMO := build/userspace/posixdemo.elf
 USER_ZLIBDEMO := build/userspace/zlibdemo.elf
+USER_LUA := build/userspace/lua.elf
 EXFAT_IMAGE := build/srvros.exfat
 SECOND_EXFAT_IMAGE := build/srvros-secondary.exfat
 
@@ -275,9 +276,15 @@ USER_ZLIBDEMO_S := $(shell find userspace/zlibdemo -type f -name '*.S' 2>/dev/nu
 USER_ZLIBDEMO_OBJ := $(USER_ZLIBDEMO_C:%.c=build/%.c.o) $(USER_ZLIBDEMO_S:%.S=build/%.S.o)
 USER_ZLIBDEMO_DEP := $(USER_ZLIBDEMO_C:%.c=build/%.c.d) $(USER_ZLIBDEMO_S:%.S=build/%.S.d)
 
+USER_LUA_C := $(shell find userspace/lua -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_LUA_S := $(shell find userspace/lua -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_LUA_OBJ := $(USER_LUA_C:%.c=build/%.c.o) $(USER_LUA_S:%.S=build/%.S.o)
+USER_LUA_DEP := $(USER_LUA_C:%.c=build/%.c.d) $(USER_LUA_S:%.S=build/%.S.d)
+
 USER_LIB_C := $(shell find userspace/lib/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
-USER_LIB_OBJ := $(USER_LIB_C:%.c=build/%.c.o)
-USER_LIB_DEP := $(USER_LIB_C:%.c=build/%.c.d)
+USER_LIB_S := $(shell find userspace/lib/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_LIB_OBJ := $(USER_LIB_C:%.c=build/%.c.o) $(USER_LIB_S:%.S=build/%.S.o)
+USER_LIB_DEP := $(USER_LIB_C:%.c=build/%.c.d) $(USER_LIB_S:%.S=build/%.S.d)
 
 ZLIB_C := \
 	ports/upstream/zlib/adler32.c \
@@ -293,6 +300,40 @@ ZLIB_C := \
 	ports/upstream/zlib/zutil.c
 ZLIB_OBJ := $(ZLIB_C:%.c=build/%.c.o)
 ZLIB_DEP := $(ZLIB_C:%.c=build/%.c.d)
+
+LUA_SRVROS_DIR := build/ports/lua-srvros
+LUA_PREPARED := $(LUA_SRVROS_DIR)/.prepared
+LUA_CORE_NAMES := \
+	lapi.c \
+	lauxlib.c \
+	lbaselib.c \
+	lcode.c \
+	lcorolib.c \
+	lctype.c \
+	ldblib.c \
+	ldebug.c \
+	ldo.c \
+	ldump.c \
+	lfunc.c \
+	lgc.c \
+	llex.c \
+	lmem.c \
+	lobject.c \
+	lopcodes.c \
+	lparser.c \
+	lstate.c \
+	lstring.c \
+	lstrlib.c \
+	ltable.c \
+	ltablib.c \
+	ltm.c \
+	lundump.c \
+	lutf8lib.c \
+	lvm.c \
+	lzio.c
+LUA_CORE_C := $(addprefix $(LUA_SRVROS_DIR)/,$(LUA_CORE_NAMES))
+LUA_CORE_OBJ := $(LUA_CORE_C:%.c=%.c.o)
+LUA_CORE_DEP := $(LUA_CORE_C:%.c=%.c.d)
 
 .PHONY: all
 all: $(IMAGE)
@@ -440,9 +481,17 @@ $(USER_ZLIBDEMO): $(ZIG) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) usersp
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_LUA): $(ZIG) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) -o $@
+
 build/userspace/%.c.o: userspace/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
+
+build/userspace/lua/%.c.o: userspace/lua/%.c $(ZIG) $(LUA_PREPARED)
+	mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -c $< -o $@
 
 build/userspace/zlibdemo/%.c.o: userspace/zlibdemo/%.c $(ZIG)
 	mkdir -p $(dir $@)
@@ -456,14 +505,25 @@ build/ports/upstream/zlib/%.c.o: ports/upstream/zlib/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/zlib -Wno-error -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO)
+$(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxdepth 1 -type f 2>/dev/null | LC_ALL=C sort)
+	mkdir -p $(LUA_SRVROS_DIR)
+	python3 tools/prepare_lua_port.py ports/upstream/lua $(LUA_SRVROS_DIR)
+
+$(LUA_CORE_C): $(LUA_PREPARED)
+	@true
+
+$(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) webd=$(USER_WEBD) spin=$(USER_SPIN) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO)
+	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
+
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+	mkdir -p $(dir $@)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) webd=$(USER_WEBD) spin=$(USER_SPIN) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -494,6 +554,7 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_IMGEDIT) $(INITRAMFS_ROOT)/imgedit
 	cp $(USER_POSIXDEMO) $(INITRAMFS_ROOT)/posixdemo
 	cp $(USER_ZLIBDEMO) $(INITRAMFS_ROOT)/zlibdemo
+	cp $(USER_LUA) $(INITRAMFS_ROOT)/lua
 	cp $(EXFAT_IMAGE) $(INITRAMFS_ROOT)/srvros.exfat
 	tar --format=ustar --owner=0 --group=0 --numeric-owner -C $(INITRAMFS_ROOT) -cf $(INITRAMFS) .
 
@@ -566,4 +627,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LIB_DEP) $(ZLIB_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)

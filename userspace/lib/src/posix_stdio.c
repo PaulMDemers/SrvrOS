@@ -166,9 +166,21 @@ int printf(const char *format, ...) {
     return result;
 }
 
+int vprintf(const char *format, va_list args) {
+    return vfprintf(stdout, format, args);
+}
+
 int vsnprintf(char *buffer, size_t size, const char *format, va_list args) {
     struct out_stream out = {buffer, size, 0, 0, 0};
     return format_to(&out, format, args);
+}
+
+int sprintf(char *buffer, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vsnprintf(buffer, (size_t)-1, format, args);
+    va_end(args);
+    return result;
 }
 
 int snprintf(char *buffer, size_t size, const char *format, ...) {
@@ -198,6 +210,20 @@ int fputc(int c, FILE *stream) {
 
 int putchar(int c) {
     return fputc(c, stdout);
+}
+
+int getc(FILE *stream) {
+    unsigned char c;
+    ssize_t got = read(stream->fd, &c, 1);
+    if (got == 1) {
+        return c;
+    }
+    if (got == 0) {
+        stream->eof = 1;
+    } else {
+        stream->error = 1;
+    }
+    return EOF;
 }
 
 static int mode_to_flags(const char *mode) {
@@ -243,6 +269,30 @@ FILE *fopen(const char *path, const char *mode) {
     if (stream == 0) {
         close(fd);
     }
+    return stream;
+}
+
+FILE *freopen(const char *path, const char *mode, FILE *stream) {
+    if (stream == 0) {
+        errno = EBADF;
+        return 0;
+    }
+    int flags = mode_to_flags(mode);
+    if (flags < 0) {
+        errno = EINVAL;
+        return 0;
+    }
+    int fd = open(path, flags);
+    if (fd < 0) {
+        return 0;
+    }
+    if (stream->owned) {
+        close(stream->fd);
+    }
+    stream->fd = fd;
+    stream->eof = 0;
+    stream->error = 0;
+    stream->owned = 1;
     return stream;
 }
 

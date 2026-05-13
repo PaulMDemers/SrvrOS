@@ -8,8 +8,13 @@ void free(void *ptr);
 void *calloc(size_t count, size_t size);
 void *realloc(void *ptr, size_t size);
 int atoi(const char *text);
+int abs(int value);
 long atol(const char *text);
+long strtol(const char *text, char **endptr, int base);
+long long strtoll(const char *text, char **endptr, int base);
+unsigned long strtoul(const char *text, char **endptr, int base);
 char *getenv(const char *name);
+void abort(void) __attribute__((noreturn));
 void exit(int status) __attribute__((noreturn));
 
 #endif

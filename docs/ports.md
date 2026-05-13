@@ -16,12 +16,15 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `opendir`, `readdir`, `closedir`
 - `malloc`, `calloc`, `realloc`, `free`
 - `strlen`, `strcmp`, `strncmp`, `strcpy`, `strncpy`, `strchr`, `strrchr`,
-  `memcmp`
+  `strpbrk`, `strstr`, `strspn`, `strcspn`, `memchr`, `memcmp`, `strcoll`,
+  `strerror`
+- `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
+  `setjmp`/`longjmp`, and integer-safe `math.h` macros
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`
 - `getpid`
-- Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `fclose`,
-  `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `printf`,
-  `fprintf`, `snprintf`, and `vsnprintf`
+- Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `freopen`,
+  `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
+  `printf`, `vprintf`, `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
   `recv`, and `setsockopt`
@@ -30,6 +33,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
 The `posixdemo` userspace app exercises the POSIX slice from inside srvros.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
+The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
+copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
+coroutine, table, string, UTF-8, and debug libraries.
 
 ## Current Limits
 
@@ -44,6 +50,13 @@ compressed stream to `/fat`, reads it back, and verifies decompression.
 - Time is tick-derived and not wall-clock accurate.
 - The allocator is process-local and static; larger ports will want `brk` or
   `mmap`.
+- Lua currently runs in an integer-number profile. Full floating-point Lua
+  needs kernel FPU/SSE context save/restore before user processes can safely use
+  the x86_64 floating-point ABI.
+- Lua excludes `math`, `io`, `os`, `package`, and dynamic loading for now.
+- Repeated large Lua process launches in one boot have exposed a kernel heap
+  stability issue; the smoke test verifies one script execution per fresh boot
+  while that kernel-side cleanup is pending.
 
 ## Upstream Repos
 
@@ -57,8 +70,9 @@ Third-party source is kept as pinned submodules under `ports/upstream`:
 1. Expand `stdio` toward command-line port expectations: width/precision
    formatting, `sscanf`/`fscanf` basics, `fseek`/`ftell`, and better EOF/error
    state.
-2. Add `setjmp`/`longjmp`, which Lua needs.
-3. Build Lua with dynamic loading, subprocesses, and OS-specific calls disabled.
+2. Add `brk`/`mmap`-style heap growth for larger interpreters and libraries.
+3. Add FPU/SSE process context so Lua can use its normal floating-number
+   profile.
 4. Add `poll` or `select` over process fds and network wait queues.
 5. Add client TCP `connect`, then a tiny HTTP client.
 6. Move toward libuv after sockets, timers, and fd readiness are boring.

@@ -10,8 +10,12 @@ that will be brought up on srvros through the POSIX-compat layer.
 
 The zlib core sources are linked directly into `/fat/bin/zlibdemo`, which
 compresses data, writes the compressed bytes to exFAT, reads them back, and
-verifies decompression inside srvros. Lua is staged but not built yet; it is the
-next larger check on the libc/POSIX surface.
+verifies decompression inside srvros.
+
+Lua is built as `/fat/bin/lua` from a generated copy under
+`build/ports/lua-srvros`, so the upstream submodule stays clean. The current
+port uses an integer-number profile and disables OS/process/package/dynamic
+loading features while the libc and kernel process ABI mature.
 
 ## Porting Rules
 
@@ -23,8 +27,9 @@ next larger check on the libc/POSIX surface.
 
 ## Near-Term Order
 
-1. Expand `stdio` and add `setjmp`/`longjmp`.
-2. Build Lua without dynamic loading or OS process features.
+1. Add dynamic heap growth with `brk` or `mmap`.
+2. Add FPU/SSE save/restore so ports can use the normal x86_64 floating-point
+   ABI.
 3. Add `poll`/`select`-style readiness over process file descriptors.
 4. Add client-side TCP `connect` and UDP sockets.
 5. Add more socket/readiness APIs before moving to libuv.

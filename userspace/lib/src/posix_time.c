@@ -14,6 +14,10 @@ time_t time(time_t *out) {
     return seconds;
 }
 
+clock_t clock(void) {
+    return (clock_t)srv_ticks();
+}
+
 int clock_gettime(int clock_id, struct timespec *tp) {
     if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
         errno = EINVAL;
