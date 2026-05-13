@@ -1,0 +1,6 @@
+[submodule "ports/upstream/zlib"]
+	path = ports/upstream/zlib
+	url = https://github.com/madler/zlib.git
+[submodule "ports/upstream/lua"]
+	path = ports/upstream/lua
+	url = https://github.com/lua/lua.git

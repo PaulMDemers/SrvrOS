@@ -32,6 +32,7 @@ USER_CALCGUI := build/userspace/calcgui.elf
 USER_NOTESGUI := build/userspace/notesgui.elf
 USER_TEXTEDIT := build/userspace/textedit.elf
 USER_IMGEDIT := build/userspace/imgedit.elf
+USER_POSIXDEMO := build/userspace/posixdemo.elf
 EXFAT_IMAGE := build/srvros.exfat
 SECOND_EXFAT_IMAGE := build/srvros-secondary.exfat
 
@@ -263,6 +264,11 @@ USER_IMGEDIT_S := $(shell find userspace/imgedit -type f -name '*.S' 2>/dev/null
 USER_IMGEDIT_OBJ := $(USER_IMGEDIT_C:%.c=build/%.c.o) $(USER_IMGEDIT_S:%.S=build/%.S.o)
 USER_IMGEDIT_DEP := $(USER_IMGEDIT_C:%.c=build/%.c.d) $(USER_IMGEDIT_S:%.S=build/%.S.d)
 
+USER_POSIXDEMO_C := $(shell find userspace/posixdemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_POSIXDEMO_S := $(shell find userspace/posixdemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_POSIXDEMO_OBJ := $(USER_POSIXDEMO_C:%.c=build/%.c.o) $(USER_POSIXDEMO_S:%.S=build/%.S.o)
+USER_POSIXDEMO_DEP := $(USER_POSIXDEMO_C:%.c=build/%.c.d) $(USER_POSIXDEMO_S:%.S=build/%.S.d)
+
 USER_LIB_C := $(shell find userspace/lib/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_LIB_OBJ := $(USER_LIB_C:%.c=build/%.c.o)
 USER_LIB_DEP := $(USER_LIB_C:%.c=build/%.c.d)
@@ -405,6 +411,10 @@ $(USER_IMGEDIT): $(ZIG) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_POSIXDEMO): $(ZIG) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) -o $@
+
 build/userspace/%.c.o: userspace/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
@@ -413,14 +423,14 @@ build/userspace/%.S.o: userspace/%.S $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) webd=$(USER_WEBD) spin=$(USER_SPIN) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) webd=$(USER_WEBD) spin=$(USER_SPIN) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -449,6 +459,7 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_NOTESGUI) $(INITRAMFS_ROOT)/notesgui
 	cp $(USER_TEXTEDIT) $(INITRAMFS_ROOT)/textedit
 	cp $(USER_IMGEDIT) $(INITRAMFS_ROOT)/imgedit
+	cp $(USER_POSIXDEMO) $(INITRAMFS_ROOT)/posixdemo
 	cp $(EXFAT_IMAGE) $(INITRAMFS_ROOT)/srvros.exfat
 	tar --format=ustar --owner=0 --group=0 --numeric-owner -C $(INITRAMFS_ROOT) -cf $(INITRAMFS) .
 
@@ -521,4 +532,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MV_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_LIB_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_LIB_DEP)

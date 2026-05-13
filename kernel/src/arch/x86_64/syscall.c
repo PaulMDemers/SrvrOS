@@ -11,6 +11,7 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
+#include <srvros/timer.h>
 #include <srvros/vfs.h>
 #include <srvros/vmm.h>
 
@@ -712,6 +713,23 @@ static int64_t syscall_net_accept(uint64_t listener_fd, char *buffer, uint64_t c
     return fd;
 }
 
+static int64_t syscall_getpid(void) {
+    struct process *process = process_current();
+    return process == NULL ? 0 : (int64_t)process_pid(process);
+}
+
+static int64_t syscall_sleep_ticks(uint64_t ticks) {
+    uint64_t start = timer_ticks();
+    __asm__ volatile ("sti" : : : "memory");
+    while (timer_ticks() - start < ticks) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
+        scheduler_yield();
+    }
+    return 0;
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:
@@ -836,6 +854,15 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_RMDIR:
         frame->rax = (uint64_t)syscall_rmdir((const char *)frame->rdi);
+        return;
+    case SYS_GETPID:
+        frame->rax = (uint64_t)syscall_getpid();
+        return;
+    case SYS_TICKS:
+        frame->rax = timer_ticks();
+        return;
+    case SYS_SLEEP_TICKS:
+        frame->rax = (uint64_t)syscall_sleep_ticks(frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

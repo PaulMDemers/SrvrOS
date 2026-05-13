@@ -22,6 +22,10 @@ server.
   `/fat/www`.
 - Includes a small shell, CLI utilities, service control, redirection, scripts,
   PATH lookup, and background jobs.
+- Adds the first POSIX-compat userspace layer for file, directory, errno,
+  malloc, time, cwd, IPv4, DNS, and TCP server socket APIs.
+- Stages zlib and Lua as pinned submodules under `ports/upstream` for the first
+  common-library porting work.
 - Includes early GUI/windowing experiments and sample GUI apps.
 - Includes QEMU smoke tests for CLI, processes, directories, DHCP, DNS, web
   serving, and filesystem stress.

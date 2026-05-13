@@ -41,6 +41,9 @@
 #define SYS_RMDIR 38
 #define SYS_NET_STATUS 39
 #define SYS_NET_DNS 40
+#define SYS_GETPID 41
+#define SYS_TICKS 42
+#define SYS_SLEEP_TICKS 43
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02

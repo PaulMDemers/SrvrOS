@@ -194,6 +194,12 @@ kernel, and a minimal Unix-like userspace.
   userspace library.
 - Add smoke tests for CLI behavior, process lifecycle, nested directories,
   rename/rmdir, DHCP, DNS, web serving, GUI launch, and filesystem stress.
+- Add the first POSIX-compat userspace layer with errno, malloc, file and
+  directory wrappers, cwd handling, basic time, getpid, IPv4 helpers,
+  DNS-backed `getaddrinfo`, TCP server socket wrappers, and `/fat/bin/posixdemo`
+  as a smoke app.
+- Add `ports/upstream` with pinned zlib and Lua submodules to start common
+  library porting without vendoring snapshots into the main tree.
 
 ## Next milestones
 

@@ -162,6 +162,22 @@ The shell has PATH lookup for `/fat/bin` and `/`, scripts, redirection,
 foreground/background jobs, `service webd`, DHCP/status/DNS builtins, and basic
 filesystem builtins.
 
+## POSIX Compatibility
+
+The first POSIX-compat layer is implemented in userspace on top of srvros
+syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
+`dirent.h`, `sys/stat.h`, `sys/socket.h`, `netdb.h`, and `time.h`.
+
+This layer currently covers basic file I/O, directory iteration, path/cwd state,
+malloc-family allocation, simple time functions, `getpid`, IPv4 formatting and
+parsing, DNS-backed `getaddrinfo`, and a TCP server socket flow mapped onto
+srvros listener/connection fds. The kernel additions for this slice are small:
+`getpid`, raw timer ticks, and sleep-by-ticks syscalls.
+
+The compatibility boundary is intentionally in userspace. Unsupported POSIX
+features return `ENOSYS` or a narrow error instead of expanding the kernel ABI
+prematurely.
+
 ## GUI
 
 The GUI layer is experimental and deliberately simple. `desktop` acts as a

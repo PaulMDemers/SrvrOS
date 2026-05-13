@@ -47,6 +47,8 @@ editor clients:
   scripts, `service webd`, DHCP/status/DNS commands, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, and a small widget toolkit.
+- First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
+  time, cwd, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 
@@ -60,6 +62,7 @@ kernel/include/       Kernel headers
 kernel/src/           Kernel, drivers, VFS, scheduler, network, and filesystem
 shared/include/       ABI shared between kernel and userspace
 tools/                Image builder and QEMU smoke/stress harnesses
+ports/                Pinned upstream sources staged for future ports
 userspace/            Freestanding ring-3 apps and support library
 ```
 
@@ -140,6 +143,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ net
 / $ dns p2.dev
 / $ service webd start
+/ $ posixdemo
 ```
 
 Then from the host:
@@ -200,6 +204,7 @@ See [docs/testing.md](docs/testing.md) for the full release verification pass.
 
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
+- [Porting](docs/ports.md)
 - [Roadmap](docs/roadmap.md)
 - [Release notes](docs/release-notes.md)
 

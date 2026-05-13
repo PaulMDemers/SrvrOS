@@ -167,6 +167,26 @@ long srv_net_dns(const char *name, uint32_t *ip_out) {
     return srv_syscall2(SYS_NET_DNS, (long)name, (long)ip_out);
 }
 
+long srv_net_listen(uint16_t port) {
+    return srv_syscall1(SYS_NET_LISTEN, port);
+}
+
+long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out) {
+    return srv_syscall4(SYS_NET_ACCEPT, listener_fd, (long)buffer, (long)capacity, (long)length_out);
+}
+
+long srv_getpid(void) {
+    return srv_syscall0(SYS_GETPID);
+}
+
+long srv_ticks(void) {
+    return srv_syscall0(SYS_TICKS);
+}
+
+long srv_sleep_ticks(uint64_t ticks) {
+    return srv_syscall1(SYS_SLEEP_TICKS, (long)ticks);
+}
+
 void srv_puts(const char *text) {
     srv_write(SRV_STDOUT, text, srv_strlen(text));
 }

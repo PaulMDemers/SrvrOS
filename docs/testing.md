@@ -36,7 +36,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 ## What The Harnesses Cover
 
 - `cli_smoke.py`: shell startup, PATH lookup, core CLI tools, redirection,
-  scripts, copy/remove, and native file rename through `mv`.
+  scripts, copy/remove, native file rename through `mv`, and the `posixdemo`
+  compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.

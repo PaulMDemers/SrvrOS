@@ -117,6 +117,7 @@ def main():
         "cat /fat/shell.txt\n"
         "rm /fat/shell.txt\n"
         "stat /fat/shell.txt\n"
+        "posixdemo\n"
         "exit\n"
     )
     with tempfile.TemporaryDirectory(prefix="srvros-cli-") as temp_dir:
@@ -188,6 +189,11 @@ def main():
         "stat: not found: /fat/move-src.txt",
         "hello-again",
         "stat: not found: /fat/shell.txt",
+        "posixdemo: start pid=",
+        "posixdemo: read=hello from posix",
+        "posixdemo: malloc ok",
+        "posixdemo: socket bind ok",
+        "posixdemo: ok",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
