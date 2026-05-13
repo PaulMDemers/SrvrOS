@@ -24,8 +24,9 @@ server.
   PATH lookup, and background jobs.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,
   malloc, time, cwd, IPv4, DNS, and TCP server socket APIs.
-- Stages zlib and Lua as pinned submodules under `ports/upstream` for the first
-  common-library porting work.
+- Adds minimal `stdio`, stages zlib and Lua as pinned submodules under
+  `ports/upstream`, and ships `/fat/bin/zlibdemo` as the first third-party
+  library port smoke.
 - Includes early GUI/windowing experiments and sample GUI apps.
 - Includes QEMU smoke tests for CLI, processes, directories, DHCP, DNS, web
   serving, and filesystem stress.
@@ -48,6 +49,7 @@ python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --line-wait 3
 ```
 
@@ -61,6 +63,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - Device support is oriented around QEMU q35, AHCI, e1000, PS/2, serial, and a
   linear framebuffer.
 - The GUI stack is a prototype and not yet a general application ABI.
+- `stdio` is deliberately small: enough for early command-line ports, not a full
+  ISO C implementation.
 
 ### Next Release Themes
 

@@ -5,7 +5,10 @@ import sys
 SECTOR_SIZE = 512
 SECTORS_PER_CLUSTER = 8
 CLUSTER_SIZE = SECTOR_SIZE * SECTORS_PER_CLUSTER
-TOTAL_SECTORS = 8192
+# Keep enough room for the growing base userspace and early ports. The builder
+# validates cluster usage below so future growth fails loudly instead of writing
+# data past the declared exFAT volume.
+TOTAL_SECTORS = 32768
 FAT_OFFSET = 24
 FAT_LENGTH = 128
 CLUSTER_HEAP_OFFSET = FAT_OFFSET + FAT_LENGTH
@@ -159,6 +162,13 @@ def main():
     app_clusters = {}
     for name in app_names:
         app_clusters[name] = allocate_clusters(len(app_data[name])) if app_data[name] else 0
+    used_clusters = next_cluster - 2
+    if used_clusters > CLUSTER_COUNT:
+        print(
+            f"image is too small: need {used_clusters} clusters, have {CLUSTER_COUNT}",
+            file=sys.stderr,
+        )
+        return 1
     struct.pack_into("<I", image, fat_base + 0 * 4, 0xFFFFFFF8)
     struct.pack_into("<I", image, fat_base + 1 * 4, 0xFFFFFFFF)
     for cluster in allocated_clusters:

@@ -49,6 +49,9 @@ editor clients:
   framebuffer drawing, mouse polling, BMP helpers, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   time, cwd, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
+- Minimal `stdio` support and the first third-party library port smoke:
+  `/fat/bin/zlibdemo` links pinned zlib and verifies compress/decompress on
+  srvros.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 
@@ -144,6 +147,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ dns p2.dev
 / $ service webd start
 / $ posixdemo
+/ $ zlibdemo
 ```
 
 Then from the host:
@@ -193,6 +197,7 @@ python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1

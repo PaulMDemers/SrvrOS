@@ -200,6 +200,11 @@ kernel, and a minimal Unix-like userspace.
   as a smoke app.
 - Add `ports/upstream` with pinned zlib and Lua submodules to start common
   library porting without vendoring snapshots into the main tree.
+- Add minimal `stdio` support in the userspace library and `/fat/bin/zlibdemo`,
+  which links pinned zlib, compresses data, writes the compressed stream to
+  exFAT, reads it back, and verifies decompression.
+- Increase the generated exFAT test volume and make image generation fail fast
+  if future ports exceed the declared cluster heap.
 
 ## Next milestones
 
@@ -215,8 +220,8 @@ kernel, and a minimal Unix-like userspace.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 6. Grow the userspace library into a real libc-shaped layer: shared startup,
-   string/memory helpers, formatted output, open/read/write wrappers, errno-like
-   status, and common app build rules.
+   fuller `stdio`, scan/format helpers, `setjmp`/`longjmp`, better allocator
+   growth, and common app build rules.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

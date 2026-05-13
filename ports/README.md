@@ -8,9 +8,10 @@ that will be brought up on srvros through the POSIX-compat layer.
 - `upstream/zlib`: zlib compression library, pinned to `v1.3.2`.
 - `upstream/lua`: Lua runtime, pinned to `v5.4.8`.
 
-These are intentionally not wired into the OS image yet. The first goal is to
-keep upstream source snapshots available and pinned while the srvros libc/POSIX
-surface grows enough to build them without invasive downstream edits.
+The zlib core sources are linked directly into `/fat/bin/zlibdemo`, which
+compresses data, writes the compressed bytes to exFAT, reads them back, and
+verifies decompression inside srvros. Lua is staged but not built yet; it is the
+next larger check on the libc/POSIX surface.
 
 ## Porting Rules
 
@@ -22,7 +23,8 @@ surface grows enough to build them without invasive downstream edits.
 
 ## Near-Term Order
 
-1. Build zlib as a static userspace object and add a tiny compression smoke app.
+1. Expand `stdio` and add `setjmp`/`longjmp`.
 2. Build Lua without dynamic loading or OS process features.
-3. Add missing `stdio` and `setjmp` pieces discovered by those builds.
-4. Add more socket/readiness APIs before moving to libuv.
+3. Add `poll`/`select`-style readiness over process file descriptors.
+4. Add client-side TCP `connect` and UDP sockets.
+5. Add more socket/readiness APIs before moving to libuv.
