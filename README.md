@@ -9,6 +9,17 @@ stack.
 This is an early research OS, but it is already useful as a compact playground
 for kernel, filesystem, networking, shell, and GUI experiments.
 
+## Screenshots
+
+Booted kernel monitor with AHCI, exFAT, e1000, and memory-map diagnostics:
+
+![srvros boot console](docs/assets/screenshots/console-boot-monitor.png)
+
+Userspace desktop/window server with freestanding calculator, notes, and text
+editor clients:
+
+![srvros desktop with GUI apps](docs/assets/screenshots/desktop-apps.png)
+
 ## Current Features
 
 - Limine BIOS/UEFI ISO boot path for x86_64.

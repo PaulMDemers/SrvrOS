@@ -26,6 +26,12 @@ server.
 - Includes QEMU smoke tests for CLI, processes, directories, DHCP, DNS, web
   serving, and filesystem stress.
 
+### Screenshots
+
+![srvros boot console](assets/screenshots/console-boot-monitor.png)
+
+![srvros desktop with GUI apps](assets/screenshots/desktop-apps.png)
+
 ### Verified Commands
 
 The latest release prep pass verified:
