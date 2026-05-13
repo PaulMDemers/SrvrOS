@@ -54,9 +54,6 @@ coroutine, table, string, UTF-8, and debug libraries.
   needs kernel FPU/SSE context save/restore before user processes can safely use
   the x86_64 floating-point ABI.
 - Lua excludes `math`, `io`, `os`, `package`, and dynamic loading for now.
-- Repeated large Lua process launches in one boot have exposed a kernel heap
-  stability issue; the smoke test verifies one script execution per fresh boot
-  while that kernel-side cleanup is pending.
 
 ## Upstream Repos
 

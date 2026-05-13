@@ -48,6 +48,62 @@ static bool block_is_valid(struct heap_block *block) {
     return block != NULL && block->magic == HEAP_MAGIC;
 }
 
+static bool heap_pointer_looks_kernel(void *ptr) {
+    uint64_t value = (uint64_t)ptr;
+    return (value >> 47) == 0x1ffff;
+}
+
+static void heap_validate_locked(const char *where) {
+    struct heap_block *previous = NULL;
+    uint64_t blocks = 0;
+
+    for (struct heap_block *block = head; block != NULL; block = block->next) {
+        if (!heap_pointer_looks_kernel(block) || !block_is_valid(block)) {
+            console_printf("heap: corrupt block where=%s block=%x prev=%x blocks=%u\n",
+                where,
+                (uint64_t)block,
+                (uint64_t)previous,
+                blocks);
+            halt_forever();
+        }
+        if (block->prev != previous) {
+            console_printf("heap: corrupt prev where=%s block=%x prev=%x expected=%x\n",
+                where,
+                (uint64_t)block,
+                (uint64_t)block->prev,
+                (uint64_t)previous);
+            halt_forever();
+        }
+        if (block->next != NULL && !heap_pointer_looks_kernel(block->next)) {
+            console_printf("heap: corrupt next where=%s block=%x next=%x size=%u free=%u\n",
+                where,
+                (uint64_t)block,
+                (uint64_t)block->next,
+                block->size,
+                block->free ? 1 : 0);
+            halt_forever();
+        }
+        if (block->next != NULL &&
+            (block->next <= block ||
+                (uint8_t *)block + sizeof(*block) + block->size > (uint8_t *)block->next)) {
+            console_printf("heap: overlapping blocks where=%s block=%x size=%u next=%x\n",
+                where,
+                (uint64_t)block,
+                block->size,
+                (uint64_t)block->next);
+            halt_forever();
+        }
+        previous = block;
+        blocks++;
+        if (blocks > 4096) {
+            console_printf("heap: corrupt cycle where=%s block=%x\n",
+                where,
+                (uint64_t)block);
+            halt_forever();
+        }
+    }
+}
+
 static void insert_block_sorted(struct heap_block *block) {
     if (head == NULL || block < head) {
         block->prev = NULL;
@@ -76,10 +132,10 @@ static bool blocks_are_adjacent(struct heap_block *left, struct heap_block *righ
     return (uint8_t *)left + sizeof(*left) + left->size == (uint8_t *)right;
 }
 
-static void coalesce_with_next(struct heap_block *block) {
+static bool coalesce_with_next(struct heap_block *block) {
     struct heap_block *next = block->next;
     if (next == NULL || !next->free || !blocks_are_adjacent(block, next)) {
-        return;
+        return false;
     }
 
     block->size += sizeof(*next) + next->size;
@@ -87,6 +143,7 @@ static void coalesce_with_next(struct heap_block *block) {
     if (next->next != NULL) {
         next->next->prev = block;
     }
+    return true;
 }
 
 static void split_block(struct heap_block *block, uint64_t wanted) {
@@ -142,8 +199,7 @@ static struct heap_block *extend_heap(uint64_t payload_size) {
     total_bytes += needed;
     insert_block_sorted(block);
 
-    if (block->prev != NULL && block->prev->free) {
-        coalesce_with_next(block->prev);
+    if (block->prev != NULL && block->prev->free && coalesce_with_next(block->prev)) {
         block = block->prev;
     }
     coalesce_with_next(block);
@@ -173,6 +229,7 @@ void *kmalloc(size_t size) {
     }
 
     uint64_t flags = irq_save();
+    heap_validate_locked("kmalloc-enter");
     uint64_t wanted = align_up_u64(size, HEAP_ALIGNMENT);
     struct heap_block *block = find_free_block(wanted);
     if (block == NULL) {
@@ -185,6 +242,7 @@ void *kmalloc(size_t size) {
 
     split_block(block, wanted);
     block->free = false;
+    heap_validate_locked("kmalloc-exit");
     void *payload = block_payload(block);
     irq_restore(flags);
     return payload;
@@ -214,6 +272,7 @@ void kfree(void *ptr) {
     }
 
     uint64_t flags = irq_save();
+    heap_validate_locked("kfree-enter");
     struct heap_block *block = payload_block(ptr);
     if (!block_is_valid(block) || block->free) {
         console_printf("heap: invalid free ptr=%x\n", (uint64_t)ptr);
@@ -226,6 +285,7 @@ void kfree(void *ptr) {
     if (block->prev != NULL && block->prev->free) {
         coalesce_with_next(block->prev);
     }
+    heap_validate_locked("kfree-exit");
     irq_restore(flags);
 }
 

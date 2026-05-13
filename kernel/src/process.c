@@ -767,6 +767,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
 
     int64_t status = (int64_t)child->exit_status;
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
 }
@@ -812,6 +813,7 @@ int64_t process_spawn_elf_args_redirect(const char *path,
 
     int64_t status = (int64_t)child->exit_status;
     scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    __asm__ volatile ("sti" : : : "memory");
     release_process(child);
     return status;
 }
@@ -1355,11 +1357,12 @@ void process_exit(uint64_t status) {
         }
     }
 
+    __asm__ volatile ("cli" : : : "memory");
     process->exit_status = status;
     net_process_cleanup(process);
     cleanup_process_files(process);
     process->active = false;
-    vmm_switch_address_space(vmm_kernel_address_space());
+    scheduler_clear_user_context();
     cleanup_process_address_space(process);
 
     process_context_restore(&process->context, 1);

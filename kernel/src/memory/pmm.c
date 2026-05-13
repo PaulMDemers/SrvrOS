@@ -285,6 +285,12 @@ void pmm_free_frame_range(uint64_t physical_address, uint64_t count) {
                 (frame + i) * PMM_FRAME_SIZE);
             halt_forever();
         }
+        if (tag == PMM_FRAME_HEAP) {
+            console_printf("pmm: free heap frame=%u phys=%x\n",
+                frame + i,
+                (frame + i) * PMM_FRAME_SIZE);
+            halt_forever();
+        }
         uint8_t *bytes = pmm_phys_to_virt((frame + i) * PMM_FRAME_SIZE);
         for (uint64_t j = 0; j < PMM_FRAME_SIZE; j++) {
             bytes[j] = PMM_POISON_FREE;

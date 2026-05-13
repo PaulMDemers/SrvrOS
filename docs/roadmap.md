@@ -209,8 +209,10 @@ kernel, and a minimal Unix-like userspace.
   C-locale helpers, signal stubs, additional string/stdio/stdlib/time calls,
   and integer-safe math macros.
 - Add `/fat/bin/lua`, a Lua 5.4.8 interpreter built from a generated clean
-  upstream copy in an integer-number srvros profile, with script and `-e` smoke
-  coverage.
+  upstream copy in an integer-number srvros profile, with repeated script and
+  `-e` smoke coverage.
+- Make process-exit teardown non-preemptible while switching the scheduler
+  thread back to kernel context and freeing the exiting address space.
 
 ## Next milestones
 
@@ -237,6 +239,4 @@ kernel, and a minimal Unix-like userspace.
    better process termination on bad pointers.
 10. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-11. Harden process teardown and kernel heap bookkeeping under repeated large
-   interpreter launches.
-12. Add FPU/SSE save/restore for full floating-point userspace ports.
+11. Add FPU/SSE save/restore for full floating-point userspace ports.

@@ -69,9 +69,9 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - Lua currently uses integer numbers and excludes `math`, `io`, `os`,
   `package`, and dynamic loading. Full Lua floating numbers need kernel FPU/SSE
   context support.
-- Repeated large Lua process launches in one boot still need kernel heap/process
-  teardown hardening; the release smoke covers one script execution per fresh
-  boot.
+- Process-exit teardown is non-preemptible while freeing the exiting address
+  space, so repeated larger interpreter launches do not leave scheduler context
+  pointing at freed page tables.
 
 ### Next Release Themes
 

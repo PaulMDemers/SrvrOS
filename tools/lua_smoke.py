@@ -97,6 +97,7 @@ def main():
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
             commands = [
+                "lua -e \"print('lua-e-ok', 21+21)\"\n",
                 "write /fat/lua-test.lua \"print('lua-ok', 6*7, 10+5)\"\n",
                 "lua /fat/lua-test.lua\n",
                 "exit\n",
@@ -118,6 +119,7 @@ def main():
     sys.stdout.write(text)
 
     expected = [
+        "lua-e-ok",
         "lua-ok",
         "42",
         "15",
