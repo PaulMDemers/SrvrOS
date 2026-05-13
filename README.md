@@ -192,6 +192,10 @@ See [docs/testing.md](docs/testing.md) for the full release verification pass.
 - [Roadmap](docs/roadmap.md)
 - [Release notes](docs/release-notes.md)
 
+## License
+
+srvros is released under the [MIT License](LICENSE).
+
 ## Status
 
 srvros is not production software. There is no security boundary worth trusting
