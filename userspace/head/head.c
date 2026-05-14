@@ -15,20 +15,15 @@ static uint64_t parse_number(const char *text, uint64_t fallback) {
     return value;
 }
 
-static int head_file(const char *path, uint64_t limit) {
-    int fd = (int)srv_open(path);
+static int head_fd(int fd, uint64_t limit, int close_fd) {
     char buffer[128];
     uint64_t lines = 0;
-    if (fd < 0) {
-        cli_puts("head: cannot open ");
-        cli_puts(path);
-        cli_puts("\n");
-        return 1;
-    }
     while (lines < limit) {
         long count = srv_read(fd, buffer, sizeof(buffer));
         if (count < 0) {
-            srv_close(fd);
+            if (close_fd) {
+                srv_close(fd);
+            }
             return 1;
         }
         if (count == 0) {
@@ -41,21 +36,37 @@ static int head_file(const char *path, uint64_t limit) {
             }
         }
     }
-    srv_close(fd);
+    if (close_fd) {
+        srv_close(fd);
+    }
     return 0;
+}
+
+static int head_file(const char *path, uint64_t limit) {
+    if (cli_streq(path, "-")) {
+        return head_fd(SRV_STDIN, limit, 0);
+    }
+
+    int fd = (int)srv_open(path);
+    if (fd < 0) {
+        cli_puts("head: cannot open ");
+        cli_puts(path);
+        cli_puts("\n");
+        return 1;
+    }
+    return head_fd(fd, limit, 1);
 }
 
 int main(int argc, char **argv) {
     uint64_t lines = 10;
     int first_file = 1;
     int status = 0;
-    if (argc < 2) {
-        cli_puts("usage: head [-n count] <file> [...]\n");
-        return 1;
-    }
-    if (argc >= 4 && cli_streq(argv[1], "-n")) {
+    if (argc >= 3 && cli_streq(argv[1], "-n")) {
         lines = parse_number(argv[2], 10);
         first_file = 3;
+    }
+    if (argc <= first_file) {
+        return head_fd(SRV_STDIN, lines, 0);
     }
     for (int i = first_file; i < argc; i++) {
         if (head_file(argv[i], lines) != 0) {

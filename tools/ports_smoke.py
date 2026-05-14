@@ -96,7 +96,7 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
-            for line in ["zlibdemo\n", "exit\n"]:
+            for line in ["zlibdemo\n", "posixdemo\n", "exit\n"]:
                 sock.sendall(line.encode("ascii"))
                 output += read_until(sock, b"srv> " if line.strip() == "exit" else b" $ ", args.line_wait)
             sock.sendall(b"fsck /fat\n")
@@ -116,6 +116,21 @@ def main():
         "zlibdemo: compressed",
         "zlibdemo: restored",
         "zlibdemo: ok zlib 1.3.2",
+        "posixdemo: fstat-size=",
+        "posixdemo: dup ok",
+        "posixdemo: stdio ok",
+        "posixdemo: rw ok",
+        "posixdemo: dup write ok",
+        "posixdemo: fs api ok",
+        "posixdemo: nonblock ok",
+        "posixdemo: poll ok",
+        "posixdemo: pipe ok",
+        "posixdemo: sbrk ok",
+        "posixdemo: stdlib extra ok",
+        "posixdemo: math ok",
+        "posixdemo: pread ok",
+        "posixdemo: posix misc ok",
+        "posixdemo: ok",
         "exfat-check:",
         "errors=0 ok",
     ]

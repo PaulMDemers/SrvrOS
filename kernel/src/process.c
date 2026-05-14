@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/exfat.h>
+#include <srvros/fpu.h>
 #include <srvros/heap.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
@@ -28,6 +29,7 @@
 #define PAGE_SIZE 4096ull
 #define USER_STACK_TOP 0x1000000ull
 #define USER_STACK_PAGES 16
+#define USER_HEAP_LIMIT (USER_STACK_TOP - (USER_STACK_PAGES * PAGE_SIZE) - PAGE_SIZE)
 #define PROCESS_MAX_MAPPINGS 4096
 #define PROCESS_NAME_MAX 64
 #define PROCESS_KERNEL_STACK_SIZE 131072
@@ -36,7 +38,10 @@
 #define PROCESS_MAX_ARGS 16
 #define PROCESS_ARGS_MAX 256
 #define PROCESS_PATH_MAX 160
-#define PROCESS_WRITE_BUFFER_MAX (256 * 1024)
+#define PROCESS_WRITE_BUFFER_MAX (1024 * 1024)
+#define PROCESS_MAX_WRITE_FILES 32
+#define PROCESS_MAX_PIPES 32
+#define PROCESS_PIPE_CAPACITY 4096
 
 struct process_context {
     uint64_t rbx;
@@ -55,12 +60,36 @@ struct process_mapping {
     uint64_t flags;
 };
 
+struct process_pipe {
+    bool used;
+    uint64_t refs;
+    uint64_t read_refs;
+    uint64_t write_refs;
+    uint64_t read_pos;
+    uint64_t write_pos;
+    uint64_t size;
+    uint8_t buffer[PROCESS_PIPE_CAPACITY];
+};
+
+struct process_write_file {
+    bool used;
+    uint64_t refs;
+    const uint8_t *data;
+    uint64_t size;
+    uint64_t offset;
+    uint64_t capacity;
+    bool dirty;
+    bool failed;
+    char path[PROCESS_PATH_MAX];
+};
+
 struct process {
     bool active;
     bool allocated;
     bool detached;
     bool killed;
     bool reapable;
+    bool quiet;
     uint64_t pid;
     uint64_t exit_status;
     uint64_t entry;
@@ -68,6 +97,10 @@ struct process {
     uint64_t argc;
     uint64_t argv;
     uint64_t address_space;
+    uint64_t heap_base;
+    uint64_t program_break;
+    uint64_t mapped_break;
+    uint64_t heap_limit;
     uint8_t *kernel_stack;
     uint64_t kernel_stack_physical;
     uint64_t kernel_stack_frames;
@@ -75,10 +108,13 @@ struct process {
     bool stdout_redirect;
     bool stdout_append;
     bool stdout_written;
+    bool stdin_redirect;
+    int64_t stdin_fd;
     int64_t stdout_fd;
     char stdout_path[PROCESS_PATH_MAX];
     char name[PROCESS_NAME_MAX];
     struct process_context context;
+    struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
     struct process_mapping mappings[PROCESS_MAX_MAPPINGS];
     uint64_t mapping_count;
@@ -119,11 +155,16 @@ uint64_t gdt_default_kernel_stack_top(void);
 void gdt_set_kernel_stack(uint64_t stack_top);
 
 static struct process processes[PROCESS_MAX_PROCESSES];
+static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
+static struct process_pipe pipes[PROCESS_MAX_PIPES];
 static struct process *loading_process;
 static uint64_t next_pid = 1;
 static struct scheduler_wait_queue process_wait_queue;
+static struct scheduler_wait_queue pipe_wait_queue;
 
 static void set_process_name(struct process *process, const char *path);
+static struct process_write_file *write_file_at(uint64_t handle);
+static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
     if (destination == NULL || capacity == 0 || source == NULL || source[0] == '\0') {
@@ -177,6 +218,7 @@ static struct process *alloc_process(const char *path, bool detached) {
             }
             processes[i].stack_top = USER_STACK_TOP;
             processes[i].kernel_stack_top = gdt_default_kernel_stack_top();
+            fpu_init_state(&processes[i].fpu);
             set_process_name(&processes[i], path);
             return &processes[i];
         }
@@ -434,8 +476,7 @@ static bool validate_elf(const uint8_t *data, uint64_t size, const struct elf64_
     return true;
 }
 
-static bool map_segment_page(uint64_t virtual_page, uint64_t flags) {
-    struct process *process = loading_process;
+static bool map_process_page(struct process *process, uint64_t virtual_page, uint64_t flags) {
     if (process == NULL || process->mapping_count >= PROCESS_MAX_MAPPINGS) {
         console_printf("run: map page rejected process=%x count=%u limit=%u virt=%x\n",
             (uint64_t)process,
@@ -472,6 +513,10 @@ static bool map_segment_page(uint64_t virtual_page, uint64_t flags) {
     };
 
     return true;
+}
+
+static bool map_segment_page(uint64_t virtual_page, uint64_t flags) {
+    return map_process_page(loading_process, virtual_page, flags);
 }
 
 static void cleanup_process_mappings(struct process *process) {
@@ -618,6 +663,16 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     const struct elf64_program_header *programs =
         (const struct elf64_program_header *)(data + header->phoff);
 
+    uint64_t image_end = 0;
+    for (uint64_t i = 0; i < header->phnum; i++) {
+        if (programs[i].type == PT_LOAD) {
+            uint64_t end = programs[i].vaddr + programs[i].memsz;
+            if (end > image_end) {
+                image_end = end;
+            }
+        }
+    }
+
     for (uint64_t i = 0; i < header->phnum; i++) {
         if (programs[i].type == PT_LOAD && !load_segment(data, size, &programs[i])) {
             console_printf("run: failed to load segment %u\n", i);
@@ -643,6 +698,10 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     *entry_out = header->entry;
     process->entry = header->entry;
     process->stack_top = stack_top;
+    process->heap_base = page_up(image_end);
+    process->program_break = process->heap_base;
+    process->mapped_break = process->heap_base;
+    process->heap_limit = USER_HEAP_LIMIT;
     loading_process = NULL;
     vfs_release_data(node, data);
     return true;
@@ -680,12 +739,14 @@ static bool enter_process(struct process *process, const char *label) {
     uint64_t restored = process_context_save(&process->context);
     if (restored == 0) {
         scheduler_set_user_context(process, process->address_space, process->kernel_stack_top);
-        console_printf("%s: entering pid=%u %s entry=%x stack=%x\n",
-            label,
-            process->pid,
-            process->name,
-            process->entry,
-            process->stack_top);
+        if (!process->quiet) {
+            console_printf("%s: entering pid=%u %s entry=%x stack=%x\n",
+                label,
+                process->pid,
+                process->name,
+                process->entry,
+                process->stack_top);
+        }
         usermode_enter(process->entry, process->stack_top, process->argc, process->argv);
     }
 
@@ -825,7 +886,9 @@ static void background_process_thread(void *arg) {
     }
 
     (void)enter_process(process, "bg");
-    console_printf("bg: pid=%u exited status=%u\n", process->pid, process->exit_status);
+    if (!process->quiet) {
+        console_printf("bg: pid=%u exited status=%u\n", process->pid, process->exit_status);
+    }
     release_process_runtime(process);
     process->reapable = true;
     scheduler_wake_all(&process_wait_queue);
@@ -864,6 +927,62 @@ bool process_start_background(const char *path) {
     return true;
 }
 
+static int64_t process_clone_fd_from(struct process *target, struct process *source_process, int64_t source_fd) {
+    struct process_file stdio_source;
+    struct process_file *source = NULL;
+    if (target == NULL || source_process == NULL || source_fd < 0) {
+        return -1;
+    }
+
+    if (source_fd < 3) {
+        uint8_t *bytes = (uint8_t *)&stdio_source;
+        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
+            bytes[i] = 0;
+        }
+        stdio_source.used = true;
+        stdio_source.type = PROCESS_FILE_STDIO;
+        stdio_source.handle = (uint64_t)source_fd;
+        source = &stdio_source;
+    } else {
+        source = process_file_at(source_process, (uint64_t)source_fd);
+    }
+    if (source == NULL) {
+        return -1;
+    }
+
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (!target->files[i].used) {
+            return process_file_dup_into(target, source, i);
+        }
+    }
+    return -1;
+}
+
+static bool process_configure_stdio_fds(struct process *child,
+    struct process *parent,
+    int64_t stdin_fd,
+    int64_t stdout_fd) {
+    if (stdin_fd >= 0 && stdin_fd != 0) {
+        int64_t fd = process_clone_fd_from(child, parent, stdin_fd);
+        if (fd < 0) {
+            return false;
+        }
+        child->stdin_redirect = true;
+        child->stdin_fd = fd;
+    }
+
+    if (stdout_fd >= 0 && stdout_fd != 1) {
+        int64_t fd = process_clone_fd_from(child, parent, stdout_fd);
+        if (fd < 0) {
+            return false;
+        }
+        child->stdout_redirect = true;
+        child->stdout_fd = fd;
+    }
+
+    return true;
+}
+
 int64_t process_spawn_background_elf_args(const char *path, const char *args) {
     if (path == NULL || path[0] == '\0') {
         return -1;
@@ -889,6 +1008,46 @@ int64_t process_spawn_background_elf_args(const char *path, const char *args) {
     uint64_t pid = process->pid;
     if (!scheduler_spawn("user", background_process_thread, process)) {
         cleanup_process_address_space(process);
+        release_process(process);
+        return -1;
+    }
+
+    return (int64_t)pid;
+}
+
+int64_t process_spawn_background_elf_args_fds(const char *path,
+    const char *args,
+    int64_t stdin_fd,
+    int64_t stdout_fd) {
+    struct process *parent = process_current();
+    if (parent == NULL || path == NULL || path[0] == '\0') {
+        return -1;
+    }
+
+    struct process *process = alloc_process(path, true);
+    if (process == NULL) {
+        return -1;
+    }
+
+    if (!allocate_kernel_stack(process)) {
+        release_process(process);
+        return -1;
+    }
+
+    if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
+        !setup_process_arguments(process, path, args != NULL ? args : "") ||
+        !process_configure_stdio_fds(process, parent, stdin_fd, stdout_fd)) {
+        cleanup_process_address_space(process);
+        cleanup_process_files(process);
+        release_process(process);
+        return -1;
+    }
+
+    uint64_t pid = process->pid;
+    process->quiet = true;
+    if (!scheduler_spawn("user", background_process_thread, process)) {
+        cleanup_process_address_space(process);
+        cleanup_process_files(process);
         release_process(process);
         return -1;
     }
@@ -1046,7 +1205,8 @@ bool process_has_open_vfs_prefix(const char *prefix) {
                     return true;
                 }
             } else if (file->type == PROCESS_FILE_VFS_WRITE) {
-                if (path_under_prefix(file->path, prefix)) {
+                struct process_write_file *write = write_file_at(file->handle);
+                if (write != NULL && path_under_prefix(write->path, prefix)) {
                     return true;
                 }
             }
@@ -1065,6 +1225,11 @@ uint64_t process_pid(const struct process *process) {
 
 const char *process_name(const struct process *process) {
     return process != NULL ? process->name : "";
+}
+
+bool process_current_quiet(void) {
+    struct process *process = process_current();
+    return process != NULL && process->quiet;
 }
 
 bool process_set_stdout_redirect(struct process *process, const char *path, bool append) {
@@ -1087,6 +1252,30 @@ bool process_set_stdout_redirect(struct process *process, const char *path, bool
     return true;
 }
 
+int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length) {
+    if (process == NULL || !process->stdin_redirect) {
+        return -2;
+    }
+    if (buffer == NULL && length != 0) {
+        return -1;
+    }
+    if (length == 0) {
+        return 0;
+    }
+
+    struct process_file *file = process_file_at(process, (uint64_t)process->stdin_fd);
+    if (file == NULL) {
+        return -1;
+    }
+    if (file->type == PROCESS_FILE_PIPE_READ) {
+        return process_file_pipe_read(process, (uint64_t)process->stdin_fd, buffer, length);
+    }
+    if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
+        return -2;
+    }
+    return process_file_read(process, (uint64_t)process->stdin_fd, buffer, length);
+}
+
 int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uint64_t length) {
     if (process == NULL || !process->stdout_redirect) {
         return -2;
@@ -1098,7 +1287,17 @@ int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uin
         return 0;
     }
 
-    int64_t written = process_file_write(process, (uint64_t)process->stdout_fd, buffer, length);
+    struct process_file *file = process_file_at(process, (uint64_t)process->stdout_fd);
+    if (file == NULL) {
+        return -1;
+    }
+    if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
+        return -2;
+    }
+
+    int64_t written = file->type == PROCESS_FILE_PIPE_WRITE ?
+        process_file_pipe_write(process, (uint64_t)process->stdout_fd, buffer, length) :
+        process_file_write(process, (uint64_t)process->stdout_fd, buffer, length);
     if (written < 0) {
         return written;
     }
@@ -1132,6 +1331,8 @@ int64_t process_file_alloc(struct process *process,
             file->data = data;
             file->size = size;
             file->offset = 0;
+            file->flags = 0;
+            (void)copy_process_path(file->path, sizeof(file->path), node->path);
             return (int64_t)(i + 3);
         }
     }
@@ -1139,7 +1340,77 @@ int64_t process_file_alloc(struct process *process,
     return -1;
 }
 
-static bool ensure_write_capacity(struct process_file *file, uint64_t needed) {
+int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL ||
+        (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) ||
+        (buffer == NULL && length != 0)) {
+        return -1;
+    }
+
+    uint64_t size = file->size;
+    uint64_t offset = file->offset;
+    const uint8_t *data = file->data;
+    struct process_write_file *write = NULL;
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        write = write_file_at(file->handle);
+        if (write == NULL) {
+            return -1;
+        }
+        size = write->size;
+        offset = write->offset;
+        data = write->data;
+    }
+
+    uint64_t remaining = offset <= size ? size - offset : 0;
+    uint64_t count = length < remaining ? length : remaining;
+    for (uint64_t i = 0; i < count; i++) {
+        buffer[i] = data[offset + i];
+    }
+    if (write != NULL) {
+        write->offset += count;
+    } else {
+        file->offset += count;
+    }
+    return (int64_t)count;
+}
+
+static struct process_write_file *write_file_at(uint64_t handle) {
+    if (handle == 0 || handle > PROCESS_MAX_WRITE_FILES) {
+        return NULL;
+    }
+    struct process_write_file *file = &write_files[handle - 1];
+    return file->used ? file : NULL;
+}
+
+static uint64_t write_file_alloc(void) {
+    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES; i++) {
+        if (write_files[i].used) {
+            continue;
+        }
+        struct process_write_file *file = &write_files[i];
+        uint8_t *bytes = (uint8_t *)file;
+        for (uint64_t j = 0; j < sizeof(*file); j++) {
+            bytes[j] = 0;
+        }
+        file->used = true;
+        file->refs = 1;
+        return i + 1;
+    }
+    return 0;
+}
+
+static void write_file_ref(uint64_t handle) {
+    struct process_write_file *file = write_file_at(handle);
+    if (file != NULL) {
+        file->refs++;
+    }
+}
+
+static bool ensure_write_capacity(struct process_write_file *file, uint64_t needed) {
+    if (file == NULL) {
+        return false;
+    }
     if (needed <= file->capacity) {
         return true;
     }
@@ -1191,7 +1462,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     if (!exists && (flags & SRV_OPEN_CREATE) == 0) {
         return -1;
     }
-    if (exists && !trunc && !append) {
+    if (exists && !trunc && !append && (flags & SRV_OPEN_READ) == 0) {
         append = true;
     }
 
@@ -1199,45 +1470,65 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
         return -1;
     }
 
+    uint64_t free_index = PROCESS_MAX_OPEN_FILES;
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (process->files[i].used) {
             continue;
         }
-
-        struct process_file *file = &process->files[i];
-        uint8_t *bytes = (uint8_t *)file;
-        for (uint64_t j = 0; j < sizeof(*file); j++) {
-            bytes[j] = 0;
-        }
-
-        file->used = true;
-        file->type = PROCESS_FILE_VFS_WRITE;
-        file->size = 0;
-        file->offset = 0;
-        file->dirty = trunc;
-        if (!copy_process_path(file->path, sizeof(file->path), path) ||
-            (old_size != 0 && !ensure_write_capacity(file, old_size))) {
-            file->used = false;
-            if (old_data != NULL) {
-                vfs_release_data(node, old_data);
-            }
-            return -1;
-        }
-        for (uint64_t j = 0; j < old_size; j++) {
-            ((uint8_t *)file->data)[j] = old_data[j];
-        }
-        file->size = trunc ? 0 : old_size;
-        file->offset = append ? old_size : 0;
+        free_index = i;
+        break;
+    }
+    if (free_index == PROCESS_MAX_OPEN_FILES) {
         if (old_data != NULL) {
             vfs_release_data(node, old_data);
         }
-        return (int64_t)(i + 3);
+        return -1;
     }
 
+    uint64_t handle = write_file_alloc();
+    if (handle == 0) {
+        if (old_data != NULL) {
+            vfs_release_data(node, old_data);
+        }
+        return -1;
+    }
+
+    struct process_write_file *write = write_file_at(handle);
+    if (write == NULL ||
+        !copy_process_path(write->path, sizeof(write->path), path) ||
+        (old_size != 0 && !ensure_write_capacity(write, old_size))) {
+        if (old_data != NULL) {
+            vfs_release_data(node, old_data);
+        }
+        if (write != NULL && write->data != NULL) {
+            kfree((void *)write->data);
+        }
+        if (write != NULL) {
+            write->used = false;
+        }
+        return -1;
+    }
+
+    for (uint64_t j = 0; j < old_size; j++) {
+        ((uint8_t *)write->data)[j] = old_data[j];
+    }
+    write->size = trunc ? 0 : old_size;
+    write->offset = append ? old_size : 0;
+    write->dirty = trunc;
     if (old_data != NULL) {
         vfs_release_data(node, old_data);
     }
-    return -1;
+
+    struct process_file *file = &process->files[free_index];
+    uint8_t *bytes = (uint8_t *)file;
+    for (uint64_t j = 0; j < sizeof(*file); j++) {
+        bytes[j] = 0;
+    }
+    file->used = true;
+    file->type = PROCESS_FILE_VFS_WRITE;
+    file->handle = handle;
+    file->flags = (flags & SRV_OPEN_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+    return (int64_t)(free_index + 3);
 }
 
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
@@ -1245,29 +1536,408 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
     if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || (buffer == NULL && length != 0)) {
         return -1;
     }
+    struct process_write_file *write = write_file_at(file->handle);
+    if (write == NULL) {
+        return -1;
+    }
     if (length == 0) {
         return 0;
     }
 
-    uint64_t needed = file->offset + length;
-    if (needed < file->offset || needed > PROCESS_WRITE_BUFFER_MAX || !ensure_write_capacity(file, needed)) {
-        file->failed = true;
+    uint64_t needed = write->offset + length;
+    if (needed < write->offset || needed > PROCESS_WRITE_BUFFER_MAX || !ensure_write_capacity(write, needed)) {
+        write->failed = true;
         return -1;
     }
 
-    for (uint64_t i = file->size; i < file->offset; i++) {
-        ((uint8_t *)file->data)[i] = 0;
+    for (uint64_t i = write->size; i < write->offset; i++) {
+        ((uint8_t *)write->data)[i] = 0;
     }
     for (uint64_t i = 0; i < length; i++) {
-        ((uint8_t *)file->data)[file->offset + i] = buffer[i];
+        ((uint8_t *)write->data)[write->offset + i] = buffer[i];
     }
 
-    file->offset += length;
-    if (file->offset > file->size) {
-        file->size = file->offset;
+    write->offset += length;
+    if (write->offset > write->size) {
+        write->size = write->offset;
     }
-    file->dirty = true;
+    write->dirty = true;
     return (int64_t)length;
+}
+
+bool process_file_nonblocking(struct process *process, uint64_t fd) {
+    struct process_file *file = process_file_at(process, fd);
+    return file != NULL && (file->flags & SRV_FD_NONBLOCK) != 0;
+}
+
+static struct process_pipe *pipe_at(uint64_t handle) {
+    if (handle == 0 || handle > PROCESS_MAX_PIPES) {
+        return NULL;
+    }
+    struct process_pipe *pipe = &pipes[handle - 1];
+    return pipe->used ? pipe : NULL;
+}
+
+static uint64_t pipe_alloc(void) {
+    for (uint64_t i = 0; i < PROCESS_MAX_PIPES; i++) {
+        if (pipes[i].used) {
+            continue;
+        }
+        struct process_pipe *pipe = &pipes[i];
+        uint8_t *bytes = (uint8_t *)pipe;
+        for (uint64_t j = 0; j < sizeof(*pipe); j++) {
+            bytes[j] = 0;
+        }
+        pipe->used = true;
+        pipe->refs = 2;
+        pipe->read_refs = 1;
+        pipe->write_refs = 1;
+        return i + 1;
+    }
+    return 0;
+}
+
+static void pipe_ref(uint64_t handle, bool write_end) {
+    struct process_pipe *pipe = pipe_at(handle);
+    if (pipe == NULL) {
+        return;
+    }
+    pipe->refs++;
+    if (write_end) {
+        pipe->write_refs++;
+    } else {
+        pipe->read_refs++;
+    }
+}
+
+static void pipe_close(uint64_t handle, bool write_end) {
+    struct process_pipe *pipe = pipe_at(handle);
+    if (pipe == NULL) {
+        return;
+    }
+    if (pipe->refs > 0) {
+        pipe->refs--;
+    }
+    if (write_end && pipe->write_refs > 0) {
+        pipe->write_refs--;
+    } else if (!write_end && pipe->read_refs > 0) {
+        pipe->read_refs--;
+    }
+    if (pipe->refs == 0) {
+        pipe->used = false;
+    }
+    scheduler_wake_all(&pipe_wait_queue);
+}
+
+static int64_t write_file_close(uint64_t handle) {
+    struct process_write_file *write = write_file_at(handle);
+    if (write == NULL) {
+        return -1;
+    }
+
+    if (write->refs > 0) {
+        write->refs--;
+    }
+    if (write->refs > 0) {
+        return 0;
+    }
+
+    int64_t result = 0;
+    if (process_file_flush(NULL, handle) < 0) {
+        result = -1;
+    }
+
+    if (write->data != NULL) {
+        kfree((void *)write->data);
+    }
+    uint8_t *bytes = (uint8_t *)write;
+    for (uint64_t i = 0; i < sizeof(*write); i++) {
+        bytes[i] = 0;
+    }
+    return result;
+}
+
+int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || length > PROCESS_WRITE_BUFFER_MAX) {
+        return -1;
+    }
+
+    struct process_write_file *write = write_file_at(file->handle);
+    if (write == NULL) {
+        return -1;
+    }
+    if (length > write->capacity && !ensure_write_capacity(write, length)) {
+        write->failed = true;
+        return -1;
+    }
+    for (uint64_t i = write->size; i < length; i++) {
+        ((uint8_t *)write->data)[i] = 0;
+    }
+    write->size = length;
+    write->dirty = true;
+    return 0;
+}
+
+int64_t process_file_flush(struct process *process, uint64_t fd) {
+    struct process_write_file *write = NULL;
+    if (process == NULL) {
+        write = write_file_at(fd);
+    } else {
+        struct process_file *file = process_file_at(process, fd);
+        if (file == NULL) {
+            return -1;
+        }
+        if (file->type == PROCESS_FILE_VFS ||
+            file->type == PROCESS_FILE_STDIO ||
+            file->type == PROCESS_FILE_PIPE_READ ||
+            file->type == PROCESS_FILE_PIPE_WRITE) {
+            return 0;
+        }
+        if (file->type != PROCESS_FILE_VFS_WRITE) {
+            return -1;
+        }
+        write = write_file_at(file->handle);
+    }
+    if (write == NULL) {
+        return -1;
+    }
+    if (write->failed) {
+        return -1;
+    }
+    if (!write->dirty) {
+        return 0;
+    }
+
+    bool ok = exfat_write_file(write->path, write->data, write->size);
+    if (!ok && vfs_lookup(write->path) != NULL) {
+        ok = exfat_delete_file(write->path) &&
+            exfat_write_file(write->path, write->data, write->size);
+    }
+    if (!ok) {
+        write->failed = true;
+        return -1;
+    }
+    write->dirty = false;
+    return 0;
+}
+
+static bool pipe_read_ready(void *arg) {
+    struct process_pipe *pipe = arg;
+    return pipe == NULL || !pipe->used || pipe->size > 0 || pipe->write_refs == 0;
+}
+
+static bool pipe_write_ready(void *arg) {
+    struct process_pipe *pipe = arg;
+    return pipe == NULL ||
+        !pipe->used ||
+        pipe->read_refs == 0 ||
+        pipe->size < PROCESS_PIPE_CAPACITY;
+}
+
+int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
+    if (process == NULL || fds_out == NULL) {
+        return -1;
+    }
+
+    uint64_t read_index = PROCESS_MAX_OPEN_FILES;
+    uint64_t write_index = PROCESS_MAX_OPEN_FILES;
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (process->files[i].used) {
+            continue;
+        }
+        if (read_index == PROCESS_MAX_OPEN_FILES) {
+            read_index = i;
+        } else {
+            write_index = i;
+            break;
+        }
+    }
+    if (write_index == PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    uint64_t handle = pipe_alloc();
+    if (handle == 0) {
+        return -1;
+    }
+
+    struct process_file *read_file = &process->files[read_index];
+    struct process_file *write_file = &process->files[write_index];
+    uint8_t *read_bytes = (uint8_t *)read_file;
+    uint8_t *write_bytes = (uint8_t *)write_file;
+    for (uint64_t i = 0; i < sizeof(*read_file); i++) {
+        read_bytes[i] = 0;
+        write_bytes[i] = 0;
+    }
+    read_file->used = true;
+    read_file->type = PROCESS_FILE_PIPE_READ;
+    read_file->handle = handle;
+    write_file->used = true;
+    write_file->type = PROCESS_FILE_PIPE_WRITE;
+    write_file->handle = handle;
+    fds_out[0] = read_index + 3;
+    fds_out[1] = write_index + 3;
+    return 0;
+}
+
+int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_PIPE_READ || (buffer == NULL && length != 0)) {
+        return -1;
+    }
+    if (length == 0) {
+        return 0;
+    }
+    struct process_pipe *pipe = pipe_at(file->handle);
+    if (pipe == NULL) {
+        return -1;
+    }
+    while (pipe->size == 0 && pipe->write_refs > 0) {
+        if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+            return SRV_ERR_AGAIN;
+        }
+        if (!scheduler_wait(&pipe_wait_queue, pipe_read_ready, pipe)) {
+            break;
+        }
+    }
+    uint64_t count = length < pipe->size ? length : pipe->size;
+    for (uint64_t i = 0; i < count; i++) {
+        buffer[i] = pipe->buffer[pipe->read_pos];
+        pipe->read_pos = (pipe->read_pos + 1) % PROCESS_PIPE_CAPACITY;
+    }
+    pipe->size -= count;
+    if (count > 0) {
+        scheduler_wake_all(&pipe_wait_queue);
+    }
+    return (int64_t)count;
+}
+
+int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_PIPE_WRITE || (buffer == NULL && length != 0)) {
+        return -1;
+    }
+    struct process_pipe *pipe = pipe_at(file->handle);
+    if (pipe == NULL || pipe->read_refs == 0) {
+        return -1;
+    }
+
+    uint64_t done = 0;
+    while (done < length) {
+        while (pipe->size == PROCESS_PIPE_CAPACITY && pipe->read_refs > 0) {
+            if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+                return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
+            }
+            if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, pipe)) {
+                break;
+            }
+        }
+        if (!pipe->used || pipe->read_refs == 0) {
+            return done > 0 ? (int64_t)done : -1;
+        }
+
+        uint64_t space = PROCESS_PIPE_CAPACITY - pipe->size;
+        if (space == 0) {
+            return done > 0 ? (int64_t)done : 0;
+        }
+        uint64_t remaining = length - done;
+        uint64_t count = remaining < space ? remaining : space;
+        for (uint64_t i = 0; i < count; i++) {
+            pipe->buffer[pipe->write_pos] = buffer[done + i];
+            pipe->write_pos = (pipe->write_pos + 1) % PROCESS_PIPE_CAPACITY;
+        }
+        pipe->size += count;
+        done += count;
+        scheduler_wake_all(&pipe_wait_queue);
+    }
+    return (int64_t)done;
+}
+
+uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
+    if (process == NULL) {
+        return SRV_POLLNVAL;
+    }
+
+    if (fd == 0) {
+        return (events & SRV_POLLIN) != 0 ? SRV_POLLIN : 0;
+    }
+    if (fd == 1 || fd == 2) {
+        return (events & SRV_POLLOUT) != 0 ? SRV_POLLOUT : 0;
+    }
+
+    struct process_file *file = process_file_at(process, (uint64_t)fd);
+    if (file == NULL) {
+        return SRV_POLLNVAL;
+    }
+
+    if (file->type == PROCESS_FILE_STDIO) {
+        if (file->handle == 0) {
+            return (events & SRV_POLLIN) != 0 ? SRV_POLLIN : 0;
+        }
+        if (file->handle == 1 || file->handle == 2) {
+            return (events & SRV_POLLOUT) != 0 ? SRV_POLLOUT : 0;
+        }
+        return SRV_POLLNVAL;
+    }
+
+    if (file->type == PROCESS_FILE_VFS) {
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0) {
+            revents |= SRV_POLLIN;
+        }
+        return revents;
+    }
+
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write = write_file_at(file->handle);
+        if (write == NULL) {
+            return SRV_POLLNVAL;
+        }
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0) {
+            revents |= SRV_POLLIN;
+        }
+        if ((events & SRV_POLLOUT) != 0 && !write->failed) {
+            revents |= SRV_POLLOUT;
+        }
+        if (write->failed) {
+            revents |= SRV_POLLERR;
+        }
+        return revents;
+    }
+
+    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_WRITE) {
+        struct process_pipe *pipe = pipe_at(file->handle);
+        if (pipe == NULL) {
+            return SRV_POLLNVAL;
+        }
+
+        uint16_t revents = 0;
+        if (file->type == PROCESS_FILE_PIPE_READ) {
+            if ((events & SRV_POLLIN) != 0 && pipe->size > 0) {
+                revents |= SRV_POLLIN;
+            }
+            if (pipe->write_refs == 0) {
+                revents |= SRV_POLLHUP;
+            }
+            return revents;
+        }
+
+        if ((events & SRV_POLLOUT) != 0 && pipe->read_refs != 0 && pipe->size < PROCESS_PIPE_CAPACITY) {
+            revents |= SRV_POLLOUT;
+        }
+        if (pipe->read_refs == 0) {
+            revents |= SRV_POLLERR;
+        }
+        return revents;
+    }
+
+    if (file->type == PROCESS_FILE_NET_LISTENER || file->type == PROCESS_FILE_NET_CONNECTION) {
+        return net_poll_events(file->handle, events);
+    }
+
+    return SRV_POLLNVAL;
 }
 
 int64_t process_handle_alloc(struct process *process,
@@ -1282,6 +1952,10 @@ int64_t process_handle_alloc(struct process *process,
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (!process->files[i].used) {
             struct process_file *file = &process->files[i];
+            uint8_t *bytes = (uint8_t *)file;
+            for (uint64_t j = 0; j < sizeof(*file); j++) {
+                bytes[j] = 0;
+            }
             file->used = true;
             file->type = type;
             file->handle = handle;
@@ -1290,6 +1964,165 @@ int64_t process_handle_alloc(struct process *process,
     }
 
     return -1;
+}
+
+static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index) {
+    if (process == NULL || source == NULL || target_index >= PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    struct process_file *target = &process->files[target_index];
+    if (source->type == PROCESS_FILE_STDIO) {
+        uint64_t handle = source->handle;
+        uint8_t *bytes = (uint8_t *)target;
+        for (uint64_t i = 0; i < sizeof(*target); i++) {
+            bytes[i] = 0;
+        }
+        target->used = true;
+        target->type = PROCESS_FILE_STDIO;
+        target->handle = handle;
+        target->flags = source->flags;
+        return (int64_t)(target_index + 3);
+    }
+
+    if (source->type == PROCESS_FILE_PIPE_READ || source->type == PROCESS_FILE_PIPE_WRITE) {
+        uint64_t handle = source->handle;
+        bool write_end = source->type == PROCESS_FILE_PIPE_WRITE;
+        if (pipe_at(handle) == NULL) {
+            return -1;
+        }
+        uint8_t *bytes = (uint8_t *)target;
+        for (uint64_t i = 0; i < sizeof(*target); i++) {
+            bytes[i] = 0;
+        }
+        pipe_ref(handle, write_end);
+        target->used = true;
+        target->type = source->type;
+        target->handle = handle;
+        target->flags = source->flags;
+        return (int64_t)(target_index + 3);
+    }
+
+    if (source->type == PROCESS_FILE_VFS_WRITE) {
+        uint64_t handle = source->handle;
+        if (write_file_at(handle) == NULL) {
+            return -1;
+        }
+        uint8_t *bytes = (uint8_t *)target;
+        for (uint64_t i = 0; i < sizeof(*target); i++) {
+            bytes[i] = 0;
+        }
+        write_file_ref(handle);
+        target->used = true;
+        target->type = PROCESS_FILE_VFS_WRITE;
+        target->handle = handle;
+        target->flags = source->flags;
+        return (int64_t)(target_index + 3);
+    }
+
+    if (source->type != PROCESS_FILE_VFS || source->path[0] == '\0') {
+        return -1;
+    }
+
+    const struct vfs_node *node = vfs_lookup(source->path);
+    const uint8_t *data;
+    uint64_t size;
+    if (node == NULL || !vfs_read_all(node, &data, &size)) {
+        return -1;
+    }
+
+    uint8_t *bytes = (uint8_t *)target;
+    for (uint64_t i = 0; i < sizeof(*target); i++) {
+        bytes[i] = 0;
+    }
+    target->used = true;
+    target->type = PROCESS_FILE_VFS;
+    target->node = node;
+    target->data = data;
+    target->size = size;
+    target->offset = source->offset <= size ? source->offset : size;
+    target->flags = source->flags;
+    (void)copy_process_path(target->path, sizeof(target->path), source->path);
+    return (int64_t)(target_index + 3);
+}
+
+int64_t process_file_dup(struct process *process, uint64_t old_fd) {
+    struct process_file stdio_source;
+    struct process_file *source = NULL;
+    if (old_fd < 3) {
+        uint8_t *bytes = (uint8_t *)&stdio_source;
+        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
+            bytes[i] = 0;
+        }
+        stdio_source.used = true;
+        stdio_source.type = PROCESS_FILE_STDIO;
+        stdio_source.handle = old_fd;
+        source = &stdio_source;
+    } else {
+        source = process_file_at(process, old_fd);
+    }
+    if (process == NULL || source == NULL) {
+        return -1;
+    }
+
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (!process->files[i].used) {
+            return process_file_dup_into(process, source, i);
+        }
+    }
+    return -1;
+}
+
+int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd) {
+    if (process == NULL || new_fd < 3 || new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+    if (old_fd == new_fd) {
+        return process_file_at(process, old_fd) != NULL ? (int64_t)new_fd : -1;
+    }
+
+    struct process_file stdio_source;
+    struct process_file *source = NULL;
+    if (old_fd < 3) {
+        uint8_t *bytes = (uint8_t *)&stdio_source;
+        for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
+            bytes[i] = 0;
+        }
+        stdio_source.used = true;
+        stdio_source.type = PROCESS_FILE_STDIO;
+        stdio_source.handle = old_fd;
+        source = &stdio_source;
+    } else {
+        source = process_file_at(process, old_fd);
+    }
+    if (source == NULL) {
+        return -1;
+    }
+
+    uint64_t target_index = new_fd - 3;
+    if (process->files[target_index].used) {
+        if (process_file_close(process, new_fd) < 0) {
+            return -1;
+        }
+    }
+    return process_file_dup_into(process, source, target_index);
+}
+
+int64_t process_file_get_flags(struct process *process, uint64_t fd) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return -1;
+    }
+    return (int64_t)file->flags;
+}
+
+int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return -1;
+    }
+    file->flags = flags & SRV_FD_NONBLOCK;
+    return 0;
 }
 
 int64_t process_file_close(struct process *process, uint64_t fd) {
@@ -1307,26 +2140,13 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
 
     if (file->type == PROCESS_FILE_VFS) {
         vfs_release_data(file->node, file->data);
+    } else if (file->type == PROCESS_FILE_PIPE_READ) {
+        pipe_close(file->handle, false);
+    } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
+        pipe_close(file->handle, true);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
-        if (file->failed) {
+        if (write_file_close(file->handle) < 0) {
             result = -1;
-        } else if (file->dirty) {
-            bool ok = false;
-            if (file->size == 0) {
-                ok = vfs_lookup(file->path) == NULL || exfat_delete_file(file->path);
-            } else {
-                ok = exfat_write_file(file->path, file->data, file->size);
-                if (!ok && vfs_lookup(file->path) != NULL) {
-                    ok = exfat_delete_file(file->path) &&
-                        exfat_write_file(file->path, file->data, file->size);
-                }
-            }
-            if (!ok) {
-                result = -1;
-            }
-        }
-        if (file->data != NULL) {
-            kfree((void *)file->data);
         }
     }
 
@@ -1337,16 +2157,114 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     return result;
 }
 
-int64_t process_file_seek(struct process *process, uint64_t fd, uint64_t offset) {
+int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
-        (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) ||
-        (file->type == PROCESS_FILE_VFS && offset > file->size)) {
+        (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE)) {
         return -1;
     }
 
-    file->offset = offset;
+    struct process_write_file *write = NULL;
+    uint64_t current_offset = file->offset;
+    uint64_t current_size = file->size;
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        write = write_file_at(file->handle);
+        if (write == NULL) {
+            return -1;
+        }
+        current_offset = write->offset;
+        current_size = write->size;
+    }
+
+    int64_t base;
+    if (whence == 0) {
+        base = 0;
+    } else if (whence == 1) {
+        base = (int64_t)current_offset;
+    } else if (whence == 2) {
+        base = (int64_t)current_size;
+    } else {
+        return -1;
+    }
+
+    int64_t target = base + offset;
+    if (target < 0 ||
+        (file->type == PROCESS_FILE_VFS && (uint64_t)target > file->size)) {
+        return -1;
+    }
+
+    if (write != NULL) {
+        write->offset = (uint64_t)target;
+        return (int64_t)write->offset;
+    }
+    file->offset = (uint64_t)target;
     return (int64_t)file->offset;
+}
+
+int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_out, uint64_t *type_out) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || size_out == NULL || type_out == NULL) {
+        return -1;
+    }
+
+    if (file->type == PROCESS_FILE_VFS || file->type == PROCESS_FILE_VFS_WRITE) {
+        *type_out = 0;
+        if (file->type == PROCESS_FILE_VFS_WRITE) {
+            struct process_write_file *write = write_file_at(file->handle);
+            if (write == NULL) {
+                return -1;
+            }
+            *size_out = write->size;
+            return 0;
+        }
+        *size_out = file->size;
+        if (file->type == PROCESS_FILE_VFS && file->node != NULL) {
+            *type_out = (uint64_t)file->node->type;
+        }
+        return 0;
+    }
+
+    *size_out = 0;
+    *type_out = 0;
+    return 0;
+}
+
+int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out) {
+    if (process == NULL || previous_out == NULL || process->address_space == 0) {
+        return -1;
+    }
+
+    uint64_t previous = process->program_break;
+    if (increment == 0) {
+        *previous_out = previous;
+        return 0;
+    }
+
+    uint64_t next;
+    if (increment > 0) {
+        uint64_t amount = (uint64_t)increment;
+        if (amount > process->heap_limit - previous) {
+            return -1;
+        }
+        next = previous + amount;
+        uint64_t target_mapped = page_up(next);
+        for (uint64_t page = process->mapped_break; page < target_mapped; page += PAGE_SIZE) {
+            if (!map_process_page(process, page, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE)) {
+                return -1;
+            }
+        }
+        process->mapped_break = target_mapped;
+    } else {
+        uint64_t amount = (uint64_t)(-increment);
+        if (amount > previous - process->heap_base) {
+            return -1;
+        }
+        next = previous - amount;
+    }
+
+    process->program_break = next;
+    *previous_out = previous;
+    return 0;
 }
 
 void process_exit(uint64_t status) {
@@ -1366,4 +2284,28 @@ void process_exit(uint64_t status) {
     cleanup_process_address_space(process);
 
     process_context_restore(&process->context, 1);
+}
+
+void process_fpu_save(void *process_ptr) {
+    struct process *process = process_ptr;
+    if (process == NULL || !process->allocated) {
+        return;
+    }
+    fpu_save(&process->fpu);
+}
+
+struct fpu_state *process_fpu_state(void *process_ptr) {
+    struct process *process = process_ptr;
+    if (process == NULL || !process->allocated) {
+        return NULL;
+    }
+    return &process->fpu;
+}
+
+void process_fpu_restore(void *process_ptr) {
+    struct process *process = process_ptr;
+    if (process == NULL || !process->allocated) {
+        return;
+    }
+    fpu_restore(&process->fpu);
 }

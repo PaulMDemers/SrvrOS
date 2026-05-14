@@ -1,10 +1,11 @@
 #include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-#define POSIX_HEAP_SIZE (1024 * 1024)
 #define ALIGNMENT 16
+#define HEAP_CHUNK_SIZE (64 * 1024)
 
 struct block_header {
     size_t size;
@@ -12,21 +13,18 @@ struct block_header {
     struct block_header *next;
 };
 
-static unsigned char heap_area[POSIX_HEAP_SIZE];
 static struct block_header *heap_head;
+static struct block_header *heap_tail;
+
+struct aligned_allocation {
+    void *aligned;
+    void *raw;
+};
+
+static struct aligned_allocation aligned_allocations[32];
 
 static size_t align_size(size_t size) {
     return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
-}
-
-static void heap_init(void) {
-    if (heap_head != 0) {
-        return;
-    }
-    heap_head = (struct block_header *)heap_area;
-    heap_head->size = POSIX_HEAP_SIZE - sizeof(struct block_header);
-    heap_head->free = 1;
-    heap_head->next = 0;
 }
 
 static void split_block(struct block_header *block, size_t size) {
@@ -42,21 +40,54 @@ static void split_block(struct block_header *block, size_t size) {
     block->next = next;
 }
 
+static struct block_header *extend_heap(size_t size) {
+    size_t needed = align_size(size + sizeof(struct block_header));
+    size_t chunk = needed < HEAP_CHUNK_SIZE ? HEAP_CHUNK_SIZE : needed;
+    void *memory = sbrk((intptr_t)chunk);
+    if (memory == (void *)-1) {
+        errno = ENOMEM;
+        return 0;
+    }
+
+    struct block_header *block = memory;
+    block->size = chunk - sizeof(struct block_header);
+    block->free = 1;
+    block->next = 0;
+
+    if (heap_tail != 0 && heap_tail->free &&
+        (unsigned char *)(heap_tail + 1) + heap_tail->size == (unsigned char *)block) {
+        heap_tail->size += sizeof(struct block_header) + block->size;
+        return heap_tail;
+    }
+
+    if (heap_head == 0) {
+        heap_head = block;
+    } else {
+        heap_tail->next = block;
+    }
+    heap_tail = block;
+    return block;
+}
+
 void *malloc(size_t size) {
     if (size == 0) {
         return 0;
     }
-    heap_init();
     size = align_size(size);
-    for (struct block_header *block = heap_head; block != 0; block = block->next) {
-        if (block->free && block->size >= size) {
+    for (;;) {
+        for (struct block_header *block = heap_head; block != 0; block = block->next) {
+            if (!block->free || block->size < size) {
+                continue;
+            }
             split_block(block, size);
             block->free = 0;
             return block + 1;
         }
+        if (extend_heap(size) == 0) {
+            errno = ENOMEM;
+            return 0;
+        }
     }
-    errno = ENOMEM;
-    return 0;
 }
 
 static void coalesce(void) {
@@ -72,9 +103,19 @@ void free(void *ptr) {
     if (ptr == 0) {
         return;
     }
+    for (size_t i = 0; i < sizeof(aligned_allocations) / sizeof(aligned_allocations[0]); i++) {
+        if (aligned_allocations[i].aligned == ptr) {
+            ptr = aligned_allocations[i].raw;
+            aligned_allocations[i].aligned = 0;
+            aligned_allocations[i].raw = 0;
+            break;
+        }
+    }
     struct block_header *block = ((struct block_header *)ptr) - 1;
     block->free = 1;
     coalesce();
+    for (heap_tail = heap_head; heap_tail != 0 && heap_tail->next != 0; heap_tail = heap_tail->next) {
+    }
 }
 
 void *calloc(size_t count, size_t size) {
@@ -112,12 +153,74 @@ void *realloc(void *ptr, size_t size) {
     return next;
 }
 
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+    if (memptr == 0 ||
+        alignment < sizeof(void *) ||
+        (alignment & (alignment - 1)) != 0) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+    size_t total = size + alignment - 1 + sizeof(void *);
+    void *raw = malloc(total);
+    if (raw == 0) {
+        return ENOMEM;
+    }
+    uintptr_t start = (uintptr_t)raw + sizeof(void *);
+    uintptr_t aligned = (start + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    for (size_t i = 0; i < sizeof(aligned_allocations) / sizeof(aligned_allocations[0]); i++) {
+        if (aligned_allocations[i].aligned == 0) {
+            aligned_allocations[i].aligned = (void *)aligned;
+            aligned_allocations[i].raw = raw;
+            *memptr = (void *)aligned;
+            return 0;
+        }
+    }
+    free(raw);
+    errno = ENOMEM;
+    return ENOMEM;
+}
+
+void *aligned_alloc(size_t alignment, size_t size) {
+    void *ptr = 0;
+    if (posix_memalign(&ptr, alignment, size) != 0) {
+        return 0;
+    }
+    return ptr;
+}
+
 int atoi(const char *text) {
     return (int)atol(text);
 }
 
+double atof(const char *text) {
+    return strtod(text, 0);
+}
+
 int abs(int value) {
     return value < 0 ? -value : value;
+}
+
+long labs(long value) {
+    return value < 0 ? -value : value;
+}
+
+long long llabs(long long value) {
+    return value < 0 ? -value : value;
+}
+
+div_t div(int numer, int denom) {
+    div_t result = { numer / denom, numer % denom };
+    return result;
+}
+
+ldiv_t ldiv(long numer, long denom) {
+    ldiv_t result = { numer / denom, numer % denom };
+    return result;
+}
+
+lldiv_t lldiv(long long numer, long long denom) {
+    lldiv_t result = { numer / denom, numer % denom };
+    return result;
 }
 
 long atol(const char *text) {
@@ -138,8 +241,10 @@ static int digit_value(int c) {
 }
 
 long long strtoll(const char *text, char **endptr, int base) {
+    const char *start = text;
     long sign = 1;
     long long value = 0;
+    int any = 0;
     while (*text == ' ' || *text == '\t') {
         text++;
     }
@@ -161,9 +266,10 @@ long long strtoll(const char *text, char **endptr, int base) {
     while (digit_value(*text) >= 0 && digit_value(*text) < base) {
         value = value * base + digit_value(*text);
         text++;
+        any = 1;
     }
     if (endptr != 0) {
-        *endptr = (char *)text;
+        *endptr = (char *)(any ? text : start);
     }
     return value * sign;
 }
@@ -176,9 +282,258 @@ unsigned long strtoul(const char *text, char **endptr, int base) {
     return (unsigned long)strtoll(text, endptr, base);
 }
 
-char *getenv(const char *name) {
-    (void)name;
+unsigned long long strtoull(const char *text, char **endptr, int base) {
+    return (unsigned long long)strtoll(text, endptr, base);
+}
+
+static double pow10_int(int exponent) {
+    double value = 1.0;
+    while (exponent > 0) {
+        value *= 10.0;
+        exponent--;
+    }
+    while (exponent < 0) {
+        value /= 10.0;
+        exponent++;
+    }
+    return value;
+}
+
+double strtod(const char *text, char **endptr) {
+    const char *start = text;
+    double sign = 1.0;
+    double value = 0.0;
+    int any = 0;
+    while (*text == ' ' || *text == '\t') {
+        text++;
+    }
+    if (*text == '-') {
+        sign = -1.0;
+        text++;
+    } else if (*text == '+') {
+        text++;
+    }
+    while (*text >= '0' && *text <= '9') {
+        value = value * 10.0 + (double)(*text - '0');
+        text++;
+        any = 1;
+    }
+    if (*text == '.') {
+        double scale = 0.1;
+        text++;
+        while (*text >= '0' && *text <= '9') {
+            value += (double)(*text - '0') * scale;
+            scale *= 0.1;
+            text++;
+            any = 1;
+        }
+    }
+    if (any && (*text == 'e' || *text == 'E')) {
+        const char *exponent_start = text;
+        int exponent_sign = 1;
+        int exponent = 0;
+        int exponent_any = 0;
+        text++;
+        if (*text == '-') {
+            exponent_sign = -1;
+            text++;
+        } else if (*text == '+') {
+            text++;
+        }
+        while (*text >= '0' && *text <= '9') {
+            exponent = exponent * 10 + (*text - '0');
+            text++;
+            exponent_any = 1;
+        }
+        if (exponent_any) {
+            value *= pow10_int(exponent * exponent_sign);
+        } else {
+            text = exponent_start;
+        }
+    }
+    if (endptr != 0) {
+        *endptr = (char *)(any ? text : start);
+    }
+    return value * sign;
+}
+
+float strtof(const char *text, char **endptr) {
+    return (float)strtod(text, endptr);
+}
+
+static unsigned rand_state = 1;
+
+int rand(void) {
+    rand_state = rand_state * 1103515245u + 12345u;
+    return (int)((rand_state / 65536u) % 32768u);
+}
+
+void srand(unsigned seed) {
+    rand_state = seed == 0 ? 1 : seed;
+}
+
+static void swap_bytes(unsigned char *a, unsigned char *b, size_t size) {
+    while (size-- > 0) {
+        unsigned char tmp = *a;
+        *a++ = *b;
+        *b++ = tmp;
+    }
+}
+
+void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *)) {
+    if (base == 0 || compar == 0 || size == 0 || nmemb < 2) {
+        return;
+    }
+    unsigned char *bytes = base;
+    for (size_t i = 1; i < nmemb; i++) {
+        size_t j = i;
+        while (j > 0 &&
+            compar(bytes + (j - 1) * size, bytes + j * size) > 0) {
+            swap_bytes(bytes + (j - 1) * size, bytes + j * size, size);
+            j--;
+        }
+    }
+}
+
+void *bsearch(const void *key,
+    const void *base,
+    size_t nmemb,
+    size_t size,
+    int (*compar)(const void *, const void *)) {
+    const unsigned char *bytes = base;
+    size_t low = 0;
+    size_t high = nmemb;
+    if (key == 0 || base == 0 || compar == 0 || size == 0) {
+        return 0;
+    }
+    while (low < high) {
+        size_t mid = low + (high - low) / 2;
+        const void *item = bytes + mid * size;
+        int cmp = compar(key, item);
+        if (cmp == 0) {
+            return (void *)item;
+        }
+        if (cmp < 0) {
+            high = mid;
+        } else {
+            low = mid + 1;
+        }
+    }
     return 0;
+}
+
+static char *environment[32];
+char **environ = environment;
+
+static size_t name_length(const char *entry) {
+    size_t length = 0;
+    while (entry[length] != '\0' && entry[length] != '=') {
+        length++;
+    }
+    return length;
+}
+
+static int env_match(const char *entry, const char *name) {
+    size_t len = name_length(entry);
+    return strncmp(entry, name, len) == 0 && name[len] == '\0' && entry[len] == '=';
+}
+
+char *getenv(const char *name) {
+    if (name == 0 || name[0] == '\0') {
+        return 0;
+    }
+    for (size_t i = 0; environment[i] != 0; i++) {
+        if (env_match(environment[i], name)) {
+            return environment[i] + name_length(environment[i]) + 1;
+        }
+    }
+    return 0;
+}
+
+int putenv(char *string) {
+    if (string == 0 || string[0] == '\0' || strchr(string, '=') == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    size_t len = name_length(string);
+    for (size_t i = 0; environment[i] != 0; i++) {
+        if (strncmp(environment[i], string, len) == 0 && environment[i][len] == '=') {
+            environment[i] = string;
+            return 0;
+        }
+    }
+    for (size_t i = 0; i + 1 < sizeof(environment) / sizeof(environment[0]); i++) {
+        if (environment[i] == 0) {
+            environment[i] = string;
+            environment[i + 1] = 0;
+            return 0;
+        }
+    }
+    errno = ENOMEM;
+    return -1;
+}
+
+int setenv(const char *name, const char *value, int overwrite) {
+    if (name == 0 || name[0] == '\0' || strchr(name, '=') != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (!overwrite && getenv(name) != 0) {
+        return 0;
+    }
+    size_t name_len = strlen(name);
+    size_t value_len = value != 0 ? strlen(value) : 0;
+    char *entry = malloc(name_len + value_len + 2);
+    if (entry == 0) {
+        return -1;
+    }
+    memcpy(entry, name, name_len);
+    entry[name_len] = '=';
+    if (value_len != 0) {
+        memcpy(entry + name_len + 1, value, value_len);
+    }
+    entry[name_len + value_len + 1] = '\0';
+    return putenv(entry);
+}
+
+int unsetenv(const char *name) {
+    if (name == 0 || name[0] == '\0' || strchr(name, '=') != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    for (size_t i = 0; environment[i] != 0; i++) {
+        if (env_match(environment[i], name)) {
+            for (size_t j = i; environment[j] != 0; j++) {
+                environment[j] = environment[j + 1];
+            }
+            i--;
+        }
+    }
+    return 0;
+}
+
+int clearenv(void) {
+    for (size_t i = 0; i < sizeof(environment) / sizeof(environment[0]); i++) {
+        environment[i] = 0;
+    }
+    return 0;
+}
+
+static void (*atexit_handlers[16])(void);
+static size_t atexit_count;
+
+int atexit(void (*function)(void)) {
+    if (function == 0 || atexit_count >= sizeof(atexit_handlers) / sizeof(atexit_handlers[0])) {
+        return -1;
+    }
+    atexit_handlers[atexit_count++] = function;
+    return 0;
+}
+
+int system(const char *command) {
+    (void)command;
+    errno = ENOSYS;
+    return -1;
 }
 
 void abort(void) {
@@ -186,5 +541,8 @@ void abort(void) {
 }
 
 void exit(int status) {
+    while (atexit_count > 0) {
+        atexit_handlers[--atexit_count]();
+    }
     _exit(status);
 }

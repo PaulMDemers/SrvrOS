@@ -17,22 +17,17 @@ static int contains(const char *line, const char *needle) {
     return 0;
 }
 
-static int grep_file(const char *needle, const char *path) {
-    int fd = (int)srv_open(path);
+static int grep_fd(const char *needle, int fd, int close_fd) {
     char buffer[128];
     char line[256];
     size_t line_len = 0;
     int matched = 0;
-    if (fd < 0) {
-        cli_puts("grep: cannot open ");
-        cli_puts(path);
-        cli_puts("\n");
-        return 2;
-    }
     for (;;) {
         long count = srv_read(fd, buffer, sizeof(buffer));
         if (count < 0) {
-            srv_close(fd);
+            if (close_fd) {
+                srv_close(fd);
+            }
             return 2;
         }
         if (count == 0) {
@@ -61,15 +56,35 @@ static int grep_file(const char *needle, const char *path) {
             matched = 1;
         }
     }
-    srv_close(fd);
+    if (close_fd) {
+        srv_close(fd);
+    }
     return matched ? 0 : 1;
+}
+
+static int grep_file(const char *needle, const char *path) {
+    if (cli_streq(path, "-")) {
+        return grep_fd(needle, SRV_STDIN, 0);
+    }
+
+    int fd = (int)srv_open(path);
+    if (fd < 0) {
+        cli_puts("grep: cannot open ");
+        cli_puts(path);
+        cli_puts("\n");
+        return 2;
+    }
+    return grep_fd(needle, fd, 1);
 }
 
 int main(int argc, char **argv) {
     int status = 1;
-    if (argc < 3) {
-        cli_puts("usage: grep <text> <file> [...]\n");
+    if (argc < 2) {
+        cli_puts("usage: grep <text> [file ...]\n");
         return 2;
+    }
+    if (argc == 2) {
+        return grep_fd(argv[1], SRV_STDIN, 0);
     }
     for (int i = 2; i < argc; i++) {
         int result = grep_file(argv[1], argv[i]);

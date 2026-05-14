@@ -122,6 +122,7 @@ struct exfat_mount {
 static struct exfat_mount mounts[EXFAT_MAX_VOLUMES];
 
 static bool streq(const char *a, const char *b);
+static bool free_file_clusters(struct exfat_file *file);
 
 static bool streqn(const char *a, const char *b, uint64_t length) {
     for (uint64_t i = 0; i < length; i++) {
@@ -796,6 +797,9 @@ static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count)
 }
 
 static bool write_file_data(struct exfat_file *file, const uint8_t *data, uint64_t size) {
+    if (file != NULL && size == 0) {
+        return true;
+    }
     if (file == NULL || data == NULL || size > file->allocated_clusters * file->volume->cluster_size) {
         return false;
     }
@@ -855,6 +859,7 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
         return false;
     }
     write_u64(stream + 8, size);
+    write_u32(stream + 20, file->first_cluster);
     write_u64(stream + 24, size);
     if (!volume_write(file->volume, file->stream_entry_offset, stream, sizeof(stream))) {
         return false;
@@ -869,6 +874,14 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
     struct exfat_file *file = find_file(path);
     if (file == NULL || file->volume->image != NULL || !file->no_fat_chain) {
         return false;
+    }
+    if (size == 0) {
+        if (!free_file_clusters(file)) {
+            return false;
+        }
+        file->first_cluster = 0;
+        file->allocated_clusters = 0;
+        return update_file_length(file, path, 0);
     }
     if (!write_file_data(file, data, size)) {
         return false;
@@ -1325,7 +1338,6 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
     if (mount == NULL ||
         parent == NULL ||
         name == NULL ||
-        size == 0 ||
         !mount_has_file_slot(mount) ||
         mount->volume.image != NULL ||
         vfs_lookup(path) != NULL) {
@@ -1334,7 +1346,8 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
 
     uint64_t cluster_count = clusters_for_size(&mount->volume, size);
     uint32_t first_cluster = 0;
-    if (!allocate_contiguous_clusters(&mount->volume, cluster_count, &first_cluster)) {
+    if (cluster_count != 0 &&
+        !allocate_contiguous_clusters(&mount->volume, cluster_count, &first_cluster)) {
         return false;
     }
 
@@ -1717,7 +1730,7 @@ bool exfat_unmount(const char *mountpoint) {
 }
 
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size) {
-    if (path == NULL || data == NULL || size == 0) {
+    if (path == NULL || (data == NULL && size != 0)) {
         return false;
     }
 

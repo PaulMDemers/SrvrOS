@@ -159,7 +159,8 @@ kernel, and a minimal Unix-like userspace.
   no-execute bits into intermediate VMM page-table entries.
 - Add the first userspace support library under `userspace/lib` with syscall
   wrappers, `conio`-style cursor/clear/keyboard APIs, framebuffer `gfx`
-  helpers, no-SSE userspace build flags, and `/fat/bin/ui` as a demo app.
+  helpers, conservative freestanding build flags, and `/fat/bin/ui` as a demo
+  app.
 - Teach both the monitor and userspace shell `ls [dir]` to show shallow
   directory contents by inferring child directories from VFS paths, and add a
   tiny userspace shell PATH resolver for `/fat/bin` plus `/`.
@@ -213,23 +214,43 @@ kernel, and a minimal Unix-like userspace.
   `-e` smoke coverage.
 - Make process-exit teardown non-preemptible while switching the scheduler
   thread back to kernel context and freeing the exiting address space.
+- Add bounded kernel pipes, POSIX `pipe`, pipe-aware `dup`/`dup2`, blocking
+  pipe wait queues, child stdio fd overrides, multi-stage shell pipelines, and
+  `/fat/bin/tap` for splitting an input stream to stdout plus a secondary file.
+- Teach `cat`, `grep`, `head`, and `wc` to consume stdin, including `-` where
+  useful, so they compose naturally in pipelines.
+- Add shared writable regular-file fd ownership for `dup`/`dup2`, child fd
+  inheritance, and shell pipeline redirection so the final pipeline stage can
+  safely write or append through an inherited output descriptor.
+- Add `poll`/`select` readiness over regular files, pipes, standard streams,
+  and TCP listener/connection fds, with POSIX headers and smoke coverage.
+- Add FPU/SSE/SSE2 setup, per-process and per-scheduler-thread
+  `fxsave64`/`fxrstor64` state, kernel/userspace SSE builds, floating
+  conversion helpers, and `/fat/bin/fpdemo` coverage for foreground/background
+  preemption.
+- Move `/fat/bin/lua` to Lua's stock double-number profile, open the Lua math
+  library, and add initial `math.h`/`float.h` plus floating `printf` support in
+  the userspace C library.
 
 ## Next milestones
 
-1. Harden writable exFAT: truncate growth, broader fragmented FAT-chain
-   allocation tests, better rollback on partial rename/write failures, explicit
-   `sync`, dirty-cache writeback, and crash-consistency documentation.
+1. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
+   rollback on partial rename/write failures, dirty-cache writeback, and
+   crash-consistency documentation. Empty files plus fd flush/truncate now work,
+   but metadata and recovery semantics are still intentionally small.
 2. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
 3. Add NVMe discovery and read/write support as the second storage backend.
-4. Add userspace socket APIs for nonblocking readiness, UDP sockets, response
-   length/file metadata, and multi-worker web server designs; `/webd` now serves
-   static files but still handles accepted connections sequentially.
+4. Expand `/webd` from the first poll-driven connection table to fuller
+   concurrent response handling, then add UDP sockets, response length/file
+   metadata, and multi-worker web server designs.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-6. Grow the userspace library into a real libc-shaped layer: shared startup,
-   fuller `stdio`, scan/format helpers, better allocator growth, and common app
-   build rules.
+6. Continue the libc/newlib track: add shared open-file descriptions for
+   read-only regular-file `dup`/`dup2`, a unified fd wait queue for
+   `poll`/`select`, background pipelines, Unix-like file metadata,
+   `execve`/`posix_spawn`, fuller `stdio`, scan/format helpers, and shared crt
+   build rules for single-file static ELF apps.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:
@@ -239,4 +260,5 @@ kernel, and a minimal Unix-like userspace.
    better process termination on bad pointers.
 10. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-11. Add FPU/SSE save/restore for full floating-point userspace ports.
+11. Expand floating-point runtime coverage, then switch Lua toward its normal
+    floating-number profile.

@@ -115,11 +115,27 @@ irq0_legacy_stub:
     pushq %r14
     pushq %r15
 
+    movq 128(%rsp), %rdi
+    movq %rsp, %rax
+    andq $-16, %rsp
+    subq $16, %rsp
+    movq %rax, (%rsp)
+    call fpu_trap_enter
+    movq (%rsp), %rsp
+
     movq %rsp, %rax
     andq $-16, %rsp
     subq $16, %rsp
     movq %rax, (%rsp)
     call \target
+    movq (%rsp), %rsp
+
+    movq 128(%rsp), %rdi
+    movq %rsp, %rax
+    andq $-16, %rsp
+    subq $16, %rsp
+    movq %rax, (%rsp)
+    call fpu_trap_exit
     movq (%rsp), %rsp
 
     popq %r15
@@ -162,12 +178,28 @@ isr_common:
     pushq %r14
     pushq %r15
 
+    movq 144(%rsp), %rdi
+    movq %rsp, %rax
+    andq $-16, %rsp
+    subq $16, %rsp
+    movq %rax, (%rsp)
+    call fpu_trap_enter
+    movq (%rsp), %rsp
+
     movq %rsp, %rdi
     movq %rsp, %rax
     andq $-16, %rsp
     subq $16, %rsp
     movq %rax, (%rsp)
     call isr_dispatch
+    movq (%rsp), %rsp
+
+    movq 144(%rsp), %rdi
+    movq %rsp, %rax
+    andq $-16, %rsp
+    subq $16, %rsp
+    movq %rax, (%rsp)
+    call fpu_trap_exit
     movq (%rsp), %rsp
 
     popq %r15

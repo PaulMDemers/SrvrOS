@@ -98,8 +98,14 @@ def main():
             output += read_until(sock, b" $ ", 5)
             commands = [
                 "lua -e \"print('lua-e-ok', 21+21)\"\n",
+                "lua -e \"print('lua-float-ok', 3/2, math.floor(3.7), math.sqrt(81), math.type(3/2))\"\n",
+                "lua -e \"print('lua-math-ok', math.sin(0), math.log(100, 10), math.pow and 'compat' or 'stock')\"\n",
                 "write /fat/lua-test.lua \"print('lua-ok', 6*7, 10+5)\"\n",
                 "lua /fat/lua-test.lua\n",
+                "write /fat/mymod.lua \"local M = {}; M.value = 123; return M\"\n",
+                "lua -e \"local m=require('mymod'); print('require-ok', m.value)\"\n",
+                "lua -e \"local f=io.open('/fat/lio','w'); f:write('abc'); f:close()\"\n",
+                "lua -e \"local r=io.open('/fat/lio','r'); print('io-ok', r:read('*a'))\"\n",
                 "exit\n",
             ]
             for command_line in commands:
@@ -120,9 +126,18 @@ def main():
 
     expected = [
         "lua-e-ok",
+        "lua-float-ok",
+        "1.5",
+        "9",
+        "float",
+        "lua-math-ok",
         "lua-ok",
         "42",
         "15",
+        "require-ok",
+        "123",
+        "io-ok",
+        "abc",
         "exfat-check:",
         "errors=0 ok",
     ]

@@ -4,6 +4,7 @@
 
 #define LINE_MAX 256
 #define PATH_MAX_ENTRIES 8
+#define PIPELINE_MAX_COMMANDS 6
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -73,9 +74,9 @@ static int resolve_command(char *out, size_t capacity, const char *command) {
 
 static void print_help(void) {
     cli_puts("builtins: help exit source . path cd pwd clear echo jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv wc grep head stat ps kill hello webd desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ; between commands, append & for background\n");
-    cli_puts("redirection: command > file, command >> file\n");
+    cli_puts("redirection: command > file, command >> file; pipeline: command | command [...]\n");
 }
 
 static void print_ipv4(uint64_t ip) {
@@ -436,6 +437,179 @@ static void split_redirection(char *args, char **redirect_path, int *append) {
     }
 }
 
+static int split_pipeline_segments(char *line, char **segments, size_t capacity) {
+    char quote = '\0';
+    size_t count = 1;
+    segments[0] = cli_trim(line);
+    for (char *cursor = line; *cursor != '\0'; cursor++) {
+        if (quote != '\0') {
+            if (*cursor == quote) {
+                quote = '\0';
+            } else if (*cursor == '\\' && cursor[1] != '\0') {
+                cursor++;
+            }
+            continue;
+        }
+        if (*cursor == '\'' || *cursor == '"') {
+            quote = *cursor;
+            continue;
+        }
+        if (*cursor == '|') {
+            if (count >= capacity) {
+                return -1;
+            }
+            *cursor = '\0';
+            segments[count++] = cli_trim(cursor + 1);
+        }
+    }
+    return (int)count;
+}
+
+static int prepare_external_command(char *line,
+    char *path,
+    size_t path_capacity,
+    char **args_out,
+    char **redirect_path,
+    int *redirect_append,
+    int allow_redirect) {
+    char *command = cli_trim(line);
+    char *args = find_argument_tail(command);
+
+    *redirect_path = 0;
+    *redirect_append = 0;
+    if (*command == '\0' || *command == '#') {
+        return 0;
+    }
+    if (*args != '\0') {
+        *args++ = '\0';
+        args = cli_trim(args);
+    }
+    split_redirection(args, redirect_path, redirect_append);
+    if (*redirect_path != 0 && !allow_redirect) {
+        cli_puts("sh: pipeline redirection unsupported\n");
+        return 0;
+    }
+    args = cli_trim(args);
+    if (!resolve_command(path, path_capacity, command)) {
+        cli_puts("sh: command not found: ");
+        cli_puts(command);
+        cli_puts("\n");
+        return 0;
+    }
+    *args_out = args;
+    return 1;
+}
+
+struct pipeline_command {
+    char path[CLI_PATH_MAX];
+    char *args;
+    char *redirect_path;
+    int redirect_append;
+};
+
+static void close_pipeline_fds(int pipes[][2], size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        if (pipes[i][0] >= 0) {
+            srv_close(pipes[i][0]);
+            pipes[i][0] = -1;
+        }
+        if (pipes[i][1] >= 0) {
+            srv_close(pipes[i][1]);
+            pipes[i][1] = -1;
+        }
+    }
+}
+
+static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status) {
+    for (size_t i = 0; i < count; i++) {
+        uint64_t status = 0;
+        if (pids[i] >= 0) {
+            (void)srv_wait((uint64_t)pids[i], &status, 0);
+            if (i + 1 == count && last_status != 0) {
+                *last_status = status;
+            }
+        }
+    }
+}
+
+static void run_pipeline(char **segments, size_t segment_count) {
+    struct pipeline_command commands[PIPELINE_MAX_COMMANDS];
+    int pipes[PIPELINE_MAX_COMMANDS - 1][2];
+    long pids[PIPELINE_MAX_COMMANDS];
+    uint64_t final_status = 0;
+    int output_fd = -1;
+
+    if (segment_count < 2 || segment_count > PIPELINE_MAX_COMMANDS) {
+        cli_puts("sh: pipeline too long\n");
+        return;
+    }
+
+    for (size_t i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
+        pids[i] = -1;
+        if (i + 1 < PIPELINE_MAX_COMMANDS) {
+            pipes[i][0] = -1;
+            pipes[i][1] = -1;
+        }
+    }
+
+    for (size_t i = 0; i < segment_count; i++) {
+        if (!prepare_external_command(segments[i],
+                commands[i].path,
+                sizeof(commands[i].path),
+                &commands[i].args,
+                &commands[i].redirect_path,
+                &commands[i].redirect_append,
+                i + 1 == segment_count)) {
+            return;
+        }
+    }
+
+    if (commands[segment_count - 1].redirect_path != 0) {
+        uint64_t flags = SRV_OPEN_WRITE | SRV_OPEN_CREATE |
+            (commands[segment_count - 1].redirect_append ? SRV_OPEN_APPEND : SRV_OPEN_TRUNC);
+        output_fd = (int)srv_open_mode(commands[segment_count - 1].redirect_path, flags);
+        if (output_fd < 0) {
+            cli_puts("sh: pipeline redirect failed\n");
+            return;
+        }
+    }
+
+    for (size_t i = 0; i + 1 < segment_count; i++) {
+        if (srv_pipe(pipes[i]) < 0) {
+            cli_puts("sh: pipe failed\n");
+            close_pipeline_fds(pipes, segment_count - 1);
+            if (output_fd >= 0) {
+                srv_close(output_fd);
+            }
+            return;
+        }
+    }
+
+    for (size_t i = 0; i < segment_count; i++) {
+        int stdin_fd = i == 0 ? -1 : pipes[i - 1][0];
+        int stdout_fd = i + 1 == segment_count ? output_fd : pipes[i][1];
+        pids[i] = srv_spawn_bg_args_fds(commands[i].path, commands[i].args, stdin_fd, stdout_fd);
+        if (pids[i] < 0) {
+            cli_puts("sh: pipeline spawn failed\n");
+            close_pipeline_fds(pipes, segment_count - 1);
+            if (output_fd >= 0) {
+                srv_close(output_fd);
+            }
+            wait_pipeline_pids(pids, i, 0);
+            return;
+        }
+    }
+
+    close_pipeline_fds(pipes, segment_count - 1);
+    if (output_fd >= 0) {
+        srv_close(output_fd);
+    }
+    wait_pipeline_pids(pids, segment_count, &final_status);
+    cli_puts("status ");
+    cli_putn(final_status);
+    cli_puts("\n");
+}
+
 static void echo_text(const char *text, const char *redirect_path, int append) {
     char buffer[LINE_MAX];
     size_t out = 0;
@@ -464,12 +638,28 @@ static void echo_text(const char *text, const char *redirect_path, int append) {
 static void run_command(char *line, char *cwd, int background) {
     char *command = cli_trim(line);
     char *args = command;
+    char *pipeline_segments[PIPELINE_MAX_COMMANDS];
+    int pipeline_count;
     char path[CLI_PATH_MAX];
     char *redirect_path = 0;
     int redirect_append = 0;
     long status;
 
     if (*command == '\0' || *command == '#') {
+        return;
+    }
+
+    pipeline_count = split_pipeline_segments(command, pipeline_segments, PIPELINE_MAX_COMMANDS);
+    if (pipeline_count < 0) {
+        cli_puts("sh: pipeline too long\n");
+        return;
+    }
+    if (pipeline_count > 1) {
+        if (background) {
+            cli_puts("sh: background pipeline unsupported\n");
+            return;
+        }
+        run_pipeline(pipeline_segments, (size_t)pipeline_count);
         return;
     }
 
@@ -592,6 +782,10 @@ static void run_line(char *line, char *cwd) {
 
     for (char *cursor = line; ; cursor++) {
         char c = *cursor;
+        if (c == '\0') {
+            run_command(segment, cwd, 0);
+            return;
+        }
         if (quote != '\0') {
             if (c == quote) {
                 quote = '\0';
@@ -604,13 +798,10 @@ static void run_line(char *line, char *cwd) {
             *cursor = '\0';
             run_command(segment, cwd, 0);
             return;
-        } else if (c == ';' || c == '&' || c == '\0') {
+        } else if (c == ';' || c == '&') {
             int background = c == '&';
             *cursor = '\0';
             run_command(segment, cwd, background);
-            if (c == '\0') {
-                return;
-            }
             segment = cursor + 1;
         }
     }

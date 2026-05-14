@@ -17,9 +17,12 @@ LUA_FILES = [
     "ldump.c",
     "lfunc.c", "lfunc.h",
     "lgc.c", "lgc.h",
+    "liolib.c",
     "ljumptab.h",
     "llex.c", "llex.h",
+    "loadlib.c",
     "llimits.h",
+    "lmathlib.c",
     "lmem.c", "lmem.h",
     "lobject.c", "lobject.h",
     "lopcodes.c", "lopcodes.h", "lopnames.h",
@@ -45,10 +48,6 @@ def patch_luaconf(text):
     text = text.replace(
         "#define LUA_FLOAT_LONGDOUBLE\t3\n",
         "#define LUA_FLOAT_LONGDOUBLE\t3\n#define LUA_FLOAT_SRVROS_INT\t4\n",
-    )
-    text = text.replace(
-        "#define LUA_FLOAT_DEFAULT\tLUA_FLOAT_DOUBLE\n",
-        "#define LUA_FLOAT_DEFAULT\tLUA_FLOAT_SRVROS_INT\n",
     )
     text = text.replace(
         "#define l_floor(x)\t\t(l_mathop(floor)(x))\n",

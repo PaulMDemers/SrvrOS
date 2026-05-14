@@ -38,8 +38,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 ## What The Harnesses Cover
 
 - `cli_smoke.py`: shell startup, PATH lookup, core CLI tools, redirection,
-  scripts, copy/remove, native file rename through `mv`, and the `posixdemo`
-  compatibility-layer smoke app.
+  multi-stage pipeline fd wiring through `cat | grep | tap`, pipeline output
+  redirection/append, stdin-aware text tools, scripts, copy/remove, native file
+  rename through `mv`, `tap` file splitting, foreground/background `fpdemo`
+  userspace SSE checks, and the `posixdemo` compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.
@@ -49,14 +51,23 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,
   and clean resolver failure for a non-resolving name.
-- `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, zlib
-  compress/decompress verification, exFAT binary file write/read/unlink, and
+- `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo` and
+  `/fat/bin/posixdemo`, zlib compress/decompress verification, libc/POSIX file
+  checks including `fstat`, `dup`, writable-fd dup ownership, `pipe`,
+  nonblocking `fcntl`/`O_NONBLOCK`, `access`, `isatty`, `fsync`,
+  `truncate`/`ftruncate`, `poll`/`select` readiness and hangup behavior,
+  `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
+  integer and floating conversion helpers, random numbers, process-local
+  environment variables, `pread`/`pwrite`, `uname`, `getopt`, exFAT binary file
+  write/read/unlink, and
   post-run `fsck`.
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
-  integer arithmetic, formatted output through the Lua base library, and
-  post-run `fsck`.
-- `web_smoke.py`: login shell init script, background `webd`, and host HTTP
-  fetch through QEMU user networking.
+  integer arithmetic, formatted output through the Lua base library, pure-Lua
+  `require`, Lua file IO, and post-run `fsck`.
+- `web_smoke.py`: login shell init script, background `webd`, host HTTP fetch
+  through QEMU user networking, nested CSS asset fetch, `Content-Length`,
+  bodyless `HEAD`, and a slow partial client while another request completes
+  through the poll loop.
 - `fs_stress.py`: repeated file create/read/copy/rename/remove plus fsck before
   and after.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.

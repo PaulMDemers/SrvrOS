@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <srvros/fpu.h>
 #include <srvros/vfs.h>
 
 #define PROCESS_MAX_OPEN_FILES 16
@@ -11,10 +12,13 @@
 
 enum process_file_type {
     PROCESS_FILE_UNUSED,
+    PROCESS_FILE_STDIO,
     PROCESS_FILE_VFS,
     PROCESS_FILE_VFS_WRITE,
     PROCESS_FILE_NET_LISTENER,
     PROCESS_FILE_NET_CONNECTION,
+    PROCESS_FILE_PIPE_READ,
+    PROCESS_FILE_PIPE_WRITE,
 };
 
 struct process_file {
@@ -26,6 +30,7 @@ struct process_file {
     uint64_t offset;
     uint64_t capacity;
     uint64_t handle;
+    uint64_t flags;
     bool dirty;
     bool failed;
     char path[160];
@@ -43,6 +48,10 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     bool append);
 int64_t process_spawn_background_elf(const char *path);
 int64_t process_spawn_background_elf_args(const char *path, const char *args);
+int64_t process_spawn_background_elf_args_fds(const char *path,
+    const char *args,
+    int64_t stdin_fd,
+    int64_t stdout_fd);
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
 bool process_start_background(const char *path);
 uint64_t process_list(uint64_t start_index,
@@ -60,7 +69,9 @@ bool process_has_open_vfs_prefix(const char *prefix);
 struct process *process_current(void);
 uint64_t process_pid(const struct process *process);
 const char *process_name(const struct process *process);
+bool process_current_quiet(void);
 bool process_set_stdout_redirect(struct process *process, const char *path, bool append);
+int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length);
 int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uint64_t length);
 void process_refresh_mappings(struct process *process);
 struct process_file *process_file_at(struct process *process, uint64_t fd);
@@ -69,12 +80,29 @@ int64_t process_file_alloc(struct process *process,
     const uint8_t *data,
     uint64_t size);
 int64_t process_file_open_write(struct process *process, const char *path, uint64_t flags);
+int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+bool process_file_nonblocking(struct process *process, uint64_t fd);
+int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
+int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
+int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
 int64_t process_handle_alloc(struct process *process,
     enum process_file_type type,
     uint64_t handle);
 int64_t process_file_close(struct process *process, uint64_t fd);
-int64_t process_file_seek(struct process *process, uint64_t fd, uint64_t offset);
+int64_t process_file_dup(struct process *process, uint64_t old_fd);
+int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);
+int64_t process_file_get_flags(struct process *process, uint64_t fd);
+int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags);
+int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length);
+int64_t process_file_flush(struct process *process, uint64_t fd);
+int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
+int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_out, uint64_t *type_out);
+int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out);
+struct fpu_state *process_fpu_state(void *process);
+void process_fpu_save(void *process);
+void process_fpu_restore(void *process);
 void process_exit(uint64_t status) __attribute__((noreturn));
 
 #endif

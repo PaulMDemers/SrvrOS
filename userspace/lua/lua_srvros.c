@@ -31,9 +31,23 @@ static void open_srvros_libs(lua_State *L) {
     open_lib(L, LUA_GNAME, luaopen_base);
     open_lib(L, LUA_COLIBNAME, luaopen_coroutine);
     open_lib(L, LUA_TABLIBNAME, luaopen_table);
+    open_lib(L, LUA_IOLIBNAME, luaopen_io);
+    open_lib(L, LUA_LOADLIBNAME, luaopen_package);
+    open_lib(L, LUA_MATHLIBNAME, luaopen_math);
     open_lib(L, LUA_STRLIBNAME, luaopen_string);
     open_lib(L, LUA_UTF8LIBNAME, luaopen_utf8);
     open_lib(L, LUA_DBLIBNAME, luaopen_debug);
+
+    lua_getglobal(L, "package");
+    if (lua_istable(L, -1)) {
+        lua_pushstring(L,
+            "/fat/?.lua;/fat/?/init.lua;"
+            "/fat/lib/lua/5.4/?.lua;/fat/lib/lua/5.4/?/init.lua");
+        lua_setfield(L, -2, "path");
+        lua_pushliteral(L, "");
+        lua_setfield(L, -2, "cpath");
+    }
+    lua_pop(L, 1);
 }
 
 static int run_chunk(lua_State *L, int status) {
@@ -63,7 +77,7 @@ int main(int argc, char **argv) {
     } else if (argc >= 2) {
         result = run_chunk(L, luaL_loadfilex(L, argv[1], 0));
     } else {
-        printf("Lua %s srvros integer profile\n", LUA_VERSION_RELEASE);
+        printf("Lua %s srvros floating profile\n", LUA_VERSION_RELEASE);
         result = 0;
     }
 

@@ -1,4 +1,5 @@
 #include <srvros/console.h>
+#include <srvros/fpu.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
@@ -40,6 +41,7 @@ struct thread {
     uint64_t address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
+    struct fpu_state kernel_fpu;
     struct scheduler_context context;
     uint64_t switches;
 };
@@ -82,6 +84,13 @@ static uint64_t thread_address_space(const struct thread *thread) {
     return vmm_kernel_address_space();
 }
 
+static struct fpu_state *thread_user_fpu(struct thread *thread) {
+    if (thread == NULL || thread->user_context == NULL) {
+        return NULL;
+    }
+    return process_fpu_state(thread->user_context);
+}
+
 static bool has_ready_thread_except(uint64_t skipped_index) {
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
         if (i != skipped_index && threads[i].state == THREAD_READY) {
@@ -110,6 +119,8 @@ void scheduler_init(void) {
     current_thread = 0;
     threads[0].state = THREAD_RUNNING;
     threads[0].name = "bootstrap";
+    fpu_init_state(&threads[0].kernel_fpu);
+    fpu_set_current_kernel_state(&threads[0].kernel_fpu);
     initialized = true;
     console_write("scheduler: timer-preemptive kernel threads ready\n");
 }
@@ -146,6 +157,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
                 },
                 .switches = 0,
             };
+            fpu_init_state(&threads[i].kernel_fpu);
             return true;
         }
     }
@@ -193,6 +205,7 @@ void scheduler_yield(void) {
     if (old->kernel_stack_top != next->kernel_stack_top) {
         gdt_set_kernel_stack(thread_kernel_stack_top(next));
     }
+    fpu_switch_kernel_state(&old->kernel_fpu, &next->kernel_fpu, thread_user_fpu(next));
 
     scheduler_context_switch(&old->context, &next->context);
     switching = false;
@@ -269,6 +282,7 @@ void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t 
     thread->user_context = process;
     thread->address_space = address_space;
     thread->kernel_stack_top = kernel_stack_top;
+    fpu_set_current_user_state(process_fpu_state(process));
 
     if (address_space != 0) {
         vmm_refresh_kernel_mappings(address_space);
@@ -286,6 +300,7 @@ void scheduler_clear_user_context(void) {
     thread->user_context = NULL;
     thread->address_space = 0;
     thread->kernel_stack_top = 0;
+    fpu_set_current_user_state(NULL);
 
     uint64_t kernel_address_space = vmm_kernel_address_space();
     if (kernel_address_space != 0) {

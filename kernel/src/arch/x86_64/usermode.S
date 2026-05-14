@@ -2,6 +2,18 @@
 .global usermode_enter
 .type usermode_enter, @function
 usermode_enter:
+    subq $40, %rsp
+    movq %rdi, 0(%rsp)
+    movq %rsi, 8(%rsp)
+    movq %rdx, 16(%rsp)
+    movq %rcx, 24(%rsp)
+    call fpu_enter_user
+    movq 0(%rsp), %rdi
+    movq 8(%rsp), %rsi
+    movq 16(%rsp), %rdx
+    movq 24(%rsp), %rcx
+    addq $40, %rsp
+
     mov %rdi, %r8
     mov %rsi, %r9
     mov %rdx, %r10

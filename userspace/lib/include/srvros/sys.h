@@ -21,6 +21,12 @@ struct srv_stat {
     uint64_t type;
 };
 
+struct srv_pollfd {
+    int32_t fd;
+    int16_t events;
+    int16_t revents;
+};
+
 long srv_syscall0(long number);
 long srv_syscall1(long number, long arg0);
 long srv_syscall2(long number, long arg0, long arg1);
@@ -34,7 +40,16 @@ long srv_read(int fd, void *buffer, size_t length);
 long srv_open(const char *path);
 long srv_open_mode(const char *path, uint64_t flags);
 long srv_close(int fd);
-long srv_seek(int fd, uint64_t offset);
+long srv_dup(int fd);
+long srv_dup2(int old_fd, int new_fd);
+long srv_pipe(int fds[2]);
+long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms);
+long srv_fcntl(int fd, int command, uint64_t flags);
+long srv_ftruncate(int fd, uint64_t length);
+long srv_fsync(int fd);
+long srv_seek(int fd, int64_t offset, uint64_t whence);
+long srv_fstat(int fd, struct srv_stat *info);
+long srv_sbrk(int64_t increment, uint64_t *previous_out);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);
@@ -48,6 +63,7 @@ long srv_spawn_args(const char *path, const char *args);
 long srv_spawn_args_redirect(const char *path, const char *args, const char *stdout_path, int append);
 long srv_spawn_bg(const char *path);
 long srv_spawn_bg_args(const char *path, const char *args);
+long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int stdout_fd);
 long srv_proc_list(uint64_t index, struct srv_process_info *info);
 long srv_kill(uint64_t pid);
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags);

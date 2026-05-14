@@ -21,6 +21,7 @@
 
 #define MAX_PATH_LENGTH 160
 #define MAX_SYSCALL_COPY (256 * 1024)
+#define MAX_POLL_FDS 32
 
 struct syscall_stat {
     uint64_t size;
@@ -50,6 +51,12 @@ struct syscall_process_info {
     uint64_t pid;
     char name[64];
     char state[24];
+};
+
+struct syscall_pollfd {
+    int32_t fd;
+    int16_t events;
+    int16_t revents;
 };
 
 static uint64_t irq_save(void) {
@@ -111,8 +118,21 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         if (file == NULL) {
             return -1;
         }
+        if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
+            int64_t redirected = process_stdout_write(process_current(), (const uint8_t *)buffer, length);
+            if (redirected != -2) {
+                return redirected;
+            }
+            for (uint64_t i = 0; i < length; i++) {
+                console_putc(buffer[i]);
+            }
+            return (int64_t)length;
+        }
         if (file->type == PROCESS_FILE_VFS_WRITE) {
             return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
+        }
+        if (file->type == PROCESS_FILE_PIPE_WRITE) {
+            return process_file_pipe_write(process_current(), fd, (const uint8_t *)buffer, length);
         }
         if (file->type == PROCESS_FILE_NET_CONNECTION) {
             return net_respond(file->handle, buffer, length);
@@ -137,6 +157,10 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     }
 
     if (fd == 0) {
+        int64_t redirected = process_stdin_read(process_current(), (uint8_t *)buffer, length);
+        if (redirected != -2) {
+            return redirected;
+        }
         __asm__ volatile ("sti" : : : "memory");
         for (uint64_t i = 0; i < length; i++) {
             buffer[i] = keyboard_read_char();
@@ -148,20 +172,24 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if (file == NULL) {
         return -1;
     }
-    if (file->type == PROCESS_FILE_NET_CONNECTION) {
-        return net_read(file->handle, buffer, length);
+    if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
+        __asm__ volatile ("sti" : : : "memory");
+        for (uint64_t i = 0; i < length; i++) {
+            buffer[i] = keyboard_read_char();
+        }
+        return (int64_t)length;
     }
-    if (file->type != PROCESS_FILE_VFS) {
+    if (file->type == PROCESS_FILE_NET_CONNECTION) {
+        return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
+    }
+    if (file->type == PROCESS_FILE_PIPE_READ) {
+        return process_file_pipe_read(process_current(), fd, (uint8_t *)buffer, length);
+    }
+    if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) {
         return -1;
     }
 
-    uint64_t remaining = file->size - file->offset;
-    uint64_t count = length < remaining ? length : remaining;
-    for (uint64_t i = 0; i < count; i++) {
-        buffer[i] = (char)file->data[file->offset + i];
-    }
-    file->offset += count;
-    return (int64_t)count;
+    return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
 }
 
 static bool copy_user_string(const char *source, char *destination, uint64_t capacity) {
@@ -300,6 +328,30 @@ static int64_t syscall_spawn_bg_args(const char *user_path, const char *user_arg
 
     flags = irq_save();
     result = process_spawn_background_elf_args(path, args);
+    irq_restore(flags);
+    process_refresh_mappings(process_current());
+    return result;
+}
+
+static int64_t syscall_spawn_bg_args_fds(const char *user_path,
+    const char *user_args,
+    int64_t stdin_fd,
+    int64_t stdout_fd) {
+    char path[MAX_PATH_LENGTH];
+    char args[256];
+    uint64_t flags;
+    int64_t result;
+    if (!copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+    if (user_args == NULL) {
+        args[0] = '\0';
+    } else if (!copy_user_string(user_args, args, sizeof(args))) {
+        return -1;
+    }
+
+    flags = irq_save();
+    result = process_spawn_background_elf_args_fds(path, args, stdin_fd, stdout_fd);
     irq_restore(flags);
     process_refresh_mappings(process_current());
     return result;
@@ -476,8 +528,125 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
     return exfat_rename(old_path, new_path) ? 0 : -1;
 }
 
-static int64_t syscall_seek(uint64_t fd, uint64_t offset) {
-    return process_file_seek(process_current(), fd, offset);
+static int64_t syscall_seek(uint64_t fd, int64_t offset, uint64_t whence) {
+    return process_file_seek(process_current(), fd, offset, whence);
+}
+
+static int64_t syscall_fstat(uint64_t fd, struct syscall_stat *info) {
+    struct syscall_stat copy;
+    if (info == NULL || !user_buffer_ok(info, sizeof(*info), true)) {
+        return -1;
+    }
+    if (process_file_stat(process_current(), fd, &copy.size, &copy.type) < 0) {
+        return -1;
+    }
+    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t syscall_sbrk(int64_t increment, uint64_t *previous_out) {
+    uint64_t previous;
+    if (previous_out == NULL || !user_buffer_ok(previous_out, sizeof(*previous_out), true)) {
+        return -1;
+    }
+    if (process_sbrk(process_current(), increment, &previous) < 0) {
+        return -1;
+    }
+    return copy_to_user(previous_out, &previous, sizeof(previous)) ? 0 : -1;
+}
+
+static int64_t syscall_dup(uint64_t fd) {
+    return process_file_dup(process_current(), fd);
+}
+
+static int64_t syscall_dup2(uint64_t old_fd, uint64_t new_fd) {
+    return process_file_dup2(process_current(), old_fd, new_fd);
+}
+
+static int64_t syscall_pipe(int32_t *fds_out) {
+    uint64_t fds[2];
+    int32_t copy[2];
+    if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
+        return -1;
+    }
+    if (process_file_pipe(process_current(), fds) < 0) {
+        return -1;
+    }
+    copy[0] = (int32_t)fds[0];
+    copy[1] = (int32_t)fds[1];
+    return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, uint64_t nfds) {
+    int64_t ready = 0;
+    for (uint64_t i = 0; i < nfds; i++) {
+        fds[i].revents = 0;
+        if (fds[i].fd < 0) {
+            continue;
+        }
+        uint16_t revents = process_file_poll(process, fds[i].fd, (uint16_t)fds[i].events);
+        fds[i].revents = (int16_t)revents;
+        if (revents != 0) {
+            ready++;
+        }
+    }
+    return ready;
+}
+
+static uint64_t poll_timeout_ticks(int64_t timeout_ms) {
+    if (timeout_ms <= 0) {
+        return 0;
+    }
+    return ((uint64_t)timeout_ms * 100 + 999) / 1000;
+}
+
+static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int64_t timeout_ms) {
+    if (nfds > MAX_POLL_FDS ||
+        (nfds != 0 && !user_buffer_ok(user_fds, nfds * sizeof(*user_fds), true))) {
+        return -1;
+    }
+
+    struct syscall_pollfd fds[MAX_POLL_FDS];
+    if (nfds != 0 && !copy_from_user(fds, user_fds, nfds * sizeof(*user_fds))) {
+        return -1;
+    }
+
+    struct process *process = process_current();
+    uint64_t start = timer_ticks();
+    uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
+    __asm__ volatile ("sti" : : : "memory");
+
+    for (;;) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
+
+        int64_t ready = poll_once(process, fds, nfds);
+        if (ready != 0 || timeout_ms == 0) {
+            return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? ready : -1;
+        }
+        if (timeout_ms > 0 && timer_ticks() - start >= timeout_ticks) {
+            return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
+        }
+        scheduler_yield();
+    }
+}
+
+static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if (command == SRV_F_GETFL) {
+        return process_file_get_flags(process_current(), fd);
+    }
+    if (command == SRV_F_SETFL) {
+        return process_file_set_flags(process_current(), fd, arg);
+    }
+    return -1;
+}
+
+static int64_t syscall_ftruncate(uint64_t fd, uint64_t length) {
+    return process_file_truncate(process_current(), fd, length);
+}
+
+static int64_t syscall_fsync(uint64_t fd) {
+    return process_file_flush(process_current(), fd);
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {
@@ -701,9 +870,13 @@ static int64_t syscall_net_accept(uint64_t listener_fd, char *buffer, uint64_t c
         return -1;
     }
 
-    int64_t handle = net_accept(listener->handle, buffer, capacity, length_out);
+    int64_t handle = net_accept(listener->handle,
+        buffer,
+        capacity,
+        length_out,
+        process_file_nonblocking(process, listener_fd));
     if (handle < 0) {
-        return -1;
+        return handle;
     }
 
     int64_t fd = process_handle_alloc(process, PROCESS_FILE_NET_CONNECTION, (uint64_t)handle);
@@ -736,7 +909,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_write(frame->rdi, (const char *)frame->rsi, frame->rdx);
         return;
     case SYS_EXIT:
-        console_printf("\nprocess: exited status=%u\n", frame->rdi);
+        if (!process_current_quiet()) {
+            console_printf("\nprocess: exited status=%u\n", frame->rdi);
+        }
         process_exit(frame->rdi);
     case SYS_OPEN:
         frame->rax = (uint64_t)syscall_open((const char *)frame->rdi);
@@ -829,7 +1004,7 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_fs_append((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);
         return;
     case SYS_SEEK:
-        frame->rax = (uint64_t)syscall_seek(frame->rdi, frame->rsi);
+        frame->rax = (uint64_t)syscall_seek(frame->rdi, (int64_t)frame->rsi, frame->rdx);
         return;
     case SYS_SPAWN_ARGS_REDIRECT:
         frame->rax = (uint64_t)syscall_spawn_args_redirect((const char *)frame->rdi,
@@ -863,6 +1038,41 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SLEEP_TICKS:
         frame->rax = (uint64_t)syscall_sleep_ticks(frame->rdi);
+        return;
+    case SYS_FSTAT:
+        frame->rax = (uint64_t)syscall_fstat(frame->rdi, (struct syscall_stat *)frame->rsi);
+        return;
+    case SYS_SBRK:
+        frame->rax = (uint64_t)syscall_sbrk((int64_t)frame->rdi, (uint64_t *)frame->rsi);
+        return;
+    case SYS_DUP:
+        frame->rax = (uint64_t)syscall_dup(frame->rdi);
+        return;
+    case SYS_DUP2:
+        frame->rax = (uint64_t)syscall_dup2(frame->rdi, frame->rsi);
+        return;
+    case SYS_PIPE:
+        frame->rax = (uint64_t)syscall_pipe((int32_t *)frame->rdi);
+        return;
+    case SYS_SPAWN_BG_ARGS_FDS:
+        frame->rax = (uint64_t)syscall_spawn_bg_args_fds((const char *)frame->rdi,
+            (const char *)frame->rsi,
+            (int64_t)frame->rdx,
+            (int64_t)frame->rcx);
+        return;
+    case SYS_POLL:
+        frame->rax = (uint64_t)syscall_poll((struct syscall_pollfd *)frame->rdi,
+            frame->rsi,
+            (int64_t)frame->rdx);
+        return;
+    case SYS_FCNTL:
+        frame->rax = (uint64_t)syscall_fcntl(frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_FTRUNCATE:
+        frame->rax = (uint64_t)syscall_ftruncate(frame->rdi, frame->rsi);
+        return;
+    case SYS_FSYNC:
+        frame->rax = (uint64_t)syscall_fsync(frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

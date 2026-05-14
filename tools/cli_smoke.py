@@ -104,6 +104,11 @@ def main():
         "stat /fat/sh-copy\n"
         "rm /fat/sh-copy\n"
         "ps\n"
+        "fpdemo\n"
+        "fpdemo &\n"
+        "fpdemo &\n"
+        "wait\n"
+        "wait\n"
         "write /fat/shell.txt hello-from-sh\n"
         "cat /fat/shell.txt\n"
         "write /fat/move-src.txt move-me\n"
@@ -111,6 +116,22 @@ def main():
         "cat /fat/move-dst.txt\n"
         "stat /fat/move-src.txt\n"
         "rm /fat/move-dst.txt\n"
+        "tap /fat/tap-copy.txt /fat/status.txt\n"
+        "stat /fat/tap-copy.txt\n"
+        "cat /fat/tap-copy.txt\n"
+        "cat /fat/status.txt | tap /fat/piped-copy.txt\n"
+        "stat /fat/piped-copy.txt\n"
+        "cat /fat/piped-copy.txt\n"
+        "cat /fat/status.txt | grep static | tap /fat/piped3.txt\n"
+        "stat /fat/piped3.txt\n"
+        "cat /fat/piped3.txt\n"
+        "cat /fat/status.txt | grep exFAT | wc\n"
+        "cat /fat/status.txt | head -n 1 | grep webd\n"
+        "cat /fat/status.txt | grep static > /fat/pipeline-redir.txt\n"
+        "stat /fat/pipeline-redir.txt\n"
+        "cat /fat/pipeline-redir.txt\n"
+        "cat /fat/status.txt | grep exFAT >> /fat/pipeline-redir.txt\n"
+        "stat /fat/pipeline-redir.txt\n"
         "rm /fat/shell.txt\n"
         "stat /fat/shell.txt\n"
         "write /fat/shell.txt hello-again\n"
@@ -184,14 +205,30 @@ def main():
         "/fat/sh-copy:",
         "PID STATE",
         "/fat/bin/sh",
+        "fpdemo: ok pid=",
         "hello-from-sh",
         "move-me",
         "stat: not found: /fat/move-src.txt",
+        "/fat/tap-copy.txt: 55 bytes",
+        "/fat/piped-copy.txt: 55 bytes",
+        "/fat/piped3.txt: 55 bytes",
+        "1 9 55",
+        "/fat/pipeline-redir.txt: 55 bytes",
+        "/fat/pipeline-redir.txt: 110 bytes",
         "hello-again",
         "stat: not found: /fat/shell.txt",
         "posixdemo: start pid=",
         "posixdemo: read=hello from posix",
+        "posixdemo: dup write ok",
+        "posixdemo: fs api ok",
+        "posixdemo: nonblock ok",
+        "posixdemo: poll ok",
+        "posixdemo: pipe ok",
         "posixdemo: malloc ok",
+        "posixdemo: stdlib extra ok",
+        "posixdemo: math ok",
+        "posixdemo: pread ok",
+        "posixdemo: posix misc ok",
         "posixdemo: socket bind ok",
         "posixdemo: ok",
     ]

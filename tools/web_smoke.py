@@ -42,9 +42,9 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
-def http_get(port, path, timeout):
+def http_request(port, method, path, timeout):
     deadline = time.time() + timeout
-    request = f"GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode("ascii")
+    request = f"{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode("ascii")
     last_error = None
     last_response = b""
     while time.time() < deadline:
@@ -72,11 +72,39 @@ def http_get(port, path, timeout):
     raise RuntimeError(f"http request failed: {last_error}")
 
 
+def http_get(port, path, timeout):
+    return http_request(port, "GET", path, timeout)
+
+
+def http_head(port, path, timeout):
+    return http_request(port, "HEAD", path, timeout)
+
+
+def http_get_while_slow_peer_open(port, path, timeout):
+    slow_sock = socket.create_connection(("127.0.0.1", port), timeout=2)
+    slow_sock.settimeout(2)
+    try:
+        slow_sock.sendall(b"GET / HTTP/1.1\r\nHost: slow-peer\r\n")
+        time.sleep(0.5)
+        return http_get(port, path, timeout)
+    finally:
+        try:
+            slow_sock.close()
+        except OSError:
+            pass
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
             return True
     return False
+
+
+def body_bytes(response):
+    marker = b"\r\n\r\n"
+    index = response.find(marker)
+    return b"" if index < 0 else response[index + len(marker):]
 
 
 def main():
@@ -109,7 +137,13 @@ def main():
 
     output = b""
     response = b""
+    css_response = b""
+    head_response = b""
+    slow_peer_response = b""
     http_error = None
+    css_error = None
+    head_error = None
+    slow_peer_error = None
     with tempfile.TemporaryDirectory(prefix="srvros-web-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-web.exfat")
         shutil.copyfile(source_disk, disk)
@@ -148,8 +182,27 @@ def main():
                 response = http_get(http_port, "/", args.http_wait)
             except RuntimeError as exc:
                 http_error = exc
+            try:
+                css_response = http_get(http_port, "/assets/site.css", args.http_wait)
+            except RuntimeError as exc:
+                css_error = exc
+            try:
+                head_response = http_head(http_port, "/hello.html", args.http_wait)
+            except RuntimeError as exc:
+                head_error = exc
+            try:
+                slow_peer_response = http_get_while_slow_peer_open(http_port, "/status.txt", args.http_wait)
+            except (OSError, RuntimeError) as exc:
+                slow_peer_error = exc
             output += read_for(sock, 3)
-            if http_error is not None or b"HTTP/1.1" not in response:
+            if (http_error is not None or
+                    css_error is not None or
+                    head_error is not None or
+                    slow_peer_error is not None or
+                    b"HTTP/1.1" not in response or
+                    b"HTTP/1.1" not in css_response or
+                    b"HTTP/1.1" not in head_response or
+                    b"HTTP/1.1" not in slow_peer_response):
                 sock.sendall(b"exit\n")
                 output += read_until(sock, b"srv> ", 5)
                 sock.sendall(b"net\n")
@@ -164,6 +217,9 @@ def main():
     text = output.decode("utf-8", "replace")
     sys.stdout.write(text)
     sys.stdout.write(response.decode("utf-8", "replace"))
+    sys.stdout.write(css_response.decode("utf-8", "replace"))
+    sys.stdout.write(head_response.decode("utf-8", "replace"))
+    sys.stdout.write(slow_peer_response.decode("utf-8", "replace"))
 
     expected_serial = [
         "e1000:",
@@ -174,13 +230,40 @@ def main():
     ]
     expected_response = [
         b"HTTP/1.1 200 OK",
+        b"Content-Length:",
         b"<h1>srvros</h1>",
         b"ring-3 web server",
     ]
+    expected_css_response = [
+        b"HTTP/1.1 200 OK",
+        b"Content-Type: text/css; charset=utf-8",
+        b"Content-Length:",
+        b"max-width:48rem",
+    ]
+    expected_head_response = [
+        b"HTTP/1.1 200 OK",
+        b"Content-Length:",
+    ]
+    expected_slow_peer_response = [
+        b"HTTP/1.1 200 OK",
+        b"srvros webd: static file serving from /fat/www is online.",
+    ]
     missing = [marker for marker in expected_serial if marker not in text]
     missing += [marker.decode("ascii") for marker in expected_response if marker not in response]
+    missing += [marker.decode("ascii") for marker in expected_css_response if marker not in css_response]
+    missing += [marker.decode("ascii") for marker in expected_head_response if marker not in head_response]
+    missing += [marker.decode("ascii") for marker in expected_slow_peer_response
+        if marker not in slow_peer_response]
+    if body_bytes(head_response):
+        missing.append("HEAD response included a body")
     if http_error is not None:
         missing.append(str(http_error))
+    if css_error is not None:
+        missing.append(str(css_error))
+    if head_error is not None:
+        missing.append(str(head_error))
+    if slow_peer_error is not None:
+        missing.append(str(slow_peer_error))
     if has_fatal_exception(text):
         print("web-smoke: fatal exception detected", file=sys.stderr)
         return 2

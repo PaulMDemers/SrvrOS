@@ -75,8 +75,44 @@ long srv_close(int fd) {
     return srv_syscall1(SYS_CLOSE, fd);
 }
 
-long srv_seek(int fd, uint64_t offset) {
-    return srv_syscall2(SYS_SEEK, fd, (long)offset);
+long srv_dup(int fd) {
+    return srv_syscall1(SYS_DUP, fd);
+}
+
+long srv_dup2(int old_fd, int new_fd) {
+    return srv_syscall2(SYS_DUP2, old_fd, new_fd);
+}
+
+long srv_pipe(int fds[2]) {
+    return srv_syscall1(SYS_PIPE, (long)fds);
+}
+
+long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
+    return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
+}
+
+long srv_fcntl(int fd, int command, uint64_t flags) {
+    return srv_syscall3(SYS_FCNTL, fd, command, (long)flags);
+}
+
+long srv_ftruncate(int fd, uint64_t length) {
+    return srv_syscall2(SYS_FTRUNCATE, fd, (long)length);
+}
+
+long srv_fsync(int fd) {
+    return srv_syscall1(SYS_FSYNC, fd);
+}
+
+long srv_seek(int fd, int64_t offset, uint64_t whence) {
+    return srv_syscall3(SYS_SEEK, fd, (long)offset, (long)whence);
+}
+
+long srv_fstat(int fd, struct srv_stat *info) {
+    return srv_syscall2(SYS_FSTAT, fd, (long)info);
+}
+
+long srv_sbrk(int64_t increment, uint64_t *previous_out) {
+    return srv_syscall2(SYS_SBRK, (long)increment, (long)previous_out);
 }
 
 long srv_fs_write(const char *path, const void *buffer, size_t length) {
@@ -141,6 +177,10 @@ long srv_spawn_bg(const char *path) {
 
 long srv_spawn_bg_args(const char *path, const char *args) {
     return srv_syscall2(SYS_SPAWN_BG_ARGS, (long)path, (long)args);
+}
+
+long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int stdout_fd) {
+    return srv_syscall4(SYS_SPAWN_BG_ARGS_FDS, (long)path, (long)args, stdin_fd, stdout_fd);
 }
 
 long srv_proc_list(uint64_t index, struct srv_process_info *info) {

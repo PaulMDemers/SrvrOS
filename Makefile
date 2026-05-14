@@ -24,8 +24,10 @@ USER_CP := build/userspace/cp.elf
 USER_RM := build/userspace/rm.elf
 USER_MKDIR := build/userspace/mkdir.elf
 USER_MV := build/userspace/mv.elf
+USER_TAP := build/userspace/tap.elf
 USER_WEBD := build/userspace/webd.elf
 USER_SPIN := build/userspace/spin.elf
+USER_FPDEMO := build/userspace/fpdemo.elf
 USER_UI := build/userspace/ui.elf
 USER_DESKTOP := build/userspace/desktop.elf
 USER_CALCGUI := build/userspace/calcgui.elf
@@ -64,8 +66,6 @@ CFLAGS := \
 	-mabi=sysv \
 	-mno-80387 \
 	-mno-mmx \
-	-mno-sse \
-	-mno-sse2 \
 	-mno-red-zone \
 	-mcmodel=kernel \
 	-Wall \
@@ -102,8 +102,6 @@ USER_CFLAGS := \
 	-mabi=sysv \
 	-mno-80387 \
 	-mno-mmx \
-	-mno-sse \
-	-mno-sse2 \
 	-mno-red-zone \
 	-Wall \
 	-Wextra \
@@ -226,6 +224,11 @@ USER_MV_S := $(shell find userspace/mv -type f -name '*.S' 2>/dev/null | LC_ALL=
 USER_MV_OBJ := $(USER_MV_C:%.c=build/%.c.o) $(USER_MV_S:%.S=build/%.S.o)
 USER_MV_DEP := $(USER_MV_C:%.c=build/%.c.d) $(USER_MV_S:%.S=build/%.S.d)
 
+USER_TAP_C := $(shell find userspace/tap -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TAP_S := $(shell find userspace/tap -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TAP_OBJ := $(USER_TAP_C:%.c=build/%.c.o) $(USER_TAP_S:%.S=build/%.S.o)
+USER_TAP_DEP := $(USER_TAP_C:%.c=build/%.c.d) $(USER_TAP_S:%.S=build/%.S.d)
+
 USER_WEBD_C := $(shell find userspace/webd -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_WEBD_S := $(shell find userspace/webd -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_WEBD_OBJ := $(USER_WEBD_C:%.c=build/%.c.o) $(USER_WEBD_S:%.S=build/%.S.o)
@@ -235,6 +238,11 @@ USER_SPIN_C := $(shell find userspace/spin -type f -name '*.c' 2>/dev/null | LC_
 USER_SPIN_S := $(shell find userspace/spin -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_SPIN_OBJ := $(USER_SPIN_C:%.c=build/%.c.o) $(USER_SPIN_S:%.S=build/%.S.o)
 USER_SPIN_DEP := $(USER_SPIN_C:%.c=build/%.c.d) $(USER_SPIN_S:%.S=build/%.S.d)
+
+USER_FPDEMO_C := $(shell find userspace/fpdemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_FPDEMO_S := $(shell find userspace/fpdemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_FPDEMO_OBJ := $(USER_FPDEMO_C:%.c=build/%.c.o) $(USER_FPDEMO_S:%.S=build/%.S.o)
+USER_FPDEMO_DEP := $(USER_FPDEMO_C:%.c=build/%.c.d) $(USER_FPDEMO_S:%.S=build/%.S.d)
 
 USER_UI_C := $(shell find userspace/ui -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_UI_S := $(shell find userspace/ui -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -316,7 +324,10 @@ LUA_CORE_NAMES := \
 	ldump.c \
 	lfunc.c \
 	lgc.c \
+	liolib.c \
 	llex.c \
+	loadlib.c \
+	lmathlib.c \
 	lmem.c \
 	lobject.c \
 	lopcodes.c \
@@ -360,6 +371,10 @@ $(ZIG):
 $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) $(KERNEL_OBJ) -o $@
+
+build/kernel/src/arch/x86_64/fpu.c.o: kernel/src/arch/x86_64/fpu.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
 build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
@@ -441,6 +456,10 @@ $(USER_MV): $(ZIG) $(USER_MV_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_MV_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_TAP): $(ZIG) $(USER_TAP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_TAP_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_WEBD): $(ZIG) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) -o $@
@@ -448,6 +467,10 @@ $(USER_WEBD): $(ZIG) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 $(USER_SPIN): $(ZIG) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_FPDEMO): $(ZIG) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) -o $@
 
 $(USER_UI): $(ZIG) $(USER_UI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
@@ -516,14 +539,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) webd=$(USER_WEBD) spin=$(USER_SPIN) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_WEBD) $(USER_SPIN) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -544,8 +567,10 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_RM) $(INITRAMFS_ROOT)/rm
 	cp $(USER_MKDIR) $(INITRAMFS_ROOT)/mkdir
 	cp $(USER_MV) $(INITRAMFS_ROOT)/mv
+	cp $(USER_TAP) $(INITRAMFS_ROOT)/tap
 	cp $(USER_WEBD) $(INITRAMFS_ROOT)/webd
 	cp $(USER_SPIN) $(INITRAMFS_ROOT)/spin
+	cp $(USER_FPDEMO) $(INITRAMFS_ROOT)/fpdemo
 	cp $(USER_UI) $(INITRAMFS_ROOT)/ui
 	cp $(USER_DESKTOP) $(INITRAMFS_ROOT)/desktop
 	cp $(USER_CALCGUI) $(INITRAMFS_ROOT)/calcgui
@@ -627,4 +652,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)

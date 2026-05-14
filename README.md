@@ -29,6 +29,9 @@ editor clients:
   page tables, and user pointer validation.
 - Local APIC timer, IOAPIC routing, PS/2 keyboard, PS/2 mouse, and IRQ-backed
   COM1 serial input.
+- FPU/SSE/SSE2 enablement with per-process and per-scheduler-thread
+  `fxsave64`/`fxrstor64` state preservation across traps, syscalls,
+  preemption, and kernel/user transitions.
 - Preemptive scheduler for kernel threads and ring-3 processes, wait queues,
   process table, foreground/background tasks, `ps`, `kill`, and `wait`.
 - USTAR initramfs and VFS layer.
@@ -41,17 +44,28 @@ editor clients:
   ICMP echo replies, DHCP, DNS A-record resolution, and a small TCP subset.
 - Process-owned network file descriptors with `listen`, `accept`, `read`,
   `write`, and `close`.
-- Ring-3 `/fat/bin/webd`, a sequential static HTTP server that serves files from
-  `/fat/www`.
+- Ring-3 `/fat/bin/webd`, a poll-driven static HTTP server for `/fat/www` with
+  nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
+  and a bounded active-client table.
 - Shell with PATH lookup, builtins, foreground/background jobs, redirection,
-  scripts, `service webd`, DHCP/status/DNS commands, and basic Unix-like tools.
+  pipeline output redirection, multi-stage pipelines, scripts, `service webd`,
+  DHCP/status/DNS commands, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
-  time, cwd, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
+  `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
+  `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `pread`/`pwrite`, time,
+  cwd, `getopt`, `uname`, environment variables, IPv4 helpers, DNS-backed
+  `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
-  5.4.8 integer-profile interpreter.
+  5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua
+  `require`. The support library also exports the first newlib-style syscall
+  hooks, `float.h`, and a small built-in `math.h`/`printf` floating surface.
+- `/fat/bin/fpdemo` stress-tests userspace double math across foreground and
+  background preemption.
+- `/fat/bin/tap` splits an input stream to stdout and a secondary file, and is
+  covered in the shell pipeline smoke path.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 
@@ -212,6 +226,7 @@ See [docs/testing.md](docs/testing.md) for the full release verification pass.
 - [Architecture](docs/architecture.md)
 - [Testing](docs/testing.md)
 - [Porting](docs/ports.md)
+- [Executable Format](docs/executable-format.md)
 - [Roadmap](docs/roadmap.md)
 - [Release notes](docs/release-notes.md)
 

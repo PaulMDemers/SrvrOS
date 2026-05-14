@@ -9,6 +9,12 @@
 #define O_EXCL 0x0080
 #define O_TRUNC 0x0200
 #define O_APPEND 0x0400
+#define O_NONBLOCK 0x0800
 #define O_DIRECTORY 0x10000
+
+#define F_GETFL 3
+#define F_SETFL 4
+
+int fcntl(int fd, int command, ...);
 
 #endif

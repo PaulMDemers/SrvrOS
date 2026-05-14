@@ -4,6 +4,7 @@
 #include <srvros/net.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
 
 #include <stdbool.h>
@@ -1348,7 +1349,11 @@ static bool accept_ready(void *arg) {
     return false;
 }
 
-int64_t net_accept(uint64_t listener_id, char *buffer, uint64_t capacity, uint64_t *length_out) {
+int64_t net_accept(uint64_t listener_id,
+    char *buffer,
+    uint64_t capacity,
+    uint64_t *length_out,
+    bool nonblock) {
     if (!initialized) {
         return -1;
     }
@@ -1388,6 +1393,9 @@ int64_t net_accept(uint64_t listener_id, char *buffer, uint64_t capacity, uint64
         }
 
         e1000_poll(32, false);
+        if (nonblock) {
+            return SRV_ERR_AGAIN;
+        }
         if (!scheduler_wait(&accept_wait_queue, accept_ready, listener)) {
             scheduler_yield();
         }
@@ -1416,7 +1424,7 @@ static bool read_ready(void *arg) {
     return true;
 }
 
-int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length) {
+int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
     if (!initialized || buffer == 0 || length == 0) {
         return -1;
     }
@@ -1465,6 +1473,9 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length) {
         }
 
         e1000_poll(32, false);
+        if (nonblock) {
+            return SRV_ERR_AGAIN;
+        }
         if (!scheduler_wait(&read_wait_queue, read_ready, &wait)) {
             scheduler_yield();
         }
@@ -1497,6 +1508,66 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length)
     }
 
     return -1;
+}
+
+uint16_t net_poll_events(uint64_t handle, uint16_t events) {
+    if (!initialized) {
+        return SRV_POLLNVAL;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0) {
+        return SRV_POLLNVAL;
+    }
+
+    e1000_poll(32, false);
+
+    if (handle_type(handle) == NET_HANDLE_LISTENER) {
+        struct net_listener *listener = find_listener(handle);
+        if (listener == 0 || listener->owner != owner) {
+            return SRV_POLLNVAL;
+        }
+
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0) {
+            for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
+                struct pending_request *request = &pending_requests[i];
+                if (request->used && request->port == listener->port && request->owner == owner) {
+                    revents |= SRV_POLLIN;
+                    break;
+                }
+            }
+        }
+        return revents;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_CONNECTION) {
+        uint64_t value = handle_value(handle);
+        for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+            struct tcp_connection *connection = &tcp_connections[i];
+            if (connection->state == TCP_STATE_EMPTY ||
+                connection->id != value ||
+                connection->owner != owner) {
+                continue;
+            }
+
+            uint16_t revents = 0;
+            if ((events & SRV_POLLIN) != 0 &&
+                (connection->rx_length != connection->rx_offset || connection->peer_closed)) {
+                revents |= SRV_POLLIN;
+            }
+            if ((events & SRV_POLLOUT) != 0 && !connection->peer_closed) {
+                revents |= SRV_POLLOUT;
+            }
+            if (connection->peer_closed) {
+                revents |= SRV_POLLHUP;
+            }
+            return revents;
+        }
+        return SRV_POLLNVAL;
+    }
+
+    return SRV_POLLNVAL;
 }
 
 int64_t net_close(uint64_t handle) {

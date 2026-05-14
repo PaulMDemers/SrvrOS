@@ -130,7 +130,8 @@ def main():
     www_files = [
         ("index.html",
             b"<!doctype html>\n"
-            b"<html><head><meta charset=\"utf-8\"><title>srvros</title></head>\n"
+            b"<html><head><meta charset=\"utf-8\"><title>srvros</title>\n"
+            b"<link rel=\"stylesheet\" href=\"/assets/site.css\"></head>\n"
             b"<body><h1>srvros</h1><p>This page is served by a ring-3 web server reading files from /fat/www.</p>\n"
             b"<p><a href=\"/hello.html\">hello page</a> <a href=\"/status.txt\">status</a></p></body></html>\n"),
         ("hello.html",
@@ -139,6 +140,11 @@ def main():
             b"<body><h1>Hello from srvros</h1><p>The HTTP response body came from /fat/www/hello.html.</p></body></html>\n"),
         ("status.txt",
             b"srvros webd: static file serving from /fat/www is online.\n"),
+    ]
+    www_asset_files = [
+        ("site.css",
+            b"body{font-family:sans-serif;max-width:48rem;margin:3rem auto;line-height:1.5}"
+            b"h1{color:#2f7d78}a{color:#4f6bed}\n"),
     ]
     etc_files = [
         ("init.sh",
@@ -153,12 +159,16 @@ def main():
     bin_dir_cluster = allocate_clusters(CLUSTER_SIZE)
     etc_dir_cluster = allocate_clusters(CLUSTER_SIZE)
     www_dir_cluster = allocate_clusters(CLUSTER_SIZE)
+    www_assets_dir_cluster = allocate_clusters(CLUSTER_SIZE)
     etc_entries_data = []
     for name, data in etc_files:
         etc_entries_data.append((name, allocate_clusters(len(data)), data))
     www_entries_data = []
     for name, data in www_files:
         www_entries_data.append((name, allocate_clusters(len(data)), data))
+    www_assets_entries_data = []
+    for name, data in www_asset_files:
+        www_assets_entries_data.append((name, allocate_clusters(len(data)), data))
     app_clusters = {}
     for name in app_names:
         app_clusters[name] = allocate_clusters(len(app_data[name])) if app_data[name] else 0
@@ -243,6 +253,9 @@ def main():
 
     www_entries = bytearray(CLUSTER_SIZE)
     www_offset = 0
+    assets_entry_set = file_entry("assets", www_assets_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE)
+    www_entries[www_offset:www_offset + len(assets_entry_set)] = assets_entry_set
+    www_offset += len(assets_entry_set)
     for name, cluster, data in www_entries_data:
         entry_set = file_entry(name, cluster, data)
         www_entries[www_offset:www_offset + len(entry_set)] = entry_set
@@ -253,10 +266,23 @@ def main():
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
+    www_assets_entries = bytearray(CLUSTER_SIZE)
+    www_assets_offset = 0
+    for name, cluster, data in www_assets_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        www_assets_entries[www_assets_offset:www_assets_offset + len(entry_set)] = entry_set
+        www_assets_offset += len(entry_set)
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
     image[cluster_offset(4):cluster_offset(4) + CLUSTER_SIZE] = root
     image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + CLUSTER_SIZE] = bin_entries
     image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + CLUSTER_SIZE] = etc_entries
     image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + CLUSTER_SIZE] = www_entries
+    image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + CLUSTER_SIZE] = www_assets_entries
 
     with open(sys.argv[1], "wb") as output:
         output.write(image)

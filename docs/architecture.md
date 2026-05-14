@@ -134,10 +134,13 @@ The network stack includes:
 - UDP for DHCP and DNS.
 - DHCP address/router/DNS configuration.
 - DNS A-record lookup over UDP/53.
-- A compact TCP implementation sufficient for sequential HTTP serving.
+- A compact TCP implementation sufficient for poll-driven static HTTP serving.
 
 Network file descriptors are process-owned and cleaned up on process exit.
-`webd` listens on port 80 and serves files from `/fat/www`.
+`webd` listens on port 80, polls the listener plus active connection fds, and
+serves files from `/fat/www`. It supports nested static asset paths, GET/HEAD,
+content lengths, basic MIME/cache headers, idle partial-client cleanup, and a
+small bounded active-client table.
 
 Current networking caveats:
 
@@ -159,8 +162,8 @@ Core tools:
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, scripts, redirection,
-foreground/background jobs, `service webd`, DHCP/status/DNS builtins, and basic
-filesystem builtins.
+multi-stage pipelines, foreground/background jobs, `service webd`,
+DHCP/status/DNS builtins, and basic filesystem builtins.
 
 ## POSIX Compatibility
 
@@ -168,11 +171,29 @@ The first POSIX-compat layer is implemented in userspace on top of srvros
 syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
 `dirent.h`, `sys/stat.h`, `sys/socket.h`, `netdb.h`, and `time.h`.
 
-This layer currently covers basic file I/O, directory iteration, path/cwd state,
-malloc-family allocation, simple time functions, `getpid`, IPv4 formatting and
-parsing, DNS-backed `getaddrinfo`, and a TCP server socket flow mapped onto
-srvros listener/connection fds. The kernel additions for this slice are small:
-`getpid`, raw timer ticks, and sleep-by-ticks syscalls.
+This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
+`stat`/`fstat`, `dup`/`dup2` for standard streams, pipes, writable regular
+files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
+`O_NONBLOCK`/`fcntl` fd flags, `access`, `isatty`, `fsync`,
+`truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
+malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
+time functions, `getpid`, IPv4 formatting and parsing, DNS-backed
+`getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
+connection fds. The kernel additions for this slice are
+intentionally narrow: fd metadata/duplication, shared writable-fd ownership,
+fd readiness checks, nonblocking read/accept/write returns, child stdio fd
+overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw timer
+ticks, and sleep-by-ticks syscalls.
+
+The native executable format remains static ELF64. The next build-system
+cleanup is to move repeated app `_start` assembly into a shared crt startup
+object, keeping each program as a single self-contained executable while
+leaving room for a userspace `.srvapp` bundle format later.
+
+The support library also exports a first newlib-facing syscall layer (`_open`,
+`_read`, `_write`, `_lseek`, `_fstat`, `_sbrk`, and friends). Existing srvros
+apps still link the local libc-shaped implementation, but the ABI now has the
+core hooks a real libc port expects.
 
 The compatibility boundary is intentionally in userspace. Unsupported POSIX
 features return `ENOSYS` or a narrow error instead of expanding the kernel ABI

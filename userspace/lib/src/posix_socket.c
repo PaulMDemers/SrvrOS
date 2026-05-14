@@ -19,6 +19,7 @@ struct posix_socket {
     int protocol;
     uint16_t port;
     int listener_fd;
+    uint64_t fd_flags;
 };
 
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
@@ -33,6 +34,46 @@ static struct posix_socket *socket_at(int fd) {
 
 int __posix_socket_is_pseudo(int fd) {
     return socket_at(fd) != 0;
+}
+
+int __posix_socket_poll_fd(int fd) {
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0) {
+        return fd;
+    }
+    return socket->listener_fd;
+}
+
+int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0) {
+        errno = EBADF;
+        return -1;
+    }
+    if (command == SRV_F_GETFL) {
+        if (socket->listener_fd >= 0) {
+            long result = srv_fcntl(socket->listener_fd, command, 0);
+            if (result >= 0) {
+                socket->fd_flags = (uint64_t)result;
+            }
+        }
+        return (int)socket->fd_flags;
+    }
+    if (command == SRV_F_SETFL) {
+        socket->fd_flags = flags;
+        if (socket->listener_fd < 0) {
+            return 0;
+        }
+    } else if (socket->listener_fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    long result = srv_fcntl(socket->listener_fd, command, flags);
+    if (result < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    return (int)result;
 }
 
 int __posix_socket_close(int fd) {
@@ -66,6 +107,7 @@ int socket(int domain, int type, int protocol) {
             sockets[i].protocol = protocol;
             sockets[i].port = 0;
             sockets[i].listener_fd = -1;
+            sockets[i].fd_flags = 0;
             return POSIX_SOCKET_BASE + i;
         }
     }
@@ -104,6 +146,12 @@ int listen(int fd, int backlog) {
         return -1;
     }
     socket->listener_fd = (int)listener;
+    if (socket->fd_flags != 0 && srv_fcntl(socket->listener_fd, SRV_F_SETFL, socket->fd_flags) < 0) {
+        (void)srv_close(socket->listener_fd);
+        socket->listener_fd = -1;
+        errno = EBADF;
+        return -1;
+    }
     return 0;
 }
 
@@ -116,6 +164,10 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
     }
     long connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
     if (connection < 0) {
+        if (connection == SRV_ERR_AGAIN) {
+            errno = EAGAIN;
+            return -1;
+        }
         errno = EIO;
         return -1;
     }

@@ -44,13 +44,36 @@
 #define SYS_GETPID 41
 #define SYS_TICKS 42
 #define SYS_SLEEP_TICKS 43
+#define SYS_FSTAT 44
+#define SYS_SBRK 45
+#define SYS_DUP 46
+#define SYS_DUP2 47
+#define SYS_PIPE 48
+#define SYS_SPAWN_BG_ARGS_FDS 49
+#define SYS_POLL 50
+#define SYS_FCNTL 51
+#define SYS_FTRUNCATE 52
+#define SYS_FSYNC 53
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
 #define SRV_OPEN_CREATE 0x04
 #define SRV_OPEN_TRUNC 0x08
 #define SRV_OPEN_APPEND 0x10
+#define SRV_OPEN_NONBLOCK 0x20
+
+#define SRV_F_GETFL 3
+#define SRV_F_SETFL 4
+#define SRV_FD_NONBLOCK 0x01
+
+#define SRV_ERR_AGAIN -11
 
 #define SRV_WAIT_NOHANG 0x01
+
+#define SRV_POLLIN 0x0001
+#define SRV_POLLOUT 0x0004
+#define SRV_POLLERR 0x0008
+#define SRV_POLLHUP 0x0010
+#define SRV_POLLNVAL 0x0020
 
 #endif

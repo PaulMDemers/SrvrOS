@@ -12,8 +12,15 @@
 
 #define BUFSIZ 1024
 #define FILENAME_MAX 160
+#define L_tmpnam FILENAME_MAX
+#define TMP_MAX 10000
+
+#define _IOFBF 0
+#define _IOLBF 1
+#define _IONBF 2
 
 typedef struct FILE FILE;
+typedef long fpos_t;
 
 extern FILE *stdin;
 extern FILE *stdout;
@@ -30,19 +37,32 @@ int puts(const char *text);
 int fputs(const char *text, FILE *stream);
 int fputc(int c, FILE *stream);
 int getc(FILE *stream);
+int fgetc(FILE *stream);
+int ungetc(int c, FILE *stream);
 int putchar(int c);
 FILE *fopen(const char *path, const char *mode);
 FILE *fdopen(int fd, const char *mode);
 FILE *freopen(const char *path, const char *mode, FILE *stream);
 int fclose(FILE *stream);
 int fflush(FILE *stream);
+int setvbuf(FILE *stream, char *buffer, int mode, size_t size);
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream);
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream);
 char *fgets(char *text, int size, FILE *stream);
 int ferror(FILE *stream);
 int feof(FILE *stream);
 void clearerr(FILE *stream);
+int fileno(FILE *stream);
 long ftell(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
+void rewind(FILE *stream);
+int fgetpos(FILE *stream, fpos_t *position);
+int fsetpos(FILE *stream, const fpos_t *position);
+int remove(const char *path);
+void perror(const char *prefix);
+FILE *tmpfile(void);
+char *tmpnam(char *buffer);
+FILE *popen(const char *command, const char *mode);
+int pclose(FILE *stream);
 
 #endif
