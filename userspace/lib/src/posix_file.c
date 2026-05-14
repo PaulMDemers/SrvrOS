@@ -229,6 +229,47 @@ int fcntl(int fd, int command, ...) {
         }
         return 0;
     }
+    if (command == F_GETLK || command == F_SETLK || command == F_SETLKW) {
+        va_list args;
+        va_start(args, command);
+        struct flock *lock = va_arg(args, struct flock *);
+        va_end(args);
+        if (lock == 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        if (lock->l_type != F_RDLCK && lock->l_type != F_WRLCK && lock->l_type != F_UNLCK) {
+            errno = EINVAL;
+            return -1;
+        }
+
+        struct srv_flock srv_lock;
+        srv_lock.type = lock->l_type == F_RDLCK ? SRV_F_RDLCK :
+            lock->l_type == F_WRLCK ? SRV_F_WRLCK : SRV_F_UNLCK;
+        srv_lock.whence = (int16_t)lock->l_whence;
+        srv_lock.reserved = 0;
+        srv_lock.start = (int64_t)lock->l_start;
+        srv_lock.len = (int64_t)lock->l_len;
+        srv_lock.pid = (int64_t)lock->l_pid;
+
+        int srv_command = command == F_GETLK ? SRV_F_GETLK :
+            command == F_SETLK ? SRV_F_SETLK : SRV_F_SETLKW;
+        long result = srv_fcntl(fd, srv_command, (uint64_t)&srv_lock);
+        if (result < 0) {
+            errno = result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
+            return -1;
+        }
+
+        if (command == F_GETLK) {
+            lock->l_type = srv_lock.type == SRV_F_RDLCK ? F_RDLCK :
+                srv_lock.type == SRV_F_WRLCK ? F_WRLCK : F_UNLCK;
+            lock->l_whence = (short)srv_lock.whence;
+            lock->l_start = (off_t)srv_lock.start;
+            lock->l_len = (off_t)srv_lock.len;
+            lock->l_pid = (pid_t)srv_lock.pid;
+        }
+        return 0;
+    }
     errno = ENOSYS;
     return -1;
 }

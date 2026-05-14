@@ -11,6 +11,13 @@
 #define GLYPH_HEIGHT 7
 #define CELL_WIDTH 8
 #define CELL_HEIGHT 16
+#define ANSI_PARAM_MAX 4
+
+enum ansi_state {
+    ANSI_NORMAL,
+    ANSI_ESC,
+    ANSI_CSI,
+};
 
 static struct limine_framebuffer *fb;
 static uint64_t columns;
@@ -18,6 +25,11 @@ static uint64_t rows;
 static uint64_t cursor_x;
 static uint64_t cursor_y;
 static bool framebuffer_console_ready;
+static enum ansi_state ansi_state;
+static uint64_t ansi_params[ANSI_PARAM_MAX];
+static uint64_t ansi_param_count;
+static bool ansi_param_active;
+static bool ansi_private;
 
 static const uint8_t glyph_space[GLYPH_HEIGHT] = { 0, 0, 0, 0, 0, 0, 0 };
 static const uint8_t glyph_unknown[GLYPH_HEIGHT] = { 0x1e, 0x01, 0x01, 0x0e, 0x04, 0x00, 0x04 };
@@ -187,6 +199,34 @@ static void clear_last_row(void) {
     fill_rect(0, (rows - 1) * CELL_HEIGHT, columns * CELL_WIDTH, CELL_HEIGHT, bg_color());
 }
 
+static void clear_row_range(uint64_t row, uint64_t start_column, uint64_t end_column) {
+    if (row >= rows || start_column >= columns || end_column <= start_column) {
+        return;
+    }
+    if (end_column > columns) {
+        end_column = columns;
+    }
+    fill_rect(start_column * CELL_WIDTH,
+        row * CELL_HEIGHT,
+        (end_column - start_column) * CELL_WIDTH,
+        CELL_HEIGHT,
+        bg_color());
+}
+
+static void clear_from_cursor(void) {
+    clear_row_range(cursor_y, cursor_x, columns);
+    for (uint64_t row = cursor_y + 1; row < rows; row++) {
+        clear_row_range(row, 0, columns);
+    }
+}
+
+static void clear_to_cursor(void) {
+    for (uint64_t row = 0; row < cursor_y; row++) {
+        clear_row_range(row, 0, columns);
+    }
+    clear_row_range(cursor_y, 0, cursor_x + 1);
+}
+
 static void scroll_one_row(void) {
     volatile uint32_t *pixels = fb->address;
     uint64_t stride = fb->pitch / 4;
@@ -211,7 +251,138 @@ static void newline(void) {
     }
 }
 
-static void framebuffer_putc(char c) {
+static void move_cursor(uint64_t x, uint64_t y) {
+    cursor_x = x < columns ? x : columns - 1;
+    cursor_y = y < rows ? y : rows - 1;
+}
+
+static uint64_t ansi_param(uint64_t index, uint64_t fallback) {
+    if (index >= ansi_param_count || ansi_params[index] == 0) {
+        return fallback;
+    }
+    return ansi_params[index];
+}
+
+static void ansi_reset(void) {
+    ansi_state = ANSI_NORMAL;
+    ansi_param_count = 0;
+    ansi_param_active = false;
+    ansi_private = false;
+}
+
+static void ansi_start_param(void) {
+    if (!ansi_param_active) {
+        if (ansi_param_count < ANSI_PARAM_MAX) {
+            ansi_params[ansi_param_count] = 0;
+        }
+        ansi_param_active = true;
+    }
+}
+
+static void ansi_finish_param(void) {
+    if (ansi_param_active && ansi_param_count < ANSI_PARAM_MAX) {
+        ansi_param_count++;
+    } else if (!ansi_param_active && ansi_param_count < ANSI_PARAM_MAX) {
+        ansi_params[ansi_param_count++] = 0;
+    }
+    ansi_param_active = false;
+}
+
+static void ansi_execute(char command) {
+    if (ansi_param_active || ansi_param_count == 0) {
+        ansi_finish_param();
+    }
+
+    draw_cursor(false);
+    if (command == 'H' || command == 'f') {
+        uint64_t row = ansi_param(0, 1);
+        uint64_t column = ansi_param(1, 1);
+        move_cursor(column > 0 ? column - 1 : 0, row > 0 ? row - 1 : 0);
+    } else if (command == 'A') {
+        uint64_t count = ansi_param(0, 1);
+        cursor_y = count > cursor_y ? 0 : cursor_y - count;
+    } else if (command == 'B') {
+        move_cursor(cursor_x, cursor_y + ansi_param(0, 1));
+    } else if (command == 'C') {
+        move_cursor(cursor_x + ansi_param(0, 1), cursor_y);
+    } else if (command == 'D') {
+        uint64_t count = ansi_param(0, 1);
+        cursor_x = count > cursor_x ? 0 : cursor_x - count;
+    } else if (command == 'G') {
+        uint64_t column = ansi_param(0, 1);
+        move_cursor(column > 0 ? column - 1 : 0, cursor_y);
+    } else if (command == 'J') {
+        uint64_t mode = ansi_param(0, 0);
+        if (mode == 2) {
+            fill_rect(0, 0, fb->width, fb->height, bg_color());
+            move_cursor(0, 0);
+        } else if (mode == 1) {
+            clear_to_cursor();
+        } else {
+            clear_from_cursor();
+        }
+    } else if (command == 'K') {
+        uint64_t mode = ansi_param(0, 0);
+        if (mode == 2) {
+            clear_row_range(cursor_y, 0, columns);
+        } else if (mode == 1) {
+            clear_row_range(cursor_y, 0, cursor_x + 1);
+        } else {
+            clear_row_range(cursor_y, cursor_x, columns);
+        }
+    }
+    draw_cursor(true);
+    ansi_reset();
+}
+
+static bool framebuffer_ansi_putc(char c) {
+    if (ansi_state == ANSI_NORMAL) {
+        if (c == 27) {
+            ansi_state = ANSI_ESC;
+            return true;
+        }
+        return false;
+    }
+    if (ansi_state == ANSI_ESC) {
+        if (c == '[') {
+            ansi_state = ANSI_CSI;
+            ansi_param_count = 0;
+            ansi_param_active = false;
+            ansi_private = false;
+            return true;
+        }
+        ansi_reset();
+        return true;
+    }
+    if (c == '?') {
+        ansi_private = true;
+        return true;
+    }
+    if (c >= '0' && c <= '9') {
+        ansi_start_param();
+        if (ansi_param_count < ANSI_PARAM_MAX) {
+            ansi_params[ansi_param_count] = ansi_params[ansi_param_count] * 10 + (uint64_t)(c - '0');
+        }
+        return true;
+    }
+    if (c == ';') {
+        ansi_finish_param();
+        return true;
+    }
+    if (c >= '@' && c <= '~') {
+        if (ansi_private) {
+            ansi_reset();
+        } else {
+            ansi_execute(c);
+        }
+        return true;
+    }
+
+    ansi_reset();
+    return true;
+}
+
+static void framebuffer_putc_raw(char c) {
     if (!framebuffer_console_ready) {
         return;
     }
@@ -224,7 +395,7 @@ static void framebuffer_putc(char c) {
         cursor_x = 0;
     } else if (c == '\t') {
         for (int i = 0; i < 4; i++) {
-            framebuffer_putc(' ');
+            framebuffer_putc_raw(' ');
         }
     } else if (c == '\b') {
         if (cursor_x > 0) {
@@ -245,6 +416,14 @@ static void framebuffer_putc(char c) {
     draw_cursor(true);
 }
 
+static void framebuffer_putc(char c) {
+    if (!framebuffer_console_ready || framebuffer_ansi_putc(c)) {
+        return;
+    }
+
+    framebuffer_putc_raw(c);
+}
+
 void console_clear(void) {
     if (!framebuffer_console_ready) {
         return;
@@ -253,6 +432,7 @@ void console_clear(void) {
     fill_rect(0, 0, fb->width, fb->height, bg_color());
     cursor_x = 0;
     cursor_y = 0;
+    ansi_reset();
     draw_cursor(true);
 }
 
@@ -271,8 +451,8 @@ void console_set_cursor(uint64_t x, uint64_t y) {
     }
 
     draw_cursor(false);
-    cursor_x = x < columns ? x : columns - 1;
-    cursor_y = y < rows ? y : rows - 1;
+    move_cursor(x, y);
+    ansi_reset();
     draw_cursor(true);
 }
 
@@ -291,6 +471,7 @@ void console_init(struct limine_framebuffer *framebuffer) {
     }
 
     framebuffer_console_ready = true;
+    ansi_reset();
     console_clear();
 }
 

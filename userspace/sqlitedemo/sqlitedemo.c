@@ -16,6 +16,7 @@ struct srv_sqlite_file {
     sqlite3_file base;
     int fd;
     int delete_on_close;
+    int lock_level;
     char path[SQLITEDEMO_PATH_MAX];
 };
 
@@ -84,21 +85,78 @@ static int srv_sqlite_file_size(sqlite3_file *file, sqlite3_int64 *size) {
     return SQLITE_OK;
 }
 
+static int srv_sqlite_file_lock(struct srv_sqlite_file *srv_file,
+    short type,
+    off_t start,
+    off_t length) {
+    struct flock lock;
+    lock.l_type = type;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = start;
+    lock.l_len = length;
+    lock.l_pid = 0;
+    return fcntl(srv_file->fd, F_SETLK, &lock) == 0 ? SQLITE_OK : SQLITE_BUSY;
+}
+
 static int srv_sqlite_lock(sqlite3_file *file, int lock) {
-    (void)file;
-    (void)lock;
-    return SQLITE_OK;
+    struct srv_sqlite_file *srv_file = (struct srv_sqlite_file *)file;
+    if (lock <= srv_file->lock_level) {
+        return SQLITE_OK;
+    }
+
+    int rc = SQLITE_OK;
+    if (lock == SQLITE_LOCK_SHARED) {
+        rc = srv_sqlite_file_lock(srv_file, F_RDLCK, 0, 1);
+    } else if (lock == SQLITE_LOCK_RESERVED) {
+        rc = srv_sqlite_file_lock(srv_file, F_WRLCK, 1, 1);
+    } else if (lock == SQLITE_LOCK_PENDING) {
+        rc = srv_sqlite_file_lock(srv_file, F_WRLCK, 2, 1);
+    } else if (lock == SQLITE_LOCK_EXCLUSIVE) {
+        rc = srv_sqlite_file_lock(srv_file, F_WRLCK, 0, 3);
+    }
+    if (rc == SQLITE_OK) {
+        srv_file->lock_level = lock;
+    }
+    return rc;
 }
 
 static int srv_sqlite_unlock(sqlite3_file *file, int lock) {
-    (void)file;
-    (void)lock;
-    return SQLITE_OK;
+    struct srv_sqlite_file *srv_file = (struct srv_sqlite_file *)file;
+    if (lock >= srv_file->lock_level) {
+        return SQLITE_OK;
+    }
+
+    if (lock == SQLITE_LOCK_NONE) {
+        int rc = srv_sqlite_file_lock(srv_file, F_UNLCK, 0, 3);
+        if (rc == SQLITE_OK) {
+            srv_file->lock_level = SQLITE_LOCK_NONE;
+        }
+        return rc;
+    }
+
+    int rc = srv_sqlite_file_lock(srv_file, F_UNLCK, 1, 2);
+    if (rc != SQLITE_OK) {
+        return rc;
+    }
+    rc = srv_sqlite_file_lock(srv_file, F_RDLCK, 0, 1);
+    if (rc == SQLITE_OK) {
+        srv_file->lock_level = SQLITE_LOCK_SHARED;
+    }
+    return rc;
 }
 
 static int srv_sqlite_check_reserved_lock(sqlite3_file *file, int *reserved) {
-    (void)file;
-    *reserved = 0;
+    struct srv_sqlite_file *srv_file = (struct srv_sqlite_file *)file;
+    struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 1;
+    lock.l_len = 1;
+    lock.l_pid = 0;
+    if (fcntl(srv_file->fd, F_GETLK, &lock) != 0) {
+        return SQLITE_IOERR_CHECKRESERVEDLOCK;
+    }
+    *reserved = lock.l_type != F_UNLCK || srv_file->lock_level >= SQLITE_LOCK_RESERVED;
     return SQLITE_OK;
 }
 

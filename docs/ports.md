@@ -27,6 +27,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `fcntl` descriptor flags with `F_GETFD`/`F_SETFD` and `FD_CLOEXEC` for
   regular fds and POSIX socket pseudo-fds. Process replacement closes marked
   descriptors while preserving explicit stdio redirection fds.
+- `fcntl` advisory byte-range locks with `F_GETLK`, `F_SETLK`, and `F_SETLKW`
+  for regular files. Locks are process-owned, conflict by pathname and range,
+  and are released when that process closes a descriptor for the same path.
 - `access`, `isatty`, `fsync`, `truncate`, `ftruncate`, `chmod`, `fchmod`, and
   `umask`. Permission/mode APIs are compatibility shims until srvros grows
   Unix-like file metadata.
@@ -90,7 +93,9 @@ save, and load behavior.
 The `sqlitedemo` app links the SQLite `3.53.1` amalgamation with
 `SQLITE_OS_OTHER` and registers a small srvros VFS. It creates
 `/fat/sqlitedemo.db`, inserts two page records, closes and reopens the database,
-then verifies prepared query results and the on-disk database size.
+then verifies prepared query results and the on-disk database size. The VFS maps
+SQLite shared/reserved/pending/exclusive transitions onto srvros advisory byte
+locks.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -110,9 +115,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - Socket wrappers currently cover TCP server flow over the existing
   `net_listen`/`net_accept` kernel path. Nonblocking mode is preserved when it
   is set on a socket before `listen()`.
-- SQLite is currently a single-process filesystem smoke port. Its VFS maps file
-  IO to srvros POSIX calls, but locking is no-op until srvros grows advisory
-  file locks and stronger metadata semantics.
+- SQLite is still a compact filesystem smoke port. Its VFS now maps lock states
+  to srvros advisory byte-range locks, but richer stale-lock recovery,
+  cross-machine semantics, and WAL shared-memory locking are future work.
 - `stdio` is intentionally small: formatted output has no width/precision
   parsing yet, input scanning is missing, `fflush` is effectively a no-op for
   unbuffered streams, and `popen`/`pclose` are `ENOSYS` stubs.

@@ -24,7 +24,8 @@ editor clients:
 
 - Limine BIOS/UEFI ISO boot path for x86_64.
 - Higher-half freestanding C kernel with GDT, IDT, TSS, exception handling, and
-  serial plus framebuffer console output.
+  serial plus framebuffer console output, including a small framebuffer-side
+  ANSI CSI subset for cursor movement and clear-screen/clear-line sequences.
 - Physical frame allocator, kernel heap, virtual memory manager, per-process
   page tables, and user pointer validation.
 - Local APIC timer, IOAPIC routing, PS/2 keyboard, PS/2 mouse, and IRQ-backed
@@ -57,7 +58,8 @@ editor clients:
   object for static ELF apps, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
-  `F_GETFD`/`F_SETFD` close-on-exec flags, `access`, `isatty`, `fsync`,
+  `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
+  advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`, time, cwd, `getopt`, `uname`,
   environment variables, `waitpid`, `posix_spawn`, `posix_spawnp`,
   process-replacing `execve`, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP

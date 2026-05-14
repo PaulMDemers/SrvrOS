@@ -67,8 +67,24 @@
 #define SRV_F_SETFD 2
 #define SRV_F_GETFL 3
 #define SRV_F_SETFL 4
+#define SRV_F_GETLK 5
+#define SRV_F_SETLK 6
+#define SRV_F_SETLKW 7
 #define SRV_FD_NONBLOCK 0x01
 #define SRV_FD_CLOEXEC 0x02
+
+#define SRV_F_RDLCK 1
+#define SRV_F_WRLCK 2
+#define SRV_F_UNLCK 3
+
+struct srv_flock {
+    int16_t type;
+    int16_t whence;
+    int32_t reserved;
+    int64_t start;
+    int64_t len;
+    int64_t pid;
+};
 
 #define SRV_ERR_AGAIN -11
 

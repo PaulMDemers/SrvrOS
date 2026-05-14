@@ -133,6 +133,8 @@ def main():
         "posixdemo: rw ok",
         "posixdemo: dup write ok",
         "posixdemo: fs api ok",
+        "lockprobe: conflict ok",
+        "posixdemo: file lock ok",
         "posixdemo: nonblock ok",
         "posixdemo: poll ok",
         "posixdemo: pipe ok",

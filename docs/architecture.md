@@ -75,7 +75,8 @@ The ABI currently covers:
 - Process control: `spawn`, `spawn_args`, `spawn_bg`, redirected spawn, process
   list, kill, wait, yield, exit.
 - Network: DHCP, status, DNS, listen, accept.
-- Console/graphics/input: console info, clear, cursor positioning, key scan,
+- Console/graphics/input: console info, clear, cursor positioning, a small
+  framebuffer-side ANSI CSI subset for common cursor/erase sequences, key scan,
   framebuffer info/pixels/rects, mouse scan.
 - GUI IPC: register server, send message, receive message.
 

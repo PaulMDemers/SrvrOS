@@ -736,6 +736,24 @@ static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
     if (command == SRV_F_SETFL) {
         return process_file_set_flags(process_current(), fd, arg);
     }
+    if (command == SRV_F_GETLK) {
+        struct srv_flock lock;
+        if (!copy_from_user(&lock, (const void *)arg, sizeof(lock))) {
+            return -1;
+        }
+        int64_t result = process_file_get_lock(process_current(), fd, &lock);
+        if (result < 0 || !copy_to_user((void *)arg, &lock, sizeof(lock))) {
+            return -1;
+        }
+        return result;
+    }
+    if (command == SRV_F_SETLK || command == SRV_F_SETLKW) {
+        struct srv_flock lock;
+        if (!copy_from_user(&lock, (const void *)arg, sizeof(lock))) {
+            return -1;
+        }
+        return process_file_set_lock(process_current(), fd, &lock, command == SRV_F_SETLKW);
+    }
     return -1;
 }
 

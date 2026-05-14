@@ -63,7 +63,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   compress/decompress, cJSON parse/print/roundtrip, inih string/file parsing,
   linenoise history save/load coverage, SQLite create/insert/query/reopen on
   exFAT through the srvros VFS, and libc/POSIX file checks including `fstat`,
-  `dup`, writable-fd dup ownership, `pipe`,
+  `dup`, writable-fd dup ownership, advisory `fcntl` byte-range locks with a
+  spawned `/fat/bin/lockprobe` conflict check, `pipe`,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,

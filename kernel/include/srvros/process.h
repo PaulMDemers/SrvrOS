@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include <srvros/fpu.h>
+#include <srvros/syscall_numbers.h>
 #include <srvros/vfs.h>
 
 #define PROCESS_MAX_OPEN_FILES 16
@@ -114,6 +115,8 @@ int64_t process_file_get_flags(struct process *process, uint64_t fd);
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags);
 int64_t process_file_get_fd_flags(struct process *process, uint64_t fd);
 int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t flags);
+int64_t process_file_get_lock(struct process *process, uint64_t fd, struct srv_flock *lock);
+int64_t process_file_set_lock(struct process *process, uint64_t fd, const struct srv_flock *lock, bool wait);
 int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length);
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);

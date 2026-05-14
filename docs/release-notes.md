@@ -10,6 +10,9 @@ server.
 
 - Boots a higher-half x86_64 kernel through Limine.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
+- Adds framebuffer-console parsing for a compact ANSI CSI subset covering
+  cursor movement, cursor positioning, clear screen, and clear line while
+  preserving raw escape output on serial.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Mounts exFAT from initramfs-backed memory or AHCI-backed disks.
@@ -52,6 +55,10 @@ server.
 - Adds `fcntl(F_GETFD/F_SETFD)` and `FD_CLOEXEC` descriptor flags, including
   close-on-exec cleanup during process replacement and socket pseudo-fd flag
   propagation.
+- Adds POSIX-style advisory byte-range locks through
+  `fcntl(F_GETLK/F_SETLK/F_SETLKW)` for regular files, with `posixdemo`
+  plus `/fat/bin/lockprobe` conflict coverage and SQLite VFS locking backed by
+  the new kernel lock table.
 - Adds real empty-file support, fd flush/truncate hooks, and POSIX-facing
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `chmod`/`fchmod`, and
   `umask` compatibility.

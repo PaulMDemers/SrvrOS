@@ -251,6 +251,11 @@ kernel, and a minimal Unix-like userspace.
   request with standard fd overrides.
 - Add shell `exec` plus `FD_CLOEXEC` descriptor flags and close-on-exec cleanup
   for process replacement.
+- Add POSIX-style advisory byte-range locks through
+  `fcntl(F_GETLK/F_SETLK/F_SETLKW)` and update the SQLite VFS to use real
+  srvros locks instead of no-op lock callbacks.
+- Add framebuffer-console parsing for the common ANSI CSI cursor and erase
+  sequences used by shells, line editors, and simple terminal-oriented ports.
 
 ## Next milestones
 

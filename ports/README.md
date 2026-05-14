@@ -32,7 +32,8 @@ for the upstream public API. `srvsh` uses it for editable prompt input and
 SQLite is kept as an official amalgamation snapshot rather than a submodule.
 `/fat/bin/sqlitedemo` builds the amalgamation with `SQLITE_OS_OTHER`, registers
 a small srvros VFS, and verifies create/insert/query/reopen behavior on exFAT.
-The VFS intentionally uses no-op locking until srvros grows file-lock metadata.
+The VFS maps SQLite shared/reserved/pending/exclusive states onto srvros
+advisory byte-range locks.
 
 ## Porting Rules
 

@@ -233,6 +233,49 @@ int main(void) {
     unlink("/fat/posixdemo/trunc.txt");
     say("posixdemo: fs api ok\n");
 
+    fd = open("/fat/posixdemo/lock.txt", O_RDWR | O_CREAT | O_TRUNC);
+    if (fd < 0) {
+        say("posixdemo: lock open failed\n");
+        return 34;
+    }
+    struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 8;
+    lock.l_pid = 0;
+    if (fcntl(fd, F_SETLK, &lock) < 0) {
+        say("posixdemo: lock set failed\n");
+        return 35;
+    }
+    lock.l_type = F_WRLCK;
+    if (fcntl(fd, F_GETLK, &lock) < 0 || lock.l_type != F_UNLCK) {
+        say("posixdemo: lock query failed\n");
+        return 36;
+    }
+    pid_t lock_child = 0;
+    char *lock_args[] = {"/fat/bin/lockprobe", 0};
+    if (posix_spawn(&lock_child, "/fat/bin/lockprobe", 0, 0, lock_args, 0) != 0) {
+        say("posixdemo: lock spawn failed\n");
+        return 37;
+    }
+    int lock_status = 0;
+    if (waitpid(lock_child, &lock_status, 0) < 0 || lock_status != 0) {
+        say("posixdemo: lock conflict failed\n");
+        return 38;
+    }
+    lock.l_type = F_UNLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 8;
+    if (fcntl(fd, F_SETLK, &lock) < 0) {
+        say("posixdemo: lock clear failed\n");
+        return 39;
+    }
+    close(fd);
+    unlink("/fat/posixdemo/lock.txt");
+    say("posixdemo: file lock ok\n");
+
     int pfds[2];
     if (pipe(pfds) < 0) {
         say("posixdemo: pipe failed\n");
