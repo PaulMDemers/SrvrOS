@@ -203,6 +203,8 @@ kernel, and a minimal Unix-like userspace.
   library porting without vendoring snapshots into the main tree.
 - Add pinned cJSON and inih submodules with `/fat/bin/jsondemo` and
   `/fat/bin/inidemo` as small data/config parser ports.
+- Add pinned linenoise plus a srvros console adapter for editable shell input
+  and persistent shell history.
 - Add minimal `stdio` support in the userspace library and `/fat/bin/zlibdemo`,
   which links pinned zlib, compresses data, writes the compressed stream to
   exFAT, reads it back, and verifies decompression.

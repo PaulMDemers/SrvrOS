@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "linenoise.h"
+
 #define LINE_MAX 256
 #define EXPANDED_LINE_MAX 512
 #define ARG_EXPANDED_MAX 512
@@ -147,33 +149,6 @@ static int expand_variables(const char *input, char *out, size_t capacity) {
         append_char(out, capacity, &length, c);
     }
     return 1;
-}
-
-static int read_line(char *line, size_t capacity) {
-    size_t length = 0;
-    for (;;) {
-        char c;
-        if (srv_read(SRV_STDIN, &c, 1) != 1) {
-            line[length] = '\0';
-            return 0;
-        }
-        if (c == '\n') {
-            cli_puts("\n");
-            line[length] = '\0';
-            return 1;
-        }
-        if (c == '\b') {
-            if (length > 0) {
-                length--;
-                cli_puts("\b");
-            }
-            continue;
-        }
-        if (c >= 32 && c < 127 && length + 1 < capacity) {
-            line[length++] = c;
-            srv_write(SRV_STDOUT, &c, 1);
-        }
-    }
 }
 
 static int resolve_command(char *out, size_t capacity, const char *command) {
@@ -375,7 +350,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 
 static void print_help(void) {
     cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo jsondemo inidemo zlibdemo lua\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo jsondemo inidemo linedemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
@@ -1743,7 +1718,6 @@ static uint64_t run_line(char *line, char *cwd) {
 }
 
 int main(int argc, char **argv) {
-    char line[LINE_MAX];
     char cwd[CLI_PATH_MAX] = "/";
     int login = argc > 1 && cli_streq(argv[1], "--login");
 
@@ -1757,13 +1731,23 @@ int main(int argc, char **argv) {
     if (login) {
         run_script("/fat/etc/init.sh", cwd);
     }
+    linenoiseHistorySetMaxLen(64);
+    linenoiseHistoryLoad("/fat/.srvsh_history");
     for (;;) {
-        cli_puts(cwd);
-        cli_puts(" $ ");
-        if (!read_line(line, sizeof(line))) {
+        char prompt[CLI_PATH_MAX + 4];
+        cli_copy(prompt, sizeof(prompt), cwd);
+        size_t prompt_length = cli_strlen(prompt);
+        append_text(prompt, sizeof(prompt), &prompt_length, " $ ");
+        char *line = linenoise(prompt);
+        if (line == 0) {
             break;
         }
+        if (line[0] != '\0') {
+            linenoiseHistoryAdd(line);
+            linenoiseHistorySave("/fat/.srvsh_history");
+        }
         run_line(line, cwd);
+        linenoiseFree(line);
     }
     return 0;
 }

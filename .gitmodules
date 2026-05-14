@@ -10,3 +10,6 @@
 [submodule "ports/upstream/inih"]
 	path = ports/upstream/inih
 	url = https://github.com/benhoyt/inih.git
+[submodule "ports/upstream/linenoise"]
+	path = ports/upstream/linenoise
+	url = https://github.com/antirez/linenoise.git

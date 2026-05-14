@@ -31,6 +31,9 @@ server.
 - Adds pinned cJSON `v1.7.19` and inih `r62` submodules, plus
   `/fat/bin/jsondemo` and `/fat/bin/inidemo` smoke apps for JSON and INI
   parse/roundtrip coverage.
+- Adds pinned linenoise `2.0` plus a srvros console adapter used by `srvsh` for
+  editable prompt input and `/fat/.srvsh_history`; `/fat/bin/linedemo` verifies
+  history save/load behavior.
 - Adds early newlib-style syscall hooks and kernel support for `fstat`,
   `O_RDWR` regular-file fds, relative/end-relative `lseek`, and process heap
   growth.

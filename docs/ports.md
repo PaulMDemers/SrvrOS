@@ -82,6 +82,11 @@ The `jsondemo` app links pinned cJSON `v1.7.19`, parses a service description,
 creates a JSON document, writes it to `/fat`, reads it back, and verifies a
 roundtrip parse. The `inidemo` app links pinned inih `r62`, parses config from
 memory and from `/fat/inidemo.ini`, and verifies the resulting service fields.
+The shell links a srvros-specific linenoise `2.0` adapter that keeps upstream
+clean while mapping the public API onto srvros console reads/writes. It supports
+editable lines, cursor movement over serial escape sequences, simple completion
+hooks, and file-backed history. `/fat/bin/linedemo` verifies history trimming,
+save, and load behavior.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -121,6 +126,7 @@ Third-party source is kept as pinned submodules under `ports/upstream`:
 - Lua `v5.4.8`
 - cJSON `v1.7.19`
 - inih `r62`
+- linenoise `2.0`
 
 ## Next Porting Milestones
 
