@@ -63,9 +63,12 @@
 #define SRV_OPEN_APPEND 0x10
 #define SRV_OPEN_NONBLOCK 0x20
 
+#define SRV_F_GETFD 1
+#define SRV_F_SETFD 2
 #define SRV_F_GETFL 3
 #define SRV_F_SETFL 4
 #define SRV_FD_NONBLOCK 0x01
+#define SRV_FD_CLOEXEC 0x02
 
 #define SRV_ERR_AGAIN -11
 

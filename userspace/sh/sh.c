@@ -374,7 +374,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
+    cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
@@ -1259,6 +1259,80 @@ static long exec_external_command(const char *path,
     return srv_exec(&request);
 }
 
+static uint64_t exec_replace_command(const char *args,
+    const struct command_redirection *redirection) {
+    char args_copy[ARG_EXPANDED_MAX];
+    char path[CLI_PATH_MAX];
+    char *words[18];
+    char *argv[18];
+    int argc;
+    int input_fd = -1;
+    int output_fd = -1;
+    int error_fd = -1;
+
+    cli_copy(args_copy, sizeof(args_copy), args);
+    argc = split_words(args_copy, words, sizeof(words) / sizeof(words[0]) - 1);
+    if (argc < 0) {
+        cli_puts("exec: too many arguments\n");
+        return 2;
+    }
+    if (argc == 0) {
+        cli_puts("usage: exec <command> [args]\n");
+        return 2;
+    }
+    if (!resolve_command(path, sizeof(path), words[0])) {
+        cli_puts("exec: command not found: ");
+        cli_puts(words[0]);
+        cli_puts("\n");
+        return 127;
+    }
+
+    argv[0] = path;
+    for (int i = 1; i < argc; i++) {
+        argv[i] = words[i];
+    }
+    argv[argc] = 0;
+
+    if (redirection->stdin_set) {
+        input_fd = open_redirection_input(redirection->stdin_path);
+        if (input_fd < 0) {
+            return 1;
+        }
+    }
+    if (redirection->stdout_set) {
+        output_fd = open_redirection_output(redirection->stdout_path, redirection->stdout_append, "output");
+        if (output_fd < 0) {
+            close_redirection_fds(input_fd, -1, -1);
+            return 1;
+        }
+    }
+    if (redirection->stderr_set) {
+        error_fd = open_redirection_output(redirection->stderr_path, redirection->stderr_append, "stderr");
+        if (error_fd < 0) {
+            close_redirection_fds(input_fd, output_fd, -1);
+            return 1;
+        }
+    } else if (redirection->stderr_to_stdout) {
+        error_fd = output_fd >= 0 ? output_fd : 1;
+    }
+
+    struct srv_exec_request request = {
+        .path = path,
+        .argv = argv,
+        .envp = environ,
+        .flags = SRV_EXEC_REPLACE,
+        .stdin_fd = input_fd,
+        .stdout_fd = output_fd,
+        .stderr_fd = error_fd,
+    };
+    if (srv_exec(&request) < 0) {
+        cli_puts("exec: failed\n");
+        close_redirection_fds(input_fd, output_fd, error_fd);
+        return 126;
+    }
+    return 126;
+}
+
 static uint64_t run_pipeline(char **segments, size_t segment_count, const char *cwd) {
     struct pipeline_command commands[PIPELINE_MAX_COMMANDS];
     int pipes[PIPELINE_MAX_COMMANDS - 1][2];
@@ -1426,6 +1500,13 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     }
     if (cli_streq(command, "exit")) {
         srv_exit(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status);
+    }
+    if (cli_streq(command, "exec")) {
+        if (background) {
+            cli_puts("exec: background unsupported\n");
+            return 2;
+        }
+        return exec_replace_command(args, &redirection);
     }
     if (cli_streq(command, "path")) {
         if (cli_starts_with(args, "add ")) {

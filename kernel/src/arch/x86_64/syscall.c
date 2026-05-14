@@ -447,7 +447,14 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
 
     flags = irq_save();
     if ((request.flags & SRV_EXEC_REPLACE) != 0) {
-        result = process_exec_replace(path, argc, argv, envc, envp);
+        result = process_exec_replace(path,
+            argc,
+            argv,
+            envc,
+            envp,
+            request.stdin_fd,
+            request.stdout_fd,
+            request.stderr_fd);
     } else {
         result = process_spawn_exec(path,
             argc,
@@ -717,6 +724,12 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
 }
 
 static int64_t syscall_fcntl(uint64_t fd, uint64_t command, uint64_t arg) {
+    if (command == SRV_F_GETFD) {
+        return process_file_get_fd_flags(process_current(), fd);
+    }
+    if (command == SRV_F_SETFD) {
+        return process_file_set_fd_flags(process_current(), fd, arg);
+    }
     if (command == SRV_F_GETFL) {
         return process_file_get_flags(process_current(), fd);
     }

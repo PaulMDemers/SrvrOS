@@ -243,6 +243,8 @@ kernel, and a minimal Unix-like userspace.
   smoke coverage.
 - Add shell stdin redirection, stderr `2>`/`2>>`, and a native argv/envp launch
   request with standard fd overrides.
+- Add shell `exec` plus `FD_CLOEXEC` descriptor flags and close-on-exec cleanup
+  for process replacement.
 
 ## Next milestones
 

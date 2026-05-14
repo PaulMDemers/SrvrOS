@@ -20,6 +20,7 @@ struct posix_socket {
     uint16_t port;
     int listener_fd;
     uint64_t fd_flags;
+    uint64_t descriptor_flags;
 };
 
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
@@ -49,6 +50,21 @@ int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
     if (socket == 0) {
         errno = EBADF;
         return -1;
+    }
+    if (command == SRV_F_GETFD) {
+        return (int)socket->descriptor_flags;
+    }
+    if (command == SRV_F_SETFD) {
+        socket->descriptor_flags = flags & SRV_FD_CLOEXEC;
+        if (socket->listener_fd < 0) {
+            return 0;
+        }
+        long result = srv_fcntl(socket->listener_fd, command, socket->descriptor_flags);
+        if (result < 0) {
+            errno = EBADF;
+            return -1;
+        }
+        return (int)result;
     }
     if (command == SRV_F_GETFL) {
         if (socket->listener_fd >= 0) {
@@ -147,6 +163,13 @@ int listen(int fd, int backlog) {
     }
     socket->listener_fd = (int)listener;
     if (socket->fd_flags != 0 && srv_fcntl(socket->listener_fd, SRV_F_SETFL, socket->fd_flags) < 0) {
+        (void)srv_close(socket->listener_fd);
+        socket->listener_fd = -1;
+        errno = EBADF;
+        return -1;
+    }
+    if (socket->descriptor_flags != 0 &&
+        srv_fcntl(socket->listener_fd, SRV_F_SETFD, socket->descriptor_flags) < 0) {
         (void)srv_close(socket->listener_fd);
         socket->listener_fd = -1;
         errno = EBADF;

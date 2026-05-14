@@ -51,16 +51,17 @@ editor clients:
   stderr redirection, pipeline output redirection, multi-stage pipelines,
   scripts, `$VAR`/`${VAR}`, `$?`/`$$` expansion, unquoted `*`/`?` globbing,
   `&&`/`||`, `test`/`[`, `service webd`, DHCP/status/DNS commands,
-  `env`/`export`/`which`, and basic Unix-like tools.
+  `env`/`export`/`which`, `exec`, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
-  `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `pread`/`pwrite`, time,
-  cwd, `getopt`, `uname`, environment variables, `waitpid`, `posix_spawn`,
-  `posix_spawnp`, process-replacing `execve`, IPv4 helpers, DNS-backed
-  `getaddrinfo`, and TCP server sockets.
+  `F_GETFD`/`F_SETFD` close-on-exec flags, `access`, `isatty`, `fsync`,
+  `truncate`/`ftruncate`, `pread`/`pwrite`, time, cwd, `getopt`, `uname`,
+  environment variables, `waitpid`, `posix_spawn`, `posix_spawnp`,
+  process-replacing `execve`, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP
+  server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
   5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua
@@ -73,7 +74,8 @@ editor clients:
   covered in the shell pipeline smoke path.
 - The native launch path accepts an argv vector, an envp vector, background
   flags, explicit stdin/stdout/stderr fd overrides, and true in-place process
-  image replacement for POSIX `execve`.
+  image replacement for POSIX `execve`; descriptor close-on-exec flags are
+  applied during replacement.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 

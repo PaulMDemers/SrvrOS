@@ -171,14 +171,16 @@ Core tools:
 The shell has PATH lookup for `/fat/bin` and `/`, scripts, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, unquoted `*`/`?` globbing, `&&`/`||`, `test`/`[`, `service webd`,
-DHCP/status/DNS builtins, `env`/`export`/`which`, and basic filesystem builtins.
+DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
+builtins.
 
 New launches use the native `SYS_EXEC` request path. It copies a path, argv
 vector, envp vector, background flag, optional standard fd overrides, and an
 in-place replacement flag from userspace. Spawn requests build a fresh child
 ring-3 stack; replacement requests first load the new image into a temporary
 kernel-owned process image, then swap the current process to the new address
-space and enter the new program with the same pid and open fds. The POSIX
+space and enter the new program with the same pid while closing any fds marked
+close-on-exec. The POSIX
 compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`, basic
 stdio fd remapping through spawn file actions, and process-replacing `execve`.
 
@@ -191,7 +193,8 @@ syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
 This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 `stat`/`fstat`, `dup`/`dup2` for standard streams, pipes, writable regular
 files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
-`O_NONBLOCK`/`fcntl` fd flags, `access`, `isatty`, `fsync`,
+`O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
+`FD_CLOEXEC`, `access`, `isatty`, `fsync`,
 `truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
 time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,

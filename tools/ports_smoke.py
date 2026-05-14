@@ -132,6 +132,7 @@ def main():
         "posixdemo: posix misc ok",
         "posixdemo: spawn ok",
         "posixdemo: execve ok",
+        "posixdemo: cloexec ok",
         "posixdemo: ok",
         "exfat-check:",
         "errors=0 ok",

@@ -40,6 +40,9 @@ server.
   TCP listener/connection fds, with pipe readiness and hangup smoke coverage.
 - Adds `fcntl(F_GETFL/F_SETFL)` and `O_NONBLOCK` support for the first fd set,
   including pipe, listener, and connection `EAGAIN` behavior.
+- Adds `fcntl(F_GETFD/F_SETFD)` and `FD_CLOEXEC` descriptor flags, including
+  close-on-exec cleanup during process replacement and socket pseudo-fd flag
+  propagation.
 - Adds real empty-file support, fd flush/truncate hooks, and POSIX-facing
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `chmod`/`fchmod`, and
   `umask` compatibility.
@@ -68,12 +71,15 @@ server.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
+- Adds a shell `exec` builtin that replaces the current shell process with a
+  resolved command while honoring the same redirection path.
 - Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, basic spawn file
   action fd remapping for standard streams, and true process-replacing
   `execve`.
 - Adds `/fat/bin/execdemo` as smoke coverage for in-place `execve`; it replaces
   itself with `/fat/bin/false`, and the parent observes the replacement image's
-  exit status.
+  exit status. The companion `/fat/bin/fdprobe` verifies inherited and
+  close-on-exec fd behavior.
 - Tightens empty-file handling so zero-byte exFAT files are registered,
   truncating a file through an fd creates a real zero-byte file, and later
   writes can grow that file by allocating fresh clusters.

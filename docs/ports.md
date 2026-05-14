@@ -24,6 +24,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   files, read-only regular files, and TCP listener/connection fds. Empty
   nonblocking pipes and listeners/connections without ready data return
   `EAGAIN`/`EWOULDBLOCK`.
+- `fcntl` descriptor flags with `F_GETFD`/`F_SETFD` and `FD_CLOEXEC` for
+  regular fds and POSIX socket pseudo-fds. Process replacement closes marked
+  descriptors while preserving explicit stdio redirection fds.
 - `access`, `isatty`, `fsync`, `truncate`, `ftruncate`, `chmod`, `fchmod`, and
   `umask`. Permission/mode APIs are compatibility shims until srvros grows
   Unix-like file metadata.
@@ -54,7 +57,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
   standard fd remapping
 - process-replacing `execve` backed by the native argv/envp launch request.
   The new image keeps the same pid and open fd table while replacing the old
-  userspace address space.
+  userspace address space, then applies close-on-exec descriptor cleanup.
 - Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `freopen`,
   `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
@@ -71,7 +74,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
 The `posixdemo` userspace app exercises the POSIX slice from inside srvros.
 It also spawns `/fat/bin/execdemo`, which immediately `execve`s
 `/fat/bin/false`; the parent observes exit status 1 to verify real process
-image replacement.
+image replacement. The same smoke path uses `/fat/bin/fdprobe` to verify both
+inherited descriptors and `FD_CLOEXEC` descriptor cleanup across exec.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build

@@ -169,6 +169,36 @@ int pipe(int fds[2]) {
 }
 
 int fcntl(int fd, int command, ...) {
+    if (command == F_GETFD) {
+        if (__posix_socket_is_pseudo(fd)) {
+            long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFD, 0);
+            if (socket_flags < 0) {
+                return -1;
+            }
+            return (socket_flags & SRV_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
+        }
+        long flags = srv_fcntl(fd, SRV_F_GETFD, 0);
+        if (flags < 0) {
+            errno = EBADF;
+            return -1;
+        }
+        return (flags & SRV_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
+    }
+    if (command == F_SETFD) {
+        va_list args;
+        va_start(args, command);
+        int flags = va_arg(args, int);
+        va_end(args);
+        uint64_t srv_flags = (flags & FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        if (__posix_socket_is_pseudo(fd)) {
+            return __posix_socket_fcntl(fd, SRV_F_SETFD, srv_flags);
+        }
+        if (srv_fcntl(fd, SRV_F_SETFD, srv_flags) < 0) {
+            errno = EBADF;
+            return -1;
+        }
+        return 0;
+    }
     if (command == F_GETFL) {
         if (__posix_socket_is_pseudo(fd)) {
             long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFL, 0);

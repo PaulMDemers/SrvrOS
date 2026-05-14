@@ -173,6 +173,10 @@ static bool process_configure_stdio_fds(struct process *child,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd);
+static bool process_apply_stdio_fds(struct process *process,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd);
 static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
@@ -657,6 +661,27 @@ static void cleanup_process_files(struct process *process) {
     }
 }
 
+static bool file_is_exec_stdio_redirect(struct process *process, uint64_t fd) {
+    return process != NULL &&
+        ((process->stdin_redirect && process->stdin_fd == (int64_t)fd) ||
+            (process->stdout_redirect && process->stdout_fd == (int64_t)fd) ||
+            (process->stderr_redirect && process->stderr_fd == (int64_t)fd));
+}
+
+static void close_cloexec_files(struct process *process) {
+    if (process == NULL) {
+        return;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        uint64_t fd = i + 3;
+        if (process->files[i].used &&
+            (process->files[i].flags & SRV_FD_CLOEXEC) != 0 &&
+            !file_is_exec_stdio_redirect(process, fd)) {
+            (void)process_file_close(process, fd);
+        }
+    }
+}
+
 static bool load_segment(const uint8_t *file, uint64_t file_size, const struct elf64_program_header *program) {
     if (program->memsz < program->filesz ||
         program->offset > file_size ||
@@ -1056,7 +1081,10 @@ int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
-    const char *const *envp) {
+    const char *const *envp,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd) {
     struct process *process = process_current();
     if (process == NULL || path == NULL || path[0] == '\0') {
         return -1;
@@ -1074,6 +1102,11 @@ int64_t process_exec_replace(const char *path,
         kfree(image);
         return -1;
     }
+    if (!process_apply_stdio_fds(process, stdin_fd, stdout_fd, stderr_fd)) {
+        cleanup_process_address_space(image);
+        kfree(image);
+        return -1;
+    }
 
     scheduler_clear_user_context();
     cleanup_process_address_space(process);
@@ -1081,6 +1114,8 @@ int64_t process_exec_replace(const char *path,
     set_process_name(process, path);
     fpu_init_state(&process->fpu);
     kfree(image);
+
+    close_cloexec_files(process);
 
     scheduler_set_user_context(process, process->address_space, process->kernel_stack_top);
     console_printf("exec: entering pid=%u %s entry=%x stack=%x\n",
@@ -1136,6 +1171,41 @@ bool process_start_background(const char *path) {
     }
 
     console_printf("bg: started pid=%u %s\n", process->pid, path);
+    return true;
+}
+
+static bool process_fd_available(struct process *process, int64_t fd) {
+    return fd < 3 || process_file_at(process, (uint64_t)fd) != NULL;
+}
+
+static bool process_apply_stdio_fds(struct process *process,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd) {
+    if (process == NULL) {
+        return false;
+    }
+    if (stdin_fd >= 0 && stdin_fd != 0) {
+        if (!process_fd_available(process, stdin_fd)) {
+            return false;
+        }
+        process->stdin_redirect = true;
+        process->stdin_fd = stdin_fd;
+    }
+    if (stdout_fd >= 0 && stdout_fd != 1) {
+        if (!process_fd_available(process, stdout_fd)) {
+            return false;
+        }
+        process->stdout_redirect = true;
+        process->stdout_fd = stdout_fd;
+    }
+    if (stderr_fd >= 0 && stderr_fd != 2) {
+        if (!process_fd_available(process, stderr_fd)) {
+            return false;
+        }
+        process->stderr_redirect = true;
+        process->stderr_fd = stderr_fd;
+    }
     return true;
 }
 
@@ -2361,7 +2431,24 @@ int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t fl
     if (file == NULL) {
         return -1;
     }
-    file->flags = flags & SRV_FD_NONBLOCK;
+    file->flags = (file->flags & SRV_FD_CLOEXEC) | (flags & SRV_FD_NONBLOCK);
+    return 0;
+}
+
+int64_t process_file_get_fd_flags(struct process *process, uint64_t fd) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return fd < 3 ? 0 : -1;
+    }
+    return (file->flags & SRV_FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+}
+
+int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t flags) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return fd < 3 ? 0 : -1;
+    }
+    file->flags = (file->flags & ~SRV_FD_CLOEXEC) | (flags & SRV_FD_CLOEXEC);
     return 0;
 }
 

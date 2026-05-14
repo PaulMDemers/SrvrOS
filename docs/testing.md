@@ -60,12 +60,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo` and
   `/fat/bin/posixdemo`, zlib compress/decompress verification, libc/POSIX file
   checks including `fstat`, `dup`, writable-fd dup ownership, `pipe`,
-  nonblocking `fcntl`/`O_NONBLOCK`, `access`, `isatty`, `fsync`,
-  `truncate`/`ftruncate`, `poll`/`select` readiness and hangup behavior,
+  nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
+  `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
+  readiness and hangup behavior,
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
-  environment variables, `pread`/`pwrite`, `uname`, `getopt`, exFAT binary file
-  write/read/unlink, and
+  environment variables, `pread`/`pwrite`, `uname`, `getopt`,
+  process-replacing `execve`, inherited fd and close-on-exec checks, exFAT
+  binary file write/read/unlink, and
   post-run `fsck`.
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua

@@ -59,7 +59,10 @@ int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
     uint64_t envc,
-    const char *const *envp);
+    const char *const *envp,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd);
 int64_t process_spawn_background_elf(const char *path);
 int64_t process_spawn_background_elf_args(const char *path, const char *args);
 int64_t process_spawn_background_elf_args_fds(const char *path,
@@ -109,6 +112,8 @@ int64_t process_file_dup(struct process *process, uint64_t old_fd);
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd);
 int64_t process_file_get_flags(struct process *process, uint64_t fd);
 int64_t process_file_set_flags(struct process *process, uint64_t fd, uint64_t flags);
+int64_t process_file_get_fd_flags(struct process *process, uint64_t fd);
+int64_t process_file_set_fd_flags(struct process *process, uint64_t fd, uint64_t flags);
 int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length);
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);

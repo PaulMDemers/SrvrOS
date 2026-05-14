@@ -471,6 +471,22 @@ int main(void) {
     }
     say("posixdemo: execve ok\n");
 
+    char *inherit_argv[] = {"/fat/bin/execdemo", "inherit", 0};
+    if (posix_spawn(&child, "/fat/bin/execdemo", 0, 0, inherit_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: exec fd inherit failed\n");
+        return 45;
+    }
+    char *cloexec_argv[] = {"/fat/bin/execdemo", "cloexec", 0};
+    if (posix_spawn(&child, "/fat/bin/execdemo", 0, 0, cloexec_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: cloexec failed\n");
+        return 46;
+    }
+    say("posixdemo: cloexec ok\n");
+
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
         say("posixdemo: ticks-sec=");
         say_u64((uint64_t)ts.tv_sec);
