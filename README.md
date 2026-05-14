@@ -49,9 +49,10 @@ editor clients:
   and a bounded active-client table.
 - Shell with PATH lookup, builtins, foreground/background jobs, redirection,
   pipeline output redirection, multi-stage pipelines, scripts, `service webd`,
-  DHCP/status/DNS commands, and basic Unix-like tools.
+  DHCP/status/DNS commands, `env`/`export`/`which`, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
-  framebuffer drawing, mouse polling, BMP helpers, and a small widget toolkit.
+  framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
+  object for static ELF apps, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `pread`/`pwrite`, time,
@@ -61,7 +62,8 @@ editor clients:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
   5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua
   `require`. The support library also exports the first newlib-style syscall
-  hooks, `float.h`, and a small built-in `math.h`/`printf` floating surface.
+  hooks, `float.h`, and small built-in `math.h`, `printf`, and `scanf`
+  surfaces.
 - `/fat/bin/fpdemo` stress-tests userspace double math across foreground and
   background preemption.
 - `/fat/bin/tap` splits an input stream to stdout and a secondary file, and is

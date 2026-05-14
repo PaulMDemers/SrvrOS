@@ -368,6 +368,332 @@ int snprintf(char *buffer, size_t size, const char *format, ...) {
     return result;
 }
 
+static int scan_space(int c) {
+    return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v';
+}
+
+static int scan_digit_for_base(int c, int base) {
+    int value = -1;
+    if (c >= '0' && c <= '9') {
+        value = c - '0';
+    } else if (c >= 'a' && c <= 'z') {
+        value = c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'Z') {
+        value = c - 'A' + 10;
+    }
+    return value >= 0 && value < base;
+}
+
+static int scan_number_length(const char *text, int width, int base, int allow_sign) {
+    int i = 0;
+    if (width == 0) {
+        width = 160;
+    }
+    if (allow_sign && i < width && (text[i] == '-' || text[i] == '+')) {
+        i++;
+    }
+    if ((base == 0 || base == 16) && i + 1 < width && text[i] == '0' &&
+        (text[i + 1] == 'x' || text[i + 1] == 'X')) {
+        i += 2;
+        base = 16;
+    } else if (base == 0 && i < width && text[i] == '0') {
+        base = 8;
+    } else if (base == 0) {
+        base = 10;
+    }
+    int digits = 0;
+    while (i < width && scan_digit_for_base(text[i], base)) {
+        i++;
+        digits++;
+    }
+    return digits > 0 ? i : 0;
+}
+
+static int scan_float_length(const char *text, int width) {
+    int i = 0;
+    int digits = 0;
+    if (width == 0) {
+        width = 160;
+    }
+    if (i < width && (text[i] == '-' || text[i] == '+')) {
+        i++;
+    }
+    while (i < width && text[i] >= '0' && text[i] <= '9') {
+        i++;
+        digits++;
+    }
+    if (i < width && text[i] == '.') {
+        i++;
+        while (i < width && text[i] >= '0' && text[i] <= '9') {
+            i++;
+            digits++;
+        }
+    }
+    if (digits == 0) {
+        return 0;
+    }
+    if (i < width && (text[i] == 'e' || text[i] == 'E')) {
+        int exponent = i++;
+        if (i < width && (text[i] == '-' || text[i] == '+')) {
+            i++;
+        }
+        int exponent_digits = 0;
+        while (i < width && text[i] >= '0' && text[i] <= '9') {
+            i++;
+            exponent_digits++;
+        }
+        if (exponent_digits == 0) {
+            i = exponent;
+        }
+    }
+    return i;
+}
+
+static void scan_copy_token(char *destination, size_t capacity, const char *source, int length) {
+    if (capacity == 0) {
+        return;
+    }
+    size_t count = (size_t)length;
+    if (count >= capacity) {
+        count = capacity - 1;
+    }
+    memcpy(destination, source, count);
+    destination[count] = '\0';
+}
+
+int vsscanf(const char *text, const char *format, va_list args) {
+    int assigned = 0;
+    int consumed = 0;
+    if (text == 0 || format == 0) {
+        return EOF;
+    }
+    while (*format != '\0') {
+        if (scan_space(*format)) {
+            while (scan_space(*format)) {
+                format++;
+            }
+            while (scan_space(*text)) {
+                text++;
+                consumed++;
+            }
+            continue;
+        }
+        if (*format != '%') {
+            if (*text != *format) {
+                return assigned;
+            }
+            text++;
+            format++;
+            consumed++;
+            continue;
+        }
+
+        format++;
+        if (*format == '%') {
+            if (*text != '%') {
+                return assigned;
+            }
+            text++;
+            format++;
+            consumed++;
+            continue;
+        }
+
+        int suppress = 0;
+        if (*format == '*') {
+            suppress = 1;
+            format++;
+        }
+        int width = 0;
+        while (*format >= '0' && *format <= '9') {
+            width = width * 10 + (*format - '0');
+            format++;
+        }
+        int long_count = 0;
+        if (*format == 'l') {
+            long_count++;
+            format++;
+            if (*format == 'l') {
+                long_count++;
+                format++;
+            }
+        }
+
+        char spec = *format++;
+        if (spec != 'c' && spec != '[' && spec != 'n') {
+            while (scan_space(*text)) {
+                text++;
+                consumed++;
+            }
+        }
+
+        if (spec == 'n') {
+            if (!suppress) {
+                if (long_count >= 2) {
+                    *va_arg(args, long long *) = consumed;
+                } else if (long_count == 1) {
+                    *va_arg(args, long *) = consumed;
+                } else {
+                    *va_arg(args, int *) = consumed;
+                }
+            }
+            continue;
+        }
+
+        if (spec == 'c') {
+            int count = width != 0 ? width : 1;
+            for (int i = 0; i < count; i++) {
+                if (text[i] == '\0') {
+                    return assigned;
+                }
+            }
+            if (!suppress) {
+                char *out = va_arg(args, char *);
+                memcpy(out, text, (size_t)count);
+                assigned++;
+            }
+            text += count;
+            consumed += count;
+            continue;
+        }
+
+        if (spec == 's') {
+            int length = 0;
+            int limit = width != 0 ? width : 160;
+            while (length < limit && text[length] != '\0' && !scan_space(text[length])) {
+                length++;
+            }
+            if (length == 0) {
+                return assigned;
+            }
+            if (!suppress) {
+                char *out = va_arg(args, char *);
+                scan_copy_token(out, (size_t)length + 1, text, length);
+                assigned++;
+            }
+            text += length;
+            consumed += length;
+            continue;
+        }
+
+        if (spec == 'd' || spec == 'i' || spec == 'u' || spec == 'x' || spec == 'X' ||
+            spec == 'o') {
+            int base = 10;
+            if (spec == 'i') {
+                base = 0;
+            } else if (spec == 'x' || spec == 'X') {
+                base = 16;
+            } else if (spec == 'o') {
+                base = 8;
+            }
+            int length = scan_number_length(text, width, base, spec != 'u');
+            if (length == 0) {
+                return assigned;
+            }
+            char token[192];
+            scan_copy_token(token, sizeof(token), text, length);
+            if (!suppress) {
+                if (spec == 'u' || spec == 'x' || spec == 'X' || spec == 'o') {
+                    unsigned long long value = strtoull(token, 0, base);
+                    if (long_count >= 2) {
+                        *va_arg(args, unsigned long long *) = value;
+                    } else if (long_count == 1) {
+                        *va_arg(args, unsigned long *) = (unsigned long)value;
+                    } else {
+                        *va_arg(args, unsigned int *) = (unsigned int)value;
+                    }
+                } else {
+                    long long value = strtoll(token, 0, base);
+                    if (long_count >= 2) {
+                        *va_arg(args, long long *) = value;
+                    } else if (long_count == 1) {
+                        *va_arg(args, long *) = (long)value;
+                    } else {
+                        *va_arg(args, int *) = (int)value;
+                    }
+                }
+                assigned++;
+            }
+            text += length;
+            consumed += length;
+            continue;
+        }
+
+        if (spec == 'f' || spec == 'g' || spec == 'G' || spec == 'e' || spec == 'E') {
+            int length = scan_float_length(text, width);
+            if (length == 0) {
+                return assigned;
+            }
+            char token[192];
+            scan_copy_token(token, sizeof(token), text, length);
+            if (!suppress) {
+                double value = strtod(token, 0);
+                if (long_count == 1) {
+                    *va_arg(args, double *) = value;
+                } else {
+                    *va_arg(args, float *) = (float)value;
+                }
+                assigned++;
+            }
+            text += length;
+            consumed += length;
+            continue;
+        }
+
+        return assigned;
+    }
+    return assigned;
+}
+
+int sscanf(const char *text, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vsscanf(text, format, args);
+    va_end(args);
+    return result;
+}
+
+int vfscanf(FILE *stream, const char *format, va_list args) {
+    char buffer[512];
+    size_t used = 0;
+    int c;
+    if (stream == 0) {
+        errno = EBADF;
+        return EOF;
+    }
+    while (used + 1 < sizeof(buffer) && (c = fgetc(stream)) != EOF) {
+        buffer[used++] = (char)c;
+        if (c == '\n') {
+            break;
+        }
+    }
+    buffer[used] = '\0';
+    if (used == 0 && ferror(stream)) {
+        return EOF;
+    }
+    return vsscanf(buffer, format, args);
+}
+
+int fscanf(FILE *stream, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vfscanf(stream, format, args);
+    va_end(args);
+    return result;
+}
+
+int vscanf(const char *format, va_list args) {
+    return vfscanf(stdin, format, args);
+}
+
+int scanf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vfscanf(stdin, format, args);
+    va_end(args);
+    return result;
+}
+
 int fputs(const char *text, FILE *stream) {
     size_t length = strlen(text);
     return fwrite(text, 1, length, stream) == length ? 0 : EOF;

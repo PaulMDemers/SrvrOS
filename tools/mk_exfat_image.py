@@ -13,6 +13,13 @@ FAT_OFFSET = 24
 FAT_LENGTH = 128
 CLUSTER_HEAP_OFFSET = FAT_OFFSET + FAT_LENGTH
 CLUSTER_COUNT = (TOTAL_SECTORS - CLUSTER_HEAP_OFFSET) // SECTORS_PER_CLUSTER
+ROOT_DIRECTORY_CLUSTER = 4
+ROOT_DIRECTORY_CLUSTERS = 4
+BIN_DIRECTORY_CLUSTERS = 4
+SMALL_DIRECTORY_CLUSTERS = 1
+ROOT_DIRECTORY_SIZE = CLUSTER_SIZE * ROOT_DIRECTORY_CLUSTERS
+BIN_DIRECTORY_SIZE = CLUSTER_SIZE * BIN_DIRECTORY_CLUSTERS
+SMALL_DIRECTORY_SIZE = CLUSTER_SIZE * SMALL_DIRECTORY_CLUSTERS
 
 
 def put_utf16_name(entry, text):
@@ -55,6 +62,18 @@ def cluster_offset(cluster):
     return (CLUSTER_HEAP_OFFSET * SECTOR_SIZE) + (cluster - 2) * CLUSTER_SIZE
 
 
+def append_directory_entry(directory, offset, entry_set, label):
+    remaining_in_cluster = CLUSTER_SIZE - (offset % CLUSTER_SIZE)
+    if len(entry_set) > remaining_in_cluster:
+        while offset % CLUSTER_SIZE != 0:
+            directory[offset] = 0x01
+            offset += 32
+    if offset + len(entry_set) > len(directory):
+        raise ValueError(f"{label} directory is too small for generated entries")
+    directory[offset:offset + len(entry_set)] = entry_set
+    return offset + len(entry_set)
+
+
 def main():
     if len(sys.argv) < 2:
         print("usage: mk_exfat_image.py output.img [name=app.elf ...]", file=sys.stderr)
@@ -71,7 +90,7 @@ def main():
     struct.pack_into("<I", boot, 84, FAT_LENGTH)
     struct.pack_into("<I", boot, 88, CLUSTER_HEAP_OFFSET)
     struct.pack_into("<I", boot, 92, CLUSTER_COUNT)
-    struct.pack_into("<I", boot, 96, 4)
+    struct.pack_into("<I", boot, 96, ROOT_DIRECTORY_CLUSTER)
     struct.pack_into("<I", boot, 100, 0x53525652)
     struct.pack_into("<H", boot, 104, 0x0100)
     boot[108] = 9
@@ -101,8 +120,9 @@ def main():
         with open(path, "rb") as app:
             app_data[name] = app.read()
 
-    allocated_clusters = {2, 3, 4}
-    next_cluster = 5
+    allocated_clusters = set([2, 3])
+    allocated_clusters.update(range(ROOT_DIRECTORY_CLUSTER, ROOT_DIRECTORY_CLUSTER + ROOT_DIRECTORY_CLUSTERS))
+    next_cluster = ROOT_DIRECTORY_CLUSTER + ROOT_DIRECTORY_CLUSTERS
 
     def allocate_clusters(data_length):
         nonlocal next_cluster
@@ -156,10 +176,10 @@ def main():
     for name, data in static_files:
         files.append((name, allocate_clusters(len(data)), data))
 
-    bin_dir_cluster = allocate_clusters(CLUSTER_SIZE)
-    etc_dir_cluster = allocate_clusters(CLUSTER_SIZE)
-    www_dir_cluster = allocate_clusters(CLUSTER_SIZE)
-    www_assets_dir_cluster = allocate_clusters(CLUSTER_SIZE)
+    bin_dir_cluster = allocate_clusters(BIN_DIRECTORY_SIZE)
+    etc_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    www_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    www_assets_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     etc_entries_data = []
     for name, data in etc_files:
         etc_entries_data.append((name, allocate_clusters(len(data)), data))
@@ -183,6 +203,8 @@ def main():
     struct.pack_into("<I", image, fat_base + 1 * 4, 0xFFFFFFFF)
     for cluster in allocated_clusters:
         struct.pack_into("<I", image, fat_base + cluster * 4, 0xFFFFFFFF)
+    for cluster in range(ROOT_DIRECTORY_CLUSTER, ROOT_DIRECTORY_CLUSTER + ROOT_DIRECTORY_CLUSTERS - 1):
+        struct.pack_into("<I", image, fat_base + cluster * 4, cluster + 1)
 
     bitmap = bytearray(CLUSTER_SIZE)
     for cluster in allocated_clusters:
@@ -197,7 +219,7 @@ def main():
         if app_data[name]:
             files.append(("bin-" + name, app_clusters[name], app_data[name]))
 
-    root = bytearray(CLUSTER_SIZE)
+    root = bytearray(ROOT_DIRECTORY_SIZE)
     offset = 0
     root[offset] = 0x81
     struct.pack_into("<I", root, offset + 20, 2)
@@ -209,24 +231,32 @@ def main():
     struct.pack_into("<Q", root, offset + 24, CLUSTER_SIZE)
     offset += 32
 
-    bin_entries = bytearray(CLUSTER_SIZE)
+    bin_entries = bytearray(BIN_DIRECTORY_SIZE)
     bin_offset = 0
-    etc_entries = bytearray(CLUSTER_SIZE)
+    etc_entries = bytearray(SMALL_DIRECTORY_SIZE)
     etc_offset = 0
-    root[offset:offset + len(file_entry("bin", bin_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))] = \
-        file_entry("bin", bin_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE)
-    offset += len(file_entry("bin", bin_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))
-    root[offset:offset + len(file_entry("etc", etc_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))] = \
-        file_entry("etc", etc_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE)
-    offset += len(file_entry("etc", etc_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))
-    root[offset:offset + len(file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))] = \
-        file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE)
-    offset += len(file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE))
+    offset = append_directory_entry(
+        root,
+        offset,
+        file_entry("bin", bin_dir_cluster, b"", attributes=0x10, data_length=BIN_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
+        file_entry("etc", etc_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
+        file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
 
     for name, cluster, data in files:
         entry_set = file_entry(name, cluster, data)
-        root[offset:offset + len(entry_set)] = entry_set
-        offset += len(entry_set)
+        offset = append_directory_entry(root, offset, entry_set, "root")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
@@ -238,51 +268,46 @@ def main():
             nested_name = name[4:]
         if nested_name is not None:
             nested_entry_set = file_entry(nested_name, cluster, data)
-            bin_entries[bin_offset:bin_offset + len(nested_entry_set)] = nested_entry_set
-            bin_offset += len(nested_entry_set)
+            bin_offset = append_directory_entry(bin_entries, bin_offset, nested_entry_set, "bin")
 
     for name, cluster, data in etc_entries_data:
         entry_set = file_entry(name, cluster, data)
-        etc_entries[etc_offset:etc_offset + len(entry_set)] = entry_set
-        etc_offset += len(entry_set)
+        etc_offset = append_directory_entry(etc_entries, etc_offset, entry_set, "etc")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
-    www_entries = bytearray(CLUSTER_SIZE)
+    www_entries = bytearray(SMALL_DIRECTORY_SIZE)
     www_offset = 0
-    assets_entry_set = file_entry("assets", www_assets_dir_cluster, b"", attributes=0x10, data_length=CLUSTER_SIZE)
-    www_entries[www_offset:www_offset + len(assets_entry_set)] = assets_entry_set
-    www_offset += len(assets_entry_set)
+    assets_entry_set = file_entry("assets", www_assets_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    www_offset = append_directory_entry(www_entries, www_offset, assets_entry_set, "www")
     for name, cluster, data in www_entries_data:
         entry_set = file_entry(name, cluster, data)
-        www_entries[www_offset:www_offset + len(entry_set)] = entry_set
-        www_offset += len(entry_set)
+        www_offset = append_directory_entry(www_entries, www_offset, entry_set, "www")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
-    www_assets_entries = bytearray(CLUSTER_SIZE)
+    www_assets_entries = bytearray(SMALL_DIRECTORY_SIZE)
     www_assets_offset = 0
     for name, cluster, data in www_assets_entries_data:
         entry_set = file_entry(name, cluster, data)
-        www_assets_entries[www_assets_offset:www_assets_offset + len(entry_set)] = entry_set
-        www_assets_offset += len(entry_set)
+        www_assets_offset = append_directory_entry(www_assets_entries, www_assets_offset, entry_set, "www/assets")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
-    image[cluster_offset(4):cluster_offset(4) + CLUSTER_SIZE] = root
-    image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + CLUSTER_SIZE] = bin_entries
-    image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + CLUSTER_SIZE] = etc_entries
-    image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + CLUSTER_SIZE] = www_entries
-    image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + CLUSTER_SIZE] = www_assets_entries
+    image[cluster_offset(ROOT_DIRECTORY_CLUSTER):cluster_offset(ROOT_DIRECTORY_CLUSTER) + ROOT_DIRECTORY_SIZE] = root
+    image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + BIN_DIRECTORY_SIZE] = bin_entries
+    image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + SMALL_DIRECTORY_SIZE] = etc_entries
+    image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_entries
+    image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_assets_entries
 
     with open(sys.argv[1], "wb") as output:
         output.write(image)

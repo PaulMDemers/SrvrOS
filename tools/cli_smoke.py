@@ -77,6 +77,15 @@ def main():
     script = (
         "echo shell-ok\n"
         "ls /fat/bin\n"
+        "which sh true false\n"
+        "export TESTVAR=cli-ok\n"
+        "env\n"
+        "export PATH=/fat/bin:/\n"
+        "which true\n"
+        "/fat/bin/env FOO=bar\n"
+        "/fat/bin/pwd\n"
+        "true\n"
+        "false\n"
         "cat /fat/status.txt\n"
         "wc /fat/status.txt\n"
         "stat /fat/status.txt\n"
@@ -188,6 +197,12 @@ def main():
         "srvsh: interactive shell",
         "shell-ok",
         "sh",
+        "/fat/bin/true",
+        "/fat/bin/false",
+        "TESTVAR=cli-ok",
+        "PATH=/fat/bin:/",
+        "FOO=bar",
+        "status 1",
         "status.txt",
         "srvros webd: static file serving from exFAT is online.",
         "/fat/status.txt: 55 bytes",

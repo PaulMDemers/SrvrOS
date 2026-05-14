@@ -334,6 +334,10 @@ int main(void) {
     int needle = 3;
     char *end = 0;
     double parsed = strtod("12.5e1x", &end);
+    int scan_a = 0;
+    unsigned scan_hex = 0;
+    char scan_word[16];
+    double scan_double = 0.0;
     qsort(values, 5, sizeof(values[0]), compare_ints);
     if (values[0] != 1 || values[4] != 5 ||
         bsearch(&needle, values, 5, sizeof(values[0]), compare_ints) == 0 ||
@@ -361,7 +365,12 @@ int main(void) {
 
     char float_text[32];
     snprintf(float_text, sizeof(float_text), "%.3f %.14g", 1.25, 3.0 / 2.0);
-    if (strcmp(float_text, "1.250 1.5") != 0 ||
+    if (sscanf("scan -12 2a word 4.5", "scan %d %x %15s %lf",
+            &scan_a, &scan_hex, scan_word, &scan_double) != 4 ||
+        scan_a != -12 || scan_hex != 42 ||
+        strcmp(scan_word, "word") != 0 ||
+        fabs(scan_double - 4.5) > 0.000001 ||
+        strcmp(float_text, "1.250 1.5") != 0 ||
         floor(3.7) != 3.0 ||
         ceil(-3.7) != -3.0 ||
         fabs(sqrt(81.0) - 9.0) > 0.000001 ||

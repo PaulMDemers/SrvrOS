@@ -107,17 +107,13 @@ Third-party source is kept as pinned submodules under `ports/upstream`:
 
 ## Next Porting Milestones
 
-1. Expand `stdio` toward command-line port expectations: width/precision
-   formatting, `sscanf`/`fscanf` basics, and better EOF/error state.
-2. Move the repeated per-app `_start` assembly into a shared crt startup object
-   so every app is built as a single static ELF64 executable from common rules.
-3. Add Unix-like file metadata around the current exFAT backend: stable inode
+1. Expand `stdio` toward command-line port expectations: broader
+   width/precision formatting, scansets, and better EOF/error state.
+2. Add Unix-like file metadata around the current exFAT backend: stable inode
    ids, mode bits, uid/gid placeholders, timestamps, and permission-aware
    `access`.
-4. Add `mmap`-style mappings for larger interpreters and libraries.
-5. Switch Lua from the integer-number profile toward normal floating numbers
-   after adding the remaining math-library support.
-6. Move `poll`/`select` timeout waits onto a shared scheduler wait queue and
+3. Add `mmap`-style mappings for larger interpreters and libraries.
+4. Move `poll`/`select` timeout waits onto a shared scheduler wait queue and
    expand `webd` toward fuller concurrent connection handling.
-7. Add client TCP `connect`, then a tiny HTTP client.
-8. Move toward libuv after sockets, timers, and fd readiness are boring.
+5. Add client TCP `connect`, then a tiny HTTP client.
+6. Move toward libuv after sockets, timers, and fd readiness are boring.

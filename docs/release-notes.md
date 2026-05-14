@@ -55,6 +55,14 @@ server.
 - Adds an initial userspace `math.h`/`float.h`, floating `%f`/`%g` formatting,
   and switches `/fat/bin/lua` to its normal floating profile with the stock
   `math` library enabled.
+- Links all userspace programs through a shared `crt0.S` startup object, removing
+  per-app copied `_start` assembly while keeping static ELF apps self-contained.
+- Adds basic `scanf`/`sscanf`/`fscanf` support for integer, string, character,
+  and floating conversions.
+- Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
+  tools for `which`, `env`, `pwd`, `true`, and `false`.
+- Expands the generated exFAT image builder to reserve multi-cluster root and
+  `/fat/bin` directory tables with explicit overflow checks.
 - Moves `/fat/bin/webd` onto the readiness API so a partial client no longer
   blocks another HTTP request from completing.
 - Extends the generated `/fat/www` sample site with a nested CSS asset and

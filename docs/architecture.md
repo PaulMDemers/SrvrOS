@@ -97,6 +97,10 @@ exFAT is the primary filesystem. It supports:
 - Allocation bitmap and FAT-chain awareness.
 - A consistency checker exposed as `fsck /fat`.
 
+The generated test image reserves multi-cluster directory tables for the root
+directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
+adding more bundled programs does not silently corrupt directory entries.
+
 Current filesystem caveats:
 
 - Directory rename is intentionally limited to empty directories.
@@ -152,18 +156,22 @@ Current networking caveats:
 ## Userspace
 
 Each userspace program is a static freestanding ELF linked with the small srvros
-support library. There is no libc dependency.
+support library and shared `userspace/lib/crt0.S` startup object. There is no
+external libc dependency, and adding a normal app no longer needs a copied
+per-directory `start.S`.
 
 Core tools:
 
 - `sh`, `ls`, `cat`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
 - `grep`, `head`, `stat`, `cp`, `rm`, `mkdir`, `mv`.
+- `which`, `env`, `pwd`, `true`, `false`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, scripts, redirection,
 multi-stage pipelines, foreground/background jobs, `service webd`,
-DHCP/status/DNS builtins, and basic filesystem builtins.
+DHCP/status/DNS builtins, `env`/`export`/`which`, and basic filesystem
+builtins.
 
 ## POSIX Compatibility
 
@@ -177,7 +185,7 @@ files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` fd flags, `access`, `isatty`, `fsync`,
 `truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
-time functions, `getpid`, IPv4 formatting and parsing, DNS-backed
+time functions, `scanf`/`sscanf` basics, `getpid`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared writable-fd ownership,
@@ -185,10 +193,10 @@ fd readiness checks, nonblocking read/accept/write returns, child stdio fd
 overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw timer
 ticks, and sleep-by-ticks syscalls.
 
-The native executable format remains static ELF64. The next build-system
-cleanup is to move repeated app `_start` assembly into a shared crt startup
-object, keeping each program as a single self-contained executable while
-leaving room for a userspace `.srvapp` bundle format later.
+The native executable format remains static ELF64. Common Makefile rules link
+each program with the shared crt startup object, keeping each app as a single
+self-contained executable while leaving room for a userspace `.srvapp` bundle
+format later.
 
 The support library also exports a first newlib-facing syscall layer (`_open`,
 `_read`, `_write`, `_lseek`, `_fstat`, `_sbrk`, and friends). Existing srvros

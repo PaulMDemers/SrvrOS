@@ -4,7 +4,7 @@ srvros currently runs statically linked ELF64 executables. The kernel loader
 maps `PT_LOAD` segments, creates a user stack, jumps to the ELF entry point, and
 passes a compact argc/argv block for programs launched with arguments.
 
-## Near-Term Direction
+## Current Direction
 
 Keep ELF64 as the native executable container. It already gives us:
 
@@ -15,14 +15,15 @@ Keep ELF64 as the native executable container. It already gives us:
 - a direct path to existing C toolchains.
 
 The cleanup target is not a new binary format yet; it is a proper userspace
-runtime startup object:
+runtime startup object. srvros now links all userspace programs through
+`userspace/lib/crt0.S`:
 
-- Move the repeated per-app `start.S` code into `userspace/lib/crt0.S`.
-- Link every app against `crt0.o` automatically from the common Makefile rules.
-- Keep application directories to C/source assets only unless they need custom
+- The repeated per-app `start.S` files have been removed.
+- Every app links against `crt0.o` automatically from the common Makefile rules.
+- Application directories can stay as C/source assets unless they need custom
   assembly for their own behavior.
-- Provide a normal `_start` that calls `main(argc, argv, environ)` and exits via
-  the srvros syscall ABI.
+- The common `_start` calls `main(argc, argv)` using the argc/argv registers
+  populated by the kernel loader, then exits via the srvros syscall ABI.
 
 That gives us the single static executable behavior we want while keeping the
 format boring and inspectable.

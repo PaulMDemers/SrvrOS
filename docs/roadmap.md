@@ -231,6 +231,12 @@ kernel, and a minimal Unix-like userspace.
 - Move `/fat/bin/lua` to Lua's stock double-number profile, open the Lua math
   library, and add initial `math.h`/`float.h` plus floating `printf` support in
   the userspace C library.
+- Add a shared userspace crt startup object and link all static ELF apps through
+  common Makefile rules, removing the repeated per-app `start.S` files.
+- Add basic `scanf`/`sscanf`/`fscanf` support for integer, string, character,
+  and floating conversions.
+- Add small CLI compatibility tools and shell builtins for `which`, `env`,
+  `export`, `pwd`, `true`, and `false`.
 
 ## Next milestones
 
@@ -249,8 +255,7 @@ kernel, and a minimal Unix-like userspace.
 6. Continue the libc/newlib track: add shared open-file descriptions for
    read-only regular-file `dup`/`dup2`, a unified fd wait queue for
    `poll`/`select`, background pipelines, Unix-like file metadata,
-   `execve`/`posix_spawn`, fuller `stdio`, scan/format helpers, and shared crt
-   build rules for single-file static ELF apps.
+   `execve`/`posix_spawn`, fuller `stdio`, and scan/format helpers.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:
@@ -260,5 +265,5 @@ kernel, and a minimal Unix-like userspace.
    better process termination on bad pointers.
 10. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-11. Expand floating-point runtime coverage, then switch Lua toward its normal
-    floating-number profile.
+11. Expand floating-point runtime coverage and tighten the first software
+    `math.h` implementation toward production libm behavior.

@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/conio.h>
 #include <srvros/sys.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define LINE_MAX 256
 #define PATH_MAX_ENTRIES 8
@@ -73,8 +75,8 @@ static int resolve_command(char *out, size_t capacity, const char *command) {
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit source . path cd pwd clear echo jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
+    cli_puts("builtins: help exit source . path cd pwd clear echo env export which jobs wait service dhcp net dns rmdir\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ; between commands, append & for background\n");
     cli_puts("redirection: command > file, command >> file; pipeline: command | command [...]\n");
 }
@@ -342,6 +344,93 @@ static void add_path(const char *directory) {
     cli_copy(path_entries[path_count++], CLI_PATH_MAX, directory);
 }
 
+static void clear_path(void) {
+    path_count = 0;
+}
+
+static void set_path_list(const char *value) {
+    char work[LINE_MAX];
+    char *entry = work;
+    clear_path();
+    cli_copy(work, sizeof(work), value);
+    for (char *cursor = work; ; cursor++) {
+        if (*cursor == ':' || *cursor == '\0') {
+            char done = *cursor;
+            *cursor = '\0';
+            entry = cli_trim(entry);
+            if (entry[0] != '\0' && path_count < PATH_MAX_ENTRIES) {
+                cli_copy(path_entries[path_count++], CLI_PATH_MAX, entry);
+            }
+            if (done == '\0') {
+                break;
+            }
+            entry = cursor + 1;
+        }
+    }
+    if (path_count == 0) {
+        cli_copy(path_entries[path_count++], CLI_PATH_MAX, "/fat/bin");
+    }
+}
+
+static void print_env(void) {
+    for (size_t i = 0; environ[i] != 0; i++) {
+        cli_puts(environ[i]);
+        cli_puts("\n");
+    }
+}
+
+static void export_command(const char *args) {
+    char work[LINE_MAX];
+    char *name;
+    char *equals;
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    if (name[0] == '\0') {
+        print_env();
+        return;
+    }
+    equals = strchr(name, '=');
+    if (equals == 0 || equals == name) {
+        cli_puts("usage: export NAME=value\n");
+        return;
+    }
+    *equals++ = '\0';
+    if (setenv(name, equals, 1) < 0) {
+        cli_puts("export: failed\n");
+        return;
+    }
+    if (cli_streq(name, "PATH")) {
+        set_path_list(equals);
+    }
+}
+
+static void which_command(const char *args) {
+    char work[LINE_MAX];
+    char *name;
+    int found = 0;
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    while (*name != '\0') {
+        char *next = name;
+        char path[CLI_PATH_MAX];
+        while (*next != '\0' && *next != ' ' && *next != '\t') {
+            next++;
+        }
+        if (*next != '\0') {
+            *next++ = '\0';
+        }
+        if (resolve_command(path, sizeof(path), name)) {
+            cli_puts(path);
+            cli_puts("\n");
+            found = 1;
+        }
+        name = cli_trim(next);
+    }
+    if (!found) {
+        cli_puts("which: not found\n");
+    }
+}
+
 static char *find_argument_tail(char *command) {
     char quote = '\0';
     while (*command != '\0') {
@@ -493,7 +582,9 @@ static int prepare_external_command(char *line,
     if (!resolve_command(path, path_capacity, command)) {
         cli_puts("sh: command not found: ");
         cli_puts(command);
-        cli_puts("\n");
+        cli_puts(" (try 'path' or 'which ");
+        cli_puts(command);
+        cli_puts("')\n");
         return 0;
     }
     *args_out = args;
@@ -686,6 +777,18 @@ static void run_command(char *line, char *cwd, int background) {
         }
         return;
     }
+    if (cli_streq(command, "env")) {
+        print_env();
+        return;
+    }
+    if (cli_streq(command, "export")) {
+        export_command(args);
+        return;
+    }
+    if (cli_streq(command, "which")) {
+        which_command(args);
+        return;
+    }
     if (cli_streq(command, "source") || cli_streq(command, ".")) {
         if (args[0] == '\0') {
             cli_puts("usage: source <file>\n");
@@ -744,7 +847,9 @@ static void run_command(char *line, char *cwd, int background) {
     if (!resolve_command(path, sizeof(path), command)) {
         cli_puts("sh: command not found: ");
         cli_puts(command);
-        cli_puts("\n");
+        cli_puts(" (try 'path' or 'which ");
+        cli_puts(command);
+        cli_puts("')\n");
         return;
     }
 
@@ -812,6 +917,9 @@ int main(int argc, char **argv) {
     char cwd[CLI_PATH_MAX] = "/";
     int login = argc > 1 && cli_streq(argv[1], "--login");
 
+    if (getenv("PATH") == 0) {
+        setenv("PATH", "/fat/bin:/:/fat", 1);
+    }
     cli_puts("srvsh: interactive shell\n");
     print_help();
     if (login) {

@@ -17,6 +17,11 @@ USER_WC := build/userspace/wc.elf
 USER_CLEAR := build/userspace/clear.elf
 USER_PS := build/userspace/ps.elf
 USER_KILL := build/userspace/kill.elf
+USER_WHICH := build/userspace/which.elf
+USER_ENV := build/userspace/env.elf
+USER_PWD := build/userspace/pwd.elf
+USER_TRUE := build/userspace/true.elf
+USER_FALSE := build/userspace/false.elf
 USER_GREP := build/userspace/grep.elf
 USER_HEAD := build/userspace/head.elf
 USER_STAT := build/userspace/stat.elf
@@ -129,6 +134,8 @@ USER_APP_LDFLAGS := \
 	--gc-sections \
 	-T userspace/app.ld
 
+USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
+
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 KERNEL_OBJ := $(KERNEL_C:%.c=build/%.c.o) $(KERNEL_S:%.S=build/%.S.o)
@@ -188,6 +195,31 @@ USER_KILL_C := $(shell find userspace/kill -type f -name '*.c' 2>/dev/null | LC_
 USER_KILL_S := $(shell find userspace/kill -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_KILL_OBJ := $(USER_KILL_C:%.c=build/%.c.o) $(USER_KILL_S:%.S=build/%.S.o)
 USER_KILL_DEP := $(USER_KILL_C:%.c=build/%.c.d) $(USER_KILL_S:%.S=build/%.S.d)
+
+USER_WHICH_C := $(shell find userspace/which -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_WHICH_S := $(shell find userspace/which -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_WHICH_OBJ := $(USER_WHICH_C:%.c=build/%.c.o) $(USER_WHICH_S:%.S=build/%.S.o)
+USER_WHICH_DEP := $(USER_WHICH_C:%.c=build/%.c.d) $(USER_WHICH_S:%.S=build/%.S.d)
+
+USER_ENV_C := $(shell find userspace/env -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_ENV_S := $(shell find userspace/env -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_ENV_OBJ := $(USER_ENV_C:%.c=build/%.c.o) $(USER_ENV_S:%.S=build/%.S.o)
+USER_ENV_DEP := $(USER_ENV_C:%.c=build/%.c.d) $(USER_ENV_S:%.S=build/%.S.d)
+
+USER_PWD_C := $(shell find userspace/pwd -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_PWD_S := $(shell find userspace/pwd -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_PWD_OBJ := $(USER_PWD_C:%.c=build/%.c.o) $(USER_PWD_S:%.S=build/%.S.o)
+USER_PWD_DEP := $(USER_PWD_C:%.c=build/%.c.d) $(USER_PWD_S:%.S=build/%.S.d)
+
+USER_TRUE_C := $(shell find userspace/true -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TRUE_S := $(shell find userspace/true -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TRUE_OBJ := $(USER_TRUE_C:%.c=build/%.c.o) $(USER_TRUE_S:%.S=build/%.S.o)
+USER_TRUE_DEP := $(USER_TRUE_C:%.c=build/%.c.d) $(USER_TRUE_S:%.S=build/%.S.d)
+
+USER_FALSE_C := $(shell find userspace/false -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_FALSE_S := $(shell find userspace/false -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_FALSE_OBJ := $(USER_FALSE_C:%.c=build/%.c.o) $(USER_FALSE_S:%.S=build/%.S.o)
+USER_FALSE_DEP := $(USER_FALSE_C:%.c=build/%.c.d) $(USER_FALSE_S:%.S=build/%.S.d)
 
 USER_GREP_C := $(shell find userspace/grep -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_GREP_S := $(shell find userspace/grep -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -384,129 +416,149 @@ build/%.S.o: %.S $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(USER_INIT): $(ZIG) $(USER_INIT_OBJ) $(USER_LIB_OBJ) userspace/linker.ld
+$(USER_INIT): $(ZIG) $(USER_CRT0_OBJ) $(USER_INIT_OBJ) $(USER_LIB_OBJ) userspace/linker.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_LDFLAGS) $(USER_INIT_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_LDFLAGS) $(USER_CRT0_OBJ) $(USER_INIT_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_HELLO): $(ZIG) $(USER_HELLO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_HELLO): $(ZIG) $(USER_CRT0_OBJ) $(USER_HELLO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_HELLO_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_HELLO_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_CAT): $(ZIG) $(USER_CAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_CAT): $(ZIG) $(USER_CRT0_OBJ) $(USER_CAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CAT_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CAT_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_SH): $(ZIG) $(USER_SH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_SH): $(ZIG) $(USER_CRT0_OBJ) $(USER_SH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_SH_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SH_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_LS): $(ZIG) $(USER_LS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_LS): $(ZIG) $(USER_CRT0_OBJ) $(USER_LS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_LS_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_LS_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_ECHO): $(ZIG) $(USER_ECHO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_ECHO): $(ZIG) $(USER_CRT0_OBJ) $(USER_ECHO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_ECHO_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ECHO_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_WRITE): $(ZIG) $(USER_WRITE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_WRITE): $(ZIG) $(USER_CRT0_OBJ) $(USER_WRITE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_WRITE_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_WRITE_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_WC): $(ZIG) $(USER_WC_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_WC): $(ZIG) $(USER_CRT0_OBJ) $(USER_WC_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_WC_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_WC_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_CLEAR): $(ZIG) $(USER_CLEAR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_CLEAR): $(ZIG) $(USER_CRT0_OBJ) $(USER_CLEAR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CLEAR_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CLEAR_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_PS): $(ZIG) $(USER_PS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_PS): $(ZIG) $(USER_CRT0_OBJ) $(USER_PS_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_PS_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PS_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_KILL): $(ZIG) $(USER_KILL_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_KILL): $(ZIG) $(USER_CRT0_OBJ) $(USER_KILL_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_KILL_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_KILL_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_GREP): $(ZIG) $(USER_GREP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_WHICH): $(ZIG) $(USER_CRT0_OBJ) $(USER_WHICH_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_GREP_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_WHICH_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_HEAD): $(ZIG) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_ENV): $(ZIG) $(USER_CRT0_OBJ) $(USER_ENV_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ENV_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_STAT): $(ZIG) $(USER_STAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_PWD): $(ZIG) $(USER_CRT0_OBJ) $(USER_PWD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_STAT_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PWD_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_CP): $(ZIG) $(USER_CP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_TRUE): $(ZIG) $(USER_CRT0_OBJ) $(USER_TRUE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CP_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TRUE_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_RM): $(ZIG) $(USER_RM_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_FALSE): $(ZIG) $(USER_CRT0_OBJ) $(USER_FALSE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_RM_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_FALSE_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_MKDIR): $(ZIG) $(USER_MKDIR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_GREP): $(ZIG) $(USER_CRT0_OBJ) $(USER_GREP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_MKDIR_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_GREP_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_MV): $(ZIG) $(USER_MV_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_HEAD): $(ZIG) $(USER_CRT0_OBJ) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_MV_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_TAP): $(ZIG) $(USER_TAP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_STAT): $(ZIG) $(USER_CRT0_OBJ) $(USER_STAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_TAP_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_STAT_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_WEBD): $(ZIG) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_CP): $(ZIG) $(USER_CRT0_OBJ) $(USER_CP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CP_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_SPIN): $(ZIG) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_RM): $(ZIG) $(USER_CRT0_OBJ) $(USER_RM_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_RM_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_FPDEMO): $(ZIG) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_MKDIR): $(ZIG) $(USER_CRT0_OBJ) $(USER_MKDIR_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_MKDIR_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_UI): $(ZIG) $(USER_UI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_MV): $(ZIG) $(USER_CRT0_OBJ) $(USER_MV_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_UI_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_MV_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_DESKTOP): $(ZIG) $(USER_DESKTOP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_TAP): $(ZIG) $(USER_CRT0_OBJ) $(USER_TAP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_DESKTOP_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TAP_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_CALCGUI): $(ZIG) $(USER_CALCGUI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_WEBD): $(ZIG) $(USER_CRT0_OBJ) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CALCGUI_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_WEBD_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_NOTESGUI): $(ZIG) $(USER_NOTESGUI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_SPIN): $(ZIG) $(USER_CRT0_OBJ) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_NOTESGUI_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_TEXTEDIT): $(ZIG) $(USER_TEXTEDIT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_FPDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_TEXTEDIT_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_FPDEMO_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_IMGEDIT): $(ZIG) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_UI): $(ZIG) $(USER_CRT0_OBJ) $(USER_UI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_UI_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_POSIXDEMO): $(ZIG) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_DESKTOP): $(ZIG) $(USER_CRT0_OBJ) $(USER_DESKTOP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_DESKTOP_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_ZLIBDEMO): $(ZIG) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_CALCGUI): $(ZIG) $(USER_CRT0_OBJ) $(USER_CALCGUI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CALCGUI_OBJ) $(USER_LIB_OBJ) -o $@
 
-$(USER_LUA): $(ZIG) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+$(USER_NOTESGUI): $(ZIG) $(USER_CRT0_OBJ) $(USER_NOTESGUI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) -o $@
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_NOTESGUI_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_TEXTEDIT): $(ZIG) $(USER_CRT0_OBJ) $(USER_TEXTEDIT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TEXTEDIT_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_IMGEDIT): $(ZIG) $(USER_CRT0_OBJ) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_IMGEDIT_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_POSIXDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_ZLIBDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_LUA): $(ZIG) $(USER_CRT0_OBJ) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_LUA_OBJ) $(LUA_CORE_OBJ) $(USER_LIB_OBJ) -o $@
 
 build/userspace/%.c.o: userspace/%.c $(ZIG)
 	mkdir -p $(dir $@)
@@ -539,14 +591,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -560,6 +612,11 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_CLEAR) $(INITRAMFS_ROOT)/clear
 	cp $(USER_PS) $(INITRAMFS_ROOT)/ps
 	cp $(USER_KILL) $(INITRAMFS_ROOT)/kill
+	cp $(USER_WHICH) $(INITRAMFS_ROOT)/which
+	cp $(USER_ENV) $(INITRAMFS_ROOT)/env
+	cp $(USER_PWD) $(INITRAMFS_ROOT)/pwd
+	cp $(USER_TRUE) $(INITRAMFS_ROOT)/true
+	cp $(USER_FALSE) $(INITRAMFS_ROOT)/false
 	cp $(USER_GREP) $(INITRAMFS_ROOT)/grep
 	cp $(USER_HEAD) $(INITRAMFS_ROOT)/head
 	cp $(USER_STAT) $(INITRAMFS_ROOT)/stat
@@ -652,4 +709,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)

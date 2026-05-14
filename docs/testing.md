@@ -37,7 +37,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 
 ## What The Harnesses Cover
 
-- `cli_smoke.py`: shell startup, PATH lookup, core CLI tools, redirection,
+- `cli_smoke.py`: shell startup, PATH lookup, env/export/which, core CLI tools, redirection,
   multi-stage pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, stdin-aware text tools, scripts, copy/remove, native file
   rename through `mv`, `tap` file splitting, foreground/background `fpdemo`
