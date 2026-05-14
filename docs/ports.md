@@ -74,7 +74,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 
 ## Current Limits
 
-- `fork`, `execve`, and client-side `connect` are still missing.
+- `fork`, process-replacing POSIX `execve`, and client-side `connect` are still
+  missing. srvros now has an argv/envp native spawn request that is shaped like
+  `execve`, but it still creates a child process instead of replacing the
+  current process image.
 - Permission bits are synthetic; `chmod`/`fchmod` validate the target but do not
   persist metadata yet.
 - `poll`/`select` cover the current fd types, but timeout waits are currently

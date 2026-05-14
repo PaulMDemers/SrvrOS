@@ -61,6 +61,13 @@ server.
   and floating conversions.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
+- Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
+  command chaining.
+- Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,
+  integer, and file/directory checks.
+- Adds shell stdin redirection plus stderr `2>`/`2>>` redirection, and moves
+  external shell launches onto an `execve`-shaped native request that carries
+  argv, envp, background state, and stdin/stdout/stderr fd overrides.
 - Expands the generated exFAT image builder to reserve multi-cluster root and
   `/fat/bin` directory tables with explicit overflow checks.
 - Moves `/fat/bin/webd` onto the readiness API so a partial client no longer
@@ -72,6 +79,8 @@ server.
 - Includes early GUI/windowing experiments and sample GUI apps.
 - Includes QEMU smoke tests for CLI, processes, directories, DHCP, DNS, web
   serving, and filesystem stress.
+- Smoke harnesses launch QEMU with bounded guest memory and temporary copies of
+  the exFAT disk image so test writes do not mutate the repository image.
 
 ### Screenshots
 

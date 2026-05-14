@@ -47,9 +47,11 @@ editor clients:
 - Ring-3 `/fat/bin/webd`, a poll-driven static HTTP server for `/fat/www` with
   nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
   and a bounded active-client table.
-- Shell with PATH lookup, builtins, foreground/background jobs, redirection,
-  pipeline output redirection, multi-stage pipelines, scripts, `service webd`,
-  DHCP/status/DNS commands, `env`/`export`/`which`, and basic Unix-like tools.
+- Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
+  stderr redirection, pipeline output redirection, multi-stage pipelines,
+  scripts, `$VAR`/`${VAR}`, `$?`/`$$` expansion, unquoted `*`/`?` globbing,
+  `&&`/`||`, `test`/`[`, `service webd`, DHCP/status/DNS commands,
+  `env`/`export`/`which`, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -68,6 +70,8 @@ editor clients:
   background preemption.
 - `/fat/bin/tap` splits an input stream to stdout and a secondary file, and is
   covered in the shell pipeline smoke path.
+- The first `execve`-shaped native launch path accepts an argv vector, an envp
+  vector, background flags, and explicit stdin/stdout/stderr fd overrides.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 

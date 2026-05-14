@@ -663,13 +663,14 @@ $(IMAGE): $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS) boot/limine.conf
 
 .PHONY: run
 run: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio
+	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot
 
 .PHONY: run-net
 run-net: $(IMAGE)
 	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device e1000,netdev=net0
+		-device e1000,netdev=net0 \
+		-no-reboot
 
 .PHONY: run-ahci-net
 run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
@@ -678,7 +679,8 @@ run-ahci-net: $(IMAGE) $(EXFAT_IMAGE)
 		-device ich9-ahci,id=ahci \
 		-device ide-hd,drive=exfat,bus=ahci.0 \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device e1000,netdev=net0
+		-device e1000,netdev=net0 \
+		-no-reboot
 
 .PHONY: run-ahci2-net
 run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
@@ -689,17 +691,19 @@ run-ahci2-net: $(IMAGE) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 		-device ide-hd,drive=exfat0,bus=ahci.0 \
 		-device ide-hd,drive=exfat1,bus=ahci.1 \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device e1000,netdev=net0
+		-device e1000,netdev=net0 \
+		-no-reboot
 
 .PHONY: run-virtio-net
 run-virtio-net: $(IMAGE)
 	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio \
 		-netdev user,id=net0,hostfwd=tcp:127.0.0.1:8080-10.0.2.15:80 \
-		-device virtio-net-pci,netdev=net0
+		-device virtio-net-pci,netdev=net0 \
+		-no-reboot
 
 .PHONY: debug
 debug: $(IMAGE)
-	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -s -S
+	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot -s -S
 
 .PHONY: clean
 clean:

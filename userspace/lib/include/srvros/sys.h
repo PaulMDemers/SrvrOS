@@ -27,6 +27,16 @@ struct srv_pollfd {
     int16_t revents;
 };
 
+struct srv_exec_request {
+    const char *path;
+    char *const *argv;
+    char *const *envp;
+    uint64_t flags;
+    int64_t stdin_fd;
+    int64_t stdout_fd;
+    int64_t stderr_fd;
+};
+
 long srv_syscall0(long number);
 long srv_syscall1(long number, long arg0);
 long srv_syscall2(long number, long arg0, long arg1);
@@ -64,6 +74,8 @@ long srv_spawn_args_redirect(const char *path, const char *args, const char *std
 long srv_spawn_bg(const char *path);
 long srv_spawn_bg_args(const char *path, const char *args);
 long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int stdout_fd);
+long srv_exec(const struct srv_exec_request *request);
+long srv_execve(const char *path, char *const argv[], char *const envp[]);
 long srv_proc_list(uint64_t index, struct srv_process_info *info);
 long srv_kill(uint64_t pid);
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags);

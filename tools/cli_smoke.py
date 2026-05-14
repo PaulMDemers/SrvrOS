@@ -80,6 +80,25 @@ def main():
         "which sh true false\n"
         "export TESTVAR=cli-ok\n"
         "env\n"
+        "echo var-$TESTVAR\n"
+        "echo braced-${TESTVAR}\n"
+        "false && echo should-not-run\n"
+        "echo after-false-$?\n"
+        "true || echo should-not-run\n"
+        "false || echo or-ok\n"
+        "echo pid-$$\n"
+        "echo /fat/status*.txt\n"
+        "echo /fat/hello.ht?l\n"
+        "test -f /fat/status.txt && cp /fat/status.txt /fat/test-file-copy.txt\n"
+        "stat /fat/test-file-copy.txt\n"
+        "[ -d /fat/bin ] && cp /fat/status.txt /fat/test-dir-copy.txt\n"
+        "stat /fat/test-dir-copy.txt\n"
+        "[ 5 -gt 3 ] && cp /fat/status.txt /fat/test-int-copy.txt\n"
+        "stat /fat/test-int-copy.txt\n"
+        "test missing = missing && cp /fat/status.txt /fat/test-string-copy.txt\n"
+        "stat /fat/test-string-copy.txt\n"
+        "test -e /fat/nope || cp /fat/status.txt /fat/test-miss-copy.txt\n"
+        "stat /fat/test-miss-copy.txt\n"
         "export PATH=/fat/bin:/\n"
         "which true\n"
         "/fat/bin/env FOO=bar\n"
@@ -95,6 +114,16 @@ def main():
         "cat /fat/status.txt >> /fat/cat-redir.txt\n"
         "stat /fat/cat-redir.txt\n"
         "wc /fat/cat-redir.txt\n"
+        "cat < /fat/status.txt > /fat/stdin-redir.txt\n"
+        "stat /fat/stdin-redir.txt\n"
+        "tap 2> /fat/tap-usage.txt > /fat/tap-stdout.txt\n"
+        "stat /fat/tap-usage.txt\n"
+        "stat /fat/tap-stdout.txt\n"
+        "tap 2>> /fat/tap-usage.txt > /fat/tap-stdout2.txt\n"
+        "stat /fat/tap-usage.txt\n"
+        "export CHILD_ENV=from-parent\n"
+        "/fat/bin/env > /fat/env-redir.txt\n"
+        "grep CHILD_ENV /fat/env-redir.txt\n"
         "ls /fat/bin > /fat/bin-list.txt\n"
         "grep webd /fat/bin-list.txt\n"
         "echo \"two  spaces\"; echo semi-ok\n"
@@ -200,6 +229,18 @@ def main():
         "/fat/bin/true",
         "/fat/bin/false",
         "TESTVAR=cli-ok",
+        "var-cli-ok",
+        "braced-cli-ok",
+        "after-false-1",
+        "or-ok",
+        "pid-",
+        "/fat/status.txt",
+        "/fat/hello.html",
+        "/fat/test-file-copy.txt: 55 bytes",
+        "/fat/test-dir-copy.txt: 55 bytes",
+        "/fat/test-int-copy.txt: 55 bytes",
+        "/fat/test-string-copy.txt: 55 bytes",
+        "/fat/test-miss-copy.txt: 55 bytes",
         "PATH=/fat/bin:/",
         "FOO=bar",
         "status 1",
@@ -208,6 +249,10 @@ def main():
         "/fat/status.txt: 55 bytes",
         "/fat/cat-redir.txt: 110 bytes",
         "2 18 110 /fat/cat-redir.txt",
+        "/fat/stdin-redir.txt: 55 bytes",
+        "/fat/tap-usage.txt: 41 bytes",
+        "/fat/tap-usage.txt: 82 bytes",
+        "CHILD_ENV=from-parent",
         "webd",
         "two  spaces",
         "semi-ok",
@@ -256,7 +301,6 @@ def main():
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
-
     print("cli-smoke: ok")
     return 0
 

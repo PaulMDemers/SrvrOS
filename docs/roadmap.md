@@ -237,13 +237,21 @@ kernel, and a minimal Unix-like userspace.
   and floating conversions.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
+- Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke
+  coverage.
+- Add shell-side unquoted `*`/`?` globbing and `test`/`[` builtins with QEMU
+  smoke coverage.
+- Add shell stdin redirection, stderr `2>`/`2>>`, and a native argv/envp launch
+  request with standard fd overrides.
 
 ## Next milestones
 
 1. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
-   but metadata and recovery semantics are still intentionally small.
+   but metadata and recovery semantics are still intentionally small. Tighten
+   zero-byte create/truncate through fd-open paths so shell `> file` creates an
+   empty file even if the command writes no output.
 2. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
 3. Add NVMe discovery and read/write support as the second storage backend.
@@ -254,8 +262,9 @@ kernel, and a minimal Unix-like userspace.
    FUSE-like mounts.
 6. Continue the libc/newlib track: add shared open-file descriptions for
    read-only regular-file `dup`/`dup2`, a unified fd wait queue for
-   `poll`/`select`, background pipelines, Unix-like file metadata,
-   `execve`/`posix_spawn`, fuller `stdio`, and scan/format helpers.
+   `poll`/`select`, Unix-like file metadata, process-replacing `execve`,
+   `posix_spawn`, command substitution, fuller `stdio`, and scan/format
+   helpers.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

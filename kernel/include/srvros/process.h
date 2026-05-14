@@ -46,6 +46,15 @@ int64_t process_spawn_elf_args_redirect(const char *path,
     const char *args,
     const char *stdout_path,
     bool append);
+int64_t process_spawn_exec(const char *path,
+    uint64_t argc,
+    const char *const *argv,
+    uint64_t envc,
+    const char *const *envp,
+    bool detached,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd);
 int64_t process_spawn_background_elf(const char *path);
 int64_t process_spawn_background_elf_args(const char *path, const char *args);
 int64_t process_spawn_background_elf_args_fds(const char *path,
@@ -72,7 +81,7 @@ const char *process_name(const struct process *process);
 bool process_current_quiet(void);
 bool process_set_stdout_redirect(struct process *process, const char *path, bool append);
 int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length);
-int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uint64_t length);
+int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 void process_refresh_mappings(struct process *process);
 struct process_file *process_file_at(struct process *process, uint64_t fd);
 int64_t process_file_alloc(struct process *process,

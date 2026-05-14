@@ -96,6 +96,7 @@ struct process {
     uint64_t stack_top;
     uint64_t argc;
     uint64_t argv;
+    uint64_t envp;
     uint64_t address_space;
     uint64_t heap_base;
     uint64_t program_break;
@@ -111,6 +112,8 @@ struct process {
     bool stdin_redirect;
     int64_t stdin_fd;
     int64_t stdout_fd;
+    bool stderr_redirect;
+    int64_t stderr_fd;
     char stdout_path[PROCESS_PATH_MAX];
     char name[PROCESS_NAME_MAX];
     struct process_context context;
@@ -148,7 +151,7 @@ struct elf64_program_header {
     uint64_t align;
 } __attribute__((packed));
 
-void usermode_enter(uint64_t entry, uint64_t stack_top, uint64_t argc, uint64_t argv) __attribute__((noreturn));
+void usermode_enter(uint64_t entry, uint64_t stack_top, uint64_t argc, uint64_t argv, uint64_t envp) __attribute__((noreturn));
 uint64_t process_context_save(struct process_context *context) __attribute__((returns_twice));
 void process_context_restore(struct process_context *context, uint64_t value) __attribute__((noreturn));
 uint64_t gdt_default_kernel_stack_top(void);
@@ -164,6 +167,12 @@ static struct scheduler_wait_queue pipe_wait_queue;
 
 static void set_process_name(struct process *process, const char *path);
 static struct process_write_file *write_file_at(uint64_t handle);
+static void background_process_thread(void *arg);
+static bool process_configure_stdio_fds(struct process *child,
+    struct process *parent,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd);
 static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
@@ -441,6 +450,87 @@ static bool setup_process_arguments(struct process *process, const char *path, c
         return false;
     }
 
+    process->argc = argc;
+    process->argv = stack_cursor;
+    process->stack_top = stack_cursor & ~0xfull;
+    return true;
+}
+
+static bool setup_process_vectors(struct process *process,
+    uint64_t argc,
+    const char *const *argv_values,
+    uint64_t envc,
+    const char *const *env_values) {
+    uint64_t argv[PROCESS_MAX_ARGS + 1];
+    uint64_t envp[PROCESS_MAX_ARGS + 1];
+    uint64_t argv_lengths[PROCESS_MAX_ARGS];
+    uint64_t env_lengths[PROCESS_MAX_ARGS];
+    uint64_t stack_cursor;
+
+    if (process == NULL || process->address_space == 0 || argv_values == NULL) {
+        return false;
+    }
+    if (argc == 0 || argc > PROCESS_MAX_ARGS || envc > PROCESS_MAX_ARGS) {
+        return false;
+    }
+
+    for (uint64_t i = 0; i < argc; i++) {
+        if (argv_values[i] == NULL) {
+            return false;
+        }
+        argv_lengths[i] = local_strlen_limit(argv_values[i], PROCESS_ARGS_MAX);
+    }
+    for (uint64_t i = 0; i < envc; i++) {
+        if (env_values == NULL || env_values[i] == NULL) {
+            return false;
+        }
+        env_lengths[i] = local_strlen_limit(env_values[i], PROCESS_ARGS_MAX);
+    }
+
+    stack_cursor = process->stack_top;
+    for (uint64_t i = envc; i > 0; i--) {
+        uint64_t index = i - 1;
+        stack_cursor -= env_lengths[index] + 1;
+        if (stack_cursor < process->stack_top - USER_STACK_PAGES * PAGE_SIZE) {
+            return false;
+        }
+        if (!user_space_write(process, stack_cursor, env_values[index], env_lengths[index] + 1)) {
+            return false;
+        }
+        envp[index] = stack_cursor;
+    }
+    for (uint64_t i = argc; i > 0; i--) {
+        uint64_t index = i - 1;
+        stack_cursor -= argv_lengths[index] + 1;
+        if (stack_cursor < process->stack_top - USER_STACK_PAGES * PAGE_SIZE) {
+            return false;
+        }
+        if (!user_space_write(process, stack_cursor, argv_values[index], argv_lengths[index] + 1)) {
+            return false;
+        }
+        argv[index] = stack_cursor;
+    }
+
+    stack_cursor &= ~0xfull;
+    stack_cursor -= sizeof(uint64_t) * (envc + 1);
+    if (stack_cursor < process->stack_top - USER_STACK_PAGES * PAGE_SIZE) {
+        return false;
+    }
+    envp[envc] = 0;
+    if (!user_space_write(process, stack_cursor, envp, sizeof(uint64_t) * (envc + 1))) {
+        return false;
+    }
+    process->envp = stack_cursor;
+
+    stack_cursor &= ~0xfull;
+    stack_cursor -= sizeof(uint64_t) * (argc + 1);
+    if (stack_cursor < process->stack_top - USER_STACK_PAGES * PAGE_SIZE) {
+        return false;
+    }
+    argv[argc] = 0;
+    if (!user_space_write(process, stack_cursor, argv, sizeof(uint64_t) * (argc + 1))) {
+        return false;
+    }
     process->argc = argc;
     process->argv = stack_cursor;
     process->stack_top = stack_cursor & ~0xfull;
@@ -747,7 +837,7 @@ static bool enter_process(struct process *process, const char *label) {
                 process->entry,
                 process->stack_top);
         }
-        usermode_enter(process->entry, process->stack_top, process->argc, process->argv);
+        usermode_enter(process->entry, process->stack_top, process->argc, process->argv, process->envp);
     }
 
     scheduler_clear_user_context();
@@ -823,7 +913,7 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
             path,
             child->entry,
             child->stack_top);
-        usermode_enter(child->entry, child->stack_top, child->argc, child->argv);
+        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
     }
 
     int64_t status = (int64_t)child->exit_status;
@@ -869,7 +959,70 @@ int64_t process_spawn_elf_args_redirect(const char *path,
             path,
             child->entry,
             child->stack_top);
-        usermode_enter(child->entry, child->stack_top, child->argc, child->argv);
+        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
+    }
+
+    int64_t status = (int64_t)child->exit_status;
+    scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+    __asm__ volatile ("sti" : : : "memory");
+    release_process(child);
+    return status;
+}
+
+int64_t process_spawn_exec(const char *path,
+    uint64_t argc,
+    const char *const *argv,
+    uint64_t envc,
+    const char *const *envp,
+    bool detached,
+    int64_t stdin_fd,
+    int64_t stdout_fd,
+    int64_t stderr_fd) {
+    struct process *parent = process_current();
+    if (parent == NULL || path == NULL || path[0] == '\0') {
+        return -1;
+    }
+
+    struct process *child = alloc_process(path, detached);
+    if (child == NULL) {
+        return -1;
+    }
+    if (!allocate_kernel_stack(child)) {
+        release_process(child);
+        return -1;
+    }
+
+    if (!load_elf_image(path, child, USER_STACK_TOP, &child->entry) ||
+        !setup_process_vectors(child, argc, argv, envc, envp) ||
+        !process_configure_stdio_fds(child, parent, stdin_fd, stdout_fd, stderr_fd)) {
+        cleanup_process_address_space(child);
+        cleanup_process_files(child);
+        release_process(child);
+        scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
+        return -1;
+    }
+
+    if (detached) {
+        uint64_t pid = child->pid;
+        child->quiet = true;
+        if (!scheduler_spawn("user", background_process_thread, child)) {
+            cleanup_process_address_space(child);
+            cleanup_process_files(child);
+            release_process(child);
+            return -1;
+        }
+        return (int64_t)pid;
+    }
+
+    uint64_t restored = process_context_save(&child->context);
+    if (restored == 0) {
+        scheduler_set_user_context(child, child->address_space, child->kernel_stack_top);
+        console_printf("spawn: entering pid=%u %s entry=%x stack=%x\n",
+            child->pid,
+            path,
+            child->entry,
+            child->stack_top);
+        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
     }
 
     int64_t status = (int64_t)child->exit_status;
@@ -961,7 +1114,8 @@ static int64_t process_clone_fd_from(struct process *target, struct process *sou
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
-    int64_t stdout_fd) {
+    int64_t stdout_fd,
+    int64_t stderr_fd) {
     if (stdin_fd >= 0 && stdin_fd != 0) {
         int64_t fd = process_clone_fd_from(child, parent, stdin_fd);
         if (fd < 0) {
@@ -978,6 +1132,15 @@ static bool process_configure_stdio_fds(struct process *child,
         }
         child->stdout_redirect = true;
         child->stdout_fd = fd;
+    }
+
+    if (stderr_fd >= 0 && stderr_fd != 2) {
+        int64_t fd = process_clone_fd_from(child, parent, stderr_fd);
+        if (fd < 0) {
+            return false;
+        }
+        child->stderr_redirect = true;
+        child->stderr_fd = fd;
     }
 
     return true;
@@ -1036,7 +1199,7 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
 
     if (!load_elf_image(path, process, USER_STACK_TOP, &process->entry) ||
         !setup_process_arguments(process, path, args != NULL ? args : "") ||
-        !process_configure_stdio_fds(process, parent, stdin_fd, stdout_fd)) {
+        !process_configure_stdio_fds(process, parent, stdin_fd, stdout_fd, -1)) {
         cleanup_process_address_space(process);
         cleanup_process_files(process);
         release_process(process);
@@ -1276,8 +1439,15 @@ int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t le
     return process_file_read(process, (uint64_t)process->stdin_fd, buffer, length);
 }
 
-int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uint64_t length) {
-    if (process == NULL || !process->stdout_redirect) {
+int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    bool redirected;
+    int64_t target_fd;
+    if (process == NULL || (fd != 1 && fd != 2)) {
+        return -2;
+    }
+    redirected = fd == 2 ? process->stderr_redirect : process->stdout_redirect;
+    target_fd = fd == 2 ? process->stderr_fd : process->stdout_fd;
+    if (!redirected) {
         return -2;
     }
     if (buffer == NULL) {
@@ -1287,7 +1457,7 @@ int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uin
         return 0;
     }
 
-    struct process_file *file = process_file_at(process, (uint64_t)process->stdout_fd);
+    struct process_file *file = process_file_at(process, (uint64_t)target_fd);
     if (file == NULL) {
         return -1;
     }
@@ -1296,8 +1466,8 @@ int64_t process_stdout_write(struct process *process, const uint8_t *buffer, uin
     }
 
     int64_t written = file->type == PROCESS_FILE_PIPE_WRITE ?
-        process_file_pipe_write(process, (uint64_t)process->stdout_fd, buffer, length) :
-        process_file_write(process, (uint64_t)process->stdout_fd, buffer, length);
+        process_file_pipe_write(process, (uint64_t)target_fd, buffer, length) :
+        process_file_write(process, (uint64_t)target_fd, buffer, length);
     if (written < 0) {
         return written;
     }

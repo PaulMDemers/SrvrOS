@@ -3,6 +3,9 @@
 srvros tests are QEMU boot smoke tests. Each harness starts a fresh QEMU
 instance, connects to the serial console, drives monitor or shell commands, and
 fails if expected markers are missing or a fatal kernel exception appears.
+The QEMU-based harnesses run with bounded guest memory, user-mode networking,
+and disposable copies of the generated exFAT image. They should not touch host
+disks outside the repository build outputs and temporary test directories.
 
 ## Build
 
@@ -37,11 +40,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 
 ## What The Harnesses Cover
 
-- `cli_smoke.py`: shell startup, PATH lookup, env/export/which, core CLI tools, redirection,
-  multi-stage pipeline fd wiring through `cat | grep | tap`, pipeline output
-  redirection/append, stdin-aware text tools, scripts, copy/remove, native file
-  rename through `mv`, `tap` file splitting, foreground/background `fpdemo`
-  userspace SSE checks, and the `posixdemo` compatibility-layer smoke app.
+- `cli_smoke.py`: shell startup, PATH lookup, env/export/which, `$VAR` and `$?`
+  expansion, child envp inheritance, unquoted `*`/`?` globbing, `test`/`[`,
+  `&&`/`||`, core CLI tools, stdin/stdout/stderr redirection, multi-stage
+  pipeline fd wiring through `cat | grep | tap`, pipeline output
+  redirection/append, stdin-aware text tools, scripts,
+  copy/remove, native file rename through `mv`, `tap` file splitting,
+  foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
+  compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.

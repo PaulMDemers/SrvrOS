@@ -168,10 +168,17 @@ Core tools:
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
-The shell has PATH lookup for `/fat/bin` and `/`, scripts, redirection,
-multi-stage pipelines, foreground/background jobs, `service webd`,
-DHCP/status/DNS builtins, `env`/`export`/`which`, and basic filesystem
-builtins.
+The shell has PATH lookup for `/fat/bin` and `/`, scripts, stdin/stdout/stderr
+redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
+`$?`/`$$`, unquoted `*`/`?` globbing, `&&`/`||`, `test`/`[`, `service webd`,
+DHCP/status/DNS builtins, `env`/`export`/`which`, and basic filesystem builtins.
+
+New launches can use the native `SYS_EXEC` request path. It copies a path,
+argv vector, envp vector, background flag, and optional standard fd overrides
+from userspace, then builds a fresh ring-3 stack for the child. This is an
+`execve`-shaped spawn interface rather than full POSIX process image
+replacement, but it lets the shell stop flattening arguments into a single
+string and pass environment variables to child programs.
 
 ## POSIX Compatibility
 

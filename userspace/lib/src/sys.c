@@ -183,6 +183,23 @@ long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int
     return srv_syscall4(SYS_SPAWN_BG_ARGS_FDS, (long)path, (long)args, stdin_fd, stdout_fd);
 }
 
+long srv_exec(const struct srv_exec_request *request) {
+    return srv_syscall1(SYS_EXEC, (long)request);
+}
+
+long srv_execve(const char *path, char *const argv[], char *const envp[]) {
+    struct srv_exec_request request = {
+        .path = path,
+        .argv = argv,
+        .envp = envp,
+        .flags = 0,
+        .stdin_fd = -1,
+        .stdout_fd = -1,
+        .stderr_fd = -1,
+    };
+    return srv_exec(&request);
+}
+
 long srv_proc_list(uint64_t index, struct srv_process_info *info) {
     return srv_syscall2(SYS_PROC_LIST, (long)index, (long)info);
 }

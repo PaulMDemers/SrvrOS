@@ -22,6 +22,9 @@
 #define MAX_PATH_LENGTH 160
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 32
+#define MAX_EXEC_ARGS 16
+#define MAX_EXEC_ENV 16
+#define MAX_EXEC_STRING 256
 
 struct syscall_stat {
     uint64_t size;
@@ -57,6 +60,16 @@ struct syscall_pollfd {
     int32_t fd;
     int16_t events;
     int16_t revents;
+};
+
+struct syscall_exec_request {
+    const char *path;
+    char *const *argv;
+    char *const *envp;
+    uint64_t flags;
+    int64_t stdin_fd;
+    int64_t stdout_fd;
+    int64_t stderr_fd;
 };
 
 static uint64_t irq_save(void) {
@@ -119,7 +132,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
             return -1;
         }
         if (file->type == PROCESS_FILE_STDIO && (file->handle == 1 || file->handle == 2)) {
-            int64_t redirected = process_stdout_write(process_current(), (const uint8_t *)buffer, length);
+            int64_t redirected = process_output_write(process_current(), file->handle, (const uint8_t *)buffer, length);
             if (redirected != -2) {
                 return redirected;
             }
@@ -140,7 +153,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return -1;
     }
 
-    int64_t redirected = process_stdout_write(process_current(), (const uint8_t *)buffer, length);
+    int64_t redirected = process_output_write(process_current(), fd, (const uint8_t *)buffer, length);
     if (redirected != -2) {
         return redirected;
     }
@@ -375,6 +388,74 @@ static int64_t syscall_spawn_args_redirect(const char *user_path,
     }
 
     int64_t result = process_spawn_elf_args_redirect(path, args, stdout_path, append != 0);
+    process_refresh_mappings(process_current());
+    return result;
+}
+
+static bool copy_user_string_vector(char *const *user_vector,
+    char storage[][MAX_EXEC_STRING],
+    const char *values[],
+    uint64_t capacity,
+    uint64_t *count_out) {
+    *count_out = 0;
+    if (user_vector == NULL) {
+        return true;
+    }
+    for (uint64_t i = 0; i < capacity; i++) {
+        const char *user_string = NULL;
+        if (!copy_from_user(&user_string, user_vector + i, sizeof(user_string))) {
+            return false;
+        }
+        if (user_string == NULL) {
+            *count_out = i;
+            return true;
+        }
+        if (!copy_user_string(user_string, storage[i], MAX_EXEC_STRING)) {
+            return false;
+        }
+        values[i] = storage[i];
+    }
+    const char *terminator = NULL;
+    if (!copy_from_user(&terminator, user_vector + capacity, sizeof(terminator)) || terminator != NULL) {
+        return false;
+    }
+    *count_out = capacity;
+    return true;
+}
+
+static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
+    struct syscall_exec_request request;
+    char path[MAX_PATH_LENGTH];
+    char argv_storage[MAX_EXEC_ARGS][MAX_EXEC_STRING];
+    char env_storage[MAX_EXEC_ENV][MAX_EXEC_STRING];
+    const char *argv[MAX_EXEC_ARGS];
+    const char *envp[MAX_EXEC_ENV];
+    uint64_t argc = 0;
+    uint64_t envc = 0;
+    uint64_t flags;
+    int64_t result;
+
+    if (!copy_from_user(&request, user_request, sizeof(request)) ||
+        !copy_user_string(request.path, path, sizeof(path)) ||
+        !copy_user_string_vector(request.argv, argv_storage, argv, MAX_EXEC_ARGS, &argc) ||
+        !copy_user_string_vector(request.envp, env_storage, envp, MAX_EXEC_ENV, &envc)) {
+        return -1;
+    }
+    if (argc == 0) {
+        argv[argc++] = path;
+    }
+
+    flags = irq_save();
+    result = process_spawn_exec(path,
+        argc,
+        argv,
+        envc,
+        envp,
+        (request.flags & SRV_EXEC_BACKGROUND) != 0,
+        request.stdin_fd,
+        request.stdout_fd,
+        request.stderr_fd);
+    irq_restore(flags);
     process_refresh_mappings(process_current());
     return result;
 }
@@ -1073,6 +1154,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_FSYNC:
         frame->rax = (uint64_t)syscall_fsync(frame->rdi);
+        return;
+    case SYS_EXEC:
+        frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

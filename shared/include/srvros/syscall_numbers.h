@@ -54,6 +54,7 @@
 #define SYS_FCNTL 51
 #define SYS_FTRUNCATE 52
 #define SYS_FSYNC 53
+#define SYS_EXEC 54
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
@@ -69,6 +70,8 @@
 #define SRV_ERR_AGAIN -11
 
 #define SRV_WAIT_NOHANG 0x01
+
+#define SRV_EXEC_BACKGROUND 0x01
 
 #define SRV_POLLIN 0x0001
 #define SRV_POLLOUT 0x0004
