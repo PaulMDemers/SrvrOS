@@ -68,7 +68,9 @@ editor clients:
   `require`. `/fat/bin/jsondemo` and `/fat/bin/inidemo` link pinned cJSON and
   inih for lightweight data/config parsing. The shell uses a srvros linenoise
   port for editable prompts and file-backed history, with `/fat/bin/linedemo`
-  covering the history API. The support library also exports the first
+  covering the history API. `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
+  small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
+  The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.
 - `/fat/bin/fpdemo` stress-tests userspace double math across foreground and
@@ -178,6 +180,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ jsondemo
 / $ inidemo
 / $ linedemo
+/ $ sqlitedemo
 / $ lua -e "print('hello from lua', 6*7)"
 ```
 

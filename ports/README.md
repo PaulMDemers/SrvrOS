@@ -3,13 +3,14 @@
 This directory is the staging area for third-party libraries and applications
 that will be brought up on srvros through the POSIX-compat layer.
 
-## Upstream Submodules
+## Upstream Source
 
 - `upstream/zlib`: zlib compression library, pinned to `v1.3.2`.
 - `upstream/lua`: Lua runtime, pinned to `v5.4.8`.
 - `upstream/cjson`: cJSON parser/printer, pinned to `v1.7.19`.
 - `upstream/inih`: inih INI parser, pinned to `r62`.
 - `upstream/linenoise`: linenoise line editing API, pinned to `2.0`.
+- `upstream/sqlite`: SQLite amalgamation snapshot, pinned to `3.53.1`.
 
 The zlib core sources are linked directly into `/fat/bin/zlibdemo`, which
 compresses data, writes the compressed bytes to exFAT, reads them back, and
@@ -27,6 +28,11 @@ patching upstream sources.
 linenoise is used through `ports/srvros/linenoise.c`, a small srvros adapter
 for the upstream public API. `srvsh` uses it for editable prompt input and
 `/fat/.srvsh_history`; `/fat/bin/linedemo` exercises history save/load behavior.
+
+SQLite is kept as an official amalgamation snapshot rather than a submodule.
+`/fat/bin/sqlitedemo` builds the amalgamation with `SQLITE_OS_OTHER`, registers
+a small srvros VFS, and verifies create/insert/query/reopen behavior on exFAT.
+The VFS intentionally uses no-op locking until srvros grows file-lock metadata.
 
 ## Porting Rules
 

@@ -205,6 +205,8 @@ kernel, and a minimal Unix-like userspace.
   `/fat/bin/inidemo` as small data/config parser ports.
 - Add pinned linenoise plus a srvros console adapter for editable shell input
   and persistent shell history.
+- Add SQLite 3.53.1 as a pinned amalgamation snapshot and `/fat/bin/sqlitedemo`
+  with a small srvros VFS for exFAT-backed create/insert/query/reopen coverage.
 - Add minimal `stdio` support in the userspace library and `/fat/bin/zlibdemo`,
   which links pinned zlib, compresses data, writes the compressed stream to
   exFAT, reads it back, and verifies decompression.

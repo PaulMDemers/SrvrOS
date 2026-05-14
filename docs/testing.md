@@ -58,10 +58,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,
   and clean resolver failure for a non-resolving name.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
-  `/fat/bin/inidemo`, `/fat/bin/linedemo`, and `/fat/bin/posixdemo`; zlib
+  `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`, and
+  `/fat/bin/posixdemo`; zlib
   compress/decompress, cJSON parse/print/roundtrip, inih string/file parsing,
-  linenoise history save/load coverage, and libc/POSIX file checks including
-  `fstat`, `dup`, writable-fd dup ownership, `pipe`,
+  linenoise history save/load coverage, SQLite create/insert/query/reopen on
+  exFAT through the srvros VFS, and libc/POSIX file checks including `fstat`,
+  `dup`, writable-fd dup ownership, `pipe`,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,

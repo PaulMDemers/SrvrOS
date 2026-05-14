@@ -87,6 +87,10 @@ clean while mapping the public API onto srvros console reads/writes. It supports
 editable lines, cursor movement over serial escape sequences, simple completion
 hooks, and file-backed history. `/fat/bin/linedemo` verifies history trimming,
 save, and load behavior.
+The `sqlitedemo` app links the SQLite `3.53.1` amalgamation with
+`SQLITE_OS_OTHER` and registers a small srvros VFS. It creates
+`/fat/sqlitedemo.db`, inserts two page records, closes and reopens the database,
+then verifies prepared query results and the on-disk database size.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -106,6 +110,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - Socket wrappers currently cover TCP server flow over the existing
   `net_listen`/`net_accept` kernel path. Nonblocking mode is preserved when it
   is set on a socket before `listen()`.
+- SQLite is currently a single-process filesystem smoke port. Its VFS maps file
+  IO to srvros POSIX calls, but locking is no-op until srvros grows advisory
+  file locks and stronger metadata semantics.
 - `stdio` is intentionally small: formatted output has no width/precision
   parsing yet, input scanning is missing, `fflush` is effectively a no-op for
   unbuffered streams, and `popen`/`pclose` are `ENOSYS` stubs.
@@ -120,13 +127,15 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 
 ## Upstream Repos
 
-Third-party source is kept as pinned submodules under `ports/upstream`:
+Third-party source is kept as pinned submodules or snapshots under
+`ports/upstream`:
 
 - zlib `v1.3.2`
 - Lua `v5.4.8`
 - cJSON `v1.7.19`
 - inih `r62`
 - linenoise `2.0`
+- SQLite amalgamation `3.53.1`
 
 ## Next Porting Milestones
 

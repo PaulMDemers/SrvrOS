@@ -45,6 +45,7 @@ USER_FDPROBE := build/userspace/fdprobe.elf
 USER_JSONDEMO := build/userspace/jsondemo.elf
 USER_INIDEMO := build/userspace/inidemo.elf
 USER_LINEDEMO := build/userspace/linedemo.elf
+USER_SQLITEDEMO := build/userspace/sqlitedemo.elf
 USER_ZLIBDEMO := build/userspace/zlibdemo.elf
 USER_LUA := build/userspace/lua.elf
 EXFAT_IMAGE := build/srvros.exfat
@@ -341,6 +342,11 @@ USER_LINEDEMO_S := $(shell find userspace/linedemo -type f -name '*.S' 2>/dev/nu
 USER_LINEDEMO_OBJ := $(USER_LINEDEMO_C:%.c=build/%.c.o) $(USER_LINEDEMO_S:%.S=build/%.S.o)
 USER_LINEDEMO_DEP := $(USER_LINEDEMO_C:%.c=build/%.c.d) $(USER_LINEDEMO_S:%.S=build/%.S.d)
 
+USER_SQLITEDEMO_C := $(shell find userspace/sqlitedemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_SQLITEDEMO_S := $(shell find userspace/sqlitedemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_SQLITEDEMO_OBJ := $(USER_SQLITEDEMO_C:%.c=build/%.c.o) $(USER_SQLITEDEMO_S:%.S=build/%.S.o)
+USER_SQLITEDEMO_DEP := $(USER_SQLITEDEMO_C:%.c=build/%.c.d) $(USER_SQLITEDEMO_S:%.S=build/%.S.d)
+
 USER_ZLIBDEMO_C := $(shell find userspace/zlibdemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_ZLIBDEMO_S := $(shell find userspace/zlibdemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_ZLIBDEMO_OBJ := $(USER_ZLIBDEMO_C:%.c=build/%.c.o) $(USER_ZLIBDEMO_S:%.S=build/%.S.o)
@@ -382,6 +388,10 @@ INI_DEP := $(INI_C:%.c=build/%.c.d)
 LINENOISE_C := ports/srvros/linenoise.c
 LINENOISE_OBJ := $(LINENOISE_C:%.c=build/%.c.o)
 LINENOISE_DEP := $(LINENOISE_C:%.c=build/%.c.d)
+
+SQLITE_C := ports/upstream/sqlite/sqlite3.c
+SQLITE_OBJ := $(SQLITE_C:%.c=build/%.c.o)
+SQLITE_DEP := $(SQLITE_C:%.c=build/%.c.d)
 
 LUA_SRVROS_DIR := build/ports/lua-srvros
 LUA_PREPARED := $(LUA_SRVROS_DIR)/.prepared
@@ -614,6 +624,10 @@ $(USER_LINEDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_LINEDEMO_OBJ) $(LINENOISE_OBJ) 
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_LINEDEMO_OBJ) $(LINENOISE_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_SQLITEDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_SQLITEDEMO_OBJ) $(SQLITE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SQLITEDEMO_OBJ) $(SQLITE_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_ZLIBDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
@@ -646,6 +660,10 @@ build/userspace/linedemo/%.c.o: userspace/linedemo/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/linenoise -c $< -o $@
 
+build/userspace/sqlitedemo/%.c.o: userspace/sqlitedemo/%.c $(ZIG)
+	mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -I ports/upstream/sqlite -c $< -o $@
+
 build/userspace/sh/%.c.o: userspace/sh/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/linenoise -c $< -o $@
@@ -670,6 +688,10 @@ build/ports/srvros/%.c.o: ports/srvros/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/linenoise -c $< -o $@
 
+build/ports/upstream/sqlite/%.c.o: ports/upstream/sqlite/%.c $(ZIG)
+	mkdir -p $(dir $@)
+	$(CC) $(USER_CFLAGS) -I ports/upstream/sqlite -DSQLITE_OS_OTHER=1 -DSQLITE_THREADSAFE=0 -DSQLITE_OMIT_LOAD_EXTENSION -DSQLITE_DEFAULT_MEMSTATUS=0 -DSQLITE_OMIT_SHARED_CACHE -DSQLITE_OMIT_LOCALTIME -Wno-error -Wno-unused-parameter -Wno-sign-compare -c $< -o $@
+
 $(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxdepth 1 -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p $(LUA_SRVROS_DIR)
 	python3 tools/prepare_lua_port.py ports/upstream/lua $(LUA_SRVROS_DIR)
@@ -681,14 +703,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -730,6 +752,7 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_JSONDEMO) $(INITRAMFS_ROOT)/jsondemo
 	cp $(USER_INIDEMO) $(INITRAMFS_ROOT)/inidemo
 	cp $(USER_LINEDEMO) $(INITRAMFS_ROOT)/linedemo
+	cp $(USER_SQLITEDEMO) $(INITRAMFS_ROOT)/sqlitedemo
 	cp $(USER_ZLIBDEMO) $(INITRAMFS_ROOT)/zlibdemo
 	cp $(USER_LUA) $(INITRAMFS_ROOT)/lua
 	cp $(EXFAT_IMAGE) $(INITRAMFS_ROOT)/srvros.exfat
@@ -808,4 +831,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(SQLITE_DEP) $(LUA_CORE_DEP)

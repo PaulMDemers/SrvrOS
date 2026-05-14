@@ -34,6 +34,9 @@ server.
 - Adds pinned linenoise `2.0` plus a srvros console adapter used by `srvsh` for
   editable prompt input and `/fat/.srvsh_history`; `/fat/bin/linedemo` verifies
   history save/load behavior.
+- Adds SQLite `3.53.1` as a pinned amalgamation snapshot and
+  `/fat/bin/sqlitedemo`, which registers a small srvros VFS and verifies
+  create/insert/query/reopen behavior against `/fat/sqlitedemo.db`.
 - Adds early newlib-style syscall hooks and kernel support for `fstat`,
   `O_RDWR` regular-file fds, relative/end-relative `lseek`, and process heap
   growth.

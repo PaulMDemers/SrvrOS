@@ -1,0 +1,16 @@
+SQLite amalgamation 3.53.1
+
+Source archive:
+https://sqlite.org/2026/sqlite-amalgamation-3530100.zip
+
+Imported files:
+- sqlite3.c
+- sqlite3.h
+- sqlite3ext.h
+
+Archive SHA-256:
+36AD6E7F38540A3B21A2AC36340833F0A9E426BC1C752751C3BA669466827EAE
+
+srvros builds the amalgamation with SQLITE_OS_OTHER and provides a small VFS in
+the demo app. This avoids depending on Unix advisory locking semantics before
+the srvros filesystem grows fuller POSIX metadata and locking support.
