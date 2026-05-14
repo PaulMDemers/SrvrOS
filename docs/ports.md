@@ -52,9 +52,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
   with PATH lookup and basic `posix_spawn_file_actions_adddup2` support for
   standard fd remapping
-- compatibility `execve` backed by the native argv/envp launch request. It
-  currently runs the target as a foreground child and returns the child's exit
-  status instead of replacing the current process image.
+- process-replacing `execve` backed by the native argv/envp launch request.
+  The new image keeps the same pid and open fd table while replacing the old
+  userspace address space.
 - Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `freopen`,
   `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
@@ -69,6 +69,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `_unlink`, and `_rename`
 
 The `posixdemo` userspace app exercises the POSIX slice from inside srvros.
+It also spawns `/fat/bin/execdemo`, which immediately `execve`s
+`/fat/bin/false`; the parent observes exit status 1 to verify real process
+image replacement.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
@@ -80,9 +83,7 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 
 ## Current Limits
 
-- `fork`, process-replacing POSIX `execve`, and client-side `connect` are still
-  missing. The current `execve` wrapper is explicitly a compatibility
-  spawn-and-wait bridge over srvros's argv/envp native launch request.
+- `fork` and client-side `connect` are still missing.
 - Permission bits are synthetic; `chmod`/`fchmod` validate the target but do not
   persist metadata yet.
 - `poll`/`select` cover the current fd types, but timeout waits are currently

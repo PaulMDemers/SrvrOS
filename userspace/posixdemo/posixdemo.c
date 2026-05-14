@@ -462,12 +462,14 @@ int main(void) {
     }
     say("posixdemo: spawn ok\n");
 
-    char *false_argv[] = {"/fat/bin/false", 0};
-    if (execve("/fat/bin/false", false_argv, environ) != 1) {
-        say("posixdemo: execve compat failed\n");
+    char *exec_argv[] = {"/fat/bin/execdemo", 0};
+    if (posix_spawn(&child, "/fat/bin/execdemo", 0, 0, exec_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 1) {
+        say("posixdemo: execve failed\n");
         return 44;
     }
-    say("posixdemo: execve compat ok\n");
+    say("posixdemo: execve ok\n");
 
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
         say("posixdemo: ticks-sec=");

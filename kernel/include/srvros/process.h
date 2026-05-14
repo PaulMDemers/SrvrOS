@@ -55,6 +55,11 @@ int64_t process_spawn_exec(const char *path,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd);
+int64_t process_exec_replace(const char *path,
+    uint64_t argc,
+    const char *const *argv,
+    uint64_t envc,
+    const char *const *envp);
 int64_t process_spawn_background_elf(const char *path);
 int64_t process_spawn_background_elf_args(const char *path, const char *args);
 int64_t process_spawn_background_elf_args_fds(const char *path,

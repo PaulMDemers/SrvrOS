@@ -261,9 +261,9 @@ kernel, and a minimal Unix-like userspace.
    FUSE-like mounts.
 6. Continue the libc/newlib track: add shared open-file descriptions for
    read-only regular-file `dup`/`dup2`, a unified fd wait queue for
-   `poll`/`select`, Unix-like file metadata, process-replacing `execve`,
-   fuller `posix_spawn` attributes/file actions, command substitution, fuller
-   `stdio`, and scan/format helpers.
+   `poll`/`select`, Unix-like file metadata, fuller `posix_spawn`
+   attributes/file actions, command substitution, fuller `stdio`, and
+   scan/format helpers.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

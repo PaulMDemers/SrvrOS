@@ -69,9 +69,11 @@ server.
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
 - Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, basic spawn file
-  action fd remapping for standard streams, and a temporary compatibility
-  `execve` wrapper that runs the target as a foreground child until true
-  process image replacement exists.
+  action fd remapping for standard streams, and true process-replacing
+  `execve`.
+- Adds `/fat/bin/execdemo` as smoke coverage for in-place `execve`; it replaces
+  itself with `/fat/bin/false`, and the parent observes the replacement image's
+  exit status.
 - Tightens empty-file handling so zero-byte exFAT files are registered,
   truncating a file through an fd creates a real zero-byte file, and later
   writes can grow that file by allocating fresh clusters.

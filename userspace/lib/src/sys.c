@@ -192,7 +192,7 @@ long srv_execve(const char *path, char *const argv[], char *const envp[]) {
         .path = path,
         .argv = argv,
         .envp = envp,
-        .flags = 0,
+        .flags = SRV_EXEC_REPLACE,
         .stdin_fd = -1,
         .stdout_fd = -1,
         .stderr_fd = -1,

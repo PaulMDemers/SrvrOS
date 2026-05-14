@@ -173,15 +173,14 @@ redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, unquoted `*`/`?` globbing, `&&`/`||`, `test`/`[`, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, and basic filesystem builtins.
 
-New launches can use the native `SYS_EXEC` request path. It copies a path,
-argv vector, envp vector, background flag, and optional standard fd overrides
-from userspace, then builds a fresh ring-3 stack for the child. This is an
-`execve`-shaped spawn interface rather than full POSIX process image
-replacement, but it lets the shell stop flattening arguments into a single
-string and pass environment variables to child programs. The POSIX compatibility
-layer maps that native path to `posix_spawn`, `posix_spawnp`, `waitpid`, basic
-stdio fd remapping through spawn file actions, and a temporary spawn-and-wait
-`execve` wrapper.
+New launches use the native `SYS_EXEC` request path. It copies a path, argv
+vector, envp vector, background flag, optional standard fd overrides, and an
+in-place replacement flag from userspace. Spawn requests build a fresh child
+ring-3 stack; replacement requests first load the new image into a temporary
+kernel-owned process image, then swap the current process to the new address
+space and enter the new program with the same pid and open fds. The POSIX
+compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`, basic
+stdio fd remapping through spawn file actions, and process-replacing `execve`.
 
 ## POSIX Compatibility
 
@@ -196,7 +195,7 @@ files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
 `truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
 time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,
-`posix_spawnp`, compatibility `execve`, IPv4 formatting and parsing, DNS-backed
+`posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared writable-fd ownership,

@@ -446,15 +446,19 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     }
 
     flags = irq_save();
-    result = process_spawn_exec(path,
-        argc,
-        argv,
-        envc,
-        envp,
-        (request.flags & SRV_EXEC_BACKGROUND) != 0,
-        request.stdin_fd,
-        request.stdout_fd,
-        request.stderr_fd);
+    if ((request.flags & SRV_EXEC_REPLACE) != 0) {
+        result = process_exec_replace(path, argc, argv, envc, envp);
+    } else {
+        result = process_spawn_exec(path,
+            argc,
+            argv,
+            envc,
+            envp,
+            (request.flags & SRV_EXEC_BACKGROUND) != 0,
+            request.stdin_fd,
+            request.stdout_fd,
+            request.stderr_fd);
+    }
     irq_restore(flags);
     process_refresh_mappings(process_current());
     return result;

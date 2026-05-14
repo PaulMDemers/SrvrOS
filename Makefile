@@ -40,6 +40,7 @@ USER_NOTESGUI := build/userspace/notesgui.elf
 USER_TEXTEDIT := build/userspace/textedit.elf
 USER_IMGEDIT := build/userspace/imgedit.elf
 USER_POSIXDEMO := build/userspace/posixdemo.elf
+USER_EXECDEMO := build/userspace/execdemo.elf
 USER_ZLIBDEMO := build/userspace/zlibdemo.elf
 USER_LUA := build/userspace/lua.elf
 EXFAT_IMAGE := build/srvros.exfat
@@ -311,6 +312,11 @@ USER_POSIXDEMO_S := $(shell find userspace/posixdemo -type f -name '*.S' 2>/dev/
 USER_POSIXDEMO_OBJ := $(USER_POSIXDEMO_C:%.c=build/%.c.o) $(USER_POSIXDEMO_S:%.S=build/%.S.o)
 USER_POSIXDEMO_DEP := $(USER_POSIXDEMO_C:%.c=build/%.c.d) $(USER_POSIXDEMO_S:%.S=build/%.S.d)
 
+USER_EXECDEMO_C := $(shell find userspace/execdemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_EXECDEMO_S := $(shell find userspace/execdemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_EXECDEMO_OBJ := $(USER_EXECDEMO_C:%.c=build/%.c.o) $(USER_EXECDEMO_S:%.S=build/%.S.o)
+USER_EXECDEMO_DEP := $(USER_EXECDEMO_C:%.c=build/%.c.d) $(USER_EXECDEMO_S:%.S=build/%.S.d)
+
 USER_ZLIBDEMO_C := $(shell find userspace/zlibdemo -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_ZLIBDEMO_S := $(shell find userspace/zlibdemo -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_ZLIBDEMO_OBJ := $(USER_ZLIBDEMO_C:%.c=build/%.c.o) $(USER_ZLIBDEMO_S:%.S=build/%.S.o)
@@ -552,6 +558,10 @@ $(USER_POSIXDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ)
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_POSIXDEMO_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_EXECDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_EXECDEMO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_EXECDEMO_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_ZLIBDEMO): $(ZIG) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ZLIBDEMO_OBJ) $(ZLIB_OBJ) $(USER_LIB_OBJ) -o $@
@@ -591,14 +601,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -635,6 +645,7 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_TEXTEDIT) $(INITRAMFS_ROOT)/textedit
 	cp $(USER_IMGEDIT) $(INITRAMFS_ROOT)/imgedit
 	cp $(USER_POSIXDEMO) $(INITRAMFS_ROOT)/posixdemo
+	cp $(USER_EXECDEMO) $(INITRAMFS_ROOT)/execdemo
 	cp $(USER_ZLIBDEMO) $(INITRAMFS_ROOT)/zlibdemo
 	cp $(USER_LUA) $(INITRAMFS_ROOT)/lua
 	cp $(EXFAT_IMAGE) $(INITRAMFS_ROOT)/srvros.exfat
@@ -713,4 +724,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(LUA_CORE_DEP)

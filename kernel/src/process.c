@@ -1032,6 +1032,65 @@ int64_t process_spawn_exec(const char *path,
     return status;
 }
 
+static void move_process_image(struct process *destination, struct process *source) {
+    destination->entry = source->entry;
+    destination->stack_top = source->stack_top;
+    destination->argc = source->argc;
+    destination->argv = source->argv;
+    destination->envp = source->envp;
+    destination->address_space = source->address_space;
+    destination->heap_base = source->heap_base;
+    destination->program_break = source->program_break;
+    destination->mapped_break = source->mapped_break;
+    destination->heap_limit = source->heap_limit;
+    destination->mapping_count = source->mapping_count;
+    for (uint64_t i = 0; i < source->mapping_count; i++) {
+        destination->mappings[i] = source->mappings[i];
+    }
+
+    source->address_space = 0;
+    source->mapping_count = 0;
+}
+
+int64_t process_exec_replace(const char *path,
+    uint64_t argc,
+    const char *const *argv,
+    uint64_t envc,
+    const char *const *envp) {
+    struct process *process = process_current();
+    if (process == NULL || path == NULL || path[0] == '\0') {
+        return -1;
+    }
+
+    struct process *image = kcalloc(1, sizeof(*image));
+    if (image == NULL) {
+        return -1;
+    }
+    image->stack_top = USER_STACK_TOP;
+
+    if (!load_elf_image(path, image, USER_STACK_TOP, &image->entry) ||
+        !setup_process_vectors(image, argc, argv, envc, envp)) {
+        cleanup_process_address_space(image);
+        kfree(image);
+        return -1;
+    }
+
+    scheduler_clear_user_context();
+    cleanup_process_address_space(process);
+    move_process_image(process, image);
+    set_process_name(process, path);
+    fpu_init_state(&process->fpu);
+    kfree(image);
+
+    scheduler_set_user_context(process, process->address_space, process->kernel_stack_top);
+    console_printf("exec: entering pid=%u %s entry=%x stack=%x\n",
+        process->pid,
+        path,
+        process->entry,
+        process->stack_top);
+    usermode_enter(process->entry, process->stack_top, process->argc, process->argv, process->envp);
+}
+
 static void background_process_thread(void *arg) {
     struct process *process = arg;
     if (process == NULL) {

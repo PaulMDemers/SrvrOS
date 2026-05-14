@@ -209,15 +209,7 @@ int execve(const char *path, char *const argv[], char *const envp[]) {
         return -1;
     }
 
-    long status = srv_execve(full, argv, effective_envp(envp));
-    if (status < 0) {
-        errno = ENOENT;
-        return -1;
-    }
-
-    /*
-     * srvros does not have process image replacement yet. This compatibility
-     * wrapper runs the target as a foreground child and returns its exit code.
-     */
-    return (int)status;
+    long result = srv_execve(full, argv, effective_envp(envp));
+    errno = result < 0 ? ENOENT : EIO;
+    return -1;
 }
