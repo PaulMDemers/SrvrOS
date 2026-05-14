@@ -58,7 +58,8 @@ editor clients:
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
   `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `pread`/`pwrite`, time,
-  cwd, `getopt`, `uname`, environment variables, IPv4 helpers, DNS-backed
+  cwd, `getopt`, `uname`, environment variables, `waitpid`, `posix_spawn`,
+  `posix_spawnp`, compatibility `execve`, IPv4 helpers, DNS-backed
   `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
@@ -72,6 +73,9 @@ editor clients:
   covered in the shell pipeline smoke path.
 - The first `execve`-shaped native launch path accepts an argv vector, an envp
   vector, background flags, and explicit stdin/stdout/stderr fd overrides.
+  The POSIX layer exposes this as `posix_spawn`/`posix_spawnp`, `waitpid`, and a
+  temporary spawn-and-wait `execve` compatibility wrapper until true process
+  image replacement lands.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
 

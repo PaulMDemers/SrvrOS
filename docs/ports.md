@@ -49,6 +49,12 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`
 - `getopt`, `uname`, `atexit`, and an `ENOSYS` `system` stub
 - `getpid`
+- `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
+  with PATH lookup and basic `posix_spawn_file_actions_adddup2` support for
+  standard fd remapping
+- compatibility `execve` backed by the native argv/envp launch request. It
+  currently runs the target as a foreground child and returns the child's exit
+  status instead of replacing the current process image.
 - Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `freopen`,
   `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
@@ -75,9 +81,8 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 ## Current Limits
 
 - `fork`, process-replacing POSIX `execve`, and client-side `connect` are still
-  missing. srvros now has an argv/envp native spawn request that is shaped like
-  `execve`, but it still creates a child process instead of replacing the
-  current process image.
+  missing. The current `execve` wrapper is explicitly a compatibility
+  spawn-and-wait bridge over srvros's argv/envp native launch request.
 - Permission bits are synthetic; `chmod`/`fchmod` validate the target but do not
   persist metadata yet.
 - `poll`/`select` cover the current fd types, but timeout waits are currently
@@ -96,10 +101,8 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - The kernel enables FPU/SSE/SSE2 and saves/restores per-process plus
   per-scheduler-thread `fxsave64` state. Kernel C and userspace C both build
   with SSE enabled; only the low-level FPU handoff file is forced no-SSE.
-- Lua currently runs in an integer-number profile. Full floating-point Lua is
-  now unblocked at the ABI level, but still needs the port configuration and
-  missing math-library surface to be switched over.
-- Lua excludes `math`, `os`, and dynamic loading for now.
+- Lua now runs its normal floating-number profile with `math` enabled. The `os`
+  library and native dynamic loading remain disabled for now.
 
 ## Upstream Repos
 

@@ -68,6 +68,10 @@ server.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
+- Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, basic spawn file
+  action fd remapping for standard streams, and a temporary compatibility
+  `execve` wrapper that runs the target as a foreground child until true
+  process image replacement exists.
 - Tightens empty-file handling so zero-byte exFAT files are registered,
   truncating a file through an fd creates a real zero-byte file, and later
   writes can grow that file by allocating fresh clusters.
@@ -122,9 +126,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
   shims until the filesystem layer grows Unix-like metadata.
 - `stdio` is deliberately small: enough for early command-line ports, not a full
   ISO C implementation.
-- Lua currently uses integer numbers and excludes `math`, `os`, and dynamic
-  loading. Full Lua floating numbers are unblocked at the ABI level but still
-  need port and math-library work.
+- Lua uses its normal floating-number profile with `math` enabled. The `os`
+  library and native dynamic loading remain disabled.
 - Process-exit teardown is non-preemptible while freeing the exiting address
   space, so repeated larger interpreter launches do not leave scheduler context
   pointing at freed page tables.

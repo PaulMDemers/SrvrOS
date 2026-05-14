@@ -5,6 +5,7 @@
 #include <math.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -13,6 +14,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/utsname.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -419,6 +421,53 @@ int main(void) {
         return 39;
     }
     say("posixdemo: posix misc ok\n");
+
+    char *true_argv[] = {"true", 0};
+    pid_t child = 0;
+    int child_status = 0;
+    if (posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
+        child <= 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        !WIFEXITED(child_status) ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn true failed\n");
+        return 41;
+    }
+    fd = open("/fat/posixdemo/spawn.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    posix_spawn_file_actions_t actions;
+    char *echo_argv[] = {"/fat/bin/echo", "spawned", 0};
+    if (fd < 0 ||
+        posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_adddup2(&actions, fd, STDOUT_FILENO) != 0 ||
+        posix_spawn(&child, "/fat/bin/echo", &actions, 0, echo_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn redirect failed\n");
+        if (fd >= 0) {
+            close(fd);
+        }
+        return 42;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    close(fd);
+    fd = open("/fat/posixdemo/spawn.txt", O_RDONLY);
+    n = fd >= 0 ? read(fd, buffer, sizeof(buffer) - 1) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    unlink("/fat/posixdemo/spawn.txt");
+    if (n < 7 || memcmp(buffer, "spawned", 7) != 0) {
+        say("posixdemo: spawn redirect read failed\n");
+        return 43;
+    }
+    say("posixdemo: spawn ok\n");
+
+    char *false_argv[] = {"/fat/bin/false", 0};
+    if (execve("/fat/bin/false", false_argv, environ) != 1) {
+        say("posixdemo: execve compat failed\n");
+        return 44;
+    }
+    say("posixdemo: execve compat ok\n");
 
     if (clock_gettime(CLOCK_MONOTONIC, &ts) == 0) {
         say("posixdemo: ticks-sec=");

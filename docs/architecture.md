@@ -178,7 +178,10 @@ argv vector, envp vector, background flag, and optional standard fd overrides
 from userspace, then builds a fresh ring-3 stack for the child. This is an
 `execve`-shaped spawn interface rather than full POSIX process image
 replacement, but it lets the shell stop flattening arguments into a single
-string and pass environment variables to child programs.
+string and pass environment variables to child programs. The POSIX compatibility
+layer maps that native path to `posix_spawn`, `posix_spawnp`, `waitpid`, basic
+stdio fd remapping through spawn file actions, and a temporary spawn-and-wait
+`execve` wrapper.
 
 ## POSIX Compatibility
 
@@ -192,7 +195,8 @@ files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` fd flags, `access`, `isatty`, `fsync`,
 `truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
-time functions, `scanf`/`sscanf` basics, `getpid`, IPv4 formatting and parsing, DNS-backed
+time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,
+`posix_spawnp`, compatibility `execve`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared writable-fd ownership,

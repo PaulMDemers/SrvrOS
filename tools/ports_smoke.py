@@ -130,6 +130,8 @@ def main():
         "posixdemo: math ok",
         "posixdemo: pread ok",
         "posixdemo: posix misc ok",
+        "posixdemo: spawn ok",
+        "posixdemo: execve compat ok",
         "posixdemo: ok",
         "exfat-check:",
         "errors=0 ok",
