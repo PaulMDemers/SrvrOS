@@ -249,9 +249,8 @@ kernel, and a minimal Unix-like userspace.
 1. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
-   but metadata and recovery semantics are still intentionally small. Tighten
-   zero-byte create/truncate through fd-open paths so shell `> file` creates an
-   empty file even if the command writes no output.
+   and shell `> file` creates an empty file even if the command writes no
+   output, but metadata and recovery semantics are still intentionally small.
 2. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
 3. Add NVMe discovery and read/write support as the second storage backend.

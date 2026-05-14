@@ -65,9 +65,12 @@ server.
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,
   integer, and file/directory checks.
-- Adds shell stdin redirection plus stderr `2>`/`2>>` redirection, and moves
+- Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
+- Tightens empty-file handling so zero-byte exFAT files are registered,
+  truncating a file through an fd creates a real zero-byte file, and later
+  writes can grow that file by allocating fresh clusters.
 - Expands the generated exFAT image builder to reserve multi-cluster root and
   `/fat/bin` directory tables with explicit overflow checks.
 - Moves `/fat/bin/webd` onto the readiness API so a partial client no longer

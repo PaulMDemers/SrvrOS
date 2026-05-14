@@ -44,7 +44,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   expansion, child envp inheritance, unquoted `*`/`?` globbing, `test`/`[`,
   `&&`/`||`, core CLI tools, stdin/stdout/stderr redirection, multi-stage
   pipeline fd wiring through `cat | grep | tap`, pipeline output
-  redirection/append, stdin-aware text tools, scripts,
+  redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text tools, scripts,
   copy/remove, native file rename through `mv`, `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.

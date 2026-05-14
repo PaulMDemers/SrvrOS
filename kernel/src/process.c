@@ -1628,6 +1628,7 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     bool exists = node != NULL;
     bool append = (flags & SRV_OPEN_APPEND) != 0;
     bool trunc = (flags & SRV_OPEN_TRUNC) != 0;
+    bool ensure_empty = trunc || (!exists && (flags & SRV_OPEN_CREATE) != 0);
 
     if (!exists && (flags & SRV_OPEN_CREATE) == 0) {
         return -1;
@@ -1684,9 +1685,19 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
     }
     write->size = trunc ? 0 : old_size;
     write->offset = append ? old_size : 0;
-    write->dirty = trunc;
+    write->dirty = false;
     if (old_data != NULL) {
         vfs_release_data(node, old_data);
+    }
+    if (ensure_empty && !exfat_write_file(path, NULL, 0)) {
+        if (write->data != NULL) {
+            kfree((void *)write->data);
+        }
+        uint8_t *write_bytes = (uint8_t *)write;
+        for (uint64_t j = 0; j < sizeof(*write); j++) {
+            write_bytes[j] = 0;
+        }
+        return -1;
     }
 
     struct process_file *file = &process->files[free_index];

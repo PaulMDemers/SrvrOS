@@ -119,6 +119,11 @@ def main():
         "tap 2> /fat/tap-usage.txt > /fat/tap-stdout.txt\n"
         "stat /fat/tap-usage.txt\n"
         "stat /fat/tap-stdout.txt\n"
+        "true > /fat/empty-redir.txt\n"
+        "stat /fat/empty-redir.txt\n"
+        "tap > /fat/tap-combined.txt 2>&1\n"
+        "stat /fat/tap-combined.txt\n"
+        "cat /fat/tap-combined.txt\n"
         "tap 2>> /fat/tap-usage.txt > /fat/tap-stdout2.txt\n"
         "stat /fat/tap-usage.txt\n"
         "export CHILD_ENV=from-parent\n"
@@ -251,6 +256,10 @@ def main():
         "2 18 110 /fat/cat-redir.txt",
         "/fat/stdin-redir.txt: 55 bytes",
         "/fat/tap-usage.txt: 41 bytes",
+        "/fat/tap-stdout.txt: 0 bytes",
+        "/fat/empty-redir.txt: 0 bytes",
+        "/fat/tap-combined.txt: 41 bytes",
+        "usage: tap [-a] <copy-path> [input-path]",
         "/fat/tap-usage.txt: 82 bytes",
         "CHILD_ENV=from-parent",
         "webd",

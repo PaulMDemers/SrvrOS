@@ -25,6 +25,7 @@ struct command_redirection {
     int stdin_set;
     int stdout_set;
     int stderr_set;
+    int stderr_to_stdout;
     int stdout_append;
     int stderr_append;
     char stdin_path[CLI_PATH_MAX];
@@ -377,7 +378,7 @@ static void print_help(void) {
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
-    cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file\n");
+    cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
 }
 
@@ -988,6 +989,7 @@ static void init_redirection(struct command_redirection *redirection) {
     redirection->stdin_set = 0;
     redirection->stdout_set = 0;
     redirection->stderr_set = 0;
+    redirection->stderr_to_stdout = 0;
     redirection->stdout_append = 0;
     redirection->stderr_append = 0;
     redirection->stdin_path[0] = '\0';
@@ -1059,8 +1061,16 @@ static void split_redirections(char *args, struct command_redirection *redirecti
                 redirection->stderr_append = 1;
                 read++;
             }
+            if (*read == '&' && read[1] == '1') {
+                read += 2;
+                redirection->stderr_set = 0;
+                redirection->stderr_to_stdout = 1;
+                redirection->stderr_path[0] = '\0';
+                continue;
+            }
             read = copy_redirection_path(read, redirection->stderr_path, sizeof(redirection->stderr_path));
             redirection->stderr_set = redirection->stderr_path[0] != '\0';
+            redirection->stderr_to_stdout = 0;
             continue;
         }
         if (*read == '>') {
@@ -1131,7 +1141,11 @@ static int prepare_external_command(char *line,
         args = cli_trim(args);
     }
     split_redirections(args, redirection);
-    if (!allow_redirect && (redirection->stdin_set || redirection->stdout_set || redirection->stderr_set)) {
+    if (!allow_redirect &&
+        (redirection->stdin_set ||
+            redirection->stdout_set ||
+            redirection->stderr_set ||
+            redirection->stderr_to_stdout)) {
         cli_puts("sh: pipeline redirection unsupported\n");
         return 0;
     }
@@ -1201,6 +1215,18 @@ static int open_redirection_output(const char *path, int append, const char *lab
         cli_puts("\n");
     }
     return (int)fd;
+}
+
+static void close_redirection_fds(int input_fd, int output_fd, int error_fd) {
+    if (input_fd >= 0) {
+        srv_close(input_fd);
+    }
+    if (output_fd >= 0) {
+        srv_close(output_fd);
+    }
+    if (error_fd >= 0 && error_fd != output_fd) {
+        srv_close(error_fd);
+    }
 }
 
 static long exec_external_command(const char *path,
@@ -1290,29 +1316,18 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
             commands[segment_count - 1].redirection.stderr_append,
             "stderr");
         if (error_fd < 0) {
-            if (input_fd >= 0) {
-                srv_close(input_fd);
-            }
-            if (output_fd >= 0) {
-                srv_close(output_fd);
-            }
+            close_redirection_fds(input_fd, output_fd, -1);
             return 1;
         }
+    } else if (commands[segment_count - 1].redirection.stderr_to_stdout) {
+        error_fd = output_fd >= 0 ? output_fd : 1;
     }
 
     for (size_t i = 0; i + 1 < segment_count; i++) {
         if (srv_pipe(pipes[i]) < 0) {
             cli_puts("sh: pipe failed\n");
             close_pipeline_fds(pipes, segment_count - 1);
-            if (output_fd >= 0) {
-                srv_close(output_fd);
-            }
-            if (input_fd >= 0) {
-                srv_close(input_fd);
-            }
-            if (error_fd >= 0) {
-                srv_close(error_fd);
-            }
+            close_redirection_fds(input_fd, output_fd, error_fd);
             return 1;
         }
     }
@@ -1325,30 +1340,14 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
         if (pids[i] < 0) {
             cli_puts("sh: pipeline spawn failed\n");
             close_pipeline_fds(pipes, segment_count - 1);
-            if (output_fd >= 0) {
-                srv_close(output_fd);
-            }
-            if (input_fd >= 0) {
-                srv_close(input_fd);
-            }
-            if (error_fd >= 0) {
-                srv_close(error_fd);
-            }
+            close_redirection_fds(input_fd, output_fd, error_fd);
             wait_pipeline_pids(pids, i, 0);
             return 126;
         }
     }
 
     close_pipeline_fds(pipes, segment_count - 1);
-    if (output_fd >= 0) {
-        srv_close(output_fd);
-    }
-    if (input_fd >= 0) {
-        srv_close(input_fd);
-    }
-    if (error_fd >= 0) {
-        srv_close(error_fd);
-    }
+    close_redirection_fds(input_fd, output_fd, error_fd);
     wait_pipeline_pids(pids, segment_count, &final_status);
     cli_puts("status ");
     cli_putn(final_status);
@@ -1537,57 +1536,30 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     if (redirection.stderr_set) {
         error_fd = open_redirection_output(redirection.stderr_path, redirection.stderr_append, "stderr");
         if (error_fd < 0) {
-            if (input_fd >= 0) {
-                srv_close(input_fd);
-            }
-            if (output_fd >= 0) {
-                srv_close(output_fd);
-            }
+            close_redirection_fds(input_fd, output_fd, -1);
             return 1;
         }
+    } else if (redirection.stderr_to_stdout) {
+        error_fd = output_fd >= 0 ? output_fd : 1;
     }
 
     if (background) {
         status = exec_external_command(path, args, 1, input_fd, output_fd, error_fd);
         if (status < 0) {
             cli_puts("sh: background spawn failed\n");
-            if (input_fd >= 0) {
-                srv_close(input_fd);
-            }
-            if (output_fd >= 0) {
-                srv_close(output_fd);
-            }
-            if (error_fd >= 0) {
-                srv_close(error_fd);
-            }
+            close_redirection_fds(input_fd, output_fd, error_fd);
             return 126;
         } else {
             cli_puts("[bg] pid ");
             cli_putn((uint64_t)status);
             cli_puts("\n");
         }
-        if (input_fd >= 0) {
-            srv_close(input_fd);
-        }
-        if (output_fd >= 0) {
-            srv_close(output_fd);
-        }
-        if (error_fd >= 0) {
-            srv_close(error_fd);
-        }
+        close_redirection_fds(input_fd, output_fd, error_fd);
         return 0;
     }
 
     status = exec_external_command(path, args, 0, input_fd, output_fd, error_fd);
-    if (input_fd >= 0) {
-        srv_close(input_fd);
-    }
-    if (output_fd >= 0) {
-        srv_close(output_fd);
-    }
-    if (error_fd >= 0) {
-        srv_close(error_fd);
-    }
+    close_redirection_fds(input_fd, output_fd, error_fd);
     if (status < 0) {
         cli_puts("sh: exec failed\n");
         return 126;
@@ -1650,6 +1622,12 @@ static uint64_t run_line(char *line, char *cwd) {
             }
             last_status = status;
             return status;
+        } else if (c == '&' &&
+            cursor > line + 1 &&
+            cursor[-1] == '>' &&
+            cursor[-2] == '2' &&
+            cursor[1] == '1') {
+            continue;
         } else if (c == ';' || c == '&' || (c == '|' && cursor[1] == '|')) {
             char *delimiter = cursor;
             int background = c == '&';
