@@ -27,7 +27,10 @@ server.
   malloc, `sbrk`, pipes, time, cwd, IPv4, DNS, and TCP server socket APIs.
 - Adds minimal `stdio`, stages zlib and Lua as pinned submodules under
   `ports/upstream`, ships `/fat/bin/zlibdemo`, and adds `/fat/bin/lua` as an
-  integer-profile Lua 5.4.8 interpreter.
+  initial Lua 5.4.8 interpreter.
+- Adds pinned cJSON `v1.7.19` and inih `r62` submodules, plus
+  `/fat/bin/jsondemo` and `/fat/bin/inidemo` smoke apps for JSON and INI
+  parse/roundtrip coverage.
 - Adds early newlib-style syscall hooks and kernel support for `fstat`,
   `O_RDWR` regular-file fds, relative/end-relative `lseek`, and process heap
   growth.

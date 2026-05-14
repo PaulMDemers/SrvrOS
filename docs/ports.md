@@ -78,6 +78,10 @@ image replacement. The same smoke path uses `/fat/bin/fdprobe` to verify both
 inherited descriptors and `FD_CLOEXEC` descriptor cleanup across exec.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
+The `jsondemo` app links pinned cJSON `v1.7.19`, parses a service description,
+creates a JSON document, writes it to `/fat`, reads it back, and verifies a
+roundtrip parse. The `inidemo` app links pinned inih `r62`, parses config from
+memory and from `/fat/inidemo.ini`, and verifies the resulting service fields.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -115,6 +119,8 @@ Third-party source is kept as pinned submodules under `ports/upstream`:
 
 - zlib `v1.3.2`
 - Lua `v5.4.8`
+- cJSON `v1.7.19`
+- inih `r62`
 
 ## Next Porting Milestones
 

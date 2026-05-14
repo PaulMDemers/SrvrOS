@@ -65,9 +65,10 @@ editor clients:
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
   5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua
-  `require`. The support library also exports the first newlib-style syscall
-  hooks, `float.h`, and small built-in `math.h`, `printf`, and `scanf`
-  surfaces.
+  `require`. `/fat/bin/jsondemo` and `/fat/bin/inidemo` link pinned cJSON and
+  inih for lightweight data/config parsing. The support library also exports
+  the first newlib-style syscall hooks, `float.h`, and small built-in `math.h`,
+  `printf`, and `scanf` surfaces.
 - `/fat/bin/fpdemo` stress-tests userspace double math across foreground and
   background preemption.
 - `/fat/bin/tap` splits an input stream to stdout and a secondary file, and is
@@ -172,6 +173,8 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ service webd start
 / $ posixdemo
 / $ zlibdemo
+/ $ jsondemo
+/ $ inidemo
 / $ lua -e "print('hello from lua', 6*7)"
 ```
 

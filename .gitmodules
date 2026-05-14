@@ -4,3 +4,9 @@
 [submodule "ports/upstream/lua"]
 	path = ports/upstream/lua
 	url = https://github.com/lua/lua.git
+[submodule "ports/upstream/cjson"]
+	path = ports/upstream/cjson
+	url = https://github.com/DaveGamble/cJSON.git
+[submodule "ports/upstream/inih"]
+	path = ports/upstream/inih
+	url = https://github.com/benhoyt/inih.git

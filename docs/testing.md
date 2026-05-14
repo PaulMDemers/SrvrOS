@@ -57,8 +57,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,
   and clean resolver failure for a non-resolving name.
-- `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo` and
-  `/fat/bin/posixdemo`, zlib compress/decompress verification, libc/POSIX file
+- `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
+  `/fat/bin/inidemo`, and `/fat/bin/posixdemo`; zlib compress/decompress,
+  cJSON parse/print/roundtrip, inih string/file parsing, and libc/POSIX file
   checks including `fstat`, `dup`, writable-fd dup ownership, `pipe`,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`

@@ -201,6 +201,8 @@ kernel, and a minimal Unix-like userspace.
   as a smoke app.
 - Add `ports/upstream` with pinned zlib and Lua submodules to start common
   library porting without vendoring snapshots into the main tree.
+- Add pinned cJSON and inih submodules with `/fat/bin/jsondemo` and
+  `/fat/bin/inidemo` as small data/config parser ports.
 - Add minimal `stdio` support in the userspace library and `/fat/bin/zlibdemo`,
   which links pinned zlib, compresses data, writes the compressed stream to
   exFAT, reads it back, and verifies decompression.
