@@ -254,7 +254,8 @@ long srv_exec(const struct srv_exec_request *request) {
         return srv_syscall1(SYS_EXEC, (long)request);
     }
     char full[CLI_PATH_MAX];
-    struct srv_exec_request normalized = *request;
+    struct srv_exec_request normalized = {0};
+    normalized = *request;
     normalized.path = srv_make_path(request->path, full, sizeof(full));
     return srv_syscall1(SYS_EXEC, (long)&normalized);
 }
@@ -278,6 +279,10 @@ long srv_proc_list(uint64_t index, struct srv_process_info *info) {
 
 long srv_kill(uint64_t pid) {
     return srv_syscall1(SYS_KILL, (long)pid);
+}
+
+long srv_proc_group(uint64_t pid, uint64_t group, int foreground) {
+    return srv_syscall3(SYS_PROC_GROUP, (long)pid, (long)group, (long)foreground);
 }
 
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {

@@ -56,7 +56,9 @@ int64_t process_spawn_exec(const char *path,
     bool detached,
     int64_t stdin_fd,
     int64_t stdout_fd,
-    int64_t stderr_fd);
+    int64_t stderr_fd,
+    uint64_t process_group,
+    bool foreground);
 int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -80,6 +82,8 @@ uint64_t process_list(uint64_t start_index,
 bool process_kill_pid(uint64_t pid);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
 bool process_interrupt_foreground(uint64_t signal);
+bool process_set_group(uint64_t pid, uint64_t group);
+void process_set_foreground_group(uint64_t group);
 bool process_background_active(void);
 bool process_background_killed(void);
 const char *process_background_name(void);

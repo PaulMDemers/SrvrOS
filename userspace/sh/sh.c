@@ -2173,14 +2173,20 @@ static void close_pipeline_fds(int pipes[][2], size_t count) {
 }
 
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status) {
+    uint64_t interrupted_status = 0;
+    uint64_t final_status = 0;
     for (size_t i = 0; i < count; i++) {
         uint64_t status = 0;
         if (pids[i] >= 0) {
             (void)srv_wait((uint64_t)pids[i], &status, 0);
-            if (i + 1 == count && last_status != 0) {
-                *last_status = status;
+            if (status >= 128 && interrupted_status == 0) {
+                interrupted_status = status;
             }
+            final_status = status;
         }
+    }
+    if (last_status != 0) {
+        *last_status = interrupted_status != 0 ? interrupted_status : final_status;
     }
 }
 
@@ -2224,7 +2230,9 @@ static long exec_external_command(const char *path,
     int background,
     int stdin_fd,
     int stdout_fd,
-    int stderr_fd) {
+    int stderr_fd,
+    uint64_t process_group,
+    int foreground) {
     char args_copy[ARG_EXPANDED_MAX];
     char *argv[18];
     int argc;
@@ -2245,6 +2253,8 @@ static long exec_external_command(const char *path,
         .stdin_fd = stdin_fd,
         .stdout_fd = stdout_fd,
         .stderr_fd = stderr_fd,
+        .process_group = process_group,
+        .foreground = foreground ? 1 : 0,
     };
     return srv_exec(&request);
 }
@@ -2400,7 +2410,15 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
         int stdin_fd = i == 0 ? input_fd : pipes[i - 1][0];
         int stdout_fd = i + 1 == segment_count ? output_fd : pipes[i][1];
         int stderr_fd = i + 1 == segment_count ? error_fd : -1;
-        pids[i] = exec_external_command(commands[i].path, commands[i].args, 1, stdin_fd, stdout_fd, stderr_fd);
+        uint64_t group = i == 0 ? SRV_EXEC_GROUP_SELF : (uint64_t)pids[0];
+        pids[i] = exec_external_command(commands[i].path,
+            commands[i].args,
+            1,
+            stdin_fd,
+            stdout_fd,
+            stderr_fd,
+            group,
+            1);
         if (pids[i] < 0) {
             cli_puts("sh: pipeline spawn failed\n");
             close_pipeline_fds(pipes, segment_count - 1);
@@ -2413,6 +2431,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
     close_pipeline_fds(pipes, segment_count - 1);
     close_redirection_fds(input_fd, output_fd, error_fd);
     wait_pipeline_pids(pids, segment_count, &final_status);
+    (void)srv_proc_group(0, 0, 1);
     cli_puts("status ");
     cli_putn(final_status);
     cli_puts("\n");
@@ -2718,7 +2737,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     }
 
     if (background) {
-        status = exec_external_command(path, args, 1, input_fd, output_fd, error_fd);
+        status = exec_external_command(path, args, 1, input_fd, output_fd, error_fd, 0, 0);
         if (status < 0) {
             cli_puts("sh: background spawn failed\n");
             close_redirection_fds(input_fd, output_fd, error_fd);
@@ -2733,7 +2752,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         return 0;
     }
 
-    status = exec_external_command(path, args, 0, input_fd, output_fd, error_fd);
+    status = exec_external_command(path, args, 0, input_fd, output_fd, error_fd, 0, 0);
     close_redirection_fds(input_fd, output_fd, error_fd);
     if (status < 0) {
         cli_puts("sh: exec failed\n");

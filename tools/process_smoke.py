@@ -110,6 +110,14 @@ def main():
             output += read_until(sock, b"spin: entering busy loop", args.line_wait)
             sock.sendall(b"\x03")
             output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"echo single-status-$?\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"spin | cat\n")
+            output += read_until(sock, b"spin: entering busy loop", args.line_wait)
+            sock.sendall(b"\x03")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"echo pipeline-status-$?\n")
+            output += read_until(sock, b" $ ", args.line_wait)
             sock.sendall(b"exit 0\n")
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
@@ -131,7 +139,8 @@ def main():
         "[done] pid ",
         "status 7",
         "spin: entering busy loop",
-        "status 130",
+        "single-status-130",
+        "pipeline-status-130",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

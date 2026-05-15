@@ -112,6 +112,7 @@ struct process {
     bool reapable;
     bool quiet;
     uint64_t kill_signal;
+    uint64_t process_group;
     uint64_t pid;
     uint64_t exit_status;
     uint64_t entry;
@@ -190,6 +191,7 @@ static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
 static struct scheduler_wait_queue fd_poll_wait_queue;
 static struct scheduler_wait_queue file_lock_wait_queue;
+static uint64_t foreground_process_group;
 
 static void set_process_name(struct process *process, const char *path);
 static struct process_read_file *read_file_at(uint64_t handle);
@@ -1043,7 +1045,9 @@ int64_t process_spawn_exec(const char *path,
     bool detached,
     int64_t stdin_fd,
     int64_t stdout_fd,
-    int64_t stderr_fd) {
+    int64_t stderr_fd,
+    uint64_t process_group,
+    bool foreground) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
         return -1;
@@ -1066,6 +1070,15 @@ int64_t process_spawn_exec(const char *path,
         release_process(child);
         scheduler_set_user_context(parent, parent->address_space, parent->kernel_stack_top);
         return -1;
+    }
+
+    if (process_group == UINT64_MAX) {
+        child->process_group = child->pid;
+    } else {
+        child->process_group = process_group;
+    }
+    if (foreground && child->process_group != 0) {
+        foreground_process_group = child->process_group;
     }
 
     if (detached) {
@@ -1488,11 +1501,26 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
             processes[i].killed = true;
             processes[i].kill_signal = signal;
             net_process_wake(&processes[i]);
+            scheduler_wake_all(&pipe_wait_queue);
             process_file_poll_wake();
             return true;
         }
     }
     return false;
+}
+
+bool process_set_group(uint64_t pid, uint64_t group) {
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && processes[i].pid == pid) {
+            processes[i].process_group = group;
+            return true;
+        }
+    }
+    return false;
+}
+
+void process_set_foreground_group(uint64_t group) {
+    foreground_process_group = group;
 }
 
 static bool is_root_interactive_shell(const struct process *process) {
@@ -1503,6 +1531,23 @@ static bool is_root_interactive_shell(const struct process *process) {
 }
 
 bool process_interrupt_foreground(uint64_t signal) {
+    bool signaled = false;
+    if (foreground_process_group != 0) {
+        for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+            struct process *candidate = &processes[i];
+            if (!candidate->allocated ||
+                !candidate->active ||
+                candidate->killed ||
+                candidate->process_group != foreground_process_group) {
+                continue;
+            }
+            signaled = process_signal_pid(candidate->pid, signal) || signaled;
+        }
+        if (signaled) {
+            return true;
+        }
+    }
+
     struct process *victim = NULL;
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         struct process *candidate = &processes[i];
@@ -2360,12 +2405,17 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
 
 static bool pipe_read_ready(void *arg) {
     struct process_pipe *pipe = arg;
-    return pipe == NULL || !pipe->used || pipe->size > 0 || pipe->write_refs == 0;
+    return process_should_exit_current() ||
+        pipe == NULL ||
+        !pipe->used ||
+        pipe->size > 0 ||
+        pipe->write_refs == 0;
 }
 
 static bool pipe_write_ready(void *arg) {
     struct process_pipe *pipe = arg;
-    return pipe == NULL ||
+    return process_should_exit_current() ||
+        pipe == NULL ||
         !pipe->used ||
         pipe->read_refs == 0 ||
         pipe->size < PROCESS_PIPE_CAPACITY;
@@ -2430,6 +2480,9 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         return -1;
     }
     while (pipe->size == 0 && pipe->write_refs > 0) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
         if ((file->flags & SRV_FD_NONBLOCK) != 0) {
             return SRV_ERR_AGAIN;
         }
@@ -2463,6 +2516,9 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
     uint64_t done = 0;
     while (done < length) {
         while (pipe->size == PROCESS_PIPE_CAPACITY && pipe->read_refs > 0) {
+            if (process_should_exit_current()) {
+                return done > 0 ? (int64_t)done : -1;
+            }
             if ((file->flags & SRV_FD_NONBLOCK) != 0) {
                 return done > 0 ? (int64_t)done : SRV_ERR_AGAIN;
             }

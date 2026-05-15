@@ -39,8 +39,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`, `VTIME`, erase,
   kill-line, and EOF control characters. `ioctl(TIOCGWINSZ)` reports the
   current console dimensions and framebuffer pixel size, while
-  `ioctl(TIOCSWINSZ)` stores an override for terminal-oriented ports. Full
-  terminal process groups, signals, and baud settings are still future work.
+  `ioctl(TIOCSWINSZ)` stores an override for terminal-oriented ports.
+  Terminal-generated Ctrl-C is routed to the shell's active foreground process
+  group; richer terminal-session modeling and baud settings are still future
+  work.
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
@@ -133,8 +135,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   to srvros advisory byte-range locks, but richer stale-lock recovery,
   cross-machine semantics, and WAL shared-memory locking are future work.
 - The TTY layer is intentionally small. It tracks one console termios state and
-  supports canonical/raw reads, but does not yet model controlling terminals,
-  foreground process groups, terminal-generated signals, or baud settings.
+  supports canonical/raw reads plus Ctrl-C delivery to the active foreground
+  process group, but does not yet model controlling terminals, sessions, or baud
+  settings.
 - `stdio` is intentionally small: formatted output has no width/precision
   parsing yet, input scanning is missing, `fflush` is effectively a no-op for
   unbuffered streams, and `popen`/`pclose` are `ENOSYS` stubs.

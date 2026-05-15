@@ -57,10 +57,10 @@ srvros can run kernel threads and ring-3 processes. The local APIC timer drives
 preemption. Process state includes address-space ownership, kernel trap stack,
 fd table, GUI queue state, network handle ownership, and exit status.
 
-The shell supports foreground jobs, background jobs, `jobs`, `wait`, and `kill`.
-Sleeping syscalls use wait queues for keyboard input, network accept/read
-readiness, and descriptor readiness in `poll`/`select`, so a blocked process
-does not busy-spin.
+The shell supports foreground jobs, foreground pipeline groups, background jobs,
+`jobs`, `wait`, and `kill`. Sleeping syscalls use wait queues for keyboard
+input, network accept/read readiness, and descriptor readiness in
+`poll`/`select`, so a blocked process does not busy-spin.
 
 ## Syscall ABI
 
@@ -205,11 +205,12 @@ Userspace path handling now canonicalizes relative paths against the inherited
 wrapper layer and POSIX path helpers share the same normalization behavior, so
 shell commands, libc callers, and spawned processes see consistent paths.
 
-The first terminal signal path handles Ctrl-C from serial or PS/2 keyboard
-input. The kernel routes it to the active foreground userspace process instead
-of the root interactive shell, marks that process for `SIGINT`, wakes blocking
-I/O where possible, and exits it with the conventional `128 + signal` status.
-`kill` uses the same process signal machinery with `SIGTERM`.
+The terminal signal path handles Ctrl-C from serial or PS/2 keyboard input. The
+kernel routes it to the active foreground process group, including every member
+of a shell pipeline, instead of the root interactive shell. It marks matching
+processes for `SIGINT`, wakes blocking pipe/poll/network I/O where possible,
+and exits them with the conventional `128 + signal` status. `kill` uses the
+same process signal machinery with `SIGTERM`.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for

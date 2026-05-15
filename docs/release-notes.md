@@ -130,6 +130,9 @@ server.
   including inherited `PWD`, relative paths, repeated `/`, `.`, and `..`.
 - Adds kernel-routed Ctrl-C/SIGINT delivery to the active foreground process,
   SIGTERM-backed `kill`, and shell-visible `128 + signal` termination statuses.
+- Extends foreground signal handling to shell pipelines by assigning native
+  process groups at exec time, waking blocked pipe readers/writers on signal,
+  and preserving interrupted pipeline status as `128 + signal`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

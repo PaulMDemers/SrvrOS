@@ -91,6 +91,8 @@ struct syscall_exec_request {
     int64_t stdin_fd;
     int64_t stdout_fd;
     int64_t stderr_fd;
+    uint64_t process_group;
+    uint64_t foreground;
 };
 
 static struct srv_termios console_termios = {
@@ -647,7 +649,9 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             (request.flags & SRV_EXEC_BACKGROUND) != 0,
             request.stdin_fd,
             request.stdout_fd,
-            request.stderr_fd);
+            request.stderr_fd,
+            request.process_group,
+            request.foreground != 0);
     }
     irq_restore(flags);
     process_refresh_mappings(process_current());
@@ -1186,6 +1190,16 @@ static int64_t syscall_kill(uint64_t pid) {
     return process_kill_pid(pid) ? 0 : -1;
 }
 
+static int64_t syscall_proc_group(uint64_t pid, uint64_t group, uint64_t foreground) {
+    if (pid != 0 && !process_set_group(pid, group)) {
+        return -1;
+    }
+    if (foreground != 0) {
+        process_set_foreground_group(group);
+    }
+    return 0;
+}
+
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
     uint64_t status = 0;
     __asm__ volatile ("sti" : : : "memory");
@@ -1476,6 +1490,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_FCHMOD:
         frame->rax = (uint64_t)syscall_fchmod(frame->rdi, frame->rsi);
+        return;
+    case SYS_PROC_GROUP:
+        frame->rax = (uint64_t)syscall_proc_group(frame->rdi, frame->rsi, frame->rdx);
         return;
     default:
         frame->rax = (uint64_t)-1;

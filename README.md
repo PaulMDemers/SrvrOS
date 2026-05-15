@@ -58,7 +58,8 @@ editor clients:
   `test`/`[`, `set -e`, `read`, `alias`, `type`,
   `unset`, safer `cd`, `jobs`/`wait`/`fg`/`bg`, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
-  recovery, Ctrl-C foreground job interruption with `128 + signal` statuses,
+  recovery, Ctrl-C foreground job and pipeline interruption with
+  `128 + signal` statuses,
   canonical relative paths with `.`/`..`, tab completion for commands and
   filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and

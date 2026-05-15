@@ -9,6 +9,7 @@
 #define SRV_STDIN 0
 #define SRV_STDOUT 1
 #define SRV_STDERR 2
+#define SRV_EXEC_GROUP_SELF UINT64_MAX
 
 struct srv_process_info {
     uint64_t pid;
@@ -56,6 +57,8 @@ struct srv_exec_request {
     int64_t stdin_fd;
     int64_t stdout_fd;
     int64_t stderr_fd;
+    uint64_t process_group;
+    uint64_t foreground;
 };
 
 long srv_syscall0(long number);
@@ -105,6 +108,7 @@ long srv_exec(const struct srv_exec_request *request);
 long srv_execve(const char *path, char *const argv[], char *const envp[]);
 long srv_proc_list(uint64_t index, struct srv_process_info *info);
 long srv_kill(uint64_t pid);
+long srv_proc_group(uint64_t pid, uint64_t group, int foreground);
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags);
 long srv_net_dhcp(void);
 long srv_net_status(void);
