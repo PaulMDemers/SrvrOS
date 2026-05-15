@@ -50,8 +50,9 @@ server.
 - Moves userspace `malloc` to `sbrk`-grown heap chunks and adds `dup`/`dup2`
   support for standard streams, pipes, writable regular files, and read-only
   regular files.
-- Shares writable regular-file fd ownership across `dup`/`dup2` and child fd
-  inheritance so pipeline output redirection flushes on last close.
+- Shares regular-file open descriptions across `dup`/`dup2` and child fd
+  inheritance, so read-only descriptors share offsets and writable descriptors
+  flush on last close.
 - Adds `poll`/`select` support for standard streams, regular files, pipes, and
   TCP listener/connection fds, with pipe readiness and hangup smoke coverage.
 - Adds `fcntl(F_GETFL/F_SETFL)` and `O_NONBLOCK` support for the first fd set,

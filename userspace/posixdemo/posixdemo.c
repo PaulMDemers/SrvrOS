@@ -113,7 +113,7 @@ int main(void) {
     close(fd2);
     close(fd3);
     if (n != 4 || n2 != 4 ||
-        memcmp(buffer, "fromfrom", 8) != 0) {
+        memcmp(buffer, "from pos", 8) != 0) {
         say("posixdemo: dup read failed\n");
         return 7;
     }

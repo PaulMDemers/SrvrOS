@@ -204,10 +204,10 @@ time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,
 `posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are
-intentionally narrow: fd metadata/duplication, shared writable-fd ownership,
-fd readiness checks, nonblocking read/accept/write returns, child stdio fd
-overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw timer
-ticks, and sleep-by-ticks syscalls.
+intentionally narrow: fd metadata/duplication, shared regular-file open
+descriptions, fd readiness checks, nonblocking read/accept/write returns, child
+stdio fd overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw
+timer ticks, and sleep-by-ticks syscalls.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

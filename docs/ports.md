@@ -15,8 +15,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `stat`, `fstat`, `mkdir`, `unlink`, `rename`, `rmdir`
 - `pipe`; pipes are bounded in-kernel ring buffers with read/write fd endpoints
 - `dup` and `dup2` for standard streams, pipes, writable regular files, and
-  read-only regular files. Writable regular-file descriptors share offset,
-  dirty state, ownership, and last-close writeback.
+  read-only regular files. Regular-file descriptors share open-file-description
+  offsets; writable descriptors also share dirty state, ownership, and
+  last-close writeback.
 - `poll` and `select` for regular files, pipes, TCP listeners/connections, and
   standard streams. The first implementation uses readiness checks with
   tick/yield timeouts; a unified fd wait queue is still future work.
@@ -120,8 +121,6 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   persist metadata yet.
 - `poll`/`select` cover the current fd types, but timeout waits are currently
   tick/yield based rather than attached to a single scheduler wait queue.
-- Read-only regular-file `dup`/`dup2` currently clones a read snapshot and file
-  offset instead of sharing one open-file description.
 - Socket wrappers currently cover TCP server flow over the existing
   `net_listen`/`net_accept` kernel path. Nonblocking mode is preserved when it
   is set on a socket before `listen()`.

@@ -40,6 +40,7 @@
 #define PROCESS_PATH_MAX 160
 #define PROCESS_WRITE_BUFFER_MAX (1024 * 1024)
 #define PROCESS_MAX_WRITE_FILES 32
+#define PROCESS_MAX_READ_FILES 64
 #define PROCESS_MAX_PIPES 32
 #define PROCESS_MAX_FILE_LOCKS 64
 #define PROCESS_PIPE_CAPACITY 4096
@@ -81,6 +82,16 @@ struct process_write_file {
     uint64_t capacity;
     bool dirty;
     bool failed;
+    char path[PROCESS_PATH_MAX];
+};
+
+struct process_read_file {
+    bool used;
+    uint64_t refs;
+    const struct vfs_node *node;
+    const uint8_t *data;
+    uint64_t size;
+    uint64_t offset;
     char path[PROCESS_PATH_MAX];
 };
 
@@ -169,6 +180,7 @@ void gdt_set_kernel_stack(uint64_t stack_top);
 
 static struct process processes[PROCESS_MAX_PROCESSES];
 static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
+static struct process_read_file read_files[PROCESS_MAX_READ_FILES];
 static struct process_pipe pipes[PROCESS_MAX_PIPES];
 static struct process_file_lock file_locks[PROCESS_MAX_FILE_LOCKS];
 static struct process *loading_process;
@@ -178,6 +190,7 @@ static struct scheduler_wait_queue pipe_wait_queue;
 static struct scheduler_wait_queue file_lock_wait_queue;
 
 static void set_process_name(struct process *process, const char *path);
+static struct process_read_file *read_file_at(uint64_t handle);
 static struct process_write_file *write_file_at(uint64_t handle);
 static void background_process_thread(void *arg);
 static bool process_configure_stdio_fds(struct process *child,
@@ -1519,7 +1532,7 @@ bool process_has_open_vfs_prefix(const char *prefix) {
                 continue;
             }
             if (file->type == PROCESS_FILE_VFS) {
-                if (file->node != NULL && path_under_prefix(file->node->path, prefix)) {
+                if (path_under_prefix(file->path, prefix)) {
                     return true;
                 }
             } else if (file->type == PROCESS_FILE_VFS_WRITE) {
@@ -1647,22 +1660,92 @@ int64_t process_file_alloc(struct process *process,
         return -1;
     }
 
+    uint64_t free_index = PROCESS_MAX_OPEN_FILES;
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (!process->files[i].used) {
-            struct process_file *file = &process->files[i];
-            file->used = true;
-            file->type = PROCESS_FILE_VFS;
-            file->node = node;
-            file->data = data;
-            file->size = size;
-            file->offset = 0;
-            file->flags = 0;
-            (void)copy_process_path(file->path, sizeof(file->path), node->path);
-            return (int64_t)(i + 3);
+            free_index = i;
+            break;
         }
     }
+    if (free_index == PROCESS_MAX_OPEN_FILES) {
+        vfs_release_data(node, data);
+        return -1;
+    }
 
-    return -1;
+    uint64_t handle = 0;
+    for (uint64_t i = 0; i < PROCESS_MAX_READ_FILES; i++) {
+        if (!read_files[i].used) {
+            handle = i + 1;
+            break;
+        }
+    }
+    if (handle == 0) {
+        vfs_release_data(node, data);
+        return -1;
+    }
+
+    struct process_read_file *read = &read_files[handle - 1];
+    uint8_t *read_bytes = (uint8_t *)read;
+    for (uint64_t i = 0; i < sizeof(*read); i++) {
+        read_bytes[i] = 0;
+    }
+    read->used = true;
+    read->refs = 1;
+    read->node = node;
+    read->data = data;
+    read->size = size;
+    read->offset = 0;
+    (void)copy_process_path(read->path, sizeof(read->path), node->path);
+
+    struct process_file *file = &process->files[free_index];
+    uint8_t *bytes = (uint8_t *)file;
+    for (uint64_t i = 0; i < sizeof(*file); i++) {
+        bytes[i] = 0;
+    }
+    file->used = true;
+    file->type = PROCESS_FILE_VFS;
+    file->node = node;
+    file->data = data;
+    file->size = size;
+    file->handle = handle;
+    file->flags = 0;
+    (void)copy_process_path(file->path, sizeof(file->path), node->path);
+    return (int64_t)(free_index + 3);
+}
+
+static struct process_read_file *read_file_at(uint64_t handle) {
+    if (handle == 0 || handle > PROCESS_MAX_READ_FILES) {
+        return NULL;
+    }
+    struct process_read_file *file = &read_files[handle - 1];
+    return file->used ? file : NULL;
+}
+
+static void read_file_ref(uint64_t handle) {
+    struct process_read_file *file = read_file_at(handle);
+    if (file != NULL) {
+        file->refs++;
+    }
+}
+
+static void read_file_close(uint64_t handle) {
+    struct process_read_file *file = read_file_at(handle);
+    if (file == NULL) {
+        return;
+    }
+    if (file->refs > 0) {
+        file->refs--;
+    }
+    if (file->refs > 0) {
+        return;
+    }
+    if (file->node != NULL && file->data != NULL) {
+        vfs_release_data(file->node, file->data);
+    }
+    uint8_t *bytes = (uint8_t *)file;
+    for (uint64_t i = 0; i < sizeof(*file); i++) {
+        bytes[i] = 0;
+    }
 }
 
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
@@ -1676,8 +1759,17 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
     uint64_t size = file->size;
     uint64_t offset = file->offset;
     const uint8_t *data = file->data;
+    struct process_read_file *read = NULL;
     struct process_write_file *write = NULL;
-    if (file->type == PROCESS_FILE_VFS_WRITE) {
+    if (file->type == PROCESS_FILE_VFS) {
+        read = read_file_at(file->handle);
+        if (read == NULL) {
+            return -1;
+        }
+        size = read->size;
+        offset = read->offset;
+        data = read->data;
+    } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL) {
             return -1;
@@ -1694,6 +1786,8 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
     }
     if (write != NULL) {
         write->offset += count;
+    } else if (read != NULL) {
+        read->offset += count;
     } else {
         file->offset += count;
     }
@@ -1747,7 +1841,13 @@ static bool file_lock_range_for_fd(struct process_file *file,
     if (request->whence == 0) {
         base = 0;
     } else if (request->whence == 1) {
-        if (file->type == PROCESS_FILE_VFS_WRITE) {
+        if (file->type == PROCESS_FILE_VFS) {
+            struct process_read_file *read = read_file_at(file->handle);
+            if (read == NULL) {
+                return false;
+            }
+            base = read->offset;
+        } else if (file->type == PROCESS_FILE_VFS_WRITE) {
             struct process_write_file *write = write_file_at(file->handle);
             if (write == NULL) {
                 return false;
@@ -1757,7 +1857,13 @@ static bool file_lock_range_for_fd(struct process_file *file,
             base = file->offset;
         }
     } else if (request->whence == 2) {
-        if (file->type == PROCESS_FILE_VFS_WRITE) {
+        if (file->type == PROCESS_FILE_VFS) {
+            struct process_read_file *read = read_file_at(file->handle);
+            if (read == NULL) {
+                return false;
+            }
+            base = read->size;
+        } else if (file->type == PROCESS_FILE_VFS_WRITE) {
             struct process_write_file *write = write_file_at(file->handle);
             if (write == NULL) {
                 return false;
@@ -2497,16 +2603,14 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         return (int64_t)(target_index + 3);
     }
 
-    if (source->type != PROCESS_FILE_VFS || source->path[0] == '\0') {
+    if (source->type != PROCESS_FILE_VFS || source->handle == 0 || source->path[0] == '\0') {
         return -1;
     }
-
-    const struct vfs_node *node = vfs_lookup(source->path);
-    const uint8_t *data;
-    uint64_t size;
-    if (node == NULL || !vfs_read_all(node, &data, &size)) {
+    struct process_read_file *read = read_file_at(source->handle);
+    if (read == NULL) {
         return -1;
     }
+    read_file_ref(source->handle);
 
     uint8_t *bytes = (uint8_t *)target;
     for (uint64_t i = 0; i < sizeof(*target); i++) {
@@ -2514,10 +2618,10 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
     }
     target->used = true;
     target->type = PROCESS_FILE_VFS;
-    target->node = node;
-    target->data = data;
-    target->size = size;
-    target->offset = source->offset <= size ? source->offset : size;
+    target->node = read->node;
+    target->data = read->data;
+    target->size = read->size;
+    target->handle = source->handle;
     target->flags = source->flags;
     (void)copy_process_path(target->path, sizeof(target->path), source->path);
     return (int64_t)(target_index + 3);
@@ -2551,11 +2655,14 @@ int64_t process_file_dup(struct process *process, uint64_t old_fd) {
 }
 
 int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new_fd) {
-    if (process == NULL || new_fd < 3 || new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+    if (process == NULL) {
         return -1;
     }
     if (old_fd == new_fd) {
-        return process_file_at(process, old_fd) != NULL ? (int64_t)new_fd : -1;
+        return old_fd < 3 || process_file_at(process, old_fd) != NULL ? (int64_t)new_fd : -1;
+    }
+    if (new_fd < 3 || new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+        return -1;
     }
 
     struct process_file stdio_source;
@@ -2711,7 +2818,7 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     }
 
     if (file->type == PROCESS_FILE_VFS) {
-        vfs_release_data(file->node, file->data);
+        read_file_close(file->handle);
     } else if (file->type == PROCESS_FILE_PIPE_READ) {
         pipe_close(file->handle, false);
     } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
@@ -2737,9 +2844,17 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     }
 
     struct process_write_file *write = NULL;
+    struct process_read_file *read = NULL;
     uint64_t current_offset = file->offset;
     uint64_t current_size = file->size;
-    if (file->type == PROCESS_FILE_VFS_WRITE) {
+    if (file->type == PROCESS_FILE_VFS) {
+        read = read_file_at(file->handle);
+        if (read == NULL) {
+            return -1;
+        }
+        current_offset = read->offset;
+        current_size = read->size;
+    } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL) {
             return -1;
@@ -2761,13 +2876,17 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
 
     int64_t target = base + offset;
     if (target < 0 ||
-        (file->type == PROCESS_FILE_VFS && (uint64_t)target > file->size)) {
+        (file->type == PROCESS_FILE_VFS && (uint64_t)target > current_size)) {
         return -1;
     }
 
     if (write != NULL) {
         write->offset = (uint64_t)target;
         return (int64_t)write->offset;
+    }
+    if (read != NULL) {
+        read->offset = (uint64_t)target;
+        return (int64_t)read->offset;
     }
     file->offset = (uint64_t)target;
     return (int64_t)file->offset;
@@ -2789,9 +2908,13 @@ int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_o
             *size_out = write->size;
             return 0;
         }
-        *size_out = file->size;
-        if (file->type == PROCESS_FILE_VFS && file->node != NULL) {
-            *type_out = (uint64_t)file->node->type;
+        struct process_read_file *read = read_file_at(file->handle);
+        if (read == NULL) {
+            return -1;
+        }
+        *size_out = read->size;
+        if (read->node != NULL) {
+            *type_out = (uint64_t)read->node->type;
         }
         return 0;
     }

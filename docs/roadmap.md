@@ -261,6 +261,8 @@ kernel, and a minimal Unix-like userspace.
   smoke coverage.
 - Add `ioctl(TIOCGWINSZ/TIOCSWINSZ)` window-size support and verify duplicated
   stdio TTY descriptors through `/fat/bin/ttydemo`.
+- Add shared open-file descriptions for read-only regular-file `dup`/`dup2`,
+  so duplicated read descriptors share offsets like writable descriptors.
 
 ## Next milestones
 
@@ -277,8 +279,7 @@ kernel, and a minimal Unix-like userspace.
    metadata, and multi-worker web server designs.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-6. Continue the libc/newlib track: add shared open-file descriptions for
-   read-only regular-file `dup`/`dup2`, a unified fd wait queue for
+6. Continue the libc/newlib track: add a unified fd wait queue for
    `poll`/`select`, Unix-like file metadata, fuller `posix_spawn`
    attributes/file actions, terminal process groups/signals, command
    substitution, fuller `stdio`, and scan/format helpers.

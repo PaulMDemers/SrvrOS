@@ -57,7 +57,8 @@ editor clients:
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
-  `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
+  `sbrk`, pipes, `dup`/`dup2` with shared regular-file offsets,
+  `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
