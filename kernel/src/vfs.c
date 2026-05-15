@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/initramfs.h>
+#include <srvros/timer.h>
 #include <srvros/vfs.h>
 
 #include <stdbool.h>
@@ -10,6 +11,62 @@
 
 static struct vfs_node nodes[VFS_MAX_NODES];
 static uint64_t node_count;
+static uint64_t next_inode = 1;
+
+static bool streq(const char *a, const char *b);
+
+static uint64_t metadata_time(void) {
+    return timer_ticks() / 100;
+}
+
+static bool starts_with(const char *text, const char *prefix) {
+    uint64_t i = 0;
+    if (text == NULL || prefix == NULL) {
+        return false;
+    }
+    while (prefix[i] != '\0') {
+        if (text[i] != prefix[i]) {
+            return false;
+        }
+        i++;
+    }
+    return true;
+}
+
+static bool executable_default_path(const char *path) {
+    return starts_with(path, "/fat/bin/") ||
+        streq(path, "/init") ||
+        streq(path, "/sh") ||
+        streq(path, "/ls") ||
+        streq(path, "/echo");
+}
+
+static struct vfs_metadata default_metadata(const char *path, enum vfs_node_type type) {
+    uint64_t now = metadata_time();
+    uint64_t permissions = type == VFS_NODE_DIRECTORY ? 0755 : 0644;
+    if (type == VFS_NODE_FILE && executable_default_path(path)) {
+        permissions = 0755;
+    }
+    return (struct vfs_metadata) {
+        .inode = next_inode++,
+        .mode = (type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG) | permissions,
+        .nlink = type == VFS_NODE_DIRECTORY ? 2 : 1,
+        .uid = 0,
+        .gid = 0,
+        .atime = now,
+        .mtime = now,
+        .ctime = now,
+    };
+}
+
+static struct vfs_node *mutable_lookup(const char *path) {
+    for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
+        if (nodes[i].used && streq(nodes[i].path, path)) {
+            return &nodes[i];
+        }
+    }
+    return NULL;
+}
 
 static bool streq(const char *a, const char *b) {
     while (*a != '\0' && *b != '\0') {
@@ -54,14 +111,25 @@ bool vfs_register_file(const char *path, uint64_t size, const void *private_data
 }
 
 bool vfs_register_directory(const char *path) {
-    if (node_count >= VFS_MAX_NODES || path == NULL) {
+    return vfs_register_directory_with_metadata(path, NULL);
+}
+
+bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata) {
+    if (path == NULL) {
         return false;
     }
 
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
         if (nodes[i].used && streq(nodes[i].path, path)) {
+            if (metadata != NULL) {
+                nodes[i].metadata = *metadata;
+            }
             return true;
         }
+    }
+
+    if (node_count >= VFS_MAX_NODES) {
+        return false;
     }
 
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
@@ -71,6 +139,7 @@ bool vfs_register_directory(const char *path) {
                 .path = path,
                 .type = VFS_NODE_DIRECTORY,
                 .size = 0,
+                .metadata = metadata != NULL ? *metadata : default_metadata(path, VFS_NODE_DIRECTORY),
                 .private_data = NULL,
                 .read_all = NULL,
                 .release_data = NULL,
@@ -87,7 +156,35 @@ bool vfs_register_file_with_release(const char *path,
     const void *private_data,
     vfs_read_all_fn read_all,
     vfs_release_data_fn release_data) {
-    if (node_count >= VFS_MAX_NODES || path == NULL || read_all == NULL) {
+    return vfs_register_file_with_metadata(path, size, private_data, read_all, release_data, NULL);
+}
+
+bool vfs_register_file_with_metadata(const char *path,
+    uint64_t size,
+    const void *private_data,
+    vfs_read_all_fn read_all,
+    vfs_release_data_fn release_data,
+    const struct vfs_metadata *metadata) {
+    if (path == NULL || read_all == NULL) {
+        return false;
+    }
+
+    struct vfs_node *existing = mutable_lookup(path);
+    if (existing != NULL) {
+        if (existing->type != VFS_NODE_FILE) {
+            return false;
+        }
+        existing->size = size;
+        existing->private_data = private_data;
+        existing->read_all = read_all;
+        existing->release_data = release_data;
+        if (metadata != NULL) {
+            existing->metadata = *metadata;
+        }
+        return true;
+    }
+
+    if (node_count >= VFS_MAX_NODES) {
         return false;
     }
 
@@ -98,6 +195,7 @@ bool vfs_register_file_with_release(const char *path,
                 .path = path,
                 .type = VFS_NODE_FILE,
                 .size = size,
+                .metadata = metadata != NULL ? *metadata : default_metadata(path, VFS_NODE_FILE),
                 .private_data = private_data,
                 .read_all = read_all,
                 .release_data = release_data,
@@ -111,6 +209,7 @@ bool vfs_register_file_with_release(const char *path,
 
 void vfs_init(void) {
     node_count = 0;
+    next_inode = 1;
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
         nodes[i].used = false;
     }
@@ -147,13 +246,7 @@ const struct vfs_node *vfs_node_at(uint64_t index) {
 }
 
 const struct vfs_node *vfs_lookup(const char *path) {
-    for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
-        if (nodes[i].used && streq(nodes[i].path, path)) {
-            return &nodes[i];
-        }
-    }
-
-    return NULL;
+    return mutable_lookup(path);
 }
 
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size) {
@@ -161,7 +254,11 @@ bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *s
         return false;
     }
 
-    return node->read_all(node, data, size);
+    bool ok = node->read_all(node, data, size);
+    if (ok) {
+        ((struct vfs_node *)node)->metadata.atime = metadata_time();
+    }
+    return ok;
 }
 
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
@@ -171,17 +268,42 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
 }
 
 bool vfs_update_file_size(const char *path, uint64_t size) {
-    if (path == NULL) {
+    struct vfs_node *node = mutable_lookup(path);
+    if (node == NULL) {
         return false;
     }
 
-    for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
-        if (nodes[i].used && streq(nodes[i].path, path)) {
-            nodes[i].size = size;
-            return true;
-        }
+    node->size = size;
+    node->metadata.mtime = metadata_time();
+    node->metadata.ctime = node->metadata.mtime;
+    return true;
+}
+
+bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out) {
+    struct vfs_node *node = mutable_lookup(path);
+    if (node == NULL) {
+        return false;
     }
-    return false;
+    if (metadata_out != NULL) {
+        *metadata_out = node->metadata;
+    }
+    if (size_out != NULL) {
+        *size_out = node->size;
+    }
+    if (type_out != NULL) {
+        *type_out = (uint64_t)node->type;
+    }
+    return true;
+}
+
+bool vfs_chmod(const char *path, uint64_t mode) {
+    struct vfs_node *node = mutable_lookup(path);
+    if (node == NULL) {
+        return false;
+    }
+    node->metadata.mode = (node->metadata.mode & VFS_MODE_IFMT) | (mode & 07777);
+    node->metadata.ctime = metadata_time();
+    return true;
 }
 
 bool vfs_unregister_path(const char *path) {

@@ -123,6 +123,14 @@ long srv_fstat(int fd, struct srv_stat *info) {
     return srv_syscall2(SYS_FSTAT, fd, (long)info);
 }
 
+long srv_chmod(const char *path, uint64_t mode) {
+    return srv_syscall2(SYS_CHMOD, (long)path, (long)mode);
+}
+
+long srv_fchmod(int fd, uint64_t mode) {
+    return srv_syscall2(SYS_FCHMOD, fd, (long)mode);
+}
+
 long srv_sbrk(int64_t increment, uint64_t *previous_out) {
     return srv_syscall2(SYS_SBRK, (long)increment, (long)previous_out);
 }

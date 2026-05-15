@@ -197,9 +197,33 @@ int main(void) {
         say("posixdemo: fs api failed\n");
         return 27;
     }
+    if (chmod("/fat/posixdemo/renamed.txt", 0400) < 0 ||
+        access("/fat/posixdemo/renamed.txt", W_OK) == 0 ||
+        errno != EACCES ||
+        stat("/fat/posixdemo/renamed.txt", &st) < 0 ||
+        (st.st_mode & 0777) != 0400 ||
+        chmod("/fat/posixdemo/renamed.txt", 0644) < 0) {
+        say("posixdemo: chmod/access failed\n");
+        return 27;
+    }
+    mode_t old_mask = umask(0027);
+    if (mkdir("/fat/posixdemo/mode", 0777) < 0 ||
+        stat("/fat/posixdemo/mode", &st) < 0 ||
+        (st.st_mode & 0777) != 0750 ||
+        rmdir("/fat/posixdemo/mode") < 0) {
+        say("posixdemo: umask mkdir failed\n");
+        return 27;
+    }
+    (void)umask(old_mask);
     fd = open("/fat/posixdemo/trunc.txt", O_RDWR | O_CREAT | O_TRUNC);
     if (fd < 0) {
         say("posixdemo: trunc open failed\n");
+        return 28;
+    }
+    if (fchmod(fd, 0600) < 0 ||
+        fstat(fd, &st) < 0 ||
+        (st.st_mode & 0777) != 0600) {
+        say("posixdemo: fchmod failed\n");
         return 28;
     }
     write(fd, "abcdef", 6);

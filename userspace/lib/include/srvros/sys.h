@@ -19,6 +19,16 @@ struct srv_process_info {
 struct srv_stat {
     uint64_t size;
     uint64_t type;
+    uint64_t inode;
+    uint64_t mode;
+    uint64_t nlink;
+    uint64_t uid;
+    uint64_t gid;
+    uint64_t atime;
+    uint64_t mtime;
+    uint64_t ctime;
+    uint64_t blksize;
+    uint64_t blocks;
 };
 
 struct srv_pollfd {
@@ -62,6 +72,8 @@ long srv_tty_setattr(int fd, int actions, const struct srv_termios *termios);
 long srv_ioctl(int fd, uint64_t request, void *argument);
 long srv_seek(int fd, int64_t offset, uint64_t whence);
 long srv_fstat(int fd, struct srv_stat *info);
+long srv_chmod(const char *path, uint64_t mode);
+long srv_fchmod(int fd, uint64_t mode);
 long srv_sbrk(int64_t increment, uint64_t *previous_out);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);

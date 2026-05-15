@@ -32,8 +32,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   for regular files. Locks are process-owned, conflict by pathname and range,
   and are released when that process closes a descriptor for the same path.
 - `access`, `isatty`, `fsync`, `truncate`, `ftruncate`, `chmod`, `fchmod`, and
-  `umask`. Permission/mode APIs are compatibility shims until srvros grows
-  Unix-like file metadata.
+  `umask`. `stat`/`fstat` now expose VFS-managed inode ids, mode bits,
+  uid/gid placeholders, block counts, and tick-derived timestamps.
 - Minimal `termios`: `tcgetattr` and `tcsetattr` for console fds, with
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`, `VTIME`, erase,
   kill-line, and EOF control characters. `ioctl(TIOCGWINSZ)` reports the
@@ -117,8 +117,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 ## Current Limits
 
 - `fork` and client-side `connect` are still missing.
-- Permission bits are synthetic; `chmod`/`fchmod` validate the target but do not
-  persist metadata yet.
+- VFS metadata is runtime-managed. `chmod`/`fchmod`, `access`, and `umask`
+  observe mode bits during the current boot, but exFAT directory entries do not
+  persist Unix permission/timestamp metadata yet.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
   queues are still future work as the descriptor model grows.
@@ -159,9 +160,8 @@ Third-party source is kept as pinned submodules or snapshots under
 
 1. Expand `stdio` toward command-line port expectations: broader
    width/precision formatting, scansets, and better EOF/error state.
-2. Add Unix-like file metadata around the current exFAT backend: stable inode
-   ids, mode bits, uid/gid placeholders, timestamps, and permission-aware
-   `access`.
+2. Persist or sidecar Unix-like metadata for the exFAT backend, including
+   stable ids across reboot and richer timestamps.
 3. Add `mmap`-style mappings for larger interpreters and libraries.
 4. Expand `webd` toward fuller concurrent connection handling.
 5. Add client TCP `connect`, then a tiny HTTP client.

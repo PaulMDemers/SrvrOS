@@ -98,6 +98,8 @@ exFAT is the primary filesystem. It supports:
 - Runtime mount/unmount with busy checks.
 - Allocation bitmap and FAT-chain awareness.
 - A consistency checker exposed as `fsck /fat`.
+- VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
+  block counts, and tick-derived access/modify/change timestamps.
 
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
@@ -109,6 +111,8 @@ Current filesystem caveats:
 - There is no journaling or transaction rollback.
 - Crash consistency is not guaranteed if QEMU exits during mutation.
 - Long-name and fragmented-chain support is practical but still being hardened.
+- Unix-like metadata is managed by VFS at runtime and is not persisted into
+  exFAT directory entries yet.
 
 ## Block And Storage
 
@@ -194,10 +198,11 @@ syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
 `time.h`.
 
 This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
-`stat`/`fstat`, `dup`/`dup2` for standard streams, pipes, writable regular
-files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
+`stat`/`fstat` with VFS-managed metadata, `chmod`/`fchmod`, `umask`,
+`dup`/`dup2` for standard streams, pipes, writable regular files, and
+read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
-`FD_CLOEXEC`, `access`, `isatty`, `fsync`,
+`FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`,
 `truncate`/`ftruncate`, minimal terminal `tcgetattr`/`tcsetattr` plus
 `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
@@ -208,8 +213,9 @@ connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw
-timer ticks, sleep-by-ticks syscalls, a shared fd readiness wait queue, and
-timer-backed scheduler wait deadlines.
+timer ticks, sleep-by-ticks syscalls, a shared fd readiness wait queue,
+timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
+metadata.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

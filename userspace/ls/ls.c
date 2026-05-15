@@ -48,6 +48,7 @@ int main(int argc, char **argv) {
     uint64_t size = 0;
     int long_format = 0;
     int found = 0;
+    int target_is_dir = 0;
 
     for (int i = 1; i < argc; i++) {
         if (cli_streq(argv[i], "-l")) {
@@ -67,13 +68,21 @@ int main(int argc, char **argv) {
         cli_join_path(prefix, sizeof(prefix), target, "");
     }
 
+    target_is_dir = path_is_directory(target);
+    if (!target_is_dir) {
+        struct srv_stat info;
+        if (srv_stat(target, &info) == 0) {
+            print_entry(target, info.size, 0, long_format);
+            return 0;
+        }
+    }
+
     for (uint64_t i = 0;; i++) {
         long result = srv_list(i, path, sizeof(path), &size);
         if (result <= 0) {
             break;
         }
         if (cli_streq(path, target)) {
-            print_entry(path, size, path_is_directory(path), long_format);
             found = 1;
             continue;
         }

@@ -2904,7 +2904,11 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     return (int64_t)file->offset;
 }
 
-int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_out, uint64_t *type_out) {
+int64_t process_file_stat(struct process *process,
+    uint64_t fd,
+    struct vfs_metadata *metadata_out,
+    uint64_t *size_out,
+    uint64_t *type_out) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL || size_out == NULL || type_out == NULL) {
         return -1;
@@ -2918,6 +2922,15 @@ int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_o
                 return -1;
             }
             *size_out = write->size;
+            if (!vfs_stat(write->path, metadata_out, NULL, type_out)) {
+                if (metadata_out != NULL) {
+                    *metadata_out = (struct vfs_metadata) {
+                        .inode = 0,
+                        .mode = VFS_MODE_IFREG | 0644,
+                        .nlink = 1,
+                    };
+                }
+            }
             return 0;
         }
         struct process_read_file *read = read_file_at(file->handle);
@@ -2927,13 +2940,40 @@ int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_o
         *size_out = read->size;
         if (read->node != NULL) {
             *type_out = (uint64_t)read->node->type;
+            if (metadata_out != NULL) {
+                *metadata_out = read->node->metadata;
+            }
         }
         return 0;
     }
 
     *size_out = 0;
     *type_out = 0;
+    if (metadata_out != NULL) {
+        *metadata_out = (struct vfs_metadata) {
+            .inode = 0,
+            .mode = VFS_MODE_IFREG | 0600,
+            .nlink = 1,
+        };
+    }
     return 0;
+}
+
+int64_t process_file_chmod(struct process *process, uint64_t fd, uint64_t mode) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return -1;
+    }
+    if (file->type == PROCESS_FILE_VFS && file->path[0] != '\0') {
+        return vfs_chmod(file->path, mode) ? 0 : -1;
+    }
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write = write_file_at(file->handle);
+        if (write != NULL && write->path[0] != '\0') {
+            return vfs_chmod(write->path, mode) ? 0 : -1;
+        }
+    }
+    return -1;
 }
 
 int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out) {

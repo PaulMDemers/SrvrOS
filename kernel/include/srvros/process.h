@@ -123,7 +123,12 @@ int64_t process_file_set_lock(struct process *process, uint64_t fd, const struct
 int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length);
 int64_t process_file_flush(struct process *process, uint64_t fd);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
-int64_t process_file_stat(struct process *process, uint64_t fd, uint64_t *size_out, uint64_t *type_out);
+int64_t process_file_stat(struct process *process,
+    uint64_t fd,
+    struct vfs_metadata *metadata_out,
+    uint64_t *size_out,
+    uint64_t *type_out);
+int64_t process_file_chmod(struct process *process, uint64_t fd, uint64_t mode);
 int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);

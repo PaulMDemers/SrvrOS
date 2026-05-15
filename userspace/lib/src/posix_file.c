@@ -14,6 +14,27 @@ int __posix_socket_is_pseudo(int fd);
 
 #define POSIX_PATH_MAX 160
 
+static mode_t current_umask;
+
+static void fill_stat(struct stat *st, const struct srv_stat *info) {
+    memset(st, 0, sizeof(*st));
+    st->st_dev = 1;
+    st->st_ino = (ino_t)info->inode;
+    st->st_size = (off_t)info->size;
+    st->st_mode = (mode_t)info->mode;
+    if ((st->st_mode & S_IFMT) == 0) {
+        st->st_mode = info->type == 1 ? (S_IFDIR | 0755) : (S_IFREG | 0644);
+    }
+    st->st_nlink = info->nlink != 0 ? info->nlink : 1;
+    st->st_uid = info->uid;
+    st->st_gid = info->gid;
+    st->st_atime = (time_t)info->atime;
+    st->st_mtime = (time_t)info->mtime;
+    st->st_ctime = (time_t)info->ctime;
+    st->st_blksize = info->blksize != 0 ? info->blksize : 4096;
+    st->st_blocks = info->blocks != 0 ? info->blocks : (info->size + 511) / 512;
+}
+
 static int translate_open_flags(int flags, uint64_t *srv_flags) {
     int access = flags & O_ACCMODE;
     uint64_t out = 0;
@@ -46,15 +67,21 @@ static int translate_open_flags(int flags, uint64_t *srv_flags) {
 int open(const char *path, int flags, ...) {
     char full[POSIX_PATH_MAX];
     uint64_t srv_flags = 0;
+    mode_t create_mode = 0666;
     if (__posix_make_path(path, full, sizeof(full)) < 0 ||
         translate_open_flags(flags, &srv_flags) < 0) {
         return -1;
     }
 
+    struct srv_stat before;
+    int existed = srv_stat(full, &before) == 0;
     long fd = (flags & O_ACCMODE) == O_RDONLY ? srv_open(full) : srv_open_mode(full, srv_flags);
     if (fd < 0) {
         errno = (flags & O_CREAT) != 0 ? EIO : ENOENT;
         return -1;
+    }
+    if ((flags & O_CREAT) != 0 && !existed) {
+        (void)srv_chmod(full, create_mode & ~current_umask);
     }
     if ((flags & O_NONBLOCK) != 0) {
         (void)srv_fcntl((int)fd, SRV_F_SETFL, SRV_FD_NONBLOCK);
@@ -295,12 +322,7 @@ int stat(const char *path, struct stat *st) {
         errno = ENOENT;
         return -1;
     }
-    memset(st, 0, sizeof(*st));
-    st->st_size = (off_t)info.size;
-    st->st_mode = info.type == 1 ? (S_IFDIR | 0755) : (S_IFREG | 0644);
-    st->st_nlink = 1;
-    st->st_blksize = 4096;
-    st->st_blocks = (info.size + 511) / 512;
+    fill_stat(st, &info);
     return 0;
 }
 
@@ -314,12 +336,7 @@ int fstat(int fd, struct stat *st) {
         errno = EBADF;
         return -1;
     }
-    memset(st, 0, sizeof(*st));
-    st->st_size = (off_t)info.size;
-    st->st_mode = info.type == 1 ? (S_IFDIR | 0755) : (S_IFREG | 0644);
-    st->st_nlink = 1;
-    st->st_blksize = 4096;
-    st->st_blocks = (info.size + 511) / 512;
+    fill_stat(st, &info);
     return 0;
 }
 
@@ -332,7 +349,18 @@ int access(const char *path, int mode) {
     if (stat(path, &st) < 0) {
         return -1;
     }
-    (void)st;
+    if ((mode & R_OK) != 0 && (st.st_mode & S_IRUSR) == 0) {
+        errno = EACCES;
+        return -1;
+    }
+    if ((mode & W_OK) != 0 && (st.st_mode & S_IWUSR) == 0) {
+        errno = EACCES;
+        return -1;
+    }
+    if ((mode & X_OK) != 0 && (st.st_mode & S_IXUSR) == 0) {
+        errno = EACCES;
+        return -1;
+    }
     return 0;
 }
 
@@ -378,27 +406,28 @@ int truncate(const char *path, off_t length) {
 }
 
 int chmod(const char *path, mode_t mode) {
-    struct stat st;
-    (void)mode;
-    if (stat(path, &st) < 0) {
+    char full[POSIX_PATH_MAX];
+    if (__posix_make_path(path, full, sizeof(full)) < 0) {
+        return -1;
+    }
+    if (srv_chmod(full, mode) < 0) {
+        errno = ENOENT;
         return -1;
     }
     return 0;
 }
 
 int fchmod(int fd, mode_t mode) {
-    struct stat st;
-    (void)mode;
-    if (fstat(fd, &st) < 0) {
+    if (srv_fchmod(fd, mode) < 0) {
+        errno = EBADF;
         return -1;
     }
     return 0;
 }
 
 mode_t umask(mode_t mask) {
-    static mode_t current;
-    mode_t previous = current;
-    current = mask & 0777;
+    mode_t previous = current_umask;
+    current_umask = mask & 0777;
     return previous;
 }
 
@@ -416,7 +445,6 @@ int unlink(const char *path) {
 
 int mkdir(const char *path, mode_t mode) {
     char full[POSIX_PATH_MAX];
-    (void)mode;
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
@@ -424,6 +452,7 @@ int mkdir(const char *path, mode_t mode) {
         errno = EIO;
         return -1;
     }
+    (void)srv_chmod(full, mode & ~current_umask);
     return 0;
 }
 

@@ -1849,6 +1849,8 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
     const char *new_path) {
     struct exfat_directory *parent = NULL;
     const char *name = NULL;
+    struct vfs_metadata metadata;
+    bool have_metadata = vfs_stat(old_path, &metadata, NULL, NULL);
     struct exfat_mount *new_mount = find_mount_and_parent_directory(new_path, &parent, &name);
     if (new_mount != mount || parent == NULL || name == NULL || vfs_lookup(new_path) != NULL) {
         return false;
@@ -1901,11 +1903,12 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         i++;
     }
     mount->paths[index][i] = '\0';
-    return vfs_register_file_with_release(mount->paths[index],
+    return vfs_register_file_with_metadata(mount->paths[index],
         file->size,
         file,
         exfat_read_all,
-        exfat_release_data);
+        exfat_release_data,
+        have_metadata ? &metadata : NULL);
 }
 
 static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
@@ -1918,6 +1921,8 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
 
     struct exfat_directory *parent = NULL;
     const char *name = NULL;
+    struct vfs_metadata metadata;
+    bool have_metadata = vfs_stat(old_path, &metadata, NULL, NULL);
     struct exfat_mount *new_mount = find_mount_and_parent_directory(new_path, &parent, &name);
     if (new_mount != mount || parent == NULL || name == NULL || vfs_lookup(new_path) != NULL) {
         return false;
@@ -1972,7 +1977,7 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
         i++;
     }
     directory->path[i] = '\0';
-    return vfs_register_directory(directory->path);
+    return vfs_register_directory_with_metadata(directory->path, have_metadata ? &metadata : NULL);
 }
 
 bool exfat_rename(const char *old_path, const char *new_path) {

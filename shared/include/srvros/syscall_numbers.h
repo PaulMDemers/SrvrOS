@@ -60,6 +60,8 @@
 #define SYS_TTY_GETATTR 55
 #define SYS_TTY_SETATTR 56
 #define SYS_IOCTL 57
+#define SYS_CHMOD 58
+#define SYS_FCHMOD 59
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02

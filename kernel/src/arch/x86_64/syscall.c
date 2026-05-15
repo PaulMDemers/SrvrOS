@@ -29,6 +29,16 @@
 struct syscall_stat {
     uint64_t size;
     uint64_t type;
+    uint64_t inode;
+    uint64_t mode;
+    uint64_t nlink;
+    uint64_t uid;
+    uint64_t gid;
+    uint64_t atime;
+    uint64_t mtime;
+    uint64_t ctime;
+    uint64_t blksize;
+    uint64_t blocks;
 };
 
 struct syscall_console_info {
@@ -714,19 +724,37 @@ static int64_t syscall_fs_append(const char *user_path, const uint8_t *buffer, u
 
 static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     char path[MAX_PATH_LENGTH];
-    struct syscall_stat copy;
+    struct syscall_stat copy = {0};
+    struct vfs_metadata metadata;
+    if (info == NULL ||
+        !user_buffer_ok(info, sizeof(*info), true) ||
+        !copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+
+    if (!vfs_stat(path, &metadata, &copy.size, &copy.type)) {
+        return -1;
+    }
+
+    copy.inode = metadata.inode;
+    copy.mode = metadata.mode;
+    copy.nlink = metadata.nlink;
+    copy.uid = metadata.uid;
+    copy.gid = metadata.gid;
+    copy.atime = metadata.atime;
+    copy.mtime = metadata.mtime;
+    copy.ctime = metadata.ctime;
+    copy.blksize = 4096;
+    copy.blocks = (copy.size + 511) / 512;
+    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
+    char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
-
-    const struct vfs_node *node = vfs_lookup(path);
-    if (node == NULL) {
-        return -1;
-    }
-
-    copy.size = node->size;
-    copy.type = (uint64_t)node->type;
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return vfs_chmod(path, mode) ? 0 : -1;
 }
 
 static int64_t syscall_unlink(const char *user_path) {
@@ -778,14 +806,29 @@ static int64_t syscall_seek(uint64_t fd, int64_t offset, uint64_t whence) {
 }
 
 static int64_t syscall_fstat(uint64_t fd, struct syscall_stat *info) {
-    struct syscall_stat copy;
+    struct syscall_stat copy = {0};
+    struct vfs_metadata metadata;
     if (info == NULL || !user_buffer_ok(info, sizeof(*info), true)) {
         return -1;
     }
-    if (process_file_stat(process_current(), fd, &copy.size, &copy.type) < 0) {
+    if (process_file_stat(process_current(), fd, &metadata, &copy.size, &copy.type) < 0) {
         return -1;
     }
+    copy.inode = metadata.inode;
+    copy.mode = metadata.mode;
+    copy.nlink = metadata.nlink;
+    copy.uid = metadata.uid;
+    copy.gid = metadata.gid;
+    copy.atime = metadata.atime;
+    copy.mtime = metadata.mtime;
+    copy.ctime = metadata.ctime;
+    copy.blksize = 4096;
+    copy.blocks = (copy.size + 511) / 512;
     return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t syscall_fchmod(uint64_t fd, uint64_t mode) {
+    return process_file_chmod(process_current(), fd, mode);
 }
 
 static int64_t syscall_sbrk(int64_t increment, uint64_t *previous_out) {
@@ -1375,6 +1418,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_IOCTL:
         frame->rax = (uint64_t)syscall_ioctl(frame->rdi, frame->rsi, (void *)frame->rdx);
+        return;
+    case SYS_CHMOD:
+        frame->rax = (uint64_t)syscall_chmod((const char *)frame->rdi, frame->rsi);
+        return;
+    case SYS_FCHMOD:
+        frame->rax = (uint64_t)syscall_fchmod(frame->rdi, frame->rsi);
         return;
     default:
         frame->rax = (uint64_t)-1;

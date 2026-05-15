@@ -1,6 +1,12 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+static void print_mode(uint64_t mode) {
+    cli_putn((mode >> 6) & 7);
+    cli_putn((mode >> 3) & 7);
+    cli_putn(mode & 7);
+}
+
 static int stat_path(const char *target) {
     struct srv_stat info;
     if (srv_stat(target, &info) == 0) {
@@ -13,6 +19,10 @@ static int stat_path(const char *target) {
         } else if (info.type == 1) {
             cli_puts(" directory");
         }
+        cli_puts(" mode ");
+        print_mode(info.mode);
+        cli_puts(" inode ");
+        cli_putn(info.inode);
         cli_puts("\n");
         return 0;
     }

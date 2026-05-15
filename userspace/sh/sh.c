@@ -503,24 +503,10 @@ static int split_words(char *text, char **argv, size_t capacity) {
 
 static int path_type_matches(const char *path, int expected_type) {
     struct srv_stat info;
-    int found = 0;
-    for (uint64_t index = 0;; index++) {
-        char listed[CLI_PATH_MAX];
-        uint64_t size = 0;
-        long result = srv_list(index, listed, sizeof(listed), &size);
-        if (result <= 0) {
-            break;
-        }
-        (void)size;
-        if (cli_streq(listed, path)) {
-            found = 1;
-            break;
-        }
-    }
-    if (!found) {
+    if (srv_stat(path, &info) < 0) {
         return 0;
     }
-    return expected_type < 0 || (srv_stat(path, &info) == 0 && (int)info.type == expected_type);
+    return expected_type < 0 || (int)info.type == expected_type;
 }
 
 static uint64_t test_eval(int argc, char **argv) {
