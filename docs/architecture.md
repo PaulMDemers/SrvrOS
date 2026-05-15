@@ -177,6 +177,7 @@ Core tools:
 - `sh`, `ls`, `cat`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
 - `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
+- `sleep`, `date`, `touch`, `basename`, `dirname`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
@@ -187,6 +188,9 @@ redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `&&`/`||`, `if`/`then`/`else`/`fi`, `test`/`[`, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
 builtins.
+
+The current `date` tool reports monotonic uptime because srvros does not yet
+have RTC or network time plumbing.
 
 New launches use the native `SYS_EXEC` request path. It copies a path, argv
 vector, envp vector, background flag, optional standard fd overrides, and an

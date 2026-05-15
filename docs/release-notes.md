@@ -90,6 +90,8 @@ server.
   and floating conversions.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
+- Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime
+  `date`, `touch`, `basename`, and `dirname`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

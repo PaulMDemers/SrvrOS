@@ -101,6 +101,13 @@ def main():
         "stat /fat/test-miss-copy.txt\n"
         "export PATH=/fat/bin:/\n"
         "which true\n"
+        "which sleep date touch basename dirname\n"
+        "sleep 0\n"
+        "date\n"
+        "touch /fat/touched.txt\n"
+        "stat /fat/touched.txt\n"
+        "basename /fat/bin/sh\n"
+        "dirname /fat/bin/sh\n"
         "/fat/bin/env FOO=bar\n"
         "/fat/bin/pwd\n"
         "true\n"
@@ -260,6 +267,15 @@ def main():
         "/fat/test-string-copy.txt: 55 bytes",
         "/fat/test-miss-copy.txt: 55 bytes",
         "PATH=/fat/bin:/",
+        "/fat/bin/sleep",
+        "/fat/bin/date",
+        "/fat/bin/touch",
+        "/fat/bin/basename",
+        "/fat/bin/dirname",
+        "uptime ",
+        "/fat/touched.txt: 0 bytes",
+        "sh",
+        "/fat/bin",
         "FOO=bar",
         "status 1",
         "status.txt",

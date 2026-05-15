@@ -50,8 +50,9 @@ editor clients:
   and a bounded active-client table.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, multi-stage pipelines,
-  scripts, `$VAR`/`${VAR}`, `$?`/`$$` expansion, unquoted `*`/`?` globbing,
-  `&&`/`||`, `test`/`[`, `service webd`, DHCP/status/DNS commands,
+  scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
+  substitution, unquoted `*`/`?` globbing, `&&`/`||`,
+  `if`/`then`/`else`/`fi`, `test`/`[`, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, and basic Unix-like tools.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup

@@ -273,7 +273,15 @@ kernel, and a minimal Unix-like userspace.
 
 ## Next milestones
 
-1. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
+1. Complete the CLI table-stakes milestone: `for ... in ...; do ...; done`,
+   shell functions, `set -e`/`set +e`, `$0`/`$1`/`$#`/`$@`, `read VAR`,
+   `unset`, `alias`, `type`, `export NAME`, `cd -` plus directory validation,
+   stronger quote/syntax diagnostics, prompt customization, Ctrl-D/C behavior,
+   script-friendly temp files, `/fat/etc/profile`, and richer text tools such
+   as `tail`, `find`, `sort`, `uniq`, `cut`, `tee`, `df`, `du`, `uname`,
+   `hostname`, and `uptime`. The first small tools in this milestone are
+   `sleep`, uptime-style `date`, `touch`, `basename`, and `dirname`.
+2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
@@ -281,26 +289,26 @@ kernel, and a minimal Unix-like userspace.
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally
    small.
-2. Add interrupt-driven AHCI command completion instead of purely polling
+3. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
-3. Add NVMe discovery and read/write support as the second storage backend.
-4. Expand `/webd` from the first poll-driven connection table to fuller
+4. Add NVMe discovery and read/write support as the second storage backend.
+5. Expand `/webd` from the first poll-driven connection table to fuller
    concurrent response handling, then add UDP sockets, response length/file
    metadata, and multi-worker web server designs.
-5. Add a simple userspace filesystem server interface for experimental
+6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-6. Continue the CLI/libc/newlib track: fuller `posix_spawn` attributes/file
+7. Continue the libc/newlib track: fuller `posix_spawn` attributes/file
    actions, terminal process groups/signals, shell functions, `for` loops,
    fuller `stdio`, scan/format helpers, stronger sidecar recovery, and more
    fd-specific readiness queues as the descriptor model grows.
-7. Add kernel-supported graphics buffer allocation/mapping so full-screen
+8. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
-8. Extend GUI IPC from server-rendered controls to client-owned surfaces:
+9. Extend GUI IPC from server-rendered controls to client-owned surfaces:
    shared/mapped buffers, damage rectangles, focus tracking, keyboard delivery,
    and richer pointer events.
-9. Expand syscall validation to include structured copyin/copyout helpers and
+10. Expand syscall validation to include structured copyin/copyout helpers and
    better process termination on bad pointers.
-10. Replace the LAPIC EOI mapping guard with a stronger invariant once all
+11. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-11. Expand floating-point runtime coverage and tighten the first software
+12. Expand floating-point runtime coverage and tighten the first software
     `math.h` implementation toward production libm behavior.
