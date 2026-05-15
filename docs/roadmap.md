@@ -301,6 +301,8 @@ kernel, and a minimal Unix-like userspace.
   as the next script-control compatibility slice.
 - Add shell `command` lookup/execution bypass plus loop `break`/`continue` for
   more portable script control flow.
+- Add first-pass shell `case`/`in`/`esac` pattern matching with glob patterns,
+  `|` alternatives, default `*` arms, and multiline script collection.
 - Add interactive shell polish: `$!`, `fg`/`bg`, `wait` status propagation, and
   tab completion for builtins, aliases, functions, PATH commands, and paths.
 - Add native foreground/background process groups for shell pipelines, including
@@ -319,8 +321,8 @@ kernel, and a minimal Unix-like userspace.
    configure/build scripts expect.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
-   `while`, `shift`, `break`/`continue`, `command`, `$!`, `fg`/`bg`, `%+`/`%-`,
-   `jobs -l`, `kill %job`, background pipelines, tab completion,
+   `while`, `case`, `shift`, `break`/`continue`, `command`, `$!`, `fg`/`bg`,
+   `%+`/`%-`, `jobs -l`, `kill %job`, background pipelines, tab completion,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,

@@ -54,7 +54,7 @@ editor clients:
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
-  `while`/`do`/`done`, shell functions with `return`, `shift`,
+  `while`/`do`/`done`, `case`/`in`/`esac`, shell functions with `return`, `shift`,
   loop `break`/`continue`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`,
   `test`/`[`, `set -e`, `read`, `alias`, `type`, `command -v`/`command -V`,

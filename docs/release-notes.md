@@ -125,6 +125,8 @@ server.
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
   builtin for `-v`/`-V` lookup and alias/function bypass execution.
+- Adds first-pass shell `case`/`in`/`esac` handling with glob-style patterns,
+  `|` alternatives, default arms, and multiline script support.
 - Adds shell `$!` expansion, `fg`/`bg` builtins for the current background
   process model, `wait` status propagation, and tab completion for builtins,
   aliases, functions, PATH commands, and filesystem paths.

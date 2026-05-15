@@ -113,9 +113,17 @@ struct while_parts {
     size_t body_end;
 };
 
+struct case_parts {
+    size_t word_start;
+    size_t word_end;
+    size_t arms_start;
+    size_t arms_end;
+};
+
 static int find_if_parts(const char *line, struct if_parts *parts);
 static int find_for_parts(const char *line, struct for_parts *parts);
 static int find_while_parts(const char *line, struct while_parts *parts);
+static int find_case_parts(const char *line, struct case_parts *parts);
 static int find_function_definition(const char *line, char *name, size_t name_capacity, char *body, size_t body_capacity);
 static int is_function_start(const char *line);
 
@@ -817,7 +825,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 static void print_help(void) {
     cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, use ;, &&, ||, append & for background\n");
+    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -2313,6 +2321,12 @@ static uint64_t run_script(const char *path, char *cwd) {
                     block_length = 0;
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
+                } else if (shell_keyword_at(trimmed, 0, "case") && !find_case_parts(trimmed, &(struct case_parts){0})) {
+                    collecting_block = 1;
+                    cli_copy(block_end_keyword, sizeof(block_end_keyword), "esac");
+                    block_length = 0;
+                    block[0] = '\0';
+                    append_text(block, sizeof(block), &block_length, trimmed);
                 } else if (is_function_start(trimmed) &&
                     !find_function_definition(trimmed, (char[32]){0}, 32, (char[EXPANDED_LINE_MAX]){0}, EXPANDED_LINE_MAX)) {
                     collecting_block = 1;
@@ -3268,6 +3282,52 @@ static void copy_slice_trimmed(char *destination, size_t capacity, const char *s
     destination[out] = '\0';
 }
 
+static void decode_case_pattern(char *pattern) {
+    char *argv[2];
+    char copy[128];
+    int argc;
+
+    cli_copy(copy, sizeof(copy), pattern);
+    argc = split_words(copy, argv, 1);
+    if (argc == 1) {
+        cli_copy(pattern, 128, argv[0]);
+    }
+}
+
+static int case_patterns_match(const char *patterns, const char *word) {
+    size_t start = 0;
+    char quote = '\0';
+
+    for (size_t i = 0;; i++) {
+        char c = patterns[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && patterns[i + 1] != '\0') {
+                i++;
+            }
+        } else if (c == '\'' || c == '"') {
+            quote = c;
+        } else if (c == '\\' && patterns[i + 1] != '\0') {
+            i++;
+        } else if (c == '|' || c == '\0') {
+            char pattern[128];
+            copy_slice_trimmed(pattern, sizeof(pattern), patterns, start, i);
+            decode_case_pattern(pattern);
+            if (pattern[0] != '\0' && glob_match(pattern, word)) {
+                return 1;
+            }
+            if (c == '\0') {
+                return 0;
+            }
+            start = i + 1;
+        }
+        if (c == '\0') {
+            return 0;
+        }
+    }
+}
+
 static uint64_t run_if_line(char *line, char *cwd) {
     struct if_parts parts;
     char condition[EXPANDED_LINE_MAX];
@@ -3523,6 +3583,172 @@ static int find_for_parts(const char *line, struct for_parts *parts) {
     return 0;
 }
 
+static int find_case_parts(const char *line, struct case_parts *parts) {
+    char quote = '\0';
+    int depth = 1;
+    int saw_in = 0;
+
+    parts->word_start = 4;
+    parts->word_end = 0;
+    parts->arms_start = 0;
+    parts->arms_end = 0;
+
+    for (size_t i = 4; line[i] != '\0'; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (saw_in && shell_keyword_at(line, i, "case")) {
+            depth++;
+            i += 3;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "in") && depth == 1 && !saw_in) {
+            saw_in = 1;
+            parts->word_end = i;
+            parts->arms_start = i + 2;
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "esac")) {
+            depth--;
+            if (depth == 0) {
+                if (!saw_in) {
+                    return 0;
+                }
+                parts->arms_end = i;
+                return 1;
+            }
+            i += 3;
+        }
+    }
+    return 0;
+}
+
+static int find_case_arm_end(const char *arms, size_t start, size_t *pattern_end, size_t *command_end, size_t *next) {
+    char quote = '\0';
+    int found_pattern = 0;
+
+    for (size_t i = start; arms[i] != '\0'; i++) {
+        char c = arms[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && arms[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && arms[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (c == ')' && !found_pattern) {
+            *pattern_end = i;
+            found_pattern = 1;
+            continue;
+        }
+        if (found_pattern && c == ';' && arms[i + 1] == ';') {
+            *command_end = i;
+            *next = i + 2;
+            return 1;
+        }
+    }
+    if (found_pattern) {
+        *command_end = cli_strlen(arms);
+        *next = *command_end;
+        return 1;
+    }
+    return 0;
+}
+
+static uint64_t run_case_line(char *line, char *cwd) {
+    struct case_parts parts;
+    char word[ARG_EXPANDED_MAX];
+    char expanded_word[ARG_EXPANDED_MAX];
+    char word_copy[ARG_EXPANDED_MAX];
+    char arms[EXPANDED_LINE_MAX];
+    char *argv[2];
+    int argc;
+    uint64_t status = 0;
+
+    if (!find_case_parts(line, &parts)) {
+        cli_puts("case: expected 'case <word> in <pattern>) <commands> ;; esac'\n");
+        return 2;
+    }
+    copy_slice_trimmed(word, sizeof(word), line, parts.word_start, parts.word_end);
+    copy_slice_trimmed(arms, sizeof(arms), line, parts.arms_start, parts.arms_end);
+    if (word[0] == '\0' || arms[0] == '\0') {
+        return 0;
+    }
+    if (!expand_variables(word, expanded_word, sizeof(expanded_word), cwd)) {
+        return 2;
+    }
+    cli_copy(word_copy, sizeof(word_copy), expanded_word);
+    argc = split_words(word_copy, argv, 1);
+    if (argc != 1) {
+        cli_puts("case: word expands to invalid field count\n");
+        return 2;
+    }
+
+    for (size_t cursor = 0; arms[cursor] != '\0';) {
+        size_t pattern_start;
+        size_t pattern_end = 0;
+        size_t command_start;
+        size_t command_end = 0;
+        size_t next = 0;
+        char patterns[ARG_EXPANDED_MAX];
+        char expanded_patterns[ARG_EXPANDED_MAX];
+
+        while (arms[cursor] == ' ' || arms[cursor] == '\t' || arms[cursor] == ';') {
+            cursor++;
+        }
+        if (arms[cursor] == '\0') {
+            break;
+        }
+        if (arms[cursor] == '(') {
+            cursor++;
+        }
+        pattern_start = cursor;
+        if (!find_case_arm_end(arms, pattern_start, &pattern_end, &command_end, &next)) {
+            cli_puts("case: malformed pattern arm\n");
+            return 2;
+        }
+        command_start = pattern_end + 1;
+        copy_slice_trimmed(patterns, sizeof(patterns), arms, pattern_start, pattern_end);
+        if (!expand_variables(patterns, expanded_patterns, sizeof(expanded_patterns), cwd)) {
+            return 2;
+        }
+        if (case_patterns_match(expanded_patterns, argv[0])) {
+            char commands[EXPANDED_LINE_MAX];
+            copy_slice_trimmed(commands, sizeof(commands), arms, command_start, command_end);
+            if (commands[0] != '\0') {
+                status = run_line(commands, cwd);
+            }
+            return status;
+        }
+        cursor = next;
+    }
+    return 0;
+}
+
 static uint64_t run_for_line(char *line, char *cwd) {
     struct for_parts parts;
     char name[32];
@@ -3705,6 +3931,11 @@ static uint64_t run_line(char *line, char *cwd) {
     }
     if (shell_keyword_at(line, 0, "while")) {
         status = run_while_line(line, cwd);
+        last_status = status;
+        return status;
+    }
+    if (shell_keyword_at(line, 0, "case")) {
+        status = run_case_line(line, cwd);
         last_status = status;
         return status;
     }

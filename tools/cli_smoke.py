@@ -254,6 +254,15 @@ def main():
         "sh -c 'while test $# -gt 0; do echo while-$1; shift; done' wh alpha beta\n"
         "for n in one skip three; do test $n = skip && continue; echo cont-$n; done\n"
         "for n in one stop three; do test $n = stop && break; echo break-$n; done\n"
+        "case apple in banana) echo case-bad ;; app*) echo case-glob-ok ;; esac\n"
+        "case blue in red|blue) echo case-alt-ok ;; *) echo case-alt-bad ;; esac\n"
+        "case none in one) echo case-one-bad ;; *) echo case-default-ok ;; esac\n"
+        "write /fat/case.sh 'case two in'\n"
+        "write -a /fat/case.sh 'one) echo case-script-one ;;'\n"
+        "write -a /fat/case.sh 'two|three) echo case-script-ok ;;'\n"
+        "write -a /fat/case.sh '*) echo case-script-default ;;'\n"
+        "write -a /fat/case.sh 'esac'\n"
+        "sh /fat/case.sh\n"
         "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
         "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
         "sh /fat/args.sh alpha beta\n"
@@ -540,6 +549,10 @@ def main():
         "cont-one",
         "cont-three",
         "break-one",
+        "case-glob-ok",
+        "case-alt-ok",
+        "case-default-ok",
+        "case-script-ok",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",
         "alias ll='ls /fat/bin'",
