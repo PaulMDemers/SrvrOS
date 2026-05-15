@@ -119,6 +119,10 @@ server.
   line-number and `/pattern/` addresses, and `test -s/-r/-w/-x`.
 - Adds `/fat/bin/expr` for script-friendly integer arithmetic, comparisons,
   string length/substr/index operations, and literal-prefix `:` matching.
+- Adds `/fat/bin/printf` and `/fat/bin/tr` for portable script output and
+  simple byte translation/deletion pipelines.
+- Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
+  more realistic script control flow.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

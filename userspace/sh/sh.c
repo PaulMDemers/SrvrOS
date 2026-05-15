@@ -77,8 +77,16 @@ struct for_parts {
     size_t body_end;
 };
 
+struct while_parts {
+    size_t condition_start;
+    size_t condition_end;
+    size_t body_start;
+    size_t body_end;
+};
+
 static int find_if_parts(const char *line, struct if_parts *parts);
 static int find_for_parts(const char *line, struct for_parts *parts);
+static int find_while_parts(const char *line, struct while_parts *parts);
 static int find_function_definition(const char *line, char *name, size_t name_capacity, char *body, size_t body_capacity);
 static int is_function_start(const char *line);
 
@@ -554,9 +562,9 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, use ;, &&, ||, append & for background\n");
+    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read :\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -1053,9 +1061,9 @@ static void print_env(void) {
 
 static int is_builtin(const char *name) {
     static const char *builtins[] = {
-        "help", "exit", "exec", "return", "set", "source", ".", "path", "cd", "pwd", "clear",
+        "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
         "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
-        "jobs", "wait", "service", "dhcp", "net", "dns", "rmdir", "read",
+        "jobs", "wait", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
     };
     for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
         if (cli_streq(name, builtins[i])) {
@@ -1204,6 +1212,32 @@ static uint64_t return_command(const char *args) {
     return_status = args[0] != '\0' ? parse_u64(args) : last_status;
     return_requested = 1;
     return return_status;
+}
+
+static uint64_t shift_command(const char *args) {
+    char work[LINE_MAX];
+    char *argv[2];
+    int argc;
+    int64_t parsed = 1;
+    uint64_t count;
+
+    cli_copy(work, sizeof(work), args);
+    argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0 || argc > 1 || (argc == 1 && (!parse_i64(argv[0], &parsed) || parsed < 0))) {
+        cli_puts("usage: shift [count]\n");
+        return 2;
+    }
+    count = (uint64_t)parsed;
+    if (count > (uint64_t)(shell_argc > 0 ? shell_argc - 1 : 0)) {
+        cli_puts("shift: count exceeds positional parameters\n");
+        return 1;
+    }
+    for (int i = 1; i + (int)count < shell_argc; i++) {
+        shell_argv[i] = shell_argv[i + count];
+    }
+    shell_argc -= (int)count;
+    shell_argv[shell_argc] = 0;
+    return 0;
 }
 
 static uint64_t run_function(struct shell_function *function, const char *args, char *cwd) {
@@ -1574,6 +1608,12 @@ static uint64_t run_script(const char *path, char *cwd) {
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
                 } else if (shell_keyword_at(trimmed, 0, "for") && !find_for_parts(trimmed, &(struct for_parts){0})) {
+                    collecting_block = 1;
+                    cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
+                    block_length = 0;
+                    block[0] = '\0';
+                    append_text(block, sizeof(block), &block_length, trimmed);
+                } else if (shell_keyword_at(trimmed, 0, "while") && !find_while_parts(trimmed, &(struct while_parts){0})) {
                     collecting_block = 1;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
                     block_length = 0;
@@ -2200,8 +2240,14 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     if (cli_streq(command, "return")) {
         return return_command(args);
     }
+    if (cli_streq(command, "shift")) {
+        return shift_command(args);
+    }
     if (cli_streq(command, "set")) {
         return set_command(args);
+    }
+    if (cli_streq(command, ":")) {
+        return 0;
     }
     if (cli_streq(command, "path")) {
         if (cli_starts_with(args, "add ")) {
@@ -2597,6 +2643,60 @@ static int find_function_definition(const char *line,
     return name[0] != '\0';
 }
 
+static int find_while_parts(const char *line, struct while_parts *parts) {
+    char quote = '\0';
+    int depth = 1;
+    int saw_do = 0;
+
+    parts->condition_start = 5;
+    parts->condition_end = 0;
+    parts->body_start = 0;
+    parts->body_end = 0;
+
+    for (size_t i = 5; line[i] != '\0'; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "while") || shell_keyword_at(line, i, "for")) {
+            depth++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "do") && depth == 1 && !saw_do) {
+            saw_do = 1;
+            parts->condition_end = i;
+            parts->body_start = i + 2;
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "done")) {
+            depth--;
+            if (depth == 0) {
+                if (!saw_do) {
+                    return 0;
+                }
+                parts->body_end = i;
+                return 1;
+            }
+            i += 3;
+        }
+    }
+    return 0;
+}
+
 static int find_for_parts(const char *line, struct for_parts *parts) {
     char quote = '\0';
     int depth = 1;
@@ -2722,6 +2822,41 @@ static uint64_t run_for_line(char *line, char *cwd) {
     return status;
 }
 
+static uint64_t run_while_line(char *line, char *cwd) {
+    struct while_parts parts;
+    char condition[EXPANDED_LINE_MAX];
+    char body[EXPANDED_LINE_MAX];
+    uint64_t status = 0;
+
+    if (!find_while_parts(line, &parts)) {
+        cli_puts("while: expected 'while <command>; do <commands>; done'\n");
+        return 2;
+    }
+
+    copy_slice_trimmed(condition, sizeof(condition), line, parts.condition_start, parts.condition_end);
+    copy_slice_trimmed(body, sizeof(body), line, parts.body_start, parts.body_end);
+    if (condition[0] == '\0' || body[0] == '\0') {
+        return 0;
+    }
+    for (;;) {
+        char condition_copy[EXPANDED_LINE_MAX];
+        char body_copy[EXPANDED_LINE_MAX];
+        cli_copy(condition_copy, sizeof(condition_copy), condition);
+        status = run_line(condition_copy, cwd);
+        if (status != 0 || return_requested) {
+            return return_requested ? status : 0;
+        }
+        cli_copy(body_copy, sizeof(body_copy), body);
+        status = run_line(body_copy, cwd);
+        if (return_requested) {
+            return status;
+        }
+        if (exit_on_error && status != 0) {
+            return status;
+        }
+    }
+}
+
 static uint64_t run_line(char *line, char *cwd) {
     char quote = '\0';
     char *segment = line;
@@ -2750,6 +2885,11 @@ static uint64_t run_line(char *line, char *cwd) {
     }
     if (shell_keyword_at(line, 0, "for")) {
         status = run_for_line(line, cwd);
+        last_status = status;
+        return status;
+    }
+    if (shell_keyword_at(line, 0, "while")) {
+        status = run_while_line(line, cwd);
         last_status = status;
         return status;
     }

@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #define EXFAT_MAX_VOLUMES 4
-#define EXFAT_MAX_FILES 256
+#define EXFAT_MAX_FILES 512
 #define EXFAT_MAX_DIRS 32
 #define EXFAT_MAX_PATH 160
 #define EXFAT_MAX_FILE_ENTRIES 19

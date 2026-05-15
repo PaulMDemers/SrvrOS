@@ -179,7 +179,7 @@ Core tools:
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
-  `expr`,
+  `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
@@ -190,7 +190,8 @@ redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
 command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
-`if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, shell functions with `return`,
+`if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
+shell functions with `return`, `shift`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `TMPDIR`,
 `cd -` with directory validation, `service webd`, DHCP/status/DNS builtins,
@@ -202,7 +203,8 @@ line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
 `sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses, and
 `/pattern/` addresses. `/fat/bin/expr` covers simple integer arithmetic,
 comparisons, string length/substr/index, and literal-prefix `:` matching for
-script glue.
+script glue. `/fat/bin/printf` supports common `%s`/numeric formatting and
+escapes; `/fat/bin/tr` supports simple set translation, ranges, and deletion.
 
 The current `date` tool reports monotonic uptime because srvros does not yet
 have RTC or network time plumbing.

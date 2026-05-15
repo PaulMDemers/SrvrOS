@@ -297,6 +297,8 @@ kernel, and a minimal Unix-like userspace.
   output, plus `test -s/-r/-w/-x`.
 - Add first-pass `/fat/bin/expr` for script arithmetic, comparisons, string
   length/substr/index operations, and literal-prefix `:` matching.
+- Add `/fat/bin/printf`, `/fat/bin/tr`, shell `while` loops, `shift`, and `:`
+  as the next script-control compatibility slice.
 
 ## Next milestones
 
@@ -305,9 +307,10 @@ kernel, and a minimal Unix-like userspace.
    configure/build scripts expect.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
+   `while`, `shift`,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
-   `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `tee`, `du`, `df`,
+   `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
    `sort`, `uniq`, `cut`, `xargs`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better

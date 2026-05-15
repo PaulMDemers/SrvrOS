@@ -53,13 +53,14 @@ editor clients:
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
-  shell functions with `return`, `/fat/etc/profile`, `PS1`, default `TMPDIR`,
+  `while`/`do`/`done`, shell functions with `return`, `shift`,
+  `/fat/etc/profile`, `PS1`, default `TMPDIR`,
   `test`/`[`, `set -e`, `read`, `alias`, `type`,
   `unset`, safer `cd`, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
-  `sed`, `expr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
+  `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
   `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
   `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,

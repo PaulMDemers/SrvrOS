@@ -118,7 +118,7 @@ def main():
         "stat /fat/test-miss-copy.txt\n"
         "export PATH=/fat/bin:/\n"
         "which true\n"
-        "which sleep date touch basename dirname expr\n"
+        "which sleep date touch basename dirname expr printf tr\n"
         "sleep 0\n"
         "date\n"
         "touch /fat/touched.txt\n"
@@ -187,6 +187,14 @@ def main():
         "echo expr-index-$(expr index banana na)\n"
         "echo expr-lt-$(expr 1 '<' 2)\n"
         "echo expr-prefix-$(expr banana : ban)\n"
+        "printf 'printf-%s-%d-%x\\n' ok 42 255 > /fat/printf.txt\n"
+        "cat /fat/printf.txt\n"
+        "printf 'repeat-%s\\n' red blue > /fat/printf-repeat.txt\n"
+        "cat /fat/printf-repeat.txt\n"
+        "printf 'abc123\\n' | tr a-z A-Z > /fat/tr-upper.txt\n"
+        "cat /fat/tr-upper.txt\n"
+        "printf 'abc123\\n' | tr -d 0-9 > /fat/tr-delete.txt\n"
+        "cat /fat/tr-delete.txt\n"
         "grep exFAT /fat/status.txt\n"
         "grep -n -i exfat /fat/status.txt\n"
         "grep -c apple /fat/words.txt\n"
@@ -241,6 +249,7 @@ def main():
         "write -a /fat/fn.sh '}'\n"
         "write -a /fat/fn.sh 'multifn ok'\n"
         "sh /fat/fn.sh\n"
+        "sh -c 'while test $# -gt 0; do echo while-$1; shift; done' wh alpha beta\n"
         "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
         "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
         "sh /fat/args.sh alpha beta\n"
@@ -419,6 +428,8 @@ def main():
         "/fat/bin/basename",
         "/fat/bin/dirname",
         "/fat/bin/expr",
+        "/fat/bin/printf",
+        "/fat/bin/tr",
         "uptime ",
         "/fat/touched.txt: 0 bytes",
         "tmpdir-/fat/tmp",
@@ -464,6 +475,11 @@ def main():
         "expr-index-2",
         "expr-lt-1",
         "expr-prefix-3",
+        "printf-ok-42-ff",
+        "repeat-red",
+        "repeat-blue",
+        "ABC123",
+        "abc",
         "1:srvros webd: static file serving from exFAT is online.",
         "2",
         "grep-q-ok",
@@ -499,6 +515,8 @@ def main():
         "before-return",
         "return-status-7",
         "multi-ok",
+        "while-alpha",
+        "while-beta",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",
         "ll is aliased to 'ls /fat/bin'",

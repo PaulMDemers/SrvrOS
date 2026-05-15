@@ -7,7 +7,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define VFS_MAX_NODES 256
+#define VFS_MAX_NODES 512
 
 static struct vfs_node nodes[VFS_MAX_NODES];
 static uint64_t node_count;
