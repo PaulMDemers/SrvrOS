@@ -1,27 +1,135 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
-static int remove_path(const char *path) {
+#define RM_MAX_PATHS 256
+
+struct rm_path {
+    char path[CLI_PATH_MAX];
+    uint64_t type;
+};
+
+static struct rm_path paths[RM_MAX_PATHS];
+static size_t path_count;
+
+static int under_root(const char *path, const char *root) {
+    size_t root_length = cli_strlen(root);
+    if (cli_streq(root, "/")) {
+        return path[0] == '/';
+    }
+    if (!cli_starts_with(path, root)) {
+        return 0;
+    }
+    return path[root_length] == '\0' || path[root_length] == '/';
+}
+
+static void sort_deepest_first(void) {
+    for (size_t i = 0; i < path_count; i++) {
+        for (size_t j = i + 1; j < path_count; j++) {
+            if (cli_strlen(paths[j].path) > cli_strlen(paths[i].path)) {
+                struct rm_path temp = paths[i];
+                paths[i] = paths[j];
+                paths[j] = temp;
+            }
+        }
+    }
+}
+
+static int remove_one_file(const char *path) {
     if (srv_unlink(path) == 0) {
         return 0;
     }
-
     cli_puts("rm: cannot remove ");
     cli_puts(path);
     cli_puts("\n");
     return 1;
 }
 
-int main(int argc, char **argv) {
+static int remove_recursive(const char *root) {
+    struct srv_stat root_info;
     int status = 0;
-    if (argc < 2) {
-        cli_puts("usage: rm <path> [...]\n");
+    path_count = 0;
+
+    if (srv_stat(root, &root_info) < 0) {
+        cli_puts("rm: not found: ");
+        cli_puts(root);
+        cli_puts("\n");
+        return 1;
+    }
+    if (root_info.type == 0) {
+        return remove_one_file(root);
+    }
+
+    for (uint64_t index = 0;; index++) {
+        char path[CLI_PATH_MAX];
+        uint64_t size = 0;
+        struct srv_stat info;
+        long result = srv_list(index, path, sizeof(path), &size);
+        if (result <= 0) {
+            break;
+        }
+        (void)size;
+        if (cli_streq(path, root) || !under_root(path, root)) {
+            continue;
+        }
+        if (path_count >= RM_MAX_PATHS || srv_stat(path, &info) < 0) {
+            cli_puts("rm: recursion limit reached\n");
+            return 1;
+        }
+        cli_copy(paths[path_count].path, sizeof(paths[path_count].path), path);
+        paths[path_count].type = info.type;
+        path_count++;
+    }
+
+    sort_deepest_first();
+    for (size_t i = 0; i < path_count; i++) {
+        if (paths[i].type == 0) {
+            status |= remove_one_file(paths[i].path);
+        }
+    }
+    for (size_t i = 0; i < path_count; i++) {
+        if (paths[i].type == 1 && srv_rmdir(paths[i].path) < 0) {
+            cli_puts("rm: cannot remove directory ");
+            cli_puts(paths[i].path);
+            cli_puts("\n");
+            status = 1;
+        }
+    }
+    if (srv_rmdir(root) < 0) {
+        cli_puts("rm: cannot remove directory ");
+        cli_puts(root);
+        cli_puts("\n");
+        status = 1;
+    }
+    return status;
+}
+
+int main(int argc, char **argv) {
+    int recursive = 0;
+    int first_path = 1;
+    int status = 0;
+
+    if (argc > 1 && (cli_streq(argv[1], "-r") || cli_streq(argv[1], "-rf") || cli_streq(argv[1], "-fr"))) {
+        recursive = 1;
+        first_path = 2;
+    }
+    if (argc <= first_path) {
+        cli_puts("usage: rm [-r] <path> [...]\n");
         return 1;
     }
 
-    for (int i = 1; i < argc; i++) {
-        if (remove_path(argv[i]) != 0) {
-            status = 1;
+    for (int i = first_path; i < argc; i++) {
+        struct srv_stat info;
+        if (srv_stat(argv[i], &info) == 0 && info.type == 1) {
+            if (!recursive) {
+                cli_puts("rm: is a directory: ");
+                cli_puts(argv[i]);
+                cli_puts("\n");
+                status = 1;
+            } else {
+                status |= remove_recursive(argv[i]);
+            }
+        } else {
+            status |= remove_one_file(argv[i]);
         }
     }
     return status;

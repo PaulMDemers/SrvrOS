@@ -104,6 +104,9 @@ server.
   and multiline script definitions, and `type` reporting for functions.
 - Adds `/fat/bin/xargs`, a small literal-substitution `/fat/bin/sed`, and shell
   unmatched-quote diagnostics for friendlier CLI scripting failures.
+- Adds `/fat/bin/mktemp`, `mkdir -p`, recursive `cp -r`/`rm -r`, shell
+  unterminated-block diagnostics for scripts, and Ctrl-C prompt recovery in the
+  linenoise console adapter.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

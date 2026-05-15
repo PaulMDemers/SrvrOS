@@ -175,7 +175,7 @@ per-directory `start.S`.
 Core tools:
 
 - `sh`, `ls`, `cat`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
-- `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`.
+- `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mktemp`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
@@ -187,8 +187,8 @@ The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
-command substitution, unquoted `*`/`?` globbing, unmatched-quote diagnostics,
-`&&`/`||`,
+command substitution, unquoted `*`/`?` globbing, unmatched quote/block
+diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, shell functions with `return`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `cd -` with

@@ -555,7 +555,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 
 static void print_help(void) {
     cli_puts("builtins: help exit exec return set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
@@ -1566,19 +1566,12 @@ static uint64_t run_script(const char *path, char *cwd) {
             break;
         }
     }
-    if (!stop && length > 0) {
-        line[length] = '\0';
-        char *trimmed = cli_trim(line);
-        if (collecting_block) {
-            append_text(block, sizeof(block), &block_length, "; ");
-            append_text(block, sizeof(block), &block_length, trimmed);
-            status = run_line(block, cwd);
-        } else {
-            status = run_line(line, cwd);
-        }
-    } else if (!stop && collecting_block) {
+    if (!stop && collecting_block) {
         cli_puts("source: unterminated block\n");
         status = 2;
+    } else if (!stop && length > 0) {
+        line[length] = '\0';
+        status = run_line(line, cwd);
     }
     srv_close(fd);
     return status;

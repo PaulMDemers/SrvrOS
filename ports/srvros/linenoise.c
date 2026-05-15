@@ -304,6 +304,9 @@ char *linenoise(const char *prompt) {
         }
         if (c == 1) {
             position = 0;
+        } else if (c == 3) {
+            ln_write("^C\n");
+            return ln_strdup("");
         } else if (c == 5) {
             position = length;
         } else if (c == 2) {

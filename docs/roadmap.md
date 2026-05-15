@@ -285,18 +285,20 @@ kernel, and a minimal Unix-like userspace.
   and multiline definitions, and `type` reporting for functions.
 - Add shell unmatched-quote diagnostics plus first-pass `/fat/bin/xargs` and a
   literal-substitution `/fat/bin/sed`.
+- Add `/fat/bin/mktemp`, `mkdir -p`, recursive `cp -r`/`rm -r`, Ctrl-C prompt
+  recovery, and script diagnostics for unterminated multiline blocks.
 
 ## Next milestones
 
-1. Complete the CLI table-stakes milestone: broader syntax diagnostics,
-   Ctrl-D/C behavior, script-friendly temp files, richer `sed`/text-tool option
-   support, and more complete option support for existing commands.
+1. Complete the CLI table-stakes milestone: Ctrl-D serial EOF smoke coverage,
+   richer `sed`/text-tool option support, and more complete option support for
+   existing commands.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, `tail`, `tee`, `find`,
-   `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`, `uname`, `hostname`,
-   and `uptime`.
+   `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`, `mktemp`, `mkdir -p`,
+   recursive `cp`/`rm`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,

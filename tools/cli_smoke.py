@@ -117,6 +117,9 @@ def main():
         "date\n"
         "touch /fat/touched.txt\n"
         "stat /fat/touched.txt\n"
+        "TMP=$(mktemp /fat/tmp/smoke.XXXXXX)\n"
+        "echo tmp-$TMP\n"
+        "stat $TMP\n"
         "basename /fat/bin/sh\n"
         "dirname /fat/bin/sh\n"
         "/fat/bin/env FOO=bar\n"
@@ -239,8 +242,19 @@ def main():
         "write -a /fat/if.sh \"echo multiline-if-bad\"\n"
         "write -a /fat/if.sh \"fi\"\n"
         "sh /fat/if.sh\n"
+        "write /fat/badif.sh \"if test -f /fat/status.txt; then\"\n"
+        "write -a /fat/badif.sh \"echo unfinished-if\"\n"
+        "sh /fat/badif.sh\n"
         "cp /fat/status.txt /fat/status-copy.txt\n"
         "stat /fat/status-copy.txt\n"
+        "mkdir -p /fat/tree/a/b\n"
+        "write /fat/tree/a/b/file.txt nested-copy\n"
+        "cp -r /fat/tree /fat/tree-copy\n"
+        "cat /fat/tree-copy/a/b/file.txt\n"
+        "rm -r /fat/tree\n"
+        "stat /fat/tree/a/b/file.txt\n"
+        "rm -r /fat/tree-copy\n"
+        "stat /fat/tree-copy/a/b/file.txt\n"
         "cp /fat/redir.txt /fat/redir-copy.txt\n"
         "cat /fat/redir-copy.txt\n"
         "cp /fat/bin/sh /fat/sh-copy\n"
@@ -354,6 +368,8 @@ def main():
         "/fat/bin/dirname",
         "uptime ",
         "/fat/touched.txt: 0 bytes",
+        "tmp-/fat/tmp/smoke.",
+        "/fat/tmp/smoke.",
         "sh",
         "/fat/bin",
         "FOO=bar",
@@ -427,7 +443,11 @@ def main():
         "if-ok",
         "if-else-ok",
         "multiline-if-ok",
+        "source: unterminated block",
         "/fat/status-copy.txt: 55 bytes",
+        "nested-copy",
+        "stat: not found: /fat/tree/a/b/file.txt",
+        "stat: not found: /fat/tree-copy/a/b/file.txt",
         "/fat/sh-copy:",
         "PID STATE",
         "/fat/bin/sh",

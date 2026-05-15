@@ -47,13 +47,13 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
   tools, source scripts plus non-interactive `sh script` and `sh -c`,
   command substitution, positional parameters, shell functions/`return`,
-  unmatched-quote diagnostics, `set -e`, `read`, `alias`,
+  unmatched quote/block diagnostics, `set -e`, `read`, `alias`,
   `type`, `unset`, bare assignments, `cd -` and directory validation,
   `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
-  `cut`, `xargs`, `sed`, copy/remove, native file rename through `mv`,
-  `tap` file splitting,
+  `cut`, `xargs`, `sed`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+  copy/remove, native file rename through `mv`, `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
