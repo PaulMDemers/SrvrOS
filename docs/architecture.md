@@ -190,7 +190,7 @@ non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
 command substitution, unquoted `*`/`?` globbing, unmatched quote/block
-diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
+diagnostics, Ctrl-C prompt recovery, `&&`/`||`, compound-command tail chaining,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
 `case`/`in`/`esac`,
 shell functions with `return`, `shift`, loop `break`/`continue`,

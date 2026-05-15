@@ -53,7 +53,8 @@ editor clients:
   multi-stage pipelines,
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
-  globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
+  globbing, `&&`/`||`, compound-command tail chaining with `;`/`&&`/`||`,
+  `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
   `while`/`do`/`done`, `case`/`in`/`esac`, shell functions with `return`, `shift`,
   loop `break`/`continue`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`,

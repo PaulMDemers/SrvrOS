@@ -257,6 +257,11 @@ def main():
         "case apple in banana) echo case-bad ;; app*) echo case-glob-ok ;; esac\n"
         "case blue in red|blue) echo case-alt-ok ;; *) echo case-alt-bad ;; esac\n"
         "case none in one) echo case-one-bad ;; *) echo case-default-ok ;; esac\n"
+        "if test -f /fat/status.txt; then echo if-chain-ok; fi; echo after-if-chain\n"
+        "if test -f /fat/nope; then echo if-chain-bad; else echo if-chain-else; fi && echo if-and-ok\n"
+        "if test -f /fat/nope; then echo if-or-bad; else false; fi || echo if-or-ok\n"
+        "for n in tail; do echo for-chain-$n; done; echo after-for-chain\n"
+        "case tail in t*) echo case-chain-ok ;; esac; echo after-case-chain\n"
         "write /fat/case.sh 'case two in'\n"
         "write -a /fat/case.sh 'one) echo case-script-one ;;'\n"
         "write -a /fat/case.sh 'two|three) echo case-script-ok ;;'\n"
@@ -552,6 +557,15 @@ def main():
         "case-glob-ok",
         "case-alt-ok",
         "case-default-ok",
+        "if-chain-ok",
+        "after-if-chain",
+        "if-chain-else",
+        "if-and-ok",
+        "if-or-ok",
+        "for-chain-tail",
+        "after-for-chain",
+        "case-chain-ok",
+        "after-case-chain",
         "case-script-ok",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",

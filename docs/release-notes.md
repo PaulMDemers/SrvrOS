@@ -127,6 +127,8 @@ server.
   builtin for `-v`/`-V` lookup and alias/function bypass execution.
 - Adds first-pass shell `case`/`in`/`esac` handling with glob-style patterns,
   `|` alternatives, default arms, and multiline script support.
+- Allows completed `if`/`for`/`while`/`case` compound commands to continue with
+  `;`, `&&`, and `||` tails.
 - Adds shell `$!` expansion, `fg`/`bg` builtins for the current background
   process model, `wait` status propagation, and tab completion for builtins,
   aliases, functions, PATH commands, and filesystem paths.

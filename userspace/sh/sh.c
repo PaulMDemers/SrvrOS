@@ -94,6 +94,7 @@ struct if_parts {
     size_t then_end;
     size_t else_start;
     size_t else_end;
+    size_t command_end;
     int has_else;
 };
 
@@ -104,6 +105,7 @@ struct for_parts {
     size_t words_end;
     size_t body_start;
     size_t body_end;
+    size_t command_end;
 };
 
 struct while_parts {
@@ -111,6 +113,7 @@ struct while_parts {
     size_t condition_end;
     size_t body_start;
     size_t body_end;
+    size_t command_end;
 };
 
 struct case_parts {
@@ -118,6 +121,7 @@ struct case_parts {
     size_t word_end;
     size_t arms_start;
     size_t arms_end;
+    size_t command_end;
 };
 
 static int find_if_parts(const char *line, struct if_parts *parts);
@@ -3206,6 +3210,7 @@ static int find_if_parts(const char *line, struct if_parts *parts) {
     parts->then_end = 0;
     parts->else_start = 0;
     parts->else_end = 0;
+    parts->command_end = 0;
     parts->has_else = 0;
 
     for (size_t i = 2; line[i] != '\0'; i++) {
@@ -3258,6 +3263,7 @@ static int find_if_parts(const char *line, struct if_parts *parts) {
                 } else {
                     parts->then_end = i;
                 }
+                parts->command_end = i + 2;
                 (void)then_keyword;
                 (void)else_keyword;
                 return 1;
@@ -3461,6 +3467,7 @@ static int find_while_parts(const char *line, struct while_parts *parts) {
     parts->condition_end = 0;
     parts->body_start = 0;
     parts->body_end = 0;
+    parts->command_end = 0;
 
     for (size_t i = 5; line[i] != '\0'; i++) {
         char c = line[i];
@@ -3498,6 +3505,7 @@ static int find_while_parts(const char *line, struct while_parts *parts) {
                     return 0;
                 }
                 parts->body_end = i;
+                parts->command_end = i + 4;
                 return 1;
             }
             i += 3;
@@ -3518,6 +3526,7 @@ static int find_for_parts(const char *line, struct for_parts *parts) {
     parts->words_end = 0;
     parts->body_start = 0;
     parts->body_end = 0;
+    parts->command_end = 0;
 
     size_t cursor = 3;
     while (line[cursor] == ' ' || line[cursor] == '\t') {
@@ -3575,6 +3584,7 @@ static int find_for_parts(const char *line, struct for_parts *parts) {
                     return 0;
                 }
                 parts->body_end = i;
+                parts->command_end = i + 4;
                 return 1;
             }
             i += 3;
@@ -3592,6 +3602,7 @@ static int find_case_parts(const char *line, struct case_parts *parts) {
     parts->word_end = 0;
     parts->arms_start = 0;
     parts->arms_end = 0;
+    parts->command_end = 0;
 
     for (size_t i = 4; line[i] != '\0'; i++) {
         char c = line[i];
@@ -3630,6 +3641,7 @@ static int find_case_parts(const char *line, struct case_parts *parts) {
                     return 0;
                 }
                 parts->arms_end = i;
+                parts->command_end = i + 4;
                 return 1;
             }
             i += 3;
@@ -3895,6 +3907,39 @@ static uint64_t run_while_line(char *line, char *cwd) {
     return status;
 }
 
+static uint64_t run_compound_tail(uint64_t status, char *line, size_t command_end, char *cwd) {
+    char *tail = line + command_end;
+    while (*tail == ' ' || *tail == '\t') {
+        tail++;
+    }
+    if (*tail == '\0' || shell_flow_requested()) {
+        return status;
+    }
+    if (*tail == ';') {
+        tail++;
+        tail = cli_trim(tail);
+        return *tail != '\0' ? run_line(tail, cwd) : status;
+    }
+    if (tail[0] == '&' && tail[1] == '&') {
+        tail += 2;
+        tail = cli_trim(tail);
+        if (status == 0 && *tail != '\0') {
+            return run_line(tail, cwd);
+        }
+        return status;
+    }
+    if (tail[0] == '|' && tail[1] == '|') {
+        tail += 2;
+        tail = cli_trim(tail);
+        if (status != 0 && *tail != '\0') {
+            return run_line(tail, cwd);
+        }
+        return status;
+    }
+    cli_puts("sh: expected separator after compound command\n");
+    return 2;
+}
+
 static uint64_t run_line(char *line, char *cwd) {
     char quote = '\0';
     char *segment = line;
@@ -3920,22 +3965,38 @@ static uint64_t run_line(char *line, char *cwd) {
         return status;
     }
     if (shell_keyword_at(line, 0, "if")) {
+        struct if_parts parts;
         status = run_if_line(line, cwd);
+        if (find_if_parts(line, &parts)) {
+            status = run_compound_tail(status, line, parts.command_end, cwd);
+        }
         last_status = status;
         return status;
     }
     if (shell_keyword_at(line, 0, "for")) {
+        struct for_parts parts;
         status = run_for_line(line, cwd);
+        if (find_for_parts(line, &parts)) {
+            status = run_compound_tail(status, line, parts.command_end, cwd);
+        }
         last_status = status;
         return status;
     }
     if (shell_keyword_at(line, 0, "while")) {
+        struct while_parts parts;
         status = run_while_line(line, cwd);
+        if (find_while_parts(line, &parts)) {
+            status = run_compound_tail(status, line, parts.command_end, cwd);
+        }
         last_status = status;
         return status;
     }
     if (shell_keyword_at(line, 0, "case")) {
+        struct case_parts parts;
         status = run_case_line(line, cwd);
+        if (find_case_parts(line, &parts)) {
+            status = run_compound_tail(status, line, parts.command_end, cwd);
+        }
         last_status = status;
         return status;
     }
