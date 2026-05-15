@@ -180,7 +180,8 @@ Core tools:
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
-The shell has PATH lookup for `/fat/bin` and `/`, scripts, stdin/stdout/stderr
+The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
+non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, unquoted `*`/`?` globbing, `&&`/`||`, `test`/`[`, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem

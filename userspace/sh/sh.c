@@ -351,7 +351,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 static void print_help(void) {
     cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat chmod ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
+    cli_puts("syntax: sh [--login] [-c command|script], command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -1705,18 +1705,52 @@ static uint64_t run_line(char *line, char *cwd) {
 
 int main(int argc, char **argv) {
     char cwd[CLI_PATH_MAX] = "/";
-    int login = argc > 1 && cli_streq(argv[1], "--login");
+    int login = 0;
+    const char *command_text = 0;
+    const char *script_path = 0;
+    uint64_t status = 0;
+
+    for (int i = 1; i < argc; i++) {
+        if (cli_streq(argv[i], "--login")) {
+            login = 1;
+            continue;
+        }
+        if (cli_streq(argv[i], "-c")) {
+            if (i + 1 >= argc) {
+                cli_puts("sh: -c requires a command\n");
+                return 2;
+            }
+            command_text = argv[++i];
+            continue;
+        }
+        if (script_path == 0) {
+            script_path = argv[i];
+            continue;
+        }
+        cli_puts("usage: sh [--login] [-c command|script]\n");
+        return 2;
+    }
 
     if (getenv("PATH") == 0) {
         setenv("PATH", "/fat/bin:/:/fat", 1);
     }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
+    if (login) {
+        status = run_script("/fat/etc/init.sh", cwd);
+        last_status = status;
+    }
+    if (command_text != 0) {
+        char command[EXPANDED_LINE_MAX];
+        cli_copy(command, sizeof(command), command_text);
+        return (int)run_line(command, cwd);
+    }
+    if (script_path != 0) {
+        return (int)run_script(script_path, cwd);
+    }
+
     cli_puts("srvsh: interactive shell\n");
     print_help();
-    if (login) {
-        run_script("/fat/etc/init.sh", cwd);
-    }
     linenoiseHistorySetMaxLen(64);
     linenoiseHistoryLoad("/fat/.srvsh_history");
     for (;;) {

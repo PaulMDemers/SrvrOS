@@ -202,6 +202,14 @@ The login shell starts `/fat/etc/init.sh`:
 srv> run /fat/bin/sh --login
 ```
 
+The shell can also run non-interactively, which is useful for smoke tests,
+ports, and simple boot scripts:
+
+```text
+/ $ sh -c 'echo scripted'
+/ $ sh /fat/boot.sh
+```
+
 ## Useful Monitor Commands
 
 ```text

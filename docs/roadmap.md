@@ -263,6 +263,9 @@ kernel, and a minimal Unix-like userspace.
   stdio TTY descriptors through `/fat/bin/ttydemo`.
 - Add shared open-file descriptions for read-only regular-file `dup`/`dup2`,
   so duplicated read descriptors share offsets like writable descriptors.
+- Add non-interactive shell entry points for `sh -c command` and `sh script`,
+  so tests, ports, and boot scripts can use `srvsh` without entering the
+  editable prompt.
 
 ## Next milestones
 
@@ -282,10 +285,11 @@ kernel, and a minimal Unix-like userspace.
    metadata, and multi-worker web server designs.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-6. Continue the libc/newlib track: fuller `posix_spawn` attributes/file
-   actions, terminal process groups/signals, command substitution, fuller
-   `stdio`, scan/format helpers, stronger sidecar recovery, and more fd-specific
-   readiness queues as the descriptor model grows.
+6. Continue the CLI/libc/newlib track: fuller `posix_spawn` attributes/file
+   actions, terminal process groups/signals, command substitution, shell
+   functions/control flow, fuller `stdio`, scan/format helpers, stronger
+   sidecar recovery, and more fd-specific readiness queues as the descriptor
+   model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

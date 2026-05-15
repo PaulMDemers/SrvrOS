@@ -139,6 +139,8 @@ def main():
         "write /fat/boot.sh \"echo script-ok\"\n"
         "write -a /fat/boot.sh \"echo appended-script-ok\"\n"
         "source /fat/boot.sh\n"
+        "sh /fat/boot.sh\n"
+        "sh -c 'echo command-mode-ok'\n"
         "cp /fat/status.txt /fat/status-copy.txt\n"
         "stat /fat/status-copy.txt\n"
         "cp /fat/redir.txt /fat/redir-copy.txt\n"
@@ -270,6 +272,7 @@ def main():
         "appended",
         "script-ok",
         "appended-script-ok",
+        "command-mode-ok",
         "/fat/status-copy.txt: 55 bytes",
         "/fat/sh-copy:",
         "PID STATE",
