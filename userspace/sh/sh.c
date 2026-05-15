@@ -11,6 +11,7 @@
 #define ARG_EXPANDED_MAX 512
 #define PATH_MAX_ENTRIES 8
 #define PIPELINE_MAX_COMMANDS 6
+#define SHELL_MAX_ALIASES 16
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -21,6 +22,16 @@ static size_t path_count = 3;
 static uint64_t last_status = 0;
 static uint64_t shell_pid = 0;
 static uint64_t substitution_counter = 0;
+static int shell_argc = 1;
+static char **shell_argv = 0;
+static int exit_on_error = 0;
+
+struct shell_alias {
+    char name[32];
+    char value[LINE_MAX];
+};
+
+static struct shell_alias aliases[SHELL_MAX_ALIASES];
 
 static uint64_t run_line(char *line, char *cwd);
 
@@ -105,6 +116,22 @@ static void append_number(char *out, size_t capacity, size_t *length, uint64_t v
     }
     while (count > 0) {
         append_char(out, capacity, length, digits[--count]);
+    }
+}
+
+static const char *positional_parameter(int index) {
+    if (shell_argv == 0 || index < 0 || index >= shell_argc || shell_argv[index] == 0) {
+        return "";
+    }
+    return shell_argv[index];
+}
+
+static void append_positional_all(char *out, size_t capacity, size_t *length) {
+    for (int i = 1; i < shell_argc; i++) {
+        if (i > 1) {
+            append_char(out, capacity, length, ' ');
+        }
+        append_text(out, capacity, length, positional_parameter(i));
     }
 }
 
@@ -243,6 +270,21 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
         }
         if (input[i + 1] == '$') {
             append_number(out, capacity, &length, shell_pid);
+            i++;
+            continue;
+        }
+        if (input[i + 1] == '#') {
+            append_number(out, capacity, &length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+            i++;
+            continue;
+        }
+        if (input[i + 1] == '@') {
+            append_positional_all(out, capacity, &length);
+            i++;
+            continue;
+        }
+        if (input[i + 1] >= '0' && input[i + 1] <= '9') {
+            append_text(out, capacity, &length, positional_parameter(input[i + 1] - '0'));
             i++;
             continue;
         }
@@ -489,10 +531,10 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat chmod ps kill which env pwd true false sleep date touch basename dirname hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script], command [args], if/then/else/fi, use ;, &&, ||, append & for background\n");
-    cli_puts("expansion: $VAR ${VAR} $? $$ $(command) unquoted * and ? globs\n");
+    cli_puts("builtins: help exit exec set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], if/then/else/fi, use ;, &&, ||, append & for background\n");
+    cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
 }
@@ -964,6 +1006,107 @@ static void print_env(void) {
     }
 }
 
+static int is_builtin(const char *name) {
+    static const char *builtins[] = {
+        "help", "exit", "exec", "set", "source", ".", "path", "cd", "pwd", "clear",
+        "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
+        "jobs", "wait", "service", "dhcp", "net", "dns", "rmdir", "read",
+    };
+    for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
+        if (cli_streq(name, builtins[i])) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static struct shell_alias *find_alias(const char *name) {
+    for (size_t i = 0; i < SHELL_MAX_ALIASES; i++) {
+        if (aliases[i].name[0] != '\0' && cli_streq(aliases[i].name, name)) {
+            return &aliases[i];
+        }
+    }
+    return 0;
+}
+
+static void print_aliases(void) {
+    for (size_t i = 0; i < SHELL_MAX_ALIASES; i++) {
+        if (aliases[i].name[0] != '\0') {
+            cli_puts("alias ");
+            cli_puts(aliases[i].name);
+            cli_puts("='");
+            cli_puts(aliases[i].value);
+            cli_puts("'\n");
+        }
+    }
+}
+
+static uint64_t alias_command(const char *args) {
+    char work[LINE_MAX];
+    char *text;
+    char *equals;
+    struct shell_alias *slot = 0;
+
+    cli_copy(work, sizeof(work), args);
+    text = cli_trim(work);
+    if (text[0] == '\0') {
+        print_aliases();
+        return 0;
+    }
+    equals = strchr(text, '=');
+    if (equals == 0 || equals == text) {
+        slot = find_alias(text);
+        if (slot == 0) {
+            cli_puts("alias: not found: ");
+            cli_puts(text);
+            cli_puts("\n");
+            return 1;
+        }
+        cli_puts("alias ");
+        cli_puts(slot->name);
+        cli_puts("='");
+        cli_puts(slot->value);
+        cli_puts("'\n");
+        return 0;
+    }
+    *equals++ = '\0';
+    text = cli_trim(text);
+    if (!shell_is_name_start(text[0])) {
+        cli_puts("alias: bad name\n");
+        return 2;
+    }
+    for (char *cursor = text; *cursor != '\0'; cursor++) {
+        if (!shell_is_name_char(*cursor)) {
+            cli_puts("alias: bad name\n");
+            return 2;
+        }
+    }
+    slot = find_alias(text);
+    if (slot == 0) {
+        for (size_t i = 0; i < SHELL_MAX_ALIASES; i++) {
+            if (aliases[i].name[0] == '\0') {
+                slot = &aliases[i];
+                break;
+            }
+        }
+    }
+    if (slot == 0) {
+        cli_puts("alias: full\n");
+        return 1;
+    }
+    cli_copy(slot->name, sizeof(slot->name), text);
+    char *value = cli_trim(equals);
+    size_t value_length = cli_strlen(value);
+    if (value_length >= 2 &&
+        ((value[0] == '\'' && value[value_length - 1] == '\'') ||
+            (value[0] == '"' && value[value_length - 1] == '"'))) {
+        value[value_length - 1] = '\0';
+        value++;
+    }
+    cli_copy(slot->value, sizeof(slot->value), value);
+    return 0;
+}
+
 static uint64_t export_command(const char *args) {
     char work[LINE_MAX];
     char *name;
@@ -975,17 +1118,45 @@ static uint64_t export_command(const char *args) {
         return 0;
     }
     equals = strchr(name, '=');
-    if (equals == 0 || equals == name) {
-        cli_puts("usage: export NAME=value\n");
+    if (equals == name) {
+        cli_puts("usage: export NAME[=value]\n");
         return 2;
     }
-    *equals++ = '\0';
-    if (setenv(name, equals, 1) < 0) {
+    if (equals != 0) {
+        *equals++ = '\0';
+    }
+    if (setenv(name, equals != 0 ? equals : (getenv(name) != 0 ? getenv(name) : ""), 1) < 0) {
         cli_puts("export: failed\n");
         return 1;
     }
-    if (cli_streq(name, "PATH")) {
+    if (cli_streq(name, "PATH") && equals != 0) {
         set_path_list(equals);
+    }
+    return 0;
+}
+
+static uint64_t unset_command(const char *args) {
+    char work[LINE_MAX];
+    char *name;
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    if (name[0] == '\0') {
+        cli_puts("usage: unset NAME\n");
+        return 2;
+    }
+    while (*name != '\0') {
+        char *next = name;
+        while (*next != '\0' && *next != ' ' && *next != '\t') {
+            next++;
+        }
+        if (*next != '\0') {
+            *next++ = '\0';
+        }
+        unsetenv(name);
+        if (cli_streq(name, "PATH")) {
+            set_path_list("");
+        }
+        name = cli_trim(next);
     }
     return 0;
 }
@@ -1017,6 +1188,136 @@ static uint64_t which_command(const char *args) {
         return 1;
     }
     return 0;
+}
+
+static uint64_t type_command(const char *args) {
+    char work[LINE_MAX];
+    char *name;
+    uint64_t result = 0;
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    if (name[0] == '\0') {
+        cli_puts("usage: type <name> [...]\n");
+        return 2;
+    }
+    while (*name != '\0') {
+        char *next = name;
+        char path[CLI_PATH_MAX];
+        struct shell_alias *alias;
+        while (*next != '\0' && *next != ' ' && *next != '\t') {
+            next++;
+        }
+        if (*next != '\0') {
+            *next++ = '\0';
+        }
+        alias = find_alias(name);
+        if (alias != 0) {
+            cli_puts(name);
+            cli_puts(" is aliased to '");
+            cli_puts(alias->value);
+            cli_puts("'\n");
+            result = 0;
+        } else if (is_builtin(name)) {
+            cli_puts(name);
+            cli_puts(" is a shell builtin\n");
+            result = 0;
+        } else if (resolve_command(path, sizeof(path), name)) {
+            cli_puts(name);
+            cli_puts(" is ");
+            cli_puts(path);
+            cli_puts("\n");
+            result = 0;
+        } else {
+            cli_puts(name);
+            cli_puts(" not found\n");
+            result = 1;
+        }
+        name = cli_trim(next);
+    }
+    return result;
+}
+
+static uint64_t set_command(const char *args) {
+    char work[LINE_MAX];
+    char *text;
+    cli_copy(work, sizeof(work), args);
+    text = cli_trim(work);
+    if (cli_streq(text, "-e")) {
+        exit_on_error = 1;
+        return 0;
+    }
+    if (cli_streq(text, "+e")) {
+        exit_on_error = 0;
+        return 0;
+    }
+    if (text[0] == '\0') {
+        print_env();
+        return 0;
+    }
+    cli_puts("usage: set [-e|+e]\n");
+    return 2;
+}
+
+static uint64_t read_command(const char *args) {
+    char work[LINE_MAX];
+    char *name;
+    char value[LINE_MAX];
+    size_t length = 0;
+
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    if (name[0] == '\0') {
+        cli_puts("usage: read NAME\n");
+        return 2;
+    }
+    for (char *cursor = name; *cursor != '\0'; cursor++) {
+        if (!shell_is_name_char(*cursor)) {
+            *cursor = '\0';
+            break;
+        }
+    }
+    if (!shell_is_name_start(name[0])) {
+        cli_puts("read: bad name\n");
+        return 2;
+    }
+    while (length + 1 < sizeof(value)) {
+        char c;
+        long count = srv_read(SRV_STDIN, &c, 1);
+        if (count <= 0) {
+            break;
+        }
+        if (c == '\r') {
+            continue;
+        }
+        if (c == '\n') {
+            break;
+        }
+        value[length++] = c;
+    }
+    value[length] = '\0';
+    if (setenv(name, value, 1) < 0) {
+        cli_puts("read: failed\n");
+        return 1;
+    }
+    return 0;
+}
+
+static int apply_assignment(const char *name, const char *value) {
+    if (!shell_is_name_start(name[0])) {
+        return 0;
+    }
+    for (const char *cursor = name; *cursor != '\0'; cursor++) {
+        if (!shell_is_name_char(*cursor)) {
+            return 0;
+        }
+    }
+    if (setenv(name, value, 1) < 0) {
+        return 0;
+    }
+    if (cli_streq(name, "PATH")) {
+        set_path_list(value);
+    }
+    return 1;
 }
 
 static char *find_argument_tail(char *command) {
@@ -1051,6 +1352,7 @@ static uint64_t run_script(const char *path, char *cwd) {
     size_t length = 0;
     size_t if_length = 0;
     int collecting_if = 0;
+    int stop = 0;
     uint64_t status = 0;
     if (fd < 0) {
         cli_puts("source: cannot open ");
@@ -1067,7 +1369,7 @@ static uint64_t run_script(const char *path, char *cwd) {
         if (count == 0) {
             break;
         }
-        for (long i = 0; i < count; i++) {
+        for (long i = 0; i < count && !stop; i++) {
             char c = buffer[i];
             if (c == '\r') {
                 continue;
@@ -1080,6 +1382,9 @@ static uint64_t run_script(const char *path, char *cwd) {
                     append_text(if_block, sizeof(if_block), &if_length, trimmed);
                     if (shell_keyword_at(trimmed, 0, "fi")) {
                         status = run_line(if_block, cwd);
+                        if (exit_on_error && status != 0) {
+                            stop = 1;
+                        }
                         collecting_if = 0;
                         if_length = 0;
                         if_block[0] = '\0';
@@ -1091,14 +1396,20 @@ static uint64_t run_script(const char *path, char *cwd) {
                     append_text(if_block, sizeof(if_block), &if_length, trimmed);
                 } else {
                     status = run_line(line, cwd);
+                    if (exit_on_error && status != 0) {
+                        stop = 1;
+                    }
                 }
                 length = 0;
             } else if (length + 1 < sizeof(line)) {
                 line[length++] = c;
             }
         }
+        if (stop) {
+            break;
+        }
     }
-    if (length > 0) {
+    if (!stop && length > 0) {
         line[length] = '\0';
         char *trimmed = cli_trim(line);
         if (collecting_if) {
@@ -1108,7 +1419,7 @@ static uint64_t run_script(const char *path, char *cwd) {
         } else {
             status = run_line(line, cwd);
         }
-    } else if (collecting_if) {
+    } else if (!stop && collecting_if) {
         cli_puts("source: unterminated if\n");
         status = 2;
     }
@@ -1620,6 +1931,27 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         *args++ = '\0';
         args = cli_trim(args);
     }
+    struct shell_alias *alias = find_alias(command);
+    if (alias != 0) {
+        char alias_line[EXPANDED_LINE_MAX];
+        size_t alias_length = 0;
+        alias_line[0] = '\0';
+        append_text(alias_line, sizeof(alias_line), &alias_length, alias->value);
+        if (args[0] != '\0') {
+            append_char(alias_line, sizeof(alias_line), &alias_length, ' ');
+            append_text(alias_line, sizeof(alias_line), &alias_length, args);
+        }
+        return run_command(alias_line, cwd, background);
+    }
+    char *equals = strchr(command, '=');
+    if (equals != 0 && args[0] == '\0') {
+        *equals++ = '\0';
+        if (!apply_assignment(command, equals)) {
+            cli_puts("sh: bad assignment\n");
+            return 2;
+        }
+        return 0;
+    }
     split_redirections(args, &redirection);
     args = cli_trim(args);
     expand_globs(args, cwd, expanded_args, sizeof(expanded_args));
@@ -1639,6 +1971,9 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         }
         return exec_replace_command(args, &redirection);
     }
+    if (cli_streq(command, "set")) {
+        return set_command(args);
+    }
     if (cli_streq(command, "path")) {
         if (cli_starts_with(args, "add ")) {
             return add_path(cli_trim(args + 4));
@@ -1653,6 +1988,15 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     }
     if (cli_streq(command, "export")) {
         return export_command(args);
+    }
+    if (cli_streq(command, "unset")) {
+        return unset_command(args);
+    }
+    if (cli_streq(command, "alias")) {
+        return alias_command(args);
+    }
+    if (cli_streq(command, "type")) {
+        return type_command(args);
     }
     if (cli_streq(command, "which")) {
         return which_command(args);
@@ -1678,9 +2022,29 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     }
     if (cli_streq(command, "cd")) {
         char next[CLI_PATH_MAX];
-        cli_normalize_path(next, sizeof(next), cwd, args[0] != '\0' ? args : "/");
+        struct srv_stat info;
+        const char *target = args[0] != '\0' ? args : "/";
+        if (cli_streq(target, "-")) {
+            target = getenv("OLDPWD");
+            if (target == 0 || target[0] == '\0') {
+                cli_puts("cd: OLDPWD not set\n");
+                return 1;
+            }
+        }
+        cli_normalize_path(next, sizeof(next), cwd, target);
+        if (!cli_streq(next, "/") && (srv_stat(next, &info) < 0 || info.type != 1)) {
+            cli_puts("cd: not a directory: ");
+            cli_puts(next);
+            cli_puts("\n");
+            return 1;
+        }
+        setenv("OLDPWD", cwd, 1);
         cli_copy(cwd, CLI_PATH_MAX, next);
         setenv("PWD", cwd, 1);
+        if (cli_streq(args, "-")) {
+            cli_puts(cwd);
+            cli_puts("\n");
+        }
         return 0;
     }
     if (cli_streq(command, "clear")) {
@@ -1720,6 +2084,9 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     if (cli_streq(command, "rmdir")) {
         rmdir_command(args);
         return 0;
+    }
+    if (cli_streq(command, "read")) {
+        return read_command(args);
     }
     if (!resolve_command(path, sizeof(path), command)) {
         cli_puts("sh: command not found: ");
@@ -2005,6 +2372,8 @@ int main(int argc, char **argv) {
     int login = 0;
     const char *command_text = 0;
     const char *script_path = 0;
+    int positional_start = 0;
+    char *default_argv[] = { "sh", 0 };
     uint64_t status = 0;
 
     for (int i = 1; i < argc; i++) {
@@ -2018,14 +2387,20 @@ int main(int argc, char **argv) {
                 return 2;
             }
             command_text = argv[++i];
-            continue;
+            positional_start = i + 1;
+            break;
         }
-        if (script_path == 0) {
-            script_path = argv[i];
-            continue;
-        }
-        cli_puts("usage: sh [--login] [-c command|script]\n");
-        return 2;
+        script_path = argv[i];
+        positional_start = i;
+        break;
+    }
+
+    if (positional_start > 0 && positional_start < argc) {
+        shell_argv = &argv[positional_start];
+        shell_argc = argc - positional_start;
+    } else {
+        shell_argv = default_argv;
+        shell_argc = 1;
     }
 
     if (getenv("PATH") == 0) {
@@ -2033,6 +2408,7 @@ int main(int argc, char **argv) {
     }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
+    setenv("OLDPWD", cwd, 1);
     if (login) {
         status = run_script("/fat/etc/init.sh", cwd);
         last_status = status;

@@ -32,6 +32,16 @@ def read_until(sock, marker, seconds):
     return data
 
 
+def send_serial(sock, text, delay):
+    data = text.encode("ascii")
+    if delay <= 0:
+        sock.sendall(data)
+        return
+    for byte in data:
+        sock.sendall(bytes([byte]))
+        time.sleep(delay)
+
+
 def connect_serial(port, timeout):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -59,6 +69,7 @@ def main():
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--after-wait", type=float, default=10)
     parser.add_argument("--line-wait", type=float, default=0.7)
+    parser.add_argument("--send-delay", type=float, default=0.001)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -116,6 +127,13 @@ def main():
         "wc /fat/status.txt\n"
         "stat /fat/status.txt\n"
         "head -n 1 /fat/status.txt\n"
+        "tail -n 1 /fat/status.txt\n"
+        "cat /fat/status.txt | tee /fat/tee-copy.txt\n"
+        "stat /fat/tee-copy.txt\n"
+        "uname\n"
+        "uname -a\n"
+        "hostname\n"
+        "uptime\n"
         "grep exFAT /fat/status.txt\n"
         "cat /fat/status.txt > /fat/cat-redir.txt\n"
         "cat /fat/status.txt >> /fat/cat-redir.txt\n"
@@ -148,6 +166,30 @@ def main():
         "source /fat/boot.sh\n"
         "sh /fat/boot.sh\n"
         "sh -c 'echo command-mode-ok'\n"
+        "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
+        "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
+        "sh /fat/args.sh alpha beta\n"
+        "alias ll='ls /fat/bin'\n"
+        "type ll sh cd missingcmd\n"
+        "ll > /fat/alias-list.txt\n"
+        "grep sh /fat/alias-list.txt\n"
+        "FOO=barevalue\n"
+        "echo bare-$FOO\n"
+        "export FOO\n"
+        "unset FOO\n"
+        "echo unset-${FOO}\n"
+        "cd /fat\n"
+        "pwd\n"
+        "cd -\n"
+        "pwd\n"
+        "cd /fat/status.txt\n"
+        "read READVAR\n"
+        "typed input\n"
+        "echo read-$READVAR\n"
+        "write /fat/sete.sh 'set -e'\n"
+        "write -a /fat/sete.sh 'false'\n"
+        "write -a /fat/sete.sh 'echo should-not-run'\n"
+        "sh /fat/sete.sh\n"
         "echo subst-$(echo command-sub-ok)\n"
         "echo quote-\"$(echo two words)\"\n"
         "echo nested-$(echo $(echo inner-ok))\n"
@@ -227,11 +269,11 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"run /fat/bin/sh\n")
+            send_serial(sock, "run /fat/bin/sh\n", args.send_delay)
             output += read_until(sock, b" $ ", args.shell_wait)
             lines = script.splitlines(True)
             for line in lines:
-                sock.sendall(line.encode("ascii"))
+                send_serial(sock, line, args.send_delay)
                 if line.strip() == "exit":
                     output += read_for(sock, args.line_wait)
                 else:
@@ -281,6 +323,9 @@ def main():
         "status.txt",
         "srvros webd: static file serving from exFAT is online.",
         "/fat/status.txt: 55 bytes",
+        "/fat/tee-copy.txt: 55 bytes",
+        "srvros srvros 0.1 x86_64",
+        "up ",
         "/fat/cat-redir.txt: 110 bytes",
         "2 18 110 /fat/cat-redir.txt",
         "/fat/stdin-redir.txt: 55 bytes",
@@ -300,6 +345,17 @@ def main():
         "script-ok",
         "appended-script-ok",
         "command-mode-ok",
+        "cargs-cmain-one-2-one two",
+        "scriptargs-/fat/args.sh-alpha-2-alpha beta",
+        "ll is aliased to 'ls /fat/bin'",
+        "sh is /fat/bin/sh",
+        "cd is a shell builtin",
+        "missingcmd not found",
+        "bare-barevalue",
+        "unset-",
+        "/fat",
+        "cd: not a directory: /fat/status.txt",
+        "read-typed input",
         "subst-command-sub-ok",
         "quote-two words",
         "nested-inner-ok",

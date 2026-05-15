@@ -29,6 +29,11 @@ USER_BASENAME := build/userspace/basename.elf
 USER_DIRNAME := build/userspace/dirname.elf
 USER_GREP := build/userspace/grep.elf
 USER_HEAD := build/userspace/head.elf
+USER_TAIL := build/userspace/tail.elf
+USER_TEE := build/userspace/tee.elf
+USER_UNAME := build/userspace/uname.elf
+USER_HOSTNAME := build/userspace/hostname.elf
+USER_UPTIME := build/userspace/uptime.elf
 USER_STAT := build/userspace/stat.elf
 USER_CHMOD := build/userspace/chmod.elf
 USER_CP := build/userspace/cp.elf
@@ -269,6 +274,31 @@ USER_HEAD_C := $(shell find userspace/head -type f -name '*.c' 2>/dev/null | LC_
 USER_HEAD_S := $(shell find userspace/head -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_HEAD_OBJ := $(USER_HEAD_C:%.c=build/%.c.o) $(USER_HEAD_S:%.S=build/%.S.o)
 USER_HEAD_DEP := $(USER_HEAD_C:%.c=build/%.c.d) $(USER_HEAD_S:%.S=build/%.S.d)
+
+USER_TAIL_C := $(shell find userspace/tail -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TAIL_S := $(shell find userspace/tail -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TAIL_OBJ := $(USER_TAIL_C:%.c=build/%.c.o) $(USER_TAIL_S:%.S=build/%.S.o)
+USER_TAIL_DEP := $(USER_TAIL_C:%.c=build/%.c.d) $(USER_TAIL_S:%.S=build/%.S.d)
+
+USER_TEE_C := $(shell find userspace/tee -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TEE_S := $(shell find userspace/tee -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TEE_OBJ := $(USER_TEE_C:%.c=build/%.c.o) $(USER_TEE_S:%.S=build/%.S.o)
+USER_TEE_DEP := $(USER_TEE_C:%.c=build/%.c.d) $(USER_TEE_S:%.S=build/%.S.d)
+
+USER_UNAME_C := $(shell find userspace/uname -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_UNAME_S := $(shell find userspace/uname -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_UNAME_OBJ := $(USER_UNAME_C:%.c=build/%.c.o) $(USER_UNAME_S:%.S=build/%.S.o)
+USER_UNAME_DEP := $(USER_UNAME_C:%.c=build/%.c.d) $(USER_UNAME_S:%.S=build/%.S.d)
+
+USER_HOSTNAME_C := $(shell find userspace/hostname -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_HOSTNAME_S := $(shell find userspace/hostname -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_HOSTNAME_OBJ := $(USER_HOSTNAME_C:%.c=build/%.c.o) $(USER_HOSTNAME_S:%.S=build/%.S.o)
+USER_HOSTNAME_DEP := $(USER_HOSTNAME_C:%.c=build/%.c.d) $(USER_HOSTNAME_S:%.S=build/%.S.d)
+
+USER_UPTIME_C := $(shell find userspace/uptime -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_UPTIME_S := $(shell find userspace/uptime -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_UPTIME_OBJ := $(USER_UPTIME_C:%.c=build/%.c.o) $(USER_UPTIME_S:%.S=build/%.S.o)
+USER_UPTIME_DEP := $(USER_UPTIME_C:%.c=build/%.c.d) $(USER_UPTIME_S:%.S=build/%.S.d)
 
 USER_STAT_C := $(shell find userspace/stat -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_STAT_S := $(shell find userspace/stat -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -608,6 +638,26 @@ $(USER_HEAD): $(ZIG) $(USER_CRT0_OBJ) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) userspace
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_HEAD_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_TAIL): $(ZIG) $(USER_CRT0_OBJ) $(USER_TAIL_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TAIL_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_TEE): $(ZIG) $(USER_CRT0_OBJ) $(USER_TEE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TEE_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_UNAME): $(ZIG) $(USER_CRT0_OBJ) $(USER_UNAME_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_UNAME_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_HOSTNAME): $(ZIG) $(USER_CRT0_OBJ) $(USER_HOSTNAME_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_HOSTNAME_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_UPTIME): $(ZIG) $(USER_CRT0_OBJ) $(USER_UPTIME_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_UPTIME_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_STAT): $(ZIG) $(USER_CRT0_OBJ) $(USER_STAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_STAT_OBJ) $(USER_LIB_OBJ) -o $@
@@ -783,14 +833,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -816,6 +866,11 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_DIRNAME) $(INITRAMFS_ROOT)/dirname
 	cp $(USER_GREP) $(INITRAMFS_ROOT)/grep
 	cp $(USER_HEAD) $(INITRAMFS_ROOT)/head
+	cp $(USER_TAIL) $(INITRAMFS_ROOT)/tail
+	cp $(USER_TEE) $(INITRAMFS_ROOT)/tee
+	cp $(USER_UNAME) $(INITRAMFS_ROOT)/uname
+	cp $(USER_HOSTNAME) $(INITRAMFS_ROOT)/hostname
+	cp $(USER_UPTIME) $(INITRAMFS_ROOT)/uptime
 	cp $(USER_STAT) $(INITRAMFS_ROOT)/stat
 	cp $(USER_CHMOD) $(INITRAMFS_ROOT)/chmod
 	cp $(USER_CP) $(INITRAMFS_ROOT)/cp
@@ -919,4 +974,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(SQLITE_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(SQLITE_DEP) $(LUA_CORE_DEP)

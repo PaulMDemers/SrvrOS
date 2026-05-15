@@ -92,6 +92,8 @@ server.
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime
   `date`, `touch`, `basename`, and `dirname`.
+- Adds more table-stakes CLI tools: `tail`, `tee`, `uname`, `hostname`, and
+  `uptime`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,
@@ -103,6 +105,10 @@ server.
   by capturing stdout through a short-lived shell temp file.
 - Adds `if`/`then`/`else`/`fi` control flow for one-line commands and multiline
   script blocks.
+- Adds more CLI table-stakes shell behavior: positional parameters
+  (`$0`, `$1`, `$#`, `$@`) for scripts and `sh -c`, `set -e`/`set +e`,
+  `read VAR`, `unset`, `alias`, `type`, `export NAME`, bare `NAME=value`
+  assignments, and `cd -` with directory validation.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.

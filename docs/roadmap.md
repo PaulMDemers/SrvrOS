@@ -270,17 +270,23 @@ kernel, and a minimal Unix-like userspace.
   captures.
 - Add shell `if`/`then`/`else`/`fi` control flow for one-line commands and
   multiline script blocks.
+- Add more CLI table-stakes shell behavior: positional parameters for scripts
+  and `sh -c`, `set -e`/`set +e`, `read VAR`, `unset`, `alias`, `type`,
+  `export NAME`, bare `NAME=value` assignments, and `cd -` with directory
+  validation.
+- Add table-stakes CLI tools `tail`, `tee`, `uname`, `hostname`, and `uptime`.
 
 ## Next milestones
 
 1. Complete the CLI table-stakes milestone: `for ... in ...; do ...; done`,
-   shell functions, `set -e`/`set +e`, `$0`/`$1`/`$#`/`$@`, `read VAR`,
-   `unset`, `alias`, `type`, `export NAME`, `cd -` plus directory validation,
-   stronger quote/syntax diagnostics, prompt customization, Ctrl-D/C behavior,
-   script-friendly temp files, `/fat/etc/profile`, and richer text tools such
-   as `tail`, `find`, `sort`, `uniq`, `cut`, `tee`, `df`, `du`, `uname`,
-   `hostname`, and `uptime`. The first small tools in this milestone are
-   `sleep`, uptime-style `date`, `touch`, `basename`, and `dirname`.
+   shell functions, stronger quote/syntax diagnostics, prompt customization,
+   Ctrl-D/C behavior, script-friendly temp files, `/fat/etc/profile`, and
+   richer text tools such as `find`, `sort`, `uniq`, `cut`, `df`, and `du`.
+   The shell now has positional
+   parameters, `set -e`, `read`, `unset`, `alias`, `type`, `export NAME`, and
+   safer `cd`; the tool slice now includes `sleep`, uptime-style `date`,
+   `touch`, `basename`, `dirname`, `tail`, `tee`, `uname`, `hostname`, and
+   `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,

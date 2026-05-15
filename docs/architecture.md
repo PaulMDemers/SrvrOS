@@ -178,14 +178,17 @@ Core tools:
 - `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
+- `tail`, `tee`, `uname`, `hostname`, `uptime`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
-`$?`/`$$`, `$(command)` command substitution, unquoted `*`/`?` globbing,
-`&&`/`||`, `if`/`then`/`else`/`fi`, `test`/`[`, `service webd`,
+`$?`/`$$`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
+command substitution, unquoted `*`/`?` globbing, `&&`/`||`,
+`if`/`then`/`else`/`fi`, `test`/`[`, `set -e`/`set +e`, `read`, `alias`,
+`type`, `unset`, `cd -` with directory validation, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
 builtins.
 

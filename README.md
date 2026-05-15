@@ -51,9 +51,11 @@ editor clients:
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, multi-stage pipelines,
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
-  substitution, unquoted `*`/`?` globbing, `&&`/`||`,
-  `if`/`then`/`else`/`fi`, `test`/`[`, `service webd`, DHCP/status/DNS commands,
-  `env`/`export`/`which`, `exec`, and basic Unix-like tools.
+  substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
+  globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `test`/`[`, `set -e`, `read`,
+  `alias`, `type`, `unset`, safer `cd`, `service webd`, DHCP/status/DNS
+  commands, `env`/`export`/`which`, `exec`, and Unix-like tools including
+  `tail`, `tee`, `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -208,9 +210,12 @@ ports, and simple boot scripts:
 
 ```text
 / $ sh -c 'echo scripted'
+/ $ sh -c 'echo args: $0 $1 $# $@' main one two
 / $ sh /fat/boot.sh
 / $ echo "kernel says $(cat /fat/status.txt)"
 / $ if test -f /fat/www/index.html; then service webd start /fat/www; fi
+/ $ alias ll='ls /fat/bin'
+/ $ type ll sh cd
 ```
 
 ## Useful Monitor Commands
