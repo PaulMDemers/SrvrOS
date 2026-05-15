@@ -77,44 +77,134 @@ static void out_unsigned(struct out_stream *out, unsigned long long value, unsig
     }
 }
 
-static void out_signed(struct out_stream *out, long long value) {
-    if (value < 0) {
-        out_char(out, '-');
-        out_unsigned(out, (unsigned long long)(-value), 10, 0);
-    } else {
-        out_unsigned(out, (unsigned long long)value, 10, 0);
-    }
-}
-
 static void out_repeat(struct out_stream *out, char ch, int count) {
     while (count-- > 0) {
         out_char(out, ch);
     }
 }
 
-static void out_unsigned_padded(struct out_stream *out,
+static size_t build_unsigned_digits(char *digits,
+    size_t capacity,
     unsigned long long value,
     unsigned base,
-    int uppercase,
-    int width,
-    int zero_pad) {
-    char digits[32];
+    int uppercase) {
+    char reverse[64];
     const char *alphabet = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
     size_t count = 0;
     if (value == 0) {
-        digits[count++] = '0';
+        reverse[count++] = '0';
     } else {
-        while (value > 0 && count < sizeof(digits)) {
-            digits[count++] = alphabet[value % base];
+        while (value > 0 && count < sizeof(reverse)) {
+            reverse[count++] = alphabet[value % base];
             value /= base;
         }
     }
-    if (width > (int)count) {
-        out_repeat(out, zero_pad ? '0' : ' ', width - (int)count);
+    size_t out = 0;
+    while (count > 0 && out + 1 < capacity) {
+        digits[out++] = reverse[--count];
     }
-    while (count > 0) {
-        out_char(out, digits[--count]);
+    digits[out] = '\0';
+    return out;
+}
+
+static void out_field(struct out_stream *out,
+    const char *text,
+    size_t length,
+    int width,
+    int left_adjust,
+    char pad) {
+    if (width < 0) {
+        width = -width;
+        left_adjust = 1;
     }
+    int padding = width > (int)length ? width - (int)length : 0;
+    if (!left_adjust) {
+        out_repeat(out, pad, padding);
+    }
+    for (size_t i = 0; i < length; i++) {
+        out_char(out, text[i]);
+    }
+    if (left_adjust) {
+        out_repeat(out, ' ', padding);
+    }
+}
+
+static void out_string_field(struct out_stream *out, const char *text, int width, int precision, int left_adjust) {
+    if (text == 0) {
+        text = "(null)";
+    }
+    size_t length = strlen(text);
+    if (precision >= 0 && (size_t)precision < length) {
+        length = (size_t)precision;
+    }
+    out_field(out, text, length, width, left_adjust, ' ');
+}
+
+static void out_integer_field(struct out_stream *out,
+    unsigned long long magnitude,
+    int negative,
+    unsigned base,
+    int uppercase,
+    int is_signed,
+    int width,
+    int precision,
+    int left_adjust,
+    int plus_sign,
+    int space_sign,
+    int alternate,
+    int zero_pad) {
+    char digits[64];
+    char field[96];
+    size_t digit_count = build_unsigned_digits(digits, sizeof(digits), magnitude, base, uppercase);
+    if (precision == 0 && magnitude == 0) {
+        digit_count = 0;
+        digits[0] = '\0';
+    }
+
+    char prefix[4];
+    size_t prefix_count = 0;
+    if (is_signed) {
+        if (negative) {
+            prefix[prefix_count++] = '-';
+        } else if (plus_sign) {
+            prefix[prefix_count++] = '+';
+        } else if (space_sign) {
+            prefix[prefix_count++] = ' ';
+        }
+    }
+    if (alternate && magnitude != 0) {
+        if (base == 8) {
+            if (digit_count == 0 || digits[0] != '0') {
+                prefix[prefix_count++] = '0';
+            }
+        } else if (base == 16) {
+            prefix[prefix_count++] = '0';
+            prefix[prefix_count++] = uppercase ? 'X' : 'x';
+        }
+    }
+
+    int precision_zeroes = precision > (int)digit_count ? precision - (int)digit_count : 0;
+    char pad = (zero_pad && !left_adjust && precision < 0) ? '0' : ' ';
+    if (pad == '0') {
+        int body_width = width - (int)prefix_count;
+        for (size_t i = 0; i < prefix_count; i++) {
+            out_char(out, prefix[i]);
+        }
+        out_field(out, digits, digit_count, body_width, 0, '0');
+        return;
+    }
+
+    size_t used = 0;
+    for (size_t i = 0; i < prefix_count && used + 1 < sizeof(field); i++) {
+        field[used++] = prefix[i];
+    }
+    while (precision_zeroes-- > 0 && used + 1 < sizeof(field)) {
+        field[used++] = '0';
+    }
+    for (size_t i = 0; i < digit_count && used + 1 < sizeof(field); i++) {
+        field[used++] = digits[i];
+    }
+    out_field(out, field, used, width, left_adjust, ' ');
 }
 
 static void out_double_fixed(struct out_stream *out, double value, int precision, int trim) {
@@ -186,14 +276,28 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
             continue;
         }
 
+        int left_adjust = 0;
+        int plus_sign = 0;
+        int space_sign = 0;
+        int alternate = 0;
         int zero_pad = 0;
         int parsing_flags = 1;
         while (parsing_flags) {
             switch (*format) {
             case '-':
+                left_adjust = 1;
+                format++;
+                break;
             case '+':
+                plus_sign = 1;
+                format++;
+                break;
             case ' ':
+                space_sign = 1;
+                format++;
+                break;
             case '#':
+                alternate = 1;
                 format++;
                 break;
             case '0':
@@ -204,6 +308,9 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
                 parsing_flags = 0;
                 break;
             }
+        }
+        if (left_adjust) {
+            zero_pad = 0;
         }
 
         int width = 0;
@@ -233,6 +340,11 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         }
 
         int long_count = 0;
+        int short_count = 0;
+        while (*format == 'h') {
+            short_count++;
+            format++;
+        }
         while (*format == 'l') {
             long_count++;
             format++;
@@ -246,69 +358,169 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
         }
 
         switch (*format++) {
-        case 'c':
-            out_char(out, (char)va_arg(args, int));
+        case 'c': {
+            char ch = (char)va_arg(args, int);
+            out_field(out, &ch, 1, width, left_adjust, ' ');
             break;
+        }
         case 's': {
             const char *text = va_arg(args, const char *);
-            out_text(out, text != 0 ? text : "(null)");
+            out_string_field(out, text, width, precision, left_adjust);
             break;
         }
         case 'd':
-        case 'i':
+        case 'i': {
+            long long value;
             if (long_count >= 2) {
-                out_signed(out, va_arg(args, long long));
+                value = va_arg(args, long long);
             } else if (long_count == 1) {
-                out_signed(out, va_arg(args, long));
+                value = va_arg(args, long);
             } else {
-                out_signed(out, va_arg(args, int));
+                int raw = va_arg(args, int);
+                if (short_count >= 2) {
+                    raw = (signed char)raw;
+                } else if (short_count == 1) {
+                    raw = (short)raw;
+                }
+                value = raw;
             }
+            unsigned long long magnitude = value < 0 ? (unsigned long long)(-(value + 1)) + 1 : (unsigned long long)value;
+            out_integer_field(out,
+                magnitude,
+                value < 0,
+                10,
+                0,
+                1,
+                width,
+                precision,
+                left_adjust,
+                plus_sign,
+                space_sign,
+                0,
+                zero_pad);
             break;
-        case 'u':
+        }
+        case 'u': {
+            unsigned long long value;
             if (long_count >= 2) {
-                out_unsigned_padded(out, va_arg(args, unsigned long long), 10, 0, width, zero_pad);
+                value = va_arg(args, unsigned long long);
             } else if (long_count == 1) {
-                out_unsigned_padded(out, va_arg(args, unsigned long), 10, 0, width, zero_pad);
+                value = va_arg(args, unsigned long);
             } else {
-                out_unsigned_padded(out, va_arg(args, unsigned int), 10, 0, width, zero_pad);
+                unsigned int raw = va_arg(args, unsigned int);
+                if (short_count >= 2) {
+                    raw = (unsigned char)raw;
+                } else if (short_count == 1) {
+                    raw = (unsigned short)raw;
+                }
+                value = raw;
             }
+            out_integer_field(out, value, 0, 10, 0, 0, width, precision, left_adjust, 0, 0, 0, zero_pad);
             break;
+        }
         case 'x':
-        case 'X':
+        case 'X': {
+            int uppercase = format[-1] == 'X';
+            unsigned long long value;
             if (long_count >= 2) {
-                out_unsigned_padded(out, va_arg(args, unsigned long long), 16, format[-1] == 'X', width, zero_pad);
+                value = va_arg(args, unsigned long long);
             } else if (long_count == 1) {
-                out_unsigned_padded(out, va_arg(args, unsigned long), 16, format[-1] == 'X', width, zero_pad);
+                value = va_arg(args, unsigned long);
             } else {
-                out_unsigned_padded(out, va_arg(args, unsigned int), 16, format[-1] == 'X', width, zero_pad);
+                unsigned int raw = va_arg(args, unsigned int);
+                if (short_count >= 2) {
+                    raw = (unsigned char)raw;
+                } else if (short_count == 1) {
+                    raw = (unsigned short)raw;
+                }
+                value = raw;
             }
+            out_integer_field(out, value, 0, 16, uppercase, 0, width, precision, left_adjust, 0, 0, alternate, zero_pad);
             break;
-        case 'f':
+        }
+        case 'o': {
+            unsigned long long value;
+            if (long_count >= 2) {
+                value = va_arg(args, unsigned long long);
+            } else if (long_count == 1) {
+                value = va_arg(args, unsigned long);
+            } else {
+                unsigned int raw = va_arg(args, unsigned int);
+                if (short_count >= 2) {
+                    raw = (unsigned char)raw;
+                } else if (short_count == 1) {
+                    raw = (unsigned short)raw;
+                }
+                value = raw;
+            }
+            out_integer_field(out, value, 0, 8, 0, 0, width, precision, left_adjust, 0, 0, alternate, zero_pad);
+            break;
+        }
+        case 'f': {
+            char number[128];
+            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            number[0] = '\0';
             if (long_count == 3) {
-                out_double_fixed(out, (double)va_arg(args, long double), precision, 0);
+                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 0);
             } else {
-                out_double_fixed(out, va_arg(args, double), precision, 0);
+                out_double_fixed(&temp, va_arg(args, double), precision, 0);
             }
+            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
+            size_t length = strlen(number);
+            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
             break;
+        }
         case 'g':
-        case 'G':
+        case 'G': {
+            char number[128];
+            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            number[0] = '\0';
             if (long_count == 3) {
-                out_double_fixed(out, (double)va_arg(args, long double), precision, 1);
+                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
             } else {
-                out_double_fixed(out, va_arg(args, double), precision, 1);
+                out_double_fixed(&temp, va_arg(args, double), precision, 1);
             }
+            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
+            size_t length = strlen(number);
+            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
             break;
+        }
         case 'e':
-        case 'E':
+        case 'E': {
+            char number[128];
+            struct out_stream temp = {number, sizeof(number), 0, 0, 0};
+            number[0] = '\0';
             if (long_count == 3) {
-                out_double_fixed(out, (double)va_arg(args, long double), precision, 1);
+                out_double_fixed(&temp, (double)va_arg(args, long double), precision, 1);
             } else {
-                out_double_fixed(out, va_arg(args, double), precision, 1);
+                out_double_fixed(&temp, va_arg(args, double), precision, 1);
+            }
+            number[temp.used < sizeof(number) ? temp.used : sizeof(number) - 1] = '\0';
+            size_t length = strlen(number);
+            out_field(out, number, length, width, left_adjust, zero_pad && !left_adjust ? '0' : ' ');
+            break;
+        }
+        case 'p': {
+            unsigned long long value = (unsigned long long)(uintptr_t)va_arg(args, void *);
+            if (value == 0) {
+                out_string_field(out, "0x0", width, precision, left_adjust);
+            } else {
+                out_integer_field(out, value, 0, 16, 0, 0, width, precision, left_adjust, 0, 0, 1, zero_pad);
             }
             break;
-        case 'p':
-            out_text(out, "0x");
-            out_unsigned(out, (unsigned long long)(uintptr_t)va_arg(args, void *), 16, 0);
+        }
+        case 'n':
+            if (long_count >= 2) {
+                *va_arg(args, long long *) = (long long)out->total;
+            } else if (long_count == 1) {
+                *va_arg(args, long *) = (long)out->total;
+            } else if (short_count >= 2) {
+                *va_arg(args, signed char *) = (signed char)out->total;
+            } else if (short_count == 1) {
+                *va_arg(args, short *) = (short)out->total;
+            } else {
+                *va_arg(args, int *) = (int)out->total;
+            }
             break;
         default:
             out_char(out, '?');

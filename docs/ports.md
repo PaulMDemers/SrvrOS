@@ -63,7 +63,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
   `setjmp`/`longjmp`, and integer-safe `math.h` macros
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`
-- `getopt`, `uname`, `atexit`, and an `ENOSYS` `system` stub
+- `getopt`, `uname`, `atexit`, and `system` backed by `sh -c` through
+  `posix_spawnp` plus `waitpid`
 - `getpid`
 - `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
   with PATH lookup and basic `posix_spawn_file_actions_adddup2` support for
@@ -75,7 +76,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
   `fsetpos`, `remove`, `perror`, `tmpnam`, `tmpfile`, `printf`, `vprintf`,
-  `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`
+  `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`, with common formatted
+  output width, precision, padding, sign, alternate-form, length, and `%n`
+  handling
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
   `recv`, and `setsockopt`
@@ -138,9 +141,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   supports canonical/raw reads plus Ctrl-C delivery to the active foreground
   process group, but does not yet model controlling terminals, sessions, or baud
   settings.
-- `stdio` is intentionally small: formatted output has no width/precision
-  parsing yet, input scanning is missing, `fflush` is effectively a no-op for
-  unbuffered streams, and `popen`/`pclose` are `ENOSYS` stubs.
+- `stdio` is intentionally small: formatted output covers the common
+  width/precision/flag forms needed by current ports and input scanning covers
+  the first integer/string/character/floating subset, but buffering is minimal
+  and `popen`/`pclose` are still `ENOSYS` stubs.
 - Time is tick-derived and not wall-clock accurate.
 - The default allocator is process-local and `sbrk` backed; `mmap` is still
   missing.
@@ -164,8 +168,8 @@ Third-party source is kept as pinned submodules or snapshots under
 
 ## Next Porting Milestones
 
-1. Expand `stdio` toward command-line port expectations: broader
-   width/precision formatting, scansets, and better EOF/error state.
+1. Expand `stdio` toward command-line port expectations: buffering semantics,
+   scansets, stronger EOF/error state, and `popen`/`pclose`.
 2. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp
    sources.

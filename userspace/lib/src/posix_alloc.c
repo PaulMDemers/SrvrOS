@@ -1,7 +1,9 @@
 #include <errno.h>
+#include <spawn.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #define ALIGNMENT 16
@@ -550,9 +552,21 @@ int atexit(void (*function)(void)) {
 }
 
 int system(const char *command) {
-    (void)command;
-    errno = ENOSYS;
-    return -1;
+    if (command == 0) {
+        return 1;
+    }
+    pid_t child = 0;
+    int status = 0;
+    char *argv[] = {"sh", "-c", (char *)command, 0};
+    int error = posix_spawnp(&child, "sh", 0, 0, argv, environ);
+    if (error != 0) {
+        errno = error;
+        return -1;
+    }
+    if (waitpid(child, &status, 0) < 0) {
+        return -1;
+    }
+    return status;
 }
 
 void abort(void) {

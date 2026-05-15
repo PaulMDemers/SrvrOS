@@ -157,6 +157,28 @@ int main(void) {
         return 10;
     }
     remove("/fat/posixdemo/stdio.txt");
+
+    char format_text[128];
+    int format_count = -1;
+    int format_result = snprintf(format_text,
+        sizeof(format_text),
+        "[%05d][%-6s][%+.3d][%.4s][%#x][%#o]%n",
+        7,
+        "hi",
+        5,
+        "abcdef",
+        0x2a,
+        9,
+        &format_count);
+    if (format_result != format_count ||
+        strcmp(format_text, "[00007][hi    ][+005][abcd][0x2a][011]") != 0 ||
+        snprintf(format_text, sizeof(format_text), "<%.0d>|%+6d|%6.3s", 0, 42, "abcdef") != 16 ||
+        strcmp(format_text, "<>|   +42|   abc") != 0 ||
+        snprintf(format_text, sizeof(format_text), "%p", (void *)0) != 3 ||
+        strcmp(format_text, "0x0") != 0) {
+        say("posixdemo: stdio format failed\n");
+        return 10;
+    }
     say("posixdemo: stdio ok\n");
 
     fd = open("/fat/posixdemo/rw.txt", O_RDWR | O_CREAT | O_TRUNC);
@@ -500,6 +522,17 @@ int main(void) {
     }
     if (!got_a || !got_b) {
         say("posixdemo: getopt failed\n");
+        return 39;
+    }
+    int system_status = system("echo system-ok > /fat/posixdemo/system.txt");
+    fd = open("/fat/posixdemo/system.txt", O_RDONLY);
+    n = fd >= 0 ? read(fd, buffer, sizeof(buffer)) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    unlink("/fat/posixdemo/system.txt");
+    if (system_status != 0 || n < 9 || memcmp(buffer, "system-ok", 9) != 0) {
+        say("posixdemo: system failed\n");
         return 39;
     }
     say("posixdemo: posix misc ok\n");
