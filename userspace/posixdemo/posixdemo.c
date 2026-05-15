@@ -303,6 +303,11 @@ int main(void) {
         say("posixdemo: poll empty failed\n");
         return 19;
     }
+    pfd.revents = 0;
+    if (poll(&pfd, 1, 20) != 0 || pfd.revents != 0) {
+        say("posixdemo: poll timeout failed\n");
+        return 19;
+    }
     int pdup = dup(pfds[1]);
     if (pdup < 0) {
         say("posixdemo: pipe dup failed\n");

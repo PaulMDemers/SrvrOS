@@ -19,8 +19,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   offsets; writable descriptors also share dirty state, ownership, and
   last-close writeback.
 - `poll` and `select` for regular files, pipes, TCP listeners/connections, and
-  standard streams. The first implementation uses readiness checks with
-  tick/yield timeouts; a unified fd wait queue is still future work.
+  standard streams. Readiness waits now sleep on a shared fd wait queue with
+  timer-backed wakeups for finite timeouts.
 - `fcntl` with `F_GETFL`/`F_SETFL` and `O_NONBLOCK` for pipes, writable regular
   files, read-only regular files, and TCP listener/connection fds. Empty
   nonblocking pipes and listeners/connections without ready data return
@@ -119,8 +119,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - `fork` and client-side `connect` are still missing.
 - Permission bits are synthetic; `chmod`/`fchmod` validate the target but do not
   persist metadata yet.
-- `poll`/`select` cover the current fd types, but timeout waits are currently
-  tick/yield based rather than attached to a single scheduler wait queue.
+- `poll`/`select` cover the current fd types and sleep on a shared fd readiness
+  wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
+  queues are still future work as the descriptor model grows.
 - Socket wrappers currently cover TCP server flow over the existing
   `net_listen`/`net_accept` kernel path. Nonblocking mode is preserved when it
   is set on a socket before `listen()`.
@@ -162,7 +163,6 @@ Third-party source is kept as pinned submodules or snapshots under
    ids, mode bits, uid/gid placeholders, timestamps, and permission-aware
    `access`.
 3. Add `mmap`-style mappings for larger interpreters and libraries.
-4. Move `poll`/`select` timeout waits onto a shared scheduler wait queue and
-   expand `webd` toward fuller concurrent connection handling.
+4. Expand `webd` toward fuller concurrent connection handling.
 5. Add client TCP `connect`, then a tiny HTTP client.
 6. Move toward libuv after sockets, timers, and fd readiness are boring.

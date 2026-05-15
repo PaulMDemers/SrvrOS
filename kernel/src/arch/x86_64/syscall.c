@@ -837,6 +837,19 @@ static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, ui
     return ready;
 }
 
+struct syscall_poll_wait {
+    struct process *process;
+    struct syscall_pollfd *fds;
+    uint64_t nfds;
+};
+
+static bool poll_wait_ready(void *arg) {
+    struct syscall_poll_wait *wait = arg;
+    return wait == NULL ||
+        process_should_exit_current() ||
+        poll_once(wait->process, wait->fds, wait->nfds) != 0;
+}
+
 static uint64_t poll_timeout_ticks(int64_t timeout_ms) {
     if (timeout_ms <= 0) {
         return 0;
@@ -858,6 +871,12 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     struct process *process = process_current();
     uint64_t start = timer_ticks();
     uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
+    uint64_t deadline_ticks = timeout_ms > 0 ? start + timeout_ticks : 0;
+    struct syscall_poll_wait wait = {
+        .process = process,
+        .fds = fds,
+        .nfds = nfds,
+    };
     __asm__ volatile ("sti" : : : "memory");
 
     for (;;) {
@@ -872,7 +891,9 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         if (timeout_ms > 0 && timer_ticks() - start >= timeout_ticks) {
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
         }
-        scheduler_yield();
+        if (!scheduler_wait_timeout(process_file_poll_wait_queue(), poll_wait_ready, &wait, deadline_ticks)) {
+            scheduler_yield();
+        }
     }
 }
 

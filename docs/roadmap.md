@@ -279,10 +279,10 @@ kernel, and a minimal Unix-like userspace.
    metadata, and multi-worker web server designs.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-6. Continue the libc/newlib track: add a unified fd wait queue for
-   `poll`/`select`, Unix-like file metadata, fuller `posix_spawn`
-   attributes/file actions, terminal process groups/signals, command
-   substitution, fuller `stdio`, and scan/format helpers.
+6. Continue the libc/newlib track: add Unix-like file metadata, fuller
+   `posix_spawn` attributes/file actions, terminal process groups/signals,
+   command substitution, fuller `stdio`, scan/format helpers, and more
+   fd-specific readiness queues as the descriptor model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

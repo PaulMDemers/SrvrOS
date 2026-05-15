@@ -58,8 +58,9 @@ preemption. Process state includes address-space ownership, kernel trap stack,
 fd table, GUI queue state, network handle ownership, and exit status.
 
 The shell supports foreground jobs, background jobs, `jobs`, `wait`, and `kill`.
-Sleeping syscalls use wait queues for keyboard input and network accept/read
-readiness, so a blocked process does not busy-spin.
+Sleeping syscalls use wait queues for keyboard input, network accept/read
+readiness, and descriptor readiness in `poll`/`select`, so a blocked process
+does not busy-spin.
 
 ## Syscall ABI
 
@@ -207,7 +208,8 @@ connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw
-timer ticks, and sleep-by-ticks syscalls.
+timer ticks, sleep-by-ticks syscalls, a shared fd readiness wait queue, and
+timer-backed scheduler wait deadlines.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

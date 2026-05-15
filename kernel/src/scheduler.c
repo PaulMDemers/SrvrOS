@@ -3,6 +3,7 @@
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
+#include <srvros/timer.h>
 #include <srvros/vmm.h>
 
 #include <stddef.h>
@@ -43,6 +44,8 @@ struct thread {
     uint8_t *stack;
     struct fpu_state kernel_fpu;
     struct scheduler_context context;
+    struct scheduler_wait_queue *blocked_queue;
+    uint64_t blocked_deadline_ticks;
     uint64_t switches;
 };
 
@@ -211,9 +214,10 @@ void scheduler_yield(void) {
     switching = false;
 }
 
-bool scheduler_wait(struct scheduler_wait_queue *queue,
+bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,
-    void *arg) {
+    void *arg,
+    uint64_t deadline_ticks) {
     if (!initialized || queue == NULL || condition == NULL) {
         return false;
     }
@@ -231,11 +235,19 @@ bool scheduler_wait(struct scheduler_wait_queue *queue,
 
     struct thread *thread = &threads[current_thread];
     thread->state = THREAD_BLOCKED;
+    thread->blocked_queue = queue;
+    thread->blocked_deadline_ticks = deadline_ticks;
     queue->waiters |= (1ull << current_thread);
     irq_restore(flags);
 
     scheduler_yield();
     return true;
+}
+
+bool scheduler_wait(struct scheduler_wait_queue *queue,
+    scheduler_wait_condition_fn condition,
+    void *arg) {
+    return scheduler_wait_timeout(queue, condition, arg, 0);
 }
 
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
@@ -250,15 +262,37 @@ void scheduler_wake_all(struct scheduler_wait_queue *queue) {
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
         if ((waiters & (1ull << i)) != 0 && threads[i].state == THREAD_BLOCKED) {
             threads[i].state = THREAD_READY;
+            threads[i].blocked_queue = NULL;
+            threads[i].blocked_deadline_ticks = 0;
         }
     }
     irq_restore(flags);
+}
+
+static void wake_expired_waits(void) {
+    uint64_t now = timer_ticks();
+    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
+        struct thread *thread = &threads[i];
+        if (thread->state != THREAD_BLOCKED ||
+            thread->blocked_deadline_ticks == 0 ||
+            now < thread->blocked_deadline_ticks) {
+            continue;
+        }
+        if (thread->blocked_queue != NULL) {
+            thread->blocked_queue->waiters &= ~(1ull << i);
+        }
+        thread->blocked_queue = NULL;
+        thread->blocked_deadline_ticks = 0;
+        thread->state = THREAD_READY;
+    }
 }
 
 void scheduler_preempt_tick(void) {
     if (!initialized || switching) {
         return;
     }
+
+    wake_expired_waits();
 
     if (process_should_exit_current()) {
         process_exit(137);

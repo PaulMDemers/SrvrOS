@@ -38,6 +38,7 @@ struct process_file {
 };
 
 struct process;
+struct scheduler_wait_queue;
 
 bool process_run_elf(const char *path);
 bool process_run_elf_args(const char *path, const char *args);
@@ -105,6 +106,8 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
+struct scheduler_wait_queue *process_file_poll_wait_queue(void);
+void process_file_poll_wake(void);
 int64_t process_handle_alloc(struct process *process,
     enum process_file_type type,
     uint64_t handle);

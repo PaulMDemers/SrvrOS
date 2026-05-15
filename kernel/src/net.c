@@ -860,6 +860,7 @@ static void close_connection(struct tcp_connection *connection) {
     }
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
+    process_file_poll_wake();
 }
 
 static uint64_t connection_index(struct tcp_connection *connection) {
@@ -916,6 +917,7 @@ static bool append_connection_data(struct tcp_connection *connection,
     }
     connection->rx_length += payload_length;
     scheduler_wake_all(&read_wait_queue);
+    process_file_poll_wake();
     return true;
 }
 
@@ -938,6 +940,7 @@ static bool ensure_pending_connection(struct tcp_connection *connection, uint16_
             request->length = connection->rx_length;
             connection->pending = true;
             scheduler_wake_all(&accept_wait_queue);
+            process_file_poll_wake();
             return true;
         }
     }
@@ -1037,6 +1040,7 @@ static void handle_tcp(const uint8_t *frame,
         connection->peer_closed = true;
         send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         scheduler_wake_all(&read_wait_queue);
+        process_file_poll_wake();
     }
 }
 
@@ -1648,4 +1652,5 @@ void net_process_wake(struct process *process) {
     (void)process;
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
+    process_file_poll_wake();
 }

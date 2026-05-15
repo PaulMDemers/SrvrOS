@@ -18,6 +18,10 @@ void scheduler_preempt_tick(void);
 bool scheduler_wait(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,
     void *arg);
+bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
+    scheduler_wait_condition_fn condition,
+    void *arg,
+    uint64_t deadline_ticks);
 void scheduler_wake_all(struct scheduler_wait_queue *queue);
 void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top);
 void scheduler_clear_user_context(void);

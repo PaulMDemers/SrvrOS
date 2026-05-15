@@ -187,6 +187,7 @@ static struct process *loading_process;
 static uint64_t next_pid = 1;
 static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
+static struct scheduler_wait_queue fd_poll_wait_queue;
 static struct scheduler_wait_queue file_lock_wait_queue;
 
 static void set_process_name(struct process *process, const char *path);
@@ -2210,6 +2211,7 @@ static void pipe_close(uint64_t handle, bool write_end) {
         pipe->used = false;
     }
     scheduler_wake_all(&pipe_wait_queue);
+    process_file_poll_wake();
 }
 
 static int64_t write_file_close(uint64_t handle) {
@@ -2392,6 +2394,7 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
     pipe->size -= count;
     if (count > 0) {
         scheduler_wake_all(&pipe_wait_queue);
+        process_file_poll_wake();
     }
     return (int64_t)count;
 }
@@ -2433,8 +2436,17 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
         pipe->size += count;
         done += count;
         scheduler_wake_all(&pipe_wait_queue);
+        process_file_poll_wake();
     }
     return (int64_t)done;
+}
+
+struct scheduler_wait_queue *process_file_poll_wait_queue(void) {
+    return &fd_poll_wait_queue;
+}
+
+void process_file_poll_wake(void) {
+    scheduler_wake_all(&fd_poll_wait_queue);
 }
 
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
