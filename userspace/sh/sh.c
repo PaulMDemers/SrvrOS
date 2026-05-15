@@ -36,6 +36,18 @@ struct command_redirection {
     char stderr_path[CLI_PATH_MAX];
 };
 
+struct if_parts {
+    size_t condition_start;
+    size_t condition_end;
+    size_t then_start;
+    size_t then_end;
+    size_t else_start;
+    size_t else_end;
+    int has_else;
+};
+
+static int find_if_parts(const char *line, struct if_parts *parts);
+
 static int shell_is_name_start(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
 }
@@ -46,6 +58,24 @@ static int shell_is_name_char(char c) {
 
 static int shell_is_digit(char c) {
     return c >= '0' && c <= '9';
+}
+
+static int shell_is_separator(char c) {
+    return c == '\0' || c == ' ' || c == '\t' || c == ';' || c == '\r' || c == '\n';
+}
+
+static int shell_keyword_at(const char *text, size_t index, const char *keyword) {
+    size_t i = 0;
+    if (index > 0 && !shell_is_separator(text[index - 1])) {
+        return 0;
+    }
+    while (keyword[i] != '\0') {
+        if (text[index + i] != keyword[i]) {
+            return 0;
+        }
+        i++;
+    }
+    return shell_is_separator(text[index + i]);
 }
 
 static void append_char(char *out, size_t capacity, size_t *length, char c) {
@@ -461,7 +491,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 static void print_help(void) {
     cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat chmod ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script], command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
+    cli_puts("syntax: sh [--login] [-c command|script], command [args], if/then/else/fi, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -1017,7 +1047,10 @@ static uint64_t run_script(const char *path, char *cwd) {
     int fd = (int)srv_open(path);
     char buffer[128];
     char line[LINE_MAX];
+    char if_block[EXPANDED_LINE_MAX];
     size_t length = 0;
+    size_t if_length = 0;
+    int collecting_if = 0;
     uint64_t status = 0;
     if (fd < 0) {
         cli_puts("source: cannot open ");
@@ -1041,7 +1074,24 @@ static uint64_t run_script(const char *path, char *cwd) {
             }
             if (c == '\n') {
                 line[length] = '\0';
-                status = run_line(line, cwd);
+                char *trimmed = cli_trim(line);
+                if (collecting_if) {
+                    append_text(if_block, sizeof(if_block), &if_length, "; ");
+                    append_text(if_block, sizeof(if_block), &if_length, trimmed);
+                    if (shell_keyword_at(trimmed, 0, "fi")) {
+                        status = run_line(if_block, cwd);
+                        collecting_if = 0;
+                        if_length = 0;
+                        if_block[0] = '\0';
+                    }
+                } else if (shell_keyword_at(trimmed, 0, "if") && !find_if_parts(trimmed, &(struct if_parts){0})) {
+                    collecting_if = 1;
+                    if_length = 0;
+                    if_block[0] = '\0';
+                    append_text(if_block, sizeof(if_block), &if_length, trimmed);
+                } else {
+                    status = run_line(line, cwd);
+                }
                 length = 0;
             } else if (length + 1 < sizeof(line)) {
                 line[length++] = c;
@@ -1050,7 +1100,17 @@ static uint64_t run_script(const char *path, char *cwd) {
     }
     if (length > 0) {
         line[length] = '\0';
-        status = run_line(line, cwd);
+        char *trimmed = cli_trim(line);
+        if (collecting_if) {
+            append_text(if_block, sizeof(if_block), &if_length, "; ");
+            append_text(if_block, sizeof(if_block), &if_length, trimmed);
+            status = run_line(if_block, cwd);
+        } else {
+            status = run_line(line, cwd);
+        }
+    } else if (collecting_if) {
+        cli_puts("source: unterminated if\n");
+        status = 2;
     }
     srv_close(fd);
     return status;
@@ -1728,11 +1788,138 @@ enum shell_control {
     SHELL_CONTROL_OR,
 };
 
+static int find_if_parts(const char *line, struct if_parts *parts) {
+    char quote = '\0';
+    int depth = 1;
+    int saw_then = 0;
+    size_t then_keyword = 0;
+    size_t else_keyword = 0;
+
+    parts->condition_start = 2;
+    parts->condition_end = 0;
+    parts->then_start = 0;
+    parts->then_end = 0;
+    parts->else_start = 0;
+    parts->else_end = 0;
+    parts->has_else = 0;
+
+    for (size_t i = 2; line[i] != '\0'; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "if")) {
+            depth++;
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "then") && depth == 1 && !saw_then) {
+            then_keyword = i;
+            parts->condition_end = i;
+            parts->then_start = i + 4;
+            saw_then = 1;
+            i += 3;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "else") && depth == 1 && saw_then && !parts->has_else) {
+            else_keyword = i;
+            parts->then_end = i;
+            parts->else_start = i + 4;
+            parts->has_else = 1;
+            i += 3;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "fi")) {
+            depth--;
+            if (depth == 0) {
+                if (!saw_then) {
+                    return 0;
+                }
+                if (parts->has_else) {
+                    parts->else_end = i;
+                } else {
+                    parts->then_end = i;
+                }
+                (void)then_keyword;
+                (void)else_keyword;
+                return 1;
+            }
+            i++;
+        }
+    }
+    return 0;
+}
+
+static void copy_slice_trimmed(char *destination, size_t capacity, const char *source, size_t start, size_t end) {
+    size_t out = 0;
+    while (start < end && (source[start] == ' ' || source[start] == '\t' || source[start] == ';')) {
+        start++;
+    }
+    while (end > start && (source[end - 1] == ' ' || source[end - 1] == '\t' || source[end - 1] == ';')) {
+        end--;
+    }
+    while (start < end && out + 1 < capacity) {
+        destination[out++] = source[start++];
+    }
+    destination[out] = '\0';
+}
+
+static uint64_t run_if_line(char *line, char *cwd) {
+    struct if_parts parts;
+    char condition[EXPANDED_LINE_MAX];
+    char then_branch[EXPANDED_LINE_MAX];
+    char else_branch[EXPANDED_LINE_MAX];
+    uint64_t condition_status;
+
+    if (!find_if_parts(line, &parts)) {
+        cli_puts("if: expected 'if <command>; then <commands>; [else <commands>;] fi'\n");
+        return 2;
+    }
+
+    copy_slice_trimmed(condition, sizeof(condition), line, parts.condition_start, parts.condition_end);
+    copy_slice_trimmed(then_branch, sizeof(then_branch), line, parts.then_start, parts.then_end);
+    if (parts.has_else) {
+        copy_slice_trimmed(else_branch, sizeof(else_branch), line, parts.else_start, parts.else_end);
+    } else {
+        else_branch[0] = '\0';
+    }
+
+    condition_status = run_line(condition, cwd);
+    if (condition_status == 0) {
+        return then_branch[0] != '\0' ? run_line(then_branch, cwd) : 0;
+    }
+    return else_branch[0] != '\0' ? run_line(else_branch, cwd) : 0;
+}
+
 static uint64_t run_line(char *line, char *cwd) {
     char quote = '\0';
     char *segment = line;
     enum shell_control control = SHELL_CONTROL_ALWAYS;
     uint64_t status = last_status;
+    char *trimmed = cli_trim(line);
+
+    if (trimmed != line) {
+        line = trimmed;
+        segment = line;
+    }
+    if (shell_keyword_at(line, 0, "if")) {
+        status = run_if_line(line, cwd);
+        last_status = status;
+        return status;
+    }
 
     for (char *cursor = line; ; cursor++) {
         char c = *cursor;

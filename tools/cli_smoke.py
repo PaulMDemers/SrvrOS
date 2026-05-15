@@ -144,6 +144,14 @@ def main():
         "echo subst-$(echo command-sub-ok)\n"
         "echo quote-\"$(echo two words)\"\n"
         "echo nested-$(echo $(echo inner-ok))\n"
+        "if test -f /fat/status.txt; then echo if-ok; else echo if-bad; fi\n"
+        "if test -f /fat/nope; then echo if-bad; else echo if-else-ok; fi\n"
+        "write /fat/if.sh \"if test -f /fat/status.txt; then\"\n"
+        "write -a /fat/if.sh \"echo multiline-if-ok\"\n"
+        "write -a /fat/if.sh \"else\"\n"
+        "write -a /fat/if.sh \"echo multiline-if-bad\"\n"
+        "write -a /fat/if.sh \"fi\"\n"
+        "sh /fat/if.sh\n"
         "cp /fat/status.txt /fat/status-copy.txt\n"
         "stat /fat/status-copy.txt\n"
         "cp /fat/redir.txt /fat/redir-copy.txt\n"
@@ -279,6 +287,9 @@ def main():
         "subst-command-sub-ok",
         "quote-two words",
         "nested-inner-ok",
+        "if-ok",
+        "if-else-ok",
+        "multiline-if-ok",
         "/fat/status-copy.txt: 55 bytes",
         "/fat/sh-copy:",
         "PID STATE",

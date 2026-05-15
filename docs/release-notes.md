@@ -99,6 +99,8 @@ server.
   without first entering the editable prompt.
 - Adds `$(command)` command substitution, including quoted and nested forms,
   by capturing stdout through a short-lived shell temp file.
+- Adds `if`/`then`/`else`/`fi` control flow for one-line commands and multiline
+  script blocks.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.

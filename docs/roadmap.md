@@ -268,6 +268,8 @@ kernel, and a minimal Unix-like userspace.
   editable prompt.
 - Add shell `$(command)` substitution for plain, quoted, and nested command
   captures.
+- Add shell `if`/`then`/`else`/`fi` control flow for one-line commands and
+  multiline script blocks.
 
 ## Next milestones
 
@@ -288,7 +290,7 @@ kernel, and a minimal Unix-like userspace.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 6. Continue the CLI/libc/newlib track: fuller `posix_spawn` attributes/file
-   actions, terminal process groups/signals, shell functions/control flow,
+   actions, terminal process groups/signals, shell functions, `for` loops,
    fuller `stdio`, scan/format helpers, stronger sidecar recovery, and more
    fd-specific readiness queues as the descriptor model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen

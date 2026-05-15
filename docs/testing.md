@@ -46,7 +46,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
   tools, source scripts plus non-interactive `sh script` and `sh -c`,
-  command substitution, copy/remove, native file rename through `mv`, `tap` file splitting,
+  command substitution, `if`/`then`/`else`/`fi`, copy/remove, native file rename
+  through `mv`, `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file

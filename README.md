@@ -209,6 +209,7 @@ ports, and simple boot scripts:
 / $ sh -c 'echo scripted'
 / $ sh /fat/boot.sh
 / $ echo "kernel says $(cat /fat/status.txt)"
+/ $ if test -f /fat/www/index.html; then service webd start /fat/www; fi
 ```
 
 ## Useful Monitor Commands
