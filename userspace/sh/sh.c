@@ -37,7 +37,7 @@ static char completion_cwd[CLI_PATH_MAX] = "/";
 static const char *shell_builtins[] = {
     "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
     "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
-    "jobs", "wait", "fg", "bg", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
+    "jobs", "wait", "fg", "bg", "kill", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
 };
 
 struct shell_alias {
@@ -63,6 +63,8 @@ static struct shell_alias aliases[SHELL_MAX_ALIASES];
 static struct shell_function functions[SHELL_MAX_FUNCTIONS];
 static struct shell_job jobs[SHELL_MAX_JOBS];
 static uint64_t next_job_id = 1;
+static uint64_t current_job_id = 0;
+static uint64_t previous_job_id = 0;
 
 static uint64_t run_line(char *line, char *cwd);
 static int resolve_command(char *out, size_t capacity, const char *command);
@@ -808,7 +810,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait fg bg service dhcp net dns rmdir read :\n");
+    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command) unquoted * and ? globs\n");
@@ -896,6 +898,12 @@ static uint64_t parse_job_reference(const char *text) {
     }
     if (text[0] == '%') {
         text++;
+        if (text[0] == '+' || text[0] == '\0') {
+            return current_job_id;
+        }
+        if (text[0] == '-') {
+            return previous_job_id;
+        }
     }
     return parse_u64(text);
 }
@@ -1090,9 +1098,33 @@ static uint64_t test_command(const char *args, int bracket_form) {
     return status;
 }
 
-static void print_jobs(void) {
+static void remember_current_job(uint64_t id) {
+    if (id == 0 || id == current_job_id) {
+        return;
+    }
+    previous_job_id = current_job_id;
+    current_job_id = id;
+}
+
+static void forget_job_id(uint64_t id) {
+    if (id == 0) {
+        return;
+    }
+    if (current_job_id == id) {
+        current_job_id = previous_job_id;
+        previous_job_id = 0;
+    } else if (previous_job_id == id) {
+        previous_job_id = 0;
+    }
+}
+
+static void print_jobs(const char *args) {
     uint64_t index = 0;
     struct srv_process_info info;
+    char options[32];
+    int long_format;
+    cli_copy(options, sizeof(options), args != 0 ? args : "");
+    long_format = cli_streq(cli_trim(options), "-l");
     for (size_t i = 0; i < SHELL_MAX_JOBS; i++) {
         if (!jobs[i].used) {
             continue;
@@ -1104,6 +1136,16 @@ static void print_jobs(void) {
         cli_puts(" ");
         cli_puts(jobs[i].command);
         cli_puts("\n");
+        if (long_format) {
+            for (size_t j = 0; j < jobs[i].count; j++) {
+                if (jobs[i].pids[j] < 0) {
+                    continue;
+                }
+                cli_puts("  pid ");
+                cli_putn((uint64_t)jobs[i].pids[j]);
+                cli_puts("\n");
+            }
+        }
     }
     cli_puts("PID STATE      NAME\n");
     for (;;) {
@@ -1157,6 +1199,7 @@ static struct shell_job *add_job(uint64_t group, const long *pids, size_t count,
                 jobs[i].pids[j] = j < count ? pids[j] : -1;
             }
             cli_copy(jobs[i].command, sizeof(jobs[i].command), command != 0 ? command : "");
+            remember_current_job(jobs[i].id);
             return &jobs[i];
         }
     }
@@ -1181,6 +1224,7 @@ static uint64_t wait_shell_job(struct shell_job *job, int foreground) {
     if (foreground) {
         (void)srv_proc_group(0, 0, 1);
     }
+    forget_job_id(job->id);
     job->used = 0;
     return status;
 }
@@ -1231,7 +1275,7 @@ static uint64_t wait_for_job(const char *args) {
         job = find_job(pid);
         if (job != 0) {
             status = wait_shell_job(job, 0);
-            print_wait_result("[done]", (long)pid, status);
+            print_wait_result("[done]", (long)job->group, status);
             return status;
         }
     } else {
@@ -1265,14 +1309,13 @@ static uint64_t fg_command(const char *args) {
     }
     job = find_job(pid);
     if (job != 0) {
-        (void)srv_proc_group(0, job->group, 1);
         cli_puts("[fg] pid ");
         cli_putn(job->group);
         cli_puts(" ");
         cli_puts(job->command);
         cli_puts("\n");
         status = wait_shell_job(job, 1);
-        print_wait_result("[done]", (long)pid, status);
+        print_wait_result("[done]", (long)job->group, status);
         return status;
     }
     if (!find_process_by_pid(pid, &info)) {
@@ -1334,6 +1377,51 @@ static uint64_t bg_command(const char *args) {
     cli_puts(info.name);
     cli_puts("\n");
     return 0;
+}
+
+static uint64_t kill_command(const char *args) {
+    char work[ARG_EXPANDED_MAX];
+    char *argv[8];
+    int argc;
+    uint64_t failures = 0;
+
+    cli_copy(work, sizeof(work), args);
+    argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0) {
+        cli_puts("kill: too many arguments\n");
+        return 2;
+    }
+    if (argc == 0) {
+        cli_puts("usage: kill <pid|%job> [...]\n");
+        return 2;
+    }
+
+    for (int i = 0; i < argc; i++) {
+        uint64_t target = parse_job_reference(argv[i]);
+        struct shell_job *job = argv[i][0] == '%' ? find_job(target) : 0;
+        if (target == 0) {
+            cli_puts("kill: invalid target: ");
+            cli_puts(argv[i]);
+            cli_puts("\n");
+            failures++;
+            continue;
+        }
+        if (job != 0) {
+            for (size_t j = 0; j < job->count; j++) {
+                if (job->pids[j] >= 0 && srv_kill((uint64_t)job->pids[j]) < 0) {
+                    failures++;
+                }
+            }
+            continue;
+        }
+        if (srv_kill(target) < 0) {
+            cli_puts("kill: no such pid: ");
+            cli_putn(target);
+            cli_puts("\n");
+            failures++;
+        }
+    }
+    return failures == 0 ? 0 : 1;
 }
 
 static int process_name_matches(const struct srv_process_info *info, const char *name) {
@@ -2815,7 +2903,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         return 0;
     }
     if (cli_streq(command, "jobs")) {
-        print_jobs();
+        print_jobs(args);
         return 0;
     }
     if (cli_streq(command, "wait")) {
@@ -2826,6 +2914,9 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     }
     if (cli_streq(command, "bg")) {
         return bg_command(args);
+    }
+    if (cli_streq(command, "kill")) {
+        return kill_command(args);
     }
     if (cli_streq(command, "service")) {
         service_command(args);

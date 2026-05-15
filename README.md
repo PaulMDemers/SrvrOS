@@ -57,7 +57,8 @@ editor clients:
   `while`/`do`/`done`, shell functions with `return`, `shift`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`,
   `test`/`[`, `set -e`, `read`, `alias`, `type`,
-  `unset`, safer `cd`, `jobs`/`wait`/`fg`/`bg`, `service webd`, DHCP/status/DNS commands,
+  `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
+  job references, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, Ctrl-C foreground job and pipeline interruption with
   `128 + signal` statuses,
@@ -229,7 +230,8 @@ ports, and simple boot scripts:
 / $ type ll sh cd
 / $ sleep 10 &
 / $ echo last-background-pid=$!
-/ $ fg $!
+/ $ jobs -l
+/ $ fg %+
 ```
 
 ## Useful Monitor Commands

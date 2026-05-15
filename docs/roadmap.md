@@ -303,6 +303,8 @@ kernel, and a minimal Unix-like userspace.
   tab completion for builtins, aliases, functions, PATH commands, and paths.
 - Add native foreground/background process groups for shell pipelines, including
   `cmd | cmd &`, `fg $!`, and Ctrl-C interruption of the whole pipeline group.
+- Add shell job references and inspection polish: `%+`, `%-`, numeric `%N`,
+  `jobs -l`, and built-in `kill %job` for every pid in a tracked job.
 - Add shared shell/libc/syscall-wrapper path normalization for inherited `PWD`,
   relative paths, repeated `/`, `.`, and `..`.
 - Add first-pass terminal signal delivery: Ctrl-C/SIGINT for the active
@@ -315,7 +317,8 @@ kernel, and a minimal Unix-like userspace.
    configure/build scripts expect.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
-   `while`, `shift`, `$!`, `fg`/`bg`, background pipelines, tab completion,
+   `while`, `shift`, `$!`, `fg`/`bg`, `%+`/`%-`, `jobs -l`, `kill %job`,
+   background pipelines, tab completion,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,

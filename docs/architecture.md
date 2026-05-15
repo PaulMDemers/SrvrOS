@@ -58,7 +58,8 @@ preemption. Process state includes address-space ownership, kernel trap stack,
 fd table, GUI queue state, network handle ownership, and exit status.
 
 The shell supports foreground jobs, foreground/background pipeline groups,
-`jobs`, `wait`, `fg`/`bg`, and `kill`. Sleeping syscalls use wait queues for
+`jobs`, `jobs -l`, `wait`, `fg`/`bg`, `%+`/`%-` job references, and built-in
+`kill` for process ids or job references. Sleeping syscalls use wait queues for
 keyboard input, network accept/read readiness, and descriptor readiness in
 `poll`/`select`, so a blocked process does not busy-spin.
 
@@ -194,7 +195,8 @@ diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
 shell functions with `return`, `shift`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `TMPDIR`,
-`cd -` with directory validation, `jobs`/`wait`/`fg`/`bg`, `service webd`,
+`cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
+`%+`/`%-` job references, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
 builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
 input, persistent `/fat/.srvsh_history`, and tab completion for builtins,

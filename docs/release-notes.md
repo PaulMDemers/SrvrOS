@@ -135,6 +135,8 @@ server.
   and preserving interrupted pipeline status as `128 + signal`.
 - Adds shell job-table tracking for background pipelines, allowing `cmd | cmd &`
   to be foregrounded with `fg $!` and interrupted as a process group.
+- Adds shell job references (`%+`, `%-`, numeric `%N`), `jobs -l` pid listing,
+  and built-in `kill %job` delivery across every process tracked for a job.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,
