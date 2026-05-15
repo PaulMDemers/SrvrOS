@@ -55,7 +55,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
   `cut`, `xargs`, `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
   `cp`/`rm`, copy/remove, native file rename and directory destinations through
-  `mv`, `tap` file splitting,
+  `mv`, `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
+  `find -type`, Ctrl-D/EOF shell exit, `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file

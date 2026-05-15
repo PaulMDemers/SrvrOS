@@ -2897,6 +2897,7 @@ int main(int argc, char **argv) {
         build_prompt(prompt, sizeof(prompt), cwd);
         char *line = linenoise(prompt);
         if (line == 0) {
+            cli_puts("exit\n");
             break;
         }
         if (line[0] != '\0') {

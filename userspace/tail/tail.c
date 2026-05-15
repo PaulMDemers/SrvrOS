@@ -15,6 +15,21 @@ static uint64_t parse_number(const char *text, uint64_t fallback) {
     return value;
 }
 
+static int parse_line_option(const char *arg, uint64_t *lines) {
+    if (arg == 0 || arg[0] == '\0') {
+        return 0;
+    }
+    if (arg[0] == '-' && arg[1] == 'n' && arg[2] != '\0') {
+        *lines = parse_number(arg + 2, *lines);
+        return 1;
+    }
+    if (arg[0] == '-' && arg[1] >= '0' && arg[1] <= '9') {
+        *lines = parse_number(arg + 1, *lines);
+        return 1;
+    }
+    return 0;
+}
+
 static int tail_fd(int fd, uint64_t limit, int close_fd) {
     char data[4096];
     size_t length = 0;
@@ -81,9 +96,21 @@ int main(int argc, char **argv) {
     uint64_t lines = 10;
     int first_file = 1;
     int status = 0;
-    if (argc >= 3 && cli_streq(argv[1], "-n")) {
-        lines = parse_number(argv[2], 10);
-        first_file = 3;
+    for (int i = 1; i < argc; i++) {
+        if (cli_streq(argv[i], "-n")) {
+            if (i + 1 >= argc) {
+                cli_puts("usage: tail [-n count|-count] [file ...]\n");
+                return 1;
+            }
+            lines = parse_number(argv[i + 1], lines);
+            i++;
+            first_file = i + 1;
+        } else if (parse_line_option(argv[i], &lines)) {
+            first_file = i + 1;
+        } else {
+            first_file = i;
+            break;
+        }
     }
     if (argc <= first_file) {
         return tail_fd(SRV_STDIN, lines, 0);

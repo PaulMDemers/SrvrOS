@@ -42,21 +42,34 @@ static int under_root(const char *path, const char *root) {
 }
 
 int main(int argc, char **argv) {
-    const char *root = argc > 1 ? argv[1] : "/";
+    const char *root = "/";
     const char *name_pattern = 0;
+    int type_filter = 0;
     int printed_root = 0;
 
-    if (argc == 4 && cli_streq(argv[2], "-name")) {
-        name_pattern = argv[3];
-    } else if (argc != 1 && argc != 2) {
-        cli_puts("usage: find [path] [-name pattern]\n");
-        return 1;
+    int index = 1;
+    if (index < argc && argv[index][0] != '-') {
+        root = argv[index++];
+    }
+    while (index < argc) {
+        if (cli_streq(argv[index], "-name") && index + 1 < argc) {
+            name_pattern = argv[index + 1];
+            index += 2;
+        } else if (cli_streq(argv[index], "-type") && index + 1 < argc &&
+            (cli_streq(argv[index + 1], "f") || cli_streq(argv[index + 1], "d"))) {
+            type_filter = cli_streq(argv[index + 1], "d") ? 1 : 2;
+            index += 2;
+        } else {
+            cli_puts("usage: find [path] [-name pattern] [-type f|d]\n");
+            return 1;
+        }
     }
 
-    for (uint64_t index = 0;; index++) {
+    for (uint64_t list_index = 0;; list_index++) {
         char path[CLI_PATH_MAX];
+        struct srv_stat info;
         uint64_t size = 0;
-        long result = srv_list(index, path, sizeof(path), &size);
+        long result = srv_list(list_index, path, sizeof(path), &size);
         if (result <= 0) {
             break;
         }
@@ -70,6 +83,17 @@ int main(int argc, char **argv) {
         if (name_pattern != 0 && !glob_match(name_pattern, base_name(path))) {
             continue;
         }
+        if (type_filter != 0) {
+            if (srv_stat(path, &info) != 0) {
+                continue;
+            }
+            if (type_filter == 1 && info.type != 1) {
+                continue;
+            }
+            if (type_filter == 2 && info.type == 1) {
+                continue;
+            }
+        }
         cli_puts(path);
         cli_puts("\n");
     }
@@ -77,8 +101,12 @@ int main(int argc, char **argv) {
     if (!printed_root && name_pattern == 0) {
         struct srv_stat info;
         if (srv_stat(root, &info) == 0) {
-            cli_puts(root);
-            cli_puts("\n");
+            if ((type_filter == 0) ||
+                (type_filter == 1 && info.type == 1) ||
+                (type_filter == 2 && info.type != 1)) {
+                cli_puts(root);
+                cli_puts("\n");
+            }
             return 0;
         }
     }

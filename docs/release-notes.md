@@ -111,6 +111,9 @@ server.
   `mktemp` honor `TMPDIR`, decodes quoted assignment values after command
   substitution, and teaches `/fat/bin/mv` to move files and empty directories
   into existing directory destinations.
+- Adds interactive Ctrl-D/EOF shell exit coverage and expands common text-tool
+  flags: `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1`
+  forms, and `find -type f|d`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

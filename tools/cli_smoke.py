@@ -137,6 +137,7 @@ def main():
         "stat /fat/status.txt\n"
         "head -n 1 /fat/status.txt\n"
         "tail -n 1 /fat/status.txt\n"
+        "head -1 /fat/status.txt\n"
         "cat /fat/status.txt | tee /fat/tee-copy.txt\n"
         "stat /fat/tee-copy.txt\n"
         "uname\n"
@@ -145,6 +146,8 @@ def main():
         "uptime\n"
         "find /fat/etc\n"
         "find /fat/bin -name sh\n"
+        "find /fat/bin -type f -name sh\n"
+        "find /fat -type d -name bin\n"
         "du /fat/status.txt\n"
         "du -s /fat/www\n"
         "df\n"
@@ -153,10 +156,13 @@ def main():
         "write -a /fat/words.txt apple\n"
         "write -a /fat/words.txt banana\n"
         "write -a /fat/words.txt apple\n"
+        "tail -1 /fat/words.txt\n"
         "sort /fat/words.txt > /fat/sorted.txt\n"
         "cat /fat/sorted.txt\n"
         "sort /fat/words.txt | uniq > /fat/unique.txt\n"
         "cat /fat/unique.txt\n"
+        "wc -l /fat/words.txt\n"
+        "wc -c /fat/status.txt\n"
         "write /fat/table.txt name:paul\n"
         "write -a /fat/table.txt name:codex\n"
         "cut -d : -f 2 /fat/table.txt\n"
@@ -164,6 +170,10 @@ def main():
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "grep exFAT /fat/status.txt\n"
+        "grep -n -i exfat /fat/status.txt\n"
+        "grep -c apple /fat/words.txt\n"
+        "grep -v banana /fat/words.txt\n"
+        "grep -q exFAT /fat/status.txt && echo grep-q-ok\n"
         "cat /fat/status.txt > /fat/cat-redir.txt\n"
         "cat /fat/status.txt >> /fat/cat-redir.txt\n"
         "stat /fat/cat-redir.txt\n"
@@ -311,7 +321,7 @@ def main():
         "rm /fat/shell.txt\n"
         "stat /fat/shell.txt\n"
         "posixdemo\n"
-        "exit\n"
+        "\x04"
     )
     with tempfile.TemporaryDirectory(prefix="srvros-cli-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-cli.exfat")
@@ -341,7 +351,9 @@ def main():
             lines = script.splitlines(True)
             for line in lines:
                 send_serial(sock, line, args.send_delay)
-                if line.strip() == "exit":
+                if line == "\x04":
+                    output += read_until(sock, b"srv> ", max(args.line_wait, 2.0))
+                elif line.strip() == "exit":
                     output += read_for(sock, args.line_wait)
                 else:
                     output += read_until(sock, b" $ ", max(args.line_wait, 2.0))
@@ -401,6 +413,7 @@ def main():
         "up ",
         "/fat/etc/profile",
         "/fat/bin/sh",
+        "/fat/bin",
         "55\t/fat/status.txt",
         "\t/fat/www",
         "Filesystem",
@@ -409,10 +422,15 @@ def main():
         "exfat",
         "apple",
         "banana",
+        "4 /fat/words.txt",
+        "55 /fat/status.txt",
         "paul",
         "codex",
         "args banana apple banana apple",
         "orange",
+        "1:srvros webd: static file serving from exFAT is online.",
+        "2",
+        "grep-q-ok",
         "sh: unmatched quote",
         "/fat/cat-redir.txt: 110 bytes",
         "2 18 110 /fat/cat-redir.txt",
@@ -500,6 +518,7 @@ def main():
         "posixdemo: posix misc ok",
         "posixdemo: socket bind ok",
         "posixdemo: ok",
+        "exit",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
