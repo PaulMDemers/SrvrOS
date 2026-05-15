@@ -69,7 +69,9 @@ server.
   `umask` compatibility.
 - Persists srvros Unix-like metadata for writable exFAT mounts in
   `/fat/.srvros/meta`, including reboot-tested inode/mode restoration, and
-  ships `/fat/bin/chmod` for shell-level permission changes.
+  ships `/fat/bin/chmod` for shell-level permission changes. Sidecar writes
+  stage through `/fat/.srvros/meta.tmp`, and mount recovery promotes a complete
+  temp file or removes a malformed one before applying metadata.
 - Expands libc/POSIX coverage with `pread`/`pwrite`, `getopt`, `uname`,
   `posix_memalign`/`aligned_alloc`, `qsort`, `bsearch`, random numbers,
   integer and floating conversion helpers, process-local environment variables,
@@ -156,8 +158,9 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
   linear framebuffer.
 - The GUI stack is a prototype and not yet a general application ABI.
 - Permission bits are srvros-managed metadata. Writable exFAT mounts persist
-  them in `/fat/.srvros/meta`; the format is not native exFAT metadata and does
-  not yet have journaling or crash-safe replacement.
+  them in `/fat/.srvros/meta`; the format is not native exFAT metadata and the
+  recovery path is limited to sidecar temp-file promotion/cleanup rather than a
+  full journal.
 - `stdio` is deliberately small: enough for early command-line ports, not a full
   ISO C implementation.
 - Lua uses its normal floating-number profile with `math` enabled. The `os`

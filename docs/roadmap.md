@@ -271,7 +271,8 @@ kernel, and a minimal Unix-like userspace.
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
    and writable mounts now persist srvros Unix-like metadata through the
-   `/fat/.srvros/meta` sidecar, but recovery semantics are still intentionally
+   `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
+   cleanup, but broader write/rename recovery semantics are still intentionally
    small.
 2. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
@@ -283,7 +284,7 @@ kernel, and a minimal Unix-like userspace.
    FUSE-like mounts.
 6. Continue the libc/newlib track: fuller `posix_spawn` attributes/file
    actions, terminal process groups/signals, command substitution, fuller
-   `stdio`, scan/format helpers, sidecar recovery, and more fd-specific
+   `stdio`, scan/format helpers, stronger sidecar recovery, and more fd-specific
    readiness queues as the descriptor model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.

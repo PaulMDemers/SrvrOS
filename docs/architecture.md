@@ -102,7 +102,9 @@ exFAT is the primary filesystem. It supports:
   block counts, and tick-derived access/modify/change timestamps.
 - A srvros-managed metadata sidecar at `/fat/.srvros/meta` on writable exFAT
   mounts. The sidecar restores inode ids, modes, uid/gid placeholders, and
-  timestamps when the same AHCI-backed image is mounted after reboot.
+  timestamps when the same AHCI-backed image is mounted after reboot. Updates
+  are staged through `/fat/.srvros/meta.tmp`; mount recovery promotes a valid
+  temp sidecar or discards a malformed one before applying metadata.
 
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
@@ -111,8 +113,9 @@ adding more bundled programs does not silently corrupt directory entries.
 Current filesystem caveats:
 
 - Directory rename is intentionally limited to empty directories.
-- There is no journaling or transaction rollback.
-- Crash consistency is not guaranteed if QEMU exits during mutation.
+- There is no general journaling or transaction rollback.
+- Crash consistency is not guaranteed if QEMU exits during arbitrary mutation,
+  though metadata sidecar replacement has a small temp-file recovery path.
 - Long-name and fragmented-chain support is practical but still being hardened.
 - Unix-like metadata is persisted by srvros in a sidecar file rather than in
   native exFAT directory entries.

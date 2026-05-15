@@ -121,6 +121,8 @@ def main():
         "stat /fat/persist.txt\n"
         "stat /fat/persistdir\n"
         "ls /fat/.srvros\n"
+        "cp /fat/.srvros/meta /fat/.srvros/meta.tmp\n"
+        "rm /fat/.srvros/meta\n"
         "exit\n"
     )
     second_script = (
@@ -128,6 +130,14 @@ def main():
         "stat /fat/persist.txt\n"
         "stat /fat/persistdir\n"
         "ls /fat/.srvros\n"
+        "write /fat/.srvros/meta.tmp broken-sidecar\n"
+        "exit\n"
+    )
+    third_script = (
+        "cat /fat/persist.txt\n"
+        "stat /fat/persist.txt\n"
+        "stat /fat/persistdir\n"
+        "stat /fat/.srvros/meta.tmp\n"
         "exit\n"
     )
 
@@ -136,8 +146,9 @@ def main():
         shutil.copyfile(source_disk, disk)
         first = run_boot(args, disk, first_script)
         second = run_boot(args, disk, second_script)
+        third = run_boot(args, disk, third_script)
 
-    text = first + "\n--- reboot ---\n" + second
+    text = first + "\n--- reboot temp recovery ---\n" + second + "\n--- reboot malformed temp ---\n" + third
     sys.stdout.write(text)
 
     expected = [
@@ -145,6 +156,7 @@ def main():
         "/fat/persistdir: 0 bytes directory mode 700",
         "meta",
         "persistent-metadata",
+        "stat: not found: /fat/.srvros/meta.tmp",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

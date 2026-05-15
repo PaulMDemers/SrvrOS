@@ -862,6 +862,13 @@ static bool metadata_file_path(const struct exfat_mount *mount, char *out, uint6
     return append_path_piece(out, capacity, "/meta");
 }
 
+static bool metadata_temp_path(const struct exfat_mount *mount, char *out, uint64_t capacity) {
+    if (!metadata_directory_path(mount, out, capacity)) {
+        return false;
+    }
+    return append_path_piece(out, capacity, "/meta.tmp");
+}
+
 static bool metadata_path_is_internal(const struct exfat_mount *mount, const char *path) {
     char directory[EXFAT_MAX_PATH];
     if (!metadata_directory_path(mount, directory, sizeof(directory))) {
@@ -959,8 +966,10 @@ static bool exfat_sync_mount_metadata(struct exfat_mount *mount) {
 
     char directory[EXFAT_MAX_PATH];
     char path[EXFAT_MAX_PATH];
+    char temp_path[EXFAT_MAX_PATH];
     bool ok = metadata_directory_path(mount, directory, sizeof(directory)) &&
-        metadata_file_path(mount, path, sizeof(path));
+        metadata_file_path(mount, path, sizeof(path)) &&
+        metadata_temp_path(mount, temp_path, sizeof(temp_path));
     if (ok && vfs_lookup(directory) == NULL) {
         ok = exfat_create_directory(directory);
     }
@@ -979,7 +988,18 @@ static bool exfat_sync_mount_metadata(struct exfat_mount *mount) {
         ok = serialize_metadata_record(metadata_buffer, sizeof(metadata_buffer), &offset, node);
     }
     if (ok) {
-        ok = exfat_write_file(path, (const uint8_t *)metadata_buffer, offset);
+        if (vfs_lookup(temp_path) != NULL) {
+            ok = exfat_delete_file(temp_path);
+        }
+        if (ok) {
+            ok = exfat_write_file(temp_path, (const uint8_t *)metadata_buffer, offset);
+        }
+        if (ok && vfs_lookup(path) != NULL) {
+            ok = exfat_delete_file(path);
+        }
+        if (ok) {
+            ok = exfat_rename(temp_path, path);
+        }
     }
 
     metadata_syncing = false;
@@ -1001,13 +1021,7 @@ static void exfat_metadata_changed(const char *path, const struct vfs_metadata *
     (void)exfat_sync_mount_metadata(mount);
 }
 
-static void load_mount_metadata(struct exfat_mount *mount) {
-    char path[EXFAT_MAX_PATH];
-    if (mount == NULL ||
-        !metadata_file_path(mount, path, sizeof(path))) {
-        return;
-    }
-
+static bool parse_metadata_file(struct exfat_mount *mount, const char *path, bool apply) {
     const struct vfs_node *node = vfs_lookup(path);
     const uint8_t *data = NULL;
     uint64_t size = 0;
@@ -1020,11 +1034,12 @@ static void load_mount_metadata(struct exfat_mount *mount) {
         if (node != NULL && data != NULL) {
             vfs_release_data(node, data);
         }
-        return;
+        return false;
     }
 
+    bool ok = true;
     uint64_t offset = magic_length;
-    while (offset < size) {
+    while (ok && offset < size) {
         while (offset < size && (data[offset] == '\n' || data[offset] == '\r')) {
             offset++;
         }
@@ -1039,6 +1054,7 @@ static void load_mount_metadata(struct exfat_mount *mount) {
         }
         node_path[path_length] = '\0';
         if (offset >= size || data[offset] != '\t') {
+            ok = false;
             break;
         }
         offset++;
@@ -1052,9 +1068,13 @@ static void load_mount_metadata(struct exfat_mount *mount) {
             !parse_u64_field(data, size, &offset, &metadata.atime, false) ||
             !parse_u64_field(data, size, &offset, &metadata.mtime, false) ||
             !parse_u64_field(data, size, &offset, &metadata.ctime, true)) {
+            ok = false;
             break;
         }
 
+        if (!apply) {
+            continue;
+        }
         const struct vfs_node *target = vfs_lookup(node_path);
         if (target == NULL || metadata_path_is_internal(mount, node_path)) {
             continue;
@@ -1065,6 +1085,32 @@ static void load_mount_metadata(struct exfat_mount *mount) {
     }
 
     vfs_release_data(node, data);
+    return ok;
+}
+
+static void load_mount_metadata(struct exfat_mount *mount) {
+    char path[EXFAT_MAX_PATH];
+    char temp_path[EXFAT_MAX_PATH];
+    if (mount == NULL ||
+        !metadata_file_path(mount, path, sizeof(path)) ||
+        !metadata_temp_path(mount, temp_path, sizeof(temp_path))) {
+        return;
+    }
+
+    metadata_syncing = true;
+    if (parse_metadata_file(mount, temp_path, false)) {
+        (void)parse_metadata_file(mount, temp_path, true);
+        if (vfs_lookup(path) != NULL) {
+            (void)exfat_delete_file(path);
+        }
+        (void)exfat_rename(temp_path, path);
+    } else {
+        (void)parse_metadata_file(mount, path, true);
+        if (vfs_lookup(temp_path) != NULL) {
+            (void)exfat_delete_file(temp_path);
+        }
+    }
+    metadata_syncing = false;
 }
 
 static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count) {

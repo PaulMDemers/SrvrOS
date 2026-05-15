@@ -120,7 +120,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - `fork` and client-side `connect` are still missing.
 - VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
   file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
-  is not encoded into native exFAT directory entries.
+  is not encoded into native exFAT directory entries. Sidecar updates stage
+  through `/fat/.srvros/meta.tmp`; mount recovery promotes complete temp files
+  and removes malformed temp files before applying metadata.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
   queues are still future work as the descriptor model grows.
@@ -161,8 +163,9 @@ Third-party source is kept as pinned submodules or snapshots under
 
 1. Expand `stdio` toward command-line port expectations: broader
    width/precision formatting, scansets, and better EOF/error state.
-2. Harden the exFAT metadata sidecar: atomic replacement, recovery from partial
-   writes, and richer timestamp sources.
+2. Harden the exFAT metadata sidecar further: stronger atomic replacement,
+   recovery from broader directory-update failures, and richer timestamp
+   sources.
 3. Add `mmap`-style mappings for larger interpreters and libraries.
 4. Expand `webd` toward fuller concurrent connection handling.
 5. Add client TCP `connect`, then a tiny HTTP client.
