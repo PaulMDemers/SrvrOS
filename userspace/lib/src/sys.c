@@ -111,6 +111,10 @@ long srv_tty_setattr(int fd, int actions, const struct srv_termios *termios) {
     return srv_syscall3(SYS_TTY_SETATTR, fd, actions, (long)termios);
 }
 
+long srv_ioctl(int fd, uint64_t request, void *argument) {
+    return srv_syscall3(SYS_IOCTL, fd, (long)request, (long)argument);
+}
+
 long srv_seek(int fd, int64_t offset, uint64_t whence) {
     return srv_syscall3(SYS_SEEK, fd, (long)offset, (long)whence);
 }

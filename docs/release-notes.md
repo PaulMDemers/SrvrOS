@@ -15,8 +15,8 @@ server.
   preserving raw escape output on serial.
 - Adds a minimal console TTY/termios layer with `tcgetattr`/`tcsetattr`,
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`/`VTIME`, erase,
-  kill-line, and EOF control characters, plus `/fat/bin/ttydemo` smoke
-  coverage.
+  kill-line, EOF control characters, `ioctl` window-size support, and duplicated
+  stdio TTY detection, plus `/fat/bin/ttydemo` smoke coverage.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Mounts exFAT from initramfs-backed memory or AHCI-backed disks.

@@ -59,6 +59,7 @@ long srv_ftruncate(int fd, uint64_t length);
 long srv_fsync(int fd);
 long srv_tty_getattr(int fd, struct srv_termios *termios);
 long srv_tty_setattr(int fd, int actions, const struct srv_termios *termios);
+long srv_ioctl(int fd, uint64_t request, void *argument);
 long srv_seek(int fd, int64_t offset, uint64_t whence);
 long srv_fstat(int fd, struct srv_stat *info);
 long srv_sbrk(int64_t increment, uint64_t *previous_out);

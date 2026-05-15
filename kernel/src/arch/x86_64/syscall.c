@@ -88,6 +88,9 @@ static struct srv_termios console_termios = {
     },
 };
 
+static struct srv_winsize console_winsize;
+static bool console_winsize_set;
+
 static uint64_t irq_save(void) {
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
@@ -308,6 +311,51 @@ static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct s
     }
     console_termios = copy;
     return 0;
+}
+
+static struct srv_winsize tty_current_winsize(void) {
+    if (console_winsize_set) {
+        return console_winsize;
+    }
+
+    uint64_t columns = 0;
+    uint64_t rows = 0;
+    uint64_t width = 0;
+    uint64_t height = 0;
+    uint64_t pitch = 0;
+    console_get_size(&columns, &rows);
+    (void)console_framebuffer_info(&width, &height, &pitch);
+    struct srv_winsize winsize = {
+        .row = rows > UINT16_MAX ? UINT16_MAX : (uint16_t)rows,
+        .col = columns > UINT16_MAX ? UINT16_MAX : (uint16_t)columns,
+        .xpixel = width > UINT16_MAX ? UINT16_MAX : (uint16_t)width,
+        .ypixel = height > UINT16_MAX ? UINT16_MAX : (uint16_t)height,
+    };
+    return winsize;
+}
+
+static int64_t syscall_ioctl(uint64_t fd, uint64_t request, void *argument) {
+    if (!syscall_tty_fd_ok(fd)) {
+        return -1;
+    }
+
+    if (request == SRV_TIOCGWINSZ) {
+        struct srv_winsize winsize = tty_current_winsize();
+        return copy_to_user(argument, &winsize, sizeof(winsize)) ? 0 : -1;
+    }
+    if (request == SRV_TIOCSWINSZ) {
+        struct srv_winsize winsize;
+        if (!copy_from_user(&winsize, argument, sizeof(winsize)) ||
+            winsize.row == 0 ||
+            winsize.col == 0) {
+            return -1;
+        }
+        console_winsize = winsize;
+        console_winsize_set = true;
+        return 0;
+    }
+
+    return -1;
 }
 
 static bool copy_user_string(const char *source, char *destination, uint64_t capacity) {
@@ -1303,6 +1351,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_TTY_SETATTR:
         frame->rax = (uint64_t)syscall_tty_setattr(frame->rdi, frame->rsi, (const struct srv_termios *)frame->rdx);
+        return;
+    case SYS_IOCTL:
+        frame->rax = (uint64_t)syscall_ioctl(frame->rdi, frame->rsi, (void *)frame->rdx);
         return;
     default:
         frame->rax = (uint64_t)-1;

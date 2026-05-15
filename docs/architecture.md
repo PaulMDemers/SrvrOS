@@ -189,14 +189,16 @@ stdio fd remapping through spawn file actions, and process-replacing `execve`.
 
 The first POSIX-compat layer is implemented in userspace on top of srvros
 syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
-`dirent.h`, `sys/stat.h`, `sys/socket.h`, `netdb.h`, and `time.h`.
+`dirent.h`, `sys/stat.h`, `sys/ioctl.h`, `sys/socket.h`, `netdb.h`, and
+`time.h`.
 
 This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 `stat`/`fstat`, `dup`/`dup2` for standard streams, pipes, writable regular
 files, and read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
 `FD_CLOEXEC`, `access`, `isatty`, `fsync`,
-`truncate`/`ftruncate`, directory iteration, path/cwd state, `sbrk`-backed
+`truncate`/`ftruncate`, minimal terminal `tcgetattr`/`tcsetattr` plus
+`ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
 time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,
 `posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed

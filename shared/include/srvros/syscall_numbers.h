@@ -59,6 +59,7 @@
 #define SYS_EXEC 54
 #define SYS_TTY_GETATTR 55
 #define SYS_TTY_SETATTR 56
+#define SYS_IOCTL 57
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
@@ -116,6 +117,16 @@ struct srv_termios {
     uint32_t cflag;
     uint32_t lflag;
     uint8_t cc[SRV_NCCS];
+};
+
+#define SRV_TIOCGWINSZ 0x5413u
+#define SRV_TIOCSWINSZ 0x5414u
+
+struct srv_winsize {
+    uint16_t row;
+    uint16_t col;
+    uint16_t xpixel;
+    uint16_t ypixel;
 };
 
 #define SRV_ERR_AGAIN -11

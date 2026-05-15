@@ -35,8 +35,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   Unix-like file metadata.
 - Minimal `termios`: `tcgetattr` and `tcsetattr` for console fds, with
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`, `VTIME`, erase,
-  kill-line, and EOF control characters. Full terminal process groups,
-  signals, baud settings, and window sizing are still future work.
+  kill-line, and EOF control characters. `ioctl(TIOCGWINSZ)` reports the
+  current console dimensions and framebuffer pixel size, while
+  `ioctl(TIOCSWINSZ)` stores an override for terminal-oriented ports. Full
+  terminal process groups, signals, and baud settings are still future work.
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
@@ -101,7 +103,8 @@ then verifies prepared query results and the on-disk database size. The VFS maps
 SQLite shared/reserved/pending/exclusive transitions onto srvros advisory byte
 locks.
 The `/fat/bin/ttydemo` app verifies the minimal terminal API by switching stdin
-to raw mode, restoring the saved settings, and checking that non-terminal file
+to raw mode, restoring the saved settings, reading and setting window size,
+checking duplicated stdio tty identity, and checking that non-terminal file
 descriptors report `ENOTTY`.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
@@ -127,8 +130,7 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   cross-machine semantics, and WAL shared-memory locking are future work.
 - The TTY layer is intentionally small. It tracks one console termios state and
   supports canonical/raw reads, but does not yet model controlling terminals,
-  foreground process groups, terminal-generated signals, baud settings, or
-  `ioctl` window-size queries.
+  foreground process groups, terminal-generated signals, or baud settings.
 - `stdio` is intentionally small: formatted output has no width/precision
   parsing yet, input scanning is missing, `fflush` is effectively a no-op for
   unbuffered streams, and `popen`/`pclose` are `ENOSYS` stubs.
