@@ -59,7 +59,7 @@ editor clients:
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
-  `sed`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
+  `sed`, `expr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
   `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
   `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,

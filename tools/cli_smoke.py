@@ -118,7 +118,7 @@ def main():
         "stat /fat/test-miss-copy.txt\n"
         "export PATH=/fat/bin:/\n"
         "which true\n"
-        "which sleep date touch basename dirname\n"
+        "which sleep date touch basename dirname expr\n"
         "sleep 0\n"
         "date\n"
         "touch /fat/touched.txt\n"
@@ -178,6 +178,15 @@ def main():
         "sed -n /apple/p /fat/words.txt\n"
         "sed /banana/d /fat/words.txt\n"
         "sed -e s/banana/grape/ -e /apple/d /fat/words.txt\n"
+        "echo expr-add-$(expr 7 + 5)\n"
+        "echo expr-mul-$(expr 6 '*' 7)\n"
+        "echo expr-eq-$(expr apple = apple)\n"
+        "echo expr-ne-$(expr apple != banana)\n"
+        "echo expr-len-$(expr length banana)\n"
+        "echo expr-sub-$(expr substr banana 2 3)\n"
+        "echo expr-index-$(expr index banana na)\n"
+        "echo expr-lt-$(expr 1 '<' 2)\n"
+        "echo expr-prefix-$(expr banana : ban)\n"
         "grep exFAT /fat/status.txt\n"
         "grep -n -i exfat /fat/status.txt\n"
         "grep -c apple /fat/words.txt\n"
@@ -409,6 +418,7 @@ def main():
         "/fat/bin/touch",
         "/fat/bin/basename",
         "/fat/bin/dirname",
+        "/fat/bin/expr",
         "uptime ",
         "/fat/touched.txt: 0 bytes",
         "tmpdir-/fat/tmp",
@@ -445,6 +455,15 @@ def main():
         "args banana apple banana apple",
         "orange",
         "grape",
+        "expr-add-12",
+        "expr-mul-42",
+        "expr-eq-1",
+        "expr-ne-1",
+        "expr-len-6",
+        "expr-sub-ana",
+        "expr-index-2",
+        "expr-lt-1",
+        "expr-prefix-3",
         "1:srvros webd: static file serving from exFAT is online.",
         "2",
         "grep-q-ok",

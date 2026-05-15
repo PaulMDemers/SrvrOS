@@ -57,7 +57,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `cp`/`rm`, copy/remove, native file rename and directory destinations through
   `mv`, `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
   `find -type`, `ls -a/-la` and multi-path headers, `sed -n`/`-e`/`p`/`d`
-  with simple addresses, `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
+  with simple addresses, `expr` arithmetic/string expressions,
+  `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
