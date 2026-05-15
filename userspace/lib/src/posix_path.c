@@ -1,38 +1,24 @@
 #include <errno.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+
+#include <srvros/cli.h>
 
 #define POSIX_PATH_MAX 160
 
 static char current_directory[POSIX_PATH_MAX] = "/";
+static int current_directory_initialized;
 
-static int is_absolute(const char *path) {
-    return path != 0 && path[0] == '/';
-}
-
-static int append_path(char *out, size_t capacity, const char *prefix, const char *name) {
-    size_t used = 0;
-    if (capacity == 0 || prefix == 0 || name == 0) {
-        return 0;
+static void initialize_current_directory(void) {
+    if (current_directory_initialized) {
+        return;
     }
-    while (prefix[used] != '\0' && used + 1 < capacity) {
-        out[used] = prefix[used];
-        used++;
+    current_directory_initialized = 1;
+    const char *pwd = getenv("PWD");
+    if (pwd != 0 && pwd[0] != '\0') {
+        cli_normalize_path(current_directory, sizeof(current_directory), "/", pwd);
     }
-    if (used == 0 || used + 1 >= capacity) {
-        return 0;
-    }
-    if (out[used - 1] != '/') {
-        out[used++] = '/';
-    }
-    for (size_t i = 0; name[i] != '\0'; i++) {
-        if (used + 1 >= capacity) {
-            return 0;
-        }
-        out[used++] = name[i];
-    }
-    out[used] = '\0';
-    return 1;
 }
 
 int __posix_make_path(const char *path, char *out, size_t capacity) {
@@ -40,15 +26,9 @@ int __posix_make_path(const char *path, char *out, size_t capacity) {
         errno = EINVAL;
         return -1;
     }
-    if (is_absolute(path)) {
-        if (strlen(path) + 1 > capacity) {
-            errno = ENAMETOOLONG;
-            return -1;
-        }
-        strcpy(out, path);
-        return 0;
-    }
-    if (!append_path(out, capacity, current_directory, path)) {
+    initialize_current_directory();
+    cli_normalize_path(out, capacity, current_directory, path);
+    if (strlen(out) + 1 > capacity) {
         errno = ENAMETOOLONG;
         return -1;
     }
@@ -56,6 +36,7 @@ int __posix_make_path(const char *path, char *out, size_t capacity) {
 }
 
 char *getcwd(char *buffer, size_t size) {
+    initialize_current_directory();
     size_t length = strlen(current_directory);
     if (buffer == 0 || size <= length) {
         errno = ERANGE;
@@ -78,6 +59,7 @@ int chdir(const char *path) {
         errno = ENOTDIR;
         return -1;
     }
-    strcpy(current_directory, full);
+    cli_normalize_path(current_directory, sizeof(current_directory), "/", full);
+    setenv("PWD", current_directory, 1);
     return 0;
 }

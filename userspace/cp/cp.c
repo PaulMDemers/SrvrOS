@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 #define CP_BUFFER_SIZE 2048
 #define CP_MAX_PATHS 256
 
@@ -243,6 +245,8 @@ int main(int argc, char **argv) {
     int recursive = 0;
     int first_path = 1;
     struct srv_stat info;
+    char source_path[CLI_PATH_MAX];
+    char dest_path[CLI_PATH_MAX];
     char dest[CLI_PATH_MAX];
 
     if (argc > 1 && (cli_streq(argv[1], "-r") || cli_streq(argv[1], "-R"))) {
@@ -253,8 +257,11 @@ int main(int argc, char **argv) {
         cli_puts("usage: cp [-r] <source> <dest>\n");
         return 1;
     }
+    const char *pwd = getenv("PWD");
+    cli_normalize_path(source_path, sizeof(source_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[first_path]);
+    cli_normalize_path(dest_path, sizeof(dest_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[first_path + 1]);
 
-    if (srv_stat(argv[first_path], &info) < 0) {
+    if (srv_stat(source_path, &info) < 0) {
         cli_puts("cp: not found: ");
         cli_puts(argv[first_path]);
         cli_puts("\n");
@@ -267,15 +274,15 @@ int main(int argc, char **argv) {
             cli_puts("\n");
             return 1;
         }
-        return copy_recursive(argv[first_path], argv[first_path + 1]);
+        return copy_recursive(source_path, dest_path);
     }
 
-    if (path_is_dir(argv[first_path + 1])) {
-        if (!cli_join_path(dest, sizeof(dest), argv[first_path + 1], base_name(argv[first_path]))) {
+    if (path_is_dir(dest_path)) {
+        if (!cli_join_path(dest, sizeof(dest), dest_path, base_name(source_path))) {
             return 1;
         }
     } else {
-        cli_copy(dest, sizeof(dest), argv[first_path + 1]);
+        cli_copy(dest, sizeof(dest), dest_path);
     }
-    return copy_file(argv[first_path], dest);
+    return copy_file(source_path, dest);
 }

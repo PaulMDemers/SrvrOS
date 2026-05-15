@@ -136,6 +136,9 @@ struct srv_winsize {
 
 #define SRV_WAIT_NOHANG 0x01
 
+#define SRV_SIGNAL_INT 2
+#define SRV_SIGNAL_TERM 15
+
 #define SRV_EXEC_BACKGROUND 0x01
 #define SRV_EXEC_REPLACE 0x02
 

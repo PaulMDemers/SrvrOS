@@ -30,6 +30,14 @@ static int exit_on_error = 0;
 static int function_depth = 0;
 static int return_requested = 0;
 static uint64_t return_status = 0;
+static uint64_t last_background_pid = 0;
+static char completion_cwd[CLI_PATH_MAX] = "/";
+
+static const char *shell_builtins[] = {
+    "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
+    "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
+    "jobs", "wait", "fg", "bg", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
+};
 
 struct shell_alias {
     char name[32];
@@ -45,6 +53,7 @@ static struct shell_alias aliases[SHELL_MAX_ALIASES];
 static struct shell_function functions[SHELL_MAX_FUNCTIONS];
 
 static uint64_t run_line(char *line, char *cwd);
+static int resolve_command(char *out, size_t capacity, const char *command);
 
 struct command_redirection {
     int stdin_set;
@@ -304,6 +313,13 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
             i++;
             continue;
         }
+        if (input[i + 1] == '!') {
+            if (last_background_pid != 0) {
+                append_number(out, capacity, &length, last_background_pid);
+            }
+            i++;
+            continue;
+        }
         if (input[i + 1] == '#') {
             append_number(out, capacity, &length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
             i++;
@@ -451,6 +467,9 @@ static void split_glob_token(const char *cwd,
         }
         directory[out] = '\0';
     }
+    char normalized[CLI_PATH_MAX];
+    cli_normalize_path(normalized, sizeof(normalized), cwd, directory);
+    cli_copy(directory, directory_capacity, normalized);
     cli_copy(pattern, pattern_capacity, token + slash + 1);
 }
 
@@ -475,6 +494,220 @@ static int path_is_immediate_child(const char *path, const char *directory, cons
     }
     *name_out = name;
     return 1;
+}
+
+static int shell_path_is_directory(const char *path) {
+    struct srv_stat info;
+    return srv_stat(path, &info) == 0 && info.type == 1;
+}
+
+static int completion_exists(const linenoiseCompletions *completions, const char *text) {
+    for (size_t i = 0; i < completions->len; i++) {
+        if (completions->cvec[i] != 0 && cli_streq(completions->cvec[i], text)) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void add_completion_unique(linenoiseCompletions *completions, const char *text) {
+    if (!completion_exists(completions, text)) {
+        linenoiseAddCompletion(completions, text);
+    }
+}
+
+static int token_is_command_position(const char *line, size_t token_start) {
+    size_t segment_start = 0;
+    char quote = '\0';
+    for (size_t i = 0; i < token_start; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (c == ';' || c == '|' || c == '&') {
+            segment_start = i + 1;
+        }
+    }
+    while (segment_start < token_start && (line[segment_start] == ' ' || line[segment_start] == '\t')) {
+        segment_start++;
+    }
+    return segment_start == token_start;
+}
+
+static void completion_add_replacement(linenoiseCompletions *completions,
+    const char *line,
+    size_t token_start,
+    size_t token_end,
+    const char *replacement,
+    int append_space) {
+    char completed[LINE_MAX];
+    size_t out = 0;
+    for (size_t i = 0; i < token_start && out + 1 < sizeof(completed); i++) {
+        completed[out++] = line[i];
+    }
+    for (size_t i = 0; replacement[i] != '\0' && out + 1 < sizeof(completed); i++) {
+        completed[out++] = replacement[i];
+    }
+    if (append_space && out + 1 < sizeof(completed)) {
+        completed[out++] = ' ';
+    }
+    for (size_t i = token_end; line[i] != '\0' && out + 1 < sizeof(completed); i++) {
+        completed[out++] = line[i];
+    }
+    completed[out] = '\0';
+    add_completion_unique(completions, completed);
+}
+
+static void complete_path_token(const char *line,
+    size_t token_start,
+    size_t token_end,
+    const char *token,
+    linenoiseCompletions *completions) {
+    char directory[CLI_PATH_MAX];
+    char visible_prefix[CLI_PATH_MAX];
+    char partial[CLI_PATH_MAX];
+    char candidate_path[CLI_PATH_MAX];
+    char replacement[CLI_PATH_MAX];
+    size_t slash = 0;
+    int has_slash = 0;
+
+    for (size_t i = 0; token[i] != '\0'; i++) {
+        if (token[i] == '/') {
+            slash = i;
+            has_slash = 1;
+        }
+    }
+
+    if (!has_slash) {
+        cli_copy(directory, sizeof(directory), completion_cwd);
+        visible_prefix[0] = '\0';
+        cli_copy(partial, sizeof(partial), token);
+    } else {
+        size_t out = 0;
+        for (size_t i = 0; i <= slash && out + 1 < sizeof(visible_prefix); i++) {
+            visible_prefix[out++] = token[i];
+        }
+        visible_prefix[out] = '\0';
+        if (slash == 0) {
+            cli_copy(directory, sizeof(directory), "/");
+        } else {
+            out = 0;
+            for (size_t i = 0; i < slash && out + 1 < sizeof(directory); i++) {
+                directory[out++] = token[i];
+            }
+            directory[out] = '\0';
+            if (directory[0] != '/') {
+                char normalized[CLI_PATH_MAX];
+                cli_normalize_path(normalized, sizeof(normalized), completion_cwd, directory);
+                cli_copy(directory, sizeof(directory), normalized);
+            }
+        }
+        cli_copy(partial, sizeof(partial), token + slash + 1);
+    }
+
+    for (uint64_t index = 0;; index++) {
+        char listed[CLI_PATH_MAX];
+        const char *name = 0;
+        uint64_t size = 0;
+        long result = srv_list(index, listed, sizeof(listed), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (!path_is_immediate_child(listed, directory, &name) || !cli_starts_with(name, partial)) {
+            continue;
+        }
+        cli_join_path(candidate_path, sizeof(candidate_path), directory, name);
+        cli_copy(replacement, sizeof(replacement), visible_prefix);
+        size_t length = cli_strlen(replacement);
+        append_text(replacement, sizeof(replacement), &length, name);
+        if (shell_path_is_directory(candidate_path)) {
+            append_char(replacement, sizeof(replacement), &length, '/');
+        }
+        completion_add_replacement(completions, line, token_start, token_end, replacement,
+            !shell_path_is_directory(candidate_path));
+    }
+}
+
+static void complete_command_token(const char *line,
+    size_t token_start,
+    size_t token_end,
+    const char *token,
+    linenoiseCompletions *completions) {
+    char replacement[CLI_PATH_MAX];
+    for (size_t i = 0; i < sizeof(shell_builtins) / sizeof(shell_builtins[0]); i++) {
+        if (cli_starts_with(shell_builtins[i], token)) {
+            completion_add_replacement(completions, line, token_start, token_end, shell_builtins[i], 1);
+        }
+    }
+    for (size_t i = 0; i < SHELL_MAX_ALIASES; i++) {
+        if (aliases[i].name[0] != '\0' && cli_starts_with(aliases[i].name, token)) {
+            completion_add_replacement(completions, line, token_start, token_end, aliases[i].name, 1);
+        }
+    }
+    for (size_t i = 0; i < SHELL_MAX_FUNCTIONS; i++) {
+        if (functions[i].name[0] != '\0' && cli_starts_with(functions[i].name, token)) {
+            completion_add_replacement(completions, line, token_start, token_end, functions[i].name, 1);
+        }
+    }
+    for (size_t path = 0; path < path_count; path++) {
+        for (uint64_t index = 0;; index++) {
+            char listed[CLI_PATH_MAX];
+            const char *name = 0;
+            uint64_t size = 0;
+            long result = srv_list(index, listed, sizeof(listed), &size);
+            (void)size;
+            if (result <= 0) {
+                break;
+            }
+            if (!path_is_immediate_child(listed, path_entries[path], &name) || !cli_starts_with(name, token)) {
+                continue;
+            }
+            cli_copy(replacement, sizeof(replacement), name);
+            completion_add_replacement(completions, line, token_start, token_end, replacement, 1);
+        }
+    }
+}
+
+static void shell_completion_callback(const char *line, linenoiseCompletions *completions) {
+    size_t length = cli_strlen(line);
+    size_t token_start = length;
+    char token[CLI_PATH_MAX];
+    size_t token_length = 0;
+    int command_position;
+
+    while (token_start > 0 &&
+        line[token_start - 1] != ' ' &&
+        line[token_start - 1] != '\t' &&
+        line[token_start - 1] != ';' &&
+        line[token_start - 1] != '|' &&
+        line[token_start - 1] != '&') {
+        token_start--;
+    }
+    for (size_t i = token_start; i < length && token_length + 1 < sizeof(token); i++) {
+        token[token_length++] = line[i];
+    }
+    token[token_length] = '\0';
+
+    command_position = token_is_command_position(line, token_start);
+    if (command_position && !cli_contains_slash(token)) {
+        complete_command_token(line, token_start, length, token, completions);
+    } else {
+        complete_path_token(line, token_start, length, token, completions);
+    }
 }
 
 static int append_glob_matches(char *out, size_t capacity, size_t *out_length, const char *cwd, const char *token) {
@@ -562,10 +795,10 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read :\n");
+    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait fg bg service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, use ;, &&, ||, append & for background\n");
-    cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
+    cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
 }
@@ -855,7 +1088,38 @@ static void print_jobs(void) {
     }
 }
 
-static void wait_for_job(const char *args) {
+static int find_process_by_pid(uint64_t pid, struct srv_process_info *out) {
+    uint64_t index = 0;
+    struct srv_process_info info;
+    if (pid == 0) {
+        return 0;
+    }
+    for (;;) {
+        long next = srv_proc_list(index, &info);
+        if (next <= 0) {
+            break;
+        }
+        if (info.pid == pid) {
+            if (out != 0) {
+                *out = info;
+            }
+            return 1;
+        }
+        index = (uint64_t)next;
+    }
+    return 0;
+}
+
+static void print_wait_result(const char *prefix, long waited, uint64_t status) {
+    cli_puts(prefix);
+    cli_puts(" pid ");
+    cli_putn((uint64_t)waited);
+    cli_puts(" status ");
+    cli_putn(status);
+    cli_puts("\n");
+}
+
+static uint64_t wait_for_job(const char *args) {
     uint64_t status = 0;
     uint64_t pid = 0;
     long waited;
@@ -864,20 +1128,75 @@ static void wait_for_job(const char *args) {
         pid = parse_u64(args);
         if (pid == 0) {
             cli_puts("usage: wait [pid]\n");
-            return;
+            return 2;
         }
     }
 
     waited = srv_wait(pid, &status, 0);
     if (waited < 0) {
         cli_puts("wait: no matching background process\n");
-        return;
+        return 127;
     }
-    cli_puts("[done] pid ");
-    cli_putn((uint64_t)waited);
-    cli_puts(" status ");
-    cli_putn(status);
+    print_wait_result("[done]", waited, status);
+    return status;
+}
+
+static uint64_t fg_command(const char *args) {
+    uint64_t pid = args != 0 && args[0] != '\0' ? parse_u64(args) : last_background_pid;
+    uint64_t status = 0;
+    long waited;
+    struct srv_process_info info;
+
+    if (pid == 0) {
+        cli_puts("fg: no current background job\n");
+        return 1;
+    }
+    if (!find_process_by_pid(pid, &info)) {
+        cli_puts("fg: no such job\n");
+        return 127;
+    }
+    if (cli_streq(info.state, "foreground")) {
+        cli_puts("fg: process is already foreground\n");
+        return 1;
+    }
+    cli_puts("[fg] pid ");
+    cli_putn(pid);
+    cli_puts(" ");
+    cli_puts(info.name);
     cli_puts("\n");
+    waited = srv_wait(pid, &status, 0);
+    if (waited < 0) {
+        cli_puts("fg: wait failed\n");
+        return 127;
+    }
+    print_wait_result("[done]", waited, status);
+    return status;
+}
+
+static uint64_t bg_command(const char *args) {
+    uint64_t pid = args != 0 && args[0] != '\0' ? parse_u64(args) : last_background_pid;
+    struct srv_process_info info;
+
+    if (pid == 0) {
+        cli_puts("bg: no current background job\n");
+        return 1;
+    }
+    if (!find_process_by_pid(pid, &info)) {
+        cli_puts("bg: no such job\n");
+        return 127;
+    }
+    if (cli_streq(info.state, "foreground")) {
+        cli_puts("bg: process is foreground\n");
+        return 1;
+    }
+    cli_puts("[bg] pid ");
+    cli_putn(pid);
+    cli_puts(" ");
+    cli_puts(info.state);
+    cli_puts(" ");
+    cli_puts(info.name);
+    cli_puts("\n");
+    return 0;
 }
 
 static int process_name_matches(const struct srv_process_info *info, const char *name) {
@@ -975,6 +1294,7 @@ static void service_command(const char *args) {
             cli_puts("webd start failed\n");
             return;
         }
+        last_background_pid = (uint64_t)pid;
         cli_puts("webd started pid ");
         cli_putn((uint64_t)pid);
         cli_puts("\n");
@@ -1060,13 +1380,8 @@ static void print_env(void) {
 }
 
 static int is_builtin(const char *name) {
-    static const char *builtins[] = {
-        "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
-        "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
-        "jobs", "wait", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
-    };
-    for (size_t i = 0; i < sizeof(builtins) / sizeof(builtins[0]); i++) {
-        if (cli_streq(name, builtins[i])) {
+    for (size_t i = 0; i < sizeof(shell_builtins) / sizeof(shell_builtins[0]); i++) {
+        if (cli_streq(name, shell_builtins[i])) {
             return 1;
         }
     }
@@ -2337,8 +2652,13 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         return 0;
     }
     if (cli_streq(command, "wait")) {
-        wait_for_job(args);
-        return 0;
+        return wait_for_job(args);
+    }
+    if (cli_streq(command, "fg")) {
+        return fg_command(args);
+    }
+    if (cli_streq(command, "bg")) {
+        return bg_command(args);
     }
     if (cli_streq(command, "service")) {
         service_command(args);
@@ -2404,6 +2724,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
             close_redirection_fds(input_fd, output_fd, error_fd);
             return 126;
         } else {
+            last_background_pid = (uint64_t)status;
             cli_puts("[bg] pid ");
             cli_putn((uint64_t)status);
             cli_puts("\n");
@@ -3054,9 +3375,11 @@ int main(int argc, char **argv) {
     print_help();
     linenoiseHistorySetMaxLen(64);
     linenoiseHistoryLoad("/fat/.srvsh_history");
+    linenoiseSetCompletionCallback(shell_completion_callback);
     for (;;) {
         char prompt[LINE_MAX];
         build_prompt(prompt, sizeof(prompt), cwd);
+        cli_copy(completion_cwd, sizeof(completion_cwd), cwd);
         char *line = linenoise(prompt);
         if (line == 0) {
             cli_puts("exit\n");

@@ -111,6 +111,7 @@ struct process {
     bool killed;
     bool reapable;
     bool quiet;
+    uint64_t kill_signal;
     uint64_t pid;
     uint64_t exit_status;
     uint64_t entry;
@@ -1097,20 +1098,27 @@ int64_t process_spawn_exec(const char *path,
     return status;
 }
 
+static uint64_t load_process_u64(const uint64_t *value) {
+    const volatile uint64_t *source = value;
+    return *source;
+}
+
 static void move_process_image(struct process *destination, struct process *source) {
-    destination->entry = source->entry;
-    destination->stack_top = source->stack_top;
-    destination->argc = source->argc;
-    destination->argv = source->argv;
-    destination->envp = source->envp;
-    destination->address_space = source->address_space;
-    destination->heap_base = source->heap_base;
-    destination->program_break = source->program_break;
-    destination->mapped_break = source->mapped_break;
-    destination->heap_limit = source->heap_limit;
-    destination->mapping_count = source->mapping_count;
+    destination->entry = load_process_u64(&source->entry);
+    destination->stack_top = load_process_u64(&source->stack_top);
+    destination->argc = load_process_u64(&source->argc);
+    destination->argv = load_process_u64(&source->argv);
+    destination->envp = load_process_u64(&source->envp);
+    destination->address_space = load_process_u64(&source->address_space);
+    destination->heap_base = load_process_u64(&source->heap_base);
+    destination->program_break = load_process_u64(&source->program_break);
+    destination->mapped_break = load_process_u64(&source->mapped_break);
+    destination->heap_limit = load_process_u64(&source->heap_limit);
+    destination->mapping_count = load_process_u64(&source->mapping_count);
     for (uint64_t i = 0; i < source->mapping_count; i++) {
-        destination->mappings[i] = source->mappings[i];
+        destination->mappings[i].virtual_address = load_process_u64(&source->mappings[i].virtual_address);
+        destination->mappings[i].physical_address = load_process_u64(&source->mappings[i].physical_address);
+        destination->mappings[i].flags = load_process_u64(&source->mappings[i].flags);
     }
 
     source->address_space = 0;
@@ -1468,14 +1476,51 @@ uint64_t process_list(uint64_t start_index,
 }
 
 bool process_kill_pid(uint64_t pid) {
+    return process_signal_pid(pid, SRV_SIGNAL_TERM);
+}
+
+bool process_signal_pid(uint64_t pid, uint64_t signal) {
+    if (signal == 0) {
+        signal = SRV_SIGNAL_TERM;
+    }
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         if (processes[i].allocated && processes[i].active && processes[i].pid == pid) {
             processes[i].killed = true;
+            processes[i].kill_signal = signal;
             net_process_wake(&processes[i]);
+            process_file_poll_wake();
             return true;
         }
     }
     return false;
+}
+
+static bool is_root_interactive_shell(const struct process *process) {
+    return process != NULL &&
+        process->pid == 1 &&
+        (process_path_equal(process->name, "/fat/bin/sh") ||
+            process_path_equal(process->name, "/sh"));
+}
+
+bool process_interrupt_foreground(uint64_t signal) {
+    struct process *victim = NULL;
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        struct process *candidate = &processes[i];
+        if (!candidate->allocated ||
+            !candidate->active ||
+            candidate->detached ||
+            candidate->killed ||
+            is_root_interactive_shell(candidate)) {
+            continue;
+        }
+        if (victim == NULL || candidate->pid > victim->pid) {
+            victim = candidate;
+        }
+    }
+    if (victim == NULL) {
+        return false;
+    }
+    return process_signal_pid(victim->pid, signal);
 }
 
 static struct process *first_background_process(void) {
@@ -1512,14 +1557,20 @@ bool process_kill_background(void) {
         return false;
     }
 
-    process->killed = true;
-    net_process_wake(process);
-    return true;
+    return process_signal_pid(process->pid, SRV_SIGNAL_TERM);
 }
 
 bool process_should_exit_current(void) {
     struct process *process = process_current();
     return process != NULL && process->killed;
+}
+
+uint64_t process_current_kill_status(void) {
+    struct process *process = process_current();
+    uint64_t signal = process != NULL && process->kill_signal != 0 ?
+        process->kill_signal :
+        SRV_SIGNAL_TERM;
+    return 128 + signal;
 }
 
 bool process_has_open_vfs_prefix(const char *prefix) {

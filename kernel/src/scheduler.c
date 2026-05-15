@@ -295,7 +295,7 @@ void scheduler_preempt_tick(void) {
     wake_expired_waits();
 
     if (process_should_exit_current()) {
-        process_exit(137);
+        process_exit(process_current_kill_status());
     }
 
     preempt_tick_accumulator++;

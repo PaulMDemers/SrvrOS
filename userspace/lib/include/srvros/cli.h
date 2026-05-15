@@ -34,6 +34,10 @@ static CLI_UNUSED void cli_copy(char *destination, size_t capacity, const char *
     if (capacity == 0) {
         return;
     }
+    if (capacity == 1) {
+        destination[0] = '\0';
+        return;
+    }
     while (source != 0 && source[i] != '\0' && i + 1 < capacity) {
         destination[i] = source[i];
         i++;
@@ -131,15 +135,82 @@ static CLI_UNUSED void cli_basename(char *destination, size_t capacity, const ch
 }
 
 static CLI_UNUSED void cli_normalize_path(char *destination, size_t capacity, const char *cwd, const char *path) {
-    if (path == 0 || path[0] == '\0') {
-        cli_copy(destination, capacity, cwd);
-    } else if (path[0] == '/') {
-        cli_copy(destination, capacity, path);
-    } else if (cli_streq(cwd, "/")) {
-        cli_join_path(destination, capacity, "/", path);
-    } else {
-        cli_join_path(destination, capacity, cwd, path);
+    char combined[CLI_PATH_MAX * 2];
+    size_t combined_length = 0;
+    size_t component_starts[CLI_PATH_MAX / 2];
+    size_t component_lengths[CLI_PATH_MAX / 2];
+    size_t component_count = 0;
+
+    if (capacity == 0) {
+        return;
     }
+
+    combined[0] = '\0';
+    if (path == 0 || path[0] == '\0') {
+        path = cwd != 0 && cwd[0] != '\0' ? cwd : "/";
+    }
+    if (path[0] != '/') {
+        const char *base = cwd != 0 && cwd[0] != '\0' ? cwd : "/";
+        for (size_t i = 0; base[i] != '\0' && combined_length + 1 < sizeof(combined); i++) {
+            combined[combined_length++] = base[i];
+        }
+        if (combined_length == 0 || combined[combined_length - 1] != '/') {
+            if (combined_length + 1 < sizeof(combined)) {
+                combined[combined_length++] = '/';
+            }
+        }
+    }
+    for (size_t i = 0; path[i] != '\0' && combined_length + 1 < sizeof(combined); i++) {
+        combined[combined_length++] = path[i];
+    }
+    combined[combined_length] = '\0';
+
+    for (size_t cursor = 0; combined[cursor] != '\0';) {
+        while (combined[cursor] == '/') {
+            cursor++;
+        }
+        if (combined[cursor] == '\0') {
+            break;
+        }
+        size_t start = cursor;
+        while (combined[cursor] != '\0' && combined[cursor] != '/') {
+            cursor++;
+        }
+        size_t length = cursor - start;
+        if (length == 1 && combined[start] == '.') {
+            continue;
+        }
+        if (length == 2 && combined[start] == '.' && combined[start + 1] == '.') {
+            if (component_count > 0) {
+                component_count--;
+            }
+            continue;
+        }
+        if (component_count < sizeof(component_starts) / sizeof(component_starts[0])) {
+            component_starts[component_count] = start;
+            component_lengths[component_count] = length;
+            component_count++;
+        }
+    }
+
+    size_t out = 0;
+    destination[out++] = '/';
+    for (size_t component = 0; component < component_count; component++) {
+        if (out > 1) {
+            if (out + 1 >= capacity) {
+                break;
+            }
+            destination[out++] = '/';
+        }
+        for (size_t i = 0; i < component_lengths[component]; i++) {
+            if (out + 1 >= capacity) {
+                destination[out] = '\0';
+                return;
+            }
+            destination[out++] = combined[component_starts[component] + i];
+        }
+    }
+    destination[out] = '\0';
 }
 
 #endif

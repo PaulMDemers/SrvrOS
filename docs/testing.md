@@ -46,10 +46,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
   tools, source scripts plus non-interactive `sh script` and `sh -c`,
-  command substitution, positional parameters, shell functions/`return`,
+  command substitution, positional parameters, `$!`, shell functions/`return`,
   unmatched quote/block diagnostics, `set -e`, `read`, `alias`,
   `type`, `unset`, bare assignments, quoted assignment command substitution,
   `cd -` and directory validation,
+  canonical relative paths using `.`/`..` against inherited `PWD`,
   `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
@@ -58,7 +59,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `mv`, `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
   `find -type`, `ls -a/-la` and multi-path headers, `sed -n`/`-e`/`p`/`d`
   with simple addresses, `expr` arithmetic/string expressions,
-  `printf`, `tr`, `while` loops, `shift`,
+  `printf`, `tr`, `while` loops, `shift`, `fg`/`bg`,
   `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
@@ -67,7 +68,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.
 - `process_smoke.py`: background process launch, process listing, exit status,
-  and `wait`.
+  `wait`, and Ctrl-C interruption of a foreground CPU-bound process with
+  `status 130`.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,

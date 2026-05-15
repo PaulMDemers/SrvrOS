@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 #define CHILD_MAX 64
 #define NAME_MAX 64
 
@@ -68,7 +70,8 @@ static int list_target(const char *target_arg, int long_format, int all, int sho
     int found = 0;
     int target_is_dir = 0;
 
-    cli_copy(target, sizeof(target), target_arg);
+    const char *pwd = getenv("PWD");
+    cli_normalize_path(target, sizeof(target), pwd != 0 && pwd[0] != '\0' ? pwd : "/", target_arg);
     trim_trailing_slashes(target);
     build_prefix(prefix, sizeof(prefix), target);
 

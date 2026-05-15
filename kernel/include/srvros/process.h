@@ -78,12 +78,15 @@ uint64_t process_list(uint64_t start_index,
     const char **name_out,
     const char **state_out);
 bool process_kill_pid(uint64_t pid);
+bool process_signal_pid(uint64_t pid, uint64_t signal);
+bool process_interrupt_foreground(uint64_t signal);
 bool process_background_active(void);
 bool process_background_killed(void);
 const char *process_background_name(void);
 uint64_t process_background_status(void);
 bool process_kill_background(void);
 bool process_should_exit_current(void);
+uint64_t process_current_kill_status(void);
 bool process_has_open_vfs_prefix(const char *prefix);
 struct process *process_current(void);
 uint64_t process_pid(const struct process *process);

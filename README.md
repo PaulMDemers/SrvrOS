@@ -50,15 +50,17 @@ editor clients:
   and a bounded active-client table.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, multi-stage pipelines,
-  scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
+  scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
   `while`/`do`/`done`, shell functions with `return`, `shift`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`,
   `test`/`[`, `set -e`, `read`, `alias`, `type`,
-  `unset`, safer `cd`, `service webd`, DHCP/status/DNS commands,
+  `unset`, safer `cd`, `jobs`/`wait`/`fg`/`bg`, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
-  recovery, and Unix-like tools
+  recovery, Ctrl-C foreground job interruption with `128 + signal` statuses,
+  canonical relative paths with `.`/`..`, tab completion for commands and
+  filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
   `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
@@ -223,6 +225,9 @@ ports, and simple boot scripts:
 / $ if test -f /fat/www/index.html; then service webd start /fat/www; fi
 / $ alias ll='ls /fat/bin'
 / $ type ll sh cd
+/ $ sleep 10 &
+/ $ echo last-background-pid=$!
+/ $ fg $!
 ```
 
 ## Useful Monitor Commands

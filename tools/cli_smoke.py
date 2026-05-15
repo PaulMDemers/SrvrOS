@@ -149,6 +149,7 @@ def main():
         "uname\n"
         "uname -a\n"
         "hostname\n"
+        "hostn\t\n"
         "uptime\n"
         "find /fat/etc\n"
         "find /fat/bin -name sh\n"
@@ -211,6 +212,7 @@ def main():
         "stat /fat/tap-stdout.txt\n"
         "true > /fat/empty-redir.txt\n"
         "stat /fat/empty-redir.txt\n"
+        "cat /fat/status.t\t\n"
         "tap > /fat/tap-combined.txt 2>&1\n"
         "stat /fat/tap-combined.txt\n"
         "cat /fat/tap-combined.txt\n"
@@ -264,9 +266,19 @@ def main():
         "echo unset-${FOO}\n"
         "cd /fat\n"
         "pwd\n"
+        "cat status.txt\n"
+        "cat ./status.txt\n"
+        "cat www/../status.txt\n"
+        "ls ./bin/../etc\n"
+        "cd ./www/../etc\n"
+        "pwd\n"
+        "cd ../..\n"
+        "echo norm-root-$PWD\n"
+        "pwd\n"
         "cd -\n"
         "pwd\n"
         "cd /fat/status.txt\n"
+        "cd /\n"
         "read READVAR\n"
         "typed input\n"
         "echo read-$READVAR\n"
@@ -306,8 +318,10 @@ def main():
         "ps\n"
         "fpdemo\n"
         "fpdemo &\n"
+        "echo last-bg-$!\n"
+        "bg $!\n"
+        "fg $!\n"
         "fpdemo &\n"
-        "wait\n"
         "wait\n"
         "write /fat/shell.txt hello-from-sh\n"
         "cat /fat/shell.txt\n"
@@ -526,6 +540,8 @@ def main():
         "bare-barevalue",
         "unset-",
         "/fat",
+        "norm-root-/",
+        "/fat/etc",
         "cd: not a directory: /fat/status.txt",
         "read-typed input",
         "subst-command-sub-ok",
@@ -543,6 +559,9 @@ def main():
         "PID STATE",
         "/fat/bin/sh",
         "fpdemo: ok pid=",
+        "last-bg-",
+        "[fg] pid",
+        "[done] pid",
         "hello-from-sh",
         "move-me",
         "stat: not found: /fat/move-src.txt",
@@ -575,9 +594,21 @@ def main():
         "exit",
     ]
     missing = [marker for marker in expected if marker not in text]
+    forbidden = [
+        "cat: open failed: status.txt",
+        "cat: open failed: ./status.txt",
+        "cat: open failed: www/../status.txt",
+        "ls: not found: ./bin/../etc",
+    ]
+    present_forbidden = [marker for marker in forbidden if marker in text]
     if has_fatal_exception(text):
         print("cli-smoke: fatal exception detected", file=sys.stderr)
         return 2
+    if present_forbidden:
+        print("cli-smoke: forbidden markers:", file=sys.stderr)
+        for marker in present_forbidden:
+            print(f"  {marker}", file=sys.stderr)
+        return 4
     if missing:
         print("cli-smoke: missing markers:", file=sys.stderr)
         for marker in missing:

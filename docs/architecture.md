@@ -187,15 +187,29 @@ Core tools:
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
-`$?`/`$$`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
+`$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
 command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
 shell functions with `return`, `shift`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `TMPDIR`,
-`cd -` with directory validation, `service webd`, DHCP/status/DNS builtins,
-`env`/`export`/`which`, `exec`, and basic filesystem builtins.
+`cd -` with directory validation, `jobs`/`wait`/`fg`/`bg`, `service webd`,
+DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
+builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
+input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
+aliases, functions, PATH commands, and filesystem paths.
+
+Userspace path handling now canonicalizes relative paths against the inherited
+`PWD`, including repeated separators plus `.` and `..` components. The syscall
+wrapper layer and POSIX path helpers share the same normalization behavior, so
+shell commands, libc callers, and spawned processes see consistent paths.
+
+The first terminal signal path handles Ctrl-C from serial or PS/2 keyboard
+input. The kernel routes it to the active foreground userspace process instead
+of the root interactive shell, marks that process for `SIGINT`, wakes blocking
+I/O where possible, and exits it with the conventional `128 + signal` status.
+`kill` uses the same process signal machinery with `SIGTERM`.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for

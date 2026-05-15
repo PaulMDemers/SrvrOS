@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 static int glob_match(const char *pattern, const char *text) {
     if (*pattern == '\0') {
         return *text == '\0';
@@ -43,6 +45,7 @@ static int under_root(const char *path, const char *root) {
 
 int main(int argc, char **argv) {
     const char *root = "/";
+    char normalized_root[CLI_PATH_MAX];
     const char *name_pattern = 0;
     int type_filter = 0;
     int printed_root = 0;
@@ -64,6 +67,9 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
+    const char *pwd = getenv("PWD");
+    cli_normalize_path(normalized_root, sizeof(normalized_root), pwd != 0 && pwd[0] != '\0' ? pwd : "/", root);
+    root = normalized_root;
 
     for (uint64_t list_index = 0;; list_index++) {
         char path[CLI_PATH_MAX];

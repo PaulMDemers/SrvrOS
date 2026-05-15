@@ -425,6 +425,21 @@ void *bsearch(const void *key,
 static char *environment[32];
 char **environ = environment;
 
+static void ensure_environment_writable(void) {
+    if (environ == environment) {
+        return;
+    }
+    size_t out = 0;
+    while (environ != 0 &&
+        environ[out] != 0 &&
+        out + 1 < sizeof(environment) / sizeof(environment[0])) {
+        environment[out] = environ[out];
+        out++;
+    }
+    environment[out] = 0;
+    environ = environment;
+}
+
 static size_t name_length(const char *entry) {
     size_t length = 0;
     while (entry[length] != '\0' && entry[length] != '=') {
@@ -442,9 +457,10 @@ char *getenv(const char *name) {
     if (name == 0 || name[0] == '\0') {
         return 0;
     }
-    for (size_t i = 0; environment[i] != 0; i++) {
-        if (env_match(environment[i], name)) {
-            return environment[i] + name_length(environment[i]) + 1;
+    char **env = environ != 0 ? environ : environment;
+    for (size_t i = 0; env[i] != 0; i++) {
+        if (env_match(env[i], name)) {
+            return env[i] + name_length(env[i]) + 1;
         }
     }
     return 0;
@@ -455,6 +471,7 @@ int putenv(char *string) {
         errno = EINVAL;
         return -1;
     }
+    ensure_environment_writable();
     size_t len = name_length(string);
     for (size_t i = 0; environment[i] != 0; i++) {
         if (strncmp(environment[i], string, len) == 0 && environment[i][len] == '=') {
@@ -501,6 +518,7 @@ int unsetenv(const char *name) {
         errno = EINVAL;
         return -1;
     }
+    ensure_environment_writable();
     for (size_t i = 0; environment[i] != 0; i++) {
         if (env_match(environment[i], name)) {
             for (size_t j = i; environment[j] != 0; j++) {
@@ -513,6 +531,7 @@ int unsetenv(const char *name) {
 }
 
 int clearenv(void) {
+    ensure_environment_writable();
     for (size_t i = 0; i < sizeof(environment) / sizeof(environment[0]); i++) {
         environment[i] = 0;
     }

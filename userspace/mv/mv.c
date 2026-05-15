@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 static char buffer[2048];
 
 static int stat_type(const char *path, uint64_t *type_out) {
@@ -87,6 +89,8 @@ static int copy_file(const char *source, const char *dest) {
 }
 
 int main(int argc, char **argv) {
+    char source[CLI_PATH_MAX];
+    char target[CLI_PATH_MAX];
     char dest[CLI_PATH_MAX];
     uint64_t source_type = 0;
 
@@ -94,25 +98,29 @@ int main(int argc, char **argv) {
         cli_puts("usage: mv <source> <dest>\n");
         return 1;
     }
-    if (!stat_type(argv[1], &source_type)) {
+    const char *pwd = getenv("PWD");
+    cli_normalize_path(source, sizeof(source), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[1]);
+    cli_normalize_path(target, sizeof(target), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[2]);
+
+    if (!stat_type(source, &source_type)) {
         cli_puts("mv: not found: ");
         cli_puts(argv[1]);
         cli_puts("\n");
         return 1;
     }
-    if (path_is_dir(argv[2])) {
-        if (!cli_join_path(dest, sizeof(dest), argv[2], base_name(argv[1]))) {
+    if (path_is_dir(target)) {
+        if (!cli_join_path(dest, sizeof(dest), target, base_name(source))) {
             cli_puts("mv: destination path too long\n");
             return 1;
         }
     } else {
-        if (!copy_path(dest, sizeof(dest), argv[2])) {
+        if (!copy_path(dest, sizeof(dest), target)) {
             cli_puts("mv: destination path too long\n");
             return 1;
         }
     }
 
-    if (srv_rename(argv[1], dest) == 0) {
+    if (srv_rename(source, dest) == 0) {
         return 0;
     }
     if (source_type == 1) {
@@ -121,5 +129,5 @@ int main(int argc, char **argv) {
         cli_puts("\n");
         return 1;
     }
-    return copy_file(argv[1], dest);
+    return copy_file(source, dest);
 }

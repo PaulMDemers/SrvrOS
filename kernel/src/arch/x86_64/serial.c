@@ -1,6 +1,7 @@
 #include <srvros/console.h>
-#include <srvros/serial.h>
 #include <srvros/keyboard.h>
+#include <srvros/process.h>
+#include <srvros/serial.h>
 
 #include "io.h"
 
@@ -22,6 +23,10 @@ static bool rx_data_ready(void) {
 static void push_rx_char(char c) {
     if (c == '\r') {
         c = '\n';
+    }
+    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+        keyboard_wake_waiters();
+        return;
     }
 
     uint64_t next = (rx_write_index + 1) % SERIAL_BUFFER_SIZE;

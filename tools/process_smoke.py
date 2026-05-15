@@ -77,7 +77,6 @@ def main():
         "jobs\n"
         "wait\n"
         "jobs\n"
-        "exit\n"
     )
     with tempfile.TemporaryDirectory(prefix="srvros-process-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-process.exfat")
@@ -106,10 +105,13 @@ def main():
             output += read_until(sock, b" $ ", 5)
             for line in script.splitlines(True):
                 sock.sendall(line.encode("ascii"))
-                if line.strip() == "exit":
-                    output += read_until(sock, b"srv> ", 10)
-                else:
-                    output += read_until(sock, b" $ ", args.line_wait)
+                output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"spin\n")
+            output += read_until(sock, b"spin: entering busy loop", args.line_wait)
+            sock.sendall(b"\x03")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"exit 0\n")
+            output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
         finally:
             try:
@@ -128,6 +130,8 @@ def main():
         "exited /fat/bin/hello",
         "[done] pid ",
         "status 7",
+        "spin: entering busy loop",
+        "status 130",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

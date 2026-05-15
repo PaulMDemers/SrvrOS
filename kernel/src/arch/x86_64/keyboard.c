@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
+#include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/serial.h>
 
@@ -13,6 +14,7 @@ static char buffer[KEYBOARD_BUFFER_SIZE];
 static volatile uint64_t read_index;
 static volatile uint64_t write_index;
 static bool shift_down;
+static bool ctrl_down;
 static struct scheduler_wait_queue keyboard_wait_queue;
 
 static const char scancode_set1[128] = {
@@ -65,6 +67,10 @@ void keyboard_handle_irq(void) {
         shift_down = !released;
         return;
     }
+    if (key == 29) {
+        ctrl_down = !released;
+        return;
+    }
 
     if (released) {
         return;
@@ -73,6 +79,13 @@ void keyboard_handle_irq(void) {
     char c = key < sizeof(scancode_set1) ?
         (shift_down ? scancode_set1_shift[key] : scancode_set1[key]) :
         0;
+    if (ctrl_down && (key == 46 || key == 32 || key == 44)) {
+        c = key == 46 ? 3 : (key == 32 ? 4 : 26);
+    }
+    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+        scheduler_wake_all(&keyboard_wait_queue);
+        return;
+    }
     if (c != 0) {
         push_char(c);
     }
@@ -98,13 +111,16 @@ bool keyboard_scan_char(char *out) {
 
 static bool keyboard_has_char(void *arg) {
     (void)arg;
-    return read_index != write_index || serial_has_char();
+    return process_should_exit_current() || read_index != write_index || serial_has_char();
 }
 
 char keyboard_read_char(void) {
     char c;
 
     while (!keyboard_try_read_char(&c) && !serial_try_read_char(&c)) {
+        if (process_should_exit_current()) {
+            return 0;
+        }
         if (!scheduler_wait(&keyboard_wait_queue, keyboard_has_char, 0)) {
             __asm__ volatile ("pause");
         }

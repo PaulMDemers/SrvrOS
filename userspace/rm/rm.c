@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 #define RM_MAX_PATHS 256
 
 struct rm_path {
@@ -119,17 +121,20 @@ int main(int argc, char **argv) {
 
     for (int i = first_path; i < argc; i++) {
         struct srv_stat info;
-        if (srv_stat(argv[i], &info) == 0 && info.type == 1) {
+        char normalized[CLI_PATH_MAX];
+        const char *pwd = getenv("PWD");
+        cli_normalize_path(normalized, sizeof(normalized), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[i]);
+        if (srv_stat(normalized, &info) == 0 && info.type == 1) {
             if (!recursive) {
                 cli_puts("rm: is a directory: ");
                 cli_puts(argv[i]);
                 cli_puts("\n");
                 status = 1;
             } else {
-                status |= remove_recursive(argv[i]);
+                status |= remove_recursive(normalized);
             }
         } else {
-            status |= remove_one_file(argv[i]);
+            status |= remove_one_file(normalized);
         }
     }
     return status;

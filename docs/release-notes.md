@@ -123,6 +123,13 @@ server.
   simple byte translation/deletion pipelines.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
+- Adds shell `$!` expansion, `fg`/`bg` builtins for the current background
+  process model, `wait` status propagation, and tab completion for builtins,
+  aliases, functions, PATH commands, and filesystem paths.
+- Adds shared userspace path normalization for shell/libc/syscall wrappers,
+  including inherited `PWD`, relative paths, repeated `/`, `.`, and `..`.
+- Adds kernel-routed Ctrl-C/SIGINT delivery to the active foreground process,
+  SIGTERM-backed `kill`, and shell-visible `128 + signal` termination statuses.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

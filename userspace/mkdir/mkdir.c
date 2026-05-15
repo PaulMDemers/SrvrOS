@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 static int path_is_dir(const char *path) {
     struct srv_stat info;
     return srv_stat(path, &info) == 0 && info.type == 1;
@@ -81,7 +83,10 @@ int main(int argc, char **argv) {
     }
 
     for (int i = first_path; i < argc; i++) {
-        if (mkdir_one(argv[i], parents) != 0) {
+        char normalized[CLI_PATH_MAX];
+        const char *pwd = getenv("PWD");
+        cli_normalize_path(normalized, sizeof(normalized), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[i]);
+        if (mkdir_one(normalized, parents) != 0) {
             cli_puts("mkdir: failed: ");
             cli_puts(argv[i]);
             cli_puts("\n");

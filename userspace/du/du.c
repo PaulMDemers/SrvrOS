@@ -1,6 +1,8 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
+#include <stdlib.h>
+
 static int under_root(const char *path, const char *root) {
     size_t root_length = cli_strlen(root);
     if (cli_streq(root, "/")) {
@@ -47,13 +49,16 @@ int main(int argc, char **argv) {
     int status = 0;
     for (int i = first_path; i < argc; i++) {
         struct srv_stat info;
+        char normalized[CLI_PATH_MAX];
         uint64_t total = 0;
         int seen = 0;
-        if (srv_stat(argv[i], &info) == 0 && info.type == 0) {
+        const char *pwd = getenv("PWD");
+        cli_normalize_path(normalized, sizeof(normalized), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[i]);
+        if (srv_stat(normalized, &info) == 0 && info.type == 0) {
             total = info.size;
             seen = 1;
         } else {
-            total = sum_path(argv[i], &seen);
+            total = sum_path(normalized, &seen);
         }
         if (!seen) {
             cli_puts("du: not found: ");
@@ -64,7 +69,7 @@ int main(int argc, char **argv) {
         }
         cli_putn(total);
         cli_puts("\t");
-        cli_puts(argv[i]);
+        cli_puts(normalized);
         cli_puts("\n");
     }
     return status;

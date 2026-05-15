@@ -1,4 +1,19 @@
 #include <srvros/sys.h>
+#include <srvros/cli.h>
+
+#include <stdlib.h>
+
+static const char *srv_make_path(const char *path, char *buffer, size_t capacity) {
+    if (path == 0 || path[0] == '\0' || capacity == 0) {
+        return path;
+    }
+    if (path[0] == '/' && path[1] == '\0') {
+        return path;
+    }
+    const char *cwd = getenv("PWD");
+    cli_normalize_path(buffer, capacity, cwd != 0 && cwd[0] != '\0' ? cwd : "/", path);
+    return buffer;
+}
 
 long srv_syscall0(long number) {
     __asm__ volatile ("int $0x80" : "+a"(number) : : "memory");
@@ -64,11 +79,13 @@ long srv_read(int fd, void *buffer, size_t length) {
 }
 
 long srv_open(const char *path) {
-    return srv_syscall1(SYS_OPEN, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_OPEN, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_open_mode(const char *path, uint64_t flags) {
-    return srv_syscall2(SYS_OPEN_MODE, (long)path, (long)flags);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_OPEN_MODE, (long)srv_make_path(path, full, sizeof(full)), (long)flags);
 }
 
 long srv_close(int fd) {
@@ -124,7 +141,8 @@ long srv_fstat(int fd, struct srv_stat *info) {
 }
 
 long srv_chmod(const char *path, uint64_t mode) {
-    return srv_syscall2(SYS_CHMOD, (long)path, (long)mode);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_CHMOD, (long)srv_make_path(path, full, sizeof(full)), (long)mode);
 }
 
 long srv_fchmod(int fd, uint64_t mode) {
@@ -156,27 +174,36 @@ long srv_fs_append(const char *path, const void *buffer, size_t length) {
 }
 
 long srv_stat(const char *path, struct srv_stat *info) {
-    return srv_syscall2(SYS_STAT, (long)path, (long)info);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_STAT, (long)srv_make_path(path, full, sizeof(full)), (long)info);
 }
 
 long srv_statfs(const char *path, struct srv_fsinfo *info) {
-    return srv_syscall2(SYS_STATFS, (long)path, (long)info);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_STATFS, (long)srv_make_path(path, full, sizeof(full)), (long)info);
 }
 
 long srv_unlink(const char *path) {
-    return srv_syscall1(SYS_UNLINK, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_UNLINK, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_mkdir(const char *path) {
-    return srv_syscall1(SYS_MKDIR, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_MKDIR, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_rmdir(const char *path) {
-    return srv_syscall1(SYS_RMDIR, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_RMDIR, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_rename(const char *old_path, const char *new_path) {
-    return srv_syscall2(SYS_RENAME, (long)old_path, (long)new_path);
+    char old_full[CLI_PATH_MAX];
+    char new_full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_RENAME,
+        (long)srv_make_path(old_path, old_full, sizeof(old_full)),
+        (long)srv_make_path(new_path, new_full, sizeof(new_full)));
 }
 
 long srv_list(uint64_t index, char *path_buffer, size_t path_capacity, uint64_t *size_out) {
@@ -184,31 +211,52 @@ long srv_list(uint64_t index, char *path_buffer, size_t path_capacity, uint64_t 
 }
 
 long srv_spawn(const char *path) {
-    return srv_syscall1(SYS_SPAWN, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_SPAWN, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_spawn_args(const char *path, const char *args) {
-    return srv_syscall2(SYS_SPAWN_ARGS, (long)path, (long)args);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_SPAWN_ARGS, (long)srv_make_path(path, full, sizeof(full)), (long)args);
 }
 
 long srv_spawn_args_redirect(const char *path, const char *args, const char *stdout_path, int append) {
-    return srv_syscall4(SYS_SPAWN_ARGS_REDIRECT, (long)path, (long)args, (long)stdout_path, append);
+    char full[CLI_PATH_MAX];
+    char out_full[CLI_PATH_MAX];
+    return srv_syscall4(SYS_SPAWN_ARGS_REDIRECT,
+        (long)srv_make_path(path, full, sizeof(full)),
+        (long)args,
+        (long)srv_make_path(stdout_path, out_full, sizeof(out_full)),
+        append);
 }
 
 long srv_spawn_bg(const char *path) {
-    return srv_syscall1(SYS_SPAWN_BG, (long)path);
+    char full[CLI_PATH_MAX];
+    return srv_syscall1(SYS_SPAWN_BG, (long)srv_make_path(path, full, sizeof(full)));
 }
 
 long srv_spawn_bg_args(const char *path, const char *args) {
-    return srv_syscall2(SYS_SPAWN_BG_ARGS, (long)path, (long)args);
+    char full[CLI_PATH_MAX];
+    return srv_syscall2(SYS_SPAWN_BG_ARGS, (long)srv_make_path(path, full, sizeof(full)), (long)args);
 }
 
 long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int stdout_fd) {
-    return srv_syscall4(SYS_SPAWN_BG_ARGS_FDS, (long)path, (long)args, stdin_fd, stdout_fd);
+    char full[CLI_PATH_MAX];
+    return srv_syscall4(SYS_SPAWN_BG_ARGS_FDS,
+        (long)srv_make_path(path, full, sizeof(full)),
+        (long)args,
+        stdin_fd,
+        stdout_fd);
 }
 
 long srv_exec(const struct srv_exec_request *request) {
-    return srv_syscall1(SYS_EXEC, (long)request);
+    if (request == 0 || request->path == 0) {
+        return srv_syscall1(SYS_EXEC, (long)request);
+    }
+    char full[CLI_PATH_MAX];
+    struct srv_exec_request normalized = *request;
+    normalized.path = srv_make_path(request->path, full, sizeof(full));
+    return srv_syscall1(SYS_EXEC, (long)&normalized);
 }
 
 long srv_execve(const char *path, char *const argv[], char *const envp[]) {

@@ -219,11 +219,17 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
     __asm__ volatile ("sti" : : : "memory");
     if ((console_termios.lflag & SRV_TTY_LFLAG_ICANON) == 0) {
         char c = 0;
+        if (process_should_exit_current()) {
+            return -1;
+        }
         if (console_termios.cc[SRV_TTY_VMIN] == 0 && !keyboard_scan_char(&c)) {
             return 0;
         }
         if (c == 0) {
             c = keyboard_read_char();
+        }
+        if (process_should_exit_current()) {
+            return -1;
         }
         c = tty_filter_input(c);
         buffer[0] = c;
@@ -235,6 +241,9 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
 
     uint64_t count = 0;
     while (count < length) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
         char c = tty_filter_input(keyboard_read_char());
         char erase = console_termios.cc[SRV_TTY_VERASE] != 0 ? (char)console_termios.cc[SRV_TTY_VERASE] : '\b';
         char eof = console_termios.cc[SRV_TTY_VEOF] != 0 ? (char)console_termios.cc[SRV_TTY_VEOF] : 4;
