@@ -129,6 +129,9 @@ server.
   `|` alternatives, default arms, and multiline script support.
 - Allows completed `if`/`for`/`while`/`case` compound commands to continue with
   `;`, `&&`, and `||` tails.
+- Adds another shell compatibility slice: command-local environment assignments,
+  current-shell brace grouping, comment handling, script line continuations,
+  simple here-docs, and better quoted/escaped argument preservation.
 - Adds shell `$!` expansion, `fg`/`bg` builtins for the current background
   process model, `wait` status propagation, and tab completion for builtins,
   aliases, functions, PATH commands, and filesystem paths.

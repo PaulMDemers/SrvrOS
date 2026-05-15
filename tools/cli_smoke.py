@@ -234,6 +234,28 @@ def main():
         "source /fat/boot.sh\n"
         "sh /fat/boot.sh\n"
         "sh -c 'echo command-mode-ok'\n"
+        "echo comment-ok # ignored by shell\n"
+        "{ echo group-one; echo group-two; }; echo group-tail\n"
+        "false || { echo group-or-ok; }\n"
+        "TEMPVAR=local /fat/bin/env > /fat/local-env.txt\n"
+        "grep TEMPVAR /fat/local-env.txt\n"
+        "echo after-local-${TEMPVAR}\n"
+        "TEMPVAR=one OTHER=two sh -c 'echo local-$TEMPVAR-$OTHER'\n"
+        "printf 'empty-%s-end\\n' \"\" > /fat/empty-arg.txt\n"
+        "cat /fat/empty-arg.txt\n"
+        "printf 'space-%s\\n' \"two words\" > /fat/space-arg.txt\n"
+        "cat /fat/space-arg.txt\n"
+        "printf 'escape-%s\\n' two\\ words > /fat/escape-arg.txt\n"
+        "cat /fat/escape-arg.txt\n"
+        "write /fat/compat.sh 'echo script-comment-ok # ignored'\n"
+        "write -a /fat/compat.sh echo\\ continuation-\\\n"
+        "write -a /fat/compat.sh 'ok'\n"
+        "write -a /fat/compat.sh 'cat <<EOF > /fat/heredoc.txt'\n"
+        "write -a /fat/compat.sh 'heredoc-one'\n"
+        "write -a /fat/compat.sh 'heredoc two words'\n"
+        "write -a /fat/compat.sh 'EOF'\n"
+        "write -a /fat/compat.sh 'cat /fat/heredoc.txt'\n"
+        "sh /fat/compat.sh\n"
         "echo \"unterminated\n"
         "for n in one two three; do echo loop-$n; done\n"
         "write /fat/for.sh 'for n in red blue; do'\n"
@@ -539,6 +561,21 @@ def main():
         "script-ok",
         "appended-script-ok",
         "command-mode-ok",
+        "comment-ok",
+        "group-one",
+        "group-two",
+        "group-tail",
+        "group-or-ok",
+        "TEMPVAR=local",
+        "after-local-",
+        "local-one-two",
+        "empty--end",
+        "space-two words",
+        "escape-two words",
+        "script-comment-ok",
+        "continuation-ok",
+        "heredoc-one",
+        "heredoc two words",
         "loop-one",
         "loop-two",
         "loop-three",

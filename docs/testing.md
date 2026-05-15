@@ -60,7 +60,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `find -type`, `ls -a/-la` and multi-path headers, `sed -n`/`-e`/`p`/`d`
   with simple addresses, `expr` arithmetic/string expressions,
   `printf`, `tr`, `while` loops, `case` pattern matching, compound-command
-  tail chaining, `shift`, `break`/`continue`,
+  tail chaining, command-local environment assignments, comments, script line
+  continuations, simple here-docs, brace grouping, quoted empty and escaped-space
+  arguments, `shift`, `break`/`continue`,
   `command -v`/`command -V` and alias bypass, `fg`/`bg`,
   `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
   `tap` file splitting,

@@ -54,6 +54,8 @@ editor clients:
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, compound-command tail chaining with `;`/`&&`/`||`,
+  command-local `NAME=value`, comments, script line continuations, here-docs,
+  current-shell `{ ...; }` grouping,
   `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
   `while`/`do`/`done`, `case`/`in`/`esac`, shell functions with `return`, `shift`,
   loop `break`/`continue`,

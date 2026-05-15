@@ -191,6 +191,8 @@ redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
 command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`, compound-command tail chaining,
+command-local `NAME=value`, comments, script line continuations, simple
+here-docs, current-shell `{ ...; }` grouping,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
 `case`/`in`/`esac`,
 shell functions with `return`, `shift`, loop `break`/`continue`,
