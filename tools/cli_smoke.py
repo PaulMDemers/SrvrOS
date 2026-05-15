@@ -117,9 +117,15 @@ def main():
         "date\n"
         "touch /fat/touched.txt\n"
         "stat /fat/touched.txt\n"
+        "echo tmpdir-$TMPDIR\n"
         "TMP=$(mktemp /fat/tmp/smoke.XXXXXX)\n"
         "echo tmp-$TMP\n"
         "stat $TMP\n"
+        "AUTO=$(mktemp)\n"
+        "echo auto-$AUTO\n"
+        "stat $AUTO\n"
+        "SPACED=\"$(echo two words)\"\n"
+        "echo assign-$SPACED\n"
         "basename /fat/bin/sh\n"
         "dirname /fat/bin/sh\n"
         "/fat/bin/env FOO=bar\n"
@@ -273,6 +279,15 @@ def main():
         "cat /fat/move-dst.txt\n"
         "stat /fat/move-src.txt\n"
         "rm /fat/move-dst.txt\n"
+        "mkdir -p /fat/mvdir/target\n"
+        "write /fat/move-into.txt moved-into\n"
+        "mv /fat/move-into.txt /fat/mvdir\n"
+        "cat /fat/mvdir/move-into.txt\n"
+        "mkdir /fat/mvdir/emptydir\n"
+        "mv /fat/mvdir/emptydir /fat/mvdir/target\n"
+        "stat /fat/mvdir/target/emptydir\n"
+        "rm -r /fat/mvdir\n"
+        "stat /fat/mvdir/move-into.txt\n"
         "tap /fat/tap-copy.txt /fat/status.txt\n"
         "stat /fat/tap-copy.txt\n"
         "cat /fat/tap-copy.txt\n"
@@ -368,8 +383,12 @@ def main():
         "/fat/bin/dirname",
         "uptime ",
         "/fat/touched.txt: 0 bytes",
+        "tmpdir-/fat/tmp",
         "tmp-/fat/tmp/smoke.",
         "/fat/tmp/smoke.",
+        "auto-/fat/tmp/tmp.",
+        "/fat/tmp/tmp.",
+        "assign-two words",
         "sh",
         "/fat/bin",
         "FOO=bar",
@@ -455,6 +474,9 @@ def main():
         "hello-from-sh",
         "move-me",
         "stat: not found: /fat/move-src.txt",
+        "moved-into",
+        "/fat/mvdir/target/emptydir: 0 bytes directory",
+        "stat: not found: /fat/mvdir/move-into.txt",
         "/fat/tap-copy.txt: 55 bytes",
         "/fat/piped-copy.txt: 55 bytes",
         "/fat/piped3.txt: 55 bytes",

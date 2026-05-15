@@ -107,6 +107,10 @@ server.
 - Adds `/fat/bin/mktemp`, `mkdir -p`, recursive `cp -r`/`rm -r`, shell
   unterminated-block diagnostics for scripts, and Ctrl-C prompt recovery in the
   linenoise console adapter.
+- Adds `/fat/etc/profile` and shell fallback `TMPDIR=/fat/tmp`, makes default
+  `mktemp` honor `TMPDIR`, decodes quoted assignment values after command
+  substitution, and teaches `/fat/bin/mv` to move files and empty directories
+  into existing directory destinations.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

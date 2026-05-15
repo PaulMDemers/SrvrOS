@@ -287,6 +287,9 @@ kernel, and a minimal Unix-like userspace.
   literal-substitution `/fat/bin/sed`.
 - Add `/fat/bin/mktemp`, `mkdir -p`, recursive `cp -r`/`rm -r`, Ctrl-C prompt
   recovery, and script diagnostics for unterminated multiline blocks.
+- Add `TMPDIR=/fat/tmp` profile/shell defaults, default `mktemp` placement under
+  `TMPDIR`, quoted assignment decoding after command substitution, and
+  directory-destination handling for `/fat/bin/mv`.
 
 ## Next milestones
 
@@ -298,7 +301,8 @@ kernel, and a minimal Unix-like userspace.
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, `tail`, `tee`, `find`,
    `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`, `mktemp`, `mkdir -p`,
-   recursive `cp`/`rm`, `uname`, `hostname`, and `uptime`.
+   recursive `cp`/`rm`, directory-aware `mv`, `uname`, `hostname`, and
+   `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,

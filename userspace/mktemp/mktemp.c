@@ -1,5 +1,6 @@
 #include <srvros/cli.h>
 #include <srvros/sys.h>
+#include <stdlib.h>
 
 static int path_exists(const char *path) {
     struct srv_stat info;
@@ -148,13 +149,24 @@ static void instantiate(char *out, size_t capacity, const char *templ, uint64_t 
 }
 
 int main(int argc, char **argv) {
-    const char *templ = argc > 1 ? argv[1] : "/fat/tmp/tmp.XXXXXX";
+    char default_template[CLI_PATH_MAX];
+    const char *tmpdir = getenv("TMPDIR");
+    const char *templ = argc > 1 ? argv[1] : default_template;
     char parent[CLI_PATH_MAX];
     char path[CLI_PATH_MAX];
 
     if (argc > 2) {
         cli_puts("usage: mktemp [template]\n");
         return 1;
+    }
+    if (argc == 1) {
+        if (tmpdir == 0 || tmpdir[0] == '\0') {
+            tmpdir = "/fat/tmp";
+        }
+        if (!cli_join_path(default_template, sizeof(default_template), tmpdir, "tmp.XXXXXX")) {
+            cli_puts("mktemp: template too long\n");
+            return 1;
+        }
     }
     if (!parent_dir(parent, sizeof(parent), templ)) {
         cli_puts("mktemp: bad template\n");

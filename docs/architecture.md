@@ -191,8 +191,8 @@ command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, shell functions with `return`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
-`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `cd -` with
-directory validation, `service webd`, DHCP/status/DNS builtins,
+`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `TMPDIR`,
+`cd -` with directory validation, `service webd`, DHCP/status/DNS builtins,
 `env`/`export`/`which`, `exec`, and basic filesystem builtins.
 
 The current `date` tool reports monotonic uptime because srvros does not yet

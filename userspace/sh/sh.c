@@ -1444,6 +1444,10 @@ static uint64_t read_command(const char *args) {
 }
 
 static int apply_assignment(const char *name, const char *value) {
+    char decoded[ARG_EXPANDED_MAX];
+    char decode_input[ARG_EXPANDED_MAX];
+    char *argv[2];
+    int argc;
     if (!shell_is_name_start(name[0])) {
         return 0;
     }
@@ -1452,11 +1456,20 @@ static int apply_assignment(const char *name, const char *value) {
             return 0;
         }
     }
-    if (setenv(name, value, 1) < 0) {
+    cli_copy(decode_input, sizeof(decode_input), value);
+    argc = split_words(decode_input, argv, 1);
+    if (argc == 1) {
+        cli_copy(decoded, sizeof(decoded), argv[0]);
+    } else if (value[0] == '\0') {
+        decoded[0] = '\0';
+    } else {
+        return 0;
+    }
+    if (setenv(name, decoded, 1) < 0) {
         return 0;
     }
     if (cli_streq(name, "PATH")) {
-        set_path_list(value);
+        set_path_list(decoded);
     }
     return 1;
 }
@@ -2853,6 +2866,9 @@ int main(int argc, char **argv) {
     }
     if (getenv("PS1") == 0) {
         setenv("PS1", "\\w $ ", 1);
+    }
+    if (getenv("TMPDIR") == 0) {
+        setenv("TMPDIR", "/fat/tmp", 1);
     }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);

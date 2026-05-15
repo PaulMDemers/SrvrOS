@@ -170,6 +170,7 @@ def main():
         ("profile",
             b"# srvros login shell profile\n"
             b"export PATH=/fat/bin:/:/fat\n"
+            b"export TMPDIR=/fat/tmp\n"
             b"export PS1='\\w $ '\n"
             b"alias ll='ls /fat/bin'\n"),
         ("init.sh",
