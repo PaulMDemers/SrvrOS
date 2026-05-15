@@ -31,12 +31,16 @@ static int exit_on_error = 0;
 static int function_depth = 0;
 static int return_requested = 0;
 static uint64_t return_status = 0;
+static int loop_depth = 0;
+static uint64_t break_requested = 0;
+static uint64_t continue_requested = 0;
 static uint64_t last_background_pid = 0;
 static char completion_cwd[CLI_PATH_MAX] = "/";
 
 static const char *shell_builtins[] = {
     "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
-    "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
+    "echo", "env", "export", "unset", "alias", "type", "which", "command", "test", "[",
+    "break", "continue",
     "jobs", "wait", "fg", "bg", "kill", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
 };
 
@@ -67,6 +71,7 @@ static uint64_t current_job_id = 0;
 static uint64_t previous_job_id = 0;
 
 static uint64_t run_line(char *line, char *cwd);
+static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions);
 static int resolve_command(char *out, size_t capacity, const char *command);
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
 
@@ -810,7 +815,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which test [ jobs wait fg bg kill service dhcp net dns rmdir read :\n");
+    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command) unquoted * and ? globs\n");
@@ -906,6 +911,10 @@ static uint64_t parse_job_reference(const char *text) {
         }
     }
     return parse_u64(text);
+}
+
+static int shell_flow_requested(void) {
+    return return_requested || break_requested != 0 || continue_requested != 0;
 }
 
 static int parse_i64(const char *text, int64_t *value_out) {
@@ -1974,6 +1983,151 @@ static uint64_t type_command(const char *args) {
     return result;
 }
 
+static uint64_t command_lookup(const char *args, int verbose) {
+    char work[LINE_MAX];
+    char *name;
+    uint64_t result = 0;
+
+    cli_copy(work, sizeof(work), args);
+    name = cli_trim(work);
+    if (name[0] == '\0') {
+        return 0;
+    }
+    while (*name != '\0') {
+        char *next = name;
+        char path[CLI_PATH_MAX];
+        struct shell_alias *alias;
+        struct shell_function *function;
+        while (*next != '\0' && *next != ' ' && *next != '\t') {
+            next++;
+        }
+        if (*next != '\0') {
+            *next++ = '\0';
+        }
+        alias = find_alias(name);
+        function = find_function(name);
+        if (verbose && alias != 0) {
+            cli_puts(name);
+            cli_puts(" is aliased to '");
+            cli_puts(alias->value);
+            cli_puts("'\n");
+        } else if (verbose && function != 0) {
+            cli_puts(name);
+            cli_puts(" is a shell function\n");
+        } else if (verbose && is_builtin(name)) {
+            cli_puts(name);
+            cli_puts(" is a shell builtin\n");
+        } else if (verbose && resolve_command(path, sizeof(path), name)) {
+            cli_puts(name);
+            cli_puts(" is ");
+            cli_puts(path);
+            cli_puts("\n");
+        } else if (!verbose && alias != 0) {
+            cli_puts("alias ");
+            cli_puts(name);
+            cli_puts("='");
+            cli_puts(alias->value);
+            cli_puts("'\n");
+        } else if (!verbose && (function != 0 || is_builtin(name))) {
+            cli_puts(name);
+            cli_puts("\n");
+        } else if (!verbose && resolve_command(path, sizeof(path), name)) {
+            cli_puts(path);
+            cli_puts("\n");
+        } else {
+            result = 1;
+        }
+        name = cli_trim(next);
+    }
+    return result;
+}
+
+static uint64_t command_command(const char *args, char *cwd, int background) {
+    char work[ARG_EXPANDED_MAX];
+    char command_line[ARG_EXPANDED_MAX];
+    char *argv[32];
+    int argc;
+    int index = 0;
+    int lookup = 0;
+    int verbose = 0;
+    size_t out = 0;
+
+    cli_copy(work, sizeof(work), args);
+    argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0) {
+        cli_puts("command: too many arguments\n");
+        return 2;
+    }
+    if (argc == 0) {
+        return 0;
+    }
+    while (index < argc) {
+        if (cli_streq(argv[index], "--")) {
+            index++;
+            break;
+        }
+        if (cli_streq(argv[index], "-p")) {
+            index++;
+            continue;
+        }
+        if (cli_streq(argv[index], "-v")) {
+            lookup = 1;
+            verbose = 0;
+            index++;
+            continue;
+        }
+        if (cli_streq(argv[index], "-V")) {
+            lookup = 1;
+            verbose = 1;
+            index++;
+            continue;
+        }
+        if (argv[index][0] == '-') {
+            cli_puts("usage: command [-p] [-v|-V] command [args]\n");
+            return 2;
+        }
+        break;
+    }
+    if (index >= argc) {
+        return 0;
+    }
+    command_line[0] = '\0';
+    for (int i = index; i < argc; i++) {
+        if (i > index) {
+            append_char(command_line, sizeof(command_line), &out, ' ');
+        }
+        append_text(command_line, sizeof(command_line), &out, argv[i]);
+    }
+    if (lookup) {
+        return command_lookup(command_line, verbose);
+    }
+    return run_command_impl(command_line, cwd, background, 1);
+}
+
+static uint64_t loop_control_command(const char *args, int is_continue) {
+    char work[LINE_MAX];
+    char *argv[2];
+    int argc;
+    int64_t parsed = 1;
+
+    if (loop_depth == 0) {
+        cli_puts(is_continue ? "continue: not in loop\n" : "break: not in loop\n");
+        return 2;
+    }
+    cli_copy(work, sizeof(work), args);
+    argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0 || argc > 1 || (argc == 1 && (!parse_i64(argv[0], &parsed) || parsed <= 0))) {
+        cli_puts(is_continue ? "usage: continue [count]\n" : "usage: break [count]\n");
+        return 2;
+    }
+    if (is_continue) {
+        continue_requested = (uint64_t)parsed;
+    } else {
+        break_requested = (uint64_t)parsed;
+    }
+    return 0;
+}
+
 static uint64_t set_command(const char *args) {
     char work[LINE_MAX];
     char *text;
@@ -2726,7 +2880,7 @@ static void build_prompt(char *out, size_t capacity, const char *cwd) {
     }
 }
 
-static uint64_t run_command(char *line, char *cwd, int background) {
+static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions) {
     char *command = cli_trim(line);
     char *args = command;
     char *pipeline_segments[PIPELINE_MAX_COMMANDS];
@@ -2759,7 +2913,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         *args++ = '\0';
         args = cli_trim(args);
     }
-    struct shell_alias *alias = find_alias(command);
+    struct shell_alias *alias = bypass_alias_functions ? 0 : find_alias(command);
     if (alias != 0) {
         char alias_line[EXPANDED_LINE_MAX];
         size_t alias_length = 0;
@@ -2769,9 +2923,9 @@ static uint64_t run_command(char *line, char *cwd, int background) {
             append_char(alias_line, sizeof(alias_line), &alias_length, ' ');
             append_text(alias_line, sizeof(alias_line), &alias_length, args);
         }
-        return run_command(alias_line, cwd, background);
+        return run_command_impl(alias_line, cwd, background, 0);
     }
-    struct shell_function *function = find_function(command);
+    struct shell_function *function = bypass_alias_functions ? 0 : find_function(command);
     if (function != 0) {
         if (background) {
             cli_puts("function: background unsupported\n");
@@ -2846,11 +3000,20 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     if (cli_streq(command, "which")) {
         return which_command(args);
     }
+    if (cli_streq(command, "command")) {
+        return command_command(args, cwd, background);
+    }
     if (cli_streq(command, "test")) {
         return test_command(args, 0);
     }
     if (cli_streq(command, "[")) {
         return test_command(args, 1);
+    }
+    if (cli_streq(command, "break")) {
+        return loop_control_command(args, 0);
+    }
+    if (cli_streq(command, "continue")) {
+        return loop_control_command(args, 1);
     }
     if (cli_streq(command, "source") || cli_streq(command, ".")) {
         if (args[0] == '\0') {
@@ -3004,6 +3167,10 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     cli_putn((uint64_t)status);
     cli_puts("\n");
     return (uint64_t)status;
+}
+
+static uint64_t run_command(char *line, char *cwd, int background) {
+    return run_command_impl(line, cwd, background, 0);
 }
 
 enum shell_control {
@@ -3389,6 +3556,7 @@ static uint64_t run_for_line(char *line, char *cwd) {
         cli_puts("for: too many words\n");
         return 2;
     }
+    loop_depth++;
     for (int i = 0; i < argc; i++) {
         char body_copy[EXPANDED_LINE_MAX];
         setenv(name, argv[i], 1);
@@ -3397,10 +3565,30 @@ static uint64_t run_for_line(char *line, char *cwd) {
         if (return_requested) {
             break;
         }
+        if (break_requested != 0) {
+            if (break_requested > 1) {
+                break_requested--;
+            } else {
+                break_requested = 0;
+            }
+            status = 0;
+            break;
+        }
+        if (continue_requested != 0) {
+            if (continue_requested > 1) {
+                continue_requested--;
+                status = 0;
+                break;
+            }
+            continue_requested = 0;
+            status = 0;
+            continue;
+        }
         if (exit_on_error && status != 0) {
             break;
         }
     }
+    loop_depth--;
     return status;
 }
 
@@ -3420,23 +3608,65 @@ static uint64_t run_while_line(char *line, char *cwd) {
     if (condition[0] == '\0' || body[0] == '\0') {
         return 0;
     }
+    loop_depth++;
     for (;;) {
         char condition_copy[EXPANDED_LINE_MAX];
         char body_copy[EXPANDED_LINE_MAX];
         cli_copy(condition_copy, sizeof(condition_copy), condition);
         status = run_line(condition_copy, cwd);
         if (status != 0 || return_requested) {
-            return return_requested ? status : 0;
+            status = return_requested ? status : 0;
+            break;
+        }
+        if (break_requested != 0) {
+            if (break_requested > 1) {
+                break_requested--;
+            } else {
+                break_requested = 0;
+            }
+            status = 0;
+            break;
+        }
+        if (continue_requested != 0) {
+            if (continue_requested > 1) {
+                continue_requested--;
+                status = 0;
+                break;
+            }
+            continue_requested = 0;
+            status = 0;
+            continue;
         }
         cli_copy(body_copy, sizeof(body_copy), body);
         status = run_line(body_copy, cwd);
         if (return_requested) {
-            return status;
+            break;
+        }
+        if (break_requested != 0) {
+            if (break_requested > 1) {
+                break_requested--;
+            } else {
+                break_requested = 0;
+            }
+            status = 0;
+            break;
+        }
+        if (continue_requested != 0) {
+            if (continue_requested > 1) {
+                continue_requested--;
+                status = 0;
+                break;
+            }
+            continue_requested = 0;
+            status = 0;
+            continue;
         }
         if (exit_on_error && status != 0) {
-            return status;
+            break;
         }
     }
+    loop_depth--;
+    return status;
 }
 
 static uint64_t run_line(char *line, char *cwd) {
@@ -3450,6 +3680,9 @@ static uint64_t run_line(char *line, char *cwd) {
 
     if (return_requested) {
         return return_status;
+    }
+    if (break_requested != 0 || continue_requested != 0) {
+        return last_status;
     }
     if (trimmed != line) {
         line = trimmed;
@@ -3495,7 +3728,7 @@ static uint64_t run_line(char *line, char *cwd) {
                     status = run_command(expanded, cwd, 0);
                 }
                 last_status = status;
-                if (return_requested) {
+                if (shell_flow_requested()) {
                     return status;
                 }
             }
@@ -3523,7 +3756,7 @@ static uint64_t run_line(char *line, char *cwd) {
                 }
             }
             last_status = status;
-            if (return_requested) {
+            if (shell_flow_requested()) {
                 return status;
             }
             return status;
@@ -3559,7 +3792,7 @@ static uint64_t run_line(char *line, char *cwd) {
                     status = run_command(expanded, cwd, background);
                 }
                 last_status = status;
-                if (return_requested) {
+                if (shell_flow_requested()) {
                     return status;
                 }
             }

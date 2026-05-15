@@ -192,9 +192,10 @@ redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
-shell functions with `return`, `shift`,
+shell functions with `return`, `shift`, loop `break`/`continue`,
 login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
-`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `TMPDIR`,
+`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `command`,
+`unset`, `TMPDIR`,
 `cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
 `%+`/`%-` job references, `service webd`,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem

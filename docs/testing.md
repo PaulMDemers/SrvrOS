@@ -59,7 +59,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `mv`, `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
   `find -type`, `ls -a/-la` and multi-path headers, `sed -n`/`-e`/`p`/`d`
   with simple addresses, `expr` arithmetic/string expressions,
-  `printf`, `tr`, `while` loops, `shift`, `fg`/`bg`,
+  `printf`, `tr`, `while` loops, `shift`, `break`/`continue`,
+  `command -v`/`command -V` and alias bypass, `fg`/`bg`,
   `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`

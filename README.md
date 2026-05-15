@@ -55,8 +55,9 @@ editor clients:
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
   `while`/`do`/`done`, shell functions with `return`, `shift`,
+  loop `break`/`continue`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`,
-  `test`/`[`, `set -e`, `read`, `alias`, `type`,
+  `test`/`[`, `set -e`, `read`, `alias`, `type`, `command -v`/`command -V`,
   `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
   job references, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt

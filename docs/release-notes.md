@@ -123,6 +123,8 @@ server.
   simple byte translation/deletion pipelines.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
+- Adds shell `break`/`continue` loop control and the POSIX-style `command`
+  builtin for `-v`/`-V` lookup and alias/function bypass execution.
 - Adds shell `$!` expansion, `fg`/`bg` builtins for the current background
   process model, `wait` status propagation, and tab completion for builtins,
   aliases, functions, PATH commands, and filesystem paths.

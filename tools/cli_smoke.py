@@ -252,10 +252,16 @@ def main():
         "write -a /fat/fn.sh 'multifn ok'\n"
         "sh /fat/fn.sh\n"
         "sh -c 'while test $# -gt 0; do echo while-$1; shift; done' wh alpha beta\n"
+        "for n in one skip three; do test $n = skip && continue; echo cont-$n; done\n"
+        "for n in one stop three; do test $n = stop && break; echo break-$n; done\n"
         "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
         "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
         "sh /fat/args.sh alpha beta\n"
         "alias ll='ls /fat/bin'\n"
+        "command -v sh ll cd\n"
+        "command -V ll cd missingcmd\n"
+        "command echo command-run-ok\n"
+        "command ll || echo command-bypass-ok\n"
         "type ll sh cd missingcmd\n"
         "ll > /fat/alias-list.txt\n"
         "grep sh /fat/alias-list.txt\n"
@@ -531,8 +537,14 @@ def main():
         "multi-ok",
         "while-alpha",
         "while-beta",
+        "cont-one",
+        "cont-three",
+        "break-one",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",
+        "alias ll='ls /fat/bin'",
+        "command-run-ok",
+        "command-bypass-ok",
         "ll is aliased to 'ls /fat/bin'",
         "sh is /fat/bin/sh",
         "cd is a shell builtin",
