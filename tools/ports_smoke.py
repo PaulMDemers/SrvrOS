@@ -96,7 +96,7 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
-            for line in ["zlibdemo\n", "jsondemo\n", "inidemo\n", "linedemo\n", "sqlitedemo\n", "posixdemo\n", "exit\n"]:
+            for line in ["zlibdemo\n", "jsondemo\n", "inidemo\n", "linedemo\n", "sqlitedemo\n", "ttydemo\n", "posixdemo\n", "exit\n"]:
                 sock.sendall(line.encode("ascii"))
                 output += read_until(sock, b"srv> " if line.strip() == "exit" else b" $ ", args.line_wait)
             sock.sendall(b"fsck /fat\n")
@@ -127,6 +127,10 @@ def main():
         "sqlitedemo: query ok",
         "sqlitedemo: db size=",
         "sqlitedemo: ok sqlite 3.53.1",
+        "ttydemo: raw mode ok",
+        "ttydemo: restore ok",
+        "ttydemo: enotty ok",
+        "ttydemo: ok",
         "posixdemo: fstat-size=",
         "posixdemo: dup ok",
         "posixdemo: stdio ok",

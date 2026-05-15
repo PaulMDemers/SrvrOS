@@ -1,6 +1,8 @@
 #ifndef SRVROS_SYSCALL_NUMBERS_H
 #define SRVROS_SYSCALL_NUMBERS_H
 
+#include <stdint.h>
+
 #define SYS_WRITE 1
 #define SYS_EXIT 2
 #define SYS_OPEN 3
@@ -55,6 +57,8 @@
 #define SYS_FTRUNCATE 52
 #define SYS_FSYNC 53
 #define SYS_EXEC 54
+#define SYS_TTY_GETATTR 55
+#define SYS_TTY_SETATTR 56
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
@@ -84,6 +88,34 @@ struct srv_flock {
     int64_t start;
     int64_t len;
     int64_t pid;
+};
+
+#define SRV_NCCS 32
+
+#define SRV_TTY_IFLAG_ICRNL 0x00000001u
+
+#define SRV_TTY_LFLAG_ECHO 0x00000001u
+#define SRV_TTY_LFLAG_ICANON 0x00000002u
+#define SRV_TTY_LFLAG_ISIG 0x00000004u
+
+#define SRV_TTY_VEOF 0
+#define SRV_TTY_VEOL 1
+#define SRV_TTY_VERASE 2
+#define SRV_TTY_VINTR 3
+#define SRV_TTY_VKILL 4
+#define SRV_TTY_VTIME 5
+#define SRV_TTY_VMIN 6
+
+#define SRV_TCSANOW 0
+#define SRV_TCSADRAIN 1
+#define SRV_TCSAFLUSH 2
+
+struct srv_termios {
+    uint32_t iflag;
+    uint32_t oflag;
+    uint32_t cflag;
+    uint32_t lflag;
+    uint8_t cc[SRV_NCCS];
 };
 
 #define SRV_ERR_AGAIN -11

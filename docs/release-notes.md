@@ -13,6 +13,10 @@ server.
 - Adds framebuffer-console parsing for a compact ANSI CSI subset covering
   cursor movement, cursor positioning, clear screen, and clear line while
   preserving raw escape output on serial.
+- Adds a minimal console TTY/termios layer with `tcgetattr`/`tcsetattr`,
+  canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`/`VTIME`, erase,
+  kill-line, and EOF control characters, plus `/fat/bin/ttydemo` smoke
+  coverage.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Mounts exFAT from initramfs-backed memory or AHCI-backed disks.

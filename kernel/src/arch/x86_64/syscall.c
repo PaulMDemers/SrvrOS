@@ -72,6 +72,22 @@ struct syscall_exec_request {
     int64_t stderr_fd;
 };
 
+static struct srv_termios console_termios = {
+    .iflag = SRV_TTY_IFLAG_ICRNL,
+    .oflag = 0,
+    .cflag = 0,
+    .lflag = SRV_TTY_LFLAG_ICANON | SRV_TTY_LFLAG_ISIG,
+    .cc = {
+        [SRV_TTY_VEOF] = 4,
+        [SRV_TTY_VEOL] = '\n',
+        [SRV_TTY_VERASE] = 127,
+        [SRV_TTY_VINTR] = 3,
+        [SRV_TTY_VKILL] = 21,
+        [SRV_TTY_VTIME] = 0,
+        [SRV_TTY_VMIN] = 1,
+    },
+};
+
 static uint64_t irq_save(void) {
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
@@ -164,6 +180,78 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     return (int64_t)length;
 }
 
+static char tty_filter_input(char c) {
+    if ((console_termios.iflag & SRV_TTY_IFLAG_ICRNL) != 0 && c == '\r') {
+        return '\n';
+    }
+    return c;
+}
+
+static int64_t tty_read_console(char *buffer, uint64_t length) {
+    if (length == 0) {
+        return 0;
+    }
+
+    __asm__ volatile ("sti" : : : "memory");
+    if ((console_termios.lflag & SRV_TTY_LFLAG_ICANON) == 0) {
+        char c = 0;
+        if (console_termios.cc[SRV_TTY_VMIN] == 0 && !keyboard_scan_char(&c)) {
+            return 0;
+        }
+        if (c == 0) {
+            c = keyboard_read_char();
+        }
+        c = tty_filter_input(c);
+        buffer[0] = c;
+        if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
+            console_putc(c);
+        }
+        return 1;
+    }
+
+    uint64_t count = 0;
+    while (count < length) {
+        char c = tty_filter_input(keyboard_read_char());
+        char erase = console_termios.cc[SRV_TTY_VERASE] != 0 ? (char)console_termios.cc[SRV_TTY_VERASE] : '\b';
+        char eof = console_termios.cc[SRV_TTY_VEOF] != 0 ? (char)console_termios.cc[SRV_TTY_VEOF] : 4;
+        char kill = console_termios.cc[SRV_TTY_VKILL] != 0 ? (char)console_termios.cc[SRV_TTY_VKILL] : 21;
+        char eol = console_termios.cc[SRV_TTY_VEOL] != 0 ? (char)console_termios.cc[SRV_TTY_VEOL] : '\n';
+
+        if (c == eof) {
+            return (int64_t)count;
+        }
+        if ((c == erase || c == '\b') && count > 0) {
+            count--;
+            if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
+                console_putc('\b');
+                console_putc(' ');
+                console_putc('\b');
+            }
+            continue;
+        }
+        if (c == kill) {
+            while (count > 0) {
+                count--;
+                if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
+                    console_putc('\b');
+                    console_putc(' ');
+                    console_putc('\b');
+                }
+            }
+            continue;
+        }
+
+        buffer[count++] = c;
+        if ((console_termios.lflag & SRV_TTY_LFLAG_ECHO) != 0) {
+            console_putc(c);
+        }
+        if (c == '\n' || c == eol) {
+            break;
+        }
+    }
+    return (int64_t)count;
+}
+
 static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if (!user_buffer_ok(buffer, length, true)) {
         return -1;
@@ -174,11 +262,7 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
         if (redirected != -2) {
             return redirected;
         }
-        __asm__ volatile ("sti" : : : "memory");
-        for (uint64_t i = 0; i < length; i++) {
-            buffer[i] = keyboard_read_char();
-        }
-        return (int64_t)length;
+        return tty_read_console(buffer, length);
     }
 
     struct process_file *file = process_file_at(process_current(), fd);
@@ -186,11 +270,7 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
         return -1;
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
-        __asm__ volatile ("sti" : : : "memory");
-        for (uint64_t i = 0; i < length; i++) {
-            buffer[i] = keyboard_read_char();
-        }
-        return (int64_t)length;
+        return tty_read_console(buffer, length);
     }
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
         return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
@@ -203,6 +283,31 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     }
 
     return process_file_read(process_current(), fd, (uint8_t *)buffer, length);
+}
+
+static bool syscall_tty_fd_ok(uint64_t fd) {
+    if (fd <= 2) {
+        return true;
+    }
+    struct process_file *file = process_file_at(process_current(), fd);
+    return file != NULL && file->type == PROCESS_FILE_STDIO && file->handle <= 2;
+}
+
+static int64_t syscall_tty_getattr(uint64_t fd, struct srv_termios *termios) {
+    if (!syscall_tty_fd_ok(fd) || !user_buffer_ok(termios, sizeof(*termios), true)) {
+        return -1;
+    }
+    return copy_to_user(termios, &console_termios, sizeof(console_termios)) ? 0 : -1;
+}
+
+static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct srv_termios *termios) {
+    struct srv_termios copy;
+    if (!syscall_tty_fd_ok(fd) || actions > SRV_TCSAFLUSH ||
+        !copy_from_user(&copy, termios, sizeof(copy))) {
+        return -1;
+    }
+    console_termios = copy;
+    return 0;
 }
 
 static bool copy_user_string(const char *source, char *destination, uint64_t capacity) {
@@ -1192,6 +1297,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_EXEC:
         frame->rax = (uint64_t)syscall_exec((const struct syscall_exec_request *)frame->rdi);
+        return;
+    case SYS_TTY_GETATTR:
+        frame->rax = (uint64_t)syscall_tty_getattr(frame->rdi, (struct srv_termios *)frame->rsi);
+        return;
+    case SYS_TTY_SETATTR:
+        frame->rax = (uint64_t)syscall_tty_setattr(frame->rdi, frame->rsi, (const struct srv_termios *)frame->rdx);
         return;
     default:
         frame->rax = (uint64_t)-1;

@@ -103,6 +103,14 @@ long srv_fsync(int fd) {
     return srv_syscall1(SYS_FSYNC, fd);
 }
 
+long srv_tty_getattr(int fd, struct srv_termios *termios) {
+    return srv_syscall2(SYS_TTY_GETATTR, fd, (long)termios);
+}
+
+long srv_tty_setattr(int fd, int actions, const struct srv_termios *termios) {
+    return srv_syscall3(SYS_TTY_SETATTR, fd, actions, (long)termios);
+}
+
 long srv_seek(int fd, int64_t offset, uint64_t whence) {
     return srv_syscall3(SYS_SEEK, fd, (long)offset, (long)whence);
 }

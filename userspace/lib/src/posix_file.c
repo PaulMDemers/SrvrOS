@@ -3,6 +3,7 @@
 #include <srvros/sys.h>
 #include <stdarg.h>
 #include <string.h>
+#include <termios.h>
 #include <sys/stat.h>
 #include <unistd.h>
 
@@ -336,7 +337,10 @@ int access(const char *path, int mode) {
 }
 
 int isatty(int fd) {
-    if (fd >= STDIN_FILENO && fd <= STDERR_FILENO) {
+    struct termios termios;
+    int saved_errno = errno;
+    if (tcgetattr(fd, &termios) == 0) {
+        errno = saved_errno;
         return 1;
     }
     errno = 0;

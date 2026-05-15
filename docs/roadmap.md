@@ -256,6 +256,9 @@ kernel, and a minimal Unix-like userspace.
   srvros locks instead of no-op lock callbacks.
 - Add framebuffer-console parsing for the common ANSI CSI cursor and erase
   sequences used by shells, line editors, and simple terminal-oriented ports.
+- Add a minimal console TTY/termios layer with `tcgetattr`/`tcsetattr`,
+  canonical/raw input mode toggles, control characters, and `/fat/bin/ttydemo`
+  smoke coverage.
 
 ## Next milestones
 
@@ -275,8 +278,8 @@ kernel, and a minimal Unix-like userspace.
 6. Continue the libc/newlib track: add shared open-file descriptions for
    read-only regular-file `dup`/`dup2`, a unified fd wait queue for
    `poll`/`select`, Unix-like file metadata, fuller `posix_spawn`
-   attributes/file actions, command substitution, fuller `stdio`, and
-   scan/format helpers.
+   attributes/file actions, terminal process groups/signals/window sizing,
+   command substitution, fuller `stdio`, and scan/format helpers.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

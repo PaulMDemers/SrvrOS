@@ -60,7 +60,8 @@ editor clients:
   `sbrk`, pipes, `dup`/`dup2`, `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
-  `truncate`/`ftruncate`, `pread`/`pwrite`, time, cwd, `getopt`, `uname`,
+  `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
+  `tcgetattr`/`tcsetattr`, time, cwd, `getopt`, `uname`,
   environment variables, `waitpid`, `posix_spawn`, `posix_spawnp`,
   process-replacing `execve`, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP
   server sockets.
@@ -183,6 +184,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ inidemo
 / $ linedemo
 / $ sqlitedemo
+/ $ ttydemo
 / $ lua -e "print('hello from lua', 6*7)"
 ```
 
