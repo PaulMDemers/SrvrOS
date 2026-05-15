@@ -350,7 +350,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 
 static void print_help(void) {
     cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat chmod ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");

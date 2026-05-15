@@ -12,6 +12,7 @@
 #define EXFAT_MAX_DIRS 32
 #define EXFAT_MAX_PATH 160
 #define EXFAT_MAX_FILE_ENTRIES 19
+#define EXFAT_METADATA_MAX_BYTES 65536
 #define EXFAT_ENTRY_SIZE 32
 #define EXFAT_ENTRY_END 0x00
 #define EXFAT_ENTRY_BITMAP 0x81
@@ -120,6 +121,8 @@ struct exfat_mount {
 };
 
 static struct exfat_mount mounts[EXFAT_MAX_VOLUMES];
+static bool metadata_syncing;
+static char metadata_buffer[EXFAT_METADATA_MAX_BYTES];
 
 static bool streq(const char *a, const char *b);
 static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster);
@@ -785,6 +788,285 @@ static uint64_t ascii_length(const char *s) {
     return length;
 }
 
+static bool append_text(char *out, uint64_t capacity, uint64_t *offset, const char *text) {
+    if (out == NULL || offset == NULL || text == NULL) {
+        return false;
+    }
+    for (uint64_t i = 0; text[i] != '\0'; i++) {
+        if (*offset + 1 >= capacity) {
+            return false;
+        }
+        out[(*offset)++] = text[i];
+    }
+    out[*offset] = '\0';
+    return true;
+}
+
+static bool append_char(char *out, uint64_t capacity, uint64_t *offset, char ch) {
+    if (out == NULL || offset == NULL || *offset + 1 >= capacity) {
+        return false;
+    }
+    out[(*offset)++] = ch;
+    out[*offset] = '\0';
+    return true;
+}
+
+static bool append_u64(char *out, uint64_t capacity, uint64_t *offset, uint64_t value) {
+    char digits[21];
+    uint64_t count = 0;
+    do {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    } while (value != 0 && count < sizeof(digits));
+
+    while (count > 0) {
+        if (!append_char(out, capacity, offset, digits[--count])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static bool append_path_piece(char *out, uint64_t capacity, const char *piece) {
+    uint64_t offset = ascii_length(out);
+    return append_text(out, capacity, &offset, piece);
+}
+
+static bool path_under_mount(const struct exfat_mount *mount, const char *path) {
+    if (mount == NULL || path == NULL || !mount->used) {
+        return false;
+    }
+    uint64_t i = 0;
+    while (mount->mountpoint[i] != '\0') {
+        if (path[i] != mount->mountpoint[i]) {
+            return false;
+        }
+        i++;
+    }
+    return path[i] == '\0' || path[i] == '/';
+}
+
+static bool metadata_directory_path(const struct exfat_mount *mount, char *out, uint64_t capacity) {
+    if (mount == NULL || out == NULL || capacity == 0) {
+        return false;
+    }
+    uint64_t offset = append_mount_path(out, capacity, mount->mountpoint);
+    out[offset] = '\0';
+    return append_path_piece(out, capacity, ".srvros");
+}
+
+static bool metadata_file_path(const struct exfat_mount *mount, char *out, uint64_t capacity) {
+    if (!metadata_directory_path(mount, out, capacity)) {
+        return false;
+    }
+    return append_path_piece(out, capacity, "/meta");
+}
+
+static bool metadata_path_is_internal(const struct exfat_mount *mount, const char *path) {
+    char directory[EXFAT_MAX_PATH];
+    if (!metadata_directory_path(mount, directory, sizeof(directory))) {
+        return false;
+    }
+    uint64_t i = 0;
+    while (directory[i] != '\0') {
+        if (path[i] != directory[i]) {
+            return false;
+        }
+        i++;
+    }
+    return path[i] == '\0' || path[i] == '/';
+}
+
+static struct exfat_mount *find_mount_for_path(const char *path) {
+    for (uint64_t i = 0; i < EXFAT_MAX_VOLUMES; i++) {
+        if (path_under_mount(&mounts[i], path)) {
+            return &mounts[i];
+        }
+    }
+    return NULL;
+}
+
+static bool parse_u64_field(const uint8_t *data,
+    uint64_t size,
+    uint64_t *offset,
+    uint64_t *value_out,
+    bool final_field) {
+    if (data == NULL || offset == NULL || value_out == NULL || *offset >= size) {
+        return false;
+    }
+    uint64_t value = 0;
+    uint64_t digits = 0;
+    while (*offset < size && data[*offset] >= '0' && data[*offset] <= '9') {
+        value = value * 10 + (uint64_t)(data[*offset] - '0');
+        (*offset)++;
+        digits++;
+    }
+    if (digits == 0) {
+        return false;
+    }
+    if (final_field) {
+        while (*offset < size && data[*offset] == '\r') {
+            (*offset)++;
+        }
+        if (*offset < size && data[*offset] == '\n') {
+            (*offset)++;
+        } else if (*offset != size) {
+            return false;
+        }
+    } else {
+        if (*offset >= size || data[*offset] != '\t') {
+            return false;
+        }
+        (*offset)++;
+    }
+    *value_out = value;
+    return true;
+}
+
+static bool serialize_metadata_record(char *out,
+    uint64_t capacity,
+    uint64_t *offset,
+    const struct vfs_node *node) {
+    if (!append_text(out, capacity, offset, node->path) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.inode) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.mode) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.nlink) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.uid) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.gid) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.atime) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.mtime) ||
+        !append_char(out, capacity, offset, '\t') ||
+        !append_u64(out, capacity, offset, node->metadata.ctime) ||
+        !append_char(out, capacity, offset, '\n')) {
+        return false;
+    }
+    return true;
+}
+
+static bool exfat_sync_mount_metadata(struct exfat_mount *mount) {
+    if (mount == NULL || mount->volume.image != NULL || metadata_syncing) {
+        return true;
+    }
+
+    metadata_syncing = true;
+
+    char directory[EXFAT_MAX_PATH];
+    char path[EXFAT_MAX_PATH];
+    bool ok = metadata_directory_path(mount, directory, sizeof(directory)) &&
+        metadata_file_path(mount, path, sizeof(path));
+    if (ok && vfs_lookup(directory) == NULL) {
+        ok = exfat_create_directory(directory);
+    }
+
+    uint64_t offset = 0;
+    if (ok) {
+        ok = append_text(metadata_buffer, sizeof(metadata_buffer), &offset, "SRVROSMETA1\n");
+    }
+    for (uint64_t i = 0; ok && i < vfs_count(); i++) {
+        const struct vfs_node *node = vfs_node_at(i);
+        if (node == NULL ||
+            !path_under_mount(mount, node->path) ||
+            metadata_path_is_internal(mount, node->path)) {
+            continue;
+        }
+        ok = serialize_metadata_record(metadata_buffer, sizeof(metadata_buffer), &offset, node);
+    }
+    if (ok) {
+        ok = exfat_write_file(path, (const uint8_t *)metadata_buffer, offset);
+    }
+
+    metadata_syncing = false;
+    return ok;
+}
+
+static void exfat_metadata_changed(const char *path, const struct vfs_metadata *metadata) {
+    (void)metadata;
+    if (metadata_syncing || path == NULL) {
+        return;
+    }
+
+    struct exfat_mount *mount = find_mount_for_path(path);
+    if (mount == NULL ||
+        mount->volume.image != NULL ||
+        metadata_path_is_internal(mount, path)) {
+        return;
+    }
+    (void)exfat_sync_mount_metadata(mount);
+}
+
+static void load_mount_metadata(struct exfat_mount *mount) {
+    char path[EXFAT_MAX_PATH];
+    if (mount == NULL ||
+        !metadata_file_path(mount, path, sizeof(path))) {
+        return;
+    }
+
+    const struct vfs_node *node = vfs_lookup(path);
+    const uint8_t *data = NULL;
+    uint64_t size = 0;
+    const char *magic = "SRVROSMETA1\n";
+    uint64_t magic_length = ascii_length(magic);
+    if (node == NULL ||
+        !vfs_read_all(node, &data, &size) ||
+        size < magic_length ||
+        !streqn((const char *)data, magic, magic_length)) {
+        if (node != NULL && data != NULL) {
+            vfs_release_data(node, data);
+        }
+        return;
+    }
+
+    uint64_t offset = magic_length;
+    while (offset < size) {
+        while (offset < size && (data[offset] == '\n' || data[offset] == '\r')) {
+            offset++;
+        }
+        if (offset >= size) {
+            break;
+        }
+
+        char node_path[EXFAT_MAX_PATH];
+        uint64_t path_length = 0;
+        while (offset < size && data[offset] != '\t' && path_length + 1 < sizeof(node_path)) {
+            node_path[path_length++] = (char)data[offset++];
+        }
+        node_path[path_length] = '\0';
+        if (offset >= size || data[offset] != '\t') {
+            break;
+        }
+        offset++;
+
+        struct vfs_metadata metadata;
+        if (!parse_u64_field(data, size, &offset, &metadata.inode, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.mode, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.nlink, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.uid, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.gid, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.atime, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.mtime, false) ||
+            !parse_u64_field(data, size, &offset, &metadata.ctime, true)) {
+            break;
+        }
+
+        const struct vfs_node *target = vfs_lookup(node_path);
+        if (target == NULL || metadata_path_is_internal(mount, node_path)) {
+            continue;
+        }
+        uint64_t type = target->type == VFS_NODE_DIRECTORY ? VFS_MODE_IFDIR : VFS_MODE_IFREG;
+        metadata.mode = (metadata.mode & ~VFS_MODE_IFMT) | type;
+        (void)vfs_set_metadata(node_path, &metadata);
+    }
+
+    vfs_release_data(node, data);
+}
+
 static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count) {
     uint16_t checksum = 0;
     uint64_t byte_count = entry_count * EXFAT_ENTRY_SIZE;
@@ -933,6 +1215,25 @@ static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size)
             .no_fat_chain = true,
         };
         return free_file_clusters(&old);
+    }
+    if (cluster_count < file->allocated_clusters) {
+        uint64_t old_allocated_clusters = file->allocated_clusters;
+        file->allocated_clusters = cluster_count;
+        if (!write_file_data(file, data, size)) {
+            file->allocated_clusters = old_allocated_clusters;
+            return false;
+        }
+        if (!update_file_length(file, path, size)) {
+            file->allocated_clusters = old_allocated_clusters;
+            return false;
+        }
+        struct exfat_file tail = {
+            .volume = file->volume,
+            .first_cluster = file->first_cluster + (uint32_t)cluster_count,
+            .allocated_clusters = old_allocated_clusters - cluster_count,
+            .no_fat_chain = true,
+        };
+        return free_file_clusters(&tail);
     }
     if (!write_file_data(file, data, size)) {
         return false;
@@ -1440,6 +1741,9 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
         release_created_clusters(&mount->volume, first_cluster, cluster_count);
         return false;
     }
+    if (!metadata_path_is_internal(mount, path)) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
     return true;
 }
 
@@ -1510,13 +1814,17 @@ bool exfat_create_directory(const char *path) {
         return false;
     }
 
-    return register_directory(mount,
+    bool ok = register_directory(mount,
         path,
         first_cluster,
         true,
         mount->volume.cluster_size,
         directory_offset,
         (uint8_t)(entry_count - 1));
+    if (ok && !metadata_path_is_internal(mount, path)) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
+    return ok;
 }
 
 static void clear_mount(struct exfat_mount *mount) {
@@ -1797,6 +2105,7 @@ bool exfat_delete_file(const char *path) {
     if (mount == NULL || mount->volume.image != NULL) {
         return false;
     }
+    bool internal_path = metadata_path_is_internal(mount, path);
 
     struct exfat_file *file = &mount->files[index];
     if (!write_deleted_entry_set(file)) {
@@ -1809,6 +2118,9 @@ bool exfat_delete_file(const char *path) {
     }
 
     clear_file_slot(mount, index);
+    if (!internal_path) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
     return true;
 }
 
@@ -1823,6 +2135,7 @@ bool exfat_delete_directory(const char *path) {
     }
 
     struct exfat_directory *directory = &mount->dirs[index];
+    bool internal_path = metadata_path_is_internal(mount, path);
     if (!write_deleted_entries(&mount->volume,
             directory->file_entry_offset,
             directory->secondary_count)) {
@@ -1840,6 +2153,9 @@ bool exfat_delete_directory(const char *path) {
         return false;
     }
     clear_directory_slot(mount, index);
+    if (!internal_path) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
     return true;
 }
 
@@ -1903,12 +2219,16 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         i++;
     }
     mount->paths[index][i] = '\0';
-    return vfs_register_file_with_metadata(mount->paths[index],
+    bool ok = vfs_register_file_with_metadata(mount->paths[index],
         file->size,
         file,
         exfat_read_all,
         exfat_release_data,
         have_metadata ? &metadata : NULL);
+    if (ok) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
+    return ok;
 }
 
 static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
@@ -1977,7 +2297,11 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
         i++;
     }
     directory->path[i] = '\0';
-    return vfs_register_directory_with_metadata(directory->path, have_metadata ? &metadata : NULL);
+    bool ok = vfs_register_directory_with_metadata(directory->path, have_metadata ? &metadata : NULL);
+    if (ok) {
+        (void)exfat_sync_mount_metadata(mount);
+    }
+    return ok;
 }
 
 bool exfat_rename(const char *old_path, const char *new_path) {
@@ -2041,6 +2365,8 @@ bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t im
         clear_mount(mount);
         return false;
     }
+    load_mount_metadata(mount);
+    vfs_set_metadata_changed_callback(exfat_metadata_changed);
 
     console_printf("exfat: mounted %s files=%u cluster=%u bytes\n",
         mountpoint,
@@ -2095,6 +2421,8 @@ bool exfat_mount_block_device(const char *mountpoint, struct block_device *devic
         clear_mount(mount);
         return false;
     }
+    load_mount_metadata(mount);
+    vfs_set_metadata_changed_callback(exfat_metadata_changed);
 
     console_printf("exfat: mounted %s from %s files=%u cluster=%u bytes\n",
         mountpoint,

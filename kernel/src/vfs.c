@@ -12,6 +12,7 @@
 static struct vfs_node nodes[VFS_MAX_NODES];
 static uint64_t node_count;
 static uint64_t next_inode = 1;
+static vfs_metadata_changed_fn metadata_changed_callback;
 
 static bool streq(const char *a, const char *b);
 
@@ -210,6 +211,7 @@ bool vfs_register_file_with_metadata(const char *path,
 void vfs_init(void) {
     node_count = 0;
     next_inode = 1;
+    metadata_changed_callback = NULL;
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
         nodes[i].used = false;
     }
@@ -267,6 +269,16 @@ void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
     }
 }
 
+void vfs_set_metadata_changed_callback(vfs_metadata_changed_fn callback) {
+    metadata_changed_callback = callback;
+}
+
+static void notify_metadata_changed(const struct vfs_node *node) {
+    if (metadata_changed_callback != NULL && node != NULL) {
+        metadata_changed_callback(node->path, &node->metadata);
+    }
+}
+
 bool vfs_update_file_size(const char *path, uint64_t size) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
@@ -276,6 +288,7 @@ bool vfs_update_file_size(const char *path, uint64_t size) {
     node->size = size;
     node->metadata.mtime = metadata_time();
     node->metadata.ctime = node->metadata.mtime;
+    notify_metadata_changed(node);
     return true;
 }
 
@@ -296,6 +309,18 @@ bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *siz
     return true;
 }
 
+bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata) {
+    struct vfs_node *node = mutable_lookup(path);
+    if (node == NULL || metadata == NULL) {
+        return false;
+    }
+    node->metadata = *metadata;
+    if (node->metadata.inode >= next_inode) {
+        next_inode = node->metadata.inode + 1;
+    }
+    return true;
+}
+
 bool vfs_chmod(const char *path, uint64_t mode) {
     struct vfs_node *node = mutable_lookup(path);
     if (node == NULL) {
@@ -303,6 +328,7 @@ bool vfs_chmod(const char *path, uint64_t mode) {
     }
     node->metadata.mode = (node->metadata.mode & VFS_MODE_IFMT) | (mode & 07777);
     node->metadata.ctime = metadata_time();
+    notify_metadata_changed(node);
     return true;
 }
 

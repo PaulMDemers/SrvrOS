@@ -270,8 +270,9 @@ kernel, and a minimal Unix-like userspace.
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
-   and VFS now carries runtime Unix-like metadata, but recovery and persistent
-   metadata semantics are still intentionally small.
+   and writable mounts now persist srvros Unix-like metadata through the
+   `/fat/.srvros/meta` sidecar, but recovery semantics are still intentionally
+   small.
 2. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
 3. Add NVMe discovery and read/write support as the second storage backend.
@@ -282,7 +283,7 @@ kernel, and a minimal Unix-like userspace.
    FUSE-like mounts.
 6. Continue the libc/newlib track: fuller `posix_spawn` attributes/file
    actions, terminal process groups/signals, command substitution, fuller
-   `stdio`, scan/format helpers, persistent metadata, and more fd-specific
+   `stdio`, scan/format helpers, sidecar recovery, and more fd-specific
    readiness queues as the descriptor model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.

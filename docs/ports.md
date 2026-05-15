@@ -33,7 +33,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   and are released when that process closes a descriptor for the same path.
 - `access`, `isatty`, `fsync`, `truncate`, `ftruncate`, `chmod`, `fchmod`, and
   `umask`. `stat`/`fstat` now expose VFS-managed inode ids, mode bits,
-  uid/gid placeholders, block counts, and tick-derived timestamps.
+  uid/gid placeholders, block counts, and tick-derived timestamps. Writable
+  exFAT mounts persist that metadata through `/fat/.srvros/meta`.
 - Minimal `termios`: `tcgetattr` and `tcsetattr` for console fds, with
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`, `VTIME`, erase,
   kill-line, and EOF control characters. `ioctl(TIOCGWINSZ)` reports the
@@ -117,9 +118,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 ## Current Limits
 
 - `fork` and client-side `connect` are still missing.
-- VFS metadata is runtime-managed. `chmod`/`fchmod`, `access`, and `umask`
-  observe mode bits during the current boot, but exFAT directory entries do not
-  persist Unix permission/timestamp metadata yet.
+- VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
+  file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
+  is not encoded into native exFAT directory entries.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
   queues are still future work as the descriptor model grows.
@@ -160,8 +161,8 @@ Third-party source is kept as pinned submodules or snapshots under
 
 1. Expand `stdio` toward command-line port expectations: broader
    width/precision formatting, scansets, and better EOF/error state.
-2. Persist or sidecar Unix-like metadata for the exFAT backend, including
-   stable ids across reboot and richer timestamps.
+2. Harden the exFAT metadata sidecar: atomic replacement, recovery from partial
+   writes, and richer timestamp sources.
 3. Add `mmap`-style mappings for larger interpreters and libraries.
 4. Expand `webd` toward fuller concurrent connection handling.
 5. Add client TCP `connect`, then a tiny HTTP client.

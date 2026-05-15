@@ -100,6 +100,9 @@ exFAT is the primary filesystem. It supports:
 - A consistency checker exposed as `fsck /fat`.
 - VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
   block counts, and tick-derived access/modify/change timestamps.
+- A srvros-managed metadata sidecar at `/fat/.srvros/meta` on writable exFAT
+  mounts. The sidecar restores inode ids, modes, uid/gid placeholders, and
+  timestamps when the same AHCI-backed image is mounted after reboot.
 
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
@@ -111,8 +114,8 @@ Current filesystem caveats:
 - There is no journaling or transaction rollback.
 - Crash consistency is not guaranteed if QEMU exits during mutation.
 - Long-name and fragmented-chain support is practical but still being hardened.
-- Unix-like metadata is managed by VFS at runtime and is not persisted into
-  exFAT directory entries yet.
+- Unix-like metadata is persisted by srvros in a sidecar file rather than in
+  native exFAT directory entries.
 
 ## Block And Storage
 
@@ -169,7 +172,7 @@ per-directory `start.S`.
 Core tools:
 
 - `sh`, `ls`, `cat`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
-- `grep`, `head`, `stat`, `cp`, `rm`, `mkdir`, `mv`.
+- `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
@@ -215,7 +218,7 @@ descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw
 timer ticks, sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
-metadata.
+metadata with exFAT sidecar persistence.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

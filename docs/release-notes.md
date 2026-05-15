@@ -67,6 +67,9 @@ server.
 - Adds real empty-file support, fd flush/truncate hooks, and POSIX-facing
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `chmod`/`fchmod`, and
   `umask` compatibility.
+- Persists srvros Unix-like metadata for writable exFAT mounts in
+  `/fat/.srvros/meta`, including reboot-tested inode/mode restoration, and
+  ships `/fat/bin/chmod` for shell-level permission changes.
 - Expands libc/POSIX coverage with `pread`/`pwrite`, `getopt`, `uname`,
   `posix_memalign`/`aligned_alloc`, `qsort`, `bsearch`, random numbers,
   integer and floating conversion helpers, process-local environment variables,
@@ -137,6 +140,7 @@ python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/metadata_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --line-wait 3
 ```
@@ -151,8 +155,9 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - Device support is oriented around QEMU q35, AHCI, e1000, PS/2, serial, and a
   linear framebuffer.
 - The GUI stack is a prototype and not yet a general application ABI.
-- Permission bits are currently synthetic. `chmod`/`fchmod` are compatibility
-  shims until the filesystem layer grows Unix-like metadata.
+- Permission bits are srvros-managed metadata. Writable exFAT mounts persist
+  them in `/fat/.srvros/meta`; the format is not native exFAT metadata and does
+  not yet have journaling or crash-safe replacement.
 - `stdio` is deliberately small: enough for early command-line ports, not a full
   ISO C implementation.
 - Lua uses its normal floating-number profile with `math` enabled. The `os`
