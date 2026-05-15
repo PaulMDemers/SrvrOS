@@ -178,7 +178,8 @@ Core tools:
 - `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
-- `tail`, `tee`, `find`, `du`, `uname`, `hostname`, `uptime`.
+- `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
+  `uname`, `hostname`, `uptime`.
 - `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
@@ -186,12 +187,13 @@ The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
 `$?`/`$$`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
-command substitution, unquoted `*`/`?` globbing, `&&`/`||`,
-`if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, login profile loading from
-`/fat/etc/profile`, `PS1` prompt expansion for `\w`, `test`/`[`,
-`set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `cd -` with directory
-validation, `service webd`, DHCP/status/DNS builtins, `env`/`export`/`which`,
-`exec`, and basic filesystem builtins.
+command substitution, unquoted `*`/`?` globbing, unmatched-quote diagnostics,
+`&&`/`||`,
+`if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, shell functions with `return`,
+login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
+`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `unset`, `cd -` with
+directory validation, `service webd`, DHCP/status/DNS builtins,
+`env`/`export`/`which`, `exec`, and basic filesystem builtins.
 
 The current `date` tool reports monotonic uptime because srvros does not yet
 have RTC or network time plumbing.
@@ -219,8 +221,8 @@ This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
 `FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`,
-`truncate`/`ftruncate`, minimal terminal `tcgetattr`/`tcsetattr` plus
-`ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
+`truncate`/`ftruncate`, `statvfs`, minimal terminal `tcgetattr`/`tcsetattr`
+plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small `stdio`, simple
 time functions, `scanf`/`sscanf` basics, `getpid`, `waitpid`, `posix_spawn`,
 `posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed

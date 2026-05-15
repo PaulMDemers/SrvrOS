@@ -138,6 +138,22 @@ def main():
         "find /fat/bin -name sh\n"
         "du /fat/status.txt\n"
         "du -s /fat/www\n"
+        "df\n"
+        "df /fat\n"
+        "write /fat/words.txt banana\n"
+        "write -a /fat/words.txt apple\n"
+        "write -a /fat/words.txt banana\n"
+        "write -a /fat/words.txt apple\n"
+        "sort /fat/words.txt > /fat/sorted.txt\n"
+        "cat /fat/sorted.txt\n"
+        "sort /fat/words.txt | uniq > /fat/unique.txt\n"
+        "cat /fat/unique.txt\n"
+        "write /fat/table.txt name:paul\n"
+        "write -a /fat/table.txt name:codex\n"
+        "cut -d : -f 2 /fat/table.txt\n"
+        "cat /fat/words.txt | xargs echo args\n"
+        "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
+        "cat /fat/sed.txt\n"
         "grep exFAT /fat/status.txt\n"
         "cat /fat/status.txt > /fat/cat-redir.txt\n"
         "cat /fat/status.txt >> /fat/cat-redir.txt\n"
@@ -171,11 +187,23 @@ def main():
         "source /fat/boot.sh\n"
         "sh /fat/boot.sh\n"
         "sh -c 'echo command-mode-ok'\n"
+        "echo \"unterminated\n"
         "for n in one two three; do echo loop-$n; done\n"
         "write /fat/for.sh 'for n in red blue; do'\n"
         "write -a /fat/for.sh 'echo color-$n'\n"
         "write -a /fat/for.sh 'done'\n"
         "sh /fat/for.sh\n"
+        "greet() { echo hi-$1; }\n"
+        "type greet\n"
+        "greet srvros\n"
+        "stopper() { echo before-return; return 7; echo after-return; }\n"
+        "stopper\n"
+        "echo return-status-$?\n"
+        "write /fat/fn.sh 'multifn() {'\n"
+        "write -a /fat/fn.sh 'echo multi-$1'\n"
+        "write -a /fat/fn.sh '}'\n"
+        "write -a /fat/fn.sh 'multifn ok'\n"
+        "sh /fat/fn.sh\n"
         "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
         "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
         "sh /fat/args.sh alpha beta\n"
@@ -340,6 +368,17 @@ def main():
         "/fat/bin/sh",
         "55\t/fat/status.txt",
         "\t/fat/www",
+        "Filesystem",
+        "1K-blocks",
+        "Mounted on",
+        "exfat",
+        "apple",
+        "banana",
+        "paul",
+        "codex",
+        "args banana apple banana apple",
+        "orange",
+        "sh: unmatched quote",
         "/fat/cat-redir.txt: 110 bytes",
         "2 18 110 /fat/cat-redir.txt",
         "/fat/stdin-redir.txt: 55 bytes",
@@ -366,6 +405,11 @@ def main():
         "loop-three",
         "color-red",
         "color-blue",
+        "greet is a shell function",
+        "hi-srvros",
+        "before-return",
+        "return-status-7",
+        "multi-ok",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",
         "ll is aliased to 'ls /fat/bin'",
@@ -403,6 +447,7 @@ def main():
         "posixdemo: read=hello from posix",
         "posixdemo: dup write ok",
         "posixdemo: fs api ok",
+        "posixdemo: statvfs ok",
         "posixdemo: nonblock ok",
         "posixdemo: poll ok",
         "posixdemo: pipe ok",

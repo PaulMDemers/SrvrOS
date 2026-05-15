@@ -12,6 +12,8 @@
 #define PATH_MAX_ENTRIES 8
 #define PIPELINE_MAX_COMMANDS 6
 #define SHELL_MAX_ALIASES 16
+#define SHELL_MAX_FUNCTIONS 16
+#define SHELL_MAX_FUNCTION_ARGS 16
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -25,13 +27,22 @@ static uint64_t substitution_counter = 0;
 static int shell_argc = 1;
 static char **shell_argv = 0;
 static int exit_on_error = 0;
+static int function_depth = 0;
+static int return_requested = 0;
+static uint64_t return_status = 0;
 
 struct shell_alias {
     char name[32];
     char value[LINE_MAX];
 };
 
+struct shell_function {
+    char name[32];
+    char body[EXPANDED_LINE_MAX];
+};
+
 static struct shell_alias aliases[SHELL_MAX_ALIASES];
+static struct shell_function functions[SHELL_MAX_FUNCTIONS];
 
 static uint64_t run_line(char *line, char *cwd);
 
@@ -68,6 +79,8 @@ struct for_parts {
 
 static int find_if_parts(const char *line, struct if_parts *parts);
 static int find_for_parts(const char *line, struct for_parts *parts);
+static int find_function_definition(const char *line, char *name, size_t name_capacity, char *body, size_t body_capacity);
+static int is_function_start(const char *line);
 
 static int shell_is_name_start(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
@@ -541,9 +554,9 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], if/then/else/fi, for/in/do/done, use ;, &&, ||, append & for background\n");
+    cli_puts("builtins: help exit exec return set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], name() { commands; }, if/then/else/fi, for/in/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -1018,7 +1031,7 @@ static void print_env(void) {
 
 static int is_builtin(const char *name) {
     static const char *builtins[] = {
-        "help", "exit", "exec", "set", "source", ".", "path", "cd", "pwd", "clear",
+        "help", "exit", "exec", "return", "set", "source", ".", "path", "cd", "pwd", "clear",
         "echo", "env", "export", "unset", "alias", "type", "which", "test", "[",
         "jobs", "wait", "service", "dhcp", "net", "dns", "rmdir", "read",
     };
@@ -1115,6 +1128,118 @@ static uint64_t alias_command(const char *args) {
     }
     cli_copy(slot->value, sizeof(slot->value), value);
     return 0;
+}
+
+static struct shell_function *find_function(const char *name) {
+    for (size_t i = 0; i < SHELL_MAX_FUNCTIONS; i++) {
+        if (functions[i].name[0] != '\0' && cli_streq(functions[i].name, name)) {
+            return &functions[i];
+        }
+    }
+    return 0;
+}
+
+static int valid_shell_name(const char *name) {
+    if (!shell_is_name_start(name[0])) {
+        return 0;
+    }
+    for (const char *cursor = name; *cursor != '\0'; cursor++) {
+        if (!shell_is_name_char(*cursor)) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
+static uint64_t define_function(const char *name, const char *body) {
+    struct shell_function *slot = find_function(name);
+    if (!valid_shell_name(name) || is_builtin(name)) {
+        cli_puts("function: bad name\n");
+        return 2;
+    }
+    if (slot == 0) {
+        for (size_t i = 0; i < SHELL_MAX_FUNCTIONS; i++) {
+            if (functions[i].name[0] == '\0') {
+                slot = &functions[i];
+                break;
+            }
+        }
+    }
+    if (slot == 0) {
+        cli_puts("function: table full\n");
+        return 1;
+    }
+    cli_copy(slot->name, sizeof(slot->name), name);
+    cli_copy(slot->body, sizeof(slot->body), body);
+    return 0;
+}
+
+static uint64_t return_command(const char *args) {
+    if (function_depth == 0) {
+        cli_puts("return: not in function\n");
+        return 2;
+    }
+    return_status = args[0] != '\0' ? parse_u64(args) : last_status;
+    return_requested = 1;
+    return return_status;
+}
+
+static uint64_t run_function(struct shell_function *function, const char *args, char *cwd) {
+    char body[EXPANDED_LINE_MAX];
+    char args_copy[ARG_EXPANDED_MAX];
+    char arg_storage[SHELL_MAX_FUNCTION_ARGS][64];
+    char *argv[SHELL_MAX_FUNCTION_ARGS + 1];
+    char **saved_argv = shell_argv;
+    int saved_argc = shell_argc;
+    int saved_return_requested = return_requested;
+    uint64_t saved_return_status = return_status;
+    int argc = 1;
+    uint64_t status;
+
+    cli_copy(body, sizeof(body), function->body);
+    cli_copy(args_copy, sizeof(args_copy), args);
+    cli_copy(arg_storage[0], sizeof(arg_storage[0]), function->name);
+    argv[0] = arg_storage[0];
+
+    char *cursor = cli_trim(args_copy);
+    while (*cursor != '\0' && argc < SHELL_MAX_FUNCTION_ARGS) {
+        while (*cursor == ' ' || *cursor == '\t') {
+            cursor++;
+        }
+        if (*cursor == '\0') {
+            break;
+        }
+        char *start = cursor;
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t') {
+            cursor++;
+        }
+        char saved = *cursor;
+        *cursor = '\0';
+        cli_copy(arg_storage[argc], sizeof(arg_storage[argc]), start);
+        argv[argc] = arg_storage[argc];
+        argc++;
+        if (saved == '\0') {
+            break;
+        }
+        *cursor++ = saved;
+    }
+    argv[argc] = 0;
+
+    shell_argv = argv;
+    shell_argc = argc;
+    function_depth++;
+    return_requested = 0;
+    return_status = 0;
+    status = run_line(body, cwd);
+    if (return_requested) {
+        status = return_status;
+    }
+    function_depth--;
+    shell_argv = saved_argv;
+    shell_argc = saved_argc;
+    return_requested = saved_return_requested;
+    return_status = saved_return_status;
+    return status;
 }
 
 static uint64_t export_command(const char *args) {
@@ -1214,6 +1339,7 @@ static uint64_t type_command(const char *args) {
         char *next = name;
         char path[CLI_PATH_MAX];
         struct shell_alias *alias;
+        struct shell_function *function;
         while (*next != '\0' && *next != ' ' && *next != '\t') {
             next++;
         }
@@ -1221,11 +1347,16 @@ static uint64_t type_command(const char *args) {
             *next++ = '\0';
         }
         alias = find_alias(name);
+        function = find_function(name);
         if (alias != 0) {
             cli_puts(name);
             cli_puts(" is aliased to '");
             cli_puts(alias->value);
             cli_puts("'\n");
+            result = 0;
+        } else if (function != 0) {
+            cli_puts(name);
+            cli_puts(" is a shell function\n");
             result = 0;
         } else if (is_builtin(name)) {
             cli_puts(name);
@@ -1391,7 +1522,8 @@ static uint64_t run_script(const char *path, char *cwd) {
                 if (collecting_block) {
                     append_text(block, sizeof(block), &block_length, "; ");
                     append_text(block, sizeof(block), &block_length, trimmed);
-                    if (shell_keyword_at(trimmed, 0, block_end_keyword)) {
+                    if ((block_end_keyword[0] == '}' && cli_streq(trimmed, "}")) ||
+                        (block_end_keyword[0] != '}' && shell_keyword_at(trimmed, 0, block_end_keyword))) {
                         status = run_line(block, cwd);
                         if (exit_on_error && status != 0) {
                             stop = 1;
@@ -1409,6 +1541,13 @@ static uint64_t run_script(const char *path, char *cwd) {
                 } else if (shell_keyword_at(trimmed, 0, "for") && !find_for_parts(trimmed, &(struct for_parts){0})) {
                     collecting_block = 1;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
+                    block_length = 0;
+                    block[0] = '\0';
+                    append_text(block, sizeof(block), &block_length, trimmed);
+                } else if (is_function_start(trimmed) &&
+                    !find_function_definition(trimmed, (char[32]){0}, 32, (char[EXPANDED_LINE_MAX]){0}, EXPANDED_LINE_MAX)) {
+                    collecting_block = 1;
+                    cli_copy(block_end_keyword, sizeof(block_end_keyword), "}");
                     block_length = 0;
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
@@ -1994,6 +2133,14 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         }
         return run_command(alias_line, cwd, background);
     }
+    struct shell_function *function = find_function(command);
+    if (function != 0) {
+        if (background) {
+            cli_puts("function: background unsupported\n");
+            return 2;
+        }
+        return run_function(function, args, cwd);
+    }
     char *equals = strchr(command, '=');
     if (equals != 0 && args[0] == '\0') {
         *equals++ = '\0';
@@ -2021,6 +2168,9 @@ static uint64_t run_command(char *line, char *cwd, int background) {
             return 2;
         }
         return exec_replace_command(args, &redirection);
+    }
+    if (cli_streq(command, "return")) {
+        return return_command(args);
     }
     if (cli_streq(command, "set")) {
         return set_command(args);
@@ -2322,6 +2472,103 @@ static uint64_t run_if_line(char *line, char *cwd) {
     return else_branch[0] != '\0' ? run_line(else_branch, cwd) : 0;
 }
 
+static int is_function_start(const char *line) {
+    size_t cursor = 0;
+    if (!shell_is_name_start(line[cursor])) {
+        return 0;
+    }
+    while (shell_is_name_char(line[cursor])) {
+        cursor++;
+    }
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    if (line[cursor++] != '(') {
+        return 0;
+    }
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    if (line[cursor++] != ')') {
+        return 0;
+    }
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    return line[cursor] == '{';
+}
+
+static int find_function_definition(const char *line,
+    char *name,
+    size_t name_capacity,
+    char *body,
+    size_t body_capacity) {
+    size_t cursor = 0;
+    size_t name_length = 0;
+    size_t body_start = 0;
+    size_t body_end = 0;
+    char quote = '\0';
+    int found_end = 0;
+
+    if (!shell_is_name_start(line[cursor])) {
+        return 0;
+    }
+    while (shell_is_name_char(line[cursor])) {
+        if (name_length + 1 < name_capacity) {
+            name[name_length++] = line[cursor];
+        }
+        cursor++;
+    }
+    name[name_length] = '\0';
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    if (line[cursor++] != '(') {
+        return 0;
+    }
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    if (line[cursor++] != ')') {
+        return 0;
+    }
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    if (line[cursor++] != '{') {
+        return 0;
+    }
+    body_start = cursor;
+    for (size_t i = cursor; line[i] != '\0'; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (c == '}') {
+            body_end = i;
+            found_end = 1;
+        }
+    }
+    if (!found_end) {
+        return 0;
+    }
+    copy_slice_trimmed(body, body_capacity, line, body_start, body_end);
+    return name[0] != '\0';
+}
+
 static int find_for_parts(const char *line, struct for_parts *parts) {
     char quote = '\0';
     int depth = 1;
@@ -2437,6 +2684,9 @@ static uint64_t run_for_line(char *line, char *cwd) {
         setenv(name, argv[i], 1);
         cli_copy(body_copy, sizeof(body_copy), body);
         status = run_line(body_copy, cwd);
+        if (return_requested) {
+            break;
+        }
         if (exit_on_error && status != 0) {
             break;
         }
@@ -2450,10 +2700,20 @@ static uint64_t run_line(char *line, char *cwd) {
     enum shell_control control = SHELL_CONTROL_ALWAYS;
     uint64_t status = last_status;
     char *trimmed = cli_trim(line);
+    char function_name[32];
+    char function_body[EXPANDED_LINE_MAX];
 
+    if (return_requested) {
+        return return_status;
+    }
     if (trimmed != line) {
         line = trimmed;
         segment = line;
+    }
+    if (find_function_definition(line, function_name, sizeof(function_name), function_body, sizeof(function_body))) {
+        status = define_function(function_name, function_body);
+        last_status = status;
+        return status;
     }
     if (shell_keyword_at(line, 0, "if")) {
         status = run_if_line(line, cwd);
@@ -2469,6 +2729,11 @@ static uint64_t run_line(char *line, char *cwd) {
     for (char *cursor = line; ; cursor++) {
         char c = *cursor;
         if (c == '\0') {
+            if (quote != '\0') {
+                cli_puts("sh: unmatched quote\n");
+                last_status = 2;
+                return 2;
+            }
             int should_run = control == SHELL_CONTROL_ALWAYS ||
                 (control == SHELL_CONTROL_AND && status == 0) ||
                 (control == SHELL_CONTROL_OR && status != 0);
@@ -2480,6 +2745,9 @@ static uint64_t run_line(char *line, char *cwd) {
                     status = run_command(expanded, cwd, 0);
                 }
                 last_status = status;
+                if (return_requested) {
+                    return status;
+                }
             }
             return status;
         }
@@ -2505,6 +2773,9 @@ static uint64_t run_line(char *line, char *cwd) {
                 }
             }
             last_status = status;
+            if (return_requested) {
+                return status;
+            }
             return status;
         } else if (c == '&' &&
             cursor > line + 1 &&
@@ -2538,6 +2809,9 @@ static uint64_t run_line(char *line, char *cwd) {
                     status = run_command(expanded, cwd, background);
                 }
                 last_status = status;
+                if (return_requested) {
+                    return status;
+                }
             }
             segment = cursor + 1;
             control = next_control;

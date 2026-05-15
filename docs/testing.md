@@ -46,12 +46,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
   tools, source scripts plus non-interactive `sh script` and `sh -c`,
-  command substitution, positional parameters, `set -e`, `read`, `alias`,
+  command substitution, positional parameters, shell functions/`return`,
+  unmatched-quote diagnostics, `set -e`, `read`, `alias`,
   `type`, `unset`, bare assignments, `cd -` and directory validation,
   `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
-  `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, copy/remove,
-  native file rename through `mv`, `tap` file splitting,
+  `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
+  `cut`, `xargs`, `sed`, copy/remove, native file rename through `mv`,
+  `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
@@ -70,7 +72,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   linenoise history save/load coverage, SQLite create/insert/query/reopen on
   exFAT through the srvros VFS, termios raw-mode/restore/window-size/duplicated
   TTY fd/`ENOTTY` checks, and libc/POSIX file checks including `fstat`,
-  `dup`, shared regular-file offsets, writable-fd dup ownership, advisory
+  `dup`, shared regular-file offsets, writable-fd dup ownership, `statvfs`, advisory
   `fcntl` byte-range locks with a
   spawned `/fat/bin/lockprobe` conflict check, `pipe`,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,

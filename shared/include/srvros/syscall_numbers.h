@@ -62,6 +62,7 @@
 #define SYS_IOCTL 57
 #define SYS_CHMOD 58
 #define SYS_FCHMOD 59
+#define SYS_STATFS 60
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02

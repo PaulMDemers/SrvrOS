@@ -1291,6 +1291,16 @@ static bool bitmap_bit_is_set(const uint8_t *bitmap, uint64_t index) {
     return (bitmap[index / 8] & (uint8_t)(1u << (index % 8))) != 0;
 }
 
+static uint64_t count_used_bitmap_bits(const uint8_t *bitmap, uint64_t start_bit, uint64_t bit_count) {
+    uint64_t used = 0;
+    for (uint64_t i = 0; i < bit_count; i++) {
+        if (bitmap_bit_is_set(bitmap, start_bit + i)) {
+            used++;
+        }
+    }
+    return used;
+}
+
 static void bitmap_set_bit(uint8_t *bitmap, uint64_t index) {
     bitmap[index / 8] |= (uint8_t)(1u << (index % 8));
 }
@@ -2370,6 +2380,84 @@ bool exfat_rename(const char *old_path, const char *new_path) {
         return rename_empty_directory_in_mount(mount, index, old_path, new_path);
     }
     return false;
+}
+
+bool exfat_statfs(const char *path, struct exfat_fsinfo *info) {
+    if (path == NULL || info == NULL) {
+        return false;
+    }
+
+    struct exfat_mount *mount = find_mount_for_path(path);
+    if (mount == NULL ||
+        mount->volume.cluster_size == 0 ||
+        mount->volume.cluster_count == 0 ||
+        mount->volume.allocation_bitmap_cluster < 2) {
+        return false;
+    }
+
+    struct exfat_volume *volume = &mount->volume;
+    uint64_t bitmap_offset = 0;
+    uint64_t bitmap_bytes = allocation_bitmap_bytes(volume);
+    if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) || bitmap_bytes == 0) {
+        return false;
+    }
+
+    uint8_t *buffer = kmalloc(volume->cluster_size);
+    if (buffer == NULL) {
+        return false;
+    }
+
+    uint64_t used_clusters = 0;
+    uint64_t bit_base = 0;
+    uint64_t remaining_bytes = bitmap_bytes;
+    uint64_t offset = bitmap_offset;
+    while (remaining_bytes > 0 && bit_base < volume->cluster_count) {
+        uint64_t chunk = remaining_bytes < volume->cluster_size ? remaining_bytes : volume->cluster_size;
+        if (!volume_read(volume, offset, buffer, chunk)) {
+            kfree(buffer);
+            return false;
+        }
+
+        uint64_t bits = chunk * 8;
+        if (bits > volume->cluster_count - bit_base) {
+            bits = volume->cluster_count - bit_base;
+        }
+        used_clusters += count_used_bitmap_bits(buffer, 0, bits);
+        bit_base += bits;
+        remaining_bytes -= chunk;
+        offset += chunk;
+    }
+    kfree(buffer);
+
+    if (used_clusters > volume->cluster_count) {
+        used_clusters = volume->cluster_count;
+    }
+
+    for (uint64_t i = 0; i < sizeof(*info); i++) {
+        ((uint8_t *)info)[i] = 0;
+    }
+    info->block_size = volume->cluster_size;
+    info->blocks = volume->cluster_count;
+    info->blocks_free = volume->cluster_count - used_clusters;
+    info->blocks_available = info->blocks_free;
+    info->files = mount->file_count + mount->dir_count;
+    info->files_free = (EXFAT_MAX_FILES - mount->file_count) + (EXFAT_MAX_DIRS - mount->dir_count);
+
+    const char *fs = "exfat";
+    uint64_t i = 0;
+    while (fs[i] != '\0' && i + 1 < sizeof(info->filesystem)) {
+        info->filesystem[i] = fs[i];
+        i++;
+    }
+    info->filesystem[i] = '\0';
+
+    i = 0;
+    while (mount->mountpoint[i] != '\0' && i + 1 < sizeof(info->mountpoint)) {
+        info->mountpoint[i] = mount->mountpoint[i];
+        i++;
+    }
+    info->mountpoint[i] = '\0';
+    return true;
 }
 
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size) {

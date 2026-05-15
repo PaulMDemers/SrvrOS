@@ -97,6 +97,13 @@ server.
 - Adds shell `for`/`in`/`do`/`done` loops, login profile loading from
   `/fat/etc/profile`, `PS1` prompt customization, and first filesystem traversal
   tools with `/fat/bin/find` and `/fat/bin/du`.
+- Adds exFAT-backed filesystem capacity reporting through a small `statfs`
+  syscall, POSIX-facing `statvfs`, and `/fat/bin/df`, plus pipe-friendly
+  `/fat/bin/sort`, `/fat/bin/uniq`, and `/fat/bin/cut`.
+- Adds lightweight shell functions with positional arguments, `return`, one-line
+  and multiline script definitions, and `type` reporting for functions.
+- Adds `/fat/bin/xargs`, a small literal-substitution `/fat/bin/sed`, and shell
+  unmatched-quote diagnostics for friendlier CLI scripting failures.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

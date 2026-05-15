@@ -41,6 +41,17 @@ struct syscall_stat {
     uint64_t blocks;
 };
 
+struct syscall_fsinfo {
+    uint64_t block_size;
+    uint64_t blocks;
+    uint64_t blocks_free;
+    uint64_t blocks_available;
+    uint64_t files;
+    uint64_t files_free;
+    char filesystem[16];
+    char mountpoint[160];
+};
+
 struct syscall_console_info {
     uint64_t columns;
     uint64_t rows;
@@ -749,6 +760,35 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
 }
 
+static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info) {
+    char path[MAX_PATH_LENGTH];
+    struct exfat_fsinfo fsinfo;
+    struct syscall_fsinfo copy = {0};
+    if (info == NULL ||
+        !user_buffer_ok(info, sizeof(*info), true) ||
+        !copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+
+    if (!exfat_statfs(path, &fsinfo)) {
+        return -1;
+    }
+
+    copy.block_size = fsinfo.block_size;
+    copy.blocks = fsinfo.blocks;
+    copy.blocks_free = fsinfo.blocks_free;
+    copy.blocks_available = fsinfo.blocks_available;
+    copy.files = fsinfo.files;
+    copy.files_free = fsinfo.files_free;
+    for (uint64_t i = 0; i < sizeof(copy.filesystem); i++) {
+        copy.filesystem[i] = fsinfo.filesystem[i];
+    }
+    for (uint64_t i = 0; i < sizeof(copy.mountpoint); i++) {
+        copy.mountpoint[i] = fsinfo.mountpoint[i];
+    }
+    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+}
+
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path, path, sizeof(path))) {
@@ -1332,6 +1372,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_STAT:
         frame->rax = (uint64_t)syscall_stat((const char *)frame->rdi, (struct syscall_stat *)frame->rsi);
+        return;
+    case SYS_STATFS:
+        frame->rax = (uint64_t)syscall_statfs((const char *)frame->rdi, (struct syscall_fsinfo *)frame->rsi);
         return;
     case SYS_FS_APPEND:
         frame->rax = (uint64_t)syscall_fs_append((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);

@@ -53,10 +53,11 @@ editor clients:
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
-  `/fat/etc/profile`, `PS1`, `test`/`[`, `set -e`, `read`, `alias`, `type`,
+  shell functions with `return`, `/fat/etc/profile`, `PS1`, `test`/`[`, `set -e`, `read`, `alias`, `type`,
   `unset`, safer `cd`, `service webd`, DHCP/status/DNS commands,
-  `env`/`export`/`which`, `exec`, and Unix-like tools including `tail`, `tee`,
-  `find`, `du`, `uname`, `hostname`, and `uptime`.
+  `env`/`export`/`which`, `exec`, quote diagnostics, and Unix-like tools
+  including `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`,
+  literal-substitution `sed`, `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -66,10 +67,10 @@ editor clients:
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
-  `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, time, cwd, `getopt`, `uname`,
-  environment variables, `waitpid`, `posix_spawn`, `posix_spawnp`,
-  process-replacing `execve`, IPv4 helpers, DNS-backed `getaddrinfo`, and TCP
-  server sockets.
+  `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
+  cwd, `getopt`, `uname`, environment variables, `waitpid`, `posix_spawn`,
+  `posix_spawnp`, process-replacing `execve`, IPv4 helpers, DNS-backed
+  `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
   5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua

@@ -13,6 +13,7 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -124,6 +125,15 @@ int main(void) {
         say_u64((uint64_t)st.st_size);
         say("\n");
     }
+    struct statvfs vfsinfo;
+    if (statvfs("/fat", &vfsinfo) < 0 ||
+        vfsinfo.f_bsize == 0 ||
+        vfsinfo.f_blocks == 0 ||
+        vfsinfo.f_bfree > vfsinfo.f_blocks) {
+        say("posixdemo: statvfs failed\n");
+        return 8;
+    }
+    say("posixdemo: statvfs ok\n");
 
     FILE *file = fopen("/fat/posixdemo/stdio.txt", "w");
     if (file == 0) {

@@ -278,17 +278,25 @@ kernel, and a minimal Unix-like userspace.
 - Add shell `for ... in ...; do ...; done` loops, login profile loading from
   `/fat/etc/profile`, `PS1` prompt customization, and first filesystem traversal
   tools with `find` and `du`.
+- Add exFAT-backed filesystem capacity reporting through a `statfs` syscall,
+  POSIX `statvfs`, `/fat/bin/df`, and more pipe-friendly text tools:
+  `sort`, `uniq`, and `cut`.
+- Add lightweight shell functions with positional arguments, `return`, one-line
+  and multiline definitions, and `type` reporting for functions.
+- Add shell unmatched-quote diagnostics plus first-pass `/fat/bin/xargs` and a
+  literal-substitution `/fat/bin/sed`.
 
 ## Next milestones
 
-1. Complete the CLI table-stakes milestone: shell functions, stronger
-   quote/syntax diagnostics, Ctrl-D/C behavior, script-friendly temp files, and
-   richer text tools such as `sort`, `uniq`, `cut`, and `df`. The shell now has
-   positional parameters, `for` loops, `/fat/etc/profile`, prompt customization,
-   `set -e`, `read`, `unset`, `alias`, `type`, `export NAME`, and safer `cd`;
-   the tool slice now includes `sleep`, uptime-style `date`, `touch`,
-   `basename`, `dirname`, `tail`, `tee`, `find`, `du`, `uname`, `hostname`, and
-   `uptime`.
+1. Complete the CLI table-stakes milestone: broader syntax diagnostics,
+   Ctrl-D/C behavior, script-friendly temp files, richer `sed`/text-tool option
+   support, and more complete option support for existing commands.
+   The shell now has positional parameters, functions, `for` loops,
+   `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
+   `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
+   uptime-style `date`, `touch`, `basename`, `dirname`, `tail`, `tee`, `find`,
+   `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`, `uname`, `hostname`,
+   and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,

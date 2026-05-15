@@ -31,6 +31,17 @@ struct srv_stat {
     uint64_t blocks;
 };
 
+struct srv_fsinfo {
+    uint64_t block_size;
+    uint64_t blocks;
+    uint64_t blocks_free;
+    uint64_t blocks_available;
+    uint64_t files;
+    uint64_t files_free;
+    char filesystem[16];
+    char mountpoint[160];
+};
+
 struct srv_pollfd {
     int32_t fd;
     int16_t events;
@@ -78,6 +89,7 @@ long srv_sbrk(int64_t increment, uint64_t *previous_out);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);
+long srv_statfs(const char *path, struct srv_fsinfo *info);
 long srv_unlink(const char *path);
 long srv_mkdir(const char *path);
 long srv_rmdir(const char *path);

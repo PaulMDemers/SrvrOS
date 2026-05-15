@@ -5,6 +5,7 @@
 #include <string.h>
 #include <termios.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <unistd.h>
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
@@ -337,6 +338,30 @@ int fstat(int fd, struct stat *st) {
         return -1;
     }
     fill_stat(st, &info);
+    return 0;
+}
+
+int statvfs(const char *path, struct statvfs *buf) {
+    char full[POSIX_PATH_MAX];
+    struct srv_fsinfo info;
+    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_statfs(full, &info) < 0) {
+        errno = ENOENT;
+        return -1;
+    }
+    memset(buf, 0, sizeof(*buf));
+    buf->f_bsize = info.block_size;
+    buf->f_frsize = info.block_size;
+    buf->f_blocks = info.blocks;
+    buf->f_bfree = info.blocks_free;
+    buf->f_bavail = info.blocks_available;
+    buf->f_files = info.files;
+    buf->f_ffree = info.files_free;
+    buf->f_favail = info.files_free;
+    buf->f_namemax = 255;
     return 0;
 }
 

@@ -159,6 +159,10 @@ long srv_stat(const char *path, struct srv_stat *info) {
     return srv_syscall2(SYS_STAT, (long)path, (long)info);
 }
 
+long srv_statfs(const char *path, struct srv_fsinfo *info) {
+    return srv_syscall2(SYS_STATFS, (long)path, (long)info);
+}
+
 long srv_unlink(const char *path) {
     return srv_syscall1(SYS_UNLINK, (long)path);
 }
