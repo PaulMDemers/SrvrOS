@@ -208,6 +208,7 @@ ports, and simple boot scripts:
 ```text
 / $ sh -c 'echo scripted'
 / $ sh /fat/boot.sh
+/ $ echo "kernel says $(cat /fat/status.txt)"
 ```
 
 ## Useful Monitor Commands

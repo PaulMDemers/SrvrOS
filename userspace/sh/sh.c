@@ -20,6 +20,7 @@ static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
 static size_t path_count = 3;
 static uint64_t last_status = 0;
 static uint64_t shell_pid = 0;
+static uint64_t substitution_counter = 0;
 
 static uint64_t run_line(char *line, char *cwd);
 
@@ -77,7 +78,104 @@ static void append_number(char *out, size_t capacity, size_t *length, uint64_t v
     }
 }
 
-static int expand_variables(const char *input, char *out, size_t capacity) {
+static size_t find_command_substitution_end(const char *input, size_t open_index) {
+    size_t depth = 1;
+    char quote = '\0';
+    for (size_t i = open_index + 2; input[i] != '\0'; i++) {
+        char c = input[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && input[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && input[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (c == '$' && input[i + 1] == '(') {
+            depth++;
+            i++;
+            continue;
+        }
+        if (c == ')') {
+            depth--;
+            if (depth == 0) {
+                return i;
+            }
+        }
+    }
+    return 0;
+}
+
+static void make_substitution_path(char *path, size_t capacity) {
+    size_t length = 0;
+    path[0] = '\0';
+    append_text(path, capacity, &length, "/fat/.srvsh_subst_");
+    append_number(path, capacity, &length, shell_pid);
+    append_char(path, capacity, &length, '_');
+    append_number(path, capacity, &length, substitution_counter++);
+}
+
+static int append_command_substitution(const char *command_text,
+    size_t command_length,
+    char *cwd,
+    char *out,
+    size_t capacity,
+    size_t *length) {
+    char temp_path[CLI_PATH_MAX];
+    char command[EXPANDED_LINE_MAX];
+    size_t command_out = 0;
+    int fd;
+    char buffer[128];
+    char captured[EXPANDED_LINE_MAX];
+    size_t captured_length = 0;
+
+    make_substitution_path(temp_path, sizeof(temp_path));
+    if (command_length + cli_strlen(temp_path) + 4 >= sizeof(command)) {
+        cli_puts("sh: command substitution too long\n");
+        return 0;
+    }
+    for (size_t i = 0; i < command_length && command_out + 1 < sizeof(command); i++) {
+        command[command_out++] = command_text[i];
+    }
+    command[command_out] = '\0';
+    append_text(command, sizeof(command), &command_out, " > ");
+    append_text(command, sizeof(command), &command_out, temp_path);
+
+    (void)srv_unlink(temp_path);
+    (void)run_line(command, cwd);
+    fd = (int)srv_open(temp_path);
+    if (fd < 0) {
+        return 1;
+    }
+    for (;;) {
+        long count = srv_read(fd, buffer, sizeof(buffer));
+        if (count <= 0) {
+            break;
+        }
+        for (long i = 0; i < count && captured_length + 1 < sizeof(captured); i++) {
+            char c = buffer[i];
+            captured[captured_length++] = (c == '\r' || c == '\n') ? ' ' : c;
+        }
+    }
+    srv_close(fd);
+    (void)srv_unlink(temp_path);
+    while (captured_length > 0 && captured[captured_length - 1] == ' ') {
+        captured_length--;
+    }
+    captured[captured_length] = '\0';
+    append_text(out, capacity, length, captured);
+    return 1;
+}
+
+static int expand_variables(const char *input, char *out, size_t capacity, char *cwd) {
     size_t length = 0;
     char quote = '\0';
     out[0] = '\0';
@@ -116,6 +214,18 @@ static int expand_variables(const char *input, char *out, size_t capacity) {
         if (input[i + 1] == '$') {
             append_number(out, capacity, &length, shell_pid);
             i++;
+            continue;
+        }
+        if (input[i + 1] == '(') {
+            size_t end = find_command_substitution_end(input, i);
+            if (end == 0) {
+                cli_puts("sh: unterminated command substitution\n");
+                return 0;
+            }
+            if (!append_command_substitution(input + i + 2, end - i - 2, cwd, out, capacity, &length)) {
+                return 0;
+            }
+            i = end;
             continue;
         }
         if (input[i + 1] == '{') {
@@ -352,7 +462,7 @@ static void print_help(void) {
     cli_puts("builtins: help exit exec source . path cd pwd clear echo env export which test [ jobs wait service dhcp net dns rmdir\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head stat chmod ps kill which env pwd true false hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script], command [args], quote args with ' or \", use ;, &&, ||, append & for background\n");
-    cli_puts("expansion: $VAR ${VAR} $? $$ unquoted * and ? globs\n");
+    cli_puts("expansion: $VAR ${VAR} $? $$ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
 }
@@ -1632,7 +1742,7 @@ static uint64_t run_line(char *line, char *cwd) {
                 (control == SHELL_CONTROL_OR && status != 0);
             if (should_run) {
                 char expanded[EXPANDED_LINE_MAX];
-                if (!expand_variables(segment, expanded, sizeof(expanded))) {
+                if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
                     status = 2;
                 } else {
                     status = run_command(expanded, cwd, 0);
@@ -1652,7 +1762,7 @@ static uint64_t run_line(char *line, char *cwd) {
         } else if (c == '#' && (cursor == segment || cursor[-1] == ' ' || cursor[-1] == '\t')) {
             *cursor = '\0';
             char expanded[EXPANDED_LINE_MAX];
-            if (!expand_variables(segment, expanded, sizeof(expanded))) {
+            if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
                 status = 2;
             } else {
                 int should_run = control == SHELL_CONTROL_ALWAYS ||
@@ -1690,7 +1800,7 @@ static uint64_t run_line(char *line, char *cwd) {
                 (control == SHELL_CONTROL_OR && status != 0);
             if (should_run) {
                 char expanded[EXPANDED_LINE_MAX];
-                if (!expand_variables(segment, expanded, sizeof(expanded))) {
+                if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
                     status = 2;
                 } else {
                     status = run_command(expanded, cwd, background);

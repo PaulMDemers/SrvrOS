@@ -183,9 +183,9 @@ Core tools:
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
-`$?`/`$$`, unquoted `*`/`?` globbing, `&&`/`||`, `test`/`[`, `service webd`,
-DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
-builtins.
+`$?`/`$$`, `$(command)` command substitution, unquoted `*`/`?` globbing,
+`&&`/`||`, `test`/`[`, `service webd`, DHCP/status/DNS builtins,
+`env`/`export`/`which`, `exec`, and basic filesystem builtins.
 
 New launches use the native `SYS_EXEC` request path. It copies a path, argv
 vector, envp vector, background flag, optional standard fd overrides, and an

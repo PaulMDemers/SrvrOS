@@ -266,6 +266,8 @@ kernel, and a minimal Unix-like userspace.
 - Add non-interactive shell entry points for `sh -c command` and `sh script`,
   so tests, ports, and boot scripts can use `srvsh` without entering the
   editable prompt.
+- Add shell `$(command)` substitution for plain, quoted, and nested command
+  captures.
 
 ## Next milestones
 
@@ -286,10 +288,9 @@ kernel, and a minimal Unix-like userspace.
 5. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 6. Continue the CLI/libc/newlib track: fuller `posix_spawn` attributes/file
-   actions, terminal process groups/signals, command substitution, shell
-   functions/control flow, fuller `stdio`, scan/format helpers, stronger
-   sidecar recovery, and more fd-specific readiness queues as the descriptor
-   model grows.
+   actions, terminal process groups/signals, shell functions/control flow,
+   fuller `stdio`, scan/format helpers, stronger sidecar recovery, and more
+   fd-specific readiness queues as the descriptor model grows.
 7. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 8. Extend GUI IPC from server-rendered controls to client-owned surfaces:

@@ -141,6 +141,9 @@ def main():
         "source /fat/boot.sh\n"
         "sh /fat/boot.sh\n"
         "sh -c 'echo command-mode-ok'\n"
+        "echo subst-$(echo command-sub-ok)\n"
+        "echo quote-\"$(echo two words)\"\n"
+        "echo nested-$(echo $(echo inner-ok))\n"
         "cp /fat/status.txt /fat/status-copy.txt\n"
         "stat /fat/status-copy.txt\n"
         "cp /fat/redir.txt /fat/redir-copy.txt\n"
@@ -273,6 +276,9 @@ def main():
         "script-ok",
         "appended-script-ok",
         "command-mode-ok",
+        "subst-command-sub-ok",
+        "quote-two words",
+        "nested-inner-ok",
         "/fat/status-copy.txt: 55 bytes",
         "/fat/sh-copy:",
         "PID STATE",

@@ -97,6 +97,8 @@ server.
 - Adds non-interactive `srvsh` entry points through `sh -c command` and
   `sh script`, allowing ports and smoke tests to launch scriptable shell work
   without first entering the editable prompt.
+- Adds `$(command)` command substitution, including quoted and nested forms,
+  by capturing stdout through a short-lived shell temp file.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
