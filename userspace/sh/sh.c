@@ -14,6 +14,7 @@
 #define SHELL_MAX_ALIASES 16
 #define SHELL_MAX_FUNCTIONS 16
 #define SHELL_MAX_FUNCTION_ARGS 16
+#define SHELL_MAX_JOBS 8
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -49,11 +50,23 @@ struct shell_function {
     char body[EXPANDED_LINE_MAX];
 };
 
+struct shell_job {
+    int used;
+    uint64_t id;
+    uint64_t group;
+    size_t count;
+    long pids[PIPELINE_MAX_COMMANDS];
+    char command[LINE_MAX];
+};
+
 static struct shell_alias aliases[SHELL_MAX_ALIASES];
 static struct shell_function functions[SHELL_MAX_FUNCTIONS];
+static struct shell_job jobs[SHELL_MAX_JOBS];
+static uint64_t next_job_id = 1;
 
 static uint64_t run_line(char *line, char *cwd);
 static int resolve_command(char *out, size_t capacity, const char *command);
+static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
 
 struct command_redirection {
     int stdin_set;
@@ -877,6 +890,16 @@ static uint64_t parse_u64(const char *text) {
     return value;
 }
 
+static uint64_t parse_job_reference(const char *text) {
+    if (text == 0 || text[0] == '\0') {
+        return 0;
+    }
+    if (text[0] == '%') {
+        text++;
+    }
+    return parse_u64(text);
+}
+
 static int parse_i64(const char *text, int64_t *value_out) {
     int sign = 1;
     int64_t value = 0;
@@ -1070,6 +1093,18 @@ static uint64_t test_command(const char *args, int bracket_form) {
 static void print_jobs(void) {
     uint64_t index = 0;
     struct srv_process_info info;
+    for (size_t i = 0; i < SHELL_MAX_JOBS; i++) {
+        if (!jobs[i].used) {
+            continue;
+        }
+        cli_puts("[");
+        cli_putn(jobs[i].id);
+        cli_puts("] group ");
+        cli_putn(jobs[i].group);
+        cli_puts(" ");
+        cli_puts(jobs[i].command);
+        cli_puts("\n");
+    }
     cli_puts("PID STATE      NAME\n");
     for (;;) {
         long next = srv_proc_list(index, &info);
@@ -1086,6 +1121,68 @@ static void print_jobs(void) {
         }
         index = (uint64_t)next;
     }
+}
+
+static struct shell_job *find_job(uint64_t id_or_pid) {
+    if (id_or_pid == 0) {
+        return 0;
+    }
+    for (size_t i = 0; i < SHELL_MAX_JOBS; i++) {
+        if (!jobs[i].used) {
+            continue;
+        }
+        if (jobs[i].id == id_or_pid || jobs[i].group == id_or_pid) {
+            return &jobs[i];
+        }
+        for (size_t j = 0; j < jobs[i].count; j++) {
+            if (jobs[i].pids[j] >= 0 && (uint64_t)jobs[i].pids[j] == id_or_pid) {
+                return &jobs[i];
+            }
+        }
+    }
+    return 0;
+}
+
+static struct shell_job *add_job(uint64_t group, const long *pids, size_t count, const char *command) {
+    if (group == 0 || pids == 0 || count == 0) {
+        return 0;
+    }
+    for (size_t i = 0; i < SHELL_MAX_JOBS; i++) {
+        if (!jobs[i].used) {
+            jobs[i].used = 1;
+            jobs[i].id = next_job_id++;
+            jobs[i].group = group;
+            jobs[i].count = count;
+            for (size_t j = 0; j < PIPELINE_MAX_COMMANDS; j++) {
+                jobs[i].pids[j] = j < count ? pids[j] : -1;
+            }
+            cli_copy(jobs[i].command, sizeof(jobs[i].command), command != 0 ? command : "");
+            return &jobs[i];
+        }
+    }
+    return 0;
+}
+
+static uint64_t wait_job_pids(long *pids, size_t count) {
+    uint64_t status = 0;
+    wait_pipeline_pids(pids, count, &status);
+    return status;
+}
+
+static uint64_t wait_shell_job(struct shell_job *job, int foreground) {
+    uint64_t status;
+    if (job == 0) {
+        return 127;
+    }
+    if (foreground) {
+        (void)srv_proc_group(0, job->group, 1);
+    }
+    status = wait_job_pids(job->pids, job->count);
+    if (foreground) {
+        (void)srv_proc_group(0, 0, 1);
+    }
+    job->used = 0;
+    return status;
 }
 
 static int find_process_by_pid(uint64_t pid, struct srv_process_info *out) {
@@ -1123,12 +1220,26 @@ static uint64_t wait_for_job(const char *args) {
     uint64_t status = 0;
     uint64_t pid = 0;
     long waited;
+    struct shell_job *job;
 
     if (args != 0 && args[0] != '\0') {
-        pid = parse_u64(args);
+        pid = parse_job_reference(args);
         if (pid == 0) {
             cli_puts("usage: wait [pid]\n");
             return 2;
+        }
+        job = find_job(pid);
+        if (job != 0) {
+            status = wait_shell_job(job, 0);
+            print_wait_result("[done]", (long)pid, status);
+            return status;
+        }
+    } else {
+        job = find_job(last_background_pid);
+        if (job != 0) {
+            status = wait_shell_job(job, 0);
+            print_wait_result("[done]", (long)last_background_pid, status);
+            return status;
         }
     }
 
@@ -1142,14 +1253,27 @@ static uint64_t wait_for_job(const char *args) {
 }
 
 static uint64_t fg_command(const char *args) {
-    uint64_t pid = args != 0 && args[0] != '\0' ? parse_u64(args) : last_background_pid;
+    uint64_t pid = args != 0 && args[0] != '\0' ? parse_job_reference(args) : last_background_pid;
     uint64_t status = 0;
     long waited;
     struct srv_process_info info;
+    struct shell_job *job;
 
     if (pid == 0) {
         cli_puts("fg: no current background job\n");
         return 1;
+    }
+    job = find_job(pid);
+    if (job != 0) {
+        (void)srv_proc_group(0, job->group, 1);
+        cli_puts("[fg] pid ");
+        cli_putn(job->group);
+        cli_puts(" ");
+        cli_puts(job->command);
+        cli_puts("\n");
+        status = wait_shell_job(job, 1);
+        print_wait_result("[done]", (long)pid, status);
+        return status;
     }
     if (!find_process_by_pid(pid, &info)) {
         cli_puts("fg: no such job\n");
@@ -1159,6 +1283,7 @@ static uint64_t fg_command(const char *args) {
         cli_puts("fg: process is already foreground\n");
         return 1;
     }
+    (void)srv_proc_group(pid, pid, 1);
     cli_puts("[fg] pid ");
     cli_putn(pid);
     cli_puts(" ");
@@ -1167,19 +1292,31 @@ static uint64_t fg_command(const char *args) {
     waited = srv_wait(pid, &status, 0);
     if (waited < 0) {
         cli_puts("fg: wait failed\n");
+        (void)srv_proc_group(0, 0, 1);
         return 127;
     }
+    (void)srv_proc_group(0, 0, 1);
     print_wait_result("[done]", waited, status);
     return status;
 }
 
 static uint64_t bg_command(const char *args) {
-    uint64_t pid = args != 0 && args[0] != '\0' ? parse_u64(args) : last_background_pid;
+    uint64_t pid = args != 0 && args[0] != '\0' ? parse_job_reference(args) : last_background_pid;
     struct srv_process_info info;
+    struct shell_job *job;
 
     if (pid == 0) {
         cli_puts("bg: no current background job\n");
         return 1;
+    }
+    job = find_job(pid);
+    if (job != 0) {
+        cli_puts("[bg] pid ");
+        cli_putn(job->group);
+        cli_puts(" background ");
+        cli_puts(job->command);
+        cli_puts("\n");
+        return 0;
     }
     if (!find_process_by_pid(pid, &info)) {
         cli_puts("bg: no such job\n");
@@ -2333,7 +2470,7 @@ static uint64_t exec_replace_command(const char *args,
     return 126;
 }
 
-static uint64_t run_pipeline(char **segments, size_t segment_count, const char *cwd) {
+static uint64_t run_pipeline(char **segments, size_t segment_count, const char *cwd, int background, const char *command_line) {
     struct pipeline_command commands[PIPELINE_MAX_COMMANDS];
     int pipes[PIPELINE_MAX_COMMANDS - 1][2];
     long pids[PIPELINE_MAX_COMMANDS];
@@ -2418,7 +2555,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
             stdout_fd,
             stderr_fd,
             group,
-            1);
+            background ? 0 : 1);
         if (pids[i] < 0) {
             cli_puts("sh: pipeline spawn failed\n");
             close_pipeline_fds(pipes, segment_count - 1);
@@ -2430,6 +2567,19 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
 
     close_pipeline_fds(pipes, segment_count - 1);
     close_redirection_fds(input_fd, output_fd, error_fd);
+    if (background) {
+        uint64_t group = pids[0] >= 0 ? (uint64_t)pids[0] : 0;
+        struct shell_job *job = add_job(group, pids, segment_count, command_line);
+        last_background_pid = group;
+        cli_puts("[bg] pid ");
+        cli_putn(group);
+        if (job != 0) {
+            cli_puts(" job ");
+            cli_putn(job->id);
+        }
+        cli_puts("\n");
+        return 0;
+    }
     wait_pipeline_pids(pids, segment_count, &final_status);
     (void)srv_proc_group(0, 0, 1);
     cli_puts("status ");
@@ -2493,6 +2643,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     char *args = command;
     char *pipeline_segments[PIPELINE_MAX_COMMANDS];
     int pipeline_count;
+    char command_text[LINE_MAX];
     char path[CLI_PATH_MAX];
     struct command_redirection redirection;
     char expanded_args[ARG_EXPANDED_MAX];
@@ -2504,6 +2655,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
     if (*command == '\0' || *command == '#') {
         return last_status;
     }
+    cli_copy(command_text, sizeof(command_text), command);
 
     pipeline_count = split_pipeline_segments(command, pipeline_segments, PIPELINE_MAX_COMMANDS);
     if (pipeline_count < 0) {
@@ -2511,11 +2663,7 @@ static uint64_t run_command(char *line, char *cwd, int background) {
         return 2;
     }
     if (pipeline_count > 1) {
-        if (background) {
-            cli_puts("sh: background pipeline unsupported\n");
-            return 2;
-        }
-        return run_pipeline(pipeline_segments, (size_t)pipeline_count, cwd);
+        return run_pipeline(pipeline_segments, (size_t)pipeline_count, cwd, background, command_text);
     }
 
     args = find_argument_tail(command);
@@ -2743,7 +2891,10 @@ static uint64_t run_command(char *line, char *cwd, int background) {
             close_redirection_fds(input_fd, output_fd, error_fd);
             return 126;
         } else {
+            long pids[1];
+            pids[0] = status;
             last_background_pid = (uint64_t)status;
+            (void)add_job((uint64_t)status, pids, 1, command_text);
             cli_puts("[bg] pid ");
             cli_putn((uint64_t)status);
             cli_puts("\n");

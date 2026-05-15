@@ -133,6 +133,8 @@ server.
 - Extends foreground signal handling to shell pipelines by assigning native
   process groups at exec time, waking blocked pipe readers/writers on signal,
   and preserving interrupted pipeline status as `128 + signal`.
+- Adds shell job-table tracking for background pipelines, allowing `cmd | cmd &`
+  to be foregrounded with `fg $!` and interrupted as a process group.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

@@ -49,7 +49,8 @@ editor clients:
   nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
   and a bounded active-client table.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
-  stderr redirection, pipeline output redirection, multi-stage pipelines,
+  stderr redirection, pipeline output redirection, foreground/background
+  multi-stage pipelines,
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,

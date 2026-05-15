@@ -57,9 +57,9 @@ srvros can run kernel threads and ring-3 processes. The local APIC timer drives
 preemption. Process state includes address-space ownership, kernel trap stack,
 fd table, GUI queue state, network handle ownership, and exit status.
 
-The shell supports foreground jobs, foreground pipeline groups, background jobs,
-`jobs`, `wait`, and `kill`. Sleeping syscalls use wait queues for keyboard
-input, network accept/read readiness, and descriptor readiness in
+The shell supports foreground jobs, foreground/background pipeline groups,
+`jobs`, `wait`, `fg`/`bg`, and `kill`. Sleeping syscalls use wait queues for
+keyboard input, network accept/read readiness, and descriptor readiness in
 `poll`/`select`, so a blocked process does not busy-spin.
 
 ## Syscall ABI

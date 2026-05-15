@@ -68,8 +68,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.
 - `process_smoke.py`: background process launch, process listing, exit status,
-  `wait`, and Ctrl-C interruption of foreground CPU-bound processes and
-  foreground pipelines with `status 130`.
+  `wait`, foreground/background pipeline job control, and Ctrl-C interruption of
+  CPU-bound processes and pipelines with `status 130`.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,
