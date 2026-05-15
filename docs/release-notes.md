@@ -114,6 +114,9 @@ server.
 - Adds interactive Ctrl-D/EOF shell exit coverage and expands common text-tool
   flags: `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1`
   forms, and `find -type f|d`.
+- Expands the next CLI compatibility slice with `ls -a/-l` combined flags and
+  multi-path headers, `sed -n`, `sed -e`, literal `p`/`d` commands, simple
+  line-number and `/pattern/` addresses, and `test -s/-r/-w/-x`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

@@ -195,9 +195,11 @@ login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `cd -` with directory validation, `service webd`, DHCP/status/DNS builtins,
 `env`/`export`/`which`, `exec`, and basic filesystem builtins.
 
-The first text-tool compatibility pass covers common script-facing flags:
+The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for
-line counts, and `find -type f|d`.
+line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
+`sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses, and
+`/pattern/` addresses.
 
 The current `date` tool reports monotonic uptime because srvros does not yet
 have RTC or network time plumbing.

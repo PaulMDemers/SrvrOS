@@ -39,35 +39,43 @@ static int path_is_directory(const char *path) {
     return srv_stat(path, &info) == 0 && info.type == 1;
 }
 
-int main(int argc, char **argv) {
-    char target[CLI_PATH_MAX] = "/";
+static int hidden_name(const char *name) {
+    return name[0] == '.';
+}
+
+static void trim_trailing_slashes(char *path) {
+    size_t len = cli_strlen(path);
+    while (len > 1 && path[len - 1] == '/') {
+        path[--len] = '\0';
+    }
+}
+
+static void build_prefix(char *prefix, size_t capacity, const char *target) {
+    if (cli_streq(target, "/")) {
+        cli_copy(prefix, capacity, "/");
+    } else {
+        cli_join_path(prefix, capacity, target, "");
+    }
+}
+
+static int list_target(const char *target_arg, int long_format, int all, int show_header) {
+    char target[CLI_PATH_MAX];
     char prefix[CLI_PATH_MAX];
     char path[CLI_PATH_MAX];
     char names[CHILD_MAX][NAME_MAX];
     size_t name_count = 0;
     uint64_t size = 0;
-    int long_format = 0;
     int found = 0;
     int target_is_dir = 0;
 
-    for (int i = 1; i < argc; i++) {
-        if (cli_streq(argv[i], "-l")) {
-            long_format = 1;
-        } else {
-            cli_copy(target, sizeof(target), argv[i]);
-        }
-    }
+    cli_copy(target, sizeof(target), target_arg);
+    trim_trailing_slashes(target);
+    build_prefix(prefix, sizeof(prefix), target);
 
-    size_t len = cli_strlen(target);
-    while (len > 1 && target[len - 1] == '/') {
-        target[--len] = '\0';
+    if (show_header) {
+        cli_puts(target);
+        cli_puts(":\n");
     }
-    if (cli_streq(target, "/")) {
-        cli_copy(prefix, sizeof(prefix), "/");
-    } else {
-        cli_join_path(prefix, sizeof(prefix), target, "");
-    }
-
     target_is_dir = path_is_directory(target);
     if (!target_is_dir) {
         struct srv_stat info;
@@ -102,6 +110,9 @@ int main(int argc, char **argv) {
         if (child[0] == '\0') {
             continue;
         }
+        if (!all && hidden_name(child)) {
+            continue;
+        }
         dir = rest[child_len] == '/';
         if (!dir) {
             dir = path_is_directory(path);
@@ -117,8 +128,50 @@ int main(int argc, char **argv) {
         found = 1;
     }
     if (!found) {
-        cli_puts("ls: not found\n");
+        cli_puts("ls: not found: ");
+        cli_puts(target);
+        cli_puts("\n");
         return 1;
     }
     return 0;
+}
+
+int main(int argc, char **argv) {
+    const char *targets[16];
+    int target_count = 0;
+    int long_format = 0;
+    int all = 0;
+    int status = 0;
+
+    for (int i = 1; i < argc; i++) {
+        if (argv[i][0] == '-' && argv[i][1] != '\0') {
+            for (size_t j = 1; argv[i][j] != '\0'; j++) {
+                if (argv[i][j] == 'l') {
+                    long_format = 1;
+                } else if (argv[i][j] == 'a') {
+                    all = 1;
+                } else {
+                    cli_puts("usage: ls [-la] [path ...]\n");
+                    return 1;
+                }
+            }
+        } else if (target_count < (int)(sizeof(targets) / sizeof(targets[0]))) {
+            targets[target_count++] = argv[i];
+        } else {
+            cli_puts("ls: too many paths\n");
+            return 1;
+        }
+    }
+    if (target_count == 0) {
+        targets[target_count++] = "/";
+    }
+    for (int i = 0; i < target_count; i++) {
+        if (i > 0) {
+            cli_puts("\n");
+        }
+        if (list_target(targets[i], long_format, all, target_count > 1) != 0) {
+            status = 1;
+        }
+    }
+    return status;
 }

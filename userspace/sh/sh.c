@@ -714,6 +714,16 @@ static int path_type_matches(const char *path, int expected_type) {
     return expected_type < 0 || (int)info.type == expected_type;
 }
 
+static int path_size_nonzero(const char *path) {
+    struct srv_stat info;
+    return srv_stat(path, &info) == 0 && info.size > 0;
+}
+
+static int path_mode_has(const char *path, uint64_t bits) {
+    struct srv_stat info;
+    return srv_stat(path, &info) == 0 && (info.mode & bits) != 0;
+}
+
 static uint64_t test_eval(int argc, char **argv) {
     if (argc == 0) {
         return 1;
@@ -739,6 +749,18 @@ static uint64_t test_eval(int argc, char **argv) {
         }
         if (cli_streq(argv[0], "-d")) {
             return path_type_matches(argv[1], 1) ? 0 : 1;
+        }
+        if (cli_streq(argv[0], "-s")) {
+            return path_size_nonzero(argv[1]) ? 0 : 1;
+        }
+        if (cli_streq(argv[0], "-r")) {
+            return path_mode_has(argv[1], 0444) ? 0 : 1;
+        }
+        if (cli_streq(argv[0], "-w")) {
+            return path_mode_has(argv[1], 0222) ? 0 : 1;
+        }
+        if (cli_streq(argv[0], "-x")) {
+            return path_mode_has(argv[1], 0111) ? 0 : 1;
         }
         return 2;
     }

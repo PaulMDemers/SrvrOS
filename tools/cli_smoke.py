@@ -88,6 +88,8 @@ def main():
     script = (
         "echo shell-ok\n"
         "ls /fat/bin\n"
+        "ls -a /fat | grep .srvros\n"
+        "ls -la /fat /fat/etc\n"
         "which sh true false\n"
         "export TESTVAR=cli-ok\n"
         "env\n"
@@ -102,6 +104,10 @@ def main():
         "echo /fat/hello.ht?l\n"
         "test -f /fat/status.txt && cp /fat/status.txt /fat/test-file-copy.txt\n"
         "stat /fat/test-file-copy.txt\n"
+        "test -s /fat/status.txt && echo test-s-ok\n"
+        "test -r /fat/status.txt && echo test-r-ok\n"
+        "test -w /fat/status.txt && echo test-w-ok\n"
+        "test -x /fat/status.txt || echo test-not-x-ok\n"
         "[ -d /fat/bin ] && cp /fat/status.txt /fat/test-dir-copy.txt\n"
         "stat /fat/test-dir-copy.txt\n"
         "[ 5 -gt 3 ] && cp /fat/status.txt /fat/test-int-copy.txt\n"
@@ -169,6 +175,9 @@ def main():
         "cat /fat/words.txt | xargs echo args\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
+        "sed -n /apple/p /fat/words.txt\n"
+        "sed /banana/d /fat/words.txt\n"
+        "sed -e s/banana/grape/ -e /apple/d /fat/words.txt\n"
         "grep exFAT /fat/status.txt\n"
         "grep -n -i exfat /fat/status.txt\n"
         "grep -c apple /fat/words.txt\n"
@@ -372,6 +381,9 @@ def main():
         "srvsh: interactive shell",
         "shell-ok",
         "sh",
+        ".srvros",
+        "/fat:",
+        "/fat/etc:",
         "/fat/bin/true",
         "/fat/bin/false",
         "TESTVAR=cli-ok",
@@ -383,6 +395,10 @@ def main():
         "/fat/status.txt",
         "/fat/hello.html",
         "/fat/test-file-copy.txt: 55 bytes",
+        "test-s-ok",
+        "test-r-ok",
+        "test-w-ok",
+        "test-not-x-ok",
         "/fat/test-dir-copy.txt: 55 bytes",
         "/fat/test-int-copy.txt: 55 bytes",
         "/fat/test-string-copy.txt: 55 bytes",
@@ -428,6 +444,7 @@ def main():
         "codex",
         "args banana apple banana apple",
         "orange",
+        "grape",
         "1:srvros webd: static file serving from exFAT is online.",
         "2",
         "grep-q-ok",

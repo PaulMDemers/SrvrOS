@@ -58,9 +58,9 @@ editor clients:
   `unset`, safer `cd`, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, and Unix-like tools
-  including option-aware `grep`, `head`, `tail`, `wc`, and `find`,
-  `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, literal-substitution
-  `sed`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
+  including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
+  `sed`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
+  `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
   `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup

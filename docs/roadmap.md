@@ -292,18 +292,21 @@ kernel, and a minimal Unix-like userspace.
   directory-destination handling for `/fat/bin/mv`.
 - Add Ctrl-D/EOF shell exit smoke coverage and broaden text-tool option support
   for `grep`, `wc`, `head`, `tail`, and `find`.
+- Add the next script-compatibility pass for `sed`, `ls`, and `test`: `sed -n`,
+  `-e`, `p`/`d`, simple addresses, `ls -a/-l` combined flags and multi-path
+  output, plus `test -s/-r/-w/-x`.
 
 ## Next milestones
 
-1. Complete the CLI table-stakes milestone: richer `sed`/text-tool option
-   support, more complete option support for existing commands, and small
-   scripting conveniences that real-world configure/build scripts expect.
+1. Complete the CLI table-stakes milestone: more complete option support for
+   existing commands, an `expr` utility, and small scripting conveniences that
+   real-world configure/build scripts expect.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
-   `head`, `tail`, `wc`, and `find`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`,
-   `xargs`, `sed`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `tee`, `du`, `df`, `sort`,
+   `uniq`, `cut`, `xargs`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
