@@ -52,10 +52,11 @@ editor clients:
   stderr redirection, pipeline output redirection, multi-stage pipelines,
   scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$` expansion, `$(command)`
   substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
-  globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `test`/`[`, `set -e`, `read`,
-  `alias`, `type`, `unset`, safer `cd`, `service webd`, DHCP/status/DNS
-  commands, `env`/`export`/`which`, `exec`, and Unix-like tools including
-  `tail`, `tee`, `uname`, `hostname`, and `uptime`.
+  globbing, `&&`/`||`, `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
+  `/fat/etc/profile`, `PS1`, `test`/`[`, `set -e`, `read`, `alias`, `type`,
+  `unset`, safer `cd`, `service webd`, DHCP/status/DNS commands,
+  `env`/`export`/`which`, `exec`, and Unix-like tools including `tail`, `tee`,
+  `find`, `du`, `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.

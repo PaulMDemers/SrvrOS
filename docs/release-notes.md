@@ -94,6 +94,9 @@ server.
   `date`, `touch`, `basename`, and `dirname`.
 - Adds more table-stakes CLI tools: `tail`, `tee`, `uname`, `hostname`, and
   `uptime`.
+- Adds shell `for`/`in`/`do`/`done` loops, login profile loading from
+  `/fat/etc/profile`, `PS1` prompt customization, and first filesystem traversal
+  tools with `/fat/bin/find` and `/fat/bin/du`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,

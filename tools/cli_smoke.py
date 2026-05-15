@@ -134,6 +134,10 @@ def main():
         "uname -a\n"
         "hostname\n"
         "uptime\n"
+        "find /fat/etc\n"
+        "find /fat/bin -name sh\n"
+        "du /fat/status.txt\n"
+        "du -s /fat/www\n"
         "grep exFAT /fat/status.txt\n"
         "cat /fat/status.txt > /fat/cat-redir.txt\n"
         "cat /fat/status.txt >> /fat/cat-redir.txt\n"
@@ -158,6 +162,7 @@ def main():
         "grep webd /fat/bin-list.txt\n"
         "echo \"two  spaces\"; echo semi-ok\n"
         "cat /fat/etc/init.sh\n"
+        "cat /fat/etc/profile\n"
         "echo redirected > /fat/redir.txt\n"
         "echo appended >> /fat/redir.txt\n"
         "cat /fat/redir.txt\n"
@@ -166,6 +171,11 @@ def main():
         "source /fat/boot.sh\n"
         "sh /fat/boot.sh\n"
         "sh -c 'echo command-mode-ok'\n"
+        "for n in one two three; do echo loop-$n; done\n"
+        "write /fat/for.sh 'for n in red blue; do'\n"
+        "write -a /fat/for.sh 'echo color-$n'\n"
+        "write -a /fat/for.sh 'done'\n"
+        "sh /fat/for.sh\n"
         "sh -c 'echo cargs-$0-$1-$#-$@' cmain one two\n"
         "echo 'echo scriptargs-$0-$1-$#-$@' > /fat/args.sh\n"
         "sh /fat/args.sh alpha beta\n"
@@ -326,6 +336,10 @@ def main():
         "/fat/tee-copy.txt: 55 bytes",
         "srvros srvros 0.1 x86_64",
         "up ",
+        "/fat/etc/profile",
+        "/fat/bin/sh",
+        "55\t/fat/status.txt",
+        "\t/fat/www",
         "/fat/cat-redir.txt: 110 bytes",
         "2 18 110 /fat/cat-redir.txt",
         "/fat/stdin-redir.txt: 55 bytes",
@@ -340,11 +354,18 @@ def main():
         "two  spaces",
         "semi-ok",
         "init-script-ok",
+        "srvros login shell profile",
+        "export PS1",
         "redirected",
         "appended",
         "script-ok",
         "appended-script-ok",
         "command-mode-ok",
+        "loop-one",
+        "loop-two",
+        "loop-three",
+        "color-red",
+        "color-blue",
         "cargs-cmain-one-2-one two",
         "scriptargs-/fat/args.sh-alpha-2-alpha beta",
         "ll is aliased to 'ls /fat/bin'",

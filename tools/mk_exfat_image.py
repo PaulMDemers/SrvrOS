@@ -167,6 +167,11 @@ def main():
             b"h1{color:#2f7d78}a{color:#4f6bed}\n"),
     ]
     etc_files = [
+        ("profile",
+            b"# srvros login shell profile\n"
+            b"export PATH=/fat/bin:/:/fat\n"
+            b"export PS1='\\w $ '\n"
+            b"alias ll='ls /fat/bin'\n"),
         ("init.sh",
             b"# srvros service startup\n"
             b"echo init-script-ok\n"

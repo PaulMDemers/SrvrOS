@@ -57,7 +57,17 @@ struct if_parts {
     int has_else;
 };
 
+struct for_parts {
+    size_t name_start;
+    size_t name_end;
+    size_t words_start;
+    size_t words_end;
+    size_t body_start;
+    size_t body_end;
+};
+
 static int find_if_parts(const char *line, struct if_parts *parts);
+static int find_for_parts(const char *line, struct for_parts *parts);
 
 static int shell_is_name_start(char c) {
     return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_';
@@ -72,7 +82,7 @@ static int shell_is_digit(char c) {
 }
 
 static int shell_is_separator(char c) {
-    return c == '\0' || c == ' ' || c == '\t' || c == ';' || c == '\r' || c == '\n';
+    return c == '\0' || c == ' ' || c == '\t' || c == ';' || c == '\r' || c == '\n' || c == '(' || c == ')';
 }
 
 static int shell_keyword_at(const char *text, size_t index, const char *keyword) {
@@ -532,8 +542,8 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 
 static void print_help(void) {
     cli_puts("builtins: help exit exec set source . path cd pwd clear echo env export unset alias type which test [ jobs wait service dhcp net dns rmdir read\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
-    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], if/then/else/fi, use ;, &&, ||, append & for background\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du stat chmod ps kill which env pwd true false sleep date touch basename dirname uname hostname uptime hello webd spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], if/then/else/fi, for/in/do/done, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $0 $1 $# $@ $(command) unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
@@ -1348,10 +1358,11 @@ static uint64_t run_script(const char *path, char *cwd) {
     int fd = (int)srv_open(path);
     char buffer[128];
     char line[LINE_MAX];
-    char if_block[EXPANDED_LINE_MAX];
+    char block[EXPANDED_LINE_MAX];
     size_t length = 0;
-    size_t if_length = 0;
-    int collecting_if = 0;
+    size_t block_length = 0;
+    int collecting_block = 0;
+    char block_end_keyword[8];
     int stop = 0;
     uint64_t status = 0;
     if (fd < 0) {
@@ -1377,23 +1388,30 @@ static uint64_t run_script(const char *path, char *cwd) {
             if (c == '\n') {
                 line[length] = '\0';
                 char *trimmed = cli_trim(line);
-                if (collecting_if) {
-                    append_text(if_block, sizeof(if_block), &if_length, "; ");
-                    append_text(if_block, sizeof(if_block), &if_length, trimmed);
-                    if (shell_keyword_at(trimmed, 0, "fi")) {
-                        status = run_line(if_block, cwd);
+                if (collecting_block) {
+                    append_text(block, sizeof(block), &block_length, "; ");
+                    append_text(block, sizeof(block), &block_length, trimmed);
+                    if (shell_keyword_at(trimmed, 0, block_end_keyword)) {
+                        status = run_line(block, cwd);
                         if (exit_on_error && status != 0) {
                             stop = 1;
                         }
-                        collecting_if = 0;
-                        if_length = 0;
-                        if_block[0] = '\0';
+                        collecting_block = 0;
+                        block_length = 0;
+                        block[0] = '\0';
                     }
                 } else if (shell_keyword_at(trimmed, 0, "if") && !find_if_parts(trimmed, &(struct if_parts){0})) {
-                    collecting_if = 1;
-                    if_length = 0;
-                    if_block[0] = '\0';
-                    append_text(if_block, sizeof(if_block), &if_length, trimmed);
+                    collecting_block = 1;
+                    cli_copy(block_end_keyword, sizeof(block_end_keyword), "fi");
+                    block_length = 0;
+                    block[0] = '\0';
+                    append_text(block, sizeof(block), &block_length, trimmed);
+                } else if (shell_keyword_at(trimmed, 0, "for") && !find_for_parts(trimmed, &(struct for_parts){0})) {
+                    collecting_block = 1;
+                    cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
+                    block_length = 0;
+                    block[0] = '\0';
+                    append_text(block, sizeof(block), &block_length, trimmed);
                 } else {
                     status = run_line(line, cwd);
                     if (exit_on_error && status != 0) {
@@ -1412,19 +1430,27 @@ static uint64_t run_script(const char *path, char *cwd) {
     if (!stop && length > 0) {
         line[length] = '\0';
         char *trimmed = cli_trim(line);
-        if (collecting_if) {
-            append_text(if_block, sizeof(if_block), &if_length, "; ");
-            append_text(if_block, sizeof(if_block), &if_length, trimmed);
-            status = run_line(if_block, cwd);
+        if (collecting_block) {
+            append_text(block, sizeof(block), &block_length, "; ");
+            append_text(block, sizeof(block), &block_length, trimmed);
+            status = run_line(block, cwd);
         } else {
             status = run_line(line, cwd);
         }
-    } else if (!stop && collecting_if) {
-        cli_puts("source: unterminated if\n");
+    } else if (!stop && collecting_block) {
+        cli_puts("source: unterminated block\n");
         status = 2;
     }
     srv_close(fd);
     return status;
+}
+
+static uint64_t run_optional_script(const char *path, char *cwd) {
+    struct srv_stat info;
+    if (srv_stat(path, &info) < 0 || info.type != 0) {
+        return 0;
+    }
+    return run_script(path, cwd);
 }
 
 static void init_redirection(struct command_redirection *redirection) {
@@ -1896,6 +1922,31 @@ static void echo_text(const char *text, const char *redirect_path, int append) {
     srv_write(SRV_STDOUT, buffer, out);
 }
 
+static void build_prompt(char *out, size_t capacity, const char *cwd) {
+    const char *pattern = getenv("PS1");
+    size_t length = 0;
+    if (pattern == 0 || pattern[0] == '\0') {
+        pattern = "\\w $ ";
+    }
+    out[0] = '\0';
+    for (size_t i = 0; pattern[i] != '\0'; i++) {
+        if (pattern[i] == '\\' && pattern[i + 1] != '\0') {
+            i++;
+            if (pattern[i] == 'w') {
+                append_text(out, capacity, &length, cwd);
+            } else if (pattern[i] == '$') {
+                append_char(out, capacity, &length, '$');
+            } else if (pattern[i] == '\\') {
+                append_char(out, capacity, &length, '\\');
+            } else {
+                append_char(out, capacity, &length, pattern[i]);
+            }
+            continue;
+        }
+        append_char(out, capacity, &length, pattern[i]);
+    }
+}
+
 static uint64_t run_command(char *line, char *cwd, int background) {
     char *command = cli_trim(line);
     char *args = command;
@@ -2271,6 +2322,128 @@ static uint64_t run_if_line(char *line, char *cwd) {
     return else_branch[0] != '\0' ? run_line(else_branch, cwd) : 0;
 }
 
+static int find_for_parts(const char *line, struct for_parts *parts) {
+    char quote = '\0';
+    int depth = 1;
+    int saw_in = 0;
+    int saw_do = 0;
+
+    parts->name_start = 0;
+    parts->name_end = 0;
+    parts->words_start = 0;
+    parts->words_end = 0;
+    parts->body_start = 0;
+    parts->body_end = 0;
+
+    size_t cursor = 3;
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    parts->name_start = cursor;
+    if (!shell_is_name_start(line[cursor])) {
+        return 0;
+    }
+    while (shell_is_name_char(line[cursor])) {
+        cursor++;
+    }
+    parts->name_end = cursor;
+
+    for (size_t i = cursor; line[i] != '\0'; i++) {
+        char c = line[i];
+        if (quote != '\0') {
+            if (c == quote) {
+                quote = '\0';
+            } else if (c == '\\' && line[i + 1] != '\0') {
+                i++;
+            }
+            continue;
+        }
+        if (c == '\'' || c == '"') {
+            quote = c;
+            continue;
+        }
+        if (c == '\\' && line[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "for")) {
+            depth++;
+            i += 2;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "in") && depth == 1 && !saw_in) {
+            saw_in = 1;
+            parts->words_start = i + 2;
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "do") && depth == 1 && saw_in && !saw_do) {
+            saw_do = 1;
+            parts->words_end = i;
+            parts->body_start = i + 2;
+            i++;
+            continue;
+        }
+        if (shell_keyword_at(line, i, "done")) {
+            depth--;
+            if (depth == 0) {
+                if (!saw_do) {
+                    return 0;
+                }
+                parts->body_end = i;
+                return 1;
+            }
+            i += 3;
+        }
+    }
+    return 0;
+}
+
+static uint64_t run_for_line(char *line, char *cwd) {
+    struct for_parts parts;
+    char name[32];
+    char words[EXPANDED_LINE_MAX];
+    char expanded_words[EXPANDED_LINE_MAX];
+    char globbed_words[EXPANDED_LINE_MAX];
+    char body[EXPANDED_LINE_MAX];
+    char words_copy[EXPANDED_LINE_MAX];
+    char *argv[32];
+    int argc;
+    uint64_t status = 0;
+
+    if (!find_for_parts(line, &parts)) {
+        cli_puts("for: expected 'for name in words; do commands; done'\n");
+        return 2;
+    }
+
+    copy_slice_trimmed(name, sizeof(name), line, parts.name_start, parts.name_end);
+    copy_slice_trimmed(words, sizeof(words), line, parts.words_start, parts.words_end);
+    copy_slice_trimmed(body, sizeof(body), line, parts.body_start, parts.body_end);
+    if (name[0] == '\0' || body[0] == '\0') {
+        return 0;
+    }
+    if (!expand_variables(words, expanded_words, sizeof(expanded_words), cwd)) {
+        return 2;
+    }
+    expand_globs(expanded_words, cwd, globbed_words, sizeof(globbed_words));
+    cli_copy(words_copy, sizeof(words_copy), globbed_words);
+    argc = split_words(words_copy, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0) {
+        cli_puts("for: too many words\n");
+        return 2;
+    }
+    for (int i = 0; i < argc; i++) {
+        char body_copy[EXPANDED_LINE_MAX];
+        setenv(name, argv[i], 1);
+        cli_copy(body_copy, sizeof(body_copy), body);
+        status = run_line(body_copy, cwd);
+        if (exit_on_error && status != 0) {
+            break;
+        }
+    }
+    return status;
+}
+
 static uint64_t run_line(char *line, char *cwd) {
     char quote = '\0';
     char *segment = line;
@@ -2284,6 +2457,11 @@ static uint64_t run_line(char *line, char *cwd) {
     }
     if (shell_keyword_at(line, 0, "if")) {
         status = run_if_line(line, cwd);
+        last_status = status;
+        return status;
+    }
+    if (shell_keyword_at(line, 0, "for")) {
+        status = run_for_line(line, cwd);
         last_status = status;
         return status;
     }
@@ -2406,10 +2584,15 @@ int main(int argc, char **argv) {
     if (getenv("PATH") == 0) {
         setenv("PATH", "/fat/bin:/:/fat", 1);
     }
+    if (getenv("PS1") == 0) {
+        setenv("PS1", "\\w $ ", 1);
+    }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
     setenv("OLDPWD", cwd, 1);
     if (login) {
+        status = run_optional_script("/fat/etc/profile", cwd);
+        last_status = status;
         status = run_script("/fat/etc/init.sh", cwd);
         last_status = status;
     }
@@ -2427,10 +2610,8 @@ int main(int argc, char **argv) {
     linenoiseHistorySetMaxLen(64);
     linenoiseHistoryLoad("/fat/.srvsh_history");
     for (;;) {
-        char prompt[CLI_PATH_MAX + 4];
-        cli_copy(prompt, sizeof(prompt), cwd);
-        size_t prompt_length = cli_strlen(prompt);
-        append_text(prompt, sizeof(prompt), &prompt_length, " $ ");
+        char prompt[LINE_MAX];
+        build_prompt(prompt, sizeof(prompt), cwd);
         char *line = linenoise(prompt);
         if (line == 0) {
             break;
