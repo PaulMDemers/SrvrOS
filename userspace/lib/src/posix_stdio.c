@@ -1,12 +1,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <math.h>
+#include <spawn.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 struct FILE {
@@ -27,6 +29,7 @@ struct FILE {
     int last_op;
     long position;
     long known_size;
+    pid_t popen_pid;
     char path[FILENAME_MAX];
     struct FILE *next;
 };
@@ -1342,6 +1345,7 @@ FILE *fdopen(int fd, const char *mode) {
     stream->last_op = FILE_OP_NONE;
     stream->position = 0;
     stream->known_size = -1;
+    stream->popen_pid = 0;
     stream->path[0] = '\0';
     stream->next = 0;
     register_stream(stream);
@@ -1777,14 +1781,83 @@ FILE *tmpfile(void) {
 }
 
 FILE *popen(const char *command, const char *mode) {
-    (void)command;
-    (void)mode;
-    errno = ENOSYS;
-    return 0;
+    if (command == 0 || mode == 0 || (mode[0] != 'r' && mode[0] != 'w') || mode[1] != '\0') {
+        errno = EINVAL;
+        return 0;
+    }
+
+    int fds[2];
+    if (pipe(fds) < 0) {
+        return 0;
+    }
+
+    posix_spawn_file_actions_t actions;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+        close(fds[0]);
+        close(fds[1]);
+        errno = EINVAL;
+        return 0;
+    }
+
+    int parent_fd = -1;
+    int close_fd = -1;
+    int target_fd = -1;
+    const char *stream_mode = 0;
+    if (mode[0] == 'r') {
+        parent_fd = fds[0];
+        close_fd = fds[1];
+        target_fd = STDOUT_FILENO;
+        stream_mode = "r";
+    } else {
+        parent_fd = fds[1];
+        close_fd = fds[0];
+        target_fd = STDIN_FILENO;
+        stream_mode = "w";
+    }
+
+    int action_error = posix_spawn_file_actions_adddup2(&actions, close_fd, target_fd);
+    if (action_error != 0) {
+        posix_spawn_file_actions_destroy(&actions);
+        close(fds[0]);
+        close(fds[1]);
+        errno = action_error;
+        return 0;
+    }
+
+    pid_t child = -1;
+    char *argv[] = {"sh", "-c", (char *)command, 0};
+    int spawn_error = posix_spawnp(&child, "sh", &actions, 0, argv, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    close(close_fd);
+    if (spawn_error != 0) {
+        close(parent_fd);
+        errno = spawn_error;
+        return 0;
+    }
+
+    FILE *stream = fdopen(parent_fd, stream_mode);
+    if (stream == 0) {
+        int saved = errno;
+        close(parent_fd);
+        (void)waitpid(child, 0, 0);
+        errno = saved;
+        return 0;
+    }
+    stream->popen_pid = child;
+    return stream;
 }
 
 int pclose(FILE *stream) {
-    (void)stream;
-    errno = ENOSYS;
-    return -1;
+    if (stream == 0 || stream->popen_pid <= 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    pid_t child = stream->popen_pid;
+    stream->popen_pid = 0;
+    int close_result = fclose(stream);
+    int status = 0;
+    if (waitpid(child, &status, 0) != child) {
+        return -1;
+    }
+    return close_result == 0 ? status : -1;
 }

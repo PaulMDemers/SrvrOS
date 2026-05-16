@@ -1288,6 +1288,19 @@ static int64_t process_clone_fd_from(struct process *target, struct process *sou
     }
 
     if (source_fd < 3) {
+        if (source_fd == 0 && source_process->stdin_redirect) {
+            source_fd = source_process->stdin_fd;
+        } else if (source_fd == 1 && source_process->stdout_redirect) {
+            source_fd = source_process->stdout_fd;
+        } else if (source_fd == 2 && source_process->stderr_redirect) {
+            source_fd = source_process->stderr_fd;
+        }
+    }
+    if (source_fd < 0) {
+        return -1;
+    }
+
+    if (source_fd < 3) {
         uint8_t *bytes = (uint8_t *)&stdio_source;
         for (uint64_t i = 0; i < sizeof(stdio_source); i++) {
             bytes[i] = 0;
@@ -1311,6 +1324,29 @@ static int64_t process_clone_fd_from(struct process *target, struct process *sou
     return -1;
 }
 
+static bool process_inherit_stdio_redirect(struct process *child,
+    struct process *parent,
+    bool parent_redirect,
+    int64_t parent_fd,
+    bool *child_redirect,
+    int64_t *child_fd) {
+    if (!parent_redirect) {
+        return true;
+    }
+    if (parent_fd < 0) {
+        *child_redirect = true;
+        *child_fd = -1;
+        return true;
+    }
+    int64_t fd = process_clone_fd_from(child, parent, parent_fd);
+    if (fd < 0) {
+        return false;
+    }
+    *child_redirect = true;
+    *child_fd = fd;
+    return true;
+}
+
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
@@ -1326,6 +1362,14 @@ static bool process_configure_stdio_fds(struct process *child,
         }
         child->stdin_redirect = true;
         child->stdin_fd = fd;
+    } else if (stdin_fd < 0 &&
+        !process_inherit_stdio_redirect(child,
+            parent,
+            parent->stdin_redirect,
+            parent->stdin_fd,
+            &child->stdin_redirect,
+            &child->stdin_fd)) {
+        return false;
     }
 
     if (stdout_fd == PROCESS_STDIO_CLOSED_FD) {
@@ -1338,6 +1382,14 @@ static bool process_configure_stdio_fds(struct process *child,
         }
         child->stdout_redirect = true;
         child->stdout_fd = fd;
+    } else if (stdout_fd < 0 &&
+        !process_inherit_stdio_redirect(child,
+            parent,
+            parent->stdout_redirect,
+            parent->stdout_fd,
+            &child->stdout_redirect,
+            &child->stdout_fd)) {
+        return false;
     }
 
     if (stderr_fd == PROCESS_STDIO_CLOSED_FD) {
@@ -1350,6 +1402,14 @@ static bool process_configure_stdio_fds(struct process *child,
         }
         child->stderr_redirect = true;
         child->stderr_fd = fd;
+    } else if (stderr_fd < 0 &&
+        !process_inherit_stdio_redirect(child,
+            parent,
+            parent->stderr_redirect,
+            parent->stderr_fd,
+            &child->stderr_redirect,
+            &child->stderr_fd)) {
+        return false;
     }
 
     return true;

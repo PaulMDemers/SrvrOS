@@ -713,6 +713,33 @@ int main(void) {
     posix_spawn_file_actions_destroy(&actions);
     say("posixdemo: spawn ok\n");
 
+    FILE *pipe_stream = popen("echo popen-read", "r");
+    if (pipe_stream == 0 ||
+        fgets(buffer, sizeof(buffer), pipe_stream) == 0 ||
+        strcmp(buffer, "popen-read\n") != 0 ||
+        pclose(pipe_stream) != 0) {
+        say("posixdemo: popen read failed\n");
+        return 43;
+    }
+    pipe_stream = popen("cat > /fat/posixdemo/popen-write.txt", "w");
+    if (pipe_stream == 0 ||
+        fputs("popen-write\n", pipe_stream) < 0 ||
+        pclose(pipe_stream) != 0) {
+        say("posixdemo: popen write failed\n");
+        return 43;
+    }
+    fd = open("/fat/posixdemo/popen-write.txt", O_RDONLY);
+    n = fd >= 0 ? read(fd, buffer, sizeof(buffer) - 1) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    unlink("/fat/posixdemo/popen-write.txt");
+    if (n != 12 || memcmp(buffer, "popen-write\n", 12) != 0) {
+        say("posixdemo: popen write readback failed\n");
+        return 43;
+    }
+    say("posixdemo: popen ok\n");
+
     char *exec_argv[] = {"/fat/bin/execdemo", 0};
     if (posix_spawn(&child, "/fat/bin/execdemo", 0, 0, exec_argv, environ) != 0 ||
         waitpid(child, &child_status, 0) != child ||

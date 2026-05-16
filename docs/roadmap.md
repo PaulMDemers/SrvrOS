@@ -248,6 +248,8 @@ kernel, and a minimal Unix-like userspace.
   `sh -c` through `posix_spawnp`/`waitpid`.
 - Add simple full/line/unbuffered `stdio` buffering, stream EOF/error state
   handling, path-backed `fflush`, and buffered read/write/seek smoke coverage.
+- Add shell-backed `popen`/`pclose` for one-way process streams and stdio
+  redirect inheritance for children launched from a redirected parent process.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke

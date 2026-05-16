@@ -258,14 +258,15 @@ plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-ba
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small buffered `stdio`,
 simple time functions, common formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
-`getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`, standard-fd spawn file
-actions, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
-`getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
-connection fds. The kernel additions for this slice are
+`popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
+standard-fd spawn file actions, process-replacing `execve`, IPv4 formatting
+and parsing, DNS-backed `getaddrinfo`, and a TCP server socket flow mapped
+onto srvros listener/connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
-stdio fd overrides, seek, fd flush/truncate, process heap growth, `getpid`, raw
-timer ticks, sleep-by-ticks syscalls, a shared fd readiness wait queue,
+stdio fd overrides plus inherited parent stdio redirects, seek, fd
+flush/truncate, process heap growth, `getpid`, raw timer ticks,
+sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
 metadata with exFAT sidecar persistence.
 

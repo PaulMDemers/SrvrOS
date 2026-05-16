@@ -78,10 +78,11 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
   `fsetpos`, `remove`, `perror`, `tmpnam`, `tmpfile`, `setvbuf`, `setbuf`,
   `setlinebuf`, `feof`, `ferror`, `clearerr`, `printf`, `vprintf`,
-  `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`. It now has simple
-  full/line/unbuffered stream buffering, path-backed `fflush`, logical
-  positions across read prefetch, and common formatted output width,
-  precision, padding, sign, alternate-form, length, and `%n` handling.
+  `fprintf`, `sprintf`, `snprintf`, `vsnprintf`, `popen`, and `pclose`. It
+  now has simple full/line/unbuffered stream buffering, path-backed `fflush`,
+  logical positions across read prefetch, common formatted output width,
+  precision, padding, sign, alternate-form, length, and `%n` handling, and
+  shell-backed one-way process pipes.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
   `recv`, and `setsockopt`
@@ -151,8 +152,8 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   width/precision/flag forms needed by current ports, input scanning covers
   integers, strings, characters, floating values, scansets, width limits,
   assignment suppression, and common length modifiers, and stream buffering
-  covers the simple full/line/unbuffered cases, but `popen`/`pclose` are still
-  `ENOSYS` stubs.
+  covers the simple full/line/unbuffered cases. `popen`/`pclose` support
+  one-way `sh -c` pipes, but not bidirectional process streams.
 - Time is tick-derived and not wall-clock accurate.
 - The default allocator is process-local and `sbrk` backed; `mmap` is still
   missing.
@@ -177,7 +178,7 @@ Third-party source is kept as pinned submodules or snapshots under
 ## Next Porting Milestones
 
 1. Expand `stdio` toward command-line port expectations: broader input matching
-   edge cases, append/update-mode polish, and `popen`/`pclose`.
+   edge cases, append/update-mode polish, and more ISO C edge cases.
 2. Broaden `posix_spawn` toward ordered non-stdio file actions and the first
    useful spawn attributes.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,

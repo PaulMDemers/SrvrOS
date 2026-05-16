@@ -96,6 +96,8 @@ server.
 - Adds simple full/line/unbuffered `stdio` buffering, stream EOF/error state
   cleanup, path-backed `fflush`, `setvbuf`/`setbuf`/`setlinebuf`, and
   `posixdemo` coverage for buffered read/write/seek behavior.
+- Adds shell-backed `popen`/`pclose` for one-way process streams and teaches
+  spawned children to inherit a parent process's redirected standard streams.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime
@@ -238,7 +240,7 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
   full journal.
 - `stdio` is deliberately small: enough for early command-line ports, including
   common formatted-output, first-pass scanning with scansets, and simple stream
-  buffering, but not a full ISO C implementation.
+  buffering plus one-way `popen`/`pclose`, but not a full ISO C implementation.
 - Lua uses its normal floating-number profile with `math` enabled. The `os`
   library and native dynamic loading remain disabled.
 - Process-exit teardown is non-preemptible while freeing the exiting address
