@@ -569,6 +569,30 @@ int main(void) {
         say("posixdemo: mmap fixed failed\n");
         return 26;
     }
+    uint8_t *guard = mmap(0,
+        4096,
+        PROT_NONE,
+        MAP_PRIVATE | MAP_ANONYMOUS,
+        -1,
+        0);
+    if (guard == MAP_FAILED ||
+        mprotect(guard, 4096, PROT_READ | PROT_WRITE) < 0) {
+        say("posixdemo: mprotect guard failed\n");
+        return 26;
+    }
+    guard[0] = 0x42;
+    if (guard[0] != 0x42 ||
+        mprotect(guard, 4096, PROT_READ) < 0 ||
+        mprotect(guard, 4096, PROT_READ | PROT_WRITE) < 0) {
+        say("posixdemo: mprotect toggle failed\n");
+        return 26;
+    }
+    guard[0] = 0x24;
+    if (guard[0] != 0x24 ||
+        munmap(guard, 4096) < 0) {
+        say("posixdemo: mprotect rw failed\n");
+        return 26;
+    }
 
     fd = open("/fat/posixdemo/mmap-file.txt", O_WRONLY | O_CREAT | O_TRUNC);
     if (fd < 0) {

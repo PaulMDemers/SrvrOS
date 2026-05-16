@@ -107,6 +107,9 @@ server.
 - Extends `mmap` to eager file-backed `MAP_PRIVATE` mappings from regular fds,
   including page-aligned offsets and `posixdemo` coverage that memory writes do
   not modify the source file.
+- Adds `mprotect` and `PROT_NONE` support for mmap-owned pages, with page-table
+  permission updates and `posixdemo` coverage for guard-page enablement plus
+  read/write protection toggles.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime

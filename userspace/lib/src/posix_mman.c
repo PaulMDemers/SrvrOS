@@ -6,8 +6,7 @@
 
 void *mmap(void *address, size_t length, int protection, int flags, int fd, off_t offset) {
     if (length == 0 ||
-        (protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0 ||
-        protection == PROT_NONE) {
+        (protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0) {
         errno = EINVAL;
         return MAP_FAILED;
     }
@@ -40,6 +39,21 @@ int munmap(void *address, size_t length) {
         return -1;
     }
     if (srv_munmap(address, length) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}
+
+int mprotect(void *address, size_t length, int protection) {
+    if (address == 0 ||
+        length == 0 ||
+        (((uintptr_t)address) & 0xfff) != 0 ||
+        (protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_mprotect(address, length, protection) < 0) {
         errno = EINVAL;
         return -1;
     }

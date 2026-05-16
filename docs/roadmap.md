@@ -258,6 +258,9 @@ kernel, and a minimal Unix-like userspace.
 - Add eager file-backed `MAP_PRIVATE` mappings from regular fds, including
   page-aligned offsets and smoke coverage for private memory writes that leave
   the source file unchanged.
+- Add `mprotect` and `PROT_NONE` for mmap-owned pages, including page-table
+  permission updates and smoke coverage for guard-page enablement plus
+  read/write protection toggles.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke

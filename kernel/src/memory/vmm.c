@@ -362,6 +362,62 @@ bool vmm_unmap_page_in_space(uint64_t address_space,
     return true;
 }
 
+bool vmm_protect_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t flags) {
+    uint64_t *pdpt;
+    uint64_t *pd;
+    uint64_t *pt;
+    uint64_t entry;
+
+    if ((virtual_address % PAGE_SIZE) != 0) {
+        return false;
+    }
+    if (address_space == 0) {
+        address_space = kernel_cr3;
+    }
+
+    uint64_t *pml4 = pmm_phys_to_virt(address_space);
+    entry = pml4[pml4_index(virtual_address)];
+    if ((entry & VMM_PAGE_PRESENT) == 0) {
+        return false;
+    }
+    pdpt = entry_table(entry);
+    if (!is_canonical((uint64_t)pdpt)) {
+        return false;
+    }
+
+    entry = pdpt[pdpt_index(virtual_address)];
+    if ((entry & VMM_PAGE_PRESENT) == 0) {
+        return false;
+    }
+    pd = entry_table(entry);
+    if (!is_canonical((uint64_t)pd)) {
+        return false;
+    }
+
+    entry = pd[pd_index(virtual_address)];
+    if ((entry & VMM_PAGE_PRESENT) == 0 || (entry & PAGE_LARGE) != 0) {
+        return false;
+    }
+    pt = entry_table(entry);
+    if (!is_canonical((uint64_t)pt)) {
+        return false;
+    }
+
+    uint16_t index = pt_index(virtual_address);
+    entry = pt[index];
+    if ((entry & VMM_PAGE_PRESENT) == 0) {
+        return false;
+    }
+
+    pt[index] = (entry & PAGE_MASK) | flags | VMM_PAGE_PRESENT;
+    if ((read_cr3() & PAGE_MASK) == address_space) {
+        invlpg(virtual_address);
+    }
+    return true;
+}
+
 bool vmm_virt_to_phys(uint64_t virtual_address, uint64_t *physical_address) {
     return vmm_virt_to_phys_in_space(active_address_space(), virtual_address, physical_address);
 }

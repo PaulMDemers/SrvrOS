@@ -3516,6 +3516,38 @@ static bool mmap_file_source(struct process *process,
     return false;
 }
 
+static bool mmap_protection_valid(uint64_t protection) {
+    return (protection & ~(SRV_PROT_READ | SRV_PROT_WRITE | SRV_PROT_EXEC)) == 0;
+}
+
+static uint64_t mmap_page_flags_for_protection(uint64_t protection) {
+    uint64_t page_flags = VMM_PAGE_NO_EXECUTE;
+    if (protection != SRV_PROT_NONE) {
+        page_flags |= VMM_PAGE_USER;
+    }
+    if ((protection & SRV_PROT_WRITE) != 0) {
+        page_flags |= VMM_PAGE_WRITABLE;
+    }
+    if ((protection & SRV_PROT_EXEC) != 0) {
+        page_flags &= ~VMM_PAGE_NO_EXECUTE;
+    }
+    return page_flags;
+}
+
+static bool mmap_apply_protection(struct process *process,
+    uint64_t page,
+    uint64_t page_flags) {
+    int64_t index = process_mapping_index(process, page);
+    if (index < 0) {
+        return false;
+    }
+    if (!vmm_protect_page_in_space(process->address_space, page, page_flags)) {
+        return false;
+    }
+    process->mappings[index].flags = page_flags;
+    return true;
+}
+
 int64_t process_mmap(struct process *process,
     uint64_t address,
     uint64_t length,
@@ -3531,8 +3563,7 @@ int64_t process_mmap(struct process *process,
         (flags & SRV_MAP_SHARED) != 0) {
         return -1;
     }
-    if ((protection & ~(SRV_PROT_READ | SRV_PROT_WRITE | SRV_PROT_EXEC)) != 0 ||
-        protection == SRV_PROT_NONE) {
+    if (!mmap_protection_valid(protection)) {
         return -1;
     }
 
@@ -3570,17 +3601,15 @@ int64_t process_mmap(struct process *process,
         base = (uint64_t)found;
     }
 
-    uint64_t page_flags = VMM_PAGE_USER;
-    if ((protection & SRV_PROT_WRITE) != 0) {
-        page_flags |= VMM_PAGE_WRITABLE;
-    }
-    if ((protection & SRV_PROT_EXEC) == 0) {
-        page_flags |= VMM_PAGE_NO_EXECUTE;
+    uint64_t page_flags = mmap_page_flags_for_protection(protection);
+    uint64_t initial_page_flags = page_flags;
+    if (protection == SRV_PROT_NONE) {
+        initial_page_flags = VMM_PAGE_USER | VMM_PAGE_NO_EXECUTE;
     }
 
     uint64_t mapped = 0;
     for (; mapped < mapped_length; mapped += PAGE_SIZE) {
-        if (!map_process_page(process, base + mapped, page_flags)) {
+        if (!map_process_page(process, base + mapped, initial_page_flags)) {
             for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
                 (void)process_unmap_tracked_page(process, base + rollback);
             }
@@ -3597,6 +3626,17 @@ int64_t process_mmap(struct process *process,
                 (void)process_unmap_tracked_page(process, base + rollback);
             }
             return -1;
+        }
+    }
+
+    if (protection == SRV_PROT_NONE) {
+        for (uint64_t protected = 0; protected < mapped_length; protected += PAGE_SIZE) {
+            if (!mmap_apply_protection(process, base + protected, page_flags)) {
+                for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
+                    (void)process_unmap_tracked_page(process, base + rollback);
+                }
+                return -1;
+            }
         }
     }
 
@@ -3635,6 +3675,35 @@ int64_t process_munmap(struct process *process, uint64_t address, uint64_t lengt
     mmap_forget_range(process, address, mapped_length);
     if (address < process->mmap_next) {
         process->mmap_next = address;
+    }
+    return 0;
+}
+
+int64_t process_mprotect(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t protection) {
+    if (process == NULL || process->address_space == 0 || length == 0 ||
+        (address % PAGE_SIZE) != 0 ||
+        !mmap_protection_valid(protection)) {
+        return -1;
+    }
+    uint64_t mapped_length = page_up(length);
+    if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
+        return -1;
+    }
+    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        if (mmap_region_index_for_page(process, page) < 0 ||
+            process_mapping_index(process, page) < 0) {
+            return -1;
+        }
+    }
+
+    uint64_t page_flags = mmap_page_flags_for_protection(protection);
+    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        if (!mmap_apply_protection(process, page, page_flags)) {
+            return -1;
+        }
     }
     return 0;
 }

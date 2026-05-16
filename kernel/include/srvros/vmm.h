@@ -33,6 +33,9 @@ bool vmm_ensure_page_in_space(uint64_t address_space,
 bool vmm_unmap_page_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t *physical_address);
+bool vmm_protect_page_in_space(uint64_t address_space,
+    uint64_t virtual_address,
+    uint64_t flags);
 bool vmm_virt_to_phys_in_space(uint64_t address_space,
     uint64_t virtual_address,
     uint64_t *physical_address);

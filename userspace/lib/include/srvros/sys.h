@@ -103,6 +103,7 @@ long srv_fchmod(int fd, uint64_t mode);
 long srv_sbrk(int64_t increment, uint64_t *previous_out);
 long srv_mmap(void *address, size_t length, int protection, int flags, int fd, int64_t offset);
 long srv_munmap(void *address, size_t length);
+long srv_mprotect(void *address, size_t length, int protection);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);

@@ -66,6 +66,7 @@
 #define SYS_PROC_GROUP 61
 #define SYS_MMAP 62
 #define SYS_MUNMAP 63
+#define SYS_MPROTECT 64
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02

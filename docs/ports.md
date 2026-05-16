@@ -96,8 +96,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `_unlink`, and `_rename`
 - Initial `mmap`/`munmap`: process-owned anonymous private mappings plus
   eager file-backed `MAP_PRIVATE` mappings from regular fds, with `PROT_READ`,
-  `PROT_WRITE`, optional `PROT_EXEC`, `MAP_ANONYMOUS`, and a conservative
-  `MAP_FIXED` path for free ranges.
+  `PROT_WRITE`, optional `PROT_EXEC`, `PROT_NONE`, `MAP_ANONYMOUS`, and a
+  conservative `MAP_FIXED` path for free ranges. `mprotect` can change
+  protection on existing mmap-owned pages.
 
 The `posixdemo` userspace app exercises the POSIX slice from inside srvros.
 It also spawns `/fat/bin/execdemo`, which immediately `execve`s
@@ -166,8 +167,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - Time is tick-derived and not wall-clock accurate.
 - The default allocator is process-local and `sbrk` backed; `mmap` is eager and
   supports anonymous private mappings plus file-backed private mappings.
-  Demand paging, shared mappings, writeback, `msync`, `PROT_NONE` guard pages,
-  and replacement-style `MAP_FIXED` are still future work.
+  `PROT_NONE` and `mprotect` update page-table permissions, but demand paging,
+  shared mappings, writeback, `msync`, replacement-style `MAP_FIXED`, and
+  signal-delivered page-fault recovery are still future work.
 - The kernel enables FPU/SSE/SSE2 and saves/restores per-process plus
   per-scheduler-thread `fxsave64` state. Kernel C and userspace C both build
   with SSE enabled; only the low-level FPU handoff file is forced no-SSE.
@@ -196,8 +198,8 @@ Third-party source is kept as pinned submodules or snapshots under
    recovery from broader directory-update failures, and richer timestamp
    sources.
 4. Expand `mmap` toward larger interpreters and libraries: demand paging,
-   shared mappings where useful, `msync`/writeback decisions, `PROT_NONE` guard
-   ranges, and richer `MAP_FIXED` replacement semantics.
+   shared mappings where useful, `msync`/writeback decisions, richer
+   `MAP_FIXED` replacement semantics, and signal-delivered page-fault recovery.
 5. Expand `webd` toward fuller concurrent connection handling.
 6. Add client TCP `connect`, then a tiny HTTP client.
 7. Move toward libuv after sockets, timers, and fd readiness are boring.

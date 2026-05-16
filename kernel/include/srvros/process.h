@@ -154,6 +154,10 @@ int64_t process_mmap(struct process *process,
     int64_t fd,
     int64_t offset);
 int64_t process_munmap(struct process *process, uint64_t address, uint64_t length);
+int64_t process_mprotect(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t protection);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);
