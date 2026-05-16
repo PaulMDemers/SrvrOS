@@ -27,6 +27,7 @@ python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -83,6 +84,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `httpget_smoke.py`: DHCP, DNS-backed `getaddrinfo`, outbound TCP
   `connect`, HTTP request/response flow through `/fat/bin/httpget`, and clean
   process exit.
+- `udp_smoke.py`: DHCP, userspace UDP socket open/send/receive, `poll`
+  readiness, and DNS-over-UDP response parsing through `/fat/bin/udpdns`.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

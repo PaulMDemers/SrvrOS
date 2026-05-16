@@ -30,6 +30,8 @@ server.
   idle cleanup, and a bounded active-client table.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
+- Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,
+  bounded receive queues, and `/fat/bin/udpdns` DNS-over-UDP smoke coverage.
 - Includes a small shell, CLI utilities, service control, redirection,
   multi-stage pipelines, scripts, PATH lookup, and background jobs.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,

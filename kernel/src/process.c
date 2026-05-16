@@ -2862,7 +2862,9 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
         return revents;
     }
 
-    if (file->type == PROCESS_FILE_NET_LISTENER || file->type == PROCESS_FILE_NET_CONNECTION) {
+    if (file->type == PROCESS_FILE_NET_LISTENER ||
+        file->type == PROCESS_FILE_NET_CONNECTION ||
+        file->type == PROCESS_FILE_NET_UDP) {
         return net_poll_events(file->handle, events);
     }
 
@@ -2873,7 +2875,9 @@ int64_t process_handle_alloc(struct process *process,
     enum process_file_type type,
     uint64_t handle) {
     if (process == NULL ||
-        (type != PROCESS_FILE_NET_LISTENER && type != PROCESS_FILE_NET_CONNECTION) ||
+        (type != PROCESS_FILE_NET_LISTENER &&
+            type != PROCESS_FILE_NET_CONNECTION &&
+            type != PROCESS_FILE_NET_UDP) ||
         handle == 0) {
         return -1;
     }
@@ -3158,7 +3162,8 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
         file_lock_release_path(process->pid, lock_path);
     }
     if ((file->type == PROCESS_FILE_NET_LISTENER ||
-            file->type == PROCESS_FILE_NET_CONNECTION) &&
+            file->type == PROCESS_FILE_NET_CONNECTION ||
+            file->type == PROCESS_FILE_NET_UDP) &&
         net_close(file->handle) < 0) {
         result = -1;
     }

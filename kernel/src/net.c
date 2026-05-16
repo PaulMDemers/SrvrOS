@@ -31,6 +31,9 @@
 #define TCP_STATE_SYN_SENT 3
 
 #define TCP_MAX_CONNECTIONS 8
+#define UDP_MAX_SOCKETS 8
+#define UDP_RX_QUEUE 4
+#define UDP_PAYLOAD_MAX 1472
 #define NET_LISTENERS 4
 #define NET_PENDING_REQUESTS 8
 #define NET_CONNECTION_RX_INITIAL_SIZE 4096
@@ -52,6 +55,7 @@
 
 #define NET_HANDLE_LISTENER 0x1000000000000000ull
 #define NET_HANDLE_CONNECTION 0x2000000000000000ull
+#define NET_HANDLE_UDP_SOCKET 0x3000000000000000ull
 #define NET_HANDLE_MASK 0xf000000000000000ull
 #define NET_HANDLE_VALUE_MASK 0x0fffffffffffffffull
 
@@ -93,6 +97,24 @@ struct pending_request {
     uint64_t length;
 };
 
+struct udp_datagram {
+    uint32_t remote_ip;
+    uint16_t remote_port;
+    uint16_t length;
+    uint8_t data[UDP_PAYLOAD_MAX];
+};
+
+struct udp_socket {
+    bool used;
+    uint64_t id;
+    struct process *owner;
+    uint16_t local_port;
+    uint8_t head;
+    uint8_t tail;
+    uint8_t count;
+    struct udp_datagram queue[UDP_RX_QUEUE];
+};
+
 static uint8_t local_ip_bytes[4] = {10, 0, 2, 15};
 static uint8_t dhcp_server_ip_bytes[4];
 static uint8_t dhcp_router_ip_bytes[4];
@@ -128,13 +150,17 @@ static uint64_t accepted_requests;
 static uint64_t completed_requests;
 static uint64_t next_listener_id = 1;
 static uint64_t next_connection_id = 1;
+static uint64_t next_udp_socket_id = 1;
 static uint16_t next_client_port = TCP_CLIENT_PORT_FIRST;
+static uint16_t next_udp_port = TCP_CLIENT_PORT_FIRST;
 static struct net_listener listeners[NET_LISTENERS];
 static struct tcp_connection tcp_connections[TCP_MAX_CONNECTIONS];
 static struct pending_request pending_requests[NET_PENDING_REQUESTS];
+static struct udp_socket udp_sockets[UDP_MAX_SOCKETS];
 static struct scheduler_wait_queue accept_wait_queue;
 static struct scheduler_wait_queue read_wait_queue;
 static struct scheduler_wait_queue connect_wait_queue;
+static struct scheduler_wait_queue udp_wait_queue;
 static struct scheduler_wait_queue rx_wait_queue;
 static volatile uint64_t rx_signal_generation;
 static uint64_t rx_irq_wakeups;
@@ -724,6 +750,88 @@ static void handle_icmp(const uint8_t *frame,
     send_ipv4_packet(frame + 6, src_ip, IP_PROTO_ICMP, reply, ip_payload_length);
 }
 
+static struct udp_socket *find_udp_socket(uint64_t socket_id) {
+    if (handle_type(socket_id) != NET_HANDLE_UDP_SOCKET) {
+        return 0;
+    }
+
+    uint64_t value = handle_value(socket_id);
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (udp_sockets[i].used && udp_sockets[i].id == value) {
+            return &udp_sockets[i];
+        }
+    }
+    return 0;
+}
+
+static struct udp_socket *find_udp_socket_for_port(uint16_t port) {
+    if (port == 0) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (udp_sockets[i].used && udp_sockets[i].local_port == port) {
+            return &udp_sockets[i];
+        }
+    }
+    return 0;
+}
+
+static bool udp_port_reserved(uint16_t port) {
+    return port == DHCP_CLIENT_PORT || port == DNS_CLIENT_PORT;
+}
+
+static uint16_t allocate_udp_port(void) {
+    for (uint64_t tries = 0; tries <= TCP_CLIENT_PORT_LAST - TCP_CLIENT_PORT_FIRST; tries++) {
+        uint16_t port = next_udp_port++;
+        if (next_udp_port > TCP_CLIENT_PORT_LAST) {
+            next_udp_port = TCP_CLIENT_PORT_FIRST;
+        }
+        if (!udp_port_reserved(port) && find_udp_socket_for_port(port) == 0) {
+            return port;
+        }
+    }
+    return 0;
+}
+
+static bool udp_queue_push(struct udp_socket *socket,
+    uint32_t remote_ip,
+    uint16_t remote_port,
+    const uint8_t *payload,
+    uint16_t length) {
+    if (socket == 0 || payload == 0 || length > UDP_PAYLOAD_MAX) {
+        return false;
+    }
+
+    if (socket->count == UDP_RX_QUEUE) {
+        socket->head = (uint8_t)((socket->head + 1) % UDP_RX_QUEUE);
+        socket->count--;
+    }
+
+    struct udp_datagram *datagram = &socket->queue[socket->tail];
+    datagram->remote_ip = remote_ip;
+    datagram->remote_port = remote_port;
+    datagram->length = length;
+    copy_bytes(datagram->data, payload, length);
+    socket->tail = (uint8_t)((socket->tail + 1) % UDP_RX_QUEUE);
+    socket->count++;
+    return true;
+}
+
+static void udp_deliver(uint16_t dst_port,
+    uint32_t remote_ip,
+    uint16_t remote_port,
+    const uint8_t *payload,
+    uint16_t length) {
+    struct udp_socket *socket = find_udp_socket_for_port(dst_port);
+    if (socket == 0) {
+        return;
+    }
+    if (udp_queue_push(socket, remote_ip, remote_port, payload, length)) {
+        scheduler_wake_all(&udp_wait_queue);
+        process_file_poll_wake();
+    }
+}
+
 static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip_payload_length) {
     if (ip_payload_length < 8) {
         return;
@@ -742,6 +850,8 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
     } else if (src_port == DNS_PORT && dst_port == DNS_CLIENT_PORT) {
         handle_dns_packet(udp + 8, udp_length - 8);
     }
+
+    udp_deliver(dst_port, read_be32(ip + 12), src_port, udp + 8, udp_length - 8);
 }
 
 static struct tcp_connection *find_connection(uint16_t local_port, uint32_t remote_ip, uint16_t remote_port) {
@@ -1478,6 +1588,163 @@ int64_t net_listen(uint16_t port) {
     return -1;
 }
 
+int64_t net_udp_open(void) {
+    if (!initialized) {
+        return -1;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0) {
+        return -1;
+    }
+
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (!udp_sockets[i].used) {
+            clear_bytes((uint8_t *)&udp_sockets[i], sizeof(udp_sockets[i]));
+            udp_sockets[i].used = true;
+            udp_sockets[i].id = next_udp_socket_id++;
+            udp_sockets[i].owner = owner;
+            if (next_udp_socket_id == 0) {
+                next_udp_socket_id = 1;
+            }
+            return (int64_t)make_handle(NET_HANDLE_UDP_SOCKET, udp_sockets[i].id);
+        }
+    }
+
+    return -1;
+}
+
+int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
+    struct udp_socket *socket = find_udp_socket(socket_id);
+    if (!initialized || socket == 0 || socket->owner != process_current()) {
+        return -1;
+    }
+
+    uint16_t selected = port == 0 ? allocate_udp_port() : port;
+    if (selected == 0 || udp_port_reserved(selected)) {
+        return -1;
+    }
+
+    struct udp_socket *existing = find_udp_socket_for_port(selected);
+    if (existing != 0 && existing != socket) {
+        return -1;
+    }
+
+    socket->local_port = selected;
+    return 0;
+}
+
+int64_t net_udp_sendto(uint64_t socket_id,
+    uint32_t remote_ip,
+    uint16_t remote_port,
+    const uint8_t *buffer,
+    uint64_t length) {
+    if (!initialized || remote_ip == 0 || remote_port == 0 || length > UDP_PAYLOAD_MAX ||
+        (length != 0 && buffer == 0)) {
+        return -1;
+    }
+
+    struct udp_socket *socket = find_udp_socket(socket_id);
+    if (socket == 0 || socket->owner != process_current()) {
+        return -1;
+    }
+
+    if (socket->local_port == 0 && net_udp_bind(socket_id, 0) < 0) {
+        return -1;
+    }
+
+    uint8_t remote_mac[6];
+    if (!resolve_route_mac(remote_ip, remote_mac)) {
+        return -1;
+    }
+
+    return send_udp_packet(remote_mac,
+        local_ip_bytes,
+        remote_ip,
+        socket->local_port,
+        remote_port,
+        buffer,
+        (uint16_t)length) ? (int64_t)length : -1;
+}
+
+struct udp_wait_arg {
+    struct process *owner;
+    uint64_t socket_id;
+};
+
+static bool udp_recv_ready(void *arg) {
+    struct udp_wait_arg *wait = arg;
+    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+        return true;
+    }
+
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (udp_sockets[i].used &&
+            udp_sockets[i].id == wait->socket_id &&
+            udp_sockets[i].owner == wait->owner) {
+            return udp_sockets[i].count != 0;
+        }
+    }
+    return true;
+}
+
+int64_t net_udp_recvfrom(uint64_t socket_id,
+    uint8_t *buffer,
+    uint64_t capacity,
+    uint32_t *remote_ip_out,
+    uint16_t *remote_port_out,
+    bool nonblock) {
+    if (!initialized || (capacity != 0 && buffer == 0)) {
+        return -1;
+    }
+
+    struct udp_socket *socket = find_udp_socket(socket_id);
+    struct process *owner = process_current();
+    if (socket == 0 || owner == 0 || socket->owner != owner) {
+        return -1;
+    }
+    if (socket->local_port == 0 && net_udp_bind(socket_id, 0) < 0) {
+        return -1;
+    }
+
+    struct udp_wait_arg wait = {
+        .owner = owner,
+        .socket_id = handle_value(socket_id),
+    };
+    for (;;) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
+
+        socket = find_udp_socket(socket_id);
+        if (socket == 0 || socket->owner != owner) {
+            return -1;
+        }
+        if (socket->count != 0) {
+            struct udp_datagram *datagram = &socket->queue[socket->head];
+            uint64_t copied = capacity < datagram->length ? capacity : datagram->length;
+            copy_bytes(buffer, datagram->data, copied);
+            if (remote_ip_out != 0) {
+                *remote_ip_out = datagram->remote_ip;
+            }
+            if (remote_port_out != 0) {
+                *remote_port_out = datagram->remote_port;
+            }
+            socket->head = (uint8_t)((socket->head + 1) % UDP_RX_QUEUE);
+            socket->count--;
+            return (int64_t)copied;
+        }
+
+        e1000_poll(32, false);
+        if (nonblock) {
+            return SRV_ERR_AGAIN;
+        }
+        if (!scheduler_wait(&udp_wait_queue, udp_recv_ready, &wait)) {
+            scheduler_yield();
+        }
+    }
+}
+
 struct connect_wait_arg {
     struct process *owner;
     uint64_t connection_id;
@@ -1796,6 +2063,22 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         return SRV_POLLNVAL;
     }
 
+    if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (socket == 0 || socket->owner != owner) {
+            return SRV_POLLNVAL;
+        }
+
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0 && socket->count != 0) {
+            revents |= SRV_POLLIN;
+        }
+        if ((events & SRV_POLLOUT) != 0) {
+            revents |= SRV_POLLOUT;
+        }
+        return revents;
+    }
+
     return SRV_POLLNVAL;
 }
 
@@ -1847,6 +2130,17 @@ int64_t net_close(uint64_t handle) {
         return 0;
     }
 
+    if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (socket == 0 || socket->owner != owner) {
+            return -1;
+        }
+        clear_bytes((uint8_t *)socket, sizeof(*socket));
+        scheduler_wake_all(&udp_wait_queue);
+        process_file_poll_wake();
+        return 0;
+    }
+
     return -1;
 }
 
@@ -1873,6 +2167,12 @@ void net_process_cleanup(struct process *process) {
             close_connection(&tcp_connections[i]);
         }
     }
+
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (udp_sockets[i].used && udp_sockets[i].owner == process) {
+            clear_bytes((uint8_t *)&udp_sockets[i], sizeof(udp_sockets[i]));
+        }
+    }
 }
 
 void net_process_wake(struct process *process) {
@@ -1880,5 +2180,6 @@ void net_process_wake(struct process *process) {
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
+    scheduler_wake_all(&udp_wait_queue);
     process_file_poll_wake();
 }

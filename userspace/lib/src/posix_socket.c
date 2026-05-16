@@ -19,6 +19,9 @@ struct posix_socket {
     int protocol;
     uint16_t port;
     int listener_fd;
+    uint32_t peer_ip;
+    uint16_t peer_port;
+    int connected;
     uint64_t fd_flags;
     uint64_t descriptor_flags;
 };
@@ -115,18 +118,35 @@ int socket(int domain, int type, int protocol) {
         errno = EAFNOSUPPORT;
         return -1;
     }
-    if (type != SOCK_STREAM) {
+    if (type != SOCK_STREAM && type != SOCK_DGRAM) {
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+    if (protocol != 0 &&
+        ((type == SOCK_STREAM && protocol != IPPROTO_TCP) ||
+            (type == SOCK_DGRAM && protocol != IPPROTO_UDP))) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
         if (!sockets[i].used) {
+            long udp_fd = -1;
+            if (type == SOCK_DGRAM) {
+                udp_fd = srv_net_udp_open();
+                if (udp_fd < 0) {
+                    errno = EMFILE;
+                    return -1;
+                }
+            }
             sockets[i].used = 1;
             sockets[i].domain = domain;
             sockets[i].type = type;
             sockets[i].protocol = protocol;
             sockets[i].port = 0;
-            sockets[i].listener_fd = -1;
+            sockets[i].listener_fd = (int)udp_fd;
+            sockets[i].peer_ip = 0;
+            sockets[i].peer_port = 0;
+            sockets[i].connected = 0;
             sockets[i].fd_flags = 0;
             return POSIX_SOCKET_BASE + i;
         }
@@ -147,13 +167,19 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         return -1;
     }
     socket->port = ntohs(in->sin_port);
+    if (socket->type == SOCK_DGRAM) {
+        if (socket->listener_fd < 0 || srv_net_udp_bind(socket->listener_fd, socket->port) < 0) {
+            errno = EADDRINUSE;
+            return -1;
+        }
+    }
     return 0;
 }
 
 int listen(int fd, int backlog) {
     struct posix_socket *socket = socket_at(fd);
     (void)backlog;
-    if (socket == 0 || socket->port == 0) {
+    if (socket == 0 || socket->type != SOCK_STREAM || socket->port == 0) {
         errno = EINVAL;
         return -1;
     }
@@ -185,7 +211,7 @@ int listen(int fd, int backlog) {
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
     struct posix_socket *socket = socket_at(fd);
     uint64_t length = 0;
-    if (socket == 0 || socket->listener_fd < 0) {
+    if (socket == 0 || socket->type != SOCK_STREAM || socket->listener_fd < 0) {
         errno = EBADF;
         return -1;
     }
@@ -213,7 +239,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         errno = EINVAL;
         return -1;
     }
-    if (socket->listener_fd >= 0) {
+    if (socket->type == SOCK_STREAM && socket->listener_fd >= 0) {
         errno = EALREADY;
         return -1;
     }
@@ -228,6 +254,13 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     if (port == 0 || in->sin_addr.s_addr == INADDR_ANY) {
         errno = EINVAL;
         return -1;
+    }
+
+    if (socket->type == SOCK_DGRAM) {
+        socket->peer_ip = in->sin_addr.s_addr;
+        socket->peer_port = port;
+        socket->connected = 1;
+        return 0;
     }
 
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
@@ -262,13 +295,113 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 ssize_t send(int fd, const void *buffer, size_t length, int flags) {
     (void)flags;
     struct posix_socket *socket = socket_at(fd);
+    if (socket != 0 && socket->type == SOCK_DGRAM) {
+        if (!socket->connected) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        long result = srv_net_udp_sendto(socket->listener_fd,
+            socket->peer_ip,
+            socket->peer_port,
+            buffer,
+            length);
+        if (result < 0) {
+            errno = EIO;
+            return -1;
+        }
+        return result;
+    }
     return write(socket != 0 ? socket->listener_fd : fd, buffer, length);
 }
 
 ssize_t recv(int fd, void *buffer, size_t length, int flags) {
     (void)flags;
     struct posix_socket *socket = socket_at(fd);
+    if (socket != 0 && socket->type == SOCK_DGRAM) {
+        if (!socket->connected) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        uint32_t remote_ip = 0;
+        uint16_t remote_port = 0;
+        for (;;) {
+            long result = srv_net_udp_recvfrom(socket->listener_fd, buffer, length, &remote_ip, &remote_port);
+            if (result < 0) {
+                errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
+                return -1;
+            }
+            if (remote_ip == socket->peer_ip && remote_port == socket->peer_port) {
+                return result;
+            }
+        }
+    }
     return read(socket != 0 ? socket->listener_fd : fd, buffer, length);
+}
+
+ssize_t sendto(int fd,
+    const void *buffer,
+    size_t length,
+    int flags,
+    const struct sockaddr *dest_addr,
+    socklen_t addrlen) {
+    (void)flags;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || socket->type != SOCK_DGRAM || socket->listener_fd < 0 ||
+        dest_addr == 0 || addrlen < sizeof(struct sockaddr_in)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    const struct sockaddr_in *in = (const struct sockaddr_in *)dest_addr;
+    if (in->sin_family != AF_INET) {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+
+    uint16_t port = ntohs(in->sin_port);
+    if (port == 0 || in->sin_addr.s_addr == INADDR_ANY) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    long result = srv_net_udp_sendto(socket->listener_fd, in->sin_addr.s_addr, port, buffer, length);
+    if (result < 0) {
+        errno = EIO;
+        return -1;
+    }
+    return result;
+}
+
+ssize_t recvfrom(int fd,
+    void *buffer,
+    size_t length,
+    int flags,
+    struct sockaddr *src_addr,
+    socklen_t *addrlen) {
+    (void)flags;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || socket->type != SOCK_DGRAM || socket->listener_fd < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    uint32_t remote_ip = 0;
+    uint16_t remote_port = 0;
+    long result = srv_net_udp_recvfrom(socket->listener_fd, buffer, length, &remote_ip, &remote_port);
+    if (result < 0) {
+        errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
+        return -1;
+    }
+
+    if (src_addr != 0 && addrlen != 0 && *addrlen >= sizeof(struct sockaddr_in)) {
+        struct sockaddr_in *in = (struct sockaddr_in *)src_addr;
+        memset(in, 0, sizeof(*in));
+        in->sin_family = AF_INET;
+        in->sin_port = htons(remote_port);
+        in->sin_addr.s_addr = remote_ip;
+        *addrlen = sizeof(*in);
+    }
+    return result;
 }
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
@@ -426,7 +559,9 @@ int getaddrinfo(const char *node,
     addr->sin_addr = address;
     info->ai_family = AF_INET;
     info->ai_socktype = hints != 0 && hints->ai_socktype != 0 ? hints->ai_socktype : SOCK_STREAM;
-    info->ai_protocol = hints != 0 && hints->ai_protocol != 0 ? hints->ai_protocol : IPPROTO_TCP;
+    info->ai_protocol = hints != 0 && hints->ai_protocol != 0
+        ? hints->ai_protocol
+        : (info->ai_socktype == SOCK_DGRAM ? IPPROTO_UDP : IPPROTO_TCP);
     info->ai_addrlen = sizeof(*addr);
     info->ai_addr = (struct sockaddr *)addr;
     *res = info;

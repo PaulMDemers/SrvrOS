@@ -28,6 +28,18 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen);
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen);
 ssize_t send(int fd, const void *buffer, size_t length, int flags);
 ssize_t recv(int fd, void *buffer, size_t length, int flags);
+ssize_t sendto(int fd,
+    const void *buffer,
+    size_t length,
+    int flags,
+    const struct sockaddr *dest_addr,
+    socklen_t addrlen);
+ssize_t recvfrom(int fd,
+    void *buffer,
+    size_t length,
+    int flags,
+    struct sockaddr *src_addr,
+    socklen_t *addrlen);
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len);
 
 #endif

@@ -346,6 +346,36 @@ long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *le
     return srv_syscall4(SYS_NET_ACCEPT, listener_fd, (long)buffer, (long)capacity, (long)length_out);
 }
 
+long srv_net_udp_open(void) {
+    return srv_syscall0(SYS_NET_UDP_OPEN);
+}
+
+long srv_net_udp_bind(int fd, uint16_t port) {
+    return srv_syscall2(SYS_NET_UDP_BIND, fd, port);
+}
+
+long srv_net_udp_sendto(int fd, uint32_t remote_ip, uint16_t remote_port, const void *buffer, size_t length) {
+    return srv_syscall5(SYS_NET_UDP_SENDTO,
+        fd,
+        (long)remote_ip,
+        remote_port,
+        (long)buffer,
+        (long)length);
+}
+
+long srv_net_udp_recvfrom(int fd,
+    void *buffer,
+    size_t capacity,
+    uint32_t *remote_ip_out,
+    uint16_t *remote_port_out) {
+    return srv_syscall5(SYS_NET_UDP_RECVFROM,
+        fd,
+        (long)buffer,
+        (long)capacity,
+        (long)remote_ip_out,
+        (long)remote_port_out);
+}
+
 long srv_getpid(void) {
     return srv_syscall0(SYS_GETPID);
 }

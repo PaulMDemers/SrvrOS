@@ -156,11 +156,13 @@ The network stack includes:
 - ARP replies and ARP lookup for outbound traffic.
 - IPv4 packet handling.
 - ICMP echo replies.
-- UDP for DHCP and DNS.
+- UDP for DHCP, DNS, and userspace datagram sockets.
 - DHCP address/router/DNS configuration.
 - DNS A-record lookup over UDP/53.
 - A compact TCP implementation sufficient for poll-driven static HTTP serving.
 - Client-side TCP connect for simple outbound HTTP over QEMU user networking.
+- Userspace IPv4 UDP sockets with `sendto`/`recvfrom`, nonblocking readiness,
+  and `/fat/bin/udpdns` coverage.
 
 Network file descriptors are process-owned and cleaned up on process exit.
 `webd` listens on port 80, polls the listener plus active connection fds, and
@@ -172,7 +174,7 @@ Current networking caveats:
 
 - TCP is intentionally minimal and not a general-purpose implementation yet.
 - No IPv6.
-- No UDP userspace sockets yet.
+- UDP sockets are IPv4-only and use a small bounded receive queue.
 - DNS currently resolves A records only.
 
 ## Userspace
@@ -191,7 +193,7 @@ Core tools:
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
   `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
-- `webd`, `httpget`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
+- `webd`, `httpget`, `udpdns`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,

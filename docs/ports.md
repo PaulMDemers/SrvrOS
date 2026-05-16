@@ -130,6 +130,9 @@ descriptors report `ENOTTY`.
 The `/fat/bin/httpget` app verifies outbound TCP by resolving a host with
 `getaddrinfo`, connecting to port 80, sending an HTTP/1.0 request, and printing
 the response through the normal socket fd path.
+The `/fat/bin/udpdns` app verifies userspace UDP sockets by sending a DNS A
+query with `sendto`, waiting with `poll`, and receiving the response with
+`recvfrom`.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -152,9 +155,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
   queues are still future work as the descriptor model grows.
-- Socket wrappers cover TCP server flow over `net_listen`/`net_accept` plus
-  client-side `connect` over `net_connect`. Nonblocking mode is preserved when
-  it is set on a socket before `listen()` or `connect()`.
+- Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
+  client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
+  `sendto`/`recvfrom`. Nonblocking mode is preserved when it is set on a socket
+  before `listen()` or `connect()`, and UDP sockets report poll readiness.
 - SQLite is still a compact filesystem smoke port. Its VFS now maps lock states
   to srvros advisory byte-range locks, but richer stale-lock recovery,
   cross-machine semantics, and WAL shared-memory locking are future work.

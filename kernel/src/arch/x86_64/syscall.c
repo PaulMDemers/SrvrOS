@@ -1335,6 +1335,76 @@ static int64_t syscall_net_accept(uint64_t listener_fd, char *buffer, uint64_t c
     return fd;
 }
 
+static int64_t syscall_net_udp_open(void) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return -1;
+    }
+
+    int64_t handle = net_udp_open();
+    if (handle < 0) {
+        return -1;
+    }
+
+    int64_t fd = process_handle_alloc(process, PROCESS_FILE_NET_UDP, (uint64_t)handle);
+    if (fd < 0) {
+        net_close((uint64_t)handle);
+    }
+    return fd;
+}
+
+static int64_t syscall_net_udp_bind(uint64_t fd, uint16_t port) {
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_UDP) {
+        return -1;
+    }
+    return net_udp_bind(file->handle, port);
+}
+
+static int64_t syscall_net_udp_sendto(uint64_t fd,
+    uint32_t remote_ip,
+    uint16_t remote_port,
+    const uint8_t *buffer,
+    uint64_t length) {
+    if (!user_buffer_ok(buffer, length, false)) {
+        return -1;
+    }
+
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_UDP) {
+        return -1;
+    }
+
+    return net_udp_sendto(file->handle, remote_ip, remote_port, buffer, length);
+}
+
+static int64_t syscall_net_udp_recvfrom(uint64_t fd,
+    uint8_t *buffer,
+    uint64_t capacity,
+    uint32_t *remote_ip_out,
+    uint16_t *remote_port_out) {
+    if (!user_buffer_ok(buffer, capacity, true) ||
+        (remote_ip_out != NULL && !user_buffer_ok(remote_ip_out, sizeof(*remote_ip_out), true)) ||
+        (remote_port_out != NULL && !user_buffer_ok(remote_port_out, sizeof(*remote_port_out), true))) {
+        return -1;
+    }
+
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_UDP) {
+        return -1;
+    }
+
+    return net_udp_recvfrom(file->handle,
+        buffer,
+        capacity,
+        remote_ip_out,
+        remote_port_out,
+        process_file_nonblocking(process, fd));
+}
+
 static int64_t syscall_getpid(void) {
     struct process *process = process_current();
     return process == NULL ? 0 : (int64_t)process_pid(process);
@@ -1394,6 +1464,26 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_DNS:
         frame->rax = (uint64_t)syscall_net_dns((const char *)frame->rdi, (uint32_t *)frame->rsi);
+        return;
+    case SYS_NET_UDP_OPEN:
+        frame->rax = (uint64_t)syscall_net_udp_open();
+        return;
+    case SYS_NET_UDP_BIND:
+        frame->rax = (uint64_t)syscall_net_udp_bind(frame->rdi, (uint16_t)frame->rsi);
+        return;
+    case SYS_NET_UDP_SENDTO:
+        frame->rax = (uint64_t)syscall_net_udp_sendto(frame->rdi,
+            (uint32_t)frame->rsi,
+            (uint16_t)frame->rdx,
+            (const uint8_t *)frame->rcx,
+            frame->r8);
+        return;
+    case SYS_NET_UDP_RECVFROM:
+        frame->rax = (uint64_t)syscall_net_udp_recvfrom(frame->rdi,
+            (uint8_t *)frame->rsi,
+            frame->rdx,
+            (uint32_t *)frame->rcx,
+            (uint16_t *)frame->r8);
         return;
     case SYS_FS_WRITE:
         frame->rax = (uint64_t)syscall_fs_write((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);
