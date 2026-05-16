@@ -1627,6 +1627,8 @@ struct service_config {
     char restart[16];
 };
 
+static const char *service_reload_path = "/fat/run/svscan.reload";
+
 static void service_default_config(struct service_config *config, const char *name) {
     size_t out = 0;
     memset(config, 0, sizeof(*config));
@@ -1728,6 +1730,61 @@ static int service_load_config(struct service_config *config, const char *name) 
         return 0;
     }
     return 1;
+}
+
+static int service_append_config_line(char *out, size_t capacity, size_t *length, const char *key, const char *value) {
+    if (*length + cli_strlen(key) + cli_strlen(value) + 2 >= capacity) {
+        return 0;
+    }
+    append_text(out, capacity, length, key);
+    append_text(out, capacity, length, "=");
+    append_text(out, capacity, length, value);
+    append_text(out, capacity, length, "\n");
+    return 1;
+}
+
+static int service_save_config(const struct service_config *config) {
+    char path[CLI_PATH_MAX];
+    char data[512];
+    size_t length = 0;
+    service_config_path(path, sizeof(path), config->name);
+    data[0] = '\0';
+    if (!service_append_config_line(data, sizeof(data), &length, "command", config->command) ||
+        !service_append_config_line(data, sizeof(data), &length, "args", config->args) ||
+        !service_append_config_line(data, sizeof(data), &length, "process", config->process_name) ||
+        !service_append_config_line(data, sizeof(data), &length, "log", config->log_path) ||
+        !service_append_config_line(data, sizeof(data), &length, "enabled", config->enabled ? "true" : "false") ||
+        !service_append_config_line(data, sizeof(data), &length, "restart", config->restart)) {
+        cli_puts("service: config too large\n");
+        return 0;
+    }
+    if (srv_fs_write(path, data, length) < 0) {
+        cli_puts("service: config write failed: ");
+        cli_puts(path);
+        cli_puts("\n");
+        return 0;
+    }
+    return 1;
+}
+
+static int service_request_reload(void) {
+    (void)srv_mkdir("/fat/run");
+    if (srv_fs_write(service_reload_path, "reload\n", 7) < 0) {
+        cli_puts("service: reload request failed\n");
+        return 0;
+    }
+    cli_puts("service: reload requested\n");
+    return 1;
+}
+
+static void service_set_enabled(struct service_config *config, int enabled) {
+    config->enabled = enabled;
+    if (!service_save_config(config)) {
+        return;
+    }
+    cli_puts(config->name);
+    cli_puts(enabled ? " enabled\n" : " disabled\n");
+    (void)service_request_reload();
 }
 
 static int service_name_from_path(char *out, size_t capacity, const char *path) {
@@ -2013,7 +2070,7 @@ static void service_command(const char *args) {
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
     if (name[0] == '\0') {
-        cli_puts("usage: service list|start-enabled|supervise [cycles]|<name> [start [args]|stop|restart|status|log|tail [lines]]\n");
+        cli_puts("usage: service list|reload|enable <name>|disable <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|log|tail [lines]]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
     }
@@ -2028,6 +2085,27 @@ static void service_command(const char *args) {
 
     if (cli_streq(name, "list")) {
         service_list_command(0);
+        return;
+    }
+    if (cli_streq(name, "reload")) {
+        (void)service_request_reload();
+        return;
+    }
+    if (cli_streq(name, "enable") || cli_streq(name, "disable")) {
+        int enable = cli_streq(name, "enable");
+        char target[32];
+        cli_copy(target, sizeof(target), action);
+        if (target[0] == '\0') {
+            cli_puts(enable ? "usage: service enable <name>\n" : "usage: service disable <name>\n");
+            return;
+        }
+        if (!service_load_config(&config, target)) {
+            cli_puts("service: not found: ");
+            cli_puts(target);
+            cli_puts("\n");
+            return;
+        }
+        service_set_enabled(&config, enable);
         return;
     }
     if (cli_streq(name, "start-enabled")) {
@@ -2065,6 +2143,16 @@ static void service_command(const char *args) {
         return;
     }
 
+    if (cli_streq(action, "enable")) {
+        service_set_enabled(&config, 1);
+        return;
+    }
+
+    if (cli_streq(action, "disable")) {
+        service_set_enabled(&config, 0);
+        return;
+    }
+
     if (cli_streq(action, "start")) {
         service_start_config(&config, action_args);
         return;
@@ -2077,7 +2165,11 @@ static void service_command(const char *args) {
 
     if (cli_streq(action, "restart")) {
         (void)service_stop_config(&config);
-        service_start_config(&config, action_args);
+        if (config.enabled && cli_streq(config.restart, "always") && action_args[0] == '\0') {
+            (void)service_request_reload();
+        } else {
+            service_start_config(&config, action_args);
+        }
         return;
     }
 
@@ -2091,7 +2183,7 @@ static void service_command(const char *args) {
         return;
     }
 
-    cli_puts("usage: service list|start-enabled|supervise [cycles]|<name> [start [args]|stop|restart|status|log|tail [lines]]\n");
+    cli_puts("usage: service list|reload|enable <name>|disable <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|log|tail [lines]]\n");
 }
 
 static void print_path(void) {

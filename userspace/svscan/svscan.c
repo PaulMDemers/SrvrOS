@@ -3,6 +3,7 @@
 
 #define SERVICE_DIR "/fat/etc/services"
 #define SVSCAN_LOG "/fat/var/log/svscan.log"
+#define SVSCAN_RELOAD "/fat/run/svscan.reload"
 #define MAX_SERVICES 16
 #define MAX_NAME 32
 #define MAX_PATH 160
@@ -348,6 +349,16 @@ static void scan_once(void) {
     }
 }
 
+static void check_reload_request(void) {
+    int fd = (int)srv_open(SVSCAN_RELOAD);
+    if (fd < 0) {
+        return;
+    }
+    srv_close(fd);
+    (void)srv_unlink(SVSCAN_RELOAD);
+    log_line("svscan: reload requested");
+}
+
 static int parse_cycles(const char *text, uint64_t *cycles_out) {
     uint64_t value = 0;
     if (text == 0 || text[0] == '\0') {
@@ -377,6 +388,7 @@ int main(int argc, char **argv) {
 
     log_line("svscan: started");
     for (uint64_t cycle = 0; cycles == 0 || cycle < cycles; cycle++) {
+        check_reload_request();
         scan_once();
         srv_sleep_ticks(SCAN_INTERVAL_TICKS);
     }

@@ -217,7 +217,12 @@ def main():
             output += send_command(sock, "service list", "enabled=true", args.service_wait)
             output += send_command(sock, "ps", "svscan", args.service_wait)
             output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd started pid", args.service_wait)
+            output += send_command(sock, "service disable webd", "webd disabled", args.service_wait)
+            output += send_command(sock, "service webd status", "enabled=false", args.service_wait)
             output += send_command(sock, "service webd stop", "stopped pid", args.service_wait)
+            output += read_for(sock, args.settle_wait)
+            output += send_command(sock, "service webd status", "webd stopped enabled=false", args.service_wait)
+            output += send_command(sock, "service enable webd", "webd enabled", args.service_wait)
             output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
             output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd restarting", args.service_wait)
             output += send_command(sock, "netstat", "LISTEN", args.service_wait)
@@ -307,6 +312,12 @@ def main():
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
         "enabled=true",
+        "webd disabled",
+        "enabled=false",
+        "webd stopped enabled=false",
+        "webd enabled",
+        "service: reload requested",
+        "svscan: reload requested",
         "restart=always",
         "stopped pid",
         "svscan: webd restarting",

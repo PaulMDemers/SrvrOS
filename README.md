@@ -47,7 +47,7 @@ editor clients:
   `write`, and `close`.
 - Ring-3 `/fat/bin/webd`, a poll-driven static HTTP server for `/fat/www` with
   nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
-  a bounded active-client table, and shell-managed service logging under
+  a bounded active-client table, and init-owned service logging under
   `/fat/var/log`.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, foreground/background
@@ -238,10 +238,13 @@ config with `enabled=true`, and restarts daemons marked `restart=always`.
 Supervisor events are appended to `/fat/var/log/svscan.log`. New services can
 be added as `/fat/etc/services/name.svc` with `command=`, optional `args=`,
 `process=`, `log=`, `enabled=`, and `restart=` keys.
-`service list` shows state plus enabled/restart/log metadata, `service <name>
+`service list` shows state plus enabled/restart/log metadata, `service enable
+<name>` and `service disable <name>` persistently toggle startup, `service
+reload` asks `svscan` to rescan via `/fat/run/svscan.reload`, `service <name>
 log` and `service <name> tail [lines]` read the configured log, and `service
 supervise [cycles]` can run the same restart policy manually for bounded
-diagnostics. `webd` writes compact access lines as
+diagnostics. `service <name> restart` lets `svscan` bring `restart=always`
+services back online. `webd` writes compact access lines as
 `webd: access METHOD PATH STATUS BYTES`.
 
 The shell can also run non-interactively, which is useful for smoke tests,

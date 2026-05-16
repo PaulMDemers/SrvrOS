@@ -205,6 +205,7 @@ def main():
     etc_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     services_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     var_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    run_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     log_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_assets_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
@@ -287,6 +288,12 @@ def main():
     offset = append_directory_entry(
         root,
         offset,
+        file_entry("run", run_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
         file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
         "root",
     )
@@ -334,6 +341,7 @@ def main():
     log_entry_set = file_entry("log", log_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
     var_offset = append_directory_entry(var_entries, var_offset, log_entry_set, "var")
     log_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    run_entries = bytearray(SMALL_DIRECTORY_SIZE)
 
     www_entries = bytearray(SMALL_DIRECTORY_SIZE)
     www_offset = 0
@@ -365,6 +373,7 @@ def main():
     image[cluster_offset(services_dir_cluster):cluster_offset(services_dir_cluster) + SMALL_DIRECTORY_SIZE] = services_entries
     image[cluster_offset(var_dir_cluster):cluster_offset(var_dir_cluster) + SMALL_DIRECTORY_SIZE] = var_entries
     image[cluster_offset(log_dir_cluster):cluster_offset(log_dir_cluster) + SMALL_DIRECTORY_SIZE] = log_entries
+    image[cluster_offset(run_dir_cluster):cluster_offset(run_dir_cluster) + SMALL_DIRECTORY_SIZE] = run_entries
     image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_entries
     image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_assets_entries
 
