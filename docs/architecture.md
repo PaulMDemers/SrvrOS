@@ -90,6 +90,13 @@ The ABI currently covers:
 - Memory mapping: `mmap`, `munmap`, `mprotect`, `msync`.
 - GUI IPC: register server, send message, receive message.
 
+Appendable output structs use a small ABI header (`abi_version` and
+`struct_size`) at the front of the caller buffer. The userspace wrappers fill
+that header before entering the kernel, and the kernel copies back only the
+caller-declared size after validating the version. This covers process listing,
+file and filesystem status, console/graphics info, mouse events, GUI messages,
+and the network enumeration/status/ARP structs.
+
 ## VFS And Filesystems
 
 The VFS is a stable node registry keyed by path. Filesystems register nodes with
@@ -155,15 +162,70 @@ The network stack includes:
 - Ethernet frame parsing.
 - ARP replies and ARP lookup for outbound traffic.
 - IPv4 packet handling.
+- Incoming IPv4 checksum validation plus TCP/UDP checksum validation before
+  packets are dispatched to protocol state.
 - ICMP echo replies.
 - UDP for DHCP, DNS, and userspace datagram sockets.
 - DHCP address/router/DNS configuration.
 - DNS A-record lookup over UDP/53.
+- DNS server selection prefers DHCP DNS, then userspace `DNS_SERVER` or
+  `/fat/etc/resolv.conf` fallback where applicable, then QEMU's default DNS.
 - A compact TCP implementation sufficient for poll-driven static HTTP serving.
 - Client-side TCP connect for simple outbound HTTP over QEMU user networking.
+- A 32-slot TCP connection table, sized for the current low-traffic web-server
+  milestone so short `TIME_WAIT` bursts do not starve outbound client connects.
+- TCP table-pressure accounting tracks capacity, current `TIME_WAIT` entries,
+  full-table drops, reclaimed `TIME_WAIT` entries, and close timer values in
+  the network status ABI.
+- Network enumeration/status/ARP structs carry a version and caller-declared
+  size prefix. The kernel validates that header and copies back only the bytes
+  the caller says it can accept, so future status fields can be appended without
+  overwriting older userspace buffers.
+- Under table pressure, expired `TIME_WAIT` entries are reaped first; if the
+  table is still full, the oldest `TIME_WAIT` slot can be reclaimed so fresh
+  web traffic and outbound client connects do not stall behind closed sockets.
+- TCP socket lifecycle tracking for process-owned connections, including
+  FIN-on-close, kernel-backed read/write `shutdown` state, and compact
+  `FIN_WAIT`/`CLOSE_WAIT`/`LAST_ACK`/`TIME_WAIT` cleanup states.
+- Per-connection socket error reporting for resets, refused connects,
+  timeouts, and in-progress nonblocking connects, exposed to userspace through
+  `getsockopt(SO_ERROR)`.
+- Segmented TCP writes from userspace buffers larger than one payload-sized
+  frame, covered by `webd` serving a multi-kilobyte static response.
+- A small per-connection TCP transmit history that retires SYN, FIN, and data
+  frames on ACK and retransmits them from the network timer when needed.
+- Bounded TCP send backpressure: connection writes only send while there is
+  transmit-history/window space, nonblocking writes report `EAGAIN`, and
+  `POLLOUT` follows actual send availability.
+- Peer-advertised TCP window tracking, so payload sends are bounded by both the
+  local outstanding-send limit and the remote receive window advertised in ACKs.
+- Dynamic advertised receive windows based on unread connection-buffer space,
+  window-update ACKs after userspace reads, and a small zero-window persist
+  timer so blocked peers can discover reopened receive windows.
+- Idle established-connection cleanup so abandoned TCP clients do not occupy the
+  small fixed connection table indefinitely.
+- TCP reset responses for closed ports, missing connections, and full
+  connection-table SYN attempts, so clients fail promptly instead of waiting for
+  retransmission timeouts.
+- In-order TCP receive validation: duplicate or out-of-order data/FIN segments
+  are acknowledged at the current receive point instead of being appended twice
+  or advancing the stream prematurely.
 - Userspace IPv4 UDP sockets with `sendto`/`recvfrom`, nonblocking readiness,
   local datagram delivery, and `/fat/bin/udpdns` plus `/fat/bin/udpecho`
   coverage.
+- Kernel socket-table enumeration for `/fat/bin/netstat`, covering TCP
+  listeners, active TCP connections, UDP sockets, owning PIDs, queue depths,
+  send-window availability, peer windows, error state, and compact TCP flags.
+- Kernel network status/config reporting for `/fat/bin/ifconfig`,
+  `/fat/bin/route`, and `/fat/bin/arp`, including e1000 MAC/IP, DHCP route/DNS
+  details, protocol counters, socket counts, worker counters, and the current
+  ARP resolution.
+- A small fixed ARP cache plus kernel-backed ICMP echo requests for
+  `/fat/bin/ping`.
+- `/fat/bin/netcheck`, a compact guest-side network health check covering DHCP,
+  DNS, ping, UDP loopback, and outbound TCP HTTP.
+- `/fat/bin/netabi`, a regression probe for the size-versioned network structs
+  that passes deliberately truncated buffers and checks canaries after them.
 
 Network file descriptors are process-owned and cleaned up on process exit.
 `webd` listens on port 80, polls the listener plus active connection fds, and
@@ -174,6 +236,11 @@ small bounded active-client table.
 Current networking caveats:
 
 - TCP is intentionally minimal and not a general-purpose implementation yet.
+- TCP congestion control, window scaling, SACK, delayed ACK tuning,
+  out-of-order receive queues, and full TIME_WAIT/state-machine handling are
+  still future work.
+  Current close states are deliberately compact and timer-reaped rather than a
+  complete RFC-level lifecycle.
 - No IPv6.
 - UDP sockets are IPv4-only and use a small bounded receive queue.
 - DNS currently resolves A records only.
@@ -194,7 +261,8 @@ Core tools:
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
   `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
-- `webd`, `httpget`, `udpdns`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
+- `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`, `ifconfig`, `route`,
+  `arp`, `ping`, `host`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,

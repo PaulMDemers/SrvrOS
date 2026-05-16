@@ -116,6 +116,18 @@ static int selftest(void) {
         return 1;
     }
 
+    int reuse = 1;
+    int type = 0;
+    socklen_t type_len = sizeof(type);
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0 ||
+        getsockopt(client_fd, SOL_SOCKET, SO_TYPE, &type, &type_len) < 0 ||
+        type != SOCK_DGRAM) {
+        perror("udpecho: sockopt");
+        close(server_fd);
+        close(client_fd);
+        return 1;
+    }
+
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
@@ -129,6 +141,14 @@ static int selftest(void) {
     }
 
     server_addr.sin_addr.s_addr = 0x0a00020fu;
+    char buffer[512];
+    if (recvfrom(client_fd, buffer, sizeof(buffer), MSG_DONTWAIT, 0, 0) >= 0 || errno != EAGAIN) {
+        printf("udpecho: nonblock failed\n");
+        close(server_fd);
+        close(client_fd);
+        return 1;
+    }
+
     const char *message = "hello-udp";
     if (sendto(client_fd,
             message,
@@ -142,7 +162,6 @@ static int selftest(void) {
         return 1;
     }
 
-    char buffer[512];
     struct sockaddr_in peer;
     socklen_t peer_len = sizeof(peer);
     ssize_t count = recvfrom(server_fd, buffer, sizeof(buffer), 0, (struct sockaddr *)&peer, &peer_len);
@@ -168,6 +187,33 @@ static int selftest(void) {
     }
     buffer[count] = '\0';
     printf("udpecho: self %s\n", buffer);
+
+    if (sendto(client_fd, "", 0, 0, (const struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+        perror("udpecho: zero-send");
+        close(server_fd);
+        close(client_fd);
+        return 1;
+    }
+    peer_len = sizeof(peer);
+    count = recvfrom(server_fd, buffer, sizeof(buffer), 0, (struct sockaddr *)&peer, &peer_len);
+    if (count != 0) {
+        perror("udpecho: zero-recv");
+        close(server_fd);
+        close(client_fd);
+        return 1;
+    }
+    printf("udpecho: zero ok\n");
+
+    if (connect(client_fd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0 ||
+        shutdown(client_fd, SHUT_WR) < 0 ||
+        send(client_fd, "x", 1, MSG_NOSIGNAL) >= 0 ||
+        errno != EPIPE) {
+        printf("udpecho: shutdown failed\n");
+        close(server_fd);
+        close(client_fd);
+        return 1;
+    }
+
     close(server_fd);
     close(client_fd);
     return strcmp(buffer, message) == 0 ? 0 : 1;

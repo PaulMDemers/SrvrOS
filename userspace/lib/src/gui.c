@@ -11,10 +11,20 @@ int gui_register_server(void) {
 }
 
 int gui_send(const struct gui_message *message) {
-    return (int)srv_syscall1(SYS_GUI_SEND, (long)message);
+    if (message == 0) {
+        return -1;
+    }
+    struct gui_message copy = *message;
+    copy.abi_version = SRV_ABI_VERSION;
+    copy.struct_size = sizeof(copy);
+    return (int)srv_syscall1(SYS_GUI_SEND, (long)&copy);
 }
 
 int gui_recv(struct gui_message *message) {
+    if (message != 0) {
+        message->abi_version = SRV_ABI_VERSION;
+        message->struct_size = sizeof(*message);
+    }
     return (int)srv_syscall1(SYS_GUI_RECV, (long)message);
 }
 

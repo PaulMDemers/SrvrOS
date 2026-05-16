@@ -12,12 +12,16 @@
 #define SRV_EXEC_GROUP_SELF UINT64_MAX
 
 struct srv_process_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t pid;
     char name[64];
     char state[24];
 };
 
 struct srv_stat {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t size;
     uint64_t type;
     uint64_t inode;
@@ -33,6 +37,8 @@ struct srv_stat {
 };
 
 struct srv_fsinfo {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t block_size;
     uint64_t blocks;
     uint64_t blocks_free;
@@ -129,6 +135,10 @@ long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags);
 long srv_net_dhcp(void);
 long srv_net_status(void);
 long srv_net_dns(const char *name, uint32_t *ip_out);
+long srv_net_list(uint64_t index, struct srv_net_info *info);
+long srv_net_status_info(struct srv_net_status_info *info);
+long srv_net_arp_list(uint64_t index, struct srv_arp_info *info);
+long srv_net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out);
 long srv_net_listen(uint16_t port);
 long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags);
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out);
@@ -138,6 +148,8 @@ long srv_net_udp_sendto(int fd, uint32_t remote_ip, uint16_t remote_port, const 
 long srv_net_udp_recvfrom(int fd, void *buffer, size_t capacity, uint32_t *remote_ip_out, uint16_t *remote_port_out);
 long srv_net_sockname(int fd, uint32_t *ip_out, uint16_t *port_out);
 long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out);
+long srv_net_shutdown(int fd, int how);
+long srv_net_error(int fd);
 long srv_getpid(void);
 long srv_ticks(void);
 long srv_sleep_ticks(uint64_t ticks);

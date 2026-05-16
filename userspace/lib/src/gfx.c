@@ -6,6 +6,10 @@
 #define SYS_GFX_FILL_RECT 17
 
 int gfx_info(struct gfx_info *info) {
+    if (info != 0) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return (int)srv_syscall1(SYS_GFX_INFO, (long)info);
 }
 

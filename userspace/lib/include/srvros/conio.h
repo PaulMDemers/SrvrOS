@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 struct conio_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t columns;
     uint64_t rows;
 };

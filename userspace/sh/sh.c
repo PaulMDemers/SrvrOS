@@ -860,7 +860,7 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 
 static void print_help(void) {
     cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd httpget udpdns udpecho spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");

@@ -22,6 +22,8 @@ enum gui_message_type {
 };
 
 struct gui_message {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t type;
     uint64_t source_pid;
     uint64_t target_pid;

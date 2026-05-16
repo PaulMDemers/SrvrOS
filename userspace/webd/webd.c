@@ -11,7 +11,9 @@
 #define SYS_TICKS 42
 #define SYS_POLL 50
 #define SYS_FCNTL 51
+#define SYS_YIELD 23
 
+#define SRV_ABI_VERSION 1
 #define STDOUT 1
 #define REQUEST_CAPACITY 4096
 #define FILE_BUFFER_CAPACITY 1024
@@ -21,6 +23,7 @@
 #define CLIENT_IDLE_TICKS 1000
 
 #define POLLIN 0x0001
+#define POLLOUT 0x0004
 #define POLLERR 0x0008
 #define POLLHUP 0x0010
 #define POLLNVAL 0x0020
@@ -43,8 +46,20 @@ struct client {
 };
 
 struct stat_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t size;
     uint64_t type;
+    uint64_t inode;
+    uint64_t mode;
+    uint64_t nlink;
+    uint64_t uid;
+    uint64_t gid;
+    uint64_t atime;
+    uint64_t mtime;
+    uint64_t ctime;
+    uint64_t blksize;
+    uint64_t blocks;
 };
 
 static char web_root[MAX_PATH] = "/fat/www";
@@ -100,6 +115,10 @@ static size_t strlen(const char *text) {
 
 static void write_text(const char *text) {
     syscall3(SYS_WRITE, STDOUT, (long)text, (long)strlen(text));
+}
+
+static void yield_once(void) {
+    (void)syscall0(SYS_YIELD);
 }
 
 static int ascii_lower(int c) {
@@ -352,10 +371,22 @@ static long write_all(long fd, const char *buffer, size_t length) {
     size_t sent = 0;
     while (sent < length) {
         size_t chunk = length - sent;
-        if (chunk > 1024) {
-            chunk = 1024;
+        if (chunk > 4096) {
+            chunk = 4096;
         }
         long result = syscall3(SYS_WRITE, fd, (long)(buffer + sent), (long)chunk);
+        if (result == SRV_ERR_AGAIN) {
+            struct pollfd pfd = {
+                .fd = (int32_t)fd,
+                .events = POLLOUT,
+                .revents = 0,
+            };
+            if (syscall3(SYS_POLL, (long)&pfd, 1, POLL_TIMEOUT_MS) <= 0 ||
+                (pfd.revents & POLLOUT) == 0) {
+                return -1;
+            }
+            continue;
+        }
         if (result <= 0) {
             return -1;
         }
@@ -378,13 +409,11 @@ static int write_u64(long fd, uint64_t value) {
         digits[count++] = (char)('0' + (value % 10));
         value /= 10;
     }
-    while (count > 0) {
-        char c = digits[--count];
-        if (write_all(fd, &c, 1) != 1) {
-            return 0;
-        }
+    char output[21];
+    for (size_t i = 0; i < count; i++) {
+        output[i] = digits[count - i - 1];
     }
-    return 1;
+    return write_all(fd, output, count) == (long)count;
 }
 
 static int send_simple_response(long connection,
@@ -413,6 +442,8 @@ static int send_file_response(long connection, const char *path, int is_head) {
     static char file_buffer[FILE_BUFFER_CAPACITY];
     struct stat_info info;
 
+    info.abi_version = SRV_ABI_VERSION;
+    info.struct_size = sizeof(info);
     if (syscall2(SYS_STAT, (long)path, (long)&info) < 0 || info.type != 0) {
         return send_simple_response(connection,
             "404 Not Found",
@@ -441,6 +472,7 @@ static int send_file_response(long connection, const char *path, int is_head) {
         return 0;
     }
 
+    yield_once();
     if (!is_head) {
         for (;;) {
             long count = syscall3(SYS_READ, fd, (long)file_buffer, sizeof(file_buffer));
@@ -455,6 +487,7 @@ static int send_file_response(long connection, const char *path, int is_head) {
                 syscall1(SYS_CLOSE, fd);
                 return 0;
             }
+            yield_once();
         }
     }
 

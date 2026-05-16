@@ -813,8 +813,8 @@ static void present_dirty(struct ui_element *root, uint64_t mouse_x, uint64_t mo
 }
 
 int main(int argc, char **argv) {
-    struct gfx_info gfx = { 0, 0, 0 };
-    struct mouse_event mouse = { 0, 0, 0, 0, 0 };
+    struct gfx_info gfx = {0};
+    struct mouse_event mouse = {0};
     struct desktop_state desktop_state = { 1 };
     struct ui_surface root_surface;
     struct ui_surface surface;

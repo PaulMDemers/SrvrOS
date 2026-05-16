@@ -27,14 +27,51 @@ server.
   userspace HTTP server, and client-side TCP connect for simple outbound HTTP.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
-  idle cleanup, and a bounded active-client table.
+  idle cleanup, segmented larger TCP responses, and a bounded active-client
+  table.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,
   bounded receive queues, and `/fat/bin/udpdns` DNS-over-UDP smoke coverage.
+- Ships `/fat/bin/netstat`, backed by a kernel socket-table enumeration syscall
+  for TCP listeners/connections and UDP sockets with PIDs, endpoints, queues,
+  send-window state, socket errors, and TCP lifecycle flags.
+- Ships `/fat/bin/ifconfig`, `/fat/bin/route`, and `/fat/bin/arp`, backed by a
+  structured kernel network status syscall for interface identity, DHCP
+  route/DNS configuration, protocol counters, socket counts, worker counters,
+  and current ARP resolution.
+- Adds a small fixed ARP cache, cache enumeration for `/fat/bin/arp`, and
+  `/fat/bin/ping` using kernel-backed ICMP echo requests.
+- Tightens DNS resolution: kernel DNS retries queries, userspace DNS paths
+  prefer DHCP DNS, fall back through `DNS_SERVER` or `/fat/etc/resolv.conf`
+  where applicable, and ship `/fat/bin/host` for direct A-record lookup.
 - Extends the socket compatibility layer with userspace UDP-backed
   `getaddrinfo`, `getsockname`, `getpeername`, `shutdown` validation,
-  `getsockopt(SO_ERROR)`, and `/fat/bin/udpecho` local datagram smoke coverage.
+  kernel-backed TCP shutdown, connected UDP shutdown state,
+  `setsockopt(SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`,
+  `getsockopt(SO_ERROR/SO_TYPE/SO_ACCEPTCONN/SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`,
+  and
+  `/fat/bin/udpecho` local datagram smoke coverage.
+- Adds compact TCP close lifecycle states so connection close/shutdown paths can
+  exchange FIN/ACK traffic before timer cleanup instead of immediately dropping
+  all connection state.
+- Adds ACK-tracked TCP transmit history with timer-based retransmission for
+  SYN, FIN, and payload frames.
+- Adds bounded TCP send backpressure so `POLLOUT` and nonblocking writes are
+  driven by available transmit-history/window space instead of always reporting
+  writable.
+- Tracks peer-advertised TCP receive windows and uses them to cap payload sends
+  alongside the local outstanding-send limit.
+- Advertises dynamic TCP receive windows from unread buffer space, sends
+  window-update ACKs after userspace reads, and uses a small zero-window persist
+  timer plus idle cleanup for abandoned clients.
+- Validates incoming IPv4/TCP/UDP checksums and returns TCP RSTs for closed
+  ports, missing connection tuples, and full connection-table SYN attempts.
+- Adds a tiny kernel socket-error query path so libc can report
+  `SO_ERROR`, `ECONNREFUSED`, `ETIMEDOUT`, `ECONNRESET`, and in-progress
+  nonblocking connects more accurately.
+- Tightens TCP receive sequencing so duplicate or out-of-order data/FIN packets
+  are acknowledged without corrupting the userspace byte stream.
 - Includes a small shell, CLI utilities, service control, redirection,
   multi-stage pipelines, scripts, PATH lookup, and background jobs.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,
@@ -204,6 +241,26 @@ server.
   and `close` handling, with QEMU coverage through `/fat/bin/fdprobe`.
 - Adds first `posix_spawnattr` support: flags/getters/setters plus
   `POSIX_SPAWN_SETPGROUP` mapping onto native process groups.
+- Adds `/fat/bin/netcheck`, a single guest-side command for DHCP/status, DNS,
+  ping, local UDP echo, and outbound TCP HTTP checks.
+- Adds `tools/net_soak.py`, a repeated QEMU networking soak that runs host HTTP
+  fetches against background `webd` while interleaving guest diagnostics.
+- Adds `tools/tcp_pressure.py`, a focused TCP table pressure test that drives
+  enough short web connections to exercise `TIME_WAIT` reclaim while confirming
+  `netcheck` still passes.
+- Raises the kernel TCP connection table to 32 slots so short `TIME_WAIT` bursts
+  from low steady web traffic do not starve outbound client connects.
+- Extends network status with TCP capacity, `TIME_WAIT`, full-table, reclaim,
+  and close-timer counters; `/fat/bin/ifconfig` prints them.
+- Reclaims expired or oldest `TIME_WAIT` connections under table pressure and
+  moves the enlarged network status syscall snapshot off the kernel stack.
+- Adds version/size headers to the network list/status/ARP structs and bounds
+  kernel copy-back by the caller-declared size, with `/fat/bin/netabi` and
+  `tools/netabi_smoke.py` covering truncated-struct compatibility.
+- Extends the same size-versioned ABI pattern to core structured outputs:
+  process listing, file status, filesystem status, console/gfx info, mouse
+  events, and GUI messages. `/fat/bin/sysabi` plus `tools/sysabi_smoke.py`
+  cover truncated-buffer canary checks for the core path.
 - Adds `/fat/bin/execdemo` as smoke coverage for in-place `execve`; it replaces
   itself with `/fat/bin/false`, and the parent observes the replacement image's
   exit status. The companion `/fat/bin/fdprobe` verifies inherited and
@@ -246,6 +303,10 @@ python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/metadata_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
+python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --line-wait 3
 ```
 

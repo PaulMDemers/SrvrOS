@@ -89,7 +89,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
   behavior.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
-  `send`, `recv`, and `setsockopt`
+  `send`, `recv`, `shutdown`, `setsockopt`, and `getsockopt`
 - `getaddrinfo` backed by a userspace UDP DNS query with srvros DNS fallback
 - newlib-style syscall glue symbols such as `_open`, `_read`, `_write`,
   `_lseek`, `_fstat`, `_stat`, `_sbrk`, `_getpid`, `_gettimeofday`,
@@ -132,9 +132,19 @@ The `/fat/bin/httpget` app verifies outbound TCP by resolving a host with
 the response through the normal socket fd path.
 The `/fat/bin/udpdns` app verifies userspace UDP sockets by sending a DNS A
 query with `sendto`, waiting with `poll`, and receiving the response with
-`recvfrom`.
+`recvfrom`. It uses DHCP DNS when available, then `/fat/etc/resolv.conf`, then
+QEMU fallback DNS unless an explicit server argument is provided. The
+`/fat/bin/host` app verifies the kernel DNS resolver path.
 The `/fat/bin/udpecho` app verifies bound UDP sockets and local datagram
 delivery with a one-shot server/client echo flow.
+The `/fat/bin/netstat` app verifies the kernel network enumeration ABI by
+listing TCP listeners, active TCP connections, and UDP sockets with endpoints,
+PIDs, queue depth, send availability, and compact TCP lifecycle flags.
+The `/fat/bin/ifconfig`, `/fat/bin/route`, and `/fat/bin/arp` apps verify the
+kernel network status ABI by listing interface MAC/IP, DHCP route/DNS
+configuration, protocol counters, worker counters, and the current ARP
+cache. The `/fat/bin/ping` app verifies outbound ICMP echo by resolving a
+dotted IPv4 address or DNS name and issuing kernel-backed echo requests.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -160,9 +170,28 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
   client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
   `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,
-  `shutdown` validation, and `getsockopt(SO_ERROR)`. Nonblocking mode is
-  preserved when it is set on a socket before `listen()` or `connect()`, and UDP
-  sockets report poll readiness.
+  kernel-backed TCP `shutdown`, connected UDP shutdown state,
+  `setsockopt(SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`,
+  and
+  `getsockopt(SO_ERROR/SO_TYPE/SO_ACCEPTCONN/SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`.
+  Nonblocking mode is preserved when it is set on a socket before `listen()` or
+  `connect()`, `MSG_DONTWAIT` is accepted on the common send/receive paths, and
+  UDP sockets report poll readiness. TCP writes can span multiple payload-sized
+  segments from one userspace `write` call, and the kernel keeps a small
+  transmit history for timer-based SYN/FIN/data retransmission. TCP writes are
+  bounded by a compact outstanding-send window, so `POLLOUT` and nonblocking
+  writes now reflect actual transmit availability. Payload sends also honor the
+  peer's advertised 16-bit receive window from incoming TCP packets. The kernel
+  advertises dynamic receive windows from unread connection-buffer space, sends
+  window-update ACKs after userspace reads, and uses a small persist timer for
+  zero-window peers. Closed or missing TCP connection tuples now return RSTs so
+  failed connects are prompt, and per-connection errors flow back through
+  `SO_ERROR`/errno as `ECONNREFUSED`, `ETIMEDOUT`, `ECONNRESET`, or
+  `EINPROGRESS`. Window scaling, congestion control, and out-of-order
+  receive reassembly are still future work, but duplicate or out-of-order data is now
+  ACKed without being appended to the stream twice. TCP close now keeps compact
+  FIN-wait/close-wait/last-ack/time-wait states long enough to ACK peer close
+  traffic before timer cleanup.
 - SQLite is still a compact filesystem smoke port. Its VFS now maps lock states
   to srvros advisory byte-range locks, but richer stale-lock recovery,
   cross-machine semantics, and WAL shared-memory locking are future work.

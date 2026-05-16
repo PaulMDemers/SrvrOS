@@ -103,9 +103,21 @@ def main():
             sock.sendall(b"dhcp\n")
             output += read_until(sock, b"dhcp: 10.0.2.15", args.line_wait)
             output += read_until(sock, b" $ ", 3)
+            sock.sendall(b"ifconfig\n")
+            output += read_until(sock, b"udp ", args.line_wait)
+            output += read_until(sock, b" $ ", 3)
+            sock.sendall(b"route\n")
+            output += read_until(sock, b"default", args.line_wait)
+            output += read_until(sock, b" $ ", 3)
+            sock.sendall(b"ping 10.0.2.2\n")
+            output += read_until(sock, b"ping: sent=4", args.udp_wait)
+            output += read_until(sock, b" $ ", 3)
             command_line = f"udpdns {args.host}\n".encode("ascii")
             sock.sendall(command_line)
             output += read_until(sock, b" $ ", args.udp_wait)
+            sock.sendall(b"arp\n")
+            output += read_until(sock, b"HWaddress", args.line_wait)
+            output += read_until(sock, b" $ ", 3)
             sock.sendall(b"udpecho self\n")
             output += read_until(sock, b" $ ", args.udp_wait)
             output += read_for(sock, 1)
@@ -124,8 +136,18 @@ def main():
         missing.append("dhcp: 10.0.2.15")
     if f"udpdns: {args.host} A " not in text:
         missing.append("udpdns A answer")
+    if "e1000: flags=UP,RUNNING dhcp=yes" not in text:
+        missing.append("ifconfig status")
+    if "default            10.0.2.2" not in text:
+        missing.append("route default gateway")
+    if "ping: sent=4 received=" not in text or "received=0" in text:
+        missing.append("ping replies")
+    if "52:55:0a:00:02:" not in text:
+        missing.append("arp entry")
     if "udpecho: self hello-udp" not in text:
         missing.append("udpecho self reply")
+    if "udpecho: zero ok" not in text:
+        missing.append("udpecho zero-length datagram")
     if "udpdns: timeout" in text or "udpdns: sendto" in text or "udpdns: recvfrom" in text:
         missing.append("udpdns error")
     if "udpecho: bind" in text or "udpecho: sendto" in text or "udpecho: recvfrom" in text:

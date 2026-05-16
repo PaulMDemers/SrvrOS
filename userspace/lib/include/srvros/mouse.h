@@ -8,6 +8,8 @@
 #define MOUSE_MIDDLE 0x04
 
 struct mouse_event {
+    uint64_t abi_version;
+    uint64_t struct_size;
     int32_t dx;
     int32_t dy;
     uint8_t buttons;

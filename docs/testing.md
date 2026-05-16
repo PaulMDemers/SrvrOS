@@ -28,9 +28,13 @@ python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
+python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
 ```
 
@@ -79,14 +83,31 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `status 130`.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
-- `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record resolution,
-  and clean resolver failure for a non-resolving name.
+- `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record
+  resolution, `/fat/bin/host`, and clean resolver failure for a non-resolving
+  name.
 - `httpget_smoke.py`: DHCP, DNS-backed `getaddrinfo`, outbound TCP
   `connect`, HTTP request/response flow through `/fat/bin/httpget`, and clean
   process exit.
 - `udp_smoke.py`: DHCP, userspace UDP socket open/send/receive, `poll`
   readiness, DNS-over-UDP response parsing through `/fat/bin/udpdns`, and
   bound local UDP echo through `/fat/bin/udpecho`.
+- `netabi_smoke.py`: launches `/fat/bin/netabi`, which calls the raw network
+  list/status/ARP syscalls with smaller versioned structs and verifies the
+  kernel does not copy past the caller-declared size.
+- `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
+  structured syscalls (`stat`, `statfs`, process list, console/gfx info, and
+  GUI receive) with smaller versioned structs and canary checks.
+- TCP socket coverage is split across `httpget_smoke.py` for outbound
+  DNS/connect/send/recv, `web_smoke.py` and `dhcp_smoke.py` for inbound
+  listener/accept/read/write/close, and `ports_smoke.py` for socket option,
+  name-query, and shutdown compatibility checks. `web_smoke.py` also requests a
+  multi-kilobyte static file to exercise segmented TCP writes and ACK-retired
+  transmit history under bounded send backpressure, peer receive-window limits,
+  dynamic receive-window advertisements, zero-window persist support, and
+  guest-side closed-port TCP RST behavior through QEMU host forwarding.
+  `httpget_smoke.py` covers outbound DNS/connect/send/recv with the newer
+  socket error propagation in place.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib
@@ -116,10 +137,21 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
-- `web_smoke.py`: login shell init script, background `webd`, host HTTP fetch
-  through QEMU user networking, nested CSS asset fetch, `Content-Length`,
-  bodyless `HEAD`, and a slow partial client while another request completes
-  through the poll loop.
+- `web_smoke.py`: login shell init script, background `webd`, `netstat`
+  listener visibility, `ifconfig` interface visibility, host HTTP fetch through
+  QEMU user networking, nested CSS asset fetch, `Content-Length`, bodyless
+  `HEAD`, and a slow partial client while another request completes through the
+  poll loop.
+- `net_soak.py`: repeated host-side HTTP GETs against background `webd`,
+  interleaved with guest-side `/fat/bin/netcheck`, `netstat`, `ifconfig`, and
+  `arp`. `/fat/bin/netcheck` exercises DHCP/status, kernel DNS, ICMP ping,
+  local UDP socket echo, and outbound TCP HTTP through `getaddrinfo`.
+- `tcp_pressure.py`: opens more short host-forwarded HTTP connections than the
+  fixed TCP table can keep in `TIME_WAIT`, then verifies `ifconfig` pressure
+  counters, `netstat`, and guest-side `/fat/bin/netcheck` still behave.
+- `udp_smoke.py`: DHCP setup, `ifconfig`, `route`, `ping`, and `arp`
+  diagnostics, DNS-over-UDP, local UDP echo, and zero-length UDP datagram
+  handling.
 - `fs_stress.py`: repeated file create/read/copy/rename/remove plus fsck before
   and after.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
@@ -132,16 +164,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 p2.dev
 pauldemers.com
 montjoyplaces.com
+linguicityworld.app
 ```
 
-It also checks that this exact spelling fails cleanly:
+It also checks that a reserved invalid name fails cleanly:
 
 ```text
-linguitiyworld.app
+no-such-srvros.invalid
 ```
-
-At the time of this milestone, host DNS also reports no A record for that exact
-spelling, while `linguicityworld.app` resolves.
 
 ## Manual Web Server Check
 

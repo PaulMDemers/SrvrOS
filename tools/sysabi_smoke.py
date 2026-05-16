@@ -10,11 +10,6 @@ import tempfile
 import time
 
 
-RESOLVING_DOMAINS = ["p2.dev", "pauldemers.com", "montjoyplaces.com", "linguicityworld.app"]
-FAILING_DOMAINS = ["no-such-srvros.invalid"]
-DOMAINS = RESOLVING_DOMAINS + FAILING_DOMAINS
-
-
 def read_for(sock, seconds):
     chunks = []
     deadline = time.time() + seconds
@@ -55,13 +50,13 @@ def has_fatal_exception(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verify srvros DNS resolution through QEMU user networking.")
+    parser = argparse.ArgumentParser(description="Verify size-versioned core syscall ABI copies.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=20)
-    parser.add_argument("--line-wait", type=float, default=8)
+    parser.add_argument("--boot-wait", type=float, default=25)
+    parser.add_argument("--command-wait", type=float, default=20)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -77,8 +72,8 @@ def main():
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
     output = b""
-    with tempfile.TemporaryDirectory(prefix="srvros-dns-") as temp_dir:
-        disk = os.path.join(temp_dir, "srvros-dns.exfat")
+    with tempfile.TemporaryDirectory(prefix="srvros-sysabi-") as temp_dir:
+        disk = os.path.join(temp_dir, "srvros-sysabi.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
             args.qemu,
@@ -90,8 +85,6 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
-            "-netdev", "user,id=net0",
-            "-device", "e1000,netdev=net0",
             "-monitor", "none",
             "-no-reboot",
         ]
@@ -102,17 +95,10 @@ def main():
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
-            output += read_until(sock, b" $ ", 5)
-            sock.sendall(b"dhcp\n")
-            output += read_until(sock, b"dhcp: 10.0.2.15", args.line_wait)
-            output += read_until(sock, b" $ ", 2)
-            sock.sendall(b"net\n")
-            output += read_until(sock, b" $ ", args.line_wait)
-            for domain in DOMAINS:
-                sock.sendall(f"dns {domain}\n".encode("ascii"))
-                output += read_until(sock, b" $ ", args.line_wait)
-            sock.sendall(b"host example.com\n")
-            output += read_until(sock, b"has address", args.line_wait)
+            output += read_until(sock, b" $ ", 6)
+            sock.sendall(b"sysabi\n")
+            output += read_until(sock, b"sysabi: ok", args.command_wait)
+            output += read_until(sock, b" $ ", 3)
             output += read_for(sock, 1)
         finally:
             try:
@@ -125,29 +111,20 @@ def main():
     sys.stdout.write(text)
 
     missing = []
-    for marker in ["dhcp: 10.0.2.15", "net: stack=ready"]:
-        if marker not in text:
-            missing.append(marker)
-    for domain in RESOLVING_DOMAINS:
-        if f"{domain} " not in text:
-            missing.append(domain)
-        if f"dns: failed: {domain}" in text:
-            missing.append(f"{domain} failed")
-    for domain in FAILING_DOMAINS:
-        if f"dns: failed: {domain}" not in text:
-            missing.append(f"{domain} failed marker")
-    if "example.com has address" not in text:
-        missing.append("host example.com")
+    if "sysabi: ok" not in text:
+        missing.append("sysabi: ok")
+    if "sysabi: fail" in text:
+        missing.append("sysabi failure")
     if has_fatal_exception(text):
-        print("dns-smoke: fatal exception detected", file=sys.stderr)
+        print("sysabi-smoke: fatal exception detected", file=sys.stderr)
         return 2
     if missing:
-        print("dns-smoke: missing markers:", file=sys.stderr)
+        print("sysabi-smoke: missing markers:", file=sys.stderr)
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
 
-    print("dns-smoke: ok")
+    print("sysabi-smoke: ok")
     return 0
 
 

@@ -1011,17 +1011,41 @@ int main(void) {
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s >= 0) {
         struct sockaddr_in addr;
+        int reuse = 1;
+        int keepalive = 1;
+        struct linger linger = {.l_onoff = 1, .l_linger = 2};
+        struct linger got_linger = {0};
+        int so_type = 0;
+        socklen_t so_type_len = sizeof(so_type);
+        int so_acceptconn = -1;
+        socklen_t so_acceptconn_len = sizeof(so_acceptconn);
+        int got_keepalive = 0;
+        socklen_t got_keepalive_len = sizeof(got_keepalive);
+        socklen_t got_linger_len = sizeof(got_linger);
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_port = htons(18080);
         addr.sin_addr.s_addr = INADDR_ANY;
-        if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
+        if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == 0 &&
+            setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive)) == 0 &&
+            setsockopt(s, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger)) == 0 &&
+            getsockopt(s, SOL_SOCKET, SO_TYPE, &so_type, &so_type_len) == 0 &&
+            so_type == SOCK_STREAM &&
+            getsockopt(s, SOL_SOCKET, SO_ACCEPTCONN, &so_acceptconn, &so_acceptconn_len) == 0 &&
+            so_acceptconn == 0 &&
+            getsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &got_keepalive, &got_keepalive_len) == 0 &&
+            got_keepalive == 1 &&
+            getsockopt(s, SOL_SOCKET, SO_LINGER, &got_linger, &got_linger_len) == 0 &&
+            got_linger.l_onoff == 1 &&
+            got_linger.l_linger == 2 &&
+            shutdown(s, SHUT_RDWR) < 0 &&
+            errno == ENOTCONN &&
+            bind(s, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
             struct sockaddr_in named;
             socklen_t named_len = sizeof(named);
             if (getsockname(s, (struct sockaddr *)&named, &named_len) == 0 &&
                 named.sin_family == AF_INET &&
-                ntohs(named.sin_port) == 18080 &&
-                shutdown(s, SHUT_RDWR) == 0) {
+                ntohs(named.sin_port) == 18080) {
                 say("posixdemo: socket bind ok\n");
             }
         }
@@ -1037,20 +1061,27 @@ int main(void) {
         socklen_t peer_len = sizeof(peer);
         int so_error = -1;
         socklen_t so_error_len = sizeof(so_error);
+        int so_type = 0;
+        socklen_t so_type_len = sizeof(so_type);
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_port = htons(19090);
         addr.sin_addr.s_addr = INADDR_ANY;
         if (bind(u, (struct sockaddr *)&addr, sizeof(addr)) == 0 &&
             getsockname(u, (struct sockaddr *)&named, &named_len) == 0 &&
-            ntohs(named.sin_port) == 19090) {
+            ntohs(named.sin_port) == 19090 &&
+            getsockopt(u, SOL_SOCKET, SO_TYPE, &so_type, &so_type_len) == 0 &&
+            so_type == SOCK_DGRAM) {
             addr.sin_addr.s_addr = 0x0a00020fu;
             if (connect(u, (struct sockaddr *)&addr, sizeof(addr)) == 0 &&
                 getpeername(u, (struct sockaddr *)&peer, &peer_len) == 0 &&
                 peer.sin_addr.s_addr == addr.sin_addr.s_addr &&
                 ntohs(peer.sin_port) == 19090 &&
                 getsockopt(u, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len) == 0 &&
-                so_error == 0) {
+                so_error == 0 &&
+                shutdown(u, SHUT_WR) == 0 &&
+                send(u, "x", 1, MSG_NOSIGNAL) < 0 &&
+                errno == EPIPE) {
                 say("posixdemo: udp socket names ok\n");
             }
         }

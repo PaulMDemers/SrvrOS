@@ -148,6 +148,10 @@ long srv_seek(int fd, int64_t offset, uint64_t whence) {
 }
 
 long srv_fstat(int fd, struct srv_stat *info) {
+    if (info != NULL) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return srv_syscall2(SYS_FSTAT, fd, (long)info);
 }
 
@@ -208,11 +212,19 @@ long srv_fs_append(const char *path, const void *buffer, size_t length) {
 
 long srv_stat(const char *path, struct srv_stat *info) {
     char full[CLI_PATH_MAX];
+    if (info != NULL) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return srv_syscall2(SYS_STAT, (long)srv_make_path(path, full, sizeof(full)), (long)info);
 }
 
 long srv_statfs(const char *path, struct srv_fsinfo *info) {
     char full[CLI_PATH_MAX];
+    if (info != NULL) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return srv_syscall2(SYS_STATFS, (long)srv_make_path(path, full, sizeof(full)), (long)info);
 }
 
@@ -307,6 +319,10 @@ long srv_execve(const char *path, char *const argv[], char *const envp[]) {
 }
 
 long srv_proc_list(uint64_t index, struct srv_process_info *info) {
+    if (info != NULL) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return srv_syscall2(SYS_PROC_LIST, (long)index, (long)info);
 }
 
@@ -332,6 +348,34 @@ long srv_net_status(void) {
 
 long srv_net_dns(const char *name, uint32_t *ip_out) {
     return srv_syscall2(SYS_NET_DNS, (long)name, (long)ip_out);
+}
+
+long srv_net_list(uint64_t index, struct srv_net_info *info) {
+    if (info != NULL) {
+        info->abi_version = SRV_NET_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
+    return srv_syscall2(SYS_NET_LIST, (long)index, (long)info);
+}
+
+long srv_net_status_info(struct srv_net_status_info *info) {
+    if (info != NULL) {
+        info->abi_version = SRV_NET_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
+    return srv_syscall1(SYS_NET_STATUS_INFO, (long)info);
+}
+
+long srv_net_arp_list(uint64_t index, struct srv_arp_info *info) {
+    if (info != NULL) {
+        info->abi_version = SRV_NET_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
+    return srv_syscall2(SYS_NET_ARP_LIST, (long)index, (long)info);
+}
+
+long srv_net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out) {
+    return srv_syscall4(SYS_NET_PING, (long)remote_ip, sequence, (long)timeout_ticks, (long)elapsed_ticks_out);
 }
 
 long srv_net_listen(uint16_t port) {
@@ -382,6 +426,14 @@ long srv_net_sockname(int fd, uint32_t *ip_out, uint16_t *port_out) {
 
 long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out) {
     return srv_syscall3(SYS_NET_PEERNAME, fd, (long)ip_out, (long)port_out);
+}
+
+long srv_net_shutdown(int fd, int how) {
+    return srv_syscall2(SYS_NET_SHUTDOWN, fd, how);
+}
+
+long srv_net_error(int fd) {
+    return srv_syscall1(SYS_NET_ERROR, fd);
 }
 
 long srv_getpid(void) {

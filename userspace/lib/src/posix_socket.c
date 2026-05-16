@@ -1,5 +1,6 @@
 #include <arpa/inet.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
@@ -23,6 +24,15 @@ struct posix_socket {
     uint32_t peer_ip;
     uint16_t peer_port;
     int connected;
+    int connecting;
+    int listening;
+    int shutdown_read;
+    int shutdown_write;
+    int so_reuseaddr;
+    int so_rcvbuf;
+    int so_sndbuf;
+    int so_keepalive;
+    struct linger so_linger;
     uint64_t fd_flags;
     uint64_t descriptor_flags;
 };
@@ -52,6 +62,96 @@ static int fill_sockaddr(uint32_t ip,
     in->sin_addr.s_addr = ip;
     *addrlen = sizeof(*in);
     return 0;
+}
+
+static int errno_from_net_error(long error) {
+    switch (error) {
+    case SRV_NETERR_NONE:
+        return 0;
+    case SRV_NETERR_REFUSED:
+        return ECONNREFUSED;
+    case SRV_NETERR_TIMEDOUT:
+        return ETIMEDOUT;
+    case SRV_NETERR_RESET:
+        return ECONNRESET;
+    case SRV_NETERR_INPROGRESS:
+        return EINPROGRESS;
+    default:
+        return EIO;
+    }
+}
+
+static int socket_error_for_fd(int fd) {
+    long result = srv_net_error(fd);
+    if (result < 0) {
+        return ENOTCONN;
+    }
+    return errno_from_net_error(result);
+}
+
+static long with_optional_nonblock(int fd,
+    int enable,
+    long (*operation)(int fd, void *buffer, size_t length),
+    void *buffer,
+    size_t length) {
+    uint64_t saved = 0;
+    int changed = 0;
+    if (enable) {
+        long current = srv_fcntl(fd, SRV_F_GETFL, 0);
+        if (current < 0) {
+            return -1;
+        }
+        saved = (uint64_t)current;
+        if ((saved & SRV_FD_NONBLOCK) == 0) {
+            if (srv_fcntl(fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
+                return -1;
+            }
+            changed = 1;
+        }
+    }
+
+    long result = operation(fd, buffer, length);
+    if (changed) {
+        (void)srv_fcntl(fd, SRV_F_SETFL, saved);
+    }
+    return result;
+}
+
+static long read_operation(int fd, void *buffer, size_t length) {
+    return read(fd, buffer, length);
+}
+
+static long write_operation(int fd, void *buffer, size_t length) {
+    return write(fd, buffer, length);
+}
+
+static long udp_recvfrom_sys(int fd,
+    void *buffer,
+    size_t length,
+    uint32_t *remote_ip,
+    uint16_t *remote_port,
+    int dontwait) {
+    uint64_t saved = 0;
+    int changed = 0;
+    if (dontwait) {
+        long current = srv_fcntl(fd, SRV_F_GETFL, 0);
+        if (current < 0) {
+            return -1;
+        }
+        saved = (uint64_t)current;
+        if ((saved & SRV_FD_NONBLOCK) == 0) {
+            if (srv_fcntl(fd, SRV_F_SETFL, saved | SRV_FD_NONBLOCK) < 0) {
+                return -1;
+            }
+            changed = 1;
+        }
+    }
+
+    long result = srv_net_udp_recvfrom(fd, buffer, length, remote_ip, remote_port);
+    if (changed) {
+        (void)srv_fcntl(fd, SRV_F_SETFL, saved);
+    }
+    return result;
 }
 
 int __posix_socket_is_pseudo(int fd) {
@@ -165,6 +265,16 @@ int socket(int domain, int type, int protocol) {
             sockets[i].peer_ip = 0;
             sockets[i].peer_port = 0;
             sockets[i].connected = 0;
+            sockets[i].connecting = 0;
+            sockets[i].listening = 0;
+            sockets[i].shutdown_read = 0;
+            sockets[i].shutdown_write = 0;
+            sockets[i].so_reuseaddr = 0;
+            sockets[i].so_rcvbuf = 32768;
+            sockets[i].so_sndbuf = 1400;
+            sockets[i].so_keepalive = 0;
+            sockets[i].so_linger.l_onoff = 0;
+            sockets[i].so_linger.l_linger = 0;
             sockets[i].fd_flags = 0;
             return POSIX_SOCKET_BASE + i;
         }
@@ -201,6 +311,10 @@ int listen(int fd, int backlog) {
         errno = EINVAL;
         return -1;
     }
+    if (socket->listener_fd >= 0 && !socket->listening) {
+        errno = EISCONN;
+        return -1;
+    }
     if (socket->listener_fd >= 0) {
         return 0;
     }
@@ -223,6 +337,7 @@ int listen(int fd, int backlog) {
         errno = EBADF;
         return -1;
     }
+    socket->listening = 1;
     return 0;
 }
 
@@ -262,8 +377,16 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
         errno = EINVAL;
         return -1;
     }
-    if (socket->type == SOCK_STREAM && socket->listener_fd >= 0) {
+    if (socket->type == SOCK_STREAM && socket->listening) {
+        errno = EISCONN;
+        return -1;
+    }
+    if (socket->type == SOCK_STREAM && socket->connecting) {
         errno = EALREADY;
+        return -1;
+    }
+    if (socket->type == SOCK_STREAM && socket->connected) {
+        errno = EISCONN;
         return -1;
     }
 
@@ -289,7 +412,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
     long connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
     if (connection < 0) {
-        errno = EIO;
+        errno = errno_from_net_error(-connection);
         return -1;
     }
     socket->listener_fd = (int)connection;
@@ -309,9 +432,12 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     }
 
     if ((socket->fd_flags & SRV_FD_NONBLOCK) != 0) {
+        socket->connecting = 1;
         errno = EINPROGRESS;
         return -1;
     }
+    socket->connected = 1;
+    socket->connecting = 0;
     return 0;
 }
 
@@ -369,7 +495,29 @@ int shutdown(int fd, int how) {
         errno = EINVAL;
         return -1;
     }
-    if (socket_at(fd) == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) {
+    struct posix_socket *socket = socket_at(fd);
+    if (socket != 0) {
+        if (socket->type == SOCK_DGRAM && !socket->connected) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        if (socket->type == SOCK_STREAM && socket->listener_fd < 0) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        if (how == SHUT_RD || how == SHUT_RDWR) {
+            socket->shutdown_read = 1;
+        }
+        if (how == SHUT_WR || how == SHUT_RDWR) {
+            socket->shutdown_write = 1;
+        }
+        if (socket->type == SOCK_STREAM && srv_net_shutdown(socket->listener_fd, how) < 0) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        return 0;
+    }
+    if (srv_net_shutdown(fd, how) < 0) {
         errno = EBADF;
         return -1;
     }
@@ -377,8 +525,15 @@ int shutdown(int fd, int how) {
 }
 
 ssize_t send(int fd, const void *buffer, size_t length, int flags) {
-    (void)flags;
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     struct posix_socket *socket = socket_at(fd);
+    if (socket != 0 && socket->shutdown_write) {
+        errno = EPIPE;
+        return -1;
+    }
     if (socket != 0 && socket->type == SOCK_DGRAM) {
         if (!socket->connected) {
             errno = ENOTCONN;
@@ -395,12 +550,33 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
         }
         return result;
     }
-    return write(socket != 0 ? socket->listener_fd : fd, buffer, length);
+    int real_fd = socket != 0 ? socket->listener_fd : fd;
+    long result = with_optional_nonblock(real_fd,
+        (flags & MSG_DONTWAIT) != 0,
+        write_operation,
+        (void *)buffer,
+        length);
+    if (result < 0) {
+        int error = socket_error_for_fd(real_fd);
+        if (error == EINPROGRESS) {
+            errno = EALREADY;
+        } else if (error != 0 && error != ENOTCONN) {
+            errno = error;
+        }
+        return -1;
+    }
+    return result;
 }
 
 ssize_t recv(int fd, void *buffer, size_t length, int flags) {
-    (void)flags;
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     struct posix_socket *socket = socket_at(fd);
+    if (socket != 0 && socket->shutdown_read) {
+        return 0;
+    }
     if (socket != 0 && socket->type == SOCK_DGRAM) {
         if (!socket->connected) {
             errno = ENOTCONN;
@@ -409,7 +585,12 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
         uint32_t remote_ip = 0;
         uint16_t remote_port = 0;
         for (;;) {
-            long result = srv_net_udp_recvfrom(socket->listener_fd, buffer, length, &remote_ip, &remote_port);
+            long result = udp_recvfrom_sys(socket->listener_fd,
+                buffer,
+                length,
+                &remote_ip,
+                &remote_port,
+                (flags & MSG_DONTWAIT) != 0);
             if (result < 0) {
                 errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
                 return -1;
@@ -419,7 +600,18 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
             }
         }
     }
-    return read(socket != 0 ? socket->listener_fd : fd, buffer, length);
+    int real_fd = socket != 0 ? socket->listener_fd : fd;
+    long result = with_optional_nonblock(real_fd, (flags & MSG_DONTWAIT) != 0, read_operation, buffer, length);
+    if (result < 0) {
+        int error = socket_error_for_fd(real_fd);
+        if (error == EINPROGRESS) {
+            errno = EALREADY;
+        } else if (error != 0 && error != ENOTCONN) {
+            errno = error;
+        }
+        return -1;
+    }
+    return result;
 }
 
 ssize_t sendto(int fd,
@@ -433,6 +625,14 @@ ssize_t sendto(int fd,
     if (socket == 0 || socket->type != SOCK_DGRAM || socket->listener_fd < 0 ||
         dest_addr == 0 || addrlen < sizeof(struct sockaddr_in)) {
         errno = EINVAL;
+        return -1;
+    }
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (socket->shutdown_write) {
+        errno = EPIPE;
         return -1;
     }
 
@@ -462,16 +662,27 @@ ssize_t recvfrom(int fd,
     int flags,
     struct sockaddr *src_addr,
     socklen_t *addrlen) {
-    (void)flags;
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     struct posix_socket *socket = socket_at(fd);
     if (socket == 0 || socket->type != SOCK_DGRAM || socket->listener_fd < 0) {
         errno = EINVAL;
         return -1;
     }
+    if (socket->shutdown_read) {
+        return 0;
+    }
 
     uint32_t remote_ip = 0;
     uint16_t remote_port = 0;
-    long result = srv_net_udp_recvfrom(socket->listener_fd, buffer, length, &remote_ip, &remote_port);
+    long result = udp_recvfrom_sys(socket->listener_fd,
+        buffer,
+        length,
+        &remote_ip,
+        &remote_port,
+        (flags & MSG_DONTWAIT) != 0);
     if (result < 0) {
         errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
         return -1;
@@ -489,27 +700,132 @@ ssize_t recvfrom(int fd,
 }
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
-    (void)fd;
-    (void)level;
-    (void)option_name;
-    (void)option_value;
-    (void)option_len;
-    return 0;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || option_value == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (level != SOL_SOCKET) {
+        errno = ENOSYS;
+        return -1;
+    }
+    switch (option_name) {
+    case SO_REUSEADDR:
+    case SO_KEEPALIVE:
+    case SO_RCVBUF:
+    case SO_SNDBUF:
+        if (option_len < sizeof(int)) {
+            errno = EINVAL;
+            return -1;
+        }
+        break;
+    case SO_LINGER:
+        if (option_len < sizeof(struct linger)) {
+            errno = EINVAL;
+            return -1;
+        }
+        break;
+    default:
+        break;
+    }
+
+    int value = *(const int *)option_value;
+    switch (option_name) {
+    case SO_REUSEADDR:
+        socket->so_reuseaddr = value != 0;
+        return 0;
+    case SO_KEEPALIVE:
+        socket->so_keepalive = value != 0;
+        return 0;
+    case SO_RCVBUF:
+        socket->so_rcvbuf = value > 0 ? value : socket->so_rcvbuf;
+        return 0;
+    case SO_SNDBUF:
+        socket->so_sndbuf = value > 0 ? value : socket->so_sndbuf;
+        return 0;
+    case SO_LINGER:
+        socket->so_linger = *(const struct linger *)option_value;
+        return 0;
+    default:
+        errno = ENOSYS;
+        return -1;
+    }
 }
 
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
-    if ((socket_at(fd) == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) ||
+    struct posix_socket *socket = socket_at(fd);
+    if ((socket == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) ||
         option_value == 0 ||
         option_len == 0 ||
         *option_len < sizeof(int)) {
         errno = EINVAL;
         return -1;
     }
-    if (level != SOL_SOCKET || option_name != SO_ERROR) {
+    if (level != SOL_SOCKET) {
         errno = ENOSYS;
         return -1;
     }
-    *(int *)option_value = 0;
+    switch (option_name) {
+    case SO_LINGER:
+        if (socket == 0 || *option_len < sizeof(struct linger)) {
+            errno = EINVAL;
+            return -1;
+        }
+        *(struct linger *)option_value = socket->so_linger;
+        *option_len = sizeof(struct linger);
+        return 0;
+    default:
+        break;
+    }
+    if (*option_len < sizeof(int)) {
+        errno = EINVAL;
+        return -1;
+    }
+    switch (option_name) {
+    case SO_ERROR:
+        if (socket != 0 && socket->type == SOCK_STREAM && socket->listener_fd >= 0 && !socket->listening) {
+            int error = socket_error_for_fd(socket->listener_fd);
+            *(int *)option_value = error;
+            if (error == 0 && socket->connecting) {
+                socket->connecting = 0;
+                socket->connected = 1;
+            } else if (error != 0 && error != EINPROGRESS) {
+                socket->connecting = 0;
+                socket->connected = 0;
+            }
+        } else if (socket == 0) {
+            int error = socket_error_for_fd(fd);
+            if (error == ENOTCONN) {
+                errno = EBADF;
+                return -1;
+            }
+            *(int *)option_value = error;
+        } else {
+            *(int *)option_value = 0;
+        }
+        break;
+    case SO_TYPE:
+        *(int *)option_value = socket != 0 ? socket->type : SOCK_STREAM;
+        break;
+    case SO_ACCEPTCONN:
+        *(int *)option_value = socket != 0 && socket->type == SOCK_STREAM && socket->listening;
+        break;
+    case SO_REUSEADDR:
+        *(int *)option_value = socket != 0 ? socket->so_reuseaddr : 0;
+        break;
+    case SO_KEEPALIVE:
+        *(int *)option_value = socket != 0 ? socket->so_keepalive : 0;
+        break;
+    case SO_RCVBUF:
+        *(int *)option_value = socket != 0 ? socket->so_rcvbuf : 32768;
+        break;
+    case SO_SNDBUF:
+        *(int *)option_value = socket != 0 ? socket->so_sndbuf : 1400;
+        break;
+    default:
+        errno = ENOSYS;
+        return -1;
+    }
     *option_len = sizeof(int);
     return 0;
 }
@@ -723,12 +1039,89 @@ static int dns_parse_response(const unsigned char *packet, size_t length, uint16
     return -1;
 }
 
-static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
-    const char *server = getenv("DNS_SERVER");
-    if (server == 0 || server[0] == '\0') {
-        server = "10.0.2.3";
+static int parse_nameserver_line(const char *text, uint32_t *ip_out) {
+    const char prefix[] = "nameserver";
+    size_t i = 0;
+    while (text[i] == ' ' || text[i] == '\t') {
+        i++;
+    }
+    for (size_t j = 0; prefix[j] != '\0'; j++) {
+        if (text[i + j] != prefix[j]) {
+            return -1;
+        }
+    }
+    i += sizeof(prefix) - 1;
+    if (text[i] != ' ' && text[i] != '\t') {
+        return -1;
+    }
+    while (text[i] == ' ' || text[i] == '\t') {
+        i++;
     }
 
+    char address[32];
+    size_t used = 0;
+    while (text[i] != '\0' && text[i] != '\n' && text[i] != '\r' &&
+        text[i] != ' ' && text[i] != '\t' && used + 1 < sizeof(address)) {
+        address[used++] = text[i++];
+    }
+    address[used] = '\0';
+    struct in_addr parsed;
+    if (used == 0 || inet_pton(AF_INET, address, &parsed) != 1) {
+        return -1;
+    }
+    *ip_out = parsed.s_addr;
+    return 0;
+}
+
+static int read_resolv_conf(uint32_t *ip_out) {
+    char buffer[256];
+    int fd = open("/fat/etc/resolv.conf", O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+    ssize_t count = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
+    if (count <= 0) {
+        return -1;
+    }
+    buffer[count] = '\0';
+
+    const char *line = buffer;
+    while (*line != '\0') {
+        if (parse_nameserver_line(line, ip_out) == 0) {
+            return 0;
+        }
+        while (*line != '\0' && *line != '\n') {
+            line++;
+        }
+        if (*line == '\n') {
+            line++;
+        }
+    }
+    return -1;
+}
+
+static uint32_t resolver_server_ip(void) {
+    struct srv_net_status_info status;
+    if (srv_net_status_info(&status) == 0 && status.dns_ip != 0) {
+        return status.dns_ip;
+    }
+
+    const char *server = getenv("DNS_SERVER");
+    struct in_addr parsed;
+    if (server != 0 && server[0] != '\0' && inet_pton(AF_INET, server, &parsed) == 1) {
+        return parsed.s_addr;
+    }
+
+    uint32_t ip = 0;
+    if (read_resolv_conf(&ip) == 0) {
+        return ip;
+    }
+
+    return ((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 3;
+}
+
+static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
     unsigned char packet[512];
     memset(packet, 0, sizeof(packet));
     uint16_t query_id = 0x7372;
@@ -754,27 +1147,28 @@ static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
     memset(&address, 0, sizeof(address));
     address.sin_family = AF_INET;
     address.sin_port = htons(53);
-    if (inet_pton(AF_INET, server, &address.sin_addr) != 1 ||
-        sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) < 0) {
-        close(fd);
-        return -1;
-    }
+    address.sin_addr.s_addr = resolver_server_ip();
 
     struct pollfd pfd = {
         .fd = fd,
         .events = POLLIN,
     };
-    if (poll(&pfd, 1, 2000) <= 0) {
-        close(fd);
-        return -1;
+    ssize_t count = -1;
+    for (int attempt = 0; attempt < 3; attempt++) {
+        if (sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) < 0) {
+            close(fd);
+            return -1;
+        }
+        if (poll(&pfd, 1, 2000) > 0) {
+            count = recvfrom(fd, packet, sizeof(packet), 0, 0, 0);
+            if (count >= 0 && dns_parse_response(packet, (size_t)count, query_id, ip_out) == 0) {
+                close(fd);
+                return 0;
+            }
+        }
     }
-
-    ssize_t count = recvfrom(fd, packet, sizeof(packet), 0, 0, 0);
     close(fd);
-    if (count < 0) {
-        return -1;
-    }
-    return dns_parse_response(packet, (size_t)count, query_id, ip_out);
+    return -1;
 }
 
 int getaddrinfo(const char *node,

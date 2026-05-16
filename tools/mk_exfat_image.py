@@ -102,7 +102,9 @@ def main():
     image[0:SECTOR_SIZE] = boot
 
     fat_base = FAT_OFFSET * SECTOR_SIZE
-    default_names = ["hello", "cat", "webd", "spin", "ui", "desktop", "calcgui", "notesgui", "textedit", "imgedit"]
+    default_names = ["hello", "cat", "webd", "httpget", "udpdns", "udpecho", "netstat", "ifconfig", "route",
+                     "arp", "ping", "host", "netcheck", "netabi", "sysabi", "spin", "ui", "desktop", "calcgui", "notesgui", "textedit",
+                     "imgedit"]
     app_names = []
     app_data = {}
     for index, arg in enumerate(sys.argv[2:]):
@@ -160,6 +162,10 @@ def main():
             b"<body><h1>Hello from srvros</h1><p>The HTTP response body came from /fat/www/hello.html.</p></body></html>\n"),
         ("status.txt",
             b"srvros webd: static file serving from /fat/www is online.\n"),
+        ("large.txt",
+            b"srvros large tcp payload begins\n" +
+            (b"0123456789abcdefghijklmnopqrstuvwxyz\n" * 160) +
+            b"srvros large tcp payload ends\n"),
     ]
     www_asset_files = [
         ("site.css",
@@ -177,6 +183,9 @@ def main():
             b"# srvros service startup\n"
             b"echo init-script-ok\n"
             b"webd &\n"),
+        ("resolv.conf",
+            b"# srvros resolver fallback\n"
+            b"nameserver 10.0.2.3\n"),
     ]
     files = []
     for name, data in static_files:

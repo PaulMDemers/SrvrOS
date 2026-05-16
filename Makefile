@@ -57,6 +57,15 @@ USER_WEBD := build/userspace/webd.elf
 USER_HTTPGET := build/userspace/httpget.elf
 USER_UDPDNS := build/userspace/udpdns.elf
 USER_UDPECHO := build/userspace/udpecho.elf
+USER_NETSTAT := build/userspace/netstat.elf
+USER_IFCONFIG := build/userspace/ifconfig.elf
+USER_ROUTE := build/userspace/route.elf
+USER_ARP := build/userspace/arp.elf
+USER_PING := build/userspace/ping.elf
+USER_HOST := build/userspace/host.elf
+USER_NETCHECK := build/userspace/netcheck.elf
+USER_NETABI := build/userspace/netabi.elf
+USER_SYSABI := build/userspace/sysabi.elf
 USER_SPIN := build/userspace/spin.elf
 USER_FPDEMO := build/userspace/fpdemo.elf
 USER_UI := build/userspace/ui.elf
@@ -429,6 +438,51 @@ USER_UDPECHO_C := $(shell find userspace/udpecho -type f -name '*.c' 2>/dev/null
 USER_UDPECHO_S := $(shell find userspace/udpecho -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_UDPECHO_OBJ := $(USER_UDPECHO_C:%.c=build/%.c.o) $(USER_UDPECHO_S:%.S=build/%.S.o)
 USER_UDPECHO_DEP := $(USER_UDPECHO_C:%.c=build/%.c.d) $(USER_UDPECHO_S:%.S=build/%.S.d)
+
+USER_NETSTAT_C := $(shell find userspace/netstat -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_NETSTAT_S := $(shell find userspace/netstat -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_NETSTAT_OBJ := $(USER_NETSTAT_C:%.c=build/%.c.o) $(USER_NETSTAT_S:%.S=build/%.S.o)
+USER_NETSTAT_DEP := $(USER_NETSTAT_C:%.c=build/%.c.d) $(USER_NETSTAT_S:%.S=build/%.S.d)
+
+USER_IFCONFIG_C := $(shell find userspace/ifconfig -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_IFCONFIG_S := $(shell find userspace/ifconfig -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_IFCONFIG_OBJ := $(USER_IFCONFIG_C:%.c=build/%.c.o) $(USER_IFCONFIG_S:%.S=build/%.S.o)
+USER_IFCONFIG_DEP := $(USER_IFCONFIG_C:%.c=build/%.c.d) $(USER_IFCONFIG_S:%.S=build/%.S.d)
+
+USER_ROUTE_C := $(shell find userspace/route -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_ROUTE_S := $(shell find userspace/route -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_ROUTE_OBJ := $(USER_ROUTE_C:%.c=build/%.c.o) $(USER_ROUTE_S:%.S=build/%.S.o)
+USER_ROUTE_DEP := $(USER_ROUTE_C:%.c=build/%.c.d) $(USER_ROUTE_S:%.S=build/%.S.d)
+
+USER_ARP_C := $(shell find userspace/arp -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_ARP_S := $(shell find userspace/arp -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_ARP_OBJ := $(USER_ARP_C:%.c=build/%.c.o) $(USER_ARP_S:%.S=build/%.S.o)
+USER_ARP_DEP := $(USER_ARP_C:%.c=build/%.c.d) $(USER_ARP_S:%.S=build/%.S.d)
+
+USER_PING_C := $(shell find userspace/ping -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_PING_S := $(shell find userspace/ping -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_PING_OBJ := $(USER_PING_C:%.c=build/%.c.o) $(USER_PING_S:%.S=build/%.S.o)
+USER_PING_DEP := $(USER_PING_C:%.c=build/%.c.d) $(USER_PING_S:%.S=build/%.S.d)
+
+USER_HOST_C := $(shell find userspace/host -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_HOST_S := $(shell find userspace/host -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_HOST_OBJ := $(USER_HOST_C:%.c=build/%.c.o) $(USER_HOST_S:%.S=build/%.S.o)
+USER_HOST_DEP := $(USER_HOST_C:%.c=build/%.c.d) $(USER_HOST_S:%.S=build/%.S.d)
+
+USER_NETCHECK_C := $(shell find userspace/netcheck -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_NETCHECK_S := $(shell find userspace/netcheck -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_NETCHECK_OBJ := $(USER_NETCHECK_C:%.c=build/%.c.o) $(USER_NETCHECK_S:%.S=build/%.S.o)
+USER_NETCHECK_DEP := $(USER_NETCHECK_C:%.c=build/%.c.d) $(USER_NETCHECK_S:%.S=build/%.S.d)
+
+USER_NETABI_C := $(shell find userspace/netabi -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_NETABI_S := $(shell find userspace/netabi -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_NETABI_OBJ := $(USER_NETABI_C:%.c=build/%.c.o) $(USER_NETABI_S:%.S=build/%.S.o)
+USER_NETABI_DEP := $(USER_NETABI_C:%.c=build/%.c.d) $(USER_NETABI_S:%.S=build/%.S.d)
+
+USER_SYSABI_C := $(shell find userspace/sysabi -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_SYSABI_S := $(shell find userspace/sysabi -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_SYSABI_OBJ := $(USER_SYSABI_C:%.c=build/%.c.o) $(USER_SYSABI_S:%.S=build/%.S.o)
+USER_SYSABI_DEP := $(USER_SYSABI_C:%.c=build/%.c.d) $(USER_SYSABI_S:%.S=build/%.S.d)
 
 USER_SPIN_C := $(shell find userspace/spin -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_SPIN_S := $(shell find userspace/spin -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -840,6 +894,42 @@ $(USER_UDPECHO): $(ZIG) $(USER_CRT0_OBJ) $(USER_UDPECHO_OBJ) $(USER_LIB_OBJ) use
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_UDPECHO_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_NETSTAT): $(ZIG) $(USER_CRT0_OBJ) $(USER_NETSTAT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_NETSTAT_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_IFCONFIG): $(ZIG) $(USER_CRT0_OBJ) $(USER_IFCONFIG_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_IFCONFIG_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_ROUTE): $(ZIG) $(USER_CRT0_OBJ) $(USER_ROUTE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ROUTE_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_ARP): $(ZIG) $(USER_CRT0_OBJ) $(USER_ARP_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_ARP_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_PING): $(ZIG) $(USER_CRT0_OBJ) $(USER_PING_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_PING_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_HOST): $(ZIG) $(USER_CRT0_OBJ) $(USER_HOST_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_HOST_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_NETCHECK): $(ZIG) $(USER_CRT0_OBJ) $(USER_NETCHECK_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_NETCHECK_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_NETABI): $(ZIG) $(USER_CRT0_OBJ) $(USER_NETABI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_NETABI_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_SYSABI): $(ZIG) $(USER_CRT0_OBJ) $(USER_SYSABI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SYSABI_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_SPIN): $(ZIG) $(USER_CRT0_OBJ) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SPIN_OBJ) $(USER_LIB_OBJ) -o $@
@@ -983,14 +1073,14 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
+	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -1044,6 +1134,15 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_HTTPGET) $(INITRAMFS_ROOT)/httpget
 	cp $(USER_UDPDNS) $(INITRAMFS_ROOT)/udpdns
 	cp $(USER_UDPECHO) $(INITRAMFS_ROOT)/udpecho
+	cp $(USER_NETSTAT) $(INITRAMFS_ROOT)/netstat
+	cp $(USER_IFCONFIG) $(INITRAMFS_ROOT)/ifconfig
+	cp $(USER_ROUTE) $(INITRAMFS_ROOT)/route
+	cp $(USER_ARP) $(INITRAMFS_ROOT)/arp
+	cp $(USER_PING) $(INITRAMFS_ROOT)/ping
+	cp $(USER_HOST) $(INITRAMFS_ROOT)/host
+	cp $(USER_NETCHECK) $(INITRAMFS_ROOT)/netcheck
+	cp $(USER_NETABI) $(INITRAMFS_ROOT)/netabi
+	cp $(USER_SYSABI) $(INITRAMFS_ROOT)/sysabi
 	cp $(USER_SPIN) $(INITRAMFS_ROOT)/spin
 	cp $(USER_FPDEMO) $(INITRAMFS_ROOT)/fpdemo
 	cp $(USER_UI) $(INITRAMFS_ROOT)/ui
@@ -1139,4 +1238,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_MKTEMP_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_FIND_DEP) $(USER_DU_DEP) $(USER_DF_DEP) $(USER_SORT_DEP) $(USER_UNIQ_DEP) $(USER_CUT_DEP) $(USER_XARGS_DEP) $(USER_SED_DEP) $(USER_EXPR_DEP) $(USER_PRINTF_DEP) $(USER_TR_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_HTTPGET_DEP) $(USER_UDPDNS_DEP) $(USER_UDPECHO_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(SQLITE_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_MKTEMP_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_FIND_DEP) $(USER_DU_DEP) $(USER_DF_DEP) $(USER_SORT_DEP) $(USER_UNIQ_DEP) $(USER_CUT_DEP) $(USER_XARGS_DEP) $(USER_SED_DEP) $(USER_EXPR_DEP) $(USER_PRINTF_DEP) $(USER_TR_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_WEBD_DEP) $(USER_HTTPGET_DEP) $(USER_UDPDNS_DEP) $(USER_UDPECHO_DEP) $(USER_NETSTAT_DEP) $(USER_IFCONFIG_DEP) $(USER_ROUTE_DEP) $(USER_ARP_DEP) $(USER_PING_DEP) $(USER_HOST_DEP) $(USER_NETCHECK_DEP) $(USER_NETABI_DEP) $(USER_SYSABI_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(SQLITE_DEP) $(LUA_CORE_DEP)

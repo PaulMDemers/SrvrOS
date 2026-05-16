@@ -27,6 +27,8 @@
 #define MAX_EXEC_STRING 256
 
 struct syscall_stat {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t size;
     uint64_t type;
     uint64_t inode;
@@ -42,6 +44,8 @@ struct syscall_stat {
 };
 
 struct syscall_fsinfo {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t block_size;
     uint64_t blocks;
     uint64_t blocks_free;
@@ -53,17 +57,23 @@ struct syscall_fsinfo {
 };
 
 struct syscall_console_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t columns;
     uint64_t rows;
 };
 
 struct syscall_gfx_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t width;
     uint64_t height;
     uint64_t pitch;
 };
 
 struct syscall_mouse_event {
+    uint64_t abi_version;
+    uint64_t struct_size;
     int32_t dx;
     int32_t dy;
     uint8_t buttons;
@@ -72,6 +82,8 @@ struct syscall_mouse_event {
 };
 
 struct syscall_process_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t pid;
     char name[64];
     char state[24];
@@ -165,6 +177,36 @@ static bool copy_to_user(void *destination, const void *source, uint64_t length)
     return true;
 }
 
+static uint64_t min_u64(uint64_t a, uint64_t b) {
+    return a < b ? a : b;
+}
+
+static uint64_t abi_user_struct_size(const void *user_info, uint64_t kernel_size, uint64_t abi_version) {
+    struct srv_abi_header header;
+    if (user_info == NULL ||
+        !copy_from_user(&header, user_info, sizeof(header)) ||
+        header.abi_version != abi_version ||
+        header.struct_size < sizeof(header)) {
+        return 0;
+    }
+    return min_u64(header.struct_size, kernel_size);
+}
+
+static bool copy_abi_struct_to_user(void *user_info,
+    const void *kernel_info,
+    uint64_t kernel_size,
+    uint64_t abi_version) {
+    uint64_t user_size = abi_user_struct_size(user_info, kernel_size, abi_version);
+    if (user_size == 0) {
+        return false;
+    }
+    return copy_to_user(user_info, kernel_info, user_size);
+}
+
+static bool copy_net_struct_to_user(void *user_info, const void *kernel_info, uint64_t kernel_size) {
+    return copy_abi_struct_to_user(user_info, kernel_info, kernel_size, SRV_NET_ABI_VERSION);
+}
+
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if (!user_buffer_ok(buffer, length, false)) {
         return -1;
@@ -192,7 +234,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
             return process_file_pipe_write(process_current(), fd, (const uint8_t *)buffer, length);
         }
         if (file->type == PROCESS_FILE_NET_CONNECTION) {
-            return net_respond(file->handle, buffer, length);
+            return net_respond(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
         }
         return -1;
     }
@@ -764,9 +806,7 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     char path[MAX_PATH_LENGTH];
     struct syscall_stat copy = {0};
     struct vfs_metadata metadata;
-    if (info == NULL ||
-        !user_buffer_ok(info, sizeof(*info), true) ||
-        !copy_user_string(user_path, path, sizeof(path))) {
+    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
 
@@ -774,6 +814,8 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
         return -1;
     }
 
+    copy.abi_version = SRV_ABI_VERSION;
+    copy.struct_size = sizeof(copy);
     copy.inode = metadata.inode;
     copy.mode = metadata.mode;
     copy.nlink = metadata.nlink;
@@ -784,16 +826,14 @@ static int64_t syscall_stat(const char *user_path, struct syscall_stat *info) {
     copy.ctime = metadata.ctime;
     copy.blksize = 4096;
     copy.blocks = (copy.size + 511) / 512;
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
 static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info) {
     char path[MAX_PATH_LENGTH];
     struct exfat_fsinfo fsinfo;
     struct syscall_fsinfo copy = {0};
-    if (info == NULL ||
-        !user_buffer_ok(info, sizeof(*info), true) ||
-        !copy_user_string(user_path, path, sizeof(path))) {
+    if (info == NULL || !copy_user_string(user_path, path, sizeof(path))) {
         return -1;
     }
 
@@ -801,6 +841,8 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
         return -1;
     }
 
+    copy.abi_version = SRV_ABI_VERSION;
+    copy.struct_size = sizeof(copy);
     copy.block_size = fsinfo.block_size;
     copy.blocks = fsinfo.blocks;
     copy.blocks_free = fsinfo.blocks_free;
@@ -813,7 +855,7 @@ static int64_t syscall_statfs(const char *user_path, struct syscall_fsinfo *info
     for (uint64_t i = 0; i < sizeof(copy.mountpoint); i++) {
         copy.mountpoint[i] = fsinfo.mountpoint[i];
     }
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
 static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
@@ -875,12 +917,14 @@ static int64_t syscall_seek(uint64_t fd, int64_t offset, uint64_t whence) {
 static int64_t syscall_fstat(uint64_t fd, struct syscall_stat *info) {
     struct syscall_stat copy = {0};
     struct vfs_metadata metadata;
-    if (info == NULL || !user_buffer_ok(info, sizeof(*info), true)) {
+    if (info == NULL) {
         return -1;
     }
     if (process_file_stat(process_current(), fd, &metadata, &copy.size, &copy.type) < 0) {
         return -1;
     }
+    copy.abi_version = SRV_ABI_VERSION;
+    copy.struct_size = sizeof(copy);
     copy.inode = metadata.inode;
     copy.mode = metadata.mode;
     copy.nlink = metadata.nlink;
@@ -891,7 +935,7 @@ static int64_t syscall_fstat(uint64_t fd, struct syscall_stat *info) {
     copy.ctime = metadata.ctime;
     copy.blksize = 4096;
     copy.blocks = (copy.size + 511) / 512;
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
 static int64_t syscall_fchmod(uint64_t fd, uint64_t mode) {
@@ -1071,9 +1115,12 @@ static int64_t syscall_fsync(uint64_t fd) {
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {
-    struct syscall_console_info copy;
+    struct syscall_console_info copy = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(copy),
+    };
     console_get_size(&copy.columns, &copy.rows);
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
 static int64_t syscall_console_clear(void) {
@@ -1111,12 +1158,15 @@ static int64_t syscall_key_scan(void) {
 }
 
 static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
-    struct syscall_gfx_info copy;
+    struct syscall_gfx_info copy = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(copy),
+    };
 
     if (!console_framebuffer_info(&copy.width, &copy.height, &copy.pitch)) {
         return -1;
     }
-    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
 static int64_t syscall_gfx_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
@@ -1149,7 +1199,10 @@ static int64_t syscall_gfx_fill_rect(uint64_t x, uint64_t y, uint64_t width, uin
 
 static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
     struct mouse_event kernel_event;
-    struct syscall_mouse_event copy;
+    struct syscall_mouse_event copy = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(copy),
+    };
     if (!mouse_scan(&kernel_event)) {
         return 0;
     }
@@ -1159,7 +1212,7 @@ static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
     copy.buttons = kernel_event.buttons;
     copy.flags = kernel_event.flags;
     copy.reserved = 0;
-    return copy_to_user(event, &copy, sizeof(copy)) ? 1 : -1;
+    return copy_abi_struct_to_user(event, &copy, sizeof(copy), SRV_ABI_VERSION) ? 1 : -1;
 }
 
 static int64_t syscall_gui_register(void) {
@@ -1168,7 +1221,8 @@ static int64_t syscall_gui_register(void) {
 
 static int64_t syscall_gui_send(const struct gui_message *message) {
     struct gui_message copy;
-    if (!copy_from_user(&copy, message, sizeof(copy))) {
+    if (abi_user_struct_size(message, sizeof(copy), SRV_ABI_VERSION) != sizeof(copy) ||
+        !copy_from_user(&copy, message, sizeof(copy))) {
         return -1;
     }
     return gui_send(&copy);
@@ -1177,12 +1231,14 @@ static int64_t syscall_gui_send(const struct gui_message *message) {
 static int64_t syscall_gui_recv(struct gui_message *message) {
     struct gui_message copy;
     int64_t result;
-    if (!user_buffer_ok(message, sizeof(*message), true)) {
+    if (message == NULL) {
         return -1;
     }
     result = gui_recv(&copy);
     if (result > 0) {
-        if (!copy_to_user(message, &copy, sizeof(copy))) {
+        copy.abi_version = SRV_ABI_VERSION;
+        copy.struct_size = sizeof(copy);
+        if (!copy_abi_struct_to_user(message, &copy, sizeof(copy), SRV_ABI_VERSION)) {
             return -1;
         }
     }
@@ -1210,7 +1266,10 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
     uint64_t pid = 0;
     const char *name = "";
     const char *state = "";
-    struct syscall_process_info copy;
+    struct syscall_process_info copy = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(copy),
+    };
     uint64_t next = process_list(index, &pid, &name, &state);
     if (next == 0) {
         return 0;
@@ -1218,7 +1277,7 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
     copy.pid = pid;
     copy_kernel_string(copy.name, sizeof(copy.name), name);
     copy_kernel_string(copy.state, sizeof(copy.state), state);
-    return copy_to_user(info, &copy, sizeof(copy)) ? (int64_t)next : -1;
+    return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? (int64_t)next : -1;
 }
 
 static int64_t syscall_kill(uint64_t pid) {
@@ -1305,6 +1364,53 @@ static int64_t syscall_net_dns(const char *user_name, uint32_t *ip_out) {
         return -1;
     }
     return result;
+}
+
+static int64_t syscall_net_list(uint64_t index, struct srv_net_info *info) {
+    struct srv_net_info copy;
+    int64_t next = net_list(index, &copy);
+    if (next <= 0) {
+        return next;
+    }
+    return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
+}
+
+static int64_t syscall_net_status_info(struct srv_net_status_info *info) {
+    struct srv_net_status_info *copy = kmalloc(sizeof(*copy));
+    if (copy == NULL) {
+        return -1;
+    }
+    if (net_status_info(copy) < 0) {
+        kfree(copy);
+        return -1;
+    }
+    int64_t result = copy_net_struct_to_user(info, copy, sizeof(*copy)) ? 0 : -1;
+    kfree(copy);
+    return result;
+}
+
+static int64_t syscall_net_arp_list(uint64_t index, struct srv_arp_info *info) {
+    struct srv_arp_info copy;
+    int64_t next = net_arp_list(index, &copy);
+    if (next <= 0) {
+        return next;
+    }
+    return copy_net_struct_to_user(info, &copy, sizeof(copy)) ? next : -1;
+}
+
+static int64_t syscall_net_ping(uint32_t remote_ip,
+    uint16_t sequence,
+    uint64_t timeout_ticks,
+    uint64_t *elapsed_ticks_out) {
+    uint64_t elapsed_ticks = 0;
+    int64_t result = net_ping(remote_ip, sequence, timeout_ticks, &elapsed_ticks);
+    if (result < 0) {
+        return -1;
+    }
+    if (elapsed_ticks_out != NULL && !copy_to_user(elapsed_ticks_out, &elapsed_ticks, sizeof(elapsed_ticks))) {
+        return -1;
+    }
+    return 0;
 }
 
 static int64_t syscall_net_accept(uint64_t listener_fd, char *buffer, uint64_t capacity, uint64_t *length_out) {
@@ -1437,6 +1543,24 @@ static int64_t syscall_net_name(uint64_t fd, uint32_t *ip_out, uint16_t *port_ou
     return 0;
 }
 
+static int64_t syscall_net_shutdown(uint64_t fd, int how) {
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_CONNECTION) {
+        return -1;
+    }
+    return net_shutdown(file->handle, how);
+}
+
+static int64_t syscall_net_error(uint64_t fd) {
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_CONNECTION) {
+        return -1;
+    }
+    return net_error(file->handle);
+}
+
 static int64_t syscall_getpid(void) {
     struct process *process = process_current();
     return process == NULL ? 0 : (int64_t)process_pid(process);
@@ -1522,6 +1646,27 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_PEERNAME:
         frame->rax = (uint64_t)syscall_net_name(frame->rdi, (uint32_t *)frame->rsi, (uint16_t *)frame->rdx, true);
+        return;
+    case SYS_NET_SHUTDOWN:
+        frame->rax = (uint64_t)syscall_net_shutdown(frame->rdi, (int)frame->rsi);
+        return;
+    case SYS_NET_ERROR:
+        frame->rax = (uint64_t)syscall_net_error(frame->rdi);
+        return;
+    case SYS_NET_LIST:
+        frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);
+        return;
+    case SYS_NET_STATUS_INFO:
+        frame->rax = (uint64_t)syscall_net_status_info((struct srv_net_status_info *)frame->rdi);
+        return;
+    case SYS_NET_ARP_LIST:
+        frame->rax = (uint64_t)syscall_net_arp_list(frame->rdi, (struct srv_arp_info *)frame->rsi);
+        return;
+    case SYS_NET_PING:
+        frame->rax = (uint64_t)syscall_net_ping((uint32_t)frame->rdi,
+            (uint16_t)frame->rsi,
+            frame->rdx,
+            (uint64_t *)frame->rcx);
         return;
     case SYS_FS_WRITE:
         frame->rax = (uint64_t)syscall_fs_write((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);

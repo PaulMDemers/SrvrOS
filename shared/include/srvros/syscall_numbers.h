@@ -75,6 +75,19 @@
 #define SYS_NET_UDP_RECVFROM 70
 #define SYS_NET_SOCKNAME 71
 #define SYS_NET_PEERNAME 72
+#define SYS_NET_SHUTDOWN 73
+#define SYS_NET_ERROR 74
+#define SYS_NET_LIST 75
+#define SYS_NET_STATUS_INFO 76
+#define SYS_NET_ARP_LIST 77
+#define SYS_NET_PING 78
+
+#define SRV_ABI_VERSION 1
+
+struct srv_abi_header {
+    uint64_t abi_version;
+    uint64_t struct_size;
+};
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
@@ -149,6 +162,107 @@ struct srv_winsize {
 };
 
 #define SRV_ERR_AGAIN -11
+
+#define SRV_NETERR_NONE 0
+#define SRV_NETERR_RESET 104
+#define SRV_NETERR_TIMEDOUT 110
+#define SRV_NETERR_REFUSED 111
+#define SRV_NETERR_INPROGRESS 115
+
+#define SRV_NET_KIND_TCP_LISTENER 1
+#define SRV_NET_KIND_TCP_CONNECTION 2
+#define SRV_NET_KIND_UDP_SOCKET 3
+
+#define SRV_NET_FLAG_PENDING 0x01
+#define SRV_NET_FLAG_ACCEPTED 0x02
+#define SRV_NET_FLAG_OUTBOUND 0x04
+#define SRV_NET_FLAG_PEER_CLOSED 0x08
+#define SRV_NET_FLAG_READ_CLOSED 0x10
+#define SRV_NET_FLAG_WRITE_CLOSED 0x20
+#define SRV_NET_FLAG_FIN_PENDING 0x40
+#define SRV_NET_FLAG_RESET 0x80
+
+#define SRV_NET_ABI_VERSION 1
+
+struct srv_net_abi_header {
+    uint64_t abi_version;
+    uint64_t struct_size;
+};
+
+struct srv_net_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t kind;
+    uint64_t id;
+    uint64_t pid;
+    uint64_t state;
+    uint64_t rx_queued;
+    uint64_t rx_capacity;
+    uint64_t tx_outstanding;
+    uint64_t tx_available;
+    uint64_t close_deadline;
+    uint64_t last_activity_tick;
+    uint32_t local_ip;
+    uint32_t remote_ip;
+    uint16_t local_port;
+    uint16_t remote_port;
+    uint16_t peer_window;
+    uint16_t error;
+    uint8_t flags;
+    uint8_t reserved[7];
+    char state_name[24];
+};
+
+struct srv_net_status_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t initialized;
+    uint64_t worker_started;
+    uint64_t dhcp_configured;
+    uint64_t listener_count;
+    uint64_t tcp_connection_count;
+    uint64_t udp_socket_count;
+    uint64_t pending_count;
+    uint64_t tcp_connection_capacity;
+    uint64_t tcp_time_wait_count;
+    uint64_t tcp_table_full_drops;
+    uint64_t tcp_time_wait_reaped;
+    uint64_t tcp_close_timeout_ticks;
+    uint64_t tcp_time_wait_ticks;
+    uint64_t rx_frames;
+    uint64_t tx_frames;
+    uint64_t arp_packets;
+    uint64_t ipv4_packets;
+    uint64_t icmp_packets;
+    uint64_t tcp_packets;
+    uint64_t udp_packets;
+    uint64_t http_requests;
+    uint64_t accepted_requests;
+    uint64_t completed_requests;
+    uint64_t rx_worker_polls;
+    uint64_t rx_worker_empty_polls;
+    uint64_t rx_worker_packets;
+    uint64_t rx_irq_wakeups;
+    uint64_t rx_recovery_wakeups;
+    uint64_t rx_signal_generation;
+    uint32_t local_ip;
+    uint32_t router_ip;
+    uint32_t dns_ip;
+    uint32_t arp_ip;
+    uint8_t local_mac[6];
+    uint8_t arp_mac[6];
+    uint8_t arp_valid;
+    uint8_t reserved[3];
+};
+
+struct srv_arp_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint32_t ip;
+    uint8_t mac[6];
+    uint8_t reserved[2];
+    uint64_t updated_tick;
+};
 
 #define SRV_WAIT_NOHANG 0x01
 

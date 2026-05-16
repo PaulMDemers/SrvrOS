@@ -94,6 +94,19 @@ def http_get_while_slow_peer_open(port, path, timeout):
             pass
 
 
+def closed_port_refused(port, timeout):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1) as sock:
+                sock.settimeout(1)
+                sock.sendall(b"x")
+                return sock.recv(1) == b""
+        except (ConnectionRefusedError, ConnectionResetError, OSError):
+            return True
+    return False
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -128,6 +141,7 @@ def main():
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
     serial_port = random.randint(24000, 29000)
     http_port = random.randint(18080, 18999)
+    closed_port = random.randint(19000, 19999)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -140,10 +154,13 @@ def main():
     css_response = b""
     head_response = b""
     slow_peer_response = b""
+    large_response = b""
+    closed_refused = False
     http_error = None
     css_error = None
     head_error = None
     slow_peer_error = None
+    large_error = None
     with tempfile.TemporaryDirectory(prefix="srvros-web-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-web.exfat")
         shutil.copyfile(source_disk, disk)
@@ -157,7 +174,7 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
-            "-netdev", f"user,id=net0,hostfwd=tcp:127.0.0.1:{http_port}-{args.hostfwd_target}",
+            "-netdev", f"user,id=net0,hostfwd=tcp:127.0.0.1:{http_port}-{args.hostfwd_target},hostfwd=tcp:127.0.0.1:{closed_port}-10.0.2.15:81",
             "-device", "e1000,netdev=net0",
             "-monitor", "none",
             "-no-reboot",
@@ -177,6 +194,10 @@ def main():
             output += read_until(sock, b"webd: serving", args.service_wait)
             sock.sendall(b"service webd status\n")
             output += read_until(sock, b"webd background pid", args.service_wait)
+            sock.sendall(b"netstat\n")
+            output += read_until(sock, b"LISTEN", args.service_wait)
+            sock.sendall(b"ifconfig\n")
+            output += read_until(sock, b"rx frames", args.service_wait)
             output += read_for(sock, args.settle_wait)
             try:
                 response = http_get(http_port, "/", args.http_wait)
@@ -194,15 +215,23 @@ def main():
                 slow_peer_response = http_get_while_slow_peer_open(http_port, "/status.txt", args.http_wait)
             except (OSError, RuntimeError) as exc:
                 slow_peer_error = exc
+            try:
+                large_response = http_get(http_port, "/large.txt", args.http_wait)
+            except RuntimeError as exc:
+                large_error = exc
+            closed_refused = closed_port_refused(closed_port, 3)
             output += read_for(sock, 3)
             if (http_error is not None or
                     css_error is not None or
                     head_error is not None or
                     slow_peer_error is not None or
+                    large_error is not None or
+                    not closed_refused or
                     b"HTTP/1.1" not in response or
                     b"HTTP/1.1" not in css_response or
                     b"HTTP/1.1" not in head_response or
-                    b"HTTP/1.1" not in slow_peer_response):
+                    b"HTTP/1.1" not in slow_peer_response or
+                    b"HTTP/1.1" not in large_response):
                 sock.sendall(b"exit\n")
                 output += read_until(sock, b"srv> ", 5)
                 sock.sendall(b"net\n")
@@ -220,6 +249,7 @@ def main():
     sys.stdout.write(css_response.decode("utf-8", "replace"))
     sys.stdout.write(head_response.decode("utf-8", "replace"))
     sys.stdout.write(slow_peer_response.decode("utf-8", "replace"))
+    sys.stdout.write(large_response.decode("utf-8", "replace"))
 
     expected_serial = [
         "e1000:",
@@ -227,6 +257,10 @@ def main():
         "init-script-ok",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "Proto State",
+        "10.0.2.15:80",
+        "e1000: flags=UP,RUNNING",
+        "inet 10.0.2.15",
     ]
     expected_response = [
         b"HTTP/1.1 200 OK",
@@ -248,12 +282,20 @@ def main():
         b"HTTP/1.1 200 OK",
         b"srvros webd: static file serving from /fat/www is online.",
     ]
+    expected_large_response = [
+        b"HTTP/1.1 200 OK",
+        b"Content-Length: 5982",
+        b"srvros large tcp payload begins",
+        b"srvros large tcp payload ends",
+    ]
     missing = [marker for marker in expected_serial if marker not in text]
     missing += [marker.decode("ascii") for marker in expected_response if marker not in response]
     missing += [marker.decode("ascii") for marker in expected_css_response if marker not in css_response]
     missing += [marker.decode("ascii") for marker in expected_head_response if marker not in head_response]
     missing += [marker.decode("ascii") for marker in expected_slow_peer_response
         if marker not in slow_peer_response]
+    missing += [marker.decode("ascii") for marker in expected_large_response
+        if marker not in large_response]
     if body_bytes(head_response):
         missing.append("HEAD response included a body")
     if http_error is not None:
@@ -264,6 +306,10 @@ def main():
         missing.append(str(head_error))
     if slow_peer_error is not None:
         missing.append(str(slow_peer_error))
+    if large_error is not None:
+        missing.append(str(large_error))
+    if not closed_refused:
+        missing.append("closed TCP port was not refused")
     if has_fatal_exception(text):
         print("web-smoke: fatal exception detected", file=sys.stderr)
         return 2

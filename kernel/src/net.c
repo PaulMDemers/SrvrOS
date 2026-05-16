@@ -29,8 +29,13 @@
 #define TCP_STATE_SYN_RECEIVED 1
 #define TCP_STATE_ESTABLISHED 2
 #define TCP_STATE_SYN_SENT 3
+#define TCP_STATE_FIN_WAIT_1 4
+#define TCP_STATE_FIN_WAIT_2 5
+#define TCP_STATE_CLOSE_WAIT 6
+#define TCP_STATE_LAST_ACK 7
+#define TCP_STATE_TIME_WAIT 8
 
-#define TCP_MAX_CONNECTIONS 8
+#define TCP_MAX_CONNECTIONS 32
 #define UDP_MAX_SOCKETS 8
 #define UDP_RX_QUEUE 4
 #define UDP_PAYLOAD_MAX 1472
@@ -38,10 +43,23 @@
 #define NET_PENDING_REQUESTS 8
 #define NET_CONNECTION_RX_INITIAL_SIZE 4096
 #define NET_CONNECTION_RX_MAX_SIZE 32768
+#define TCP_RX_WINDOW 4096
+#define TCP_SEGMENT_PAYLOAD_MAX 1400
+#define TCP_TX_HISTORY 16
+#define TCP_TX_WINDOW_BYTES (TCP_SEGMENT_PAYLOAD_MAX * 4)
+#define TCP_RETRANSMIT_TICKS 25
+#define TCP_RETRANSMIT_MAX 5
+#define TCP_ZERO_WINDOW_TICKS 25
+#define TCP_ZERO_WINDOW_MAX 12
 #define NET_RX_RECOVERY_TICKS 50
 #define TCP_CONNECT_TIMEOUT_TICKS 200
+#define TCP_CLOSE_TIMEOUT_TICKS 200
+#define TCP_TIME_WAIT_TICKS 80
+#define TCP_IDLE_TIMEOUT_TICKS 6000
 #define TCP_CLIENT_PORT_FIRST 49152
 #define TCP_CLIENT_PORT_LAST 60999
+#define ARP_CACHE_ENTRIES 8
+#define ICMP_PING_ID 0x7372
 #define DHCP_CLIENT_PORT 68
 #define DHCP_SERVER_PORT 67
 #define DHCP_DISCOVER 1
@@ -52,6 +70,7 @@
 #define DNS_PORT 53
 #define DNS_CLIENT_PORT 53000
 #define DNS_TIMEOUT_TICKS 100
+#define DNS_RETRIES 3
 
 #define NET_HANDLE_LISTENER 0x1000000000000000ull
 #define NET_HANDLE_CONNECTION 0x2000000000000000ull
@@ -66,26 +85,48 @@ struct net_listener {
     uint16_t port;
 };
 
+struct tcp_tx_record {
+    bool used;
+    uint8_t flags;
+    uint8_t retries;
+    uint16_t local_port;
+    uint16_t payload_length;
+    uint32_t seq;
+    uint64_t deadline;
+    uint8_t payload[TCP_SEGMENT_PAYLOAD_MAX];
+};
+
 struct tcp_connection {
     uint8_t state;
     bool pending;
     bool accepted;
     bool outbound;
     bool peer_closed;
+    bool local_read_closed;
+    bool local_write_closed;
+    bool fin_pending;
     bool reset;
     bool request_counted;
+    uint16_t error;
     uint8_t remote_mac[6];
     struct process *owner;
     uint32_t remote_ip;
     uint16_t local_port;
     uint16_t remote_port;
+    uint16_t peer_window;
     uint32_t local_seq;
     uint32_t remote_next;
     uint64_t id;
+    uint8_t tx_next;
     uint64_t rx_length;
     uint64_t rx_offset;
     uint64_t rx_capacity;
+    uint64_t close_deadline;
+    uint64_t last_activity_tick;
+    uint64_t zero_window_deadline;
     char *rx_data;
+    uint8_t zero_window_probes;
+    struct tcp_tx_record tx_history[TCP_TX_HISTORY];
 };
 
 struct pending_request {
@@ -115,6 +156,13 @@ struct udp_socket {
     struct udp_datagram queue[UDP_RX_QUEUE];
 };
 
+struct arp_cache_entry {
+    bool used;
+    uint32_t ip;
+    uint8_t mac[6];
+    uint64_t updated_tick;
+};
+
 static uint8_t local_ip_bytes[4] = {10, 0, 2, 15};
 static uint8_t dhcp_server_ip_bytes[4];
 static uint8_t dhcp_router_ip_bytes[4];
@@ -124,6 +172,11 @@ static uint8_t arp_resolved_mac[6];
 static uint32_t arp_resolved_ip;
 static bool arp_resolved;
 static bool arp_waiting;
+static bool icmp_ping_waiting;
+static bool icmp_ping_reply;
+static uint32_t icmp_ping_ip;
+static uint16_t icmp_ping_sequence;
+static uint64_t icmp_ping_start_tick;
 static uint32_t dns_answer_ip;
 static uint16_t dns_query_id = 0x7372;
 static bool dns_waiting;
@@ -145,9 +198,12 @@ static uint64_t arp_packets;
 static uint64_t ipv4_packets;
 static uint64_t icmp_packets;
 static uint64_t tcp_packets;
+static uint64_t udp_packets;
 static uint64_t http_requests;
 static uint64_t accepted_requests;
 static uint64_t completed_requests;
+static uint64_t tcp_table_full_drops;
+static uint64_t tcp_time_wait_reaped;
 static uint64_t next_listener_id = 1;
 static uint64_t next_connection_id = 1;
 static uint64_t next_udp_socket_id = 1;
@@ -157,8 +213,10 @@ static struct net_listener listeners[NET_LISTENERS];
 static struct tcp_connection tcp_connections[TCP_MAX_CONNECTIONS];
 static struct pending_request pending_requests[NET_PENDING_REQUESTS];
 static struct udp_socket udp_sockets[UDP_MAX_SOCKETS];
+static struct arp_cache_entry arp_cache[ARP_CACHE_ENTRIES];
 static struct scheduler_wait_queue accept_wait_queue;
 static struct scheduler_wait_queue read_wait_queue;
+static struct scheduler_wait_queue write_wait_queue;
 static struct scheduler_wait_queue connect_wait_queue;
 static struct scheduler_wait_queue udp_wait_queue;
 static struct scheduler_wait_queue rx_wait_queue;
@@ -169,6 +227,8 @@ static uint64_t rx_worker_polls;
 static uint64_t rx_worker_empty_polls;
 static uint64_t rx_worker_packets;
 static uint64_t rx_last_recovery_tick;
+
+static void close_connection(struct tcp_connection *connection);
 
 static uint64_t make_handle(uint64_t type, uint64_t value) {
     return type | (value & NET_HANDLE_VALUE_MASK);
@@ -291,6 +351,18 @@ static uint16_t tcp_checksum(uint32_t src_ip, uint32_t dst_ip, const uint8_t *tc
     return checksum_finish(sum);
 }
 
+static uint16_t udp_checksum(uint32_t src_ip, uint32_t dst_ip, const uint8_t *udp, uint16_t udp_length) {
+    uint32_t sum = 0;
+    sum += (src_ip >> 16) & 0xffff;
+    sum += src_ip & 0xffff;
+    sum += (dst_ip >> 16) & 0xffff;
+    sum += dst_ip & 0xffff;
+    sum += IP_PROTO_UDP;
+    sum += udp_length;
+    sum = checksum_add_bytes(udp, udp_length, sum);
+    return checksum_finish(sum);
+}
+
 static bool send_ethernet(uint8_t *frame, uint16_t length) {
     if (e1000_send_frame(frame, length)) {
         tx_frames++;
@@ -339,6 +411,47 @@ static bool send_arp_request(uint32_t target_ip) {
     clear_bytes(frame + 32, 6);
     write_be32(frame + 38, target_ip);
     return send_ethernet(frame, sizeof(frame));
+}
+
+static void arp_cache_update(uint32_t ip, const uint8_t *mac) {
+    if (ip == 0 || mac == 0) {
+        return;
+    }
+
+    uint64_t oldest = 0;
+    uint64_t oldest_tick = UINT64_MAX;
+    for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
+        if (arp_cache[i].used && arp_cache[i].ip == ip) {
+            copy_bytes(arp_cache[i].mac, mac, sizeof(arp_cache[i].mac));
+            arp_cache[i].updated_tick = timer_ticks();
+            return;
+        }
+        if (!arp_cache[i].used) {
+            oldest = i;
+            oldest_tick = 0;
+        } else if (oldest_tick != 0 && arp_cache[i].updated_tick < oldest_tick) {
+            oldest = i;
+            oldest_tick = arp_cache[i].updated_tick;
+        }
+    }
+
+    arp_cache[oldest].used = true;
+    arp_cache[oldest].ip = ip;
+    copy_bytes(arp_cache[oldest].mac, mac, sizeof(arp_cache[oldest].mac));
+    arp_cache[oldest].updated_tick = timer_ticks();
+}
+
+static bool arp_cache_lookup(uint32_t ip, uint8_t *mac_out) {
+    if (ip == 0 || mac_out == 0) {
+        return false;
+    }
+    for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
+        if (arp_cache[i].used && arp_cache[i].ip == ip) {
+            copy_bytes(mac_out, arp_cache[i].mac, sizeof(arp_cache[i].mac));
+            return true;
+        }
+    }
+    return false;
 }
 
 static bool send_ipv4_packet_from(const uint8_t *dst_mac,
@@ -404,9 +517,32 @@ static bool send_udp_packet(const uint8_t *dst_mac,
     return send_ipv4_packet_from(dst_mac, src_ip_bytes, dst_ip, IP_PROTO_UDP, packet, udp_length);
 }
 
+static bool resolve_route_mac(uint32_t remote_ip, uint8_t *mac_out);
+
+static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
+    uint8_t remote_mac[6];
+    if (!resolve_route_mac(remote_ip, remote_mac)) {
+        return false;
+    }
+
+    uint8_t packet[40];
+    clear_bytes(packet, sizeof(packet));
+    packet[0] = 8;
+    packet[1] = 0;
+    write_be16(packet + 4, ICMP_PING_ID);
+    write_be16(packet + 6, sequence);
+    const char payload[] = "srvros ping";
+    copy_bytes(packet + 8, (const uint8_t *)payload, sizeof(payload) - 1);
+    write_be16(packet + 2, checksum_bytes(packet, sizeof(packet), 0));
+    return send_ipv4_packet(remote_mac, remote_ip, IP_PROTO_ICMP, packet, sizeof(packet));
+}
+
 static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
     if (mac_out == 0 || !initialized || local_mac == 0) {
         return false;
+    }
+    if (arp_cache_lookup(ip, mac_out)) {
+        return true;
     }
 
     arp_resolved_ip = ip;
@@ -707,15 +843,17 @@ static void handle_arp(const uint8_t *frame, uint16_t length) {
     }
 
     arp_packets++;
-    if (read_be16(arp + 6) == 2) {
-        uint32_t sender_ip = read_be32(arp + 14);
+    uint16_t opcode = read_be16(arp + 6);
+    uint32_t sender_ip = read_be32(arp + 14);
+    arp_cache_update(sender_ip, arp + 8);
+    if (opcode == 2) {
         if (arp_waiting && sender_ip == arp_resolved_ip) {
             copy_bytes(arp_resolved_mac, arp + 8, 6);
             arp_resolved = true;
             arp_waiting = false;
         }
     }
-    if (read_be16(arp + 6) == 1 && read_be32(arp + 24) == local_ip) {
+    if (opcode == 1 && read_be32(arp + 24) == local_ip) {
         send_arp_reply(frame);
     }
 }
@@ -732,6 +870,18 @@ static void handle_icmp(const uint8_t *frame,
 
     const uint8_t *icmp = ip + ip_header_length;
     icmp_packets++;
+
+    if (icmp[0] == 0) {
+        if (checksum_bytes(icmp, ip_payload_length, 0) == 0 &&
+            icmp_ping_waiting &&
+            src_ip == icmp_ping_ip &&
+            read_be16(icmp + 4) == ICMP_PING_ID &&
+            read_be16(icmp + 6) == icmp_ping_sequence) {
+            icmp_ping_reply = true;
+            icmp_ping_waiting = false;
+        }
+        return;
+    }
 
     if (icmp[0] != 8) {
         return;
@@ -798,7 +948,7 @@ static bool udp_queue_push(struct udp_socket *socket,
     uint16_t remote_port,
     const uint8_t *payload,
     uint16_t length) {
-    if (socket == 0 || payload == 0 || length > UDP_PAYLOAD_MAX) {
+    if (socket == 0 || (payload == 0 && length != 0) || length > UDP_PAYLOAD_MAX) {
         return false;
     }
 
@@ -844,6 +994,11 @@ static void handle_udp(const uint8_t *ip, uint16_t ip_header_length, uint16_t ip
     if (udp_length < 8 || udp_length > ip_payload_length) {
         return;
     }
+    uint16_t checksum = read_be16(udp + 6);
+    if (checksum != 0 && udp_checksum(read_be32(ip + 12), read_be32(ip + 16), udp, udp_length) != 0) {
+        return;
+    }
+    udp_packets++;
 
     if (src_port == DHCP_SERVER_PORT && dst_port == DHCP_CLIENT_PORT) {
         handle_dhcp_packet(udp + 8, udp_length - 8);
@@ -896,6 +1051,47 @@ static bool port_is_listening(uint16_t port) {
     return find_listener_for_port(port) != 0;
 }
 
+static bool tcp_reap_expired_time_wait(uint64_t now) {
+    bool reaped = false;
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state == TCP_STATE_TIME_WAIT &&
+            connection->close_deadline != 0 &&
+            now >= connection->close_deadline) {
+            close_connection(connection);
+            tcp_time_wait_reaped++;
+            reaped = true;
+        }
+    }
+    return reaped;
+}
+
+static bool tcp_reclaim_oldest_time_wait(uint64_t now) {
+    struct tcp_connection *oldest = 0;
+    uint64_t oldest_deadline = UINT64_MAX;
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state != TCP_STATE_TIME_WAIT) {
+            continue;
+        }
+        if (connection->close_deadline != 0 && now >= connection->close_deadline) {
+            close_connection(connection);
+            tcp_time_wait_reaped++;
+            return true;
+        }
+        if (connection->close_deadline < oldest_deadline) {
+            oldest_deadline = connection->close_deadline;
+            oldest = connection;
+        }
+    }
+    if (oldest == 0) {
+        return false;
+    }
+    close_connection(oldest);
+    tcp_time_wait_reaped++;
+    return true;
+}
+
 static struct tcp_connection *alloc_connection(uint16_t local_port,
     uint32_t remote_ip,
     uint16_t remote_port,
@@ -905,11 +1101,18 @@ static struct tcp_connection *alloc_connection(uint16_t local_port,
         return 0;
     }
 
+    uint64_t now = timer_ticks();
+    (void)tcp_reap_expired_time_wait(now);
+
     struct tcp_connection *connection = find_connection(local_port, remote_ip, remote_port);
     if (connection != 0) {
+        if (connection->state == TCP_STATE_TIME_WAIT) {
+            return 0;
+        }
         return connection;
     }
 
+retry:
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state == TCP_STATE_EMPTY) {
             tcp_connections[i].state = TCP_STATE_SYN_RECEIVED;
@@ -917,15 +1120,26 @@ static struct tcp_connection *alloc_connection(uint16_t local_port,
             tcp_connections[i].accepted = false;
             tcp_connections[i].outbound = false;
             tcp_connections[i].peer_closed = false;
+            tcp_connections[i].local_read_closed = false;
+            tcp_connections[i].local_write_closed = false;
+            tcp_connections[i].fin_pending = false;
             tcp_connections[i].reset = false;
             tcp_connections[i].request_counted = false;
+            tcp_connections[i].error = SRV_NETERR_NONE;
             tcp_connections[i].owner = listener->owner;
             tcp_connections[i].remote_ip = remote_ip;
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
+            tcp_connections[i].peer_window = TCP_RX_WINDOW;
             tcp_connections[i].local_seq = 0x73720000u + (uint32_t)remote_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
+            tcp_connections[i].tx_next = 0;
+            tcp_connections[i].close_deadline = 0;
+            tcp_connections[i].last_activity_tick = timer_ticks();
+            tcp_connections[i].zero_window_deadline = 0;
+            tcp_connections[i].zero_window_probes = 0;
+            clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
             }
@@ -934,6 +1148,11 @@ static struct tcp_connection *alloc_connection(uint16_t local_port,
         }
     }
 
+    if (tcp_reclaim_oldest_time_wait(now)) {
+        goto retry;
+    }
+
+    tcp_table_full_drops++;
     return 0;
 }
 
@@ -978,8 +1197,16 @@ static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,
     uint16_t remote_port,
     const uint8_t *remote_mac) {
     struct process *owner = process_current();
-    uint16_t local_port = allocate_client_port();
+    uint64_t now = timer_ticks();
+    uint16_t local_port;
+    (void)tcp_reap_expired_time_wait(now);
+
+retry:
+    local_port = allocate_client_port();
     if (owner == 0 || local_port == 0) {
+        if (owner != 0) {
+            tcp_table_full_drops++;
+        }
         return 0;
     }
 
@@ -990,15 +1217,26 @@ static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,
             tcp_connections[i].accepted = true;
             tcp_connections[i].outbound = true;
             tcp_connections[i].peer_closed = false;
+            tcp_connections[i].local_read_closed = false;
+            tcp_connections[i].local_write_closed = false;
+            tcp_connections[i].fin_pending = false;
             tcp_connections[i].reset = false;
             tcp_connections[i].request_counted = false;
+            tcp_connections[i].error = SRV_NETERR_NONE;
             tcp_connections[i].owner = owner;
             tcp_connections[i].remote_ip = remote_ip;
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
+            tcp_connections[i].peer_window = TCP_RX_WINDOW;
             tcp_connections[i].local_seq = 0x63720000u + (uint32_t)local_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
+            tcp_connections[i].tx_next = 0;
+            tcp_connections[i].close_deadline = 0;
+            tcp_connections[i].last_activity_tick = timer_ticks();
+            tcp_connections[i].zero_window_deadline = 0;
+            tcp_connections[i].zero_window_probes = 0;
+            clear_bytes((uint8_t *)tcp_connections[i].tx_history, sizeof(tcp_connections[i].tx_history));
             if (next_connection_id == 0) {
                 next_connection_id = 1;
             }
@@ -1007,28 +1245,168 @@ static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,
         }
     }
 
+    if (tcp_reclaim_oldest_time_wait(now)) {
+        goto retry;
+    }
+
+    tcp_table_full_drops++;
     return 0;
 }
 
-static bool send_tcp_segment(struct tcp_connection *connection,
+static uint32_t tcp_sequence_advance(uint8_t flags, uint16_t payload_length) {
+    uint32_t advance = payload_length;
+    if ((flags & TCP_SYN) != 0) {
+        advance++;
+    }
+    if ((flags & TCP_FIN) != 0) {
+        advance++;
+    }
+    return advance;
+}
+
+static bool tcp_sequence_acked(uint32_t end, uint32_t ack) {
+    return (int32_t)(ack - end) >= 0;
+}
+
+static bool tcp_tx_free_slot(const struct tcp_connection *connection) {
+    if (connection == 0) {
+        return false;
+    }
+    for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+        if (!connection->tx_history[i].used) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static uint32_t tcp_tx_outstanding_bytes(const struct tcp_connection *connection) {
+    if (connection == 0) {
+        return 0;
+    }
+
+    uint32_t outstanding = 0;
+    for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+        const struct tcp_tx_record *record = &connection->tx_history[i];
+        if (record->used) {
+            outstanding += tcp_sequence_advance(record->flags, record->payload_length);
+        }
+    }
+    return outstanding;
+}
+
+static void tcp_set_peer_window(struct tcp_connection *connection, uint16_t window) {
+    if (connection == 0) {
+        return;
+    }
+
+    uint16_t previous = connection->peer_window;
+    connection->peer_window = window;
+    if (window == 0) {
+        if (connection->zero_window_deadline == 0) {
+            connection->zero_window_deadline = timer_ticks() + TCP_ZERO_WINDOW_TICKS;
+        }
+    } else {
+        connection->zero_window_deadline = 0;
+        connection->zero_window_probes = 0;
+    }
+    if (window > previous) {
+        scheduler_wake_all(&write_wait_queue);
+        process_file_poll_wake();
+    }
+}
+
+static void tcp_touch_activity(struct tcp_connection *connection, uint64_t now) {
+    if (connection != 0) {
+        connection->last_activity_tick = now;
+    }
+}
+
+static uint16_t tcp_receive_window(const struct tcp_connection *connection) {
+    if (connection == 0 || connection->local_read_closed || connection->reset) {
+        return 0;
+    }
+
+    uint64_t unread = connection->rx_length >= connection->rx_offset ?
+        connection->rx_length - connection->rx_offset :
+        0;
+    if (unread >= NET_CONNECTION_RX_MAX_SIZE) {
+        return 0;
+    }
+    uint64_t available = NET_CONNECTION_RX_MAX_SIZE - unread;
+    if (available > 65535) {
+        available = 65535;
+    }
+    return (uint16_t)available;
+}
+
+static uint16_t tcp_tx_available_payload(const struct tcp_connection *connection) {
+    if (connection == 0 || !tcp_tx_free_slot(connection)) {
+        return 0;
+    }
+
+    uint32_t outstanding = tcp_tx_outstanding_bytes(connection);
+    if (outstanding >= TCP_TX_WINDOW_BYTES) {
+        return 0;
+    }
+
+    uint32_t available = TCP_TX_WINDOW_BYTES - outstanding;
+    if (outstanding >= connection->peer_window) {
+        return 0;
+    }
+    uint32_t peer_available = (uint32_t)connection->peer_window - outstanding;
+    if (available > peer_available) {
+        available = peer_available;
+    }
+    return available > TCP_SEGMENT_PAYLOAD_MAX ? TCP_SEGMENT_PAYLOAD_MAX : (uint16_t)available;
+}
+
+static bool tcp_tx_has_space(const struct tcp_connection *connection, uint8_t flags, uint16_t payload_length) {
+    uint32_t advance = tcp_sequence_advance(flags, payload_length);
+    if (advance == 0) {
+        return true;
+    }
+    if (connection == 0 || !tcp_tx_free_slot(connection)) {
+        return false;
+    }
+    uint32_t outstanding = tcp_tx_outstanding_bytes(connection);
+    if (outstanding + advance > TCP_TX_WINDOW_BYTES) {
+        return false;
+    }
+    if (payload_length != 0 && outstanding + payload_length > connection->peer_window) {
+        return false;
+    }
+    return true;
+}
+
+static uint32_t tcp_receive_advance(uint8_t flags, uint16_t payload_length) {
+    uint32_t advance = payload_length;
+    if ((flags & TCP_FIN) != 0) {
+        advance++;
+    }
+    return advance;
+}
+
+static bool send_tcp_segment_at(struct tcp_connection *connection,
     uint16_t local_port,
+    uint32_t seq,
     uint8_t flags,
     const uint8_t *payload,
     uint16_t payload_length) {
     uint8_t segment[1500];
     uint16_t tcp_length = 20 + payload_length;
 
-    if (tcp_length > sizeof(segment)) {
+    if (tcp_length > sizeof(segment) || (payload_length != 0 && payload == 0)) {
         return false;
     }
 
     write_be16(segment + 0, local_port);
     write_be16(segment + 2, connection->remote_port);
-    write_be32(segment + 4, connection->local_seq);
+    write_be32(segment + 4, seq);
     write_be32(segment + 8, connection->remote_next);
     segment[12] = 5 << 4;
     segment[13] = flags;
-    write_be16(segment + 14, 4096);
+    write_be16(segment + 14, tcp_receive_window(connection));
     write_be16(segment + 16, 0);
     write_be16(segment + 18, 0);
     if (payload_length != 0) {
@@ -1040,11 +1418,98 @@ static bool send_tcp_segment(struct tcp_connection *connection,
         return false;
     }
 
-    if ((flags & TCP_SYN) != 0 || (flags & TCP_FIN) != 0) {
-        connection->local_seq++;
-    }
-    connection->local_seq += payload_length;
+    tcp_touch_activity(connection, timer_ticks());
     return true;
+}
+
+static void tcp_record_tx(struct tcp_connection *connection,
+    uint16_t local_port,
+    uint32_t seq,
+    uint8_t flags,
+    const uint8_t *payload,
+    uint16_t payload_length) {
+    if (connection == 0 || tcp_sequence_advance(flags, payload_length) == 0) {
+        return;
+    }
+    if (payload_length > TCP_SEGMENT_PAYLOAD_MAX || (payload_length != 0 && payload == 0)) {
+        return;
+    }
+
+    uint8_t slot = connection->tx_next;
+    for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+        uint8_t candidate = (connection->tx_next + i) % TCP_TX_HISTORY;
+        if (!connection->tx_history[candidate].used) {
+            slot = candidate;
+            break;
+        }
+    }
+
+    struct tcp_tx_record *record = &connection->tx_history[slot];
+    record->used = true;
+    record->flags = flags;
+    record->retries = 0;
+    record->local_port = local_port;
+    record->payload_length = payload_length;
+    record->seq = seq;
+    record->deadline = timer_ticks() + TCP_RETRANSMIT_TICKS;
+    if (payload_length != 0) {
+        copy_bytes(record->payload, payload, payload_length);
+    }
+    connection->tx_next = (slot + 1) % TCP_TX_HISTORY;
+}
+
+static bool send_tcp_segment(struct tcp_connection *connection,
+    uint16_t local_port,
+    uint8_t flags,
+    const uint8_t *payload,
+    uint16_t payload_length) {
+    uint32_t seq = connection->local_seq;
+    if (!tcp_tx_has_space(connection, flags, payload_length)) {
+        return false;
+    }
+    if (!send_tcp_segment_at(connection, local_port, seq, flags, payload, payload_length)) {
+        return false;
+    }
+
+    tcp_record_tx(connection, local_port, seq, flags, payload, payload_length);
+    connection->local_seq += tcp_sequence_advance(flags, payload_length);
+    return true;
+}
+
+static void send_tcp_reset(const uint8_t *dst_mac,
+    uint32_t dst_ip,
+    uint16_t local_port,
+    uint16_t remote_port,
+    uint32_t seq,
+    uint32_t ack,
+    uint8_t flags,
+    uint16_t payload_length) {
+    if (dst_mac == 0 || (flags & TCP_RST) != 0) {
+        return;
+    }
+
+    uint8_t segment[20];
+    uint8_t response_flags = TCP_RST;
+    uint32_t response_seq = ack;
+    uint32_t response_ack = 0;
+    if ((flags & TCP_ACK) == 0) {
+        response_flags = TCP_RST | TCP_ACK;
+        response_seq = 0;
+        response_ack = seq + tcp_sequence_advance(flags, payload_length);
+    }
+
+    write_be16(segment + 0, local_port);
+    write_be16(segment + 2, remote_port);
+    write_be32(segment + 4, response_seq);
+    write_be32(segment + 8, response_ack);
+    segment[12] = 5 << 4;
+    segment[13] = response_flags;
+    write_be16(segment + 14, 0);
+    write_be16(segment + 16, 0);
+    write_be16(segment + 18, 0);
+    write_be16(segment + 16, tcp_checksum(local_ip, dst_ip, segment, sizeof(segment)));
+
+    (void)send_ipv4_packet(dst_mac, dst_ip, IP_PROTO_TCP, segment, sizeof(segment));
 }
 
 static void close_connection(struct tcp_connection *connection) {
@@ -1063,19 +1528,262 @@ static void close_connection(struct tcp_connection *connection) {
     connection->accepted = false;
     connection->outbound = false;
     connection->peer_closed = false;
+    connection->local_read_closed = false;
+    connection->local_write_closed = false;
+    connection->fin_pending = false;
     connection->reset = false;
     connection->request_counted = false;
+    connection->error = SRV_NETERR_NONE;
+    connection->peer_window = TCP_RX_WINDOW;
     connection->rx_length = 0;
     connection->rx_offset = 0;
     connection->rx_capacity = 0;
+    connection->tx_next = 0;
+    connection->close_deadline = 0;
+    connection->last_activity_tick = 0;
+    connection->zero_window_deadline = 0;
+    connection->zero_window_probes = 0;
+    clear_bytes((uint8_t *)connection->tx_history, sizeof(connection->tx_history));
     if (connection->rx_data != 0) {
         kfree(connection->rx_data);
         connection->rx_data = 0;
     }
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
     process_file_poll_wake();
+}
+
+static bool tcp_state_can_read(uint8_t state) {
+    return state == TCP_STATE_ESTABLISHED ||
+        state == TCP_STATE_FIN_WAIT_1 ||
+        state == TCP_STATE_FIN_WAIT_2 ||
+        state == TCP_STATE_CLOSE_WAIT;
+}
+
+static bool tcp_state_can_write(uint8_t state) {
+    return state == TCP_STATE_ESTABLISHED || state == TCP_STATE_CLOSE_WAIT;
+}
+
+static bool tcp_state_closing(uint8_t state) {
+    return state == TCP_STATE_FIN_WAIT_1 ||
+        state == TCP_STATE_FIN_WAIT_2 ||
+        state == TCP_STATE_LAST_ACK ||
+        state == TCP_STATE_TIME_WAIT;
+}
+
+static void tcp_fail_connection(struct tcp_connection *connection, uint16_t error, uint64_t now) {
+    if (connection == 0) {
+        return;
+    }
+
+    connection->reset = true;
+    connection->peer_closed = true;
+    connection->local_write_closed = true;
+    connection->fin_pending = false;
+    connection->error = error == SRV_NETERR_NONE ? SRV_NETERR_RESET : error;
+    connection->close_deadline = now + TCP_CLOSE_TIMEOUT_TICKS;
+    scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
+    process_file_poll_wake();
+}
+
+static void tcp_enter_time_wait(struct tcp_connection *connection) {
+    if (connection == 0) {
+        return;
+    }
+    connection->state = TCP_STATE_TIME_WAIT;
+    connection->local_read_closed = true;
+    connection->local_write_closed = true;
+    connection->fin_pending = false;
+    connection->peer_closed = true;
+    connection->close_deadline = timer_ticks() + TCP_TIME_WAIT_TICKS;
+    scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
+    process_file_poll_wake();
+}
+
+static bool tcp_send_fin(struct tcp_connection *connection) {
+    if (connection == 0 || connection->reset) {
+        return true;
+    }
+    if (connection->local_write_closed && !connection->fin_pending) {
+        return true;
+    }
+    if (!tcp_tx_has_space(connection, TCP_ACK | TCP_FIN, 0)) {
+        connection->fin_pending = true;
+        connection->local_write_closed = true;
+        process_file_poll_wake();
+        return true;
+    }
+    if (!send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0)) {
+        return false;
+    }
+    connection->fin_pending = false;
+    connection->local_write_closed = true;
+    connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+    if (connection->peer_closed || connection->state == TCP_STATE_CLOSE_WAIT) {
+        connection->state = TCP_STATE_LAST_ACK;
+    } else if (connection->state == TCP_STATE_ESTABLISHED || connection->state == TCP_STATE_SYN_RECEIVED) {
+        connection->state = TCP_STATE_FIN_WAIT_1;
+    }
+    process_file_poll_wake();
+    return true;
+}
+
+static void tcp_handle_fin(struct tcp_connection *connection, bool ack_flag) {
+    if (connection == 0) {
+        return;
+    }
+    connection->peer_closed = true;
+    send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+    if (connection->state == TCP_STATE_FIN_WAIT_1) {
+        tcp_enter_time_wait(connection);
+    } else if (connection->state == TCP_STATE_FIN_WAIT_2) {
+        tcp_enter_time_wait(connection);
+    } else if (connection->state == TCP_STATE_ESTABLISHED) {
+        connection->state = connection->local_write_closed ? TCP_STATE_LAST_ACK : TCP_STATE_CLOSE_WAIT;
+        connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+    } else if (connection->state == TCP_STATE_SYN_RECEIVED) {
+        connection->state = TCP_STATE_CLOSE_WAIT;
+        connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+    } else if (ack_flag && connection->state == TCP_STATE_LAST_ACK) {
+        tcp_enter_time_wait(connection);
+    }
+    scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
+    process_file_poll_wake();
+}
+
+static bool tcp_ack_tx_records(struct tcp_connection *connection, uint32_t ack) {
+    if (connection == 0) {
+        return false;
+    }
+
+    bool acked_fin = false;
+    bool cleared = false;
+    for (uint8_t i = 0; i < TCP_TX_HISTORY; i++) {
+        struct tcp_tx_record *record = &connection->tx_history[i];
+        if (!record->used) {
+            continue;
+        }
+        uint32_t end = record->seq + tcp_sequence_advance(record->flags, record->payload_length);
+        if (tcp_sequence_acked(end, ack)) {
+            if ((record->flags & TCP_FIN) != 0) {
+                acked_fin = true;
+            }
+            clear_bytes((uint8_t *)record, sizeof(*record));
+            cleared = true;
+        }
+    }
+    if (cleared) {
+        if (connection->fin_pending) {
+            (void)tcp_send_fin(connection);
+        }
+        scheduler_wake_all(&write_wait_queue);
+        process_file_poll_wake();
+    }
+    return acked_fin;
+}
+
+static void tcp_handle_ack(struct tcp_connection *connection, uint32_t ack) {
+    if (connection == 0) {
+        return;
+    }
+    bool acked_fin = tcp_ack_tx_records(connection, ack);
+    if (connection->state == TCP_STATE_FIN_WAIT_1 && acked_fin) {
+        connection->state = connection->peer_closed ? TCP_STATE_TIME_WAIT : TCP_STATE_FIN_WAIT_2;
+        connection->close_deadline = timer_ticks() +
+            (connection->state == TCP_STATE_TIME_WAIT ? TCP_TIME_WAIT_TICKS : TCP_CLOSE_TIMEOUT_TICKS);
+    } else if (connection->state == TCP_STATE_LAST_ACK && acked_fin) {
+        tcp_enter_time_wait(connection);
+    } else if (connection->state == TCP_STATE_TIME_WAIT) {
+        connection->close_deadline = timer_ticks() + TCP_TIME_WAIT_TICKS;
+    }
+}
+
+static void tcp_retransmit_due(uint64_t now) {
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state == TCP_STATE_EMPTY || connection->reset) {
+            continue;
+        }
+
+        for (uint8_t j = 0; j < TCP_TX_HISTORY; j++) {
+            struct tcp_tx_record *record = &connection->tx_history[j];
+            if (!record->used || now < record->deadline) {
+                continue;
+            }
+
+            if (record->retries >= TCP_RETRANSMIT_MAX) {
+                tcp_fail_connection(connection,
+                    connection->state == TCP_STATE_SYN_SENT ? SRV_NETERR_TIMEDOUT : SRV_NETERR_RESET,
+                    now);
+                break;
+            }
+
+            send_tcp_segment_at(connection,
+                record->local_port,
+                record->seq,
+                record->flags,
+                record->payload,
+                record->payload_length);
+            record->retries++;
+            record->deadline = now + TCP_RETRANSMIT_TICKS * (uint64_t)(record->retries + 1);
+        }
+    }
+}
+
+static void tcp_zero_window_probe_due(uint64_t now) {
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state == TCP_STATE_EMPTY ||
+            connection->reset ||
+            !tcp_state_can_write(connection->state) ||
+            connection->local_write_closed ||
+            connection->peer_window != 0 ||
+            connection->zero_window_deadline == 0 ||
+            now < connection->zero_window_deadline) {
+            continue;
+        }
+
+        if (connection->zero_window_probes >= TCP_ZERO_WINDOW_MAX) {
+            tcp_fail_connection(connection, SRV_NETERR_TIMEDOUT, now);
+            continue;
+        }
+
+        (void)send_tcp_segment_at(connection,
+            connection->local_port,
+            connection->local_seq,
+            TCP_ACK,
+            0,
+            0);
+        connection->zero_window_probes++;
+        uint64_t delay = TCP_ZERO_WINDOW_TICKS * (uint64_t)(connection->zero_window_probes + 1);
+        if (delay > TCP_CLOSE_TIMEOUT_TICKS) {
+            delay = TCP_CLOSE_TIMEOUT_TICKS;
+        }
+        connection->zero_window_deadline = now + delay;
+    }
+}
+
+static void tcp_idle_cleanup_due(uint64_t now) {
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state == TCP_STATE_EMPTY ||
+            connection->reset ||
+            tcp_state_closing(connection->state) ||
+            connection->last_activity_tick == 0 ||
+            now - connection->last_activity_tick < TCP_IDLE_TIMEOUT_TICKS) {
+            continue;
+        }
+
+        tcp_fail_connection(connection, SRV_NETERR_TIMEDOUT, now);
+    }
 }
 
 static uint64_t connection_index(struct tcp_connection *connection) {
@@ -1192,10 +1900,15 @@ static void handle_tcp(const uint8_t *frame,
     uint16_t src_port = read_be16(tcp + 0);
     uint16_t dst_port = read_be16(tcp + 2);
     uint32_t seq = read_be32(tcp + 4);
+    uint32_t ack = read_be32(tcp + 8);
     uint8_t data_offset = (tcp[12] >> 4) * 4;
     uint8_t flags = tcp[13];
+    uint16_t advertised_window = read_be16(tcp + 14);
 
     if (data_offset < 20 || data_offset > ip_payload_length) {
+        return;
+    }
+    if (tcp_checksum(src_ip, read_be32(ip + 16), tcp, ip_payload_length) != 0) {
         return;
     }
 
@@ -1205,11 +1918,9 @@ static void handle_tcp(const uint8_t *frame,
     if ((flags & TCP_RST) != 0) {
         struct tcp_connection *old = find_connection(dst_port, src_ip, src_port);
         if (old != 0) {
-            old->reset = true;
-            old->peer_closed = true;
-            scheduler_wake_all(&connect_wait_queue);
-            scheduler_wake_all(&read_wait_queue);
-            process_file_poll_wake();
+            tcp_fail_connection(old,
+                old->state == TCP_STATE_SYN_SENT ? SRV_NETERR_REFUSED : SRV_NETERR_RESET,
+                timer_ticks());
         }
         return;
     }
@@ -1219,18 +1930,24 @@ static void handle_tcp(const uint8_t *frame,
             struct tcp_connection *client = find_connection(dst_port, src_ip, src_port);
             if (client != 0 && client->state == TCP_STATE_SYN_SENT && (flags & TCP_ACK) != 0) {
                 copy_bytes(client->remote_mac, frame + 6, 6);
+                tcp_set_peer_window(client, advertised_window);
                 client->remote_next = seq + 1;
+                tcp_ack_tx_records(client, ack);
                 client->state = TCP_STATE_ESTABLISHED;
                 send_tcp_segment(client, client->local_port, TCP_ACK, 0, 0);
                 scheduler_wake_all(&connect_wait_queue);
                 process_file_poll_wake();
+            } else {
+                send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
             }
             return;
         }
         struct tcp_connection *connection = alloc_connection(dst_port, src_ip, src_port, frame + 6);
         if (connection == 0) {
+            send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
             return;
         }
+        tcp_set_peer_window(connection, advertised_window);
         connection->remote_next = seq + 1;
         send_tcp_segment(connection, connection->local_port, TCP_SYN | TCP_ACK, 0, 0);
         return;
@@ -1238,42 +1955,63 @@ static void handle_tcp(const uint8_t *frame,
 
     struct tcp_connection *connection = find_connection(dst_port, src_ip, src_port);
     if (connection == 0) {
+        send_tcp_reset(frame + 6, src_ip, dst_port, src_port, seq, ack, flags, data_length);
         return;
     }
 
     copy_bytes(connection->remote_mac, frame + 6, 6);
-    if (data_length != 0 || (flags & TCP_FIN) != 0) {
-        connection->remote_next = seq + data_length;
-        if ((flags & TCP_FIN) != 0) {
-            connection->remote_next++;
-        }
+    tcp_touch_activity(connection, timer_ticks());
+    tcp_set_peer_window(connection, advertised_window);
+    uint32_t receive_advance = tcp_receive_advance(flags, data_length);
+    if (receive_advance != 0 && seq != connection->remote_next) {
+        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+        return;
     }
 
     if (connection->state == TCP_STATE_SYN_RECEIVED && (flags & TCP_ACK) != 0) {
         connection->state = TCP_STATE_ESTABLISHED;
     }
 
-    if (connection->state == TCP_STATE_ESTABLISHED && data_length != 0) {
+    if ((flags & TCP_ACK) != 0) {
+        tcp_handle_ack(connection, ack);
+    }
+
+    if (tcp_state_can_read(connection->state) && data_length != 0) {
+        if (connection->local_read_closed) {
+            connection->remote_next = seq + receive_advance;
+            if ((flags & TCP_FIN) != 0) {
+                tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
+            } else {
+                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            }
+            return;
+        }
         if (connection->outbound) {
             if (!append_connection_data(connection, tcp + data_offset, data_length)) {
                 close_connection(connection);
                 return;
             }
+            connection->remote_next = seq + receive_advance;
             if ((flags & TCP_FIN) != 0) {
-                connection->peer_closed = true;
+                tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
+            } else {
+                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
             }
-            send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         } else {
-            if (append_connection_data(connection, tcp + data_offset, data_length) &&
-                ensure_pending_connection(connection, dst_port)) {
+            bool appended = append_connection_data(connection, tcp + data_offset, data_length);
+            if (appended) {
+                connection->remote_next = seq + receive_advance;
+            }
+            if (appended && ensure_pending_connection(connection, dst_port)) {
                 if (!connection->request_counted) {
                     http_requests++;
                     connection->request_counted = true;
                 }
                 if ((flags & TCP_FIN) != 0) {
-                    connection->peer_closed = true;
+                    tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
+                } else {
+                    send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
                 }
-                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
             } else {
                 send_unavailable_response(connection);
             }
@@ -1286,11 +2024,8 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if ((flags & TCP_FIN) != 0) {
-        connection->peer_closed = true;
-        send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
-        scheduler_wake_all(&read_wait_queue);
-        scheduler_wake_all(&connect_wait_queue);
-        process_file_poll_wake();
+        connection->remote_next = seq + receive_advance;
+        tcp_handle_fin(connection, (flags & TCP_ACK) != 0);
     }
 }
 
@@ -1310,6 +2045,9 @@ static void handle_ipv4(const uint8_t *frame, uint16_t length) {
         total_length < header_length ||
         length < ETH_HEADER_SIZE + total_length ||
         (dst_ip != local_ip && dst_ip != 0xffffffffu)) {
+        return;
+    }
+    if (checksum_bytes(ip, header_length, 0) != 0) {
         return;
     }
 
@@ -1357,6 +2095,20 @@ void net_timer_tick(void) {
     }
 
     uint64_t now = timer_ticks();
+    tcp_retransmit_due(now);
+    tcp_zero_window_probe_due(now);
+    tcp_idle_cleanup_due(now);
+    (void)tcp_reap_expired_time_wait(now);
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state != TCP_STATE_EMPTY &&
+            (connection->reset || tcp_state_closing(connection->state)) &&
+            connection->close_deadline != 0 &&
+            now >= connection->close_deadline) {
+            close_connection(connection);
+        }
+    }
+
     if (now - rx_last_recovery_tick < NET_RX_RECOVERY_TICKS) {
         return;
     }
@@ -1473,40 +2225,53 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
         return -1;
     }
 
-    dns_query_id++;
-    if (dns_query_id == 0) {
-        dns_query_id = 0x7372;
-    }
-    dns_answer_ip = 0;
-    dns_answer_ready = false;
-    dns_response_done = false;
-    dns_waiting = true;
-    if (!send_dns_query(server_ip, server_mac, name, dns_query_id)) {
-        dns_waiting = false;
-        return -1;
-    }
-
-    uint64_t start = timer_ticks();
-    while (timer_ticks() - start < DNS_TIMEOUT_TICKS) {
-        if (dns_answer_ready) {
-            *ip_out = dns_answer_ip;
-            return 0;
+    for (uint64_t attempt = 0; attempt < DNS_RETRIES; attempt++) {
+        dns_query_id++;
+        if (dns_query_id == 0) {
+            dns_query_id = 0x7372;
         }
-        if (dns_response_done) {
+        dns_answer_ip = 0;
+        dns_answer_ready = false;
+        dns_response_done = false;
+        dns_waiting = true;
+        if (!send_dns_query(server_ip, server_mac, name, dns_query_id)) {
+            dns_waiting = false;
             return -1;
         }
-        (void)e1000_poll(32, false);
-        scheduler_yield();
+
+        uint64_t start = timer_ticks();
+        while (timer_ticks() - start < DNS_TIMEOUT_TICKS) {
+            if (dns_answer_ready) {
+                *ip_out = dns_answer_ip;
+                dns_waiting = false;
+                return 0;
+            }
+            if (dns_response_done) {
+                break;
+            }
+            (void)e1000_poll(32, false);
+            scheduler_yield();
+        }
+        dns_waiting = false;
     }
-    dns_waiting = false;
     return -1;
 }
 
 void net_print_status(void) {
     uint64_t pending = 0;
+    uint64_t tcp_count = 0;
+    uint64_t tcp_time_wait_count = 0;
     for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
         if (pending_requests[i].used) {
             pending++;
+        }
+    }
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state != TCP_STATE_EMPTY) {
+            tcp_count++;
+            if (tcp_connections[i].state == TCP_STATE_TIME_WAIT) {
+                tcp_time_wait_count++;
+            }
         }
     }
 
@@ -1517,7 +2282,7 @@ void net_print_status(void) {
         }
     }
 
-    console_printf("net: stack=%s worker=%s ip=%u.%u.%u.%u dhcp=%s listeners=%u rx=%u tx=%u arp=%u ipv4=%u icmp=%u tcp=%u queued=%u accepted=%u done=%u\n",
+    console_printf("net: stack=%s worker=%s ip=%u.%u.%u.%u dhcp=%s listeners=%u rx=%u tx=%u arp=%u ipv4=%u icmp=%u tcp=%u udp=%u queued=%u accepted=%u done=%u\n",
         initialized ? "ready" : "down",
         worker_started ? "on" : "off",
         local_ip_bytes[0],
@@ -1532,6 +2297,7 @@ void net_print_status(void) {
         ipv4_packets,
         icmp_packets,
         tcp_packets,
+        udp_packets,
         pending,
         accepted_requests,
         completed_requests);
@@ -1551,6 +2317,294 @@ void net_print_status(void) {
         dhcp_router_ip_bytes[1],
         dhcp_router_ip_bytes[2],
         dhcp_router_ip_bytes[3]);
+    console_printf("net: tcp slots=%u/%u time_wait=%u full=%u time_wait_reaped=%u close_timeout=%ut time_wait_timeout=%ut\n",
+        tcp_count,
+        TCP_MAX_CONNECTIONS,
+        tcp_time_wait_count,
+        tcp_table_full_drops,
+        tcp_time_wait_reaped,
+        TCP_CLOSE_TIMEOUT_TICKS,
+        TCP_TIME_WAIT_TICKS);
+}
+
+static const char *tcp_state_name(uint8_t state) {
+    switch (state) {
+    case TCP_STATE_SYN_RECEIVED:
+        return "SYN-RECV";
+    case TCP_STATE_ESTABLISHED:
+        return "ESTABLISHED";
+    case TCP_STATE_SYN_SENT:
+        return "SYN-SENT";
+    case TCP_STATE_FIN_WAIT_1:
+        return "FIN-WAIT-1";
+    case TCP_STATE_FIN_WAIT_2:
+        return "FIN-WAIT-2";
+    case TCP_STATE_CLOSE_WAIT:
+        return "CLOSE-WAIT";
+    case TCP_STATE_LAST_ACK:
+        return "LAST-ACK";
+    case TCP_STATE_TIME_WAIT:
+        return "TIME-WAIT";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static void copy_state_name(char *destination, uint64_t capacity, const char *source) {
+    uint64_t i = 0;
+    if (capacity == 0) {
+        return;
+    }
+    while (source != 0 && source[i] != '\0' && i + 1 < capacity) {
+        destination[i] = source[i];
+        i++;
+    }
+    destination[i] = '\0';
+}
+
+static uint64_t listener_pending_count(uint16_t port) {
+    uint64_t count = 0;
+    for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
+        if (pending_requests[i].used && pending_requests[i].port == port) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static uint8_t tcp_net_flags(const struct tcp_connection *connection) {
+    uint8_t flags = 0;
+    if (connection->pending) {
+        flags |= SRV_NET_FLAG_PENDING;
+    }
+    if (connection->accepted) {
+        flags |= SRV_NET_FLAG_ACCEPTED;
+    }
+    if (connection->outbound) {
+        flags |= SRV_NET_FLAG_OUTBOUND;
+    }
+    if (connection->peer_closed) {
+        flags |= SRV_NET_FLAG_PEER_CLOSED;
+    }
+    if (connection->local_read_closed) {
+        flags |= SRV_NET_FLAG_READ_CLOSED;
+    }
+    if (connection->local_write_closed) {
+        flags |= SRV_NET_FLAG_WRITE_CLOSED;
+    }
+    if (connection->fin_pending) {
+        flags |= SRV_NET_FLAG_FIN_PENDING;
+    }
+    if (connection->reset) {
+        flags |= SRV_NET_FLAG_RESET;
+    }
+    return flags;
+}
+
+int64_t net_list(uint64_t index, struct srv_net_info *info) {
+    if (info == 0) {
+        return -1;
+    }
+
+    uint64_t total = NET_LISTENERS + TCP_MAX_CONNECTIONS + UDP_MAX_SOCKETS;
+    for (uint64_t slot = index; slot < total; slot++) {
+        clear_bytes((uint8_t *)info, sizeof(*info));
+        info->abi_version = SRV_NET_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+        if (slot < NET_LISTENERS) {
+            const struct net_listener *listener = &listeners[slot];
+            if (!listener->used) {
+                continue;
+            }
+            info->kind = SRV_NET_KIND_TCP_LISTENER;
+            info->id = listener->id;
+            info->pid = listener->owner != 0 ? process_pid(listener->owner) : 0;
+            info->rx_queued = listener_pending_count(listener->port);
+            info->rx_capacity = NET_PENDING_REQUESTS;
+            info->local_ip = local_ip;
+            info->local_port = listener->port;
+            copy_state_name(info->state_name, sizeof(info->state_name), "LISTEN");
+            return (int64_t)(slot + 1);
+        }
+
+        uint64_t tcp_slot = slot - NET_LISTENERS;
+        if (tcp_slot < TCP_MAX_CONNECTIONS) {
+            const struct tcp_connection *connection = &tcp_connections[tcp_slot];
+            if (connection->state == TCP_STATE_EMPTY) {
+                continue;
+            }
+            info->kind = SRV_NET_KIND_TCP_CONNECTION;
+            info->id = connection->id;
+            info->pid = connection->owner != 0 ? process_pid(connection->owner) : 0;
+            info->state = connection->state;
+            info->rx_queued = connection->rx_length >= connection->rx_offset ?
+                connection->rx_length - connection->rx_offset :
+                0;
+            info->rx_capacity = connection->rx_capacity;
+            info->tx_outstanding = tcp_tx_outstanding_bytes(connection);
+            info->tx_available = tcp_tx_available_payload(connection);
+            info->close_deadline = connection->close_deadline;
+            info->last_activity_tick = connection->last_activity_tick;
+            info->local_ip = local_ip;
+            info->remote_ip = connection->remote_ip;
+            info->local_port = connection->local_port;
+            info->remote_port = connection->remote_port;
+            info->peer_window = connection->peer_window;
+            info->error = connection->error;
+            info->flags = tcp_net_flags(connection);
+            copy_state_name(info->state_name, sizeof(info->state_name), tcp_state_name(connection->state));
+            return (int64_t)(slot + 1);
+        }
+
+        uint64_t udp_slot = tcp_slot - TCP_MAX_CONNECTIONS;
+        const struct udp_socket *socket = &udp_sockets[udp_slot];
+        if (!socket->used) {
+            continue;
+        }
+        info->kind = SRV_NET_KIND_UDP_SOCKET;
+        info->id = socket->id;
+        info->pid = socket->owner != 0 ? process_pid(socket->owner) : 0;
+        info->rx_queued = socket->count;
+        info->rx_capacity = UDP_RX_QUEUE;
+        info->local_ip = local_ip;
+        info->local_port = socket->local_port;
+        copy_state_name(info->state_name, sizeof(info->state_name), "OPEN");
+        return (int64_t)(slot + 1);
+    }
+
+    return 0;
+}
+
+int64_t net_status_info(struct srv_net_status_info *info) {
+    if (info == 0) {
+        return -1;
+    }
+
+    clear_bytes((uint8_t *)info, sizeof(*info));
+    info->abi_version = SRV_NET_ABI_VERSION;
+    info->struct_size = sizeof(*info);
+    info->initialized = initialized ? 1 : 0;
+    info->worker_started = worker_started ? 1 : 0;
+    info->dhcp_configured = dhcp_configured ? 1 : 0;
+    info->tcp_connection_capacity = TCP_MAX_CONNECTIONS;
+    info->tcp_table_full_drops = tcp_table_full_drops;
+    info->tcp_time_wait_reaped = tcp_time_wait_reaped;
+    info->tcp_close_timeout_ticks = TCP_CLOSE_TIMEOUT_TICKS;
+    info->tcp_time_wait_ticks = TCP_TIME_WAIT_TICKS;
+    info->local_ip = local_ip;
+    info->router_ip = read_be32(dhcp_router_ip_bytes);
+    info->dns_ip = read_be32(dhcp_dns_ip_bytes);
+    info->rx_frames = rx_frames;
+    info->tx_frames = tx_frames;
+    info->arp_packets = arp_packets;
+    info->ipv4_packets = ipv4_packets;
+    info->icmp_packets = icmp_packets;
+    info->tcp_packets = tcp_packets;
+    info->udp_packets = udp_packets;
+    info->http_requests = http_requests;
+    info->accepted_requests = accepted_requests;
+    info->completed_requests = completed_requests;
+    info->rx_worker_polls = rx_worker_polls;
+    info->rx_worker_empty_polls = rx_worker_empty_polls;
+    info->rx_worker_packets = rx_worker_packets;
+    info->rx_irq_wakeups = rx_irq_wakeups;
+    info->rx_recovery_wakeups = rx_recovery_wakeups;
+    info->rx_signal_generation = rx_signal_generation;
+    if (local_mac != 0) {
+        copy_bytes(info->local_mac, local_mac, sizeof(info->local_mac));
+    }
+    if (arp_resolved) {
+        info->arp_valid = 1;
+        info->arp_ip = arp_resolved_ip;
+        copy_bytes(info->arp_mac, arp_resolved_mac, sizeof(info->arp_mac));
+    } else {
+        for (uint64_t i = 0; i < ARP_CACHE_ENTRIES; i++) {
+            if (arp_cache[i].used) {
+                info->arp_valid = 1;
+                info->arp_ip = arp_cache[i].ip;
+                copy_bytes(info->arp_mac, arp_cache[i].mac, sizeof(info->arp_mac));
+                break;
+            }
+        }
+    }
+
+    for (uint64_t i = 0; i < NET_LISTENERS; i++) {
+        if (listeners[i].used) {
+            info->listener_count++;
+        }
+    }
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state != TCP_STATE_EMPTY) {
+            info->tcp_connection_count++;
+            if (tcp_connections[i].state == TCP_STATE_TIME_WAIT) {
+                info->tcp_time_wait_count++;
+            }
+        }
+    }
+    for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
+        if (udp_sockets[i].used) {
+            info->udp_socket_count++;
+        }
+    }
+    for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
+        if (pending_requests[i].used) {
+            info->pending_count++;
+        }
+    }
+    return 0;
+}
+
+int64_t net_arp_list(uint64_t index, struct srv_arp_info *info) {
+    if (info == 0) {
+        return -1;
+    }
+
+    for (uint64_t slot = index; slot < ARP_CACHE_ENTRIES; slot++) {
+        if (!arp_cache[slot].used) {
+            continue;
+        }
+        clear_bytes((uint8_t *)info, sizeof(*info));
+        info->abi_version = SRV_NET_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+        info->ip = arp_cache[slot].ip;
+        copy_bytes(info->mac, arp_cache[slot].mac, sizeof(info->mac));
+        info->updated_tick = arp_cache[slot].updated_tick;
+        return (int64_t)(slot + 1);
+    }
+    return 0;
+}
+
+int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, uint64_t *elapsed_ticks_out) {
+    if (!initialized || remote_ip == 0) {
+        return -1;
+    }
+    if (timeout_ticks == 0) {
+        timeout_ticks = 100;
+    }
+
+    icmp_ping_ip = remote_ip;
+    icmp_ping_sequence = sequence;
+    icmp_ping_start_tick = timer_ticks();
+    icmp_ping_reply = false;
+    icmp_ping_waiting = true;
+    if (!send_icmp_echo_request(remote_ip, sequence)) {
+        icmp_ping_waiting = false;
+        return -1;
+    }
+
+    while (timer_ticks() - icmp_ping_start_tick < timeout_ticks) {
+        if (icmp_ping_reply) {
+            if (elapsed_ticks_out != 0) {
+                *elapsed_ticks_out = timer_ticks() - icmp_ping_start_tick;
+            }
+            return 0;
+        }
+        (void)e1000_poll(32, false);
+        scheduler_yield();
+    }
+
+    icmp_ping_waiting = false;
+    return -1;
 }
 
 int64_t net_listen(uint16_t port) {
@@ -1812,6 +2866,59 @@ int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
     return 0;
 }
 
+int64_t net_shutdown(uint64_t handle, int how) {
+    if (!initialized || handle_type(handle) != NET_HANDLE_CONNECTION || how < 0 || how > 2) {
+        return -1;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0) {
+        return -1;
+    }
+
+    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    if (connection == 0 || !tcp_state_can_read(connection->state)) {
+        return -1;
+    }
+
+    if (how == 0 || how == 2) {
+        connection->local_read_closed = true;
+        connection->rx_offset = connection->rx_length;
+        scheduler_wake_all(&read_wait_queue);
+    }
+    if ((how == 1 || how == 2) && !connection->local_write_closed) {
+        if (!tcp_send_fin(connection)) {
+            return -1;
+        }
+    }
+
+    process_file_poll_wake();
+    return 0;
+}
+
+int64_t net_error(uint64_t handle) {
+    if (!initialized || handle_type(handle) != NET_HANDLE_CONNECTION) {
+        return -1;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0) {
+        return -1;
+    }
+
+    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    if (connection == 0) {
+        return -1;
+    }
+    if (connection->state == TCP_STATE_SYN_SENT) {
+        return SRV_NETERR_INPROGRESS;
+    }
+    if (connection->reset) {
+        return connection->error == SRV_NETERR_NONE ? SRV_NETERR_RESET : connection->error;
+    }
+    return SRV_NETERR_NONE;
+}
+
 struct connect_wait_arg {
     struct process *owner;
     uint64_t connection_id;
@@ -1873,9 +2980,16 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
         if (connection->state == TCP_STATE_ESTABLISHED) {
             return (int64_t)make_handle(NET_HANDLE_CONNECTION, connection_id);
         }
-        if (connection->reset || connection->peer_closed || timer_ticks() >= deadline) {
+        if (connection->reset || connection->peer_closed) {
+            int64_t result = connection->error == SRV_NETERR_NONE ?
+                -SRV_NETERR_RESET :
+                -(int64_t)connection->error;
             close_connection(connection);
-            return -1;
+            return result;
+        }
+        if (timer_ticks() >= deadline) {
+            close_connection(connection);
+            return -SRV_NETERR_TIMEDOUT;
         }
 
         e1000_poll(32, false);
@@ -1931,6 +3045,9 @@ int64_t net_accept(uint64_t listener_id,
                         buffer[j] = connection->rx_data[connection->rx_offset + j];
                     }
                     connection->rx_offset = copied;
+                    if (copied != 0) {
+                        (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+                    }
                 }
                 if (length_out != 0) {
                     *length_out = connection->rx_length - connection->rx_offset;
@@ -1976,8 +3093,11 @@ static bool read_ready(void *arg) {
 }
 
 int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
-    if (!initialized || buffer == 0 || length == 0) {
+    if (!initialized || (buffer == 0 && length != 0)) {
         return -1;
+    }
+    if (length == 0) {
+        return 0;
     }
     if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
         return -1;
@@ -2006,7 +3126,10 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
                 if (connection->reset) {
                     return -1;
                 }
-                if (connection->state != TCP_STATE_ESTABLISHED) {
+                if (connection->local_read_closed) {
+                    return 0;
+                }
+                if (!tcp_state_can_read(connection->state)) {
                     break;
                 }
                 uint64_t remaining = connection->rx_length - connection->rx_offset;
@@ -2016,6 +3139,7 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
                         buffer[j] = connection->rx_data[connection->rx_offset + j];
                     }
                     connection->rx_offset += copied;
+                    (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
                     return (int64_t)copied;
                 }
 
@@ -2039,9 +3163,37 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
     }
 }
 
-int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length) {
-    if (!initialized || buffer == 0 || length == 0 || length > 1400) {
+struct write_wait_arg {
+    struct process *owner;
+    uint64_t connection_id;
+};
+
+static bool write_ready(void *arg) {
+    struct write_wait_arg *wait = arg;
+    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+        return true;
+    }
+
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        struct tcp_connection *connection = &tcp_connections[i];
+        if (connection->state != TCP_STATE_EMPTY &&
+            connection->id == wait->connection_id &&
+            connection->owner == wait->owner) {
+            return connection->reset ||
+                connection->local_write_closed ||
+                !tcp_state_can_write(connection->state) ||
+                tcp_tx_available_payload(connection) != 0;
+        }
+    }
+    return true;
+}
+
+int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock) {
+    if (!initialized || (buffer == 0 && length != 0)) {
         return -1;
+    }
+    if (length == 0) {
+        return 0;
     }
     if (handle_type(connection_id) != NET_HANDLE_CONNECTION) {
         return -1;
@@ -2053,18 +3205,65 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length)
     }
 
     uint64_t value = handle_value(connection_id);
-    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
-        struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state == TCP_STATE_ESTABLISHED && connection->id == value && connection->owner == owner) {
-            bool sent = send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH, (const uint8_t *)buffer, (uint16_t)length);
-            if (!sent) {
-                return -1;
+    uint64_t sent = 0;
+    struct write_wait_arg wait = {
+        .owner = owner,
+        .connection_id = value,
+    };
+    for (;;) {
+        if (process_should_exit_current()) {
+            return sent == 0 ? -1 : (int64_t)sent;
+        }
+
+        bool found = false;
+        for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+            struct tcp_connection *connection = &tcp_connections[i];
+            if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
+                found = true;
+                if (!tcp_state_can_write(connection->state) ||
+                    connection->local_write_closed ||
+                    connection->reset) {
+                    return sent == 0 ? -1 : (int64_t)sent;
+                }
+
+                uint16_t available = tcp_tx_available_payload(connection);
+                if (available == 0) {
+                    break;
+                }
+
+                uint64_t remaining = length - sent;
+                uint16_t chunk = remaining > available ? available : (uint16_t)remaining;
+                if (!send_tcp_segment(connection,
+                    connection->local_port,
+                    TCP_ACK | TCP_PSH,
+                    (const uint8_t *)buffer + sent,
+                    chunk)) {
+                    return sent == 0 ? -1 : (int64_t)sent;
+                }
+                sent += chunk;
+                e1000_poll(16, false);
+                scheduler_yield();
+                if (sent == length) {
+                    return (int64_t)sent;
+                }
+                break;
             }
-            return (int64_t)length;
+        }
+        if (!found) {
+            return sent == 0 ? -1 : (int64_t)sent;
+        }
+        if (sent != 0) {
+            return (int64_t)sent;
+        }
+
+        e1000_poll(32, false);
+        if (nonblock) {
+            return SRV_ERR_AGAIN;
+        }
+        if (!scheduler_wait(&write_wait_queue, write_ready, &wait)) {
+            scheduler_yield();
         }
     }
-
-    return -1;
 }
 
 uint16_t net_poll_events(uint64_t handle, uint16_t events) {
@@ -2110,13 +3309,16 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
 
             uint16_t revents = 0;
             if ((events & SRV_POLLIN) != 0 &&
-                (connection->rx_length != connection->rx_offset || connection->peer_closed)) {
+                (connection->rx_length != connection->rx_offset ||
+                    connection->peer_closed ||
+                    connection->local_read_closed)) {
                 revents |= SRV_POLLIN;
             }
             if ((events & SRV_POLLOUT) != 0 &&
-                connection->state == TCP_STATE_ESTABLISHED &&
-                !connection->peer_closed &&
-                !connection->reset) {
+                tcp_state_can_write(connection->state) &&
+                !connection->local_write_closed &&
+                !connection->reset &&
+                tcp_tx_available_payload(connection) != 0) {
                 revents |= SRV_POLLOUT;
             }
             if (connection->reset) {
@@ -2164,11 +3366,16 @@ int64_t net_close(uint64_t handle) {
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
             if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
-                if (connection->state == TCP_STATE_ESTABLISHED && !connection->peer_closed && !connection->reset) {
-                    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0);
+                if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
+                    close_connection(connection);
+                } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
+                    if (!tcp_send_fin(connection)) {
+                        close_connection(connection);
+                    }
+                } else if (tcp_state_closing(connection->state) && connection->close_deadline == 0) {
+                    connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
                 }
                 completed_requests++;
-                close_connection(connection);
                 return 0;
             }
         }

@@ -66,9 +66,9 @@ static uint64_t clamp_add(uint64_t value, int32_t delta, uint64_t min, uint64_t 
 }
 
 int main(void) {
-    struct conio_info term = { 0, 0 };
-    struct gfx_info gfx = { 0, 0, 0 };
-    struct mouse_event mouse = { 0, 0, 0, 0, 0 };
+    struct conio_info term = {0};
+    struct gfx_info gfx = {0};
+    struct mouse_event mouse = {0};
     uint64_t x = 80;
     uint64_t y = 150;
     uint64_t mouse_x = 220;

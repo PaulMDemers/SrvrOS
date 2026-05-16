@@ -14,6 +14,16 @@
 #define SOL_SOCKET 1
 #define SO_REUSEADDR 2
 #define SO_ERROR 4
+#define SO_TYPE 3
+#define SO_ACCEPTCONN 30
+#define SO_RCVBUF 8
+#define SO_SNDBUF 7
+#define SO_KEEPALIVE 9
+#define SO_LINGER 13
+
+#define MSG_PEEK 0x02
+#define MSG_DONTWAIT 0x40
+#define MSG_NOSIGNAL 0x4000
 
 #define SHUT_RD 0
 #define SHUT_WR 1
@@ -24,6 +34,11 @@ typedef uint16_t sa_family_t;
 struct sockaddr {
     sa_family_t sa_family;
     char sa_data[14];
+};
+
+struct linger {
+    int l_onoff;
+    int l_linger;
 };
 
 int socket(int domain, int type, int protocol);

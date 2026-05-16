@@ -15,6 +15,10 @@ int gotoxy(uint64_t x, uint64_t y) {
 }
 
 int conio_info(struct conio_info *info) {
+    if (info != 0) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
     return (int)srv_syscall1(SYS_CONSOLE_INFO, (long)info);
 }
 

@@ -4,6 +4,8 @@
 #include <stdint.h>
 
 struct gfx_info {
+    uint64_t abi_version;
+    uint64_t struct_size;
     uint64_t width;
     uint64_t height;
     uint64_t pitch;
