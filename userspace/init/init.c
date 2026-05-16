@@ -10,8 +10,13 @@
 #define SYS_SPAWN 7
 #define SYS_FS_WRITE 10
 #define SYS_SPAWN_ARGS 24
+#define SYS_OPEN_MODE 33
 #define SYS_WAIT 34
 #define SYS_SLEEP_TICKS 43
+#define SYS_SPAWN_BG_ARGS_FDS 49
+#define SRV_OPEN_WRITE 0x02
+#define SRV_OPEN_CREATE 0x04
+#define SRV_OPEN_APPEND 0x10
 #define SRV_WAIT_NOHANG 0x01
 
 #define STDIN 0
@@ -20,6 +25,7 @@
 #define PATH_MAX 160
 #define CHILD_NAME_MAX 64
 #define CHILDREN_MAX 64
+#define INIT_LOG "/fat/var/log/init.log"
 
 static const char *path_entries[] = {
     "/fat/bin",
@@ -160,6 +166,10 @@ static char *trim(char *line) {
 
 static void write_buf(const char *buffer, size_t length) {
     syscall3(SYS_WRITE, STDOUT, (long)buffer, (long)length);
+}
+
+static void write_fd_text(int fd, const char *text) {
+    syscall3(SYS_WRITE, fd, (long)text, (long)strlen(text));
 }
 
 static void write_text(const char *text) {
@@ -367,16 +377,51 @@ static long spawn_path(const char *path) {
     return syscall1(SYS_SPAWN, (long)path);
 }
 
-static long spawn_args(const char *path, const char *args) {
-    return syscall2(SYS_SPAWN_ARGS, (long)path, (long)args);
+static long spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int stdout_fd) {
+    return syscall4(SYS_SPAWN_BG_ARGS_FDS, (long)path, (long)args, stdin_fd, stdout_fd);
 }
 
 static long wait_nohang(uint64_t *status) {
     return syscall3(SYS_WAIT, 0, (long)status, SRV_WAIT_NOHANG);
 }
 
+static long wait_pid(uint64_t pid, uint64_t *status) {
+    return syscall3(SYS_WAIT, (long)pid, (long)status, 0);
+}
+
 static void sleep_ticks(uint64_t ticks) {
     syscall1(SYS_SLEEP_TICKS, (long)ticks);
+}
+
+static int open_init_log(void) {
+    return (int)syscall2(SYS_OPEN_MODE, (long)INIT_LOG, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_APPEND);
+}
+
+static void write_fd_u64(int fd, uint64_t value) {
+    char digits[21];
+    uint64_t count = 0;
+    if (value == 0) {
+        write_fd_text(fd, "0");
+        return;
+    }
+    while (value > 0 && count < sizeof(digits)) {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+    while (count > 0) {
+        syscall3(SYS_WRITE, fd, (long)&digits[--count], 1);
+    }
+}
+
+static void log_init_status(uint64_t status) {
+    int fd = open_init_log();
+    if (fd < 0) {
+        return;
+    }
+    write_fd_text(fd, "init: /fat/etc/init.sh status ");
+    write_fd_u64(fd, status);
+    write_fd_text(fd, "\n");
+    syscall1(SYS_CLOSE, fd);
 }
 
 static void print_exit_status(long status) {
@@ -486,14 +531,24 @@ static void run_command(char *line) {
 }
 
 static int system_main(void) {
-    write_text("init: system init starting\n");
-    long status = spawn_args("/fat/bin/sh", "/fat/etc/init.sh");
-    if (status < 0) {
-        write_text("init: /fat/etc/init.sh failed\n");
+    int log_fd = open_init_log();
+    uint64_t status = 0;
+    long pid = -1;
+    if (log_fd >= 0) {
+        write_fd_text(log_fd, "init: system init starting\n");
+    }
+    pid = spawn_bg_args_fds("/fat/bin/sh", "/fat/etc/init.sh", -1, log_fd);
+    if (log_fd >= 0) {
+        syscall1(SYS_CLOSE, log_fd);
+        log_fd = -1;
+    }
+    if (pid < 0) {
+        log_init_status(1);
+        write_text("init: startup failed\n");
     } else {
-        write_text("init: /fat/etc/init.sh status ");
-        print_u64((uint64_t)status);
-        write_text("\n");
+        long waited = wait_pid((uint64_t)pid, &status);
+        log_init_status(waited > 0 ? status : 1);
+        write_text("init: startup complete\n");
     }
 
     for (;;) {

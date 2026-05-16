@@ -1563,7 +1563,7 @@ static bool process_configure_stdio_fds(struct process *child,
     return true;
 }
 
-int64_t process_spawn_background_elf_args(const char *path, const char *args) {
+static int64_t process_spawn_background_elf_args_quiet_flag(const char *path, const char *args, bool quiet) {
     if (path == NULL || path[0] == '\0') {
         return -1;
     }
@@ -1586,6 +1586,7 @@ int64_t process_spawn_background_elf_args(const char *path, const char *args) {
     }
 
     uint64_t pid = process->pid;
+    process->quiet = quiet;
     if (!scheduler_spawn("user", background_process_thread, process)) {
         cleanup_process_address_space(process);
         release_process(process);
@@ -1593,6 +1594,14 @@ int64_t process_spawn_background_elf_args(const char *path, const char *args) {
     }
 
     return (int64_t)pid;
+}
+
+int64_t process_spawn_background_elf_args(const char *path, const char *args) {
+    return process_spawn_background_elf_args_quiet_flag(path, args, false);
+}
+
+int64_t process_spawn_background_elf_args_quiet(const char *path, const char *args) {
+    return process_spawn_background_elf_args_quiet_flag(path, args, true);
 }
 
 int64_t process_spawn_background_elf_args_fds(const char *path,

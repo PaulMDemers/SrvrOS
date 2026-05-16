@@ -223,11 +223,12 @@ curl http://127.0.0.1:8080/status.txt
 ```
 
 The kernel starts `/init --system` after device and filesystem setup. That
-system init runs `/fat/etc/init.sh` before the monitor prompt appears:
+system init runs `/fat/etc/init.sh`, writes startup output to
+`/fat/var/log/init.log`, and leaves only a concise boot line on the console:
 
 ```text
-init: system init starting
-init-script-ok
+init: started pid=1
+init: startup complete
 ```
 
 Generated exFAT images include `/fat/etc/services/webd.svc`; `service webd`
@@ -303,6 +304,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1

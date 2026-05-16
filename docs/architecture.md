@@ -237,7 +237,9 @@ The shell service manager reads `/fat/etc/services/*.svc` files and uses them
 to start, stop, restart, and inspect persistent userspace daemons. The generated
 exFAT image ships `/fat/etc/services/webd.svc`, and the kernel starts
 `/init --system` after mounts/network setup. System init runs
-`/fat/etc/init.sh`, which launches `svscan &`. `/fat/bin/svscan` continuously
+`/fat/etc/init.sh` through a quiet redirected shell and stores startup output
+in `/fat/var/log/init.log`; the monitor console receives only concise init
+status. The init script launches `svscan &`. `/fat/bin/svscan` continuously
 scans enabled service configs, starts missing daemons, and restarts configs
 marked `restart=always`, recording supervisor events in
 `/fat/var/log/svscan.log`. Service stdout is redirected to live append logs

@@ -299,7 +299,7 @@ void kmain(void) {
     print_memmap();
 
     console_write("srvros: kernel bootstrap complete\n");
-    int64_t init_pid = process_spawn_background_elf_args("/init", "--system");
+    int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
         (void)timer_wait_ticks_bounded(20, 100000000);

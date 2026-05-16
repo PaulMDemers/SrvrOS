@@ -33,6 +33,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
 python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
@@ -144,11 +145,13 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
-- `web_smoke.py`: kernel-started `/init --system`, boot-owned `svscan` service startup,
-  `service disable`, stopped-service persistence, `service enable`, restart of
-  `webd`, `service list`, `service log`, `service tail`, live
-  `/fat/var/log/svscan.log` and `/fat/var/log/webd.log` output, `netstat`
-  listener visibility,
+- `service_smoke.py`: kernel-started `/init --system`, `/fat/var/log/init.log`,
+  boot-owned `svscan` service startup, `service disable`, stopped-service
+  persistence, explicit `service reload`, `service enable`, restart of `webd`,
+  and live `/fat/var/log/svscan.log` output.
+- `web_smoke.py`: boot-owned `webd` startup, `service list`, `service log`,
+  `service tail`, live `/fat/var/log/init.log`, `/fat/var/log/svscan.log`, and
+  `/fat/var/log/webd.log` output, `netstat` listener visibility,
   `ifconfig` interface visibility, host HTTP fetch through QEMU user
   networking, nested CSS asset fetch, `Content-Length`, bodyless `HEAD`,
   404/405 responses, and a slow partial client while another request completes
