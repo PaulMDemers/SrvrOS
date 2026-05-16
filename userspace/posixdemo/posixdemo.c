@@ -683,6 +683,59 @@ int main(void) {
         say("posixdemo: spawn redirect read failed\n");
         return 43;
     }
+    fd = open("/fat/posixdemo/spawn-fd.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0 || write(fd, "x", 1) != 1 || close(fd) < 0) {
+        say("posixdemo: spawn fd file setup failed\n");
+        return 43;
+    }
+    char *fdprobe_open_argv[] = {"/fat/bin/fdprobe", "open", 0};
+    char *fdprobe_closed_argv[] = {"/fat/bin/fdprobe", "closed", 0};
+    if (posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_addopen(&actions,
+            3,
+            "/fat/posixdemo/spawn-fd.txt",
+            O_RDONLY,
+            0) != 0 ||
+        posix_spawn(&child, "/fat/bin/fdprobe", &actions, 0, fdprobe_open_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn fd addopen failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    fd = open("/fat/posixdemo/spawn-fd.txt", O_RDONLY);
+    if (fd < 0 ||
+        posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_adddup2(&actions, fd, 3) != 0 ||
+        posix_spawn(&child, "/fat/bin/fdprobe", &actions, 0, fdprobe_open_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn fd dup2 failed\n");
+        if (fd >= 0) {
+            close(fd);
+        }
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    close(fd);
+    if (posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_addopen(&actions,
+            3,
+            "/fat/posixdemo/spawn-fd.txt",
+            O_RDONLY,
+            0) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, 3) != 0 ||
+        posix_spawn(&child, "/fat/bin/fdprobe", &actions, 0, fdprobe_closed_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn fd close failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    unlink("/fat/posixdemo/spawn-fd.txt");
     fd = open("/fat/posixdemo/spawn-input.txt", O_WRONLY | O_CREAT | O_TRUNC);
     if (fd < 0 ||
         write(fd, "opened-stdin\n", 13) != 13 ||

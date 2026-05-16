@@ -37,6 +37,13 @@ struct process_file {
     char path[160];
 };
 
+struct process_spawn_file_action {
+    uint32_t type;
+    int32_t reserved;
+    int64_t fd;
+    int64_t new_fd;
+};
+
 struct process;
 struct scheduler_wait_queue;
 
@@ -58,7 +65,9 @@ int64_t process_spawn_exec(const char *path,
     int64_t stdout_fd,
     int64_t stderr_fd,
     uint64_t process_group,
-    bool foreground);
+    bool foreground,
+    const struct process_spawn_file_action *file_actions,
+    uint64_t file_action_count);
 int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,

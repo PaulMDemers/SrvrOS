@@ -49,6 +49,8 @@ struct srv_pollfd {
     int16_t revents;
 };
 
+struct srv_spawn_file_action;
+
 struct srv_exec_request {
     const char *path;
     char *const *argv;
@@ -59,6 +61,15 @@ struct srv_exec_request {
     int64_t stderr_fd;
     uint64_t process_group;
     uint64_t foreground;
+    const struct srv_spawn_file_action *file_actions;
+    uint64_t file_action_count;
+};
+
+struct srv_spawn_file_action {
+    uint32_t type;
+    int32_t reserved;
+    int64_t fd;
+    int64_t new_fd;
 };
 
 long srv_syscall0(long number);

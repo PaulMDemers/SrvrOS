@@ -7,6 +7,16 @@
 #define POSIX_SPAWN_SETPGROUP 0x02
 #define POSIX_SPAWN_SETSIGDEF 0x04
 #define POSIX_SPAWN_SETSIGMASK 0x08
+#define POSIX_SPAWN_FILE_ACTIONS_MAX 8
+
+typedef struct {
+    int type;
+    int fd;
+    int newfd;
+    int oflag;
+    mode_t mode;
+    char path[160];
+} posix_spawn_file_action_t;
 
 typedef struct {
     int stdin_fd;
@@ -24,6 +34,8 @@ typedef struct {
     char stdin_path[160];
     char stdout_path[160];
     char stderr_path[160];
+    size_t action_count;
+    posix_spawn_file_action_t actions[POSIX_SPAWN_FILE_ACTIONS_MAX];
 } posix_spawn_file_actions_t;
 
 typedef struct {

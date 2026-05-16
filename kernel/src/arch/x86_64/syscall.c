@@ -93,6 +93,8 @@ struct syscall_exec_request {
     int64_t stderr_fd;
     uint64_t process_group;
     uint64_t foreground;
+    const struct process_spawn_file_action *file_actions;
+    uint64_t file_action_count;
 };
 
 static struct srv_termios console_termios = {
@@ -615,6 +617,7 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
     char env_storage[MAX_EXEC_ENV][MAX_EXEC_STRING];
     const char *argv[MAX_EXEC_ARGS];
     const char *envp[MAX_EXEC_ENV];
+    struct process_spawn_file_action file_actions[SRV_SPAWN_FILE_ACTION_MAX];
     uint64_t argc = 0;
     uint64_t envc = 0;
     uint64_t flags;
@@ -624,6 +627,15 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
         !copy_user_string(request.path, path, sizeof(path)) ||
         !copy_user_string_vector(request.argv, argv_storage, argv, MAX_EXEC_ARGS, &argc) ||
         !copy_user_string_vector(request.envp, env_storage, envp, MAX_EXEC_ENV, &envc)) {
+        return -1;
+    }
+    if (request.file_action_count > SRV_SPAWN_FILE_ACTION_MAX) {
+        return -1;
+    }
+    if (request.file_action_count != 0 &&
+        !copy_from_user(file_actions,
+            request.file_actions,
+            request.file_action_count * sizeof(file_actions[0]))) {
         return -1;
     }
     if (argc == 0) {
@@ -651,7 +663,9 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             request.stdout_fd,
             request.stderr_fd,
             request.process_group,
-            request.foreground != 0);
+            request.foreground != 0,
+            request.file_action_count != 0 ? file_actions : NULL,
+            request.file_action_count);
     }
     irq_restore(flags);
     process_refresh_mappings(process_current());

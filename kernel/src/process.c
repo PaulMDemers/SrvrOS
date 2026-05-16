@@ -208,6 +208,10 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stdout_fd,
     int64_t stderr_fd);
 static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
+static bool process_apply_spawn_file_actions(struct process *child,
+    struct process *parent,
+    const struct process_spawn_file_action *actions,
+    uint64_t action_count);
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
     if (destination == NULL || capacity == 0 || source == NULL || source[0] == '\0') {
@@ -1048,7 +1052,9 @@ int64_t process_spawn_exec(const char *path,
     int64_t stdout_fd,
     int64_t stderr_fd,
     uint64_t process_group,
-    bool foreground) {
+    bool foreground,
+    const struct process_spawn_file_action *file_actions,
+    uint64_t file_action_count) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
         return -1;
@@ -1065,7 +1071,8 @@ int64_t process_spawn_exec(const char *path,
 
     if (!load_elf_image(path, child, USER_STACK_TOP, &child->entry) ||
         !setup_process_vectors(child, argc, argv, envc, envp) ||
-        !process_configure_stdio_fds(child, parent, stdin_fd, stdout_fd, stderr_fd)) {
+        !process_configure_stdio_fds(child, parent, stdin_fd, stdout_fd, stderr_fd) ||
+        !process_apply_spawn_file_actions(child, parent, file_actions, file_action_count)) {
         cleanup_process_address_space(child);
         cleanup_process_files(child);
         release_process(child);
@@ -1322,6 +1329,102 @@ static int64_t process_clone_fd_from(struct process *target, struct process *sou
         }
     }
     return -1;
+}
+
+static struct process_file *process_fd_source(struct process *process,
+    int64_t fd,
+    struct process_file *stdio_source,
+    bool resolve_stdio_redirect) {
+    if (process == NULL || fd < 0) {
+        return NULL;
+    }
+    if (resolve_stdio_redirect && fd < 3) {
+        if (fd == 0 && process->stdin_redirect) {
+            fd = process->stdin_fd;
+        } else if (fd == 1 && process->stdout_redirect) {
+            fd = process->stdout_fd;
+        } else if (fd == 2 && process->stderr_redirect) {
+            fd = process->stderr_fd;
+        }
+    }
+    if (fd < 0) {
+        return NULL;
+    }
+    if (fd < 3) {
+        uint8_t *bytes = (uint8_t *)stdio_source;
+        for (uint64_t i = 0; i < sizeof(*stdio_source); i++) {
+            bytes[i] = 0;
+        }
+        stdio_source->used = true;
+        stdio_source->type = PROCESS_FILE_STDIO;
+        stdio_source->handle = (uint64_t)fd;
+        return stdio_source;
+    }
+    return process_file_at(process, (uint64_t)fd);
+}
+
+static bool process_spawn_dup2_action(struct process *child,
+    struct process *parent,
+    int64_t old_fd,
+    int64_t new_fd) {
+    if (child == NULL ||
+        parent == NULL ||
+        old_fd < 0 ||
+        new_fd < 3 ||
+        new_fd >= 3 + PROCESS_MAX_OPEN_FILES) {
+        return false;
+    }
+    if (old_fd == new_fd && process_file_at(child, (uint64_t)new_fd) != NULL) {
+        return true;
+    }
+
+    struct process_file parent_stdio;
+    struct process_file *source = old_fd >= 3 ? process_file_at(child, (uint64_t)old_fd) : NULL;
+    if (source == NULL) {
+        source = process_fd_source(parent, old_fd, &parent_stdio, true);
+    }
+    if (source == NULL) {
+        return false;
+    }
+
+    struct process_file source_copy = *source;
+    uint64_t target_index = (uint64_t)new_fd - 3;
+    if (child->files[target_index].used && process_file_close(child, (uint64_t)new_fd) < 0) {
+        return false;
+    }
+    return process_file_dup_into(child, &source_copy, target_index) == new_fd;
+}
+
+static bool process_apply_spawn_file_actions(struct process *child,
+    struct process *parent,
+    const struct process_spawn_file_action *actions,
+    uint64_t action_count) {
+    if (action_count == 0) {
+        return true;
+    }
+    if (child == NULL ||
+        parent == NULL ||
+        actions == NULL ||
+        action_count > SRV_SPAWN_FILE_ACTION_MAX) {
+        return false;
+    }
+    for (uint64_t i = 0; i < action_count; i++) {
+        const struct process_spawn_file_action *action = &actions[i];
+        if (action->type == SRV_SPAWN_FILE_ACTION_CLOSE) {
+            if (action->fd >= 3 && action->fd < 3 + PROCESS_MAX_OPEN_FILES &&
+                process_file_at(child, (uint64_t)action->fd) != NULL &&
+                process_file_close(child, (uint64_t)action->fd) < 0) {
+                return false;
+            }
+        } else if (action->type == SRV_SPAWN_FILE_ACTION_DUP2) {
+            if (!process_spawn_dup2_action(child, parent, action->fd, action->new_fd)) {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+    return true;
 }
 
 static bool process_inherit_stdio_redirect(struct process *child,

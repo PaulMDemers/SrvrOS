@@ -26,6 +26,19 @@ static int make_exec_path(const char *path, char *out, size_t capacity) {
     return 0;
 }
 
+static void close_spawn_opened(int opened[3], int opened_actions[POSIX_SPAWN_FILE_ACTIONS_MAX]) {
+    for (int i = 0; i < 3; i++) {
+        if (opened[i] >= 0) {
+            close(opened[i]);
+        }
+    }
+    for (size_t i = 0; i < POSIX_SPAWN_FILE_ACTIONS_MAX; i++) {
+        if (opened_actions[i] >= 0) {
+            close(opened_actions[i]);
+        }
+    }
+}
+
 static int spawn_path(pid_t *pid,
     const char *path,
     const posix_spawn_file_actions_t *file_actions,
@@ -42,6 +55,12 @@ static int spawn_path(pid_t *pid,
     int stdout_fd = file_actions != 0 ? file_actions->stdout_fd : -1;
     int stderr_fd = file_actions != 0 ? file_actions->stderr_fd : -1;
     int opened[3] = {-1, -1, -1};
+    int opened_actions[POSIX_SPAWN_FILE_ACTIONS_MAX];
+    struct srv_spawn_file_action srv_actions[POSIX_SPAWN_FILE_ACTIONS_MAX];
+    uint64_t srv_action_count = 0;
+    for (size_t i = 0; i < POSIX_SPAWN_FILE_ACTIONS_MAX; i++) {
+        opened_actions[i] = -1;
+    }
     if (file_actions != 0) {
         int actions[3] = {file_actions->stdin_action, file_actions->stdout_action, file_actions->stderr_action};
         int oflags[3] = {file_actions->stdin_oflag, file_actions->stdout_oflag, file_actions->stderr_oflag};
@@ -55,14 +74,46 @@ static int spawn_path(pid_t *pid,
                 opened[i] = open(paths[i], oflags[i], modes[i]);
                 if (opened[i] < 0) {
                     int saved = errno != 0 ? errno : EIO;
-                    for (int j = 0; j < 3; j++) {
-                        if (opened[j] >= 0) {
-                            close(opened[j]);
-                        }
-                    }
+                    close_spawn_opened(opened, opened_actions);
                     return saved;
                 }
                 *fds[i] = opened[i];
+            }
+        }
+        for (size_t i = 0; i < file_actions->action_count; i++) {
+            const posix_spawn_file_action_t *action = &file_actions->actions[i];
+            if (srv_action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
+                close_spawn_opened(opened, opened_actions);
+                return ENOMEM;
+            }
+            if (action->type == SPAWN_ACTION_CLOSE) {
+                srv_actions[srv_action_count++] = (struct srv_spawn_file_action) {
+                    .type = SRV_SPAWN_FILE_ACTION_CLOSE,
+                    .fd = action->fd,
+                    .new_fd = -1,
+                };
+            } else if (action->type == SPAWN_ACTION_DUP2) {
+                srv_actions[srv_action_count++] = (struct srv_spawn_file_action) {
+                    .type = SRV_SPAWN_FILE_ACTION_DUP2,
+                    .fd = action->fd,
+                    .new_fd = action->newfd,
+                };
+            } else if (action->type == SPAWN_ACTION_OPEN) {
+                int fd = open(action->path, action->oflag, action->mode);
+                if (fd < 0) {
+                    int saved = errno != 0 ? errno : EIO;
+                    close_spawn_opened(opened, opened_actions);
+                    return saved;
+                }
+                opened_actions[i] = fd;
+                srv_actions[srv_action_count++] = (struct srv_spawn_file_action) {
+                    .type = SRV_SPAWN_FILE_ACTION_DUP2,
+                    .fd = fd,
+                    .new_fd = action->fd,
+                };
+            } else {
+                close_spawn_opened(opened, opened_actions);
+                return EINVAL;
             }
         }
     }
@@ -78,14 +129,12 @@ static int spawn_path(pid_t *pid,
         .process_group = attrp != 0 && (attrp->flags & POSIX_SPAWN_SETPGROUP) != 0 ?
             (attrp->pgroup == 0 ? SRV_EXEC_GROUP_SELF : (uint64_t)attrp->pgroup) :
             0,
+        .file_actions = srv_action_count != 0 ? srv_actions : 0,
+        .file_action_count = srv_action_count,
     };
     long result = srv_exec(&request);
     int saved_errno = errno;
-    for (int i = 0; i < 3; i++) {
-        if (opened[i] >= 0) {
-            close(opened[i]);
-        }
-    }
+    close_spawn_opened(opened, opened_actions);
     errno = saved_errno;
     if (result < 0) {
         return ENOENT;
@@ -179,6 +228,7 @@ int posix_spawn_file_actions_init(posix_spawn_file_actions_t *file_actions) {
     file_actions->stdin_path[0] = '\0';
     file_actions->stdout_path[0] = '\0';
     file_actions->stderr_path[0] = '\0';
+    file_actions->action_count = 0;
     return 0;
 }
 
@@ -210,7 +260,15 @@ int posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_action = SPAWN_ACTION_DUP2;
         return 0;
     }
-    return ENOSYS;
+    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
+        return ENOMEM;
+    }
+    file_actions->actions[file_actions->action_count++] = (posix_spawn_file_action_t) {
+        .type = SPAWN_ACTION_DUP2,
+        .fd = oldfd,
+        .newfd = newfd,
+    };
+    return 0;
 }
 
 int posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
@@ -233,7 +291,15 @@ int posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_fd = SPAWN_CLOSED_FD;
         return 0;
     }
-    return ENOSYS;
+    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
+        return ENOMEM;
+    }
+    file_actions->actions[file_actions->action_count++] = (posix_spawn_file_action_t) {
+        .type = SPAWN_ACTION_CLOSE,
+        .fd = fd,
+        .newfd = -1,
+    };
+    return 0;
 }
 
 static int spawn_action_store_open(char *destination,
@@ -288,7 +354,21 @@ int posix_spawn_file_actions_addopen(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_mode = mode;
         return 0;
     }
-    return ENOSYS;
+    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
+        return ENOMEM;
+    }
+    posix_spawn_file_action_t *action = &file_actions->actions[file_actions->action_count];
+    int error = spawn_action_store_open(action->path, sizeof(action->path), path);
+    if (error != 0) {
+        return error;
+    }
+    action->type = SPAWN_ACTION_OPEN;
+    action->fd = fd;
+    action->newfd = -1;
+    action->oflag = oflag;
+    action->mode = mode;
+    file_actions->action_count++;
+    return 0;
 }
 
 int posix_spawnattr_init(posix_spawnattr_t *attr) {

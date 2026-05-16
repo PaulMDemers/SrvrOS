@@ -263,6 +263,8 @@ kernel, and a minimal Unix-like userspace.
 - Add standard-fd `posix_spawn_file_actions_addopen` and
   `posix_spawn_file_actions_addclose` support alongside the existing spawn
   `dup2` remapping.
+- Add bounded ordered non-stdio spawn file actions for `dup2`, `open`, and
+  `close`.
 - Add first `posix_spawnattr` support with `POSIX_SPAWN_SETPGROUP` mapped to
   native process groups.
 - Add POSIX-style advisory byte-range locks through
@@ -366,8 +368,8 @@ kernel, and a minimal Unix-like userspace.
    metadata, and multi-worker web server designs.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-7. Continue the libc/newlib track: signal/reset-id spawn attributes and
-   non-stdio ordered file actions, terminal process groups/signals, `stdio`
+7. Continue the libc/newlib track: signal/reset-id spawn attributes, larger or
+   dynamic spawn file action lists, terminal process groups/signals, `stdio`
    update-mode edge cases, stronger sidecar recovery, and more fd-specific
    readiness queues as the descriptor model grows.
 8. Add kernel-supported graphics buffer allocation/mapping so full-screen
