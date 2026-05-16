@@ -22,6 +22,7 @@ Use the UCRT64 QEMU path if it is not already first in `PATH`:
 
 ```sh
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -74,6 +75,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.
+- `shell_edit_smoke.py`: interactive raw-mode shell editing over serial,
+  including Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations,
+  Ctrl-Y yank, mid-line insert, escape-sequence arrow navigation, and preserving
+  an in-progress draft while browsing history.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.

@@ -64,7 +64,9 @@ editor clients:
   `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
   job references, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
-  recovery, Ctrl-C foreground job and pipeline interruption with
+  recovery, raw-mode line editing with cursor movement, Ctrl-U/Ctrl-W kill,
+  Ctrl-Y yank, draft-preserving history navigation,
+  Ctrl-C foreground job and pipeline interruption with
   `128 + signal` statuses,
   canonical relative paths with `.`/`..`, tab completion for commands and
   filesystem paths, and Unix-like tools
@@ -269,6 +271,7 @@ The Python harnesses boot the built ISO in QEMU and drive the serial console:
 
 ```sh
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

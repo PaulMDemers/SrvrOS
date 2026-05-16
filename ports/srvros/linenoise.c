@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <termios.h>
 
 #include <srvros/conio.h>
 #include <srvros/sys.h>
@@ -91,7 +92,14 @@ int linenoiseHistorySetMaxLen(int len) {
 }
 
 int linenoiseHistoryAdd(const char *line) {
-    if (line == NULL || line[0] == '\0') {
+    const char *cursor = line;
+    if (line == NULL) {
+        return 0;
+    }
+    while (*cursor == ' ' || *cursor == '\t') {
+        cursor++;
+    }
+    if (*cursor == '\0') {
         return 0;
     }
     if (history_len > 0 && strcmp(history[history_len - 1], line) == 0) {
@@ -186,6 +194,13 @@ static int read_byte_scan(void) {
         }
         srv_yield();
     }
+    for (int spin = 0; spin < 4; spin++) {
+        srv_sleep_ticks(1);
+        int c = kbhit();
+        if (c != 0) {
+            return c;
+        }
+    }
     return -1;
 }
 
@@ -198,6 +213,17 @@ static void replace_buffer(char *buffer, size_t capacity, size_t *length, size_t
     buffer[source_length] = '\0';
     *length = source_length;
     *position = source_length;
+}
+
+static void save_kill(char *kill, size_t kill_capacity, const char *text, size_t length) {
+    if (kill_capacity == 0) {
+        return;
+    }
+    if (length >= kill_capacity) {
+        length = kill_capacity - 1;
+    }
+    memcpy(kill, text, length);
+    kill[length] = '\0';
 }
 
 static void delete_at(char *buffer, size_t *length, size_t position) {
@@ -218,12 +244,103 @@ static void insert_at(char *buffer, size_t capacity, size_t *length, size_t *pos
     (*position)++;
 }
 
+static void insert_text_at(char *buffer, size_t capacity, size_t *length, size_t *position, const char *text) {
+    while (*text != '\0' && *length + 1 < capacity) {
+        insert_at(buffer, capacity, length, position, *text++);
+    }
+}
+
+static void delete_previous_word(char *buffer,
+    size_t *length,
+    size_t *position,
+    char *kill,
+    size_t kill_capacity) {
+    size_t end = *position;
+    size_t start;
+    if (end == 0) {
+        return;
+    }
+    while (end > 0 && (buffer[end - 1] == ' ' || buffer[end - 1] == '\t')) {
+        end--;
+    }
+    start = end;
+    while (start > 0 && buffer[start - 1] != ' ' && buffer[start - 1] != '\t') {
+        start--;
+    }
+    save_kill(kill, kill_capacity, buffer + start, *position - start);
+    memmove(buffer + start, buffer + *position, *length - *position + 1);
+    *length -= *position - start;
+    *position = start;
+}
+
+static void history_prev(char *buffer,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    size_t *history_index,
+    char *draft,
+    int *draft_saved) {
+    if (history_len == 0 || *history_index == 0) {
+        return;
+    }
+    if (!*draft_saved && *history_index == history_len) {
+        replace_buffer(draft, capacity, length, position, buffer);
+        *draft_saved = 1;
+    }
+    (*history_index)--;
+    replace_buffer(buffer, capacity, length, position, history[*history_index]);
+}
+
+static void history_next(char *buffer,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    size_t *history_index,
+    char *draft,
+    int *draft_saved) {
+    if (*history_index >= history_len) {
+        return;
+    }
+    (*history_index)++;
+    if (*history_index < history_len) {
+        replace_buffer(buffer, capacity, length, position, history[*history_index]);
+        return;
+    }
+    replace_buffer(buffer, capacity, length, position, *draft_saved ? draft : "");
+}
+
 static int consume_escape(char *buffer,
     size_t capacity,
     size_t *length,
     size_t *position,
-    size_t *history_index) {
+    size_t *history_index,
+    char *draft,
+    int *draft_saved,
+    char *kill,
+    size_t kill_capacity) {
     int first = read_byte_scan();
+    if (first == 127 || first == '\b') {
+        delete_previous_word(buffer, length, position, kill, kill_capacity);
+        return 1;
+    }
+    if (first == 'b' || first == 'B') {
+        while (*position > 0 && (buffer[*position - 1] == ' ' || buffer[*position - 1] == '\t')) {
+            (*position)--;
+        }
+        while (*position > 0 && buffer[*position - 1] != ' ' && buffer[*position - 1] != '\t') {
+            (*position)--;
+        }
+        return 1;
+    }
+    if (first == 'f' || first == 'F') {
+        while (*position < *length && buffer[*position] != ' ' && buffer[*position] != '\t') {
+            (*position)++;
+        }
+        while (*position < *length && (buffer[*position] == ' ' || buffer[*position] == '\t')) {
+            (*position)++;
+        }
+        return 1;
+    }
     if (first != '[' && first != 'O') {
         return 0;
     }
@@ -232,21 +349,11 @@ static int consume_escape(char *buffer,
         return 0;
     }
     if (second == 'A') {
-        if (*history_index > 0) {
-            (*history_index)--;
-            replace_buffer(buffer, capacity, length, position, history[*history_index]);
-        }
+        history_prev(buffer, capacity, length, position, history_index, draft, draft_saved);
         return 1;
     }
     if (second == 'B') {
-        if (*history_index < history_len) {
-            (*history_index)++;
-        }
-        if (*history_index < history_len) {
-            replace_buffer(buffer, capacity, length, position, history[*history_index]);
-        } else {
-            replace_buffer(buffer, capacity, length, position, "");
-        }
+        history_next(buffer, capacity, length, position, history_index, draft, draft_saved);
         return 1;
     }
     if (second == 'C') {
@@ -269,6 +376,20 @@ static int consume_escape(char *buffer,
         *position = *length;
         return 1;
     }
+    if (second == '1' || second == '7') {
+        int tilde = read_byte_scan();
+        if (tilde == '~') {
+            *position = 0;
+            return 1;
+        }
+    }
+    if (second == '4' || second == '8') {
+        int tilde = read_byte_scan();
+        if (tilde == '~') {
+            *position = *length;
+            return 1;
+        }
+    }
     if (second == '3') {
         int tilde = read_byte_scan();
         if (tilde == '~') {
@@ -281,31 +402,58 @@ static int consume_escape(char *buffer,
 
 char *linenoise(const char *prompt) {
     char buffer[LINENOISE_MAX_LINE];
+    char draft[LINENOISE_MAX_LINE];
+    char kill[LINENOISE_MAX_LINE];
+    struct termios original_termios;
+    int raw_mode = 0;
     size_t length = 0;
     size_t position = 0;
     size_t rendered_length = 0;
     size_t history_index = history_len;
+    int draft_saved = 0;
     buffer[0] = '\0';
+    draft[0] = '\0';
+    kill[0] = '\0';
 
     if (prompt == NULL) {
         prompt = "";
+    }
+    if (tcgetattr(SRV_STDIN, &original_termios) == 0) {
+        struct termios raw = original_termios;
+        raw.c_lflag &= ~(ICANON | ECHO);
+        raw.c_cc[VMIN] = 1;
+        raw.c_cc[VTIME] = 0;
+        raw_mode = tcsetattr(SRV_STDIN, TCSANOW, &raw) == 0;
     }
     refresh_line(prompt, buffer, length, position, &rendered_length);
 
     for (;;) {
         int c = read_byte();
         if (c < 0) {
+            if (raw_mode) {
+                tcsetattr(SRV_STDIN, TCSANOW, &original_termios);
+            }
             return NULL;
         }
         if (c == '\n' || c == '\r') {
             ln_write("\n");
             buffer[length] = '\0';
+            if (raw_mode) {
+                tcsetattr(SRV_STDIN, TCSANOW, &original_termios);
+            }
             return ln_strdup(buffer);
         }
         if (c == 1) {
             position = 0;
+        } else if (c == 14) {
+            history_next(buffer, sizeof(buffer), &length, &position, &history_index, draft, &draft_saved);
+        } else if (c == 16) {
+            history_prev(buffer, sizeof(buffer), &length, &position, &history_index, draft, &draft_saved);
         } else if (c == 3) {
             ln_write("^C\n");
+            if (raw_mode) {
+                tcsetattr(SRV_STDIN, TCSANOW, &original_termios);
+            }
             return ln_strdup("");
         } else if (c == 5) {
             position = length;
@@ -319,19 +467,28 @@ char *linenoise(const char *prompt) {
             }
         } else if (c == 4) {
             if (length == 0) {
+                if (raw_mode) {
+                    tcsetattr(SRV_STDIN, TCSANOW, &original_termios);
+                }
                 return NULL;
             }
             delete_at(buffer, &length, position);
         } else if (c == 11) {
+            save_kill(kill, sizeof(kill), buffer + position, length - position);
             buffer[position] = '\0';
             length = position;
         } else if (c == 12) {
             linenoiseClearScreen();
             rendered_length = 0;
         } else if (c == 21) {
+            save_kill(kill, sizeof(kill), buffer, position);
             buffer[0] = '\0';
             length = 0;
             position = 0;
+        } else if (c == 23) {
+            delete_previous_word(buffer, &length, &position, kill, sizeof(kill));
+        } else if (c == 25) {
+            insert_text_at(buffer, sizeof(buffer), &length, &position, kill);
         } else if (c == '\b' || c == 127) {
             if (position > 0) {
                 position--;
@@ -343,6 +500,15 @@ char *linenoise(const char *prompt) {
                 completion_callback(buffer, &completions);
                 if (completions.len == 1 && completions.cvec[0] != NULL) {
                     replace_buffer(buffer, sizeof(buffer), &length, &position, completions.cvec[0]);
+                } else if (completions.len > 1) {
+                    ln_write("\n");
+                    for (size_t i = 0; i < completions.len; i++) {
+                        if (completions.cvec[i] != NULL) {
+                            ln_write(completions.cvec[i]);
+                            ln_write("\n");
+                        }
+                    }
+                    rendered_length = 0;
                 }
                 for (size_t i = 0; i < completions.len; i++) {
                     free(completions.cvec[i]);
@@ -350,7 +516,15 @@ char *linenoise(const char *prompt) {
                 free(completions.cvec);
             }
         } else if (c == 27) {
-            consume_escape(buffer, sizeof(buffer), &length, &position, &history_index);
+            consume_escape(buffer,
+                sizeof(buffer),
+                &length,
+                &position,
+                &history_index,
+                draft,
+                &draft_saved,
+                kill,
+                sizeof(kill));
         } else if (c >= 32 && c < 127 && position == length) {
             insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
             ln_write_len(buffer + length - 1, 1);

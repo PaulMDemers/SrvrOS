@@ -85,6 +85,10 @@ server.
 - Adds pinned linenoise `2.0` plus a srvros console adapter used by `srvsh` for
   editable prompt input and `/fat/.srvsh_history`; `/fat/bin/linedemo` verifies
   history save/load behavior.
+- Tightens the linenoise adapter to use raw TTY mode while editing, with
+  Ctrl-A/Ctrl-E movement, Ctrl-U/Ctrl-W kill, Ctrl-Y yank, escape-sequence
+  arrows, and draft-preserving history browsing covered by
+  `tools/shell_edit_smoke.py`.
 - Adds SQLite `3.53.1` as a pinned amalgamation snapshot and
   `/fat/bin/sqlitedemo`, which registers a small srvros VFS and verifies
   create/insert/query/reopen behavior against `/fat/sqlitedemo.db`.
@@ -297,6 +301,7 @@ make -j4
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --line-wait 12
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
