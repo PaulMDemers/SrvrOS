@@ -1653,6 +1653,11 @@ int64_t net_udp_sendto(uint64_t socket_id,
         return -1;
     }
 
+    if (remote_ip == local_ip) {
+        udp_deliver(remote_port, local_ip, socket->local_port, buffer, (uint16_t)length);
+        return (int64_t)length;
+    }
+
     uint8_t remote_mac[6];
     if (!resolve_route_mac(remote_ip, remote_mac)) {
         return -1;
@@ -1743,6 +1748,68 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
             scheduler_yield();
         }
     }
+}
+
+int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
+    if (!initialized || ip_out == 0 || port_out == 0) {
+        return -1;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0) {
+        return -1;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_LISTENER) {
+        struct net_listener *listener = find_listener(handle);
+        if (listener == 0 || listener->owner != owner) {
+            return -1;
+        }
+        *ip_out = local_ip;
+        *port_out = listener->port;
+        return 0;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_CONNECTION) {
+        struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+        if (connection == 0) {
+            return -1;
+        }
+        *ip_out = local_ip;
+        *port_out = connection->local_port;
+        return 0;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (socket == 0 || socket->owner != owner) {
+            return -1;
+        }
+        *ip_out = local_ip;
+        *port_out = socket->local_port;
+        return 0;
+    }
+
+    return -1;
+}
+
+int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
+    if (!initialized || ip_out == 0 || port_out == 0) {
+        return -1;
+    }
+
+    struct process *owner = process_current();
+    if (owner == 0 || handle_type(handle) != NET_HANDLE_CONNECTION) {
+        return -1;
+    }
+
+    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    if (connection == 0) {
+        return -1;
+    }
+    *ip_out = connection->remote_ip;
+    *port_out = connection->remote_port;
+    return 0;
 }
 
 struct connect_wait_arg {

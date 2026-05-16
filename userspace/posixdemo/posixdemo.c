@@ -1016,9 +1016,45 @@ int main(void) {
         addr.sin_port = htons(18080);
         addr.sin_addr.s_addr = INADDR_ANY;
         if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) == 0) {
-            say("posixdemo: socket bind ok\n");
+            struct sockaddr_in named;
+            socklen_t named_len = sizeof(named);
+            if (getsockname(s, (struct sockaddr *)&named, &named_len) == 0 &&
+                named.sin_family == AF_INET &&
+                ntohs(named.sin_port) == 18080 &&
+                shutdown(s, SHUT_RDWR) == 0) {
+                say("posixdemo: socket bind ok\n");
+            }
         }
         close(s);
+    }
+
+    int u = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (u >= 0) {
+        struct sockaddr_in addr;
+        struct sockaddr_in named;
+        struct sockaddr_in peer;
+        socklen_t named_len = sizeof(named);
+        socklen_t peer_len = sizeof(peer);
+        int so_error = -1;
+        socklen_t so_error_len = sizeof(so_error);
+        memset(&addr, 0, sizeof(addr));
+        addr.sin_family = AF_INET;
+        addr.sin_port = htons(19090);
+        addr.sin_addr.s_addr = INADDR_ANY;
+        if (bind(u, (struct sockaddr *)&addr, sizeof(addr)) == 0 &&
+            getsockname(u, (struct sockaddr *)&named, &named_len) == 0 &&
+            ntohs(named.sin_port) == 19090) {
+            addr.sin_addr.s_addr = 0x0a00020fu;
+            if (connect(u, (struct sockaddr *)&addr, sizeof(addr)) == 0 &&
+                getpeername(u, (struct sockaddr *)&peer, &peer_len) == 0 &&
+                peer.sin_addr.s_addr == addr.sin_addr.s_addr &&
+                ntohs(peer.sin_port) == 19090 &&
+                getsockopt(u, SOL_SOCKET, SO_ERROR, &so_error, &so_error_len) == 0 &&
+                so_error == 0) {
+                say("posixdemo: udp socket names ok\n");
+            }
+        }
+        close(u);
     }
 
     unlink("/fat/posixdemo/renamed.txt");

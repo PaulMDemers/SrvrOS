@@ -90,7 +90,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
   `send`, `recv`, and `setsockopt`
-- `getaddrinfo` backed by the srvros DNS syscall for A records
+- `getaddrinfo` backed by a userspace UDP DNS query with srvros DNS fallback
 - newlib-style syscall glue symbols such as `_open`, `_read`, `_write`,
   `_lseek`, `_fstat`, `_stat`, `_sbrk`, `_getpid`, `_gettimeofday`,
   `_unlink`, and `_rename`
@@ -133,6 +133,8 @@ the response through the normal socket fd path.
 The `/fat/bin/udpdns` app verifies userspace UDP sockets by sending a DNS A
 query with `sendto`, waiting with `poll`, and receiving the response with
 `recvfrom`.
+The `/fat/bin/udpecho` app verifies bound UDP sockets and local datagram
+delivery with a one-shot server/client echo flow.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -157,8 +159,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   queues are still future work as the descriptor model grows.
 - Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
   client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
-  `sendto`/`recvfrom`. Nonblocking mode is preserved when it is set on a socket
-  before `listen()` or `connect()`, and UDP sockets report poll readiness.
+  `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,
+  `shutdown` validation, and `getsockopt(SO_ERROR)`. Nonblocking mode is
+  preserved when it is set on a socket before `listen()` or `connect()`, and UDP
+  sockets report poll readiness.
 - SQLite is still a compact filesystem smoke port. Its VFS now maps lock states
   to srvros advisory byte-range locks, but richer stale-lock recovery,
   cross-machine semantics, and WAL shared-memory locking are future work.

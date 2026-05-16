@@ -30,6 +30,8 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
     uint32_t *remote_ip_out,
     uint16_t *remote_port_out,
     bool nonblock);
+int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out);
+int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out);
 int64_t net_accept(uint64_t listener_id, char *buffer, uint64_t capacity, uint64_t *length_out, bool nonblock);
 int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock);
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length);

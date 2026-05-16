@@ -162,7 +162,8 @@ The network stack includes:
 - A compact TCP implementation sufficient for poll-driven static HTTP serving.
 - Client-side TCP connect for simple outbound HTTP over QEMU user networking.
 - Userspace IPv4 UDP sockets with `sendto`/`recvfrom`, nonblocking readiness,
-  and `/fat/bin/udpdns` coverage.
+  local datagram delivery, and `/fat/bin/udpdns` plus `/fat/bin/udpecho`
+  coverage.
 
 Network file descriptors are process-owned and cleaned up on process exit.
 `webd` listens on port 80, polls the listener plus active connection fds, and
@@ -274,8 +275,9 @@ simple time functions, common formatted-output width/precision/flag forms,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
 standard-fd and ordered non-stdio spawn file actions,
 `POSIX_SPAWN_SETPGROUP`, process-replacing `execve`, IPv4 formatting and
-parsing, DNS-backed `getaddrinfo`, a TCP server socket flow mapped onto
-srvros listener/connection fds, and client-side `connect`. The kernel additions
+parsing, userspace UDP DNS-backed `getaddrinfo`, a TCP server socket flow mapped
+onto srvros listener/connection fds, client-side `connect`, and socket name
+queries. The kernel additions
 for this slice are intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides plus inherited parent stdio redirects, seek, fd

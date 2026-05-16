@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -34,6 +35,23 @@ static struct posix_socket *socket_at(int fd) {
     }
     struct posix_socket *socket = &sockets[fd - POSIX_SOCKET_BASE];
     return socket->used ? socket : 0;
+}
+
+static int fill_sockaddr(uint32_t ip,
+    uint16_t port,
+    struct sockaddr *addr,
+    socklen_t *addrlen) {
+    if (addr == 0 || addrlen == 0 || *addrlen < sizeof(struct sockaddr_in)) {
+        errno = EINVAL;
+        return -1;
+    }
+    struct sockaddr_in *in = (struct sockaddr_in *)addr;
+    memset(in, 0, sizeof(*in));
+    in->sin_family = AF_INET;
+    in->sin_port = htons(port);
+    in->sin_addr.s_addr = ip;
+    *addrlen = sizeof(*in);
+    return 0;
 }
 
 int __posix_socket_is_pseudo(int fd) {
@@ -215,6 +233,10 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         errno = EBADF;
         return -1;
     }
+    if (addr != 0 && (addrlen == 0 || *addrlen < sizeof(struct sockaddr_in))) {
+        errno = EINVAL;
+        return -1;
+    }
     long connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
     if (connection < 0) {
         if (connection == SRV_ERR_AGAIN) {
@@ -224,11 +246,12 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         errno = EIO;
         return -1;
     }
-    if (addr != 0 && addrlen != 0 && *addrlen >= sizeof(struct sockaddr_in)) {
-        struct sockaddr_in *in = (struct sockaddr_in *)addr;
-        memset(in, 0, sizeof(*in));
-        in->sin_family = AF_INET;
-        *addrlen = sizeof(*in);
+    if (addr != 0 && addrlen != 0) {
+        uint32_t peer_ip = 0;
+        uint16_t peer_port = 0;
+        if (srv_net_peername((int)connection, &peer_ip, &peer_port) == 0) {
+            (void)fill_sockaddr(peer_ip, peer_port, addr, addrlen);
+        }
     }
     return (int)connection;
 }
@@ -287,6 +310,67 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
     if ((socket->fd_flags & SRV_FD_NONBLOCK) != 0) {
         errno = EINPROGRESS;
+        return -1;
+    }
+    return 0;
+}
+
+int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+    uint32_t ip = INADDR_ANY;
+    uint16_t port = 0;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket != 0) {
+        if (socket->listener_fd >= 0) {
+            if (srv_net_sockname(socket->listener_fd, &ip, &port) < 0) {
+                errno = EINVAL;
+                return -1;
+            }
+        } else {
+            port = socket->port;
+        }
+        return fill_sockaddr(ip, port, addr, addrlen);
+    }
+
+    if (srv_net_sockname(fd, &ip, &port) < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    return fill_sockaddr(ip, port, addr, addrlen);
+}
+
+int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket != 0) {
+        if (socket->type == SOCK_DGRAM) {
+            if (!socket->connected) {
+                errno = ENOTCONN;
+                return -1;
+            }
+            return fill_sockaddr(socket->peer_ip, socket->peer_port, addr, addrlen);
+        }
+        if (socket->listener_fd < 0 || srv_net_peername(socket->listener_fd, &ip, &port) < 0) {
+            errno = ENOTCONN;
+            return -1;
+        }
+        return fill_sockaddr(ip, port, addr, addrlen);
+    }
+
+    if (srv_net_peername(fd, &ip, &port) < 0) {
+        errno = ENOTCONN;
+        return -1;
+    }
+    return fill_sockaddr(ip, port, addr, addrlen);
+}
+
+int shutdown(int fd, int how) {
+    if (how != SHUT_RD && how != SHUT_WR && how != SHUT_RDWR) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (socket_at(fd) == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) {
+        errno = EBADF;
         return -1;
     }
     return 0;
@@ -413,6 +497,23 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
     return 0;
 }
 
+int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
+    if ((socket_at(fd) == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) ||
+        option_value == 0 ||
+        option_len == 0 ||
+        *option_len < sizeof(int)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (level != SOL_SOCKET || option_name != SO_ERROR) {
+        errno = ENOSYS;
+        return -1;
+    }
+    *(int *)option_value = 0;
+    *option_len = sizeof(int);
+    return 0;
+}
+
 uint16_t htons(uint16_t value) {
     return (uint16_t)((value << 8) | (value >> 8));
 }
@@ -527,6 +628,155 @@ static int parse_service(const char *service, uint16_t *port) {
     return 1;
 }
 
+static uint16_t dns_read_be16(const unsigned char *data) {
+    return (uint16_t)(((uint16_t)data[0] << 8) | data[1]);
+}
+
+static uint32_t dns_read_be32(const unsigned char *data) {
+    return ((uint32_t)data[0] << 24) |
+        ((uint32_t)data[1] << 16) |
+        ((uint32_t)data[2] << 8) |
+        data[3];
+}
+
+static void dns_write_be16(unsigned char *data, uint16_t value) {
+    data[0] = (unsigned char)(value >> 8);
+    data[1] = (unsigned char)value;
+}
+
+static int dns_encode_name(unsigned char *packet, size_t *offset, size_t capacity, const char *name) {
+    size_t label = 0;
+    for (size_t i = 0;; i++) {
+        if (name[i] == '.' || name[i] == '\0') {
+            size_t length = i - label;
+            if (length == 0 || length > 63 || *offset + length + 1 >= capacity) {
+                return -1;
+            }
+            packet[(*offset)++] = (unsigned char)length;
+            for (size_t j = label; j < i; j++) {
+                packet[(*offset)++] = (unsigned char)name[j];
+            }
+            if (name[i] == '\0') {
+                packet[(*offset)++] = 0;
+                return 0;
+            }
+            label = i + 1;
+        }
+        if (i > 180) {
+            return -1;
+        }
+    }
+}
+
+static size_t dns_skip_name(const unsigned char *packet, size_t length, size_t offset) {
+    unsigned jumps = 0;
+    while (offset < length && jumps++ < 64) {
+        unsigned char label = packet[offset++];
+        if (label == 0) {
+            return offset;
+        }
+        if ((label & 0xc0) == 0xc0) {
+            return offset < length ? offset + 1 : 0;
+        }
+        if ((label & 0xc0) != 0 || offset + label > length) {
+            return 0;
+        }
+        offset += label;
+    }
+    return 0;
+}
+
+static int dns_parse_response(const unsigned char *packet, size_t length, uint16_t query_id, uint32_t *ip_out) {
+    if (length < 12 || dns_read_be16(packet) != query_id) {
+        return -1;
+    }
+
+    uint16_t qd = dns_read_be16(packet + 4);
+    uint16_t an = dns_read_be16(packet + 6);
+    size_t offset = 12;
+    for (uint16_t i = 0; i < qd; i++) {
+        offset = dns_skip_name(packet, length, offset);
+        if (offset == 0 || offset + 4 > length) {
+            return -1;
+        }
+        offset += 4;
+    }
+
+    for (uint16_t i = 0; i < an; i++) {
+        offset = dns_skip_name(packet, length, offset);
+        if (offset == 0 || offset + 10 > length) {
+            return -1;
+        }
+        uint16_t type = dns_read_be16(packet + offset);
+        uint16_t class = dns_read_be16(packet + offset + 2);
+        uint16_t rdlength = dns_read_be16(packet + offset + 8);
+        offset += 10;
+        if (offset + rdlength > length) {
+            return -1;
+        }
+        if (type == 1 && class == 1 && rdlength == 4) {
+            *ip_out = dns_read_be32(packet + offset);
+            return 0;
+        }
+        offset += rdlength;
+    }
+    return -1;
+}
+
+static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
+    const char *server = getenv("DNS_SERVER");
+    if (server == 0 || server[0] == '\0') {
+        server = "10.0.2.3";
+    }
+
+    unsigned char packet[512];
+    memset(packet, 0, sizeof(packet));
+    uint16_t query_id = 0x7372;
+    dns_write_be16(packet + 0, query_id);
+    dns_write_be16(packet + 2, 0x0100);
+    dns_write_be16(packet + 4, 1);
+
+    size_t offset = 12;
+    if (dns_encode_name(packet, &offset, sizeof(packet), name) < 0 || offset + 4 > sizeof(packet)) {
+        return -1;
+    }
+    dns_write_be16(packet + offset, 1);
+    offset += 2;
+    dns_write_be16(packet + offset, 1);
+    offset += 2;
+
+    int fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (fd < 0) {
+        return -1;
+    }
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons(53);
+    if (inet_pton(AF_INET, server, &address.sin_addr) != 1 ||
+        sendto(fd, packet, offset, 0, (const struct sockaddr *)&address, sizeof(address)) < 0) {
+        close(fd);
+        return -1;
+    }
+
+    struct pollfd pfd = {
+        .fd = fd,
+        .events = POLLIN,
+    };
+    if (poll(&pfd, 1, 2000) <= 0) {
+        close(fd);
+        return -1;
+    }
+
+    ssize_t count = recvfrom(fd, packet, sizeof(packet), 0, 0, 0);
+    close(fd);
+    if (count < 0) {
+        return -1;
+    }
+    return dns_parse_response(packet, (size_t)count, query_id, ip_out);
+}
+
 int getaddrinfo(const char *node,
     const char *service,
     const struct addrinfo *hints,
@@ -541,7 +791,7 @@ int getaddrinfo(const char *node,
         address.s_addr = 0;
     } else if (inet_pton(AF_INET, node, &address) != 1) {
         uint32_t resolved = 0;
-        if (srv_net_dns(node, &resolved) < 0) {
+        if (resolve_dns_udp(node, &resolved) < 0 && srv_net_dns(node, &resolved) < 0) {
             return EAI_NONAME;
         }
         address.s_addr = resolved;

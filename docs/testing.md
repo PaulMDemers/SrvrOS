@@ -85,7 +85,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `connect`, HTTP request/response flow through `/fat/bin/httpget`, and clean
   process exit.
 - `udp_smoke.py`: DHCP, userspace UDP socket open/send/receive, `poll`
-  readiness, and DNS-over-UDP response parsing through `/fat/bin/udpdns`.
+  readiness, DNS-over-UDP response parsing through `/fat/bin/udpdns`, and
+  bound local UDP echo through `/fat/bin/udpecho`.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

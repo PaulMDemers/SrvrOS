@@ -376,6 +376,14 @@ long srv_net_udp_recvfrom(int fd,
         (long)remote_port_out);
 }
 
+long srv_net_sockname(int fd, uint32_t *ip_out, uint16_t *port_out) {
+    return srv_syscall3(SYS_NET_SOCKNAME, fd, (long)ip_out, (long)port_out);
+}
+
+long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out) {
+    return srv_syscall3(SYS_NET_PEERNAME, fd, (long)ip_out, (long)port_out);
+}
+
 long srv_getpid(void) {
     return srv_syscall0(SYS_GETPID);
 }

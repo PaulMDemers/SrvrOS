@@ -106,6 +106,8 @@ def main():
             command_line = f"udpdns {args.host}\n".encode("ascii")
             sock.sendall(command_line)
             output += read_until(sock, b" $ ", args.udp_wait)
+            sock.sendall(b"udpecho self\n")
+            output += read_until(sock, b" $ ", args.udp_wait)
             output += read_for(sock, 1)
         finally:
             try:
@@ -122,8 +124,12 @@ def main():
         missing.append("dhcp: 10.0.2.15")
     if f"udpdns: {args.host} A " not in text:
         missing.append("udpdns A answer")
+    if "udpecho: self hello-udp" not in text:
+        missing.append("udpecho self reply")
     if "udpdns: timeout" in text or "udpdns: sendto" in text or "udpdns: recvfrom" in text:
         missing.append("udpdns error")
+    if "udpecho: bind" in text or "udpecho: sendto" in text or "udpecho: recvfrom" in text:
+        missing.append("udpecho error")
     if has_fatal_exception(text):
         print("udp-smoke: fatal exception detected", file=sys.stderr)
         return 2

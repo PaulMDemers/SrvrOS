@@ -1405,6 +1405,38 @@ static int64_t syscall_net_udp_recvfrom(uint64_t fd,
         process_file_nonblocking(process, fd));
 }
 
+static int64_t syscall_net_name(uint64_t fd, uint32_t *ip_out, uint16_t *port_out, bool peer) {
+    if ((ip_out != NULL && !user_buffer_ok(ip_out, sizeof(*ip_out), true)) ||
+        (port_out != NULL && !user_buffer_ok(port_out, sizeof(*port_out), true))) {
+        return -1;
+    }
+
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL ||
+        (file->type != PROCESS_FILE_NET_LISTENER &&
+            file->type != PROCESS_FILE_NET_CONNECTION &&
+            file->type != PROCESS_FILE_NET_UDP)) {
+        return -1;
+    }
+
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    int64_t result = peer
+        ? net_peername(file->handle, &ip, &port)
+        : net_sockname(file->handle, &ip, &port);
+    if (result < 0) {
+        return -1;
+    }
+    if (ip_out != NULL && !copy_to_user(ip_out, &ip, sizeof(ip))) {
+        return -1;
+    }
+    if (port_out != NULL && !copy_to_user(port_out, &port, sizeof(port))) {
+        return -1;
+    }
+    return 0;
+}
+
 static int64_t syscall_getpid(void) {
     struct process *process = process_current();
     return process == NULL ? 0 : (int64_t)process_pid(process);
@@ -1484,6 +1516,12 @@ void syscall_dispatch(struct isr_frame *frame) {
             frame->rdx,
             (uint32_t *)frame->rcx,
             (uint16_t *)frame->r8);
+        return;
+    case SYS_NET_SOCKNAME:
+        frame->rax = (uint64_t)syscall_net_name(frame->rdi, (uint32_t *)frame->rsi, (uint16_t *)frame->rdx, false);
+        return;
+    case SYS_NET_PEERNAME:
+        frame->rax = (uint64_t)syscall_net_name(frame->rdi, (uint32_t *)frame->rsi, (uint16_t *)frame->rdx, true);
         return;
     case SYS_FS_WRITE:
         frame->rax = (uint64_t)syscall_fs_write((const char *)frame->rdi, (const uint8_t *)frame->rsi, frame->rdx);

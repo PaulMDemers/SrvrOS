@@ -136,6 +136,8 @@ long srv_net_udp_open(void);
 long srv_net_udp_bind(int fd, uint16_t port);
 long srv_net_udp_sendto(int fd, uint32_t remote_ip, uint16_t remote_port, const void *buffer, size_t length);
 long srv_net_udp_recvfrom(int fd, void *buffer, size_t capacity, uint32_t *remote_ip_out, uint16_t *remote_port_out);
+long srv_net_sockname(int fd, uint32_t *ip_out, uint16_t *port_out);
+long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out);
 long srv_getpid(void);
 long srv_ticks(void);
 long srv_sleep_ticks(uint64_t ticks);

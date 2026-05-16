@@ -13,6 +13,11 @@
 #define IPPROTO_UDP 17
 #define SOL_SOCKET 1
 #define SO_REUSEADDR 2
+#define SO_ERROR 4
+
+#define SHUT_RD 0
+#define SHUT_WR 1
+#define SHUT_RDWR 2
 
 typedef uint16_t sa_family_t;
 
@@ -26,6 +31,9 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 int listen(int fd, int backlog);
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen);
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen);
+int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen);
+int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen);
+int shutdown(int fd, int how);
 ssize_t send(int fd, const void *buffer, size_t length, int flags);
 ssize_t recv(int fd, void *buffer, size_t length, int flags);
 ssize_t sendto(int fd,
@@ -41,5 +49,6 @@ ssize_t recvfrom(int fd,
     struct sockaddr *src_addr,
     socklen_t *addrlen);
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len);
+int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len);
 
 #endif

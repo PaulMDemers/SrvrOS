@@ -32,6 +32,9 @@ server.
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,
   bounded receive queues, and `/fat/bin/udpdns` DNS-over-UDP smoke coverage.
+- Extends the socket compatibility layer with userspace UDP-backed
+  `getaddrinfo`, `getsockname`, `getpeername`, `shutdown` validation,
+  `getsockopt(SO_ERROR)`, and `/fat/bin/udpecho` local datagram smoke coverage.
 - Includes a small shell, CLI utilities, service control, redirection,
   multi-stage pipelines, scripts, PATH lookup, and background jobs.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,
