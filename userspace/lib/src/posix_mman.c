@@ -13,11 +13,17 @@ void *mmap(void *address, size_t length, int protection, int flags, int fd, off_
     }
     if ((flags & MAP_SHARED) != 0 ||
         (flags & MAP_PRIVATE) == 0 ||
-        (flags & MAP_ANONYMOUS) == 0 ||
-        (flags & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED)) != 0 ||
-        fd != -1 ||
-        offset != 0) {
+        (flags & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED)) != 0) {
         errno = ENOSYS;
+        return MAP_FAILED;
+    }
+    if ((flags & MAP_ANONYMOUS) != 0) {
+        if (fd != -1 || offset != 0) {
+            errno = EINVAL;
+            return MAP_FAILED;
+        }
+    } else if (fd < 0 || offset < 0 || (((uint64_t)offset) & 0xfff) != 0) {
+        errno = EINVAL;
         return MAP_FAILED;
     }
     long result = srv_mmap(address, length, protection, flags, fd, offset);

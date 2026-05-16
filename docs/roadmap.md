@@ -255,6 +255,9 @@ kernel, and a minimal Unix-like userspace.
 - Add first-pass anonymous private `mmap`/`munmap` with process-owned mapping
   records, automatic cleanup on exit, libc `sys/mman.h`, and smoke coverage for
   read/write plus conservative fixed-address mappings.
+- Add eager file-backed `MAP_PRIVATE` mappings from regular fds, including
+  page-aligned offsets and smoke coverage for private memory writes that leave
+  the source file unchanged.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke

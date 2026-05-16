@@ -569,6 +569,54 @@ int main(void) {
         say("posixdemo: mmap fixed failed\n");
         return 26;
     }
+
+    fd = open("/fat/posixdemo/mmap-file.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0) {
+        say("posixdemo: mmap file create failed\n");
+        return 26;
+    }
+    memset(buffer, 'A', sizeof(buffer));
+    for (int i = 0; i < 64; i++) {
+        if (write(fd, buffer, sizeof(buffer)) != (ssize_t)sizeof(buffer)) {
+            say("posixdemo: mmap file pad failed\n");
+            return 26;
+        }
+    }
+    if (write(fd, "offset-data", 11) != 11 || close(fd) < 0) {
+        say("posixdemo: mmap file write failed\n");
+        return 26;
+    }
+    fd = open("/fat/posixdemo/mmap-file.txt", O_RDONLY);
+    uint8_t *file_mapping = fd >= 0 ? mmap(0,
+        8192,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE,
+        fd,
+        4096) : MAP_FAILED;
+    if (fd >= 0) {
+        close(fd);
+    }
+    if (file_mapping == MAP_FAILED ||
+        memcmp(file_mapping, "offset-data", 11) != 0 ||
+        file_mapping[11] != 0) {
+        say("posixdemo: mmap file failed\n");
+        return 26;
+    }
+    file_mapping[0] = 'X';
+    if (munmap(file_mapping, 8192) < 0) {
+        say("posixdemo: mmap file unmap failed\n");
+        return 26;
+    }
+    fd = open("/fat/posixdemo/mmap-file.txt", O_RDONLY);
+    n = fd >= 0 && lseek(fd, 4096, SEEK_SET) == 4096 ? read(fd, buffer, 11) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    unlink("/fat/posixdemo/mmap-file.txt");
+    if (n != 11 || memcmp(buffer, "offset-data", 11) != 0) {
+        say("posixdemo: mmap private failed\n");
+        return 26;
+    }
     say("posixdemo: mmap ok\n");
 
     int values[5] = {4, 1, 5, 2, 3};

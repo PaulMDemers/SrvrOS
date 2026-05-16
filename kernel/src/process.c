@@ -3484,6 +3484,38 @@ static void mmap_forget_range(struct process *process, uint64_t base, uint64_t l
     }
 }
 
+static bool mmap_file_source(struct process *process,
+    int64_t fd,
+    const uint8_t **data_out,
+    uint64_t *size_out) {
+    if (data_out == NULL || size_out == NULL || fd < 0) {
+        return false;
+    }
+    struct process_file *file = process_file_at(process, (uint64_t)fd);
+    if (file == NULL) {
+        return false;
+    }
+    if (file->type == PROCESS_FILE_VFS) {
+        struct process_read_file *read = read_file_at(file->handle);
+        if (read == NULL) {
+            return false;
+        }
+        *data_out = read->data;
+        *size_out = read->size;
+        return true;
+    }
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        struct process_write_file *write = write_file_at(file->handle);
+        if (write == NULL) {
+            return false;
+        }
+        *data_out = write->data;
+        *size_out = write->size;
+        return true;
+    }
+    return false;
+}
+
 int64_t process_mmap(struct process *process,
     uint64_t address,
     uint64_t length,
@@ -3494,16 +3526,28 @@ int64_t process_mmap(struct process *process,
     if (process == NULL || process->address_space == 0 || length == 0) {
         return -1;
     }
-    if ((flags & SRV_MAP_ANONYMOUS) == 0 ||
+    if ((flags & ~(SRV_MAP_ANONYMOUS | SRV_MAP_PRIVATE | SRV_MAP_SHARED | SRV_MAP_FIXED)) != 0 ||
         (flags & SRV_MAP_PRIVATE) == 0 ||
-        (flags & SRV_MAP_SHARED) != 0 ||
-        fd != -1 ||
-        offset != 0) {
+        (flags & SRV_MAP_SHARED) != 0) {
         return -1;
     }
     if ((protection & ~(SRV_PROT_READ | SRV_PROT_WRITE | SRV_PROT_EXEC)) != 0 ||
         protection == SRV_PROT_NONE) {
         return -1;
+    }
+
+    const bool anonymous = (flags & SRV_MAP_ANONYMOUS) != 0;
+    const uint8_t *file_data = NULL;
+    uint64_t file_size = 0;
+    if (anonymous) {
+        if (fd != -1 || offset != 0) {
+            return -1;
+        }
+    } else {
+        if (fd < 0 || offset < 0 || (((uint64_t)offset) % PAGE_SIZE) != 0 ||
+            !mmap_file_source(process, fd, &file_data, &file_size)) {
+            return -1;
+        }
     }
 
     uint64_t mapped_length = page_up(length);
@@ -3543,6 +3587,19 @@ int64_t process_mmap(struct process *process,
             return -1;
         }
     }
+
+    if (!anonymous && (uint64_t)offset < file_size) {
+        uint64_t available = file_size - (uint64_t)offset;
+        uint64_t copy_length = length < available ? length : available;
+        if (copy_length != 0 &&
+            !user_space_write(process, base, file_data + (uint64_t)offset, copy_length)) {
+            for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
+                (void)process_unmap_tracked_page(process, base + rollback);
+            }
+            return -1;
+        }
+    }
+
     if (!mmap_record_region(process, base, mapped_length)) {
         for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
             (void)process_unmap_tracked_page(process, base + rollback);

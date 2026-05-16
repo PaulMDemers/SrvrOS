@@ -104,6 +104,9 @@ server.
 - Adds first-pass anonymous private `mmap`/`munmap` support with process-owned
   page cleanup, libc `sys/mman.h` wrappers, and `posixdemo` coverage for
   zero-filled read/write mappings plus conservative `MAP_FIXED` mapping.
+- Extends `mmap` to eager file-backed `MAP_PRIVATE` mappings from regular fds,
+  including page-aligned offsets and `posixdemo` coverage that memory writes do
+  not modify the source file.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime

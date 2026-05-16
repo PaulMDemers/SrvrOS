@@ -48,11 +48,11 @@ buffers and strings against present user-accessible mappings before copying.
 Current tradeoffs:
 
 - There is no demand paging.
-- Userspace `mmap` currently covers eager, zero-filled anonymous private
-  mappings owned by the process. `munmap` frees those pages, and process exit
-  cleans up any remaining mappings. File-backed mappings, shared mappings,
-  `PROT_NONE` guard pages, and replacement-style `MAP_FIXED` are still future
-  work.
+- Userspace `mmap` currently covers eager private mappings owned by the
+  process: zero-filled anonymous regions and file-backed regular-fd snapshots.
+  `munmap` frees those pages, and process exit cleans up any remaining
+  mappings. Demand paging, shared mappings, writeback, `PROT_NONE` guard pages,
+  and replacement-style `MAP_FIXED` are still future work.
 - Kernel heap and static subsystem limits are still intentionally conservative.
 
 ## Scheduling And Processes
@@ -260,8 +260,8 @@ read-only regular files, `poll`/`select` readiness, blocking pipes,
 `FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`,
 `truncate`/`ftruncate`, `statvfs`, minimal terminal `tcgetattr`/`tcsetattr`
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
-malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous private
-`mmap`/`munmap`, small buffered `stdio`,
+malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
+file-backed private `mmap`/`munmap`, small buffered `stdio`,
 simple time functions, common formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
