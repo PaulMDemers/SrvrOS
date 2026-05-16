@@ -723,6 +723,85 @@ static void scan_copy_token(char *destination, size_t capacity, const char *sour
     destination[count] = '\0';
 }
 
+static void scan_store_signed(va_list args, int short_count, int long_count, long long value) {
+    if (long_count >= 2) {
+        *va_arg(args, long long *) = value;
+    } else if (long_count == 1) {
+        *va_arg(args, long *) = (long)value;
+    } else if (short_count >= 2) {
+        *va_arg(args, signed char *) = (signed char)value;
+    } else if (short_count == 1) {
+        *va_arg(args, short *) = (short)value;
+    } else {
+        *va_arg(args, int *) = (int)value;
+    }
+}
+
+static void scan_store_unsigned(va_list args, int short_count, int long_count, unsigned long long value) {
+    if (long_count >= 2) {
+        *va_arg(args, unsigned long long *) = value;
+    } else if (long_count == 1) {
+        *va_arg(args, unsigned long *) = (unsigned long)value;
+    } else if (short_count >= 2) {
+        *va_arg(args, unsigned char *) = (unsigned char)value;
+    } else if (short_count == 1) {
+        *va_arg(args, unsigned short *) = (unsigned short)value;
+    } else {
+        *va_arg(args, unsigned int *) = (unsigned int)value;
+    }
+}
+
+static int scan_parse_scanset(const char **format, unsigned char table[256]) {
+    int invert = 0;
+    for (int i = 0; i < 256; i++) {
+        table[i] = 0;
+    }
+    if (**format == '^') {
+        invert = 1;
+        (*format)++;
+        for (int i = 0; i < 256; i++) {
+            table[i] = 1;
+        }
+    }
+
+    int listed = 0;
+    int previous = -1;
+    if (**format == ']') {
+        table[(unsigned char)']'] = invert ? 0 : 1;
+        previous = ']';
+        listed = 1;
+        (*format)++;
+    }
+    while (**format != '\0' && **format != ']') {
+        unsigned char current = (unsigned char)**format;
+        if (current == '-' && previous >= 0 && (*format)[1] != '\0' && (*format)[1] != ']') {
+            unsigned char end = (unsigned char)(*format)[1];
+            if (previous <= end) {
+                for (int c = previous; c <= end; c++) {
+                    table[(unsigned char)c] = invert ? 0 : 1;
+                }
+            } else {
+                for (int c = previous; c >= end; c--) {
+                    table[(unsigned char)c] = invert ? 0 : 1;
+                }
+            }
+            previous = end;
+            listed = 1;
+            *format += 2;
+            continue;
+        }
+        table[current] = invert ? 0 : 1;
+        previous = current;
+        listed = 1;
+        (*format)++;
+    }
+    if (**format != ']' || !listed) {
+        return -1;
+    }
+    (*format)++;
+    return 0;
+}
+
 int vsscanf(const char *text, const char *format, va_list args) {
     int assigned = 0;
     int consumed = 0;
@@ -771,6 +850,11 @@ int vsscanf(const char *text, const char *format, va_list args) {
             width = width * 10 + (*format - '0');
             format++;
         }
+        int short_count = 0;
+        while (*format == 'h') {
+            short_count++;
+            format++;
+        }
         int long_count = 0;
         if (*format == 'l') {
             long_count++;
@@ -795,6 +879,10 @@ int vsscanf(const char *text, const char *format, va_list args) {
                     *va_arg(args, long long *) = consumed;
                 } else if (long_count == 1) {
                     *va_arg(args, long *) = consumed;
+                } else if (short_count >= 2) {
+                    *va_arg(args, signed char *) = (signed char)consumed;
+                } else if (short_count == 1) {
+                    *va_arg(args, short *) = (short)consumed;
                 } else {
                     *va_arg(args, int *) = consumed;
                 }
@@ -816,6 +904,29 @@ int vsscanf(const char *text, const char *format, va_list args) {
             }
             text += count;
             consumed += count;
+            continue;
+        }
+
+        if (spec == '[') {
+            unsigned char table[256];
+            if (scan_parse_scanset(&format, table) < 0) {
+                return assigned;
+            }
+            int length = 0;
+            int limit = width != 0 ? width : 160;
+            while (length < limit && text[length] != '\0' && table[(unsigned char)text[length]]) {
+                length++;
+            }
+            if (length == 0) {
+                return assigned;
+            }
+            if (!suppress) {
+                char *out = va_arg(args, char *);
+                scan_copy_token(out, (size_t)length + 1, text, length);
+                assigned++;
+            }
+            text += length;
+            consumed += length;
             continue;
         }
 
@@ -857,22 +968,10 @@ int vsscanf(const char *text, const char *format, va_list args) {
             if (!suppress) {
                 if (spec == 'u' || spec == 'x' || spec == 'X' || spec == 'o') {
                     unsigned long long value = strtoull(token, 0, base);
-                    if (long_count >= 2) {
-                        *va_arg(args, unsigned long long *) = value;
-                    } else if (long_count == 1) {
-                        *va_arg(args, unsigned long *) = (unsigned long)value;
-                    } else {
-                        *va_arg(args, unsigned int *) = (unsigned int)value;
-                    }
+                    scan_store_unsigned(args, short_count, long_count, value);
                 } else {
                     long long value = strtoll(token, 0, base);
-                    if (long_count >= 2) {
-                        *va_arg(args, long long *) = value;
-                    } else if (long_count == 1) {
-                        *va_arg(args, long *) = (long)value;
-                    } else {
-                        *va_arg(args, int *) = (int)value;
-                    }
+                    scan_store_signed(args, short_count, long_count, value);
                 }
                 assigned++;
             }

@@ -495,6 +495,13 @@ int main(void) {
     unsigned scan_hex = 0;
     char scan_word[16];
     double scan_double = 0.0;
+    char scan_key[8];
+    char scan_value[16];
+    char scan_digits[8];
+    char scan_tail[8];
+    unsigned char scan_byte = 0;
+    short scan_short = 0;
+    int scan_count = -1;
     qsort(values, 5, sizeof(values[0]), compare_ints);
     if (values[0] != 1 || values[4] != 5 ||
         bsearch(&needle, values, 5, sizeof(values[0]), compare_ints) == 0 ||
@@ -527,6 +534,18 @@ int main(void) {
         scan_a != -12 || scan_hex != 42 ||
         strcmp(scan_word, "word") != 0 ||
         fabs(scan_double - 4.5) > 0.000001 ||
+        sscanf("key=value,123;tail", "%7[^=]=%15[^,],%7[0-9];%7[a-z]",
+            scan_key, scan_value, scan_digits, scan_tail) != 4 ||
+        strcmp(scan_key, "key") != 0 ||
+        strcmp(scan_value, "value") != 0 ||
+        strcmp(scan_digits, "123") != 0 ||
+        strcmp(scan_tail, "tail") != 0 ||
+        sscanf("abc]42", "%3[a-c]%*[]]%hhu%n", scan_word, &scan_byte, &scan_count) != 2 ||
+        strcmp(scan_word, "abc") != 0 ||
+        scan_byte != 42 ||
+        scan_count != 6 ||
+        sscanf("skip:abcd:-17", "skip:%*4[a-z]:%hd", &scan_short) != 1 ||
+        scan_short != -17 ||
         strcmp(float_text, "1.250 1.5") != 0 ||
         floor(3.7) != 3.0 ||
         ceil(-3.7) != -3.0 ||
@@ -536,6 +555,23 @@ int main(void) {
         say("posixdemo: math failed\n");
         return 40;
     }
+    file = fopen("/fat/posixdemo/scan.txt", "w");
+    if (file == 0 || fputs("name:demo\n", file) < 0 || fclose(file) != 0) {
+        say("posixdemo: fscanf write failed\n");
+        return 40;
+    }
+    file = fopen("/fat/posixdemo/scan.txt", "r");
+    memset(scan_key, 0, sizeof(scan_key));
+    memset(scan_value, 0, sizeof(scan_value));
+    if (file == 0 ||
+        fscanf(file, "%7[^:]:%15[^\n]", scan_key, scan_value) != 2 ||
+        strcmp(scan_key, "name") != 0 ||
+        strcmp(scan_value, "demo") != 0 ||
+        fclose(file) != 0) {
+        say("posixdemo: fscanf scanset failed\n");
+        return 40;
+    }
+    remove("/fat/posixdemo/scan.txt");
     say("posixdemo: math ok\n");
 
     fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC);

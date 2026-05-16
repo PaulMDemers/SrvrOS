@@ -257,7 +257,7 @@ read-only regular files, `poll`/`select` readiness, blocking pipes,
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small buffered `stdio`,
 simple time functions, common formatted-output width/precision/flag forms,
-`scanf`/`sscanf` basics, `system()` via shell spawn, `getpid`, `waitpid`,
+`scanf`/`sscanf` basics including scansets, `system()` via shell spawn, `getpid`, `waitpid`,
 `posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are

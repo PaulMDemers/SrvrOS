@@ -96,7 +96,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   integer and floating conversion helpers, random numbers, process-local
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
-  EOF/error state, `system()` shell execution,
+  EOF/error state, `scanf` scansets and suppressed assignments, `system()` shell execution,
   process-replacing `execve`, inherited fd and close-on-exec checks, exFAT
   binary file write/read/unlink, and
   post-run `fsck`.

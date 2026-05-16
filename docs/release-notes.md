@@ -88,6 +88,8 @@ server.
   per-app copied `_start` assembly while keeping static ELF apps self-contained.
 - Adds basic `scanf`/`sscanf`/`fscanf` support for integer, string, character,
   and floating conversions.
+- Extends `scanf`/`sscanf`/`fscanf` with scansets, inverted scansets, simple
+  ranges, assignment suppression coverage, and short/char integer destinations.
 - Extends userspace formatted output with common width, precision, padding,
   sign, alternate-form, length, and `%n` handling, and backs `system()` with
   `sh -c` through `posix_spawnp`/`waitpid`.
@@ -235,8 +237,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
   recovery path is limited to sidecar temp-file promotion/cleanup rather than a
   full journal.
 - `stdio` is deliberately small: enough for early command-line ports, including
-  common formatted-output, first-pass scanning, and simple stream buffering, but
-  not a full ISO C implementation.
+  common formatted-output, first-pass scanning with scansets, and simple stream
+  buffering, but not a full ISO C implementation.
 - Lua uses its normal floating-number profile with `math` enabled. The `os`
   library and native dynamic loading remain disabled.
 - Process-exit teardown is non-preemptible while freeing the exiting address

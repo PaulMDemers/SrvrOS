@@ -144,9 +144,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   process group, but does not yet model controlling terminals, sessions, or baud
   settings.
 - `stdio` is intentionally small: formatted output covers the common
-  width/precision/flag forms needed by current ports, input scanning covers the
-  first integer/string/character/floating subset, and stream buffering covers
-  the simple full/line/unbuffered cases, but `popen`/`pclose` are still
+  width/precision/flag forms needed by current ports, input scanning covers
+  integers, strings, characters, floating values, scansets, width limits,
+  assignment suppression, and common length modifiers, and stream buffering
+  covers the simple full/line/unbuffered cases, but `popen`/`pclose` are still
   `ENOSYS` stubs.
 - Time is tick-derived and not wall-clock accurate.
 - The default allocator is process-local and `sbrk` backed; `mmap` is still
@@ -171,8 +172,8 @@ Third-party source is kept as pinned submodules or snapshots under
 
 ## Next Porting Milestones
 
-1. Expand `stdio` toward command-line port expectations: scansets, broader
-   input matching edge cases, append/update-mode polish, and `popen`/`pclose`.
+1. Expand `stdio` toward command-line port expectations: broader input matching
+   edge cases, append/update-mode polish, and `popen`/`pclose`.
 2. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp
    sources.
