@@ -29,6 +29,7 @@ static int make_exec_path(const char *path, char *out, size_t capacity) {
 static int spawn_path(pid_t *pid,
     const char *path,
     const posix_spawn_file_actions_t *file_actions,
+    const posix_spawnattr_t *attrp,
     char *const argv[],
     char *const envp[]) {
     char full[POSIX_PATH_MAX];
@@ -74,6 +75,9 @@ static int spawn_path(pid_t *pid,
         .stdin_fd = stdin_fd,
         .stdout_fd = stdout_fd,
         .stderr_fd = stderr_fd,
+        .process_group = attrp != 0 && (attrp->flags & POSIX_SPAWN_SETPGROUP) != 0 ?
+            (attrp->pgroup == 0 ? SRV_EXEC_GROUP_SELF : (uint64_t)attrp->pgroup) :
+            0,
     };
     long result = srv_exec(&request);
     int saved_errno = errno;
@@ -98,11 +102,10 @@ int posix_spawn(pid_t *pid,
     const posix_spawnattr_t *attrp,
     char *const argv[],
     char *const envp[]) {
-    (void)attrp;
     if (pid == 0 || path == 0 || path[0] == '\0' || argv == 0) {
         return EINVAL;
     }
-    return spawn_path(pid, path, file_actions, argv, envp);
+    return spawn_path(pid, path, file_actions, attrp, argv, envp);
 }
 
 int posix_spawnp(pid_t *pid,
@@ -111,12 +114,11 @@ int posix_spawnp(pid_t *pid,
     const posix_spawnattr_t *attrp,
     char *const argv[],
     char *const envp[]) {
-    (void)attrp;
     if (pid == 0 || file == 0 || file[0] == '\0' || argv == 0) {
         return EINVAL;
     }
     if (strchr(file, '/') != 0) {
-        return spawn_path(pid, file, file_actions, argv, envp);
+        return spawn_path(pid, file, file_actions, attrp, argv, envp);
     }
 
     const char *path = getenv("PATH");
@@ -151,7 +153,7 @@ int posix_spawnp(pid_t *pid,
         }
         candidate[used] = '\0';
         if (access(candidate, X_OK) == 0) {
-            return spawn_path(pid, candidate, file_actions, argv, envp);
+            return spawn_path(pid, candidate, file_actions, attrp, argv, envp);
         }
         path += strcspn(path, ":");
     }
@@ -293,7 +295,8 @@ int posix_spawnattr_init(posix_spawnattr_t *attr) {
     if (attr == 0) {
         return EINVAL;
     }
-    attr->reserved = 0;
+    attr->flags = 0;
+    attr->pgroup = 0;
     return 0;
 }
 
@@ -301,6 +304,38 @@ int posix_spawnattr_destroy(posix_spawnattr_t *attr) {
     if (attr == 0) {
         return EINVAL;
     }
+    return 0;
+}
+
+int posix_spawnattr_getflags(const posix_spawnattr_t *attr, short *flags) {
+    if (attr == 0 || flags == 0) {
+        return EINVAL;
+    }
+    *flags = attr->flags;
+    return 0;
+}
+
+int posix_spawnattr_setflags(posix_spawnattr_t *attr, short flags) {
+    if (attr == 0 || (flags & ~POSIX_SPAWN_SETPGROUP) != 0) {
+        return EINVAL;
+    }
+    attr->flags = flags;
+    return 0;
+}
+
+int posix_spawnattr_getpgroup(const posix_spawnattr_t *attr, pid_t *pgroup) {
+    if (attr == 0 || pgroup == 0) {
+        return EINVAL;
+    }
+    *pgroup = attr->pgroup;
+    return 0;
+}
+
+int posix_spawnattr_setpgroup(posix_spawnattr_t *attr, pid_t pgroup) {
+    if (attr == 0 || pgroup < 0) {
+        return EINVAL;
+    }
+    attr->pgroup = pgroup;
     return 0;
 }
 

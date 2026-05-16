@@ -263,6 +263,8 @@ kernel, and a minimal Unix-like userspace.
 - Add standard-fd `posix_spawn_file_actions_addopen` and
   `posix_spawn_file_actions_addclose` support alongside the existing spawn
   `dup2` remapping.
+- Add first `posix_spawnattr` support with `POSIX_SPAWN_SETPGROUP` mapped to
+  native process groups.
 - Add POSIX-style advisory byte-range locks through
   `fcntl(F_GETLK/F_SETLK/F_SETLKW)` and update the SQLite VFS to use real
   srvros locks instead of no-op lock callbacks.
@@ -364,10 +366,10 @@ kernel, and a minimal Unix-like userspace.
    metadata, and multi-worker web server designs.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-7. Continue the libc/newlib track: fuller `posix_spawn` attributes and
-   non-stdio ordered file actions, terminal process groups/signals, `stdio` update-mode edge cases,
-   stronger sidecar recovery, and more fd-specific readiness queues as the
-   descriptor model grows.
+7. Continue the libc/newlib track: signal/reset-id spawn attributes and
+   non-stdio ordered file actions, terminal process groups/signals, `stdio`
+   update-mode edge cases, stronger sidecar recovery, and more fd-specific
+   readiness queues as the descriptor model grows.
 8. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 9. Extend GUI IPC from server-rendered controls to client-owned surfaces:

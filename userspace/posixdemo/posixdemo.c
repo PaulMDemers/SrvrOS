@@ -635,6 +635,27 @@ int main(void) {
         say("posixdemo: spawn true failed\n");
         return 41;
     }
+    posix_spawnattr_t attr;
+    short spawn_flags = -1;
+    pid_t spawn_group = -1;
+    if (posix_spawnattr_init(&attr) != 0 ||
+        posix_spawnattr_getflags(&attr, &spawn_flags) != 0 ||
+        spawn_flags != 0 ||
+        posix_spawnattr_setpgroup(&attr, 0) != 0 ||
+        posix_spawnattr_getpgroup(&attr, &spawn_group) != 0 ||
+        spawn_group != 0 ||
+        posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP) != 0 ||
+        posix_spawnp(&child, "true", 0, &attr, true_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0 ||
+        posix_spawnattr_setpgroup(&attr, 1234) != 0 ||
+        posix_spawnp(&child, "true", 0, &attr, true_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0 ||
+        posix_spawnattr_destroy(&attr) != 0) {
+        say("posixdemo: spawn attrs failed\n");
+        return 41;
+    }
     fd = open("/fat/posixdemo/spawn.txt", O_WRONLY | O_CREAT | O_TRUNC);
     posix_spawn_file_actions_t actions;
     char *echo_argv[] = {"/fat/bin/echo", "spawned", 0};

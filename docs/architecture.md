@@ -238,7 +238,8 @@ kernel-owned process image, then swap the current process to the new address
 space and enter the new program with the same pid while closing any fds marked
 close-on-exec. The POSIX
 compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`,
-standard-fd dup/open/close spawn file actions, and process-replacing `execve`.
+standard-fd dup/open/close spawn file actions, `POSIX_SPAWN_SETPGROUP`, and
+process-replacing `execve`.
 
 ## POSIX Compatibility
 
@@ -259,9 +260,10 @@ malloc-family allocation, kernel-backed `brk`/`sbrk`, small buffered `stdio`,
 simple time functions, common formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
-standard-fd spawn file actions, process-replacing `execve`, IPv4 formatting
-and parsing, DNS-backed `getaddrinfo`, and a TCP server socket flow mapped
-onto srvros listener/connection fds. The kernel additions for this slice are
+standard-fd spawn file actions, `POSIX_SPAWN_SETPGROUP`, process-replacing
+`execve`, IPv4 formatting and parsing, DNS-backed `getaddrinfo`, and a TCP
+server socket flow mapped onto srvros listener/connection fds. The kernel
+additions for this slice are
 intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides plus inherited parent stdio redirects, seek, fd

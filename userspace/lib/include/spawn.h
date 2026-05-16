@@ -3,6 +3,11 @@
 
 #include <sys/types.h>
 
+#define POSIX_SPAWN_RESETIDS 0x01
+#define POSIX_SPAWN_SETPGROUP 0x02
+#define POSIX_SPAWN_SETSIGDEF 0x04
+#define POSIX_SPAWN_SETSIGMASK 0x08
+
 typedef struct {
     int stdin_fd;
     int stdout_fd;
@@ -22,7 +27,8 @@ typedef struct {
 } posix_spawn_file_actions_t;
 
 typedef struct {
-    int reserved;
+    short flags;
+    pid_t pgroup;
 } posix_spawnattr_t;
 
 int posix_spawn(pid_t *pid,
@@ -52,5 +58,9 @@ int posix_spawn_file_actions_addopen(posix_spawn_file_actions_t *file_actions,
     mode_t mode);
 int posix_spawnattr_init(posix_spawnattr_t *attr);
 int posix_spawnattr_destroy(posix_spawnattr_t *attr);
+int posix_spawnattr_getflags(const posix_spawnattr_t *attr, short *flags);
+int posix_spawnattr_setflags(posix_spawnattr_t *attr, short flags);
+int posix_spawnattr_getpgroup(const posix_spawnattr_t *attr, pid_t *pgroup);
+int posix_spawnattr_setpgroup(posix_spawnattr_t *attr, pid_t pgroup);
 
 #endif

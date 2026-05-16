@@ -179,6 +179,8 @@ server.
 - Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, standard-stream
   spawn file actions for `dup2`, `open`, and `close`, and true
   process-replacing `execve`.
+- Adds first `posix_spawnattr` support: flags/getters/setters plus
+  `POSIX_SPAWN_SETPGROUP` mapping onto native process groups.
 - Adds `/fat/bin/execdemo` as smoke coverage for in-place `execve`; it replaces
   itself with `/fat/bin/false`, and the parent observes the replacement image's
   exit status. The companion `/fat/bin/fdprobe` verifies inherited and
