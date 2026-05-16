@@ -182,7 +182,7 @@ def main():
         ("init.sh",
             b"# srvros service startup\n"
             b"echo init-script-ok\n"
-            b"service webd start\n"),
+            b"service start-enabled\n"),
         ("resolv.conf",
             b"# srvros resolver fallback\n"
             b"nameserver 10.0.2.3\n"),
@@ -193,7 +193,9 @@ def main():
             b"command=/fat/bin/webd\n"
             b"args=/fat/www\n"
             b"process=webd\n"
-            b"log=/fat/var/log/webd.log\n"),
+            b"log=/fat/var/log/webd.log\n"
+            b"enabled=true\n"
+            b"restart=never\n"),
     ]
     files = []
     for name, data in static_files:

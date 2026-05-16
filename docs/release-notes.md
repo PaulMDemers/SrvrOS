@@ -30,8 +30,9 @@ server.
   idle cleanup, segmented larger TCP responses, and a bounded active-client
   table.
 - Adds config-backed shell services under `/fat/etc/services/*.svc`; the
-  generated image ships `webd.svc`, starts it from `/fat/etc/init.sh`, and
-  keeps daemon stdout readable in `/fat/var/log/webd.log`.
+  generated image ships `webd.svc`, starts enabled services from
+  `/fat/etc/init.sh`, exposes `service list`, and keeps daemon stdout readable
+  in `/fat/var/log/webd.log`.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

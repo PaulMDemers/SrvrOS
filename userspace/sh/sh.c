@@ -1623,6 +1623,8 @@ struct service_config {
     char args[LINE_MAX];
     char process_name[32];
     char log_path[CLI_PATH_MAX];
+    int enabled;
+    char restart[16];
 };
 
 static void service_default_config(struct service_config *config, const char *name) {
@@ -1630,6 +1632,7 @@ static void service_default_config(struct service_config *config, const char *na
     memset(config, 0, sizeof(*config));
     cli_copy(config->name, sizeof(config->name), name);
     cli_copy(config->process_name, sizeof(config->process_name), name);
+    cli_copy(config->restart, sizeof(config->restart), "never");
     config->command[0] = '\0';
     append_text(config->command, sizeof(config->command), &out, "/fat/bin/");
     append_text(config->command, sizeof(config->command), &out, name);
@@ -1637,6 +1640,7 @@ static void service_default_config(struct service_config *config, const char *na
         cli_copy(config->command, sizeof(config->command), "/fat/bin/webd");
         cli_copy(config->args, sizeof(config->args), "/fat/www");
         cli_copy(config->log_path, sizeof(config->log_path), "/fat/var/log/webd.log");
+        config->enabled = 1;
     }
 }
 
@@ -1669,6 +1673,14 @@ static void service_apply_config_line(struct service_config *config, char *line)
         cli_copy(config->process_name, sizeof(config->process_name), value);
     } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
         cli_copy(config->log_path, sizeof(config->log_path), value);
+    } else if (cli_streq(key, "enabled")) {
+        config->enabled =
+            cli_streq(value, "1") ||
+            cli_streq(value, "yes") ||
+            cli_streq(value, "true") ||
+            cli_streq(value, "on");
+    } else if (cli_streq(key, "restart")) {
+        cli_copy(config->restart, sizeof(config->restart), value);
     }
 }
 
@@ -1718,6 +1730,28 @@ static int service_load_config(struct service_config *config, const char *name) 
     return 1;
 }
 
+static int service_name_from_path(char *out, size_t capacity, const char *path) {
+    const char *name;
+    size_t length;
+    if (!path_is_immediate_child(path, "/fat/etc/services", &name)) {
+        return 0;
+    }
+    length = cli_strlen(name);
+    if (length <= 4 ||
+        name[length - 4] != '.' ||
+        name[length - 3] != 's' ||
+        name[length - 2] != 'v' ||
+        name[length - 1] != 'c' ||
+        length - 4 >= capacity) {
+        return 0;
+    }
+    for (size_t i = 0; i < length - 4; i++) {
+        out[i] = name[i];
+    }
+    out[length - 4] = '\0';
+    return 1;
+}
+
 static void reap_exited_service(const char *name) {
     struct srv_process_info info;
     uint64_t status = 0;
@@ -1751,6 +1785,29 @@ static int service_stop_config(const struct service_config *config) {
     }
     cli_puts("\n");
     return 0;
+}
+
+static void service_print_status(const struct service_config *config) {
+    struct srv_process_info info;
+    if (find_service_process(config->process_name, &info, 1)) {
+        cli_puts(config->name);
+        cli_puts(" ");
+        cli_puts(info.state);
+        cli_puts(" pid ");
+        cli_putn(info.pid);
+    } else {
+        cli_puts(config->name);
+        cli_puts(" stopped");
+    }
+    cli_puts(" enabled=");
+    cli_puts(config->enabled ? "true" : "false");
+    cli_puts(" restart=");
+    cli_puts(config->restart);
+    if (config->log_path[0] != '\0') {
+        cli_puts(" log ");
+        cli_puts(config->log_path);
+    }
+    cli_puts("\n");
 }
 
 static void service_start_config(const struct service_config *config, const char *override_args) {
@@ -1798,18 +1855,49 @@ static void service_start_config(const struct service_config *config, const char
     cli_puts("\n");
 }
 
+static void service_list_command(int start_enabled) {
+    uint64_t size = 0;
+    char path[CLI_PATH_MAX];
+    char name[32];
+    struct service_config config;
+    int found = 0;
+
+    for (uint64_t index = 0;; index++) {
+        long next = srv_list(index, path, sizeof(path), &size);
+        if (next <= 0) {
+            break;
+        }
+        if (!service_name_from_path(name, sizeof(name), path) ||
+            !service_load_config(&config, name)) {
+            continue;
+        }
+        found = 1;
+        reap_exited_service(config.process_name);
+        if (start_enabled) {
+            if (config.enabled) {
+                service_start_config(&config, "");
+            }
+        } else {
+            service_print_status(&config);
+        }
+    }
+
+    if (!found && !start_enabled) {
+        cli_puts("service: no configs in /fat/etc/services\n");
+    }
+}
+
 static void service_command(const char *args) {
     char work[LINE_MAX];
     char *name;
     char *action;
     char *action_args;
-    struct srv_process_info info;
     struct service_config config;
 
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
     if (name[0] == '\0') {
-        cli_puts("usage: service <name> [start [args]|stop|restart|status]\n");
+        cli_puts("usage: service list|start-enabled|<name> [start [args]|stop|restart|status]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
     }
@@ -1820,6 +1908,15 @@ static void service_command(const char *args) {
     if (*action != '\0') {
         *action++ = '\0';
         action = cli_trim(action);
+    }
+
+    if (cli_streq(name, "list")) {
+        service_list_command(0);
+        return;
+    }
+    if (cli_streq(name, "start-enabled")) {
+        service_list_command(1);
+        return;
     }
 
     if (!service_load_config(&config, name)) {
@@ -1844,26 +1941,7 @@ static void service_command(const char *args) {
 
     reap_exited_service(config.process_name);
     if (cli_streq(action, "status")) {
-        if (find_service_process(config.process_name, &info, 1)) {
-            cli_puts(config.name);
-            cli_puts(" ");
-            cli_puts(info.state);
-            cli_puts(" pid ");
-            cli_putn(info.pid);
-            if (config.log_path[0] != '\0') {
-                cli_puts(" log ");
-                cli_puts(config.log_path);
-            }
-            cli_puts("\n");
-        } else {
-            cli_puts(config.name);
-            cli_puts(" stopped");
-            if (config.log_path[0] != '\0') {
-                cli_puts(" log ");
-                cli_puts(config.log_path);
-            }
-            cli_puts("\n");
-        }
+        service_print_status(&config);
         return;
     }
 
@@ -1883,7 +1961,7 @@ static void service_command(const char *args) {
         return;
     }
 
-    cli_puts("usage: service <name> [start [args]|stop|restart|status]\n");
+    cli_puts("usage: service list|start-enabled|<name> [start [args]|stop|restart|status]\n");
 }
 
 static void print_path(void) {

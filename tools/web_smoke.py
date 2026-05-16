@@ -155,12 +155,16 @@ def main():
     head_response = b""
     slow_peer_response = b""
     large_response = b""
+    missing_response = b""
+    post_response = b""
     closed_refused = False
     http_error = None
     css_error = None
     head_error = None
     slow_peer_error = None
     large_error = None
+    missing_error = None
+    post_error = None
     with tempfile.TemporaryDirectory(prefix="srvros-web-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-web.exfat")
         shutil.copyfile(source_disk, disk)
@@ -194,6 +198,8 @@ def main():
             output += read_until(sock, b"webd started pid", args.service_wait)
             sock.sendall(b"service webd status\n")
             output += read_until(sock, b"webd background pid", args.service_wait)
+            sock.sendall(b"service list\n")
+            output += read_until(sock, b"enabled=true", args.service_wait)
             sock.sendall(b"netstat\n")
             output += read_until(sock, b"LISTEN", args.service_wait)
             sock.sendall(b"ifconfig\n")
@@ -219,21 +225,33 @@ def main():
                 large_response = http_get(http_port, "/large.txt", args.http_wait)
             except RuntimeError as exc:
                 large_error = exc
+            try:
+                missing_response = http_get(http_port, "/missing.txt", args.http_wait)
+            except RuntimeError as exc:
+                missing_error = exc
+            try:
+                post_response = http_request(http_port, "POST", "/", args.http_wait)
+            except RuntimeError as exc:
+                post_error = exc
             closed_refused = closed_port_refused(closed_port, 3)
             sock.sendall(b"cat /fat/var/log/webd.log\n")
-            output += read_until(sock, b"webd: serving", args.service_wait)
+            output += read_until(sock, b"webd: access POST / 405", args.service_wait)
             output += read_for(sock, 3)
             if (http_error is not None or
                     css_error is not None or
                     head_error is not None or
                     slow_peer_error is not None or
                     large_error is not None or
+                    missing_error is not None or
+                    post_error is not None or
                     not closed_refused or
                     b"HTTP/1.1" not in response or
                     b"HTTP/1.1" not in css_response or
                     b"HTTP/1.1" not in head_response or
                     b"HTTP/1.1" not in slow_peer_response or
-                    b"HTTP/1.1" not in large_response):
+                    b"HTTP/1.1" not in large_response or
+                    b"HTTP/1.1" not in missing_response or
+                    b"HTTP/1.1" not in post_response):
                 sock.sendall(b"exit\n")
                 output += read_until(sock, b"srv> ", 5)
                 sock.sendall(b"net\n")
@@ -252,6 +270,8 @@ def main():
     sys.stdout.write(head_response.decode("utf-8", "replace"))
     sys.stdout.write(slow_peer_response.decode("utf-8", "replace"))
     sys.stdout.write(large_response.decode("utf-8", "replace"))
+    sys.stdout.write(missing_response.decode("utf-8", "replace"))
+    sys.stdout.write(post_response.decode("utf-8", "replace"))
 
     expected_serial = [
         "e1000:",
@@ -260,7 +280,12 @@ def main():
         "webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "enabled=true",
+        "restart=never",
         "log /fat/var/log/webd.log",
+        "webd: access GET / 200",
+        "webd: access GET /missing.txt 404",
+        "webd: access POST / 405",
         "Proto State",
         "10.0.2.15:80",
         "e1000: flags=UP,RUNNING",
@@ -292,6 +317,14 @@ def main():
         b"srvros large tcp payload begins",
         b"srvros large tcp payload ends",
     ]
+    expected_missing_response = [
+        b"HTTP/1.1 404 Not Found",
+        b"srvros webd: not found",
+    ]
+    expected_post_response = [
+        b"HTTP/1.1 405 Method Not Allowed",
+        b"srvros webd: method not allowed",
+    ]
     missing = [marker for marker in expected_serial if marker not in text]
     missing += [marker.decode("ascii") for marker in expected_response if marker not in response]
     missing += [marker.decode("ascii") for marker in expected_css_response if marker not in css_response]
@@ -300,6 +333,10 @@ def main():
         if marker not in slow_peer_response]
     missing += [marker.decode("ascii") for marker in expected_large_response
         if marker not in large_response]
+    missing += [marker.decode("ascii") for marker in expected_missing_response
+        if marker not in missing_response]
+    missing += [marker.decode("ascii") for marker in expected_post_response
+        if marker not in post_response]
     if body_bytes(head_response):
         missing.append("HEAD response included a body")
     if http_error is not None:
@@ -312,6 +349,10 @@ def main():
         missing.append(str(slow_peer_error))
     if large_error is not None:
         missing.append(str(large_error))
+    if missing_error is not None:
+        missing.append(str(missing_error))
+    if post_error is not None:
+        missing.append(str(post_error))
     if not closed_refused:
         missing.append("closed TCP port was not refused")
     if has_fatal_exception(text):

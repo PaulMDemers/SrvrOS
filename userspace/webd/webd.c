@@ -45,6 +45,12 @@ struct client {
     char request[REQUEST_CAPACITY];
 };
 
+struct response_result {
+    int sent;
+    int status;
+    uint64_t bytes;
+};
+
 struct stat_info {
     uint64_t abi_version;
     uint64_t struct_size;
@@ -115,6 +121,24 @@ static size_t strlen(const char *text) {
 
 static void write_text(const char *text) {
     syscall3(SYS_WRITE, STDOUT, (long)text, (long)strlen(text));
+}
+
+static void write_number(uint64_t value) {
+    char digits[21];
+    char output[21];
+    size_t count = 0;
+    if (value == 0) {
+        write_text("0");
+        return;
+    }
+    while (value > 0 && count < sizeof(digits)) {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+    for (size_t i = 0; i < count; i++) {
+        output[i] = digits[count - i - 1];
+    }
+    syscall3(SYS_WRITE, STDOUT, (long)output, (long)count);
 }
 
 static void yield_once(void) {
@@ -416,7 +440,16 @@ static int write_u64(long fd, uint64_t value) {
     return write_all(fd, output, count) == (long)count;
 }
 
-static int send_simple_response(long connection,
+static struct response_result make_response_result(int sent, int status, uint64_t bytes) {
+    struct response_result result;
+    result.sent = sent;
+    result.status = status;
+    result.bytes = bytes;
+    return result;
+}
+
+static struct response_result send_simple_response(long connection,
+    int status_code,
     const char *status,
     const char *content_type,
     const char *body,
@@ -430,34 +463,37 @@ static int send_simple_response(long connection,
         write_cstr(connection, "\r\nContent-Length: ") < 0 ||
         !write_u64(connection, body_length) ||
         write_cstr(connection, "\r\nConnection: close\r\n\r\n") < 0) {
-        return 0;
+        return make_response_result(0, status_code, body_length);
     }
     if (!is_head && write_cstr(connection, body) < 0) {
-        return 0;
+        return make_response_result(0, status_code, body_length);
     }
-    return 1;
+    return make_response_result(1, status_code, body_length);
 }
 
-static int send_file_response(long connection, const char *path, int is_head) {
+static struct response_result send_file_response(long connection, const char *path, int is_head) {
     static char file_buffer[FILE_BUFFER_CAPACITY];
     struct stat_info info;
+    const char not_found[] = "srvros webd: not found\n";
 
     info.abi_version = SRV_ABI_VERSION;
     info.struct_size = sizeof(info);
     if (syscall2(SYS_STAT, (long)path, (long)&info) < 0 || info.type != 0) {
         return send_simple_response(connection,
+            404,
             "404 Not Found",
             "text/plain; charset=utf-8",
-            "srvros webd: not found\n",
+            not_found,
             is_head);
     }
 
     long fd = syscall1(SYS_OPEN, (long)path);
     if (fd < 0) {
         return send_simple_response(connection,
+            404,
             "404 Not Found",
             "text/plain; charset=utf-8",
-            "srvros webd: not found\n",
+            not_found,
             is_head);
     }
 
@@ -469,7 +505,7 @@ static int send_file_response(long connection, const char *path, int is_head) {
         write_cstr(connection, cache_control_for_path(path)) < 0 ||
         write_cstr(connection, "\r\nConnection: close\r\n\r\n") < 0) {
         syscall1(SYS_CLOSE, fd);
-        return 0;
+        return make_response_result(0, 200, info.size);
     }
 
     yield_once();
@@ -478,41 +514,85 @@ static int send_file_response(long connection, const char *path, int is_head) {
             long count = syscall3(SYS_READ, fd, (long)file_buffer, sizeof(file_buffer));
             if (count < 0) {
                 syscall1(SYS_CLOSE, fd);
-                return 0;
+                return make_response_result(0, 200, info.size);
             }
             if (count == 0) {
                 break;
             }
             if (write_all(connection, file_buffer, (size_t)count) < 0) {
                 syscall1(SYS_CLOSE, fd);
-                return 0;
+                return make_response_result(0, 200, info.size);
             }
             yield_once();
         }
     }
 
     syscall1(SYS_CLOSE, fd);
-    return 1;
+    return make_response_result(1, 200, info.size);
 }
 
-static int handle_request(long connection, const char *request, size_t header_end, char *path) {
+static struct response_result handle_request(long connection, const char *request, size_t header_end, char *path) {
     int is_head = 0;
     int status = parse_request_line(request, header_end, path, MAX_PATH, &is_head);
     if (status == 200) {
         return send_file_response(connection, path, is_head);
     }
     if (status == 405) {
+        const char method_not_allowed[] = "srvros webd: method not allowed\n";
         return send_simple_response(connection,
+            405,
             "405 Method Not Allowed",
             "text/plain; charset=utf-8",
-            "srvros webd: method not allowed\n",
+            method_not_allowed,
             is_head);
     }
+    const char bad_request[] = "srvros webd: bad request\n";
     return send_simple_response(connection,
+        400,
         "400 Bad Request",
         "text/plain; charset=utf-8",
-        "srvros webd: bad request\n",
+        bad_request,
         0);
+}
+
+static void log_access_line(const char *request, size_t header_end, const struct response_result *result) {
+    size_t line_end = 0;
+    size_t method_end;
+    size_t url_start;
+    size_t url_end;
+    while (line_end < header_end && request[line_end] != '\n' && request[line_end] != '\r') {
+        line_end++;
+    }
+    method_end = 0;
+    while (method_end < line_end && request[method_end] != ' ') {
+        method_end++;
+    }
+    url_start = method_end;
+    while (url_start < line_end && request[url_start] == ' ') {
+        url_start++;
+    }
+    url_end = url_start;
+    while (url_end < line_end && request[url_end] != ' ') {
+        url_end++;
+    }
+
+    write_text("webd: access ");
+    if (method_end == 0 || method_end >= line_end) {
+        write_text("-");
+    } else {
+        syscall3(SYS_WRITE, STDOUT, (long)request, (long)method_end);
+    }
+    write_text(" ");
+    if (url_end == url_start) {
+        write_text("-");
+    } else {
+        syscall3(SYS_WRITE, STDOUT, (long)(request + url_start), (long)(url_end - url_start));
+    }
+    write_text(" ");
+    write_number((uint64_t)result->status);
+    write_text(" ");
+    write_number(result->bytes);
+    write_text("\n");
 }
 
 static void close_client(struct client *client) {
@@ -548,7 +628,8 @@ static void accept_ready_client(long listener, struct client *clients) {
 
     struct client *client = find_free_client(clients);
     if (client == 0) {
-        send_simple_response(connection,
+        (void)send_simple_response(connection,
+            503,
             "503 Service Unavailable",
             "text/plain; charset=utf-8",
             "srvros webd: busy\n",
@@ -572,7 +653,8 @@ static void read_ready_client(struct client *client, char *path) {
     }
 
     if (client->request_used == sizeof(client->request)) {
-        send_simple_response(client->fd,
+        (void)send_simple_response(client->fd,
+            413,
             "413 Payload Too Large",
             "text/plain; charset=utf-8",
             "srvros webd: request too large\n",
@@ -602,9 +684,10 @@ static void read_ready_client(struct client *client, char *path) {
         return;
     }
 
-    int sent = handle_request(client->fd, client->request, header_end, path);
+    struct response_result result = handle_request(client->fd, client->request, header_end, path);
+    log_access_line(client->request, header_end, &result);
     close_client(client);
-    if (!sent) {
+    if (!result.sent) {
         write_text("webd: respond failed\n");
         return;
     }

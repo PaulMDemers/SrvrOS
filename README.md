@@ -203,6 +203,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ dns p2.dev
 / $ service webd start
 / $ service webd status
+/ $ service list
 / $ cat /fat/var/log/webd.log
 / $ posixdemo
 / $ zlibdemo
@@ -229,9 +230,12 @@ srv> run /fat/bin/sh --login
 
 Generated exFAT images include `/fat/etc/services/webd.svc`; `service webd`
 uses that config to launch `/fat/bin/webd /fat/www` in the background and
-redirect stdout to `/fat/var/log/webd.log`. New services can be added as
-`/fat/etc/services/name.svc` with `command=`, optional `args=`, `process=`,
-and `log=` keys.
+redirect stdout to `/fat/var/log/webd.log`. `/fat/etc/init.sh` runs
+`service start-enabled`, which starts every service config with `enabled=true`.
+New services can be added as `/fat/etc/services/name.svc` with `command=`,
+optional `args=`, `process=`, `log=`, `enabled=`, and `restart=` keys.
+`service list` shows state plus enabled/restart/log metadata. `webd` writes
+compact access lines as `webd: access METHOD PATH STATUS BYTES`.
 
 The shell can also run non-interactively, which is useful for smoke tests,
 ports, and simple boot scripts:
