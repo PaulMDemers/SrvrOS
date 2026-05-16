@@ -62,7 +62,11 @@ Current tradeoffs:
 
 srvros can run kernel threads and ring-3 processes. The local APIC timer drives
 preemption. Process state includes address-space ownership, kernel trap stack,
-fd table, GUI queue state, network handle ownership, and exit status.
+fd table, GUI queue state, network handle ownership, and exit status. The
+process table and VMM address-space tracker currently have 64 slots, and the
+scheduler has 32 kernel-thread slots for boot services, foreground processes,
+detached jobs, and pipeline stages. Dead scheduler-thread stacks are returned to
+the PMM before slot reuse.
 
 The shell supports foreground jobs, foreground/background pipeline groups,
 `jobs`, `jobs -l`, `wait`, `fg`/`bg`, `%+`/`%-` job references, and built-in

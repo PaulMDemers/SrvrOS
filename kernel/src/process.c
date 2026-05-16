@@ -1107,9 +1107,11 @@ int64_t process_spawn_exec(const char *path,
 
     struct process *child = alloc_process(path, detached);
     if (child == NULL) {
+        console_write("exec: process table full\n");
         return -1;
     }
     if (!allocate_kernel_stack(child)) {
+        console_write("exec: kernel stack alloc failed\n");
         release_process(child);
         return -1;
     }
@@ -1138,6 +1140,7 @@ int64_t process_spawn_exec(const char *path,
         uint64_t pid = child->pid;
         child->quiet = true;
         if (!scheduler_spawn("user", background_process_thread, child)) {
+            console_write("exec: scheduler thread table full\n");
             cleanup_process_address_space(child);
             cleanup_process_files(child);
             release_process(child);

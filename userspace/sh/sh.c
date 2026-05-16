@@ -3800,10 +3800,13 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
             group,
             background ? 0 : 1);
         if (pids[i] < 0) {
-            cli_puts("sh: pipeline spawn failed\n");
+            cli_puts("sh: pipeline spawn failed: ");
+            cli_puts(commands[i].path);
+            cli_puts("\n");
             close_pipeline_fds(pipes, segment_count - 1);
             close_redirection_fds(input_fd, output_fd, error_fd);
             wait_pipeline_pids(pids, i, 0);
+            (void)srv_proc_group(0, 0, 1);
             return 126;
         }
     }

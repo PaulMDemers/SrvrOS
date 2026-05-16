@@ -25,6 +25,7 @@ python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/process_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -90,6 +91,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
   control, and Ctrl-C interruption of CPU-bound processes and pipelines with
   `status 130`.
+- `process_pressure.py`: repeated foreground execs, multi-stage pipelines, many
+  concurrent background sleeps, `jobs -l`, `wait`, and a final pipeline pass. It
+  fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion
+  markers.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record

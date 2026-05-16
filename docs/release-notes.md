@@ -19,6 +19,11 @@ server.
   stdio TTY detection, plus `/fat/bin/ttydemo` smoke coverage.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
+- Raises process and VMM address-space capacity to 64 slots plus scheduler
+  thread capacity to 32 slots, recycles dead scheduler-thread stacks before slot
+  reuse, improves pipeline spawn failure diagnostics, and adds
+  `tools/process_pressure.py` for repeated exec, pipeline, and background-job
+  pressure coverage.
 - Mounts exFAT from initramfs-backed memory or AHCI-backed disks.
 - Supports exFAT file create/write/append/delete/rename, directory create,
   empty directory removal, mount/unmount, and consistency checks.

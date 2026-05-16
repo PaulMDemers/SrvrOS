@@ -9,7 +9,7 @@
 #include <srvros/vfs.h>
 
 #define PROCESS_MAX_OPEN_FILES 16
-#define PROCESS_MAX_PROCESSES 16
+#define PROCESS_MAX_PROCESSES 64
 
 enum process_file_type {
     PROCESS_FILE_UNUSED,

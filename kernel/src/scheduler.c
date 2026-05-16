@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define SCHEDULER_MAX_THREADS 8
+#define SCHEDULER_MAX_THREADS 32
 #define SCHEDULER_STACK_SIZE 131072
 #define SCHEDULER_STACK_MIN_PHYSICAL 0x100000ull
 #define SCHEDULER_PREEMPT_QUANTUM_TICKS 2
@@ -42,6 +42,7 @@ struct thread {
     uint64_t address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
+    uint64_t stack_physical;
     struct fpu_state kernel_fpu;
     struct scheduler_context context;
     struct scheduler_wait_queue *blocked_queue;
@@ -135,6 +136,11 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
 
     for (uint64_t i = 1; i < SCHEDULER_MAX_THREADS; i++) {
         if (threads[i].state == THREAD_UNUSED || threads[i].state == THREAD_DEAD) {
+            if (threads[i].state == THREAD_DEAD && threads[i].stack_physical != 0) {
+                pmm_free_frame_range(threads[i].stack_physical, SCHEDULER_STACK_SIZE / PMM_FRAME_SIZE);
+                threads[i].stack_physical = 0;
+                threads[i].stack = NULL;
+            }
             uint64_t stack_physical = pmm_alloc_frames_above_tagged(
                 SCHEDULER_STACK_SIZE / PMM_FRAME_SIZE,
                 SCHEDULER_STACK_MIN_PHYSICAL,
@@ -154,6 +160,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
                 .address_space = 0,
                 .kernel_stack_top = 0,
                 .stack = stack,
+                .stack_physical = stack_physical,
                 .context = {
                     .rsp = stack_top,
                     .rip = (uint64_t)scheduler_trampoline,
