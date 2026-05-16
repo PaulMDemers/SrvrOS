@@ -36,9 +36,15 @@ static void sort_deepest_first(void) {
     }
 }
 
-static int remove_one_file(const char *path) {
+static int remove_one_file(const char *path, int force) {
     if (srv_unlink(path) == 0) {
         return 0;
+    }
+    if (force) {
+        struct srv_stat info;
+        if (srv_stat(path, &info) < 0) {
+            return 0;
+        }
     }
     cli_puts("rm: cannot remove ");
     cli_puts(path);
@@ -46,19 +52,22 @@ static int remove_one_file(const char *path) {
     return 1;
 }
 
-static int remove_recursive(const char *root) {
+static int remove_recursive(const char *root, int force) {
     struct srv_stat root_info;
     int status = 0;
     path_count = 0;
 
     if (srv_stat(root, &root_info) < 0) {
+        if (force) {
+            return 0;
+        }
         cli_puts("rm: not found: ");
         cli_puts(root);
         cli_puts("\n");
         return 1;
     }
     if (root_info.type == 0) {
-        return remove_one_file(root);
+        return remove_one_file(root, force);
     }
 
     for (uint64_t index = 0;; index++) {
@@ -85,7 +94,7 @@ static int remove_recursive(const char *root) {
     sort_deepest_first();
     for (size_t i = 0; i < path_count; i++) {
         if (paths[i].type == 0) {
-            status |= remove_one_file(paths[i].path);
+            status |= remove_one_file(paths[i].path, force);
         }
     }
     for (size_t i = 0; i < path_count; i++) {
@@ -107,15 +116,28 @@ static int remove_recursive(const char *root) {
 
 int main(int argc, char **argv) {
     int recursive = 0;
+    int force = 0;
     int first_path = 1;
     int status = 0;
 
-    if (argc > 1 && (cli_streq(argv[1], "-r") || cli_streq(argv[1], "-rf") || cli_streq(argv[1], "-fr"))) {
-        recursive = 1;
-        first_path = 2;
+    while (first_path < argc && argv[first_path][0] == '-' && argv[first_path][1] != '\0') {
+        for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
+            if (argv[first_path][i] == 'r' || argv[first_path][i] == 'R') {
+                recursive = 1;
+            } else if (argv[first_path][i] == 'f') {
+                force = 1;
+            } else {
+                cli_puts("usage: rm [-fRr] <path> [...]\n");
+                return 1;
+            }
+        }
+        first_path++;
     }
     if (argc <= first_path) {
-        cli_puts("usage: rm [-r] <path> [...]\n");
+        if (force) {
+            return 0;
+        }
+        cli_puts("usage: rm [-fRr] <path> [...]\n");
         return 1;
     }
 
@@ -131,10 +153,10 @@ int main(int argc, char **argv) {
                 cli_puts("\n");
                 status = 1;
             } else {
-                status |= remove_recursive(normalized);
+                status |= remove_recursive(normalized, force);
             }
         } else {
-            status |= remove_one_file(normalized);
+            status |= remove_one_file(normalized, force);
         }
     }
     return status;

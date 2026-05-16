@@ -60,7 +60,7 @@ static void build_prefix(char *prefix, size_t capacity, const char *target) {
     }
 }
 
-static int list_target(const char *target_arg, int long_format, int all, int show_header) {
+static int list_target(const char *target_arg, int long_format, int all, int directory_only, int show_header) {
     char target[CLI_PATH_MAX];
     char prefix[CLI_PATH_MAX];
     char path[CLI_PATH_MAX];
@@ -80,6 +80,13 @@ static int list_target(const char *target_arg, int long_format, int all, int sho
         cli_puts(":\n");
     }
     target_is_dir = path_is_directory(target);
+    if (directory_only) {
+        struct srv_stat info;
+        if (srv_stat(target, &info) == 0) {
+            print_entry(target, info.size, target_is_dir, long_format);
+            return 0;
+        }
+    }
     if (!target_is_dir) {
         struct srv_stat info;
         if (srv_stat(target, &info) == 0) {
@@ -144,6 +151,7 @@ int main(int argc, char **argv) {
     int target_count = 0;
     int long_format = 0;
     int all = 0;
+    int directory_only = 0;
     int status = 0;
 
     for (int i = 1; i < argc; i++) {
@@ -153,8 +161,12 @@ int main(int argc, char **argv) {
                     long_format = 1;
                 } else if (argv[i][j] == 'a') {
                     all = 1;
+                } else if (argv[i][j] == 'd') {
+                    directory_only = 1;
+                } else if (argv[i][j] == '1') {
+                    continue;
                 } else {
-                    cli_puts("usage: ls [-la] [path ...]\n");
+                    cli_puts("usage: ls [-1adl] [path ...]\n");
                     return 1;
                 }
             }
@@ -172,7 +184,7 @@ int main(int argc, char **argv) {
         if (i > 0) {
             cli_puts("\n");
         }
-        if (list_target(targets[i], long_format, all, target_count > 1) != 0) {
+        if (list_target(targets[i], long_format, all, directory_only, target_count > 1) != 0) {
             status = 1;
         }
     }

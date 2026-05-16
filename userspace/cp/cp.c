@@ -243,46 +243,77 @@ static int copy_recursive(const char *source, const char *dest) {
 
 int main(int argc, char **argv) {
     int recursive = 0;
+    int force = 0;
     int first_path = 1;
+    int status = 0;
     struct srv_stat info;
-    char source_path[CLI_PATH_MAX];
     char dest_path[CLI_PATH_MAX];
-    char dest[CLI_PATH_MAX];
+    int source_count;
+    int dest_is_dir;
 
-    if (argc > 1 && (cli_streq(argv[1], "-r") || cli_streq(argv[1], "-R"))) {
-        recursive = 1;
-        first_path = 2;
+    while (first_path < argc && argv[first_path][0] == '-' && argv[first_path][1] != '\0') {
+        for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
+            if (argv[first_path][i] == 'r' || argv[first_path][i] == 'R') {
+                recursive = 1;
+            } else if (argv[first_path][i] == 'f') {
+                force = 1;
+            } else {
+                cli_puts("usage: cp [-fRr] <source>... <dest>\n");
+                return 1;
+            }
+        }
+        first_path++;
     }
-    if (argc != first_path + 2) {
-        cli_puts("usage: cp [-r] <source> <dest>\n");
+    (void)force;
+    source_count = argc - first_path - 1;
+    if (source_count < 1) {
+        cli_puts("usage: cp [-fRr] <source>... <dest>\n");
         return 1;
     }
     const char *pwd = getenv("PWD");
-    cli_normalize_path(source_path, sizeof(source_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[first_path]);
-    cli_normalize_path(dest_path, sizeof(dest_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[first_path + 1]);
+    cli_normalize_path(dest_path, sizeof(dest_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[argc - 1]);
+    dest_is_dir = path_is_dir(dest_path);
 
-    if (srv_stat(source_path, &info) < 0) {
-        cli_puts("cp: not found: ");
-        cli_puts(argv[first_path]);
+    if (source_count > 1 && !dest_is_dir) {
+        cli_puts("cp: target is not a directory: ");
+        cli_puts(argv[argc - 1]);
         cli_puts("\n");
         return 1;
     }
-    if (info.type == 1) {
-        if (!recursive) {
-            cli_puts("cp: is a directory: ");
-            cli_puts(argv[first_path]);
-            cli_puts("\n");
-            return 1;
-        }
-        return copy_recursive(source_path, dest_path);
-    }
 
-    if (path_is_dir(dest_path)) {
-        if (!cli_join_path(dest, sizeof(dest), dest_path, base_name(source_path))) {
-            return 1;
+    for (int i = first_path; i < argc - 1; i++) {
+        char source_path[CLI_PATH_MAX];
+        char dest[CLI_PATH_MAX];
+        cli_normalize_path(source_path, sizeof(source_path), pwd != 0 && pwd[0] != '\0' ? pwd : "/", argv[i]);
+
+        if (srv_stat(source_path, &info) < 0) {
+            cli_puts("cp: not found: ");
+            cli_puts(argv[i]);
+            cli_puts("\n");
+            status = 1;
+            continue;
         }
-    } else {
-        cli_copy(dest, sizeof(dest), dest_path);
+        if (info.type == 1) {
+            if (!recursive) {
+                cli_puts("cp: is a directory: ");
+                cli_puts(argv[i]);
+                cli_puts("\n");
+                status = 1;
+                continue;
+            }
+            status |= copy_recursive(source_path, dest_path);
+            continue;
+        }
+
+        if (dest_is_dir) {
+            if (!cli_join_path(dest, sizeof(dest), dest_path, base_name(source_path))) {
+                status = 1;
+                continue;
+            }
+        } else {
+            cli_copy(dest, sizeof(dest), dest_path);
+        }
+        status |= copy_file(source_path, dest);
     }
-    return copy_file(source_path, dest);
+    return status;
 }

@@ -200,6 +200,9 @@ server.
 - Expands the next CLI compatibility slice with `ls -a/-l` combined flags and
   multi-path headers, `sed -n`, `sed -e`, literal `p`/`d` commands, simple
   line-number and `/pattern/` addresses, and `test -s/-r/-w/-x`.
+- Extends the file-tool compatibility pass with `ls -d`/`ls -1`, clustered
+  `rm -fRr`, no-error forced missing-file removal, and multi-source `cp`/`mv`
+  into existing directory destinations.
 - Adds `/fat/bin/expr` for script-friendly integer arithmetic, comparisons,
   string length/substr/index operations, and literal-prefix `:` matching.
 - Adds `/fat/bin/printf` and `/fat/bin/tr` for portable script output and

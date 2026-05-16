@@ -74,7 +74,8 @@ editor clients:
   filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
-  `mkdir -p`, recursive `cp`/`rm`, directory-aware `mv`,
+  `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
+  recursive `cp`/`rm`, directory-aware `mv`,
   `uname`, `hostname`, and `uptime`.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup

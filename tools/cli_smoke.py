@@ -90,6 +90,8 @@ def main():
         "ls /fat/bin\n"
         "ls -a /fat | grep .srvros\n"
         "ls -la /fat /fat/etc\n"
+        "echo ls-d-before; ls -d /fat/bin; echo ls-d-after\n"
+        "ls -1 /fat/bin | grep sh\n"
         "which sh true false\n"
         "export TESTVAR=cli-ok\n"
         "env\n"
@@ -229,6 +231,10 @@ def main():
         "echo redirected > /fat/redir.txt\n"
         "echo appended >> /fat/redir.txt\n"
         "cat /fat/redir.txt\n"
+        "mkdir -p /fat/cp-many\n"
+        "cp -f /fat/status.txt /fat/redir.txt /fat/cp-many\n"
+        "stat /fat/cp-many/status.txt\n"
+        "cat /fat/cp-many/redir.txt\n"
         "write /fat/boot.sh \"echo script-ok\"\n"
         "write -a /fat/boot.sh \"echo appended-script-ok\"\n"
         "source /fat/boot.sh\n"
@@ -379,6 +385,14 @@ def main():
         "mkdir /fat/mvdir/emptydir\n"
         "mv /fat/mvdir/emptydir /fat/mvdir/target\n"
         "stat /fat/mvdir/target/emptydir\n"
+        "write /fat/mv-a.txt move-a\n"
+        "write /fat/mv-b.txt move-b\n"
+        "mv -f /fat/mv-a.txt /fat/mv-b.txt /fat/mvdir\n"
+        "cat /fat/mvdir/mv-a.txt\n"
+        "cat /fat/mvdir/mv-b.txt\n"
+        "stat /fat/mv-a.txt\n"
+        "rm -f /fat/no-such-file\n"
+        "echo rm-f-ok\n"
         "rm -r /fat/mvdir\n"
         "stat /fat/mvdir/move-into.txt\n"
         "tap /fat/tap-copy.txt /fat/status.txt\n"
@@ -458,6 +472,9 @@ def main():
         ".srvros",
         "/fat:",
         "/fat/etc:",
+        "ls-d-before",
+        "/fat/bin/",
+        "ls-d-after",
         "/fat/bin/true",
         "/fat/bin/false",
         "TESTVAR=cli-ok",
@@ -558,6 +575,7 @@ def main():
         "export PS1",
         "redirected",
         "appended",
+        "/fat/cp-many/status.txt: 55 bytes",
         "script-ok",
         "appended-script-ok",
         "command-mode-ok",
@@ -643,6 +661,10 @@ def main():
         "stat: not found: /fat/move-src.txt",
         "moved-into",
         "/fat/mvdir/target/emptydir: 0 bytes directory",
+        "move-a",
+        "move-b",
+        "stat: not found: /fat/mv-a.txt",
+        "rm-f-ok",
         "stat: not found: /fat/mvdir/move-into.txt",
         "/fat/tap-copy.txt: 55 bytes",
         "/fat/piped-copy.txt: 55 bytes",

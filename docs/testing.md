@@ -63,9 +63,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
   `cut`, `xargs`, `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
-  `cp`/`rm`, copy/remove, native file rename and directory destinations through
-  `mv`, `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
-  `find -type`, `ls -a/-la` and multi-path headers, `sed -n`/`-e`/`p`/`d`
+  `cp`/`rm`, copy/remove, clustered `rm -fRr`, multi-source `cp`/`mv` into
+  directories, native file rename and directory destinations through `mv`,
+  `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
+  `find -type`, `ls -a/-la/-d/-1` and multi-path headers, `sed -n`/`-e`/`p`/`d`
   with simple addresses, `expr` arithmetic/string expressions,
   `printf`, `tr`, `while` loops, `case` pattern matching, compound-command
   tail chaining, command-local environment assignments, comments, script line
