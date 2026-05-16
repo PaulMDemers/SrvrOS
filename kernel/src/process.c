@@ -1963,6 +1963,9 @@ int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t
     if (written < 0) {
         return written;
     }
+    if (file->type == PROCESS_FILE_VFS_WRITE && process_file_flush(process, (uint64_t)target_fd) < 0) {
+        return -1;
+    }
     process->stdout_written = true;
     return written;
 }

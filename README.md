@@ -47,7 +47,8 @@ editor clients:
   `write`, and `close`.
 - Ring-3 `/fat/bin/webd`, a poll-driven static HTTP server for `/fat/www` with
   nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
-  and a bounded active-client table.
+  a bounded active-client table, and shell-managed service logging under
+  `/fat/var/log`.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, foreground/background
   multi-stage pipelines,
@@ -62,7 +63,8 @@ editor clients:
   `/fat/etc/profile`, `PS1`, default `TMPDIR`, `HISTFILE`/`HISTSIZE`,
   `test`/`[`, `set -e`, `read`, `alias`, `history`, `type`, `command -v`/`command -V`,
   `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
-  job references, `service webd`, DHCP/status/DNS commands,
+  job references, config-backed `service` management for `/fat/etc/services/*.svc`,
+  DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, raw-mode line editing with cursor movement, Ctrl-U/Ctrl-W kill,
   Ctrl-Y yank, draft-preserving history navigation,
@@ -200,6 +202,8 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ net
 / $ dns p2.dev
 / $ service webd start
+/ $ service webd status
+/ $ cat /fat/var/log/webd.log
 / $ posixdemo
 / $ zlibdemo
 / $ jsondemo
@@ -222,6 +226,12 @@ The login shell starts `/fat/etc/init.sh`:
 ```text
 srv> run /fat/bin/sh --login
 ```
+
+Generated exFAT images include `/fat/etc/services/webd.svc`; `service webd`
+uses that config to launch `/fat/bin/webd /fat/www` in the background and
+redirect stdout to `/fat/var/log/webd.log`. New services can be added as
+`/fat/etc/services/name.svc` with `command=`, optional `args=`, `process=`,
+and `log=` keys.
 
 The shell can also run non-interactively, which is useful for smoke tests,
 ports, and simple boot scripts:

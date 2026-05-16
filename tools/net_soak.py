@@ -143,7 +143,7 @@ def main():
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh --login\n")
-            output += read_until(sock, b"webd: serving", args.service_wait)
+            output += read_until(sock, b"webd started pid", args.service_wait)
             output += send_command(sock, "service webd status", "webd background pid", args.service_wait)
 
             for round_index in range(args.rounds):
@@ -164,6 +164,7 @@ def main():
                 output += read_for(sock, 0.5)
                 output += send_command(sock, "arp", "HWaddress", args.service_wait)
                 output += read_for(sock, 0.5)
+            output += send_command(sock, "cat /fat/var/log/webd.log", "webd: serving", args.service_wait)
         finally:
             try:
                 process.terminate()
@@ -175,8 +176,10 @@ def main():
     sys.stdout.write(text)
 
     for marker in [
+        "webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "log /fat/var/log/webd.log",
         "netcheck: ok",
         "10.0.2.15:80",
         "e1000: flags=UP,RUNNING",

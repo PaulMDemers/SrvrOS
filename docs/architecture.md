@@ -233,6 +233,12 @@ serves files from `/fat/www`. It supports nested static asset paths, GET/HEAD,
 content lengths, basic MIME/cache headers, idle partial-client cleanup, and a
 small bounded active-client table.
 
+The shell service manager reads `/fat/etc/services/*.svc` files and uses them
+to start, stop, restart, and inspect persistent userspace daemons. The generated
+exFAT image ships `/fat/etc/services/webd.svc`, so the login script starts
+`webd` through `service webd start`; service stdout is redirected to live
+append logs such as `/fat/var/log/webd.log`.
+
 Current networking caveats:
 
 - TCP is intentionally minimal and not a general-purpose implementation yet.
@@ -280,7 +286,7 @@ login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `command`,
 `unset`, `TMPDIR`,
 `cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
-`%+`/`%-` job references, `service webd`,
+`%+`/`%-` job references, config-backed `service` commands,
 DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
 builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
 input, persistent `/fat/.srvsh_history`, and tab completion for builtins,

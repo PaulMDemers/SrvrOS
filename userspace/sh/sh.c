@@ -1617,6 +1617,107 @@ static int find_service_process(const char *name, struct srv_process_info *out, 
     return 0;
 }
 
+struct service_config {
+    char name[32];
+    char command[CLI_PATH_MAX];
+    char args[LINE_MAX];
+    char process_name[32];
+    char log_path[CLI_PATH_MAX];
+};
+
+static void service_default_config(struct service_config *config, const char *name) {
+    size_t out = 0;
+    memset(config, 0, sizeof(*config));
+    cli_copy(config->name, sizeof(config->name), name);
+    cli_copy(config->process_name, sizeof(config->process_name), name);
+    config->command[0] = '\0';
+    append_text(config->command, sizeof(config->command), &out, "/fat/bin/");
+    append_text(config->command, sizeof(config->command), &out, name);
+    if (cli_streq(name, "webd")) {
+        cli_copy(config->command, sizeof(config->command), "/fat/bin/webd");
+        cli_copy(config->args, sizeof(config->args), "/fat/www");
+        cli_copy(config->log_path, sizeof(config->log_path), "/fat/var/log/webd.log");
+    }
+}
+
+static void service_config_path(char *out, size_t capacity, const char *name) {
+    size_t length = 0;
+    out[0] = '\0';
+    append_text(out, capacity, &length, "/fat/etc/services/");
+    append_text(out, capacity, &length, name);
+    append_text(out, capacity, &length, ".svc");
+}
+
+static void service_apply_config_line(struct service_config *config, char *line) {
+    char *trimmed = cli_trim(line);
+    char *equals;
+    if (trimmed[0] == '\0' || trimmed[0] == '#') {
+        return;
+    }
+    equals = strchr(trimmed, '=');
+    if (equals == 0 || equals == trimmed) {
+        return;
+    }
+    *equals++ = '\0';
+    char *key = cli_trim(trimmed);
+    char *value = cli_trim(equals);
+    if (cli_streq(key, "command") || cli_streq(key, "path")) {
+        cli_copy(config->command, sizeof(config->command), value);
+    } else if (cli_streq(key, "args")) {
+        cli_copy(config->args, sizeof(config->args), value);
+    } else if (cli_streq(key, "process") || cli_streq(key, "name")) {
+        cli_copy(config->process_name, sizeof(config->process_name), value);
+    } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
+        cli_copy(config->log_path, sizeof(config->log_path), value);
+    }
+}
+
+static int service_load_config(struct service_config *config, const char *name) {
+    char path[CLI_PATH_MAX];
+    char data[512];
+    char line[LINE_MAX];
+    size_t line_length = 0;
+    long fd;
+    long count;
+
+    service_default_config(config, name);
+    service_config_path(path, sizeof(path), name);
+    fd = srv_open(path);
+    if (fd < 0) {
+        long command_fd = srv_open(config->command);
+        if (command_fd >= 0) {
+            srv_close((int)command_fd);
+            return 1;
+        }
+        return cli_streq(name, "webd") ? 1 : 0;
+    }
+    count = srv_read((int)fd, data, sizeof(data) - 1);
+    srv_close((int)fd);
+    if (count < 0) {
+        return 0;
+    }
+    data[count] = '\0';
+    for (long i = 0; i <= count; i++) {
+        char c = data[i];
+        if (c == '\r') {
+            continue;
+        }
+        if (c == '\n' || c == '\0') {
+            line[line_length] = '\0';
+            service_apply_config_line(config, line);
+            line_length = 0;
+            continue;
+        }
+        if (line_length + 1 < sizeof(line)) {
+            line[line_length++] = c;
+        }
+    }
+    if (config->command[0] == '\0' || config->process_name[0] == '\0') {
+        return 0;
+    }
+    return 1;
+}
+
 static void reap_exited_service(const char *name) {
     struct srv_process_info info;
     uint64_t status = 0;
@@ -1627,16 +1728,91 @@ static void reap_exited_service(const char *name) {
     }
 }
 
+static int service_stop_config(const struct service_config *config) {
+    struct srv_process_info info;
+    uint64_t status = 0;
+    if (!find_service_process(config->process_name, &info, 0)) {
+        cli_puts(config->name);
+        cli_puts(" stopped\n");
+        return 0;
+    }
+    if (srv_kill(info.pid) < 0) {
+        cli_puts(config->name);
+        cli_puts(" stop failed\n");
+        return 1;
+    }
+    long waited = srv_wait(info.pid, &status, 0);
+    cli_puts(config->name);
+    cli_puts(" stopped pid ");
+    cli_putn(info.pid);
+    if (waited > 0) {
+        cli_puts(" status ");
+        cli_putn(status);
+    }
+    cli_puts("\n");
+    return 0;
+}
+
+static void service_start_config(const struct service_config *config, const char *override_args) {
+    struct srv_process_info info;
+    const char *start_args = override_args != 0 && override_args[0] != '\0' ? override_args : config->args;
+    int log_fd = -1;
+    long pid;
+
+    if (find_service_process(config->process_name, &info, 0)) {
+        cli_puts(config->name);
+        cli_puts(" already running pid ");
+        cli_putn(info.pid);
+        cli_puts("\n");
+        return;
+    }
+    if (config->log_path[0] != '\0') {
+        log_fd = (int)srv_open_mode(config->log_path, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_APPEND);
+        if (log_fd < 0) {
+            cli_puts(config->name);
+            cli_puts(" log open failed: ");
+            cli_puts(config->log_path);
+            cli_puts("\n");
+            return;
+        }
+    }
+    pid = log_fd >= 0 ?
+        srv_spawn_bg_args_fds(config->command, start_args, -1, log_fd) :
+        srv_spawn_bg_args(config->command, start_args);
+    if (log_fd >= 0) {
+        srv_close(log_fd);
+    }
+    if (pid < 0) {
+        cli_puts(config->name);
+        cli_puts(" start failed\n");
+        return;
+    }
+    last_background_pid = (uint64_t)pid;
+    cli_puts(config->name);
+    cli_puts(" started pid ");
+    cli_putn((uint64_t)pid);
+    if (config->log_path[0] != '\0') {
+        cli_puts(" log ");
+        cli_puts(config->log_path);
+    }
+    cli_puts("\n");
+}
+
 static void service_command(const char *args) {
     char work[LINE_MAX];
     char *name;
     char *action;
     char *action_args;
     struct srv_process_info info;
-    uint64_t status = 0;
+    struct service_config config;
 
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
+    if (name[0] == '\0') {
+        cli_puts("usage: service <name> [start [args]|stop|restart|status]\n");
+        cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
+        return;
+    }
     action = name;
     while (*action != '\0' && *action != ' ' && *action != '\t') {
         action++;
@@ -1646,8 +1822,12 @@ static void service_command(const char *args) {
         action = cli_trim(action);
     }
 
-    if (!cli_streq(name, "webd")) {
-        cli_puts("usage: service webd [start [root]|stop|status]\n");
+    if (!service_load_config(&config, name)) {
+        cli_puts("service: not found: ");
+        cli_puts(name);
+        cli_puts(" (expected /fat/etc/services/");
+        cli_puts(name);
+        cli_puts(".svc)\n");
         return;
     }
     if (action[0] == '\0') {
@@ -1662,60 +1842,48 @@ static void service_command(const char *args) {
         action_args = cli_trim(action_args);
     }
 
-    reap_exited_service("webd");
+    reap_exited_service(config.process_name);
     if (cli_streq(action, "status")) {
-        if (find_service_process("webd", &info, 1)) {
-            cli_puts("webd ");
+        if (find_service_process(config.process_name, &info, 1)) {
+            cli_puts(config.name);
+            cli_puts(" ");
             cli_puts(info.state);
             cli_puts(" pid ");
             cli_putn(info.pid);
+            if (config.log_path[0] != '\0') {
+                cli_puts(" log ");
+                cli_puts(config.log_path);
+            }
             cli_puts("\n");
         } else {
-            cli_puts("webd stopped\n");
+            cli_puts(config.name);
+            cli_puts(" stopped");
+            if (config.log_path[0] != '\0') {
+                cli_puts(" log ");
+                cli_puts(config.log_path);
+            }
+            cli_puts("\n");
         }
         return;
     }
 
     if (cli_streq(action, "start")) {
-        if (find_service_process("webd", &info, 0)) {
-            cli_puts("webd already running pid ");
-            cli_putn(info.pid);
-            cli_puts("\n");
-            return;
-        }
-        long pid = srv_spawn_bg_args("/fat/bin/webd", action_args);
-        if (pid < 0) {
-            cli_puts("webd start failed\n");
-            return;
-        }
-        last_background_pid = (uint64_t)pid;
-        cli_puts("webd started pid ");
-        cli_putn((uint64_t)pid);
-        cli_puts("\n");
+        service_start_config(&config, action_args);
         return;
     }
 
     if (cli_streq(action, "stop")) {
-        if (!find_service_process("webd", &info, 0)) {
-            cli_puts("webd stopped\n");
-            return;
-        }
-        if (srv_kill(info.pid) < 0) {
-            cli_puts("webd stop failed\n");
-            return;
-        }
-        long waited = srv_wait(info.pid, &status, 0);
-        cli_puts("webd stopped pid ");
-        cli_putn(info.pid);
-        if (waited > 0) {
-            cli_puts(" status ");
-            cli_putn(status);
-        }
-        cli_puts("\n");
+        (void)service_stop_config(&config);
         return;
     }
 
-    cli_puts("usage: service webd [start [root]|stop|status]\n");
+    if (cli_streq(action, "restart")) {
+        (void)service_stop_config(&config);
+        service_start_config(&config, action_args);
+        return;
+    }
+
+    cli_puts("usage: service <name> [start [args]|stop|restart|status]\n");
 }
 
 static void print_path(void) {

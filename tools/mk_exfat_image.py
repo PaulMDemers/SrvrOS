@@ -182,10 +182,18 @@ def main():
         ("init.sh",
             b"# srvros service startup\n"
             b"echo init-script-ok\n"
-            b"webd &\n"),
+            b"service webd start\n"),
         ("resolv.conf",
             b"# srvros resolver fallback\n"
             b"nameserver 10.0.2.3\n"),
+    ]
+    service_files = [
+        ("webd.svc",
+            b"# srvros web server service\n"
+            b"command=/fat/bin/webd\n"
+            b"args=/fat/www\n"
+            b"process=webd\n"
+            b"log=/fat/var/log/webd.log\n"),
     ]
     files = []
     for name, data in static_files:
@@ -193,11 +201,17 @@ def main():
 
     bin_dir_cluster = allocate_clusters(BIN_DIRECTORY_SIZE)
     etc_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    services_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    var_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    log_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_assets_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     etc_entries_data = []
     for name, data in etc_files:
         etc_entries_data.append((name, allocate_clusters(len(data)), data))
+    service_entries_data = []
+    for name, data in service_files:
+        service_entries_data.append((name, allocate_clusters(len(data)), data))
     www_entries_data = []
     for name, data in www_files:
         www_entries_data.append((name, allocate_clusters(len(data)), data))
@@ -265,6 +279,12 @@ def main():
     offset = append_directory_entry(
         root,
         offset,
+        file_entry("var", var_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
         file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
         "root",
     )
@@ -285,6 +305,8 @@ def main():
             nested_entry_set = file_entry(nested_name, cluster, data)
             bin_offset = append_directory_entry(bin_entries, bin_offset, nested_entry_set, "bin")
 
+    services_entry_set = file_entry("services", services_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    etc_offset = append_directory_entry(etc_entries, etc_offset, services_entry_set, "etc")
     for name, cluster, data in etc_entries_data:
         entry_set = file_entry(name, cluster, data)
         etc_offset = append_directory_entry(etc_entries, etc_offset, entry_set, "etc")
@@ -293,6 +315,23 @@ def main():
             file_data = bytearray(CLUSTER_SIZE)
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
+    services_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    services_offset = 0
+    for name, cluster, data in service_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        services_offset = append_directory_entry(services_entries, services_offset, entry_set, "etc/services")
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
+    var_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    var_offset = 0
+    log_entry_set = file_entry("log", log_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    var_offset = append_directory_entry(var_entries, var_offset, log_entry_set, "var")
+    log_entries = bytearray(SMALL_DIRECTORY_SIZE)
 
     www_entries = bytearray(SMALL_DIRECTORY_SIZE)
     www_offset = 0
@@ -321,6 +360,9 @@ def main():
     image[cluster_offset(ROOT_DIRECTORY_CLUSTER):cluster_offset(ROOT_DIRECTORY_CLUSTER) + ROOT_DIRECTORY_SIZE] = root
     image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + BIN_DIRECTORY_SIZE] = bin_entries
     image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + SMALL_DIRECTORY_SIZE] = etc_entries
+    image[cluster_offset(services_dir_cluster):cluster_offset(services_dir_cluster) + SMALL_DIRECTORY_SIZE] = services_entries
+    image[cluster_offset(var_dir_cluster):cluster_offset(var_dir_cluster) + SMALL_DIRECTORY_SIZE] = var_entries
+    image[cluster_offset(log_dir_cluster):cluster_offset(log_dir_cluster) + SMALL_DIRECTORY_SIZE] = log_entries
     image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_entries
     image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_assets_entries
 

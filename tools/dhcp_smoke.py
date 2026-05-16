@@ -138,7 +138,7 @@ def main():
             output += read_until(sock, b"dhcp: 10.0.2.15", args.dhcp_wait)
             output += read_until(sock, b" $ ", 2)
             sock.sendall(b"service webd start\n")
-            output += read_until(sock, b"webd: serving", args.service_wait)
+            output += read_until(sock, b"webd started pid", args.service_wait)
             output += read_for(sock, 1)
             try:
                 response = http_get(http_port, "/", args.http_wait)
@@ -150,6 +150,8 @@ def main():
                 response += b"\n--- updated ---\n" + http_get(http_port, "/", args.http_wait)
             except RuntimeError as exc:
                 http_error = exc
+            sock.sendall(b"cat /fat/var/log/webd.log\n")
+            output += read_until(sock, b"webd: serving", args.service_wait)
             output += read_for(sock, 2)
         finally:
             try:
@@ -168,6 +170,7 @@ def main():
         "dhcp: 10.0.2.15",
         "webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
+        "log /fat/var/log/webd.log",
     ]
     missing = [marker for marker in expected if marker not in text]
     if b"HTTP/1.1 200 OK" not in response:

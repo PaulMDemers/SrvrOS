@@ -191,7 +191,7 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh --login\n")
             output += read_until(sock, b"srvsh: interactive shell", args.shell_wait)
-            output += read_until(sock, b"webd: serving", args.service_wait)
+            output += read_until(sock, b"webd started pid", args.service_wait)
             sock.sendall(b"service webd status\n")
             output += read_until(sock, b"webd background pid", args.service_wait)
             sock.sendall(b"netstat\n")
@@ -220,6 +220,8 @@ def main():
             except RuntimeError as exc:
                 large_error = exc
             closed_refused = closed_port_refused(closed_port, 3)
+            sock.sendall(b"cat /fat/var/log/webd.log\n")
+            output += read_until(sock, b"webd: serving", args.service_wait)
             output += read_for(sock, 3)
             if (http_error is not None or
                     css_error is not None or
@@ -255,8 +257,10 @@ def main():
         "e1000:",
         "net: static ipv4=10.0.2.15",
         "init-script-ok",
+        "webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "log /fat/var/log/webd.log",
         "Proto State",
         "10.0.2.15:80",
         "e1000: flags=UP,RUNNING",

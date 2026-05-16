@@ -141,7 +141,7 @@ def main():
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh --login\n")
-            output += read_until(sock, b"webd: serving", args.service_wait)
+            output += read_until(sock, b"webd started pid", args.service_wait)
             output += send_command(sock, "service webd status", "webd background pid", args.service_wait)
 
             for index in range(args.connections):
@@ -158,6 +158,7 @@ def main():
             output += send_command(sock, "netstat", "Proto State", args.service_wait)
             output += send_command(sock, "netcheck", "netcheck: ok", args.command_wait)
             output += send_command(sock, "ifconfig", "tcp pressure", args.service_wait)
+            output += send_command(sock, "cat /fat/var/log/webd.log", "webd: serving", args.service_wait)
             output += read_for(sock, 1)
         finally:
             try:
@@ -171,8 +172,10 @@ def main():
 
     missing = []
     for marker in [
+        "webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "log /fat/var/log/webd.log",
         "tcp_conn ",
         "tcp pressure",
         "Proto State",
