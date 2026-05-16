@@ -78,6 +78,7 @@ long srv_syscall2(long number, long arg0, long arg1);
 long srv_syscall3(long number, long arg0, long arg1, long arg2);
 long srv_syscall4(long number, long arg0, long arg1, long arg2, long arg3);
 long srv_syscall5(long number, long arg0, long arg1, long arg2, long arg3, long arg4);
+long srv_syscall6(long number, long arg0, long arg1, long arg2, long arg3, long arg4, long arg5);
 
 size_t srv_strlen(const char *text);
 long srv_write(int fd, const void *buffer, size_t length);
@@ -100,6 +101,8 @@ long srv_fstat(int fd, struct srv_stat *info);
 long srv_chmod(const char *path, uint64_t mode);
 long srv_fchmod(int fd, uint64_t mode);
 long srv_sbrk(int64_t increment, uint64_t *previous_out);
+long srv_mmap(void *address, size_t length, int protection, int flags, int fd, int64_t offset);
+long srv_munmap(void *address, size_t length);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);

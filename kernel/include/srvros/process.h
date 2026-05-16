@@ -146,6 +146,14 @@ int64_t process_file_stat(struct process *process,
     uint64_t *type_out);
 int64_t process_file_chmod(struct process *process, uint64_t fd, uint64_t mode);
 int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out);
+int64_t process_mmap(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t protection,
+    uint64_t flags,
+    int64_t fd,
+    int64_t offset);
+int64_t process_munmap(struct process *process, uint64_t address, uint64_t length);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);

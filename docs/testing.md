@@ -93,6 +93,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,
   `w+`/`r+`/`a+` stdio update streams,
+  anonymous private `mmap`/`munmap`,
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,

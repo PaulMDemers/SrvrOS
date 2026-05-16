@@ -30,7 +30,10 @@
 #define USER_STACK_TOP 0x1000000ull
 #define USER_STACK_PAGES 16
 #define USER_HEAP_LIMIT (USER_STACK_TOP - (USER_STACK_PAGES * PAGE_SIZE) - PAGE_SIZE)
+#define USER_MMAP_BASE 0x10000000ull
+#define USER_MMAP_LIMIT 0x40000000ull
 #define PROCESS_MAX_MAPPINGS 4096
+#define PROCESS_MAX_MMAP_REGIONS 64
 #define PROCESS_NAME_MAX 64
 #define PROCESS_KERNEL_STACK_SIZE 131072
 #define PROCESS_KERNEL_STACK_MIN_PHYSICAL 0x100000ull
@@ -61,6 +64,12 @@ struct process_mapping {
     uint64_t virtual_address;
     uint64_t physical_address;
     uint64_t flags;
+};
+
+struct process_mmap_region {
+    bool used;
+    uint64_t base;
+    uint64_t length;
 };
 
 struct process_pipe {
@@ -145,6 +154,8 @@ struct process {
     struct process_file files[PROCESS_MAX_OPEN_FILES];
     struct process_mapping mappings[PROCESS_MAX_MAPPINGS];
     uint64_t mapping_count;
+    struct process_mmap_region mmap_regions[PROCESS_MAX_MMAP_REGIONS];
+    uint64_t mmap_next;
 };
 
 struct elf64_header {
@@ -661,6 +672,36 @@ static bool map_segment_page(uint64_t virtual_page, uint64_t flags) {
     return map_process_page(loading_process, virtual_page, flags);
 }
 
+static int64_t process_mapping_index(struct process *process, uint64_t virtual_page) {
+    if (process == NULL) {
+        return -1;
+    }
+    for (uint64_t i = 0; i < process->mapping_count; i++) {
+        if (process->mappings[i].virtual_address == virtual_page) {
+            return (int64_t)i;
+        }
+    }
+    return -1;
+}
+
+static bool process_unmap_tracked_page(struct process *process, uint64_t virtual_page) {
+    int64_t index = process_mapping_index(process, virtual_page);
+    if (index < 0) {
+        return false;
+    }
+
+    uint64_t physical = 0;
+    if (vmm_unmap_page_in_space(process->address_space, virtual_page, &physical)) {
+        pmm_free_frame(physical);
+    } else if (process->mappings[index].physical_address != 0) {
+        pmm_free_frame(process->mappings[index].physical_address);
+    }
+
+    uint64_t unsigned_index = (uint64_t)index;
+    process->mappings[unsigned_index] = process->mappings[--process->mapping_count];
+    return true;
+}
+
 static void cleanup_process_mappings(struct process *process) {
     if (process == NULL) {
         return;
@@ -677,6 +718,10 @@ static void cleanup_process_mappings(struct process *process) {
         }
     }
     process->mapping_count = 0;
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        process->mmap_regions[i].used = false;
+    }
+    process->mmap_next = USER_MMAP_BASE;
 }
 
 void process_refresh_mappings(struct process *process) {
@@ -3300,6 +3345,240 @@ int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previ
 
     process->program_break = next;
     *previous_out = previous;
+    return 0;
+}
+
+static bool mmap_range_valid(uint64_t base, uint64_t length) {
+    if (length == 0 || (base % PAGE_SIZE) != 0 || base < PAGE_SIZE) {
+        return false;
+    }
+    if (base < USER_MMAP_BASE || base >= USER_MMAP_LIMIT) {
+        return false;
+    }
+    if (length > USER_MMAP_LIMIT - base) {
+        return false;
+    }
+    return true;
+}
+
+static bool mmap_range_free(struct process *process, uint64_t base, uint64_t length) {
+    for (uint64_t page = base; page < base + length; page += PAGE_SIZE) {
+        if (process_mapping_index(process, page) >= 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static int64_t mmap_region_index_for_page(struct process *process, uint64_t page) {
+    if (process == NULL) {
+        return -1;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        if (!process->mmap_regions[i].used) {
+            continue;
+        }
+        uint64_t start = process->mmap_regions[i].base;
+        uint64_t end = start + process->mmap_regions[i].length;
+        if (page >= start && page < end) {
+            return (int64_t)i;
+        }
+    }
+    return -1;
+}
+
+static struct process_mmap_region *mmap_free_region_slot(struct process *process) {
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        if (!process->mmap_regions[i].used) {
+            return &process->mmap_regions[i];
+        }
+    }
+    return NULL;
+}
+
+static bool mmap_record_region(struct process *process, uint64_t base, uint64_t length) {
+    struct process_mmap_region *region = mmap_free_region_slot(process);
+    if (region == NULL) {
+        return false;
+    }
+    *region = (struct process_mmap_region) {
+        .used = true,
+        .base = base,
+        .length = length,
+    };
+    return true;
+}
+
+static int64_t mmap_find_free_range(struct process *process, uint64_t length, uint64_t hint) {
+    uint64_t start = USER_MMAP_BASE;
+    if (hint >= USER_MMAP_BASE && hint < USER_MMAP_LIMIT) {
+        start = page_up(hint);
+    } else if (process->mmap_next >= USER_MMAP_BASE && process->mmap_next < USER_MMAP_LIMIT) {
+        start = page_up(process->mmap_next);
+    }
+
+    for (uint64_t pass = 0; pass < 2; pass++) {
+        uint64_t cursor = pass == 0 ? start : USER_MMAP_BASE;
+        while (cursor < USER_MMAP_LIMIT && length <= USER_MMAP_LIMIT - cursor) {
+            if (mmap_range_free(process, cursor, length)) {
+                return (int64_t)cursor;
+            }
+            cursor += length;
+        }
+    }
+    return -1;
+}
+
+static bool mmap_can_split_for_unmap(struct process *process, uint64_t base, uint64_t length) {
+    uint64_t end = base + length;
+    uint64_t needed_slots = 0;
+    uint64_t free_slots = 0;
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        struct process_mmap_region *region = &process->mmap_regions[i];
+        if (!region->used) {
+            free_slots++;
+            continue;
+        }
+        uint64_t region_start = region->base;
+        uint64_t region_end = region_start + region->length;
+        if (base <= region_start || end >= region_end || end <= region_start || base >= region_end) {
+            continue;
+        }
+        needed_slots++;
+    }
+    return needed_slots <= free_slots;
+}
+
+static void mmap_forget_range(struct process *process, uint64_t base, uint64_t length) {
+    uint64_t end = base + length;
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        struct process_mmap_region *region = &process->mmap_regions[i];
+        if (!region->used) {
+            continue;
+        }
+        uint64_t region_start = region->base;
+        uint64_t region_end = region_start + region->length;
+        uint64_t overlap_start = base > region_start ? base : region_start;
+        uint64_t overlap_end = end < region_end ? end : region_end;
+        if (overlap_start >= overlap_end) {
+            continue;
+        }
+        if (overlap_start == region_start && overlap_end == region_end) {
+            region->used = false;
+            continue;
+        }
+        if (overlap_start == region_start) {
+            region->base = overlap_end;
+            region->length = region_end - overlap_end;
+            continue;
+        }
+        if (overlap_end == region_end) {
+            region->length = overlap_start - region_start;
+            continue;
+        }
+
+        uint64_t tail_base = overlap_end;
+        uint64_t tail_length = region_end - overlap_end;
+        region->length = overlap_start - region_start;
+        (void)mmap_record_region(process, tail_base, tail_length);
+    }
+}
+
+int64_t process_mmap(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t protection,
+    uint64_t flags,
+    int64_t fd,
+    int64_t offset) {
+    if (process == NULL || process->address_space == 0 || length == 0) {
+        return -1;
+    }
+    if ((flags & SRV_MAP_ANONYMOUS) == 0 ||
+        (flags & SRV_MAP_PRIVATE) == 0 ||
+        (flags & SRV_MAP_SHARED) != 0 ||
+        fd != -1 ||
+        offset != 0) {
+        return -1;
+    }
+    if ((protection & ~(SRV_PROT_READ | SRV_PROT_WRITE | SRV_PROT_EXEC)) != 0 ||
+        protection == SRV_PROT_NONE) {
+        return -1;
+    }
+
+    uint64_t mapped_length = page_up(length);
+    if (mapped_length < length) {
+        return -1;
+    }
+
+    uint64_t base = 0;
+    if ((flags & SRV_MAP_FIXED) != 0) {
+        base = address;
+        if (!mmap_range_valid(base, mapped_length) ||
+            !mmap_range_free(process, base, mapped_length)) {
+            return -1;
+        }
+    } else {
+        int64_t found = mmap_find_free_range(process, mapped_length, address);
+        if (found < 0) {
+            return -1;
+        }
+        base = (uint64_t)found;
+    }
+
+    uint64_t page_flags = VMM_PAGE_USER;
+    if ((protection & SRV_PROT_WRITE) != 0) {
+        page_flags |= VMM_PAGE_WRITABLE;
+    }
+    if ((protection & SRV_PROT_EXEC) == 0) {
+        page_flags |= VMM_PAGE_NO_EXECUTE;
+    }
+
+    uint64_t mapped = 0;
+    for (; mapped < mapped_length; mapped += PAGE_SIZE) {
+        if (!map_process_page(process, base + mapped, page_flags)) {
+            for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
+                (void)process_unmap_tracked_page(process, base + rollback);
+            }
+            return -1;
+        }
+    }
+    if (!mmap_record_region(process, base, mapped_length)) {
+        for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
+            (void)process_unmap_tracked_page(process, base + rollback);
+        }
+        return -1;
+    }
+
+    uint64_t next = base + mapped_length;
+    process->mmap_next = next < USER_MMAP_LIMIT ? next : USER_MMAP_BASE;
+    return (int64_t)base;
+}
+
+int64_t process_munmap(struct process *process, uint64_t address, uint64_t length) {
+    if (process == NULL || process->address_space == 0 || length == 0 || (address % PAGE_SIZE) != 0) {
+        return -1;
+    }
+    uint64_t mapped_length = page_up(length);
+    if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
+        return -1;
+    }
+    if (!mmap_can_split_for_unmap(process, address, mapped_length)) {
+        return -1;
+    }
+    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        if (mmap_region_index_for_page(process, page) < 0 ||
+            process_mapping_index(process, page) < 0) {
+            return -1;
+        }
+    }
+    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        (void)process_unmap_tracked_page(process, page);
+    }
+    mmap_forget_range(process, address, mapped_length);
+    if (address < process->mmap_next) {
+        process->mmap_next = address;
+    }
     return 0;
 }
 

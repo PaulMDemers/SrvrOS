@@ -101,6 +101,9 @@ server.
 - Extends `posixdemo` stdio coverage for `w+`, `r+`, and `a+` update streams,
   including buffered read-to-write offset reconciliation and append-after-seek
   behavior.
+- Adds first-pass anonymous private `mmap`/`munmap` support with process-owned
+  page cleanup, libc `sys/mman.h` wrappers, and `posixdemo` coverage for
+  zero-filled read/write mappings plus conservative `MAP_FIXED` mapping.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime

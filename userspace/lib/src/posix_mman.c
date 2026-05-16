@@ -1,0 +1,41 @@
+#include <errno.h>
+#include <stdint.h>
+#include <sys/mman.h>
+
+#include <srvros/sys.h>
+
+void *mmap(void *address, size_t length, int protection, int flags, int fd, off_t offset) {
+    if (length == 0 ||
+        (protection & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) != 0 ||
+        protection == PROT_NONE) {
+        errno = EINVAL;
+        return MAP_FAILED;
+    }
+    if ((flags & MAP_SHARED) != 0 ||
+        (flags & MAP_PRIVATE) == 0 ||
+        (flags & MAP_ANONYMOUS) == 0 ||
+        (flags & ~(MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED)) != 0 ||
+        fd != -1 ||
+        offset != 0) {
+        errno = ENOSYS;
+        return MAP_FAILED;
+    }
+    long result = srv_mmap(address, length, protection, flags, fd, offset);
+    if (result < 0) {
+        errno = ENOMEM;
+        return MAP_FAILED;
+    }
+    return (void *)(uintptr_t)result;
+}
+
+int munmap(void *address, size_t length) {
+    if (address == 0 || length == 0 || (((uintptr_t)address) & 0xfff) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_munmap(address, length) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}

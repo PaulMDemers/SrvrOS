@@ -909,6 +909,19 @@ static int64_t syscall_sbrk(int64_t increment, uint64_t *previous_out) {
     return copy_to_user(previous_out, &previous, sizeof(previous)) ? 0 : -1;
 }
 
+static int64_t syscall_mmap(uint64_t address,
+    uint64_t length,
+    uint64_t protection,
+    uint64_t flags,
+    int64_t fd,
+    int64_t offset) {
+    return process_mmap(process_current(), address, length, protection, flags, fd, offset);
+}
+
+static int64_t syscall_munmap(uint64_t address, uint64_t length) {
+    return process_munmap(process_current(), address, length);
+}
+
 static int64_t syscall_dup(uint64_t fd) {
     return process_file_dup(process_current(), fd);
 }
@@ -1457,6 +1470,17 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SBRK:
         frame->rax = (uint64_t)syscall_sbrk((int64_t)frame->rdi, (uint64_t *)frame->rsi);
+        return;
+    case SYS_MMAP:
+        frame->rax = (uint64_t)syscall_mmap(frame->rdi,
+            frame->rsi,
+            frame->rdx,
+            frame->rcx,
+            (int64_t)frame->r8,
+            (int64_t)frame->r9);
+        return;
+    case SYS_MUNMAP:
+        frame->rax = (uint64_t)syscall_munmap(frame->rdi, frame->rsi);
         return;
     case SYS_DUP:
         frame->rax = (uint64_t)syscall_dup(frame->rdi);

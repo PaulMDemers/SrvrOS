@@ -62,6 +62,17 @@ long srv_syscall5(long number, long arg0, long arg1, long arg2, long arg3, long 
     return number;
 }
 
+long srv_syscall6(long number, long arg0, long arg1, long arg2, long arg3, long arg4, long arg5) {
+    register long r8 __asm__("r8") = arg4;
+    register long r9 __asm__("r9") = arg5;
+    __asm__ volatile (
+        "int $0x80"
+        : "+a"(number)
+        : "D"(arg0), "S"(arg1), "d"(arg2), "c"(arg3), "r"(r8), "r"(r9)
+        : "memory");
+    return number;
+}
+
 size_t srv_strlen(const char *text) {
     size_t length = 0;
     while (text[length] != '\0') {
@@ -151,6 +162,20 @@ long srv_fchmod(int fd, uint64_t mode) {
 
 long srv_sbrk(int64_t increment, uint64_t *previous_out) {
     return srv_syscall2(SYS_SBRK, (long)increment, (long)previous_out);
+}
+
+long srv_mmap(void *address, size_t length, int protection, int flags, int fd, int64_t offset) {
+    return srv_syscall6(SYS_MMAP,
+        (long)address,
+        (long)length,
+        protection,
+        flags,
+        fd,
+        (long)offset);
+}
+
+long srv_munmap(void *address, size_t length) {
+    return srv_syscall2(SYS_MUNMAP, (long)address, (long)length);
 }
 
 long srv_fs_write(const char *path, const void *buffer, size_t length) {

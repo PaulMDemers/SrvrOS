@@ -252,6 +252,9 @@ kernel, and a minimal Unix-like userspace.
   redirect inheritance for children launched from a redirected parent process.
 - Add `w+`, `r+`, and `a+` stdio update-stream smoke coverage for read/write
   transitions and append-after-seek behavior.
+- Add first-pass anonymous private `mmap`/`munmap` with process-owned mapping
+  records, automatic cleanup on exit, libc `sys/mman.h`, and smoke coverage for
+  read/write plus conservative fixed-address mappings.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke

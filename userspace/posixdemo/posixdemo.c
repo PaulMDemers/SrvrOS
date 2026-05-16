@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -536,6 +537,39 @@ int main(void) {
     }
     memset(grown, 0x33, 8192);
     say("posixdemo: sbrk ok\n");
+
+    uint8_t *mapping = mmap(0,
+        8192,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS,
+        -1,
+        0);
+    if (mapping == MAP_FAILED ||
+        mapping[0] != 0 ||
+        mapping[4096] != 0) {
+        say("posixdemo: mmap failed\n");
+        return 26;
+    }
+    mapping[0] = 0x5a;
+    mapping[4096] = 0xa5;
+    if (mapping[0] != 0x5a ||
+        mapping[4096] != 0xa5 ||
+        munmap(mapping, 8192) < 0) {
+        say("posixdemo: mmap rw failed\n");
+        return 26;
+    }
+    void *fixed = mmap((void *)0x18000000,
+        4096,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+        -1,
+        0);
+    if (fixed != (void *)0x18000000 ||
+        munmap(fixed, 4096) < 0) {
+        say("posixdemo: mmap fixed failed\n");
+        return 26;
+    }
+    say("posixdemo: mmap ok\n");
 
     int values[5] = {4, 1, 5, 2, 3};
     int needle = 3;
