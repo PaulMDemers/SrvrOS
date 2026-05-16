@@ -94,7 +94,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `process_pressure.py`: repeated foreground execs, multi-stage pipelines, many
   concurrent background sleeps, `jobs -l`, `wait`, and a final pipeline pass. It
   fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion
-  markers.
+  markers, and it verifies that bare `wait` drains the test-created background
+  sleeps from the process table.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record

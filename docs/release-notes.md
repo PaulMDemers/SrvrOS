@@ -19,6 +19,8 @@ server.
   stdio TTY detection, plus `/fat/bin/ttydemo` smoke coverage.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
+- Expands shell job tracking to 32 entries and makes bare `wait` drain every
+  tracked shell job instead of only the current background job.
 - Raises process and VMM address-space capacity to 64 slots plus scheduler
   thread capacity to 32 slots, recycles dead scheduler-thread stacks before slot
   reuse, improves pipeline spawn failure diagnostics, and adds

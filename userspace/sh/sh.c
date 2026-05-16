@@ -18,7 +18,7 @@ const char *linenoiseHistoryGet(size_t index);
 #define SHELL_MAX_ALIASES 16
 #define SHELL_MAX_FUNCTIONS 16
 #define SHELL_MAX_FUNCTION_ARGS 16
-#define SHELL_MAX_JOBS 8
+#define SHELL_MAX_JOBS 32
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -1448,12 +1448,27 @@ static uint64_t wait_for_job(const char *args) {
             return status;
         }
     } else {
-        job = find_job(last_background_pid);
-        if (job != 0) {
+        int waited_any = 0;
+        for (;;) {
+            job = 0;
+            for (size_t i = 0; i < SHELL_MAX_JOBS; i++) {
+                if (jobs[i].used) {
+                    job = &jobs[i];
+                    break;
+                }
+            }
+            if (job == 0) {
+                break;
+            }
+            uint64_t group = job->group;
             status = wait_shell_job(job, 0);
-            print_wait_result("[done]", (long)last_background_pid, status);
+            print_wait_result("[done]", (long)group, status);
+            waited_any = 1;
+        }
+        if (waited_any) {
             return status;
         }
+        return 0;
     }
 
     waited = srv_wait(pid, &status, 0);

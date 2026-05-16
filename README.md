@@ -62,8 +62,9 @@ editor clients:
   loop `break`/`continue`,
   `/fat/etc/profile`, `PS1`, default `TMPDIR`, `HISTFILE`/`HISTSIZE`,
   `test`/`[`, `set -e`, `read`, `alias`, `history`, `type`, `command -v`/`command -V`,
-  `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
-  job references, config-backed `service` management for `/fat/etc/services/*.svc`,
+  `unset`, safer `cd`, `jobs`/`jobs -l`/bare `wait` draining tracked jobs/
+  `fg`/`bg`/`kill`, `%+`/`%-` job references, config-backed `service`
+  management for `/fat/etc/services/*.svc`,
   DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, raw-mode line editing with cursor movement, Ctrl-U/Ctrl-W kill,

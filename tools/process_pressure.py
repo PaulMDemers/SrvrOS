@@ -71,7 +71,7 @@ def main():
     if os.path.isdir(msys_ucrt):
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
-    background_lines = "".join("sleep 1 &\n" for _ in range(24))
+    background_lines = "".join("sleep 2 &\n" for _ in range(24))
     script = (
         "echo pressure-start\n"
         "for n in 01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16; do true; done\n"
@@ -82,6 +82,7 @@ def main():
         "jobs -l\n"
         "wait\n"
         "echo background-pressure-ok\n"
+        "ps\n"
         "for n in p q r s t u v w; do cat /fat/status.txt | grep exFAT | wc; done\n"
         "ps\n"
         "echo pressure-done\n"
@@ -153,6 +154,9 @@ def main():
 
     missing = [marker for marker in expected if marker not in text]
     present_forbidden = [marker for marker in forbidden if marker in text]
+    post_wait = text.split("background-pressure-ok", 1)[1] if "background-pressure-ok" in text else ""
+    if "exited /fat/bin/sleep" in post_wait or "background /fat/bin/sleep" in post_wait:
+        present_forbidden.append("post-wait sleep process remains")
     if has_fatal_exception(text):
         print("process-pressure: fatal exception detected", file=sys.stderr)
         return 2
