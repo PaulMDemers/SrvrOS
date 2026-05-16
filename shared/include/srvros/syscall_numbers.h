@@ -68,6 +68,7 @@
 #define SYS_MUNMAP 63
 #define SYS_MPROTECT 64
 #define SYS_MSYNC 65
+#define SYS_NET_CONNECT 66
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02

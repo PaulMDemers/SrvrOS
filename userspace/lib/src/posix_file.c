@@ -12,6 +12,7 @@ int __posix_make_path(const char *path, char *out, size_t capacity);
 int __posix_socket_close(int fd);
 int __posix_socket_fcntl(int fd, int command, uint64_t flags);
 int __posix_socket_is_pseudo(int fd);
+int __posix_socket_real_fd(int fd);
 
 #define POSIX_PATH_MAX 160
 
@@ -91,6 +92,11 @@ int open(const char *path, int flags, ...) {
 }
 
 ssize_t read(int fd, void *buffer, size_t length) {
+    fd = __posix_socket_real_fd(fd);
+    if (fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
     long result = srv_read(fd, buffer, length);
     if (result < 0) {
         if (result == SRV_ERR_AGAIN) {
@@ -104,6 +110,11 @@ ssize_t read(int fd, void *buffer, size_t length) {
 }
 
 ssize_t write(int fd, const void *buffer, size_t length) {
+    fd = __posix_socket_real_fd(fd);
+    if (fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
     long result = srv_write(fd, buffer, length);
     if (result < 0) {
         if (result == SRV_ERR_AGAIN) {

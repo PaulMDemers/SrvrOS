@@ -23,15 +23,17 @@ server.
 - Supports exFAT file create/write/append/delete/rename, directory create,
   empty directory removal, mount/unmount, and consistency checks.
 - Drives an Intel e1000 NIC in QEMU with interrupt-backed receive handling.
-- Supports ARP, ICMP echo, DHCP, DNS A-record resolution, and enough TCP for a
-  userspace HTTP server.
+- Supports ARP, ICMP echo, DHCP, DNS A-record resolution, enough TCP for a
+  userspace HTTP server, and client-side TCP connect for simple outbound HTTP.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, and a bounded active-client table.
+- Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
+  DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Includes a small shell, CLI utilities, service control, redirection,
   multi-stage pipelines, scripts, PATH lookup, and background jobs.
 - Adds the first POSIX-compat userspace layer for file, directory, errno,
-  malloc, `sbrk`, pipes, time, cwd, IPv4, DNS, and TCP server socket APIs.
+  malloc, `sbrk`, pipes, time, cwd, IPv4, DNS, and TCP socket APIs.
 - Adds minimal `stdio`, stages zlib and Lua as pinned submodules under
   `ports/upstream`, ships `/fat/bin/zlibdemo`, and adds `/fat/bin/lua` as an
   initial Lua 5.4.8 interpreter.

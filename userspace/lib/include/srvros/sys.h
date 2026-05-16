@@ -130,6 +130,7 @@ long srv_net_dhcp(void);
 long srv_net_status(void);
 long srv_net_dns(const char *name, uint32_t *ip_out);
 long srv_net_listen(uint16_t port);
+long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags);
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out);
 long srv_getpid(void);
 long srv_ticks(void);

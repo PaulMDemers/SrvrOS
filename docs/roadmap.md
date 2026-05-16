@@ -347,6 +347,9 @@ kernel, and a minimal Unix-like userspace.
   relative paths, repeated `/`, `.`, and `..`.
 - Add first-pass terminal signal delivery: Ctrl-C/SIGINT for the active
   foreground process, SIGTERM-backed `kill`, and `128 + signal` statuses.
+- Add client-side TCP `connect`, route outbound traffic through the configured
+  gateway, wire POSIX socket pseudo-fds through `send`/`recv`/`read`/`write`,
+  and ship `/fat/bin/httpget` with QEMU outbound HTTP smoke coverage.
 
 ## Next milestones
 
@@ -377,8 +380,8 @@ kernel, and a minimal Unix-like userspace.
    commands.
 4. Add NVMe discovery and read/write support as the second storage backend.
 5. Expand `/webd` from the first poll-driven connection table to fuller
-   concurrent response handling, then add UDP sockets, response length/file
-   metadata, and multi-worker web server designs.
+   concurrent response handling, then add UDP userspace sockets, response
+   length/file metadata, and multi-worker web server designs.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 7. Continue the libc/newlib track: signal/reset-id spawn attributes, larger or

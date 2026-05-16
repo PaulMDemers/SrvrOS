@@ -45,6 +45,10 @@ int __posix_socket_poll_fd(int fd) {
     return socket->listener_fd;
 }
 
+int __posix_socket_real_fd(int fd) {
+    return __posix_socket_poll_fd(fd);
+}
+
 int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
     struct posix_socket *socket = socket_at(fd);
     if (socket == 0) {
@@ -204,21 +208,67 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
 }
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
-    (void)fd;
-    (void)addr;
-    (void)addrlen;
-    errno = ENOSYS;
-    return -1;
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || addr == 0 || addrlen < sizeof(struct sockaddr_in)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (socket->listener_fd >= 0) {
+        errno = EALREADY;
+        return -1;
+    }
+
+    const struct sockaddr_in *in = (const struct sockaddr_in *)addr;
+    if (in->sin_family != AF_INET) {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+
+    uint16_t port = ntohs(in->sin_port);
+    if (port == 0 || in->sin_addr.s_addr == INADDR_ANY) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
+    long connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
+    if (connection < 0) {
+        errno = EIO;
+        return -1;
+    }
+    socket->listener_fd = (int)connection;
+
+    if (socket->fd_flags != 0 && srv_fcntl(socket->listener_fd, SRV_F_SETFL, socket->fd_flags) < 0) {
+        (void)srv_close(socket->listener_fd);
+        socket->listener_fd = -1;
+        errno = EBADF;
+        return -1;
+    }
+    if (socket->descriptor_flags != 0 &&
+        srv_fcntl(socket->listener_fd, SRV_F_SETFD, socket->descriptor_flags) < 0) {
+        (void)srv_close(socket->listener_fd);
+        socket->listener_fd = -1;
+        errno = EBADF;
+        return -1;
+    }
+
+    if ((socket->fd_flags & SRV_FD_NONBLOCK) != 0) {
+        errno = EINPROGRESS;
+        return -1;
+    }
+    return 0;
 }
 
 ssize_t send(int fd, const void *buffer, size_t length, int flags) {
     (void)flags;
-    return write(fd, buffer, length);
+    struct posix_socket *socket = socket_at(fd);
+    return write(socket != 0 ? socket->listener_fd : fd, buffer, length);
 }
 
 ssize_t recv(int fd, void *buffer, size_t length, int flags) {
     (void)flags;
-    return read(fd, buffer, length);
+    struct posix_socket *socket = socket_at(fd);
+    return read(socket != 0 ? socket->listener_fd : fd, buffer, length);
 }
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {

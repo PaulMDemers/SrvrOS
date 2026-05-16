@@ -1263,6 +1263,24 @@ static int64_t syscall_net_listen(uint16_t port) {
     return fd;
 }
 
+static int64_t syscall_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return -1;
+    }
+
+    int64_t handle = net_connect(remote_ip, remote_port, (flags & SRV_FD_NONBLOCK) != 0);
+    if (handle < 0) {
+        return handle;
+    }
+
+    int64_t fd = process_handle_alloc(process, PROCESS_FILE_NET_CONNECTION, (uint64_t)handle);
+    if (fd < 0) {
+        net_close((uint64_t)handle);
+    }
+    return fd;
+}
+
 static int64_t syscall_net_dhcp(void) {
     return net_dhcp_request();
 }
@@ -1364,6 +1382,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_ACCEPT:
         frame->rax = (uint64_t)syscall_net_accept(frame->rdi, (char *)frame->rsi, frame->rdx, (uint64_t *)frame->rcx);
+        return;
+    case SYS_NET_CONNECT:
+        frame->rax = (uint64_t)syscall_net_connect((uint32_t)frame->rdi, (uint16_t)frame->rsi, frame->rdx);
         return;
     case SYS_NET_DHCP:
         frame->rax = (uint64_t)syscall_net_dhcp();

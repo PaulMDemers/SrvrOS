@@ -338,6 +338,10 @@ long srv_net_listen(uint16_t port) {
     return srv_syscall1(SYS_NET_LISTEN, port);
 }
 
+long srv_net_connect(uint32_t remote_ip, uint16_t remote_port, uint64_t flags) {
+    return srv_syscall3(SYS_NET_CONNECT, remote_ip, remote_port, flags);
+}
+
 long srv_net_accept(int listener_fd, char *buffer, size_t capacity, uint64_t *length_out) {
     return srv_syscall4(SYS_NET_ACCEPT, listener_fd, (long)buffer, (long)capacity, (long)length_out);
 }

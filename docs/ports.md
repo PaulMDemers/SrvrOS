@@ -88,8 +88,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   update streams, including read/write transitions and append-after-seek
   behavior.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
-- TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
-  `recv`, and `setsockopt`
+- TCP socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
+  `send`, `recv`, and `setsockopt`
 - `getaddrinfo` backed by the srvros DNS syscall for A records
 - newlib-style syscall glue symbols such as `_open`, `_read`, `_write`,
   `_lseek`, `_fstat`, `_stat`, `_sbrk`, `_getpid`, `_gettimeofday`,
@@ -127,6 +127,9 @@ The `/fat/bin/ttydemo` app verifies the minimal terminal API by switching stdin
 to raw mode, restoring the saved settings, reading and setting window size,
 checking duplicated stdio tty identity, and checking that non-terminal file
 descriptors report `ENOTTY`.
+The `/fat/bin/httpget` app verifies outbound TCP by resolving a host with
+`getaddrinfo`, connecting to port 80, sending an HTTP/1.0 request, and printing
+the response through the normal socket fd path.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
 copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
@@ -136,7 +139,7 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 
 ## Current Limits
 
-- `fork` and client-side `connect` are still missing.
+- `fork` is still missing.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered but bounded to eight
   actions per spawn. Spawn attributes currently cover process group selection
@@ -149,9 +152,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
   wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
   queues are still future work as the descriptor model grows.
-- Socket wrappers currently cover TCP server flow over the existing
-  `net_listen`/`net_accept` kernel path. Nonblocking mode is preserved when it
-  is set on a socket before `listen()`.
+- Socket wrappers cover TCP server flow over `net_listen`/`net_accept` plus
+  client-side `connect` over `net_connect`. Nonblocking mode is preserved when
+  it is set on a socket before `listen()` or `connect()`.
 - SQLite is still a compact filesystem smoke port. Its VFS now maps lock states
   to srvros advisory byte-range locks, but richer stale-lock recovery,
   cross-machine semantics, and WAL shared-memory locking are future work.
@@ -203,5 +206,5 @@ Third-party source is kept as pinned submodules or snapshots under
    shared mappings where useful, writeback decisions, richer `MAP_FIXED`
    replacement semantics, and signal-delivered page-fault recovery.
 5. Expand `webd` toward fuller concurrent connection handling.
-6. Add client TCP `connect`, then a tiny HTTP client.
+6. Add UDP userspace sockets, then a tiny DNS client/library path above them.
 7. Move toward libuv after sockets, timers, and fd readiness are boring.

@@ -28,6 +28,7 @@
 #define TCP_STATE_EMPTY 0
 #define TCP_STATE_SYN_RECEIVED 1
 #define TCP_STATE_ESTABLISHED 2
+#define TCP_STATE_SYN_SENT 3
 
 #define TCP_MAX_CONNECTIONS 8
 #define NET_LISTENERS 4
@@ -35,6 +36,9 @@
 #define NET_CONNECTION_RX_INITIAL_SIZE 4096
 #define NET_CONNECTION_RX_MAX_SIZE 32768
 #define NET_RX_RECOVERY_TICKS 50
+#define TCP_CONNECT_TIMEOUT_TICKS 200
+#define TCP_CLIENT_PORT_FIRST 49152
+#define TCP_CLIENT_PORT_LAST 60999
 #define DHCP_CLIENT_PORT 68
 #define DHCP_SERVER_PORT 67
 #define DHCP_DISCOVER 1
@@ -62,7 +66,9 @@ struct tcp_connection {
     uint8_t state;
     bool pending;
     bool accepted;
+    bool outbound;
     bool peer_closed;
+    bool reset;
     bool request_counted;
     uint8_t remote_mac[6];
     struct process *owner;
@@ -122,11 +128,13 @@ static uint64_t accepted_requests;
 static uint64_t completed_requests;
 static uint64_t next_listener_id = 1;
 static uint64_t next_connection_id = 1;
+static uint16_t next_client_port = TCP_CLIENT_PORT_FIRST;
 static struct net_listener listeners[NET_LISTENERS];
 static struct tcp_connection tcp_connections[TCP_MAX_CONNECTIONS];
 static struct pending_request pending_requests[NET_PENDING_REQUESTS];
 static struct scheduler_wait_queue accept_wait_queue;
 static struct scheduler_wait_queue read_wait_queue;
+static struct scheduler_wait_queue connect_wait_queue;
 static struct scheduler_wait_queue rx_wait_queue;
 static volatile uint64_t rx_signal_generation;
 static uint64_t rx_irq_wakeups;
@@ -394,6 +402,25 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
     }
     arp_waiting = false;
     return false;
+}
+
+static uint32_t default_gateway_ip(void) {
+    uint32_t router = read_be32(dhcp_router_ip_bytes);
+    if (router != 0) {
+        return router;
+    }
+    return ((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 2;
+}
+
+static uint32_t route_next_hop(uint32_t remote_ip) {
+    if ((remote_ip & 0xffffff00u) == (local_ip & 0xffffff00u)) {
+        return remote_ip;
+    }
+    return default_gateway_ip();
+}
+
+static bool resolve_route_mac(uint32_t remote_ip, uint8_t *mac_out) {
+    return resolve_ipv4_mac(route_next_hop(remote_ip), mac_out);
 }
 
 static bool dns_encode_name(uint8_t *packet, uint64_t *offset, uint64_t capacity, const char *name) {
@@ -778,13 +805,88 @@ static struct tcp_connection *alloc_connection(uint16_t local_port,
             tcp_connections[i].state = TCP_STATE_SYN_RECEIVED;
             tcp_connections[i].pending = false;
             tcp_connections[i].accepted = false;
+            tcp_connections[i].outbound = false;
             tcp_connections[i].peer_closed = false;
+            tcp_connections[i].reset = false;
             tcp_connections[i].request_counted = false;
             tcp_connections[i].owner = listener->owner;
             tcp_connections[i].remote_ip = remote_ip;
             tcp_connections[i].local_port = local_port;
             tcp_connections[i].remote_port = remote_port;
             tcp_connections[i].local_seq = 0x73720000u + (uint32_t)remote_port;
+            tcp_connections[i].remote_next = 0;
+            tcp_connections[i].id = next_connection_id++;
+            if (next_connection_id == 0) {
+                next_connection_id = 1;
+            }
+            copy_bytes(tcp_connections[i].remote_mac, remote_mac, 6);
+            return &tcp_connections[i];
+        }
+    }
+
+    return 0;
+}
+
+static bool local_port_available(uint16_t port) {
+    if (port_is_listening(port)) {
+        return false;
+    }
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state != TCP_STATE_EMPTY &&
+            tcp_connections[i].local_port == port) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static uint16_t allocate_client_port(void) {
+    for (uint32_t attempts = 0; attempts <= TCP_CLIENT_PORT_LAST - TCP_CLIENT_PORT_FIRST; attempts++) {
+        uint16_t port = next_client_port++;
+        if (next_client_port > TCP_CLIENT_PORT_LAST) {
+            next_client_port = TCP_CLIENT_PORT_FIRST;
+        }
+        if (local_port_available(port)) {
+            return port;
+        }
+    }
+    return 0;
+}
+
+static struct tcp_connection *find_connection_by_id_owner(uint64_t id, struct process *owner) {
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state != TCP_STATE_EMPTY &&
+            tcp_connections[i].id == id &&
+            tcp_connections[i].owner == owner) {
+            return &tcp_connections[i];
+        }
+    }
+    return 0;
+}
+
+static struct tcp_connection *alloc_client_connection(uint32_t remote_ip,
+    uint16_t remote_port,
+    const uint8_t *remote_mac) {
+    struct process *owner = process_current();
+    uint16_t local_port = allocate_client_port();
+    if (owner == 0 || local_port == 0) {
+        return 0;
+    }
+
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state == TCP_STATE_EMPTY) {
+            tcp_connections[i].state = TCP_STATE_SYN_SENT;
+            tcp_connections[i].pending = false;
+            tcp_connections[i].accepted = true;
+            tcp_connections[i].outbound = true;
+            tcp_connections[i].peer_closed = false;
+            tcp_connections[i].reset = false;
+            tcp_connections[i].request_counted = false;
+            tcp_connections[i].owner = owner;
+            tcp_connections[i].remote_ip = remote_ip;
+            tcp_connections[i].local_port = local_port;
+            tcp_connections[i].remote_port = remote_port;
+            tcp_connections[i].local_seq = 0x63720000u + (uint32_t)local_port;
             tcp_connections[i].remote_next = 0;
             tcp_connections[i].id = next_connection_id++;
             if (next_connection_id == 0) {
@@ -849,7 +951,9 @@ static void close_connection(struct tcp_connection *connection) {
     connection->state = TCP_STATE_EMPTY;
     connection->pending = false;
     connection->accepted = false;
+    connection->outbound = false;
     connection->peer_closed = false;
+    connection->reset = false;
     connection->request_counted = false;
     connection->rx_length = 0;
     connection->rx_offset = 0;
@@ -860,6 +964,7 @@ static void close_connection(struct tcp_connection *connection) {
     }
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
     process_file_poll_wake();
 }
 
@@ -980,7 +1085,7 @@ static void handle_tcp(const uint8_t *frame,
     uint8_t data_offset = (tcp[12] >> 4) * 4;
     uint8_t flags = tcp[13];
 
-    if (!port_is_listening(dst_port) || data_offset < 20 || data_offset > ip_payload_length) {
+    if (data_offset < 20 || data_offset > ip_payload_length) {
         return;
     }
 
@@ -990,12 +1095,28 @@ static void handle_tcp(const uint8_t *frame,
     if ((flags & TCP_RST) != 0) {
         struct tcp_connection *old = find_connection(dst_port, src_ip, src_port);
         if (old != 0) {
-            close_connection(old);
+            old->reset = true;
+            old->peer_closed = true;
+            scheduler_wake_all(&connect_wait_queue);
+            scheduler_wake_all(&read_wait_queue);
+            process_file_poll_wake();
         }
         return;
     }
 
     if ((flags & TCP_SYN) != 0) {
+        if (!port_is_listening(dst_port)) {
+            struct tcp_connection *client = find_connection(dst_port, src_ip, src_port);
+            if (client != 0 && client->state == TCP_STATE_SYN_SENT && (flags & TCP_ACK) != 0) {
+                copy_bytes(client->remote_mac, frame + 6, 6);
+                client->remote_next = seq + 1;
+                client->state = TCP_STATE_ESTABLISHED;
+                send_tcp_segment(client, client->local_port, TCP_ACK, 0, 0);
+                scheduler_wake_all(&connect_wait_queue);
+                process_file_poll_wake();
+            }
+            return;
+        }
         struct tcp_connection *connection = alloc_connection(dst_port, src_ip, src_port, frame + 6);
         if (connection == 0) {
             return;
@@ -1023,15 +1144,33 @@ static void handle_tcp(const uint8_t *frame,
     }
 
     if (connection->state == TCP_STATE_ESTABLISHED && data_length != 0) {
-        if (append_connection_data(connection, tcp + data_offset, data_length) &&
-            ensure_pending_connection(connection, dst_port)) {
-            if (!connection->request_counted) {
-                http_requests++;
-                connection->request_counted = true;
+        if (connection->outbound) {
+            if (!append_connection_data(connection, tcp + data_offset, data_length)) {
+                close_connection(connection);
+                return;
+            }
+            if ((flags & TCP_FIN) != 0) {
+                connection->peer_closed = true;
             }
             send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         } else {
-            send_unavailable_response(connection);
+            if (append_connection_data(connection, tcp + data_offset, data_length) &&
+                ensure_pending_connection(connection, dst_port)) {
+                if (!connection->request_counted) {
+                    http_requests++;
+                    connection->request_counted = true;
+                }
+                if ((flags & TCP_FIN) != 0) {
+                    connection->peer_closed = true;
+                }
+                send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+            } else {
+                send_unavailable_response(connection);
+            }
+        }
+        if ((flags & TCP_FIN) != 0) {
+            scheduler_wake_all(&read_wait_queue);
+            process_file_poll_wake();
         }
         return;
     }
@@ -1040,6 +1179,7 @@ static void handle_tcp(const uint8_t *frame,
         connection->peer_closed = true;
         send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
         scheduler_wake_all(&read_wait_queue);
+        scheduler_wake_all(&connect_wait_queue);
         process_file_poll_wake();
     }
 }
@@ -1338,6 +1478,79 @@ int64_t net_listen(uint16_t port) {
     return -1;
 }
 
+struct connect_wait_arg {
+    struct process *owner;
+    uint64_t connection_id;
+};
+
+static bool connect_ready(void *arg) {
+    struct connect_wait_arg *wait = arg;
+    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+        return true;
+    }
+
+    struct tcp_connection *connection = find_connection_by_id_owner(wait->connection_id, wait->owner);
+    return connection == 0 ||
+        connection->state == TCP_STATE_ESTABLISHED ||
+        connection->reset ||
+        connection->peer_closed;
+}
+
+int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
+    if (!initialized || remote_ip == 0 || remote_port == 0) {
+        return -1;
+    }
+
+    uint8_t remote_mac[6];
+    if (!resolve_route_mac(remote_ip, remote_mac)) {
+        return -1;
+    }
+
+    struct tcp_connection *connection = alloc_client_connection(remote_ip, remote_port, remote_mac);
+    if (connection == 0) {
+        return -1;
+    }
+    uint64_t connection_id = connection->id;
+    struct process *owner = connection->owner;
+    if (!send_tcp_segment(connection, connection->local_port, TCP_SYN, 0, 0)) {
+        close_connection(connection);
+        return -1;
+    }
+
+    if (nonblock) {
+        return (int64_t)make_handle(NET_HANDLE_CONNECTION, connection_id);
+    }
+
+    struct connect_wait_arg wait = {
+        .owner = owner,
+        .connection_id = connection_id,
+    };
+    uint64_t deadline = timer_ticks() + TCP_CONNECT_TIMEOUT_TICKS;
+    for (;;) {
+        if (process_should_exit_current()) {
+            close_connection(find_connection_by_id_owner(connection_id, owner));
+            return -1;
+        }
+
+        connection = find_connection_by_id_owner(connection_id, owner);
+        if (connection == 0) {
+            return -1;
+        }
+        if (connection->state == TCP_STATE_ESTABLISHED) {
+            return (int64_t)make_handle(NET_HANDLE_CONNECTION, connection_id);
+        }
+        if (connection->reset || connection->peer_closed || timer_ticks() >= deadline) {
+            close_connection(connection);
+            return -1;
+        }
+
+        e1000_poll(32, false);
+        if (!scheduler_wait_timeout(&connect_wait_queue, connect_ready, &wait, deadline)) {
+            scheduler_yield();
+        }
+    }
+}
+
 static bool accept_ready(void *arg) {
     struct net_listener *listener = arg;
     if (listener == 0 || !listener->used || process_should_exit_current()) {
@@ -1422,7 +1635,7 @@ static bool read_ready(void *arg) {
         if (connection->state != TCP_STATE_EMPTY &&
             connection->id == wait->connection_id &&
             connection->owner == wait->owner) {
-            return connection->rx_length != connection->rx_offset || connection->peer_closed;
+            return connection->rx_length != connection->rx_offset || connection->peer_closed || connection->reset;
         }
     }
     return true;
@@ -1456,6 +1669,12 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
             struct tcp_connection *connection = &tcp_connections[i];
             if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
                 found = true;
+                if (connection->reset) {
+                    return -1;
+                }
+                if (connection->state != TCP_STATE_ESTABLISHED) {
+                    break;
+                }
                 uint64_t remaining = connection->rx_length - connection->rx_offset;
                 if (remaining != 0) {
                     uint64_t copied = length < remaining ? length : remaining;
@@ -1502,7 +1721,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length)
     uint64_t value = handle_value(connection_id);
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
-        if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
+        if (connection->state == TCP_STATE_ESTABLISHED && connection->id == value && connection->owner == owner) {
             bool sent = send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_PSH, (const uint8_t *)buffer, (uint16_t)length);
             if (!sent) {
                 return -1;
@@ -1560,8 +1779,14 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
                 (connection->rx_length != connection->rx_offset || connection->peer_closed)) {
                 revents |= SRV_POLLIN;
             }
-            if ((events & SRV_POLLOUT) != 0 && !connection->peer_closed) {
+            if ((events & SRV_POLLOUT) != 0 &&
+                connection->state == TCP_STATE_ESTABLISHED &&
+                !connection->peer_closed &&
+                !connection->reset) {
                 revents |= SRV_POLLOUT;
+            }
+            if (connection->reset) {
+                revents |= SRV_POLLERR;
             }
             if (connection->peer_closed) {
                 revents |= SRV_POLLHUP;
@@ -1589,7 +1814,9 @@ int64_t net_close(uint64_t handle) {
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
             if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
-                send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0);
+                if (connection->state == TCP_STATE_ESTABLISHED && !connection->peer_closed && !connection->reset) {
+                    send_tcp_segment(connection, connection->local_port, TCP_ACK | TCP_FIN, 0, 0);
+                }
                 completed_requests++;
                 close_connection(connection);
                 return 0;
@@ -1652,5 +1879,6 @@ void net_process_wake(struct process *process) {
     (void)process;
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
+    scheduler_wake_all(&connect_wait_queue);
     process_file_poll_wake();
 }

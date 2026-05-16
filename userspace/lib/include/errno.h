@@ -33,6 +33,8 @@
 #define ERANGE 34
 #define ENOSYS 38
 #define ENOTEMPTY 39
+#define EINPROGRESS 115
+#define EALREADY 114
 #define ENAMETOOLONG 36
 #define ECONNRESET 104
 #define ENOTCONN 107

@@ -16,6 +16,7 @@ void net_print_status(void);
 int64_t net_dhcp_request(void);
 int64_t net_dns_resolve(const char *name, uint32_t *ip_out);
 int64_t net_listen(uint16_t port);
+int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock);
 int64_t net_accept(uint64_t listener_id, char *buffer, uint64_t capacity, uint64_t *length_out, bool nonblock);
 int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock);
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length);

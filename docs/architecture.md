@@ -83,7 +83,7 @@ The ABI currently covers:
   `rename`, `stat`, `list`.
 - Process control: `spawn`, `spawn_args`, `spawn_bg`, redirected spawn, process
   list, kill, wait, yield, exit.
-- Network: DHCP, status, DNS, listen, accept.
+- Network: DHCP, status, DNS, listen, accept, connect.
 - Console/graphics/input: console info, clear, cursor positioning, a small
   framebuffer-side ANSI CSI subset for common cursor/erase sequences, key scan,
   framebuffer info/pixels/rects, mouse scan.
@@ -160,6 +160,7 @@ The network stack includes:
 - DHCP address/router/DNS configuration.
 - DNS A-record lookup over UDP/53.
 - A compact TCP implementation sufficient for poll-driven static HTTP serving.
+- Client-side TCP connect for simple outbound HTTP over QEMU user networking.
 
 Network file descriptors are process-owned and cleaned up on process exit.
 `webd` listens on port 80, polls the listener plus active connection fds, and
@@ -190,7 +191,7 @@ Core tools:
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
   `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
-- `webd`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
+- `webd`, `httpget`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
   `imgedit`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
@@ -271,9 +272,9 @@ simple time functions, common formatted-output width/precision/flag forms,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
 standard-fd and ordered non-stdio spawn file actions,
 `POSIX_SPAWN_SETPGROUP`, process-replacing `execve`, IPv4 formatting and
-parsing, DNS-backed `getaddrinfo`, and a TCP server socket flow mapped onto
-srvros listener/connection fds. The kernel additions for this slice are
-intentionally narrow: fd metadata/duplication, shared regular-file open
+parsing, DNS-backed `getaddrinfo`, a TCP server socket flow mapped onto
+srvros listener/connection fds, and client-side `connect`. The kernel additions
+for this slice are intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides plus inherited parent stdio redirects, seek, fd
 flush/truncate, process heap growth, `getpid`, raw timer ticks,
