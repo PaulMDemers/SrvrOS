@@ -64,6 +64,19 @@ def send_command(sock, command, marker, timeout):
     return read_until(sock, marker.encode("ascii"), timeout)
 
 
+def poll_command(sock, command, marker, timeout, interval=0.5):
+    data = b""
+    deadline = time.time() + timeout
+    marker_bytes = marker.encode("ascii")
+    while marker_bytes not in data and time.time() < deadline:
+        sock.sendall(command.encode("ascii") + b"\n")
+        data += read_until(sock, marker_bytes, min(1.0, max(0.1, deadline - time.time())))
+        if marker_bytes in data:
+            break
+        time.sleep(interval)
+    return data
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -141,8 +154,8 @@ def main():
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh --login\n")
-            output += read_until(sock, b"webd started pid", args.service_wait)
-            output += send_command(sock, "service webd status", "webd background pid", args.service_wait)
+            output += read_until(sock, b"srvsh: interactive shell", args.service_wait)
+            output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
 
             for index in range(args.connections):
                 try:
@@ -172,9 +185,8 @@ def main():
 
     missing = []
     for marker in [
-        "webd started pid",
-        "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
+        "webd: serving /fat/www on 10.0.2.15:80",
         "log /fat/var/log/webd.log",
         "tcp_conn ",
         "tcp pressure",

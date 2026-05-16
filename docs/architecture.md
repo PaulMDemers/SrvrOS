@@ -235,14 +235,16 @@ small bounded active-client table.
 
 The shell service manager reads `/fat/etc/services/*.svc` files and uses them
 to start, stop, restart, and inspect persistent userspace daemons. The generated
-exFAT image ships `/fat/etc/services/webd.svc`, so the login script runs
-`service start-enabled` and starts each config with `enabled=true`. Service
-stdout is redirected to live append logs such as `/fat/var/log/webd.log`, and
-`service list` reports process state with enabled/restart/log metadata.
-`service <name> log` and `service <name> tail [lines]` read configured logs,
-while `service supervise [cycles]` restarts enabled services marked
-`restart=always`. `webd` adds compact access lines containing method, URL,
-status, and body bytes.
+exFAT image ships `/fat/etc/services/webd.svc`, so the login script launches
+`svscan &`. `/fat/bin/svscan` continuously scans enabled service configs,
+starts missing daemons, and restarts configs marked `restart=always`, recording
+supervisor events in `/fat/var/log/svscan.log`. Service stdout is redirected to
+live append logs such as `/fat/var/log/webd.log`, and `service list` reports
+process state with enabled/restart/log metadata. `service <name> log` and
+`service <name> tail [lines]` read configured logs, while
+`service supervise [cycles]` keeps the same restart policy available as a
+bounded diagnostic loop. `webd` adds compact access lines containing method,
+URL, status, and body bytes.
 
 Current networking caveats:
 

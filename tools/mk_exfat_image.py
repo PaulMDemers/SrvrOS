@@ -182,7 +182,7 @@ def main():
         ("init.sh",
             b"# srvros service startup\n"
             b"echo init-script-ok\n"
-            b"service start-enabled\n"),
+            b"svscan &\n"),
         ("resolv.conf",
             b"# srvros resolver fallback\n"
             b"nameserver 10.0.2.3\n"),

@@ -144,9 +144,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
-- `web_smoke.py`: login shell init script, enabled `service webd` startup,
-  `service list`, `service supervise`, `service log`, `service tail`, live
-  `/fat/var/log/webd.log` access output, `netstat` listener visibility,
+- `web_smoke.py`: login shell init script, boot-owned `svscan` service startup
+  and restart of `webd`, `service list`, `service log`, `service tail`, live
+  `/fat/var/log/svscan.log` and `/fat/var/log/webd.log` output, `netstat`
+  listener visibility,
   `ifconfig` interface visibility, host HTTP fetch through QEMU user
   networking, nested CSS asset fetch, `Content-Length`, bodyless `HEAD`,
   404/405 responses, and a slow partial client while another request completes

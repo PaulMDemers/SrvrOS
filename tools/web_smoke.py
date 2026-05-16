@@ -32,6 +32,24 @@ def read_until(sock, marker, seconds):
     return data
 
 
+def send_command(sock, command, marker, timeout):
+    sock.sendall(command.encode("ascii") + b"\n")
+    return read_until(sock, marker.encode("ascii"), timeout)
+
+
+def poll_command(sock, command, marker, timeout, interval=0.5):
+    data = b""
+    deadline = time.time() + timeout
+    marker_bytes = marker.encode("ascii")
+    while marker_bytes not in data and time.time() < deadline:
+        sock.sendall(command.encode("ascii") + b"\n")
+        data += read_until(sock, marker_bytes, min(1.0, max(0.1, deadline - time.time())))
+        if marker_bytes in data:
+            break
+        time.sleep(interval)
+    return data
+
+
 def connect_serial(port, timeout):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -195,19 +213,15 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh --login\n")
             output += read_until(sock, b"srvsh: interactive shell", args.shell_wait)
-            output += read_until(sock, b"webd started pid", args.service_wait)
-            sock.sendall(b"service webd status\n")
-            output += read_until(sock, b"webd background pid", args.service_wait)
-            sock.sendall(b"service list\n")
-            output += read_until(sock, b"enabled=true", args.service_wait)
-            sock.sendall(b"service webd stop\n")
-            output += read_until(sock, b"stopped pid", args.service_wait)
-            sock.sendall(b"service supervise 1\n")
-            output += read_until(sock, b"webd started pid", args.service_wait)
-            sock.sendall(b"netstat\n")
-            output += read_until(sock, b"LISTEN", args.service_wait)
-            sock.sendall(b"ifconfig\n")
-            output += read_until(sock, b"rx frames", args.service_wait)
+            output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
+            output += send_command(sock, "service list", "enabled=true", args.service_wait)
+            output += send_command(sock, "ps", "svscan", args.service_wait)
+            output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd started pid", args.service_wait)
+            output += send_command(sock, "service webd stop", "stopped pid", args.service_wait)
+            output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
+            output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd restarting", args.service_wait)
+            output += send_command(sock, "netstat", "LISTEN", args.service_wait)
+            output += send_command(sock, "ifconfig", "rx frames", args.service_wait)
             output += read_for(sock, args.settle_wait)
             try:
                 response = http_get(http_port, "/", args.http_wait)
@@ -242,6 +256,8 @@ def main():
             output += read_until(sock, b"webd: access POST / 405", args.service_wait)
             sock.sendall(b"service webd log\n")
             output += read_until(sock, b"webd: serving", args.service_wait)
+            sock.sendall(b"cat /fat/var/log/svscan.log\n")
+            output += read_until(sock, b"svscan: webd restarting", args.service_wait)
             output += read_for(sock, 3)
             if (http_error is not None or
                     css_error is not None or
@@ -283,13 +299,15 @@ def main():
         "e1000:",
         "net: static ipv4=10.0.2.15",
         "init-script-ok",
-        "webd started pid",
+        "svscan",
+        "svscan: started",
+        "svscan: webd started pid",
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
         "enabled=true",
         "restart=always",
         "stopped pid",
-        "supervisor restarting",
+        "svscan: webd restarting",
         "log /fat/var/log/webd.log",
         "webd: access GET / 200",
         "webd: access GET /missing.txt 404",
