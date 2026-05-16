@@ -91,6 +91,22 @@ int linenoiseHistorySetMaxLen(int len) {
     return 1;
 }
 
+int linenoiseHistoryClear(void) {
+    history_free();
+    return 1;
+}
+
+size_t linenoiseHistoryLen(void) {
+    return history_len;
+}
+
+const char *linenoiseHistoryGet(size_t index) {
+    if (index >= history_len) {
+        return NULL;
+    }
+    return history[index];
+}
+
 int linenoiseHistoryAdd(const char *line) {
     const char *cursor = line;
     if (line == NULL) {

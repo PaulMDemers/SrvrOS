@@ -6,6 +6,10 @@
 
 #include "linenoise.h"
 
+int linenoiseHistoryClear(void);
+size_t linenoiseHistoryLen(void);
+const char *linenoiseHistoryGet(size_t index);
+
 #define LINE_MAX 256
 #define EXPANDED_LINE_MAX 512
 #define ARG_EXPANDED_MAX 512
@@ -36,10 +40,12 @@ static uint64_t break_requested = 0;
 static uint64_t continue_requested = 0;
 static uint64_t last_background_pid = 0;
 static char completion_cwd[CLI_PATH_MAX] = "/";
+static const char *active_script_path;
+static uint64_t active_script_line;
 
 static const char *shell_builtins[] = {
     "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
-    "echo", "env", "export", "unset", "alias", "type", "which", "command", "test", "[",
+    "echo", "env", "export", "unset", "alias", "history", "type", "which", "command", "test", "[",
     "break", "continue",
     "jobs", "wait", "fg", "bg", "kill", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
 };
@@ -74,6 +80,8 @@ static uint64_t run_line(char *line, char *cwd);
 static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions);
 static int resolve_command(char *out, size_t capacity, const char *command);
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
+static void print_script_context(void);
+static void shell_error(const char *message);
 
 struct command_redirection {
     int stdin_set;
@@ -371,7 +379,7 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
         if (input[i + 1] == '(') {
             size_t end = find_command_substitution_end(input, i);
             if (end == 0) {
-                cli_puts("sh: unterminated command substitution\n");
+                shell_error("sh: unterminated command substitution\n");
                 return 0;
             }
             if (!append_command_substitution(input + i + 2, end - i - 2, cwd, out, capacity, &length)) {
@@ -859,12 +867,27 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
+    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
+}
+
+static void print_script_context(void) {
+    if (active_script_path == 0 || active_script_path[0] == '\0' || active_script_line == 0) {
+        return;
+    }
+    cli_puts(active_script_path);
+    cli_puts(":");
+    cli_putn(active_script_line);
+    cli_puts(": ");
+}
+
+static void shell_error(const char *message) {
+    print_script_context();
+    cli_puts(message);
 }
 
 static void print_ipv4(uint64_t ip) {
@@ -1029,6 +1052,99 @@ static int split_words(char *text, char **argv, size_t capacity) {
         *write++ = '\0';
     }
     return argc;
+}
+
+static int history_size_from_env(void) {
+    const char *text = getenv("HISTSIZE");
+    int64_t parsed = 64;
+    if (text != 0 && text[0] != '\0' && (!parse_i64(text, &parsed) || parsed < 1)) {
+        parsed = 64;
+    }
+    if (parsed > 512) {
+        parsed = 512;
+    }
+    return (int)parsed;
+}
+
+static const char *history_file_from_env(void) {
+    const char *file = getenv("HISTFILE");
+    return file != 0 && file[0] != '\0' ? file : "/fat/.srvsh_history";
+}
+
+static void configure_history(void) {
+    linenoiseHistorySetMaxLen(history_size_from_env());
+}
+
+static void save_history(void) {
+    const char *file = history_file_from_env();
+    if (file[0] != '\0') {
+        linenoiseHistorySave(file);
+    }
+}
+
+static uint64_t history_command(const char *args) {
+    char work[LINE_MAX];
+    char *argv[3];
+    int argc;
+    size_t start = 0;
+    size_t count = linenoiseHistoryLen();
+
+    cli_copy(work, sizeof(work), args);
+    argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc < 0) {
+        cli_puts("usage: history [-c|-r [file]|-w [file]|count]\n");
+        return 2;
+    }
+    if (argc > 0 && cli_streq(argv[0], "-c")) {
+        if (argc != 1) {
+            cli_puts("usage: history -c\n");
+            return 2;
+        }
+        linenoiseHistoryClear();
+        configure_history();
+        save_history();
+        return 0;
+    }
+    if (argc > 0 && (cli_streq(argv[0], "-r") || cli_streq(argv[0], "-w"))) {
+        const char *file = argc > 1 ? argv[1] : history_file_from_env();
+        if (argc > 2) {
+            cli_puts(cli_streq(argv[0], "-r") ? "usage: history -r [file]\n" : "usage: history -w [file]\n");
+            return 2;
+        }
+        if (cli_streq(argv[0], "-r")) {
+            configure_history();
+            if (linenoiseHistoryLoad(file) != 0) {
+                cli_puts("history: read failed: ");
+                cli_puts(file);
+                cli_puts("\n");
+                return 1;
+            }
+        } else if (linenoiseHistorySave(file) != 0) {
+            cli_puts("history: write failed: ");
+            cli_puts(file);
+            cli_puts("\n");
+            return 1;
+        }
+        return 0;
+    }
+    if (argc > 0) {
+        int64_t parsed = 0;
+        if (argc != 1 || !parse_i64(argv[0], &parsed) || parsed < 0) {
+            cli_puts("usage: history [-c|-r [file]|-w [file]|count]\n");
+            return 2;
+        }
+        if ((uint64_t)parsed < count) {
+            start = count - (size_t)parsed;
+        }
+    }
+    for (size_t i = start; i < count; i++) {
+        const char *line = linenoiseHistoryGet(i);
+        cli_putn(i + 1);
+        cli_puts("  ");
+        cli_puts(line != 0 ? line : "");
+        cli_puts("\n");
+    }
+    return 0;
 }
 
 static int path_type_matches(const char *path, int expected_type) {
@@ -1915,6 +2031,8 @@ static uint64_t export_command(const char *args) {
     }
     if (cli_streq(name, "PATH") && equals != 0) {
         set_path_list(equals);
+    } else if (cli_streq(name, "HISTSIZE") && equals != 0) {
+        configure_history();
     }
     return 0;
 }
@@ -1939,6 +2057,8 @@ static uint64_t unset_command(const char *args) {
         unsetenv(name);
         if (cli_streq(name, "PATH")) {
             set_path_list("");
+        } else if (cli_streq(name, "HISTSIZE")) {
+            configure_history();
         }
         name = cli_trim(next);
     }
@@ -2509,11 +2629,12 @@ static int rewrite_heredoc_command(const char *line,
     return 0;
 }
 
-static uint64_t run_script_command_line(char *line, char *cwd) {
+static uint64_t run_script_command_line(char *line, char *cwd, uint64_t line_number) {
     char *trimmed = cli_trim(line);
     if (trimmed[0] == '\0' || trimmed[0] == '#') {
         return last_status;
     }
+    active_script_line = line_number;
     return run_line(trimmed, cwd);
 }
 
@@ -2529,21 +2650,28 @@ static uint64_t run_script(const char *path, char *cwd) {
     size_t length = 0;
     size_t block_length = 0;
     size_t heredoc_body_length = 0;
+    uint64_t line_number = 1;
+    uint64_t block_start_line = 0;
+    uint64_t heredoc_start_line = 0;
     int collecting_block = 0;
     int collecting_heredoc = 0;
     char block_end_keyword[8];
     int stop = 0;
     uint64_t status = 0;
+    const char *saved_script_path = active_script_path;
+    uint64_t saved_script_line = active_script_line;
     if (fd < 0) {
         cli_puts("source: cannot open ");
         cli_puts(path);
         cli_puts("\n");
         return 1;
     }
+    active_script_path = path;
+    active_script_line = 0;
     for (;;) {
         long count = srv_read(fd, buffer, sizeof(buffer));
         if (count < 0) {
-            cli_puts("source: read failed\n");
+            shell_error("source: read failed\n");
             break;
         }
         if (count == 0) {
@@ -2555,6 +2683,7 @@ static uint64_t run_script(const char *path, char *cwd) {
                 continue;
             }
             if (c == '\n') {
+                uint64_t current_line = line_number++;
                 if (!collecting_heredoc && length > 0 && line[length - 1] == '\\') {
                     length--;
                     continue;
@@ -2565,10 +2694,11 @@ static uint64_t run_script(const char *path, char *cwd) {
                     cli_copy(compare, sizeof(compare), line);
                     if (cli_streq(cli_trim(compare), heredoc_delimiter)) {
                         if (srv_fs_write(heredoc_temp, heredoc_body, heredoc_body_length) < 0) {
-                            cli_puts("source: heredoc write failed\n");
+                            active_script_line = heredoc_start_line;
+                            shell_error("source: heredoc write failed\n");
                             status = 1;
                         } else {
-                            status = run_script_command_line(heredoc_command, cwd);
+                            status = run_script_command_line(heredoc_command, cwd, heredoc_start_line);
                         }
                         (void)srv_unlink(heredoc_temp);
                         if (exit_on_error && status != 0) {
@@ -2600,24 +2730,28 @@ static uint64_t run_script(const char *path, char *cwd) {
                     }
                 } else if (shell_keyword_at(trimmed, 0, "if") && !find_if_parts(trimmed, &(struct if_parts){0})) {
                     collecting_block = 1;
+                    block_start_line = current_line;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "fi");
                     block_length = 0;
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
                 } else if (shell_keyword_at(trimmed, 0, "for") && !find_for_parts(trimmed, &(struct for_parts){0})) {
                     collecting_block = 1;
+                    block_start_line = current_line;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
                     block_length = 0;
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
                 } else if (shell_keyword_at(trimmed, 0, "while") && !find_while_parts(trimmed, &(struct while_parts){0})) {
                     collecting_block = 1;
+                    block_start_line = current_line;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "done");
                     block_length = 0;
                     block[0] = '\0';
                     append_text(block, sizeof(block), &block_length, trimmed);
                 } else if (shell_keyword_at(trimmed, 0, "case") && !find_case_parts(trimmed, &(struct case_parts){0})) {
                     collecting_block = 1;
+                    block_start_line = current_line;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "esac");
                     block_length = 0;
                     block[0] = '\0';
@@ -2625,6 +2759,7 @@ static uint64_t run_script(const char *path, char *cwd) {
                 } else if (is_function_start(trimmed) &&
                     !find_function_definition(trimmed, (char[32]){0}, 32, (char[EXPANDED_LINE_MAX]){0}, EXPANDED_LINE_MAX)) {
                     collecting_block = 1;
+                    block_start_line = current_line;
                     cli_copy(block_end_keyword, sizeof(block_end_keyword), "}");
                     block_length = 0;
                     block[0] = '\0';
@@ -2638,10 +2773,11 @@ static uint64_t run_script(const char *path, char *cwd) {
                             heredoc_delimiter,
                             sizeof(heredoc_delimiter))) {
                         collecting_heredoc = 1;
+                        heredoc_start_line = current_line;
                         heredoc_body_length = 0;
                         heredoc_body[0] = '\0';
                     } else {
-                        status = run_script_command_line(line, cwd);
+                        status = run_script_command_line(line, cwd, current_line);
                         if (exit_on_error && status != 0) {
                             stop = 1;
                         }
@@ -2663,10 +2799,11 @@ static uint64_t run_script(const char *path, char *cwd) {
             cli_copy(compare, sizeof(compare), line);
             if (cli_streq(cli_trim(compare), heredoc_delimiter)) {
                 if (srv_fs_write(heredoc_temp, heredoc_body, heredoc_body_length) < 0) {
-                    cli_puts("source: heredoc write failed\n");
+                    active_script_line = heredoc_start_line;
+                    shell_error("source: heredoc write failed\n");
                     status = 1;
                 } else {
-                    status = run_script_command_line(heredoc_command, cwd);
+                    status = run_script_command_line(heredoc_command, cwd, heredoc_start_line);
                 }
                 (void)srv_unlink(heredoc_temp);
                 collecting_heredoc = 0;
@@ -2674,18 +2811,22 @@ static uint64_t run_script(const char *path, char *cwd) {
             }
         }
         if (collecting_heredoc) {
-            cli_puts("source: unterminated heredoc\n");
+            active_script_line = heredoc_start_line;
+            shell_error("source: unterminated heredoc\n");
             (void)srv_unlink(heredoc_temp);
             status = 2;
         }
     } else if (!stop && collecting_block) {
-        cli_puts("source: unterminated block\n");
+        active_script_line = block_start_line;
+        shell_error("source: unterminated block\n");
         status = 2;
     } else if (!stop && length > 0) {
         line[length] = '\0';
-        status = run_script_command_line(line, cwd);
+        status = run_script_command_line(line, cwd, line_number);
     }
     srv_close(fd);
+    active_script_path = saved_script_path;
+    active_script_line = saved_script_line;
     return status;
 }
 
@@ -2909,6 +3050,7 @@ static int prepare_external_command(char *line,
     }
     args = cli_trim(args);
     if (!resolve_command(path, path_capacity, command)) {
+        print_script_context();
         cli_puts("sh: command not found: ");
         cli_puts(command);
         cli_puts(" (try 'path' or 'which ");
@@ -2961,6 +3103,7 @@ static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status) 
 static int open_redirection_input(const char *path) {
     long fd = srv_open(path);
     if (fd < 0) {
+        print_script_context();
         cli_puts("sh: input redirect failed: ");
         cli_puts(path);
         cli_puts("\n");
@@ -2972,6 +3115,7 @@ static int open_redirection_output(const char *path, int append, const char *lab
     uint64_t flags = SRV_OPEN_WRITE | SRV_OPEN_CREATE | (append ? SRV_OPEN_APPEND : SRV_OPEN_TRUNC);
     long fd = srv_open_mode(path, flags);
     if (fd < 0) {
+        print_script_context();
         cli_puts("sh: ");
         cli_puts(label);
         cli_puts(" redirect failed: ");
@@ -3410,6 +3554,9 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     if (cli_streq(command, "alias")) {
         return alias_command(args);
     }
+    if (cli_streq(command, "history")) {
+        return history_command(args);
+    }
     if (cli_streq(command, "type")) {
         return type_command(args);
     }
@@ -3521,6 +3668,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return read_command(args);
     }
     if (!resolve_command(path, sizeof(path), command)) {
+        print_script_context();
         cli_puts("sh: command not found: ");
         cli_puts(command);
         cli_puts(" (try 'path' or 'which ");
@@ -4463,7 +4611,7 @@ static uint64_t run_line(char *line, char *cwd) {
         char c = *cursor;
         if (c == '\0') {
             if (quote != '\0') {
-                cli_puts("sh: unmatched quote\n");
+                shell_error("sh: unmatched quote\n");
                 last_status = 2;
                 return 2;
             }
@@ -4597,6 +4745,12 @@ int main(int argc, char **argv) {
     if (getenv("TMPDIR") == 0) {
         setenv("TMPDIR", "/fat/tmp", 1);
     }
+    if (getenv("HISTFILE") == 0) {
+        setenv("HISTFILE", "/fat/.srvsh_history", 1);
+    }
+    if (getenv("HISTSIZE") == 0) {
+        setenv("HISTSIZE", "64", 1);
+    }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
     setenv("OLDPWD", cwd, 1);
@@ -4635,8 +4789,8 @@ int main(int argc, char **argv) {
 
     cli_puts("srvsh: interactive shell\n");
     print_help();
-    linenoiseHistorySetMaxLen(64);
-    linenoiseHistoryLoad("/fat/.srvsh_history");
+    configure_history();
+    linenoiseHistoryLoad(history_file_from_env());
     linenoiseSetCompletionCallback(shell_completion_callback);
     for (;;) {
         char prompt[LINE_MAX];
@@ -4649,7 +4803,7 @@ int main(int argc, char **argv) {
         }
         if (line[0] != '\0') {
             linenoiseHistoryAdd(line);
-            linenoiseHistorySave("/fat/.srvsh_history");
+            save_history();
         }
         run_line(line, cwd);
         linenoiseFree(line);

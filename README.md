@@ -59,8 +59,8 @@ editor clients:
   `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`,
   `while`/`do`/`done`, `case`/`in`/`esac`, shell functions with `return`, `shift`,
   loop `break`/`continue`,
-  `/fat/etc/profile`, `PS1`, default `TMPDIR`,
-  `test`/`[`, `set -e`, `read`, `alias`, `type`, `command -v`/`command -V`,
+  `/fat/etc/profile`, `PS1`, default `TMPDIR`, `HISTFILE`/`HISTSIZE`,
+  `test`/`[`, `set -e`, `read`, `alias`, `history`, `type`, `command -v`/`command -V`,
   `unset`, safer `cd`, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`, `%+`/`%-`
   job references, `service webd`, DHCP/status/DNS commands,
   `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt

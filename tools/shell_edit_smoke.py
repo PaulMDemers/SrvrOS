@@ -118,6 +118,17 @@ def main():
             output = send_and_wait(sock, output, b"echo hist-saved\n", b"hist-saved", args.command_wait, args.send_delay)
             output = send_and_wait(sock, output, b"echo draft\x1b[A\x1b[B\n", b"draft", args.command_wait, args.send_delay)
             output = send_and_wait(sock, output, b"echo word-one word-two\x17\n", b"word-one", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"history -c\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"export HISTFILE=/fat/hist-smoke.txt\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"export HISTSIZE=3\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"echo hist-one\n", b"hist-one", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"echo hist-two\n", b"hist-two", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"history 3\n", b"history 3", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"history -w\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"grep hist-two /fat/hist-smoke.txt\n", b"hist-two", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"write /fat/bad.sh 'echo diag-ok'\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"write -a /fat/bad.sh missingcmd\n", b" $ ", args.command_wait, args.send_delay)
+            output = send_and_wait(sock, output, b"sh /fat/bad.sh\n", b"/fat/bad.sh:2: sh: command not found: missingcmd", args.command_wait, args.send_delay)
             output += read_for(sock, 1)
         finally:
             try:
@@ -137,6 +148,8 @@ def main():
         "hist-saved",
         "draft",
         "word-one",
+        "history 3",
+        "/fat/bad.sh:2: sh: command not found: missingcmd",
     ]
     missing = [marker for marker in markers if marker not in text]
     if "wrngecho ctrl-u-ok" in text:

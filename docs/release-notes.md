@@ -89,6 +89,9 @@ server.
   Ctrl-A/Ctrl-E movement, Ctrl-U/Ctrl-W kill, Ctrl-Y yank, escape-sequence
   arrows, and draft-preserving history browsing covered by
   `tools/shell_edit_smoke.py`.
+- Adds a `history` shell builtin with `HISTFILE`/`HISTSIZE`, explicit
+  read/write/clear controls, and script-path/line diagnostics for common shell
+  errors.
 - Adds SQLite `3.53.1` as a pinned amalgamation snapshot and
   `/fat/bin/sqlitedemo`, which registers a small srvros VFS and verifies
   create/insert/query/reopen behavior against `/fat/sqlitedemo.db`.
