@@ -17,18 +17,73 @@ struct FILE {
     int append;
     int has_unget;
     unsigned char unget;
+    int buffer_mode;
+    unsigned char *buffer;
+    size_t buffer_size;
+    int buffer_owned;
+    size_t read_pos;
+    size_t read_len;
+    size_t write_len;
+    int last_op;
     long position;
     long known_size;
     char path[FILENAME_MAX];
+    struct FILE *next;
 };
 
-static FILE stdin_file = {STDIN_FILENO, 0, 0, 0, 0, 0, 0, 0, -1, {0}};
-static FILE stdout_file = {STDOUT_FILENO, 0, 0, 0, 0, 0, 0, 0, -1, {0}};
-static FILE stderr_file = {STDERR_FILENO, 0, 0, 0, 0, 0, 0, 0, -1, {0}};
+enum {
+    FILE_OP_NONE = 0,
+    FILE_OP_READ = 1,
+    FILE_OP_WRITE = 2,
+};
+
+static FILE stdin_file = {.fd = STDIN_FILENO, .buffer_mode = _IOFBF, .known_size = -1};
+static FILE stdout_file = {.fd = STDOUT_FILENO, .buffer_mode = _IOLBF, .known_size = -1};
+static FILE stderr_file = {.fd = STDERR_FILENO, .buffer_mode = _IONBF, .known_size = -1};
+static FILE *open_streams;
+static int stdio_initialized;
 
 FILE *stdin = &stdin_file;
 FILE *stdout = &stdout_file;
 FILE *stderr = &stderr_file;
+
+static int flush_write_buffer(FILE *stream);
+static int sync_underlying_after_read(FILE *stream);
+static int prepare_read(FILE *stream);
+static int prepare_write(FILE *stream);
+static int ensure_stream_buffer(FILE *stream);
+static void reset_buffer_state(FILE *stream);
+static void advance_position(FILE *stream, size_t count);
+
+static void ensure_stdio_initialized(void) {
+    if (stdio_initialized) {
+        return;
+    }
+    stdin_file.next = &stdout_file;
+    stdout_file.next = &stderr_file;
+    stderr_file.next = 0;
+    open_streams = &stdin_file;
+    stdio_initialized = 1;
+}
+
+static void register_stream(FILE *stream) {
+    ensure_stdio_initialized();
+    stream->next = open_streams;
+    open_streams = stream;
+}
+
+static void unregister_stream(FILE *stream) {
+    ensure_stdio_initialized();
+    FILE **slot = &open_streams;
+    while (*slot != 0) {
+        if (*slot == stream) {
+            *slot = stream->next;
+            stream->next = 0;
+            return;
+        }
+        slot = &(*slot)->next;
+    }
+}
 
 struct out_stream {
     char *buffer;
@@ -42,13 +97,8 @@ static void out_char(struct out_stream *out, char c) {
     if (out->buffer != 0 && out->capacity != 0 && out->used + 1 < out->capacity) {
         out->buffer[out->used++] = c;
     } else if (out->file != 0) {
-        if (write(out->file->fd, &c, 1) != 1) {
+        if (fwrite(&c, 1, 1, out->file) != 1) {
             out->file->error = 1;
-        } else {
-            out->file->position++;
-            if (out->file->known_size >= 0 && out->file->position > out->file->known_size) {
-                out->file->known_size = out->file->position;
-            }
         }
     }
     out->total++;
@@ -928,19 +978,41 @@ int putchar(int c) {
 }
 
 int getc(FILE *stream) {
-    if (stream == 0) {
-        errno = EBADF;
+    unsigned char c;
+    if (prepare_read(stream) < 0) {
         return EOF;
     }
     if (stream->has_unget) {
         stream->has_unget = 0;
-        stream->position++;
+        advance_position(stream, 1);
         return stream->unget;
     }
-    unsigned char c;
+
+    if (stream->buffer_mode != _IONBF && ensure_stream_buffer(stream) == 0) {
+        if (stream->read_pos >= stream->read_len) {
+            ssize_t got = read(stream->fd, stream->buffer, stream->buffer_size);
+            if (got > 0) {
+                stream->read_pos = 0;
+                stream->read_len = (size_t)got;
+            } else {
+                stream->read_pos = 0;
+                stream->read_len = 0;
+                if (got == 0) {
+                    stream->eof = 1;
+                } else {
+                    stream->error = 1;
+                }
+                return EOF;
+            }
+        }
+        c = stream->buffer[stream->read_pos++];
+        advance_position(stream, 1);
+        return c;
+    }
+
     ssize_t got = read(stream->fd, &c, 1);
     if (got == 1) {
-        stream->position++;
+        advance_position(stream, 1);
         return c;
     }
     if (got == 0) {
@@ -1022,6 +1094,128 @@ static void remember_path(FILE *stream, const char *path) {
     }
 }
 
+static void reset_buffer_state(FILE *stream) {
+    stream->has_unget = 0;
+    stream->read_pos = 0;
+    stream->read_len = 0;
+    stream->write_len = 0;
+    stream->last_op = FILE_OP_NONE;
+}
+
+static void advance_position(FILE *stream, size_t count) {
+    stream->position += (long)count;
+    if (stream->known_size >= 0 && stream->position > stream->known_size) {
+        stream->known_size = stream->position;
+    }
+}
+
+static int ensure_stream_buffer(FILE *stream) {
+    if (stream->buffer_mode == _IONBF) {
+        return 0;
+    }
+    if (stream->buffer != 0 && stream->buffer_size > 0) {
+        return 0;
+    }
+    size_t size = stream->buffer_size != 0 ? stream->buffer_size : BUFSIZ;
+    unsigned char *buffer = malloc(size);
+    if (buffer == 0) {
+        stream->buffer_mode = _IONBF;
+        stream->buffer_size = 0;
+        return -1;
+    }
+    stream->buffer = buffer;
+    stream->buffer_size = size;
+    stream->buffer_owned = 1;
+    return 0;
+}
+
+static int write_all_at_current_fd(FILE *stream, const unsigned char *data, size_t count) {
+    size_t written = 0;
+    while (written < count) {
+        ssize_t n = write(stream->fd, data + written, count - written);
+        if (n <= 0) {
+            stream->error = 1;
+            return -1;
+        }
+        written += (size_t)n;
+    }
+    return 0;
+}
+
+static int flush_write_buffer(FILE *stream) {
+    if (stream == 0) {
+        errno = EBADF;
+        return EOF;
+    }
+    if (stream->write_len == 0) {
+        return 0;
+    }
+    if (write_all_at_current_fd(stream, stream->buffer, stream->write_len) < 0) {
+        stream->write_len = 0;
+        return EOF;
+    }
+    if (stream->path[0] != '\0') {
+        int saved_errno = errno;
+        (void)fsync(stream->fd);
+        errno = saved_errno;
+    }
+    stream->write_len = 0;
+    return 0;
+}
+
+static int sync_underlying_after_read(FILE *stream) {
+    if (stream->last_op != FILE_OP_READ) {
+        return 0;
+    }
+    if (stream->read_pos < stream->read_len || stream->has_unget) {
+        if (lseek(stream->fd, stream->position, SEEK_SET) < 0) {
+            if (errno != ESPIPE) {
+                return -1;
+            }
+        }
+    }
+    stream->read_pos = 0;
+    stream->read_len = 0;
+    stream->has_unget = 0;
+    return 0;
+}
+
+static int prepare_read(FILE *stream) {
+    if (stream == 0) {
+        errno = EBADF;
+        return EOF;
+    }
+    if (stream->last_op == FILE_OP_WRITE && flush_write_buffer(stream) < 0) {
+        return EOF;
+    }
+    if (stream->last_op != FILE_OP_READ) {
+        stream->read_pos = 0;
+        stream->read_len = 0;
+    }
+    stream->last_op = FILE_OP_READ;
+    return 0;
+}
+
+static int prepare_write(FILE *stream) {
+    if (stream == 0) {
+        errno = EBADF;
+        return EOF;
+    }
+    if (stream->last_op == FILE_OP_READ && sync_underlying_after_read(stream) < 0) {
+        stream->error = 1;
+        return EOF;
+    }
+    if (stream->append) {
+        long size = refresh_size(stream);
+        if (size >= 0 && lseek(stream->fd, size, SEEK_SET) >= 0) {
+            stream->position = size;
+        }
+    }
+    stream->last_op = FILE_OP_WRITE;
+    stream->eof = 0;
+    return 0;
+}
+
 FILE *fdopen(int fd, const char *mode) {
     struct mode_info info;
     if (mode_to_flags(mode, &info) < 0) {
@@ -1039,9 +1233,19 @@ FILE *fdopen(int fd, const char *mode) {
     stream->append = info.append;
     stream->has_unget = 0;
     stream->unget = 0;
+    stream->buffer_mode = _IOFBF;
+    stream->buffer = 0;
+    stream->buffer_size = BUFSIZ;
+    stream->buffer_owned = 0;
+    stream->read_pos = 0;
+    stream->read_len = 0;
+    stream->write_len = 0;
+    stream->last_op = FILE_OP_NONE;
     stream->position = 0;
     stream->known_size = -1;
     stream->path[0] = '\0';
+    stream->next = 0;
+    register_stream(stream);
     return stream;
 }
 
@@ -1085,6 +1289,7 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
     if (fd < 0) {
         return 0;
     }
+    (void)fflush(stream);
     if (stream->owned) {
         close(stream->fd);
     }
@@ -1092,8 +1297,8 @@ FILE *freopen(const char *path, const char *mode, FILE *stream) {
     stream->eof = 0;
     stream->error = 0;
     stream->append = info.append;
-    stream->has_unget = 0;
     stream->unget = 0;
+    reset_buffer_state(stream);
     stream->position = 0;
     stream->known_size = -1;
     remember_path(stream, path);
@@ -1112,71 +1317,215 @@ int fclose(FILE *stream) {
         errno = EBADF;
         return EOF;
     }
+    int flush_result = fflush(stream);
     int result = stream->owned ? close(stream->fd) : 0;
     if (stream->owned) {
+        unregister_stream(stream);
+        if (stream->buffer_owned) {
+            free(stream->buffer);
+        }
         free(stream);
     }
-    return result < 0 ? EOF : 0;
+    return flush_result < 0 || result < 0 ? EOF : 0;
 }
 
 int fflush(FILE *stream) {
-    (void)stream;
+    if (stream == 0) {
+        ensure_stdio_initialized();
+        int result = 0;
+        for (FILE *scan = open_streams; scan != 0; scan = scan->next) {
+            if (scan->write_len != 0 && flush_write_buffer(scan) < 0) {
+                result = EOF;
+            }
+        }
+        return result;
+    }
+    if (stream->last_op == FILE_OP_READ) {
+        if (sync_underlying_after_read(stream) < 0) {
+            stream->error = 1;
+            return EOF;
+        }
+        stream->last_op = FILE_OP_NONE;
+        return 0;
+    }
+    if (flush_write_buffer(stream) < 0) {
+        return EOF;
+    }
+    if (stream->path[0] != '\0') {
+        int saved_errno = errno;
+        (void)fsync(stream->fd);
+        errno = saved_errno;
+    }
     return 0;
 }
 
 int setvbuf(FILE *stream, char *buffer, int mode, size_t size) {
-    (void)stream;
-    (void)buffer;
-    (void)size;
+    if (stream == 0) {
+        errno = EBADF;
+        return -1;
+    }
     if (mode != _IOFBF && mode != _IOLBF && mode != _IONBF) {
         errno = EINVAL;
         return -1;
+    }
+    if (fflush(stream) < 0) {
+        return -1;
+    }
+    if (stream->buffer_owned) {
+        free(stream->buffer);
+    }
+    stream->buffer = 0;
+    stream->buffer_size = 0;
+    stream->buffer_owned = 0;
+    stream->buffer_mode = mode;
+    reset_buffer_state(stream);
+    if (mode == _IONBF) {
+        return 0;
+    }
+    stream->buffer_size = size != 0 ? size : BUFSIZ;
+    if (buffer != 0) {
+        stream->buffer = (unsigned char *)buffer;
+        return 0;
+    }
+    return ensure_stream_buffer(stream);
+}
+
+void setbuf(FILE *stream, char *buffer) {
+    if (buffer == 0) {
+        (void)setvbuf(stream, 0, _IONBF, 0);
+    } else {
+        (void)setvbuf(stream, buffer, _IOFBF, BUFSIZ);
+    }
+}
+
+int setlinebuf(FILE *stream) {
+    return setvbuf(stream, 0, _IOLBF, BUFSIZ);
+}
+
+static size_t checked_request_size(size_t size, size_t nmemb) {
+    if (size == 0 || nmemb == 0) {
+        return 0;
+    }
+    if (nmemb > ((size_t)-1) / size) {
+        errno = EINVAL;
+        return 0;
+    }
+    return size * nmemb;
+}
+
+static int buffer_contains_newline(const unsigned char *data, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        if (data[i] == '\n') {
+            return 1;
+        }
     }
     return 0;
 }
 
 size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    if (size == 0 || nmemb == 0) {
+    size_t requested = checked_request_size(size, nmemb);
+    if (requested == 0) {
+        return 0;
+    }
+    if (ptr == 0 || prepare_read(stream) < 0) {
+        errno = ptr == 0 ? EINVAL : errno;
         return 0;
     }
     unsigned char *out = ptr;
-    size_t requested = size * nmemb;
     size_t copied = 0;
     if (stream->has_unget && requested > 0) {
         stream->has_unget = 0;
         out[copied++] = stream->unget;
-        stream->position++;
+        advance_position(stream, 1);
     }
-    ssize_t bytes = 0;
-    if (copied < requested) {
-        bytes = read(stream->fd, out + copied, requested - copied);
-    }
-    if (bytes < 0) {
-        stream->error = 1;
-        return copied / size;
-    }
-    copied += (size_t)bytes;
-    stream->position += bytes;
-    if (bytes == 0 && copied == 0) {
-        stream->eof = 1;
+
+    while (copied < requested) {
+        if (stream->buffer_mode != _IONBF && ensure_stream_buffer(stream) == 0) {
+            if (stream->read_pos >= stream->read_len) {
+                ssize_t got = read(stream->fd, stream->buffer, stream->buffer_size);
+                if (got > 0) {
+                    stream->read_pos = 0;
+                    stream->read_len = (size_t)got;
+                } else {
+                    if (got == 0) {
+                        stream->eof = 1;
+                    } else {
+                        stream->error = 1;
+                    }
+                    break;
+                }
+            }
+            size_t available = stream->read_len - stream->read_pos;
+            size_t take = requested - copied < available ? requested - copied : available;
+            memcpy(out + copied, stream->buffer + stream->read_pos, take);
+            stream->read_pos += take;
+            copied += take;
+            advance_position(stream, take);
+            continue;
+        }
+
+        ssize_t bytes = read(stream->fd, out + copied, requested - copied);
+        if (bytes > 0) {
+            copied += (size_t)bytes;
+            advance_position(stream, (size_t)bytes);
+            continue;
+        }
+        if (bytes == 0) {
+            stream->eof = 1;
+        } else {
+            stream->error = 1;
+        }
+        break;
     }
     return copied / size;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
-    if (size == 0 || nmemb == 0) {
+    size_t requested = checked_request_size(size, nmemb);
+    if (requested == 0) {
         return 0;
     }
-    ssize_t bytes = write(stream->fd, ptr, size * nmemb);
-    if (bytes < 0) {
-        stream->error = 1;
+    if (ptr == 0 || prepare_write(stream) < 0) {
+        errno = ptr == 0 ? EINVAL : errno;
         return 0;
     }
-    stream->position += bytes;
-    if (stream->known_size >= 0 && stream->position > stream->known_size) {
-        stream->known_size = stream->position;
+    const unsigned char *input = ptr;
+    size_t copied = 0;
+
+    if (stream->buffer_mode == _IONBF || ensure_stream_buffer(stream) < 0) {
+        while (copied < requested) {
+            ssize_t bytes = write(stream->fd, input + copied, requested - copied);
+            if (bytes <= 0) {
+                stream->error = 1;
+                break;
+            }
+            copied += (size_t)bytes;
+            advance_position(stream, (size_t)bytes);
+        }
+        return copied / size;
     }
-    return (size_t)bytes / size;
+
+    while (copied < requested) {
+        size_t space = stream->buffer_size - stream->write_len;
+        if (space == 0) {
+            if (flush_write_buffer(stream) < 0) {
+                break;
+            }
+            space = stream->buffer_size;
+        }
+        size_t take = requested - copied < space ? requested - copied : space;
+        memcpy(stream->buffer + stream->write_len, input + copied, take);
+        stream->write_len += take;
+        copied += take;
+        advance_position(stream, take);
+        if (stream->write_len == stream->buffer_size ||
+            (stream->buffer_mode == _IOLBF && buffer_contains_newline(input + copied - take, take))) {
+            if (flush_write_buffer(stream) < 0) {
+                break;
+            }
+        }
+    }
+    return copied / size;
 }
 
 char *fgets(char *text, int size, FILE *stream) {
@@ -1238,6 +1587,9 @@ int fseek(FILE *stream, long offset, int whence) {
         errno = EBADF;
         return -1;
     }
+    if (stream->last_op == FILE_OP_WRITE && flush_write_buffer(stream) < 0) {
+        return -1;
+    }
     long target;
     if (whence == SEEK_SET) {
         target = offset;
@@ -1262,7 +1614,10 @@ int fseek(FILE *stream, long offset, int whence) {
         return -1;
     }
     stream->position = target;
+    stream->read_pos = 0;
+    stream->read_len = 0;
     stream->has_unget = 0;
+    stream->last_op = FILE_OP_NONE;
     stream->eof = 0;
     return 0;
 }

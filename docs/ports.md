@@ -75,10 +75,12 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - Minimal `stdio`: `FILE`, standard streams, `fopen`, `fdopen`, `freopen`,
   `fclose`, `fflush`, `fread`, `fwrite`, `fgets`, `fputs`, `fputc`, `getc`,
   `fgetc`, `ungetc`, `fileno`, `ftell`, `fseek`, `rewind`, `fgetpos`,
-  `fsetpos`, `remove`, `perror`, `tmpnam`, `tmpfile`, `printf`, `vprintf`,
-  `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`, with common formatted
-  output width, precision, padding, sign, alternate-form, length, and `%n`
-  handling
+  `fsetpos`, `remove`, `perror`, `tmpnam`, `tmpfile`, `setvbuf`, `setbuf`,
+  `setlinebuf`, `feof`, `ferror`, `clearerr`, `printf`, `vprintf`,
+  `fprintf`, `sprintf`, `snprintf`, and `vsnprintf`. It now has simple
+  full/line/unbuffered stream buffering, path-backed `fflush`, logical
+  positions across read prefetch, and common formatted output width,
+  precision, padding, sign, alternate-form, length, and `%n` handling.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
   `recv`, and `setsockopt`
@@ -142,9 +144,10 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
   process group, but does not yet model controlling terminals, sessions, or baud
   settings.
 - `stdio` is intentionally small: formatted output covers the common
-  width/precision/flag forms needed by current ports and input scanning covers
-  the first integer/string/character/floating subset, but buffering is minimal
-  and `popen`/`pclose` are still `ENOSYS` stubs.
+  width/precision/flag forms needed by current ports, input scanning covers the
+  first integer/string/character/floating subset, and stream buffering covers
+  the simple full/line/unbuffered cases, but `popen`/`pclose` are still
+  `ENOSYS` stubs.
 - Time is tick-derived and not wall-clock accurate.
 - The default allocator is process-local and `sbrk` backed; `mmap` is still
   missing.
@@ -168,8 +171,8 @@ Third-party source is kept as pinned submodules or snapshots under
 
 ## Next Porting Milestones
 
-1. Expand `stdio` toward command-line port expectations: buffering semantics,
-   scansets, stronger EOF/error state, and `popen`/`pclose`.
+1. Expand `stdio` toward command-line port expectations: scansets, broader
+   input matching edge cases, append/update-mode polish, and `popen`/`pclose`.
 2. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp
    sources.

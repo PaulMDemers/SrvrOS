@@ -158,6 +158,57 @@ int main(void) {
     }
     remove("/fat/posixdemo/stdio.txt");
 
+    file = fopen("/fat/posixdemo/stdio-buffer.txt", "w");
+    char stdio_write_buffer[8];
+    if (file == 0 ||
+        setvbuf(file, stdio_write_buffer, _IOFBF, sizeof(stdio_write_buffer)) != 0 ||
+        fwrite("abcdef\n", 1, 7, file) != 7 ||
+        fflush(file) != 0 ||
+        fclose(file) != 0) {
+        say("posixdemo: stdio write buffer failed\n");
+        return 10;
+    }
+    file = fopen("/fat/posixdemo/stdio-buffer.txt", "r");
+    char stdio_read_buffer[4];
+    char stdio_text[8];
+    if (file == 0 ||
+        setvbuf(file, stdio_read_buffer, _IOFBF, sizeof(stdio_read_buffer)) != 0 ||
+        fread(stdio_text, 1, 2, file) != 2 ||
+        ftell(file) != 2 ||
+        fseek(file, 1, SEEK_CUR) != 0 ||
+        fgetc(file) != 'd') {
+        say("posixdemo: stdio read buffer failed\n");
+        return 10;
+    }
+    while (fgetc(file) != EOF) {
+    }
+    if (!feof(file)) {
+        say("posixdemo: stdio eof failed\n");
+        return 10;
+    }
+    clearerr(file);
+    if (feof(file) || ferror(file) || fclose(file) != 0) {
+        say("posixdemo: stdio clearerr failed\n");
+        return 10;
+    }
+    file = fopen("/fat/posixdemo/stdio-line.txt", "w");
+    if (file == 0 || setlinebuf(file) != 0 || fputs("line\n", file) < 0) {
+        say("posixdemo: stdio line buffer failed\n");
+        return 10;
+    }
+    fd = open("/fat/posixdemo/stdio-line.txt", O_RDONLY);
+    n = fd >= 0 ? read(fd, buffer, sizeof(buffer)) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    fclose(file);
+    remove("/fat/posixdemo/stdio-buffer.txt");
+    remove("/fat/posixdemo/stdio-line.txt");
+    if (n != 5 || memcmp(buffer, "line\n", 5) != 0) {
+        say("posixdemo: stdio line flush failed\n");
+        return 10;
+    }
+
     char format_text[128];
     int format_count = -1;
     int format_result = snprintf(format_text,

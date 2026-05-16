@@ -244,6 +244,8 @@ kernel, and a minimal Unix-like userspace.
 - Expand userspace formatted output with common width, precision, padding, sign,
   alternate-form, length, and `%n` handling, and back `system()` with
   `sh -c` through `posix_spawnp`/`waitpid`.
+- Add simple full/line/unbuffered `stdio` buffering, stream EOF/error state
+  handling, path-backed `fflush`, and buffered read/write/seek smoke coverage.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke
@@ -356,9 +358,9 @@ kernel, and a minimal Unix-like userspace.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 7. Continue the libc/newlib track: fuller `posix_spawn` attributes/file
-   actions, terminal process groups/signals, richer `stdio` buffering and
-   scanning, stronger sidecar recovery, and more fd-specific readiness queues
-   as the descriptor model grows.
+   actions, terminal process groups/signals, richer `stdio` scanning and
+   update-mode edge cases, stronger sidecar recovery, and more fd-specific
+   readiness queues as the descriptor model grows.
 8. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 9. Extend GUI IPC from server-rendered controls to client-owned surfaces:
