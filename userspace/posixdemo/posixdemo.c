@@ -230,6 +230,56 @@ int main(void) {
         say("posixdemo: stdio format failed\n");
         return 10;
     }
+
+    file = fopen("/fat/posixdemo/update.txt", "w+");
+    if (file == 0 ||
+        fputs("alpha", file) < 0 ||
+        fflush(file) != 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fread(buffer, 1, 5, file) != 5 ||
+        memcmp(buffer, "alpha", 5) != 0 ||
+        fseek(file, 2, SEEK_SET) != 0 ||
+        fputs("Z", file) < 0 ||
+        fflush(file) != 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fread(buffer, 1, 5, file) != 5 ||
+        memcmp(buffer, "alZha", 5) != 0 ||
+        fclose(file) != 0) {
+        say("posixdemo: stdio w+ failed\n");
+        return 10;
+    }
+
+    file = fopen("/fat/posixdemo/update.txt", "r+");
+    if (file == 0 ||
+        fread(buffer, 1, 3, file) != 3 ||
+        memcmp(buffer, "alZ", 3) != 0 ||
+        fputs("XY", file) < 0 ||
+        fflush(file) != 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fread(buffer, 1, 5, file) != 5 ||
+        memcmp(buffer, "alZXY", 5) != 0 ||
+        fclose(file) != 0) {
+        say("posixdemo: stdio r+ failed\n");
+        return 10;
+    }
+
+    file = fopen("/fat/posixdemo/update.txt", "a+");
+    if (file == 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fread(buffer, 1, 5, file) != 5 ||
+        memcmp(buffer, "alZXY", 5) != 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fputs("!", file) < 0 ||
+        fflush(file) != 0 ||
+        fseek(file, 0, SEEK_SET) != 0 ||
+        fread(buffer, 1, 6, file) != 6 ||
+        memcmp(buffer, "alZXY!", 6) != 0 ||
+        fclose(file) != 0) {
+        say("posixdemo: stdio a+ failed\n");
+        return 10;
+    }
+    remove("/fat/posixdemo/update.txt");
+
     say("posixdemo: stdio ok\n");
 
     fd = open("/fat/posixdemo/rw.txt", O_RDWR | O_CREAT | O_TRUNC);

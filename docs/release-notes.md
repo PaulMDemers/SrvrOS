@@ -98,6 +98,9 @@ server.
   `posixdemo` coverage for buffered read/write/seek behavior.
 - Adds shell-backed `popen`/`pclose` for one-way process streams and teaches
   spawned children to inherit a parent process's redirected standard streams.
+- Extends `posixdemo` stdio coverage for `w+`, `r+`, and `a+` update streams,
+  including buffered read-to-write offset reconciliation and append-after-seek
+  behavior.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime

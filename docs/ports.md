@@ -84,7 +84,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   now has simple full/line/unbuffered stream buffering, path-backed `fflush`,
   logical positions across read prefetch, common formatted output width,
   precision, padding, sign, alternate-form, length, and `%n` handling, and
-  shell-backed one-way process pipes.
+  shell-backed one-way process pipes. `posixdemo` covers `w+`, `r+`, and `a+`
+  update streams, including read/write transitions and append-after-seek
+  behavior.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP-server socket shims for `socket`, `bind`, `listen`, `accept`, `send`,
   `recv`, and `setsockopt`
@@ -181,7 +183,7 @@ Third-party source is kept as pinned submodules or snapshots under
 ## Next Porting Milestones
 
 1. Expand `stdio` toward command-line port expectations: broader input matching
-   edge cases, append/update-mode polish, and more ISO C edge cases.
+   edge cases and more ISO C edge cases.
 2. Broaden `posix_spawn` toward signal/reset-id spawn attributes and larger or
    dynamically allocated file action lists.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,

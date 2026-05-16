@@ -92,6 +92,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,
+  `w+`/`r+`/`a+` stdio update streams,
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,

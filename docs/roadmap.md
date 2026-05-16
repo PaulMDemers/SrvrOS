@@ -250,6 +250,8 @@ kernel, and a minimal Unix-like userspace.
   handling, path-backed `fflush`, and buffered read/write/seek smoke coverage.
 - Add shell-backed `popen`/`pclose` for one-way process streams and stdio
   redirect inheritance for children launched from a redirected parent process.
+- Add `w+`, `r+`, and `a+` stdio update-stream smoke coverage for read/write
+  transitions and append-after-seek behavior.
 - Add small CLI compatibility tools and shell builtins for `which`, `env`,
   `export`, `pwd`, `true`, and `false`.
 - Add shell `$VAR`/`${VAR}`, `$?`, `$$`, and `&&`/`||` support with QEMU smoke
