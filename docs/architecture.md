@@ -238,8 +238,11 @@ to start, stop, restart, and inspect persistent userspace daemons. The generated
 exFAT image ships `/fat/etc/services/webd.svc`, so the login script runs
 `service start-enabled` and starts each config with `enabled=true`. Service
 stdout is redirected to live append logs such as `/fat/var/log/webd.log`, and
-`service list` reports process state with enabled/restart/log metadata. `webd`
-adds compact access lines containing method, URL, status, and body bytes.
+`service list` reports process state with enabled/restart/log metadata.
+`service <name> log` and `service <name> tail [lines]` read configured logs,
+while `service supervise [cycles]` restarts enabled services marked
+`restart=always`. `webd` adds compact access lines containing method, URL,
+status, and body bytes.
 
 Current networking caveats:
 

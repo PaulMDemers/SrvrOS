@@ -195,7 +195,7 @@ def main():
             b"process=webd\n"
             b"log=/fat/var/log/webd.log\n"
             b"enabled=true\n"
-            b"restart=never\n"),
+            b"restart=always\n"),
     ]
     files = []
     for name, data in static_files:

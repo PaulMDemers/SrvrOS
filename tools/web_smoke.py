@@ -200,6 +200,10 @@ def main():
             output += read_until(sock, b"webd background pid", args.service_wait)
             sock.sendall(b"service list\n")
             output += read_until(sock, b"enabled=true", args.service_wait)
+            sock.sendall(b"service webd stop\n")
+            output += read_until(sock, b"stopped pid", args.service_wait)
+            sock.sendall(b"service supervise 1\n")
+            output += read_until(sock, b"webd started pid", args.service_wait)
             sock.sendall(b"netstat\n")
             output += read_until(sock, b"LISTEN", args.service_wait)
             sock.sendall(b"ifconfig\n")
@@ -234,8 +238,10 @@ def main():
             except RuntimeError as exc:
                 post_error = exc
             closed_refused = closed_port_refused(closed_port, 3)
-            sock.sendall(b"cat /fat/var/log/webd.log\n")
+            sock.sendall(b"service webd tail 8\n")
             output += read_until(sock, b"webd: access POST / 405", args.service_wait)
+            sock.sendall(b"service webd log\n")
+            output += read_until(sock, b"webd: serving", args.service_wait)
             output += read_for(sock, 3)
             if (http_error is not None or
                     css_error is not None or
@@ -281,7 +287,9 @@ def main():
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd background pid",
         "enabled=true",
-        "restart=never",
+        "restart=always",
+        "stopped pid",
+        "supervisor restarting",
         "log /fat/var/log/webd.log",
         "webd: access GET / 200",
         "webd: access GET /missing.txt 404",

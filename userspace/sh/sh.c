@@ -1855,6 +1855,88 @@ static void service_start_config(const struct service_config *config, const char
     cli_puts("\n");
 }
 
+static void service_print_log(const struct service_config *config) {
+    char buffer[256];
+    int fd;
+    if (config->log_path[0] == '\0') {
+        cli_puts(config->name);
+        cli_puts(" has no log\n");
+        return;
+    }
+    fd = (int)srv_open(config->log_path);
+    if (fd < 0) {
+        cli_puts(config->name);
+        cli_puts(" log not found: ");
+        cli_puts(config->log_path);
+        cli_puts("\n");
+        return;
+    }
+    for (;;) {
+        long count = srv_read(fd, buffer, sizeof(buffer));
+        if (count <= 0) {
+            break;
+        }
+        (void)srv_write(SRV_STDOUT, buffer, (size_t)count);
+    }
+    srv_close(fd);
+}
+
+static void service_tail_log(const struct service_config *config, uint64_t lines) {
+    char buffer[256];
+    char tail[2048];
+    size_t used = 0;
+    int fd;
+    if (lines == 0) {
+        lines = 20;
+    }
+    if (config->log_path[0] == '\0') {
+        cli_puts(config->name);
+        cli_puts(" has no log\n");
+        return;
+    }
+    fd = (int)srv_open(config->log_path);
+    if (fd < 0) {
+        cli_puts(config->name);
+        cli_puts(" log not found: ");
+        cli_puts(config->log_path);
+        cli_puts("\n");
+        return;
+    }
+    for (;;) {
+        long count = srv_read(fd, buffer, sizeof(buffer));
+        if (count <= 0) {
+            break;
+        }
+        for (long i = 0; i < count; i++) {
+            if (used == sizeof(tail)) {
+                for (size_t j = 1; j < sizeof(tail); j++) {
+                    tail[j - 1] = tail[j];
+                }
+                used--;
+            }
+            tail[used++] = buffer[i];
+        }
+    }
+    srv_close(fd);
+
+    size_t start = used;
+    uint64_t seen = 0;
+    while (start > 0 && seen < lines) {
+        start--;
+        if (tail[start] == '\n' && start + 1 < used) {
+            seen++;
+        }
+    }
+    if (seen == lines && start + 1 < used) {
+        start++;
+    } else {
+        start = 0;
+    }
+    if (start < used) {
+        (void)srv_write(SRV_STDOUT, tail + start, used - start);
+    }
+}
+
 static void service_list_command(int start_enabled) {
     uint64_t size = 0;
     char path[CLI_PATH_MAX];
@@ -1887,6 +1969,40 @@ static void service_list_command(int start_enabled) {
     }
 }
 
+static void service_supervise_command(uint64_t cycles) {
+    if (cycles == 0) {
+        cycles = 1;
+    }
+    for (uint64_t cycle = 0; cycle < cycles; cycle++) {
+        uint64_t size = 0;
+        char path[CLI_PATH_MAX];
+        char name[32];
+        struct service_config config;
+        for (uint64_t index = 0;; index++) {
+            long next = srv_list(index, path, sizeof(path), &size);
+            if (next <= 0) {
+                break;
+            }
+            if (!service_name_from_path(name, sizeof(name), path) ||
+                !service_load_config(&config, name) ||
+                !config.enabled ||
+                !cli_streq(config.restart, "always")) {
+                continue;
+            }
+            reap_exited_service(config.process_name);
+            struct srv_process_info info;
+            if (!find_service_process(config.process_name, &info, 0)) {
+                cli_puts(config.name);
+                cli_puts(" supervisor restarting\n");
+                service_start_config(&config, "");
+            }
+        }
+        if (cycle + 1 < cycles) {
+            srv_sleep_ticks(50);
+        }
+    }
+}
+
 static void service_command(const char *args) {
     char work[LINE_MAX];
     char *name;
@@ -1897,7 +2013,7 @@ static void service_command(const char *args) {
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
     if (name[0] == '\0') {
-        cli_puts("usage: service list|start-enabled|<name> [start [args]|stop|restart|status]\n");
+        cli_puts("usage: service list|start-enabled|supervise [cycles]|<name> [start [args]|stop|restart|status|log|tail [lines]]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
     }
@@ -1916,6 +2032,10 @@ static void service_command(const char *args) {
     }
     if (cli_streq(name, "start-enabled")) {
         service_list_command(1);
+        return;
+    }
+    if (cli_streq(name, "supervise")) {
+        service_supervise_command(action[0] != '\0' ? parse_u64(action) : 1);
         return;
     }
 
@@ -1961,7 +2081,17 @@ static void service_command(const char *args) {
         return;
     }
 
-    cli_puts("usage: service list|start-enabled|<name> [start [args]|stop|restart|status]\n");
+    if (cli_streq(action, "log")) {
+        service_print_log(&config);
+        return;
+    }
+
+    if (cli_streq(action, "tail")) {
+        service_tail_log(&config, action_args[0] != '\0' ? parse_u64(action_args) : 20);
+        return;
+    }
+
+    cli_puts("usage: service list|start-enabled|supervise [cycles]|<name> [start [args]|stop|restart|status|log|tail [lines]]\n");
 }
 
 static void print_path(void) {

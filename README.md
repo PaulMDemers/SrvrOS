@@ -234,8 +234,10 @@ redirect stdout to `/fat/var/log/webd.log`. `/fat/etc/init.sh` runs
 `service start-enabled`, which starts every service config with `enabled=true`.
 New services can be added as `/fat/etc/services/name.svc` with `command=`,
 optional `args=`, `process=`, `log=`, `enabled=`, and `restart=` keys.
-`service list` shows state plus enabled/restart/log metadata. `webd` writes
-compact access lines as `webd: access METHOD PATH STATUS BYTES`.
+`service list` shows state plus enabled/restart/log metadata, `service <name>
+log` and `service <name> tail [lines]` read the configured log, and `service
+supervise [cycles]` restarts enabled services marked `restart=always`. `webd`
+writes compact access lines as `webd: access METHOD PATH STATUS BYTES`.
 
 The shell can also run non-interactively, which is useful for smoke tests,
 ports, and simple boot scripts:

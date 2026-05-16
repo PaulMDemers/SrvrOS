@@ -31,8 +31,9 @@ server.
   table.
 - Adds config-backed shell services under `/fat/etc/services/*.svc`; the
   generated image ships `webd.svc`, starts enabled services from
-  `/fat/etc/init.sh`, exposes `service list`, and keeps daemon stdout readable
-  in `/fat/var/log/webd.log`.
+  `/fat/etc/init.sh`, exposes `service list`, `service log`, `service tail`,
+  and `service supervise`, and keeps daemon stdout readable in
+  `/fat/var/log/webd.log`.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,
