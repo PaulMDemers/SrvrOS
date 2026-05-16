@@ -67,6 +67,7 @@
 #define SYS_MMAP 62
 #define SYS_MUNMAP 63
 #define SYS_MPROTECT 64
+#define SYS_MSYNC 65
 
 #define SRV_OPEN_READ 0x01
 #define SRV_OPEN_WRITE 0x02
@@ -159,6 +160,10 @@ struct srv_winsize {
 #define SRV_MAP_PRIVATE 0x02
 #define SRV_MAP_FIXED 0x10
 #define SRV_MAP_ANONYMOUS 0x20
+
+#define SRV_MS_ASYNC 0x01
+#define SRV_MS_SYNC 0x02
+#define SRV_MS_INVALIDATE 0x04
 
 #define SRV_POLLIN 0x0001
 #define SRV_POLLOUT 0x0004

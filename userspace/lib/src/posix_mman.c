@@ -59,3 +59,19 @@ int mprotect(void *address, size_t length, int protection) {
     }
     return 0;
 }
+
+int msync(void *address, size_t length, int flags) {
+    if (address == 0 ||
+        length == 0 ||
+        (((uintptr_t)address) & 0xfff) != 0 ||
+        (flags & ~(MS_ASYNC | MS_SYNC | MS_INVALIDATE)) != 0 ||
+        ((flags & MS_ASYNC) != 0 && (flags & MS_SYNC) != 0)) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_msync(address, length, flags) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    return 0;
+}

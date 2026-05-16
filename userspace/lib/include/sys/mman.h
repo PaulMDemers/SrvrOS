@@ -19,8 +19,13 @@
 
 #define MAP_FAILED ((void *)-1)
 
+#define MS_ASYNC SRV_MS_ASYNC
+#define MS_SYNC SRV_MS_SYNC
+#define MS_INVALIDATE SRV_MS_INVALIDATE
+
 void *mmap(void *address, size_t length, int protection, int flags, int fd, off_t offset);
 int munmap(void *address, size_t length);
 int mprotect(void *address, size_t length, int protection);
+int msync(void *address, size_t length, int flags);
 
 #endif

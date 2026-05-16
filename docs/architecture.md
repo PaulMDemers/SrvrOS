@@ -51,8 +51,9 @@ Current tradeoffs:
 - Userspace `mmap` currently covers eager private mappings owned by the
   process: zero-filled anonymous regions and file-backed regular-fd snapshots.
   `mprotect` can change page permissions, `PROT_NONE` guard pages are modeled by
-  clearing user access on present pages, `munmap` frees pages, and process exit
-  cleans up any remaining mappings. Demand paging, shared mappings, writeback,
+  clearing user access on present pages, `msync` validates private mmap-owned
+  ranges as a no-op, `munmap` frees pages, and process exit cleans up any
+  remaining mappings. Demand paging, shared mappings, writeback,
   replacement-style `MAP_FIXED`, and signal-delivered page-fault recovery are
   still future work.
 - Kernel heap and static subsystem limits are still intentionally conservative.
@@ -86,6 +87,7 @@ The ABI currently covers:
 - Console/graphics/input: console info, clear, cursor positioning, a small
   framebuffer-side ANSI CSI subset for common cursor/erase sequences, key scan,
   framebuffer info/pixels/rects, mouse scan.
+- Memory mapping: `mmap`, `munmap`, `mprotect`, `msync`.
 - GUI IPC: register server, send message, receive message.
 
 ## VFS And Filesystems

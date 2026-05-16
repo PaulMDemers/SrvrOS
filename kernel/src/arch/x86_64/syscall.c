@@ -926,6 +926,10 @@ static int64_t syscall_mprotect(uint64_t address, uint64_t length, uint64_t prot
     return process_mprotect(process_current(), address, length, protection);
 }
 
+static int64_t syscall_msync(uint64_t address, uint64_t length, uint64_t flags) {
+    return process_msync(process_current(), address, length, flags);
+}
+
 static int64_t syscall_dup(uint64_t fd) {
     return process_file_dup(process_current(), fd);
 }
@@ -1488,6 +1492,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_MPROTECT:
         frame->rax = (uint64_t)syscall_mprotect(frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_MSYNC:
+        frame->rax = (uint64_t)syscall_msync(frame->rdi, frame->rsi, frame->rdx);
         return;
     case SYS_DUP:
         frame->rax = (uint64_t)syscall_dup(frame->rdi);

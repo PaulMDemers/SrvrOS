@@ -182,6 +182,10 @@ long srv_mprotect(void *address, size_t length, int protection) {
     return srv_syscall3(SYS_MPROTECT, (long)address, (long)length, protection);
 }
 
+long srv_msync(void *address, size_t length, int flags) {
+    return srv_syscall3(SYS_MSYNC, (long)address, (long)length, flags);
+}
+
 long srv_fs_write(const char *path, const void *buffer, size_t length) {
     long fd = srv_open_mode(path, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_TRUNC);
     if (fd < 0) {

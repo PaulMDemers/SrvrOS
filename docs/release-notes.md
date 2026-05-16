@@ -110,6 +110,8 @@ server.
 - Adds `mprotect` and `PROT_NONE` support for mmap-owned pages, with page-table
   permission updates and `posixdemo` coverage for guard-page enablement plus
   read/write protection toggles.
+- Adds `msync` constants, libc wrapper, syscall, and `posixdemo` coverage as
+  no-op validation for private mmap-owned ranges.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime

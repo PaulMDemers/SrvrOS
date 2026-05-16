@@ -158,6 +158,10 @@ int64_t process_mprotect(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t protection);
+int64_t process_msync(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t flags);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);

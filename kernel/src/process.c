@@ -3708,6 +3708,29 @@ int64_t process_mprotect(struct process *process,
     return 0;
 }
 
+int64_t process_msync(struct process *process,
+    uint64_t address,
+    uint64_t length,
+    uint64_t flags) {
+    if (process == NULL || process->address_space == 0 || length == 0 ||
+        (address % PAGE_SIZE) != 0 ||
+        (flags & ~(SRV_MS_ASYNC | SRV_MS_SYNC | SRV_MS_INVALIDATE)) != 0 ||
+        ((flags & SRV_MS_ASYNC) != 0 && (flags & SRV_MS_SYNC) != 0)) {
+        return -1;
+    }
+    uint64_t mapped_length = page_up(length);
+    if (mapped_length < length || !mmap_range_valid(address, mapped_length)) {
+        return -1;
+    }
+    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        if (mmap_region_index_for_page(process, page) < 0 ||
+            process_mapping_index(process, page) < 0) {
+            return -1;
+        }
+    }
+    return 0;
+}
+
 void process_exit(uint64_t status) {
     struct process *process = process_current();
     if (process == NULL || !process->active) {

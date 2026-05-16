@@ -589,8 +589,14 @@ int main(void) {
     }
     guard[0] = 0x24;
     if (guard[0] != 0x24 ||
+        msync(guard, 4096, MS_SYNC) < 0 ||
         munmap(guard, 4096) < 0) {
         say("posixdemo: mprotect rw failed\n");
+        return 26;
+    }
+    if (msync((void *)0x18000000, 4096, MS_SYNC) == 0 ||
+        msync((void *)0x18000000, 4096, MS_SYNC | MS_ASYNC) == 0) {
+        say("posixdemo: msync invalid failed\n");
         return 26;
     }
 
@@ -627,7 +633,8 @@ int main(void) {
         return 26;
     }
     file_mapping[0] = 'X';
-    if (munmap(file_mapping, 8192) < 0) {
+    if (msync(file_mapping, 8192, MS_SYNC | MS_INVALIDATE) < 0 ||
+        munmap(file_mapping, 8192) < 0) {
         say("posixdemo: mmap file unmap failed\n");
         return 26;
     }
