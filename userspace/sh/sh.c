@@ -5133,8 +5133,6 @@ int main(int argc, char **argv) {
     if (login) {
         status = run_optional_script("/fat/etc/profile", cwd);
         last_status = status;
-        status = run_script("/fat/etc/init.sh", cwd);
-        last_status = status;
     }
     if (command_text != 0) {
         char command[EXPANDED_LINE_MAX];

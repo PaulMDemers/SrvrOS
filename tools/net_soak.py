@@ -155,7 +155,7 @@ def main():
             sock = connect_serial(serial_port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"run /fat/bin/sh --login\n")
+            sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b"srvsh: interactive shell", args.service_wait)
             output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
 

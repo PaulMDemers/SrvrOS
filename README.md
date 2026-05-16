@@ -222,10 +222,12 @@ curl http://127.0.0.1:8080/
 curl http://127.0.0.1:8080/status.txt
 ```
 
-The login shell starts `/fat/etc/init.sh`:
+The kernel starts `/init --system` after device and filesystem setup. That
+system init runs `/fat/etc/init.sh` before the monitor prompt appears:
 
 ```text
-srv> run /fat/bin/sh --login
+init: system init starting
+init-script-ok
 ```
 
 Generated exFAT images include `/fat/etc/services/webd.svc`; `service webd`

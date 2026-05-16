@@ -144,7 +144,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
-- `web_smoke.py`: login shell init script, boot-owned `svscan` service startup
+- `web_smoke.py`: kernel-started `/init --system`, boot-owned `svscan` service startup
   and restart of `webd`, `service list`, `service log`, `service tail`, live
   `/fat/var/log/svscan.log` and `/fat/var/log/webd.log` output, `netstat`
   listener visibility,
@@ -194,7 +194,7 @@ make run-ahci-net
 In srvros:
 
 ```text
-srv> run /fat/bin/sh --login
+srv> run /fat/bin/sh
 / $ service webd status
 / $ service list
 / $ service webd tail 8

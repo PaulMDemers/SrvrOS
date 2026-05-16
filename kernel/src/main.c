@@ -14,6 +14,7 @@
 #include <srvros/net.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/serial.h>
 #include <srvros/timer.h>
@@ -298,5 +299,12 @@ void kmain(void) {
     print_memmap();
 
     console_write("srvros: kernel bootstrap complete\n");
+    int64_t init_pid = process_spawn_background_elf_args("/init", "--system");
+    if (init_pid >= 0) {
+        console_printf("init: started pid=%u\n", (uint64_t)init_pid);
+        (void)timer_wait_ticks_bounded(20, 100000000);
+    } else {
+        console_write("init: start failed\n");
+    }
     monitor_run();
 }

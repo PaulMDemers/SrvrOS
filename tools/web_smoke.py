@@ -211,7 +211,7 @@ def main():
             sock = connect_serial(serial_port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"run /fat/bin/sh --login\n")
+            sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b"srvsh: interactive shell", args.shell_wait)
             output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
             output += send_command(sock, "service list", "enabled=true", args.service_wait)
@@ -298,6 +298,8 @@ def main():
     expected_serial = [
         "e1000:",
         "net: static ipv4=10.0.2.15",
+        "init: started pid=",
+        "init: system init starting",
         "init-script-ok",
         "svscan",
         "svscan: started",

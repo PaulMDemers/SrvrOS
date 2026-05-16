@@ -9,6 +9,10 @@
 #define SYS_LIST 6
 #define SYS_SPAWN 7
 #define SYS_FS_WRITE 10
+#define SYS_SPAWN_ARGS 24
+#define SYS_WAIT 34
+#define SYS_SLEEP_TICKS 43
+#define SRV_WAIT_NOHANG 0x01
 
 #define STDIN 0
 #define STDOUT 1
@@ -29,6 +33,15 @@ static long syscall0(long number) {
 
 static long syscall1(long number, long arg0) {
     __asm__ volatile ("int $0x80" : "+a"(number) : "D"(arg0) : "memory");
+    return number;
+}
+
+static long syscall2(long number, long arg0, long arg1) {
+    __asm__ volatile (
+        "int $0x80"
+        : "+a"(number)
+        : "D"(arg0), "S"(arg1)
+        : "memory");
     return number;
 }
 
@@ -354,6 +367,18 @@ static long spawn_path(const char *path) {
     return syscall1(SYS_SPAWN, (long)path);
 }
 
+static long spawn_args(const char *path, const char *args) {
+    return syscall2(SYS_SPAWN_ARGS, (long)path, (long)args);
+}
+
+static long wait_nohang(uint64_t *status) {
+    return syscall3(SYS_WAIT, 0, (long)status, SRV_WAIT_NOHANG);
+}
+
+static void sleep_ticks(uint64_t ticks) {
+    syscall1(SYS_SLEEP_TICKS, (long)ticks);
+}
+
 static void print_exit_status(long status) {
     write_text("run: exited ");
     print_u64((uint64_t)status);
@@ -460,8 +485,31 @@ static void run_command(char *line) {
     }
 }
 
-int main(void) {
+static int system_main(void) {
+    write_text("init: system init starting\n");
+    long status = spawn_args("/fat/bin/sh", "/fat/etc/init.sh");
+    if (status < 0) {
+        write_text("init: /fat/etc/init.sh failed\n");
+    } else {
+        write_text("init: /fat/etc/init.sh status ");
+        print_u64((uint64_t)status);
+        write_text("\n");
+    }
+
+    for (;;) {
+        uint64_t child_status = 0;
+        while (wait_nohang(&child_status) > 0) {
+        }
+        sleep_ticks(100);
+    }
+}
+
+int main(int argc, char **argv) {
     char line[LINE_MAX];
+
+    if (argc > 1 && streq(argv[1], "--system")) {
+        return system_main();
+    }
 
     write_text("srvsh: userspace shell ready\n");
     command_help();
