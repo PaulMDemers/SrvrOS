@@ -67,8 +67,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `posix_spawnp` plus `waitpid`
 - `getpid`
 - `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
-  with PATH lookup and basic `posix_spawn_file_actions_adddup2` support for
-  standard fd remapping
+  with PATH lookup and standard-fd `posix_spawn_file_actions_adddup2`,
+  `posix_spawn_file_actions_addopen`, and `posix_spawn_file_actions_addclose`
+  support
 - process-replacing `execve` backed by the native argv/envp launch request.
   The new image keeps the same pid and open fd table while replacing the old
   userspace address space, then applies close-on-exec descriptor cleanup.
@@ -125,6 +126,9 @@ under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
 ## Current Limits
 
 - `fork` and client-side `connect` are still missing.
+- `posix_spawn` file actions currently model the final state of standard fds
+  `0`, `1`, and `2`; arbitrary ordered action lists for non-stdio fds remain
+  future work.
 - VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
   file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
   is not encoded into native exFAT directory entries. Sidecar updates stage
@@ -174,10 +178,12 @@ Third-party source is kept as pinned submodules or snapshots under
 
 1. Expand `stdio` toward command-line port expectations: broader input matching
    edge cases, append/update-mode polish, and `popen`/`pclose`.
-2. Harden the exFAT metadata sidecar further: stronger atomic replacement,
+2. Broaden `posix_spawn` toward ordered non-stdio file actions and the first
+   useful spawn attributes.
+3. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp
    sources.
-3. Add `mmap`-style mappings for larger interpreters and libraries.
-4. Expand `webd` toward fuller concurrent connection handling.
-5. Add client TCP `connect`, then a tiny HTTP client.
-6. Move toward libuv after sockets, timers, and fd readiness are boring.
+4. Add `mmap`-style mappings for larger interpreters and libraries.
+5. Expand `webd` toward fuller concurrent connection handling.
+6. Add client TCP `connect`, then a tiny HTTP client.
+7. Move toward libuv after sockets, timers, and fd readiness are boring.

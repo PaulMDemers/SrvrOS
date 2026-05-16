@@ -44,6 +44,7 @@
 #define PROCESS_MAX_PIPES 32
 #define PROCESS_MAX_FILE_LOCKS 64
 #define PROCESS_PIPE_CAPACITY 4096
+#define PROCESS_STDIO_CLOSED_FD (-2)
 
 struct process_context {
     uint64_t rbx;
@@ -1246,21 +1247,30 @@ static bool process_apply_stdio_fds(struct process *process,
     if (process == NULL) {
         return false;
     }
-    if (stdin_fd >= 0 && stdin_fd != 0) {
+    if (stdin_fd == PROCESS_STDIO_CLOSED_FD) {
+        process->stdin_redirect = true;
+        process->stdin_fd = -1;
+    } else if (stdin_fd >= 0 && stdin_fd != 0) {
         if (!process_fd_available(process, stdin_fd)) {
             return false;
         }
         process->stdin_redirect = true;
         process->stdin_fd = stdin_fd;
     }
-    if (stdout_fd >= 0 && stdout_fd != 1) {
+    if (stdout_fd == PROCESS_STDIO_CLOSED_FD) {
+        process->stdout_redirect = true;
+        process->stdout_fd = -1;
+    } else if (stdout_fd >= 0 && stdout_fd != 1) {
         if (!process_fd_available(process, stdout_fd)) {
             return false;
         }
         process->stdout_redirect = true;
         process->stdout_fd = stdout_fd;
     }
-    if (stderr_fd >= 0 && stderr_fd != 2) {
+    if (stderr_fd == PROCESS_STDIO_CLOSED_FD) {
+        process->stderr_redirect = true;
+        process->stderr_fd = -1;
+    } else if (stderr_fd >= 0 && stderr_fd != 2) {
         if (!process_fd_available(process, stderr_fd)) {
             return false;
         }
@@ -1306,7 +1316,10 @@ static bool process_configure_stdio_fds(struct process *child,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd) {
-    if (stdin_fd >= 0 && stdin_fd != 0) {
+    if (stdin_fd == PROCESS_STDIO_CLOSED_FD) {
+        child->stdin_redirect = true;
+        child->stdin_fd = -1;
+    } else if (stdin_fd >= 0 && stdin_fd != 0) {
         int64_t fd = process_clone_fd_from(child, parent, stdin_fd);
         if (fd < 0) {
             return false;
@@ -1315,7 +1328,10 @@ static bool process_configure_stdio_fds(struct process *child,
         child->stdin_fd = fd;
     }
 
-    if (stdout_fd >= 0 && stdout_fd != 1) {
+    if (stdout_fd == PROCESS_STDIO_CLOSED_FD) {
+        child->stdout_redirect = true;
+        child->stdout_fd = -1;
+    } else if (stdout_fd >= 0 && stdout_fd != 1) {
         int64_t fd = process_clone_fd_from(child, parent, stdout_fd);
         if (fd < 0) {
             return false;
@@ -1324,7 +1340,10 @@ static bool process_configure_stdio_fds(struct process *child,
         child->stdout_fd = fd;
     }
 
-    if (stderr_fd >= 0 && stderr_fd != 2) {
+    if (stderr_fd == PROCESS_STDIO_CLOSED_FD) {
+        child->stderr_redirect = true;
+        child->stderr_fd = -1;
+    } else if (stderr_fd >= 0 && stderr_fd != 2) {
         int64_t fd = process_clone_fd_from(child, parent, stderr_fd);
         if (fd < 0) {
             return false;

@@ -237,8 +237,8 @@ ring-3 stack; replacement requests first load the new image into a temporary
 kernel-owned process image, then swap the current process to the new address
 space and enter the new program with the same pid while closing any fds marked
 close-on-exec. The POSIX
-compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`, basic
-stdio fd remapping through spawn file actions, and process-replacing `execve`.
+compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`,
+standard-fd dup/open/close spawn file actions, and process-replacing `execve`.
 
 ## POSIX Compatibility
 
@@ -257,8 +257,9 @@ read-only regular files, `poll`/`select` readiness, blocking pipes,
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, small buffered `stdio`,
 simple time functions, common formatted-output width/precision/flag forms,
-`scanf`/`sscanf` basics including scansets, `system()` via shell spawn, `getpid`, `waitpid`,
-`posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
+`scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
+`getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`, standard-fd spawn file
+actions, process-replacing `execve`, IPv4 formatting and parsing, DNS-backed
 `getaddrinfo`, and a TCP server socket flow mapped onto srvros listener/
 connection fds. The kernel additions for this slice are
 intentionally narrow: fd metadata/duplication, shared regular-file open

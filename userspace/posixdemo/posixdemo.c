@@ -662,6 +662,55 @@ int main(void) {
         say("posixdemo: spawn redirect read failed\n");
         return 43;
     }
+    fd = open("/fat/posixdemo/spawn-input.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0 ||
+        write(fd, "opened-stdin\n", 13) != 13 ||
+        close(fd) < 0 ||
+        posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_addopen(&actions,
+            STDIN_FILENO,
+            "/fat/posixdemo/spawn-input.txt",
+            O_RDONLY,
+            0) != 0 ||
+        posix_spawn_file_actions_addopen(&actions,
+            STDOUT_FILENO,
+            "/fat/posixdemo/spawn-output.txt",
+            O_WRONLY | O_CREAT | O_TRUNC,
+            0644) != 0) {
+        say("posixdemo: spawn addopen setup failed\n");
+        return 43;
+    }
+    char *cat_argv[] = {"/fat/bin/cat", 0};
+    if (posix_spawn(&child, "/fat/bin/cat", &actions, 0, cat_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn addopen failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    fd = open("/fat/posixdemo/spawn-output.txt", O_RDONLY);
+    n = fd >= 0 ? read(fd, buffer, sizeof(buffer) - 1) : -1;
+    if (fd >= 0) {
+        close(fd);
+    }
+    unlink("/fat/posixdemo/spawn-input.txt");
+    unlink("/fat/posixdemo/spawn-output.txt");
+    if (n != 13 || memcmp(buffer, "opened-stdin\n", 13) != 0) {
+        say("posixdemo: spawn addopen read failed\n");
+        return 43;
+    }
+    if (posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, STDIN_FILENO) != 0 ||
+        posix_spawn_file_actions_addclose(&actions, STDOUT_FILENO) != 0 ||
+        posix_spawn(&child, "/fat/bin/cat", &actions, 0, cat_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) == 0) {
+        say("posixdemo: spawn addclose failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
     say("posixdemo: spawn ok\n");
 
     char *exec_argv[] = {"/fat/bin/execdemo", 0};

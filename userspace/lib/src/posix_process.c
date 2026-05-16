@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <fcntl.h>
 #include <spawn.h>
 #include <srvros/sys.h>
 #include <stdlib.h>
@@ -7,6 +8,10 @@
 #include <unistd.h>
 
 #define POSIX_PATH_MAX 160
+#define SPAWN_ACTION_DUP2 0
+#define SPAWN_ACTION_CLOSE 1
+#define SPAWN_ACTION_OPEN 2
+#define SPAWN_CLOSED_FD (-2)
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
 
@@ -32,16 +37,52 @@ static int spawn_path(pid_t *pid,
         return error;
     }
 
+    int stdin_fd = file_actions != 0 ? file_actions->stdin_fd : -1;
+    int stdout_fd = file_actions != 0 ? file_actions->stdout_fd : -1;
+    int stderr_fd = file_actions != 0 ? file_actions->stderr_fd : -1;
+    int opened[3] = {-1, -1, -1};
+    if (file_actions != 0) {
+        int actions[3] = {file_actions->stdin_action, file_actions->stdout_action, file_actions->stderr_action};
+        int oflags[3] = {file_actions->stdin_oflag, file_actions->stdout_oflag, file_actions->stderr_oflag};
+        mode_t modes[3] = {file_actions->stdin_mode, file_actions->stdout_mode, file_actions->stderr_mode};
+        const char *paths[3] = {file_actions->stdin_path, file_actions->stdout_path, file_actions->stderr_path};
+        int *fds[3] = {&stdin_fd, &stdout_fd, &stderr_fd};
+        for (int i = 0; i < 3; i++) {
+            if (actions[i] == SPAWN_ACTION_CLOSE) {
+                *fds[i] = SPAWN_CLOSED_FD;
+            } else if (actions[i] == SPAWN_ACTION_OPEN) {
+                opened[i] = open(paths[i], oflags[i], modes[i]);
+                if (opened[i] < 0) {
+                    int saved = errno != 0 ? errno : EIO;
+                    for (int j = 0; j < 3; j++) {
+                        if (opened[j] >= 0) {
+                            close(opened[j]);
+                        }
+                    }
+                    return saved;
+                }
+                *fds[i] = opened[i];
+            }
+        }
+    }
+
     struct srv_exec_request request = {
         .path = full,
         .argv = argv,
         .envp = effective_envp(envp),
         .flags = SRV_EXEC_BACKGROUND,
-        .stdin_fd = file_actions != 0 ? file_actions->stdin_fd : -1,
-        .stdout_fd = file_actions != 0 ? file_actions->stdout_fd : -1,
-        .stderr_fd = file_actions != 0 ? file_actions->stderr_fd : -1,
+        .stdin_fd = stdin_fd,
+        .stdout_fd = stdout_fd,
+        .stderr_fd = stderr_fd,
     };
     long result = srv_exec(&request);
+    int saved_errno = errno;
+    for (int i = 0; i < 3; i++) {
+        if (opened[i] >= 0) {
+            close(opened[i]);
+        }
+    }
+    errno = saved_errno;
     if (result < 0) {
         return ENOENT;
     }
@@ -124,6 +165,18 @@ int posix_spawn_file_actions_init(posix_spawn_file_actions_t *file_actions) {
     file_actions->stdin_fd = -1;
     file_actions->stdout_fd = -1;
     file_actions->stderr_fd = -1;
+    file_actions->stdin_action = SPAWN_ACTION_DUP2;
+    file_actions->stdout_action = SPAWN_ACTION_DUP2;
+    file_actions->stderr_action = SPAWN_ACTION_DUP2;
+    file_actions->stdin_oflag = 0;
+    file_actions->stdout_oflag = 0;
+    file_actions->stderr_oflag = 0;
+    file_actions->stdin_mode = 0;
+    file_actions->stdout_mode = 0;
+    file_actions->stderr_mode = 0;
+    file_actions->stdin_path[0] = '\0';
+    file_actions->stdout_path[0] = '\0';
+    file_actions->stderr_path[0] = '\0';
     return 0;
 }
 
@@ -142,14 +195,17 @@ int posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *file_actions,
     }
     if (newfd == STDIN_FILENO) {
         file_actions->stdin_fd = oldfd;
+        file_actions->stdin_action = SPAWN_ACTION_DUP2;
         return 0;
     }
     if (newfd == STDOUT_FILENO) {
         file_actions->stdout_fd = oldfd;
+        file_actions->stdout_action = SPAWN_ACTION_DUP2;
         return 0;
     }
     if (newfd == STDERR_FILENO) {
         file_actions->stderr_fd = oldfd;
+        file_actions->stderr_action = SPAWN_ACTION_DUP2;
         return 0;
     }
     return ENOSYS;
@@ -157,8 +213,79 @@ int posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *file_actions,
 
 int posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
     int fd) {
-    (void)file_actions;
-    (void)fd;
+    if (file_actions == 0 || fd < 0) {
+        return EINVAL;
+    }
+    if (fd == STDIN_FILENO) {
+        file_actions->stdin_action = SPAWN_ACTION_CLOSE;
+        file_actions->stdin_fd = SPAWN_CLOSED_FD;
+        return 0;
+    }
+    if (fd == STDOUT_FILENO) {
+        file_actions->stdout_action = SPAWN_ACTION_CLOSE;
+        file_actions->stdout_fd = SPAWN_CLOSED_FD;
+        return 0;
+    }
+    if (fd == STDERR_FILENO) {
+        file_actions->stderr_action = SPAWN_ACTION_CLOSE;
+        file_actions->stderr_fd = SPAWN_CLOSED_FD;
+        return 0;
+    }
+    return ENOSYS;
+}
+
+static int spawn_action_store_open(char *destination,
+    size_t capacity,
+    const char *path) {
+    if (path == 0 || path[0] == '\0') {
+        return EINVAL;
+    }
+    size_t length = strlen(path);
+    if (length + 1 > capacity) {
+        return ENAMETOOLONG;
+    }
+    memcpy(destination, path, length + 1);
+    return 0;
+}
+
+int posix_spawn_file_actions_addopen(posix_spawn_file_actions_t *file_actions,
+    int fd,
+    const char *path,
+    int oflag,
+    mode_t mode) {
+    if (file_actions == 0 || fd < 0) {
+        return EINVAL;
+    }
+    if (fd == STDIN_FILENO) {
+        int error = spawn_action_store_open(file_actions->stdin_path, sizeof(file_actions->stdin_path), path);
+        if (error != 0) {
+            return error;
+        }
+        file_actions->stdin_action = SPAWN_ACTION_OPEN;
+        file_actions->stdin_oflag = oflag;
+        file_actions->stdin_mode = mode;
+        return 0;
+    }
+    if (fd == STDOUT_FILENO) {
+        int error = spawn_action_store_open(file_actions->stdout_path, sizeof(file_actions->stdout_path), path);
+        if (error != 0) {
+            return error;
+        }
+        file_actions->stdout_action = SPAWN_ACTION_OPEN;
+        file_actions->stdout_oflag = oflag;
+        file_actions->stdout_mode = mode;
+        return 0;
+    }
+    if (fd == STDERR_FILENO) {
+        int error = spawn_action_store_open(file_actions->stderr_path, sizeof(file_actions->stderr_path), path);
+        if (error != 0) {
+            return error;
+        }
+        file_actions->stderr_action = SPAWN_ACTION_OPEN;
+        file_actions->stderr_oflag = oflag;
+        file_actions->stderr_mode = mode;
+        return 0;
+    }
     return ENOSYS;
 }
 

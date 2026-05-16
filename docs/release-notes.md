@@ -174,9 +174,9 @@ server.
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
 - Adds a shell `exec` builtin that replaces the current shell process with a
   resolved command while honoring the same redirection path.
-- Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, basic spawn file
-  action fd remapping for standard streams, and true process-replacing
-  `execve`.
+- Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, standard-stream
+  spawn file actions for `dup2`, `open`, and `close`, and true
+  process-replacing `execve`.
 - Adds `/fat/bin/execdemo` as smoke coverage for in-place `execve`; it replaces
   itself with `/fat/bin/false`, and the parent observes the replacement image's
   exit status. The companion `/fat/bin/fdprobe` verifies inherited and
