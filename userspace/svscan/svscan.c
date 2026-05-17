@@ -26,6 +26,8 @@ struct service_state {
     char name[MAX_NAME];
     int started_once;
     uint64_t last_start_tick;
+    uint64_t backoff_until_tick;
+    int backoff_logged;
 };
 
 static struct service_state states[MAX_SERVICES];
@@ -244,6 +246,8 @@ static struct service_state *state_for(const char *name) {
     free_state->used = 1;
     free_state->started_once = 0;
     free_state->last_start_tick = 0;
+    free_state->backoff_until_tick = 0;
+    free_state->backoff_logged = 0;
     cli_copy(free_state->name, sizeof(free_state->name), name);
     return free_state;
 }
@@ -276,15 +280,46 @@ static int find_process(const char *name, struct srv_process_info *out, int incl
     return 0;
 }
 
-static void reap_exited(const char *name) {
+static int reap_exited(const char *name) {
+    int reaped = 0;
     struct srv_process_info info;
     uint64_t status = 0;
-    while (find_process(name, &info, 1) && cli_streq(info.state, "exited")) {
-        if (srv_wait(info.pid, &status, SRV_WAIT_NOHANG) <= 0) {
-            return;
+    for (;;) {
+        uint64_t index = 0;
+        int found = 0;
+        for (;;) {
+            long next = srv_proc_list(index, &info);
+            if (next <= 0) {
+                break;
+            }
+            if (process_name_matches(&info, name) && cli_streq(info.state, "exited")) {
+                found = 1;
+                break;
+            }
+            index = (uint64_t)next;
         }
+        if (!found) {
+            break;
+        }
+        if (srv_wait(info.pid, &status, SRV_WAIT_NOHANG) <= 0) {
+            break;
+        }
+        (void)status;
+        reaped++;
         log_pid_line(name, "reaped", info.pid);
     }
+    return reaped;
+}
+
+static void stop_running_service(const struct service_config *config, const char *reason) {
+    struct srv_process_info info;
+    uint64_t status = 0;
+    if (!find_process(config->process_name, &info, 0)) {
+        return;
+    }
+    log_pid_line(config->name, reason, info.pid);
+    (void)srv_kill(info.pid);
+    (void)srv_wait(info.pid, &status, 0);
 }
 
 static void start_service(const struct service_config *config, struct service_state *state) {
@@ -309,6 +344,7 @@ static void start_service(const struct service_config *config, struct service_st
     if (state != 0) {
         state->started_once = 1;
         state->last_start_tick = (uint64_t)srv_ticks();
+        state->backoff_logged = 0;
     }
     log_pid_line(config->name, "started", (uint64_t)pid);
 }
@@ -325,11 +361,15 @@ static void scan_once(void) {
         if (next <= 0) {
             break;
         }
-        if (!service_name_from_path(name, sizeof(name), path) || !load_config(&config, name) || !config.enabled) {
+        if (!service_name_from_path(name, sizeof(name), path) || !load_config(&config, name)) {
             continue;
         }
         struct service_state *state = state_for(config.name);
-        reap_exited(config.process_name);
+        int reaped = reap_exited(config.process_name);
+        if (!config.enabled) {
+            stop_running_service(&config, "disabled stop");
+            continue;
+        }
         if (find_process(config.process_name, &info, 0)) {
             continue;
         }
@@ -340,10 +380,23 @@ static void scan_once(void) {
         }
         uint64_t now = (uint64_t)srv_ticks();
         if (!first_start && state != 0 && now - state->last_start_tick < RESTART_BACKOFF_TICKS) {
+            state->backoff_until_tick = state->last_start_tick + RESTART_BACKOFF_TICKS;
+            if (!state->backoff_logged) {
+                log_service_line(config.name, "backoff");
+                state->backoff_logged = 1;
+            }
             continue;
         }
-        if (!first_start) {
-            log_service_line(config.name, "restarting");
+        if (state != 0 && state->backoff_until_tick != 0 && now >= state->backoff_until_tick) {
+            state->backoff_until_tick = 0;
+            state->backoff_logged = 0;
+        }
+        if (first_start) {
+            log_service_line(config.name, "startup");
+        } else if (reaped > 0) {
+            log_service_line(config.name, "restarting exited");
+        } else {
+            log_service_line(config.name, "restarting missing");
         }
         start_service(&config, state);
     }

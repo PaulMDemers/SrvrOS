@@ -919,10 +919,10 @@ static const char *process_state(const struct process *process) {
     if (process == NULL || !process->allocated) {
         return "unused";
     }
-    if (process->killed) {
-        return "stopping";
-    }
     if (process->active) {
+        if (process->killed) {
+            return "stopping";
+        }
         return process->detached ? "background" : "foreground";
     }
     if (process->reapable) {

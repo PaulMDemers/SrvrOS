@@ -44,6 +44,9 @@ server.
   `service log`, `service tail`, and `service supervise`, and keeps daemon
   stdout readable in `/fat/var/log/webd.log` with supervisor events in
   `/fat/var/log/svscan.log`.
+- Tightens `svscan` service supervision by reaping all exited matching service
+  processes before restart decisions, stopping disabled services, logging
+  startup/missing/exited restart reasons, and logging crash-loop backoff.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

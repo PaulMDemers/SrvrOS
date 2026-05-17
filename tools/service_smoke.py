@@ -2,6 +2,7 @@
 import argparse
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -58,6 +59,11 @@ def poll_command(sock, command, marker, timeout, interval=0.5):
             break
         time.sleep(interval)
     return data
+
+
+def webd_pid_from(text):
+    matches = re.findall(r"webd background pid ([0-9]+)", text)
+    return matches[-1] if matches else None
 
 
 def has_fatal_exception(text):
@@ -131,7 +137,13 @@ def main():
             output += read_for(sock, args.settle_wait)
             output += send_command(sock, "service webd status", "webd stopped enabled=false", args.service_wait)
             output += send_command(sock, "service enable webd", "webd enabled", args.service_wait)
-            output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
+            status_output = poll_command(sock, "service webd status", "webd background pid", args.service_wait)
+            output += status_output
+            webd_pid = webd_pid_from(status_output.decode("utf-8", "replace"))
+            if webd_pid:
+                output += send_command(sock, f"kill {webd_pid}; echo killed-webd", "killed-webd", args.service_wait)
+                output += poll_command(sock, "netstat", "LISTEN", args.service_wait)
+                output += send_command(sock, "ps", "PID STATE", args.service_wait)
             output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd restarting", args.service_wait)
             output += send_command(sock, "netstat", "LISTEN", args.service_wait)
             output += read_for(sock, 1)
@@ -160,6 +172,7 @@ def main():
         "svscan: reload requested",
         "webd enabled",
         "svscan: webd restarting",
+        "svscan: webd reaped",
         "Proto State",
         "10.0.2.15:80",
     ]
