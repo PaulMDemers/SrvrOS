@@ -127,7 +127,9 @@ def main():
             output += read_until(sock, b"srvsh: interactive shell", args.shell_wait)
             output += send_command(sock, "cat /fat/var/log/init.log", "init-script-ok", args.service_wait)
             output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
-            output += send_command(sock, "service list", "enabled=true", args.service_wait)
+            output += send_command(sock, "service list", "health=listen:80", args.service_wait)
+            output += send_command(sock, "service status --all", "requires=network", args.service_wait)
+            output += send_command(sock, "service webd check", "webd check ok", args.service_wait)
             output += send_command(sock, "service disable webd", "webd disabled", args.service_wait)
             output += send_command(sock, "service webd status", "enabled=false", args.service_wait)
             output += send_command(sock, "service webd stop", "stopped pid", args.service_wait)
@@ -165,6 +167,10 @@ def main():
         "svscan: started",
         "webd background pid",
         "enabled=true",
+        "requires=network",
+        "health=listen:80",
+        "max_log=16384",
+        "webd check ok",
         "webd disabled",
         "enabled=false",
         "webd stopped enabled=false",

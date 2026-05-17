@@ -153,7 +153,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
 - `service_smoke.py`: kernel-started `/init --system`, `/fat/var/log/init.log`,
-  boot-owned `svscan` service startup, `service disable`, stopped-service
+  boot-owned `svscan` service startup, service dependency/health/max-log
+  metadata, `service webd check`, `service disable`, stopped-service
   persistence, explicit `service reload`, `service enable`, direct `webd` kill
   followed by supervisor reaping/restart, and live `/fat/var/log/svscan.log`
   output.

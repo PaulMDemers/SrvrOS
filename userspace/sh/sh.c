@@ -1638,8 +1638,11 @@ struct service_config {
     char args[LINE_MAX];
     char process_name[32];
     char log_path[CLI_PATH_MAX];
+    char requires[32];
+    char health[32];
     int enabled;
     char restart[16];
+    uint64_t max_log_size;
 };
 
 static const char *service_reload_path = "/fat/run/svscan.reload";
@@ -1690,6 +1693,12 @@ static void service_apply_config_line(struct service_config *config, char *line)
         cli_copy(config->process_name, sizeof(config->process_name), value);
     } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
         cli_copy(config->log_path, sizeof(config->log_path), value);
+    } else if (cli_streq(key, "requires") || cli_streq(key, "after")) {
+        cli_copy(config->requires, sizeof(config->requires), value);
+    } else if (cli_streq(key, "health")) {
+        cli_copy(config->health, sizeof(config->health), value);
+    } else if (cli_streq(key, "max_log") || cli_streq(key, "log_max")) {
+        config->max_log_size = parse_u64(value);
     } else if (cli_streq(key, "enabled")) {
         config->enabled =
             cli_streq(value, "1") ||
@@ -1768,10 +1777,22 @@ static int service_save_config(const struct service_config *config) {
         !service_append_config_line(data, sizeof(data), &length, "args", config->args) ||
         !service_append_config_line(data, sizeof(data), &length, "process", config->process_name) ||
         !service_append_config_line(data, sizeof(data), &length, "log", config->log_path) ||
+        !service_append_config_line(data, sizeof(data), &length, "requires", config->requires) ||
+        !service_append_config_line(data, sizeof(data), &length, "health", config->health) ||
         !service_append_config_line(data, sizeof(data), &length, "enabled", config->enabled ? "true" : "false") ||
         !service_append_config_line(data, sizeof(data), &length, "restart", config->restart)) {
         cli_puts("service: config too large\n");
         return 0;
+    }
+    if (config->max_log_size != 0) {
+        char value[32];
+        size_t used = 0;
+        value[0] = '\0';
+        append_number(value, sizeof(value), &used, config->max_log_size);
+        if (!service_append_config_line(data, sizeof(data), &length, "max_log", value)) {
+            cli_puts("service: config too large\n");
+            return 0;
+        }
     }
     if (srv_fs_write(path, data, length) < 0) {
         cli_puts("service: config write failed: ");
@@ -1875,10 +1896,107 @@ static void service_print_status(const struct service_config *config) {
     cli_puts(config->enabled ? "true" : "false");
     cli_puts(" restart=");
     cli_puts(config->restart);
+    if (config->requires[0] != '\0') {
+        cli_puts(" requires=");
+        cli_puts(config->requires);
+    }
+    if (config->health[0] != '\0') {
+        cli_puts(" health=");
+        cli_puts(config->health);
+    }
+    if (config->max_log_size != 0) {
+        cli_puts(" max_log=");
+        cli_putn(config->max_log_size);
+    }
     if (config->log_path[0] != '\0') {
         cli_puts(" log ");
         cli_puts(config->log_path);
     }
+    cli_puts("\n");
+}
+
+static int service_parse_listen_health(const char *health, uint16_t *port_out) {
+    const char *prefix = "listen:";
+    uint64_t port;
+    for (size_t i = 0; prefix[i] != '\0'; i++) {
+        if (health[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    port = parse_u64(health + 7);
+    if (port == 0 || port > 65535) {
+        return 0;
+    }
+    *port_out = (uint16_t)port;
+    return 1;
+}
+
+static int service_health_ok(const struct service_config *config, const struct srv_process_info *process) {
+    uint16_t port = 0;
+    struct srv_net_info info;
+    if (config->health[0] == '\0') {
+        return 1;
+    }
+    if (!service_parse_listen_health(config->health, &port)) {
+        return 1;
+    }
+    for (uint64_t index = 0;;) {
+        long next = srv_net_list(index, &info);
+        if (next <= 0) {
+            break;
+        }
+        if (info.kind == SRV_NET_KIND_TCP_LISTENER &&
+            info.local_port == port &&
+            (process == 0 || info.pid == process->pid)) {
+            return 1;
+        }
+        index = (uint64_t)next;
+    }
+    return 0;
+}
+
+static void service_check_config(const struct service_config *config) {
+    struct srv_process_info info;
+    if (!find_service_process(config->process_name, &info, 0)) {
+        cli_puts(config->name);
+        cli_puts(" check stopped\n");
+        return;
+    }
+    cli_puts(config->name);
+    cli_puts(service_health_ok(config, &info) ? " check ok pid " : " check failed pid ");
+    cli_putn(info.pid);
+    cli_puts("\n");
+}
+
+static void service_rotated_path(char *out, size_t capacity, const char *path) {
+    size_t length = 0;
+    out[0] = '\0';
+    append_text(out, capacity, &length, path);
+    append_text(out, capacity, &length, ".1");
+}
+
+static void service_rotate_log(const struct service_config *config) {
+    char rotated[CLI_PATH_MAX];
+    int fd;
+    if (config->log_path[0] == '\0') {
+        cli_puts(config->name);
+        cli_puts(" has no log\n");
+        return;
+    }
+    service_rotated_path(rotated, sizeof(rotated), config->log_path);
+    (void)srv_unlink(rotated);
+    if (srv_rename(config->log_path, rotated) < 0) {
+        cli_puts(config->name);
+        cli_puts(" log rotate failed\n");
+        return;
+    }
+    fd = (int)srv_open_mode(config->log_path, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_TRUNC);
+    if (fd >= 0) {
+        srv_close(fd);
+    }
+    cli_puts(config->name);
+    cli_puts(" log rotated ");
+    cli_puts(rotated);
     cli_puts("\n");
 }
 
@@ -2085,7 +2203,7 @@ static void service_command(const char *args) {
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
     if (name[0] == '\0') {
-        cli_puts("usage: service list|reload|enable <name>|disable <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|log|tail [lines]]\n");
+        cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|check|log|tail [lines]|rotate-log]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
     }
@@ -2099,6 +2217,10 @@ static void service_command(const char *args) {
     }
 
     if (cli_streq(name, "list")) {
+        service_list_command(0);
+        return;
+    }
+    if (cli_streq(name, "status") && cli_streq(action, "--all")) {
         service_list_command(0);
         return;
     }
@@ -2121,6 +2243,27 @@ static void service_command(const char *args) {
             return;
         }
         service_set_enabled(&config, enable);
+        return;
+    }
+    if (cli_streq(name, "restart")) {
+        char target[32];
+        cli_copy(target, sizeof(target), action);
+        if (target[0] == '\0') {
+            cli_puts("usage: service restart <name>\n");
+            return;
+        }
+        if (!service_load_config(&config, target)) {
+            cli_puts("service: not found: ");
+            cli_puts(target);
+            cli_puts("\n");
+            return;
+        }
+        (void)service_stop_config(&config);
+        if (config.enabled && cli_streq(config.restart, "always")) {
+            (void)service_request_reload();
+        } else {
+            service_start_config(&config, "");
+        }
         return;
     }
     if (cli_streq(name, "start-enabled")) {
@@ -2155,6 +2298,11 @@ static void service_command(const char *args) {
     reap_exited_service(config.process_name);
     if (cli_streq(action, "status")) {
         service_print_status(&config);
+        return;
+    }
+
+    if (cli_streq(action, "check")) {
+        service_check_config(&config);
         return;
     }
 
@@ -2198,7 +2346,12 @@ static void service_command(const char *args) {
         return;
     }
 
-    cli_puts("usage: service list|reload|enable <name>|disable <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|log|tail [lines]]\n");
+    if (cli_streq(action, "rotate-log")) {
+        service_rotate_log(&config);
+        return;
+    }
+
+    cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|check|log|tail [lines]|rotate-log]\n");
 }
 
 static void print_path(void) {

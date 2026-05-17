@@ -194,8 +194,11 @@ def main():
             b"args=/fat/www\n"
             b"process=webd\n"
             b"log=/fat/var/log/webd.log\n"
+            b"requires=network\n"
+            b"health=listen:80\n"
             b"enabled=true\n"
-            b"restart=always\n"),
+            b"restart=always\n"
+            b"max_log=16384\n"),
     ]
     files = []
     for name, data in static_files:

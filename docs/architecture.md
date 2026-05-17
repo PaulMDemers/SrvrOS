@@ -246,15 +246,19 @@ in `/fat/var/log/init.log`; the monitor console receives only concise init
 status. The init script launches `svscan &`. `/fat/bin/svscan` continuously
 scans enabled service configs, starts missing daemons, and restarts configs
 marked `restart=always`, recording supervisor events in
-`/fat/var/log/svscan.log`. Service stdout is redirected to live append logs
-such as `/fat/var/log/webd.log`, and `service list` reports process state with
-enabled/restart/log metadata. `service enable <name>` and
+`/fat/var/log/svscan.log`. Service configs can declare `requires=network`,
+`health=listen:<port>`, and `max_log=<bytes>`; `svscan` waits for declared
+dependencies, restarts unhealthy listeners, and rotates oversized daemon logs.
+Service stdout is redirected to live append logs such as
+`/fat/var/log/webd.log`, and `service list` reports process state with
+enabled/restart/dependency/health/log metadata. `service enable <name>` and
 `service disable <name>` rewrite the service config, and `service reload`
 touches `/fat/run/svscan.reload` so `svscan` logs and consumes an explicit
-rescan request. `service <name> log` and `service <name> tail [lines]` read
-configured logs, while `service supervise [cycles]` keeps the same restart
-policy available as a bounded diagnostic loop. `webd` adds compact access lines
-containing method, URL, status, and body bytes.
+rescan request. `service <name> log`, `service <name> tail [lines]`,
+`service <name> check`, and `service <name> rotate-log` cover basic operations,
+while `service supervise [cycles]` keeps the same restart policy available as a
+bounded diagnostic loop. `webd` adds compact access lines containing method,
+URL, status, and body bytes.
 
 Current networking caveats:
 

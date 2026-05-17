@@ -17,8 +17,11 @@ struct service_config {
     char args[MAX_ARGS];
     char process_name[MAX_NAME];
     char log_path[MAX_PATH];
+    char requires[MAX_NAME];
+    char health[32];
     int enabled;
     char restart[16];
+    uint64_t max_log_size;
 };
 
 struct service_state {
@@ -28,6 +31,7 @@ struct service_state {
     uint64_t last_start_tick;
     uint64_t backoff_until_tick;
     int backoff_logged;
+    int unhealthy_logged;
 };
 
 static struct service_state states[MAX_SERVICES];
@@ -117,6 +121,20 @@ static int immediate_child(const char *path, const char *directory, const char *
     return 1;
 }
 
+static uint64_t parse_u64(const char *text) {
+    uint64_t value = 0;
+    while (*text == ' ' || *text == '\t') {
+        text++;
+    }
+    for (; *text != '\0'; text++) {
+        if (*text < '0' || *text > '9') {
+            break;
+        }
+        value = value * 10 + (uint64_t)(*text - '0');
+    }
+    return value;
+}
+
 static int service_name_from_path(char *out, size_t capacity, const char *path) {
     const char *name;
     size_t length;
@@ -184,6 +202,12 @@ static void apply_config_line(struct service_config *config, char *line) {
         cli_copy(config->process_name, sizeof(config->process_name), value);
     } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
         cli_copy(config->log_path, sizeof(config->log_path), value);
+    } else if (cli_streq(key, "requires") || cli_streq(key, "after")) {
+        cli_copy(config->requires, sizeof(config->requires), value);
+    } else if (cli_streq(key, "health")) {
+        cli_copy(config->health, sizeof(config->health), value);
+    } else if (cli_streq(key, "max_log") || cli_streq(key, "log_max")) {
+        config->max_log_size = parse_u64(value);
     } else if (cli_streq(key, "enabled")) {
         config->enabled =
             cli_streq(value, "1") ||
@@ -248,6 +272,7 @@ static struct service_state *state_for(const char *name) {
     free_state->last_start_tick = 0;
     free_state->backoff_until_tick = 0;
     free_state->backoff_logged = 0;
+    free_state->unhealthy_logged = 0;
     cli_copy(free_state->name, sizeof(free_state->name), name);
     return free_state;
 }
@@ -322,8 +347,91 @@ static void stop_running_service(const struct service_config *config, const char
     (void)srv_wait(info.pid, &status, 0);
 }
 
+static int service_dependency_ready(const struct service_config *config) {
+    struct srv_process_info info;
+    if (config->requires[0] == '\0') {
+        return 1;
+    }
+    if (cli_streq(config->requires, "network")) {
+        struct srv_net_status_info net;
+        return srv_net_status_info(&net) >= 0 && net.initialized != 0;
+    }
+    return find_process(config->requires, &info, 0);
+}
+
+static int parse_listen_health(const char *health, uint16_t *port_out) {
+    const char *prefix = "listen:";
+    uint64_t port;
+    for (size_t i = 0; prefix[i] != '\0'; i++) {
+        if (health[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    port = parse_u64(health + 7);
+    if (port == 0 || port > 65535) {
+        return 0;
+    }
+    *port_out = (uint16_t)port;
+    return 1;
+}
+
+static int service_health_ok(const struct service_config *config, const struct srv_process_info *process) {
+    uint16_t port = 0;
+    struct srv_net_info info;
+    if (config->health[0] == '\0') {
+        return 1;
+    }
+    if (!parse_listen_health(config->health, &port)) {
+        return 1;
+    }
+    for (uint64_t index = 0;;) {
+        long next = srv_net_list(index, &info);
+        if (next <= 0) {
+            break;
+        }
+        if (info.kind == SRV_NET_KIND_TCP_LISTENER &&
+            info.local_port == port &&
+            (process == 0 || info.pid == process->pid)) {
+            return 1;
+        }
+        index = (uint64_t)next;
+    }
+    return 0;
+}
+
+static void append_suffix(char *out, size_t capacity, const char *path, const char *suffix) {
+    size_t length = 0;
+    out[0] = '\0';
+    append_text(out, capacity, &length, path);
+    append_text(out, capacity, &length, suffix);
+}
+
+static void rotate_log_if_needed(const struct service_config *config) {
+    struct srv_stat stat;
+    char rotated[MAX_PATH];
+    int fd;
+    if (config->log_path[0] == '\0' || config->max_log_size == 0) {
+        return;
+    }
+    if (srv_stat(config->log_path, &stat) < 0 || stat.size <= config->max_log_size) {
+        return;
+    }
+    append_suffix(rotated, sizeof(rotated), config->log_path, ".1");
+    (void)srv_unlink(rotated);
+    if (srv_rename(config->log_path, rotated) < 0) {
+        log_service_line(config->name, "log rotate failed");
+        return;
+    }
+    fd = (int)srv_open_mode(config->log_path, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_TRUNC);
+    if (fd >= 0) {
+        srv_close(fd);
+    }
+    log_service_line(config->name, "log rotated");
+}
+
 static void start_service(const struct service_config *config, struct service_state *state) {
     int log_fd = -1;
+    rotate_log_if_needed(config);
     if (config->log_path[0] != '\0') {
         log_fd = (int)srv_open_mode(config->log_path, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_APPEND);
         if (log_fd < 0) {
@@ -345,6 +453,7 @@ static void start_service(const struct service_config *config, struct service_st
         state->started_once = 1;
         state->last_start_tick = (uint64_t)srv_ticks();
         state->backoff_logged = 0;
+        state->unhealthy_logged = 0;
     }
     log_pid_line(config->name, "started", (uint64_t)pid);
 }
@@ -366,16 +475,33 @@ static void scan_once(void) {
         }
         struct service_state *state = state_for(config.name);
         int reaped = reap_exited(config.process_name);
+        rotate_log_if_needed(&config);
         if (!config.enabled) {
             stop_running_service(&config, "disabled stop");
             continue;
         }
         if (find_process(config.process_name, &info, 0)) {
+            uint64_t now = (uint64_t)srv_ticks();
+            if (state != 0 &&
+                now - state->last_start_tick >= SCAN_INTERVAL_TICKS &&
+                !service_health_ok(&config, &info)) {
+                if (!state->unhealthy_logged) {
+                    log_service_line(config.name, "health failed");
+                    state->unhealthy_logged = 1;
+                }
+                stop_running_service(&config, "health stop");
+            } else if (state != 0) {
+                state->unhealthy_logged = 0;
+            }
             continue;
         }
         int first_start = state == 0 || !state->started_once;
         int restart_always = cli_streq(config.restart, "always");
         if (!first_start && !restart_always) {
+            continue;
+        }
+        if (!service_dependency_ready(&config)) {
+            log_service_line(config.name, "waiting dependency");
             continue;
         }
         uint64_t now = (uint64_t)srv_ticks();

@@ -47,6 +47,11 @@ server.
 - Tightens `svscan` service supervision by reaping all exited matching service
   processes before restart decisions, stopping disabled services, logging
   startup/missing/exited restart reasons, and logging crash-loop backoff.
+- Extends service configs with `requires=network`, `health=listen:<port>`, and
+  `max_log=<bytes>`; `svscan` now waits for dependencies, restarts unhealthy
+  listeners, and rotates oversized daemon logs. The shell adds service-wide
+  `status --all`/`restart <name>` helpers plus per-service `check` and
+  `rotate-log`.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,
