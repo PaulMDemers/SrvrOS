@@ -390,6 +390,8 @@ kernel, and a minimal Unix-like userspace.
    `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
    `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `patch`, `make`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
+   This pass also broadens shell `test`/`[` boolean/file comparisons and
+   `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,

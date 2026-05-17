@@ -85,7 +85,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   continuations, simple here-docs, brace grouping, quoted empty and escaped-space
   arguments, `shift`, `break`/`continue`,
   `command -v`/`command -V` and alias bypass, `fg`/`bg`,
-  `test -s/-r/-w/-x`, Ctrl-D/EOF shell exit,
+  `test -a`/`-o`/`!`/`-nt`/`-ef`, `test -s/-r/-w/-x`,
+  `xargs -n`/`-r`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app.

@@ -355,9 +355,11 @@ The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for
 line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
 `sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses, and
-`/pattern/` addresses. `/fat/bin/seq` covers integer ranges, `id`/`whoami`
-provide a fixed root identity, `cmp` compares files, `yes` feeds simple
-pipeline prompts, `install` copies files into build-style destination trees,
+`/pattern/` addresses. Shell `test`/`[` covers boolean `-a`/`-o`/`!`, common
+file probes, mtime comparisons, and same-file checks. `/fat/bin/seq` covers
+integer ranges, `id`/`whoami` provide a fixed root identity, `cmp` compares
+files, `yes` feeds simple pipeline prompts, `xargs` can batch with `-n` and skip
+empty input with `-r`, `install` copies files into build-style destination trees,
 `diff` reports quiet or simple unified differences, `tar` can create/list/extract
 uncompressed ustar archives, `gzip`/`gunzip` handle gzip-framed streams backed
 by the pinned zlib port, `patch` applies simple unified diffs, `make` runs

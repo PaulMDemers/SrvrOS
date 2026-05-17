@@ -254,6 +254,9 @@ server.
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,
   dependencies, `.PHONY`, automatic variables, and shell-backed commands.
+- Expands configure-script compatibility with shell `test`/`[` boolean
+  expressions, `!`, `-nt`, `-ot`, `-ef`, mandatory `]` checking, and
+  `/fat/bin/xargs -n`/`-r`.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`

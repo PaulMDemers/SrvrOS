@@ -1712,7 +1712,11 @@ static int path_mode_has(const char *path, uint64_t bits) {
     return srv_stat(path, &info) == 0 && (info.mode & bits) != 0;
 }
 
-static uint64_t test_eval(int argc, char **argv) {
+static int path_stat(const char *path, struct srv_stat *info) {
+    return path != 0 && srv_stat(path, info) == 0;
+}
+
+static uint64_t test_eval_simple(int argc, char **argv) {
     if (argc == 0) {
         return 1;
     }
@@ -1721,7 +1725,7 @@ static uint64_t test_eval(int argc, char **argv) {
     }
     if (argc == 2) {
         if (cli_streq(argv[0], "!")) {
-            return test_eval(1, argv + 1) == 0 ? 1 : 0;
+            return test_eval_simple(1, argv + 1) == 0 ? 1 : 0;
         }
         if (cli_streq(argv[0], "-n")) {
             return argv[1][0] != '\0' ? 0 : 1;
@@ -1729,7 +1733,7 @@ static uint64_t test_eval(int argc, char **argv) {
         if (cli_streq(argv[0], "-z")) {
             return argv[1][0] == '\0' ? 0 : 1;
         }
-        if (cli_streq(argv[0], "-e")) {
+        if (cli_streq(argv[0], "-a") || cli_streq(argv[0], "-e")) {
             return path_type_matches(argv[1], -1) ? 0 : 1;
         }
         if (cli_streq(argv[0], "-f")) {
@@ -1756,8 +1760,30 @@ static uint64_t test_eval(int argc, char **argv) {
         if (cli_streq(argv[1], "=")) {
             return cli_streq(argv[0], argv[2]) ? 0 : 1;
         }
+        if (cli_streq(argv[1], "==")) {
+            return cli_streq(argv[0], argv[2]) ? 0 : 1;
+        }
         if (cli_streq(argv[1], "!=")) {
             return !cli_streq(argv[0], argv[2]) ? 0 : 1;
+        }
+        if (cli_streq(argv[1], "<")) {
+            return strcmp(argv[0], argv[2]) < 0 ? 0 : 1;
+        }
+        if (cli_streq(argv[1], ">")) {
+            return strcmp(argv[0], argv[2]) > 0 ? 0 : 1;
+        }
+        if (cli_streq(argv[1], "-nt") || cli_streq(argv[1], "-ot") || cli_streq(argv[1], "-ef")) {
+            struct srv_stat left_info;
+            struct srv_stat right_info;
+            int left_exists = path_stat(argv[0], &left_info);
+            int right_exists = path_stat(argv[2], &right_info);
+            if (cli_streq(argv[1], "-nt")) {
+                return left_exists && (!right_exists || left_info.mtime > right_info.mtime) ? 0 : 1;
+            }
+            if (cli_streq(argv[1], "-ot")) {
+                return right_exists && (!left_exists || left_info.mtime < right_info.mtime) ? 0 : 1;
+            }
+            return left_exists && right_exists && left_info.inode == right_info.inode ? 0 : 1;
         }
         if (argv[1][0] == '-' && argv[1][1] != '\0') {
             int64_t left = 0;
@@ -1788,9 +1814,90 @@ static uint64_t test_eval(int argc, char **argv) {
     return 2;
 }
 
+static uint64_t test_eval_range(int start, int end, char **argv) {
+    int depth;
+    if (start >= end) {
+        return 1;
+    }
+    if (cli_streq(argv[start], "!")) {
+        uint64_t status = test_eval_range(start + 1, end, argv);
+        return status == 2 ? 2 : (status == 0 ? 1 : 0);
+    }
+    while (end - start >= 2 && cli_streq(argv[start], "(") && cli_streq(argv[end - 1], ")")) {
+        depth = 0;
+        int wraps = 1;
+        for (int i = start; i < end; i++) {
+            if (cli_streq(argv[i], "(")) {
+                depth++;
+            } else if (cli_streq(argv[i], ")")) {
+                depth--;
+                if (depth == 0 && i != end - 1) {
+                    wraps = 0;
+                    break;
+                }
+                if (depth < 0) {
+                    return 2;
+                }
+            }
+        }
+        if (depth != 0) {
+            return 2;
+        }
+        if (!wraps) {
+            break;
+        }
+        start++;
+        end--;
+    }
+    depth = 0;
+    for (int i = end - 1; i >= start; i--) {
+        if (cli_streq(argv[i], ")")) {
+            depth++;
+        } else if (cli_streq(argv[i], "(")) {
+            depth--;
+            if (depth < 0) {
+                return 2;
+            }
+        } else if (depth == 0 && cli_streq(argv[i], "-o")) {
+            uint64_t left = test_eval_range(start, i, argv);
+            uint64_t right = test_eval_range(i + 1, end, argv);
+            if (left == 2 || right == 2) {
+                return 2;
+            }
+            return left == 0 || right == 0 ? 0 : 1;
+        }
+    }
+    if (depth != 0) {
+        return 2;
+    }
+    depth = 0;
+    for (int i = end - 1; i >= start; i--) {
+        if (cli_streq(argv[i], ")")) {
+            depth++;
+        } else if (cli_streq(argv[i], "(")) {
+            depth--;
+            if (depth < 0) {
+                return 2;
+            }
+        } else if (depth == 0 && cli_streq(argv[i], "-a")) {
+            uint64_t left = test_eval_range(start, i, argv);
+            uint64_t right = test_eval_range(i + 1, end, argv);
+            if (left == 2 || right == 2) {
+                return 2;
+            }
+            return left == 0 && right == 0 ? 0 : 1;
+        }
+    }
+    return test_eval_simple(end - start, argv + start);
+}
+
+static uint64_t test_eval(int argc, char **argv) {
+    return test_eval_range(0, argc, argv);
+}
+
 static uint64_t test_command(const char *args, int bracket_form) {
     char work[ARG_EXPANDED_MAX];
-    char *argv[8];
+    char *argv[32];
     int argc;
     cli_copy(work, sizeof(work), args);
     argc = split_words(work, argv, sizeof(argv) / sizeof(argv[0]));
@@ -1803,9 +1910,11 @@ static uint64_t test_command(const char *args, int bracket_form) {
             cli_puts("[: missing expression\n");
             return 2;
         }
-        if (cli_streq(argv[argc - 1], "]")) {
-            argc--;
+        if (!cli_streq(argv[argc - 1], "]")) {
+            cli_puts("[: missing ]\n");
+            return 2;
         }
+        argc--;
     }
     uint64_t status = test_eval(argc, argv);
     if (status == 2) {

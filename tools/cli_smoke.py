@@ -144,6 +144,9 @@ def main():
         "stat /fat/test-string-copy.txt\n"
         "test -e /fat/nope || cp /fat/status.txt /fat/test-miss-copy.txt\n"
         "stat /fat/test-miss-copy.txt\n"
+        "test -a /fat/status.txt -a ! -e /fat/nope && echo test-and-not-ok\n"
+        "test -e /fat/nope -o /fat/status.txt -nt /fat/nope && echo test-or-nt-ok\n"
+        "[ /fat/status.txt -ef /fat/status.txt ] && echo test-ef-ok\n"
         "export PATH=/fat/bin:/\n"
         "which true\n"
         "which sleep date touch basename dirname expr printf tr\n"
@@ -208,6 +211,9 @@ def main():
         "write -a /fat/table.txt name:codex\n"
         "cut -d : -f 2 /fat/table.txt\n"
         "cat /fat/words.txt | xargs echo args\n"
+        "printf 'one two three' | xargs -n2 echo batch\n"
+        "printf '' | xargs -r echo no-run\n"
+        "echo xargs-r-ok\n"
         "seq 3\n"
         "seq 2 2 6\n"
         "realpath ./fat/../fat/status.txt\n"
@@ -562,7 +568,7 @@ def main():
         "usage: ls [-1adl] [path ...]",
         "usage: cp [-fRr] <source>... <dest>",
         "usage: webd <root>",
-        "usage: xargs [command [arg ...]]",
+        "usage: xargs [-r] [-n count] [command [arg ...]]",
         "usage: seq [first [increment]] last",
         "usage: realpath [-q] path [...]",
         "usage: id [-u] [-g] [-n] [user]",
@@ -618,6 +624,9 @@ def main():
         "/fat/test-int-copy.txt: 55 bytes",
         "/fat/test-string-copy.txt: 55 bytes",
         "/fat/test-miss-copy.txt: 55 bytes",
+        "test-and-not-ok",
+        "test-or-nt-ok",
+        "test-ef-ok",
         "PATH=/fat/bin:/",
         "/fat/bin/sleep",
         "/fat/bin/date",
@@ -663,6 +672,9 @@ def main():
         "paul",
         "codex",
         "args banana apple banana apple",
+        "batch one two",
+        "batch three",
+        "xargs-r-ok",
         "1\r\n2\r\n3",
         "2\r\n4\r\n6",
         "/fat/status.txt",
