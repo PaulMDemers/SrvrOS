@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip patch; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip patch make; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -246,6 +246,18 @@ def main():
         "write -a /fat/change.patch ' gamma'\n"
         "patch -i /fat/change.patch\n"
         "cat /fat/patch-target.txt\n"
+        "mkdir -p /fat/maketest/src /fat/maketest/build\n"
+        "write /fat/maketest/src/input.txt make-source\n"
+        "write /fat/maketest/Makefile 'OUT = /fat/maketest/build/out.txt'\n"
+        "write -a /fat/maketest/Makefile 'all: $(OUT)'\n"
+        "write -a /fat/maketest/Makefile '$(OUT): /fat/maketest/src/input.txt'\n"
+        "write -a /fat/maketest/Makefile 'cp $< $@'\n"
+        "write -a /fat/maketest/Makefile '.PHONY: install'\n"
+        "write -a /fat/maketest/Makefile 'install: all'\n"
+        "write -a /fat/maketest/Makefile 'install -D $(OUT) /fat/local/bin/make-out.txt'\n"
+        "make -f /fat/maketest/Makefile install\n"
+        "cat /fat/local/bin/make-out.txt\n"
+        "make -f /fat/maketest/Makefile all\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -564,6 +576,7 @@ def main():
         "usage: gzip [-cdk] [file ...]",
         "usage: gunzip [-ck] [file ...]",
         "usage: patch [-pN] [-i file] [target]",
+        "usage: make [-nB] [-f file] [target ...]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -667,6 +680,8 @@ def main():
         "patch: /fat/patch-target.txt",
         "BETA",
         "inserted",
+        "make-source",
+        "make: '/fat/maketest/build/out.txt' is up to date",
         "orange",
         "grape",
         "expr-add-12",

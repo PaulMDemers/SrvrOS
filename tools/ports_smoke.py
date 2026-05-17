@@ -96,7 +96,47 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
-            for line in ["zlibdemo\n", "jsondemo\n", "inidemo\n", "linedemo\n", "sqlitedemo\n", "ttydemo\n", "posixdemo\n", "exit\n"]:
+            lines = [
+                "zlibdemo\n",
+                "jsondemo\n",
+                "inidemo\n",
+                "linedemo\n",
+                "sqlitedemo\n",
+                "ttydemo\n",
+                "posixdemo\n",
+                "mkdir -p /fat/miniport-src/src\n",
+                "write /fat/miniport-src/src/miniport.sh 'echo miniport-v1'\n",
+                "write /fat/miniport-src/Makefile 'PREFIX = /fat/local'\n",
+                "write -a /fat/miniport-src/Makefile 'all: build/miniport'\n",
+                "write -a /fat/miniport-src/Makefile 'build/miniport: src/miniport.sh'\n",
+                "write -a /fat/miniport-src/Makefile 'mkdir -p build'\n",
+                "write -a /fat/miniport-src/Makefile 'cp $< $@'\n",
+                "write -a /fat/miniport-src/Makefile '.PHONY: install clean'\n",
+                "write -a /fat/miniport-src/Makefile 'install: all'\n",
+                "write -a /fat/miniport-src/Makefile 'install -D build/miniport $(PREFIX)/bin/miniport'\n",
+                "write -a /fat/miniport-src/Makefile 'clean:'\n",
+                "write -a /fat/miniport-src/Makefile 'rm -r build'\n",
+                "write /fat/miniport.patch '--- src/miniport.sh'\n",
+                "write -a /fat/miniport.patch '+++ src/miniport.sh'\n",
+                "write -a /fat/miniport.patch '@@ -1 +1 @@'\n",
+                "write -a /fat/miniport.patch '-echo miniport-v1'\n",
+                "write -a /fat/miniport.patch '+echo miniport-patched'\n",
+                "tar -cf /fat/miniport.tar /fat/miniport-src\n",
+                "gzip -c /fat/miniport.tar > /fat/miniport.tar.gz\n",
+                "rm -r /fat/miniport-src\n",
+                "mkdir -p /fat/work\n",
+                "gunzip -c /fat/miniport.tar.gz > /fat/work/miniport.tar\n",
+                "tar -xf /fat/work/miniport.tar -C /fat/work\n",
+                "cd /fat/work/fat/miniport-src\n",
+                "patch -i /fat/miniport.patch\n",
+                "make install\n",
+                "sh /fat/local/bin/miniport\n",
+                "make clean\n",
+                "stat build/miniport\n",
+                "cd /\n",
+                "exit\n",
+            ]
+            for line in lines:
                 sock.sendall(line.encode("ascii"))
                 output += read_until(sock, b"srv> " if line.strip() == "exit" else b" $ ", args.line_wait)
             sock.sendall(b"fsck /fat\n")
@@ -154,6 +194,12 @@ def main():
         "posixdemo: execve ok",
         "posixdemo: cloexec ok",
         "posixdemo: ok",
+        "patch: src/miniport.sh",
+        "cp src/miniport.sh build/miniport",
+        "install -D build/miniport /fat/local/bin/miniport",
+        "miniport-patched",
+        "rm -r build",
+        "stat: not found: build/miniport",
         "exfat-check:",
         "errors=0 ok",
     ]

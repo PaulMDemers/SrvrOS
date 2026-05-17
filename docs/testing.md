@@ -68,6 +68,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`, `readlink -f`, `cmp`,
   `yes | head`, `install -D`, `diff -q/-u`, `tar -c/-t/-x`,
   `gzip`/`gunzip` file and tarball round trips, simple unified `patch`,
+  a small `make` install flow,
   `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
   `cp`/`rm`, copy/remove, clustered `rm -fRr`, multi-source `cp`/`mv` into
   directories, native file rename and directory destinations through `mv`,

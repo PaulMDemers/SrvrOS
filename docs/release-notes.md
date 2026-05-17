@@ -252,6 +252,8 @@ server.
   including file and tarball round-trip smoke coverage.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
+- Adds `/fat/bin/make` for small source-port recipes with variables,
+  dependencies, `.PHONY`, automatic variables, and shell-backed commands.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
