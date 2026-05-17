@@ -77,7 +77,9 @@ editor clients:
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`,
-  `uname`, `hostname`, and `uptime`.
+  `more`, `uname`, `hostname`, and `uptime`.
+- Generated exFAT images include `/fat/share/help` topic files; `help <topic>`
+  prints them from the shell and `/fat/bin/more` can page longer text.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -188,6 +190,8 @@ Inside the userspace shell:
 
 ```text
 / $ help
+/ $ help service
+/ $ more /fat/share/help/shell.txt
 / $ ls /fat/bin
 / $ mkdir /fat/projects
 / $ write /fat/projects/readme.txt hello

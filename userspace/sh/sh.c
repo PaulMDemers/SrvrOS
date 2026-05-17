@@ -866,13 +866,79 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
     }
 }
 
+static int help_topic_valid(const char *topic) {
+    if (topic == 0 || topic[0] == '\0') {
+        return 0;
+    }
+    for (size_t i = 0; topic[i] != '\0'; i++) {
+        char c = topic[i];
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_') {
+            continue;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+static int print_file_to_stdout(const char *path) {
+    char buffer[192];
+    int fd = (int)srv_open(path);
+    if (fd < 0) {
+        return 0;
+    }
+    for (;;) {
+        long count = srv_read(fd, buffer, sizeof(buffer));
+        if (count < 0) {
+            srv_close(fd);
+            return 0;
+        }
+        if (count == 0) {
+            break;
+        }
+        srv_write(SRV_STDOUT, buffer, (size_t)count);
+    }
+    srv_close(fd);
+    return 1;
+}
+
 static void print_help(void) {
     cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
-    cli_puts("commands: ls cat write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("commands: ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
+    cli_puts("topics: help shell service webd network files more\n");
+}
+
+static void print_help_topic(const char *topic) {
+    char path[CLI_PATH_MAX];
+    size_t out = 0;
+
+    if (topic == 0 || topic[0] == '\0') {
+        print_help();
+        return;
+    }
+    topic = cli_trim((char *)topic);
+    if (topic[0] == '\0') {
+        print_help();
+        return;
+    }
+    if (!help_topic_valid(topic)) {
+        cli_puts("help: bad topic: ");
+        cli_puts(topic);
+        cli_puts("\n");
+        return;
+    }
+    path[0] = '\0';
+    append_text(path, sizeof(path), &out, "/fat/share/help/");
+    append_text(path, sizeof(path), &out, topic);
+    append_text(path, sizeof(path), &out, ".txt");
+    if (!print_file_to_stdout(path)) {
+        cli_puts("help: no topic: ");
+        cli_puts(topic);
+        cli_puts("\n");
+    }
 }
 
 static void print_script_context(void) {
@@ -4421,7 +4487,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     args = expanded_args;
 
     if (cli_streq(command, "help")) {
-        print_help();
+        print_help_topic(args);
         return 0;
     }
     if (cli_streq(command, "exit")) {

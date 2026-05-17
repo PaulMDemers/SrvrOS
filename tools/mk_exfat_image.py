@@ -200,6 +200,53 @@ def main():
             b"restart=always\n"
             b"max_log=16384\n"),
     ]
+    help_files = [
+        ("shell.txt",
+            b"srvsh shell\n"
+            b"\n"
+            b"Usage: sh [--login] [-c command|script] [args]\n"
+            b"Builtins cover cd, pwd, export, unset, alias, jobs, fg, bg, wait,\n"
+            b"service, dhcp, net, dns, read, tests, functions, loops, case, and source.\n"
+            b"Command search uses PATH, defaulting to /fat/bin, /, and /fat.\n"
+            b"Use pipelines, redirection, command substitution, globs, and background jobs.\n"),
+        ("service.txt",
+            b"srvros services\n"
+            b"\n"
+            b"Service files live in /fat/etc/services/*.svc and are supervised by svscan.\n"
+            b"Useful commands:\n"
+            b"  service list\n"
+            b"  service status <name>\n"
+            b"  service start <name>\n"
+            b"  service stop <name>\n"
+            b"  service restart [--wait] <name>\n"
+            b"  service set <name> <key> <value>\n"
+            b"  service unset <name> <key>\n"),
+        ("webd.txt",
+            b"webd\n"
+            b"\n"
+            b"webd serves static files over TCP port 80. The default service runs\n"
+            b"/fat/bin/webd /fat/www and logs through svscan to /fat/var/log/webd.log.\n"
+            b"Try: service start webd, httpget 10.0.2.15 /, or cat /fat/www/index.html.\n"),
+        ("network.txt",
+            b"network\n"
+            b"\n"
+            b"Use dhcp to request an address, net to print interface state, dns to resolve\n"
+            b"a hostname, and ping/httpget/udpdns/udpecho for basic traffic tests.\n"
+            b"Configuration currently favors QEMU user networking with DNS at 10.0.2.3.\n"),
+        ("files.txt",
+            b"files\n"
+            b"\n"
+            b"The exFAT volume is mounted at /fat. Core directories include /fat/bin,\n"
+            b"/fat/etc, /fat/etc/services, /fat/share/help, /fat/var/log, and /fat/www.\n"
+            b"Common tools include ls, cat, more, cp, rm, mkdir, rmdir, mv, find, du, df,\n"
+            b"stat, chmod, head, tail, grep, sort, uniq, cut, sed, tee, tap, and wc.\n"),
+        ("more.txt",
+            b"more [-n lines] [file ...]\n"
+            b"\n"
+            b"more displays text a page at a time. Press space to continue, enter for one\n"
+            b"line, or q to quit. Use --plain to print without prompts in scripts.\n"
+            b"Examples: more /fat/share/help/shell.txt; more --plain /fat/status.txt.\n"),
+    ]
     files = []
     for name, data in static_files:
         files.append((name, allocate_clusters(len(data)), data))
@@ -212,6 +259,8 @@ def main():
     log_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_assets_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    share_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    help_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     etc_entries_data = []
     for name, data in etc_files:
         etc_entries_data.append((name, allocate_clusters(len(data)), data))
@@ -224,6 +273,9 @@ def main():
     www_assets_entries_data = []
     for name, data in www_asset_files:
         www_assets_entries_data.append((name, allocate_clusters(len(data)), data))
+    help_entries_data = []
+    for name, data in help_files:
+        help_entries_data.append((name, allocate_clusters(len(data)), data))
     app_clusters = {}
     for name in app_names:
         app_clusters[name] = allocate_clusters(len(app_data[name])) if app_data[name] else 0
@@ -300,6 +352,12 @@ def main():
         file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
         "root",
     )
+    offset = append_directory_entry(
+        root,
+        offset,
+        file_entry("share", share_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
 
     for name, cluster, data in files:
         entry_set = file_entry(name, cluster, data)
@@ -370,6 +428,21 @@ def main():
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
+    share_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    share_offset = 0
+    help_entry_set = file_entry("help", help_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    share_offset = append_directory_entry(share_entries, share_offset, help_entry_set, "share")
+    help_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    help_offset = 0
+    for name, cluster, data in help_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        help_offset = append_directory_entry(help_entries, help_offset, entry_set, "share/help")
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
     image[cluster_offset(ROOT_DIRECTORY_CLUSTER):cluster_offset(ROOT_DIRECTORY_CLUSTER) + ROOT_DIRECTORY_SIZE] = root
     image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + BIN_DIRECTORY_SIZE] = bin_entries
     image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + SMALL_DIRECTORY_SIZE] = etc_entries
@@ -379,6 +452,8 @@ def main():
     image[cluster_offset(run_dir_cluster):cluster_offset(run_dir_cluster) + SMALL_DIRECTORY_SIZE] = run_entries
     image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_entries
     image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_assets_entries
+    image[cluster_offset(share_dir_cluster):cluster_offset(share_dir_cluster) + SMALL_DIRECTORY_SIZE] = share_entries
+    image[cluster_offset(help_dir_cluster):cluster_offset(help_dir_cluster) + SMALL_DIRECTORY_SIZE] = help_entries
 
     with open(sys.argv[1], "wb") as output:
         output.write(image)

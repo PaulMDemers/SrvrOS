@@ -291,7 +291,7 @@ per-directory `start.S`.
 
 Core tools:
 
-- `sh`, `ls`, `cat`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
+- `sh`, `ls`, `cat`, `more`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
 - `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mktemp`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
@@ -322,6 +322,12 @@ DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
 builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
 input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
 aliases, functions, PATH commands, and filesystem paths.
+
+The generated exFAT image also ships `/fat/share/help/*.txt` topic files for
+the shell, services, networking, files, web serving, and the pager. The `help`
+builtin prints a compact summary, while `help <topic>` reads those files
+directly from the mounted filesystem. `/fat/bin/more` provides a small
+page-at-a-time reader with `--plain` for non-interactive scripts.
 
 Userspace path handling now canonicalizes relative paths against the inherited
 `PWD`, including repeated separators plus `.` and `..` components. The syscall

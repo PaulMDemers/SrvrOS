@@ -58,6 +58,8 @@ server.
 - Adds shell service config editing with `service set`/`service unset`, bad
   config validation coverage, and `service restart <name> --wait` for
   health-gated restarts.
+- Adds `/fat/share/help` topic files, shell `help <topic>` lookup, and a small
+  `/fat/bin/more` pager with script-friendly `--plain` mode.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

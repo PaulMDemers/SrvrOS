@@ -88,6 +88,10 @@ def main():
     script = (
         "echo shell-ok\n"
         "ls /fat/bin\n"
+        "help shell\n"
+        "help service\n"
+        "more --plain /fat/share/help/more.txt\n"
+        "ls /fat/share/help\n"
         "ls -a /fat | grep .srvros\n"
         "ls -la /fat /fat/etc\n"
         "echo ls-d-before; ls -d /fat/bin; echo ls-d-after\n"
@@ -469,6 +473,12 @@ def main():
         "srvsh: interactive shell",
         "shell-ok",
         "sh",
+        "srvsh shell",
+        "service set <name> <key> <value>",
+        "more [-n lines] [file ...]",
+        "shell.txt",
+        "service.txt",
+        "more.txt",
         ".srvros",
         "/fat:",
         "/fat/etc:",
