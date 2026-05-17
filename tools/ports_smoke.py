@@ -215,6 +215,7 @@ def main():
         "posixdemo: spawn ok",
         "posixdemo: execve ok",
         "posixdemo: cloexec ok",
+        "posixdemo: pthread compat ok",
         "posixdemo: ok",
         "patch: src/miniport.sh",
         "cp src/miniport.sh build/miniport",

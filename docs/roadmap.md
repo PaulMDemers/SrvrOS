@@ -415,14 +415,18 @@ kernel, and a minimal Unix-like userspace.
    dynamic spawn file action lists, terminal process groups/signals, `stdio`
    update-mode edge cases, stronger sidecar recovery, and more fd-specific
    readiness queues as the descriptor model grows.
-8. Add kernel-supported graphics buffer allocation/mapping so full-screen
+8. Add real same-address-space user threads behind `pthread_create`, including
+   per-thread user stacks, join/detach state, per-thread TLS, and per-thread
+   FPU save/restore. This is the next hard blocker before a useful libuv/Node
+   bring-up.
+9. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
-9. Extend GUI IPC from server-rendered controls to client-owned surfaces:
+10. Extend GUI IPC from server-rendered controls to client-owned surfaces:
    shared/mapped buffers, damage rectangles, focus tracking, keyboard delivery,
    and richer pointer events.
-10. Expand syscall validation to include structured copyin/copyout helpers and
+11. Expand syscall validation to include structured copyin/copyout helpers and
    better process termination on bad pointers.
-11. Replace the LAPIC EOI mapping guard with a stronger invariant once all
+12. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-12. Expand floating-point runtime coverage and tighten the first software
+13. Expand floating-point runtime coverage and tighten the first software
     `math.h` implementation toward production libm behavior.

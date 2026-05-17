@@ -254,6 +254,11 @@ server.
   sources, with zip create/list/extract smoke coverage.
 - Makes no-argument `/fat/bin/lua` a real interactive REPL with linenoise
   history on TTYs and stdin-fed chunk execution for pipelines.
+- Adds the first pthread compatibility slice for porting probes: mutexes,
+  condition variables, `pthread_once`, pthread TLS keys, basic attributes,
+  `sched_yield`, `nanosleep`, and `getpagesize`/`sysconf`. True
+  `pthread_create` still returns `ENOSYS` until same-address-space user
+  threads land.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

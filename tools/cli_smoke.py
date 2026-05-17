@@ -844,6 +844,7 @@ def main():
         "posixdemo: math ok",
         "posixdemo: pread ok",
         "posixdemo: posix misc ok",
+        "posixdemo: pthread compat ok",
         "posixdemo: socket bind ok",
         "posixdemo: ok",
         "exit",

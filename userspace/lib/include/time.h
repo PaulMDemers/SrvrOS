@@ -31,5 +31,7 @@ struct tm *localtime(const time_t *timer);
 time_t mktime(struct tm *timeptr);
 clock_t clock(void);
 int clock_gettime(int clock_id, struct timespec *tp);
+int nanosleep(const struct timespec *request, struct timespec *remaining);
+int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining);
 
 #endif

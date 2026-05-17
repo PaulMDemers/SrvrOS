@@ -5,6 +5,8 @@
 #include <math.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
+#include <sched.h>
 #include <spawn.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -45,6 +47,12 @@ static int compare_ints(const void *left, const void *right) {
     int a = *(const int *)left;
     int b = *(const int *)right;
     return (a > b) - (a < b);
+}
+
+static int once_count;
+
+static void once_init(void) {
+    once_count++;
 }
 
 int main(void) {
@@ -1007,6 +1015,44 @@ int main(void) {
         say_u64((uint64_t)ts.tv_sec);
         say("\n");
     }
+
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+    pthread_once_t once = PTHREAD_ONCE_INIT;
+    pthread_key_t key;
+    pthread_attr_t pthread_attr;
+    void *thread_value = (void *)0x1234;
+    struct timespec short_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
+    if (pthread_mutex_init(&mutex, 0) != 0 ||
+        pthread_mutex_lock(&mutex) != 0 ||
+        pthread_mutex_trylock(&mutex) != EBUSY ||
+        pthread_mutex_unlock(&mutex) != 0 ||
+        pthread_cond_init(&cond, 0) != 0 ||
+        pthread_cond_signal(&cond) != 0 ||
+        pthread_cond_broadcast(&cond) != 0 ||
+        pthread_cond_destroy(&cond) != 0 ||
+        pthread_once(&once, once_init) != 0 ||
+        pthread_once(&once, once_init) != 0 ||
+        once_count != 1 ||
+        pthread_key_create(&key, 0) != 0 ||
+        pthread_setspecific(key, thread_value) != 0 ||
+        pthread_getspecific(key) != thread_value ||
+        pthread_key_delete(key) != 0 ||
+        pthread_attr_init(&pthread_attr) != 0 ||
+        pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED) != 0 ||
+        pthread_attr_setstacksize(&pthread_attr, 32768) != 0 ||
+        pthread_attr_destroy(&pthread_attr) != 0 ||
+        !pthread_equal(pthread_self(), pthread_self()) ||
+        pthread_create(0, 0, 0, 0) != ENOSYS ||
+        nanosleep(&short_sleep, 0) != 0 ||
+        sched_yield() != 0 ||
+        getpagesize() != 4096 ||
+        sysconf(_SC_PAGESIZE) != 4096 ||
+        sysconf(_SC_NPROCESSORS_ONLN) != 1) {
+        say("posixdemo: pthread compat failed\n");
+        return 47;
+    }
+    say("posixdemo: pthread compat ok\n");
 
     int s = socket(AF_INET, SOCK_STREAM, 0);
     if (s >= 0) {

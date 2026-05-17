@@ -116,6 +116,35 @@ int clock_gettime(int clock_id, struct timespec *tp) {
     return 0;
 }
 
+int nanosleep(const struct timespec *request, struct timespec *remaining) {
+    if (request == 0 ||
+        request->tv_sec < 0 ||
+        request->tv_nsec < 0 ||
+        request->tv_nsec >= 1000000000L) {
+        errno = EINVAL;
+        return -1;
+    }
+    (void)remaining;
+    uint64_t ticks = (uint64_t)request->tv_sec * SRVROS_TICKS_PER_SECOND;
+    ticks += ((uint64_t)request->tv_nsec * SRVROS_TICKS_PER_SECOND + 999999999ull) / 1000000000ull;
+    if (ticks == 0 && (request->tv_sec != 0 || request->tv_nsec != 0)) {
+        ticks = 1;
+    }
+    return srv_sleep_ticks(ticks) < 0 ? -1 : 0;
+}
+
+int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining) {
+    if (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC) {
+        errno = EINVAL;
+        return EINVAL;
+    }
+    if (flags != 0) {
+        errno = ENOSYS;
+        return ENOSYS;
+    }
+    return nanosleep(request, remaining) == 0 ? 0 : errno;
+}
+
 int gettimeofday(struct timeval *tv, void *tz) {
     (void)tz;
     if (tv == 0) {
@@ -133,9 +162,9 @@ unsigned int sleep(unsigned int seconds) {
 }
 
 int usleep(unsigned int usec) {
-    uint64_t ticks = ((uint64_t)usec * SRVROS_TICKS_PER_SECOND + 999999) / 1000000;
-    if (ticks == 0 && usec != 0) {
-        ticks = 1;
-    }
-    return srv_sleep_ticks(ticks) < 0 ? -1 : 0;
+    struct timespec request = {
+        .tv_sec = (time_t)(usec / 1000000u),
+        .tv_nsec = (long)(usec % 1000000u) * 1000L,
+    };
+    return nanosleep(&request, 0);
 }

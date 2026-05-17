@@ -4,6 +4,9 @@
 #include <sys/utsname.h>
 #include <unistd.h>
 
+#define SRVROS_PAGE_SIZE 4096
+#define SRVROS_TICKS_PER_SECOND 100
+
 char *optarg;
 int optind = 1;
 int opterr = 1;
@@ -84,4 +87,22 @@ int uname(struct utsname *name) {
     copy_field(name->version, sizeof(name->version), "srvros research build");
     copy_field(name->machine, sizeof(name->machine), "x86_64");
     return 0;
+}
+
+int getpagesize(void) {
+    return SRVROS_PAGE_SIZE;
+}
+
+long sysconf(int name) {
+    switch (name) {
+    case _SC_PAGESIZE:
+        return SRVROS_PAGE_SIZE;
+    case _SC_NPROCESSORS_ONLN:
+        return 1;
+    case _SC_CLK_TCK:
+        return SRVROS_TICKS_PER_SECOND;
+    default:
+        errno = EINVAL;
+        return -1;
+    }
 }

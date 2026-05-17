@@ -96,9 +96,10 @@ editor clients:
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
-  cwd, `getopt`, `uname`, environment variables, `waitpid`, `posix_spawn`,
-  `posix_spawnp`, process-replacing `execve`, IPv4 helpers, DNS-backed
-  `getaddrinfo`, and TCP server sockets.
+  `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
+  variables, first pthread mutex/cond/once/TLS compatibility primitives,
+  `waitpid`, `posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4
+  helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib, `/fat/bin/minizip` and
   `/fat/bin/miniunz` provide zip archive coverage, and `/fat/bin/lua` runs a

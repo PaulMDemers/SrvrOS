@@ -9,6 +9,11 @@
 #define STDOUT_FILENO 1
 #define STDERR_FILENO 2
 
+#define _SC_PAGESIZE 1
+#define _SC_PAGE_SIZE _SC_PAGESIZE
+#define _SC_NPROCESSORS_ONLN 2
+#define _SC_CLK_TCK 3
+
 #define F_OK 0
 #define X_OK 1
 #define W_OK 2
@@ -40,6 +45,8 @@ pid_t getpid(void);
 int execve(const char *path, char *const argv[], char *const envp[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);
+int getpagesize(void);
+long sysconf(int name);
 int mkstemp(char *template_path);
 extern char *optarg;
 extern int optind;

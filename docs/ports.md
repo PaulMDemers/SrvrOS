@@ -62,7 +62,14 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `strerror`
 - `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
   `setjmp`/`longjmp`, and integer-safe `math.h` macros
-- `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`
+- `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
+  `nanosleep`, and relative `clock_nanosleep`
+- `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
+  and `sysconf(_SC_CLK_TCK)`
+- First pthread compatibility surface: mutexes, condition variables,
+  `pthread_once`, pthread TLS keys, self/equality, and basic attributes.
+  `pthread_create`, `pthread_join`, and `pthread_detach` intentionally return
+  `ENOSYS` until srvros has true same-address-space user threads.
 - `getopt`, `uname`, `atexit`, and `system` backed by `sh -c` through
   `posix_spawnp` plus `waitpid`
 - `getpid`
@@ -162,6 +169,9 @@ srvros config header, and the ports smoke test verifies that it can generate
 ## Current Limits
 
 - `fork` is still missing.
+- True pthread-backed user threads are still missing. The current pthread layer
+  is a porting substrate for single-threaded probes and libraries that need
+  mutex/TLS/once primitives before the kernel grows a thread-create syscall.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered but bounded to eight
   actions per spawn. Spawn attributes currently cover process group selection

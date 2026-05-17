@@ -390,8 +390,8 @@ actions, `POSIX_SPAWN_SETPGROUP`, and process-replacing `execve`.
 
 The first POSIX-compat layer is implemented in userspace on top of srvros
 syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
-`dirent.h`, `sys/stat.h`, `sys/ioctl.h`, `sys/socket.h`, `netdb.h`, and
-`time.h`.
+`dirent.h`, `pthread.h`, `sched.h`, `sys/stat.h`, `sys/ioctl.h`,
+`sys/socket.h`, `netdb.h`, and `time.h`.
 
 This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 `stat`/`fstat` with VFS-managed metadata, `chmod`/`fchmod`, `umask`,
@@ -403,7 +403,9 @@ read-only regular files, `poll`/`select` readiness, blocking pipes,
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
 file-backed private `mmap`/`munmap`, `mprotect`, small buffered `stdio`,
-simple time functions, common formatted-output width/precision/flag forms,
+simple time functions including `nanosleep`, `getpagesize`/`sysconf`, first
+pthread mutex/condition/once/TLS compatibility primitives, common
+formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
 standard-fd and ordered non-stdio spawn file actions,
