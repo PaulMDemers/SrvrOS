@@ -2030,6 +2030,52 @@ static int service_check_config_file(const struct service_config *config) {
     return errors == 0 ? 0 : 1;
 }
 
+static int service_set_config_field(struct service_config *config, const char *key, const char *value) {
+    if (cli_streq(key, "command") || cli_streq(key, "path")) {
+        cli_copy(config->command, sizeof(config->command), value);
+    } else if (cli_streq(key, "args")) {
+        cli_copy(config->args, sizeof(config->args), value);
+    } else if (cli_streq(key, "process") || cli_streq(key, "name")) {
+        cli_copy(config->process_name, sizeof(config->process_name), value);
+    } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
+        cli_copy(config->log_path, sizeof(config->log_path), value);
+    } else if (cli_streq(key, "requires") || cli_streq(key, "after")) {
+        cli_copy(config->requires, sizeof(config->requires), value);
+    } else if (cli_streq(key, "health")) {
+        cli_copy(config->health, sizeof(config->health), value);
+    } else if (cli_streq(key, "max_log") || cli_streq(key, "log_max")) {
+        config->max_log_size = parse_u64(value);
+    } else if (cli_streq(key, "enabled")) {
+        config->enabled =
+            cli_streq(value, "1") ||
+            cli_streq(value, "yes") ||
+            cli_streq(value, "true") ||
+            cli_streq(value, "on");
+    } else if (cli_streq(key, "restart")) {
+        cli_copy(config->restart, sizeof(config->restart), value);
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
+static int service_unset_config_field(struct service_config *config, const char *key) {
+    if (cli_streq(key, "args")) {
+        config->args[0] = '\0';
+    } else if (cli_streq(key, "log") || cli_streq(key, "stdout")) {
+        config->log_path[0] = '\0';
+    } else if (cli_streq(key, "requires") || cli_streq(key, "after")) {
+        config->requires[0] = '\0';
+    } else if (cli_streq(key, "health")) {
+        config->health[0] = '\0';
+    } else if (cli_streq(key, "max_log") || cli_streq(key, "log_max")) {
+        config->max_log_size = 0;
+    } else {
+        return 0;
+    }
+    return 1;
+}
+
 static int service_health_ok(const struct service_config *config, const struct srv_process_info *process) {
     uint16_t port = 0;
     struct srv_net_info info;
@@ -2065,6 +2111,28 @@ static void service_check_config(const struct service_config *config) {
     cli_puts(service_health_ok(config, &info) ? " check ok pid " : " check failed pid ");
     cli_putn(info.pid);
     cli_puts("\n");
+}
+
+static int service_wait_healthy(const struct service_config *config, uint64_t timeout_ticks) {
+    uint64_t start = srv_ticks();
+    struct srv_process_info info;
+    for (;;) {
+        reap_exited_service(config->process_name);
+        if (find_service_process(config->process_name, &info, 0) &&
+            service_health_ok(config, &info)) {
+            cli_puts(config->name);
+            cli_puts(" healthy pid ");
+            cli_putn(info.pid);
+            cli_puts("\n");
+            return 1;
+        }
+        if (srv_ticks() - start >= timeout_ticks) {
+            cli_puts(config->name);
+            cli_puts(" wait timeout\n");
+            return 0;
+        }
+        srv_sleep_ticks(10);
+    }
 }
 
 static void service_rotated_path(char *out, size_t capacity, const char *path) {
@@ -2337,7 +2405,7 @@ static void service_command(const char *args) {
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
     if (name[0] == '\0') {
-        cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|check|check-config|log|tail [lines]|rotate-log]\n");
+        cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name> [--wait]|set <name> <key> <value>|unset <name> <key>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart [--wait]|status|check|check-config|log|tail [lines]|rotate-log]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
     }
@@ -2381,9 +2449,17 @@ static void service_command(const char *args) {
     }
     if (cli_streq(name, "restart")) {
         char target[32];
+        char *restart_args = action;
+        while (*restart_args != '\0' && *restart_args != ' ' && *restart_args != '\t') {
+            restart_args++;
+        }
+        if (*restart_args != '\0') {
+            *restart_args++ = '\0';
+            restart_args = cli_trim(restart_args);
+        }
         cli_copy(target, sizeof(target), action);
         if (target[0] == '\0') {
-            cli_puts("usage: service restart <name>\n");
+            cli_puts("usage: service restart <name> [--wait]\n");
             return;
         }
         if (!service_load_config(&config, target)) {
@@ -2398,6 +2474,60 @@ static void service_command(const char *args) {
         } else {
             service_start_config(&config, "");
         }
+        if (cli_streq(restart_args, "--wait")) {
+            (void)service_wait_healthy(&config, 300);
+        }
+        return;
+    }
+    if (cli_streq(name, "set") || cli_streq(name, "unset")) {
+        int set_mode = cli_streq(name, "set");
+        char target[32];
+        char key[32];
+        char *cursor = action;
+        char *key_start;
+        char *value;
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t') {
+            cursor++;
+        }
+        if (*cursor != '\0') {
+            *cursor++ = '\0';
+            cursor = cli_trim(cursor);
+        }
+        cli_copy(target, sizeof(target), action);
+        key_start = cursor;
+        while (*cursor != '\0' && *cursor != ' ' && *cursor != '\t') {
+            cursor++;
+        }
+        if (*cursor != '\0') {
+            *cursor++ = '\0';
+            cursor = cli_trim(cursor);
+        }
+        cli_copy(key, sizeof(key), key_start);
+        value = cursor;
+        if (target[0] == '\0' || key[0] == '\0' || (set_mode && value[0] == '\0')) {
+            cli_puts(set_mode ? "usage: service set <name> <key> <value>\n" : "usage: service unset <name> <key>\n");
+            return;
+        }
+        if (!service_load_config(&config, target)) {
+            cli_puts("service: not found: ");
+            cli_puts(target);
+            cli_puts("\n");
+            return;
+        }
+        if (set_mode ? !service_set_config_field(&config, key, value) : !service_unset_config_field(&config, key)) {
+            cli_puts("service: unknown field: ");
+            cli_puts(key);
+            cli_puts("\n");
+            return;
+        }
+        if (!service_save_config(&config)) {
+            return;
+        }
+        cli_puts(config.name);
+        cli_puts(set_mode ? " set " : " unset ");
+        cli_puts(key);
+        cli_puts("\n");
+        (void)service_request_reload();
         return;
     }
     if (cli_streq(name, "start-enabled")) {
@@ -2467,10 +2597,15 @@ static void service_command(const char *args) {
 
     if (cli_streq(action, "restart")) {
         (void)service_stop_config(&config);
-        if (config.enabled && cli_streq(config.restart, "always") && action_args[0] == '\0') {
+        if (config.enabled &&
+            cli_streq(config.restart, "always") &&
+            (action_args[0] == '\0' || cli_streq(action_args, "--wait"))) {
             (void)service_request_reload();
         } else {
             service_start_config(&config, action_args);
+        }
+        if (cli_streq(action_args, "--wait")) {
+            (void)service_wait_healthy(&config, 300);
         }
         return;
     }
@@ -2490,7 +2625,7 @@ static void service_command(const char *args) {
         return;
     }
 
-    cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart|status|check|check-config|log|tail [lines]|rotate-log]\n");
+    cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name> [--wait]|set <name> <key> <value>|unset <name> <key>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart [--wait]|status|check|check-config|log|tail [lines]|rotate-log]\n");
 }
 
 static void print_path(void) {

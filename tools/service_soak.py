@@ -176,7 +176,7 @@ def main():
                 output += send_command(sock, "service webd tail 4", "webd: response sent", args.service_wait)
 
                 if round_index == 1:
-                    output += send_command(sock, "service restart webd", "service: reload requested", args.service_wait)
+                    output += send_command(sock, "service restart webd --wait", "webd healthy pid", args.service_wait)
                     output += poll_command(sock, "service webd check", "webd check ok", args.service_wait)
 
             output += send_command(sock, "service webd rotate-log", "webd log rotated", args.service_wait)
@@ -204,6 +204,7 @@ def main():
         "max_log=16384",
         "10.0.2.15:80",
         "webd log rotated",
+        "webd healthy pid",
         "svscan: webd started pid",
         "count",
     ]:

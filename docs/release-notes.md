@@ -55,6 +55,9 @@ server.
 - Adds `tools/service_soak.py`, a service-operations soak that keeps `webd`
   under repeated host HTTP traffic while checking service health, config
   validation, restart, log rotation, socket visibility, and svscan event logs.
+- Adds shell service config editing with `service set`/`service unset`, bad
+  config validation coverage, and `service restart <name> --wait` for
+  health-gated restarts.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

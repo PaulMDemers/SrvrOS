@@ -156,6 +156,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `service_smoke.py`: kernel-started `/init --system`, `/fat/var/log/init.log`,
   boot-owned `svscan` service startup, service dependency/health/max-log
   metadata, `service webd check-config`, `service webd check`,
+  `service set`, `service unset`, intentionally broken config validation,
   `service disable`, stopped-service persistence, explicit `service reload`,
   `service enable`, direct `webd` kill followed by supervisor reaping/restart,
   and live `/fat/var/log/svscan.log` output.
@@ -168,8 +169,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   through the poll loop.
 - `service_soak.py`: repeated host-side HTTP GETs with interleaved
   `service webd check-config`, `service webd check`, `service status --all`,
-  `netstat`, log tailing, service restart, log rotation, and svscan event log
-  inspection.
+  `netstat`, log tailing, `service restart --wait`, log rotation, and svscan
+  event log inspection.
 - `net_soak.py`: repeated host-side HTTP GETs against background `webd`,
   interleaved with guest-side `/fat/bin/netcheck`, `netstat`, `ifconfig`, and
   `arp`. `/fat/bin/netcheck` exercises DHCP/status, kernel DNS, ICMP ping,

@@ -131,6 +131,20 @@ def main():
             output += send_command(sock, "service status --all", "requires=network", args.service_wait)
             output += send_command(sock, "service webd check-config", "webd config ok", args.service_wait)
             output += send_command(sock, "service webd check", "webd check ok", args.service_wait)
+            output += send_command(sock, "service set webd max_log 8192", "webd set max_log", args.service_wait)
+            output += send_command(sock, "service webd status", "max_log=8192", args.service_wait)
+            output += send_command(sock, "service set webd max_log 16384", "webd set max_log", args.service_wait)
+            output += send_command(sock, "service unset webd requires", "webd unset requires", args.service_wait)
+            output += send_command(sock, "service webd status", "health=listen:80", args.service_wait)
+            output += send_command(sock, "service set webd requires network", "webd set requires", args.service_wait)
+            output += send_command(sock, "service webd status", "requires=network", args.service_wait)
+            output += send_command(sock, "write /fat/etc/services/bad.svc command=/fat/bin/nope", "status 0", args.service_wait)
+            output += send_command(sock, "write -a /fat/etc/services/bad.svc process=bad", "status 0", args.service_wait)
+            output += send_command(sock, "write -a /fat/etc/services/bad.svc log=/fat/no/svc.log", "status 0", args.service_wait)
+            output += send_command(sock, "write -a /fat/etc/services/bad.svc requires=/bad", "status 0", args.service_wait)
+            output += send_command(sock, "write -a /fat/etc/services/bad.svc health=listen:no", "status 0", args.service_wait)
+            output += send_command(sock, "write -a /fat/etc/services/bad.svc restart=sometimes", "status 0", args.service_wait)
+            output += send_command(sock, "service bad check-config", "bad config bad", args.service_wait)
             output += send_command(sock, "service disable webd", "webd disabled", args.service_wait)
             output += send_command(sock, "service webd status", "enabled=false", args.service_wait)
             output += send_command(sock, "service webd stop", "stopped pid", args.service_wait)
@@ -173,6 +187,16 @@ def main():
         "max_log=16384",
         "webd config ok",
         "webd check ok",
+        "webd set max_log",
+        "max_log=8192",
+        "webd unset requires",
+        "webd set requires",
+        "bad config bad",
+        "command-missing=/fat/bin/nope",
+        "log-dir-missing=/fat/no/svc.log",
+        "bad-requires=/bad",
+        "bad-health=listen:no",
+        "bad-restart=sometimes",
         "webd disabled",
         "enabled=false",
         "webd stopped enabled=false",

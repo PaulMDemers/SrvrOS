@@ -257,10 +257,18 @@ touches `/fat/run/svscan.reload` so `svscan` logs and consumes an explicit
 rescan request. `service <name> log`, `service <name> tail [lines]`,
 `service <name> check`, `service <name> check-config`, and
 `service <name> rotate-log` cover basic operations, while
-`service supervise [cycles]` keeps the same restart policy available as a
-bounded diagnostic loop. `svscan` logs start counts and stop statuses for
-restart forensics. `webd` adds compact access lines containing method, URL,
-status, and body bytes.
+`service set <name> <key> <value>` and `service unset <name> <key>` edit
+configs in-place. `service restart <name> --wait` asks the supervisor to bring
+the service back and waits for the declared health check. `service supervise
+[cycles]` keeps the same restart policy available as a bounded diagnostic loop.
+`svscan` logs start counts and stop statuses for restart forensics. `webd` adds
+compact access lines containing method, URL, status, and body bytes.
+
+Service files are simple `key=value` records. Supported keys are `command`,
+`args`, `process`, `log`, `requires`, `health`, `max_log`, `enabled`, and
+`restart`. `requires=network` waits for the network stack, `health=listen:80`
+checks for a TCP listener owned by the service process, `max_log` bounds daemon
+log size, and `restart` currently accepts `always` or `never`.
 
 Current networking caveats:
 

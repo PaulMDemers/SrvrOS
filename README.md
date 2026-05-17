@@ -246,10 +246,12 @@ health/log metadata, `service enable <name>` and `service disable <name>`
 persistently toggle startup, `service reload` asks `svscan` to rescan via
 `/fat/run/svscan.reload`, `service <name> check` validates live health,
 `service <name> check-config` validates the config, `service <name> log` and
-`service <name> tail [lines]` read the configured log, and
+`service <name> tail [lines]` read the configured log, and `service set
+<name> <key> <value>`/`service unset <name> <key>` edit service files in-place.
 `service supervise [cycles]` can run the same restart policy manually for
-bounded diagnostics. `service <name> restart` lets `svscan` bring
-`restart=always` services back online. `webd` writes compact access lines as
+bounded diagnostics. `service <name> restart --wait` lets `svscan` bring
+`restart=always` services back online and waits for health. `webd` writes
+compact access lines as
 `webd: access METHOD PATH STATUS BYTES`.
 
 The shell can also run non-interactively, which is useful for smoke tests,
