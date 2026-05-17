@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -216,6 +216,16 @@ def main():
         "cmp -s /fat/status.txt /fat/status.txt && echo cmp-same-ok\n"
         "cmp -s /fat/status.txt /fat/words.txt || echo cmp-diff-ok\n"
         "yes port | head -n 2\n"
+        "install -D -m 644 /fat/status.txt /fat/install/sub/status-copy.txt\n"
+        "cat /fat/install/sub/status-copy.txt\n"
+        "diff -q /fat/status.txt /fat/install/sub/status-copy.txt && echo diff-same-ok\n"
+        "diff -u /fat/status.txt /fat/words.txt || echo diff-diff-ok\n"
+        "tar -cf /fat/archive.tar /fat/install\n"
+        "tar -tf /fat/archive.tar\n"
+        "mkdir -p /fat/extract\n"
+        "tar -xf /fat/archive.tar -C /fat/extract\n"
+        "cat /fat/extract/fat/install/sub/status-copy.txt\n"
+        "realpath /fat/extract/fat/install/sub/status-copy.txt\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -528,6 +538,9 @@ def main():
         "usage: readlink [-f|-e] path",
         "usage: cmp [-s] file1 file2",
         "usage: yes [string ...]",
+        "usage: install [-d] [-D] [-m mode] source dest | install -d dir [...]",
+        "usage: diff [-q|-u] file1 file2",
+        "usage: tar -cf archive file... | tar -tf archive | tar -xf archive [-C dir]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -621,6 +634,11 @@ def main():
         "cmp-same-ok",
         "cmp-diff-ok",
         "port\r\nport",
+        "diff-same-ok",
+        "--- /fat/status.txt",
+        "diff-diff-ok",
+        "fat/install/sub/status-copy.txt",
+        "/fat/extract/fat/install/sub/status-copy.txt",
         "orange",
         "grape",
         "expr-add-12",

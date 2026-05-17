@@ -296,7 +296,8 @@ Core tools:
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`,
-  `realpath`, `id`, `whoami`, `readlink`, `cmp`, `yes`, `sed`, `expr`, `printf`, `tr`,
+  `realpath`, `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`,
+  `tar`, `sed`, `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
 - `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`, `ifconfig`, `route`,
   `arp`, `ping`, `host`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
@@ -356,7 +357,10 @@ line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
 `sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses, and
 `/pattern/` addresses. `/fat/bin/seq` covers integer ranges, `id`/`whoami`
 provide a fixed root identity, `cmp` compares files, `yes` feeds simple
-pipeline prompts, and `realpath` plus `readlink -f` normalize checked paths for porting scripts.
+pipeline prompts, `install` copies files into build-style destination trees,
+`diff` reports quiet or simple unified differences, `tar` can create/list/extract
+uncompressed ustar archives, and `realpath` plus `readlink -f` normalize checked
+paths for porting scripts.
 `/fat/bin/expr` covers simple integer arithmetic,
 comparisons, string length/substr/index, and literal-prefix `:` matching for
 script glue. `/fat/bin/printf` supports common `%s`/numeric formatting and
