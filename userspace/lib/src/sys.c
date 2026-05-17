@@ -448,6 +448,26 @@ long srv_sleep_ticks(uint64_t ticks) {
     return srv_syscall1(SYS_SLEEP_TICKS, (long)ticks);
 }
 
+long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
+    return srv_syscall4(SYS_THREAD_CREATE, (long)entry, (long)arg, (long)stack_top, (long)flags);
+}
+
+long srv_thread_exit(uint64_t value) {
+    return srv_syscall1(SYS_THREAD_EXIT, (long)value);
+}
+
+long srv_thread_join(uint64_t tid, uint64_t *value_out) {
+    return srv_syscall2(SYS_THREAD_JOIN, (long)tid, (long)value_out);
+}
+
+long srv_thread_self(void) {
+    return srv_syscall0(SYS_THREAD_SELF);
+}
+
+long srv_thread_detach(uint64_t tid) {
+    return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
+}
+
 void srv_puts(const char *text) {
     srv_write(SRV_STDOUT, text, srv_strlen(text));
 }

@@ -48,6 +48,7 @@
 #define PROCESS_MAX_FILE_LOCKS 64
 #define PROCESS_PIPE_CAPACITY 4096
 #define PROCESS_STDIO_CLOSED_FD (-2)
+#define PROCESS_MAX_USER_THREADS 8
 
 struct process_context {
     uint64_t rbx;
@@ -70,6 +71,23 @@ struct process_mmap_region {
     bool used;
     uint64_t base;
     uint64_t length;
+};
+
+struct process;
+
+struct process_user_thread {
+    bool used;
+    bool active;
+    bool detached;
+    bool joined;
+    uint64_t tid;
+    uint64_t entry;
+    uint64_t arg;
+    uint64_t stack_top;
+    uint64_t return_value;
+    struct process *owner;
+    struct process_context context;
+    struct fpu_state fpu;
 };
 
 struct process_pipe {
@@ -156,6 +174,9 @@ struct process {
     uint64_t mapping_count;
     struct process_mmap_region mmap_regions[PROCESS_MAX_MMAP_REGIONS];
     uint64_t mmap_next;
+    struct process_user_thread user_threads[PROCESS_MAX_USER_THREADS];
+    uint64_t next_thread_id;
+    struct scheduler_wait_queue thread_wait_queue;
 };
 
 struct elf64_header {
@@ -209,6 +230,7 @@ static void set_process_name(struct process *process, const char *path);
 static struct process_read_file *read_file_at(uint64_t handle);
 static struct process_write_file *write_file_at(uint64_t handle);
 static void background_process_thread(void *arg);
+static void process_user_thread_start(void *arg);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
@@ -223,6 +245,10 @@ static bool process_apply_spawn_file_actions(struct process *child,
     struct process *parent,
     const struct process_spawn_file_action *actions,
     uint64_t action_count);
+
+static struct process_user_thread *process_current_user_thread(void) {
+    return (struct process_user_thread *)scheduler_current_user_thread_context();
+}
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
     if (destination == NULL || capacity == 0 || source == NULL || source[0] == '\0') {
@@ -290,6 +316,7 @@ static struct process *alloc_process(const char *path, bool detached) {
             }
             processes[i].stack_top = USER_STACK_TOP;
             processes[i].kernel_stack_top = gdt_default_kernel_stack_top();
+            processes[i].next_thread_id = 2;
             fpu_init_state(&processes[i].fpu);
             set_process_name(&processes[i], path);
             return &processes[i];
@@ -1884,6 +1911,149 @@ bool process_has_open_vfs_prefix(const char *prefix) {
 
 struct process *process_current(void) {
     return (struct process *)scheduler_current_user_context();
+}
+
+static struct process_user_thread *process_find_user_thread(struct process *process, uint64_t tid) {
+    if (process == NULL || tid < 2) {
+        return NULL;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
+        struct process_user_thread *thread = &process->user_threads[i];
+        if (thread->used && thread->tid == tid) {
+            return thread;
+        }
+    }
+    return NULL;
+}
+
+static bool process_user_thread_done(void *arg) {
+    struct process_user_thread *thread = arg;
+    return thread == NULL || !thread->used || !thread->active;
+}
+
+static void process_user_thread_start(void *arg) {
+    struct process_user_thread *thread = arg;
+    if (thread == NULL || thread->owner == NULL || !thread->used) {
+        return;
+    }
+
+    struct process *process = thread->owner;
+    scheduler_set_user_context_fpu(process,
+        process->address_space,
+        0,
+        &thread->fpu);
+    scheduler_set_user_thread_context(thread);
+    usermode_enter(thread->entry, thread->stack_top, thread->arg, 0, 0);
+}
+
+int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
+    struct process *process = process_current();
+    if (process == NULL || !process->active || entry == 0 || stack_top < PAGE_SIZE) {
+        return -1;
+    }
+    if ((flags & ~SRV_THREAD_DETACHED) != 0) {
+        return -1;
+    }
+
+    struct process_user_thread *thread = NULL;
+    for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
+        if (!process->user_threads[i].used) {
+            thread = &process->user_threads[i];
+            break;
+        }
+    }
+    if (thread == NULL) {
+        return -1;
+    }
+
+    uint64_t tid = process->next_thread_id++;
+    if (process->next_thread_id < 2) {
+        process->next_thread_id = 2;
+    }
+
+    *thread = (struct process_user_thread) {
+        .used = true,
+        .active = true,
+        .detached = (flags & SRV_THREAD_DETACHED) != 0,
+        .joined = false,
+        .tid = tid,
+        .entry = entry,
+        .arg = arg,
+        .stack_top = stack_top & ~0xfull,
+        .return_value = 0,
+        .owner = process,
+    };
+    fpu_init_state(&thread->fpu);
+
+    if (!scheduler_spawn("uthread", process_user_thread_start, thread)) {
+        thread->used = false;
+        thread->active = false;
+        return -1;
+    }
+    return (int64_t)tid;
+}
+
+void process_thread_exit(uint64_t value) {
+    struct process_user_thread *thread = process_current_user_thread();
+    if (thread == NULL || thread->owner == NULL) {
+        process_exit((uint64_t)(value != 0));
+    }
+
+    __asm__ volatile ("cli" : : : "memory");
+    thread->return_value = value;
+    thread->active = false;
+    scheduler_wake_all(&thread->owner->thread_wait_queue);
+    scheduler_clear_user_context();
+    if (thread->detached) {
+        thread->used = false;
+    }
+    __asm__ volatile ("sti" : : : "memory");
+    scheduler_exit_current();
+}
+
+int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
+    struct process *process = process_current();
+    struct process_user_thread *current_thread = process_current_user_thread();
+    struct process_user_thread *thread = process_find_user_thread(process, tid);
+    if (thread == NULL ||
+        thread->detached ||
+        thread->joined ||
+        (current_thread != NULL && current_thread == thread)) {
+        return -1;
+    }
+
+    __asm__ volatile ("sti" : : : "memory");
+    while (thread->active) {
+        if (!scheduler_wait(&process->thread_wait_queue, process_user_thread_done, thread)) {
+            scheduler_yield();
+        }
+    }
+
+    if (value_out != NULL) {
+        *value_out = thread->return_value;
+    }
+    thread->joined = true;
+    thread->used = false;
+    return 0;
+}
+
+int64_t process_thread_detach(uint64_t tid) {
+    struct process *process = process_current();
+    struct process_user_thread *thread = process_find_user_thread(process, tid);
+    if (thread == NULL || thread->joined || thread->detached) {
+        return -1;
+    }
+
+    thread->detached = true;
+    if (!thread->active) {
+        thread->used = false;
+    }
+    return 0;
+}
+
+uint64_t process_thread_self(void) {
+    struct process_user_thread *thread = process_current_user_thread();
+    return thread != NULL && thread->used ? thread->tid : 1;
 }
 
 uint64_t process_pid(const struct process *process) {

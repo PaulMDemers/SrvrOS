@@ -81,6 +81,11 @@
 #define SYS_NET_STATUS_INFO 76
 #define SYS_NET_ARP_LIST 77
 #define SYS_NET_PING 78
+#define SYS_THREAD_CREATE 79
+#define SYS_THREAD_EXIT 80
+#define SYS_THREAD_JOIN 81
+#define SYS_THREAD_SELF 82
+#define SYS_THREAD_DETACH 83
 
 #define SRV_ABI_VERSION 1
 
@@ -271,6 +276,8 @@ struct srv_arp_info {
 
 #define SRV_EXEC_BACKGROUND 0x01
 #define SRV_EXEC_REPLACE 0x02
+
+#define SRV_THREAD_DETACHED 0x01
 
 #define SRV_PROT_NONE 0x00
 #define SRV_PROT_READ 0x01

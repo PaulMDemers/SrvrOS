@@ -154,7 +154,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
-  pthread mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
+  pthread create/join plus mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
   EOF/error state, `scanf` scansets and suppressed assignments, `system()` shell execution,
   `popen`/`pclose`, standard-fd and non-stdio spawn `dup2`/`open`/`close`

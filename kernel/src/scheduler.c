@@ -39,6 +39,8 @@ struct thread {
     scheduler_thread_fn entry;
     void *arg;
     void *user_context;
+    void *user_thread_context;
+    struct fpu_state *user_fpu;
     uint64_t address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
@@ -78,6 +80,9 @@ static uint64_t thread_kernel_stack_top(const struct thread *thread) {
     if (thread->kernel_stack_top != 0) {
         return thread->kernel_stack_top;
     }
+    if (thread->stack != NULL) {
+        return ((uint64_t)thread->stack + SCHEDULER_STACK_SIZE) & ~0xfull;
+    }
     return gdt_default_kernel_stack_top();
 }
 
@@ -92,7 +97,7 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
     if (thread == NULL || thread->user_context == NULL) {
         return NULL;
     }
-    return process_fpu_state(thread->user_context);
+    return thread->user_fpu;
 }
 
 static bool has_ready_thread_except(uint64_t skipped_index) {
@@ -157,6 +162,8 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
                 .entry = entry,
                 .arg = arg,
                 .user_context = NULL,
+                .user_thread_context = NULL,
+                .user_fpu = NULL,
                 .address_space = 0,
                 .kernel_stack_top = 0,
                 .stack = stack,
@@ -219,6 +226,20 @@ void scheduler_yield(void) {
 
     scheduler_context_switch(&old->context, &next->context);
     switching = false;
+}
+
+void scheduler_exit_current(void) {
+    if (!initialized) {
+        for (;;) {
+            __asm__ volatile ("hlt");
+        }
+    }
+
+    threads[current_thread].state = THREAD_DEAD;
+    for (;;) {
+        scheduler_yield();
+        __asm__ volatile ("hlt");
+    }
 }
 
 bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
@@ -314,7 +335,10 @@ void scheduler_preempt_tick(void) {
     scheduler_yield();
 }
 
-void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top) {
+void scheduler_set_user_context_fpu(void *process,
+    uint64_t address_space,
+    uint64_t kernel_stack_top,
+    struct fpu_state *user_fpu) {
     if (!initialized) {
         return;
     }
@@ -323,13 +347,18 @@ void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t 
     thread->user_context = process;
     thread->address_space = address_space;
     thread->kernel_stack_top = kernel_stack_top;
-    fpu_set_current_user_state(process_fpu_state(process));
+    thread->user_fpu = user_fpu;
+    fpu_set_current_user_state(user_fpu);
 
     if (address_space != 0) {
         vmm_refresh_kernel_mappings(address_space);
         vmm_switch_address_space(address_space);
     }
     gdt_set_kernel_stack(thread_kernel_stack_top(thread));
+}
+
+void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top) {
+    scheduler_set_user_context_fpu(process, address_space, kernel_stack_top, process_fpu_state(process));
 }
 
 void scheduler_clear_user_context(void) {
@@ -339,6 +368,8 @@ void scheduler_clear_user_context(void) {
 
     struct thread *thread = &threads[current_thread];
     thread->user_context = NULL;
+    thread->user_thread_context = NULL;
+    thread->user_fpu = NULL;
     thread->address_space = 0;
     thread->kernel_stack_top = 0;
     fpu_set_current_user_state(NULL);
@@ -355,6 +386,20 @@ void *scheduler_current_user_context(void) {
         return NULL;
     }
     return threads[current_thread].user_context;
+}
+
+void scheduler_set_user_thread_context(void *context) {
+    if (!initialized) {
+        return;
+    }
+    threads[current_thread].user_thread_context = context;
+}
+
+void *scheduler_current_user_thread_context(void) {
+    if (!initialized) {
+        return NULL;
+    }
+    return threads[current_thread].user_thread_context;
 }
 
 uint64_t scheduler_thread_count(void) {

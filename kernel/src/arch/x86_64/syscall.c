@@ -1578,6 +1578,32 @@ static int64_t syscall_sleep_ticks(uint64_t ticks) {
     return 0;
 }
 
+static int64_t syscall_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
+    if (entry == 0 ||
+        stack_top < 16 ||
+        !user_buffer_ok((const void *)entry, 1, false) ||
+        !user_buffer_ok((void *)(stack_top - 8), 8, true)) {
+        return -1;
+    }
+    return process_thread_create(entry, arg, stack_top, flags);
+}
+
+static int64_t syscall_thread_join(uint64_t tid, uint64_t *value_out) {
+    if (value_out != NULL && !user_buffer_ok(value_out, sizeof(*value_out), true)) {
+        return -1;
+    }
+
+    uint64_t value = 0;
+    int64_t result = process_thread_join(tid, &value);
+    if (result < 0) {
+        return result;
+    }
+    if (value_out != NULL && !copy_to_user(value_out, &value, sizeof(value))) {
+        return -1;
+    }
+    return 0;
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:
@@ -1839,6 +1865,20 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_PROC_GROUP:
         frame->rax = (uint64_t)syscall_proc_group(frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_THREAD_CREATE:
+        frame->rax = (uint64_t)syscall_thread_create(frame->rdi, frame->rsi, frame->rdx, frame->rcx);
+        return;
+    case SYS_THREAD_EXIT:
+        process_thread_exit(frame->rdi);
+    case SYS_THREAD_JOIN:
+        frame->rax = (uint64_t)syscall_thread_join(frame->rdi, (uint64_t *)frame->rsi);
+        return;
+    case SYS_THREAD_SELF:
+        frame->rax = process_thread_self();
+        return;
+    case SYS_THREAD_DETACH:
+        frame->rax = (uint64_t)process_thread_detach(frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

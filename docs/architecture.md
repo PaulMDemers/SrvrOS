@@ -403,8 +403,9 @@ read-only regular files, `poll`/`select` readiness, blocking pipes,
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
 file-backed private `mmap`/`munmap`, `mprotect`, small buffered `stdio`,
-simple time functions including `nanosleep`, `getpagesize`/`sysconf`, first
-pthread mutex/condition/once/TLS compatibility primitives, common
+simple time functions including `nanosleep`, `getpagesize`/`sysconf`,
+same-address-space `pthread_create`/`pthread_join`/`pthread_detach`,
+pthread mutex/condition/once/TLS primitives, common
 formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
@@ -420,6 +421,12 @@ flush/truncate, process heap growth, `getpid`, raw timer ticks,
 sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
 metadata with exFAT sidecar persistence.
+
+User pthreads are backed by a compact native thread syscall set. The libc shim
+allocates a stack with `mmap`, enters the requested routine in the same process
+address space, and `pthread_join` collects the returned pointer-sized value.
+Each spawned user thread has its own scheduler kernel trap stack and user FPU
+state while sharing the owning process fd table, mappings, and heap.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

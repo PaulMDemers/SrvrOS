@@ -2,48 +2,259 @@
 #include <pthread.h>
 #include <sched.h>
 #include <srvros/sys.h>
+#include <stdint.h>
 #include <stdlib.h>
+#include <sys/mman.h>
 #include <time.h>
 #include <unistd.h>
 
+#define PTHREAD_DEFAULT_STACK_SIZE 65536
+#define PTHREAD_MAX_RECORDS 16
+#define PTHREAD_TLS_THREADS 16
+
 struct pthread_key_slot {
     int used;
-    void *value;
     void (*destructor)(void *);
 };
 
+struct pthread_start_record {
+    void *(*start_routine)(void *);
+    void *arg;
+    void *stack;
+    size_t stack_size;
+    int owns_stack;
+};
+
+struct pthread_record {
+    int used;
+    pthread_t tid;
+    struct pthread_start_record *start;
+};
+
+struct pthread_tls_slot {
+    int used;
+    pthread_t tid;
+    void *values[PTHREAD_KEYS_MAX];
+};
+
 static struct pthread_key_slot pthread_keys[PTHREAD_KEYS_MAX];
+static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
+static struct pthread_tls_slot pthread_tls_slots[PTHREAD_TLS_THREADS];
+
+static struct pthread_record *pthread_record_find(pthread_t tid) {
+    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+        if (pthread_records[i].used && pthread_records[i].tid == tid) {
+            return &pthread_records[i];
+        }
+    }
+    return 0;
+}
+
+static struct pthread_record *pthread_record_alloc(void) {
+    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+        int expected = 0;
+        if (__atomic_compare_exchange_n(&pthread_records[i].used,
+                &expected,
+                1,
+                0,
+                __ATOMIC_ACQ_REL,
+                __ATOMIC_ACQUIRE)) {
+            pthread_records[i].tid = 0;
+            pthread_records[i].start = 0;
+            return &pthread_records[i];
+        }
+    }
+    return 0;
+}
+
+static void pthread_record_release(struct pthread_record *record) {
+    if (record == 0) {
+        return;
+    }
+    record->tid = 0;
+    record->start = 0;
+    __atomic_store_n(&record->used, 0, __ATOMIC_RELEASE);
+}
+
+static struct pthread_tls_slot *pthread_tls_slot_for(pthread_t tid, int create) {
+    struct pthread_tls_slot *free_slot = 0;
+    for (int i = 0; i < PTHREAD_TLS_THREADS; i++) {
+        if (pthread_tls_slots[i].used && pthread_tls_slots[i].tid == tid) {
+            return &pthread_tls_slots[i];
+        }
+        if (!pthread_tls_slots[i].used && free_slot == 0) {
+            free_slot = &pthread_tls_slots[i];
+        }
+    }
+    if (!create || free_slot == 0) {
+        return 0;
+    }
+
+    free_slot->tid = tid;
+    for (int i = 0; i < PTHREAD_KEYS_MAX; i++) {
+        free_slot->values[i] = 0;
+    }
+    __atomic_store_n(&free_slot->used, 1, __ATOMIC_RELEASE);
+    return free_slot;
+}
+
+static void pthread_run_destructors(void) {
+    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 0);
+    if (slot == 0) {
+        return;
+    }
+
+    for (pthread_key_t i = 0; i < PTHREAD_KEYS_MAX; i++) {
+        void *value = slot->values[i];
+        void (*destructor)(void *) = pthread_keys[i].destructor;
+        slot->values[i] = 0;
+        if (value != 0 && pthread_keys[i].used && destructor != 0) {
+            destructor(value);
+        }
+    }
+    __atomic_store_n(&slot->used, 0, __ATOMIC_RELEASE);
+}
+
+static void pthread_start_trampoline(uint64_t raw_start) {
+    struct pthread_start_record *start = (struct pthread_start_record *)(uintptr_t)raw_start;
+    void *result = start->start_routine(start->arg);
+    pthread_exit(result);
+}
 
 int pthread_create(pthread_t *thread,
     const pthread_attr_t *attr,
     void *(*start_routine)(void *),
     void *arg) {
-    (void)thread;
-    (void)attr;
-    (void)start_routine;
-    (void)arg;
-    return ENOSYS;
+    if (thread == 0 || start_routine == 0) {
+        return EINVAL;
+    }
+
+    size_t stack_size = PTHREAD_DEFAULT_STACK_SIZE;
+    int detachstate = PTHREAD_CREATE_JOINABLE;
+    void *stack = 0;
+    int owns_stack = 1;
+    if (attr != 0) {
+        if (attr->stacksize < PTHREAD_STACK_MIN ||
+            (attr->detachstate != PTHREAD_CREATE_JOINABLE &&
+                attr->detachstate != PTHREAD_CREATE_DETACHED)) {
+            return EINVAL;
+        }
+        stack_size = attr->stacksize > stack_size ? attr->stacksize : stack_size;
+        detachstate = attr->detachstate;
+        if (attr->stackaddr != 0) {
+            stack = attr->stackaddr;
+            owns_stack = 0;
+        }
+    }
+
+    if ((stack_size & 0xfff) != 0) {
+        stack_size = (stack_size + 0xfff) & ~(size_t)0xfff;
+    }
+    if (stack == 0) {
+        stack = mmap(0,
+            stack_size,
+            PROT_READ | PROT_WRITE,
+            MAP_PRIVATE | MAP_ANONYMOUS,
+            -1,
+            0);
+        if (stack == MAP_FAILED) {
+            return ENOMEM;
+        }
+    }
+
+    struct pthread_start_record *start = malloc(sizeof(*start));
+    if (start == 0) {
+        if (owns_stack) {
+            munmap(stack, stack_size);
+        }
+        return ENOMEM;
+    }
+    *start = (struct pthread_start_record) {
+        .start_routine = start_routine,
+        .arg = arg,
+        .stack = stack,
+        .stack_size = stack_size,
+        .owns_stack = owns_stack,
+    };
+
+    struct pthread_record *record = detachstate == PTHREAD_CREATE_JOINABLE ? pthread_record_alloc() : 0;
+    if (detachstate == PTHREAD_CREATE_JOINABLE && record == 0) {
+        free(start);
+        if (owns_stack) {
+            munmap(stack, stack_size);
+        }
+        return EAGAIN;
+    }
+
+    uint64_t stack_top = (((uint64_t)(uintptr_t)stack + stack_size) & ~(uint64_t)0xf) - 8;
+    *(uint64_t *)(uintptr_t)stack_top = 0;
+    uint64_t flags = detachstate == PTHREAD_CREATE_DETACHED ? SRV_THREAD_DETACHED : 0;
+    long tid = srv_thread_create((uint64_t)(uintptr_t)pthread_start_trampoline,
+        (uint64_t)(uintptr_t)start,
+        stack_top,
+        flags);
+    if (tid < 0) {
+        pthread_record_release(record);
+        free(start);
+        if (owns_stack) {
+            munmap(stack, stack_size);
+        }
+        return EAGAIN;
+    }
+
+    *thread = (pthread_t)tid;
+    if (record != 0) {
+        record->tid = (pthread_t)tid;
+        record->start = start;
+    }
+    return 0;
 }
 
 int pthread_join(pthread_t thread, void **value_ptr) {
-    (void)thread;
-    (void)value_ptr;
-    return ENOSYS;
+    struct pthread_record *record = pthread_record_find(thread);
+    if (record == 0) {
+        return EINVAL;
+    }
+
+    uint64_t value = 0;
+    if (srv_thread_join(thread, &value) < 0) {
+        return EINVAL;
+    }
+    if (value_ptr != 0) {
+        *value_ptr = (void *)(uintptr_t)value;
+    }
+
+    struct pthread_start_record *start = record->start;
+    pthread_record_release(record);
+    if (start != 0) {
+        if (start->owns_stack) {
+            munmap(start->stack, start->stack_size);
+        }
+        free(start);
+    }
+    return 0;
 }
 
 int pthread_detach(pthread_t thread) {
-    (void)thread;
-    return ENOSYS;
+    struct pthread_record *record = pthread_record_find(thread);
+    if (srv_thread_detach(thread) < 0) {
+        return EINVAL;
+    }
+    if (record != 0) {
+        pthread_record_release(record);
+    }
+    return 0;
 }
 
 void pthread_exit(void *value_ptr) {
-    (void)value_ptr;
-    exit(0);
+    pthread_run_destructors();
+    srv_thread_exit((uint64_t)(uintptr_t)value_ptr);
+    _exit(0);
 }
 
 pthread_t pthread_self(void) {
-    pid_t pid = getpid();
-    return pid > 0 ? (pthread_t)pid : 1;
+    long tid = srv_thread_self();
+    return tid > 0 ? (pthread_t)tid : 1;
 }
 
 int pthread_equal(pthread_t left, pthread_t right) {
@@ -55,7 +266,7 @@ int pthread_attr_init(pthread_attr_t *attr) {
         return EINVAL;
     }
     attr->detachstate = PTHREAD_CREATE_JOINABLE;
-    attr->stacksize = PTHREAD_STACK_MIN;
+    attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
     attr->stackaddr = 0;
     return 0;
 }
@@ -212,7 +423,6 @@ int pthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
                 0,
                 __ATOMIC_ACQ_REL,
                 __ATOMIC_ACQUIRE)) {
-            pthread_keys[i].value = 0;
             pthread_keys[i].destructor = destructor;
             *key = i;
             return 0;
@@ -225,7 +435,11 @@ int pthread_key_delete(pthread_key_t key) {
     if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
         return EINVAL;
     }
-    pthread_keys[key].value = 0;
+    for (int i = 0; i < PTHREAD_TLS_THREADS; i++) {
+        if (pthread_tls_slots[i].used) {
+            pthread_tls_slots[i].values[key] = 0;
+        }
+    }
     pthread_keys[key].destructor = 0;
     __atomic_store_n(&pthread_keys[key].used, 0, __ATOMIC_RELEASE);
     return 0;
@@ -235,14 +449,19 @@ void *pthread_getspecific(pthread_key_t key) {
     if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
         return 0;
     }
-    return pthread_keys[key].value;
+    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 0);
+    return slot != 0 ? slot->values[key] : 0;
 }
 
 int pthread_setspecific(pthread_key_t key, const void *value) {
     if (key >= PTHREAD_KEYS_MAX || !pthread_keys[key].used) {
         return EINVAL;
     }
-    pthread_keys[key].value = (void *)value;
+    struct pthread_tls_slot *slot = pthread_tls_slot_for(pthread_self(), 1);
+    if (slot == 0) {
+        return EAGAIN;
+    }
+    slot->values[key] = (void *)value;
     return 0;
 }
 

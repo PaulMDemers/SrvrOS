@@ -164,6 +164,11 @@ int64_t process_msync(struct process *process,
     uint64_t address,
     uint64_t length,
     uint64_t flags);
+int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
+void process_thread_exit(uint64_t value) __attribute__((noreturn));
+int64_t process_thread_join(uint64_t tid, uint64_t *value_out);
+int64_t process_thread_detach(uint64_t tid);
+uint64_t process_thread_self(void);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);

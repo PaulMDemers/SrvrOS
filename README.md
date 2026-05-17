@@ -97,7 +97,8 @@ editor clients:
   `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
-  variables, first pthread mutex/cond/once/TLS compatibility primitives,
+  variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
+  with per-thread stacks and TLS plus pthread mutex/cond/once primitives,
   `waitpid`, `posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4
   helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:

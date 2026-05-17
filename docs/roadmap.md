@@ -415,10 +415,10 @@ kernel, and a minimal Unix-like userspace.
    dynamic spawn file action lists, terminal process groups/signals, `stdio`
    update-mode edge cases, stronger sidecar recovery, and more fd-specific
    readiness queues as the descriptor model grows.
-8. Add real same-address-space user threads behind `pthread_create`, including
-   per-thread user stacks, join/detach state, per-thread TLS, and per-thread
-   FPU save/restore. This is the next hard blocker before a useful libuv/Node
-   bring-up.
+8. Grow the first same-address-space user thread support into a fuller pthread
+   implementation: robust process-wide thread teardown, detached stack
+   reclamation, fd/heap locking, richer condition-variable waits, and the
+   pieces libuv expects for a useful Node bring-up.
 9. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 10. Extend GUI IPC from server-rendered controls to client-owned surfaces:

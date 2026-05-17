@@ -256,9 +256,12 @@ server.
   history on TTYs and stdin-fed chunk execution for pipelines.
 - Adds the first pthread compatibility slice for porting probes: mutexes,
   condition variables, `pthread_once`, pthread TLS keys, basic attributes,
-  `sched_yield`, `nanosleep`, and `getpagesize`/`sysconf`. True
-  `pthread_create` still returns `ENOSYS` until same-address-space user
-  threads land.
+  `sched_yield`, `nanosleep`, and `getpagesize`/`sysconf`.
+- Adds the first same-address-space pthread thread path:
+  `pthread_create`, `pthread_join`, `pthread_detach`, and `pthread_exit`
+  backed by native thread syscalls, per-thread user stacks, per-thread TLS
+  values, per-thread user FPU state, and a dedicated scheduler kernel trap
+  stack for spawned user threads.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

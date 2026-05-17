@@ -50,9 +50,22 @@ static int compare_ints(const void *left, const void *right) {
 }
 
 static int once_count;
+static int pthread_shared;
+static pthread_key_t pthread_demo_key;
 
 static void once_init(void) {
     once_count++;
+}
+
+static void *pthread_worker(void *arg) {
+    pthread_setspecific(pthread_demo_key, arg);
+    if (pthread_getspecific(pthread_demo_key) != arg) {
+        return (void *)0xbad;
+    }
+    pthread_shared += 7;
+    sched_yield();
+    pthread_shared += 5;
+    return (void *)0x2a;
 }
 
 int main(void) {
@@ -1021,6 +1034,8 @@ int main(void) {
     pthread_once_t once = PTHREAD_ONCE_INIT;
     pthread_key_t key;
     pthread_attr_t pthread_attr;
+    pthread_t worker;
+    void *joined_value = 0;
     void *thread_value = (void *)0x1234;
     struct timespec short_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
     if (pthread_mutex_init(&mutex, 0) != 0 ||
@@ -1043,7 +1058,13 @@ int main(void) {
         pthread_attr_setstacksize(&pthread_attr, 32768) != 0 ||
         pthread_attr_destroy(&pthread_attr) != 0 ||
         !pthread_equal(pthread_self(), pthread_self()) ||
-        pthread_create(0, 0, 0, 0) != ENOSYS ||
+        pthread_create(0, 0, 0, 0) != EINVAL ||
+        pthread_key_create(&pthread_demo_key, 0) != 0 ||
+        pthread_create(&worker, 0, pthread_worker, (void *)0x4444) != 0 ||
+        pthread_join(worker, &joined_value) != 0 ||
+        joined_value != (void *)0x2a ||
+        pthread_shared != 12 ||
+        pthread_key_delete(pthread_demo_key) != 0 ||
         nanosleep(&short_sleep, 0) != 0 ||
         sched_yield() != 0 ||
         getpagesize() != 4096 ||
