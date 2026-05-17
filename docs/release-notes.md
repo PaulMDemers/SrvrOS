@@ -250,6 +250,8 @@ server.
   create/list/extract round trips.
 - Adds `/fat/bin/gzip` and `/fat/bin/gunzip` on top of the pinned zlib port,
   including file and tarball round-trip smoke coverage.
+- Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
+  `-pN` support.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`

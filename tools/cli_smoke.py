@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip patch; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -233,6 +233,19 @@ def main():
         "gunzip -c /fat/archive.tar.gz > /fat/archive-round.tar\n"
         "tar -tf /fat/archive-round.tar\n"
         "echo gzip-tar-ok\n"
+        "write /fat/patch-target.txt alpha\n"
+        "write -a /fat/patch-target.txt beta\n"
+        "write -a /fat/patch-target.txt gamma\n"
+        "write /fat/change.patch '--- /fat/patch-target.txt'\n"
+        "write -a /fat/change.patch '+++ /fat/patch-target.txt'\n"
+        "write -a /fat/change.patch '@@ -1,3 +1,4 @@'\n"
+        "write -a /fat/change.patch ' alpha'\n"
+        "write -a /fat/change.patch '-beta'\n"
+        "write -a /fat/change.patch '+BETA'\n"
+        "write -a /fat/change.patch '+inserted'\n"
+        "write -a /fat/change.patch ' gamma'\n"
+        "patch -i /fat/change.patch\n"
+        "cat /fat/patch-target.txt\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -550,6 +563,7 @@ def main():
         "usage: tar -cf archive file... | tar -tf archive | tar -xf archive [-C dir]",
         "usage: gzip [-cdk] [file ...]",
         "usage: gunzip [-ck] [file ...]",
+        "usage: patch [-pN] [-i file] [target]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -650,6 +664,9 @@ def main():
         "/fat/extract/fat/install/sub/status-copy.txt",
         "gzip-roundtrip-ok",
         "gzip-tar-ok",
+        "patch: /fat/patch-target.txt",
+        "BETA",
+        "inserted",
         "orange",
         "grape",
         "expr-add-12",

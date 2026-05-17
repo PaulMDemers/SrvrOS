@@ -367,6 +367,8 @@ kernel, and a minimal Unix-like userspace.
   `/fat/bin/tar`.
 - Add gzip-framed compression helpers `/fat/bin/gzip` and `/fat/bin/gunzip`
   on top of the pinned zlib port.
+- Add `/fat/bin/patch` for simple unified-diff application during source
+  porting.
 
 ## Next milestones
 
@@ -384,7 +386,7 @@ kernel, and a minimal Unix-like userspace.
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
    `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
-   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `patch`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and
