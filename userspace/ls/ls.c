@@ -154,6 +154,10 @@ int main(int argc, char **argv) {
     int directory_only = 0;
     int status = 0;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: ls [-1adl] [path ...]\n");
+        return 0;
+    }
     for (int i = 1; i < argc; i++) {
         if (argv[i][0] == '-' && argv[i][1] != '\0') {
             for (size_t j = 1; argv[i][j] != '\0'; j++) {

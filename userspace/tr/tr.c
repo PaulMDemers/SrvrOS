@@ -96,6 +96,10 @@ static int run_tr(int delete_mode, const char *set1_text, const char *set2_text)
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: tr [-d] set1 [set2]\n");
+        return 0;
+    }
     if (argc == 3 && cli_streq(argv[1], "-d")) {
         return run_tr(1, argv[2], 0);
     }

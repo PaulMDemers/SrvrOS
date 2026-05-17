@@ -220,6 +220,10 @@ static int selftest(void) {
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        usage();
+        return 0;
+    }
     if (argc < 2) {
         usage();
         return 2;

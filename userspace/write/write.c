@@ -6,6 +6,10 @@ int main(int argc, char **argv) {
     size_t out = 0;
     int append = 0;
     int path_index = 1;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: write [-a] <path> <text>\n");
+        return 0;
+    }
     if (argc > 1 && cli_streq(argv[1], "-a")) {
         append = 1;
         path_index = 2;

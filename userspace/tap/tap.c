@@ -23,6 +23,10 @@ static int write_all(int fd, const char *buffer, size_t length) {
 int main(int argc, char **argv) {
     int append = 0;
     int arg = 1;
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        usage();
+        return 0;
+    }
     if (argc > 1 && strcmp(argv[1], "-a") == 0) {
         append = 1;
         arg++;

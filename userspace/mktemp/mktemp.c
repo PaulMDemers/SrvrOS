@@ -155,6 +155,10 @@ int main(int argc, char **argv) {
     char parent[CLI_PATH_MAX];
     char path[CLI_PATH_MAX];
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: mktemp [template]\n");
+        return 0;
+    }
     if (argc > 2) {
         cli_puts("usage: mktemp [template]\n");
         return 1;

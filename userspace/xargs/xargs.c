@@ -94,6 +94,10 @@ int main(int argc, char **argv) {
     pid_t pid;
     int status = 0;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: xargs [command [arg ...]]\n");
+        return 0;
+    }
     if (read_tokens() != 0) {
         return 1;
     }

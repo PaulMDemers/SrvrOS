@@ -239,7 +239,8 @@ def main():
             b"The exFAT volume is mounted at /fat. Core directories include /fat/bin,\n"
             b"/fat/etc, /fat/etc/services, /fat/share/help, /fat/var/log, and /fat/www.\n"
             b"Common tools include ls, cat, more, cp, rm, mkdir, rmdir, mv, find, du, df,\n"
-            b"stat, chmod, head, tail, grep, sort, uniq, cut, sed, tee, tap, and wc.\n"),
+            b"stat, chmod, head, tail, grep, sort, uniq, cut, sed, tee, tap, and wc.\n"
+            b"Most CLI tools accept -h or --help for a short usage line.\n"),
         ("more.txt",
             b"more [-n lines] [file ...]\n"
             b"\n"

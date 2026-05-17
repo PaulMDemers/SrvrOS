@@ -328,6 +328,8 @@ the shell, services, networking, files, web serving, and the pager. The `help`
 builtin prints a compact summary, while `help <topic>` reads those files
 directly from the mounted filesystem. `/fat/bin/more` provides a small
 page-at-a-time reader with `--plain` for non-interactive scripts.
+The table-stakes command set follows the same short-help convention: `-h` and
+`--help` print usage and exit successfully.
 
 Userspace path handling now canonicalizes relative paths against the inherited
 `PWD`, including repeated separators plus `.` and `..` components. The syscall

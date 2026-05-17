@@ -920,7 +920,7 @@ static void print_help_topic(const char *topic) {
         return;
     }
     topic = cli_trim((char *)topic);
-    if (topic[0] == '\0') {
+    if (topic[0] == '\0' || cli_is_help_arg(topic)) {
         print_help();
         return;
     }
@@ -1644,6 +1644,10 @@ static uint64_t kill_command(const char *args) {
     if (argc == 0) {
         cli_puts("usage: kill <pid|%job> [...]\n");
         return 2;
+    }
+    if (argc == 1 && cli_is_help_arg(argv[0])) {
+        cli_puts("usage: kill <pid|%job> [...]\n");
+        return 0;
     }
 
     for (int i = 0; i < argc; i++) {
@@ -2470,7 +2474,7 @@ static void service_command(const char *args) {
 
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
-    if (name[0] == '\0') {
+    if (name[0] == '\0' || cli_is_help_arg(name)) {
         cli_puts("usage: service list|status --all|reload|enable <name>|disable <name>|restart <name> [--wait]|set <name> <key> <value>|unset <name> <key>|start-enabled|supervise [cycles]|<name> [enable|disable|start [args]|stop|restart [--wait]|status|check|check-config|log|tail [lines]|rotate-log]\n");
         cli_puts("known: webd, /fat/bin/<name>, /fat/etc/services/<name>.svc\n");
         return;
@@ -3047,6 +3051,10 @@ static uint64_t which_command(const char *args) {
     int found = 0;
     cli_copy(work, sizeof(work), args);
     name = cli_trim(work);
+    if (name[0] == '\0' || cli_is_help_arg(name)) {
+        cli_puts("usage: which <command> [...]\n");
+        return name[0] == '\0' ? 2 : 0;
+    }
     while (*name != '\0') {
         char *next = name;
         char path[CLI_PATH_MAX];
@@ -4521,6 +4529,10 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         }
     }
     if (cli_streq(command, "env")) {
+        if (cli_is_help_arg(args)) {
+            cli_puts("usage: env\n");
+            return 0;
+        }
         print_env();
         return 0;
     }
@@ -4566,6 +4578,10 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         }
     }
     if (cli_streq(command, "pwd")) {
+        if (cli_is_help_arg(args)) {
+            cli_puts("usage: pwd\n");
+            return 0;
+        }
         cli_puts(cwd);
         cli_puts("\n");
         return 0;

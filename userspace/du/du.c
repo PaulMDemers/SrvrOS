@@ -37,6 +37,10 @@ static uint64_t sum_path(const char *root, int *seen_out) {
 
 int main(int argc, char **argv) {
     int first_path = 1;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: du [-s] [path ...]\n");
+        return 0;
+    }
     if (argc > 1 && cli_streq(argv[1], "-s")) {
         first_path = 2;
     }

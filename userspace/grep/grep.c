@@ -167,6 +167,10 @@ int main(int argc, char **argv) {
     struct grep_options options = {0};
     int status = 1;
     int pattern_index = 1;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: grep [-invcq] <text> [file ...]\n");
+        return 0;
+    }
     for (; pattern_index < argc; pattern_index++) {
         const char *arg = argv[pattern_index];
         if (arg[0] != '-' || arg[1] == '\0' || cli_streq(arg, "-")) {

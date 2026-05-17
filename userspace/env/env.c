@@ -4,6 +4,10 @@
 
 int main(int argc, char **argv) {
     int start = 1;
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: env [NAME=value ...]");
+        return 0;
+    }
     while (start < argc && strchr(argv[start], '=') != 0) {
         if (putenv(argv[start]) < 0) {
             printf("env: failed: %s\n", argv[start]);

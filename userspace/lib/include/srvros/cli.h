@@ -29,6 +29,10 @@ static CLI_UNUSED int cli_starts_with(const char *text, const char *prefix) {
     return 1;
 }
 
+static CLI_UNUSED int cli_is_help_arg(const char *arg) {
+    return arg != 0 && (cli_streq(arg, "--help") || cli_streq(arg, "-h"));
+}
+
 static CLI_UNUSED void cli_copy(char *destination, size_t capacity, const char *source) {
     size_t i = 0;
     if (capacity == 0) {

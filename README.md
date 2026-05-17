@@ -79,7 +79,8 @@ editor clients:
   recursive `cp`/`rm`, directory-aware `mv`,
   `more`, `uname`, `hostname`, and `uptime`.
 - Generated exFAT images include `/fat/share/help` topic files; `help <topic>`
-  prints them from the shell and `/fat/bin/more` can page longer text.
+  prints them from the shell, `/fat/bin/more` can page longer text, and the
+  core CLI tools accept `-h`/`--help` for short usage output.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -192,6 +193,7 @@ Inside the userspace shell:
 / $ help
 / $ help service
 / $ more /fat/share/help/shell.txt
+/ $ ls --help
 / $ ls /fat/bin
 / $ mkdir /fat/projects
 / $ write /fat/projects/readme.txt hello

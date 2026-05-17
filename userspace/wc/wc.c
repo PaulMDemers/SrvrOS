@@ -87,6 +87,10 @@ int main(int argc, char **argv) {
     struct wc_options options = {0};
     int status = 0;
     int first_file = 1;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: wc [-lwc] [file ...]\n");
+        return 0;
+    }
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
         if (arg[0] != '-' || arg[1] == '\0' || cli_streq(arg, "-")) {

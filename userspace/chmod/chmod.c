@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 
 static int parse_mode(const char *text, mode_t *mode_out) {
@@ -18,6 +19,10 @@ static int parse_mode(const char *text, mode_t *mode_out) {
 }
 
 int main(int argc, char **argv) {
+    if (argc == 2 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: chmod <octal-mode> <path>");
+        return 0;
+    }
     if (argc != 3) {
         fputs("usage: chmod <octal-mode> <path>\n", stderr);
         return 2;

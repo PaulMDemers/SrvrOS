@@ -65,6 +65,10 @@ static int read_file(const char *path) {
 
 int main(int argc, char **argv) {
     int status = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: uniq [file ...]\n");
+        return 0;
+    }
     if (argc == 1) {
         return read_fd(SRV_STDIN, 0);
     }

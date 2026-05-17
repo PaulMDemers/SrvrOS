@@ -107,6 +107,10 @@ static void sort_lines(void) {
 
 int main(int argc, char **argv) {
     int status = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: sort [file ...]\n");
+        return 0;
+    }
     if (argc == 1) {
         status = read_fd(SRV_STDIN, 0);
     } else {

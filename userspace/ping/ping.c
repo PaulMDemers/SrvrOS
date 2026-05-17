@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static int parse_ipv4(const char *text, uint32_t *ip_out) {
     uint32_t parts[4] = {0, 0, 0, 0};
@@ -53,6 +54,10 @@ static void print_ip(uint32_t ip) {
 int main(int argc, char **argv) {
     const char *target = argc > 1 ? argv[1] : "10.0.2.2";
     uint32_t ip = 0;
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: ping [host-or-ip]");
+        return 0;
+    }
     if (parse_ipv4(target, &ip) < 0) {
         if (srv_net_dns(target, &ip) < 0) {
             printf("ping: cannot resolve %s\n", target);

@@ -95,6 +95,10 @@ int main(int argc, char **argv) {
     int source_count;
     int target_is_dir;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: mv [-f] <source>... <dest>\n");
+        return 0;
+    }
     while (first_path < argc && argv[first_path][0] == '-' && argv[first_path][1] != '\0') {
         for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
             if (argv[first_path][i] != 'f') {

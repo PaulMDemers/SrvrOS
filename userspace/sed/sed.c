@@ -275,6 +275,10 @@ int main(int argc, char **argv) {
     int status = 0;
     int first_file = 1;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: sed [-n] [-e script] script [file ...]\n");
+        return 0;
+    }
     if (argc < 2) {
         cli_puts("usage: sed [-n] [-e script] script [file ...]\n");
         return 1;

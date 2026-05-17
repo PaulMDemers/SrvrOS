@@ -51,6 +51,10 @@ int main(int argc, char **argv) {
     int printed_root = 0;
 
     int index = 1;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: find [path] [-name pattern] [-type f|d]\n");
+        return 0;
+    }
     if (index < argc && argv[index][0] != '-') {
         root = argv[index++];
     }

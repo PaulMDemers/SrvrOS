@@ -44,6 +44,10 @@ static int print_df(const char *path) {
 
 int main(int argc, char **argv) {
     int status = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: df [path ...]\n");
+        return 0;
+    }
     cli_puts("Filesystem\t1K-blocks\tUsed\tAvailable\tUse%\tMounted on\n");
     if (argc == 1) {
         return print_df("/fat");

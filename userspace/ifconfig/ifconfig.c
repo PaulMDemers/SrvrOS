@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static void print_ip(uint32_t ip) {
     if (ip == 0) {
@@ -25,8 +26,12 @@ static void print_mac(const uint8_t mac[6]) {
         (unsigned)mac[5]);
 }
 
-int main(void) {
+int main(int argc, char **argv) {
     struct srv_net_status_info info;
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: ifconfig");
+        return 0;
+    }
     if (srv_net_status_info(&info) < 0) {
         printf("ifconfig: net status failed\n");
         return 1;

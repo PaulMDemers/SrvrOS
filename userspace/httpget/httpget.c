@@ -40,6 +40,10 @@ int main(int argc, char **argv) {
     int fd = -1;
     int gai;
 
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        usage();
+        return 0;
+    }
     if (argc < 2 || argc > 3) {
         usage();
         return 2;

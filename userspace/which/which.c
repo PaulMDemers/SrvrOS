@@ -42,6 +42,10 @@ static int resolve_command(char *out, size_t capacity, const char *command) {
 
 int main(int argc, char **argv) {
     int missing = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: which <command> [...]\n");
+        return 0;
+    }
     if (argc < 2) {
         cli_puts("usage: which <command> [...]\n");
         return 2;

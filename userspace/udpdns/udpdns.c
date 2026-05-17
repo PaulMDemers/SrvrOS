@@ -215,6 +215,10 @@ int main(int argc, char **argv) {
     int fd = -1;
     struct sockaddr_in address;
 
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: udpdns [name] [server-ip]");
+        return 0;
+    }
     if (build_query(packet, &query_length, name) < 0) {
         printf("udpdns: bad name\n");
         return 2;

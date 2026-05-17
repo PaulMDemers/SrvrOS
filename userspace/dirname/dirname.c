@@ -22,6 +22,10 @@ static void print_dirname(const char *path) {
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: dirname <path>\n");
+        return 0;
+    }
     if (argc != 2) {
         cli_puts("usage: dirname <path>\n");
         return 1;

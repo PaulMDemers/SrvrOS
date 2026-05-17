@@ -123,6 +123,17 @@ static void write_text(const char *text) {
     syscall3(SYS_WRITE, STDOUT, (long)text, (long)strlen(text));
 }
 
+static int string_equals(const char *left, const char *right) {
+    while (*left != '\0' && *right != '\0') {
+        if (*left != *right) {
+            return 0;
+        }
+        left++;
+        right++;
+    }
+    return *left == '\0' && *right == '\0';
+}
+
 static void write_number(uint64_t value) {
     char digits[21];
     char output[21];
@@ -710,6 +721,10 @@ int main(int argc, char **argv) {
     struct pollfd fds[MAX_CLIENTS + 1];
     int indexes[MAX_CLIENTS + 1];
 
+    if (argc > 1 && (string_equals(argv[1], "--help") || string_equals(argv[1], "-h"))) {
+        write_text("usage: webd <root>\n");
+        return 0;
+    }
     configure_root(argc, argv);
     long listener = syscall1(SYS_NET_LISTEN, 80);
     if (listener < 0) {

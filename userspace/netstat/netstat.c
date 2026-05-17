@@ -66,11 +66,15 @@ static void format_flags(char *buffer, size_t capacity, uint8_t flags) {
     buffer[used] = '\0';
 }
 
-int main(void) {
+int main(int argc, char **argv) {
     uint64_t index = 0;
     uint64_t count = 0;
     struct srv_net_info info;
 
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: netstat");
+        return 0;
+    }
     printf("Proto State        PID Local                 Remote                RX/CAP     TX/AVL     Win Err Flags\n");
     for (;;) {
         long next = srv_net_list(index, &info);

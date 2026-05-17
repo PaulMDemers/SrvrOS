@@ -628,6 +628,10 @@ static int parse_cycles(const char *text, uint64_t *cycles_out) {
 
 int main(int argc, char **argv) {
     uint64_t cycles = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: svscan [--cycles n]\n");
+        return 0;
+    }
     if (argc == 3 && cli_streq(argv[1], "--cycles")) {
         if (!parse_cycles(argv[2], &cycles)) {
             cli_puts("usage: svscan [--cycles n]\n");

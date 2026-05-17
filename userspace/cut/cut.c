@@ -97,6 +97,10 @@ int main(int argc, char **argv) {
     int first_file = 1;
     int status = 0;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: cut [-d delimiter] -f field [file ...]\n");
+        return 0;
+    }
     for (int i = 1; i < argc; i++) {
         if (cli_streq(argv[i], "-d") && i + 1 < argc) {
             delimiter = argv[++i][0];

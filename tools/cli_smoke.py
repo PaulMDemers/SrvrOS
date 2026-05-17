@@ -90,7 +90,14 @@ def main():
         "ls /fat/bin\n"
         "help shell\n"
         "help service\n"
+        "help --help\n"
+        "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
+        "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs; do $c --help; done\n"
+        "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
+        "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
+        "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
         "ls /fat/share/help\n"
         "ls -a /fat | grep .srvros\n"
         "ls -la /fat /fat/etc\n"
@@ -476,6 +483,12 @@ def main():
         "srvsh shell",
         "service set <name> <key> <value>",
         "more [-n lines] [file ...]",
+        "usage: service list|status --all",
+        "usage: ls [-1adl] [path ...]",
+        "usage: cp [-fRr] <source>... <dest>",
+        "usage: webd <root>",
+        "usage: xargs [command [arg ...]]",
+        "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
         "more.txt",

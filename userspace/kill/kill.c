@@ -11,6 +11,10 @@ static uint64_t parse_u64(const char *text) {
 }
 
 int main(int argc, char **argv) {
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: kill <pid>\n");
+        return 0;
+    }
     if (argc < 2) {
         cli_puts("usage: kill <pid>\n");
         return 1;

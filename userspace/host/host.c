@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 static void print_ip(uint32_t ip) {
     printf("%u.%u.%u.%u",
@@ -14,6 +15,10 @@ static void print_ip(uint32_t ip) {
 int main(int argc, char **argv) {
     const char *name = argc > 1 ? argv[1] : "example.com";
     uint32_t ip = 0;
+    if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
+        puts("usage: host [name]");
+        return 0;
+    }
     if (srv_net_dns(name, &ip) < 0) {
         printf("host: %s not found\n", name);
         return 1;

@@ -1,8 +1,13 @@
 #include <srvros/cli.h>
 #include <time.h>
 
-int main(void) {
+int main(int argc, char **argv) {
     struct timespec now;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: date\n");
+        return 0;
+    }
+    (void)argv;
     if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
         cli_puts("date: failed\n");
         return 1;

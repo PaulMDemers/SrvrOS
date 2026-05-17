@@ -18,6 +18,10 @@ static int parse_seconds(const char *text, unsigned int *seconds_out) {
 
 int main(int argc, char **argv) {
     unsigned int seconds = 0;
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: sleep <seconds>\n");
+        return 0;
+    }
     if (argc != 2 || !parse_seconds(argv[1], &seconds)) {
         cli_puts("usage: sleep <seconds>\n");
         return 1;

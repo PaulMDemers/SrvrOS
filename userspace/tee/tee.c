@@ -9,6 +9,10 @@ int main(int argc, char **argv) {
     char buffer[256];
     int status = 0;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        cli_puts("usage: tee [-a] <path> [...]\n");
+        return 0;
+    }
     if (argc > 1 && cli_streq(argv[1], "-a")) {
         append = 1;
         first_path = 2;

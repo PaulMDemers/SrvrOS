@@ -112,6 +112,10 @@ int main(int argc, char **argv) {
     int first_file = 1;
     int status = 0;
 
+    if (argc > 1 && cli_is_help_arg(argv[1])) {
+        usage();
+        return 0;
+    }
     for (int i = 1; i < argc; i++) {
         if (cli_streq(argv[i], "--plain")) {
             plain = 1;
