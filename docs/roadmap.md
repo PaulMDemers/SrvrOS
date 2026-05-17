@@ -360,6 +360,8 @@ kernel, and a minimal Unix-like userspace.
   default/assign/alternate/error expansions, parameter length, prefix/suffix
   trimming, `env NAME=value command`, and helper tools `/fat/bin/seq` plus
   `/fat/bin/realpath`.
+- Add more build-script probe utilities: `/fat/bin/id`, `/fat/bin/whoami`,
+  `/fat/bin/readlink`, `/fat/bin/cmp`, and `/fat/bin/yes`.
 
 ## Next milestones
 
@@ -376,7 +378,8 @@ kernel, and a minimal Unix-like userspace.
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
-   `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
+   `readlink`, `cmp`, `yes`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and

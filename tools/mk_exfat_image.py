@@ -263,8 +263,9 @@ def main():
             b"Most core tools accept -h/--help. File and text tools that parse options\n"
             b"also accept -- to stop option processing. Several filters read stdin when\n"
             b"no file is provided, and cat/grep/head/tail/wc accept - as stdin.\n"
-            b"env can run commands with modified environments. seq and realpath provide\n"
-            b"small script-porting helpers. Examples live under /fat/share/examples.\n"),
+            b"env can run commands with modified environments. seq, realpath,\n"
+            b"readlink, id, whoami, cmp, and yes provide small script-porting helpers.\n"
+            b"Examples live under /fat/share/examples.\n"),
         ("profile.txt",
             b"profile\n"
             b"\n"

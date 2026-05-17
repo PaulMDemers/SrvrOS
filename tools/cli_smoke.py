@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -211,6 +211,11 @@ def main():
         "seq 3\n"
         "seq 2 2 6\n"
         "realpath ./fat/../fat/status.txt\n"
+        "echo id-root-$(id -u)-$(whoami)\n"
+        "readlink -f ./fat/../fat/status.txt\n"
+        "cmp -s /fat/status.txt /fat/status.txt && echo cmp-same-ok\n"
+        "cmp -s /fat/status.txt /fat/words.txt || echo cmp-diff-ok\n"
+        "yes port | head -n 2\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -518,6 +523,11 @@ def main():
         "usage: xargs [command [arg ...]]",
         "usage: seq [first [increment]] last",
         "usage: realpath [-q] path [...]",
+        "usage: id [-u] [-g] [-n] [user]",
+        "usage: whoami",
+        "usage: readlink [-f|-e] path",
+        "usage: cmp [-s] file1 file2",
+        "usage: yes [string ...]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -607,6 +617,10 @@ def main():
         "1\r\n2\r\n3",
         "2\r\n4\r\n6",
         "/fat/status.txt",
+        "id-root-0-root",
+        "cmp-same-ok",
+        "cmp-diff-ok",
+        "port\r\nport",
         "orange",
         "grape",
         "expr-add-12",

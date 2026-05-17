@@ -243,6 +243,8 @@ server.
   simple byte translation/deletion pipelines.
 - Adds `/fat/bin/seq` and `/fat/bin/realpath` as small script-porting helpers
   for integer ranges and canonical checked paths.
+- Adds `/fat/bin/id`, `/fat/bin/whoami`, `/fat/bin/readlink`, `/fat/bin/cmp`,
+  and `/fat/bin/yes` to satisfy more common configure/build-script probes.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
