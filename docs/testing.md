@@ -51,7 +51,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 ## What The Harnesses Cover
 
 - `cli_smoke.py`: shell startup, PATH lookup, env/export/which, `$VAR` and `$?`
-  expansion, child envp inheritance, unquoted `*`/`?` globbing, `test`/`[`,
+  expansion, POSIX-style parameter defaults/assignment/alternates/length/trims,
+  `env NAME=value command`, child envp inheritance, unquoted `*`/`?` globbing, `test`/`[`,
   `&&`/`||`, core CLI tools, stdin/stdout/stderr redirection, multi-stage
   pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
@@ -64,7 +65,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
-  `cut`, `xargs`, `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
+  `cut`, `xargs`, `seq`, `realpath`, `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
   `cp`/`rm`, copy/remove, clustered `rm -fRr`, multi-source `cp`/`mv` into
   directories, native file rename and directory destinations through `mv`,
   `/fat/share/help` topic files, `help -l`, `help <topic>`, `man <topic>`,

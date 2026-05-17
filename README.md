@@ -52,8 +52,9 @@ editor clients:
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, foreground/background
   multi-stage pipelines,
-  scripts, `sh -c`, `$VAR`/`${VAR}`, `$?`/`$$`/`$!` expansion, `$(command)`
-  substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
+  scripts, `sh -c`, `$VAR`/`${VAR}` including default/assign/alternate/error
+  parameter forms, `${#VAR}`, prefix/suffix trims, `$?`/`$$`/`$!` expansion,
+  `$(command)` substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, compound-command tail chaining with `;`/`&&`/`||`,
   command-local `NAME=value`, comments, script line continuations, here-docs,
   current-shell `{ ...; }` grouping,
@@ -66,7 +67,7 @@ editor clients:
   `fg`/`bg`/`kill`, `%+`/`%-` job references, config-backed `service`
   management for `/fat/etc/services/*.svc`,
   DHCP/status/DNS commands,
-  `env`/`export`/`which`, `exec`, quote/block diagnostics, Ctrl-C prompt
+  `env`/`export`/`which`, `env NAME=value command`, `exec`, quote/block diagnostics, Ctrl-C prompt
   recovery, raw-mode line editing with cursor movement, Ctrl-U/Ctrl-W kill,
   Ctrl-Y yank, draft-preserving history navigation,
   Ctrl-C foreground job and pipeline interruption with
@@ -75,7 +76,7 @@ editor clients:
   `apropos <word>`, tab completion for commands, help topics, service names,
   and filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
-  `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
+  `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `mktemp`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`,
   `more`, `uname`, `hostname`, and `uptime`.

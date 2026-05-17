@@ -295,8 +295,8 @@ Core tools:
 - `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mktemp`, `mv`.
 - `which`, `env`, `pwd`, `true`, `false`.
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
-- `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `sed`,
-  `expr`, `printf`, `tr`,
+- `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`,
+  `realpath`, `sed`, `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
 - `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`, `ifconfig`, `route`,
   `arp`, `ping`, `host`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
@@ -304,9 +304,10 @@ Core tools:
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
-redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`,
-`$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`, `$@`), `$(command)`
-command substitution, unquoted `*`/`?` globbing, unmatched quote/block
+redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`
+including default/assign/alternate/error parameter forms, `${#VAR}`,
+prefix/suffix trims, `$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`,
+`$@`), `$(command)` command substitution, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`, compound-command tail chaining,
 command-local `NAME=value`, comments, script line continuations, simple
 here-docs, current-shell `{ ...; }` grouping,
@@ -319,7 +320,8 @@ login profile loading from `/fat/etc/profile` plus immediate
 `unset`, `TMPDIR`,
 `cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
 `%+`/`%-` job references, config-backed `service` commands,
-DHCP/status/DNS builtins, `env`/`export`/`which`, `exec`, and basic filesystem
+DHCP/status/DNS builtins, `env`/`export`/`which`, `env NAME=value command`,
+`exec`, and basic filesystem
 builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
 input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
 aliases, functions, PATH commands, and filesystem paths.
@@ -352,7 +354,9 @@ The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for
 line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
 `sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses, and
-`/pattern/` addresses. `/fat/bin/expr` covers simple integer arithmetic,
+`/pattern/` addresses. `/fat/bin/seq` covers integer ranges and
+`/fat/bin/realpath` normalizes and checks paths for porting scripts.
+`/fat/bin/expr` covers simple integer arithmetic,
 comparisons, string length/substr/index, and literal-prefix `:` matching for
 script glue. `/fat/bin/printf` supports common `%s`/numeric formatting and
 escapes; `/fat/bin/tr` supports simple set translation, ranges, and deletion.

@@ -356,6 +356,10 @@ kernel, and a minimal Unix-like userspace.
   `/fat/home` directories in the bundled exFAT image.
 - Normalize `--` option termination across common file and text tools so
   scripts can pass literal dash-prefixed names or patterns.
+- Add porting-oriented shell compatibility: POSIX-style parameter
+  default/assign/alternate/error expansions, parameter length, prefix/suffix
+  trimming, `env NAME=value command`, and helper tools `/fat/bin/seq` plus
+  `/fat/bin/realpath`.
 
 ## Next milestones
 
@@ -372,7 +376,7 @@ kernel, and a minimal Unix-like userspace.
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
-   `sort`, `uniq`, `cut`, `xargs`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
 2. Harden writable exFAT: broader fragmented FAT-chain allocation tests, better
    rollback on partial rename/write failures, dirty-cache writeback, and

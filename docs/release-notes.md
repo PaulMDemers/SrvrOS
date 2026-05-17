@@ -204,6 +204,9 @@ server.
   no-op validation for private mmap-owned ranges.
 - Adds shell `env`/`export`/`which` builtins and small `/fat/bin` compatibility
   tools for `which`, `env`, `pwd`, `true`, and `false`.
+- Extends `/fat/bin/env` so it can run commands with temporary environment
+  changes, `-i`, and `-u`, and teaches the shell builtin to hand command-mode
+  `env` invocations to that tool.
 - Adds first CLI milestone quality-of-life tools: `sleep`, monotonic-uptime
   `date`, `touch`, `basename`, and `dirname`.
 - Adds more table-stakes CLI tools: `tail`, `tee`, `uname`, `hostname`, and
@@ -238,6 +241,8 @@ server.
   string length/substr/index operations, and literal-prefix `:` matching.
 - Adds `/fat/bin/printf` and `/fat/bin/tr` for portable script output and
   simple byte translation/deletion pipelines.
+- Adds `/fat/bin/seq` and `/fat/bin/realpath` as small script-porting helpers
+  for integer ranges and canonical checked paths.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
@@ -265,6 +270,8 @@ server.
   and built-in `kill %job` delivery across every process tracked for a job.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
+- Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,
+  `${VAR:+word}`, `${VAR:?word}`, `${#VAR}`, and prefix/suffix trim operators.
 - Adds shell-side unquoted `*`/`?` globbing plus `test`/`[` builtins for string,
   integer, and file/directory checks.
 - Adds non-interactive `srvsh` entry points through `sh -c command` and

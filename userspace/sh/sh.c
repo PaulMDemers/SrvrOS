@@ -78,8 +78,11 @@ static uint64_t previous_job_id = 0;
 
 static uint64_t run_line(char *line, char *cwd);
 static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions);
+static int expand_variables(const char *input, char *out, size_t capacity, char *cwd);
 static int resolve_command(char *out, size_t capacity, const char *command);
 static int split_words(char *text, char **argv, size_t capacity);
+static int valid_shell_name(const char *name);
+static void set_path_list(const char *value);
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
 static void print_script_context(void);
 static void shell_error(const char *message);
@@ -314,6 +317,266 @@ static int append_command_substitution(const char *command_text,
     return 1;
 }
 
+static int parameter_pattern_match(const char *pattern, const char *text) {
+    if (*pattern == '\0') {
+        return *text == '\0';
+    }
+    if (*pattern == '*') {
+        while (pattern[1] == '*') {
+            pattern++;
+        }
+        if (parameter_pattern_match(pattern + 1, text)) {
+            return 1;
+        }
+        return *text != '\0' && parameter_pattern_match(pattern, text + 1);
+    }
+    if (*pattern == '?') {
+        return *text != '\0' && parameter_pattern_match(pattern + 1, text + 1);
+    }
+    return *pattern == *text && parameter_pattern_match(pattern + 1, text + 1);
+}
+
+static void copy_slice(char *out, size_t capacity, const char *text, size_t start, size_t end) {
+    size_t length = 0;
+    if (capacity == 0) {
+        return;
+    }
+    for (size_t i = start; i < end && length + 1 < capacity; i++) {
+        out[length++] = text[i];
+    }
+    out[length] = '\0';
+}
+
+static void shell_parameter_value(const char *name, char *out, size_t capacity, int *is_set) {
+    const char *value = 0;
+    char number[32];
+    size_t length = 0;
+    number[0] = '\0';
+    if (capacity != 0) {
+        out[0] = '\0';
+    }
+    *is_set = 1;
+    if (cli_streq(name, "?")) {
+        append_number(number, sizeof(number), &length, last_status);
+        value = number;
+    } else if (cli_streq(name, "$")) {
+        append_number(number, sizeof(number), &length, shell_pid);
+        value = number;
+    } else if (cli_streq(name, "!")) {
+        if (last_background_pid != 0) {
+            append_number(number, sizeof(number), &length, last_background_pid);
+        }
+        value = number;
+    } else if (cli_streq(name, "#")) {
+        append_number(number, sizeof(number), &length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+        value = number;
+    } else if (cli_streq(name, "@")) {
+        size_t out_length = 0;
+        out[0] = '\0';
+        append_positional_all(out, capacity, &out_length);
+        return;
+    } else if (name[0] >= '0' && name[0] <= '9' && name[1] == '\0') {
+        value = positional_parameter(name[0] - '0');
+    } else {
+        value = getenv(name);
+        *is_set = value != 0;
+    }
+    cli_copy(out, capacity, value != 0 ? value : "");
+}
+
+static int valid_assignable_parameter(const char *name) {
+    return valid_shell_name(name);
+}
+
+static void append_trimmed_prefix(char *out,
+    size_t capacity,
+    size_t *length,
+    const char *value,
+    const char *pattern,
+    int longest) {
+    size_t value_length = cli_strlen(value);
+    if (longest) {
+        for (size_t cut = value_length; cut > 0; cut--) {
+            char prefix[ARG_EXPANDED_MAX];
+            copy_slice(prefix, sizeof(prefix), value, 0, cut);
+            if (parameter_pattern_match(pattern, prefix)) {
+                append_text(out, capacity, length, value + cut);
+                return;
+            }
+        }
+    } else {
+        for (size_t cut = 0; cut <= value_length; cut++) {
+            char prefix[ARG_EXPANDED_MAX];
+            copy_slice(prefix, sizeof(prefix), value, 0, cut);
+            if (parameter_pattern_match(pattern, prefix)) {
+                append_text(out, capacity, length, value + cut);
+                return;
+            }
+        }
+    }
+    append_text(out, capacity, length, value);
+}
+
+static void append_trimmed_suffix(char *out,
+    size_t capacity,
+    size_t *length,
+    const char *value,
+    const char *pattern,
+    int longest) {
+    size_t value_length = cli_strlen(value);
+    if (longest) {
+        for (size_t cut = 0; cut < value_length; cut++) {
+            char suffix[ARG_EXPANDED_MAX];
+            copy_slice(suffix, sizeof(suffix), value, cut, value_length);
+            if (parameter_pattern_match(pattern, suffix)) {
+                copy_slice(suffix, sizeof(suffix), value, 0, cut);
+                append_text(out, capacity, length, suffix);
+                return;
+            }
+        }
+    } else {
+        for (size_t cut = value_length; cut > 0; cut--) {
+            char suffix[ARG_EXPANDED_MAX];
+            copy_slice(suffix, sizeof(suffix), value, cut, value_length);
+            if (parameter_pattern_match(pattern, suffix)) {
+                copy_slice(suffix, sizeof(suffix), value, 0, cut);
+                append_text(out, capacity, length, suffix);
+                return;
+            }
+        }
+        if (parameter_pattern_match(pattern, "")) {
+            append_text(out, capacity, length, value);
+            return;
+        }
+    }
+    append_text(out, capacity, length, value);
+}
+
+static int append_parameter_expansion(const char *body,
+    char *cwd,
+    char *out,
+    size_t capacity,
+    size_t *length) {
+    char name[64];
+    char value[ARG_EXPANDED_MAX];
+    char word[ARG_EXPANDED_MAX];
+    char expanded_word[ARG_EXPANDED_MAX];
+    size_t cursor = 0;
+    size_t name_length = 0;
+    int is_set = 0;
+    int colon = 0;
+    char op = '\0';
+    int doubled = 0;
+
+    if (body[0] == '#') {
+        if (body[1] == '\0') {
+            append_number(out, capacity, length, shell_argc > 0 ? (uint64_t)(shell_argc - 1) : 0);
+            return 1;
+        }
+        cursor = 1;
+        if (shell_is_name_start(body[cursor])) {
+            while (shell_is_name_char(body[cursor]) && name_length + 1 < sizeof(name)) {
+                name[name_length++] = body[cursor++];
+            }
+        } else if ((body[cursor] >= '0' && body[cursor] <= '9') || body[cursor] == '@' ||
+            body[cursor] == '?' || body[cursor] == '!' || body[cursor] == '$') {
+            name[name_length++] = body[cursor++];
+        } else {
+            cli_puts("sh: bad substitution\n");
+            return 0;
+        }
+        if (body[cursor] != '\0') {
+            cli_puts("sh: bad substitution\n");
+            return 0;
+        }
+        name[name_length] = '\0';
+        shell_parameter_value(name, value, sizeof(value), &is_set);
+        append_number(out, capacity, length, cli_strlen(value));
+        return 1;
+    }
+
+    if (shell_is_name_start(body[cursor])) {
+        while (shell_is_name_char(body[cursor]) && name_length + 1 < sizeof(name)) {
+            name[name_length++] = body[cursor++];
+        }
+    } else if ((body[cursor] >= '0' && body[cursor] <= '9') || body[cursor] == '@' ||
+        body[cursor] == '?' || body[cursor] == '!' || body[cursor] == '$' || body[cursor] == '#') {
+        name[name_length++] = body[cursor++];
+    } else {
+        cli_puts("sh: bad substitution\n");
+        return 0;
+    }
+    name[name_length] = '\0';
+    shell_parameter_value(name, value, sizeof(value), &is_set);
+
+    if (body[cursor] == '\0') {
+        append_text(out, capacity, length, value);
+        return 1;
+    }
+    if (body[cursor] == ':' && body[cursor + 1] != '\0') {
+        colon = 1;
+        cursor++;
+    }
+    op = body[cursor++];
+    if ((op == '#' || op == '%') && body[cursor] == op) {
+        doubled = 1;
+        cursor++;
+    }
+    cli_copy(word, sizeof(word), body + cursor);
+    if (!expand_variables(word, expanded_word, sizeof(expanded_word), cwd)) {
+        return 0;
+    }
+
+    int use_word = !is_set || (colon && value[0] == '\0');
+    if (op == '-') {
+        append_text(out, capacity, length, use_word ? expanded_word : value);
+        return 1;
+    }
+    if (op == '=') {
+        if (use_word) {
+            if (!valid_assignable_parameter(name) || setenv(name, expanded_word, 1) < 0) {
+                cli_puts("sh: cannot assign parameter\n");
+                return 0;
+            }
+            if (cli_streq(name, "PATH")) {
+                set_path_list(expanded_word);
+            }
+            append_text(out, capacity, length, expanded_word);
+        } else {
+            append_text(out, capacity, length, value);
+        }
+        return 1;
+    }
+    if (op == '+') {
+        if (!use_word) {
+            append_text(out, capacity, length, expanded_word);
+        }
+        return 1;
+    }
+    if (op == '?') {
+        if (use_word) {
+            cli_puts("sh: ");
+            cli_puts(name);
+            cli_puts(": ");
+            cli_puts(expanded_word[0] != '\0' ? expanded_word : "parameter not set");
+            cli_puts("\n");
+            return 0;
+        }
+        append_text(out, capacity, length, value);
+        return 1;
+    }
+    if (op == '#') {
+        append_trimmed_prefix(out, capacity, length, value, expanded_word, doubled);
+        return 1;
+    }
+    if (op == '%') {
+        append_trimmed_suffix(out, capacity, length, value, expanded_word, doubled);
+        return 1;
+    }
+    cli_puts("sh: bad substitution\n");
+    return 0;
+}
+
 static int expand_variables(const char *input, char *out, size_t capacity, char *cwd) {
     size_t length = 0;
     char quote = '\0';
@@ -390,18 +653,20 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
             continue;
         }
         if (input[i + 1] == '{') {
-            char name[64];
-            size_t name_length = 0;
+            char body[ARG_EXPANDED_MAX];
+            size_t body_length = 0;
             size_t cursor = i + 2;
-            while (input[cursor] != '\0' && input[cursor] != '}' && name_length + 1 < sizeof(name)) {
-                name[name_length++] = input[cursor++];
+            while (input[cursor] != '\0' && input[cursor] != '}' && body_length + 1 < sizeof(body)) {
+                body[body_length++] = input[cursor++];
             }
             if (input[cursor] != '}') {
                 cli_puts("sh: bad substitution\n");
                 return 0;
             }
-            name[name_length] = '\0';
-            append_text(out, capacity, &length, getenv(name));
+            body[body_length] = '\0';
+            if (!append_parameter_expansion(body, cwd, out, capacity, &length)) {
+                return 0;
+            }
             i = cursor;
             continue;
         }
@@ -1001,7 +1266,7 @@ static int print_file_to_stdout(const char *path) {
 
 static void print_help(void) {
     cli_puts("builtins: help man apropos exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
-    cli_puts("commands: ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
+    cli_puts("commands: ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs seq realpath sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
@@ -4792,8 +5057,17 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     }
     if (cli_streq(command, "env")) {
         if (cli_is_help_arg(args)) {
-            cli_puts("usage: env\n");
+            cli_puts("usage: env [-i] [-u NAME] [NAME=value ...] [command [arg ...]]\n");
             return 0;
+        }
+        if (args[0] != '\0') {
+            char env_line[EXPANDED_LINE_MAX];
+            size_t env_length = 0;
+            env_line[0] = '\0';
+            append_text(env_line, sizeof(env_line), &env_length, "/fat/bin/env");
+            append_char(env_line, sizeof(env_line), &env_length, ' ');
+            append_text(env_line, sizeof(env_line), &env_length, args);
+            return run_command_impl(env_line, cwd, background, 1);
         }
         print_env();
         return 0;

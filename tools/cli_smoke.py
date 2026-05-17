@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -116,6 +116,13 @@ def main():
         "env\n"
         "echo var-$TESTVAR\n"
         "echo braced-${TESTVAR}\n"
+        "echo default-${MISSING:-fallback}\n"
+        "echo assign-default-${ASSIGNME:=set-by-expansion}\n"
+        "echo assigned-$ASSIGNME\n"
+        "echo alt-${ASSIGNME:+present}\n"
+        "echo len-${#ASSIGNME}\n"
+        "echo trim-prefix-${ASSIGNME#set-}\n"
+        "echo trim-suffix-${ASSIGNME%-expansion}\n"
         "false && echo should-not-run\n"
         "echo after-false-$?\n"
         "true || echo should-not-run\n"
@@ -156,6 +163,8 @@ def main():
         "basename /fat/bin/sh\n"
         "dirname /fat/bin/sh\n"
         "/fat/bin/env FOO=bar\n"
+        "env FOO=child sh -c 'echo env-run-$FOO'\n"
+        "env -i FOO=clean sh -c 'echo env-clean-$FOO'\n"
         "/fat/bin/pwd\n"
         "true\n"
         "false\n"
@@ -199,6 +208,9 @@ def main():
         "write -a /fat/table.txt name:codex\n"
         "cut -d : -f 2 /fat/table.txt\n"
         "cat /fat/words.txt | xargs echo args\n"
+        "seq 3\n"
+        "seq 2 2 6\n"
+        "realpath ./fat/../fat/status.txt\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -504,6 +516,8 @@ def main():
         "usage: cp [-fRr] <source>... <dest>",
         "usage: webd <root>",
         "usage: xargs [command [arg ...]]",
+        "usage: seq [first [increment]] last",
+        "usage: realpath [-q] path [...]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -524,6 +538,13 @@ def main():
         "TESTVAR=cli-ok",
         "var-cli-ok",
         "braced-cli-ok",
+        "default-fallback",
+        "assign-default-set-by-expansion",
+        "assigned-set-by-expansion",
+        "alt-present",
+        "len-16",
+        "trim-prefix-by-expansion",
+        "trim-suffix-set-by",
         "after-false-1",
         "or-ok",
         "pid-",
@@ -558,6 +579,8 @@ def main():
         "sh",
         "/fat/bin",
         "FOO=bar",
+        "env-run-child",
+        "env-clean-clean",
         "status 1",
         "status.txt",
         "srvros webd: static file serving from exFAT is online.",
@@ -581,6 +604,9 @@ def main():
         "paul",
         "codex",
         "args banana apple banana apple",
+        "1\r\n2\r\n3",
+        "2\r\n4\r\n6",
+        "/fat/status.txt",
         "orange",
         "grape",
         "expr-add-12",
