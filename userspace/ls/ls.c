@@ -158,8 +158,11 @@ int main(int argc, char **argv) {
         cli_puts("usage: ls [-1adl] [path ...]\n");
         return 0;
     }
+    int options_done = 0;
     for (int i = 1; i < argc; i++) {
-        if (argv[i][0] == '-' && argv[i][1] != '\0') {
+        if (!options_done && cli_is_option_terminator(argv[i])) {
+            options_done = 1;
+        } else if (!options_done && argv[i][0] == '-' && argv[i][1] != '\0') {
             for (size_t j = 1; argv[i][j] != '\0'; j++) {
                 if (argv[i][j] == 'l') {
                     long_format = 1;

@@ -44,7 +44,7 @@ static const char *active_script_path;
 static uint64_t active_script_line;
 
 static const char *shell_builtins[] = {
-    "help", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
+    "help", "man", "apropos", "exit", "exec", "return", "shift", "set", "source", ".", "path", "cd", "pwd", "clear",
     "echo", "env", "export", "unset", "alias", "history", "type", "which", "command", "test", "[",
     "break", "continue",
     "jobs", "wait", "fg", "bg", "kill", "service", "dhcp", "net", "dns", "rmdir", "read", ":",
@@ -79,6 +79,7 @@ static uint64_t previous_job_id = 0;
 static uint64_t run_line(char *line, char *cwd);
 static uint64_t run_command_impl(char *line, char *cwd, int background, int bypass_alias_functions);
 static int resolve_command(char *out, size_t capacity, const char *command);
+static int split_words(char *text, char **argv, size_t capacity);
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
 static void print_script_context(void);
 static void shell_error(const char *message);
@@ -723,10 +724,102 @@ static void complete_command_token(const char *line,
     }
 }
 
+static int copy_first_token(const char *line, char *out, size_t capacity) {
+    size_t cursor = 0;
+    size_t length = 0;
+    while (line[cursor] == ' ' || line[cursor] == '\t') {
+        cursor++;
+    }
+    while (line[cursor] != '\0' && line[cursor] != ' ' && line[cursor] != '\t' && length + 1 < capacity) {
+        out[length++] = line[cursor++];
+    }
+    out[length] = '\0';
+    return length != 0;
+}
+
+static void strip_txt_suffix(char *text) {
+    size_t length = cli_strlen(text);
+    if (length > 4 && cli_streq(text + length - 4, ".txt")) {
+        text[length - 4] = '\0';
+    }
+}
+
+static void complete_help_topic(const char *line,
+    size_t token_start,
+    size_t token_end,
+    const char *token,
+    linenoiseCompletions *completions) {
+    for (uint64_t index = 0;; index++) {
+        char listed[CLI_PATH_MAX];
+        char topic[CLI_PATH_MAX];
+        const char *name = 0;
+        uint64_t size = 0;
+        long result = srv_list(index, listed, sizeof(listed), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (!path_is_immediate_child(listed, "/fat/share/help", &name)) {
+            continue;
+        }
+        cli_copy(topic, sizeof(topic), name);
+        strip_txt_suffix(topic);
+        if (cli_starts_with(topic, token)) {
+            completion_add_replacement(completions, line, token_start, token_end, topic, 1);
+        }
+    }
+}
+
+static int service_config_name_from_path(char *out, size_t capacity, const char *path) {
+    const char *name = 0;
+    size_t length;
+    if (!path_is_immediate_child(path, "/fat/etc/services", &name)) {
+        return 0;
+    }
+    length = cli_strlen(name);
+    if (length <= 4 || !cli_streq(name + length - 4, ".svc")) {
+        return 0;
+    }
+    cli_copy(out, capacity, name);
+    out[length - 4] = '\0';
+    return 1;
+}
+
+static void complete_service_token(const char *line,
+    size_t token_start,
+    size_t token_end,
+    const char *token,
+    linenoiseCompletions *completions) {
+    static const char *actions[] = {
+        "list", "status", "reload", "enable", "disable", "restart", "set", "unset",
+        "start-enabled", "supervise", "start", "stop", "check", "check-config", "log",
+        "tail", "rotate-log",
+    };
+    for (size_t i = 0; i < sizeof(actions) / sizeof(actions[0]); i++) {
+        if (cli_starts_with(actions[i], token)) {
+            completion_add_replacement(completions, line, token_start, token_end, actions[i], 1);
+        }
+    }
+    for (uint64_t index = 0;; index++) {
+        char listed[CLI_PATH_MAX];
+        char name[CLI_PATH_MAX];
+        uint64_t size = 0;
+        long result = srv_list(index, listed, sizeof(listed), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (service_config_name_from_path(name, sizeof(name), listed) && cli_starts_with(name, token)) {
+            completion_add_replacement(completions, line, token_start, token_end, name, 1);
+        }
+    }
+}
+
 static void shell_completion_callback(const char *line, linenoiseCompletions *completions) {
     size_t length = cli_strlen(line);
     size_t token_start = length;
     char token[CLI_PATH_MAX];
+    char first[32];
     size_t token_length = 0;
     int command_position;
 
@@ -744,7 +837,12 @@ static void shell_completion_callback(const char *line, linenoiseCompletions *co
     token[token_length] = '\0';
 
     command_position = token_is_command_position(line, token_start);
-    if (command_position && !cli_contains_slash(token)) {
+    if (!command_position && copy_first_token(line, first, sizeof(first)) &&
+        (cli_streq(first, "help") || cli_streq(first, "man") || cli_streq(first, "apropos"))) {
+        complete_help_topic(line, token_start, length, token, completions);
+    } else if (!command_position && copy_first_token(line, first, sizeof(first)) && cli_streq(first, "service")) {
+        complete_service_token(line, token_start, length, token, completions);
+    } else if (command_position && !cli_contains_slash(token)) {
         complete_command_token(line, token_start, length, token, completions);
     } else {
         complete_path_token(line, token_start, length, token, completions);
@@ -902,13 +1000,41 @@ static int print_file_to_stdout(const char *path) {
 }
 
 static void print_help(void) {
-    cli_puts("builtins: help exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
+    cli_puts("builtins: help man apropos exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs sed expr printf tr stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
     cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
-    cli_puts("topics: help shell service webd network files more\n");
+    cli_puts("topics: help -l, help <topic>, man <topic>, apropos <word>\n");
+}
+
+static void print_help_topics(void) {
+    int printed = 0;
+    cli_puts("topics:");
+    for (uint64_t index = 0;; index++) {
+        char listed[CLI_PATH_MAX];
+        char topic[CLI_PATH_MAX];
+        const char *name = 0;
+        uint64_t size = 0;
+        long result = srv_list(index, listed, sizeof(listed), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (!path_is_immediate_child(listed, "/fat/share/help", &name)) {
+            continue;
+        }
+        cli_copy(topic, sizeof(topic), name);
+        strip_txt_suffix(topic);
+        cli_puts(printed ? " " : " ");
+        cli_puts(topic);
+        printed = 1;
+    }
+    if (!printed) {
+        cli_puts(" none");
+    }
+    cli_puts("\n");
 }
 
 static void print_help_topic(const char *topic) {
@@ -922,6 +1048,10 @@ static void print_help_topic(const char *topic) {
     topic = cli_trim((char *)topic);
     if (topic[0] == '\0' || cli_is_help_arg(topic)) {
         print_help();
+        return;
+    }
+    if (cli_streq(topic, "-l") || cli_streq(topic, "--list")) {
+        print_help_topics();
         return;
     }
     if (!help_topic_valid(topic)) {
@@ -939,6 +1069,92 @@ static void print_help_topic(const char *topic) {
         cli_puts(topic);
         cli_puts("\n");
     }
+}
+
+static char lower_ascii(char c) {
+    if (c >= 'A' && c <= 'Z') {
+        return (char)(c - 'A' + 'a');
+    }
+    return c;
+}
+
+static int contains_casefold(const char *text, const char *needle) {
+    if (needle == 0 || needle[0] == '\0') {
+        return 1;
+    }
+    for (size_t i = 0; text[i] != '\0'; i++) {
+        size_t j = 0;
+        while (needle[j] != '\0' && lower_ascii(text[i + j]) == lower_ascii(needle[j])) {
+            j++;
+        }
+        if (needle[j] == '\0') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static int file_contains_casefold(const char *path, const char *needle) {
+    char buffer[256];
+    int fd = (int)srv_open(path);
+    if (fd < 0) {
+        return 0;
+    }
+    for (;;) {
+        long count = srv_read(fd, buffer, sizeof(buffer) - 1);
+        if (count <= 0) {
+            break;
+        }
+        buffer[count] = '\0';
+        if (contains_casefold(buffer, needle)) {
+            srv_close(fd);
+            return 1;
+        }
+    }
+    srv_close(fd);
+    return 0;
+}
+
+static uint64_t apropos_command(const char *args) {
+    char keyword[64];
+    char *argv[2];
+    int argc;
+    int matches = 0;
+
+    cli_copy(keyword, sizeof(keyword), args);
+    argc = split_words(keyword, argv, sizeof(argv) / sizeof(argv[0]));
+    if (argc != 1 || cli_is_help_arg(argv[0])) {
+        cli_puts("usage: apropos <word>\n");
+        return argc == 1 && cli_is_help_arg(argv[0]) ? 0 : 2;
+    }
+    for (uint64_t index = 0;; index++) {
+        char listed[CLI_PATH_MAX];
+        char topic[CLI_PATH_MAX];
+        const char *name = 0;
+        uint64_t size = 0;
+        long result = srv_list(index, listed, sizeof(listed), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (!path_is_immediate_child(listed, "/fat/share/help", &name)) {
+            continue;
+        }
+        cli_copy(topic, sizeof(topic), name);
+        strip_txt_suffix(topic);
+        if (contains_casefold(topic, argv[0]) || file_contains_casefold(listed, argv[0])) {
+            cli_puts(topic);
+            cli_puts("\n");
+            matches++;
+        }
+    }
+    if (!matches) {
+        cli_puts("apropos: nothing appropriate for ");
+        cli_puts(argv[0]);
+        cli_puts("\n");
+        return 1;
+    }
+    return 0;
 }
 
 static void print_script_context(void) {
@@ -3822,6 +4038,41 @@ static uint64_t run_optional_script(const char *path, char *cwd) {
     return run_script(path, cwd);
 }
 
+static int ends_with(const char *text, const char *suffix) {
+    size_t text_length = cli_strlen(text);
+    size_t suffix_length = cli_strlen(suffix);
+    if (suffix_length > text_length) {
+        return 0;
+    }
+    return cli_streq(text + text_length - suffix_length, suffix);
+}
+
+static uint64_t run_optional_script_directory(const char *directory, char *cwd) {
+    uint64_t status = 0;
+    for (uint64_t index = 0;; index++) {
+        char path[CLI_PATH_MAX];
+        const char *name = 0;
+        uint64_t size = 0;
+        struct srv_stat info;
+        long result = srv_list(index, path, sizeof(path), &size);
+        (void)size;
+        if (result <= 0) {
+            break;
+        }
+        if (!path_is_immediate_child(path, directory, &name) || !ends_with(name, ".sh")) {
+            continue;
+        }
+        if (srv_stat(path, &info) == 0 && info.type == 0) {
+            status = run_script(path, cwd);
+            last_status = status;
+            if (exit_on_error && status != 0) {
+                break;
+            }
+        }
+    }
+    return status;
+}
+
 static void normalize_command_text(const char *input, char *out, size_t capacity) {
     size_t length = 0;
     out[0] = '\0';
@@ -4497,6 +4748,17 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     if (cli_streq(command, "help")) {
         print_help_topic(args);
         return 0;
+    }
+    if (cli_streq(command, "man")) {
+        if (args[0] == '\0' || cli_is_help_arg(args)) {
+            cli_puts("usage: man <topic>\n");
+            return args[0] == '\0' ? 2 : 0;
+        }
+        print_help_topic(args);
+        return 0;
+    }
+    if (cli_streq(command, "apropos")) {
+        return apropos_command(args);
     }
     if (cli_streq(command, "exit")) {
         srv_exit(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status);
@@ -5751,6 +6013,8 @@ int main(int argc, char **argv) {
     setenv("OLDPWD", cwd, 1);
     if (login) {
         status = run_optional_script("/fat/etc/profile", cwd);
+        last_status = status;
+        status = run_optional_script_directory("/fat/etc/profile.d", cwd);
         last_status = status;
     }
     if (command_text != 0) {

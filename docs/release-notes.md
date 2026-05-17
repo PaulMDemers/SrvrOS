@@ -60,8 +60,14 @@ server.
   health-gated restarts.
 - Adds `/fat/share/help` topic files, shell `help <topic>` lookup, and a small
   `/fat/bin/more` pager with script-friendly `--plain` mode.
+- Adds CLI discovery polish: `help -l`, `man <topic>`, `apropos <word>`,
+  tab completion for help topics and service names/actions, generated
+  `/fat/share/examples`, login `/fat/etc/profile.d/*.sh` snippets, and default
+  `/fat/tmp` plus `/fat/home` directories in the generated exFAT image.
 - Normalizes `-h`/`--help` usage output across the core CLI, service, and
   network utility set.
+- Normalizes `--` option termination across the common file/text utilities used
+  by the shell smoke path.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

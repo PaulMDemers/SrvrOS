@@ -93,6 +93,10 @@ int main(int argc, char **argv) {
     }
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
+        if (cli_is_option_terminator(arg)) {
+            first_file = i + 1;
+            break;
+        }
         if (arg[0] != '-' || arg[1] == '\0' || cli_streq(arg, "-")) {
             first_file = i;
             break;

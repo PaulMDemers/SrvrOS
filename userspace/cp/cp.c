@@ -256,6 +256,10 @@ int main(int argc, char **argv) {
         return 0;
     }
     while (first_path < argc && argv[first_path][0] == '-' && argv[first_path][1] != '\0') {
+        if (cli_is_option_terminator(argv[first_path])) {
+            first_path++;
+            break;
+        }
         for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
             if (argv[first_path][i] == 'r' || argv[first_path][i] == 'R') {
                 recursive = 1;

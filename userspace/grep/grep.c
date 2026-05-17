@@ -173,6 +173,10 @@ int main(int argc, char **argv) {
     }
     for (; pattern_index < argc; pattern_index++) {
         const char *arg = argv[pattern_index];
+        if (cli_is_option_terminator(arg)) {
+            pattern_index++;
+            break;
+        }
         if (arg[0] != '-' || arg[1] == '\0' || cli_streq(arg, "-")) {
             break;
         }

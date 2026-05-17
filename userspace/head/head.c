@@ -81,7 +81,10 @@ int main(int argc, char **argv) {
         return 0;
     }
     for (int i = 1; i < argc; i++) {
-        if (cli_streq(argv[i], "-n")) {
+        if (cli_is_option_terminator(argv[i])) {
+            first_file = i + 1;
+            break;
+        } else if (cli_streq(argv[i], "-n")) {
             if (i + 1 >= argc) {
                 cli_puts("usage: head [-n count|-count] [file ...]\n");
                 return 1;

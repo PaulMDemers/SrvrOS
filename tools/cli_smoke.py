@@ -90,6 +90,11 @@ def main():
         "ls /fat/bin\n"
         "help shell\n"
         "help service\n"
+        "help -l\n"
+        "help cli\n"
+        "man shell\n"
+        "man profile\n"
+        "apropos server\n"
         "help --help\n"
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
@@ -99,6 +104,9 @@ def main():
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
         "ls /fat/share/help\n"
+        "ls -- /fat/share/examples\n"
+        "cat -- /fat/share/examples/hello.sh\n"
+        "sh --login -c 'echo profile-d-$PROFILE_D-$PAGER-$EDITOR-$HOME'\n"
         "ls -a /fat | grep .srvros\n"
         "ls -la /fat /fat/etc\n"
         "echo ls-d-before; ls -d /fat/bin; echo ls-d-after\n"
@@ -156,6 +164,10 @@ def main():
         "stat /fat/status.txt\n"
         "head -n 1 /fat/status.txt\n"
         "tail -n 1 /fat/status.txt\n"
+        "head -- /fat/status.txt\n"
+        "tail -- /fat/status.txt\n"
+        "wc -- /fat/status.txt\n"
+        "grep -- exFAT /fat/status.txt\n"
         "head -1 /fat/status.txt\n"
         "cat /fat/status.txt | tee /fat/tee-copy.txt\n"
         "stat /fat/tee-copy.txt\n"
@@ -482,6 +494,10 @@ def main():
         "sh",
         "srvsh shell",
         "service set <name> <key> <value>",
+        "topics:",
+        "cli daily driver",
+        "profile",
+        "webd",
         "more [-n lines] [file ...]",
         "usage: service list|status --all",
         "usage: ls [-1adl] [path ...]",
@@ -491,6 +507,11 @@ def main():
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
+        "cli.txt",
+        "hello.sh",
+        "pipeline.sh",
+        "hello from srvros",
+        "profile-d-ready-more-textedit-/fat/home",
         "more.txt",
         ".srvros",
         "/fat:",

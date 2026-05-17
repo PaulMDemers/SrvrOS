@@ -55,11 +55,16 @@ int main(int argc, char **argv) {
         cli_puts("usage: find [path] [-name pattern] [-type f|d]\n");
         return 0;
     }
+    if (index < argc && cli_is_option_terminator(argv[index])) {
+        index++;
+    }
     if (index < argc && argv[index][0] != '-') {
         root = argv[index++];
     }
     while (index < argc) {
-        if (cli_streq(argv[index], "-name") && index + 1 < argc) {
+        if (cli_is_option_terminator(argv[index])) {
+            index++;
+        } else if (cli_streq(argv[index], "-name") && index + 1 < argc) {
             name_pattern = argv[index + 1];
             index += 2;
         } else if (cli_streq(argv[index], "-type") && index + 1 < argc &&

@@ -350,12 +350,18 @@ kernel, and a minimal Unix-like userspace.
 - Add client-side TCP `connect`, route outbound traffic through the configured
   gateway, wire POSIX socket pseudo-fds through `send`/`recv`/`read`/`write`,
   and ship `/fat/bin/httpget` with QEMU outbound HTTP smoke coverage.
+- Add CLI discovery polish: `help -l`, `man <topic>`, `apropos <word>`, help
+  topic completion, service/action completion, login `/fat/etc/profile.d/*.sh`
+  sourcing, generated `/fat/share/examples`, and predictable `/fat/tmp` plus
+  `/fat/home` directories in the bundled exFAT image.
+- Normalize `--` option termination across common file and text tools so
+  scripts can pass literal dash-prefixed names or patterns.
 
 ## Next milestones
 
-1. Complete the CLI table-stakes milestone: more complete option support for
-   existing commands and small scripting conveniences that real-world
-   configure/build scripts expect.
+1. Move the now-usable CLI toward port/build-script compatibility: broader long
+   option aliases, more POSIX utility edge cases, and stronger scripted error
+   reporting.
    The shell now has positional parameters, functions, `for` loops,
    `/fat/etc/profile`, prompt customization, `set -e`, `read`, `unset`, `alias`,
    `while`, `case`, compound-command tail chaining, command-local

@@ -177,6 +177,7 @@ def main():
             b"# srvros login shell profile\n"
             b"export PATH=/fat/bin:/:/fat\n"
             b"export TMPDIR=/fat/tmp\n"
+            b"export HOME=/fat/home\n"
             b"export PS1='\\w $ '\n"
             b"alias ll='ls /fat/bin'\n"),
         ("init.sh",
@@ -186,6 +187,13 @@ def main():
         ("resolv.conf",
             b"# srvros resolver fallback\n"
             b"nameserver 10.0.2.3\n"),
+    ]
+    profile_d_files = [
+        ("00-defaults.sh",
+            b"# sourced by sh --login after /fat/etc/profile\n"
+            b"export EDITOR=textedit\n"
+            b"export PAGER=more\n"
+            b"export PROFILE_D=ready\n"),
     ]
     service_files = [
         ("webd.svc",
@@ -208,7 +216,8 @@ def main():
             b"Builtins cover cd, pwd, export, unset, alias, jobs, fg, bg, wait,\n"
             b"service, dhcp, net, dns, read, tests, functions, loops, case, and source.\n"
             b"Command search uses PATH, defaulting to /fat/bin, /, and /fat.\n"
-            b"Use pipelines, redirection, command substitution, globs, and background jobs.\n"),
+            b"Use pipelines, redirection, command substitution, globs, and background jobs.\n"
+            b"Discovery commands: help -l, help <topic>, man <topic>, and apropos <word>.\n"),
         ("service.txt",
             b"srvros services\n"
             b"\n"
@@ -224,7 +233,8 @@ def main():
         ("webd.txt",
             b"webd\n"
             b"\n"
-            b"webd serves static files over TCP port 80. The default service runs\n"
+            b"webd is the srvros static web server and serves files over TCP port 80.\n"
+            b"The default service runs\n"
             b"/fat/bin/webd /fat/www and logs through svscan to /fat/var/log/webd.log.\n"
             b"Try: service start webd, httpget 10.0.2.15 /, or cat /fat/www/index.html.\n"),
         ("network.txt",
@@ -247,6 +257,33 @@ def main():
             b"more displays text a page at a time. Press space to continue, enter for one\n"
             b"line, or q to quit. Use --plain to print without prompts in scripts.\n"
             b"Examples: more /fat/share/help/shell.txt; more --plain /fat/status.txt.\n"),
+        ("cli.txt",
+            b"cli daily driver\n"
+            b"\n"
+            b"Most core tools accept -h/--help. File and text tools that parse options\n"
+            b"also accept -- to stop option processing. Several filters read stdin when\n"
+            b"no file is provided, and cat/grep/head/tail/wc accept - as stdin.\n"
+            b"Examples live under /fat/share/examples.\n"),
+        ("profile.txt",
+            b"profile\n"
+            b"\n"
+            b"Login shells run /fat/etc/profile, then every immediate *.sh file in\n"
+            b"/fat/etc/profile.d. The generated profile sets PATH, TMPDIR, HOME, PS1,\n"
+            b"EDITOR, PAGER, and a small ll alias.\n"),
+    ]
+    example_files = [
+        ("hello.sh",
+            b"#!/fat/bin/sh\n"
+            b"echo hello from srvros\n"
+            b"echo cwd=$PWD\n"),
+        ("pipeline.sh",
+            b"#!/fat/bin/sh\n"
+            b"cat /fat/status.txt | grep exFAT | wc\n"),
+        ("service-webd.sh",
+            b"#!/fat/bin/sh\n"
+            b"service webd check-config\n"
+            b"service webd start\n"
+            b"service webd status\n"),
     ]
     files = []
     for name, data in static_files:
@@ -255,16 +292,23 @@ def main():
     bin_dir_cluster = allocate_clusters(BIN_DIRECTORY_SIZE)
     etc_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     services_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    profile_d_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     var_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     run_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     log_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    tmp_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    home_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     www_assets_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     share_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     help_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    examples_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     etc_entries_data = []
     for name, data in etc_files:
         etc_entries_data.append((name, allocate_clusters(len(data)), data))
+    profile_d_entries_data = []
+    for name, data in profile_d_files:
+        profile_d_entries_data.append((name, allocate_clusters(len(data)), data))
     service_entries_data = []
     for name, data in service_files:
         service_entries_data.append((name, allocate_clusters(len(data)), data))
@@ -277,6 +321,9 @@ def main():
     help_entries_data = []
     for name, data in help_files:
         help_entries_data.append((name, allocate_clusters(len(data)), data))
+    example_entries_data = []
+    for name, data in example_files:
+        example_entries_data.append((name, allocate_clusters(len(data)), data))
     app_clusters = {}
     for name in app_names:
         app_clusters[name] = allocate_clusters(len(app_data[name])) if app_data[name] else 0
@@ -350,6 +397,18 @@ def main():
     offset = append_directory_entry(
         root,
         offset,
+        file_entry("tmp", tmp_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
+        file_entry("home", home_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
+        "root",
+    )
+    offset = append_directory_entry(
+        root,
+        offset,
         file_entry("www", www_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE),
         "root",
     )
@@ -378,9 +437,22 @@ def main():
 
     services_entry_set = file_entry("services", services_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
     etc_offset = append_directory_entry(etc_entries, etc_offset, services_entry_set, "etc")
+    profile_d_entry_set = file_entry("profile.d", profile_d_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    etc_offset = append_directory_entry(etc_entries, etc_offset, profile_d_entry_set, "etc")
     for name, cluster, data in etc_entries_data:
         entry_set = file_entry(name, cluster, data)
         etc_offset = append_directory_entry(etc_entries, etc_offset, entry_set, "etc")
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
+    profile_d_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    profile_d_offset = 0
+    for name, cluster, data in profile_d_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        profile_d_offset = append_directory_entry(profile_d_entries, profile_d_offset, entry_set, "etc/profile.d")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
@@ -404,6 +476,8 @@ def main():
     var_offset = append_directory_entry(var_entries, var_offset, log_entry_set, "var")
     log_entries = bytearray(SMALL_DIRECTORY_SIZE)
     run_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    tmp_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    home_entries = bytearray(SMALL_DIRECTORY_SIZE)
 
     www_entries = bytearray(SMALL_DIRECTORY_SIZE)
     www_offset = 0
@@ -433,6 +507,8 @@ def main():
     share_offset = 0
     help_entry_set = file_entry("help", help_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
     share_offset = append_directory_entry(share_entries, share_offset, help_entry_set, "share")
+    examples_entry_set = file_entry("examples", examples_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    share_offset = append_directory_entry(share_entries, share_offset, examples_entry_set, "share")
     help_entries = bytearray(SMALL_DIRECTORY_SIZE)
     help_offset = 0
     for name, cluster, data in help_entries_data:
@@ -444,17 +520,32 @@ def main():
             file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
             image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
 
+    example_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    example_offset = 0
+    for name, cluster, data in example_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        example_offset = append_directory_entry(example_entries, example_offset, entry_set, "share/examples")
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
     image[cluster_offset(ROOT_DIRECTORY_CLUSTER):cluster_offset(ROOT_DIRECTORY_CLUSTER) + ROOT_DIRECTORY_SIZE] = root
     image[cluster_offset(bin_dir_cluster):cluster_offset(bin_dir_cluster) + BIN_DIRECTORY_SIZE] = bin_entries
     image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + SMALL_DIRECTORY_SIZE] = etc_entries
     image[cluster_offset(services_dir_cluster):cluster_offset(services_dir_cluster) + SMALL_DIRECTORY_SIZE] = services_entries
+    image[cluster_offset(profile_d_dir_cluster):cluster_offset(profile_d_dir_cluster) + SMALL_DIRECTORY_SIZE] = profile_d_entries
     image[cluster_offset(var_dir_cluster):cluster_offset(var_dir_cluster) + SMALL_DIRECTORY_SIZE] = var_entries
     image[cluster_offset(log_dir_cluster):cluster_offset(log_dir_cluster) + SMALL_DIRECTORY_SIZE] = log_entries
     image[cluster_offset(run_dir_cluster):cluster_offset(run_dir_cluster) + SMALL_DIRECTORY_SIZE] = run_entries
+    image[cluster_offset(tmp_dir_cluster):cluster_offset(tmp_dir_cluster) + SMALL_DIRECTORY_SIZE] = tmp_entries
+    image[cluster_offset(home_dir_cluster):cluster_offset(home_dir_cluster) + SMALL_DIRECTORY_SIZE] = home_entries
     image[cluster_offset(www_dir_cluster):cluster_offset(www_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_entries
     image[cluster_offset(www_assets_dir_cluster):cluster_offset(www_assets_dir_cluster) + SMALL_DIRECTORY_SIZE] = www_assets_entries
     image[cluster_offset(share_dir_cluster):cluster_offset(share_dir_cluster) + SMALL_DIRECTORY_SIZE] = share_entries
     image[cluster_offset(help_dir_cluster):cluster_offset(help_dir_cluster) + SMALL_DIRECTORY_SIZE] = help_entries
+    image[cluster_offset(examples_dir_cluster):cluster_offset(examples_dir_cluster) + SMALL_DIRECTORY_SIZE] = example_entries
 
     with open(sys.argv[1], "wb") as output:
         output.write(image)

@@ -49,6 +49,9 @@ int main(int argc, char **argv) {
         return cat_fd(SRV_STDIN, 0);
     }
     for (int i = 1; i < argc; i++) {
+        if (cli_is_option_terminator(argv[i])) {
+            continue;
+        }
         int result = cat_file(argv[i]);
         if (result != 0) {
             status = result;

@@ -71,16 +71,19 @@ editor clients:
   Ctrl-Y yank, draft-preserving history navigation,
   Ctrl-C foreground job and pipeline interruption with
   `128 + signal` statuses,
-  canonical relative paths with `.`/`..`, tab completion for commands and
-  filesystem paths, and Unix-like tools
+  canonical relative paths with `.`/`..`, `help -l`, `man <topic>`,
+  `apropos <word>`, tab completion for commands, help topics, service names,
+  and filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `mktemp`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`,
   `more`, `uname`, `hostname`, and `uptime`.
-- Generated exFAT images include `/fat/share/help` topic files; `help <topic>`
-  prints them from the shell, `/fat/bin/more` can page longer text, and the
-  core CLI tools accept `-h`/`--help` for short usage output.
+- Generated exFAT images include `/fat/share/help`, `/fat/share/examples`,
+  `/fat/etc/profile.d`, `/fat/tmp`, and `/fat/home`; `help <topic>`/`man
+  <topic>` print topic files, `apropos <word>` searches them, `/fat/bin/more`
+  can page longer text, and the core CLI tools accept `-h`/`--help` plus `--`
+  option termination where useful.
 - Userspace support library with syscall wrappers, conio-style console helpers,
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
@@ -191,9 +194,14 @@ Inside the userspace shell:
 
 ```text
 / $ help
+/ $ help -l
 / $ help service
+/ $ man shell
+/ $ apropos server
 / $ more /fat/share/help/shell.txt
+/ $ sh --login -c 'echo $PROFILE_D $PAGER $EDITOR'
 / $ ls --help
+/ $ ls /fat/share/examples
 / $ ls /fat/bin
 / $ mkdir /fat/projects
 / $ write /fat/projects/readme.txt hello

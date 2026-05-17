@@ -313,7 +313,8 @@ here-docs, current-shell `{ ...; }` grouping,
 `if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
 `case`/`in`/`esac`,
 shell functions with `return`, `shift`, loop `break`/`continue`,
-login profile loading from `/fat/etc/profile`, `PS1` prompt expansion for `\w`,
+login profile loading from `/fat/etc/profile` plus immediate
+`/fat/etc/profile.d/*.sh` snippets, `PS1` prompt expansion for `\w`,
 `test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `command`,
 `unset`, `TMPDIR`,
 `cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
@@ -324,12 +325,16 @@ input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
 aliases, functions, PATH commands, and filesystem paths.
 
 The generated exFAT image also ships `/fat/share/help/*.txt` topic files for
-the shell, services, networking, files, web serving, and the pager. The `help`
-builtin prints a compact summary, while `help <topic>` reads those files
-directly from the mounted filesystem. `/fat/bin/more` provides a small
-page-at-a-time reader with `--plain` for non-interactive scripts.
+the shell, services, networking, files, web serving, CLI conventions, profiles,
+and the pager. The `help` builtin prints a compact summary, `help -l` lists
+topics, `help <topic>` and `man <topic>` read those files directly from the
+mounted filesystem, and `apropos <word>` searches topic names and content.
+`/fat/bin/more` provides a small page-at-a-time reader with `--plain` for
+non-interactive scripts. The image also includes `/fat/share/examples`,
+`/fat/tmp`, and `/fat/home` so scripts have predictable defaults on first boot.
 The table-stakes command set follows the same short-help convention: `-h` and
-`--help` print usage and exit successfully.
+`--help` print usage and exit successfully, and common file/text tools accept
+`--` to stop option parsing.
 
 Userspace path handling now canonicalizes relative paths against the inherited
 `PWD`, including repeated separators plus `.` and `..` components. The syscall
