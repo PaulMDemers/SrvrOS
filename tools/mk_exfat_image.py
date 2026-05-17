@@ -264,7 +264,7 @@ def main():
             b"also accept -- to stop option processing. Several filters read stdin when\n"
             b"no file is provided, and cat/grep/head/tail/wc accept - as stdin.\n"
             b"env can run commands with modified environments. seq, realpath,\n"
-            b"readlink, id, whoami, cmp, yes, install, diff, and tar provide small\n"
+            b"readlink, id, whoami, cmp, yes, install, diff, tar, gzip, and gunzip provide small\n"
             b"script-porting helpers.\n"
             b"Examples live under /fat/share/examples.\n"),
         ("profile.txt",

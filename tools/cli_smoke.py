@@ -99,7 +99,7 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip; do $c --help; done\n"
         "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -226,6 +226,13 @@ def main():
         "tar -xf /fat/archive.tar -C /fat/extract\n"
         "cat /fat/extract/fat/install/sub/status-copy.txt\n"
         "realpath /fat/extract/fat/install/sub/status-copy.txt\n"
+        "gzip -c /fat/status.txt > /fat/status.txt.gz\n"
+        "gunzip -c /fat/status.txt.gz > /fat/status-gunzip.txt\n"
+        "cmp -s /fat/status.txt /fat/status-gunzip.txt && echo gzip-roundtrip-ok\n"
+        "gzip -c /fat/archive.tar > /fat/archive.tar.gz\n"
+        "gunzip -c /fat/archive.tar.gz > /fat/archive-round.tar\n"
+        "tar -tf /fat/archive-round.tar\n"
+        "echo gzip-tar-ok\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
@@ -541,6 +548,8 @@ def main():
         "usage: install [-d] [-D] [-m mode] source dest | install -d dir [...]",
         "usage: diff [-q|-u] file1 file2",
         "usage: tar -cf archive file... | tar -tf archive | tar -xf archive [-C dir]",
+        "usage: gzip [-cdk] [file ...]",
+        "usage: gunzip [-ck] [file ...]",
         "usage: udpecho server [port]",
         "shell.txt",
         "service.txt",
@@ -639,6 +648,8 @@ def main():
         "diff-diff-ok",
         "fat/install/sub/status-copy.txt",
         "/fat/extract/fat/install/sub/status-copy.txt",
+        "gzip-roundtrip-ok",
+        "gzip-tar-ok",
         "orange",
         "grape",
         "expr-add-12",

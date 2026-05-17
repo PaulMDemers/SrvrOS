@@ -248,6 +248,8 @@ server.
 - Adds `/fat/bin/install`, `/fat/bin/diff`, and a small uncompressed ustar
   `/fat/bin/tar` for build install steps, file comparisons, and archive
   create/list/extract round trips.
+- Adds `/fat/bin/gzip` and `/fat/bin/gunzip` on top of the pinned zlib port,
+  including file and tarball round-trip smoke coverage.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
