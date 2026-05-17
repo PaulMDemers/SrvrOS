@@ -75,6 +75,22 @@ char *strncpy(char *destination, const char *source, size_t length) {
     return destination;
 }
 
+char *strcat(char *destination, const char *source) {
+    strcpy(destination + strlen(destination), source);
+    return destination;
+}
+
+char *strncat(char *destination, const char *source, size_t length) {
+    char *write = destination + strlen(destination);
+    size_t i = 0;
+    while (i < length && source[i] != '\0') {
+        write[i] = source[i];
+        i++;
+    }
+    write[i] = '\0';
+    return destination;
+}
+
 char *strchr(const char *text, int c) {
     char needle = (char)c;
     while (*text != '\0') {

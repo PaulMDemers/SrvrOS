@@ -250,6 +250,10 @@ server.
   create/list/extract round trips.
 - Adds `/fat/bin/gzip` and `/fat/bin/gunzip` on top of the pinned zlib port,
   including file and tarball round-trip smoke coverage.
+- Adds `/fat/bin/minizip` and `/fat/bin/miniunz` from zlib's MiniZip contrib
+  sources, with zip create/list/extract smoke coverage.
+- Makes no-argument `/fat/bin/lua` a real interactive REPL with linenoise
+  history on TTYs and stdin-fed chunk execution for pipelines.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

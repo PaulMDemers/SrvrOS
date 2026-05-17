@@ -1,9 +1,13 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 #include <lua.h>
 #include <lauxlib.h>
 #include <lualib.h>
+
+#include "linenoise.h"
 
 long long lua_srvros_ipow(long long base, long long exponent) {
     if (exponent < 0) {
@@ -63,6 +67,49 @@ static int run_chunk(lua_State *L, int status) {
     return 0;
 }
 
+static int run_repl_line(lua_State *L, const char *line) {
+    int status = luaL_loadstring(L, line);
+    if (status != LUA_OK) {
+        char expression[640];
+        snprintf(expression, sizeof(expression), "return %s", line);
+        lua_pop(L, 1);
+        status = luaL_loadstring(L, expression);
+    }
+    return run_chunk(L, status);
+}
+
+static int run_repl(lua_State *L) {
+    printf("Lua %s srvros interactive profile\n", LUA_VERSION_RELEASE);
+    int result = 0;
+    if (!isatty(STDIN_FILENO)) {
+        char line[512];
+        while (fgets(line, sizeof(line), stdin) != 0) {
+            result |= run_repl_line(L, line);
+        }
+        return result != 0 ? 1 : 0;
+    }
+
+    linenoiseHistorySetMaxLen(64);
+    linenoiseHistoryLoad("/fat/lua.history");
+    while (1) {
+        char *line = linenoise("> ");
+        if (line == 0) {
+            break;
+        }
+        if (strcmp(line, "exit") == 0 || strcmp(line, "quit") == 0 || strcmp(line, "os.exit()") == 0) {
+            linenoiseFree(line);
+            break;
+        }
+        if (line[0] != '\0') {
+            linenoiseHistoryAdd(line);
+            result |= run_repl_line(L, line);
+        }
+        linenoiseFree(line);
+    }
+    linenoiseHistorySave("/fat/lua.history");
+    return result != 0 ? 1 : 0;
+}
+
 int main(int argc, char **argv) {
     lua_State *L = luaL_newstate();
     if (L == 0) {
@@ -77,8 +124,7 @@ int main(int argc, char **argv) {
     } else if (argc >= 2) {
         result = run_chunk(L, luaL_loadfilex(L, argv[1], 0));
     } else {
-        printf("Lua %s srvros floating profile\n", LUA_VERSION_RELEASE);
-        result = 0;
+        result = run_repl(L);
     }
 
     lua_close(L);

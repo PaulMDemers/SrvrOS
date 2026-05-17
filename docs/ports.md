@@ -146,11 +146,14 @@ configuration, protocol counters, worker counters, and the current ARP
 cache. The `/fat/bin/ping` app verifies outbound ICMP echo by resolving a
 dotted IPv4 address or DNS name and issuing kernel-backed echo requests.
 The `/fat/bin/lua` app links pinned Lua `v5.4.8` from a generated srvros build
-copy, supports `lua -e <chunk>` and `lua <script.lua>`, and opens the base,
+copy, supports `lua -e <chunk>`, `lua <script.lua>`, stdin-fed chunks, and a
+linenoise-backed interactive REPL when launched from a TTY. It opens the base,
 coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
 uses Lua's normal double-number profile backed by srvros `math.h`, `float.h`,
 and floating `snprintf` support. `package` is configured for pure Lua modules
 under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
+The `/fat/bin/minizip` and `/fat/bin/miniunz` apps link the zlib contrib
+MiniZip sources to provide zip archive creation, listing, and extraction.
 The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
 directly into a srvros executable. It uses the upstream C sources plus a small
 srvros config header, and the ports smoke test verifies that it can generate

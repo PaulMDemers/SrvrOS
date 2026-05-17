@@ -1725,6 +1725,14 @@ int fseek(FILE *stream, long offset, int whence) {
     return 0;
 }
 
+off_t ftello(FILE *stream) {
+    return (off_t)ftell(stream);
+}
+
+int fseeko(FILE *stream, off_t offset, int whence) {
+    return fseek(stream, (long)offset, whence);
+}
+
 void rewind(FILE *stream) {
     if (stream != 0) {
         (void)fseek(stream, 0, SEEK_SET);

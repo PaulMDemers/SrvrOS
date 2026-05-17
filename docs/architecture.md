@@ -297,7 +297,7 @@ Core tools:
 - `sleep`, `date`, `touch`, `basename`, `dirname`.
 - `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`,
   `realpath`, `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`,
-  `tar`, `gzip`, `gunzip`, `patch`, `make`, `sed`, `expr`, `printf`, `tr`,
+  `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `sed`, `expr`, `printf`, `tr`,
   `uname`, `hostname`, `uptime`.
 - `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`, `ifconfig`, `route`,
   `arp`, `ping`, `host`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
@@ -362,9 +362,10 @@ files, `yes` feeds simple pipeline prompts, `xargs` can batch with `-n` and skip
 empty input with `-r`, `install` copies files into build-style destination trees,
 `diff` reports quiet or simple unified differences, `tar` can create/list/extract
 uncompressed ustar archives, `gzip`/`gunzip` handle gzip-framed streams backed
-by the pinned zlib port, `patch` applies simple unified diffs, `make` runs
-small dependency/recipe graphs through the shell, `byacc` generates C parsers
-from small yacc grammars, and `realpath` plus
+by the pinned zlib port, `minizip`/`miniunz` cover zip archives, `patch`
+applies simple unified diffs, `make` runs small dependency/recipe graphs
+through the shell, `byacc` generates C parsers from small yacc grammars, and
+`realpath` plus
 `readlink -f` normalize checked paths for porting scripts.
 `/fat/bin/expr` covers simple integer arithmetic,
 comparisons, string length/substr/index, and literal-prefix `:` matching for

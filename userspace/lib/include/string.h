@@ -14,6 +14,8 @@ int strncmp(const char *left, const char *right, size_t length);
 int strcoll(const char *left, const char *right);
 char *strcpy(char *destination, const char *source);
 char *strncpy(char *destination, const char *source, size_t length);
+char *strcat(char *destination, const char *source);
+char *strncat(char *destination, const char *source, size_t length);
 char *strchr(const char *text, int c);
 char *strrchr(const char *text, int c);
 char *strpbrk(const char *text, const char *accept);

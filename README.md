@@ -77,7 +77,7 @@ editor clients:
   and filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`,
-  `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `patch`, `make`, `byacc`, `mktemp`,
+  `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`,
   `more`, `uname`, `hostname`, and `uptime`.
@@ -100,9 +100,11 @@ editor clients:
   `posix_spawnp`, process-replacing `execve`, IPv4 helpers, DNS-backed
   `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
-  `/fat/bin/zlibdemo` links pinned zlib and `/fat/bin/lua` runs a pinned Lua
-  5.4.8 floating-profile interpreter with `math`, basic file IO, and pure-Lua
-  `require`. `/fat/bin/jsondemo` and `/fat/bin/inidemo` link pinned cJSON and
+  `/fat/bin/zlibdemo` links pinned zlib, `/fat/bin/minizip` and
+  `/fat/bin/miniunz` provide zip archive coverage, and `/fat/bin/lua` runs a
+  pinned Lua 5.4.8 floating-profile interpreter with `math`, basic file IO,
+  pure-Lua `require`, and an interactive REPL. `/fat/bin/jsondemo` and
+  `/fat/bin/inidemo` link pinned cJSON and
   inih for lightweight data/config parsing. The shell uses a srvros linenoise
   port for editable prompts and file-backed history, with `/fat/bin/linedemo`
   covering the history API. `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a

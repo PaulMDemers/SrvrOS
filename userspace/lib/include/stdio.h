@@ -64,6 +64,8 @@ void clearerr(FILE *stream);
 int fileno(FILE *stream);
 long ftell(FILE *stream);
 int fseek(FILE *stream, long offset, int whence);
+off_t ftello(FILE *stream);
+int fseeko(FILE *stream, off_t offset, int whence);
 void rewind(FILE *stream);
 int fgetpos(FILE *stream, fpos_t *position);
 int fsetpos(FILE *stream, const fpos_t *position);
