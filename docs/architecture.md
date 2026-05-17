@@ -255,10 +255,12 @@ enabled/restart/dependency/health/log metadata. `service enable <name>` and
 `service disable <name>` rewrite the service config, and `service reload`
 touches `/fat/run/svscan.reload` so `svscan` logs and consumes an explicit
 rescan request. `service <name> log`, `service <name> tail [lines]`,
-`service <name> check`, and `service <name> rotate-log` cover basic operations,
-while `service supervise [cycles]` keeps the same restart policy available as a
-bounded diagnostic loop. `webd` adds compact access lines containing method,
-URL, status, and body bytes.
+`service <name> check`, `service <name> check-config`, and
+`service <name> rotate-log` cover basic operations, while
+`service supervise [cycles]` keeps the same restart policy available as a
+bounded diagnostic loop. `svscan` logs start counts and stop statuses for
+restart forensics. `webd` adds compact access lines containing method, URL,
+status, and body bytes.
 
 Current networking caveats:
 

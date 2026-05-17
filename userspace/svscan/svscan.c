@@ -30,6 +30,7 @@ struct service_state {
     int started_once;
     uint64_t last_start_tick;
     uint64_t backoff_until_tick;
+    uint64_t start_count;
     int backoff_logged;
     int unhealthy_logged;
 };
@@ -80,6 +81,27 @@ static void log_pid_line(const char *service, const char *message, uint64_t pid)
     append_text(line, sizeof(line), &length, message);
     append_text(line, sizeof(line), &length, " pid ");
     append_number(line, sizeof(line), &length, pid);
+    log_line(line);
+}
+
+static void log_pid_value_line(const char *service,
+    const char *message,
+    uint64_t pid,
+    const char *value_name,
+    uint64_t value) {
+    char line[224];
+    size_t length = 0;
+    line[0] = '\0';
+    append_text(line, sizeof(line), &length, "svscan: ");
+    append_text(line, sizeof(line), &length, service);
+    append_text(line, sizeof(line), &length, " ");
+    append_text(line, sizeof(line), &length, message);
+    append_text(line, sizeof(line), &length, " pid ");
+    append_number(line, sizeof(line), &length, pid);
+    append_text(line, sizeof(line), &length, " ");
+    append_text(line, sizeof(line), &length, value_name);
+    append_text(line, sizeof(line), &length, " ");
+    append_number(line, sizeof(line), &length, value);
     log_line(line);
 }
 
@@ -271,6 +293,7 @@ static struct service_state *state_for(const char *name) {
     free_state->started_once = 0;
     free_state->last_start_tick = 0;
     free_state->backoff_until_tick = 0;
+    free_state->start_count = 0;
     free_state->backoff_logged = 0;
     free_state->unhealthy_logged = 0;
     cli_copy(free_state->name, sizeof(free_state->name), name);
@@ -344,7 +367,9 @@ static void stop_running_service(const struct service_config *config, const char
     }
     log_pid_line(config->name, reason, info.pid);
     (void)srv_kill(info.pid);
-    (void)srv_wait(info.pid, &status, 0);
+    if (srv_wait(info.pid, &status, 0) > 0) {
+        log_pid_value_line(config->name, "stopped", info.pid, "status", status);
+    }
 }
 
 static int service_dependency_ready(const struct service_config *config) {
@@ -364,6 +389,14 @@ static int parse_listen_health(const char *health, uint16_t *port_out) {
     uint64_t port;
     for (size_t i = 0; prefix[i] != '\0'; i++) {
         if (health[i] != prefix[i]) {
+            return 0;
+        }
+    }
+    if (health[7] == '\0') {
+        return 0;
+    }
+    for (const char *cursor = health + 7; *cursor != '\0'; cursor++) {
+        if (*cursor < '0' || *cursor > '9') {
             return 0;
         }
     }
@@ -406,6 +439,40 @@ static void append_suffix(char *out, size_t capacity, const char *path, const ch
     append_text(out, capacity, &length, suffix);
 }
 
+static int copy_truncate_log(const char *path, const char *rotated) {
+    char buffer[256];
+    int in_fd = (int)srv_open(path);
+    if (in_fd < 0) {
+        return 0;
+    }
+    int out_fd = (int)srv_open_mode(rotated, SRV_OPEN_WRITE | SRV_OPEN_CREATE | SRV_OPEN_TRUNC);
+    if (out_fd < 0) {
+        srv_close(in_fd);
+        return 0;
+    }
+    for (;;) {
+        long count = srv_read(in_fd, buffer, sizeof(buffer));
+        if (count <= 0) {
+            break;
+        }
+        if (srv_write(out_fd, buffer, (size_t)count) != count) {
+            srv_close(in_fd);
+            srv_close(out_fd);
+            return 0;
+        }
+    }
+    srv_close(in_fd);
+    srv_close(out_fd);
+
+    int trunc_fd = (int)srv_open_mode(path, SRV_OPEN_WRITE);
+    if (trunc_fd < 0) {
+        return 0;
+    }
+    int ok = srv_ftruncate(trunc_fd, 0) >= 0;
+    srv_close(trunc_fd);
+    return ok;
+}
+
 static void rotate_log_if_needed(const struct service_config *config) {
     struct srv_stat stat;
     char rotated[MAX_PATH];
@@ -418,7 +485,8 @@ static void rotate_log_if_needed(const struct service_config *config) {
     }
     append_suffix(rotated, sizeof(rotated), config->log_path, ".1");
     (void)srv_unlink(rotated);
-    if (srv_rename(config->log_path, rotated) < 0) {
+    if (srv_rename(config->log_path, rotated) < 0 &&
+        !copy_truncate_log(config->log_path, rotated)) {
         log_service_line(config->name, "log rotate failed");
         return;
     }
@@ -452,10 +520,15 @@ static void start_service(const struct service_config *config, struct service_st
     if (state != 0) {
         state->started_once = 1;
         state->last_start_tick = (uint64_t)srv_ticks();
+        state->start_count++;
         state->backoff_logged = 0;
         state->unhealthy_logged = 0;
     }
-    log_pid_line(config->name, "started", (uint64_t)pid);
+    log_pid_value_line(config->name,
+        "started",
+        (uint64_t)pid,
+        "count",
+        state != 0 ? state->start_count : 1);
 }
 
 static void scan_once(void) {

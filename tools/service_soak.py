@@ -2,13 +2,19 @@
 import argparse
 import os
 import random
-import re
 import shutil
 import socket
 import subprocess
 import sys
 import tempfile
 import time
+
+
+HTTP_PATHS = [
+    ("/", [b"HTTP/1.1 200 OK", b"<h1>srvros</h1>"]),
+    ("/status.txt", [b"HTTP/1.1 200 OK", b"static file serving"]),
+    ("/large.txt", [b"HTTP/1.1 200 OK", b"srvros large tcp payload ends"]),
+]
 
 
 def read_for(sock, seconds):
@@ -43,6 +49,33 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def http_get(port, path, timeout):
+    deadline = time.time() + timeout
+    request = f"GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode("ascii")
+    last_error = None
+    while time.time() < deadline:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=2) as sock:
+                sock.settimeout(3)
+                sock.sendall(request)
+                chunks = []
+                while True:
+                    try:
+                        chunk = sock.recv(4096)
+                    except socket.timeout:
+                        break
+                    if not chunk:
+                        break
+                    chunks.append(chunk)
+                response = b"".join(chunks)
+                if b"HTTP/1.1" in response:
+                    return response
+        except OSError as exc:
+            last_error = exc
+        time.sleep(0.2)
+    raise RuntimeError(f"GET {path} failed: {last_error}")
+
+
 def send_command(sock, command, marker, timeout):
     sock.sendall(command.encode("ascii") + b"\n")
     return read_until(sock, marker.encode("ascii"), timeout)
@@ -61,11 +94,6 @@ def poll_command(sock, command, marker, timeout, interval=0.5):
     return data
 
 
-def webd_pid_from(text):
-    matches = re.findall(r"webd background pid ([0-9]+)", text)
-    return matches[-1] if matches else None
-
-
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -74,22 +102,24 @@ def has_fatal_exception(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Verify srvros init/svscan service lifecycle controls.")
+    parser = argparse.ArgumentParser(description="Soak srvros service operations around webd.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
+    parser.add_argument("--rounds", type=int, default=4)
     parser.add_argument("--boot-wait", type=float, default=25)
-    parser.add_argument("--shell-wait", type=float, default=3)
-    parser.add_argument("--service-wait", type=float, default=10)
-    parser.add_argument("--settle-wait", type=float, default=2)
+    parser.add_argument("--service-wait", type=float, default=12)
+    parser.add_argument("--http-wait", type=float, default=25)
     parser.add_argument("--memory", default="512M")
+    parser.add_argument("--hostfwd-target", default="10.0.2.15:80")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
     iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
     serial_port = random.randint(24000, 29000)
+    http_port = random.randint(18080, 18999)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -98,8 +128,9 @@ def main():
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
     output = b""
-    with tempfile.TemporaryDirectory(prefix="srvros-service-") as temp_dir:
-        disk = os.path.join(temp_dir, "srvros-service.exfat")
+    failures = []
+    with tempfile.TemporaryDirectory(prefix="srvros-service-soak-") as temp_dir:
+        disk = os.path.join(temp_dir, "srvros-service-soak.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
             args.qemu,
@@ -111,12 +142,11 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
-            "-netdev", "user,id=net0",
+            "-netdev", f"user,id=net0,hostfwd=tcp:127.0.0.1:{http_port}-{args.hostfwd_target}",
             "-device", "e1000,netdev=net0",
             "-monitor", "none",
             "-no-reboot",
         ]
-
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -124,31 +154,35 @@ def main():
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
-            output += read_until(sock, b"srvsh: interactive shell", args.shell_wait)
-            output += send_command(sock, "cat /fat/var/log/init.log", "init-script-ok", args.service_wait)
+            output += read_until(sock, b"srvsh: interactive shell", args.service_wait)
             output += poll_command(sock, "service webd status", "webd background pid", args.service_wait)
-            output += send_command(sock, "service list", "health=listen:80", args.service_wait)
-            output += send_command(sock, "service status --all", "requires=network", args.service_wait)
             output += send_command(sock, "service webd check-config", "webd config ok", args.service_wait)
             output += send_command(sock, "service webd check", "webd check ok", args.service_wait)
-            output += send_command(sock, "service disable webd", "webd disabled", args.service_wait)
-            output += send_command(sock, "service webd status", "enabled=false", args.service_wait)
-            output += send_command(sock, "service webd stop", "stopped pid", args.service_wait)
-            output += read_for(sock, args.settle_wait)
-            output += send_command(sock, "service webd status", "webd stopped enabled=false", args.service_wait)
-            output += send_command(sock, "service reload", "service: reload requested", args.service_wait)
-            output += read_for(sock, args.settle_wait)
-            output += send_command(sock, "service webd status", "webd stopped enabled=false", args.service_wait)
-            output += send_command(sock, "service enable webd", "webd enabled", args.service_wait)
-            status_output = poll_command(sock, "service webd status", "webd background pid", args.service_wait)
-            output += status_output
-            webd_pid = webd_pid_from(status_output.decode("utf-8", "replace"))
-            if webd_pid:
-                output += send_command(sock, f"kill {webd_pid}; echo killed-webd", "killed-webd", args.service_wait)
-                output += poll_command(sock, "netstat", "LISTEN", args.service_wait)
-                output += send_command(sock, "ps", "PID STATE", args.service_wait)
-            output += send_command(sock, "cat /fat/var/log/svscan.log", "svscan: webd restarting", args.service_wait)
-            output += send_command(sock, "netstat", "LISTEN", args.service_wait)
+
+            for round_index in range(args.rounds):
+                for path, markers in HTTP_PATHS:
+                    try:
+                        response = http_get(http_port, path, args.http_wait)
+                    except RuntimeError as exc:
+                        failures.append(f"round {round_index + 1} {exc}")
+                        continue
+                    for marker in markers:
+                        if marker not in response:
+                            failures.append(f"round {round_index + 1} {path} missing {marker.decode('ascii')}")
+
+                output += send_command(sock, "service webd check", "webd check ok", args.service_wait)
+                output += send_command(sock, "service status --all", "health=listen:80", args.service_wait)
+                output += send_command(sock, "netstat", "10.0.2.15:80", args.service_wait)
+                output += send_command(sock, "service webd tail 4", "webd: response sent", args.service_wait)
+
+                if round_index == 1:
+                    output += send_command(sock, "service restart webd", "service: reload requested", args.service_wait)
+                    output += poll_command(sock, "service webd check", "webd check ok", args.service_wait)
+
+            output += send_command(sock, "service webd rotate-log", "webd log rotated", args.service_wait)
+            output += send_command(sock, "service webd status", "max_log=16384", args.service_wait)
+            output += send_command(sock, "ps", "svscan", args.service_wait)
+            output += send_command(sock, "cat /fat/var/log/svscan.log", "count", args.service_wait)
             output += read_for(sock, 1)
         finally:
             try:
@@ -160,41 +194,33 @@ def main():
     text = output.decode("utf-8", "replace")
     sys.stdout.write(text)
 
-    expected = [
-        "init: started pid=",
-        "init: startup complete",
-        "init-script-ok",
-        "init: /fat/etc/init.sh status 0",
-        "svscan: started",
+    missing = []
+    for marker in [
         "webd background pid",
-        "enabled=true",
+        "webd config ok",
+        "webd check ok",
         "requires=network",
         "health=listen:80",
         "max_log=16384",
-        "webd config ok",
-        "webd check ok",
-        "webd disabled",
-        "enabled=false",
-        "webd stopped enabled=false",
-        "service: reload requested",
-        "svscan: reload requested",
-        "webd enabled",
-        "svscan: webd restarting",
-        "svscan: webd reaped",
-        "Proto State",
         "10.0.2.15:80",
-    ]
-    missing = [marker for marker in expected if marker not in text]
+        "webd log rotated",
+        "svscan: webd started pid",
+        "count",
+    ]:
+        if marker not in text:
+            missing.append(marker)
+    if failures:
+        missing.extend(failures[:8])
     if has_fatal_exception(text):
-        print("service-smoke: fatal exception detected", file=sys.stderr)
+        print("service-soak: fatal exception detected", file=sys.stderr)
         return 2
     if missing:
-        print("service-smoke: missing markers:", file=sys.stderr)
+        print("service-soak: missing markers:", file=sys.stderr)
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
 
-    print("service-smoke: ok")
+    print(f"service-soak: ok rounds={args.rounds}")
     return 0
 
 

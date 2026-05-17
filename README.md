@@ -240,14 +240,16 @@ redirect stdout to `/fat/var/log/webd.log`. `/fat/etc/init.sh` runs
 config with `enabled=true`, and restarts daemons marked `restart=always`.
 Supervisor events are appended to `/fat/var/log/svscan.log`. New services can
 be added as `/fat/etc/services/name.svc` with `command=`, optional `args=`,
-`process=`, `log=`, `enabled=`, and `restart=` keys.
-`service list` shows state plus enabled/restart/log metadata, `service enable
-<name>` and `service disable <name>` persistently toggle startup, `service
-reload` asks `svscan` to rescan via `/fat/run/svscan.reload`, `service <name>
-log` and `service <name> tail [lines]` read the configured log, and `service
-supervise [cycles]` can run the same restart policy manually for bounded
-diagnostics. `service <name> restart` lets `svscan` bring `restart=always`
-services back online. `webd` writes compact access lines as
+`process=`, `log=`, `requires=`, `health=`, `max_log=`, `enabled=`, and
+`restart=` keys. `service list` shows state plus enabled/restart/dependency/
+health/log metadata, `service enable <name>` and `service disable <name>`
+persistently toggle startup, `service reload` asks `svscan` to rescan via
+`/fat/run/svscan.reload`, `service <name> check` validates live health,
+`service <name> check-config` validates the config, `service <name> log` and
+`service <name> tail [lines]` read the configured log, and
+`service supervise [cycles]` can run the same restart policy manually for
+bounded diagnostics. `service <name> restart` lets `svscan` bring
+`restart=always` services back online. `webd` writes compact access lines as
 `webd: access METHOD PATH STATUS BYTES`.
 
 The shell can also run non-interactively, which is useful for smoke tests,

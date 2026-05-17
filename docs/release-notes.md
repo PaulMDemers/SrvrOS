@@ -50,8 +50,11 @@ server.
 - Extends service configs with `requires=network`, `health=listen:<port>`, and
   `max_log=<bytes>`; `svscan` now waits for dependencies, restarts unhealthy
   listeners, and rotates oversized daemon logs. The shell adds service-wide
-  `status --all`/`restart <name>` helpers plus per-service `check` and
-  `rotate-log`.
+  `status --all`/`restart <name>` helpers plus per-service `check`,
+  `check-config`, and `rotate-log`.
+- Adds `tools/service_soak.py`, a service-operations soak that keeps `webd`
+  under repeated host HTTP traffic while checking service health, config
+  validation, restart, log rotation, socket visibility, and svscan event logs.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

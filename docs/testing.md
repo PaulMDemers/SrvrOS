@@ -36,6 +36,7 @@ python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/service_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 4
 python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
 python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
@@ -154,10 +155,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `require`, Lua file IO, and post-run `fsck`.
 - `service_smoke.py`: kernel-started `/init --system`, `/fat/var/log/init.log`,
   boot-owned `svscan` service startup, service dependency/health/max-log
-  metadata, `service webd check`, `service disable`, stopped-service
-  persistence, explicit `service reload`, `service enable`, direct `webd` kill
-  followed by supervisor reaping/restart, and live `/fat/var/log/svscan.log`
-  output.
+  metadata, `service webd check-config`, `service webd check`,
+  `service disable`, stopped-service persistence, explicit `service reload`,
+  `service enable`, direct `webd` kill followed by supervisor reaping/restart,
+  and live `/fat/var/log/svscan.log` output.
 - `web_smoke.py`: boot-owned `webd` startup, `service list`, `service log`,
   `service tail`, live `/fat/var/log/init.log`, `/fat/var/log/svscan.log`, and
   `/fat/var/log/webd.log` output, `netstat` listener visibility,
@@ -165,6 +166,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   networking, nested CSS asset fetch, `Content-Length`, bodyless `HEAD`,
   404/405 responses, and a slow partial client while another request completes
   through the poll loop.
+- `service_soak.py`: repeated host-side HTTP GETs with interleaved
+  `service webd check-config`, `service webd check`, `service status --all`,
+  `netstat`, log tailing, service restart, log rotation, and svscan event log
+  inspection.
 - `net_soak.py`: repeated host-side HTTP GETs against background `webd`,
   interleaved with guest-side `/fat/bin/netcheck`, `netstat`, `ifconfig`, and
   `arp`. `/fat/bin/netcheck` exercises DHCP/status, kernel DNS, ICMP ping,
