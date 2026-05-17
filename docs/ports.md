@@ -151,6 +151,10 @@ coroutine, table, math, string, UTF-8, debug, IO, and package libraries. It
 uses Lua's normal double-number profile backed by srvros `math.h`, `float.h`,
 and floating `snprintf` support. `package` is configured for pure Lua modules
 under `/fat` and `/fat/lib/lua/5.4`; native C module loading is disabled.
+The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
+directly into a srvros executable. It uses the upstream C sources plus a small
+srvros config header, and the ports smoke test verifies that it can generate
+`y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
 
 ## Current Limits
 
@@ -229,6 +233,7 @@ Third-party source is kept as pinned submodules or snapshots under
 - inih `r62`
 - linenoise `2.0`
 - SQLite amalgamation `3.53.1`
+- Berkeley Yacc snapshot `t20260126`
 
 ## Next Porting Milestones
 

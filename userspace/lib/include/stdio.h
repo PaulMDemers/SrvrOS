@@ -42,6 +42,7 @@ int vsscanf(const char *text, const char *format, va_list args);
 int puts(const char *text);
 int fputs(const char *text, FILE *stream);
 int fputc(int c, FILE *stream);
+#define putc(c, stream) fputc((c), (stream))
 int getc(FILE *stream);
 int fgetc(FILE *stream);
 int ungetc(int c, FILE *stream);

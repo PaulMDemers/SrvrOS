@@ -479,6 +479,40 @@ int unlink(const char *path) {
     return 0;
 }
 
+int mkstemp(char *template_path) {
+    size_t length;
+    size_t suffix;
+    if (template_path == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    length = strlen(template_path);
+    if (length < 6) {
+        errno = EINVAL;
+        return -1;
+    }
+    suffix = length - 6;
+    for (size_t i = suffix; i < length; i++) {
+        if (template_path[i] != 'X') {
+            errno = EINVAL;
+            return -1;
+        }
+    }
+    for (uint64_t attempt = 0; attempt < 10000; attempt++) {
+        uint64_t value = ((uint64_t)getpid() * 1103515245u + attempt * 2654435761u) % 1000000u;
+        for (size_t digit = 0; digit < 6; digit++) {
+            template_path[suffix + 5 - digit] = (char)('0' + (value % 10));
+            value /= 10;
+        }
+        int fd = open(template_path, O_RDWR | O_CREAT | O_EXCL, 0600);
+        if (fd >= 0) {
+            return fd;
+        }
+    }
+    errno = EEXIST;
+    return -1;
+}
+
 int mkdir(const char *path, mode_t mode) {
     char full[POSIX_PATH_MAX];
     if (__posix_make_path(path, full, sizeof(full)) < 0) {

@@ -371,6 +371,9 @@ kernel, and a minimal Unix-like userspace.
   porting.
 - Add `/fat/bin/make` as the first native build recipe driver for small source
   ports.
+- Add pinned Berkeley Yacc (`/fat/bin/byacc`) as the first native build
+  generator port, backed by small libc additions for `mkstemp`, `strdup`, and
+  `EXIT_SUCCESS`/`EXIT_FAILURE`.
 
 ## Next milestones
 
@@ -388,7 +391,7 @@ kernel, and a minimal Unix-like userspace.
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
    `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
-   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `patch`, `make`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `patch`, `make`, `byacc`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
    This pass also broadens shell `test`/`[` boolean/file comparisons and
    `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.

@@ -363,7 +363,8 @@ empty input with `-r`, `install` copies files into build-style destination trees
 `diff` reports quiet or simple unified differences, `tar` can create/list/extract
 uncompressed ustar archives, `gzip`/`gunzip` handle gzip-framed streams backed
 by the pinned zlib port, `patch` applies simple unified diffs, `make` runs
-small dependency/recipe graphs through the shell, and `realpath` plus
+small dependency/recipe graphs through the shell, `byacc` generates C parsers
+from small yacc grammars, and `realpath` plus
 `readlink -f` normalize checked paths for porting scripts.
 `/fat/bin/expr` covers simple integer arithmetic,
 comparisons, string length/substr/index, and literal-prefix `:` matching for

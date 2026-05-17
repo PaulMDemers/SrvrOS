@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <string.h>
 
 void *memchr(const void *ptr, int value, size_t length) {
@@ -171,4 +172,14 @@ char *strerror(int error) {
     default:
         return "error";
     }
+}
+
+char *strdup(const char *text) {
+    size_t length = strlen(text) + 1;
+    char *copy = malloc(length);
+    if (copy == 0) {
+        return 0;
+    }
+    memcpy(copy, text, length);
+    return copy;
 }

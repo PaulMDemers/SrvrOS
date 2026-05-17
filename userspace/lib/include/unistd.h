@@ -40,6 +40,7 @@ pid_t getpid(void);
 int execve(const char *path, char *const argv[], char *const envp[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);
+int mkstemp(char *template_path);
 extern char *optarg;
 extern int optind;
 extern int opterr;

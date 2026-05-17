@@ -254,6 +254,9 @@ server.
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,
   dependencies, `.PHONY`, automatic variables, and shell-backed commands.
+- Adds `/fat/bin/byacc` from the pinned Berkeley Yacc snapshot as the first
+  native source-port build generator, with smoke coverage for producing
+  `y.tab.c` and `y.tab.h` from a small grammar.
 - Expands configure-script compatibility with shell `test`/`[` boolean
   expressions, `!`, `-nt`, `-ot`, `-ef`, mandatory `]` checking, and
   `/fat/bin/xargs -n`/`-r`.

@@ -21,5 +21,6 @@ char *strstr(const char *haystack, const char *needle);
 size_t strspn(const char *text, const char *accept);
 size_t strcspn(const char *text, const char *reject);
 char *strerror(int error);
+char *strdup(const char *text);
 
 #endif
