@@ -75,5 +75,8 @@ FILE *tmpfile(void);
 char *tmpnam(char *buffer);
 FILE *popen(const char *command, const char *mode);
 int pclose(FILE *stream);
+void flockfile(FILE *stream);
+int ftrylockfile(FILE *stream);
+void funlockfile(FILE *stream);
 
 #endif

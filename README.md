@@ -99,6 +99,8 @@ editor clients:
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
   variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
   with per-thread stacks and TLS plus pthread mutex/cond/once primitives,
+  mutex/cond attributes, recursive mutexes, stack attribute helpers, and
+  futex-backed stdio stream locks,
   `waitpid`, `posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4
   helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
@@ -333,6 +335,7 @@ python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
 ```

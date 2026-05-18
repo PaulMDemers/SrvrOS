@@ -68,9 +68,11 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
   and `sysconf(_SC_CLK_TCK)`
 - First same-address-space pthread surface: `pthread_create`, `pthread_join`,
-  `pthread_detach`, `pthread_exit`, self/equality, basic attributes,
-  per-thread user stacks, per-thread TLS keys, mutexes, condition variables,
-  and `pthread_once`. Threads share the process address space and fd table;
+  `pthread_detach`, `pthread_exit`, self/equality, basic attributes, stack
+  attribute helpers, per-thread user stacks, per-thread TLS keys, mutexes,
+  mutex attributes including recursive and error-checking modes, condition
+  variables, condition attributes, and `pthread_once`. Threads share the
+  process address space and fd table;
   each spawned user thread gets its own scheduler kernel trap stack and user
   FPU state. Detached pthread stacks are reclaimed opportunistically by libc
   when later pthread calls observe completion. Mutexes, condition variables,
@@ -97,9 +99,11 @@ The first compatibility slice now lives under `userspace/lib/include` and
   now has simple full/line/unbuffered stream buffering, path-backed `fflush`,
   logical positions across read prefetch, common formatted output width,
   precision, padding, sign, alternate-form, length, and `%n` handling, and
-  shell-backed one-way process pipes. `posixdemo` covers `w+`, `r+`, and `a+`
-  update streams, including read/write transitions and append-after-seek
-  behavior.
+  shell-backed one-way process pipes. Streams have recursive futex-backed locks
+  exposed through `flockfile`, `ftrylockfile`, and `funlockfile`, so shared
+  stdio use from same-address-space pthreads is serialized. `posixdemo` covers
+  `w+`, `r+`, and `a+` update streams, including read/write transitions and
+  append-after-seek behavior.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
 - TCP socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
   `send`, `recv`, `shutdown`, `setsockopt`, and `getsockopt`
@@ -119,6 +123,11 @@ It also spawns `/fat/bin/execdemo`, which immediately `execve`s
 `/fat/bin/false`; the parent observes exit status 1 to verify real process
 image replacement. The same smoke path uses `/fat/bin/fdprobe` to verify both
 inherited descriptors and `FD_CLOEXEC` descriptor cleanup across exec.
+The `/fat/bin/threadstress` app focuses on preemptive same-process threading:
+explicit yields, mutex/condition/once synchronization, TLS keys, pthread
+attributes, timed condition waits, recursive/error-checking mutexes, detached
+reaping, shared heap allocation, shared regular-file fd writes, and shared
+stdio stream writes.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
 The `jsondemo` app links pinned cJSON `v1.7.19`, parses a service description,
@@ -176,8 +185,7 @@ srvros config header, and the ports smoke test verifies that it can generate
 
 - `fork` is still missing, and pthreads are intentionally compact: threads
   share process resources, detached stack cleanup is opportunistic rather than
-  timer-driven, robust cancellation/signal interactions are missing, and
-  fd/stdio locking is still intentionally narrow.
+  timer-driven, and robust cancellation/signal interactions are missing.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered but bounded to eight
   actions per spawn. Spawn attributes currently cover process group selection

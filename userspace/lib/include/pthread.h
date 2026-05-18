@@ -13,6 +13,10 @@
 #define PTHREAD_CREATE_DETACHED 1
 #define PTHREAD_KEYS_MAX 32
 #define PTHREAD_STACK_MIN 16384
+#define PTHREAD_MUTEX_NORMAL 0
+#define PTHREAD_MUTEX_ERRORCHECK 1
+#define PTHREAD_MUTEX_RECURSIVE 2
+#define PTHREAD_MUTEX_DEFAULT PTHREAD_MUTEX_NORMAL
 
 typedef unsigned long pthread_t;
 typedef unsigned int pthread_key_t;
@@ -20,6 +24,9 @@ typedef int pthread_once_t;
 
 typedef struct {
     int locked;
+    int type;
+    pthread_t owner;
+    unsigned int depth;
 } pthread_mutex_t;
 
 typedef struct {
@@ -31,6 +38,14 @@ typedef struct {
     size_t stacksize;
     void *stackaddr;
 } pthread_attr_t;
+
+typedef struct {
+    int type;
+} pthread_mutexattr_t;
+
+typedef struct {
+    int clock;
+} pthread_condattr_t;
 
 int pthread_create(pthread_t *thread,
     const pthread_attr_t *attr,
@@ -48,14 +63,26 @@ int pthread_attr_getdetachstate(const pthread_attr_t *attr, int *detachstate);
 int pthread_attr_setdetachstate(pthread_attr_t *attr, int detachstate);
 int pthread_attr_getstacksize(const pthread_attr_t *attr, size_t *stacksize);
 int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize);
+int pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stackaddr);
+int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr);
+int pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t *stacksize);
+int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize);
 
-int pthread_mutex_init(pthread_mutex_t *mutex, const void *attr);
+int pthread_mutexattr_init(pthread_mutexattr_t *attr);
+int pthread_mutexattr_destroy(pthread_mutexattr_t *attr);
+int pthread_mutexattr_gettype(const pthread_mutexattr_t *attr, int *type);
+int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type);
+
+int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
 int pthread_mutex_destroy(pthread_mutex_t *mutex);
 int pthread_mutex_lock(pthread_mutex_t *mutex);
 int pthread_mutex_trylock(pthread_mutex_t *mutex);
 int pthread_mutex_unlock(pthread_mutex_t *mutex);
 
-int pthread_cond_init(pthread_cond_t *cond, const void *attr);
+int pthread_condattr_init(pthread_condattr_t *attr);
+int pthread_condattr_destroy(pthread_condattr_t *attr);
+
+int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
 int pthread_cond_destroy(pthread_cond_t *cond);
 int pthread_cond_signal(pthread_cond_t *cond);
 int pthread_cond_broadcast(pthread_cond_t *cond);

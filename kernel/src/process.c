@@ -2007,7 +2007,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         .tid = tid,
         .entry = entry,
         .arg = arg,
-        .stack_top = stack_top & ~0xfull,
+        .stack_top = stack_top,
         .return_value = 0,
         .owner = process,
     };
@@ -2404,10 +2404,12 @@ static void read_file_close(uint64_t handle) {
 }
 
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) ||
         (buffer == NULL && length != 0)) {
+        process_irq_restore(flags);
         return -1;
     }
 
@@ -2419,6 +2421,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
     if (file->type == PROCESS_FILE_VFS) {
         read = read_file_at(file->handle);
         if (read == NULL) {
+            process_irq_restore(flags);
             return -1;
         }
         size = read->size;
@@ -2427,6 +2430,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL) {
+            process_irq_restore(flags);
             return -1;
         }
         size = write->size;
@@ -2446,6 +2450,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
     } else {
         file->offset += count;
     }
+    process_irq_restore(flags);
     return (int64_t)count;
 }
 
@@ -2770,21 +2775,26 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
 }
 
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || (buffer == NULL && length != 0)) {
+        process_irq_restore(flags);
         return -1;
     }
     struct process_write_file *write = write_file_at(file->handle);
     if (write == NULL) {
+        process_irq_restore(flags);
         return -1;
     }
     if (length == 0) {
+        process_irq_restore(flags);
         return 0;
     }
 
     uint64_t needed = write->offset + length;
     if (needed < write->offset || needed > PROCESS_WRITE_BUFFER_MAX || !ensure_write_capacity(write, needed)) {
         write->failed = true;
+        process_irq_restore(flags);
         return -1;
     }
 
@@ -2800,6 +2810,7 @@ int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *
         write->size = write->offset;
     }
     write->dirty = true;
+    process_irq_restore(flags);
     return (int64_t)length;
 }
 
@@ -3519,9 +3530,11 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
 }
 
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence) {
+    uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
         (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE)) {
+        process_irq_restore(flags);
         return -1;
     }
 
@@ -3532,6 +3545,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     if (file->type == PROCESS_FILE_VFS) {
         read = read_file_at(file->handle);
         if (read == NULL) {
+            process_irq_restore(flags);
             return -1;
         }
         current_offset = read->offset;
@@ -3539,6 +3553,7 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         write = write_file_at(file->handle);
         if (write == NULL) {
+            process_irq_restore(flags);
             return -1;
         }
         current_offset = write->offset;
@@ -3553,24 +3568,29 @@ int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, 
     } else if (whence == 2) {
         base = (int64_t)current_size;
     } else {
+        process_irq_restore(flags);
         return -1;
     }
 
     int64_t target = base + offset;
     if (target < 0 ||
         (file->type == PROCESS_FILE_VFS && (uint64_t)target > current_size)) {
+        process_irq_restore(flags);
         return -1;
     }
 
     if (write != NULL) {
         write->offset = (uint64_t)target;
+        process_irq_restore(flags);
         return (int64_t)write->offset;
     }
     if (read != NULL) {
         read->offset = (uint64_t)target;
+        process_irq_restore(flags);
         return (int64_t)read->offset;
     }
     file->offset = (uint64_t)target;
+    process_irq_restore(flags);
     return (int64_t)file->offset;
 }
 

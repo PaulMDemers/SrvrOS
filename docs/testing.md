@@ -26,6 +26,7 @@ python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -108,6 +109,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion
   markers, and it verifies that bare `wait` drains the test-created background
   sleeps from the process table.
+- `thread_smoke.py`: launches `/fat/bin/threadstress`, which stresses explicit
+  user-thread yields, pthread mutexes, condition variables, `pthread_once`,
+  TLS keys, stack and mutex/condition attributes, timed condition waits,
+  recursive/error-checking mutexes, detached-thread reaping, shared heap
+  allocation, shared regular-file fd writes, and recursive stdio stream locks
+  under QEMU preemption.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record

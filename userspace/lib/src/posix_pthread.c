@@ -342,12 +342,80 @@ int pthread_attr_setstacksize(pthread_attr_t *attr, size_t stacksize) {
     return 0;
 }
 
-int pthread_mutex_init(pthread_mutex_t *mutex, const void *attr) {
-    (void)attr;
+int pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stackaddr) {
+    if (attr == 0 || stackaddr == 0) {
+        return EINVAL;
+    }
+    *stackaddr = attr->stackaddr;
+    return 0;
+}
+
+int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr) {
+    if (attr == 0) {
+        return EINVAL;
+    }
+    attr->stackaddr = stackaddr;
+    return 0;
+}
+
+int pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t *stacksize) {
+    if (attr == 0 || stackaddr == 0 || stacksize == 0) {
+        return EINVAL;
+    }
+    *stackaddr = attr->stackaddr;
+    *stacksize = attr->stacksize;
+    return 0;
+}
+
+int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize) {
+    if (attr == 0 || stackaddr == 0 || stacksize < PTHREAD_STACK_MIN) {
+        return EINVAL;
+    }
+    attr->stackaddr = stackaddr;
+    attr->stacksize = stacksize;
+    return 0;
+}
+
+int pthread_mutexattr_init(pthread_mutexattr_t *attr) {
+    if (attr == 0) {
+        return EINVAL;
+    }
+    attr->type = PTHREAD_MUTEX_DEFAULT;
+    return 0;
+}
+
+int pthread_mutexattr_destroy(pthread_mutexattr_t *attr) {
+    return attr == 0 ? EINVAL : 0;
+}
+
+int pthread_mutexattr_gettype(const pthread_mutexattr_t *attr, int *type) {
+    if (attr == 0 || type == 0) {
+        return EINVAL;
+    }
+    *type = attr->type;
+    return 0;
+}
+
+int pthread_mutexattr_settype(pthread_mutexattr_t *attr, int type) {
+    if (attr == 0 ||
+        (type != PTHREAD_MUTEX_NORMAL &&
+            type != PTHREAD_MUTEX_ERRORCHECK &&
+            type != PTHREAD_MUTEX_RECURSIVE &&
+            type != PTHREAD_MUTEX_DEFAULT)) {
+        return EINVAL;
+    }
+    attr->type = type;
+    return 0;
+}
+
+int pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr) {
     if (mutex == 0) {
         return EINVAL;
     }
     mutex->locked = 0;
+    mutex->type = attr != 0 ? attr->type : PTHREAD_MUTEX_DEFAULT;
+    mutex->owner = 0;
+    mutex->depth = 0;
     return 0;
 }
 
@@ -359,6 +427,17 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
     if (mutex == 0) {
         return EINVAL;
     }
+    pthread_t self = pthread_self();
+    if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
+        mutex->owner == self) {
+        if (mutex->type == PTHREAD_MUTEX_RECURSIVE) {
+            mutex->depth++;
+            return 0;
+        }
+        if (mutex->type == PTHREAD_MUTEX_ERRORCHECK) {
+            return EDEADLK;
+        }
+    }
     int expected = 0;
     while (!__atomic_compare_exchange_n(&mutex->locked,
             &expected,
@@ -369,6 +448,8 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
         expected = 0;
         (void)srv_futex_wait((uint32_t *)&mutex->locked, 1, 0);
     }
+    mutex->owner = self;
+    mutex->depth = 1;
     return 0;
 }
 
@@ -376,25 +457,65 @@ int pthread_mutex_trylock(pthread_mutex_t *mutex) {
     if (mutex == 0) {
         return EINVAL;
     }
+    pthread_t self = pthread_self();
+    if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) != 0 &&
+        mutex->owner == self &&
+        mutex->type == PTHREAD_MUTEX_RECURSIVE) {
+        mutex->depth++;
+        return 0;
+    }
     int expected = 0;
-    return __atomic_compare_exchange_n(&mutex->locked,
+    int locked = __atomic_compare_exchange_n(&mutex->locked,
         &expected,
         1,
         0,
         __ATOMIC_ACQUIRE,
-        __ATOMIC_RELAXED) ? 0 : EBUSY;
+        __ATOMIC_RELAXED);
+    if (!locked) {
+        return EBUSY;
+    }
+    mutex->owner = self;
+    mutex->depth = 1;
+    return 0;
 }
 
 int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     if (mutex == 0) {
         return EINVAL;
     }
+    pthread_t self = pthread_self();
+    if (__atomic_load_n(&mutex->locked, __ATOMIC_ACQUIRE) == 0) {
+        return EPERM;
+    }
+    if (mutex->type != PTHREAD_MUTEX_NORMAL &&
+        mutex->type != PTHREAD_MUTEX_DEFAULT &&
+        mutex->owner != self) {
+        return EPERM;
+    }
+    if (mutex->type == PTHREAD_MUTEX_RECURSIVE && mutex->owner == self && mutex->depth > 1) {
+        mutex->depth--;
+        return 0;
+    }
+    mutex->owner = 0;
+    mutex->depth = 0;
     __atomic_store_n(&mutex->locked, 0, __ATOMIC_RELEASE);
     (void)srv_futex_wake((uint32_t *)&mutex->locked, 1);
     return 0;
 }
 
-int pthread_cond_init(pthread_cond_t *cond, const void *attr) {
+int pthread_condattr_init(pthread_condattr_t *attr) {
+    if (attr == 0) {
+        return EINVAL;
+    }
+    attr->clock = CLOCK_REALTIME;
+    return 0;
+}
+
+int pthread_condattr_destroy(pthread_condattr_t *attr) {
+    return attr == 0 ? EINVAL : 0;
+}
+
+int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
     (void)attr;
     if (cond == 0) {
         return EINVAL;

@@ -102,7 +102,8 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
 
 static bool has_ready_thread_except(uint64_t skipped_index) {
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if (i != skipped_index && threads[i].state == THREAD_READY) {
+        if (i != skipped_index &&
+            (threads[i].state == THREAD_READY || threads[i].state == THREAD_RUNNING)) {
             return true;
         }
     }
@@ -111,6 +112,7 @@ static bool has_ready_thread_except(uint64_t skipped_index) {
 
 static void scheduler_trampoline(void) {
     switching = false;
+    __asm__ volatile ("sti" : : : "memory");
     struct thread *thread = &threads[current_thread];
     thread->entry(thread->arg);
     thread->state = THREAD_DEAD;
@@ -183,7 +185,9 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
 }
 
 void scheduler_yield(void) {
+    uint64_t flags = irq_save();
     if (!initialized || switching) {
+        irq_restore(flags);
         return;
     }
 
@@ -192,6 +196,9 @@ void scheduler_yield(void) {
 
     for (uint64_t i = 1; i <= SCHEDULER_MAX_THREADS; i++) {
         uint64_t candidate = (old_index + i) % SCHEDULER_MAX_THREADS;
+        if (candidate != old_index && threads[candidate].state == THREAD_RUNNING) {
+            threads[candidate].state = THREAD_READY;
+        }
         if (threads[candidate].state == THREAD_READY) {
             next_index = candidate;
             break;
@@ -199,6 +206,7 @@ void scheduler_yield(void) {
     }
 
     if (next_index == old_index) {
+        irq_restore(flags);
         return;
     }
 
@@ -219,13 +227,17 @@ void scheduler_yield(void) {
             vmm_switch_address_space(next_address_space);
         }
     }
-    if (old->kernel_stack_top != next->kernel_stack_top) {
-        gdt_set_kernel_stack(thread_kernel_stack_top(next));
+    uint64_t old_stack_top = thread_kernel_stack_top(old);
+    uint64_t next_stack_top = thread_kernel_stack_top(next);
+    if (old_stack_top != next_stack_top) {
+        gdt_set_kernel_stack(next_stack_top);
     }
     fpu_switch_kernel_state(&old->kernel_fpu, &next->kernel_fpu, thread_user_fpu(next));
 
     scheduler_context_switch(&old->context, &next->context);
+
     switching = false;
+    irq_restore(flags);
 }
 
 void scheduler_exit_current(void) {

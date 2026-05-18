@@ -31,6 +31,7 @@
 #define EROFS 30
 #define EPIPE 32
 #define ERANGE 34
+#define EDEADLK 35
 #define ENOSYS 38
 #define ENOTEMPTY 39
 #define EINPROGRESS 115

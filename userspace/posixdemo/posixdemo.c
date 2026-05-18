@@ -219,6 +219,19 @@ static int pthread_heap_stress_test(void) {
     return pthread_stress_once_count == 1 ? 0 : -1;
 }
 
+static int pthread_check_failed(const char *name) {
+    say("posixdemo: pthread compat failed: ");
+    say(name);
+    say("\n");
+    return 47;
+}
+
+#define PTHREAD_CHECK(expr) do { \
+    if (!(expr)) { \
+        return pthread_check_failed(#expr); \
+    } \
+} while (0)
+
 int main(void) {
     char cwd[160];
     char buffer[64];
@@ -1190,44 +1203,41 @@ int main(void) {
     void *joined_value = 0;
     void *thread_value = (void *)0x1234;
     struct timespec short_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
-    if (pthread_mutex_init(&mutex, 0) != 0 ||
-        pthread_mutex_lock(&mutex) != 0 ||
-        pthread_mutex_trylock(&mutex) != EBUSY ||
-        pthread_mutex_unlock(&mutex) != 0 ||
-        pthread_cond_init(&cond, 0) != 0 ||
-        pthread_cond_signal(&cond) != 0 ||
-        pthread_cond_broadcast(&cond) != 0 ||
-        pthread_cond_destroy(&cond) != 0 ||
-        pthread_cond_futex_test() != 0 ||
-        pthread_once(&once, once_init) != 0 ||
-        pthread_once(&once, once_init) != 0 ||
-        once_count != 1 ||
-        pthread_key_create(&key, 0) != 0 ||
-        pthread_setspecific(key, thread_value) != 0 ||
-        pthread_getspecific(key) != thread_value ||
-        pthread_key_delete(key) != 0 ||
-        pthread_attr_init(&pthread_attr) != 0 ||
-        pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED) != 0 ||
-        pthread_attr_setstacksize(&pthread_attr, 32768) != 0 ||
-        pthread_detached_test(&pthread_attr, &detached_worker) != 0 ||
-        pthread_attr_destroy(&pthread_attr) != 0 ||
-        !pthread_equal(pthread_self(), pthread_self()) ||
-        pthread_create(0, 0, 0, 0) != EINVAL ||
-        pthread_key_create(&pthread_demo_key, 0) != 0 ||
-        pthread_create(&worker, 0, pthread_worker, (void *)0x4444) != 0 ||
-        pthread_join(worker, &joined_value) != 0 ||
-        joined_value != (void *)0x2a ||
-        pthread_shared != 12 ||
-        pthread_heap_stress_test() != 0 ||
-        pthread_key_delete(pthread_demo_key) != 0 ||
-        nanosleep(&short_sleep, 0) != 0 ||
-        sched_yield() != 0 ||
-        getpagesize() != 4096 ||
-        sysconf(_SC_PAGESIZE) != 4096 ||
-        sysconf(_SC_NPROCESSORS_ONLN) != 1) {
-        say("posixdemo: pthread compat failed\n");
-        return 47;
-    }
+    PTHREAD_CHECK(pthread_mutex_init(&mutex, 0) == 0);
+    PTHREAD_CHECK(pthread_mutex_lock(&mutex) == 0);
+    PTHREAD_CHECK(pthread_mutex_trylock(&mutex) == EBUSY);
+    PTHREAD_CHECK(pthread_mutex_unlock(&mutex) == 0);
+    PTHREAD_CHECK(pthread_cond_init(&cond, 0) == 0);
+    PTHREAD_CHECK(pthread_cond_signal(&cond) == 0);
+    PTHREAD_CHECK(pthread_cond_broadcast(&cond) == 0);
+    PTHREAD_CHECK(pthread_cond_destroy(&cond) == 0);
+    PTHREAD_CHECK(pthread_cond_futex_test() == 0);
+    PTHREAD_CHECK(pthread_once(&once, once_init) == 0);
+    PTHREAD_CHECK(pthread_once(&once, once_init) == 0);
+    PTHREAD_CHECK(once_count == 1);
+    PTHREAD_CHECK(pthread_key_create(&key, 0) == 0);
+    PTHREAD_CHECK(pthread_setspecific(key, thread_value) == 0);
+    PTHREAD_CHECK(pthread_getspecific(key) == thread_value);
+    PTHREAD_CHECK(pthread_key_delete(key) == 0);
+    PTHREAD_CHECK(pthread_attr_init(&pthread_attr) == 0);
+    PTHREAD_CHECK(pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED) == 0);
+    PTHREAD_CHECK(pthread_attr_setstacksize(&pthread_attr, 32768) == 0);
+    PTHREAD_CHECK(pthread_detached_test(&pthread_attr, &detached_worker) == 0);
+    PTHREAD_CHECK(pthread_attr_destroy(&pthread_attr) == 0);
+    PTHREAD_CHECK(pthread_equal(pthread_self(), pthread_self()));
+    PTHREAD_CHECK(pthread_create(0, 0, 0, 0) == EINVAL);
+    PTHREAD_CHECK(pthread_key_create(&pthread_demo_key, 0) == 0);
+    PTHREAD_CHECK(pthread_create(&worker, 0, pthread_worker, (void *)0x4444) == 0);
+    PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);
+    PTHREAD_CHECK(joined_value == (void *)0x2a);
+    PTHREAD_CHECK(pthread_shared == 12);
+    PTHREAD_CHECK(pthread_heap_stress_test() == 0);
+    PTHREAD_CHECK(pthread_key_delete(pthread_demo_key) == 0);
+    PTHREAD_CHECK(nanosleep(&short_sleep, 0) == 0);
+    PTHREAD_CHECK(sched_yield() == 0);
+    PTHREAD_CHECK(getpagesize() == 4096);
+    PTHREAD_CHECK(sysconf(_SC_PAGESIZE) == 4096);
+    PTHREAD_CHECK(sysconf(_SC_NPROCESSORS_ONLN) == 1);
     say("posixdemo: pthread compat ok\n");
 
     int s = socket(AF_INET, SOCK_STREAM, 0);

@@ -272,6 +272,20 @@ server.
   heap lock, making `pthread_once` wait for in-progress initializers, and
   extending `posixdemo` with a small multi-threaded malloc/realloc/calloc
   stress check.
+- Adds `/fat/bin/threadstress` and `tools/thread_smoke.py` to cover explicit
+  user-thread yields, pthread mutex/condition/once behavior, TLS keys, pthread
+  attributes, timed condition waits, recursive/error-checking mutexes, detached
+  reaping, shared heap allocation, shared regular-file fd writes, and shared
+  stdio stream writes under QEMU preemption.
+- Fixes same-process user-thread context stability by updating the TSS from
+  each thread's effective kernel trap stack and preserving the exact SysV
+  userspace stack alignment selected by libc before entering a spawned pthread.
+- Expands the pthread surface with stack attribute helpers, mutex attributes,
+  condition attributes, recursive/error-checking mutex modes, and recursive
+  futex-backed stdio stream locks exposed through `flockfile`,
+  `ftrylockfile`, and `funlockfile`.
+- Serializes regular-file `read`/`write`/`seek` offset updates in the kernel so
+  shared descriptors are safer under preemptive same-process pthreads.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,
@@ -394,6 +408,7 @@ python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --line-wait 12
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

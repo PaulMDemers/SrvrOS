@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <fcntl.h>
+#include <pthread.h>
 #include <math.h>
 #include <spawn.h>
 #include <stdarg.h>
@@ -7,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <srvros/sys.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -30,6 +32,9 @@ struct FILE {
     long position;
     long known_size;
     pid_t popen_pid;
+    int lock;
+    pthread_t lock_owner;
+    unsigned lock_depth;
     char path[FILENAME_MAX];
     struct FILE *next;
 };
@@ -57,6 +62,70 @@ static int prepare_write(FILE *stream);
 static int ensure_stream_buffer(FILE *stream);
 static void reset_buffer_state(FILE *stream);
 static void advance_position(FILE *stream, size_t count);
+
+void flockfile(FILE *stream) {
+    if (stream == 0) {
+        return;
+    }
+    pthread_t self = pthread_self();
+    if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
+        stream->lock_owner == self) {
+        stream->lock_depth++;
+        return;
+    }
+    int expected = 0;
+    while (!__atomic_compare_exchange_n(&stream->lock,
+            &expected,
+            1,
+            0,
+            __ATOMIC_ACQUIRE,
+            __ATOMIC_RELAXED)) {
+        expected = 0;
+        (void)srv_futex_wait((uint32_t *)&stream->lock, 1, 0);
+    }
+    stream->lock_owner = self;
+    stream->lock_depth = 1;
+}
+
+int ftrylockfile(FILE *stream) {
+    if (stream == 0) {
+        return -1;
+    }
+    pthread_t self = pthread_self();
+    if (__atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) != 0 &&
+        stream->lock_owner == self) {
+        stream->lock_depth++;
+        return 0;
+    }
+    int expected = 0;
+    if (!__atomic_compare_exchange_n(&stream->lock,
+            &expected,
+            1,
+            0,
+            __ATOMIC_ACQUIRE,
+            __ATOMIC_RELAXED)) {
+        return -1;
+    }
+    stream->lock_owner = self;
+    stream->lock_depth = 1;
+    return 0;
+}
+
+void funlockfile(FILE *stream) {
+    if (stream == 0 ||
+        __atomic_load_n(&stream->lock, __ATOMIC_ACQUIRE) == 0 ||
+        stream->lock_owner != pthread_self()) {
+        return;
+    }
+    if (stream->lock_depth > 1) {
+        stream->lock_depth--;
+        return;
+    }
+    stream->lock_owner = 0;
+    stream->lock_depth = 0;
+    __atomic_store_n(&stream->lock, 0, __ATOMIC_RELEASE);
+    (void)srv_futex_wake((uint32_t *)&stream->lock, 1);
+}
 
 static void ensure_stdio_initialized(void) {
     if (stdio_initialized) {
@@ -589,7 +658,10 @@ static int format_to(struct out_stream *out, const char *format, va_list args) {
 
 int vfprintf(FILE *stream, const char *format, va_list args) {
     struct out_stream out = {0, 0, 0, 0, stream};
-    return format_to(&out, format, args);
+    flockfile(stream);
+    int result = format_to(&out, format, args);
+    funlockfile(stream);
+    return result;
 }
 
 int fprintf(FILE *stream, const char *format, ...) {
@@ -1025,6 +1097,7 @@ int vfscanf(FILE *stream, const char *format, va_list args) {
         errno = EBADF;
         return EOF;
     }
+    flockfile(stream);
     while (used + 1 < sizeof(buffer) && (c = fgetc(stream)) != EOF) {
         buffer[used++] = (char)c;
         if (c == '\n') {
@@ -1033,9 +1106,12 @@ int vfscanf(FILE *stream, const char *format, va_list args) {
     }
     buffer[used] = '\0';
     if (used == 0 && ferror(stream)) {
+        funlockfile(stream);
         return EOF;
     }
-    return vsscanf(buffer, format, args);
+    int result = vsscanf(buffer, format, args);
+    funlockfile(stream);
+    return result;
 }
 
 int fscanf(FILE *stream, const char *format, ...) {
@@ -1081,12 +1157,15 @@ int putchar(int c) {
 
 int getc(FILE *stream) {
     unsigned char c;
+    flockfile(stream);
     if (prepare_read(stream) < 0) {
+        funlockfile(stream);
         return EOF;
     }
     if (stream->has_unget) {
         stream->has_unget = 0;
         advance_position(stream, 1);
+        funlockfile(stream);
         return stream->unget;
     }
 
@@ -1104,17 +1183,20 @@ int getc(FILE *stream) {
                 } else {
                     stream->error = 1;
                 }
+                funlockfile(stream);
                 return EOF;
             }
         }
         c = stream->buffer[stream->read_pos++];
         advance_position(stream, 1);
+        funlockfile(stream);
         return c;
     }
 
     ssize_t got = read(stream->fd, &c, 1);
     if (got == 1) {
         advance_position(stream, 1);
+        funlockfile(stream);
         return c;
     }
     if (got == 0) {
@@ -1122,6 +1204,7 @@ int getc(FILE *stream) {
     } else {
         stream->error = 1;
     }
+    funlockfile(stream);
     return EOF;
 }
 
@@ -1130,8 +1213,10 @@ int fgetc(FILE *stream) {
 }
 
 int ungetc(int c, FILE *stream) {
+    flockfile(stream);
     if (stream == 0 || c == EOF || stream->has_unget) {
         errno = EINVAL;
+        funlockfile(stream);
         return EOF;
     }
     stream->has_unget = 1;
@@ -1140,6 +1225,7 @@ int ungetc(int c, FILE *stream) {
     if (stream->position > 0) {
         stream->position--;
     }
+    funlockfile(stream);
     return (unsigned char)c;
 }
 
@@ -1346,6 +1432,9 @@ FILE *fdopen(int fd, const char *mode) {
     stream->position = 0;
     stream->known_size = -1;
     stream->popen_pid = 0;
+    stream->lock = 0;
+    stream->lock_owner = 0;
+    stream->lock_depth = 0;
     stream->path[0] = '\0';
     stream->next = 0;
     register_stream(stream);
@@ -1420,6 +1509,7 @@ int fclose(FILE *stream) {
         errno = EBADF;
         return EOF;
     }
+    flockfile(stream);
     int flush_result = fflush(stream);
     int result = stream->owned ? close(stream->fd) : 0;
     if (stream->owned) {
@@ -1428,6 +1518,8 @@ int fclose(FILE *stream) {
             free(stream->buffer);
         }
         free(stream);
+    } else {
+        funlockfile(stream);
     }
     return flush_result < 0 || result < 0 ? EOF : 0;
 }
@@ -1437,21 +1529,27 @@ int fflush(FILE *stream) {
         ensure_stdio_initialized();
         int result = 0;
         for (FILE *scan = open_streams; scan != 0; scan = scan->next) {
+            flockfile(scan);
             if (scan->write_len != 0 && flush_write_buffer(scan) < 0) {
                 result = EOF;
             }
+            funlockfile(scan);
         }
         return result;
     }
+    flockfile(stream);
     if (stream->last_op == FILE_OP_READ) {
         if (sync_underlying_after_read(stream) < 0) {
             stream->error = 1;
+            funlockfile(stream);
             return EOF;
         }
         stream->last_op = FILE_OP_NONE;
+        funlockfile(stream);
         return 0;
     }
     if (flush_write_buffer(stream) < 0) {
+        funlockfile(stream);
         return EOF;
     }
     if (stream->path[0] != '\0') {
@@ -1459,6 +1557,7 @@ int fflush(FILE *stream) {
         (void)fsync(stream->fd);
         errno = saved_errno;
     }
+    funlockfile(stream);
     return 0;
 }
 
@@ -1471,7 +1570,9 @@ int setvbuf(FILE *stream, char *buffer, int mode, size_t size) {
         errno = EINVAL;
         return -1;
     }
+    flockfile(stream);
     if (fflush(stream) < 0) {
+        funlockfile(stream);
         return -1;
     }
     if (stream->buffer_owned) {
@@ -1483,14 +1584,18 @@ int setvbuf(FILE *stream, char *buffer, int mode, size_t size) {
     stream->buffer_mode = mode;
     reset_buffer_state(stream);
     if (mode == _IONBF) {
+        funlockfile(stream);
         return 0;
     }
     stream->buffer_size = size != 0 ? size : BUFSIZ;
     if (buffer != 0) {
         stream->buffer = (unsigned char *)buffer;
+        funlockfile(stream);
         return 0;
     }
-    return ensure_stream_buffer(stream);
+    int result = ensure_stream_buffer(stream);
+    funlockfile(stream);
+    return result;
 }
 
 void setbuf(FILE *stream, char *buffer) {
@@ -1530,8 +1635,10 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
     if (requested == 0) {
         return 0;
     }
+    flockfile(stream);
     if (ptr == 0 || prepare_read(stream) < 0) {
         errno = ptr == 0 ? EINVAL : errno;
+        funlockfile(stream);
         return 0;
     }
     unsigned char *out = ptr;
@@ -1580,7 +1687,9 @@ size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream) {
         }
         break;
     }
-    return copied / size;
+    size_t result = copied / size;
+    funlockfile(stream);
+    return result;
 }
 
 size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
@@ -1588,8 +1697,10 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     if (requested == 0) {
         return 0;
     }
+    flockfile(stream);
     if (ptr == 0 || prepare_write(stream) < 0) {
         errno = ptr == 0 ? EINVAL : errno;
+        funlockfile(stream);
         return 0;
     }
     const unsigned char *input = ptr;
@@ -1605,7 +1716,9 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
             copied += (size_t)bytes;
             advance_position(stream, (size_t)bytes);
         }
-        return copied / size;
+        size_t result = copied / size;
+        funlockfile(stream);
+        return result;
     }
 
     while (copied < requested) {
@@ -1628,7 +1741,9 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
             }
         }
     }
-    return copied / size;
+    size_t result = copied / size;
+    funlockfile(stream);
+    return result;
 }
 
 char *fgets(char *text, int size, FILE *stream) {
@@ -1636,6 +1751,7 @@ char *fgets(char *text, int size, FILE *stream) {
         errno = EINVAL;
         return 0;
     }
+    flockfile(stream);
     int used = 0;
     while (used + 1 < size) {
         int c = getc(stream);
@@ -1648,25 +1764,35 @@ char *fgets(char *text, int size, FILE *stream) {
         }
     }
     if (used == 0) {
+        funlockfile(stream);
         return 0;
     }
     text[used] = '\0';
+    funlockfile(stream);
     return text;
 }
 
 int ferror(FILE *stream) {
-    return stream != 0 && stream->error;
+    flockfile(stream);
+    int result = stream != 0 && stream->error;
+    funlockfile(stream);
+    return result;
 }
 
 int feof(FILE *stream) {
-    return stream != 0 && stream->eof;
+    flockfile(stream);
+    int result = stream != 0 && stream->eof;
+    funlockfile(stream);
+    return result;
 }
 
 void clearerr(FILE *stream) {
+    flockfile(stream);
     if (stream != 0) {
         stream->eof = 0;
         stream->error = 0;
     }
+    funlockfile(stream);
 }
 
 int fileno(FILE *stream) {
@@ -1674,7 +1800,10 @@ int fileno(FILE *stream) {
         errno = EBADF;
         return -1;
     }
-    return stream->fd;
+    flockfile(stream);
+    int fd = stream->fd;
+    funlockfile(stream);
+    return fd;
 }
 
 long ftell(FILE *stream) {
@@ -1682,7 +1811,10 @@ long ftell(FILE *stream) {
         errno = EBADF;
         return -1;
     }
-    return stream->position;
+    flockfile(stream);
+    long position = stream->position;
+    funlockfile(stream);
+    return position;
 }
 
 int fseek(FILE *stream, long offset, int whence) {
@@ -1690,7 +1822,9 @@ int fseek(FILE *stream, long offset, int whence) {
         errno = EBADF;
         return -1;
     }
+    flockfile(stream);
     if (stream->last_op == FILE_OP_WRITE && flush_write_buffer(stream) < 0) {
+        funlockfile(stream);
         return -1;
     }
     long target;
@@ -1702,18 +1836,22 @@ int fseek(FILE *stream, long offset, int whence) {
         long size = refresh_size(stream);
         if (size < 0) {
             errno = ESPIPE;
+            funlockfile(stream);
             return -1;
         }
         target = size + offset;
     } else {
         errno = EINVAL;
+        funlockfile(stream);
         return -1;
     }
     if (target < 0) {
         errno = EINVAL;
+        funlockfile(stream);
         return -1;
     }
     if (lseek(stream->fd, target, SEEK_SET) < 0) {
+        funlockfile(stream);
         return -1;
     }
     stream->position = target;
@@ -1722,6 +1860,7 @@ int fseek(FILE *stream, long offset, int whence) {
     stream->has_unget = 0;
     stream->last_op = FILE_OP_NONE;
     stream->eof = 0;
+    funlockfile(stream);
     return 0;
 }
 
@@ -1745,11 +1884,14 @@ int fgetpos(FILE *stream, fpos_t *position) {
         errno = EINVAL;
         return -1;
     }
+    flockfile(stream);
     long pos = ftell(stream);
     if (pos < 0) {
+        funlockfile(stream);
         return -1;
     }
     *position = pos;
+    funlockfile(stream);
     return 0;
 }
 
@@ -1758,7 +1900,10 @@ int fsetpos(FILE *stream, const fpos_t *position) {
         errno = EINVAL;
         return -1;
     }
-    return fseek(stream, *position, SEEK_SET);
+    flockfile(stream);
+    int result = fseek(stream, *position, SEEK_SET);
+    funlockfile(stream);
+    return result;
 }
 
 int remove(const char *path) {
