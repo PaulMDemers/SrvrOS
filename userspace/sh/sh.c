@@ -82,6 +82,7 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
 static int resolve_command(char *out, size_t capacity, const char *command);
 static int split_words(char *text, char **argv, size_t capacity);
 static int valid_shell_name(const char *name);
+static void shell_parameter_value(const char *name, char *out, size_t capacity, int *is_set);
 static void set_path_list(const char *value);
 static void wait_pipeline_pids(long *pids, size_t count, uint64_t *last_status);
 static void print_script_context(void);
@@ -315,6 +316,271 @@ static int append_command_substitution(const char *command_text,
     captured[captured_length] = '\0';
     append_text(out, capacity, length, captured);
     return 1;
+}
+
+static size_t find_arithmetic_substitution_end(const char *input, size_t open_index) {
+    size_t depth = 0;
+    for (size_t i = open_index + 3; input[i] != '\0'; i++) {
+        if (input[i] == '\\' && input[i + 1] != '\0') {
+            i++;
+            continue;
+        }
+        if (input[i] == '(') {
+            depth++;
+            continue;
+        }
+        if (input[i] == ')') {
+            if (depth != 0) {
+                depth--;
+                continue;
+            }
+            if (input[i + 1] == ')') {
+                return i + 1;
+            }
+            return 0;
+        }
+    }
+    return 0;
+}
+
+struct arithmetic_parser {
+    const char *text;
+    size_t pos;
+    int ok;
+};
+
+static void arithmetic_skip_spaces(struct arithmetic_parser *parser) {
+    while (parser->text[parser->pos] == ' ' || parser->text[parser->pos] == '\t') {
+        parser->pos++;
+    }
+}
+
+static int64_t arithmetic_parse_or(struct arithmetic_parser *parser);
+
+static int arithmetic_parse_integer_text(const char *text, int64_t *out) {
+    if (text == 0 || *text == '\0') {
+        return 0;
+    }
+    char *end = 0;
+    long long value = strtoll(text, &end, 0);
+    if (end == text || *end != '\0') {
+        return 0;
+    }
+    *out = (int64_t)value;
+    return 1;
+}
+
+static int64_t arithmetic_variable_value(const char *name) {
+    char value[ARG_EXPANDED_MAX];
+    int is_set = 0;
+    int64_t parsed = 0;
+    shell_parameter_value(name, value, sizeof(value), &is_set);
+    if (!is_set || !arithmetic_parse_integer_text(value, &parsed)) {
+        return 0;
+    }
+    return parsed;
+}
+
+static int64_t arithmetic_parse_primary(struct arithmetic_parser *parser) {
+    arithmetic_skip_spaces(parser);
+    char c = parser->text[parser->pos];
+    if (c == '(') {
+        parser->pos++;
+        int64_t value = arithmetic_parse_or(parser);
+        arithmetic_skip_spaces(parser);
+        if (parser->text[parser->pos] != ')') {
+            parser->ok = 0;
+            return 0;
+        }
+        parser->pos++;
+        return value;
+    }
+    if (c == '+' || c == '-' || c == '!') {
+        parser->pos++;
+        int64_t value = arithmetic_parse_primary(parser);
+        if (c == '-') {
+            return -value;
+        }
+        if (c == '!') {
+            return value == 0 ? 1 : 0;
+        }
+        return value;
+    }
+    if ((c >= '0' && c <= '9')) {
+        int base = 10;
+        int64_t value = 0;
+        if (parser->text[parser->pos] == '0' &&
+            (parser->text[parser->pos + 1] == 'x' || parser->text[parser->pos + 1] == 'X')) {
+            base = 16;
+            parser->pos += 2;
+        }
+        for (;;) {
+            char digit = parser->text[parser->pos];
+            int digit_value = -1;
+            if (digit >= '0' && digit <= '9') {
+                digit_value = digit - '0';
+            } else if (digit >= 'a' && digit <= 'f') {
+                digit_value = digit - 'a' + 10;
+            } else if (digit >= 'A' && digit <= 'F') {
+                digit_value = digit - 'A' + 10;
+            }
+            if (digit_value < 0 || digit_value >= base) {
+                break;
+            }
+            value = value * base + digit_value;
+            parser->pos++;
+        }
+        return value;
+    }
+    if (c == '$') {
+        parser->pos++;
+    }
+    if (shell_is_name_start(parser->text[parser->pos]) ||
+        parser->text[parser->pos] == '?' ||
+        parser->text[parser->pos] == '!' ||
+        parser->text[parser->pos] == '$' ||
+        parser->text[parser->pos] == '#') {
+        char name[64];
+        size_t length = 0;
+        if (shell_is_name_start(parser->text[parser->pos])) {
+            while (shell_is_name_char(parser->text[parser->pos]) && length + 1 < sizeof(name)) {
+                name[length++] = parser->text[parser->pos++];
+            }
+        } else {
+            name[length++] = parser->text[parser->pos++];
+        }
+        name[length] = '\0';
+        return arithmetic_variable_value(name);
+    }
+    parser->ok = 0;
+    return 0;
+}
+
+static int64_t arithmetic_parse_mul(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_primary(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        char op = parser->text[parser->pos];
+        if (op != '*' && op != '/' && op != '%') {
+            return value;
+        }
+        parser->pos++;
+        int64_t rhs = arithmetic_parse_primary(parser);
+        if ((op == '/' || op == '%') && rhs == 0) {
+            parser->ok = 0;
+            return 0;
+        }
+        if (op == '*') {
+            value *= rhs;
+        } else if (op == '/') {
+            value /= rhs;
+        } else {
+            value %= rhs;
+        }
+    }
+}
+
+static int64_t arithmetic_parse_add(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_mul(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        char op = parser->text[parser->pos];
+        if (op != '+' && op != '-') {
+            return value;
+        }
+        parser->pos++;
+        int64_t rhs = arithmetic_parse_mul(parser);
+        value = op == '+' ? value + rhs : value - rhs;
+    }
+}
+
+static int64_t arithmetic_parse_relational(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_add(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        const char *text = parser->text + parser->pos;
+        if (text[0] == '<' && text[1] == '=') {
+            parser->pos += 2;
+            value = value <= arithmetic_parse_add(parser) ? 1 : 0;
+        } else if (text[0] == '>' && text[1] == '=') {
+            parser->pos += 2;
+            value = value >= arithmetic_parse_add(parser) ? 1 : 0;
+        } else if (text[0] == '<') {
+            parser->pos++;
+            value = value < arithmetic_parse_add(parser) ? 1 : 0;
+        } else if (text[0] == '>') {
+            parser->pos++;
+            value = value > arithmetic_parse_add(parser) ? 1 : 0;
+        } else {
+            return value;
+        }
+    }
+}
+
+static int64_t arithmetic_parse_equal(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_relational(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        const char *text = parser->text + parser->pos;
+        if (text[0] == '=' && text[1] == '=') {
+            parser->pos += 2;
+            value = value == arithmetic_parse_relational(parser) ? 1 : 0;
+        } else if (text[0] == '!' && text[1] == '=') {
+            parser->pos += 2;
+            value = value != arithmetic_parse_relational(parser) ? 1 : 0;
+        } else {
+            return value;
+        }
+    }
+}
+
+static int64_t arithmetic_parse_and(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_equal(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        if (parser->text[parser->pos] != '&' || parser->text[parser->pos + 1] != '&') {
+            return value;
+        }
+        parser->pos += 2;
+        value = (value != 0 && arithmetic_parse_equal(parser) != 0) ? 1 : 0;
+    }
+}
+
+static int64_t arithmetic_parse_or(struct arithmetic_parser *parser) {
+    int64_t value = arithmetic_parse_and(parser);
+    for (;;) {
+        arithmetic_skip_spaces(parser);
+        if (parser->text[parser->pos] != '|' || parser->text[parser->pos + 1] != '|') {
+            return value;
+        }
+        parser->pos += 2;
+        value = (value != 0 || arithmetic_parse_and(parser) != 0) ? 1 : 0;
+    }
+}
+
+static int evaluate_arithmetic(const char *text, int64_t *value_out) {
+    struct arithmetic_parser parser = {
+        .text = text,
+        .pos = 0,
+        .ok = 1,
+    };
+    int64_t value = arithmetic_parse_or(&parser);
+    arithmetic_skip_spaces(&parser);
+    if (!parser.ok || parser.text[parser.pos] != '\0') {
+        return 0;
+    }
+    *value_out = value;
+    return 1;
+}
+
+static void append_i64(char *out, size_t capacity, size_t *length, int64_t value) {
+    if (value < 0) {
+        uint64_t magnitude = (uint64_t)(-(value + 1)) + 1;
+        append_char(out, capacity, length, '-');
+        append_number(out, capacity, length, magnitude);
+    } else {
+        append_number(out, capacity, length, (uint64_t)value);
+    }
 }
 
 static int parameter_pattern_match(const char *pattern, const char *text) {
@@ -638,6 +904,27 @@ static int expand_variables(const char *input, char *out, size_t capacity, char 
         if (input[i + 1] >= '0' && input[i + 1] <= '9') {
             append_text(out, capacity, &length, positional_parameter(input[i + 1] - '0'));
             i++;
+            continue;
+        }
+        if (input[i + 1] == '(' && input[i + 2] == '(') {
+            char expression[ARG_EXPANDED_MAX];
+            size_t end = find_arithmetic_substitution_end(input, i);
+            size_t expression_length = 0;
+            int64_t value = 0;
+            if (end == 0) {
+                shell_error("sh: unterminated arithmetic expansion\n");
+                return 0;
+            }
+            for (size_t cursor = i + 3; cursor + 1 < end && expression_length + 1 < sizeof(expression); cursor++) {
+                expression[expression_length++] = input[cursor];
+            }
+            expression[expression_length] = '\0';
+            if (!evaluate_arithmetic(expression, &value)) {
+                cli_puts("sh: bad arithmetic expansion\n");
+                return 0;
+            }
+            append_i64(out, capacity, &length, value);
+            i = end;
             continue;
         }
         if (input[i + 1] == '(') {
@@ -1268,7 +1555,7 @@ static void print_help(void) {
     cli_puts("builtins: help man apropos exit exec return shift set source . path cd pwd clear echo env export unset alias history type which command test [ break continue jobs wait fg bg kill service dhcp net dns rmdir read :\n");
     cli_puts("commands: ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip minizip miniunz patch make byacc sed expr printf tr ln sync test [ cksum sum comm paste join split od hexdump strings file tty stty time timeout nohup nice stat chmod ps kill which env pwd true false sleep date touch mktemp basename dirname uname hostname uptime hello svscan webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi sysabi spin fpdemo desktop calcgui notesgui textedit imgedit posixdemo threadstress ttydemo jsondemo inidemo linedemo sqlitedemo zlibdemo lua\n");
     cli_puts("syntax: sh [--login] [-c command|script] [args], command [args], { commands; }, name() { commands; }, if/then/else/fi, for/in/do/done, while/do/done, case/in/esac, use ;, &&, ||, append & for background\n");
-    cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command), command-local NAME=value, unquoted * and ? globs\n");
+    cli_puts("expansion: $VAR ${VAR} $? $$ $! $0 $1 $# $@ $(command) $((expr)), command-local NAME=value, unquoted * and ? globs\n");
     cli_puts("redirection: command < file, command > file, command >> file, command 2> file, command 2>> file, command 2>&1\n");
     cli_puts("pipeline: command | command [...]\n");
     cli_puts("topics: help -l, help <topic>, man <topic>, apropos <word>\n");
@@ -6179,6 +6466,71 @@ static uint64_t run_compound_tail(uint64_t status, char *line, size_t command_en
     return 2;
 }
 
+static int segment_needs_shell_parser(const char *segment) {
+    return (segment[0] == '{' && shell_is_separator(segment[1])) ||
+        shell_keyword_at(segment, 0, "if") ||
+        shell_keyword_at(segment, 0, "for") ||
+        shell_keyword_at(segment, 0, "while") ||
+        shell_keyword_at(segment, 0, "case") ||
+        is_function_start(segment);
+}
+
+static int segment_prefix_is_blank(const char *segment, const char *cursor) {
+    while (segment < cursor) {
+        if (*segment != ' ' && *segment != '\t') {
+            return 0;
+        }
+        segment++;
+    }
+    return 1;
+}
+
+static int find_compound_segment_end(const char *segment, size_t *command_end) {
+    size_t body_start = 0;
+    size_t body_end = 0;
+    struct if_parts if_parts;
+    struct for_parts for_parts;
+    struct while_parts while_parts;
+    struct case_parts case_parts;
+
+    if (segment[0] == '{' && shell_is_separator(segment[1])) {
+        return find_group_parts(segment, &body_start, &body_end, command_end);
+    }
+    if (shell_keyword_at(segment, 0, "if") && find_if_parts(segment, &if_parts)) {
+        *command_end = if_parts.command_end;
+        return 1;
+    }
+    if (shell_keyword_at(segment, 0, "for") && find_for_parts(segment, &for_parts)) {
+        *command_end = for_parts.command_end;
+        return 1;
+    }
+    if (shell_keyword_at(segment, 0, "while") && find_while_parts(segment, &while_parts)) {
+        *command_end = while_parts.command_end;
+        return 1;
+    }
+    if (shell_keyword_at(segment, 0, "case") && find_case_parts(segment, &case_parts)) {
+        *command_end = case_parts.command_end;
+        return 1;
+    }
+    return 0;
+}
+
+static uint64_t run_segment(char *segment, char *cwd, int background) {
+    char *trimmed = cli_trim(segment);
+    char expanded[EXPANDED_LINE_MAX];
+
+    if (*trimmed == '\0') {
+        return 0;
+    }
+    if (!background && segment_needs_shell_parser(trimmed)) {
+        return run_line(trimmed, cwd);
+    }
+    if (!expand_variables(trimmed, expanded, sizeof(expanded), cwd)) {
+        return 2;
+    }
+    return run_command(expanded, cwd, background);
+}
+
 static uint64_t run_line(char *line, char *cwd) {
     char quote = '\0';
     char *segment = line;
@@ -6259,12 +6611,7 @@ static uint64_t run_line(char *line, char *cwd) {
                 (control == SHELL_CONTROL_AND && status == 0) ||
                 (control == SHELL_CONTROL_OR && status != 0);
             if (should_run) {
-                char expanded[EXPANDED_LINE_MAX];
-                if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
-                    status = 2;
-                } else {
-                    status = run_command(expanded, cwd, 0);
-                }
+                status = run_segment(segment, cwd, 0);
                 last_status = status;
                 if (shell_flow_requested()) {
                     return status;
@@ -6280,18 +6627,36 @@ static uint64_t run_line(char *line, char *cwd) {
             }
         } else if (c == '\'' || c == '"') {
             quote = c;
+        } else if (c == '$' && cursor[1] == '(' && cursor[2] == '(') {
+            size_t end = find_arithmetic_substitution_end(line, (size_t)(cursor - line));
+            if (end != 0) {
+                cursor = line + end;
+            }
+        } else if (c == '$' && cursor[1] == '(') {
+            size_t end = find_command_substitution_end(line, (size_t)(cursor - line));
+            if (end != 0) {
+                cursor = line + end;
+            }
+        } else if (c == '$' && cursor[1] == '{') {
+            while (cursor[1] != '\0' && cursor[1] != '}') {
+                cursor++;
+            }
+        } else if (segment_prefix_is_blank(segment, cursor)) {
+            size_t command_end = 0;
+            char *compound = cursor;
+            while (*compound == ' ' || *compound == '\t') {
+                compound++;
+            }
+            if (find_compound_segment_end(compound, &command_end)) {
+                cursor = compound + command_end - 1;
+            }
         } else if (c == '#' && (cursor == segment || cursor[-1] == ' ' || cursor[-1] == '\t')) {
             *cursor = '\0';
-            char expanded[EXPANDED_LINE_MAX];
-            if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
-                status = 2;
-            } else {
-                int should_run = control == SHELL_CONTROL_ALWAYS ||
-                    (control == SHELL_CONTROL_AND && status == 0) ||
-                    (control == SHELL_CONTROL_OR && status != 0);
-                if (should_run) {
-                    status = run_command(expanded, cwd, 0);
-                }
+            int should_run = control == SHELL_CONTROL_ALWAYS ||
+                (control == SHELL_CONTROL_AND && status == 0) ||
+                (control == SHELL_CONTROL_OR && status != 0);
+            if (should_run) {
+                status = run_segment(segment, cwd, 0);
             }
             last_status = status;
             if (shell_flow_requested()) {
@@ -6323,12 +6688,7 @@ static uint64_t run_line(char *line, char *cwd) {
                 (control == SHELL_CONTROL_AND && status == 0) ||
                 (control == SHELL_CONTROL_OR && status != 0);
             if (should_run) {
-                char expanded[EXPANDED_LINE_MAX];
-                if (!expand_variables(segment, expanded, sizeof(expanded), cwd)) {
-                    status = 2;
-                } else {
-                    status = run_command(expanded, cwd, background);
-                }
+                status = run_segment(segment, cwd, background);
                 last_status = status;
                 if (shell_flow_requested()) {
                     return status;

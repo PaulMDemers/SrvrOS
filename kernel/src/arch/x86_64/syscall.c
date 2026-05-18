@@ -1,5 +1,6 @@
 #include "isr_frame.h"
 
+#include <srvros/block.h>
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/gui.h>
@@ -23,7 +24,7 @@
 #define MAX_SYSCALL_COPY (256 * 1024)
 #define MAX_POLL_FDS 32
 #define MAX_EXEC_ARGS 16
-#define MAX_EXEC_ENV 16
+#define MAX_EXEC_ENV 64
 #define MAX_EXEC_STRING 256
 
 struct syscall_stat {
@@ -1620,6 +1621,14 @@ static int64_t syscall_futex_wake(uint32_t *address, uint64_t max_count) {
     return process_futex_wake(address, max_count);
 }
 
+static int64_t syscall_sync(void) {
+    int64_t result = process_file_sync_all();
+    if (!block_flush_all()) {
+        result = -1;
+    }
+    return result;
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:
@@ -1904,6 +1913,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_FUTEX_WAKE:
         frame->rax = (uint64_t)syscall_futex_wake((uint32_t *)frame->rdi, frame->rsi);
+        return;
+    case SYS_SYNC:
+        frame->rax = (uint64_t)syscall_sync();
         return;
     default:
         frame->rax = (uint64_t)-1;

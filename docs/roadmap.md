@@ -385,13 +385,16 @@ kernel, and a minimal Unix-like userspace.
    `while`, `case`, compound-command tail chaining, command-local
    `NAME=value`, comments, script line continuations, simple here-docs, brace
    grouping, quoted/escaped argument preservation, `shift`, `break`/`continue`,
-   `command`, `$!`, `fg`/`bg`,
+   `command`, `$((expr))`, `$!`, `fg`/`bg`,
    `%+`/`%-`, `jobs -l`, `kill %job`, background pipelines, tab completion,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
    `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
    `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
-   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`, `mkdir -p`, recursive `cp`/`rm`,
+   `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`,
+   `ln`, `sync`, external `test`/`[`, `cksum`, `sum`, `comm`, `paste`,
+   `join`, `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`,
+   `time`, `timeout`, `nohup`, `nice`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
    This pass also broadens shell `test`/`[` boolean/file comparisons and
    `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.
@@ -399,6 +402,7 @@ kernel, and a minimal Unix-like userspace.
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
+   global `sync` flushes dirty writable descriptors,
    and writable mounts now persist srvros Unix-like metadata through the
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally

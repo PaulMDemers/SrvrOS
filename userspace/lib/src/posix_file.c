@@ -178,6 +178,10 @@ int fsync(int fd) {
     return 0;
 }
 
+void sync(void) {
+    (void)srv_sync();
+}
+
 int dup(int fd) {
     long result = srv_dup(fd);
     if (result < 0) {

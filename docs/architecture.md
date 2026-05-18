@@ -308,7 +308,8 @@ non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
 redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`
 including default/assign/alternate/error parameter forms, `${#VAR}`,
 prefix/suffix trims, `$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`,
-`$@`), `$(command)` command substitution, unquoted `*`/`?` globbing, unmatched quote/block
+`$@`), `$(command)` command substitution, `$((expr))` integer arithmetic
+expansion, unquoted `*`/`?` globbing, unmatched quote/block
 diagnostics, Ctrl-C prompt recovery, `&&`/`||`, compound-command tail chaining,
 command-local `NAME=value`, comments, script line continuations, simple
 here-docs, current-shell `{ ...; }` grouping,
@@ -409,7 +410,8 @@ This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 `dup`/`dup2` for standard streams, pipes, writable regular files, and
 read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
-`FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`,
+`FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`, process-wide
+`sync`,
 `truncate`/`ftruncate`, `statvfs`, minimal terminal `tcgetattr`/`tcsetattr`
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
 malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
@@ -432,6 +434,9 @@ flush/truncate, process heap growth, `getpid`, raw timer ticks,
 sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
 metadata with exFAT sidecar persistence.
+The native exec setup keeps argv compact and accepts up to 64 environment
+entries, enough for profile variables plus command-local shell environments in
+longer CLI sessions.
 
 User pthreads are backed by a compact native thread syscall set. The libc shim
 allocates a stack with `mmap`, enters the requested routine in the same process

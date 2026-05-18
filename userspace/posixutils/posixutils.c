@@ -153,7 +153,12 @@ static int sync_main(int argc, char **argv) {
         usage("sync");
         return 0;
     }
-    return argc == 1 ? 0 : 1;
+    if (argc != 1) {
+        usage("sync");
+        return 1;
+    }
+    sync();
+    return 0;
 }
 
 struct test_parser {

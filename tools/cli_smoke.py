@@ -123,6 +123,10 @@ def main():
         "echo len-${#ASSIGNME}\n"
         "echo trim-prefix-${ASSIGNME#set-}\n"
         "echo trim-suffix-${ASSIGNME%-expansion}\n"
+        "echo arith-$((1 + 2 * 3))\n"
+        "N=5\n"
+        "echo arith-var-$((N * (N + 1) / 2))\n"
+        "echo arith-logic-$((N > 3 && N < 10))\n"
         "false && echo should-not-run\n"
         "echo after-false-$?\n"
         "true || echo should-not-run\n"
@@ -153,6 +157,7 @@ def main():
         "sleep 0\n"
         "date\n"
         "touch /fat/touched.txt\n"
+        "sync\n"
         "stat /fat/touched.txt\n"
         "echo tmpdir-$TMPDIR\n"
         "TMP=$(mktemp /fat/tmp/smoke.XXXXXX)\n"
@@ -610,6 +615,9 @@ def main():
         "len-16",
         "trim-prefix-by-expansion",
         "trim-suffix-set-by",
+        "arith-7",
+        "arith-var-15",
+        "arith-logic-1",
         "after-false-1",
         "or-ok",
         "pid-",

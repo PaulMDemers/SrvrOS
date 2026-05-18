@@ -41,6 +41,7 @@ struct block_device *block_register(const char *name,
 struct block_device *block_find(const char *name);
 bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length);
 bool block_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length);
+bool block_flush_all(void);
 uint64_t block_device_size(const struct block_device *device);
 const uint8_t *block_memory_data(struct block_device *device, uint64_t *size_out);
 void block_print_status(void);

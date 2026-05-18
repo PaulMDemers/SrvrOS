@@ -40,6 +40,7 @@
 #define PROCESS_KERNEL_STACK_MIN_PHYSICAL 0x100000ull
 #define PROCESS_USER_PAGE_MIN_PHYSICAL 0x4000000ull
 #define PROCESS_MAX_ARGS 16
+#define PROCESS_MAX_ENV 64
 #define PROCESS_ARGS_MAX 256
 #define PROCESS_PATH_MAX 160
 #define PROCESS_WRITE_BUFFER_MAX (1024 * 1024)
@@ -576,15 +577,15 @@ static bool setup_process_vectors(struct process *process,
     uint64_t envc,
     const char *const *env_values) {
     uint64_t argv[PROCESS_MAX_ARGS + 1];
-    uint64_t envp[PROCESS_MAX_ARGS + 1];
+    uint64_t envp[PROCESS_MAX_ENV + 1];
     uint64_t argv_lengths[PROCESS_MAX_ARGS];
-    uint64_t env_lengths[PROCESS_MAX_ARGS];
+    uint64_t env_lengths[PROCESS_MAX_ENV];
     uint64_t stack_cursor;
 
     if (process == NULL || process->address_space == 0 || argv_values == NULL) {
         return false;
     }
-    if (argc == 0 || argc > PROCESS_MAX_ARGS || envc > PROCESS_MAX_ARGS) {
+    if (argc == 0 || argc > PROCESS_MAX_ARGS || envc > PROCESS_MAX_ENV) {
         return false;
     }
 
@@ -2970,6 +2971,16 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
     }
     write->dirty = false;
     return 0;
+}
+
+int64_t process_file_sync_all(void) {
+    int64_t result = 0;
+    for (uint64_t i = 0; i < PROCESS_MAX_WRITE_FILES; i++) {
+        if (write_files[i].used && write_files[i].dirty && process_file_flush(NULL, i + 1) < 0) {
+            result = -1;
+        }
+    }
+    return result;
 }
 
 static bool pipe_read_ready(void *arg) {

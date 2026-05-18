@@ -140,6 +140,7 @@ int64_t process_file_get_lock(struct process *process, uint64_t fd, struct srv_f
 int64_t process_file_set_lock(struct process *process, uint64_t fd, const struct srv_flock *lock, bool wait);
 int64_t process_file_truncate(struct process *process, uint64_t fd, uint64_t length);
 int64_t process_file_flush(struct process *process, uint64_t fd);
+int64_t process_file_sync_all(void);
 int64_t process_file_seek(struct process *process, uint64_t fd, int64_t offset, uint64_t whence);
 int64_t process_file_stat(struct process *process,
     uint64_t fd,

@@ -99,6 +99,7 @@ long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms);
 long srv_fcntl(int fd, int command, uint64_t flags);
 long srv_ftruncate(int fd, uint64_t length);
 long srv_fsync(int fd);
+long srv_sync(void);
 long srv_tty_getattr(int fd, struct srv_termios *termios);
 long srv_tty_setattr(int fd, int actions, const struct srv_termios *termios);
 long srv_ioctl(int fd, uint64_t request, void *argument);

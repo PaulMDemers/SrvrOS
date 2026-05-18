@@ -54,7 +54,8 @@ editor clients:
   multi-stage pipelines,
   scripts, `sh -c`, `$VAR`/`${VAR}` including default/assign/alternate/error
   parameter forms, `${#VAR}`, prefix/suffix trims, `$?`/`$$`/`$!` expansion,
-  `$(command)` substitution, positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
+  `$(command)` substitution, integer arithmetic expansion with `$((expr))`,
+  positional parameters (`$0`, `$1`, `$#`, `$@`), unquoted `*`/`?`
   globbing, `&&`/`||`, compound-command tail chaining with `;`/`&&`/`||`,
   command-local `NAME=value`, comments, script line continuations, here-docs,
   current-shell `{ ...; }` grouping,
@@ -97,6 +98,7 @@ editor clients:
   `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
+  global `sync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment

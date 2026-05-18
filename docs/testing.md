@@ -59,12 +59,13 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   pipeline fd wiring through `cat | grep | tap`, pipeline output
   redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
   tools, source scripts plus non-interactive `sh script` and `sh -c`,
-  command substitution, positional parameters, `$!`, shell functions/`return`,
+  command substitution, `$((expr))` arithmetic expansion, positional parameters,
+  `$!`, shell functions/`return`,
   unmatched quote/block diagnostics, `set -e`, `read`, `alias`,
   `type`, `unset`, bare assignments, quoted assignment command substitution,
   `cd -` and directory validation,
   canonical relative paths using `.`/`..` against inherited `PWD`,
-  `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/
+  `if`/`then`/`else`/`fi`, `sleep`/`date`/`touch`/`sync`/
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
   `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`, `readlink -f`, `cmp`,

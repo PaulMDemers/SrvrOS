@@ -72,6 +72,13 @@ server.
   `test`/`[`, `cksum`, `sum`, `comm`, `paste`, `join`, `split`, `od`,
   `hexdump`, `strings`, `file`, `tty`, `stty`, `time`, `timeout`, `nohup`,
   and `nice`, with `tools/posixutils_smoke.py` covering the aliases in QEMU.
+- Wires `sync` through libc and the kernel so it flushes dirty process-owned
+  writable file descriptors; the block cache remains write-through.
+- Adds shell `$((expr))` integer arithmetic expansion with variables,
+  parentheses, arithmetic operators, comparisons, and simple boolean operators.
+- Raises the `srv_exec` environment vector capacity to 64 entries so login
+  shells, `read`, and command-local `NAME=value` runs do not exhaust exec
+  setup during longer CLI sessions.
 - Deduplicates identical applet payloads in the generated exFAT image so many
   command aliases do not consume separate cluster chains on the default disk.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by

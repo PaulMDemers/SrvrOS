@@ -26,6 +26,7 @@ ssize_t pread(int fd, void *buffer, size_t length, off_t offset);
 ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset);
 int close(int fd);
 int fsync(int fd);
+void sync(void);
 int dup(int fd);
 int dup2(int old_fd, int new_fd);
 int pipe(int fds[2]);

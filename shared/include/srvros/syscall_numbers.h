@@ -89,6 +89,7 @@
 #define SYS_THREAD_STATUS 84
 #define SYS_FUTEX_WAIT 85
 #define SYS_FUTEX_WAKE 86
+#define SYS_SYNC 87
 
 #define SRV_ABI_VERSION 1
 

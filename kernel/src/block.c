@@ -283,6 +283,10 @@ bool block_write(struct block_device *device, uint64_t offset, const void *buffe
     return true;
 }
 
+bool block_flush_all(void) {
+    return true;
+}
+
 uint64_t block_device_size(const struct block_device *device) {
     if (device == 0 || !device->used) {
         return 0;

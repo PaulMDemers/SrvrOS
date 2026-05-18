@@ -131,6 +131,10 @@ long srv_fsync(int fd) {
     return srv_syscall1(SYS_FSYNC, fd);
 }
 
+long srv_sync(void) {
+    return srv_syscall0(SYS_SYNC);
+}
+
 long srv_tty_getattr(int fd, struct srv_termios *termios) {
     return srv_syscall2(SYS_TTY_GETATTR, fd, (long)termios);
 }
