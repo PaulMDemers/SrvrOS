@@ -116,8 +116,9 @@ editor clients:
   pure-Lua `require`, and an interactive REPL. `/fat/bin/jsondemo` and
   `/fat/bin/inidemo` link pinned cJSON and
   inih for lightweight data/config parsing. The shell uses a srvros linenoise
-  port for editable prompts and file-backed history, with `/fat/bin/linedemo`
-  covering the history API. `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
+  port for editable prompts, TAB completion with longest-common-prefix fill,
+  and file-backed history, with `/fat/bin/linedemo` covering the history API.
+  `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,

@@ -98,11 +98,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   after the shell exits to catch filesystem consistency regressions from the
   mutation path.
 - `shell_edit_smoke.py`: interactive raw-mode shell editing over serial,
-  including Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations,
-  Ctrl-Y yank, mid-line insert, escape-sequence arrow navigation, and preserving
-  an in-progress draft while browsing history. It also covers the `history`
-  builtin, `HISTFILE`/`HISTSIZE`, explicit history save, and script-path/line
-  diagnostics for shell errors.
+  including TAB completion, longest-common-prefix completion fill,
+  Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations, Ctrl-Y yank,
+  mid-line insert, escape-sequence arrow navigation, and preserving an
+  in-progress draft while browsing history. It also covers the `history`
+  builtin, `HISTFILE`/`HISTSIZE`, explicit history save, script-path/line
+  diagnostics for shell errors, and a final monitor `fsck /fat`.
 - `dir_smoke.py`: nested directory creation, nested file write/read, file
   rename, non-empty `rmdir` rejection, empty directory removal, directory rename,
   and `fsck`.

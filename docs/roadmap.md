@@ -205,6 +205,8 @@ kernel, and a minimal Unix-like userspace.
   `/fat/bin/inidemo` as small data/config parser ports.
 - Add pinned linenoise plus a srvros console adapter for editable shell input
   and persistent shell history.
+- Add srvsh completion polish so multiple matches fill to their longest common
+  prefix before listing candidates, with serial shell-edit smoke coverage.
 - Add SQLite 3.53.1 as a pinned amalgamation snapshot and `/fat/bin/sqlitedemo`
   with a small srvros VFS for exFAT-backed create/insert/query/reopen coverage.
 - Add minimal `stdio` support in the userspace library and `/fat/bin/zlibdemo`,

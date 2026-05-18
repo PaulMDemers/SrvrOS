@@ -151,8 +151,9 @@ server.
   `/fat/bin/jsondemo` and `/fat/bin/inidemo` smoke apps for JSON and INI
   parse/roundtrip coverage.
 - Adds pinned linenoise `2.0` plus a srvros console adapter used by `srvsh` for
-  editable prompt input and `/fat/.srvsh_history`; `/fat/bin/linedemo` verifies
-  history save/load behavior.
+  editable prompt input, TAB completion, longest-common-prefix completion fill,
+  and `/fat/.srvsh_history`; `/fat/bin/linedemo` verifies history save/load
+  behavior.
 - Tightens the linenoise adapter to use raw TTY mode while editing, with
   Ctrl-A/Ctrl-E movement, Ctrl-U/Ctrl-W kill, Ctrl-Y yank, escape-sequence
   arrows, and draft-preserving history browsing covered by

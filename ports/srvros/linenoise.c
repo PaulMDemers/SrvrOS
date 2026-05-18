@@ -266,6 +266,44 @@ static void insert_text_at(char *buffer, size_t capacity, size_t *length, size_t
     }
 }
 
+static size_t common_prefix_length(const linenoiseCompletions *completions) {
+    if (completions == NULL || completions->len == 0 || completions->cvec[0] == NULL) {
+        return 0;
+    }
+    size_t prefix = strlen(completions->cvec[0]);
+    for (size_t i = 1; i < completions->len; i++) {
+        const char *text = completions->cvec[i];
+        size_t j = 0;
+        if (text == NULL) {
+            return 0;
+        }
+        while (j < prefix && completions->cvec[0][j] == text[j] && text[j] != '\0') {
+            j++;
+        }
+        prefix = j;
+    }
+    return prefix;
+}
+
+static int apply_completion_prefix(char *buffer,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    const linenoiseCompletions *completions) {
+    size_t prefix = common_prefix_length(completions);
+    if (prefix <= *length || completions->cvec[0] == NULL) {
+        return 0;
+    }
+    if (prefix >= capacity) {
+        prefix = capacity - 1;
+    }
+    memcpy(buffer, completions->cvec[0], prefix);
+    buffer[prefix] = '\0';
+    *length = prefix;
+    *position = prefix;
+    return 1;
+}
+
 static void delete_previous_word(char *buffer,
     size_t *length,
     size_t *position,
@@ -517,14 +555,16 @@ char *linenoise(const char *prompt) {
                 if (completions.len == 1 && completions.cvec[0] != NULL) {
                     replace_buffer(buffer, sizeof(buffer), &length, &position, completions.cvec[0]);
                 } else if (completions.len > 1) {
-                    ln_write("\n");
-                    for (size_t i = 0; i < completions.len; i++) {
-                        if (completions.cvec[i] != NULL) {
-                            ln_write(completions.cvec[i]);
-                            ln_write("\n");
+                    if (!apply_completion_prefix(buffer, sizeof(buffer), &length, &position, &completions)) {
+                        ln_write("\n");
+                        for (size_t i = 0; i < completions.len; i++) {
+                            if (completions.cvec[i] != NULL) {
+                                ln_write(completions.cvec[i]);
+                                ln_write("\n");
+                            }
                         }
+                        rendered_length = 0;
                     }
-                    rendered_length = 0;
                 }
                 for (size_t i = 0; i < completions.len; i++) {
                     free(completions.cvec[i]);
