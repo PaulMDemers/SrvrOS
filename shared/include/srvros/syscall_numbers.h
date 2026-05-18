@@ -107,7 +107,7 @@ struct srv_abi_header {
 
 #define SRV_SPAWN_FILE_ACTION_DUP2 1
 #define SRV_SPAWN_FILE_ACTION_CLOSE 2
-#define SRV_SPAWN_FILE_ACTION_MAX 8
+#define SRV_SPAWN_FILE_ACTION_MAX 32
 
 #define SRV_F_GETFD 1
 #define SRV_F_SETFD 2

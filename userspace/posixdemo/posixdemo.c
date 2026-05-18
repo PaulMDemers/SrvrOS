@@ -850,6 +850,7 @@ int main(void) {
     unsigned char scan_byte = 0;
     short scan_short = 0;
     int scan_count = -1;
+    char scan_chars[4];
     qsort(values, 5, sizeof(values[0]), compare_ints);
     if (values[0] != 1 || values[4] != 5 ||
         bsearch(&needle, values, 5, sizeof(values[0]), compare_ints) == 0 ||
@@ -894,6 +895,12 @@ int main(void) {
         scan_count != 6 ||
         sscanf("skip:abcd:-17", "skip:%*4[a-z]:%hd", &scan_short) != 1 ||
         scan_short != -17 ||
+        sscanf("charsXYZ", "%5s%3c", scan_word, scan_chars) != 2 ||
+        strcmp(scan_word, "chars") != 0 ||
+        memcmp(scan_chars, "XYZ", 3) != 0 ||
+        sscanf("", "%d", &scan_a) != EOF ||
+        sscanf("   ", "%d", &scan_a) != EOF ||
+        sscanf("nope", "%d", &scan_a) != 0 ||
         strcmp(float_text, "1.250 1.5") != 0 ||
         floor(3.7) != 3.0 ||
         ceil(-3.7) != -3.0 ||
@@ -920,6 +927,7 @@ int main(void) {
         return 40;
     }
     remove("/fat/posixdemo/scan.txt");
+    say("posixdemo: scanf ok\n");
     say("posixdemo: math ok\n");
 
     fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC);
@@ -986,13 +994,30 @@ int main(void) {
     posix_spawnattr_t attr;
     short spawn_flags = -1;
     pid_t spawn_group = -1;
+    sigset_t spawn_mask;
+    sigset_t spawn_default;
+    sigset_t spawn_out;
     if (posix_spawnattr_init(&attr) != 0 ||
         posix_spawnattr_getflags(&attr, &spawn_flags) != 0 ||
         spawn_flags != 0 ||
         posix_spawnattr_setpgroup(&attr, 0) != 0 ||
         posix_spawnattr_getpgroup(&attr, &spawn_group) != 0 ||
         spawn_group != 0 ||
-        posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETPGROUP) != 0 ||
+        sigemptyset(&spawn_mask) != 0 ||
+        sigaddset(&spawn_mask, SIGINT) != 0 ||
+        sigemptyset(&spawn_default) != 0 ||
+        sigaddset(&spawn_default, SIGTERM) != 0 ||
+        posix_spawnattr_setsigmask(&attr, &spawn_mask) != 0 ||
+        posix_spawnattr_getsigmask(&attr, &spawn_out) != 0 ||
+        sigismember(&spawn_out, SIGINT) != 1 ||
+        posix_spawnattr_setsigdefault(&attr, &spawn_default) != 0 ||
+        posix_spawnattr_getsigdefault(&attr, &spawn_out) != 0 ||
+        sigismember(&spawn_out, SIGTERM) != 1 ||
+        posix_spawnattr_setflags(&attr,
+            POSIX_SPAWN_SETPGROUP |
+                POSIX_SPAWN_RESETIDS |
+                POSIX_SPAWN_SETSIGMASK |
+                POSIX_SPAWN_SETSIGDEF) != 0 ||
         posix_spawnp(&child, "true", 0, &attr, true_argv, environ) != 0 ||
         waitpid(child, &child_status, 0) != child ||
         WEXITSTATUS(child_status) != 0 ||
@@ -1004,6 +1029,7 @@ int main(void) {
         say("posixdemo: spawn attrs failed\n");
         return 41;
     }
+    say("posixdemo: spawn attrs ok\n");
     fd = open("/fat/posixdemo/spawn.txt", O_WRONLY | O_CREAT | O_TRUNC);
     posix_spawn_file_actions_t actions;
     char *echo_argv[] = {"/fat/bin/echo", "spawned", 0};
@@ -1037,6 +1063,7 @@ int main(void) {
         return 43;
     }
     char *fdprobe_open_argv[] = {"/fat/bin/fdprobe", "open", 0};
+    char *fdprobe_open8_argv[] = {"/fat/bin/fdprobe", "open", "8", 0};
     char *fdprobe_closed_argv[] = {"/fat/bin/fdprobe", "closed", 0};
     if (posix_spawn_file_actions_init(&actions) != 0 ||
         posix_spawn_file_actions_addopen(&actions,
@@ -1052,6 +1079,39 @@ int main(void) {
         return 43;
     }
     posix_spawn_file_actions_destroy(&actions);
+    if (posix_spawn_file_actions_init(&actions) != 0 ||
+        posix_spawn_file_actions_addopen(&actions,
+            3,
+            "/fat/posixdemo/spawn-fd.txt",
+            O_RDONLY,
+            0) != 0) {
+        say("posixdemo: spawn fd many setup failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    for (int target_fd = 4; target_fd <= 8; target_fd++) {
+        if (posix_spawn_file_actions_adddup2(&actions, target_fd - 1, target_fd) != 0) {
+            say("posixdemo: spawn fd many add failed\n");
+            posix_spawn_file_actions_destroy(&actions);
+            return 43;
+        }
+    }
+    for (int close_fd = 3; close_fd <= 6; close_fd++) {
+        if (posix_spawn_file_actions_addclose(&actions, close_fd) != 0) {
+            say("posixdemo: spawn fd many add failed\n");
+            posix_spawn_file_actions_destroy(&actions);
+            return 43;
+        }
+    }
+    if (posix_spawn(&child, "/fat/bin/fdprobe", &actions, 0, fdprobe_open8_argv, environ) != 0 ||
+        waitpid(child, &child_status, 0) != child ||
+        WEXITSTATUS(child_status) != 0) {
+        say("posixdemo: spawn fd many failed\n");
+        posix_spawn_file_actions_destroy(&actions);
+        return 43;
+    }
+    posix_spawn_file_actions_destroy(&actions);
+    say("posixdemo: spawn many actions ok\n");
     fd = open("/fat/posixdemo/spawn-fd.txt", O_RDONLY);
     if (fd < 0 ||
         posix_spawn_file_actions_init(&actions) != 0 ||

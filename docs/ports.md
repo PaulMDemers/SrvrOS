@@ -85,8 +85,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   with PATH lookup and standard-fd `posix_spawn_file_actions_adddup2`,
   `posix_spawn_file_actions_addopen`, and `posix_spawn_file_actions_addclose`
   support. Non-stdio spawn file actions are applied as a bounded ordered list
-  for `dup2`, `open`, and `close` targets. `posix_spawnattr` supports
-  `POSIX_SPAWN_SETPGROUP` through the native process-group field.
+  for `dup2`, `open`, and `close` targets, with a dynamically grown userspace
+  action list capped by the native spawn ABI. `posix_spawnattr` supports
+  `POSIX_SPAWN_SETPGROUP` through the native process-group field and stores
+  reset-id plus signal-mask/default attributes for source compatibility.
 - process-replacing `execve` backed by the native argv/envp launch request.
   The new image keeps the same pid and open fd table while replacing the old
   userspace address space, then applies close-on-exec descriptor cleanup.
@@ -99,7 +101,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   now has simple full/line/unbuffered stream buffering, path-backed `fflush`,
   logical positions across read prefetch, common formatted output width,
   precision, padding, sign, alternate-form, length, and `%n` handling, and
-  shell-backed one-way process pipes. Streams have recursive futex-backed locks
+  common `scanf`/`sscanf` integer, floating, width, scanset, suppression, `%c`,
+  `%n`, and EOF/match-failure return behavior. Streams have recursive futex-backed locks
   exposed through `flockfile`, `ftrylockfile`, and `funlockfile`, so shared
   stdio use from same-address-space pthreads is serialized. `posixdemo` covers
   `w+`, `r+`, and `a+` update streams, including read/write transitions and
@@ -187,9 +190,12 @@ srvros config header, and the ports smoke test verifies that it can generate
   share process resources, detached stack cleanup is opportunistic rather than
   timer-driven, and robust cancellation/signal interactions are missing.
 - `posix_spawn` file actions currently model the final state of standard fds
-  `0`, `1`, and `2`; non-stdio file actions are ordered but bounded to eight
-  actions per spawn. Spawn attributes currently cover process group selection
-  only; reset-id and signal-mask/default attributes are still missing.
+  `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
+  in userspace, with the native spawn ABI currently capped at 32 actions per
+  spawn. Reset-id and signal-mask/default spawn attributes are accepted and
+  round-tripped for source compatibility, but reset-id has no visible effect
+  until srvros grows a uid/gid model and signal-mask/default application awaits
+  fuller userspace signal handling.
 - VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
   file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
   is not encoded into native exFAT directory entries. Sidecar updates stage
@@ -264,10 +270,11 @@ Third-party source is kept as pinned submodules or snapshots under
 
 ## Next Porting Milestones
 
-1. Expand `stdio` toward command-line port expectations: broader input matching
-   edge cases and more ISO C edge cases.
-2. Broaden `posix_spawn` toward signal/reset-id spawn attributes and larger or
-   dynamically allocated file action lists.
+1. Expand `stdio` toward command-line port expectations: more ISO C edge cases,
+   binary/update-mode corner cases, and broader formatted input behavior.
+2. Apply stored `posix_spawn` signal-mask/default attributes once srvros grows
+   fuller userspace signal handling; reset-id remains a no-op until a uid/gid
+   model exists.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp
    sources.

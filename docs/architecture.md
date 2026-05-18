@@ -437,8 +437,9 @@ pthread mutex/condition/once/TLS primitives, common
 formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
 `popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
-standard-fd and ordered non-stdio spawn file actions,
-`POSIX_SPAWN_SETPGROUP`, process-replacing `execve`, IPv4 formatting and
+standard-fd and ordered non-stdio spawn file actions with dynamic userspace
+storage up to the native spawn ABI limit, `POSIX_SPAWN_SETPGROUP`,
+reset-id/signal-mask/default attr storage, process-replacing `execve`, IPv4 formatting and
 parsing, userspace UDP DNS-backed `getaddrinfo`, a TCP server socket flow mapped
 onto srvros listener/connection fds, client-side `connect`, and socket name
 queries. The kernel additions

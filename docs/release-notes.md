@@ -395,6 +395,13 @@ server.
   and `close` handling, with QEMU coverage through `/fat/bin/fdprobe`.
 - Adds first `posix_spawnattr` support: flags/getters/setters plus
   `POSIX_SPAWN_SETPGROUP` mapping onto native process groups.
+- Grows POSIX spawn compatibility with dynamically stored non-stdio file
+  actions up to the native 32-action limit, signal-set helpers,
+  reset-id/signal-mask/default spawn-attribute storage, and stronger
+  `/fat/bin/posixdemo` coverage for larger ordered action chains.
+- Tightens `scanf`/`sscanf` source-port behavior for width-limited strings,
+  `%c`, suppressed conversions, `%n`, and EOF versus match-failure return
+  values before the first assignment.
 - Adds `/fat/bin/netcheck`, a single guest-side command for DHCP/status, DNS,
   ping, local UDP echo, and outbound TCP HTTP checks.
 - Adds `tools/net_soak.py`, a repeated QEMU networking soak that runs host HTTP

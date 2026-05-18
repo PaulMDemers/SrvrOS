@@ -2,12 +2,14 @@
 #define SRVROS_POSIX_SPAWN_H
 
 #include <sys/types.h>
+#include <signal.h>
 
 #define POSIX_SPAWN_RESETIDS 0x01
 #define POSIX_SPAWN_SETPGROUP 0x02
 #define POSIX_SPAWN_SETSIGDEF 0x04
 #define POSIX_SPAWN_SETSIGMASK 0x08
-#define POSIX_SPAWN_FILE_ACTIONS_MAX 8
+#define POSIX_SPAWN_FILE_ACTIONS_INLINE 8
+#define POSIX_SPAWN_FILE_ACTIONS_MAX 32
 
 typedef struct {
     int type;
@@ -35,12 +37,16 @@ typedef struct {
     char stdout_path[160];
     char stderr_path[160];
     size_t action_count;
-    posix_spawn_file_action_t actions[POSIX_SPAWN_FILE_ACTIONS_MAX];
+    size_t action_capacity;
+    posix_spawn_file_action_t *dynamic_actions;
+    posix_spawn_file_action_t actions[POSIX_SPAWN_FILE_ACTIONS_INLINE];
 } posix_spawn_file_actions_t;
 
 typedef struct {
     short flags;
     pid_t pgroup;
+    sigset_t sigdefault;
+    sigset_t sigmask;
 } posix_spawnattr_t;
 
 int posix_spawn(pid_t *pid,
@@ -74,5 +80,9 @@ int posix_spawnattr_getflags(const posix_spawnattr_t *attr, short *flags);
 int posix_spawnattr_setflags(posix_spawnattr_t *attr, short flags);
 int posix_spawnattr_getpgroup(const posix_spawnattr_t *attr, pid_t *pgroup);
 int posix_spawnattr_setpgroup(posix_spawnattr_t *attr, pid_t pgroup);
+int posix_spawnattr_getsigdefault(const posix_spawnattr_t *attr, sigset_t *sigdefault);
+int posix_spawnattr_setsigdefault(posix_spawnattr_t *attr, const sigset_t *sigdefault);
+int posix_spawnattr_getsigmask(const posix_spawnattr_t *attr, sigset_t *sigmask);
+int posix_spawnattr_setsigmask(posix_spawnattr_t *attr, const sigset_t *sigmask);
 
 #endif

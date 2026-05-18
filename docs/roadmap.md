@@ -428,10 +428,10 @@ kernel, and a minimal Unix-like userspace.
    length/file metadata, and multi-worker web server designs.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-7. Continue the libc/newlib track: signal/reset-id spawn attributes, larger or
-   dynamic spawn file action lists, terminal process groups/signals, `stdio`
-   update-mode edge cases, stronger sidecar recovery, and more fd-specific
-   readiness queues as the descriptor model grows.
+7. Continue the libc/newlib track: terminal process groups/signals, applying
+   stored spawn signal/default attributes once richer userspace signals exist,
+   broader `stdio` ISO C edge cases, stronger sidecar recovery, and more
+   fd-specific readiness queues as the descriptor model grows.
 8. Grow the first same-address-space user thread support into a fuller pthread
    implementation: deterministic detached-thread reaping, fd/stdio locking,
    richer condition-variable attributes, robust cancellation/signal

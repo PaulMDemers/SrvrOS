@@ -798,6 +798,10 @@ static void scan_copy_token(char *destination, size_t capacity, const char *sour
     destination[count] = '\0';
 }
 
+static int scan_match_failure(const char *text, int assigned) {
+    return *text == '\0' && assigned == 0 ? EOF : assigned;
+}
+
 static void scan_store_signed(va_list args, int short_count, int long_count, long long value) {
     if (long_count >= 2) {
         *va_arg(args, long long *) = value;
@@ -896,7 +900,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
         }
         if (*format != '%') {
             if (*text != *format) {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             text++;
             format++;
@@ -907,7 +911,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
         format++;
         if (*format == '%') {
             if (*text != '%') {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             text++;
             format++;
@@ -969,7 +973,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
             int count = width != 0 ? width : 1;
             for (int i = 0; i < count; i++) {
                 if (text[i] == '\0') {
-                    return assigned;
+                    return assigned == 0 ? EOF : assigned;
                 }
             }
             if (!suppress) {
@@ -993,7 +997,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
                 length++;
             }
             if (length == 0) {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             if (!suppress) {
                 char *out = va_arg(args, char *);
@@ -1012,7 +1016,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
                 length++;
             }
             if (length == 0) {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             if (!suppress) {
                 char *out = va_arg(args, char *);
@@ -1036,7 +1040,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
             }
             int length = scan_number_length(text, width, base, spec != 'u');
             if (length == 0) {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             char token[192];
             scan_copy_token(token, sizeof(token), text, length);
@@ -1058,7 +1062,7 @@ int vsscanf(const char *text, const char *format, va_list args) {
         if (spec == 'f' || spec == 'g' || spec == 'G' || spec == 'e' || spec == 'E') {
             int length = scan_float_length(text, width);
             if (length == 0) {
-                return assigned;
+                return scan_match_failure(text, assigned);
             }
             char token[192];
             scan_copy_token(token, sizeof(token), text, length);

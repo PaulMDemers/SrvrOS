@@ -184,9 +184,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
   pthread create/join plus mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
-  EOF/error state, `scanf` scansets and suppressed assignments, `system()` shell execution,
+  EOF/error state, `scanf`/`sscanf` width, scanset, suppressed-assignment,
+  character, `%n`, and EOF/match-failure behavior, `system()` shell execution,
   `popen`/`pclose`, standard-fd and non-stdio spawn `dup2`/`open`/`close`
-  actions, `POSIX_SPAWN_SETPGROUP`, process-replacing `execve`,
+  actions, dynamically grown non-stdio spawn action lists,
+  `POSIX_SPAWN_SETPGROUP`, reset-id and signal-mask/default attr storage,
+  process-replacing `execve`,
   inherited fd and close-on-exec checks, exFAT
   binary file write/read/unlink, and
   post-run `fsck`.

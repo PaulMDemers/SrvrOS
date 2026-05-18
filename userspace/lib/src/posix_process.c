@@ -26,6 +26,62 @@ static int make_exec_path(const char *path, char *out, size_t capacity) {
     return 0;
 }
 
+static posix_spawn_file_action_t *spawn_actions(posix_spawn_file_actions_t *file_actions) {
+    if (file_actions == 0) {
+        return 0;
+    }
+    return file_actions->dynamic_actions != 0 ?
+        file_actions->dynamic_actions :
+        file_actions->actions;
+}
+
+static const posix_spawn_file_action_t *spawn_actions_const(const posix_spawn_file_actions_t *file_actions) {
+    if (file_actions == 0) {
+        return 0;
+    }
+    return file_actions->dynamic_actions != 0 ?
+        file_actions->dynamic_actions :
+        file_actions->actions;
+}
+
+static int spawn_file_actions_reserve(posix_spawn_file_actions_t *file_actions) {
+    if (file_actions->action_count < file_actions->action_capacity) {
+        return 0;
+    }
+    if (file_actions->action_capacity >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
+        return ENOMEM;
+    }
+    size_t next = file_actions->action_capacity * 2;
+    if (next < POSIX_SPAWN_FILE_ACTIONS_INLINE) {
+        next = POSIX_SPAWN_FILE_ACTIONS_INLINE;
+    }
+    if (next > POSIX_SPAWN_FILE_ACTIONS_MAX) {
+        next = POSIX_SPAWN_FILE_ACTIONS_MAX;
+    }
+    posix_spawn_file_action_t *grown = malloc(next * sizeof(grown[0]));
+    if (grown == 0) {
+        return ENOMEM;
+    }
+    const posix_spawn_file_action_t *current = spawn_actions_const(file_actions);
+    if (current != 0 && file_actions->action_count != 0) {
+        memcpy(grown, current, file_actions->action_count * sizeof(grown[0]));
+    }
+    free(file_actions->dynamic_actions);
+    file_actions->dynamic_actions = grown;
+    file_actions->action_capacity = next;
+    return 0;
+}
+
+static int spawn_file_actions_append(posix_spawn_file_actions_t *file_actions,
+    const posix_spawn_file_action_t *action) {
+    int error = spawn_file_actions_reserve(file_actions);
+    if (error != 0) {
+        return error;
+    }
+    spawn_actions(file_actions)[file_actions->action_count++] = *action;
+    return 0;
+}
+
 static void close_spawn_opened(int opened[3], int opened_actions[POSIX_SPAWN_FILE_ACTIONS_MAX]) {
     for (int i = 0; i < 3; i++) {
         if (opened[i] >= 0) {
@@ -81,7 +137,8 @@ static int spawn_path(pid_t *pid,
             }
         }
         for (size_t i = 0; i < file_actions->action_count; i++) {
-            const posix_spawn_file_action_t *action = &file_actions->actions[i];
+            const posix_spawn_file_action_t *actions = spawn_actions_const(file_actions);
+            const posix_spawn_file_action_t *action = &actions[i];
             if (srv_action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
                 close_spawn_opened(opened, opened_actions);
                 return ENOMEM;
@@ -229,6 +286,8 @@ int posix_spawn_file_actions_init(posix_spawn_file_actions_t *file_actions) {
     file_actions->stdout_path[0] = '\0';
     file_actions->stderr_path[0] = '\0';
     file_actions->action_count = 0;
+    file_actions->action_capacity = POSIX_SPAWN_FILE_ACTIONS_INLINE;
+    file_actions->dynamic_actions = 0;
     return 0;
 }
 
@@ -236,6 +295,10 @@ int posix_spawn_file_actions_destroy(posix_spawn_file_actions_t *file_actions) {
     if (file_actions == 0) {
         return EINVAL;
     }
+    free(file_actions->dynamic_actions);
+    file_actions->dynamic_actions = 0;
+    file_actions->action_count = 0;
+    file_actions->action_capacity = POSIX_SPAWN_FILE_ACTIONS_INLINE;
     return 0;
 }
 
@@ -260,15 +323,12 @@ int posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_action = SPAWN_ACTION_DUP2;
         return 0;
     }
-    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
-        return ENOMEM;
-    }
-    file_actions->actions[file_actions->action_count++] = (posix_spawn_file_action_t) {
+    posix_spawn_file_action_t action = {
         .type = SPAWN_ACTION_DUP2,
         .fd = oldfd,
         .newfd = newfd,
     };
-    return 0;
+    return spawn_file_actions_append(file_actions, &action);
 }
 
 int posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
@@ -291,15 +351,12 @@ int posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_fd = SPAWN_CLOSED_FD;
         return 0;
     }
-    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
-        return ENOMEM;
-    }
-    file_actions->actions[file_actions->action_count++] = (posix_spawn_file_action_t) {
+    posix_spawn_file_action_t action = {
         .type = SPAWN_ACTION_CLOSE,
         .fd = fd,
         .newfd = -1,
     };
-    return 0;
+    return spawn_file_actions_append(file_actions, &action);
 }
 
 static int spawn_action_store_open(char *destination,
@@ -354,21 +411,17 @@ int posix_spawn_file_actions_addopen(posix_spawn_file_actions_t *file_actions,
         file_actions->stderr_mode = mode;
         return 0;
     }
-    if (file_actions->action_count >= POSIX_SPAWN_FILE_ACTIONS_MAX) {
-        return ENOMEM;
-    }
-    posix_spawn_file_action_t *action = &file_actions->actions[file_actions->action_count];
-    int error = spawn_action_store_open(action->path, sizeof(action->path), path);
+    posix_spawn_file_action_t action = {0};
+    int error = spawn_action_store_open(action.path, sizeof(action.path), path);
     if (error != 0) {
         return error;
     }
-    action->type = SPAWN_ACTION_OPEN;
-    action->fd = fd;
-    action->newfd = -1;
-    action->oflag = oflag;
-    action->mode = mode;
-    file_actions->action_count++;
-    return 0;
+    action.type = SPAWN_ACTION_OPEN;
+    action.fd = fd;
+    action.newfd = -1;
+    action.oflag = oflag;
+    action.mode = mode;
+    return spawn_file_actions_append(file_actions, &action);
 }
 
 int posix_spawnattr_init(posix_spawnattr_t *attr) {
@@ -377,6 +430,8 @@ int posix_spawnattr_init(posix_spawnattr_t *attr) {
     }
     attr->flags = 0;
     attr->pgroup = 0;
+    attr->sigdefault = 0;
+    attr->sigmask = 0;
     return 0;
 }
 
@@ -396,7 +451,11 @@ int posix_spawnattr_getflags(const posix_spawnattr_t *attr, short *flags) {
 }
 
 int posix_spawnattr_setflags(posix_spawnattr_t *attr, short flags) {
-    if (attr == 0 || (flags & ~POSIX_SPAWN_SETPGROUP) != 0) {
+    const short supported = POSIX_SPAWN_RESETIDS |
+        POSIX_SPAWN_SETPGROUP |
+        POSIX_SPAWN_SETSIGDEF |
+        POSIX_SPAWN_SETSIGMASK;
+    if (attr == 0 || (flags & ~supported) != 0) {
         return EINVAL;
     }
     attr->flags = flags;
@@ -416,6 +475,38 @@ int posix_spawnattr_setpgroup(posix_spawnattr_t *attr, pid_t pgroup) {
         return EINVAL;
     }
     attr->pgroup = pgroup;
+    return 0;
+}
+
+int posix_spawnattr_getsigdefault(const posix_spawnattr_t *attr, sigset_t *sigdefault) {
+    if (attr == 0 || sigdefault == 0) {
+        return EINVAL;
+    }
+    *sigdefault = attr->sigdefault;
+    return 0;
+}
+
+int posix_spawnattr_setsigdefault(posix_spawnattr_t *attr, const sigset_t *sigdefault) {
+    if (attr == 0 || sigdefault == 0) {
+        return EINVAL;
+    }
+    attr->sigdefault = *sigdefault;
+    return 0;
+}
+
+int posix_spawnattr_getsigmask(const posix_spawnattr_t *attr, sigset_t *sigmask) {
+    if (attr == 0 || sigmask == 0) {
+        return EINVAL;
+    }
+    *sigmask = attr->sigmask;
+    return 0;
+}
+
+int posix_spawnattr_setsigmask(posix_spawnattr_t *attr, const sigset_t *sigmask) {
+    if (attr == 0 || sigmask == 0) {
+        return EINVAL;
+    }
+    attr->sigmask = *sigmask;
     return 0;
 }
 

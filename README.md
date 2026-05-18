@@ -109,7 +109,9 @@ editor clients:
   with per-thread stacks and TLS plus pthread mutex/cond/once primitives,
   mutex/cond attributes, recursive mutexes, stack attribute helpers, and
   futex-backed stdio stream locks,
-  `waitpid`, `posix_spawn`, `posix_spawnp`, process-replacing `execve`, IPv4
+  `waitpid`, `posix_spawn`, `posix_spawnp`, dynamically grown non-stdio spawn
+  file actions, reset-id/signal-mask/default spawn attribute storage,
+  process-replacing `execve`, IPv4
   helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib, `/fat/bin/minizip` and
