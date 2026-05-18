@@ -417,8 +417,8 @@ kernel, and a minimal Unix-like userspace.
    readiness queues as the descriptor model grows.
 8. Grow the first same-address-space user thread support into a fuller pthread
    implementation: deterministic detached-thread reaping, fd/heap locking,
-   richer condition-variable waits, robust cancellation/signal interactions,
-   and the pieces libuv expects for a useful Node bring-up.
+   richer condition-variable attributes, robust cancellation/signal
+   interactions, and the pieces libuv expects for a useful Node bring-up.
 9. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
 10. Extend GUI IPC from server-rendered controls to client-owned surfaces:

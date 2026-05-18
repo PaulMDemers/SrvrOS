@@ -472,6 +472,14 @@ long srv_thread_status(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_STATUS, (long)tid);
 }
 
+long srv_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
+    return srv_syscall3(SYS_FUTEX_WAIT, (long)address, (long)expected, (long)timeout_ticks);
+}
+
+long srv_futex_wake(uint32_t *address, uint64_t max_count) {
+    return srv_syscall2(SYS_FUTEX_WAKE, (long)address, (long)max_count);
+}
+
 void srv_puts(const char *text) {
     srv_write(SRV_STDOUT, text, srv_strlen(text));
 }

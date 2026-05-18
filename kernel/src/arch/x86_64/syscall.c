@@ -1604,6 +1604,22 @@ static int64_t syscall_thread_join(uint64_t tid, uint64_t *value_out) {
     return 0;
 }
 
+static int64_t syscall_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
+    if (!user_buffer_ok(address, sizeof(*address), false) ||
+        (((uint64_t)(uintptr_t)address) & 3u) != 0) {
+        return -1;
+    }
+    return process_futex_wait(address, expected, timeout_ticks);
+}
+
+static int64_t syscall_futex_wake(uint32_t *address, uint64_t max_count) {
+    if (!user_buffer_ok(address, sizeof(*address), false) ||
+        (((uint64_t)(uintptr_t)address) & 3u) != 0) {
+        return -1;
+    }
+    return process_futex_wake(address, max_count);
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:
@@ -1882,6 +1898,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_THREAD_STATUS:
         frame->rax = (uint64_t)process_thread_status(frame->rdi);
+        return;
+    case SYS_FUTEX_WAIT:
+        frame->rax = (uint64_t)syscall_futex_wait((uint32_t *)frame->rdi, (uint32_t)frame->rsi, frame->rdx);
+        return;
+    case SYS_FUTEX_WAKE:
+        frame->rax = (uint64_t)syscall_futex_wake((uint32_t *)frame->rdi, frame->rsi);
         return;
     default:
         frame->rax = (uint64_t)-1;

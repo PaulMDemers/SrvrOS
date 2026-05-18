@@ -74,6 +74,23 @@ static void *pthread_detached_worker(void *arg) {
     return (void *)0x55;
 }
 
+struct pthread_cond_demo {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    int ready;
+};
+
+static void *pthread_cond_worker(void *arg) {
+    struct pthread_cond_demo *demo = arg;
+    pthread_mutex_lock(&demo->mutex);
+    while (demo->ready != 2) {
+        pthread_cond_wait(&demo->cond, &demo->mutex);
+    }
+    demo->ready = 3;
+    pthread_mutex_unlock(&demo->mutex);
+    return (void *)0x66;
+}
+
 static int pthread_detached_test(pthread_attr_t *attr, pthread_t *thread) {
     pthread_detached_shared = 0;
     if (pthread_create(thread, attr, pthread_detached_worker, (void *)3) != 0) {
@@ -86,6 +103,48 @@ static int pthread_detached_test(pthread_attr_t *attr, pthread_t *thread) {
         sched_yield();
     }
     return pthread_detached_shared == 3 ? 0 : -1;
+}
+
+static int pthread_cond_futex_test(void) {
+    struct pthread_cond_demo demo;
+    pthread_t thread;
+    void *value = 0;
+    if (pthread_mutex_init(&demo.mutex, 0) != 0 ||
+        pthread_cond_init(&demo.cond, 0) != 0) {
+        return -1;
+    }
+    demo.ready = 0;
+    if (pthread_create(&thread, 0, pthread_cond_worker, &demo) != 0) {
+        return -1;
+    }
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    pthread_mutex_lock(&demo.mutex);
+    demo.ready = 2;
+    pthread_cond_signal(&demo.cond);
+    pthread_mutex_unlock(&demo.mutex);
+    if (pthread_join(thread, &value) != 0 || value != (void *)0x66 || demo.ready != 3) {
+        return -1;
+    }
+
+    struct timespec timeout;
+    if (clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
+        return -1;
+    }
+    timeout.tv_nsec += 20000000L;
+    if (timeout.tv_nsec >= 1000000000L) {
+        timeout.tv_sec++;
+        timeout.tv_nsec -= 1000000000L;
+    }
+    pthread_mutex_lock(&demo.mutex);
+    int timed = pthread_cond_timedwait(&demo.cond, &demo.mutex, &timeout);
+    pthread_mutex_unlock(&demo.mutex);
+    if (timed != ETIMEDOUT) {
+        return -1;
+    }
+
+    return pthread_cond_destroy(&demo.cond) == 0 && pthread_mutex_destroy(&demo.mutex) == 0 ? 0 : -1;
 }
 
 int main(void) {
@@ -1067,6 +1126,7 @@ int main(void) {
         pthread_cond_signal(&cond) != 0 ||
         pthread_cond_broadcast(&cond) != 0 ||
         pthread_cond_destroy(&cond) != 0 ||
+        pthread_cond_futex_test() != 0 ||
         pthread_once(&once, once_init) != 0 ||
         pthread_once(&once, once_init) != 0 ||
         once_count != 1 ||

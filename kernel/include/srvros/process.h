@@ -170,6 +170,8 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out);
 int64_t process_thread_detach(uint64_t tid);
 int64_t process_thread_status(uint64_t tid);
 uint64_t process_thread_self(void);
+int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
+int64_t process_futex_wake(uint32_t *address, uint64_t max_count);
 struct fpu_state *process_fpu_state(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);

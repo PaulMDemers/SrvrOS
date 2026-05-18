@@ -27,6 +27,7 @@ bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     void *arg,
     uint64_t deadline_ticks);
 void scheduler_wake_all(struct scheduler_wait_queue *queue);
+uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_count);
 void scheduler_set_user_context(void *process, uint64_t address_space, uint64_t kernel_stack_top);
 void scheduler_set_user_context_fpu(void *process,
     uint64_t address_space,

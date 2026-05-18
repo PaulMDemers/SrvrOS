@@ -7,6 +7,7 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
+#include <srvros/timer.h>
 #include <srvros/vfs.h>
 #include <srvros/vmm.h>
 
@@ -49,6 +50,7 @@
 #define PROCESS_PIPE_CAPACITY 4096
 #define PROCESS_STDIO_CLOSED_FD (-2)
 #define PROCESS_MAX_USER_THREADS 8
+#define PROCESS_MAX_FUTEXES 64
 
 struct process_context {
     uint64_t rbx;
@@ -208,6 +210,13 @@ struct elf64_program_header {
     uint64_t align;
 } __attribute__((packed));
 
+struct process_futex {
+    bool used;
+    struct process *process;
+    uint64_t address;
+    struct scheduler_wait_queue wait_queue;
+};
+
 void usermode_enter(uint64_t entry, uint64_t stack_top, uint64_t argc, uint64_t argv, uint64_t envp) __attribute__((noreturn));
 uint64_t process_context_save(struct process_context *context) __attribute__((returns_twice));
 void process_context_restore(struct process_context *context, uint64_t value) __attribute__((noreturn));
@@ -219,6 +228,7 @@ static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
 static struct process_read_file read_files[PROCESS_MAX_READ_FILES];
 static struct process_pipe pipes[PROCESS_MAX_PIPES];
 static struct process_file_lock file_locks[PROCESS_MAX_FILE_LOCKS];
+static struct process_futex futexes[PROCESS_MAX_FUTEXES];
 static struct process *loading_process;
 static uint64_t next_pid = 1;
 static struct scheduler_wait_queue process_wait_queue;
@@ -232,6 +242,7 @@ static struct process_read_file *read_file_at(uint64_t handle);
 static struct process_write_file *write_file_at(uint64_t handle);
 static void background_process_thread(void *arg);
 static void process_user_thread_start(void *arg);
+static void process_futex_wake_process(struct process *process);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
@@ -241,6 +252,18 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stdin_fd,
     int64_t stdout_fd,
     int64_t stderr_fd);
+
+static uint64_t process_irq_save(void) {
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+}
+
+static void process_irq_restore(uint64_t flags) {
+    if ((flags & (1ull << 9)) != 0) {
+        __asm__ volatile ("sti" : : : "memory");
+    }
+}
 static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
 static bool process_apply_spawn_file_actions(struct process *child,
     struct process *parent,
@@ -1770,6 +1793,7 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
             net_process_wake(&processes[i]);
             scheduler_wake_all(&pipe_wait_queue);
             process_file_poll_wake();
+            process_futex_wake_process(&processes[i]);
             return true;
         }
     }
@@ -2067,6 +2091,115 @@ int64_t process_thread_status(uint64_t tid) {
 uint64_t process_thread_self(void) {
     struct process_user_thread *thread = process_current_user_thread();
     return thread != NULL && thread->used ? thread->tid : 1;
+}
+
+static struct process_futex *process_futex_find(struct process *process, uint64_t address, bool create) {
+    struct process_futex *free_entry = NULL;
+    for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
+        struct process_futex *entry = &futexes[i];
+        if (entry->used && entry->process == process && entry->address == address) {
+            return entry;
+        }
+        if ((!entry->used || entry->wait_queue.waiters == 0) && free_entry == NULL) {
+            free_entry = entry;
+        }
+    }
+    if (!create || free_entry == NULL) {
+        return NULL;
+    }
+
+    *free_entry = (struct process_futex) {
+        .used = true,
+        .process = process,
+        .address = address,
+        .wait_queue = {0},
+    };
+    return free_entry;
+}
+
+struct process_futex_wait {
+    uint32_t *address;
+    uint32_t expected;
+};
+
+static bool process_futex_wait_ready(void *arg) {
+    struct process_futex_wait *wait = arg;
+    return process_should_exit_current() ||
+        __atomic_load_n(wait->address, __ATOMIC_ACQUIRE) != wait->expected;
+}
+
+int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
+    struct process *process = process_current();
+    if (process == NULL || address == NULL || (((uint64_t)(uintptr_t)address) & 3u) != 0) {
+        return -1;
+    }
+    if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
+        return -11;
+    }
+
+    uint64_t flags = process_irq_save();
+    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, true);
+    process_irq_restore(flags);
+    if (futex == NULL) {
+        return -11;
+    }
+
+    uint64_t start_ticks = timer_ticks();
+    uint64_t deadline_ticks = timeout_ticks == 0 ? 0 : start_ticks + timeout_ticks;
+    if (deadline_ticks == 0 && timeout_ticks != 0) {
+        deadline_ticks = UINT64_MAX;
+    }
+    struct process_futex_wait wait = {
+        .address = address,
+        .expected = expected,
+    };
+    __asm__ volatile ("sti" : : : "memory");
+    for (;;) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
+        if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
+            return 0;
+        }
+        if (timeout_ticks != 0 && timer_ticks() - start_ticks >= timeout_ticks) {
+            return -110;
+        }
+        if (!scheduler_wait_timeout(&futex->wait_queue, process_futex_wait_ready, &wait, deadline_ticks)) {
+            scheduler_yield();
+        }
+    }
+}
+
+int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
+    struct process *process = process_current();
+    if (process == NULL || address == NULL || (((uint64_t)(uintptr_t)address) & 3u) != 0) {
+        return -1;
+    }
+
+    uint64_t flags = process_irq_save();
+    struct process_futex *futex = process_futex_find(process, (uint64_t)(uintptr_t)address, false);
+    process_irq_restore(flags);
+    if (futex == NULL) {
+        return 0;
+    }
+
+    return (int64_t)scheduler_wake_count(&futex->wait_queue, max_count);
+}
+
+static void process_futex_wake_process(struct process *process) {
+    if (process == NULL) {
+        return;
+    }
+    uint64_t flags = process_irq_save();
+    for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
+        if (futexes[i].used && futexes[i].process == process) {
+            scheduler_wake_all(&futexes[i].wait_queue);
+            futexes[i].used = false;
+            futexes[i].process = NULL;
+            futexes[i].address = 0;
+        }
+    }
+    process_irq_restore(flags);
 }
 
 uint64_t process_pid(const struct process *process) {
@@ -3952,6 +4085,7 @@ void process_exit(uint64_t status) {
         scheduler_wake_all(&pipe_wait_queue);
         scheduler_wake_all(&process->thread_wait_queue);
         process_file_poll_wake();
+        process_futex_wake_process(process);
         scheduler_clear_user_context();
         __asm__ volatile ("sti" : : : "memory");
         scheduler_exit_current();
@@ -3960,6 +4094,7 @@ void process_exit(uint64_t status) {
     __asm__ volatile ("cli" : : : "memory");
     process->exit_status = status;
     scheduler_kill_user_threads(process, NULL);
+    process_futex_wake_process(process);
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
         process->user_threads[i].used = false;
         process->user_threads[i].active = false;

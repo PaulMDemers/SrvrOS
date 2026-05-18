@@ -265,6 +265,9 @@ server.
 - Hardens pthread teardown with `SYS_THREAD_STATUS`, libc-side reclamation of
   completed detached pthread stacks, and process-exit cleanup that retires
   sibling user-thread scheduler contexts before address-space teardown.
+- Adds `SYS_FUTEX_WAIT`/`SYS_FUTEX_WAKE` as a compact process-local futex-style
+  primitive and moves pthread mutex/condition-variable waits onto it, including
+  timed condition waits in the POSIX smoke path.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

@@ -11,6 +11,7 @@
 #define PTHREAD_DEFAULT_STACK_SIZE 65536
 #define PTHREAD_MAX_RECORDS 16
 #define PTHREAD_TLS_THREADS 16
+#define PTHREAD_TICKS_PER_SECOND 100
 
 struct pthread_key_slot {
     int used;
@@ -358,8 +359,15 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
     if (mutex == 0) {
         return EINVAL;
     }
-    while (__atomic_exchange_n(&mutex->locked, 1, __ATOMIC_ACQUIRE) != 0) {
-        sched_yield();
+    int expected = 0;
+    while (!__atomic_compare_exchange_n(&mutex->locked,
+            &expected,
+            1,
+            0,
+            __ATOMIC_ACQUIRE,
+            __ATOMIC_RELAXED)) {
+        expected = 0;
+        (void)srv_futex_wait((uint32_t *)&mutex->locked, 1, 0);
     }
     return 0;
 }
@@ -382,6 +390,7 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex) {
         return EINVAL;
     }
     __atomic_store_n(&mutex->locked, 0, __ATOMIC_RELEASE);
+    (void)srv_futex_wake((uint32_t *)&mutex->locked, 1);
     return 0;
 }
 
@@ -403,29 +412,68 @@ int pthread_cond_signal(pthread_cond_t *cond) {
         return EINVAL;
     }
     __atomic_add_fetch(&cond->sequence, 1, __ATOMIC_RELEASE);
+    (void)srv_futex_wake((uint32_t *)&cond->sequence, 1);
     return 0;
 }
 
 int pthread_cond_broadcast(pthread_cond_t *cond) {
-    return pthread_cond_signal(cond);
+    if (cond == 0) {
+        return EINVAL;
+    }
+    __atomic_add_fetch(&cond->sequence, 1, __ATOMIC_RELEASE);
+    (void)srv_futex_wake((uint32_t *)&cond->sequence, UINT64_MAX);
+    return 0;
 }
 
-int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+static int pthread_cond_wait_ticks(pthread_cond_t *cond, pthread_mutex_t *mutex, uint64_t timeout_ticks) {
     if (cond == 0 || mutex == 0) {
         return EINVAL;
     }
     unsigned int observed = __atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE);
     pthread_mutex_unlock(mutex);
     while (__atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE) == observed) {
-        sched_yield();
-        break;
+        long result = srv_futex_wait((uint32_t *)&cond->sequence, observed, timeout_ticks);
+        if (result == -ETIMEDOUT) {
+            (void)pthread_mutex_lock(mutex);
+            return ETIMEDOUT;
+        }
     }
     return pthread_mutex_lock(mutex);
 }
 
+int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
+    return pthread_cond_wait_ticks(cond, mutex, 0);
+}
+
 int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime) {
-    (void)abstime;
-    return pthread_cond_wait(cond, mutex);
+    if (cond == 0 || mutex == 0 || abstime == 0 ||
+        abstime->tv_sec < 0 ||
+        abstime->tv_nsec < 0 ||
+        abstime->tv_nsec >= 1000000000L) {
+        return EINVAL;
+    }
+
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+        return errno;
+    }
+    if (abstime->tv_sec < now.tv_sec ||
+        (abstime->tv_sec == now.tv_sec && abstime->tv_nsec <= now.tv_nsec)) {
+        return ETIMEDOUT;
+    }
+
+    uint64_t sec = (uint64_t)(abstime->tv_sec - now.tv_sec);
+    long nsec = abstime->tv_nsec - now.tv_nsec;
+    if (nsec < 0) {
+        sec--;
+        nsec += 1000000000L;
+    }
+    uint64_t ticks = sec * PTHREAD_TICKS_PER_SECOND;
+    ticks += ((uint64_t)nsec * PTHREAD_TICKS_PER_SECOND + 999999999ull) / 1000000000ull;
+    if (ticks == 0) {
+        ticks = 1;
+    }
+    return pthread_cond_wait_ticks(cond, mutex, ticks);
 }
 
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {

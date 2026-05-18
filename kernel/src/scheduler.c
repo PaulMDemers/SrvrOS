@@ -308,23 +308,37 @@ bool scheduler_wait(struct scheduler_wait_queue *queue,
     return scheduler_wait_timeout(queue, condition, arg, 0);
 }
 
-void scheduler_wake_all(struct scheduler_wait_queue *queue) {
-    if (!initialized || queue == NULL) {
-        return;
+uint64_t scheduler_wake_count(struct scheduler_wait_queue *queue, uint64_t max_count) {
+    if (!initialized || queue == NULL || max_count == 0) {
+        return 0;
     }
 
     uint64_t flags = irq_save();
     uint64_t waiters = queue->waiters;
-    queue->waiters = 0;
+    uint64_t woken = 0;
 
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if ((waiters & (1ull << i)) != 0 && threads[i].state == THREAD_BLOCKED) {
+        if ((waiters & (1ull << i)) == 0) {
+            continue;
+        }
+        if (threads[i].state != THREAD_BLOCKED) {
+            queue->waiters &= ~(1ull << i);
+            continue;
+        }
+        if (woken < max_count) {
+            queue->waiters &= ~(1ull << i);
             threads[i].state = THREAD_READY;
             threads[i].blocked_queue = NULL;
             threads[i].blocked_deadline_ticks = 0;
+            woken++;
         }
     }
     irq_restore(flags);
+    return woken;
+}
+
+void scheduler_wake_all(struct scheduler_wait_queue *queue) {
+    (void)scheduler_wake_count(queue, UINT64_MAX);
 }
 
 static void wake_expired_waits(void) {
