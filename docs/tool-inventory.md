@@ -70,8 +70,8 @@ zlibdemo jsondemo inidemo linedemo sqlitedemo uvdemo lua
 `gzip` and `gunzip` are the same zlib-backed program installed under two names.
 `minizip` and `miniunz` are built from zlib contrib MiniZip sources.
 `uvdemo` uses the srvros `uv.h` compatibility shim as the first libuv-shaped
-bring-up target, covering timers, filesystem requests, fd polling, UDP, and
-TCP server flow.
+bring-up target, covering timers, filesystem requests, async/work callbacks, fd
+polling, UDP, and TCP server flow.
 
 ## Network Commands
 

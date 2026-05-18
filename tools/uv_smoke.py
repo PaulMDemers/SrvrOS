@@ -156,6 +156,8 @@ def main():
     expected = [
         "uvdemo: timer ok",
         "uvdemo: fs ok",
+        "uvdemo: async ok",
+        "uvdemo: work ok",
         "uvdemo: poll ok",
         "uvdemo: basic ok",
         "uvdemo: tcp listening 7018",

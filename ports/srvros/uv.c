@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <netinet/in.h>
 #include <poll.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,6 +17,7 @@
 #define UV_HANDLE_TCP 2
 #define UV_HANDLE_UDP 3
 #define UV_HANDLE_POLL 4
+#define UV_HANDLE_ASYNC 5
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
@@ -109,6 +111,9 @@ int uv_loop_alive(const uv_loop_t *loop) {
             return 1;
         }
     }
+    for (uv_work_t *work = loop->work_queue; work != 0; work = work->next) {
+        return 1;
+    }
     return 0;
 }
 
@@ -201,6 +206,34 @@ static void run_due_timers(uv_loop_t *loop) {
             base->active = 0;
         }
         cb(timer);
+    }
+}
+
+static void run_pending_async(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_async_t *async = (uv_async_t *)base;
+        if (base->type != UV_HANDLE_ASYNC || !base->active || base->closing || async->async_cb == 0 ||
+            !async->pending) {
+            continue;
+        }
+        async->pending = 0;
+        async->async_cb(async);
+    }
+}
+
+static void run_done_work(uv_loop_t *loop) {
+    uv_work_t **link = &loop->work_queue;
+    while (*link != 0) {
+        uv_work_t *work = *link;
+        if (!work->done) {
+            link = &work->next;
+            continue;
+        }
+        *link = work->next;
+        work->next = 0;
+        if (work->after_work_cb != 0) {
+            work->after_work_cb(work, work->status);
+        }
     }
 }
 
@@ -325,6 +358,8 @@ static int run_once(uv_loop_t *loop, int mode) {
 
     uv_update_time(loop);
     run_due_timers(loop);
+    run_pending_async(loop);
+    run_done_work(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
         return 0;
     }
@@ -348,6 +383,8 @@ static int run_once(uv_loop_t *loop, int mode) {
     if (count == 0) {
         if (timeout > 0) {
             sleep_ms((uint64_t)timeout);
+        } else if (timeout < 0 && loop->work_queue != 0) {
+            sleep_ms(1);
         }
     } else {
         ready = poll(fds, count, timeout);
@@ -366,6 +403,8 @@ static int run_once(uv_loop_t *loop, int mode) {
 
     uv_update_time(loop);
     run_due_timers(loop);
+    run_pending_async(loop);
+    run_done_work(loop);
     return uv_loop_alive(loop) ? 1 : 0;
 }
 
@@ -527,6 +566,57 @@ int uv_poll_stop(uv_poll_t *handle) {
     handle->events = 0;
     handle->poll_cb = 0;
     handle->handle.active = 0;
+    return 0;
+}
+
+int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb) {
+    if (loop == 0 || handle == 0 || async_cb == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_ASYNC);
+    handle->async_cb = async_cb;
+    return 0;
+}
+
+int uv_async_send(uv_async_t *handle) {
+    if (handle == 0 || handle->async_cb == 0) {
+        return -EINVAL;
+    }
+    handle->pending = 1;
+    handle->handle.active = 1;
+    return 0;
+}
+
+static void *work_thread_main(void *arg) {
+    uv_work_t *request = arg;
+    if (request->work_cb != 0) {
+        request->work_cb(request);
+    }
+    request->status = 0;
+    request->done = 1;
+    return 0;
+}
+
+int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_after_work_cb after_work_cb) {
+    if (loop == 0 || request == 0 || work_cb == 0) {
+        return -EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->loop = loop;
+    request->work_cb = work_cb;
+    request->after_work_cb = after_work_cb;
+    request->next = loop->work_queue;
+    loop->work_queue = request;
+
+    pthread_t thread;
+    int status = pthread_create(&thread, 0, work_thread_main, request);
+    if (status != 0) {
+        loop->work_queue = request->next;
+        request->next = 0;
+        return -status;
+    }
+    (void)pthread_detach(thread);
     return 0;
 }
 
@@ -721,6 +811,36 @@ int uv_fs_write(uv_loop_t *loop,
         }
     }
     return fs_finish(request, total, cb);
+}
+
+int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb) {
+    (void)loop;
+    if (request == 0 || path == 0) {
+        return -EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->path = path;
+    return fs_finish(request, mkdir(path, (mode_t)mode) < 0 ? uv_error_from_errno() : 0, cb);
+}
+
+int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
+    (void)loop;
+    if (request == 0 || path == 0) {
+        return -EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->path = path;
+    return fs_finish(request, rmdir(path) < 0 ? uv_error_from_errno() : 0, cb);
+}
+
+int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb) {
+    (void)loop;
+    if (request == 0 || path == 0 || new_path == 0) {
+        return -EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->path = path;
+    return fs_finish(request, rename(path, new_path) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
 int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {

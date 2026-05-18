@@ -125,9 +125,9 @@ editor clients:
   `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
   `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
-  exercises timer, filesystem operations, generic fd polling, UDP, and
-  multi-client host-forwarded TCP listener/read/write behavior through a
-  libuv-shaped loop API.
+  exercises timer, filesystem operations, async handles, queued work, generic
+  fd polling, UDP, and multi-client host-forwarded TCP listener/read/write
+  behavior through a libuv-shaped loop API.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

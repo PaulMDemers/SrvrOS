@@ -165,7 +165,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `httpget_smoke.py` covers outbound DNS/connect/send/recv with the newer
   socket error propagation in place.
 - `uv_smoke.py`: shell launch of `/fat/bin/uvdemo` for the srvros `uv.h`
-  compatibility shim, covering timer/file operations, pipe-backed `uv_poll_t`
+  compatibility shim, covering timer/file operations, mkdir/rename/rmdir,
+  `uv_async_t`, pthread-backed `uv_queue_work`, pipe-backed `uv_poll_t`
   readability, plus a host-forwarded TCP listener that accepts two clients,
   reads requests, writes responses, and closes the listener without dropping
   accepted streams.

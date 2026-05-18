@@ -23,10 +23,12 @@ typedef struct uv_timer_s uv_timer_t;
 typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_udp_s uv_udp_t;
 typedef struct uv_poll_s uv_poll_t;
+typedef struct uv_async_s uv_async_t;
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_write_s uv_write_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
+typedef struct uv_work_s uv_work_t;
 
 typedef struct {
     char *base;
@@ -41,6 +43,7 @@ typedef void (*uv_write_cb)(uv_write_t *request, int status);
 typedef void (*uv_alloc_cb)(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer);
 typedef void (*uv_read_cb)(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer);
 typedef void (*uv_poll_cb)(uv_poll_t *handle, int status, int events);
+typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -48,6 +51,8 @@ typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     const struct sockaddr *addr,
     unsigned flags);
 typedef void (*uv_fs_cb)(uv_fs_t *request);
+typedef void (*uv_work_cb)(uv_work_t *request);
+typedef void (*uv_after_work_cb)(uv_work_t *request, int status);
 
 struct uv_handle_s {
     uv_loop_t *loop;
@@ -61,6 +66,7 @@ struct uv_handle_s {
 
 struct uv_loop_s {
     uv_handle_t *handles;
+    uv_work_t *work_queue;
     uint64_t now_ms;
     int stop_flag;
 };
@@ -91,6 +97,12 @@ struct uv_poll_s {
     int events;
 };
 
+struct uv_async_s {
+    uv_handle_t handle;
+    uv_async_cb async_cb;
+    int pending;
+};
+
 struct uv_connect_s {
     uv_tcp_t *handle;
     void *data;
@@ -113,6 +125,16 @@ struct uv_fs_s {
     struct stat statbuf;
     const char *path;
     void *data;
+};
+
+struct uv_work_s {
+    uv_loop_t *loop;
+    uv_work_cb work_cb;
+    uv_after_work_cb after_work_cb;
+    int status;
+    volatile int done;
+    void *data;
+    uv_work_t *next;
 };
 
 uv_loop_t *uv_default_loop(void);
@@ -153,6 +175,11 @@ int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb);
 int uv_poll_stop(uv_poll_t *handle);
 
+int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb);
+int uv_async_send(uv_async_t *handle);
+
+int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_after_work_cb after_work_cb);
+
 int uv_udp_init(uv_loop_t *loop, uv_udp_t *handle);
 int uv_udp_bind(uv_udp_t *handle, const struct sockaddr *addr, unsigned int flags);
 int uv_udp_recv_start(uv_udp_t *handle, uv_alloc_cb alloc_cb, uv_udp_recv_cb recv_cb);
@@ -184,6 +211,9 @@ int uv_fs_write(uv_loop_t *loop,
     unsigned int buffer_count,
     int64_t offset,
     uv_fs_cb cb);
+int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb);
+int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
+int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb);
 int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
 int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
 void uv_fs_req_cleanup(uv_fs_t *request);

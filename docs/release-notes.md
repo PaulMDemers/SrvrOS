@@ -497,9 +497,10 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - Lua uses its normal floating-number profile with `math` enabled. The `os`
   library and native dynamic loading remain disabled.
 - `/fat/bin/uvdemo` adds the first srvros `uv.h` compatibility shim, covering a
-  libuv-shaped loop, timers, filesystem requests, `uv_poll_t`, UDP, and a
-  two-client host-forwarded TCP accept/read/write smoke path for the
-  Node.js/libuv bring-up track.
+  libuv-shaped loop, timers, filesystem requests, `uv_async_t`,
+  pthread-backed `uv_queue_work`, `uv_poll_t`, UDP, and a two-client
+  host-forwarded TCP accept/read/write smoke path for the Node.js/libuv
+  bring-up track.
 - Process-exit teardown is non-preemptible while freeing the exiting address
   space, so repeated larger interpreter launches do not leave scheduler context
   pointing at freed page tables.

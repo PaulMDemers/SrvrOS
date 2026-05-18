@@ -39,6 +39,8 @@ static int fs_test(void) {
     uv_loop_t loop;
     uv_fs_t request;
     const char *path = "/fat/uvdemo.txt";
+    const char *dir = "/fat/uvdemo-dir";
+    const char *renamed = "/fat/uvdemo-renamed.txt";
     char content[] = "uv-fs-ok";
     char readback[32];
     uv_buf_t buffer;
@@ -85,7 +87,64 @@ static int fs_test(void) {
         puts("uvdemo: fs stat failed");
         return 1;
     }
+    (void)uv_fs_unlink(&loop, &request, renamed, 0);
+    (void)uv_fs_rmdir(&loop, &request, dir, 0);
+    if (uv_fs_mkdir(&loop, &request, dir, 0755, 0) < 0 ||
+        uv_fs_rename(&loop, &request, path, renamed, 0) < 0 ||
+        uv_fs_stat(&loop, &request, renamed, 0) < 0 ||
+        request.statbuf.st_size != (off_t)strlen(content) ||
+        uv_fs_unlink(&loop, &request, renamed, 0) < 0 ||
+        uv_fs_rmdir(&loop, &request, dir, 0) < 0) {
+        puts("uvdemo: fs extra failed");
+        return 1;
+    }
     puts("uvdemo: fs ok");
+    return 0;
+}
+
+static uv_loop_t work_loop;
+static uv_async_t work_async;
+static uv_work_t work_request;
+static int work_value;
+static int work_done;
+static int async_seen;
+
+static void async_cb(uv_async_t *handle) {
+    async_seen = 1;
+    uv_close((uv_handle_t *)handle, 0);
+}
+
+static void work_cb(uv_work_t *request) {
+    (void)request;
+    work_value = 40 + 2;
+    (void)uv_async_send(&work_async);
+}
+
+static void after_work_cb(uv_work_t *request, int status) {
+    (void)request;
+    if (status == 0 && work_value == 42) {
+        work_done = 1;
+    }
+    uv_stop(&work_loop);
+}
+
+static int work_test(void) {
+    work_value = 0;
+    work_done = 0;
+    async_seen = 0;
+    if (uv_loop_init(&work_loop) < 0 ||
+        uv_async_init(&work_loop, &work_async, async_cb) < 0 ||
+        uv_queue_work(&work_loop, &work_request, work_cb, after_work_cb) < 0) {
+        puts("uvdemo: work setup failed");
+        return 1;
+    }
+    (void)uv_run(&work_loop, UV_RUN_DEFAULT);
+    if (!work_done || !async_seen) {
+        puts("uvdemo: work failed");
+        return 1;
+    }
+    puts("uvdemo: async ok");
+    puts("uvdemo: work ok");
     return 0;
 }
 
@@ -385,7 +444,7 @@ int main(int argc, char **argv) {
         return 0;
     }
     if (strcmp(mode, "basic") == 0) {
-        if (timer_test() != 0 || fs_test() != 0 || poll_test() != 0) {
+        if (timer_test() != 0 || fs_test() != 0 || work_test() != 0 || poll_test() != 0) {
             return 1;
         }
         puts("uvdemo: basic ok");
