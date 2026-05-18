@@ -120,7 +120,8 @@ exFAT is the primary filesystem. It supports:
   fragmented FAT-chain allocation/read/write fallback.
 - A consistency checker exposed as `fsck /fat`, including bitmap ownership
   checks for system structures, directories, files, duplicate clusters, and
-  leaked allocated clusters.
+  leaked allocated clusters, plus FAT entries that remain attached to
+  bitmap-free clusters.
 - VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
   block counts, and tick-derived access/modify/change timestamps.
 - A srvros-managed metadata sidecar at `/fat/.srvros/meta` on writable exFAT
@@ -143,8 +144,8 @@ Current filesystem caveats:
 - There is no general journaling or transaction rollback.
 - Crash consistency is not guaranteed if QEMU exits during arbitrary mutation,
   though metadata sidecar replacement has a small temp-file recovery path.
-- Long-name support and broader rollback around failed fragmented-chain writes
-  are still being hardened.
+- Long-name support and broader rollback around directory-entry updates are
+  still being hardened.
 - Unix-like metadata is persisted by srvros in a sidecar file rather than in
   native exFAT directory entries.
 

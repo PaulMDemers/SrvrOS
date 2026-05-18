@@ -398,17 +398,19 @@ kernel, and a minimal Unix-like userspace.
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
    This pass also broadens shell `test`/`[` boolean/file comparisons and
    `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.
-2. Harden writable exFAT: fragmented FAT-chain allocation fallback and stress
-   coverage are in place; remaining work is better rollback on partial
-   rename/write failures, dirty-cache writeback, and crash-consistency
-   documentation. Empty files plus fd flush/truncate now work,
+2. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
+   FAT rollback, and stress/corruption coverage are in place; remaining work is
+   better rollback on partial directory-entry rename/write failures,
+   dirty-cache writeback, and crash-consistency documentation. Empty files plus
+   fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
    global `sync` flushes dirty writable descriptors, writable regular files can
    stage larger 16 MiB copies, recursive `cp` has room to create nested
    destination directory trees,
    generated large-file coverage now uses `/fat/bin/dd if=/dev/zero` followed by
    copy/compare and `fsck /fat`, `fsck /fat` now reports leaked allocated
-   clusters, and writable mounts now persist srvros Unix-like metadata through the
+   clusters and stale FAT entries on free clusters, and writable mounts now
+   persist srvros Unix-like metadata through the
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally
    small.

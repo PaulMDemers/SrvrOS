@@ -42,6 +42,7 @@ python3 tools/service_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 4
 python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
 python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
+python3 tools/fsck_corrupt.py --qemu /ucrt64/bin/qemu-system-x86_64
 ```
 
 Optional GUI smoke:
@@ -214,6 +215,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `fs_stress.py`: repeated file create/read/copy/rename/remove, generated
   fill/delete fragmentation pressure, fragmented large-file copy/compare, plus
   fsck before and after with allocated-cluster leak checks.
+- `fsck_corrupt.py`: mutates temporary exFAT image copies to verify `fsck /fat`
+  reports leaked bitmap allocations and stale FAT entries on bitmap-free
+  clusters.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 
 ## DNS Test Domains

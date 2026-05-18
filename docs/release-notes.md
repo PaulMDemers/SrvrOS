@@ -84,8 +84,10 @@ server.
   trees and lets CLI copies preserve larger binaries such as `/fat/bin/sh`.
 - Adds fragmented exFAT allocation fallback for writable files, preserves stream
   flags across overwrite/rename, validates chained EOF and leaked allocated
-  clusters in `fsck`, and expands `fs_stress.py` with fill/delete/copy/compare
-  coverage.
+  clusters in `fsck`, checks stale FAT entries on bitmap-free clusters, and
+  expands `fs_stress.py` with fill/delete/copy/compare coverage.
+- Adds `tools/fsck_corrupt.py`, a QEMU-backed corruption harness that flips
+  temporary exFAT images and verifies `fsck /fat` reports the expected failure.
 - Ships `/fat/bin/dd` with block copy, `/dev/zero`, size suffixes, and
   generated large-file smoke coverage followed by `fsck /fat`.
 - Deduplicates identical applet payloads in the generated exFAT image so many
@@ -468,8 +470,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 
 ### Next Release Themes
 
-- Harden exFAT writes with stronger rollback/sync semantics and broader crash
-  recovery testing.
+- Harden exFAT writes with stronger directory-entry rollback/sync semantics and
+  broader crash recovery testing.
 - Add richer userspace networking APIs and readiness primitives.
 - Add UDP sockets and stronger DNS resolver behavior.
 - Add NVMe storage.

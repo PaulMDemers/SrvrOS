@@ -1358,19 +1358,33 @@ static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t c
             run_length++;
             if (run_length == count) {
                 for (uint64_t i = 0; i < count; i++) {
-                    uint64_t cluster = run_start + i + 2;
+                    uint32_t cluster = (uint32_t)(run_start + i + 2);
                     bitmap_set_bit(bitmap, run_start + i);
                     uint8_t fat_entry[4];
                     write_u32(fat_entry, 0xffffffffu);
                     if (!volume_write(volume,
-                            volume->fat_offset_bytes + cluster * sizeof(uint32_t),
+                            volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t),
                             fat_entry,
                             sizeof(fat_entry))) {
+                        for (uint64_t j = 0; j < i; j++) {
+                            uint32_t written_cluster = (uint32_t)(run_start + j + 2);
+                            (void)volume_write(volume,
+                                volume->fat_offset_bytes + (uint64_t)written_cluster * sizeof(uint32_t),
+                                (uint8_t[4]) {0, 0, 0, 0},
+                                sizeof(fat_entry));
+                        }
                         kfree(bitmap);
                         return false;
                     }
                 }
                 if (!volume_write(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+                    for (uint64_t i = 0; i < count; i++) {
+                        uint32_t cluster = (uint32_t)(run_start + i + 2);
+                        (void)volume_write(volume,
+                            volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t),
+                            (uint8_t[4]) {0, 0, 0, 0},
+                            sizeof(uint32_t));
+                    }
                     kfree(bitmap);
                     return false;
                 }
@@ -2272,6 +2286,43 @@ static void check_bitmap_leaks(struct exfat_check_result *result,
     }
 }
 
+static void check_fat_bitmap_agreement(struct exfat_check_result *result,
+    const struct exfat_mount *mount,
+    const uint8_t *bitmap,
+    uint64_t bitmap_bits) {
+    uint64_t mismatch_count = 0;
+    uint64_t first_cluster = 0;
+    uint32_t first_value = 0;
+    uint64_t limit = mount->volume.cluster_count < bitmap_bits ? mount->volume.cluster_count : bitmap_bits;
+    for (uint64_t bit = 0; bit < limit; bit++) {
+        if (bitmap_bit_is_set(bitmap, bit)) {
+            continue;
+        }
+        uint32_t cluster = (uint32_t)(bit + 2);
+        uint32_t value = 0;
+        if (!next_cluster(&mount->volume, cluster, &value)) {
+            check_error(result, mount->mountpoint, "could not read FAT for bitmap agreement");
+            return;
+        }
+        if (value != 0) {
+            if (mismatch_count == 0) {
+                first_cluster = cluster;
+                first_value = value;
+            }
+            mismatch_count++;
+        }
+    }
+    if (mismatch_count != 0) {
+        result->fat_bitmap_mismatches += mismatch_count;
+        result->errors++;
+        console_printf("exfat-check: %s: free clusters with FAT entries=%u first=%u value=%x\n",
+            mount != NULL ? mount->mountpoint : "?",
+            mismatch_count,
+            first_cluster,
+            first_value);
+    }
+}
+
 static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *result) {
     struct exfat_volume *volume = &mount->volume;
     uint64_t bitmap_offset = 0;
@@ -2336,6 +2387,7 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         }
     }
     check_bitmap_leaks(result, mount, bitmap, bitmap_bits, seen, seen_bytes);
+    check_fat_bitmap_agreement(result, mount, bitmap, bitmap_bits);
 
     ok = result->errors == 0;
 
@@ -2380,11 +2432,12 @@ bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {
 void exfat_check_print(const char *mountpoint) {
     struct exfat_check_result result;
     bool ok = exfat_check(mountpoint, &result);
-    console_printf("exfat-check: mounts=%u files=%u clusters=%u leaks=%u errors=%u %s\n",
+    console_printf("exfat-check: mounts=%u files=%u clusters=%u leaks=%u fat=%u errors=%u %s\n",
         result.mounts_checked,
         result.files_checked,
         result.clusters_checked,
         result.leaked_clusters,
+        result.fat_bitmap_mismatches,
         result.errors,
         ok ? "ok" : "failed");
 }
