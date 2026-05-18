@@ -59,8 +59,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `env NAME=value command`, child envp inheritance, unquoted `*`/`?` globbing, `test`/`[`,
   `&&`/`||`, core CLI tools, stdin/stdout/stderr redirection, multi-stage
   pipeline fd wiring through `cat | grep | tap`, pipeline output
-  redirection/append, `2>&1`, zero-byte redirect creation, stdin-aware text
-  tools, source scripts plus non-interactive `sh script` and `sh -c`,
+  redirection/append, per-segment pipeline redirection including left-side
+  stderr capture, `2>&1` into a pipe, and stdin override on a later segment,
+  zero-byte redirect creation, stdin-aware text tools, source scripts plus
+  non-interactive `sh script` and `sh -c`,
   command substitution, `$((expr))` arithmetic expansion, positional parameters,
   `$!`, shell functions/`return`,
   unmatched quote/block diagnostics, `set -e`, `read`, `alias`,

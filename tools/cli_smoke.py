@@ -534,6 +534,17 @@ def main():
         "cat /fat/pipeline-redir.txt\n"
         "cat /fat/status.txt | grep exFAT >> /fat/pipeline-redir.txt\n"
         "stat /fat/pipeline-redir.txt\n"
+        "tap 2>&1 | grep usage > /fat/pipeline-stderr-merge.txt\n"
+        "stat /fat/pipeline-stderr-merge.txt\n"
+        "cat /fat/pipeline-stderr-merge.txt\n"
+        "tap 2> /fat/pipeline-left-stderr.txt | wc -c > /fat/pipeline-left-empty.txt\n"
+        "stat /fat/pipeline-left-stderr.txt\n"
+        "cat /fat/pipeline-left-empty.txt\n"
+        "printf 'left-pipe\\n' > /fat/pipeline-left-out.txt | wc -c > /fat/pipeline-left-wc.txt\n"
+        "cat /fat/pipeline-left-out.txt\n"
+        "cat /fat/pipeline-left-wc.txt\n"
+        "true | grep static < /fat/status.txt > /fat/pipeline-last-stdin.txt\n"
+        "cat /fat/pipeline-last-stdin.txt\n"
         "rm /fat/shell.txt\n"
         "stat /fat/shell.txt\n"
         "write /fat/shell.txt hello-again\n"
@@ -887,6 +898,10 @@ def main():
         "1 9 55",
         "/fat/pipeline-redir.txt: 55 bytes",
         "/fat/pipeline-redir.txt: 110 bytes",
+        "/fat/pipeline-stderr-merge.txt: 41 bytes",
+        "/fat/pipeline-left-stderr.txt: 41 bytes",
+        "left-pipe",
+        "0",
         "hello-again",
         "stat: not found: /fat/shell.txt",
         "posixdemo: start pid=",

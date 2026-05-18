@@ -4963,6 +4963,9 @@ struct pipeline_command {
     char *args;
     char args_expanded[ARG_EXPANDED_MAX];
     struct command_redirection redirection;
+    int input_fd;
+    int output_fd;
+    int error_fd;
 };
 
 static void close_pipeline_fds(int pipes[][2], size_t count) {
@@ -5030,6 +5033,15 @@ static void close_redirection_fds(int input_fd, int output_fd, int error_fd) {
     }
     if (error_fd >= 0 && error_fd != output_fd) {
         srv_close(error_fd);
+    }
+}
+
+static void close_pipeline_redirection_fds(struct pipeline_command *commands, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        close_redirection_fds(commands[i].input_fd, commands[i].output_fd, commands[i].error_fd);
+        commands[i].input_fd = -1;
+        commands[i].output_fd = -1;
+        commands[i].error_fd = -1;
     }
 }
 
@@ -5146,9 +5158,6 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
     int pipes[PIPELINE_MAX_COMMANDS - 1][2];
     long pids[PIPELINE_MAX_COMMANDS];
     uint64_t final_status = 0;
-    int input_fd = -1;
-    int output_fd = -1;
-    int error_fd = -1;
 
     if (segment_count < 2 || segment_count > PIPELINE_MAX_COMMANDS) {
         cli_puts("sh: pipeline too long\n");
@@ -5157,6 +5166,9 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
 
     for (size_t i = 0; i < PIPELINE_MAX_COMMANDS; i++) {
         pids[i] = -1;
+        commands[i].input_fd = -1;
+        commands[i].output_fd = -1;
+        commands[i].error_fd = -1;
         if (i + 1 < PIPELINE_MAX_COMMANDS) {
             pipes[i][0] = -1;
             pipes[i][1] = -1;
@@ -5169,56 +5181,62 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
                 sizeof(commands[i].path),
                 &commands[i].args,
                 &commands[i].redirection,
-                i == 0 || i + 1 == segment_count)) {
+                1)) {
             return 127;
         }
         expand_globs(commands[i].args, cwd, commands[i].args_expanded, sizeof(commands[i].args_expanded));
         commands[i].args = commands[i].args_expanded;
     }
 
-    if (commands[0].redirection.stdin_set) {
-        input_fd = open_redirection_input(commands[0].redirection.stdin_path);
-        if (input_fd < 0) {
-            return 1;
-        }
-    }
-    if (commands[segment_count - 1].redirection.stdout_set) {
-        output_fd = open_redirection_output(commands[segment_count - 1].redirection.stdout_path,
-            commands[segment_count - 1].redirection.stdout_append,
-            "output");
-        if (output_fd < 0) {
-            if (input_fd >= 0) {
-                srv_close(input_fd);
+    for (size_t i = 0; i < segment_count; i++) {
+        if (commands[i].redirection.stdin_set) {
+            commands[i].input_fd = open_redirection_input(commands[i].redirection.stdin_path);
+            if (commands[i].input_fd < 0) {
+                close_pipeline_redirection_fds(commands, segment_count);
+                return 1;
             }
-            return 1;
         }
-    }
-    if (commands[segment_count - 1].redirection.stderr_set) {
-        error_fd = open_redirection_output(commands[segment_count - 1].redirection.stderr_path,
-            commands[segment_count - 1].redirection.stderr_append,
-            "stderr");
-        if (error_fd < 0) {
-            close_redirection_fds(input_fd, output_fd, -1);
-            return 1;
+        if (commands[i].redirection.stdout_set) {
+            commands[i].output_fd = open_redirection_output(commands[i].redirection.stdout_path,
+                commands[i].redirection.stdout_append,
+                "output");
+            if (commands[i].output_fd < 0) {
+                close_pipeline_redirection_fds(commands, segment_count);
+                return 1;
+            }
         }
-    } else if (commands[segment_count - 1].redirection.stderr_to_stdout) {
-        error_fd = output_fd >= 0 ? output_fd : 1;
+        if (commands[i].redirection.stderr_set) {
+            commands[i].error_fd = open_redirection_output(commands[i].redirection.stderr_path,
+                commands[i].redirection.stderr_append,
+                "stderr");
+            if (commands[i].error_fd < 0) {
+                close_pipeline_redirection_fds(commands, segment_count);
+                return 1;
+            }
+        }
     }
 
     for (size_t i = 0; i + 1 < segment_count; i++) {
         if (srv_pipe(pipes[i]) < 0) {
             cli_puts("sh: pipe failed\n");
             close_pipeline_fds(pipes, segment_count - 1);
-            close_redirection_fds(input_fd, output_fd, error_fd);
+            close_pipeline_redirection_fds(commands, segment_count);
             return 1;
         }
     }
 
     for (size_t i = 0; i < segment_count; i++) {
-        int stdin_fd = i == 0 ? input_fd : pipes[i - 1][0];
-        int stdout_fd = i + 1 == segment_count ? output_fd : pipes[i][1];
-        int stderr_fd = i + 1 == segment_count ? error_fd : -1;
+        int stdin_fd = commands[i].input_fd >= 0 ?
+            commands[i].input_fd :
+            (i == 0 ? -1 : pipes[i - 1][0]);
+        int stdout_fd = commands[i].output_fd >= 0 ?
+            commands[i].output_fd :
+            (i + 1 == segment_count ? -1 : pipes[i][1]);
+        int stderr_fd = commands[i].error_fd;
         uint64_t group = i == 0 ? SRV_EXEC_GROUP_SELF : (uint64_t)pids[0];
+        if (commands[i].redirection.stderr_to_stdout) {
+            stderr_fd = stdout_fd >= 0 ? stdout_fd : 1;
+        }
         pids[i] = exec_external_command(commands[i].path,
             commands[i].args,
             1,
@@ -5232,7 +5250,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
             cli_puts(commands[i].path);
             cli_puts("\n");
             close_pipeline_fds(pipes, segment_count - 1);
-            close_redirection_fds(input_fd, output_fd, error_fd);
+            close_pipeline_redirection_fds(commands, segment_count);
             wait_pipeline_pids(pids, i, 0);
             (void)srv_proc_group(0, 0, 1);
             return 126;
@@ -5240,7 +5258,7 @@ static uint64_t run_pipeline(char **segments, size_t segment_count, const char *
     }
 
     close_pipeline_fds(pipes, segment_count - 1);
-    close_redirection_fds(input_fd, output_fd, error_fd);
+    close_pipeline_redirection_fds(commands, segment_count);
     if (background) {
         uint64_t group = pids[0] >= 0 ? (uint64_t)pids[0] : 0;
         struct shell_job *job = add_job(group, pids, segment_count, command_line);

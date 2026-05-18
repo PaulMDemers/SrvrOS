@@ -383,6 +383,9 @@ server.
 - Adds shell stdin redirection plus stderr `2>`/`2>>`/`2>&1` redirection, and moves
   external shell launches onto an `execve`-shaped native request that carries
   argv, envp, background state, and stdin/stdout/stderr fd overrides.
+- Extends shell pipelines so each external segment can own stdin/stdout/stderr
+  redirections instead of only the first input and last output positions,
+  including `2>&1` into a pipe and redirection on non-final segments.
 - Adds a shell `exec` builtin that replaces the current shell process with a
   resolved command while honoring the same redirection path.
 - Adds POSIX-facing `waitpid`, `posix_spawn`, `posix_spawnp`, standard-stream

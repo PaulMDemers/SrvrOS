@@ -387,7 +387,7 @@ kernel, and a minimal Unix-like userspace.
    `while`, `case`, compound-command tail chaining, command-local
    `NAME=value`, comments, script line continuations, simple here-docs, brace
    grouping, quoted/escaped argument preservation, `shift`, `break`/`continue`,
-   `command`, `$((expr))`, `$!`, `fg`/`bg`,
+   `command`, `$((expr))`, per-segment pipeline redirection, `$!`, `fg`/`bg`,
    `%+`/`%-`, `jobs -l`, `kill %job`, background pipelines, tab completion,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
