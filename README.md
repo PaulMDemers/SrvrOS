@@ -127,7 +127,10 @@ editor clients:
   `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
   exercises timer, filesystem operations, async handles, queued work, generic
   fd polling, UDP, and multi-client host-forwarded TCP listener/read/write
-  behavior through a libuv-shaped loop API.
+  behavior through a libuv-shaped loop API. Upstream libuv is pinned as a
+  submodule under `ports/upstream/libuv` at `v1.52.1`, and
+  `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend
+  toward that upstream source tree.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.
@@ -254,6 +257,7 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ linedemo
 / $ sqlitedemo
 / $ uvdemo
+/ $ libuvdemo
 / $ ttydemo
 / $ ifconfig
 / $ route
@@ -364,6 +368,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/libuv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/posixutils_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

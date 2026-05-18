@@ -34,6 +34,9 @@ server.
   userspace HTTP server, and client-side TCP connect for simple outbound HTTP.
 - Keeps accepted TCP streams alive when their listener fd is closed, matching
   the server lifecycle expected by POSIX/libuv-style event loops.
+- Pins upstream libuv `v1.52.1` as `ports/upstream/libuv` and adds
+  `/fat/bin/libuvdemo` plus `tools/libuv_smoke.py` as the dedicated staging
+  harness for replacing the srvros `uv.h` adapter with upstream-backed pieces.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

@@ -13,3 +13,6 @@
 [submodule "ports/upstream/linenoise"]
 	path = ports/upstream/linenoise
 	url = https://github.com/antirez/linenoise.git
+[submodule "ports/upstream/libuv"]
+	path = ports/upstream/libuv
+	url = https://github.com/libuv/libuv.git

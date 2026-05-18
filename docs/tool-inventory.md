@@ -64,7 +64,7 @@ install tar gzip gunzip minizip miniunz make byacc
 Bundled third-party port demos and interpreters:
 
 ```text
-zlibdemo jsondemo inidemo linedemo sqlitedemo uvdemo lua
+zlibdemo jsondemo inidemo linedemo sqlitedemo uvdemo libuvdemo lua
 ```
 
 `gzip` and `gunzip` are the same zlib-backed program installed under two names.
@@ -72,6 +72,8 @@ zlibdemo jsondemo inidemo linedemo sqlitedemo uvdemo lua
 `uvdemo` uses the srvros `uv.h` compatibility shim as the first libuv-shaped
 bring-up target, covering timers, filesystem requests, async/work callbacks, fd
 polling, UDP, and TCP server flow.
+`libuvdemo` uses the same adapter as the pinned upstream libuv staging harness,
+covering the subset currently ready for incremental backend replacement.
 
 ## Network Commands
 

@@ -170,6 +170,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   readability, plus a host-forwarded TCP listener that accepts two clients,
   reads requests, writes responses, and closes the listener without dropping
   accepted streams.
+- `libuv_smoke.py`: shell launch of `/fat/bin/libuvdemo`, the upstream libuv
+  staging harness. It validates the currently mapped adapter subset before
+  deeper upstream backend replacement: timer dispatch, filesystem requests,
+  async notification, queued work, and pipe-backed fd polling.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

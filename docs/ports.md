@@ -192,6 +192,13 @@ directory create/remove, rename, async/work callbacks, pipe-backed polling, UDP
 echo, and a two-client host-forwarded TCP accept/read/write path. It is the
 staging point for replacing the shim with a proper libuv backend as the fd
 readiness, thread-pool, signal, TTY, and socket surfaces mature.
+Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
+`v1.52.1` (`1cfa32f`). `/fat/bin/libuvdemo` is the first dedicated staging
+program for that port: it links the srvros adapter and exercises the subset we
+want to preserve while swapping in upstream internals, namely timers,
+filesystem requests, async notifications, queued work, and generic fd polling.
+The intent is to keep `uvdemo` as broad behavioral coverage while
+`libuvdemo` tracks the upstream replacement work.
 
 ## Current Limits
 
@@ -270,6 +277,7 @@ Third-party source is kept as pinned submodules or snapshots under
 `ports/upstream`:
 
 - zlib `v1.3.2`
+- libuv `v1.52.1`
 - Lua `v5.4.8`
 - cJSON `v1.7.19`
 - inih `r62`
