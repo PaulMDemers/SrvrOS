@@ -12,6 +12,9 @@
 #define UV_RUN_ONCE 1
 #define UV_RUN_NOWAIT 2
 
+#define UV_READABLE 1
+#define UV_WRITABLE 2
+
 #define UV_EOF (-4095)
 
 typedef struct uv_loop_s uv_loop_t;
@@ -19,6 +22,7 @@ typedef struct uv_handle_s uv_handle_t;
 typedef struct uv_timer_s uv_timer_t;
 typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_udp_s uv_udp_t;
+typedef struct uv_poll_s uv_poll_t;
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_write_s uv_write_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
@@ -36,6 +40,7 @@ typedef void (*uv_connect_cb)(uv_connect_t *request, int status);
 typedef void (*uv_write_cb)(uv_write_t *request, int status);
 typedef void (*uv_alloc_cb)(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer);
 typedef void (*uv_read_cb)(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer);
+typedef void (*uv_poll_cb)(uv_poll_t *handle, int status, int events);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -78,6 +83,12 @@ struct uv_udp_s {
     uv_handle_t handle;
     uv_alloc_cb alloc_cb;
     uv_udp_recv_cb recv_cb;
+};
+
+struct uv_poll_s {
+    uv_handle_t handle;
+    uv_poll_cb poll_cb;
+    int events;
 };
 
 struct uv_connect_s {
@@ -136,6 +147,11 @@ int uv_write(uv_write_t *request,
     const uv_buf_t buffers[],
     unsigned int buffer_count,
     uv_write_cb cb);
+
+int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
+int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
+int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb);
+int uv_poll_stop(uv_poll_t *handle);
 
 int uv_udp_init(uv_loop_t *loop, uv_udp_t *handle);
 int uv_udp_bind(uv_udp_t *handle, const struct sockaddr *addr, unsigned int flags);

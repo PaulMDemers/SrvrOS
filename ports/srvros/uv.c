@@ -15,6 +15,7 @@
 #define UV_HANDLE_TIMER 1
 #define UV_HANDLE_TCP 2
 #define UV_HANDLE_UDP 3
+#define UV_HANDLE_POLL 4
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
@@ -215,7 +216,29 @@ static short poll_events_for_handle(uv_handle_t *handle) {
         uv_udp_t *udp = (uv_udp_t *)handle;
         return udp->recv_cb != 0 ? POLLIN : 0;
     }
+    if (handle->type == UV_HANDLE_POLL) {
+        uv_poll_t *poll_handle = (uv_poll_t *)handle;
+        short events = 0;
+        if ((poll_handle->events & UV_READABLE) != 0) {
+            events |= POLLIN;
+        }
+        if ((poll_handle->events & UV_WRITABLE) != 0) {
+            events |= POLLOUT;
+        }
+        return poll_handle->poll_cb != 0 ? events : 0;
+    }
     return 0;
+}
+
+static int uv_events_from_poll(short revents) {
+    int events = 0;
+    if ((revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+        events |= UV_READABLE;
+    }
+    if ((revents & (POLLOUT | POLLERR)) != 0) {
+        events |= UV_WRITABLE;
+    }
+    return events;
 }
 
 static void dispatch_readable(uv_handle_t *handle) {
@@ -261,6 +284,16 @@ static void dispatch_readable(uv_handle_t *handle) {
                 count < 0 ? 0 : (const struct sockaddr *)&peer,
                 0);
         }
+    }
+}
+
+static void dispatch_poll(uv_handle_t *handle, short revents) {
+    if (handle->type != UV_HANDLE_POLL) {
+        return;
+    }
+    uv_poll_t *poll_handle = (uv_poll_t *)handle;
+    if (poll_handle->poll_cb != 0) {
+        poll_handle->poll_cb(poll_handle, 0, uv_events_from_poll(revents));
     }
 }
 
@@ -322,7 +355,9 @@ static int run_once(uv_loop_t *loop, int mode) {
             return uv_error_from_errno();
         }
         for (nfds_t i = 0; i < count; i++) {
-            if ((fds[i].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+            if (handles[i]->type == UV_HANDLE_POLL && fds[i].revents != 0) {
+                dispatch_poll(handles[i], fds[i].revents);
+            } else if ((fds[i].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
                 dispatch_readable(handles[i]);
             }
         }
@@ -462,6 +497,39 @@ int uv_write(uv_write_t *request,
     return status;
 }
 
+int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd) {
+    if (loop == 0 || handle == 0 || fd < 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, fd, UV_HANDLE_POLL);
+    return 0;
+}
+
+int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd) {
+    return uv_poll_init(loop, handle, fd);
+}
+
+int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb) {
+    if (handle == 0 || cb == 0 || (events & ~(UV_READABLE | UV_WRITABLE)) != 0) {
+        return -EINVAL;
+    }
+    handle->events = events;
+    handle->poll_cb = cb;
+    handle->handle.active = events != 0;
+    return 0;
+}
+
+int uv_poll_stop(uv_poll_t *handle) {
+    if (handle == 0) {
+        return -EINVAL;
+    }
+    handle->events = 0;
+    handle->poll_cb = 0;
+    handle->handle.active = 0;
+    return 0;
+}
+
 int uv_udp_init(uv_loop_t *loop, uv_udp_t *handle) {
     if (loop == 0 || handle == 0) {
         return -EINVAL;
@@ -535,7 +603,7 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
     handle->active = 0;
     handle->closing = 1;
     handle->close_cb = close_cb;
-    if (handle->fd >= 0) {
+    if (handle->fd >= 0 && handle->type != UV_HANDLE_POLL) {
         close(handle->fd);
         handle->fd = -1;
     }

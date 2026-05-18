@@ -94,8 +94,8 @@ def main():
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
     serial_port = random.randint(24000, 29000)
     host_port = random.randint(20000, 23999)
-    payload = b"from-host"
-    response = b""
+    payloads = [b"from-host-one", b"from-host-two"]
+    responses = []
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -135,7 +135,8 @@ def main():
             output += read_until(sock, b" $ ", 3)
             sock.sendall(b"uvdemo tcp\n")
             output += read_until(sock, b"uvdemo: tcp listening 7018", args.line_wait)
-            response = tcp_request(host_port, payload, args.tcp_wait)
+            for payload in payloads:
+                responses.append(tcp_request(host_port, payload, args.tcp_wait))
             output += read_until(sock, b" $ ", args.tcp_wait)
             output += read_for(sock, 1)
         finally:
@@ -147,21 +148,32 @@ def main():
 
     text = output.decode("utf-8", "replace")
     sys.stdout.write(text)
-    sys.stdout.write(response.decode("utf-8", "replace"))
+    for response in responses:
+        sys.stdout.write(response.decode("utf-8", "replace"))
+        sys.stdout.write("\n")
     sys.stdout.write("\n")
 
     expected = [
         "uvdemo: timer ok",
         "uvdemo: fs ok",
+        "uvdemo: poll ok",
         "uvdemo: basic ok",
         "uvdemo: tcp listening 7018",
         "uvdemo: tcp accepted",
-        "uvdemo: tcp read 9",
+        "uvdemo: tcp accepted client 1",
+        "uvdemo: tcp accepted client 2",
+        "uvdemo: tcp read 13",
+        "uvdemo: tcp read client 1 13",
+        "uvdemo: tcp read client 2 13",
         "uvdemo: tcp ok",
+        "uvdemo: tcp ok client 1",
+        "uvdemo: tcp ok client 2",
+        "uvdemo: tcp all ok",
     ]
     missing = [marker for marker in expected if marker not in text]
-    if response != b"uv-tcp-ok:from-host":
-        missing.append("uv tcp response")
+    expected_responses = [b"uv-tcp-ok:" + payload for payload in payloads]
+    if responses != expected_responses:
+        missing.append("uv tcp responses")
     if has_fatal_exception(text):
         print("uv-smoke: fatal exception detected", file=sys.stderr)
         return 2

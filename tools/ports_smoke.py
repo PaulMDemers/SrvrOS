@@ -192,6 +192,7 @@ def main():
         "sqlitedemo: ok sqlite 3.53.1",
         "uvdemo: timer ok",
         "uvdemo: fs ok",
+        "uvdemo: poll ok",
         "uvdemo: basic ok",
         "ttydemo: raw mode ok",
         "ttydemo: restore ok",
