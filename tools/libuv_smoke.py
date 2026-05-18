@@ -113,6 +113,8 @@ def main():
 
     expected = [
         "libuvdemo: srvros libuv port staging",
+        "libuvdemo: upstream version 1.52.1",
+        "libuvdemo: errors ok",
         "libuvdemo: timer ok",
         "libuvdemo: fs ok",
         "libuvdemo: async ok",

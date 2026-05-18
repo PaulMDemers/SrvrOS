@@ -38,7 +38,7 @@ static void sleep_ms(uint64_t ms) {
 }
 
 static int uv_error_from_errno(void) {
-    return errno > 0 ? -errno : -1;
+    return uv_translate_sys_error(errno);
 }
 
 static void set_nonblocking(int fd) {
@@ -715,14 +715,77 @@ int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr) {
     return 0;
 }
 
+struct uv_error_info {
+    int code;
+    const char *name;
+    const char *message;
+};
+
+static const struct uv_error_info uv_errors[] = {
+#define XX(code, message) {UV_##code, #code, message},
+    UV_ERRNO_MAP(XX)
+#undef XX
+};
+
+static const struct uv_error_info *uv_find_error(int error) {
+    if (error > 0) {
+        error = -error;
+    }
+    for (size_t i = 0; i < sizeof(uv_errors) / sizeof(uv_errors[0]); i++) {
+        if (uv_errors[i].code == error) {
+            return &uv_errors[i];
+        }
+    }
+    return 0;
+}
+
+static char *copy_error_string(char *buffer, size_t buffer_length, const char *text) {
+    if (buffer == 0 || buffer_length == 0) {
+        return buffer;
+    }
+    if (text == 0) {
+        text = "";
+    }
+    snprintf(buffer, buffer_length, "%s", text);
+    return buffer;
+}
+
+int uv_translate_sys_error(int sys_errno) {
+    if (sys_errno <= 0) {
+        return sys_errno;
+    }
+    return UV__ERR(sys_errno);
+}
+
+const char *uv_err_name(int error) {
+    const struct uv_error_info *info = uv_find_error(error);
+    return info != 0 ? info->name : "UNKNOWN";
+}
+
+char *uv_err_name_r(int error, char *buffer, size_t buffer_length) {
+    const struct uv_error_info *info = uv_find_error(error);
+    if (info != 0) {
+        return copy_error_string(buffer, buffer_length, info->name);
+    }
+    if (buffer != 0 && buffer_length != 0) {
+        snprintf(buffer, buffer_length, "Unknown system error %d", error);
+    }
+    return buffer;
+}
+
 const char *uv_strerror(int error) {
-    if (error == UV_EOF) {
-        return "end of file";
+    const struct uv_error_info *info = uv_find_error(error);
+    if (info != 0) {
+        return info->message;
     }
     if (error < 0) {
         error = -error;
     }
     return strerror(error);
+}
+
+char *uv_strerror_r(int error, char *buffer, size_t buffer_length) {
+    return copy_error_string(buffer, buffer_length, uv_strerror(error));
 }
 
 static int fs_finish(uv_fs_t *request, ssize_t result, uv_fs_cb cb) {

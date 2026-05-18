@@ -37,6 +37,10 @@ server.
 - Pins upstream libuv `v1.52.1` as `ports/upstream/libuv` and adds
   `/fat/bin/libuvdemo` plus `tools/libuv_smoke.py` as the dedicated staging
   harness for replacing the srvros `uv.h` adapter with upstream-backed pieces.
+  `uv_version()` and `uv_version_string()` now link upstream `src/version.c`,
+  and the adapter exposes libuv-style errno constants/name/string helpers.
+  libc also defines C-standard `EDOM` so upstream libuv can correctly detect
+  positive system errno values.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

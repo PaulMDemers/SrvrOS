@@ -8,14 +8,89 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "../upstream/libuv/include/uv/errno.h"
+#include "../upstream/libuv/include/uv/version.h"
+
+#define UV_ERRNO_MAP(XX) \
+    XX(E2BIG, "argument list too long") \
+    XX(EACCES, "permission denied") \
+    XX(EADDRINUSE, "address already in use") \
+    XX(EADDRNOTAVAIL, "address not available") \
+    XX(EAFNOSUPPORT, "address family not supported") \
+    XX(EAGAIN, "resource temporarily unavailable") \
+    XX(EAI_AGAIN, "temporary failure") \
+    XX(EAI_FAIL, "permanent failure") \
+    XX(EAI_FAMILY, "ai_family not supported") \
+    XX(EAI_MEMORY, "out of memory") \
+    XX(EAI_NONAME, "unknown node or service") \
+    XX(EAI_SERVICE, "service not available for socket type") \
+    XX(EALREADY, "connection already in progress") \
+    XX(EBADF, "bad file descriptor") \
+    XX(EBUSY, "resource busy or locked") \
+    XX(ECANCELED, "operation canceled") \
+    XX(ECONNABORTED, "software caused connection abort") \
+    XX(ECONNREFUSED, "connection refused") \
+    XX(ECONNRESET, "connection reset by peer") \
+    XX(EDESTADDRREQ, "destination address required") \
+    XX(EEXIST, "file already exists") \
+    XX(EFAULT, "bad address in system call argument") \
+    XX(EFBIG, "file too large") \
+    XX(EHOSTUNREACH, "host is unreachable") \
+    XX(EINTR, "interrupted system call") \
+    XX(EINVAL, "invalid argument") \
+    XX(EIO, "i/o error") \
+    XX(EISCONN, "socket is already connected") \
+    XX(EISDIR, "illegal operation on a directory") \
+    XX(ELOOP, "too many symbolic links encountered") \
+    XX(EMFILE, "too many open files") \
+    XX(EMSGSIZE, "message too long") \
+    XX(ENAMETOOLONG, "name too long") \
+    XX(ENETDOWN, "network is down") \
+    XX(ENETUNREACH, "network is unreachable") \
+    XX(ENFILE, "file table overflow") \
+    XX(ENOBUFS, "no buffer space available") \
+    XX(ENODEV, "no such device") \
+    XX(ENOENT, "no such file or directory") \
+    XX(ENOMEM, "not enough memory") \
+    XX(ENOPROTOOPT, "protocol not available") \
+    XX(ENOSPC, "no space left on device") \
+    XX(ENOSYS, "function not implemented") \
+    XX(ENOTCONN, "socket is not connected") \
+    XX(ENOTDIR, "not a directory") \
+    XX(ENOTEMPTY, "directory not empty") \
+    XX(ENOTSOCK, "socket operation on non-socket") \
+    XX(ENOTSUP, "operation not supported on socket") \
+    XX(ENOTTY, "inappropriate ioctl for device") \
+    XX(ENXIO, "no such device or address") \
+    XX(EOF, "end of file") \
+    XX(EOVERFLOW, "value too large for defined data type") \
+    XX(EPERM, "operation not permitted") \
+    XX(EPIPE, "broken pipe") \
+    XX(EPROTO, "protocol error") \
+    XX(EPROTONOSUPPORT, "protocol not supported") \
+    XX(EPROTOTYPE, "protocol wrong type for socket") \
+    XX(ERANGE, "result too large") \
+    XX(EROFS, "read-only file system") \
+    XX(ESHUTDOWN, "cannot send after transport endpoint shutdown") \
+    XX(ESPIPE, "invalid seek") \
+    XX(ESRCH, "no such process") \
+    XX(ETIMEDOUT, "connection timed out") \
+    XX(EXDEV, "cross-device link not permitted") \
+    XX(UNKNOWN, "unknown error")
+
+typedef enum {
+#define XX(code, _) UV_##code = UV__##code,
+    UV_ERRNO_MAP(XX)
+#undef XX
+    UV_ERRNO_MAX = UV__EOF - 1
+} uv_errno_t;
+
 #define UV_RUN_DEFAULT 0
 #define UV_RUN_ONCE 1
 #define UV_RUN_NOWAIT 2
 
 #define UV_READABLE 1
 #define UV_WRITABLE 2
-
-#define UV_EOF (-4095)
 
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv_handle_s uv_handle_t;
@@ -138,6 +213,8 @@ struct uv_work_s {
 };
 
 uv_loop_t *uv_default_loop(void);
+unsigned int uv_version(void);
+const char *uv_version_string(void);
 int uv_loop_init(uv_loop_t *loop);
 int uv_run(uv_loop_t *loop, int mode);
 void uv_stop(uv_loop_t *loop);
@@ -193,7 +270,11 @@ int uv_udp_send(uv_udp_send_t *request,
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb);
 int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr);
+int uv_translate_sys_error(int sys_errno);
+const char *uv_err_name(int error);
+char *uv_err_name_r(int error, char *buffer, size_t buffer_length);
 const char *uv_strerror(int error);
+char *uv_strerror_r(int error, char *buffer, size_t buffer_length);
 
 int uv_fs_open(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, int mode, uv_fs_cb cb);
 int uv_fs_close(uv_loop_t *loop, uv_fs_t *request, int fd, uv_fs_cb cb);

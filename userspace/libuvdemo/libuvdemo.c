@@ -1,9 +1,44 @@
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 
 #include <uv.h>
+
+static int version_test(void) {
+    unsigned int expected = (UV_VERSION_MAJOR << 16) | (UV_VERSION_MINOR << 8) | UV_VERSION_PATCH;
+    if (uv_version() != expected || strcmp(uv_version_string(), "1.52.1") != 0) {
+        puts("libuvdemo: version failed");
+        return 1;
+    }
+    printf("libuvdemo: upstream version %s\n", uv_version_string());
+    return 0;
+}
+
+static int error_test(void) {
+    char name[32];
+    char message[64];
+    if (UV_EINVAL >= 0 || uv_translate_sys_error(EINVAL) != UV_EINVAL) {
+        puts("libuvdemo: error translate failed");
+        return 1;
+    }
+    if (strcmp(uv_err_name(UV_EINVAL), "EINVAL") != 0 ||
+        strcmp(uv_strerror(UV_EINVAL), "invalid argument") != 0 ||
+        strcmp(uv_strerror(UV_EOF), "end of file") != 0) {
+        puts("libuvdemo: error strings failed");
+        return 1;
+    }
+    if (uv_err_name_r(UV_EINVAL, name, sizeof(name)) != name ||
+        uv_strerror_r(UV_EINVAL, message, sizeof(message)) != message ||
+        strcmp(name, "EINVAL") != 0 ||
+        strcmp(message, "invalid argument") != 0) {
+        puts("libuvdemo: error reentrant failed");
+        return 1;
+    }
+    puts("libuvdemo: errors ok");
+    return 0;
+}
 
 static int timer_seen;
 
@@ -192,7 +227,9 @@ static int poll_test(void) {
 
 int main(void) {
     puts("libuvdemo: srvros libuv port staging");
-    if (timer_test() != 0 ||
+    if (version_test() != 0 ||
+        error_test() != 0 ||
+        timer_test() != 0 ||
         fs_test() != 0 ||
         work_test() != 0 ||
         poll_test() != 0) {

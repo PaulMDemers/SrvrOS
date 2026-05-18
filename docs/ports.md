@@ -197,6 +197,10 @@ Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
 program for that port: it links the srvros adapter and exercises the subset we
 want to preserve while swapping in upstream internals, namely timers,
 filesystem requests, async notifications, queued work, and generic fd polling.
+The version identity functions are already compiled from upstream
+`src/version.c`, giving the adapter a concrete upstream object in the link.
+The adapter also exposes libuv-style `UV_E*` errno constants plus
+`uv_translate_sys_error`, `uv_err_name`, and reentrant string helpers.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 
