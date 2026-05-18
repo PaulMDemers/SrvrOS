@@ -72,7 +72,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `yes | head`, `install -D`, `diff -q/-u`, `tar -c/-t/-x`,
   `gzip`/`gunzip` file and tarball round trips, simple unified `patch`,
   a small `make` install flow,
-  `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
+  `sed`, `dd if=/dev/zero` generated files, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
   `cp`/`rm`, recursive copy destination creation, larger binary `cp` with
   `cmp -s` verification, copy/remove, clustered `rm -fRr`, multi-source
   `cp`/`mv` into directories, native file rename and directory destinations through `mv`,
@@ -93,7 +93,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `xargs -n`/`-r`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
-  compatibility-layer smoke app.
+  compatibility-layer smoke app. The CLI harness also runs monitor `fsck /fat`
+  after the shell exits to catch filesystem consistency regressions from the
+  mutation path.
 - `shell_edit_smoke.py`: interactive raw-mode shell editing over serial,
   including Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations,
   Ctrl-Y yank, mid-line insert, escape-sequence arrow navigation, and preserving

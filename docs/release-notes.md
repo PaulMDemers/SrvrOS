@@ -82,6 +82,8 @@ server.
 - Raises the writable-file staging cap to 16 MiB and expands the exFAT/VFS
   directory/node tables, which lets recursive `cp` create deeper destination
   trees and lets CLI copies preserve larger binaries such as `/fat/bin/sh`.
+- Ships `/fat/bin/dd` with block copy, `/dev/zero`, size suffixes, and
+  generated large-file smoke coverage followed by `fsck /fat`.
 - Deduplicates identical applet payloads in the generated exFAT image so many
   command aliases do not consume separate cluster chains on the default disk.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by

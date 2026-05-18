@@ -100,7 +100,7 @@ def main():
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
         "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip patch make; do $c --help; done\n"
-        "for c in sed expr printf tr stat chmod which touch mktemp basename; do $c --help; done\n"
+        "for c in sed expr printf tr dd stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
         "ls /fat/share/help\n"
@@ -458,6 +458,11 @@ def main():
         "stat /fat/sh-copy\n"
         "cmp -s /fat/bin/sh /fat/sh-copy && echo large-copy-ok\n"
         "rm /fat/sh-copy\n"
+        "dd if=/dev/zero of=/fat/dd-large.bin bs=4096 count=384 status=none\n"
+        "stat /fat/dd-large.bin\n"
+        "cp /fat/dd-large.bin /fat/dd-large-copy.bin\n"
+        "cmp -s /fat/dd-large.bin /fat/dd-large-copy.bin && echo dd-large-copy-ok\n"
+        "rm /fat/dd-large.bin /fat/dd-large-copy.bin\n"
         "ps\n"
         "fpdemo\n"
         "fpdemo &\n"
@@ -549,6 +554,8 @@ def main():
                     output += read_for(sock, args.line_wait)
                 else:
                     output += read_until(sock, b" $ ", max(args.line_wait, 2.0))
+            send_serial(sock, "fsck /fat\n", args.send_delay)
+            output += read_until(sock, b"srv> ", max(args.line_wait, 10.0))
             output += read_for(sock, args.after_wait)
         finally:
             try:
@@ -819,6 +826,11 @@ def main():
         "stat: not found: /fat/tree-copy/a/b/file.txt",
         "/fat/sh-copy:",
         "large-copy-ok",
+        "usage: dd [if=path] [of=path] [bs=bytes] [count=blocks] [skip=blocks] [seek=blocks] [status=none]",
+        "/fat/dd-large.bin: 1572864 bytes",
+        "dd-large-copy-ok",
+        "exfat-check:",
+        "errors=0 ok",
         "PID STATE",
         "/fat/bin/sh",
         "fpdemo: ok pid=",

@@ -389,7 +389,7 @@ kernel, and a minimal Unix-like userspace.
    `%+`/`%-`, `jobs -l`, `kill %job`, background pipelines, tab completion,
    `type`, `export NAME`, and safer `cd`; the tool slice now includes `sleep`,
    uptime-style `date`, `touch`, `basename`, `dirname`, option-aware `grep`,
-   `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`,
+   `head`, `tail`, `wc`, `find`, `ls`, and `sed`, `expr`, `printf`, `tr`, `dd`, `tee`, `du`, `df`,
    `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`,
    `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`,
    `ln`, `sync`, external `test`/`[`, `cksum`, `sum`, `comm`, `paste`,
@@ -405,7 +405,8 @@ kernel, and a minimal Unix-like userspace.
    global `sync` flushes dirty writable descriptors, writable regular files can
    stage larger 16 MiB copies, recursive `cp` has room to create nested
    destination directory trees,
-   and writable mounts now persist srvros Unix-like metadata through the
+   generated large-file coverage now uses `/fat/bin/dd if=/dev/zero` followed by
+   copy/compare and `fsck /fat`, and writable mounts now persist srvros Unix-like metadata through the
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally
    small.

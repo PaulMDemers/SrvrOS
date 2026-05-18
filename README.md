@@ -77,7 +77,7 @@ editor clients:
   `apropos <word>`, tab completion for commands, help topics, service names,
   and filesystem paths, and Unix-like tools
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
-  `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`,
+  `sed`, `expr`, `printf`, `tr`, `dd`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`,
   `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`,
   `ln`, `sync`, external `test`/`[`, `cksum`, `sum`, `comm`, `paste`, `join`,
   `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`, `time`,
