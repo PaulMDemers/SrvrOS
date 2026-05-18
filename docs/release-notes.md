@@ -41,6 +41,9 @@ server.
   and the adapter exposes libuv-style errno constants/name/string helpers.
   libc also defines C-standard `EDOM` so upstream libuv can correctly detect
   positive system errno values.
+- Expands the libuv adapter's core API surface with loop close/data helpers,
+  backend timeout/fd reporting, handle/request type/name/size/data helpers,
+  active/closing checks, and `uv_timer_get_due_in` smoke coverage.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

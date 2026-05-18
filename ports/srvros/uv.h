@@ -94,6 +94,7 @@ typedef enum {
 
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv_handle_s uv_handle_t;
+typedef struct uv_req_s uv_req_t;
 typedef struct uv_timer_s uv_timer_t;
 typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_udp_s uv_udp_t;
@@ -104,6 +105,44 @@ typedef struct uv_write_s uv_write_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
+
+typedef enum {
+    UV_UNKNOWN_HANDLE = 0,
+    UV_ASYNC,
+    UV_CHECK,
+    UV_FS_EVENT,
+    UV_FS_POLL,
+    UV_HANDLE,
+    UV_IDLE,
+    UV_NAMED_PIPE,
+    UV_POLL,
+    UV_PREPARE,
+    UV_PROCESS,
+    UV_STREAM,
+    UV_TCP,
+    UV_TIMER,
+    UV_TTY,
+    UV_UDP,
+    UV_SIGNAL,
+    UV_FILE,
+    UV_HANDLE_TYPE_MAX
+} uv_handle_type;
+
+typedef enum {
+    UV_UNKNOWN_REQ = 0,
+    UV_REQ,
+    UV_CONNECT,
+    UV_WRITE,
+    UV_SHUTDOWN,
+    UV_UDP_SEND,
+    UV_FS,
+    UV_WORK,
+    UV_GETADDRINFO,
+    UV_GETNAMEINFO,
+    UV_RANDOM,
+    UV_REQ_TYPE_PRIVATE,
+    UV_REQ_TYPE_MAX
+} uv_req_type;
 
 typedef struct {
     char *base;
@@ -131,6 +170,7 @@ typedef void (*uv_after_work_cb)(uv_work_t *request, int status);
 
 struct uv_handle_s {
     uv_loop_t *loop;
+    void *data;
     int fd;
     int type;
     int active;
@@ -142,8 +182,14 @@ struct uv_handle_s {
 struct uv_loop_s {
     uv_handle_t *handles;
     uv_work_t *work_queue;
+    void *data;
     uint64_t now_ms;
     int stop_flag;
+};
+
+struct uv_req_s {
+    void *data;
+    int type;
 };
 
 struct uv_timer_s {
@@ -179,36 +225,41 @@ struct uv_async_s {
 };
 
 struct uv_connect_s {
-    uv_tcp_t *handle;
     void *data;
+    int type;
+    uv_tcp_t *handle;
 };
 
 struct uv_write_s {
-    uv_tcp_t *handle;
     void *data;
+    int type;
+    uv_tcp_t *handle;
 };
 
 struct uv_udp_send_s {
-    uv_udp_t *handle;
     void *data;
+    int type;
+    uv_udp_t *handle;
 };
 
 struct uv_fs_s {
+    void *data;
+    int type;
     uv_loop_t *loop;
     int fs_type;
     ssize_t result;
     struct stat statbuf;
     const char *path;
-    void *data;
 };
 
 struct uv_work_s {
+    void *data;
+    int type;
     uv_loop_t *loop;
     uv_work_cb work_cb;
     uv_after_work_cb after_work_cb;
     int status;
     volatile int done;
-    void *data;
     uv_work_t *next;
 };
 
@@ -216,11 +267,31 @@ uv_loop_t *uv_default_loop(void);
 unsigned int uv_version(void);
 const char *uv_version_string(void);
 int uv_loop_init(uv_loop_t *loop);
+int uv_loop_close(uv_loop_t *loop);
 int uv_run(uv_loop_t *loop, int mode);
 void uv_stop(uv_loop_t *loop);
 int uv_loop_alive(const uv_loop_t *loop);
+void *uv_loop_get_data(const uv_loop_t *loop);
+void uv_loop_set_data(uv_loop_t *loop, void *data);
+int uv_backend_fd(const uv_loop_t *loop);
+int uv_backend_timeout(const uv_loop_t *loop);
 void uv_update_time(uv_loop_t *loop);
 uint64_t uv_now(const uv_loop_t *loop);
+
+size_t uv_handle_size(uv_handle_type type);
+const char *uv_handle_type_name(uv_handle_type type);
+uv_handle_type uv_handle_get_type(const uv_handle_t *handle);
+void *uv_handle_get_data(const uv_handle_t *handle);
+void uv_handle_set_data(uv_handle_t *handle, void *data);
+uv_loop_t *uv_handle_get_loop(const uv_handle_t *handle);
+int uv_is_active(const uv_handle_t *handle);
+int uv_is_closing(const uv_handle_t *handle);
+
+size_t uv_req_size(uv_req_type type);
+const char *uv_req_type_name(uv_req_type type);
+uv_req_type uv_req_get_type(const uv_req_t *request);
+void *uv_req_get_data(const uv_req_t *request);
+void uv_req_set_data(uv_req_t *request, void *data);
 
 uv_buf_t uv_buf_init(char *base, unsigned int length);
 
@@ -230,6 +301,7 @@ int uv_timer_stop(uv_timer_t *handle);
 int uv_timer_again(uv_timer_t *handle);
 void uv_timer_set_repeat(uv_timer_t *handle, uint64_t repeat);
 uint64_t uv_timer_get_repeat(const uv_timer_t *handle);
+uint64_t uv_timer_get_due_in(const uv_timer_t *handle);
 
 int uv_tcp_init(uv_loop_t *loop, uv_tcp_t *handle);
 int uv_tcp_bind(uv_tcp_t *handle, const struct sockaddr *addr, unsigned int flags);

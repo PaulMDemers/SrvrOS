@@ -40,6 +40,86 @@ static int error_test(void) {
     return 0;
 }
 
+static int core_timer_seen;
+static int core_close_seen;
+
+static void core_timer_cb(uv_timer_t *timer) {
+    core_timer_seen++;
+    uv_timer_stop(timer);
+}
+
+static void core_close_cb(uv_handle_t *handle) {
+    if (uv_is_closing(handle)) {
+        core_close_seen = 1;
+    }
+}
+
+static int core_api_test(void) {
+    uv_loop_t loop;
+    uv_timer_t timer;
+    uv_fs_t request;
+    int loop_token = 1;
+    int handle_token = 2;
+    int req_token = 3;
+
+    core_timer_seen = 0;
+    core_close_seen = 0;
+    if (uv_loop_init(&loop) < 0 || uv_loop_close(&loop) != 0) {
+        puts("libuvdemo: loop close failed");
+        return 1;
+    }
+    if (uv_loop_init(&loop) < 0 || uv_timer_init(&loop, &timer) < 0) {
+        puts("libuvdemo: core setup failed");
+        return 1;
+    }
+    uv_loop_set_data(&loop, &loop_token);
+    uv_handle_set_data((uv_handle_t *)&timer, &handle_token);
+    if (uv_loop_get_data(&loop) != &loop_token ||
+        uv_handle_get_data((uv_handle_t *)&timer) != &handle_token ||
+        uv_handle_get_loop((uv_handle_t *)&timer) != &loop ||
+        uv_handle_get_type((uv_handle_t *)&timer) != UV_TIMER ||
+        strcmp(uv_handle_type_name(UV_TIMER), "timer") != 0 ||
+        uv_handle_size(UV_TIMER) != sizeof(uv_timer_t) ||
+        uv_req_size(UV_FS) != sizeof(uv_fs_t) ||
+        strcmp(uv_req_type_name(UV_FS), "fs") != 0 ||
+        uv_backend_fd(&loop) != UV_ENOSYS ||
+        uv_is_active((uv_handle_t *)&timer) ||
+        uv_is_closing((uv_handle_t *)&timer)) {
+        puts("libuvdemo: core helpers failed");
+        return 1;
+    }
+    if (uv_timer_start(&timer, core_timer_cb, 50, 0) < 0 ||
+        !uv_is_active((uv_handle_t *)&timer) ||
+        uv_loop_close(&loop) != UV_EBUSY ||
+        uv_backend_timeout(&loop) < 0 ||
+        uv_timer_get_due_in(&timer) > 50) {
+        puts("libuvdemo: active helpers failed");
+        return 1;
+    }
+    (void)uv_run(&loop, UV_RUN_DEFAULT);
+    if (core_timer_seen != 1 || uv_is_active((uv_handle_t *)&timer)) {
+        puts("libuvdemo: active state failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&timer, core_close_cb);
+    if (!core_close_seen || !uv_is_closing((uv_handle_t *)&timer)) {
+        puts("libuvdemo: close state failed");
+        return 1;
+    }
+    if (uv_fs_stat(&loop, &request, "/fat", 0) < 0 ||
+        uv_req_get_type((uv_req_t *)&request) != UV_FS) {
+        puts("libuvdemo: request type failed");
+        return 1;
+    }
+    uv_req_set_data((uv_req_t *)&request, &req_token);
+    if (uv_req_get_data((uv_req_t *)&request) != &req_token) {
+        puts("libuvdemo: request data failed");
+        return 1;
+    }
+    puts("libuvdemo: core api ok");
+    return 0;
+}
+
 static int timer_seen;
 
 static void timer_cb(uv_timer_t *timer) {
@@ -229,6 +309,7 @@ int main(void) {
     puts("libuvdemo: srvros libuv port staging");
     if (version_test() != 0 ||
         error_test() != 0 ||
+        core_api_test() != 0 ||
         timer_test() != 0 ||
         fs_test() != 0 ||
         work_test() != 0 ||

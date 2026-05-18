@@ -201,6 +201,9 @@ The version identity functions are already compiled from upstream
 `src/version.c`, giving the adapter a concrete upstream object in the link.
 The adapter also exposes libuv-style `UV_E*` errno constants plus
 `uv_translate_sys_error`, `uv_err_name`, and reentrant string helpers.
+Core loop and object parity covers loop data/close helpers, backend
+timeout/fd reporting, handle and request type/name/size/data helpers,
+active/closing checks, and timer due-in reporting.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

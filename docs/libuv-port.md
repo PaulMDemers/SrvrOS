@@ -19,6 +19,9 @@ backend.
 - The public error surface now uses libuv's upstream errno definitions for
   `UV_E*` values and exposes `uv_translate_sys_error`, `uv_err_name`,
   `uv_err_name_r`, `uv_strerror`, and `uv_strerror_r`.
+- Core API parity now includes loop close/data helpers, backend timeout/fd
+  stubs, handle type/name/size/data/active/closing helpers, request
+  type/name/size/data helpers, and `uv_timer_get_due_in`.
 - Event loop init, run, stop, alive, and monotonic time refresh.
 - Timers with one-shot and repeating dispatch.
 - Synchronous filesystem request helpers for open, close, read, write, mkdir,
@@ -41,8 +44,9 @@ incrementally replacing adapter internals with upstream code.
 1. Keep `ports/upstream/libuv` unmodified and place srvros-specific glue under
    `ports/srvros`.
 2. Compile one upstream subsystem at a time behind the existing public adapter
-   tests. The first landed subsystem is upstream `src/version.c`; next targets
-   are loop/time/timer code and then fd polling.
+   tests. The first landed subsystem is upstream `src/version.c`; current
+   adapter work is filling the core handle/request API expected by portable
+   consumers before replacing loop/time/timer code and then fd polling.
 3. Replace the local thread-pool path only after pthread cancellation, stronger
    condition-variable timing, and process signal semantics are further along.
 4. Replace TCP/UDP glue after socket errno behavior, shutdown states, and

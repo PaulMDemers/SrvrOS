@@ -13,14 +13,16 @@
 #include <unistd.h>
 
 #define UV_MAX_POLL_HANDLES 16
-#define UV_HANDLE_TIMER 1
-#define UV_HANDLE_TCP 2
-#define UV_HANDLE_UDP 3
-#define UV_HANDLE_POLL 4
-#define UV_HANDLE_ASYNC 5
+#define UV_HANDLE_TIMER UV_TIMER
+#define UV_HANDLE_TCP UV_TCP
+#define UV_HANDLE_UDP UV_UDP
+#define UV_HANDLE_POLL UV_POLL
+#define UV_HANDLE_ASYNC UV_ASYNC
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
+
+static int next_timer_timeout(const uv_loop_t *loop);
 
 static uint64_t monotonic_ms(void) {
     struct timespec ts;
@@ -86,6 +88,39 @@ int uv_loop_init(uv_loop_t *loop) {
     return 0;
 }
 
+int uv_loop_close(uv_loop_t *loop) {
+    if (loop == 0) {
+        return UV_EINVAL;
+    }
+    if (uv_loop_alive(loop)) {
+        return UV_EBUSY;
+    }
+    memset(loop, 0, sizeof(*loop));
+    return 0;
+}
+
+void *uv_loop_get_data(const uv_loop_t *loop) {
+    return loop != 0 ? loop->data : 0;
+}
+
+void uv_loop_set_data(uv_loop_t *loop, void *data) {
+    if (loop != 0) {
+        loop->data = data;
+    }
+}
+
+int uv_backend_fd(const uv_loop_t *loop) {
+    (void)loop;
+    return UV_ENOSYS;
+}
+
+int uv_backend_timeout(const uv_loop_t *loop) {
+    if (loop == 0) {
+        return 0;
+    }
+    return next_timer_timeout(loop);
+}
+
 void uv_update_time(uv_loop_t *loop) {
     if (loop != 0) {
         loop->now_ms = monotonic_ms();
@@ -122,6 +157,116 @@ uv_buf_t uv_buf_init(char *base, unsigned int length) {
     buffer.base = base;
     buffer.len = length;
     return buffer;
+}
+
+size_t uv_handle_size(uv_handle_type type) {
+    switch (type) {
+        case UV_ASYNC:
+            return sizeof(uv_async_t);
+        case UV_POLL:
+            return sizeof(uv_poll_t);
+        case UV_TCP:
+            return sizeof(uv_tcp_t);
+        case UV_TIMER:
+            return sizeof(uv_timer_t);
+        case UV_UDP:
+            return sizeof(uv_udp_t);
+        default:
+            return (size_t)-1;
+    }
+}
+
+const char *uv_handle_type_name(uv_handle_type type) {
+    switch (type) {
+        case UV_ASYNC:
+            return "async";
+        case UV_POLL:
+            return "poll";
+        case UV_TCP:
+            return "tcp";
+        case UV_TIMER:
+            return "timer";
+        case UV_UDP:
+            return "udp";
+        case UV_FILE:
+            return "file";
+        default:
+            return 0;
+    }
+}
+
+uv_handle_type uv_handle_get_type(const uv_handle_t *handle) {
+    return handle != 0 ? (uv_handle_type)handle->type : UV_UNKNOWN_HANDLE;
+}
+
+void *uv_handle_get_data(const uv_handle_t *handle) {
+    return handle != 0 ? handle->data : 0;
+}
+
+void uv_handle_set_data(uv_handle_t *handle, void *data) {
+    if (handle != 0) {
+        handle->data = data;
+    }
+}
+
+uv_loop_t *uv_handle_get_loop(const uv_handle_t *handle) {
+    return handle != 0 ? handle->loop : 0;
+}
+
+int uv_is_active(const uv_handle_t *handle) {
+    return handle != 0 && handle->active && !handle->closing;
+}
+
+int uv_is_closing(const uv_handle_t *handle) {
+    return handle != 0 && handle->closing;
+}
+
+size_t uv_req_size(uv_req_type type) {
+    switch (type) {
+        case UV_CONNECT:
+            return sizeof(uv_connect_t);
+        case UV_WRITE:
+            return sizeof(uv_write_t);
+        case UV_UDP_SEND:
+            return sizeof(uv_udp_send_t);
+        case UV_FS:
+            return sizeof(uv_fs_t);
+        case UV_WORK:
+            return sizeof(uv_work_t);
+        default:
+            return (size_t)-1;
+    }
+}
+
+const char *uv_req_type_name(uv_req_type type) {
+    switch (type) {
+        case UV_CONNECT:
+            return "connect";
+        case UV_WRITE:
+            return "write";
+        case UV_UDP_SEND:
+            return "udp_send";
+        case UV_FS:
+            return "fs";
+        case UV_WORK:
+            return "work";
+        default:
+            return 0;
+    }
+}
+
+uv_req_type uv_req_get_type(const uv_req_t *request) {
+    return request != 0 ? (uv_req_type)request->type : UV_UNKNOWN_REQ;
+}
+
+void *uv_req_get_data(const uv_req_t *request) {
+    return request != 0 ? request->data : 0;
+}
+
+void uv_req_set_data(uv_req_t *request, void *data) {
+    if (request != 0) {
+        request->data = data;
+    }
 }
 
 int uv_timer_init(uv_loop_t *loop, uv_timer_t *handle) {
@@ -168,6 +313,19 @@ void uv_timer_set_repeat(uv_timer_t *handle, uint64_t repeat) {
 
 uint64_t uv_timer_get_repeat(const uv_timer_t *handle) {
     return handle != 0 ? handle->repeat_ms : 0;
+}
+
+uint64_t uv_timer_get_due_in(const uv_timer_t *handle) {
+    uv_loop_t *loop;
+    if (handle == 0 || handle->handle.loop == 0 || !handle->handle.active) {
+        return 0;
+    }
+    loop = handle->handle.loop;
+    uv_update_time(loop);
+    if (handle->timeout_ms <= loop->now_ms) {
+        return 0;
+    }
+    return handle->timeout_ms - loop->now_ms;
 }
 
 static int next_timer_timeout(const uv_loop_t *loop) {
@@ -480,6 +638,7 @@ int uv_tcp_connect(uv_connect_t *request,
     if (request == 0 || handle == 0 || addr == 0) {
         return -EINVAL;
     }
+    request->type = UV_CONNECT;
     request->handle = handle;
     int status = connect(handle->handle.fd, addr, sizeof(struct sockaddr_in)) < 0 ? uv_error_from_errno() : 0;
     if (cb != 0) {
@@ -517,6 +676,7 @@ int uv_write(uv_write_t *request,
     if (request == 0 || handle == 0 || buffers == 0) {
         return -EINVAL;
     }
+    request->type = UV_WRITE;
     request->handle = handle;
     int status = 0;
     for (unsigned int i = 0; i < buffer_count; i++) {
@@ -603,6 +763,7 @@ int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_af
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_WORK;
     request->loop = loop;
     request->work_cb = work_cb;
     request->after_work_cb = after_work_cb;
@@ -671,6 +832,7 @@ int uv_udp_send(uv_udp_send_t *request,
     if (request == 0 || handle == 0 || buffers == 0 || addr == 0) {
         return -EINVAL;
     }
+    request->type = UV_UDP_SEND;
     request->handle = handle;
     int status = 0;
     for (unsigned int i = 0; i < buffer_count; i++) {
@@ -802,6 +964,7 @@ int uv_fs_open(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, i
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->loop = loop;
     request->path = path;
     int fd = open(path, flags, mode);
@@ -814,6 +977,7 @@ int uv_fs_close(uv_loop_t *loop, uv_fs_t *request, int fd, uv_fs_cb cb) {
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     return fs_finish(request, close(fd) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
@@ -829,6 +993,7 @@ int uv_fs_read(uv_loop_t *loop,
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
         return fs_finish(request, uv_error_from_errno(), cb);
     }
@@ -858,6 +1023,7 @@ int uv_fs_write(uv_loop_t *loop,
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
         return fs_finish(request, uv_error_from_errno(), cb);
     }
@@ -882,6 +1048,7 @@ int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, u
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->path = path;
     return fs_finish(request, mkdir(path, (mode_t)mode) < 0 ? uv_error_from_errno() : 0, cb);
 }
@@ -892,6 +1059,7 @@ int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->path = path;
     return fs_finish(request, rmdir(path) < 0 ? uv_error_from_errno() : 0, cb);
 }
@@ -902,6 +1070,7 @@ int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->path = path;
     return fs_finish(request, rename(path, new_path) < 0 ? uv_error_from_errno() : 0, cb);
 }
@@ -912,6 +1081,7 @@ int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb c
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->path = path;
     return fs_finish(request, unlink(path) < 0 ? uv_error_from_errno() : 0, cb);
 }
@@ -922,6 +1092,7 @@ int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb)
         return -EINVAL;
     }
     memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
     request->path = path;
     int result = stat(path, &request->statbuf);
     return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
