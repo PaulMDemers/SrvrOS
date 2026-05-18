@@ -260,11 +260,32 @@ int main(int argc, char **argv) {
             first_path++;
             break;
         }
+        if (cli_streq(argv[first_path], "--recursive")) {
+            recursive = 1;
+            first_path++;
+            continue;
+        }
+        if (cli_streq(argv[first_path], "--force")) {
+            force = 1;
+            first_path++;
+            continue;
+        }
+        if (cli_streq(argv[first_path], "--archive")) {
+            recursive = 1;
+            first_path++;
+            continue;
+        }
+        if (cli_streq(argv[first_path], "--preserve") || cli_starts_with(argv[first_path], "--preserve=")) {
+            first_path++;
+            continue;
+        }
         for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
             if (argv[first_path][i] == 'r' || argv[first_path][i] == 'R') {
                 recursive = 1;
             } else if (argv[first_path][i] == 'f') {
                 force = 1;
+            } else if (argv[first_path][i] == 'p') {
+                continue;
             } else {
                 cli_puts("usage: cp [-fRr] <source>... <dest>\n");
                 return 1;

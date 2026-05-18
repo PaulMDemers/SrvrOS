@@ -217,6 +217,7 @@ def main():
         "cut -d : -f 2 /fat/table.txt\n"
         "cat /fat/words.txt | xargs echo args\n"
         "printf 'one two three' | xargs -n2 echo batch\n"
+        "printf 'uno dos tres' | xargs --max-args=2 echo xlong\n"
         "printf '' | xargs -r echo no-run\n"
         "echo xargs-r-ok\n"
         "seq 3\n"
@@ -269,11 +270,33 @@ def main():
         "make -f /fat/maketest/Makefile install\n"
         "cat /fat/local/bin/make-out.txt\n"
         "make -f /fat/maketest/Makefile all\n"
+        "make --file=/fat/maketest/Makefile --dry-run install\n"
+        "make --always-make --file /fat/maketest/Makefile all\n"
         "sed s/apple/orange/g /fat/words.txt > /fat/sed.txt\n"
         "cat /fat/sed.txt\n"
         "sed -n /apple/p /fat/words.txt\n"
         "sed /banana/d /fat/words.txt\n"
         "sed -e s/banana/grape/ -e /apple/d /fat/words.txt\n"
+        "write /fat/longopts.txt Alpha\n"
+        "write -a /fat/longopts.txt beta\n"
+        "grep --ignore-case --line-number --regexp=alpha /fat/longopts.txt\n"
+        "grep --fixed-strings --quiet beta /fat/longopts.txt && echo grep-long-ok\n"
+        "sed --quiet --expression=/beta/p /fat/longopts.txt\n"
+        "find /fat -name longopts.txt -type f -print\n"
+        "mkdir -p /fat/longsrc/sub\n"
+        "write /fat/longsrc/sub/data.txt long-copy\n"
+        "cp --recursive --force /fat/longsrc /fat/longdst\n"
+        "cat /fat/longdst/sub/data.txt\n"
+        "ls --directory --long /fat/longdst\n"
+        "mv --force /fat/longopts.txt /fat/longopts-moved.txt\n"
+        "cat /fat/longopts-moved.txt\n"
+        "tar --create --file=/fat/long.tar /fat/longdst\n"
+        "tar --list --file=/fat/long.tar\n"
+        "mkdir -p /fat/longextract\n"
+        "tar --extract --file=/fat/long.tar --directory /fat/longextract\n"
+        "cat /fat/longextract/fat/longdst/sub/data.txt\n"
+        "rm --recursive --force /fat/longsrc /fat/longdst /fat/longextract\n"
+        "rm --force /fat/longopts-moved.txt /fat/long.tar\n"
         "echo expr-add-$(expr 7 + 5)\n"
         "echo expr-mul-$(expr 6 '*' 7)\n"
         "echo expr-eq-$(expr apple = apple)\n"
@@ -691,6 +714,8 @@ def main():
         "args banana apple banana apple",
         "batch one two",
         "batch three",
+        "xlong uno dos",
+        "xlong tres",
         "xargs-r-ok",
         "1\r\n2\r\n3",
         "2\r\n4\r\n6",
@@ -711,8 +736,17 @@ def main():
         "inserted",
         "make-source",
         "make: '/fat/maketest/build/out.txt' is up to date",
+        "install -D /fat/maketest/build/out.txt /fat/local/bin/make-out.txt",
         "orange",
         "grape",
+        "1:Alpha",
+        "grep-long-ok",
+        "beta",
+        "/fat/longopts.txt",
+        "long-copy",
+        "/fat/longdst/",
+        "Alpha",
+        "fat/longdst/sub/data.txt",
         "expr-add-12",
         "expr-mul-42",
         "expr-eq-1",

@@ -104,6 +104,10 @@ int main(int argc, char **argv) {
             first_path++;
             break;
         }
+        if (cli_streq(argv[first_path], "--force")) {
+            first_path++;
+            continue;
+        }
         for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
             if (argv[first_path][i] != 'f') {
                 cli_puts("usage: mv [-f] <source>... <dest>\n");

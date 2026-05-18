@@ -163,6 +163,21 @@ int main(int argc, char **argv) {
         if (!options_done && cli_is_option_terminator(argv[i])) {
             options_done = 1;
         } else if (!options_done && argv[i][0] == '-' && argv[i][1] != '\0') {
+            if (cli_streq(argv[i], "--all")) {
+                all = 1;
+                continue;
+            }
+            if (cli_streq(argv[i], "--directory")) {
+                directory_only = 1;
+                continue;
+            }
+            if (cli_streq(argv[i], "--long")) {
+                long_format = 1;
+                continue;
+            }
+            if (cli_streq(argv[i], "--color") || cli_starts_with(argv[i], "--color=")) {
+                continue;
+            }
             for (size_t j = 1; argv[i][j] != '\0'; j++) {
                 if (argv[i][j] == 'l') {
                     long_format = 1;

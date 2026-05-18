@@ -458,7 +458,31 @@ int main(int argc, char **argv) {
     }
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
-        if (arg[0] == '-' && arg[1] != '\0') {
+        if (cli_streq(arg, "--create")) {
+            create = 1;
+        } else if (cli_streq(arg, "--list")) {
+            list = 1;
+        } else if (cli_streq(arg, "--extract")) {
+            extract = 1;
+        } else if (cli_streq(arg, "--verbose")) {
+            verbose = 1;
+        } else if (cli_streq(arg, "--file")) {
+            if (i + 1 >= argc) {
+                usage();
+                return 2;
+            }
+            archive = argv[++i];
+        } else if (cli_starts_with(arg, "--file=")) {
+            archive = arg + 7;
+        } else if (cli_streq(arg, "--directory")) {
+            if (i + 1 >= argc) {
+                usage();
+                return 2;
+            }
+            directory = argv[++i];
+        } else if (cli_starts_with(arg, "--directory=")) {
+            directory = arg + 12;
+        } else if (arg[0] == '-' && arg[1] != '\0') {
             for (int j = 1; arg[j] != '\0'; j++) {
                 if (arg[j] == 'c') {
                     create = 1;

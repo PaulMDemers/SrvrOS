@@ -84,7 +84,9 @@ editor clients:
   `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`, `time`,
   `timeout`, `nohup`, and `nice`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
-  recursive `cp`/`rm`, directory-aware `mv`,
+  recursive `cp`/`rm`, directory-aware `mv`, and common long-option aliases
+  for build-script probes across `grep`, `sed`, `xargs`, `tar`, `make`, `ls`,
+  `cp`, `rm`, and `mv`,
   `more`, `uname`, `hostname`, and `uptime`.
 - Generated exFAT images include `/fat/share/help`, `/fat/share/examples`,
   `/fat/etc/profile.d`, `/fat/tmp`, and `/fat/home`; `help <topic>`/`man

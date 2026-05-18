@@ -478,16 +478,20 @@ int main(int argc, char **argv) {
             first_target = i + 1;
             break;
         }
-        if (cli_streq(arg, "-n")) {
+        if (cli_streq(arg, "-n") || cli_streq(arg, "--dry-run") || cli_streq(arg, "--just-print")) {
             dry_run = 1;
-        } else if (cli_streq(arg, "-B")) {
+        } else if (cli_streq(arg, "-B") || cli_streq(arg, "--always-make")) {
             always_make = 1;
-        } else if (cli_streq(arg, "-f")) {
+        } else if (cli_streq(arg, "-f") || cli_streq(arg, "--file") || cli_streq(arg, "--makefile")) {
             if (i + 1 >= argc) {
                 usage();
                 return 2;
             }
             makefile = argv[++i];
+        } else if (cli_starts_with(arg, "--file=")) {
+            makefile = arg + 7;
+        } else if (cli_starts_with(arg, "--makefile=")) {
+            makefile = arg + 11;
         } else if (arg[0] == '-' && arg[1] == 'f' && arg[2] != '\0') {
             makefile = arg + 2;
         } else if (arg[0] == '-') {

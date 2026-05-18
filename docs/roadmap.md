@@ -399,7 +399,9 @@ kernel, and a minimal Unix-like userspace.
    `time`, `timeout`, `nohup`, `nice`, `mkdir -p`, recursive `cp`/`rm`,
    directory-aware `mv`, `uname`, `hostname`, and `uptime`.
    This pass also broadens shell `test`/`[` boolean/file comparisons and
-   `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.
+   `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts,
+   plus common long-option aliases for `grep`, `sed`, `xargs`, `tar`, `make`,
+   `find`, `ls`, `cp`, `rm`, and `mv`.
 2. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
    FAT rollback, directory-entry create/rename/delete rollback, and
    stress/corruption coverage are in place; remaining work is better rollback

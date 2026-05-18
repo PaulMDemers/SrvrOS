@@ -70,9 +70,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `basename`/`dirname`, `tail`, `tee`, `uname`, `hostname`, `uptime`,
   `for` loops, `/fat/etc/profile`, `PS1`, `find`, `du`, `df`, `sort`, `uniq`,
   `cut`, `xargs`, `seq`, `realpath`, `id`, `whoami`, `readlink -f`, `cmp`,
-  `yes | head`, `install -D`, `diff -q/-u`, `tar -c/-t/-x`,
+  `yes | head`, `install -D`, `diff -q/-u`, `tar -c/-t/-x` plus
+  `tar --create/--list/--extract --file`,
   `gzip`/`gunzip` file and tarball round trips, simple unified `patch`,
-  a small `make` install flow,
+  a small `make` install flow with `--file`, `--dry-run`, and `--always-make`,
   `sed`, `dd if=/dev/zero` generated files, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
   `cp`/`rm`, recursive copy destination creation, larger binary `cp` with
   `cmp -s` verification, copy/remove, clustered `rm -fRr`, multi-source
@@ -82,8 +83,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `/fat/etc/profile.d` snippets, `more --plain`, `-h`/`--help`
   usage output across the core CLI tools, `--` option termination for common
   file/text utilities,
-  `grep -i/-n/-v/-c/-q`, `wc -l/-c`, `head -1`/`tail -1`,
-  `find -type`, `ls -a/-la/-d/-1` and multi-path headers, `sed -n`/`-e`/`p`/`d`
+  `grep -i/-n/-v/-c/-q` plus `--regexp`/`--ignore-case`/`--quiet`,
+  `wc -l/-c`, `head -1`/`tail -1`,
+  `find -type`/`-print`, `ls -a/-la/-d/-1` and long option aliases,
+  `sed -n`/`-e`/`p`/`d` plus `--quiet`/`--expression`
   with simple addresses, `expr` arithmetic/string expressions,
   `printf`, `tr`, `while` loops, `case` pattern matching, compound-command
   tail chaining, command-local environment assignments, comments, script line
@@ -91,7 +94,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   arguments, `shift`, `break`/`continue`,
   `command -v`/`command -V` and alias bypass, `fg`/`bg`,
   `test -a`/`-o`/`!`/`-nt`/`-ef`, `test -s/-r/-w/-x`,
-  `xargs -n`/`-r`, Ctrl-D/EOF shell exit,
+  `xargs -n`/`-r`/`--max-args`, long-option `cp`/`rm`/`mv`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app. The CLI harness also runs monitor `fsck /fat`

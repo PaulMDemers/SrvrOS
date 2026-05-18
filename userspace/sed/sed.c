@@ -284,15 +284,21 @@ int main(int argc, char **argv) {
         return 1;
     }
     for (int i = 1; i < argc; i++) {
-        if (cli_streq(argv[i], "-n")) {
+        if (cli_streq(argv[i], "-n") || cli_streq(argv[i], "--quiet") || cli_streq(argv[i], "--silent")) {
             program.quiet = 1;
             first_file = i + 1;
-        } else if (cli_streq(argv[i], "-e")) {
+        } else if (cli_streq(argv[i], "-e") || cli_streq(argv[i], "--expression")) {
             if (i + 1 >= argc || !parse_command(argv[i + 1], &program)) {
                 cli_puts("sed: bad script\n");
                 return 1;
             }
             i++;
+            first_file = i + 1;
+        } else if (cli_starts_with(argv[i], "--expression=")) {
+            if (!parse_command(argv[i] + 13, &program)) {
+                cli_puts("sed: bad script\n");
+                return 1;
+            }
             first_file = i + 1;
         } else if (program.count == 0) {
             if (!parse_command(argv[i], &program)) {

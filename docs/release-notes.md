@@ -326,6 +326,11 @@ server.
 - Expands configure-script compatibility with shell `test`/`[` boolean
   expressions, `!`, `-nt`, `-ot`, `-ef`, mandatory `]` checking, and
   `/fat/bin/xargs -n`/`-r`.
+- Adds common long-option aliases used by configure/build scripts:
+  `grep --regexp/--ignore-case/--quiet/--fixed-strings`, `sed --quiet` and
+  `--expression`, `xargs --max-args`, `tar --create/--list/--extract --file`,
+  `make --file/--dry-run/--always-make`, `find -print`, and long forms for
+  `ls`, `cp`, `rm`, and `mv`.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`

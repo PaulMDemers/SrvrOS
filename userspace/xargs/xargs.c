@@ -167,6 +167,18 @@ int main(int argc, char **argv) {
                 return 2;
             }
             command_index += 2;
+        } else if (cli_streq(arg, "--max-args") && command_index + 1 < argc) {
+            if (!parse_positive(argv[command_index + 1], &max_per_run)) {
+                cli_puts("usage: xargs [-r] [-n count] [command [arg ...]]\n");
+                return 2;
+            }
+            command_index += 2;
+        } else if (cli_starts_with(arg, "--max-args=")) {
+            if (!parse_positive(arg + 11, &max_per_run)) {
+                cli_puts("usage: xargs [-r] [-n count] [command [arg ...]]\n");
+                return 2;
+            }
+            command_index++;
         } else if (cli_starts_with(arg, "-n") && arg[2] != '\0') {
             if (!parse_positive(arg + 2, &max_per_run)) {
                 cli_puts("usage: xargs [-r] [-n count] [command [arg ...]]\n");

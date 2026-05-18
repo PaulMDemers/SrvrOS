@@ -129,6 +129,20 @@ int main(int argc, char **argv) {
             first_path++;
             break;
         }
+        if (cli_streq(argv[first_path], "--recursive")) {
+            recursive = 1;
+            first_path++;
+            continue;
+        }
+        if (cli_streq(argv[first_path], "--force")) {
+            force = 1;
+            first_path++;
+            continue;
+        }
+        if (cli_streq(argv[first_path], "--dir")) {
+            first_path++;
+            continue;
+        }
         for (size_t i = 1; argv[first_path][i] != '\0'; i++) {
             if (argv[first_path][i] == 'r' || argv[first_path][i] == 'R') {
                 recursive = 1;

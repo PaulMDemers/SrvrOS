@@ -71,6 +71,8 @@ int main(int argc, char **argv) {
             (cli_streq(argv[index + 1], "f") || cli_streq(argv[index + 1], "d"))) {
             type_filter = cli_streq(argv[index + 1], "d") ? 1 : 2;
             index += 2;
+        } else if (cli_streq(argv[index], "-print")) {
+            index++;
         } else {
             cli_puts("usage: find [path] [-name pattern] [-type f|d]\n");
             return 1;

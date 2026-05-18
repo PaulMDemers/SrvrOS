@@ -8,6 +8,7 @@ struct grep_options {
     int quiet;
     int ignore_case;
     int multi_file;
+    int suppress_errors;
 };
 
 static char lower_char(char c) {
@@ -155,9 +156,11 @@ static int grep_file(const char *needle, const char *path, const struct grep_opt
 
     int fd = (int)srv_open(path);
     if (fd < 0) {
-        cli_puts("grep: cannot open ");
-        cli_puts(path);
-        cli_puts("\n");
+        if (!options->suppress_errors) {
+            cli_puts("grep: cannot open ");
+            cli_puts(path);
+            cli_puts("\n");
+        }
         return 2;
     }
     return grep_fd(needle, fd, 1, path, options);
@@ -167,6 +170,7 @@ int main(int argc, char **argv) {
     struct grep_options options = {0};
     int status = 1;
     int pattern_index = 1;
+    const char *pattern = 0;
     if (argc > 1 && cli_is_help_arg(argv[1])) {
         cli_puts("usage: grep [-invcq] <text> [file ...]\n");
         return 0;
@@ -180,6 +184,43 @@ int main(int argc, char **argv) {
         if (arg[0] != '-' || arg[1] == '\0' || cli_streq(arg, "-")) {
             break;
         }
+        if ((cli_streq(arg, "-e") || cli_streq(arg, "--regexp")) && pattern_index + 1 < argc) {
+            pattern = argv[++pattern_index];
+            pattern_index++;
+            break;
+        }
+        if (cli_starts_with(arg, "--regexp=")) {
+            pattern = arg + 9;
+            pattern_index++;
+            break;
+        }
+        if (cli_streq(arg, "--invert-match")) {
+            options.invert = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--line-number")) {
+            options.line_numbers = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--count")) {
+            options.count_only = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--quiet") || cli_streq(arg, "--silent")) {
+            options.quiet = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--ignore-case")) {
+            options.ignore_case = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--no-messages")) {
+            options.suppress_errors = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--fixed-strings") || cli_streq(arg, "--extended-regexp")) {
+            continue;
+        }
         for (size_t j = 1; arg[j] != '\0'; j++) {
             if (arg[j] == 'v') {
                 options.invert = 1;
@@ -191,22 +232,33 @@ int main(int argc, char **argv) {
                 options.quiet = 1;
             } else if (arg[j] == 'i') {
                 options.ignore_case = 1;
+            } else if (arg[j] == 's') {
+                options.suppress_errors = 1;
+            } else if (arg[j] == 'F' || arg[j] == 'E') {
+                continue;
             } else {
                 cli_puts("usage: grep [-invcq] <text> [file ...]\n");
                 return 2;
             }
         }
     }
-    if (pattern_index >= argc) {
+    if (pattern == 0) {
+        if (pattern_index >= argc) {
+            cli_puts("usage: grep [-invcq] <text> [file ...]\n");
+            return 2;
+        }
+        pattern = argv[pattern_index++];
+    }
+    if (pattern == 0) {
         cli_puts("usage: grep [-invcq] <text> [file ...]\n");
         return 2;
     }
-    if (pattern_index + 1 >= argc) {
-        return grep_fd(argv[pattern_index], SRV_STDIN, 0, "", &options);
+    if (pattern_index >= argc) {
+        return grep_fd(pattern, SRV_STDIN, 0, "", &options);
     }
-    options.multi_file = argc - pattern_index - 1 > 1;
-    for (int i = pattern_index + 1; i < argc; i++) {
-        int result = grep_file(argv[pattern_index], argv[i], &options);
+    options.multi_file = argc - pattern_index > 1;
+    for (int i = pattern_index; i < argc; i++) {
+        int result = grep_file(pattern, argv[i], &options);
         if (result == 0) {
             status = 0;
         } else if (result > status) {
