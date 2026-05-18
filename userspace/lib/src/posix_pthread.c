@@ -480,16 +480,29 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
     if (once_control == 0 || init_routine == 0) {
         return EINVAL;
     }
-    int expected = 0;
-    if (__atomic_compare_exchange_n(once_control,
-            &expected,
-            1,
-            0,
-            __ATOMIC_ACQ_REL,
-            __ATOMIC_ACQUIRE)) {
-        init_routine();
+
+    for (;;) {
+        int state = __atomic_load_n(once_control, __ATOMIC_ACQUIRE);
+        if (state == 2) {
+            return 0;
+        }
+        if (state == 0) {
+            int expected = 0;
+            if (__atomic_compare_exchange_n(once_control,
+                    &expected,
+                    1,
+                    0,
+                    __ATOMIC_ACQ_REL,
+                    __ATOMIC_ACQUIRE)) {
+                init_routine();
+                __atomic_store_n(once_control, 2, __ATOMIC_RELEASE);
+                (void)srv_futex_wake((uint32_t *)once_control, UINT64_MAX);
+                return 0;
+            }
+            continue;
+        }
+        (void)srv_futex_wait((uint32_t *)once_control, 1, 0);
     }
-    return 0;
 }
 
 int pthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {

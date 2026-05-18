@@ -1,5 +1,6 @@
 #include <errno.h>
 #include <spawn.h>
+#include <srvros/sys.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +9,7 @@
 
 #define ALIGNMENT 16
 #define HEAP_CHUNK_SIZE (64 * 1024)
+#define HEAP_MAX_BLOCKS 8192
 
 struct block_header {
     size_t size;
@@ -17,6 +19,7 @@ struct block_header {
 
 static struct block_header *heap_head;
 static struct block_header *heap_tail;
+static int heap_lock_word;
 
 struct aligned_allocation {
     void *aligned;
@@ -29,17 +32,46 @@ static size_t align_size(size_t size) {
     return (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
 }
 
+static void recompute_tail(void) {
+    heap_tail = heap_head;
+    for (size_t guard = 0; heap_tail != 0 && heap_tail->next != 0 && guard < HEAP_MAX_BLOCKS; guard++) {
+        heap_tail = heap_tail->next;
+    }
+}
+
+static void heap_lock(void) {
+    int expected = 0;
+    while (!__atomic_compare_exchange_n(&heap_lock_word,
+            &expected,
+            1,
+            0,
+            __ATOMIC_ACQUIRE,
+            __ATOMIC_RELAXED)) {
+        expected = 0;
+        (void)srv_futex_wait((uint32_t *)&heap_lock_word, 1, 0);
+    }
+}
+
+static void heap_unlock(void) {
+    __atomic_store_n(&heap_lock_word, 0, __ATOMIC_RELEASE);
+    (void)srv_futex_wake((uint32_t *)&heap_lock_word, UINT64_MAX);
+}
+
 static void split_block(struct block_header *block, size_t size) {
     if (block->size < size + sizeof(struct block_header) + ALIGNMENT) {
         return;
     }
 
+    int was_tail = block == heap_tail;
     struct block_header *next = (struct block_header *)((unsigned char *)(block + 1) + size);
     next->size = block->size - size - sizeof(struct block_header);
     next->free = 1;
     next->next = block->next;
     block->size = size;
     block->next = next;
+    if (was_tail) {
+        heap_tail = next;
+    }
 }
 
 static struct block_header *extend_heap(size_t size) {
@@ -76,28 +108,49 @@ void *malloc(size_t size) {
         return 0;
     }
     size = align_size(size);
+    heap_lock();
     for (;;) {
+        size_t guard = 0;
         for (struct block_header *block = heap_head; block != 0; block = block->next) {
+            if (++guard > HEAP_MAX_BLOCKS ||
+                (block->next != 0 && (uintptr_t)block->next <= (uintptr_t)block)) {
+                errno = ENOMEM;
+                heap_unlock();
+                return 0;
+            }
             if (!block->free || block->size < size) {
                 continue;
             }
             split_block(block, size);
             block->free = 0;
+            heap_unlock();
             return block + 1;
         }
         if (extend_heap(size) == 0) {
             errno = ENOMEM;
+            heap_unlock();
             return 0;
         }
     }
 }
 
 static void coalesce(void) {
-    for (struct block_header *block = heap_head; block != 0 && block->next != 0; block = block->next) {
-        if (block->free && block->next->free) {
-            block->size += sizeof(struct block_header) + block->next->size;
-            block->next = block->next->next;
+    size_t guard = 0;
+    for (struct block_header *block = heap_head; block != 0 && block->next != 0;) {
+        if (++guard > HEAP_MAX_BLOCKS || (uintptr_t)block->next <= (uintptr_t)block) {
+            return;
         }
+        unsigned char *block_end = (unsigned char *)(block + 1) + block->size;
+        if (block->free && block->next->free && block_end == (unsigned char *)block->next) {
+            struct block_header *next = block->next;
+            block->size += sizeof(struct block_header) + next->size;
+            block->next = next->next;
+            if (heap_tail == next) {
+                heap_tail = block;
+            }
+            continue;
+        }
+        block = block->next;
     }
 }
 
@@ -105,6 +158,7 @@ void free(void *ptr) {
     if (ptr == 0) {
         return;
     }
+    heap_lock();
     for (size_t i = 0; i < sizeof(aligned_allocations) / sizeof(aligned_allocations[0]); i++) {
         if (aligned_allocations[i].aligned == ptr) {
             ptr = aligned_allocations[i].raw;
@@ -116,8 +170,8 @@ void free(void *ptr) {
     struct block_header *block = ((struct block_header *)ptr) - 1;
     block->free = 1;
     coalesce();
-    for (heap_tail = heap_head; heap_tail != 0 && heap_tail->next != 0; heap_tail = heap_tail->next) {
-    }
+    recompute_tail();
+    heap_unlock();
 }
 
 void *calloc(size_t count, size_t size) {
@@ -142,15 +196,20 @@ void *realloc(void *ptr, size_t size) {
         return 0;
     }
 
+    heap_lock();
     struct block_header *block = ((struct block_header *)ptr) - 1;
+    size_t old_size = block->size;
     if (block->size >= size) {
+        heap_unlock();
         return ptr;
     }
+    heap_unlock();
+
     void *next = malloc(size);
     if (next == 0) {
         return 0;
     }
-    memcpy(next, ptr, block->size);
+    memcpy(next, ptr, old_size);
     free(ptr);
     return next;
 }
@@ -169,14 +228,17 @@ int posix_memalign(void **memptr, size_t alignment, size_t size) {
     }
     uintptr_t start = (uintptr_t)raw + sizeof(void *);
     uintptr_t aligned = (start + alignment - 1) & ~(uintptr_t)(alignment - 1);
+    heap_lock();
     for (size_t i = 0; i < sizeof(aligned_allocations) / sizeof(aligned_allocations[0]); i++) {
         if (aligned_allocations[i].aligned == 0) {
             aligned_allocations[i].aligned = (void *)aligned;
             aligned_allocations[i].raw = raw;
             *memptr = (void *)aligned;
+            heap_unlock();
             return 0;
         }
     }
+    heap_unlock();
     free(raw);
     errno = ENOMEM;
     return ENOMEM;

@@ -268,6 +268,10 @@ server.
 - Adds `SYS_FUTEX_WAIT`/`SYS_FUTEX_WAKE` as a compact process-local futex-style
   primitive and moves pthread mutex/condition-variable waits onto it, including
   timed condition waits in the POSIX smoke path.
+- Hardens the pthread/libc sharing path by adding a futex-backed process-local
+  heap lock, making `pthread_once` wait for in-progress initializers, and
+  extending `posixdemo` with a small multi-threaded malloc/realloc/calloc
+  stress check.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

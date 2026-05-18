@@ -52,10 +52,19 @@ static int compare_ints(const void *left, const void *right) {
 static int once_count;
 static int pthread_shared;
 static int pthread_detached_shared;
+static int pthread_stress_once_count;
 static pthread_key_t pthread_demo_key;
+static pthread_once_t pthread_stress_once = PTHREAD_ONCE_INIT;
 
 static void once_init(void) {
     once_count++;
+}
+
+static void pthread_stress_once_init(void) {
+    pthread_stress_once_count++;
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
 }
 
 static void *pthread_worker(void *arg) {
@@ -89,6 +98,52 @@ static void *pthread_cond_worker(void *arg) {
     demo->ready = 3;
     pthread_mutex_unlock(&demo->mutex);
     return (void *)0x66;
+}
+
+static void *pthread_heap_worker(void *arg) {
+    int id = (int)(uintptr_t)arg;
+    if (pthread_once(&pthread_stress_once, pthread_stress_once_init) != 0) {
+        return (void *)0xbad;
+    }
+
+    for (int i = 0; i < 32; i++) {
+        size_t size = 24 + (size_t)(((i + id) * 13) % 96);
+        unsigned char *buffer = malloc(size);
+        if (buffer == 0) {
+            return (void *)0xbad;
+        }
+        memset(buffer, id + i, size);
+
+        size_t grown_size = size + 17;
+        unsigned char *grown = realloc(buffer, grown_size);
+        if (grown == 0) {
+            free(buffer);
+            return (void *)0xbad;
+        }
+        for (size_t j = 0; j < size; j++) {
+            if (grown[j] != (unsigned char)(id + i)) {
+                free(grown);
+                return (void *)0xbad;
+            }
+        }
+
+        unsigned char *zeroed = calloc(4, 8);
+        if (zeroed == 0) {
+            free(grown);
+            return (void *)0xbad;
+        }
+        for (int j = 0; j < 32; j++) {
+            if (zeroed[j] != 0) {
+                free(zeroed);
+                free(grown);
+                return (void *)0xbad;
+            }
+        }
+        free(zeroed);
+        free(grown);
+    }
+
+    return (void *)(uintptr_t)(0x700 + id);
 }
 
 static int pthread_detached_test(pthread_attr_t *attr, pthread_t *thread) {
@@ -145,6 +200,23 @@ static int pthread_cond_futex_test(void) {
     }
 
     return pthread_cond_destroy(&demo.cond) == 0 && pthread_mutex_destroy(&demo.mutex) == 0 ? 0 : -1;
+}
+
+static int pthread_heap_stress_test(void) {
+    pthread_t threads[4];
+    for (int i = 0; i < 4; i++) {
+        if (pthread_create(&threads[i], 0, pthread_heap_worker, (void *)(uintptr_t)i) != 0) {
+            return -1;
+        }
+    }
+    for (int i = 0; i < 4; i++) {
+        void *value = 0;
+        if (pthread_join(threads[i], &value) != 0 ||
+            value != (void *)(uintptr_t)(0x700 + i)) {
+            return -1;
+        }
+    }
+    return pthread_stress_once_count == 1 ? 0 : -1;
 }
 
 int main(void) {
@@ -1146,6 +1218,7 @@ int main(void) {
         pthread_join(worker, &joined_value) != 0 ||
         joined_value != (void *)0x2a ||
         pthread_shared != 12 ||
+        pthread_heap_stress_test() != 0 ||
         pthread_key_delete(pthread_demo_key) != 0 ||
         nanosleep(&short_sleep, 0) != 0 ||
         sched_yield() != 0 ||

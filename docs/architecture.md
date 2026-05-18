@@ -433,7 +433,10 @@ process, the kernel marks the process exiting, wakes blocked file/pipe/network
 waiters, and retires sibling user-thread scheduler contexts before address-space
 teardown. `SYS_FUTEX_WAIT`/`SYS_FUTEX_WAKE` provide the first process-local
 address-keyed wait primitive; pthread mutexes and condition variables use it to
-sleep on shared userspace words instead of spin-yielding.
+sleep on shared userspace words instead of spin-yielding. The userspace heap
+allocator also uses a process-local futex-backed lock, and `pthread_once` now
+tracks unstarted/running/complete states so contending threads wait for the
+initializer to finish before returning.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single
