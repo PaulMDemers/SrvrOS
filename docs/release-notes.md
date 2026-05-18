@@ -83,8 +83,9 @@ server.
   directory/node tables, which lets recursive `cp` create deeper destination
   trees and lets CLI copies preserve larger binaries such as `/fat/bin/sh`.
 - Adds fragmented exFAT allocation fallback for writable files, preserves stream
-  flags across overwrite/rename, validates chained EOF in `fsck`, and expands
-  `fs_stress.py` with fill/delete/copy/compare coverage.
+  flags across overwrite/rename, validates chained EOF and leaked allocated
+  clusters in `fsck`, and expands `fs_stress.py` with fill/delete/copy/compare
+  coverage.
 - Ships `/fat/bin/dd` with block copy, `/dev/zero`, size suffixes, and
   generated large-file smoke coverage followed by `fsck /fat`.
 - Deduplicates identical applet payloads in the generated exFAT image so many

@@ -407,7 +407,8 @@ kernel, and a minimal Unix-like userspace.
    stage larger 16 MiB copies, recursive `cp` has room to create nested
    destination directory trees,
    generated large-file coverage now uses `/fat/bin/dd if=/dev/zero` followed by
-   copy/compare and `fsck /fat`, and writable mounts now persist srvros Unix-like metadata through the
+   copy/compare and `fsck /fat`, `fsck /fat` now reports leaked allocated
+   clusters, and writable mounts now persist srvros Unix-like metadata through the
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally
    small.

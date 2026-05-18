@@ -32,9 +32,19 @@ def read_until(sock, marker, seconds):
     return data
 
 
-def run_monitor_command(sock, command, marker, timeout):
+def send_serial(sock, text, delay):
+    data = text.encode("ascii")
+    if delay <= 0:
+        sock.sendall(data)
+        return
+    for byte in data:
+        sock.sendall(bytes([byte]))
+        time.sleep(delay)
+
+
+def run_monitor_command(sock, command, marker, timeout, send_delay):
     output = read_for(sock, 0.2)
-    sock.sendall((command + "\n").encode("ascii"))
+    send_serial(sock, command + "\n", send_delay)
     output += read_until(sock, marker, timeout)
     output += read_until(sock, b"srv> ", timeout)
     return output
@@ -118,6 +128,7 @@ def main():
     parser.add_argument("--rounds", type=int, default=8)
     parser.add_argument("--boot-wait", type=float, default=20)
     parser.add_argument("--line-wait", type=float, default=2.0)
+    parser.add_argument("--send-delay", type=float, default=0.001)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -156,18 +167,18 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"fsck /fat\n")
+            send_serial(sock, "fsck /fat\n", args.send_delay)
             output += read_until(sock, b"srv> ", 10)
-            sock.sendall(b"run /fat/bin/sh\n")
+            send_serial(sock, "run /fat/bin/sh\n", args.send_delay)
             output += read_until(sock, b" $ ", 5)
             for line in build_script(args.rounds).splitlines(True):
-                sock.sendall(line.encode("ascii"))
+                send_serial(sock, line, args.send_delay)
                 if line.strip() == "exit":
                     output += read_until(sock, b"srv> ", 10)
                 else:
                     output += read_until(sock, b" $ ", args.line_wait)
-            output += run_monitor_command(sock, "fsck /fat", b"exfat-check:", 15)
-            output += run_monitor_command(sock, "memstat", b"pmm:", 10)
+            output += run_monitor_command(sock, "fsck /fat", b"exfat-check:", 15, args.send_delay)
+            output += run_monitor_command(sock, "memstat", b"pmm:", 10, args.send_delay)
             output += read_for(sock, 1)
         finally:
             try:
@@ -204,6 +215,9 @@ def main():
         return 2
     if "dd: close failed" in text:
         print("fs-stress: fragmentation fill ran out of space earlier than expected", file=sys.stderr)
+        return 2
+    if "dd: invalid" in text or "usage: dd" in text:
+        print("fs-stress: generated dd command was malformed", file=sys.stderr)
         return 2
     if "cp: close failed" in text:
         print("fs-stress: fragmented copy ran out of space", file=sys.stderr)

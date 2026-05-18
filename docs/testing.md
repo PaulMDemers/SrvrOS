@@ -213,7 +213,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   handling.
 - `fs_stress.py`: repeated file create/read/copy/rename/remove, generated
   fill/delete fragmentation pressure, fragmented large-file copy/compare, plus
-  fsck before and after.
+  fsck before and after with allocated-cluster leak checks.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 
 ## DNS Test Domains

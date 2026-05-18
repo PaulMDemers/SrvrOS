@@ -118,7 +118,9 @@ exFAT is the primary filesystem. It supports:
 - Runtime mount/unmount with busy checks.
 - Allocation bitmap management, contiguous no-FAT-chain extents, and
   fragmented FAT-chain allocation/read/write fallback.
-- A consistency checker exposed as `fsck /fat`.
+- A consistency checker exposed as `fsck /fat`, including bitmap ownership
+  checks for system structures, directories, files, duplicate clusters, and
+  leaked allocated clusters.
 - VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
   block counts, and tick-derived access/modify/change timestamps.
 - A srvros-managed metadata sidecar at `/fat/.srvros/meta` on writable exFAT

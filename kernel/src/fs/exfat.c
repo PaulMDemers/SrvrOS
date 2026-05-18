@@ -16,6 +16,7 @@
 #define EXFAT_ENTRY_SIZE 32
 #define EXFAT_ENTRY_END 0x00
 #define EXFAT_ENTRY_BITMAP 0x81
+#define EXFAT_ENTRY_UPCASE 0x82
 #define EXFAT_ENTRY_FILE 0x85
 #define EXFAT_ENTRY_STREAM 0xc0
 #define EXFAT_ENTRY_NAME 0xc1
@@ -84,6 +85,8 @@ struct exfat_volume {
     uint64_t cluster_heap_offset_bytes;
     uint32_t allocation_bitmap_cluster;
     uint64_t allocation_bitmap_size;
+    uint32_t upcase_table_cluster;
+    uint64_t upcase_table_size;
     uint32_t cluster_count;
     uint32_t root_directory_cluster;
 };
@@ -517,6 +520,12 @@ static bool scan_directory(const char *path,
             if (entry[0] == EXFAT_ENTRY_BITMAP && depth == 0) {
                 volume->allocation_bitmap_cluster = read_u32(entry + 20);
                 volume->allocation_bitmap_size = read_u64(entry + 24);
+                continue;
+            }
+
+            if (entry[0] == EXFAT_ENTRY_UPCASE && depth == 0) {
+                volume->upcase_table_cluster = read_u32(entry + 20);
+                volume->upcase_table_size = read_u64(entry + 24);
                 continue;
             }
 
@@ -2050,6 +2059,32 @@ static bool mark_checked_cluster(uint8_t *seen, uint64_t seen_bytes, uint64_t bi
     return !already_seen;
 }
 
+static bool checked_cluster_seen(const uint8_t *seen, uint64_t seen_bytes, uint64_t bit_index) {
+    if (bit_index / 8 >= seen_bytes) {
+        return false;
+    }
+    return (seen[bit_index / 8] & (uint8_t)(1u << (bit_index % 8))) != 0;
+}
+
+static void check_cluster_allocation(struct exfat_check_result *result,
+    const struct exfat_mount *mount,
+    const char *path,
+    const uint8_t *bitmap,
+    uint64_t bitmap_bits,
+    uint8_t *seen,
+    uint64_t seen_bytes,
+    uint32_t cluster,
+    bool allow_duplicate) {
+    uint64_t bit_index = cluster - 2;
+    if (bit_index >= bitmap_bits || !bitmap_bit_is_set(bitmap, bit_index)) {
+        check_file_error(result, mount, path, "cluster not marked allocated in bitmap");
+    }
+    if (!mark_checked_cluster(seen, seen_bytes, bit_index) && !allow_duplicate) {
+        check_file_error(result, mount, path, "duplicate cluster allocation");
+    }
+    result->clusters_checked++;
+}
+
 static bool file_has_existing_alias(const struct exfat_mount *mount, uint64_t file_index) {
     const struct exfat_file *file = &mount->files[file_index];
     for (uint64_t i = 0; i < file_index; i++) {
@@ -2103,14 +2138,7 @@ static void check_file_clusters(struct exfat_check_result *result,
             return;
         }
 
-        uint64_t bit_index = cluster - 2;
-        if (bit_index >= bitmap_bits || !bitmap_bit_is_set(bitmap, bit_index)) {
-            check_file_error(result, mount, path, "cluster not marked allocated in bitmap");
-        }
-        if (!mark_checked_cluster(seen, seen_bytes, bit_index) && !alias) {
-            check_file_error(result, mount, path, "duplicate cluster allocation");
-        }
-        result->clusters_checked++;
+        check_cluster_allocation(result, mount, path, bitmap, bitmap_bits, seen, seen_bytes, cluster, alias);
 
         if (i + 1 >= expected_clusters) {
             if (!file->no_fat_chain) {
@@ -2129,6 +2157,118 @@ static void check_file_clusters(struct exfat_check_result *result,
             check_file_error(result, mount, path, "could not read FAT chain");
             return;
         }
+    }
+}
+
+static void check_directory_clusters(struct exfat_check_result *result,
+    const struct exfat_mount *mount,
+    const uint8_t *bitmap,
+    uint64_t bitmap_bits,
+    uint8_t *seen,
+    uint64_t seen_bytes,
+    uint64_t directory_index) {
+    const struct exfat_directory *directory = &mount->dirs[directory_index];
+    const char *path = directory->path;
+    uint32_t cluster = directory->first_cluster;
+    bool follow_to_end = directory->file_entry_offset == 0 &&
+        directory->data_length == 0 &&
+        !directory->no_fat_chain;
+    uint64_t expected_clusters = follow_to_end ? mount->volume.cluster_count : directory->allocated_clusters;
+
+    if (path[0] == '\0' || expected_clusters == 0) {
+        return;
+    }
+    if (cluster < 2 || cluster >= mount->volume.cluster_count + 2) {
+        check_file_error(result, mount, path, "directory first cluster out of range");
+        return;
+    }
+
+    for (uint64_t i = 0; i < expected_clusters; i++) {
+        if (cluster < 2 || cluster >= mount->volume.cluster_count + 2) {
+            check_file_error(result, mount, path, "directory chain left volume");
+            return;
+        }
+
+        check_cluster_allocation(result, mount, path, bitmap, bitmap_bits, seen, seen_bytes, cluster, false);
+
+        if (directory->no_fat_chain) {
+            if (i + 1 >= expected_clusters) {
+                break;
+            }
+            cluster++;
+            continue;
+        }
+
+        uint32_t next = 0;
+        if (!next_cluster(&mount->volume, cluster, &next)) {
+            check_file_error(result, mount, path, "could not read directory FAT chain");
+            return;
+        }
+        if (follow_to_end) {
+            if (next >= EXFAT_FAT_CHAIN_END) {
+                break;
+            }
+            cluster = next;
+            continue;
+        }
+        if (i + 1 >= expected_clusters) {
+            if (next < EXFAT_FAT_CHAIN_END) {
+                check_file_error(result, mount, path, "directory FAT chain longer than allocation");
+            }
+            break;
+        }
+        cluster = next;
+    }
+}
+
+static void check_system_cluster_range(struct exfat_check_result *result,
+    const struct exfat_mount *mount,
+    const uint8_t *bitmap,
+    uint64_t bitmap_bits,
+    uint8_t *seen,
+    uint64_t seen_bytes,
+    const char *label,
+    uint32_t first_cluster,
+    uint64_t byte_length) {
+    if (first_cluster < 2 || byte_length == 0) {
+        return;
+    }
+    uint64_t clusters = clusters_for_size(&mount->volume, byte_length);
+    uint32_t cluster = first_cluster;
+    for (uint64_t i = 0; i < clusters; i++) {
+        if (cluster < 2 || cluster >= mount->volume.cluster_count + 2) {
+            check_file_error(result, mount, label, "system cluster out of range");
+            return;
+        }
+        check_cluster_allocation(result, mount, label, bitmap, bitmap_bits, seen, seen_bytes, cluster, false);
+        cluster++;
+    }
+}
+
+static void check_bitmap_leaks(struct exfat_check_result *result,
+    const struct exfat_mount *mount,
+    const uint8_t *bitmap,
+    uint64_t bitmap_bits,
+    const uint8_t *seen,
+    uint64_t seen_bytes) {
+    uint64_t leak_count = 0;
+    uint64_t first_leak = 0;
+    uint64_t limit = mount->volume.cluster_count < bitmap_bits ? mount->volume.cluster_count : bitmap_bits;
+    for (uint64_t bit = 0; bit < limit; bit++) {
+        if (bitmap_bit_is_set(bitmap, bit) && !checked_cluster_seen(seen, seen_bytes, bit)) {
+            if (leak_count == 0) {
+                first_leak = bit + 2;
+            }
+            leak_count++;
+        }
+    }
+    if (leak_count != 0) {
+        result->leaked_clusters += leak_count;
+        result->errors++;
+        console_printf("exfat-check: %s: leaked allocated clusters=%u first=%u\n",
+            mount != NULL ? mount->mountpoint : "?",
+            leak_count,
+            first_leak);
     }
 }
 
@@ -2169,11 +2309,33 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         goto out;
     }
 
+    check_system_cluster_range(result,
+        mount,
+        bitmap,
+        bitmap_bits,
+        seen,
+        seen_bytes,
+        "/allocation-bitmap",
+        volume->allocation_bitmap_cluster,
+        bitmap_bytes);
+    check_system_cluster_range(result,
+        mount,
+        bitmap,
+        bitmap_bits,
+        seen,
+        seen_bytes,
+        "/upcase-table",
+        volume->upcase_table_cluster,
+        volume->upcase_table_size);
+    for (uint64_t i = 0; i < mount->dir_count; i++) {
+        check_directory_clusters(result, mount, bitmap, bitmap_bits, seen, seen_bytes, i);
+    }
     for (uint64_t i = 0; i < mount->file_count; i++) {
         if (mount->paths[i][0] != '\0') {
             check_file_clusters(result, mount, bitmap, bitmap_bits, seen, seen_bytes, i);
         }
     }
+    check_bitmap_leaks(result, mount, bitmap, bitmap_bits, seen, seen_bytes);
 
     ok = result->errors == 0;
 
@@ -2218,10 +2380,11 @@ bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {
 void exfat_check_print(const char *mountpoint) {
     struct exfat_check_result result;
     bool ok = exfat_check(mountpoint, &result);
-    console_printf("exfat-check: mounts=%u files=%u clusters=%u errors=%u %s\n",
+    console_printf("exfat-check: mounts=%u files=%u clusters=%u leaks=%u errors=%u %s\n",
         result.mounts_checked,
         result.files_checked,
         result.clusters_checked,
+        result.leaked_clusters,
         result.errors,
         ok ? "ok" : "failed");
 }
