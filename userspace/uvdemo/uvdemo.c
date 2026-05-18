@@ -91,7 +91,14 @@ static int fs_test(void) {
 static char udp_storage[128];
 static int udp_got_reply;
 
-static void alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+static char tcp_storage[256];
+static uv_loop_t tcp_loop;
+static uv_tcp_t tcp_server;
+static uv_tcp_t tcp_client;
+static uv_write_t tcp_write_request;
+static int tcp_ok;
+
+static void udp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
     (void)handle;
     (void)suggested_size;
     buffer->base = udp_storage;
@@ -138,7 +145,7 @@ static int udp_test(void) {
         uv_udp_init(&loop, &client) < 0 ||
         uv_ip4_addr("0.0.0.0", 7017, &server_addr) < 0 ||
         uv_udp_bind(&server, (const struct sockaddr *)&server_addr, 0) < 0 ||
-        uv_udp_recv_start(&server, alloc_cb, udp_recv_cb) < 0 ||
+        uv_udp_recv_start(&server, udp_alloc_cb, udp_recv_cb) < 0 ||
         uv_timer_init(&loop, &timeout) < 0 ||
         uv_timer_start(&timeout, udp_timeout_cb, 50, 0) < 0) {
         puts("uvdemo: udp setup failed");
@@ -165,8 +172,94 @@ static int udp_test(void) {
     return 0;
 }
 
+static void tcp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    buffer->base = tcp_storage;
+    buffer->len = sizeof(tcp_storage) - 1;
+}
+
+static void tcp_write_cb(uv_write_t *request, int status) {
+    (void)request;
+    if (status < 0) {
+        printf("uvdemo: tcp write failed %s\n", uv_strerror(status));
+    } else {
+        tcp_ok = 1;
+        puts("uvdemo: tcp ok");
+    }
+    uv_close((uv_handle_t *)&tcp_client, 0);
+    uv_stop(&tcp_loop);
+}
+
+static void tcp_read_cb(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    (void)stream;
+    if (nread < 0) {
+        printf("uvdemo: tcp read failed %s\n", uv_strerror((int)nread));
+        uv_stop(&tcp_loop);
+        return;
+    }
+    buffer->base[nread] = '\0';
+    printf("uvdemo: tcp read %ld\n", (long)nread);
+    char response[320];
+    snprintf(response, sizeof(response), "uv-tcp-ok:%s", buffer->base);
+    uv_buf_t out = uv_buf_init(response, (unsigned int)strlen(response));
+    if (uv_write(&tcp_write_request, &tcp_client, &out, 1, tcp_write_cb) < 0) {
+        puts("uvdemo: tcp write start failed");
+        uv_stop(&tcp_loop);
+    }
+}
+
+static void tcp_connection_cb(uv_tcp_t *server, int status) {
+    if (status < 0) {
+        printf("uvdemo: tcp accept event failed %s\n", uv_strerror(status));
+        uv_stop(&tcp_loop);
+        return;
+    }
+    if (uv_tcp_init(&tcp_loop, &tcp_client) < 0 ||
+        uv_accept(server, &tcp_client) < 0 ||
+        uv_read_start(&tcp_client, tcp_alloc_cb, tcp_read_cb) < 0) {
+        puts("uvdemo: tcp accept failed");
+        uv_stop(&tcp_loop);
+        return;
+    }
+    uv_close((uv_handle_t *)server, 0);
+    puts("uvdemo: tcp accepted");
+}
+
+static void tcp_timeout_cb(uv_timer_t *timer) {
+    (void)timer;
+    puts("uvdemo: tcp timeout");
+    uv_stop(&tcp_loop);
+}
+
+static int tcp_test(void) {
+    uv_timer_t timeout;
+    struct sockaddr_in addr;
+    tcp_ok = 0;
+    memset(tcp_storage, 0, sizeof(tcp_storage));
+    if (uv_loop_init(&tcp_loop) < 0 ||
+        uv_tcp_init(&tcp_loop, &tcp_server) < 0 ||
+        uv_ip4_addr("0.0.0.0", 7018, &addr) < 0 ||
+        uv_tcp_bind(&tcp_server, (const struct sockaddr *)&addr, 0) < 0 ||
+        uv_listen(&tcp_server, 4, tcp_connection_cb) < 0 ||
+        uv_timer_init(&tcp_loop, &timeout) < 0 ||
+        uv_timer_start(&timeout, tcp_timeout_cb, 5000, 0) < 0) {
+        puts("uvdemo: tcp setup failed");
+        return 1;
+    }
+    puts("uvdemo: tcp listening 7018");
+    (void)uv_run(&tcp_loop, UV_RUN_DEFAULT);
+    uv_timer_stop(&timeout);
+    uv_close((uv_handle_t *)&tcp_server, 0);
+    if (!tcp_ok) {
+        puts("uvdemo: tcp failed");
+        return 1;
+    }
+    return 0;
+}
+
 static void usage(void) {
-    puts("usage: uvdemo [basic|udp]");
+    puts("usage: uvdemo [basic|udp|tcp]");
 }
 
 int main(int argc, char **argv) {
@@ -184,6 +277,9 @@ int main(int argc, char **argv) {
     }
     if (strcmp(mode, "udp") == 0) {
         return udp_test();
+    }
+    if (strcmp(mode, "tcp") == 0) {
+        return tcp_test();
     }
     usage();
     return 2;

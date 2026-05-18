@@ -186,9 +186,10 @@ srvros config header, and the ports smoke test verifies that it can generate
 The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
 shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
-handle entry points, and a demo covering timer plus file I/O. It is the staging
-point for replacing the shim with a proper libuv backend as the fd readiness,
-thread-pool, signal, TTY, and socket surfaces mature.
+handle entry points, and demos covering timer, file I/O, UDP echo, and a
+host-forwarded TCP accept/read/write path. It is the staging point for replacing
+the shim with a proper libuv backend as the fd readiness, thread-pool, signal,
+TTY, and socket surfaces mature.
 
 ## Current Limits
 
@@ -292,6 +293,6 @@ Third-party source is kept as pinned submodules or snapshots under
 6. Broaden UDP/DNS compatibility now that userspace datagram sockets exist:
    timeout behavior, resolver edge cases, richer `/fat/etc/resolv.conf`
    handling, and better multi-answer/error reporting.
-7. Move toward libuv after sockets, timers, and fd readiness are boring.
-   The current `uvdemo` shim is a first compile-and-smoke target, not the final
-   libuv port.
+7. Continue the libuv bring-up: replace the srvros shim in layers with a real
+   backend once stream lifetimes, nonblocking readiness, timers, filesystem
+   requests, TTY, signals, and thread-pool work are boring under smoke tests.

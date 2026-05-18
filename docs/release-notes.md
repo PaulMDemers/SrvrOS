@@ -32,6 +32,8 @@ server.
 - Drives an Intel e1000 NIC in QEMU with interrupt-backed receive handling.
 - Supports ARP, ICMP echo, DHCP, DNS A-record resolution, enough TCP for a
   userspace HTTP server, and client-side TCP connect for simple outbound HTTP.
+- Keeps accepted TCP streams alive when their listener fd is closed, matching
+  the server lifecycle expected by POSIX/libuv-style event loops.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client
@@ -465,6 +467,7 @@ python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/metadata_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -494,8 +497,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 - Lua uses its normal floating-number profile with `math` enabled. The `os`
   library and native dynamic loading remain disabled.
 - `/fat/bin/uvdemo` adds the first srvros `uv.h` compatibility shim, covering a
-  libuv-shaped loop, timers, filesystem requests, and initial TCP/UDP handle
-  entry points for the Node.js/libuv bring-up track.
+  libuv-shaped loop, timers, filesystem requests, UDP, and a host-forwarded TCP
+  accept/read/write smoke path for the Node.js/libuv bring-up track.
 - Process-exit teardown is non-preemptible while freeing the exiting address
   space, so repeated larger interpreter launches do not leave scheduler context
   pointing at freed page tables.

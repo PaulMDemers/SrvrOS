@@ -38,6 +38,17 @@ static int uv_error_from_errno(void) {
     return errno > 0 ? -errno : -1;
 }
 
+static void set_nonblocking(int fd) {
+    int flags;
+    if (fd < 0) {
+        return;
+    }
+    flags = fcntl(fd, F_GETFL, 0);
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+}
+
 static void register_handle(uv_loop_t *loop, uv_handle_t *handle) {
     if (handle->loop == loop) {
         return;
@@ -222,6 +233,9 @@ static void dispatch_readable(uv_handle_t *handle) {
                 return;
             }
             ssize_t count = recv(handle->fd, buffer.base, buffer.len, 0);
+            if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return;
+            }
             tcp->read_cb(tcp, count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count, &buffer);
         }
         return;
@@ -238,11 +252,33 @@ static void dispatch_readable(uv_handle_t *handle) {
                 return;
             }
             ssize_t count = recvfrom(handle->fd, buffer.base, buffer.len, 0, (struct sockaddr *)&peer, &peer_len);
+            if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return;
+            }
             udp->recv_cb(udp,
                 count < 0 ? uv_error_from_errno() : count,
                 &buffer,
                 count < 0 ? 0 : (const struct sockaddr *)&peer,
                 0);
+        }
+    }
+}
+
+static int has_active_tcp_reader(const uv_loop_t *loop) {
+    for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+        uv_tcp_t *tcp = (uv_tcp_t *)handle;
+        if (handle->type == UV_HANDLE_TCP && handle->active && !handle->closing && tcp->read_cb != 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+static void dispatch_active_tcp_reads(uv_loop_t *loop) {
+    for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+        uv_tcp_t *tcp = (uv_tcp_t *)handle;
+        if (handle->type == UV_HANDLE_TCP && handle->active && !handle->closing && tcp->read_cb != 0) {
+            dispatch_readable(handle);
         }
     }
 }
@@ -261,6 +297,9 @@ static int run_once(uv_loop_t *loop, int mode) {
     }
 
     timeout = mode == UV_RUN_NOWAIT ? 0 : next_timer_timeout(loop);
+    if (has_active_tcp_reader(loop) && (timeout < 0 || timeout > 20)) {
+        timeout = 20;
+    }
     for (uv_handle_t *handle = loop->handles; handle != 0 && count < UV_MAX_POLL_HANDLES; handle = handle->next) {
         short events = poll_events_for_handle(handle);
         if (events == 0) {
@@ -288,6 +327,7 @@ static int run_once(uv_loop_t *loop, int mode) {
             }
         }
     }
+    dispatch_active_tcp_reads(loop);
 
     uv_update_time(loop);
     run_due_timers(loop);
@@ -350,6 +390,7 @@ int uv_accept(uv_tcp_t *server, uv_tcp_t *client) {
     if (fd < 0) {
         return uv_error_from_errno();
     }
+    set_nonblocking(fd);
     if (client->handle.fd >= 0) {
         close(client->handle.fd);
     }
@@ -379,6 +420,7 @@ int uv_read_start(uv_tcp_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
     }
     stream->alloc_cb = alloc_cb;
     stream->read_cb = read_cb;
+    set_nonblocking(stream->handle.fd);
     stream->handle.active = 1;
     return 0;
 }
@@ -447,6 +489,7 @@ int uv_udp_recv_start(uv_udp_t *handle, uv_alloc_cb alloc_cb, uv_udp_recv_cb rec
     }
     handle->alloc_cb = alloc_cb;
     handle->recv_cb = recv_cb;
+    set_nonblocking(handle->handle.fd);
     handle->handle.active = 1;
     return 0;
 }

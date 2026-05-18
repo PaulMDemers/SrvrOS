@@ -35,6 +35,7 @@ python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/posixutils_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -163,6 +164,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   guest-side closed-port TCP RST behavior through QEMU host forwarding.
   `httpget_smoke.py` covers outbound DNS/connect/send/recv with the newer
   socket error propagation in place.
+- `uv_smoke.py`: shell launch of `/fat/bin/uvdemo` for the srvros `uv.h`
+  compatibility shim, covering timer/file operations plus a host-forwarded TCP
+  listener that accepts, reads a request, writes a response, and closes the
+  listener without dropping the accepted stream.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

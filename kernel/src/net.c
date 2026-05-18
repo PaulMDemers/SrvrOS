@@ -3397,7 +3397,9 @@ int64_t net_close(uint64_t handle) {
         }
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             if (tcp_connections[i].state != TCP_STATE_EMPTY &&
-                tcp_connections[i].local_port == port) {
+                tcp_connections[i].local_port == port &&
+                tcp_connections[i].owner == owner &&
+                !tcp_connections[i].accepted) {
                 close_connection(&tcp_connections[i]);
             }
         }

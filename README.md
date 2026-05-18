@@ -125,7 +125,8 @@ editor clients:
   `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
   `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
-  exercises timer plus filesystem operations through a libuv-shaped loop API.
+  exercises timer, filesystem operations, UDP, and host-forwarded TCP
+  listener/read/write behavior through a libuv-shaped loop API.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.
@@ -361,6 +362,7 @@ python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/posixutils_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
