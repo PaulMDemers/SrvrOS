@@ -86,7 +86,7 @@ editor clients:
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`, and common long-option aliases
   for build-script probes across `grep`, `sed`, `xargs`, `tar`, `make`, `ls`,
-  `cp`, `rm`, and `mv`,
+  `cp`, `rm`, `mv`, `mkdir`, `install`, `tee`, `head`, `tail`, `wc`, and `ln`,
   `more`, `uname`, `hostname`, and `uptime`.
 - Generated exFAT images include `/fat/share/help`, `/fat/share/examples`,
   `/fat/etc/profile.d`, `/fat/tmp`, and `/fat/home`; `help <topic>`/`man
@@ -333,6 +333,7 @@ The Python harnesses boot the built ISO in QEMU and drive the serial console:
 
 ```sh
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/configure_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

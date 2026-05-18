@@ -22,6 +22,7 @@ Use the UCRT64 QEMU path if it is not already first in `PATH`:
 
 ```sh
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/configure_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -94,12 +95,18 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   arguments, `shift`, `break`/`continue`,
   `command -v`/`command -V` and alias bypass, `fg`/`bg`,
   `test -a`/`-o`/`!`/`-nt`/`-ef`, `test -s/-r/-w/-x`,
-  `xargs -n`/`-r`/`--max-args`, long-option `cp`/`rm`/`mv`, Ctrl-D/EOF shell exit,
+  `xargs -n`/`-r`/`--max-args`, long-option `cp`/`rm`/`mv`/`mkdir`/`install`/
+  `tee`/`head`/`tail`/`wc`/`ln`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app. The CLI harness also runs monitor `fsck /fat`
   after the shell exits to catch filesystem consistency regressions from the
   mutation path.
+- `configure_smoke.py`: a compact configure/build-script probe harness covering
+  long-option aliases for directory creation, install modes/directories, grep,
+  sed, head/tail/wc, xargs batching, tee append, find, recursive copy/remove,
+  tar create/list/extract, make dry-run/always-make, the unsupported symbolic
+  link path, and a final monitor `fsck /fat`.
 - `shell_edit_smoke.py`: interactive raw-mode shell editing over serial,
   including TAB completion, longest-common-prefix completion fill,
   Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations, Ctrl-Y yank,

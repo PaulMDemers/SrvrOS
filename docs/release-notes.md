@@ -330,7 +330,9 @@ server.
   `grep --regexp/--ignore-case/--quiet/--fixed-strings`, `sed --quiet` and
   `--expression`, `xargs --max-args`, `tar --create/--list/--extract --file`,
   `make --file/--dry-run/--always-make`, `find -print`, and long forms for
-  `ls`, `cp`, `rm`, and `mv`.
+  `ls`, `cp`, `rm`, `mv`, `mkdir`, `install`, `tee`, `head`, `tail`, `wc`, and
+  `ln`. `tools/configure_smoke.py` now covers these configure-style probes in a
+  shorter QEMU path.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
@@ -441,6 +443,7 @@ make -j4
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --line-wait 12
 python3 tools/cli_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/configure_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

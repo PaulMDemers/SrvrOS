@@ -186,13 +186,11 @@ int main(int argc, char **argv) {
         }
         if ((cli_streq(arg, "-e") || cli_streq(arg, "--regexp")) && pattern_index + 1 < argc) {
             pattern = argv[++pattern_index];
-            pattern_index++;
-            break;
+            continue;
         }
         if (cli_starts_with(arg, "--regexp=")) {
             pattern = arg + 9;
-            pattern_index++;
-            break;
+            continue;
         }
         if (cli_streq(arg, "--invert-match")) {
             options.invert = 1;

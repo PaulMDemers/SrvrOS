@@ -112,6 +112,17 @@ int main(int argc, char **argv) {
             lines = parse_number(argv[i + 1], lines);
             i++;
             first_file = i + 1;
+        } else if (cli_streq(argv[i], "--lines")) {
+            if (i + 1 >= argc) {
+                cli_puts("usage: tail [-n count|-count] [file ...]\n");
+                return 1;
+            }
+            lines = parse_number(argv[i + 1], lines);
+            i++;
+            first_file = i + 1;
+        } else if (cli_starts_with(argv[i], "--lines=")) {
+            lines = parse_number(argv[i] + 8, lines);
+            first_file = i + 1;
         } else if (parse_line_option(argv[i], &lines)) {
             first_file = i + 1;
         } else {

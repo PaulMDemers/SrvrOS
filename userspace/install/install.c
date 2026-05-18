@@ -191,7 +191,7 @@ int main(int argc, char **argv) {
             first_path++;
             break;
         }
-        if (cli_streq(argv[first_path], "-d")) {
+        if (cli_streq(argv[first_path], "-d") || cli_streq(argv[first_path], "--directory")) {
             directories = 1;
             first_path++;
             continue;
@@ -205,12 +205,20 @@ int main(int argc, char **argv) {
             first_path++;
             continue;
         }
-        if (cli_streq(argv[first_path], "-m") && first_path + 1 < argc) {
+        if ((cli_streq(argv[first_path], "-m") || cli_streq(argv[first_path], "--mode")) && first_path + 1 < argc) {
             if (!parse_mode(argv[first_path + 1], &mode)) {
                 cli_puts("install: invalid mode\n");
                 return 2;
             }
             first_path += 2;
+            continue;
+        }
+        if (cli_starts_with(argv[first_path], "--mode=")) {
+            if (!parse_mode(argv[first_path] + 7, &mode)) {
+                cli_puts("install: invalid mode\n");
+                return 2;
+            }
+            first_path++;
             continue;
         }
         usage();

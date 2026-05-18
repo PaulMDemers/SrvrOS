@@ -101,6 +101,21 @@ int main(int argc, char **argv) {
             first_file = i;
             break;
         }
+        if (cli_streq(arg, "--lines")) {
+            options.lines = 1;
+            first_file = i + 1;
+            continue;
+        }
+        if (cli_streq(arg, "--words")) {
+            options.words = 1;
+            first_file = i + 1;
+            continue;
+        }
+        if (cli_streq(arg, "--bytes") || cli_streq(arg, "--chars")) {
+            options.bytes = 1;
+            first_file = i + 1;
+            continue;
+        }
         for (size_t j = 1; arg[j] != '\0'; j++) {
             if (arg[j] == 'l') {
                 options.lines = 1;

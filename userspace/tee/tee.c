@@ -13,9 +13,18 @@ int main(int argc, char **argv) {
         cli_puts("usage: tee [-a] <path> [...]\n");
         return 0;
     }
-    if (argc > 1 && cli_streq(argv[1], "-a")) {
-        append = 1;
-        first_path = 2;
+    while (first_path < argc && argv[first_path][0] == '-' && argv[first_path][1] != '\0') {
+        if (cli_is_option_terminator(argv[first_path])) {
+            first_path++;
+            break;
+        }
+        if (cli_streq(argv[first_path], "-a") || cli_streq(argv[first_path], "--append")) {
+            append = 1;
+            first_path++;
+            continue;
+        }
+        cli_puts("usage: tee [-a] <path> [...]\n");
+        return 1;
     }
     if (argc <= first_path) {
         cli_puts("usage: tee [-a] <path> [...]\n");

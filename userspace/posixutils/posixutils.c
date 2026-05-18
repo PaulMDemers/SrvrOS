@@ -137,7 +137,7 @@ static int unsupported_link(int argc, char **argv) {
         usage("ln");
         return 0;
     }
-    if (argc > 1 && strcmp(argv[1], "-s") == 0) {
+    if (argc > 1 && (strcmp(argv[1], "-s") == 0 || strcmp(argv[1], "--symbolic") == 0)) {
         first = 2;
     }
     if (argc != first + 2) {
