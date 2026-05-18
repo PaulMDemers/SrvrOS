@@ -2528,16 +2528,24 @@ bool exfat_delete_file(const char *path) {
     bool internal_path = metadata_path_is_internal(mount, path);
 
     struct exfat_file *file = &mount->files[index];
+    struct exfat_file old_file = *file;
+    uint64_t entry_count = (uint64_t)file->secondary_count + 1;
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, file->file_entry_offset, entry_count, old_entries)) {
+        return false;
+    }
+
     if (!write_deleted_entry_set(file)) {
         return false;
     }
 
-    (void)free_file_clusters(file);
     if (!vfs_unregister_path(path)) {
+        (void)restore_entry_run(&mount->volume, old_file.file_entry_offset, old_entries, entry_count);
         return false;
     }
 
     clear_file_slot(mount, index);
+    (void)free_file_clusters(&old_file);
     if (!internal_path) {
         (void)exfat_sync_mount_metadata(mount);
     }
@@ -2556,6 +2564,13 @@ bool exfat_delete_directory(const char *path) {
 
     struct exfat_directory *directory = &mount->dirs[index];
     bool internal_path = metadata_path_is_internal(mount, path);
+    struct exfat_directory old_directory = *directory;
+    uint64_t entry_count = (uint64_t)directory->secondary_count + 1;
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, directory->file_entry_offset, entry_count, old_entries)) {
+        return false;
+    }
+
     if (!write_deleted_entries(&mount->volume,
             directory->file_entry_offset,
             directory->secondary_count)) {
@@ -2568,11 +2583,12 @@ bool exfat_delete_directory(const char *path) {
         .allocated_clusters = directory->allocated_clusters,
         .no_fat_chain = directory->no_fat_chain,
     };
-    (void)free_file_clusters(&scratch);
     if (!vfs_unregister_path(path)) {
+        (void)restore_entry_run(&mount->volume, old_directory.file_entry_offset, old_entries, entry_count);
         return false;
     }
     clear_directory_slot(mount, index);
+    (void)free_file_clusters(&scratch);
     if (!internal_path) {
         (void)exfat_sync_mount_metadata(mount);
     }

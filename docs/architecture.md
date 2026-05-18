@@ -134,10 +134,11 @@ Writable regular-file handles are staged in kernel memory until `fsync`, `sync`,
 or close, with a 16 MiB per-handle cap. exFAT mount state tracks up to 128
 directories and the VFS registry has 1024 node slots.
 
-Create and rename paths snapshot the affected directory-entry run before
-mutation. If entry writing, in-memory registration, or VFS rename registration
-fails, srvros restores the previous entry bytes and path bookkeeping where
-possible instead of leaving a half-created or half-renamed entry behind.
+Create, rename, and delete paths snapshot the affected directory-entry run
+before mutation. If entry writing, in-memory registration, VFS rename
+registration, or VFS unregister fails, srvros restores the previous entry bytes
+and path bookkeeping where possible instead of leaving a half-created,
+half-renamed, or half-deleted entry behind.
 
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so

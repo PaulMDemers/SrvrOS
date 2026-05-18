@@ -399,10 +399,10 @@ kernel, and a minimal Unix-like userspace.
    This pass also broadens shell `test`/`[` boolean/file comparisons and
    `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts.
 2. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
-   FAT rollback, directory-entry create/rename rollback, and stress/corruption
-   coverage are in place; remaining work is better rollback around delete,
-   truncate, dirty-cache writeback, and crash-consistency documentation. Empty
-   files plus fd flush/truncate now work,
+   FAT rollback, directory-entry create/rename/delete rollback, and
+   stress/corruption coverage are in place; remaining work is better rollback
+   around truncate, dirty-cache writeback, and crash-consistency documentation.
+   Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
    global `sync` flushes dirty writable descriptors, writable regular files can
    stage larger 16 MiB copies, recursive `cp` has room to create nested
