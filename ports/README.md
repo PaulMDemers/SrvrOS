@@ -29,6 +29,11 @@ linenoise is used through `ports/srvros/linenoise.c`, a small srvros adapter
 for the upstream public API. `srvsh` uses it for editable prompt input and
 `/fat/.srvsh_history`; `/fat/bin/linedemo` exercises history save/load behavior.
 
+The first libuv-facing bridge lives in `ports/srvros/uv.c` and
+`ports/srvros/uv.h`. It is intentionally a small srvros compatibility shim, not
+upstream libuv: `/fat/bin/uvdemo` uses it to smoke-test a libuv-shaped loop,
+timers, filesystem requests, and initial TCP/UDP handle entry points.
+
 SQLite is kept as an official amalgamation snapshot rather than a submodule.
 `/fat/bin/sqlitedemo` builds the amalgamation with `SQLITE_OS_OTHER`, registers
 a small srvros VFS, and verifies create/insert/query/reopen behavior on exFAT.
@@ -48,5 +53,5 @@ advisory byte-range locks.
 1. Expand `stdio` formatting/scanning behavior for more command-line ports.
 2. Add Unix-like file metadata over exFAT.
 3. Add `mmap`-style mappings for larger ports.
-4. Add client-side TCP `connect` and UDP sockets.
-5. Add more socket/readiness APIs before moving to libuv.
+4. Broaden client-side TCP, UDP, socket options, and readiness edge cases.
+5. Replace the current srvros `uv.h` shim with a real upstream libuv backend.

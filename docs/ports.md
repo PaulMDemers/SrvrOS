@@ -183,6 +183,12 @@ The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
 directly into a srvros executable. It uses the upstream C sources plus a small
 srvros config header, and the ports smoke test verifies that it can generate
 `y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
+The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
+shim is not upstream libuv yet; it is a deliberately small bridge that gives
+ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
+handle entry points, and a demo covering timer plus file I/O. It is the staging
+point for replacing the shim with a proper libuv backend as the fd readiness,
+thread-pool, signal, TTY, and socket surfaces mature.
 
 ## Current Limits
 
@@ -281,6 +287,11 @@ Third-party source is kept as pinned submodules or snapshots under
 4. Expand `mmap` toward larger interpreters and libraries: demand paging,
    shared mappings where useful, writeback decisions, richer `MAP_FIXED`
    replacement semantics, and signal-delivered page-fault recovery.
-5. Expand `webd` toward fuller concurrent connection handling.
-6. Add UDP userspace sockets, then a tiny DNS client/library path above them.
+5. Expand `webd` toward fuller concurrent connection handling, stronger
+   low-rate client behavior, and more complete static-file metadata.
+6. Broaden UDP/DNS compatibility now that userspace datagram sockets exist:
+   timeout behavior, resolver edge cases, richer `/fat/etc/resolv.conf`
+   handling, and better multi-answer/error reporting.
 7. Move toward libuv after sockets, timers, and fd readiness are boring.
+   The current `uvdemo` shim is a first compile-and-smoke target, not the final
+   libuv port.

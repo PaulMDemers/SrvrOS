@@ -124,6 +124,8 @@ editor clients:
   and file-backed history, with `/fat/bin/linedemo` covering the history API.
   `/fat/bin/sqlitedemo` links SQLite 3.53.1 through a
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
+  `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
+  exercises timer plus filesystem operations through a libuv-shaped loop API.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.
@@ -137,6 +139,9 @@ editor clients:
   applied during replacement.
 - GUI experiments: fullscreen desktop/window server, freestanding calculator,
   notes, text editor, and BMP paint/image editor clients.
+- The full shipped command surface is tracked in
+  [docs/tool-inventory.md](docs/tool-inventory.md), including shell builtins,
+  applet aliases, network tools, GUI clients, demos, and regression probes.
 
 ## Repository Layout
 
@@ -246,7 +251,18 @@ Network commands under `make run-ahci-net` or another e1000 QEMU target:
 / $ inidemo
 / $ linedemo
 / $ sqlitedemo
+/ $ uvdemo
 / $ ttydemo
+/ $ ifconfig
+/ $ route
+/ $ arp
+/ $ ping p2.dev
+/ $ host linguicityworld.app
+/ $ udpdns p2.dev
+/ $ udpecho
+/ $ netstat
+/ $ httpget example.com /
+/ $ netcheck
 / $ lua -e "print('hello from lua', 6*7)"
 ```
 
@@ -340,6 +356,8 @@ python3 tools/shell_edit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dir_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dhcp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/dns_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -350,7 +368,11 @@ python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/thread_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/service_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 4
+python3 tools/net_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 3
+python3 tools/tcp_pressure.py --qemu /ucrt64/bin/qemu-system-x86_64 --connections 44
 python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1
+python3 tools/fsck_corrupt.py --qemu /ucrt64/bin/qemu-system-x86_64
 ```
 
 See [docs/testing.md](docs/testing.md) for the full release verification pass.
@@ -358,6 +380,7 @@ See [docs/testing.md](docs/testing.md) for the full release verification pass.
 ## Documentation
 
 - [Architecture](docs/architecture.md)
+- [Tool inventory](docs/tool-inventory.md)
 - [Testing](docs/testing.md)
 - [Porting](docs/ports.md)
 - [Executable Format](docs/executable-format.md)

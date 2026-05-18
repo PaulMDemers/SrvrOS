@@ -120,6 +120,8 @@ def main():
             output += read_until(sock, b" $ ", 3)
             sock.sendall(b"udpecho self\n")
             output += read_until(sock, b" $ ", args.udp_wait)
+            sock.sendall(b"uvdemo udp\n")
+            output += read_until(sock, b" $ ", args.udp_wait)
             output += read_for(sock, 1)
         finally:
             try:
@@ -148,6 +150,8 @@ def main():
         missing.append("udpecho self reply")
     if "udpecho: zero ok" not in text:
         missing.append("udpecho zero-length datagram")
+    if "uvdemo: udp ok" not in text:
+        missing.append("uvdemo udp")
     if "udpdns: timeout" in text or "udpdns: sendto" in text or "udpdns: recvfrom" in text:
         missing.append("udpdns error")
     if "udpecho: bind" in text or "udpecho: sendto" in text or "udpecho: recvfrom" in text:

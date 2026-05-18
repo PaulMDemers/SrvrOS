@@ -304,19 +304,28 @@ support library and shared `userspace/lib/crt0.S` startup object. There is no
 external libc dependency, and adding a normal app no longer needs a copied
 per-directory `start.S`.
 
-Core tools:
+The generated `/fat/bin` command set is tracked in
+[`docs/tool-inventory.md`](tool-inventory.md). In broad groups it includes:
 
-- `sh`, `ls`, `cat`, `more`, `echo`, `write`, `wc`, `clear`, `ps`, `kill`.
-- `grep`, `head`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mktemp`, `mv`.
-- `which`, `env`, `pwd`, `true`, `false`.
-- `sleep`, `date`, `touch`, `basename`, `dirname`.
-- `tail`, `tee`, `find`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`,
-  `realpath`, `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`,
-  `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `sed`, `expr`, `printf`, `tr`,
-  `uname`, `hostname`, `uptime`.
-- `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`, `ifconfig`, `route`,
-  `arp`, `ping`, `host`, `spin`, `ui`, `desktop`, `calcgui`, `notesgui`, `textedit`,
-  `imgedit`.
+- Shell/core commands: `sh`, `hello`, `cat`, `more`, `echo`, `write`, `clear`,
+  `ps`, `kill`, `which`, `env`, `pwd`, `true`, `false`, `sleep`, `date`,
+  `touch`, `mktemp`, `basename`, `dirname`, `uname`, `hostname`, `uptime`,
+  `id`, and `whoami`.
+- File and text tools: `ls`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`, `du`,
+  `df`, `realpath`, `readlink`, `wc`, `grep`, `head`, `tail`, `tee`, `tap`,
+  `sort`, `uniq`, `cut`, `xargs`, `seq`, `cmp`, `yes`, `diff`, `patch`,
+  `sed`, `expr`, `printf`, `tr`, `dd`, and the shared POSIX utility applet
+  names `ln`, `sync`, `test`, `[`, `cksum`, `sum`, `comm`, `paste`, `join`,
+  `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`, `time`,
+  `timeout`, `nohup`, and `nice`.
+- Archive/build/porting tools: `install`, `tar`, `gzip`, `gunzip`, `minizip`,
+  `miniunz`, `make`, `byacc`, `zlibdemo`, `jsondemo`, `inidemo`, `linedemo`,
+  `sqlitedemo`, `uvdemo`, and `lua`.
+- Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
+  `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
+- GUI/demo/regression tools: `ui`, `desktop`, `calcgui`, `notesgui`,
+  `textedit`, `imgedit`, `sysabi`, `spin`, `fpdemo`, `posixdemo`,
+  `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
 non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
@@ -512,8 +521,10 @@ than mocking subsystems. See `docs/testing.md`.
 ## Near-Term Architecture Goals
 
 - Strengthen exFAT mutation with better rollback and sync semantics.
-- Add a userspace socket API and readiness model.
-- Add UDP sockets and richer DNS resolver behavior.
+- Broaden the userspace socket API, readiness behavior, and TCP edge-case
+  handling.
+- Strengthen UDP/DNS resolver compatibility now that userspace datagram sockets
+  and DNS-over-UDP probes exist.
 - Add NVMe as a second storage backend.
 - Grow the support library toward a small libc-shaped layer.
 - Move GUI clients toward shared pixel buffers and damage rectangles.

@@ -423,9 +423,12 @@ kernel, and a minimal Unix-like userspace.
 3. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
 4. Add NVMe discovery and read/write support as the second storage backend.
-5. Expand `/webd` from the first poll-driven connection table to fuller
-   concurrent response handling, then add UDP userspace sockets, response
-   length/file metadata, and multi-worker web server designs.
+5. Expand `/webd` from the current poll-driven connection table to fuller
+   concurrent response handling, richer response metadata, stronger long-lived
+   low-rate client behavior, and multi-worker web server designs. UDP
+   userspace sockets and DNS-over-UDP probes are now in place, so the remaining
+   networking work is broader socket/readiness polish and more complete TCP
+   behavior.
 6. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
 7. Continue the libc/newlib track: terminal process groups/signals, applying
