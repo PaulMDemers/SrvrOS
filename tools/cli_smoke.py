@@ -447,6 +447,7 @@ def main():
         "write /fat/tree/a/b/file.txt nested-copy\n"
         "cp -r /fat/tree /fat/tree-copy\n"
         "cat /fat/tree-copy/a/b/file.txt\n"
+        "test -f /fat/tree-copy/a/b/file.txt && echo recursive-copy-ok\n"
         "rm -r /fat/tree\n"
         "stat /fat/tree/a/b/file.txt\n"
         "rm -r /fat/tree-copy\n"
@@ -455,6 +456,7 @@ def main():
         "cat /fat/redir-copy.txt\n"
         "cp /fat/bin/sh /fat/sh-copy\n"
         "stat /fat/sh-copy\n"
+        "cmp -s /fat/bin/sh /fat/sh-copy && echo large-copy-ok\n"
         "rm /fat/sh-copy\n"
         "ps\n"
         "fpdemo\n"
@@ -812,9 +814,11 @@ def main():
         "source: unterminated block",
         "/fat/status-copy.txt: 55 bytes",
         "nested-copy",
+        "recursive-copy-ok",
         "stat: not found: /fat/tree/a/b/file.txt",
         "stat: not found: /fat/tree-copy/a/b/file.txt",
         "/fat/sh-copy:",
+        "large-copy-ok",
         "PID STATE",
         "/fat/bin/sh",
         "fpdemo: ok pid=",

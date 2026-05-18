@@ -402,7 +402,9 @@ kernel, and a minimal Unix-like userspace.
    rollback on partial rename/write failures, dirty-cache writeback, and
    crash-consistency documentation. Empty files plus fd flush/truncate now work,
    shell `> file` creates an empty file even if the command writes no output,
-   global `sync` flushes dirty writable descriptors,
+   global `sync` flushes dirty writable descriptors, writable regular files can
+   stage larger 16 MiB copies, recursive `cp` has room to create nested
+   destination directory trees,
    and writable mounts now persist srvros Unix-like metadata through the
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally

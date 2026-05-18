@@ -73,8 +73,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `gzip`/`gunzip` file and tarball round trips, simple unified `patch`,
   a small `make` install flow,
   `sed`, default `TMPDIR`, `mktemp`, `mkdir -p`, recursive
-  `cp`/`rm`, copy/remove, clustered `rm -fRr`, multi-source `cp`/`mv` into
-  directories, native file rename and directory destinations through `mv`,
+  `cp`/`rm`, recursive copy destination creation, larger binary `cp` with
+  `cmp -s` verification, copy/remove, clustered `rm -fRr`, multi-source
+  `cp`/`mv` into directories, native file rename and directory destinations through `mv`,
   `/fat/share/help` topic files, `help -l`, `help <topic>`, `man <topic>`,
   `apropos <word>`, generated `/fat/share/examples`, login
   `/fat/etc/profile.d` snippets, `more --plain`, `-h`/`--help`

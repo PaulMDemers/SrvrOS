@@ -126,6 +126,10 @@ exFAT is the primary filesystem. It supports:
   are staged through `/fat/.srvros/meta.tmp`; mount recovery promotes a valid
   temp sidecar or discards a malformed one before applying metadata.
 
+Writable regular-file handles are staged in kernel memory until `fsync`, `sync`,
+or close, with a 16 MiB per-handle cap. exFAT mount state tracks up to 128
+directories and the VFS registry has 1024 node slots.
+
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
 adding more bundled programs does not silently corrupt directory entries.
