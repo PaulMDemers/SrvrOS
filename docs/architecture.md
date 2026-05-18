@@ -134,6 +134,11 @@ Writable regular-file handles are staged in kernel memory until `fsync`, `sync`,
 or close, with a 16 MiB per-handle cap. exFAT mount state tracks up to 128
 directories and the VFS registry has 1024 node slots.
 
+Create and rename paths snapshot the affected directory-entry run before
+mutation. If entry writing, in-memory registration, or VFS rename registration
+fails, srvros restores the previous entry bytes and path bookkeeping where
+possible instead of leaving a half-created or half-renamed entry behind.
+
 The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
 adding more bundled programs does not silently corrupt directory entries.
@@ -144,8 +149,8 @@ Current filesystem caveats:
 - There is no general journaling or transaction rollback.
 - Crash consistency is not guaranteed if QEMU exits during arbitrary mutation,
   though metadata sidecar replacement has a small temp-file recovery path.
-- Long-name support and broader rollback around directory-entry updates are
-  still being hardened.
+- Long-name support exists for the current ASCII subset, but broader crash-time
+  recovery around directory-entry updates is still being hardened.
 - Unix-like metadata is persisted by srvros in a sidecar file rather than in
   native exFAT directory entries.
 

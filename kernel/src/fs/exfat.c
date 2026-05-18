@@ -132,6 +132,18 @@ static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t c
 static bool allocate_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster, bool *no_fat_chain);
 static bool free_file_clusters(struct exfat_file *file);
 
+static void copy_cstr(char *dst, uint64_t capacity, const char *src) {
+    uint64_t i = 0;
+    if (dst == NULL || capacity == 0) {
+        return;
+    }
+    while (src != NULL && src[i] != '\0' && i + 1 < capacity) {
+        dst[i] = src[i];
+        i++;
+    }
+    dst[i] = '\0';
+}
+
 static bool streqn(const char *a, const char *b, uint64_t length) {
     for (uint64_t i = 0; i < length; i++) {
         if (a[i] != b[i]) {
@@ -1714,6 +1726,20 @@ static bool register_created_file(struct exfat_mount *mount,
         directory_offset + EXFAT_ENTRY_SIZE);
 }
 
+static bool read_entry_run(struct exfat_volume *volume, uint64_t offset, uint64_t entry_count, uint8_t *out) {
+    if (volume == NULL || out == NULL || entry_count == 0 || entry_count > EXFAT_MAX_FILE_ENTRIES) {
+        return false;
+    }
+    return volume_read(volume, offset, out, entry_count * EXFAT_ENTRY_SIZE);
+}
+
+static bool restore_entry_run(struct exfat_volume *volume, uint64_t offset, const uint8_t *entries, uint64_t entry_count) {
+    if (volume == NULL || entries == NULL || entry_count == 0 || entry_count > EXFAT_MAX_FILE_ENTRIES) {
+        return false;
+    }
+    return volume_write(volume, offset, entries, entry_count * EXFAT_ENTRY_SIZE);
+}
+
 static bool write_deleted_entries(struct exfat_volume *volume, uint64_t file_entry_offset, uint8_t secondary_count) {
     uint64_t entry_count = (uint64_t)secondary_count + 1;
     if (entry_count < 3 || entry_count > EXFAT_MAX_FILE_ENTRIES) {
@@ -1901,15 +1927,23 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
         return false;
     }
 
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, directory_offset, entry_count, old_entries)) {
+        (void)free_file_clusters(&scratch);
+        return false;
+    }
+
     if (!volume_write(&mount->volume,
             directory_offset,
             entries,
             entry_count * EXFAT_ENTRY_SIZE)) {
+        (void)restore_entry_run(&mount->volume, directory_offset, old_entries, entry_count);
         (void)free_file_clusters(&scratch);
         return false;
     }
 
     if (!register_created_file(mount, parent->path, directory_offset, entries, name_entry_count)) {
+        (void)restore_entry_run(&mount->volume, directory_offset, old_entries, entry_count);
         (void)free_file_clusters(&scratch);
         return false;
     }
@@ -1979,10 +2013,17 @@ bool exfat_create_directory(const char *path) {
         return false;
     }
 
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, directory_offset, entry_count, old_entries)) {
+        release_created_clusters(&mount->volume, first_cluster, 1);
+        return false;
+    }
+
     if (!volume_write(&mount->volume,
             directory_offset,
             entries,
             entry_count * EXFAT_ENTRY_SIZE)) {
+        (void)restore_entry_run(&mount->volume, directory_offset, old_entries, entry_count);
         release_created_clusters(&mount->volume, first_cluster, 1);
         return false;
     }
@@ -1994,10 +2035,15 @@ bool exfat_create_directory(const char *path) {
         mount->volume.cluster_size,
         directory_offset,
         (uint8_t)(entry_count - 1));
+    if (!ok) {
+        (void)restore_entry_run(&mount->volume, directory_offset, old_entries, entry_count);
+        release_created_clusters(&mount->volume, first_cluster, 1);
+        return false;
+    }
     if (ok && !metadata_path_is_internal(mount, path)) {
         (void)exfat_sync_mount_metadata(mount);
     }
-    return ok;
+    return true;
 }
 
 static void clear_mount(struct exfat_mount *mount) {
@@ -2562,17 +2608,30 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
     }
 
     uint64_t old_entry_count = (uint64_t)file->secondary_count + 1;
+    uint64_t old_directory_offset = file->file_entry_offset;
     uint64_t directory_offset = file->file_entry_offset;
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    uint8_t displaced_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, old_directory_offset, old_entry_count, old_entries)) {
+        return false;
+    }
     if (entry_count > old_entry_count) {
         if (!directory_free_offset(&mount->volume, parent, entry_count, &directory_offset)) {
             return false;
         }
-        if (!write_deleted_entry_set(file)) {
+        if (!read_entry_run(&mount->volume, directory_offset, entry_count, displaced_entries)) {
             return false;
         }
+    } else if (!read_entry_run(&mount->volume, directory_offset, old_entry_count, displaced_entries)) {
+        return false;
     }
 
     if (!volume_write(&mount->volume, directory_offset, entries, entry_count * EXFAT_ENTRY_SIZE)) {
+        if (entry_count > old_entry_count) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+        } else {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        }
         return false;
     }
     if (entry_count < old_entry_count) {
@@ -2580,20 +2639,34 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         if (!write_inactive_entry_run(&mount->volume,
                 extra_offset,
                 old_entry_count - entry_count)) {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+            return false;
+        }
+    } else if (entry_count > old_entry_count) {
+        if (!write_deleted_entry_set(file)) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
             return false;
         }
     }
 
-    (void)vfs_unregister_path(old_path);
+    if (!vfs_unregister_path(old_path)) {
+        if (entry_count > old_entry_count) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        } else {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        }
+        return false;
+    }
+    char old_path_copy[EXFAT_MAX_PATH];
+    copy_cstr(old_path_copy, sizeof(old_path_copy), mount->paths[index]);
+    uint64_t old_file_entry_offset = file->file_entry_offset;
+    uint64_t old_stream_entry_offset = file->stream_entry_offset;
+    uint8_t old_secondary_count = file->secondary_count;
     file->file_entry_offset = directory_offset;
     file->stream_entry_offset = directory_offset + EXFAT_ENTRY_SIZE;
     file->secondary_count = (uint8_t)(entry_count - 1);
-    uint64_t i = 0;
-    while (new_path[i] != '\0' && i + 1 < sizeof(mount->paths[index])) {
-        mount->paths[index][i] = new_path[i];
-        i++;
-    }
-    mount->paths[index][i] = '\0';
+    copy_cstr(mount->paths[index], sizeof(mount->paths[index]), new_path);
     bool ok = vfs_register_file_with_metadata(mount->paths[index],
         file->size,
         file,
@@ -2602,8 +2675,26 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
         have_metadata ? &metadata : NULL);
     if (ok) {
         (void)exfat_sync_mount_metadata(mount);
+        return true;
     }
-    return ok;
+
+    if (entry_count > old_entry_count) {
+        (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+        (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+    } else {
+        (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+    }
+    file->file_entry_offset = old_file_entry_offset;
+    file->stream_entry_offset = old_stream_entry_offset;
+    file->secondary_count = old_secondary_count;
+    copy_cstr(mount->paths[index], sizeof(mount->paths[index]), old_path_copy);
+    (void)vfs_register_file_with_metadata(mount->paths[index],
+        file->size,
+        file,
+        exfat_read_all,
+        exfat_release_data,
+        have_metadata ? &metadata : NULL);
+    return false;
 }
 
 static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
@@ -2640,19 +2731,30 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
     (void)name_entry_count;
 
     uint64_t old_entry_count = (uint64_t)directory->secondary_count + 1;
+    uint64_t old_directory_offset = directory->file_entry_offset;
     uint64_t directory_offset = directory->file_entry_offset;
+    uint8_t old_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    uint8_t displaced_entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
+    if (!read_entry_run(&mount->volume, old_directory_offset, old_entry_count, old_entries)) {
+        return false;
+    }
     if (entry_count > old_entry_count) {
         if (!directory_free_offset(&mount->volume, parent, entry_count, &directory_offset)) {
             return false;
         }
-        if (!write_deleted_entries(&mount->volume,
-                directory->file_entry_offset,
-                directory->secondary_count)) {
+        if (!read_entry_run(&mount->volume, directory_offset, entry_count, displaced_entries)) {
             return false;
         }
+    } else if (!read_entry_run(&mount->volume, directory_offset, old_entry_count, displaced_entries)) {
+        return false;
     }
 
     if (!volume_write(&mount->volume, directory_offset, entries, entry_count * EXFAT_ENTRY_SIZE)) {
+        if (entry_count > old_entry_count) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+        } else {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        }
         return false;
     }
     if (entry_count < old_entry_count) {
@@ -2660,24 +2762,51 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
         if (!write_inactive_entry_run(&mount->volume,
                 extra_offset,
                 old_entry_count - entry_count)) {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+            return false;
+        }
+    } else if (entry_count > old_entry_count) {
+        if (!write_deleted_entries(&mount->volume,
+                old_directory_offset,
+                directory->secondary_count)) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
             return false;
         }
     }
 
-    (void)vfs_unregister_path(old_path);
+    if (!vfs_unregister_path(old_path)) {
+        if (entry_count > old_entry_count) {
+            (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        } else {
+            (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+        }
+        return false;
+    }
+    char old_path_copy[EXFAT_MAX_PATH];
+    copy_cstr(old_path_copy, sizeof(old_path_copy), directory->path);
+    uint64_t old_file_entry_offset = directory->file_entry_offset;
+    uint8_t old_secondary_count = directory->secondary_count;
     directory->file_entry_offset = directory_offset;
     directory->secondary_count = (uint8_t)(entry_count - 1);
-    uint64_t i = 0;
-    while (new_path[i] != '\0' && i + 1 < sizeof(directory->path)) {
-        directory->path[i] = new_path[i];
-        i++;
-    }
-    directory->path[i] = '\0';
+    copy_cstr(directory->path, sizeof(directory->path), new_path);
     bool ok = vfs_register_directory_with_metadata(directory->path, have_metadata ? &metadata : NULL);
     if (ok) {
         (void)exfat_sync_mount_metadata(mount);
+        return true;
     }
-    return ok;
+
+    if (entry_count > old_entry_count) {
+        (void)restore_entry_run(&mount->volume, directory_offset, displaced_entries, entry_count);
+        (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+    } else {
+        (void)restore_entry_run(&mount->volume, old_directory_offset, old_entries, old_entry_count);
+    }
+    directory->file_entry_offset = old_file_entry_offset;
+    directory->secondary_count = old_secondary_count;
+    copy_cstr(directory->path, sizeof(directory->path), old_path_copy);
+    (void)vfs_register_directory_with_metadata(directory->path, have_metadata ? &metadata : NULL);
+    return false;
 }
 
 bool exfat_rename(const char *old_path, const char *new_path) {

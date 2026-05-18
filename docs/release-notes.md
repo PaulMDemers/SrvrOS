@@ -88,6 +88,9 @@ server.
   expands `fs_stress.py` with fill/delete/copy/compare coverage.
 - Adds `tools/fsck_corrupt.py`, a QEMU-backed corruption harness that flips
   temporary exFAT images and verifies `fsck /fat` reports the expected failure.
+- Adds directory-entry snapshot/restore helpers for exFAT create and rename
+  paths so failed registration or entry writes roll back the affected entry run.
+  `fs_stress.py` now covers short-to-long and long-to-short rename updates.
 - Ships `/fat/bin/dd` with block copy, `/dev/zero`, size suffixes, and
   generated large-file smoke coverage followed by `fsck /fat`.
 - Deduplicates identical applet payloads in the generated exFAT image so many
@@ -470,8 +473,8 @@ python3 tools/fs_stress.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 1 --li
 
 ### Next Release Themes
 
-- Harden exFAT writes with stronger directory-entry rollback/sync semantics and
-  broader crash recovery testing.
+- Harden exFAT writes with stronger delete/truncate rollback, sync semantics,
+  and broader crash recovery testing.
 - Add richer userspace networking APIs and readiness primitives.
 - Add UDP sockets and stronger DNS resolver behavior.
 - Add NVMe storage.

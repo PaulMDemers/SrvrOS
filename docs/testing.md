@@ -213,8 +213,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   diagnostics, DNS-over-UDP, local UDP echo, and zero-length UDP datagram
   handling.
 - `fs_stress.py`: repeated file create/read/copy/rename/remove, generated
-  fill/delete fragmentation pressure, fragmented large-file copy/compare, plus
-  fsck before and after with allocated-cluster leak checks.
+  short-to-long and long-to-short rename entry updates, generated fill/delete
+  fragmentation pressure, fragmented large-file copy/compare, plus fsck before
+  and after with allocated-cluster leak checks.
 - `fsck_corrupt.py`: mutates temporary exFAT image copies to verify `fsck /fat`
   reports leaked bitmap allocations and stale FAT entries on bitmap-free
   clusters.
