@@ -68,6 +68,12 @@ server.
   network utility set.
 - Normalizes `--` option termination across the common file/text utilities used
   by the shell smoke path.
+- Adds a shared POSIX utility applet installed as `ln`, `sync`, external
+  `test`/`[`, `cksum`, `sum`, `comm`, `paste`, `join`, `split`, `od`,
+  `hexdump`, `strings`, `file`, `tty`, `stty`, `time`, `timeout`, `nohup`,
+  and `nice`, with `tools/posixutils_smoke.py` covering the aliases in QEMU.
+- Deduplicates identical applet payloads in the generated exFAT image so many
+  command aliases do not consume separate cluster chains on the default disk.
 - Ships `/fat/bin/httpget`, a tiny outbound HTTP/1.0 client backed by
   DNS-backed `getaddrinfo`, POSIX `connect`, `send`, and `recv`.
 - Adds userspace IPv4 UDP sockets with `sendto`/`recvfrom`, poll readiness,

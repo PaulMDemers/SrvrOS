@@ -78,6 +78,9 @@ editor clients:
   including option-aware `grep`, `head`, `tail`, `wc`, `find`, `ls`, and
   `sed`, `expr`, `printf`, `tr`, `tee`, `du`, `df`, `sort`, `uniq`, `cut`, `xargs`, `seq`, `realpath`,
   `id`, `whoami`, `readlink`, `cmp`, `yes`, `install`, `diff`, `tar`, `gzip`, `gunzip`, `minizip`, `miniunz`, `patch`, `make`, `byacc`, `mktemp`,
+  `ln`, `sync`, external `test`/`[`, `cksum`, `sum`, `comm`, `paste`, `join`,
+  `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`, `time`,
+  `timeout`, `nohup`, and `nice`,
   `mkdir -p`, clustered `rm -fRr`, multi-source `cp`/`mv` into directories,
   recursive `cp`/`rm`, directory-aware `mv`,
   `more`, `uname`, `hostname`, and `uptime`.
@@ -332,6 +335,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/posixutils_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/process_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

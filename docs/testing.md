@@ -35,6 +35,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/posixutils_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/web_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/service_soak.py --qemu /ucrt64/bin/qemu-system-x86_64 --rounds 4
@@ -172,6 +173,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `lua_smoke.py`: shell launch of `/fat/bin/lua`, script loading from exFAT,
   integer arithmetic, formatted output through the Lua base library, pure-Lua
   `require`, Lua file IO, and post-run `fsck`.
+- `posixutils_smoke.py`: shell launch of the shared POSIX utility applet under
+  its installed names: `ln`, `sync`, external `test`/`[`, `cksum`, `sum`,
+  `comm`, `paste`, `join`, `split`, `od`, `hexdump`, `strings`, `file`,
+  `tty`, `stty`, `time`, `timeout`, `nohup`, and `nice`. It also confirms the
+  generated exFAT image still has writable headroom after the applet aliases are
+  installed.
 - `service_smoke.py`: kernel-started `/init --system`, `/fat/var/log/init.log`,
   boot-owned `svscan` service startup, service dependency/health/max-log
   metadata, `service webd check-config`, `service webd check`,

@@ -371,6 +371,17 @@ through the shell, `byacc` generates C parsers from small yacc grammars, and
 comparisons, string length/substr/index, and literal-prefix `:` matching for
 script glue. `/fat/bin/printf` supports common `%s`/numeric formatting and
 escapes; `/fat/bin/tr` supports simple set translation, ranges, and deletion.
+Additional POSIX utility compatibility is provided by one shared applet binary
+installed under multiple names: `ln`, `sync`, external `test`/`[`, `cksum`,
+`sum`, `comm`, `paste`, `join`, `split`, `od`, `hexdump`, `strings`, `file`,
+`tty`, `stty`, `time`, `timeout`, `nohup`, and `nice`. `ln` currently reports
+that links are unsupported because srvros has not grown hard-link or symlink
+metadata yet; the other applet entry points cover the common build-script and
+inspection cases needed by the current shell/ports milestone.
+
+The generated exFAT image builder deduplicates identical applet payloads by
+source ELF, so aliases share the same cluster chain instead of consuming a full
+copy per name on the small default disk image.
 
 The current `date` tool reports monotonic uptime because srvros does not yet
 have RTC or network time plumbing.

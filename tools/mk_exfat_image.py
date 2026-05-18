@@ -107,6 +107,7 @@ def main():
                      "imgedit"]
     app_names = []
     app_data = {}
+    app_sources = {}
     for index, arg in enumerate(sys.argv[2:]):
         if "=" in arg:
             name, path = arg.split("=", 1)
@@ -119,6 +120,7 @@ def main():
             print(f"invalid app name: {name}", file=sys.stderr)
             return 2
         app_names.append(name)
+        app_sources[name] = path
         with open(path, "rb") as app:
             app_data[name] = app.read()
 
@@ -264,7 +266,8 @@ def main():
             b"also accept -- to stop option processing. Several filters read stdin when\n"
             b"no file is provided, and cat/grep/head/tail/wc accept - as stdin.\n"
             b"env can run commands with modified environments. seq, realpath,\n"
-            b"readlink, id, whoami, cmp, yes, install, diff, tar, gzip, gunzip, minizip, miniunz, patch, make, and byacc provide small\n"
+            b"readlink, id, whoami, cmp, yes, install, diff, tar, gzip, gunzip, minizip, miniunz, patch, make, byacc,\n"
+            b"cksum, sum, comm, paste, join, split, od, hexdump, strings, file, timeout, nohup, and nice provide small\n"
             b"script-porting helpers.\n"
             b"Examples live under /fat/share/examples.\n"),
         ("profile.txt",
@@ -328,8 +331,16 @@ def main():
     for name, data in example_files:
         example_entries_data.append((name, allocate_clusters(len(data)), data))
     app_clusters = {}
+    app_clusters_by_source = {}
     for name in app_names:
-        app_clusters[name] = allocate_clusters(len(app_data[name])) if app_data[name] else 0
+        source = app_sources[name]
+        if not app_data[name]:
+            app_clusters[name] = 0
+        elif source in app_clusters_by_source:
+            app_clusters[name] = app_clusters_by_source[source]
+        else:
+            app_clusters[name] = allocate_clusters(len(app_data[name]))
+            app_clusters_by_source[source] = app_clusters[name]
     used_clusters = next_cluster - 2
     if used_clusters > CLUSTER_COUNT:
         print(
