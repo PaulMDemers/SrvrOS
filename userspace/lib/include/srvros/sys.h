@@ -158,6 +158,7 @@ long srv_thread_exit(uint64_t value);
 long srv_thread_join(uint64_t tid, uint64_t *value_out);
 long srv_thread_self(void);
 long srv_thread_detach(uint64_t tid);
+long srv_thread_status(uint64_t tid);
 void srv_puts(const char *text);
 void srv_exit(int status);
 void srv_yield(void);

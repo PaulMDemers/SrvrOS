@@ -242,6 +242,36 @@ void scheduler_exit_current(void) {
     }
 }
 
+void scheduler_kill_user_threads(void *process, void *except_user_thread_context) {
+    if (!initialized || process == NULL) {
+        return;
+    }
+
+    uint64_t flags = irq_save();
+    for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
+        struct thread *thread = &threads[i];
+        if (thread->state == THREAD_UNUSED ||
+            thread->state == THREAD_DEAD ||
+            thread->user_context != process ||
+            thread->user_thread_context == NULL ||
+            thread->user_thread_context == except_user_thread_context) {
+            continue;
+        }
+        if (thread->blocked_queue != NULL) {
+            thread->blocked_queue->waiters &= ~(1ull << i);
+        }
+        thread->blocked_queue = NULL;
+        thread->blocked_deadline_ticks = 0;
+        thread->user_context = NULL;
+        thread->user_thread_context = NULL;
+        thread->user_fpu = NULL;
+        thread->address_space = 0;
+        thread->kernel_stack_top = 0;
+        thread->state = THREAD_DEAD;
+    }
+    irq_restore(flags);
+}
+
 bool scheduler_wait_timeout(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,
     void *arg,

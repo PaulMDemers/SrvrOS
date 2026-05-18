@@ -51,6 +51,7 @@ static int compare_ints(const void *left, const void *right) {
 
 static int once_count;
 static int pthread_shared;
+static int pthread_detached_shared;
 static pthread_key_t pthread_demo_key;
 
 static void once_init(void) {
@@ -66,6 +67,25 @@ static void *pthread_worker(void *arg) {
     sched_yield();
     pthread_shared += 5;
     return (void *)0x2a;
+}
+
+static void *pthread_detached_worker(void *arg) {
+    pthread_detached_shared += (int)(uintptr_t)arg;
+    return (void *)0x55;
+}
+
+static int pthread_detached_test(pthread_attr_t *attr, pthread_t *thread) {
+    pthread_detached_shared = 0;
+    if (pthread_create(thread, attr, pthread_detached_worker, (void *)3) != 0) {
+        return -1;
+    }
+    if (pthread_detach(*thread) != EINVAL) {
+        return -1;
+    }
+    for (int i = 0; i < 64 && pthread_detached_shared != 3; i++) {
+        sched_yield();
+    }
+    return pthread_detached_shared == 3 ? 0 : -1;
 }
 
 int main(void) {
@@ -1035,6 +1055,7 @@ int main(void) {
     pthread_key_t key;
     pthread_attr_t pthread_attr;
     pthread_t worker;
+    pthread_t detached_worker;
     void *joined_value = 0;
     void *thread_value = (void *)0x1234;
     struct timespec short_sleep = {.tv_sec = 0, .tv_nsec = 1000000};
@@ -1056,6 +1077,7 @@ int main(void) {
         pthread_attr_init(&pthread_attr) != 0 ||
         pthread_attr_setdetachstate(&pthread_attr, PTHREAD_CREATE_DETACHED) != 0 ||
         pthread_attr_setstacksize(&pthread_attr, 32768) != 0 ||
+        pthread_detached_test(&pthread_attr, &detached_worker) != 0 ||
         pthread_attr_destroy(&pthread_attr) != 0 ||
         !pthread_equal(pthread_self(), pthread_self()) ||
         pthread_create(0, 0, 0, 0) != EINVAL ||

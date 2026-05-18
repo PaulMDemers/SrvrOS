@@ -426,7 +426,12 @@ User pthreads are backed by a compact native thread syscall set. The libc shim
 allocates a stack with `mmap`, enters the requested routine in the same process
 address space, and `pthread_join` collects the returned pointer-sized value.
 Each spawned user thread has its own scheduler kernel trap stack and user FPU
-state while sharing the owning process fd table, mappings, and heap.
+state while sharing the owning process fd table, mappings, and heap. Detached
+pthread stacks are tracked by libc and reclaimed through a hidden join after
+`SYS_THREAD_STATUS` reports completion. If one user thread exits the whole
+process, the kernel marks the process exiting, wakes blocked file/pipe/network
+waiters, and retires sibling user-thread scheduler contexts before address-space
+teardown.
 
 The native executable format remains static ELF64. Common Makefile rules link
 each program with the shared crt startup object, keeping each app as a single

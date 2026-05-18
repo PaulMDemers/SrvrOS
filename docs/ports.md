@@ -71,7 +71,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   per-thread user stacks, per-thread TLS keys, mutexes, condition variables,
   and `pthread_once`. Threads share the process address space and fd table;
   each spawned user thread gets its own scheduler kernel trap stack and user
-  FPU state.
+  FPU state. Detached pthread stacks are reclaimed opportunistically by libc
+  when later pthread calls observe completion.
 - `getopt`, `uname`, `atexit`, and `system` backed by `sh -c` through
   `posix_spawnp` plus `waitpid`
 - `getpid`
@@ -171,8 +172,8 @@ srvros config header, and the ports smoke test verifies that it can generate
 ## Current Limits
 
 - `fork` is still missing, and pthreads are intentionally compact: threads
-  share process resources, detached stacks are not reclaimed by libc yet, and
-  process-wide exit/kill of active sibling threads is still a narrow path.
+  share process resources, detached stack cleanup is opportunistic rather than
+  timer-driven, and fd/heap locking is still intentionally narrow.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered but bounded to eight
   actions per spawn. Spawn attributes currently cover process group selection

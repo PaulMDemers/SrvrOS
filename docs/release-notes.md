@@ -262,6 +262,9 @@ server.
   backed by native thread syscalls, per-thread user stacks, per-thread TLS
   values, per-thread user FPU state, and a dedicated scheduler kernel trap
   stack for spawned user threads.
+- Hardens pthread teardown with `SYS_THREAD_STATUS`, libc-side reclamation of
+  completed detached pthread stacks, and process-exit cleanup that retires
+  sibling user-thread scheduler contexts before address-space teardown.
 - Adds `/fat/bin/patch` for simple unified-diff application with `-i` and
   `-pN` support.
 - Adds `/fat/bin/make` for small source-port recipes with variables,

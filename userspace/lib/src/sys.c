@@ -468,6 +468,10 @@ long srv_thread_detach(uint64_t tid) {
     return srv_syscall1(SYS_THREAD_DETACH, (long)tid);
 }
 
+long srv_thread_status(uint64_t tid) {
+    return srv_syscall1(SYS_THREAD_STATUS, (long)tid);
+}
+
 void srv_puts(const char *text) {
     srv_write(SRV_STDOUT, text, srv_strlen(text));
 }

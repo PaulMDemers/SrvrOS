@@ -18,6 +18,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg);
 void scheduler_yield(void);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);
+void scheduler_kill_user_threads(void *process, void *except_user_thread_context);
 bool scheduler_wait(struct scheduler_wait_queue *queue,
     scheduler_wait_condition_fn condition,
     void *arg);

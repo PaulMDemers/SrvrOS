@@ -137,6 +137,7 @@ struct process {
     bool allocated;
     bool detached;
     bool killed;
+    bool exiting;
     bool reapable;
     bool quiet;
     uint64_t kill_signal;
@@ -1873,11 +1874,14 @@ bool process_kill_background(void) {
 
 bool process_should_exit_current(void) {
     struct process *process = process_current();
-    return process != NULL && process->killed;
+    return process != NULL && (process->killed || process->exiting);
 }
 
 uint64_t process_current_kill_status(void) {
     struct process *process = process_current();
+    if (process != NULL && process->exiting) {
+        return process->exit_status;
+    }
     uint64_t signal = process != NULL && process->kill_signal != 0 ?
         process->kill_signal :
         SRV_SIGNAL_TERM;
@@ -2049,6 +2053,15 @@ int64_t process_thread_detach(uint64_t tid) {
         thread->used = false;
     }
     return 0;
+}
+
+int64_t process_thread_status(uint64_t tid) {
+    struct process *process = process_current();
+    struct process_user_thread *thread = process_find_user_thread(process, tid);
+    if (thread == NULL) {
+        return -1;
+    }
+    return thread->active ? 1 : 0;
 }
 
 uint64_t process_thread_self(void) {
@@ -3929,8 +3942,28 @@ void process_exit(uint64_t status) {
         }
     }
 
+    struct process_user_thread *thread = process_current_user_thread();
+    if (thread != NULL) {
+        __asm__ volatile ("cli" : : : "memory");
+        process->exit_status = status;
+        process->exiting = true;
+        thread->active = false;
+        net_process_wake(process);
+        scheduler_wake_all(&pipe_wait_queue);
+        scheduler_wake_all(&process->thread_wait_queue);
+        process_file_poll_wake();
+        scheduler_clear_user_context();
+        __asm__ volatile ("sti" : : : "memory");
+        scheduler_exit_current();
+    }
+
     __asm__ volatile ("cli" : : : "memory");
     process->exit_status = status;
+    scheduler_kill_user_threads(process, NULL);
+    for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
+        process->user_threads[i].used = false;
+        process->user_threads[i].active = false;
+    }
     net_process_cleanup(process);
     cleanup_process_files(process);
     process->active = false;

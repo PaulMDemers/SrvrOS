@@ -27,6 +27,7 @@ struct pthread_start_record {
 
 struct pthread_record {
     int used;
+    int detached;
     pthread_t tid;
     struct pthread_start_record *start;
 };
@@ -60,6 +61,7 @@ static struct pthread_record *pthread_record_alloc(void) {
                 __ATOMIC_ACQ_REL,
                 __ATOMIC_ACQUIRE)) {
             pthread_records[i].tid = 0;
+            pthread_records[i].detached = 0;
             pthread_records[i].start = 0;
             return &pthread_records[i];
         }
@@ -72,8 +74,40 @@ static void pthread_record_release(struct pthread_record *record) {
         return;
     }
     record->tid = 0;
+    record->detached = 0;
     record->start = 0;
     __atomic_store_n(&record->used, 0, __ATOMIC_RELEASE);
+}
+
+static void pthread_record_cleanup(struct pthread_record *record) {
+    struct pthread_start_record *start = record != 0 ? record->start : 0;
+    pthread_record_release(record);
+    if (start == 0) {
+        return;
+    }
+    if (start->owns_stack) {
+        munmap(start->stack, start->stack_size);
+    }
+    free(start);
+}
+
+static void pthread_reap_detached(void) {
+    pthread_t self = pthread_self();
+    for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
+        struct pthread_record *record = &pthread_records[i];
+        if (!record->used || !record->detached || record->tid == self) {
+            continue;
+        }
+        long status = srv_thread_status(record->tid);
+        if (status == 0) {
+            uint64_t ignored = 0;
+            if (srv_thread_join(record->tid, &ignored) == 0) {
+                pthread_record_cleanup(record);
+            }
+        } else if (status < 0) {
+            pthread_record_release(record);
+        }
+    }
 }
 
 static struct pthread_tls_slot *pthread_tls_slot_for(pthread_t tid, int create) {
@@ -128,6 +162,7 @@ int pthread_create(pthread_t *thread,
     if (thread == 0 || start_routine == 0) {
         return EINVAL;
     }
+    pthread_reap_detached();
 
     size_t stack_size = PTHREAD_DEFAULT_STACK_SIZE;
     int detachstate = PTHREAD_CREATE_JOINABLE;
@@ -177,8 +212,8 @@ int pthread_create(pthread_t *thread,
         .owns_stack = owns_stack,
     };
 
-    struct pthread_record *record = detachstate == PTHREAD_CREATE_JOINABLE ? pthread_record_alloc() : 0;
-    if (detachstate == PTHREAD_CREATE_JOINABLE && record == 0) {
+    struct pthread_record *record = pthread_record_alloc();
+    if (record == 0) {
         free(start);
         if (owns_stack) {
             munmap(stack, stack_size);
@@ -188,7 +223,7 @@ int pthread_create(pthread_t *thread,
 
     uint64_t stack_top = (((uint64_t)(uintptr_t)stack + stack_size) & ~(uint64_t)0xf) - 8;
     *(uint64_t *)(uintptr_t)stack_top = 0;
-    uint64_t flags = detachstate == PTHREAD_CREATE_DETACHED ? SRV_THREAD_DETACHED : 0;
+    uint64_t flags = 0;
     long tid = srv_thread_create((uint64_t)(uintptr_t)pthread_start_trampoline,
         (uint64_t)(uintptr_t)start,
         stack_top,
@@ -203,16 +238,16 @@ int pthread_create(pthread_t *thread,
     }
 
     *thread = (pthread_t)tid;
-    if (record != 0) {
-        record->tid = (pthread_t)tid;
-        record->start = start;
-    }
+    record->tid = (pthread_t)tid;
+    record->detached = detachstate == PTHREAD_CREATE_DETACHED;
+    record->start = start;
     return 0;
 }
 
 int pthread_join(pthread_t thread, void **value_ptr) {
+    pthread_reap_detached();
     struct pthread_record *record = pthread_record_find(thread);
-    if (record == 0) {
+    if (record == 0 || record->detached) {
         return EINVAL;
     }
 
@@ -224,24 +259,22 @@ int pthread_join(pthread_t thread, void **value_ptr) {
         *value_ptr = (void *)(uintptr_t)value;
     }
 
-    struct pthread_start_record *start = record->start;
-    pthread_record_release(record);
-    if (start != 0) {
-        if (start->owns_stack) {
-            munmap(start->stack, start->stack_size);
-        }
-        free(start);
-    }
+    pthread_record_cleanup(record);
     return 0;
 }
 
 int pthread_detach(pthread_t thread) {
+    pthread_reap_detached();
     struct pthread_record *record = pthread_record_find(thread);
-    if (srv_thread_detach(thread) < 0) {
+    if (record == 0 || record->detached) {
         return EINVAL;
     }
-    if (record != 0) {
-        pthread_record_release(record);
+    record->detached = 1;
+    if (srv_thread_status(thread) == 0) {
+        uint64_t ignored = 0;
+        if (srv_thread_join(thread, &ignored) == 0) {
+            pthread_record_cleanup(record);
+        }
     }
     return 0;
 }
