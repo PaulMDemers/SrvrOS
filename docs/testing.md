@@ -211,8 +211,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `udp_smoke.py`: DHCP setup, `ifconfig`, `route`, `ping`, and `arp`
   diagnostics, DNS-over-UDP, local UDP echo, and zero-length UDP datagram
   handling.
-- `fs_stress.py`: repeated file create/read/copy/rename/remove plus fsck before
-  and after.
+- `fs_stress.py`: repeated file create/read/copy/rename/remove, generated
+  fill/delete fragmentation pressure, fragmented large-file copy/compare, plus
+  fsck before and after.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 
 ## DNS Test Domains

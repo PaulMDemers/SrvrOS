@@ -126,6 +126,7 @@ static char metadata_buffer[EXFAT_METADATA_MAX_BYTES];
 
 static bool streq(const char *a, const char *b);
 static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster);
+static bool allocate_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster, bool *no_fat_chain);
 static bool free_file_clusters(struct exfat_file *file);
 
 static bool streqn(const char *a, const char *b, uint64_t length) {
@@ -1187,6 +1188,7 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
     if (!volume_read(file->volume, file->stream_entry_offset, stream, sizeof(stream))) {
         return false;
     }
+    stream[1] = file->no_fat_chain ? 0x02 : 0x00;
     write_u64(stream + 8, size);
     write_u32(stream + 20, file->first_cluster);
     write_u64(stream + 24, size);
@@ -1201,90 +1203,79 @@ static bool update_file_length(struct exfat_file *file, const char *path, uint64
 
 static bool overwrite_file(const char *path, const uint8_t *data, uint64_t size) {
     struct exfat_file *file = find_file(path);
-    if (file == NULL || file->volume->image != NULL || !file->no_fat_chain) {
+    if (file == NULL || file->volume->image != NULL) {
         return false;
     }
 
     uint64_t cluster_count = clusters_for_size(file->volume, size);
-    if (cluster_count > file->allocated_clusters) {
-        uint32_t old_first_cluster = file->first_cluster;
-        uint64_t old_allocated_clusters = file->allocated_clusters;
-        uint32_t first_cluster = 0;
-        if (!allocate_contiguous_clusters(file->volume, cluster_count, &first_cluster)) {
-            return false;
-        }
-
-        struct exfat_file scratch = {
-            .volume = file->volume,
-            .first_cluster = first_cluster,
-            .size = size,
-            .allocated_clusters = cluster_count,
-            .no_fat_chain = true,
-        };
-        if (!write_file_data(&scratch, data, size)) {
-            (void)free_file_clusters(&scratch);
-            return false;
-        }
-
-        file->first_cluster = first_cluster;
-        file->allocated_clusters = cluster_count;
-        if (!update_file_length(file, path, size)) {
-            (void)free_file_clusters(&scratch);
-            file->first_cluster = old_first_cluster;
-            file->allocated_clusters = old_allocated_clusters;
-            return false;
-        }
-
-        struct exfat_file old = {
-            .volume = file->volume,
-            .first_cluster = old_first_cluster,
-            .allocated_clusters = old_allocated_clusters,
-            .no_fat_chain = true,
-        };
-        return free_file_clusters(&old);
-    }
-
     if (size == 0) {
         uint32_t old_first_cluster = file->first_cluster;
         uint64_t old_allocated_clusters = file->allocated_clusters;
+        bool old_no_fat_chain = file->no_fat_chain;
         file->first_cluster = 0;
         file->allocated_clusters = 0;
+        file->no_fat_chain = true;
         if (!update_file_length(file, path, 0)) {
             file->first_cluster = old_first_cluster;
             file->allocated_clusters = old_allocated_clusters;
+            file->no_fat_chain = old_no_fat_chain;
             return false;
         }
         struct exfat_file old = {
             .volume = file->volume,
             .first_cluster = old_first_cluster,
             .allocated_clusters = old_allocated_clusters,
-            .no_fat_chain = true,
+            .no_fat_chain = old_no_fat_chain,
         };
         return free_file_clusters(&old);
     }
-    if (cluster_count < file->allocated_clusters) {
-        uint64_t old_allocated_clusters = file->allocated_clusters;
-        file->allocated_clusters = cluster_count;
+
+    if (cluster_count == file->allocated_clusters) {
         if (!write_file_data(file, data, size)) {
-            file->allocated_clusters = old_allocated_clusters;
             return false;
         }
-        if (!update_file_length(file, path, size)) {
-            file->allocated_clusters = old_allocated_clusters;
-            return false;
-        }
-        struct exfat_file tail = {
-            .volume = file->volume,
-            .first_cluster = file->first_cluster + (uint32_t)cluster_count,
-            .allocated_clusters = old_allocated_clusters - cluster_count,
-            .no_fat_chain = true,
-        };
-        return free_file_clusters(&tail);
+        return update_file_length(file, path, size);
     }
-    if (!write_file_data(file, data, size)) {
+
+    uint32_t old_first_cluster = file->first_cluster;
+    uint64_t old_allocated_clusters = file->allocated_clusters;
+    bool old_no_fat_chain = file->no_fat_chain;
+    uint32_t first_cluster = 0;
+    bool no_fat_chain = true;
+    if (!allocate_clusters(file->volume, cluster_count, &first_cluster, &no_fat_chain)) {
         return false;
     }
-    return update_file_length(file, path, size);
+
+    struct exfat_file scratch = {
+        .volume = file->volume,
+        .first_cluster = first_cluster,
+        .size = size,
+        .allocated_clusters = cluster_count,
+        .no_fat_chain = no_fat_chain,
+    };
+    if (!write_file_data(&scratch, data, size)) {
+        (void)free_file_clusters(&scratch);
+        return false;
+    }
+
+    file->first_cluster = first_cluster;
+    file->allocated_clusters = cluster_count;
+    file->no_fat_chain = no_fat_chain;
+    if (!update_file_length(file, path, size)) {
+        (void)free_file_clusters(&scratch);
+        file->first_cluster = old_first_cluster;
+        file->allocated_clusters = old_allocated_clusters;
+        file->no_fat_chain = old_no_fat_chain;
+        return false;
+    }
+
+    struct exfat_file old = {
+        .volume = file->volume,
+        .first_cluster = old_first_cluster,
+        .allocated_clusters = old_allocated_clusters,
+        .no_fat_chain = old_no_fat_chain,
+    };
+    return free_file_clusters(&old);
 }
 
 static bool bitmap_bit_is_set(const uint8_t *bitmap, uint64_t index) {
@@ -1385,6 +1376,107 @@ static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t c
 
     kfree(bitmap);
     return false;
+}
+
+static void clear_fat_entries(struct exfat_volume *volume, const uint32_t *clusters, uint64_t count) {
+    uint8_t fat_entry[4];
+    write_u32(fat_entry, 0);
+    for (uint64_t i = 0; i < count; i++) {
+        (void)volume_write(volume,
+            volume->fat_offset_bytes + (uint64_t)clusters[i] * sizeof(uint32_t),
+            fat_entry,
+            sizeof(fat_entry));
+    }
+}
+
+static bool allocate_fragmented_clusters(struct exfat_volume *volume,
+    uint64_t count,
+    uint32_t *first_cluster,
+    bool *no_fat_chain) {
+    if (volume->allocation_bitmap_cluster < 2 ||
+        count == 0 ||
+        first_cluster == NULL ||
+        no_fat_chain == NULL ||
+        count > UINT64_MAX / sizeof(uint32_t)) {
+        return false;
+    }
+
+    uint64_t cluster_array_bytes = count * sizeof(uint32_t);
+    uint32_t *clusters = kmalloc(cluster_array_bytes);
+    uint8_t *bitmap = kmalloc(volume->cluster_size);
+    if (clusters == NULL || bitmap == NULL) {
+        if (clusters != NULL) {
+            kfree(clusters);
+        }
+        if (bitmap != NULL) {
+            kfree(bitmap);
+        }
+        return false;
+    }
+
+    uint64_t bitmap_offset;
+    if (!cluster_offset(volume, volume->allocation_bitmap_cluster, &bitmap_offset) ||
+        !volume_read(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        kfree(clusters);
+        kfree(bitmap);
+        return false;
+    }
+
+    uint64_t bitmap_bytes = allocation_bitmap_bytes(volume);
+    uint64_t bitmap_clusters = bitmap_bytes * 8;
+    uint64_t found = 0;
+    for (uint64_t index = 0; index < volume->cluster_count && index < bitmap_clusters && found < count; index++) {
+        if (!bitmap_bit_is_set(bitmap, index)) {
+            clusters[found++] = (uint32_t)(index + 2);
+            bitmap_set_bit(bitmap, index);
+        }
+    }
+    if (found != count) {
+        kfree(clusters);
+        kfree(bitmap);
+        return false;
+    }
+
+    for (uint64_t i = 0; i < count; i++) {
+        uint32_t next = (i + 1 < count) ? clusters[i + 1] : 0xffffffffu;
+        if (!write_fat_entry(volume, clusters[i], next)) {
+            clear_fat_entries(volume, clusters, i);
+            kfree(clusters);
+            kfree(bitmap);
+            return false;
+        }
+    }
+    if (!volume_write(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+        clear_fat_entries(volume, clusters, count);
+        kfree(clusters);
+        kfree(bitmap);
+        return false;
+    }
+
+    *first_cluster = clusters[0];
+    *no_fat_chain = false;
+    kfree(clusters);
+    kfree(bitmap);
+    return true;
+}
+
+static bool allocate_clusters(struct exfat_volume *volume,
+    uint64_t count,
+    uint32_t *first_cluster,
+    bool *no_fat_chain) {
+    if (first_cluster == NULL || no_fat_chain == NULL) {
+        return false;
+    }
+    if (count == 0) {
+        *first_cluster = 0;
+        *no_fat_chain = true;
+        return true;
+    }
+    if (allocate_contiguous_clusters(volume, count, first_cluster)) {
+        *no_fat_chain = true;
+        return true;
+    }
+    return allocate_fragmented_clusters(volume, count, first_cluster, no_fat_chain);
 }
 
 static bool free_file_clusters(struct exfat_file *file) {
@@ -1694,6 +1786,7 @@ static bool build_file_entry_set(uint8_t *entries,
     uint32_t first_cluster,
     uint64_t data_length,
     uint16_t attributes,
+    bool no_fat_chain,
     uint64_t *entry_count_out,
     uint64_t *name_entry_count_out) {
     uint64_t name_length = ascii_length(name);
@@ -1719,7 +1812,7 @@ static bool build_file_entry_set(uint8_t *entries,
     write_u16(primary + 4, attributes);
 
     stream[0] = EXFAT_ENTRY_STREAM;
-    stream[1] = 0x02;
+    stream[1] = no_fat_chain ? 0x02 : 0x00;
     stream[3] = (uint8_t)name_length;
     write_u64(stream + 8, data_length);
     write_u32(stream + 20, first_cluster);
@@ -1754,8 +1847,8 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
 
     uint64_t cluster_count = clusters_for_size(&mount->volume, size);
     uint32_t first_cluster = 0;
-    if (cluster_count != 0 &&
-        !allocate_contiguous_clusters(&mount->volume, cluster_count, &first_cluster)) {
+    bool no_fat_chain = true;
+    if (!allocate_clusters(&mount->volume, cluster_count, &first_cluster, &no_fat_chain)) {
         return false;
     }
 
@@ -1764,24 +1857,24 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
         .first_cluster = first_cluster,
         .size = size,
         .allocated_clusters = cluster_count,
-        .no_fat_chain = true,
+        .no_fat_chain = no_fat_chain,
     };
     if (!write_file_data(&scratch, data, size)) {
-        release_created_clusters(&mount->volume, first_cluster, cluster_count);
+        (void)free_file_clusters(&scratch);
         return false;
     }
 
     uint8_t entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint64_t entry_count;
     uint64_t name_entry_count;
-    if (!build_file_entry_set(entries, name, first_cluster, size, 0x20, &entry_count, &name_entry_count)) {
-        release_created_clusters(&mount->volume, first_cluster, cluster_count);
+    if (!build_file_entry_set(entries, name, first_cluster, size, 0x20, no_fat_chain, &entry_count, &name_entry_count)) {
+        (void)free_file_clusters(&scratch);
         return false;
     }
 
     uint64_t directory_offset;
     if (!directory_free_offset(&mount->volume, parent, entry_count, &directory_offset)) {
-        release_created_clusters(&mount->volume, first_cluster, cluster_count);
+        (void)free_file_clusters(&scratch);
         return false;
     }
 
@@ -1789,12 +1882,12 @@ static bool create_file(const char *path, const uint8_t *data, uint64_t size) {
             directory_offset,
             entries,
             entry_count * EXFAT_ENTRY_SIZE)) {
-        release_created_clusters(&mount->volume, first_cluster, cluster_count);
+        (void)free_file_clusters(&scratch);
         return false;
     }
 
     if (!register_created_file(mount, parent->path, directory_offset, entries, name_entry_count)) {
-        release_created_clusters(&mount->volume, first_cluster, cluster_count);
+        (void)free_file_clusters(&scratch);
         return false;
     }
     if (!metadata_path_is_internal(mount, path)) {
@@ -1849,6 +1942,7 @@ bool exfat_create_directory(const char *path) {
             first_cluster,
             mount->volume.cluster_size,
             EXFAT_ATTR_DIRECTORY,
+            true,
             &entry_count,
             &name_entry_count)) {
         release_created_clusters(&mount->volume, first_cluster, 1);
@@ -2019,6 +2113,14 @@ static void check_file_clusters(struct exfat_check_result *result,
         result->clusters_checked++;
 
         if (i + 1 >= expected_clusters) {
+            if (!file->no_fat_chain) {
+                uint32_t next = 0;
+                if (!next_cluster(file->volume, cluster, &next)) {
+                    check_file_error(result, mount, path, "could not read FAT chain");
+                } else if (next < EXFAT_FAT_CHAIN_END) {
+                    check_file_error(result, mount, path, "FAT chain longer than file allocation");
+                }
+            }
             break;
         }
         if (file->no_fat_chain) {
@@ -2237,6 +2339,7 @@ static bool rename_file_in_mount(struct exfat_mount *mount,
             file->first_cluster,
             file->size,
             0x20,
+            file->no_fat_chain,
             &entry_count,
             &name_entry_count)) {
         return false;
@@ -2313,6 +2416,7 @@ static bool rename_empty_directory_in_mount(struct exfat_mount *mount,
             directory->first_cluster,
             directory->data_length,
             EXFAT_ATTR_DIRECTORY,
+            directory->no_fat_chain,
             &entry_count,
             &name_entry_count)) {
         return false;

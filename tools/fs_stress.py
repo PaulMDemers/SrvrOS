@@ -83,6 +83,26 @@ def build_script(rounds):
         "cp /fat/bin/sh /fat/shcpy\n",
         "stat /fat/shcpy\n",
         "rm /fat/shcpy\n",
+        "echo fragment-start\n",
+    ])
+    for i in range(5):
+        lines.append(f"dd if=/dev/zero of=/fat/frag-fill-{i}.bin bs=4096 count=512 status=none\n")
+    lines.append("stat /fat/frag-fill-1.bin\n")
+    for i in range(0, 5, 2):
+        lines.append(f"rm -f /fat/frag-fill-{i}.bin\n")
+    lines.extend([
+        "dd if=/dev/zero of=/fat/frag-big.bin bs=4096 count=1024 status=none\n",
+        "stat /fat/frag-big.bin\n",
+    ])
+    for i in range(5):
+        lines.append(f"rm -f /fat/frag-fill-{i}.bin\n")
+    lines.extend([
+        "cp /fat/frag-big.bin /fat/frag-big-copy.bin\n",
+        "cmp -s /fat/frag-big.bin /fat/frag-big-copy.bin; echo fragmented-cmp-status-$?\n",
+        "rm -f /fat/frag-big.bin /fat/frag-big-copy.bin\n",
+    ])
+    lines.extend([
+        "echo fragment-done\n",
         "echo stress-done\n",
         "exit\n",
     ])
@@ -166,10 +186,27 @@ def main():
         "stress-done",
         "long-name-ok",
         "/fat/shcpy:",
+        "fragment-start",
+        "/fat/frag-fill-1.bin: 2097152 bytes",
+        "/fat/frag-big.bin: 4194304 bytes",
+        "fragmented-cmp-status-0",
+        "fragment-done",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
         print("fs-stress: fatal exception detected", file=sys.stderr)
+        return 2
+    if "for: too many words" in text:
+        print("fs-stress: shell word-limit regression in generated script", file=sys.stderr)
+        return 2
+    if "command not found:" in text:
+        print("fs-stress: generated script command was mangled", file=sys.stderr)
+        return 2
+    if "dd: close failed" in text:
+        print("fs-stress: fragmentation fill ran out of space earlier than expected", file=sys.stderr)
+        return 2
+    if "cp: close failed" in text:
+        print("fs-stress: fragmented copy ran out of space", file=sys.stderr)
         return 2
     if missing:
         print("fs-stress: missing markers:", file=sys.stderr)

@@ -38,9 +38,10 @@ editor clients:
 - USTAR initramfs and VFS layer.
 - Generic block-device registry, memory block devices, AHCI SATA read/write
   support, and a small write-through block cache.
-- exFAT mounting, recursive directory traversal, file reads, file create/write,
-  append, delete, rename, directory create, empty directory removal, runtime
-  mount/unmount, and `fsck`-style consistency checks.
+- exFAT mounting, recursive directory traversal, file reads, file create/write
+  with fragmented FAT-chain fallback, append, delete, rename, directory create,
+  empty directory removal, runtime mount/unmount, and `fsck`-style consistency
+  checks.
 - Intel e1000 driver with RX/TX rings, interrupt-driven receive wakeups, ARP,
   ICMP echo replies, DHCP, DNS A-record resolution, and a small TCP subset.
 - Process-owned network file descriptors with `listen`, `accept`, `read`,

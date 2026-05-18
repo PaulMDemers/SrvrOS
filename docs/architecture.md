@@ -116,7 +116,8 @@ exFAT is the primary filesystem. It supports:
 - Directory create and empty directory removal.
 - Empty directory rename.
 - Runtime mount/unmount with busy checks.
-- Allocation bitmap and FAT-chain awareness.
+- Allocation bitmap management, contiguous no-FAT-chain extents, and
+  fragmented FAT-chain allocation/read/write fallback.
 - A consistency checker exposed as `fsck /fat`.
 - VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
   block counts, and tick-derived access/modify/change timestamps.
@@ -140,7 +141,8 @@ Current filesystem caveats:
 - There is no general journaling or transaction rollback.
 - Crash consistency is not guaranteed if QEMU exits during arbitrary mutation,
   though metadata sidecar replacement has a small temp-file recovery path.
-- Long-name and fragmented-chain support is practical but still being hardened.
+- Long-name support and broader rollback around failed fragmented-chain writes
+  are still being hardened.
 - Unix-like metadata is persisted by srvros in a sidecar file rather than in
   native exFAT directory entries.
 
