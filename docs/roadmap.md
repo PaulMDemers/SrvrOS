@@ -402,7 +402,8 @@ kernel, and a minimal Unix-like userspace.
    `/fat/bin/xargs` batching/no-run-on-empty behavior for configure scripts,
    plus common long-option aliases for `grep`, `sed`, `xargs`, `tar`, `make`,
    `find`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `install`, `tee`, `head`, `tail`,
-   `wc`, and `ln`, with a compact configure-style QEMU smoke harness.
+   `wc`, and `ln`, with a compact configure-style QEMU smoke harness that also
+   checks same-line `set -e` aborts and configure-probe exemptions.
 2. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
    FAT rollback, directory-entry create/rename/delete rollback, and
    stress/corruption coverage are in place; remaining work is better rollback

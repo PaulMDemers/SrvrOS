@@ -6475,6 +6475,18 @@ static int segment_needs_shell_parser(const char *segment) {
         is_function_start(segment);
 }
 
+static int shell_should_errexit(enum shell_control current_control,
+    enum shell_control next_control,
+    uint64_t status,
+    int background) {
+    return exit_on_error &&
+        status != 0 &&
+        !background &&
+        current_control == SHELL_CONTROL_ALWAYS &&
+        next_control == SHELL_CONTROL_ALWAYS &&
+        !shell_flow_requested();
+}
+
 static int segment_prefix_is_blank(const char *segment, const char *cursor) {
     while (segment < cursor) {
         if (*segment != ' ' && *segment != '\t') {
@@ -6616,6 +6628,9 @@ static uint64_t run_line(char *line, char *cwd) {
                 if (shell_flow_requested()) {
                     return status;
                 }
+                if (shell_should_errexit(control, SHELL_CONTROL_ALWAYS, status, 0)) {
+                    return status;
+                }
             }
             return status;
         }
@@ -6662,6 +6677,9 @@ static uint64_t run_line(char *line, char *cwd) {
             if (shell_flow_requested()) {
                 return status;
             }
+            if (shell_should_errexit(control, SHELL_CONTROL_ALWAYS, status, 0)) {
+                return status;
+            }
             return status;
         } else if (c == '&' &&
             cursor > line + 1 &&
@@ -6691,6 +6709,9 @@ static uint64_t run_line(char *line, char *cwd) {
                 status = run_segment(segment, cwd, background);
                 last_status = status;
                 if (shell_flow_requested()) {
+                    return status;
+                }
+                if (shell_should_errexit(control, next_control, status, background)) {
                     return status;
                 }
             }

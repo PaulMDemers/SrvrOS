@@ -117,6 +117,17 @@ def main():
         "make --always-make --file /fat/cfg/Makefile all\n"
         "cat /fat/cfg/build/out.txt\n"
         "ln --symbolic /fat/cfg/src/input.txt /fat/cfg/input.link || echo cfg-ln-unsupported-ok\n"
+        "write /fat/cfg/errexit-stop.sh 'set -e; false; echo cfg-errexit-bad'\n"
+        "sh /fat/cfg/errexit-stop.sh || echo cfg-errexit-stop-ok\n"
+        "write /fat/cfg/errexit-andor.sh 'set -e; false && echo cfg-and-bad; echo cfg-and-after'\n"
+        "write -a /fat/cfg/errexit-andor.sh 'false || echo cfg-or-recovered; echo cfg-or-after'\n"
+        "sh /fat/cfg/errexit-andor.sh\n"
+        "write /fat/cfg/errexit-if.sh 'set -e; if false; then echo cfg-if-bad; else echo cfg-if-else-ok; fi; echo cfg-if-after'\n"
+        "sh /fat/cfg/errexit-if.sh\n"
+        "write /fat/cfg/errexit-while.sh 'set -e; while false; do echo cfg-while-bad; done; echo cfg-while-after'\n"
+        "sh /fat/cfg/errexit-while.sh\n"
+        "write /fat/cfg/errexit-body.sh 'set -e; if true; then false; echo cfg-body-bad; fi; echo cfg-body-after-bad'\n"
+        "sh /fat/cfg/errexit-body.sh || echo cfg-errexit-body-ok\n"
         "rm --recursive --force /fat/cfg\n"
         "test ! -e /fat/cfg && echo cfg-clean-ok\n"
         "exit\n"
@@ -180,11 +191,29 @@ def main():
         "fat/cfg/copy/input.txt",
         "cp /fat/cfg/src/input.txt /fat/cfg/build/out.txt",
         "cfg-ln-unsupported-ok",
+        "cfg-errexit-stop-ok",
+        "cfg-and-after",
+        "cfg-or-recovered",
+        "cfg-or-after",
+        "cfg-if-else-ok",
+        "cfg-if-after",
+        "cfg-while-after",
+        "cfg-errexit-body-ok",
         "cfg-clean-ok",
         "exfat-check:",
         "errors=0 ok",
     ]
     missing = [marker for marker in expected if marker not in text]
+    forbidden = [
+        "cfg-errexit-bad",
+        "cfg-and-bad",
+        "cfg-if-bad",
+        "cfg-while-bad",
+        "cfg-body-bad",
+        "cfg-body-after-bad",
+    ]
+    output_lines = {line.strip() for line in text.replace("\r", "").splitlines()}
+    present_forbidden = [marker for marker in forbidden if marker in output_lines]
     if has_fatal_exception(text):
         print("configure-smoke: fatal exception detected", file=sys.stderr)
         return 2
@@ -193,6 +222,11 @@ def main():
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
+    if present_forbidden:
+        print("configure-smoke: forbidden markers:", file=sys.stderr)
+        for marker in present_forbidden:
+            print(f"  {marker}", file=sys.stderr)
+        return 4
     print("configure-smoke: ok")
     return 0
 

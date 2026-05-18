@@ -106,7 +106,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   long-option aliases for directory creation, install modes/directories, grep,
   sed, head/tail/wc, xargs batching, tee append, find, recursive copy/remove,
   tar create/list/extract, make dry-run/always-make, the unsupported symbolic
-  link path, and a final monitor `fsck /fat`.
+  link path, shell `set -e` same-line abort behavior with configure-friendly
+  `&&`/`||`/`if`/`while` exemptions, forbidden-output checks, and a final
+  monitor `fsck /fat`.
 - `shell_edit_smoke.py`: interactive raw-mode shell editing over serial,
   including TAB completion, longest-common-prefix completion fill,
   Ctrl-A/Ctrl-E cursor movement, Ctrl-U/Ctrl-W kill operations, Ctrl-Y yank,

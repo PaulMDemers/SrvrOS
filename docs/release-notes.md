@@ -333,6 +333,11 @@ server.
   `ls`, `cp`, `rm`, `mv`, `mkdir`, `install`, `tee`, `head`, `tail`, `wc`, and
   `ln`. `tools/configure_smoke.py` now covers these configure-style probes in a
   shorter QEMU path.
+- Tightens shell `set -e` handling for same-line scripts: plain failing
+  semicolon chains now stop before later commands, while configure probes using
+  `&&`, `||`, `if`, and `while` conditions keep their expected exemption
+  behavior. `tools/configure_smoke.py` now checks both required output and
+  forbidden output markers for this path.
 - Adds shell `while ... do ... done`, `shift`, and the no-op `:` builtin for
   more realistic script control flow.
 - Adds shell `break`/`continue` loop control and the POSIX-style `command`
