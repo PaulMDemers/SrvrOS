@@ -45,10 +45,10 @@ backend.
   terminal window-size queries, normal/raw mode switching, stream writes, and
   vterm state probes. Closing a libuv TTY wrapper leaves the inherited stdio fd
   open.
-- `uv_signal_t` lifecycle staging for SIGINT/SIGTERM watchers, including start,
-  one-shot start, stop, handle sizing, and handle naming. The watcher is visible
-  to the loop lifecycle, but srvros does not yet queue asynchronous userspace
-  signal callbacks.
+- `uv_signal_t` delivery for SIGINT/SIGTERM watchers, including start,
+  one-shot start, stop, handle sizing, handle naming, and callback dispatch
+  through `uv_run`. The adapter uses srvros signal catch/poll syscalls so a
+  watched signal wakes blocking poll waits instead of terminating the process.
 - `uv_process_t`, `uv_spawn`, `uv_process_get_pid`, `uv_process_kill`, and `uv_kill` over
   `posix_spawnp`, `waitpid(WNOHANG)`, and srvros process kill. The first
   supported stdio bridge can create one-way pipes for child stdin/stdout/stderr
@@ -80,7 +80,7 @@ read against a host service. `/fat/bin/libuvdemo` is the upstream staging harnes
 now covers the core object helpers, loop phases, timers, filesystem metadata
 and directory requests, async/work callbacks, poll callbacks, resolver
 callbacks, public pipe creation, pipe streams, and a child process stdout pipe
-plus TTY/signal staging and the current thread/synchronization wrappers that need to stay stable while
+plus TTY/signal delivery and the current thread/synchronization wrappers that need to stay stable while
 incrementally replacing adapter internals with upstream code.
 
 ## Replacement Strategy
@@ -105,8 +105,7 @@ incrementally replacing adapter internals with upstream code.
   compact first pass and returns `UV_ENOSYS` for cwd changes, uid/gid,
   detached children, and duplex `UV_CREATE_PIPE` requests until the srvros
   process ABI grows those semantics.
-- Compact TTY model and no PTY support; async userspace signal delivery is not
-  wired to `uv_signal_t` callbacks yet.
+- Compact TTY model and no PTY support.
 - `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker

@@ -49,6 +49,7 @@ static int uv_scandir_append(uv_fs_t *request, const struct dirent *entry);
 static int uv_error_from_errno(void);
 static void set_nonblocking(int fd);
 static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request);
+static int uv_signal_supported(int signum);
 
 struct uv_worker_job {
     void (*run)(void *arg);
@@ -65,6 +66,7 @@ static struct uv_worker_job *worker_pool_tail;
 static uv_tty_vtermstate_t tty_vterm_state = UV_TTY_UNSUPPORTED;
 static int tty_reset_fd = -1;
 static struct termios tty_reset_termios;
+static int signal_watch_counts[64];
 
 static uint64_t monotonic_ms(void) {
     struct timespec ts;
@@ -1356,6 +1358,33 @@ static void dispatch_active_tcp_reads(uv_loop_t *loop) {
     }
 }
 
+static void run_pending_signals(uv_loop_t *loop) {
+    if (loop == 0) {
+        return;
+    }
+    for (;;) {
+        uint64_t signal = 0;
+        if (srv_signal_poll(&signal) < 0 || signal == 0) {
+            return;
+        }
+        for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+            if (handle->type != UV_HANDLE_SIGNAL || !handle->active || handle->closing) {
+                continue;
+            }
+            uv_signal_t *signal_handle = (uv_signal_t *)handle;
+            if (signal_handle->signum != (int)signal || signal_handle->signal_cb == 0) {
+                continue;
+            }
+            uv_signal_cb cb = signal_handle->signal_cb;
+            int oneshot = signal_handle->oneshot;
+            cb(signal_handle, (int)signal);
+            if (oneshot && !signal_handle->handle.closing) {
+                (void)uv_signal_stop(signal_handle);
+            }
+        }
+    }
+}
+
 static int run_once(uv_loop_t *loop, int mode) {
     struct pollfd fds[UV_MAX_POLL_HANDLES];
     uv_handle_t *handles[UV_MAX_POLL_HANDLES];
@@ -1370,6 +1399,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
+    run_pending_signals(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
         return 0;
     }
@@ -1443,6 +1473,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
+    run_pending_signals(loop);
     return uv_loop_alive(loop) ? 1 : 0;
 }
 
@@ -2531,11 +2562,10 @@ int uv_process_kill(uv_process_t *process, int signum) {
 }
 
 int uv_kill(int pid, int signum) {
-    (void)signum;
-    if (pid <= 0) {
+    if (pid <= 0 || !uv_signal_supported(signum)) {
         return UV_ESRCH;
     }
-    return srv_kill((uint64_t)pid) < 0 ? UV_ESRCH : 0;
+    return srv_kill_signal((uint64_t)pid, (uint64_t)signum) < 0 ? UV_ESRCH : 0;
 }
 
 uv_pid_t uv_process_get_pid(const uv_process_t *process) {
@@ -2559,6 +2589,14 @@ int uv_signal_start(uv_signal_t *handle, uv_signal_cb signal_cb, int signum) {
     if (handle == 0 || handle->handle.closing || signal_cb == 0 || !uv_signal_supported(signum)) {
         return UV_EINVAL;
     }
+    if (handle->handle.active) {
+        (void)uv_signal_stop(handle);
+    }
+    if (signal_watch_counts[signum] == 0 &&
+        srv_signal_config((uint64_t)signum, SRV_SIGNAL_CATCH) < 0) {
+        return UV_ENOSYS;
+    }
+    signal_watch_counts[signum]++;
     handle->signal_cb = signal_cb;
     handle->signum = signum;
     handle->oneshot = 0;
@@ -2577,6 +2615,13 @@ int uv_signal_start_oneshot(uv_signal_t *handle, uv_signal_cb signal_cb, int sig
 int uv_signal_stop(uv_signal_t *handle) {
     if (handle == 0 || handle->handle.closing) {
         return UV_EINVAL;
+    }
+    int signum = handle->signum;
+    if (handle->handle.active && uv_signal_supported(signum) && signal_watch_counts[signum] > 0) {
+        signal_watch_counts[signum]--;
+        if (signal_watch_counts[signum] == 0) {
+            (void)srv_signal_config((uint64_t)signum, SRV_SIGNAL_DEFAULT);
+        }
     }
     handle->signal_cb = 0;
     handle->signum = 0;
@@ -2636,6 +2681,13 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         tty->alloc_cb = 0;
     } else if (handle->type == UV_HANDLE_SIGNAL) {
         uv_signal_t *signal_handle = (uv_signal_t *)handle;
+        int signum = signal_handle->signum;
+        if (handle->active && uv_signal_supported(signum) && signal_watch_counts[signum] > 0) {
+            signal_watch_counts[signum]--;
+            if (signal_watch_counts[signum] == 0) {
+                (void)srv_signal_config((uint64_t)signum, SRV_SIGNAL_DEFAULT);
+            }
+        }
         signal_handle->signal_cb = 0;
         signal_handle->signum = 0;
         signal_handle->oneshot = 0;

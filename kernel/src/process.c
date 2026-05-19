@@ -144,6 +144,9 @@ struct process {
     bool reapable;
     bool quiet;
     uint64_t kill_signal;
+    uint64_t signal_catch_mask;
+    uint64_t signal_ignore_mask;
+    uint64_t pending_signals;
     uint64_t process_group;
     uint64_t pid;
     uint64_t exit_status;
@@ -1282,6 +1285,9 @@ int64_t process_exec_replace(const char *path,
     move_process_image(process, image);
     set_process_name(process, path);
     fpu_init_state(&process->fpu);
+    process->signal_catch_mask = 0;
+    process->signal_ignore_mask = 0;
+    process->pending_signals = 0;
     kfree(image);
 
     close_cloexec_files(process);
@@ -1787,8 +1793,23 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
     if (signal == 0) {
         signal = SRV_SIGNAL_TERM;
     }
+    if (signal >= 64) {
+        return false;
+    }
+    uint64_t mask = 1ull << signal;
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         if (processes[i].allocated && processes[i].active && processes[i].pid == pid) {
+            if ((processes[i].signal_ignore_mask & mask) != 0) {
+                return true;
+            }
+            if ((processes[i].signal_catch_mask & mask) != 0) {
+                processes[i].pending_signals |= mask;
+                net_process_wake(&processes[i]);
+                scheduler_wake_all(&pipe_wait_queue);
+                process_file_poll_wake();
+                process_futex_wake_process(&processes[i]);
+                return true;
+            }
             processes[i].killed = true;
             processes[i].kill_signal = signal;
             net_process_wake(&processes[i]);
@@ -1799,6 +1820,54 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
         }
     }
     return false;
+}
+
+bool process_signal_config_current(uint64_t signal, uint64_t action) {
+    struct process *process = process_current();
+    if (process == NULL || signal == 0 || signal >= 64 ||
+        (signal != SRV_SIGNAL_INT && signal != SRV_SIGNAL_TERM) ||
+        (action != SRV_SIGNAL_DEFAULT &&
+            action != SRV_SIGNAL_CATCH &&
+            action != SRV_SIGNAL_IGNORE)) {
+        return false;
+    }
+    uint64_t mask = 1ull << signal;
+    process->signal_catch_mask &= ~mask;
+    process->signal_ignore_mask &= ~mask;
+    if (action == SRV_SIGNAL_CATCH) {
+        process->signal_catch_mask |= mask;
+        return true;
+    }
+    if (action == SRV_SIGNAL_IGNORE) {
+        process->signal_ignore_mask |= mask;
+        process->pending_signals &= ~mask;
+        return true;
+    }
+    return true;
+}
+
+bool process_signal_pending_current(void) {
+    struct process *process = process_current();
+    return process != NULL && process->pending_signals != 0;
+}
+
+uint64_t process_signal_poll_current(void) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return 0;
+    }
+    uint64_t pending = process->pending_signals;
+    if (pending == 0) {
+        return 0;
+    }
+    for (uint64_t signal = 1; signal < 64; signal++) {
+        uint64_t mask = 1ull << signal;
+        if ((pending & mask) != 0) {
+            process->pending_signals &= ~mask;
+            return signal;
+        }
+    }
+    return 0;
 }
 
 bool process_set_group(uint64_t pid, uint64_t group) {

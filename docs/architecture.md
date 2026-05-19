@@ -374,7 +374,10 @@ kernel routes it to the active foreground process group, including every member
 of a shell pipeline, instead of the root interactive shell. It marks matching
 processes for `SIGINT`, wakes blocking pipe/poll/network I/O where possible,
 and exits them with the conventional `128 + signal` status. `kill` uses the
-same process signal machinery with `SIGTERM`.
+same process signal machinery with `SIGTERM`. Processes can also opt into the
+small catch/poll signal path used by libuv: caught `SIGINT`/`SIGTERM` values
+are queued as pending signals, wake blocking poll/fd waits, and are consumed by
+userspace instead of forcing process exit.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q`, `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for

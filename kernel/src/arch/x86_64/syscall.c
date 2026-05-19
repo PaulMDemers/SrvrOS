@@ -1023,6 +1023,7 @@ static bool poll_wait_ready(void *arg) {
     struct syscall_poll_wait *wait = arg;
     return wait == NULL ||
         process_should_exit_current() ||
+        process_signal_pending_current() ||
         poll_once(wait->process, wait->fds, wait->nfds) != 0;
 }
 
@@ -1058,6 +1059,9 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     for (;;) {
         if (process_should_exit_current()) {
             return -1;
+        }
+        if (process_signal_pending_current()) {
+            return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
         }
 
         int64_t ready = poll_once(process, fds, nfds);
@@ -1283,6 +1287,18 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
 
 static int64_t syscall_kill(uint64_t pid) {
     return process_kill_pid(pid) ? 0 : -1;
+}
+
+static int64_t syscall_signal_config(uint64_t signal, uint64_t action) {
+    return process_signal_config_current(signal, action) ? 0 : -1;
+}
+
+static int64_t syscall_signal_poll(uint64_t *signal_out) {
+    uint64_t signal = process_signal_poll_current();
+    if (signal_out != NULL && !copy_to_user(signal_out, &signal, sizeof(signal))) {
+        return -1;
+    }
+    return (int64_t)signal;
 }
 
 static int64_t syscall_proc_group(uint64_t pid, uint64_t group, uint64_t foreground) {
@@ -1768,7 +1784,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_proc_list(frame->rdi, (struct syscall_process_info *)frame->rsi);
         return;
     case SYS_KILL:
-        frame->rax = (uint64_t)syscall_kill(frame->rdi);
+        frame->rax = (uint64_t)(frame->rsi != 0 ?
+            (process_signal_pid(frame->rdi, frame->rsi) ? 0 : -1) :
+            syscall_kill(frame->rdi));
         return;
     case SYS_SPAWN_BG_ARGS:
         frame->rax = (uint64_t)syscall_spawn_bg_args((const char *)frame->rdi, (const char *)frame->rsi);
@@ -1916,6 +1934,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SYNC:
         frame->rax = (uint64_t)syscall_sync();
+        return;
+    case SYS_SIGNAL_CONFIG:
+        frame->rax = (uint64_t)syscall_signal_config(frame->rdi, frame->rsi);
+        return;
+    case SYS_SIGNAL_POLL:
+        frame->rax = (uint64_t)syscall_signal_poll((uint64_t *)frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

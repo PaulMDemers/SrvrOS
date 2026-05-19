@@ -90,6 +90,8 @@
 #define SYS_FUTEX_WAIT 85
 #define SYS_FUTEX_WAKE 86
 #define SYS_SYNC 87
+#define SYS_SIGNAL_CONFIG 88
+#define SYS_SIGNAL_POLL 89
 
 #define SRV_ABI_VERSION 1
 
@@ -277,6 +279,10 @@ struct srv_arp_info {
 
 #define SRV_SIGNAL_INT 2
 #define SRV_SIGNAL_TERM 15
+
+#define SRV_SIGNAL_DEFAULT 0
+#define SRV_SIGNAL_CATCH 1
+#define SRV_SIGNAL_IGNORE 2
 
 #define SRV_EXEC_BACKGROUND 0x01
 #define SRV_EXEC_REPLACE 0x02

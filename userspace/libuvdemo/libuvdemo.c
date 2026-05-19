@@ -944,6 +944,7 @@ static uv_tty_t tty_out;
 static uv_write_t tty_write_request;
 static int tty_write_seen;
 static int signal_seen;
+static int signal_oneshot_seen;
 
 static void tty_write_cb(uv_write_t *request, int status) {
     if (request == &tty_write_request && status == 0) {
@@ -952,9 +953,11 @@ static void tty_write_cb(uv_write_t *request, int status) {
 }
 
 static void signal_cb(uv_signal_t *handle, int signum) {
-    (void)handle;
     if (signum == SIGTERM) {
         signal_seen = 1;
+        uv_signal_stop(handle);
+    } else if (signum == SIGINT) {
+        signal_oneshot_seen = 1;
     }
 }
 
@@ -967,6 +970,7 @@ static int tty_signal_test(void) {
     uv_buf_t buffer = uv_buf_init("libuvdemo: tty write ok\n", 24);
     tty_write_seen = 0;
     signal_seen = 0;
+    signal_oneshot_seen = 0;
     if (uv_loop_init(&tty_loop) < 0) {
         puts("libuvdemo: tty setup failed");
         return 1;
@@ -1008,15 +1012,24 @@ static int tty_signal_test(void) {
         uv_handle_size(UV_SIGNAL) != sizeof(uv_signal_t) ||
         uv_signal_start(&signal_handle, signal_cb, SIGTERM) < 0 ||
         !uv_is_active((uv_handle_t *)&signal_handle) ||
-        uv_signal_stop(&signal_handle) < 0 ||
-        uv_is_active((uv_handle_t *)&signal_handle) ||
-        uv_signal_start_oneshot(&signal_handle, signal_cb, SIGINT) < 0 ||
-        uv_signal_stop(&signal_handle) < 0) {
+        uv_kill((int)getpid(), SIGTERM) < 0) {
         puts("libuvdemo: signal helpers failed");
         return 1;
     }
+    (void)uv_run(&tty_loop, UV_RUN_DEFAULT);
+    if (!signal_seen || uv_is_active((uv_handle_t *)&signal_handle) ||
+        uv_signal_start_oneshot(&signal_handle, signal_cb, SIGINT) < 0 ||
+        uv_kill((int)getpid(), SIGINT) < 0) {
+        puts("libuvdemo: signal helpers failed");
+        return 1;
+    }
+    (void)uv_run(&tty_loop, UV_RUN_DEFAULT);
+    if (!signal_oneshot_seen || uv_is_active((uv_handle_t *)&signal_handle)) {
+        puts("libuvdemo: signal dispatch failed");
+        return 1;
+    }
     uv_close((uv_handle_t *)&signal_handle, 0);
-    if (uv_loop_close(&tty_loop) != 0 || signal_seen != 0) {
+    if (uv_loop_close(&tty_loop) != 0) {
         puts("libuvdemo: tty loop close failed");
         return 1;
     }

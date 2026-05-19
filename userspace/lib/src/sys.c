@@ -331,7 +331,19 @@ long srv_proc_list(uint64_t index, struct srv_process_info *info) {
 }
 
 long srv_kill(uint64_t pid) {
-    return srv_syscall1(SYS_KILL, (long)pid);
+    return srv_syscall2(SYS_KILL, (long)pid, SRV_SIGNAL_TERM);
+}
+
+long srv_kill_signal(uint64_t pid, uint64_t signal) {
+    return srv_syscall2(SYS_KILL, (long)pid, (long)signal);
+}
+
+long srv_signal_config(uint64_t signal, uint64_t action) {
+    return srv_syscall2(SYS_SIGNAL_CONFIG, (long)signal, (long)action);
+}
+
+long srv_signal_poll(uint64_t *signal_out) {
+    return srv_syscall1(SYS_SIGNAL_POLL, (long)signal_out);
 }
 
 long srv_proc_group(uint64_t pid, uint64_t group, int foreground) {

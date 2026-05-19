@@ -231,10 +231,10 @@ and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 request getters, cleanup-owned realpath/scandir memory, and queued callback
 completion through `uv_run`.
-TTY and signal staging now covers `uv_guess_handle`, `uv_tty_t` init,
+TTY and signal support now covers `uv_guess_handle`, `uv_tty_t` init,
 window-size queries, termios-backed mode switching, stream writes, vterm state
-probes, and `uv_signal_t` start/stop/one-shot lifecycle for SIGINT/SIGTERM.
-Asynchronous userspace signal callback delivery is still future work.
+probes, and `uv_signal_t` start/stop/one-shot callback delivery for
+SIGINT/SIGTERM through `uv_run`.
 Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
 and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 `libuvdemo` verifying direct pipe streams and a child process whose stdout is
@@ -253,7 +253,7 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   spawn. Reset-id and signal-mask/default spawn attributes are accepted and
   round-tripped for source compatibility, but reset-id has no visible effect
   until srvros grows a uid/gid model and signal-mask/default application awaits
-  fuller userspace signal handling.
+  fuller POSIX signal handling beyond the current libuv catch/poll path.
 - VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
   file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
   is not encoded into native exFAT directory entries. Sidecar updates stage
