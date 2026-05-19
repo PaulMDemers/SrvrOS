@@ -108,6 +108,7 @@ typedef struct uv_poll_s uv_poll_t;
 typedef struct uv_async_s uv_async_t;
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_write_s uv_write_t;
+typedef struct uv_shutdown_s uv_shutdown_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
@@ -159,11 +160,12 @@ typedef struct {
 
 typedef void (*uv_close_cb)(uv_handle_t *handle);
 typedef void (*uv_timer_cb)(uv_timer_t *handle);
-typedef void (*uv_connection_cb)(uv_tcp_t *server, int status);
+typedef void (*uv_connection_cb)(uv_stream_t *server, int status);
 typedef void (*uv_connect_cb)(uv_connect_t *request, int status);
 typedef void (*uv_write_cb)(uv_write_t *request, int status);
+typedef void (*uv_shutdown_cb)(uv_shutdown_t *request, int status);
 typedef void (*uv_alloc_cb)(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer);
-typedef void (*uv_read_cb)(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer);
+typedef void (*uv_read_cb)(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer);
 typedef void (*uv_poll_cb)(uv_poll_t *handle, int status, int events);
 typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_prepare_cb)(uv_prepare_t *handle);
@@ -234,6 +236,8 @@ struct uv_tcp_s {
     uv_connection_cb connection_cb;
     uv_connect_t *connect_req;
     uv_connect_cb connect_cb;
+    uv_shutdown_t *shutdown_req;
+    uv_shutdown_cb shutdown_cb;
     uv_alloc_cb alloc_cb;
     uv_read_cb read_cb;
     uv_write_t *write_queue_head;
@@ -273,12 +277,19 @@ struct uv_connect_s {
 struct uv_write_s {
     void *data;
     int type;
-    uv_tcp_t *handle;
+    uv_stream_t *handle;
     uv_write_cb write_cb;
     char *buffer;
     size_t length;
     size_t offset;
     uv_write_t *next;
+};
+
+struct uv_shutdown_s {
+    void *data;
+    int type;
+    uv_stream_t *handle;
+    uv_shutdown_cb cb;
 };
 
 struct uv_udp_send_s {
@@ -378,19 +389,20 @@ int uv_idle_stop(uv_idle_t *handle);
 
 int uv_tcp_init(uv_loop_t *loop, uv_tcp_t *handle);
 int uv_tcp_bind(uv_tcp_t *handle, const struct sockaddr *addr, unsigned int flags);
-int uv_listen(uv_tcp_t *stream, int backlog, uv_connection_cb cb);
-int uv_accept(uv_tcp_t *server, uv_tcp_t *client);
+int uv_listen(uv_stream_t *stream, int backlog, uv_connection_cb cb);
+int uv_accept(uv_stream_t *server, uv_stream_t *client);
 int uv_tcp_connect(uv_connect_t *request,
     uv_tcp_t *handle,
     const struct sockaddr *addr,
     uv_connect_cb cb);
-int uv_read_start(uv_tcp_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb);
-int uv_read_stop(uv_tcp_t *stream);
+int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb);
+int uv_read_stop(uv_stream_t *stream);
 int uv_write(uv_write_t *request,
-    uv_tcp_t *handle,
+    uv_stream_t *handle,
     const uv_buf_t buffers[],
     unsigned int buffer_count,
     uv_write_cb cb);
+int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb);
 
 int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);

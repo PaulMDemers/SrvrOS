@@ -171,7 +171,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   reads requests, writes responses, and closes the listener without dropping
   accepted streams. It also runs a guest-outbound TCP client against a host
   service to verify nonblocking connect completion, deferred write callbacks,
-  write-queue byte accounting, and response reads.
+  write-queue byte accounting, queued `uv_shutdown`, and response reads.
 - `libuv_smoke.py`: shell launch of `/fat/bin/libuvdemo`, the upstream libuv
   staging harness. It validates the currently mapped adapter subset before
   deeper upstream backend replacement: timer dispatch, filesystem requests,

@@ -241,6 +241,9 @@ int uv_is_closing(const uv_handle_t *handle) {
     return handle != 0 && handle->closing;
 }
 
+static uv_tcp_t *tcp_from_stream(uv_stream_t *stream);
+static const uv_tcp_t *tcp_from_const_stream(const uv_stream_t *stream);
+
 void uv_ref(uv_handle_t *handle) {
     if (handle != 0) {
         handle->referenced = 1;
@@ -275,18 +278,34 @@ int uv_fileno(const uv_handle_t *handle, uv_os_fd_t *fd) {
 }
 
 int uv_is_readable(const uv_stream_t *stream) {
-    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
 }
 
 int uv_is_writable(const uv_stream_t *stream) {
-    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
 }
 
 size_t uv_stream_get_write_queue_size(const uv_stream_t *stream) {
-    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP ? tcp->write_queue_size : 0;
+}
+
+static uv_tcp_t *tcp_from_stream(uv_stream_t *stream) {
+    uv_tcp_t *tcp = (uv_tcp_t *)stream;
+    if (tcp == 0 || tcp->handle.type != UV_HANDLE_TCP) {
+        return 0;
+    }
+    return tcp;
+}
+
+static const uv_tcp_t *tcp_from_const_stream(const uv_stream_t *stream) {
+    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    if (tcp == 0 || tcp->handle.type != UV_HANDLE_TCP) {
+        return 0;
+    }
+    return tcp;
 }
 
 size_t uv_req_size(uv_req_type type) {
@@ -295,6 +314,8 @@ size_t uv_req_size(uv_req_type type) {
             return sizeof(uv_connect_t);
         case UV_WRITE:
             return sizeof(uv_write_t);
+        case UV_SHUTDOWN:
+            return sizeof(uv_shutdown_t);
         case UV_UDP_SEND:
             return sizeof(uv_udp_send_t);
         case UV_FS:
@@ -314,6 +335,8 @@ const char *uv_req_type_name(uv_req_type type) {
             return "connect";
         case UV_WRITE:
             return "write";
+        case UV_SHUTDOWN:
+            return "shutdown";
         case UV_UDP_SEND:
             return "udp_send";
         case UV_FS:
@@ -604,7 +627,7 @@ static short poll_events_for_handle(uv_handle_t *handle) {
         if (tcp->connection_cb != 0 || tcp->read_cb != 0) {
             events |= POLLIN;
         }
-        if (tcp->connect_req != 0 || tcp->write_queue_head != 0) {
+        if (tcp->connect_req != 0 || tcp->write_queue_head != 0 || tcp->shutdown_req != 0) {
             events |= POLLOUT;
         }
         return events;
@@ -650,7 +673,28 @@ static void update_tcp_active(uv_tcp_t *tcp) {
     tcp->handle.active = tcp->connection_cb != 0 ||
         tcp->read_cb != 0 ||
         tcp->connect_req != 0 ||
+        tcp->shutdown_req != 0 ||
         tcp->write_queue_head != 0;
+}
+
+static void dispatch_tcp_shutdown(uv_tcp_t *tcp) {
+    uv_shutdown_t *request;
+    uv_shutdown_cb cb;
+    int status = 0;
+    if (tcp == 0 || tcp->shutdown_req == 0 || tcp->write_queue_head != 0) {
+        return;
+    }
+    request = tcp->shutdown_req;
+    cb = tcp->shutdown_cb;
+    tcp->shutdown_req = 0;
+    tcp->shutdown_cb = 0;
+    if (shutdown(tcp->handle.fd, SHUT_WR) < 0) {
+        status = uv_error_from_errno();
+    }
+    update_tcp_active(tcp);
+    if (cb != 0) {
+        cb(request, status);
+    }
 }
 
 static void dispatch_tcp_connect(uv_tcp_t *tcp) {
@@ -718,6 +762,7 @@ static void dispatch_tcp_writes(uv_tcp_t *tcp) {
         }
     }
     update_tcp_active(tcp);
+    dispatch_tcp_shutdown(tcp);
 }
 
 static void dispatch_writable(uv_handle_t *handle) {
@@ -728,6 +773,7 @@ static void dispatch_writable(uv_handle_t *handle) {
         uv_tcp_t *tcp = (uv_tcp_t *)handle;
         dispatch_tcp_connect(tcp);
         dispatch_tcp_writes(tcp);
+        dispatch_tcp_shutdown(tcp);
     }
 }
 
@@ -752,21 +798,21 @@ static void dispatch_readable(uv_handle_t *handle) {
     if (handle->type == UV_HANDLE_TCP) {
         uv_tcp_t *tcp = (uv_tcp_t *)handle;
         if (tcp->connection_cb != 0) {
-            tcp->connection_cb(tcp, 0);
+            tcp->connection_cb((uv_stream_t *)tcp, 0);
             return;
         }
         if (tcp->read_cb != 0 && tcp->alloc_cb != 0) {
             uv_buf_t buffer;
             tcp->alloc_cb(handle, 4096, &buffer);
             if (buffer.base == 0 || buffer.len == 0) {
-                tcp->read_cb(tcp, -ENOMEM, &buffer);
+                tcp->read_cb((uv_stream_t *)tcp, -ENOMEM, &buffer);
                 return;
             }
             ssize_t count = recv(handle->fd, buffer.base, buffer.len, 0);
             if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 return;
             }
-            tcp->read_cb(tcp, count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count, &buffer);
+            tcp->read_cb((uv_stream_t *)tcp, count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count, &buffer);
         }
         return;
     }
@@ -942,32 +988,35 @@ int uv_tcp_bind(uv_tcp_t *handle, const struct sockaddr *addr, unsigned int flag
     return bind(handle->handle.fd, addr, sizeof(struct sockaddr_in)) < 0 ? uv_error_from_errno() : 0;
 }
 
-int uv_listen(uv_tcp_t *stream, int backlog, uv_connection_cb cb) {
-    if (stream == 0 || cb == 0) {
+int uv_listen(uv_stream_t *stream, int backlog, uv_connection_cb cb) {
+    uv_tcp_t *tcp = tcp_from_stream(stream);
+    if (tcp == 0 || cb == 0) {
         return -EINVAL;
     }
-    if (listen(stream->handle.fd, backlog) < 0) {
+    if (listen(tcp->handle.fd, backlog) < 0) {
         return uv_error_from_errno();
     }
-    stream->connection_cb = cb;
-    stream->handle.active = 1;
+    tcp->connection_cb = cb;
+    tcp->handle.active = 1;
     return 0;
 }
 
-int uv_accept(uv_tcp_t *server, uv_tcp_t *client) {
-    if (server == 0 || client == 0) {
+int uv_accept(uv_stream_t *server, uv_stream_t *client) {
+    uv_tcp_t *tcp_server = tcp_from_stream(server);
+    uv_tcp_t *tcp_client = tcp_from_stream(client);
+    if (tcp_server == 0 || tcp_client == 0) {
         return -EINVAL;
     }
-    int fd = accept(server->handle.fd, 0, 0);
+    int fd = accept(tcp_server->handle.fd, 0, 0);
     if (fd < 0) {
         return uv_error_from_errno();
     }
     set_nonblocking(fd);
-    if (client->handle.fd >= 0) {
-        close(client->handle.fd);
+    if (tcp_client->handle.fd >= 0) {
+        close(tcp_client->handle.fd);
     }
-    client->handle.fd = fd;
-    client->handle.active = 0;
+    tcp_client->handle.fd = fd;
+    tcp_client->handle.active = 0;
     return 0;
 }
 
@@ -995,38 +1044,41 @@ int uv_tcp_connect(uv_connect_t *request,
     return 0;
 }
 
-int uv_read_start(uv_tcp_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
-    if (stream == 0 || alloc_cb == 0 || read_cb == 0) {
+int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
+    uv_tcp_t *tcp = tcp_from_stream(stream);
+    if (tcp == 0 || alloc_cb == 0 || read_cb == 0) {
         return -EINVAL;
     }
-    stream->alloc_cb = alloc_cb;
-    stream->read_cb = read_cb;
-    set_nonblocking(stream->handle.fd);
-    stream->handle.active = 1;
+    tcp->alloc_cb = alloc_cb;
+    tcp->read_cb = read_cb;
+    set_nonblocking(tcp->handle.fd);
+    tcp->handle.active = 1;
     return 0;
 }
 
-int uv_read_stop(uv_tcp_t *stream) {
-    if (stream == 0) {
+int uv_read_stop(uv_stream_t *stream) {
+    uv_tcp_t *tcp = tcp_from_stream(stream);
+    if (tcp == 0) {
         return -EINVAL;
     }
-    stream->read_cb = 0;
-    stream->alloc_cb = 0;
-    update_tcp_active(stream);
+    tcp->read_cb = 0;
+    tcp->alloc_cb = 0;
+    update_tcp_active(tcp);
     return 0;
 }
 
 int uv_write(uv_write_t *request,
-    uv_tcp_t *handle,
+    uv_stream_t *handle,
     const uv_buf_t buffers[],
     unsigned int buffer_count,
     uv_write_cb cb) {
+    uv_tcp_t *tcp = tcp_from_stream(handle);
     size_t total = 0;
     size_t cursor = 0;
-    if (request == 0 || handle == 0 || buffers == 0) {
+    if (request == 0 || tcp == 0 || buffers == 0) {
         return -EINVAL;
     }
-    if (handle->handle.fd < 0 || handle->handle.closing) {
+    if (tcp->handle.fd < 0 || tcp->handle.closing) {
         return UV_EBADF;
     }
     for (unsigned int i = 0; i < buffer_count; i++) {
@@ -1048,14 +1100,34 @@ int uv_write(uv_write_t *request,
             cursor += buffers[i].len;
         }
     }
-    if (handle->write_queue_tail != 0) {
-        handle->write_queue_tail->next = request;
+    if (tcp->write_queue_tail != 0) {
+        tcp->write_queue_tail->next = request;
     } else {
-        handle->write_queue_head = request;
+        tcp->write_queue_head = request;
     }
-    handle->write_queue_tail = request;
-    handle->write_queue_size += total;
-    handle->handle.active = 1;
+    tcp->write_queue_tail = request;
+    tcp->write_queue_size += total;
+    tcp->handle.active = 1;
+    return 0;
+}
+
+int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb) {
+    uv_tcp_t *tcp = tcp_from_stream(handle);
+    if (request == 0 || tcp == 0) {
+        return -EINVAL;
+    }
+    if (tcp->handle.fd < 0 || tcp->handle.closing) {
+        return UV_EBADF;
+    }
+    if (tcp->shutdown_req != 0) {
+        return UV_EALREADY;
+    }
+    request->type = UV_SHUTDOWN;
+    request->handle = handle;
+    request->cb = cb;
+    tcp->shutdown_req = request;
+    tcp->shutdown_cb = cb;
+    tcp->handle.active = 1;
     return 0;
 }
 
@@ -1280,6 +1352,8 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         tcp->write_queue_size = 0;
         tcp->connect_req = 0;
         tcp->connect_cb = 0;
+        tcp->shutdown_req = 0;
+        tcp->shutdown_cb = 0;
     }
     handle->active = 0;
     handle->closing = 1;

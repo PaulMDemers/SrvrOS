@@ -48,6 +48,8 @@ server.
   completion, deferred queued writes, pending write-byte accounting, an
   outbound guest-to-host TCP smoke path, and close-from-callback guards for
   poll snapshots.
+- Moves libuv listener/accept/read/write APIs toward generic `uv_stream_t`
+  signatures and adds queued `uv_shutdown` support for TCP streams.
 - Adds more libuv loop parity with prepare/check/idle phase handles, poll
   disconnect/error mapping, timer repeat helpers, and queued `uv_getaddrinfo`
   callbacks over the srvros resolver.

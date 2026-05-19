@@ -191,9 +191,10 @@ a pthread-backed `uv_queue_work` path. Its demos cover timer, file I/O,
 directory create/remove, rename, async/work callbacks, pipe-backed polling, UDP
 echo, a two-client host-forwarded TCP accept/read/write path, and a
 guest-outbound TCP client that connects to a host service, queues a deferred
-write, drains `uv_stream_get_write_queue_size`, and reads the response. It is
-the staging point for replacing the shim with a proper libuv backend as the fd
-readiness, thread-pool, signal, TTY, and socket surfaces mature.
+write, drains `uv_stream_get_write_queue_size`, performs `uv_shutdown`, and
+reads the response. It is the staging point for replacing the shim with a
+proper libuv backend as the fd readiness, thread-pool, signal, TTY, and socket
+surfaces mature.
 Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
 `v1.52.1` (`1cfa32f`). `/fat/bin/libuvdemo` is the first dedicated staging
 program for that port: it links the srvros adapter and exercises the subset we
@@ -208,8 +209,10 @@ timeout/fd reporting, handle and request type/name/size/data helpers,
 active/closing checks, handle ref/unref state, loop walking, handle fd
 extraction, and timer due-in reporting.
 TCP stream parity now includes writable-readiness connect completion, deferred
-write queues with copied buffers, queued-byte reporting, and close-from-callback
-guards so accepted streams can be closed without stale poll-snapshot reads.
+write queues with copied buffers, queued-byte reporting, `uv_stream_t` public
+signatures for listener/accept/read/write/shutdown operations, queued
+write-side shutdown, and close-from-callback guards so accepted streams can be
+closed without stale poll-snapshot reads.
 Loop parity now includes prepare/check/idle phase handles, poll
 disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.

@@ -29,10 +29,12 @@ backend.
   `uv_timer_again`, and due-in reporting.
 - Synchronous filesystem request helpers for open, close, read, write, mkdir,
   rmdir, rename, unlink, and stat.
-- TCP listener, accept, connect, read, write, and close entry points over the
-  srvros socket fd layer. Connect completion and queued writes are now driven
-  from writable readiness instead of synchronous callbacks, and the stream
-  helpers report readability, writability, and pending write-queue bytes.
+- TCP listener, accept, connect, read, write, shutdown, and close entry points
+  over the srvros socket fd layer. Listener/accept/read/write/shutdown now use
+  `uv_stream_t` signatures with TCP as the first concrete backend. Connect
+  completion, queued writes, and queued shutdown are driven from writable
+  readiness instead of synchronous callbacks, and the stream helpers report
+  readability, writability, and pending write-queue bytes.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_async_t` pending notification dispatch inside the loop.
@@ -42,8 +44,8 @@ backend.
   callbacks queued through the loop instead of invoked synchronously.
 
 `/fat/bin/uvdemo` remains the broad behavioral coverage app, including UDP,
-multi-client host-forwarded TCP, and guest-outbound TCP connect/write/read
-against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
+multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
+read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
 now covers the core object helpers, loop phases, timers, filesystem requests,
 async/work callbacks, poll callbacks, and resolver callbacks that need to stay
 stable while incrementally replacing adapter internals with upstream code.

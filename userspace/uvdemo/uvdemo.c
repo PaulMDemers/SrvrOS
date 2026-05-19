@@ -221,6 +221,7 @@ static uv_loop_t tcp_loop;
 static uv_tcp_t tcp_server;
 static uv_tcp_t tcp_clients[TCP_EXPECTED_CLIENTS];
 static uv_write_t tcp_write_requests[TCP_EXPECTED_CLIENTS];
+static uv_shutdown_t tcp_shutdown_requests[TCP_EXPECTED_CLIENTS];
 static int tcp_accept_count;
 static int tcp_ok_count;
 static int tcp_failed;
@@ -320,25 +321,51 @@ static void tcp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *b
     buffer->len = sizeof(tcp_storage[0]) - 1;
 }
 
-static int tcp_client_index(const uv_tcp_t *stream) {
+static int tcp_client_index(const uv_stream_t *stream) {
     for (int i = 0; i < TCP_EXPECTED_CLIENTS; i++) {
-        if (stream == &tcp_clients[i]) {
+        if (stream == (const uv_stream_t *)&tcp_clients[i]) {
             return i;
         }
     }
     return -1;
 }
 
+static void tcp_shutdown_cb(uv_shutdown_t *request, int status);
+
 static void tcp_write_cb(uv_write_t *request, int status) {
-    uv_tcp_t *client = (uv_tcp_t *)request->data;
+    uv_stream_t *client = (uv_stream_t *)request->data;
     int index = tcp_client_index(client);
     if (status < 0) {
         printf("uvdemo: tcp write failed %s\n", uv_strerror(status));
+        tcp_failed = 1;
+        if (client != 0) {
+            uv_close((uv_handle_t *)client, 0);
+        }
+    } else {
+        tcp_shutdown_requests[index].data = client;
+        if (uv_shutdown(&tcp_shutdown_requests[index], client, tcp_shutdown_cb) < 0) {
+            puts("uvdemo: tcp shutdown start failed");
+            tcp_failed = 1;
+            uv_close((uv_handle_t *)client, 0);
+        }
+    }
+    if (tcp_failed || tcp_ok_count >= TCP_EXPECTED_CLIENTS) {
+        uv_close((uv_handle_t *)&tcp_server, 0);
+        uv_stop(&tcp_loop);
+    }
+}
+
+static void tcp_shutdown_cb(uv_shutdown_t *request, int status) {
+    uv_stream_t *client = (uv_stream_t *)request->data;
+    int index = tcp_client_index(client);
+    if (status < 0 || uv_req_get_type((uv_req_t *)request) != UV_SHUTDOWN) {
+        printf("uvdemo: tcp shutdown failed %s\n", status < 0 ? uv_strerror(status) : "bad request");
         tcp_failed = 1;
     } else {
         tcp_ok_count++;
         puts("uvdemo: tcp ok");
         printf("uvdemo: tcp ok client %d\n", index + 1);
+        printf("uvdemo: tcp shutdown client %d\n", index + 1);
     }
     if (client != 0) {
         uv_close((uv_handle_t *)client, 0);
@@ -349,7 +376,7 @@ static void tcp_write_cb(uv_write_t *request, int status) {
     }
 }
 
-static void tcp_read_cb(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+static void tcp_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
     int index = tcp_client_index(stream);
     if (index < 0) {
         puts("uvdemo: tcp unknown client");
@@ -377,7 +404,7 @@ static void tcp_read_cb(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer)
     }
 }
 
-static void tcp_connection_cb(uv_tcp_t *server, int status) {
+static void tcp_connection_cb(uv_stream_t *server, int status) {
     if (status < 0) {
         printf("uvdemo: tcp accept event failed %s\n", uv_strerror(status));
         uv_stop(&tcp_loop);
@@ -391,8 +418,8 @@ static void tcp_connection_cb(uv_tcp_t *server, int status) {
     }
     int index = tcp_accept_count;
     if (uv_tcp_init(&tcp_loop, &tcp_clients[index]) < 0 ||
-        uv_accept(server, &tcp_clients[index]) < 0 ||
-        uv_read_start(&tcp_clients[index], tcp_alloc_cb, tcp_read_cb) < 0) {
+        uv_accept(server, (uv_stream_t *)&tcp_clients[index]) < 0 ||
+        uv_read_start((uv_stream_t *)&tcp_clients[index], tcp_alloc_cb, tcp_read_cb) < 0) {
         puts("uvdemo: tcp accept failed");
         tcp_failed = 1;
         uv_stop(&tcp_loop);
@@ -423,7 +450,7 @@ static int tcp_test(void) {
         uv_tcp_init(&tcp_loop, &tcp_server) < 0 ||
         uv_ip4_addr("0.0.0.0", 7018, &addr) < 0 ||
         uv_tcp_bind(&tcp_server, (const struct sockaddr *)&addr, 0) < 0 ||
-        uv_listen(&tcp_server, 4, tcp_connection_cb) < 0 ||
+        uv_listen((uv_stream_t *)&tcp_server, 4, tcp_connection_cb) < 0 ||
         uv_timer_init(&tcp_loop, &timeout) < 0 ||
         uv_timer_start(&timeout, tcp_timeout_cb, 5000, 0) < 0) {
         puts("uvdemo: tcp setup failed");
@@ -448,7 +475,7 @@ static void tcp_client_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_b
     buffer->len = sizeof(tcp_client_storage) - 1;
 }
 
-static void tcp_client_read_cb(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+static void tcp_client_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
     if (nread < 0) {
         printf("uvdemo: client read failed %s\n", uv_strerror((int)nread));
         tcp_client_failed = 1;
@@ -483,7 +510,7 @@ static void tcp_client_write_cb(uv_write_t *request, int status) {
         return;
     }
     puts("uvdemo: client write ok");
-    if (uv_read_start(&tcp_client, tcp_client_alloc_cb, tcp_client_read_cb) < 0) {
+    if (uv_read_start((uv_stream_t *)&tcp_client, tcp_client_alloc_cb, tcp_client_read_cb) < 0) {
         puts("uvdemo: client read start failed");
         tcp_client_failed = 1;
         uv_stop(&tcp_client_loop);
@@ -501,7 +528,7 @@ static void tcp_client_connect_cb(uv_connect_t *request, int status) {
     puts("uvdemo: client connected");
     char payload[] = "from-guest";
     uv_buf_t buffer = uv_buf_init(payload, (unsigned int)strlen(payload));
-    if (uv_write(&tcp_client_write_request, &tcp_client, &buffer, 1, tcp_client_write_cb) < 0) {
+    if (uv_write(&tcp_client_write_request, (uv_stream_t *)&tcp_client, &buffer, 1, tcp_client_write_cb) < 0) {
         puts("uvdemo: client write start failed");
         tcp_client_failed = 1;
         uv_stop(&tcp_client_loop);
