@@ -178,8 +178,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   including stat/lstat/fstat/access/realpath/scandir and queued fs callbacks,
   prepare/check/idle loop phases, async notification, reusable-pool queued work,
   `uv_cancel` for queued work/fs requests, pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
-  thread/synchronization wrappers, and queued `uv_getaddrinfo` callbacks. It
-  also verifies `uv_pipe`, `uv_pipe_t`, and `uv_spawn` by writing through a
+  thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY
+  handle/window-size/write helpers, and SIGINT/SIGTERM signal-handle lifecycle.
+  It also verifies `uv_pipe`, `uv_pipe_t`, and `uv_spawn` by writing through a
   libuv pipe stream, running a child `echo` process, and reading stdout through
   a libuv pipe stream.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,

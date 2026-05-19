@@ -74,6 +74,9 @@ server.
   started the request.
 - Tightens libuv loop-close behavior so inactive but unclosed handles still keep
   `uv_loop_close` busy until `uv_close` has been called.
+- Adds libuv TTY and signal staging with `uv_guess_handle`, `uv_tty_t`
+  window-size/mode/write helpers, vterm-state probes, and `uv_signal_t`
+  start/stop/one-shot lifecycle coverage for SIGINT/SIGTERM.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

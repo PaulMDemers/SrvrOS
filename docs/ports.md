@@ -199,7 +199,8 @@ Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
 `v1.52.1` (`1cfa32f`). `/fat/bin/libuvdemo` is the first dedicated staging
 program for that port: it links the srvros adapter and exercises the subset we
 want to preserve while swapping in upstream internals, namely timers,
-filesystem requests, async notifications, queued work, and generic fd polling.
+filesystem requests, async notifications, queued work, generic fd polling, TTY
+wrappers, and signal-handle lifecycle staging.
 The version identity functions are already compiled from upstream
 `src/version.c`, giving the adapter a concrete upstream object in the link.
 The adapter also exposes libuv-style `UV_E*` errno constants plus
@@ -230,6 +231,10 @@ and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 request getters, cleanup-owned realpath/scandir memory, and queued callback
 completion through `uv_run`.
+TTY and signal staging now covers `uv_guess_handle`, `uv_tty_t` init,
+window-size queries, termios-backed mode switching, stream writes, vterm state
+probes, and `uv_signal_t` start/stop/one-shot lifecycle for SIGINT/SIGTERM.
+Asynchronous userspace signal callback delivery is still future work.
 Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
 and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 `libuvdemo` verifying direct pipe streams and a child process whose stdout is

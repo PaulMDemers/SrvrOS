@@ -13,7 +13,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -30,6 +33,8 @@
 #define UV_HANDLE_IDLE UV_IDLE
 #define UV_HANDLE_PIPE UV_NAMED_PIPE
 #define UV_HANDLE_PROCESS UV_PROCESS
+#define UV_HANDLE_TTY UV_TTY
+#define UV_HANDLE_SIGNAL UV_SIGNAL
 #define UV_MAX_STDIO_HANDLES 32
 #define UV_SCANDIR_INITIAL_CAPACITY 8
 #define UV_REALPATH_MAX 160
@@ -57,6 +62,9 @@ static pthread_cond_t worker_pool_cond = PTHREAD_COND_INITIALIZER;
 static pthread_t worker_pool_threads[UV_WORKER_POOL_SIZE];
 static struct uv_worker_job *worker_pool_head;
 static struct uv_worker_job *worker_pool_tail;
+static uv_tty_vtermstate_t tty_vterm_state = UV_TTY_UNSUPPORTED;
+static int tty_reset_fd = -1;
+static struct termios tty_reset_termios;
 
 static uint64_t monotonic_ms(void) {
     struct timespec ts;
@@ -373,8 +381,12 @@ size_t uv_handle_size(uv_handle_type type) {
             return sizeof(uv_tcp_t);
         case UV_TIMER:
             return sizeof(uv_timer_t);
+        case UV_TTY:
+            return sizeof(uv_tty_t);
         case UV_UDP:
             return sizeof(uv_udp_t);
+        case UV_SIGNAL:
+            return sizeof(uv_signal_t);
         default:
             return (size_t)-1;
     }
@@ -400,8 +412,12 @@ const char *uv_handle_type_name(uv_handle_type type) {
             return "tcp";
         case UV_TIMER:
             return "timer";
+        case UV_TTY:
+            return "tty";
         case UV_UDP:
             return "udp";
+        case UV_SIGNAL:
+            return "signal";
         case UV_FILE:
             return "file";
         default:
@@ -439,6 +455,8 @@ static uv_tcp_t *tcp_from_stream(uv_stream_t *stream);
 static const uv_tcp_t *tcp_from_const_stream(const uv_stream_t *stream);
 static uv_pipe_t *pipe_from_stream(uv_stream_t *stream);
 static const uv_pipe_t *pipe_from_const_stream(const uv_stream_t *stream);
+static uv_tty_t *tty_from_stream(uv_stream_t *stream);
+static const uv_tty_t *tty_from_const_stream(const uv_stream_t *stream);
 
 void uv_ref(uv_handle_t *handle) {
     if (handle != 0) {
@@ -476,22 +494,32 @@ int uv_fileno(const uv_handle_t *handle, uv_os_fd_t *fd) {
 int uv_is_readable(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
-    return (tcp != 0 && !tcp->handle.closing) || (pipe_handle != 0 && !pipe_handle->handle.closing);
+    const uv_tty_t *tty = tty_from_const_stream(stream);
+    return (tcp != 0 && !tcp->handle.closing) ||
+        (pipe_handle != 0 && !pipe_handle->handle.closing) ||
+        (tty != 0 && !tty->handle.closing);
 }
 
 int uv_is_writable(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
-    return (tcp != 0 && !tcp->handle.closing) || (pipe_handle != 0 && !pipe_handle->handle.closing);
+    const uv_tty_t *tty = tty_from_const_stream(stream);
+    return (tcp != 0 && !tcp->handle.closing) ||
+        (pipe_handle != 0 && !pipe_handle->handle.closing) ||
+        (tty != 0 && !tty->handle.closing);
 }
 
 size_t uv_stream_get_write_queue_size(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
     const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
+    const uv_tty_t *tty = tty_from_const_stream(stream);
     if (tcp != 0) {
         return tcp->write_queue_size;
     }
-    return pipe_handle != 0 ? pipe_handle->write_queue_size : 0;
+    if (pipe_handle != 0) {
+        return pipe_handle->write_queue_size;
+    }
+    return tty != 0 ? tty->write_queue_size : 0;
 }
 
 static uv_tcp_t *tcp_from_stream(uv_stream_t *stream) {
@@ -524,6 +552,22 @@ static const uv_pipe_t *pipe_from_const_stream(const uv_stream_t *stream) {
         return 0;
     }
     return pipe_handle;
+}
+
+static uv_tty_t *tty_from_stream(uv_stream_t *stream) {
+    uv_tty_t *tty = (uv_tty_t *)stream;
+    if (tty == 0 || tty->handle.type != UV_HANDLE_TTY) {
+        return 0;
+    }
+    return tty;
+}
+
+static const uv_tty_t *tty_from_const_stream(const uv_stream_t *stream) {
+    const uv_tty_t *tty = (const uv_tty_t *)stream;
+    if (tty == 0 || tty->handle.type != UV_HANDLE_TTY) {
+        return 0;
+    }
+    return tty;
 }
 
 size_t uv_req_size(uv_req_type type) {
@@ -929,6 +973,17 @@ static short poll_events_for_handle(uv_handle_t *handle) {
         }
         return events;
     }
+    if (handle->type == UV_HANDLE_TTY) {
+        uv_tty_t *tty = (uv_tty_t *)handle;
+        short events = 0;
+        if (tty->read_cb != 0) {
+            events |= POLLIN;
+        }
+        if (tty->write_queue_head != 0) {
+            events |= POLLOUT;
+        }
+        return events;
+    }
     if (handle->type == UV_HANDLE_UDP) {
         uv_udp_t *udp = (uv_udp_t *)handle;
         return udp->recv_cb != 0 ? POLLIN : 0;
@@ -1069,36 +1124,38 @@ static void update_pipe_active(uv_pipe_t *pipe_handle) {
     pipe_handle->handle.active = pipe_handle->read_cb != 0 || pipe_handle->write_queue_head != 0;
 }
 
-static void dispatch_pipe_writes(uv_pipe_t *pipe_handle) {
-    while (pipe_handle != 0 && pipe_handle->write_queue_head != 0) {
-        uv_write_t *request = pipe_handle->write_queue_head;
+static int drain_write_queue(int fd,
+    uv_write_t **head,
+    uv_write_t **tail,
+    size_t *write_queue_size,
+    int use_send) {
+    while (*head != 0) {
+        uv_write_t *request = *head;
         int status = 0;
         while (request->offset < request->length) {
-            ssize_t written = write(pipe_handle->handle.fd,
-                request->buffer + request->offset,
-                request->length - request->offset);
+            ssize_t written = use_send ?
+                send(fd, request->buffer + request->offset, request->length - request->offset, MSG_DONTWAIT) :
+                write(fd, request->buffer + request->offset, request->length - request->offset);
             if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-                update_pipe_active(pipe_handle);
-                return;
+                return 1;
             }
             if (written < 0) {
                 status = uv_error_from_errno();
                 break;
             }
             if (written == 0) {
-                update_pipe_active(pipe_handle);
-                return;
+                return 1;
             }
             request->offset += (size_t)written;
-            pipe_handle->write_queue_size -= (size_t)written;
+            *write_queue_size -= (size_t)written;
         }
-        pipe_handle->write_queue_head = request->next;
-        if (pipe_handle->write_queue_head == 0) {
-            pipe_handle->write_queue_tail = 0;
+        *head = request->next;
+        if (*head == 0) {
+            *tail = 0;
         }
         request->next = 0;
-        if (status < 0 && pipe_handle->write_queue_size >= request->length - request->offset) {
-            pipe_handle->write_queue_size -= request->length - request->offset;
+        if (status < 0 && *write_queue_size >= request->length - request->offset) {
+            *write_queue_size -= request->length - request->offset;
         }
         free(request->buffer);
         request->buffer = 0;
@@ -1111,7 +1168,38 @@ static void dispatch_pipe_writes(uv_pipe_t *pipe_handle) {
             break;
         }
     }
+    return 0;
+}
+
+static void dispatch_pipe_writes(uv_pipe_t *pipe_handle) {
+    if (pipe_handle == 0) {
+        return;
+    }
+    (void)drain_write_queue(pipe_handle->handle.fd,
+        &pipe_handle->write_queue_head,
+        &pipe_handle->write_queue_tail,
+        &pipe_handle->write_queue_size,
+        0);
     update_pipe_active(pipe_handle);
+}
+
+static void update_tty_active(uv_tty_t *tty) {
+    if (tty == 0 || tty->handle.closing) {
+        return;
+    }
+    tty->handle.active = tty->read_cb != 0 || tty->write_queue_head != 0;
+}
+
+static void dispatch_tty_writes(uv_tty_t *tty) {
+    if (tty == 0) {
+        return;
+    }
+    (void)drain_write_queue(tty->handle.fd,
+        &tty->write_queue_head,
+        &tty->write_queue_tail,
+        &tty->write_queue_size,
+        0);
+    update_tty_active(tty);
 }
 
 static void dispatch_writable(uv_handle_t *handle) {
@@ -1125,6 +1213,8 @@ static void dispatch_writable(uv_handle_t *handle) {
         dispatch_tcp_shutdown(tcp);
     } else if (handle->type == UV_HANDLE_PIPE) {
         dispatch_pipe_writes((uv_pipe_t *)handle);
+    } else if (handle->type == UV_HANDLE_TTY) {
+        dispatch_tty_writes((uv_tty_t *)handle);
     }
 }
 
@@ -1181,6 +1271,25 @@ static void dispatch_readable(uv_handle_t *handle) {
                 return;
             }
             pipe_handle->read_cb((uv_stream_t *)pipe_handle,
+                count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count,
+                &buffer);
+        }
+        return;
+    }
+    if (handle->type == UV_HANDLE_TTY) {
+        uv_tty_t *tty = (uv_tty_t *)handle;
+        if (tty->read_cb != 0 && tty->alloc_cb != 0) {
+            uv_buf_t buffer;
+            tty->alloc_cb(handle, 4096, &buffer);
+            if (buffer.base == 0 || buffer.len == 0) {
+                tty->read_cb((uv_stream_t *)tty, -ENOMEM, &buffer);
+                return;
+            }
+            ssize_t count = read(handle->fd, buffer.base, buffer.len);
+            if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return;
+            }
+            tty->read_cb((uv_stream_t *)tty,
                 count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count,
                 &buffer);
         }
@@ -1432,7 +1541,8 @@ int uv_tcp_connect(uv_connect_t *request,
 int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
     uv_tcp_t *tcp = tcp_from_stream(stream);
     uv_pipe_t *pipe_handle = pipe_from_stream(stream);
-    if ((tcp == 0 && pipe_handle == 0) || alloc_cb == 0 || read_cb == 0) {
+    uv_tty_t *tty = tty_from_stream(stream);
+    if ((tcp == 0 && pipe_handle == 0 && tty == 0) || alloc_cb == 0 || read_cb == 0) {
         return -EINVAL;
     }
     if (tcp != 0) {
@@ -1440,11 +1550,16 @@ int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb)
         tcp->read_cb = read_cb;
         set_nonblocking(tcp->handle.fd);
         tcp->handle.active = 1;
-    } else {
+    } else if (pipe_handle != 0) {
         pipe_handle->alloc_cb = alloc_cb;
         pipe_handle->read_cb = read_cb;
         set_nonblocking(pipe_handle->handle.fd);
         pipe_handle->handle.active = 1;
+    } else {
+        tty->alloc_cb = alloc_cb;
+        tty->read_cb = read_cb;
+        set_nonblocking(tty->handle.fd);
+        tty->handle.active = 1;
     }
     return 0;
 }
@@ -1452,17 +1567,22 @@ int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb)
 int uv_read_stop(uv_stream_t *stream) {
     uv_tcp_t *tcp = tcp_from_stream(stream);
     uv_pipe_t *pipe_handle = pipe_from_stream(stream);
-    if (tcp == 0 && pipe_handle == 0) {
+    uv_tty_t *tty = tty_from_stream(stream);
+    if (tcp == 0 && pipe_handle == 0 && tty == 0) {
         return -EINVAL;
     }
     if (tcp != 0) {
         tcp->read_cb = 0;
         tcp->alloc_cb = 0;
         update_tcp_active(tcp);
-    } else {
+    } else if (pipe_handle != 0) {
         pipe_handle->read_cb = 0;
         pipe_handle->alloc_cb = 0;
         update_pipe_active(pipe_handle);
+    } else {
+        tty->read_cb = 0;
+        tty->alloc_cb = 0;
+        update_tty_active(tty);
     }
     return 0;
 }
@@ -1474,12 +1594,13 @@ int uv_write(uv_write_t *request,
     uv_write_cb cb) {
     uv_tcp_t *tcp = tcp_from_stream(handle);
     uv_pipe_t *pipe_handle = pipe_from_stream(handle);
+    uv_tty_t *tty = tty_from_stream(handle);
     size_t total = 0;
     size_t cursor = 0;
-    if (request == 0 || (tcp == 0 && pipe_handle == 0) || buffers == 0) {
+    if (request == 0 || (tcp == 0 && pipe_handle == 0 && tty == 0) || buffers == 0) {
         return -EINVAL;
     }
-    uv_handle_t *base = tcp != 0 ? &tcp->handle : &pipe_handle->handle;
+    uv_handle_t *base = tcp != 0 ? &tcp->handle : pipe_handle != 0 ? &pipe_handle->handle : &tty->handle;
     if (base->fd < 0 || base->closing) {
         return UV_EBADF;
     }
@@ -1506,19 +1627,27 @@ int uv_write(uv_write_t *request,
         tcp->write_queue_tail->next = request;
     } else if (tcp != 0) {
         tcp->write_queue_head = request;
-    } else if (pipe_handle->write_queue_tail != 0) {
+    } else if (pipe_handle != 0 && pipe_handle->write_queue_tail != 0) {
         pipe_handle->write_queue_tail->next = request;
-    } else {
+    } else if (pipe_handle != 0) {
         pipe_handle->write_queue_head = request;
+    } else if (tty->write_queue_tail != 0) {
+        tty->write_queue_tail->next = request;
+    } else {
+        tty->write_queue_head = request;
     }
     if (tcp != 0) {
         tcp->write_queue_tail = request;
         tcp->write_queue_size += total;
         tcp->handle.active = 1;
-    } else {
+    } else if (pipe_handle != 0) {
         pipe_handle->write_queue_tail = request;
         pipe_handle->write_queue_size += total;
         pipe_handle->handle.active = 1;
+    } else {
+        tty->write_queue_tail = request;
+        tty->write_queue_size += total;
+        tty->handle.active = 1;
     }
     return 0;
 }
@@ -1578,6 +1707,110 @@ int uv_pipe_open(uv_pipe_t *handle, uv_file fd) {
     }
     handle->handle.fd = fd;
     set_nonblocking(fd);
+    return 0;
+}
+
+uv_handle_type uv_guess_handle(uv_file file) {
+    if (file < 0) {
+        return UV_UNKNOWN_HANDLE;
+    }
+    if (isatty(file)) {
+        return UV_TTY;
+    }
+    struct stat st;
+    if (fstat(file, &st) == 0 && S_ISREG(st.st_mode)) {
+        return UV_FILE;
+    }
+    return UV_UNKNOWN_HANDLE;
+}
+
+int uv_tty_init(uv_loop_t *loop, uv_tty_t *handle, uv_file fd, int readable) {
+    (void)readable;
+    if (loop == 0 || handle == 0 || fd < 0 || !isatty(fd)) {
+        return UV_EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, fd, UV_HANDLE_TTY);
+    handle->mode = UV_TTY_MODE_NORMAL;
+    if (tcgetattr(fd, &handle->original_termios) == 0) {
+        handle->termios_saved = 1;
+    }
+    return 0;
+}
+
+static void tty_make_raw(struct termios *termios) {
+    termios->c_iflag &= ~ICRNL;
+    termios->c_lflag &= ~(ECHO | ICANON);
+    termios->c_cc[VMIN] = 1;
+    termios->c_cc[VTIME] = 0;
+}
+
+int uv_tty_set_mode(uv_tty_t *handle, uv_tty_mode_t mode) {
+    if (handle == 0 || handle->handle.fd < 0 || handle->handle.closing) {
+        return UV_EBADF;
+    }
+    if (mode != UV_TTY_MODE_NORMAL &&
+        mode != UV_TTY_MODE_RAW &&
+        mode != UV_TTY_MODE_IO &&
+        mode != UV_TTY_MODE_RAW_VT) {
+        return UV_EINVAL;
+    }
+    if (!handle->termios_saved && tcgetattr(handle->handle.fd, &handle->original_termios) < 0) {
+        return uv_error_from_errno();
+    }
+    handle->termios_saved = 1;
+    struct termios next = handle->original_termios;
+    if (mode == UV_TTY_MODE_RAW || mode == UV_TTY_MODE_IO || mode == UV_TTY_MODE_RAW_VT) {
+        tty_make_raw(&next);
+    }
+    if (tcsetattr(handle->handle.fd, TCSANOW, &next) < 0) {
+        return uv_error_from_errno();
+    }
+    if (mode != UV_TTY_MODE_NORMAL && tty_reset_fd < 0) {
+        tty_reset_fd = handle->handle.fd;
+        tty_reset_termios = handle->original_termios;
+    }
+    handle->mode = mode;
+    return 0;
+}
+
+int uv_tty_reset_mode(void) {
+    if (tty_reset_fd < 0) {
+        return 0;
+    }
+    if (tcsetattr(tty_reset_fd, TCSANOW, &tty_reset_termios) < 0) {
+        return uv_error_from_errno();
+    }
+    tty_reset_fd = -1;
+    return 0;
+}
+
+int uv_tty_get_winsize(uv_tty_t *handle, int *width, int *height) {
+    struct winsize ws;
+    if (handle == 0 || width == 0 || height == 0 || handle->handle.fd < 0 || handle->handle.closing) {
+        return UV_EINVAL;
+    }
+    if (ioctl(handle->handle.fd, TIOCGWINSZ, &ws) < 0) {
+        return uv_error_from_errno();
+    }
+    *width = ws.ws_col;
+    *height = ws.ws_row;
+    return 0;
+}
+
+int uv_tty_set_vterm_state(uv_tty_vtermstate_t state) {
+    if (state != UV_TTY_UNSUPPORTED && state != UV_TTY_SUPPORTED) {
+        return UV_EINVAL;
+    }
+    tty_vterm_state = state;
+    return 0;
+}
+
+int uv_tty_get_vterm_state(uv_tty_vtermstate_t *state) {
+    if (state == 0) {
+        return UV_EINVAL;
+    }
+    *state = tty_vterm_state;
     return 0;
 }
 
@@ -2309,6 +2542,49 @@ uv_pid_t uv_process_get_pid(const uv_process_t *process) {
     return process != 0 ? process->pid : 0;
 }
 
+static int uv_signal_supported(int signum) {
+    return signum == SIGINT || signum == SIGTERM;
+}
+
+int uv_signal_init(uv_loop_t *loop, uv_signal_t *handle) {
+    if (loop == 0 || handle == 0) {
+        return UV_EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_SIGNAL);
+    return 0;
+}
+
+int uv_signal_start(uv_signal_t *handle, uv_signal_cb signal_cb, int signum) {
+    if (handle == 0 || handle->handle.closing || signal_cb == 0 || !uv_signal_supported(signum)) {
+        return UV_EINVAL;
+    }
+    handle->signal_cb = signal_cb;
+    handle->signum = signum;
+    handle->oneshot = 0;
+    handle->handle.active = 1;
+    return 0;
+}
+
+int uv_signal_start_oneshot(uv_signal_t *handle, uv_signal_cb signal_cb, int signum) {
+    int result = uv_signal_start(handle, signal_cb, signum);
+    if (result == 0) {
+        handle->oneshot = 1;
+    }
+    return result;
+}
+
+int uv_signal_stop(uv_signal_t *handle) {
+    if (handle == 0 || handle->handle.closing) {
+        return UV_EINVAL;
+    }
+    handle->signal_cb = 0;
+    handle->signum = 0;
+    handle->oneshot = 0;
+    handle->handle.active = 0;
+    return 0;
+}
+
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
     if (handle == 0 || handle->closing) {
         return;
@@ -2339,11 +2615,35 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         }
         pipe_handle->write_queue_tail = 0;
         pipe_handle->write_queue_size = 0;
+    } else if (handle->type == UV_HANDLE_TTY) {
+        uv_tty_t *tty = (uv_tty_t *)handle;
+        while (tty->write_queue_head != 0) {
+            uv_write_t *request = tty->write_queue_head;
+            tty->write_queue_head = request->next;
+            free(request->buffer);
+            request->buffer = 0;
+            request->next = 0;
+        }
+        if (tty->termios_saved && tty->mode != UV_TTY_MODE_NORMAL) {
+            (void)tcsetattr(tty->handle.fd, TCSANOW, &tty->original_termios);
+            if (tty_reset_fd == tty->handle.fd) {
+                tty_reset_fd = -1;
+            }
+        }
+        tty->write_queue_tail = 0;
+        tty->write_queue_size = 0;
+        tty->read_cb = 0;
+        tty->alloc_cb = 0;
+    } else if (handle->type == UV_HANDLE_SIGNAL) {
+        uv_signal_t *signal_handle = (uv_signal_t *)handle;
+        signal_handle->signal_cb = 0;
+        signal_handle->signum = 0;
+        signal_handle->oneshot = 0;
     }
     handle->active = 0;
     handle->closing = 1;
     handle->close_cb = close_cb;
-    if (handle->fd >= 0 && handle->type != UV_HANDLE_POLL) {
+    if (handle->fd >= 0 && handle->type != UV_HANDLE_POLL && handle->type != UV_HANDLE_TTY) {
         close(handle->fd);
         handle->fd = -1;
     }

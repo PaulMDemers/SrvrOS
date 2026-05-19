@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -938,6 +939,92 @@ static int getaddrinfo_test(void) {
     return 0;
 }
 
+static uv_loop_t tty_loop;
+static uv_tty_t tty_out;
+static uv_write_t tty_write_request;
+static int tty_write_seen;
+static int signal_seen;
+
+static void tty_write_cb(uv_write_t *request, int status) {
+    if (request == &tty_write_request && status == 0) {
+        tty_write_seen = 1;
+    }
+}
+
+static void signal_cb(uv_signal_t *handle, int signum) {
+    (void)handle;
+    if (signum == SIGTERM) {
+        signal_seen = 1;
+    }
+}
+
+static int tty_signal_test(void) {
+    int width = 0;
+    int height = 0;
+    uv_os_fd_t fd = -1;
+    uv_tty_vtermstate_t state = UV_TTY_UNSUPPORTED;
+    uv_signal_t signal_handle;
+    uv_buf_t buffer = uv_buf_init("libuvdemo: tty write ok\n", 24);
+    tty_write_seen = 0;
+    signal_seen = 0;
+    if (uv_loop_init(&tty_loop) < 0) {
+        puts("libuvdemo: tty setup failed");
+        return 1;
+    }
+    if (uv_guess_handle(STDIN_FILENO) != UV_TTY ||
+        uv_guess_handle(STDOUT_FILENO) != UV_TTY ||
+        uv_tty_init(&tty_loop, &tty_out, STDOUT_FILENO, 0) < 0 ||
+        uv_handle_get_type((uv_handle_t *)&tty_out) != UV_TTY ||
+        strcmp(uv_handle_type_name(UV_TTY), "tty") != 0 ||
+        uv_handle_size(UV_TTY) != sizeof(uv_tty_t) ||
+        !uv_is_writable((uv_stream_t *)&tty_out) ||
+        uv_fileno((uv_handle_t *)&tty_out, &fd) < 0 ||
+        fd != STDOUT_FILENO) {
+        puts("libuvdemo: tty helpers failed");
+        return 1;
+    }
+    if (uv_tty_get_winsize(&tty_out, &width, &height) < 0 || width <= 0 || height <= 0 ||
+        uv_tty_set_mode(&tty_out, UV_TTY_MODE_NORMAL) < 0 ||
+        uv_tty_set_vterm_state(UV_TTY_SUPPORTED) < 0 ||
+        uv_tty_get_vterm_state(&state) < 0 ||
+        state != UV_TTY_SUPPORTED) {
+        puts("libuvdemo: tty mode failed");
+        return 1;
+    }
+    if (uv_write(&tty_write_request, (uv_stream_t *)&tty_out, &buffer, 1, tty_write_cb) < 0 ||
+        uv_stream_get_write_queue_size((uv_stream_t *)&tty_out) != buffer.len) {
+        puts("libuvdemo: tty write setup failed");
+        return 1;
+    }
+    (void)uv_run(&tty_loop, UV_RUN_DEFAULT);
+    if (!tty_write_seen || uv_stream_get_write_queue_size((uv_stream_t *)&tty_out) != 0) {
+        puts("libuvdemo: tty write failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&tty_out, 0);
+
+    if (uv_signal_init(&tty_loop, &signal_handle) < 0 ||
+        strcmp(uv_handle_type_name(UV_SIGNAL), "signal") != 0 ||
+        uv_handle_size(UV_SIGNAL) != sizeof(uv_signal_t) ||
+        uv_signal_start(&signal_handle, signal_cb, SIGTERM) < 0 ||
+        !uv_is_active((uv_handle_t *)&signal_handle) ||
+        uv_signal_stop(&signal_handle) < 0 ||
+        uv_is_active((uv_handle_t *)&signal_handle) ||
+        uv_signal_start_oneshot(&signal_handle, signal_cb, SIGINT) < 0 ||
+        uv_signal_stop(&signal_handle) < 0) {
+        puts("libuvdemo: signal helpers failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&signal_handle, 0);
+    if (uv_loop_close(&tty_loop) != 0 || signal_seen != 0) {
+        puts("libuvdemo: tty loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: tty ok");
+    puts("libuvdemo: signal ok");
+    return 0;
+}
+
 static uv_loop_t process_loop;
 static uv_pipe_t process_stdout_pipe;
 static uv_process_t process_handle;
@@ -1040,6 +1127,7 @@ int main(void) {
         poll_test() != 0 ||
         pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
+        tty_signal_test() != 0 ||
         process_test() != 0) {
         puts("libuvdemo: failed");
         return 1;

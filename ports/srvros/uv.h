@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <termios.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -109,6 +110,8 @@ typedef struct uv_udp_s uv_udp_t;
 typedef struct uv_poll_s uv_poll_t;
 typedef struct uv_async_s uv_async_t;
 typedef struct uv_process_s uv_process_t;
+typedef struct uv_tty_s uv_tty_t;
+typedef struct uv_signal_s uv_signal_t;
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_write_s uv_write_t;
 typedef struct uv_shutdown_s uv_shutdown_t;
@@ -155,6 +158,18 @@ typedef enum {
     UV_THREAD_NO_FLAGS = 0x00,
     UV_THREAD_HAS_STACK_SIZE = 0x01,
 } uv_thread_create_flags;
+
+typedef enum {
+    UV_TTY_MODE_NORMAL,
+    UV_TTY_MODE_RAW,
+    UV_TTY_MODE_IO,
+    UV_TTY_MODE_RAW_VT
+} uv_tty_mode_t;
+
+typedef enum {
+    UV_TTY_UNSUPPORTED,
+    UV_TTY_SUPPORTED
+} uv_tty_vtermstate_t;
 
 typedef struct uv_thread_options_s {
     unsigned int flags;
@@ -293,6 +308,7 @@ typedef void (*uv_check_cb)(uv_check_t *handle);
 typedef void (*uv_idle_cb)(uv_idle_t *handle);
 typedef void (*uv_walk_cb)(uv_handle_t *handle, void *arg);
 typedef void (*uv_exit_cb)(uv_process_t *process, int64_t exit_status, int term_signal);
+typedef void (*uv_signal_cb)(uv_signal_t *handle, int signum);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -386,6 +402,18 @@ struct uv_pipe_s {
     int ipc;
 };
 
+struct uv_tty_s {
+    uv_handle_t handle;
+    uv_alloc_cb alloc_cb;
+    uv_read_cb read_cb;
+    uv_write_t *write_queue_head;
+    uv_write_t *write_queue_tail;
+    size_t write_queue_size;
+    struct termios original_termios;
+    int termios_saved;
+    int mode;
+};
+
 struct uv_udp_s {
     uv_handle_t handle;
     uv_alloc_cb alloc_cb;
@@ -403,6 +431,13 @@ struct uv_async_s {
     uv_handle_t handle;
     uv_async_cb async_cb;
     int pending;
+};
+
+struct uv_signal_s {
+    uv_handle_t handle;
+    uv_signal_cb signal_cb;
+    int signum;
+    int oneshot;
 };
 
 struct uv_connect_s {
@@ -591,6 +626,14 @@ int uv_pipe(uv_file fds[2], int read_flags, int write_flags);
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
 int uv_pipe_open(uv_pipe_t *handle, uv_file fd);
 
+uv_handle_type uv_guess_handle(uv_file file);
+int uv_tty_init(uv_loop_t *loop, uv_tty_t *handle, uv_file fd, int readable);
+int uv_tty_set_mode(uv_tty_t *handle, uv_tty_mode_t mode);
+int uv_tty_reset_mode(void);
+int uv_tty_get_winsize(uv_tty_t *handle, int *width, int *height);
+int uv_tty_set_vterm_state(uv_tty_vtermstate_t state);
+int uv_tty_get_vterm_state(uv_tty_vtermstate_t *state);
+
 int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb);
@@ -670,6 +713,11 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
 int uv_process_kill(uv_process_t *process, int signum);
 int uv_kill(int pid, int signum);
 uv_pid_t uv_process_get_pid(const uv_process_t *process);
+
+int uv_signal_init(uv_loop_t *loop, uv_signal_t *handle);
+int uv_signal_start(uv_signal_t *handle, uv_signal_cb signal_cb, int signum);
+int uv_signal_start_oneshot(uv_signal_t *handle, uv_signal_cb signal_cb, int signum);
+int uv_signal_stop(uv_signal_t *handle);
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb);
 int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr);
