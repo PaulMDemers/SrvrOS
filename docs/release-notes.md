@@ -72,6 +72,8 @@ server.
 - Adds `uv_cancel` support for work and async filesystem requests that are
   still queued in the libuv worker pool, returning `UV_EBUSY` once a worker has
   started the request.
+- Tightens libuv loop-close behavior so inactive but unclosed handles still keep
+  `uv_loop_close` busy until `uv_close` has been called.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

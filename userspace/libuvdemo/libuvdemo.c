@@ -140,6 +140,10 @@ static int core_api_test(void) {
         puts("libuvdemo: active state failed");
         return 1;
     }
+    if (uv_loop_close(&loop) != UV_EBUSY) {
+        puts("libuvdemo: loop active handle failed");
+        return 1;
+    }
     uv_close((uv_handle_t *)&timer, core_close_cb);
     if (!core_close_seen || !uv_is_closing((uv_handle_t *)&timer)) {
         puts("libuvdemo: close state failed");
@@ -153,6 +157,11 @@ static int core_api_test(void) {
     uv_req_set_data((uv_req_t *)&request, &req_token);
     if (uv_req_get_data((uv_req_t *)&request) != &req_token) {
         puts("libuvdemo: request data failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_loop_close(&loop) != 0) {
+        puts("libuvdemo: loop close failed");
         return 1;
     }
     puts("libuvdemo: core api ok");

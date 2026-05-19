@@ -22,7 +22,8 @@ backend.
 - Core API parity now includes loop close/data helpers, backend timeout/fd
   stubs, handle type/name/size/data/active/closing helpers, request
   type/name/size/data helpers, handle ref/unref state, `uv_walk`,
-  `uv_fileno`, and `uv_timer_get_due_in`.
+  `uv_fileno`, and `uv_timer_get_due_in`. `uv_loop_close` now rejects loops
+  that still have unclosed handles, even if those handles are inactive.
 - Event loop init, run, stop, alive, monotonic time refresh, and the first
   prepare/check/idle phase handles.
 - Timers with one-shot and repeating dispatch, repeat setters/getters,

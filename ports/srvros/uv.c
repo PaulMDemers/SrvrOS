@@ -262,6 +262,11 @@ int uv_loop_close(uv_loop_t *loop) {
     if (uv_loop_alive(loop)) {
         return UV_EBUSY;
     }
+    for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+        if (!handle->closing) {
+            return UV_EBUSY;
+        }
+    }
     if (loop->wake_read_fd >= 0) {
         close(loop->wake_read_fd);
     }

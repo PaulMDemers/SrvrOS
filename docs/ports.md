@@ -207,7 +207,8 @@ The adapter also exposes libuv-style `UV_E*` errno constants plus
 Core loop and object parity covers loop data/close helpers, backend
 timeout/fd reporting, handle and request type/name/size/data helpers,
 active/closing checks, handle ref/unref state, loop walking, handle fd
-extraction, and timer due-in reporting.
+extraction, timer due-in reporting, and close-time rejection of loops that
+still own unclosed handles.
 Thread parity now covers `uv_thread_create`, stack-sized
 `uv_thread_create_ex`, `uv_thread_detach`, join/self/equality, mutexes,
 recursive mutex initialization, condition variables with relative timed waits,
