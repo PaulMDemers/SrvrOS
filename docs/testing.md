@@ -175,9 +175,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `libuv_smoke.py`: shell launch of `/fat/bin/libuvdemo`, the upstream libuv
   staging harness. It validates the currently mapped adapter subset before
   deeper upstream backend replacement: timer dispatch, filesystem requests
-  including stat/lstat/fstat/access/realpath/scandir and queued fs callbacks,
-  prepare/check/idle loop phases, async notification, reusable-pool queued work,
-  `uv_cancel` for queued work/fs requests, pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
+  including stat/lstat/fstat/access/realpath/scandir, sync/truncate/sendfile/
+  time updates, and queued fs callbacks, platform helpers for cwd/chdir, env,
+  exe path, pid, hrtime, memory, and random, prepare/check/idle loop phases,
+  async notification, reusable-pool queued work, `uv_cancel` for queued work/fs
+  requests, pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
   thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY
   handle/window-size/write helpers, and SIGINT/SIGTERM self-signal callback
   delivery through `uv_run`.

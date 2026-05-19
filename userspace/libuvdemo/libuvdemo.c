@@ -45,6 +45,112 @@ static int error_test(void) {
     return 0;
 }
 
+static int platform_random_seen;
+static int platform_random_status;
+
+static void platform_random_cb(uv_random_t *request, int status, void *buffer, size_t buffer_length) {
+    (void)request;
+    platform_random_status = status;
+    if (status == 0 && buffer != 0 && buffer_length == 8) {
+        platform_random_seen = 1;
+    }
+}
+
+static int random_has_data(const unsigned char *bytes, size_t length) {
+    unsigned char combined = 0;
+    for (size_t i = 0; i < length; i++) {
+        combined |= bytes[i];
+    }
+    return combined != 0;
+}
+
+static int platform_test(void) {
+    uv_loop_t loop;
+    uv_random_t random_request;
+    char buffer[96];
+    char cwd[96];
+    char original_cwd[96];
+    unsigned char random_bytes[8];
+    size_t size;
+    uint64_t start;
+    uint64_t end;
+    uint64_t total_memory;
+    uint64_t free_memory;
+
+    size = sizeof(buffer);
+    if (uv_os_setenv("UVDEMO_ENV", "srvros") != 0 ||
+        uv_os_getenv("UVDEMO_ENV", buffer, &size) != 0 ||
+        size != 6 ||
+        strcmp(buffer, "srvros") != 0) {
+        puts("libuvdemo: platform env failed");
+        return 1;
+    }
+    size = 3;
+    if (uv_os_getenv("UVDEMO_ENV", buffer, &size) != UV_ENOBUFS || size != 7 ||
+        uv_os_unsetenv("UVDEMO_ENV") != 0 ||
+        uv_os_getenv("UVDEMO_ENV", buffer, &size) != UV_ENOENT) {
+        puts("libuvdemo: platform env failed");
+        return 1;
+    }
+
+    size = sizeof(original_cwd);
+    if (uv_cwd(original_cwd, &size) != 0) {
+        puts("libuvdemo: platform cwd initial failed");
+        return 1;
+    }
+    if (uv_chdir("/fat") != 0) {
+        puts("libuvdemo: platform cwd failed");
+        return 1;
+    }
+    size = sizeof(cwd);
+    if (uv_cwd(cwd, &size) != 0 || strcmp(cwd, "/fat") != 0 ||
+        uv_chdir(original_cwd) != 0) {
+        puts("libuvdemo: platform cwd failed");
+        return 1;
+    }
+
+    size = sizeof(buffer);
+    if (uv_exepath(buffer, &size) != 0 || size == 0 || buffer[0] != '/') {
+        puts("libuvdemo: platform exepath failed");
+        return 1;
+    }
+    if (uv_os_getpid() <= 0 || uv_os_getppid() <= 0) {
+        puts("libuvdemo: platform pid failed");
+        return 1;
+    }
+    start = uv_hrtime();
+    end = uv_hrtime();
+    total_memory = uv_get_total_memory();
+    free_memory = uv_get_free_memory();
+    if (start == 0 || end < start || total_memory == 0 || free_memory == 0 || free_memory > total_memory) {
+        puts("libuvdemo: platform info failed");
+        return 1;
+    }
+
+    memset(random_bytes, 0, sizeof(random_bytes));
+    if (uv_random(0, 0, random_bytes, sizeof(random_bytes), 0, 0) != 0 ||
+        !random_has_data(random_bytes, sizeof(random_bytes))) {
+        puts("libuvdemo: platform random failed");
+        return 1;
+    }
+    memset(random_bytes, 0, sizeof(random_bytes));
+    platform_random_seen = 0;
+    platform_random_status = -1;
+    if (uv_loop_init(&loop) < 0 ||
+        uv_random(&loop, &random_request, random_bytes, sizeof(random_bytes), 0, platform_random_cb) != 0) {
+        puts("libuvdemo: platform random setup failed");
+        return 1;
+    }
+    (void)uv_run(&loop, UV_RUN_DEFAULT);
+    if (!platform_random_seen || platform_random_status != 0 ||
+        !random_has_data(random_bytes, sizeof(random_bytes))) {
+        puts("libuvdemo: platform random failed");
+        return 1;
+    }
+    puts("libuvdemo: platform ok");
+    return 0;
+}
+
 static int core_timer_seen;
 static int core_close_seen;
 static int core_walk_seen;
@@ -285,11 +391,14 @@ static int fs_test(void) {
     uv_fs_t async_realpath_request;
     const char *path = "/fat/libuvdemo.txt";
     const char *renamed = "/fat/libuvdemo-renamed.txt";
+    const char *copy_path = "/fat/libuvdemo-copy.txt";
     const char *dir = "/fat/libuvdemo-dir";
     char payload[] = "libuv-fs-ok";
     char readback[32];
     uv_buf_t buffer;
     int fd;
+    int src_fd;
+    int copy_fd;
     int saw_bin = 0;
     int saw_echo = 0;
     fs_async_expected = 0;
@@ -305,6 +414,8 @@ static int fs_test(void) {
     uv_fs_req_cleanup(&request);
     (void)uv_fs_unlink(&loop, &request, renamed, 0);
     uv_fs_req_cleanup(&request);
+    (void)uv_fs_unlink(&loop, &request, copy_path, 0);
+    uv_fs_req_cleanup(&request);
     (void)uv_fs_rmdir(&loop, &request, dir, 0);
     uv_fs_req_cleanup(&request);
 
@@ -317,6 +428,15 @@ static int fs_test(void) {
     buffer = uv_buf_init(payload, (unsigned int)strlen(payload));
     if (uv_fs_write(&loop, &request, fd, &buffer, 1, 0, 0) < 0) {
         puts("libuvdemo: fs write failed");
+        (void)uv_fs_close(&loop, &request, fd, 0);
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_fsync(&loop, &request, fd, 0) < 0 ||
+        uv_fs_fdatasync(&loop, &request, fd, 0) < 0 ||
+        uv_fs_ftruncate(&loop, &request, fd, (int64_t)strlen(payload), 0) < 0 ||
+        uv_fs_futime(&loop, &request, fd, 1.0, 1.0, 0) < 0) {
+        puts("libuvdemo: fs sync failed");
         (void)uv_fs_close(&loop, &request, fd, 0);
         return 1;
     }
@@ -389,6 +509,42 @@ static int fs_test(void) {
         return 1;
     }
     uv_fs_req_cleanup(&request);
+    if (uv_fs_utime(&loop, &request, renamed, 1.0, 1.0, 0) < 0) {
+        puts("libuvdemo: fs utime failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_open(&loop, &request, renamed, O_RDONLY, 0, 0) < 0) {
+        puts("libuvdemo: fs sendfile open failed");
+        return 1;
+    }
+    src_fd = (int)request.result;
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_open(&loop, &request, copy_path, O_CREAT | O_TRUNC | O_RDWR, 0644, 0) < 0) {
+        puts("libuvdemo: fs sendfile open failed");
+        (void)uv_fs_close(&loop, &request, src_fd, 0);
+        return 1;
+    }
+    copy_fd = (int)request.result;
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_sendfile(&loop, &request, copy_fd, src_fd, 0, strlen(payload), 0) < 0 ||
+        uv_fs_get_result(&request) != (ssize_t)strlen(payload)) {
+        puts("libuvdemo: fs sendfile failed");
+        (void)uv_fs_close(&loop, &request, src_fd, 0);
+        (void)uv_fs_close(&loop, &request, copy_fd, 0);
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    (void)uv_fs_close(&loop, &request, src_fd, 0);
+    uv_fs_req_cleanup(&request);
+    (void)uv_fs_close(&loop, &request, copy_fd, 0);
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_stat(&loop, &request, copy_path, 0) < 0 ||
+        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload)) {
+        puts("libuvdemo: fs sendfile stat failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
     if (uv_fs_realpath(&loop, &request, renamed, 0) < 0 ||
         strcmp((const char *)uv_fs_get_ptr(&request), renamed) != 0 ||
         strcmp(uv_fs_get_path(&request), renamed) != 0) {
@@ -436,6 +592,11 @@ static int fs_test(void) {
         return 1;
     }
     if (uv_fs_unlink(&loop, &request, renamed, 0) < 0) {
+        puts("libuvdemo: fs cleanup failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_unlink(&loop, &request, copy_path, 0) < 0) {
         puts("libuvdemo: fs cleanup failed");
         return 1;
     }
@@ -1260,6 +1421,7 @@ int main(int argc, char **argv) {
     puts("libuvdemo: srvros libuv port staging");
     if (version_test() != 0 ||
         error_test() != 0 ||
+        platform_test() != 0 ||
         core_api_test() != 0 ||
         timer_test() != 0 ||
         phase_test() != 0 ||

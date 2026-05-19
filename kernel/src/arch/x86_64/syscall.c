@@ -9,6 +9,7 @@
 #include <srvros/keyboard.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
+#include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
@@ -1016,6 +1017,21 @@ static int64_t syscall_pipe_pair(int32_t *fds_out) {
     return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
 }
 
+static int64_t syscall_meminfo(struct srv_meminfo *info) {
+    struct srv_meminfo copy = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(copy),
+        .total_bytes = pmm_total_frames() * PMM_FRAME_SIZE,
+        .free_bytes = pmm_free_frames() * PMM_FRAME_SIZE,
+        .used_bytes = pmm_used_frames() * PMM_FRAME_SIZE,
+        .page_size = PMM_FRAME_SIZE,
+    };
+    if (info == NULL || !user_buffer_ok(info, sizeof(copy), true)) {
+        return -1;
+    }
+    return copy_to_user(info, &copy, sizeof(copy)) ? 0 : -1;
+}
+
 static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, uint64_t nfds) {
     int64_t ready = 0;
     for (uint64_t i = 0; i < nfds; i++) {
@@ -1889,6 +1905,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_PIPE_PAIR:
         frame->rax = (uint64_t)syscall_pipe_pair((int32_t *)frame->rdi);
+        return;
+    case SYS_MEMINFO:
+        frame->rax = (uint64_t)syscall_meminfo((struct srv_meminfo *)frame->rdi);
         return;
     case SYS_SPAWN_BG_ARGS_FDS:
         frame->rax = (uint64_t)syscall_spawn_bg_args_fds((const char *)frame->rdi,

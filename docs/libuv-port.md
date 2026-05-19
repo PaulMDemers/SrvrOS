@@ -26,13 +26,17 @@ backend.
   that still have unclosed handles, even if those handles are inactive.
 - Event loop init, run, stop, alive, monotonic time refresh, and the first
   prepare/check/idle phase handles.
+- Platform helpers for cwd/chdir, executable path, pid/ppid, environment
+  get/set/unset, high-resolution time, memory totals from the kernel meminfo
+  ABI, and sync/queued `uv_random` buffers.
 - Timers with one-shot and repeating dispatch, repeat setters/getters,
   `uv_timer_again`, and due-in reporting.
 - Filesystem request helpers for open, close, read, write, mkdir, rmdir,
-  rename, unlink, stat, lstat, fstat, access, realpath, and scandir. Callback
-  forms now run through the shared worker pool and complete through the event
-  loop queue instead of inline callbacks, and `uv_fs_req_cleanup` releases
-  path, realpath, buffer-array, and scandir allocations.
+  rename, unlink, stat, lstat, fstat, access, realpath, scandir, fsync,
+  fdatasync, ftruncate, sendfile, utime, and futime. Callback forms now run
+  through the shared worker pool and complete through the event loop queue
+  instead of inline callbacks, and `uv_fs_req_cleanup` releases path, realpath,
+  buffer-array, and scandir allocations.
 - TCP listener, accept, connect, read, write, shutdown, and close entry points
   over the srvros socket fd layer. Listener/accept/read/write/shutdown now use
   `uv_stream_t` signatures with TCP as the first concrete backend. Connect
@@ -79,11 +83,12 @@ backend.
 multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
 read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
 now covers the core object helpers, loop phases, timers, filesystem metadata
-and directory requests, async/work callbacks, poll callbacks, resolver
-callbacks, public pipe creation, pipe streams, child stdin/stdout pipe wiring,
-`uv_spawn` cwd handling, a duplex stdio child pipe, plus TTY/signal delivery
-and the current thread/synchronization wrappers that need to stay stable while
-incrementally replacing adapter internals with upstream code.
+and directory requests, fsync/truncate/sendfile/time requests, platform
+helpers, sync and queued random fills, async/work callbacks, poll callbacks,
+resolver callbacks, public pipe creation, pipe streams, child stdin/stdout pipe
+wiring, `uv_spawn` cwd handling, a duplex stdio child pipe, plus TTY/signal
+delivery and the current thread/synchronization wrappers that need to stay
+stable while incrementally replacing adapter internals with upstream code.
 
 ## Replacement Strategy
 

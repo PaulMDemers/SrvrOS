@@ -52,12 +52,14 @@ int chdir(const char *path) {
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
         return -1;
     }
-    if (stat(full, &st) < 0) {
-        return -1;
-    }
-    if (!S_ISDIR(st.st_mode)) {
-        errno = ENOTDIR;
-        return -1;
+    if (strcmp(full, "/") != 0) {
+        if (stat(full, &st) < 0) {
+            return -1;
+        }
+        if (!S_ISDIR(st.st_mode)) {
+            errno = ENOTDIR;
+            return -1;
+        }
     }
     cli_normalize_path(current_directory, sizeof(current_directory), "/", full);
     setenv("PWD", current_directory, 1);

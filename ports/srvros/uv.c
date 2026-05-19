@@ -15,10 +15,12 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <sys/statvfs.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
 #include <unistd.h>
+#include <utime.h>
 
 #include <srvros/sys.h>
 
@@ -50,6 +52,7 @@ static int uv_error_from_errno(void);
 static void set_nonblocking(int fd);
 static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request);
 static int uv_signal_supported(int signum);
+static void random_fill(void *buffer, size_t buffer_length);
 
 struct uv_worker_job {
     void (*run)(void *arg);
@@ -353,6 +356,9 @@ int uv_loop_alive(const uv_loop_t *loop) {
     if (loop->getaddrinfo_queue != 0) {
         return 1;
     }
+    if (loop->random_queue != 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -588,6 +594,8 @@ size_t uv_req_size(uv_req_type type) {
             return sizeof(uv_work_t);
         case UV_GETADDRINFO:
             return sizeof(uv_getaddrinfo_t);
+        case UV_RANDOM:
+            return sizeof(uv_random_t);
         default:
             return (size_t)-1;
     }
@@ -609,6 +617,8 @@ const char *uv_req_type_name(uv_req_type type) {
             return "work";
         case UV_GETADDRINFO:
             return "getaddrinfo";
+        case UV_RANDOM:
+            return "random";
         default:
             return 0;
     }
@@ -652,6 +662,151 @@ int uv_cancel(uv_req_t *request) {
         return 0;
     }
     return UV_ENOSYS;
+}
+
+uint64_t uv_hrtime(void) {
+    struct timespec ts;
+    if (clock_gettime(CLOCK_MONOTONIC, &ts) < 0) {
+        return 0;
+    }
+    return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
+uv_pid_t uv_os_getpid(void) {
+    return getpid();
+}
+
+uv_pid_t uv_os_getppid(void) {
+    return 1;
+}
+
+int uv_os_getenv(const char *name, char *buffer, size_t *size) {
+    if (name == 0 || buffer == 0 || size == 0 || name[0] == '\0' || strchr(name, '=') != 0) {
+        return UV_EINVAL;
+    }
+    const char *value = getenv(name);
+    if (value == 0) {
+        return UV_ENOENT;
+    }
+    size_t needed = strlen(value) + 1;
+    if (*size < needed) {
+        *size = needed;
+        return UV_ENOBUFS;
+    }
+    memcpy(buffer, value, needed);
+    *size = needed - 1;
+    return 0;
+}
+
+int uv_os_setenv(const char *name, const char *value) {
+    if (name == 0 || value == 0 || name[0] == '\0' || strchr(name, '=') != 0) {
+        return UV_EINVAL;
+    }
+    return setenv(name, value, 1) < 0 ? uv_error_from_errno() : 0;
+}
+
+int uv_os_unsetenv(const char *name) {
+    if (name == 0 || name[0] == '\0' || strchr(name, '=') != 0) {
+        return UV_EINVAL;
+    }
+    return unsetenv(name) < 0 ? uv_error_from_errno() : 0;
+}
+
+static int copy_sized_string(char *buffer, size_t *size, const char *value) {
+    if (buffer == 0 || size == 0 || value == 0) {
+        return UV_EINVAL;
+    }
+    size_t length = strlen(value);
+    if (*size <= length) {
+        *size = length + 1;
+        return UV_ENOBUFS;
+    }
+    memcpy(buffer, value, length + 1);
+    *size = length;
+    return 0;
+}
+
+int uv_exepath(char *buffer, size_t *size) {
+    const char *path = getenv("_");
+    if (path == 0 || path[0] == '\0') {
+        path = "/fat/bin/srvros-app";
+    }
+    return copy_sized_string(buffer, size, path);
+}
+
+int uv_cwd(char *buffer, size_t *size) {
+    if (buffer == 0 || size == 0) {
+        return UV_EINVAL;
+    }
+    char cwd[UV_REALPATH_MAX];
+    if (getcwd(cwd, sizeof(cwd)) == 0) {
+        return uv_error_from_errno();
+    }
+    return copy_sized_string(buffer, size, cwd);
+}
+
+int uv_chdir(const char *dir) {
+    if (dir == 0) {
+        return UV_EINVAL;
+    }
+    return chdir(dir) < 0 ? uv_error_from_errno() : 0;
+}
+
+uint64_t uv_get_free_memory(void) {
+    struct srv_meminfo info;
+    return srv_meminfo(&info) < 0 ? 0 : info.free_bytes;
+}
+
+uint64_t uv_get_total_memory(void) {
+    struct srv_meminfo info;
+    return srv_meminfo(&info) < 0 ? 0 : info.total_bytes;
+}
+
+static void random_fill(void *buffer, size_t buffer_length) {
+    uint8_t *bytes = buffer;
+    uint64_t state = uv_hrtime() ^ ((uint64_t)getpid() << 32) ^ 0x9e3779b97f4a7c15ull;
+    for (size_t i = 0; i < buffer_length; i++) {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        bytes[i] = (uint8_t)(state >> 24);
+    }
+}
+
+int uv_random(uv_loop_t *loop,
+    uv_random_t *request,
+    void *buffer,
+    size_t buffer_length,
+    unsigned int flags,
+    uv_random_cb cb) {
+    if (buffer_length > 0x7fffffffu) {
+        return UV_E2BIG;
+    }
+    if (buffer == 0 || flags != 0 || (cb != 0 && (loop == 0 || request == 0))) {
+        return UV_EINVAL;
+    }
+    if (cb == 0) {
+        random_fill(buffer, buffer_length);
+        if (request != 0) {
+            memset(request, 0, sizeof(*request));
+            request->type = UV_RANDOM;
+            request->buffer = buffer;
+            request->buffer_length = buffer_length;
+            request->status = 0;
+        }
+        return 0;
+    }
+    memset(request, 0, sizeof(*request));
+    request->type = UV_RANDOM;
+    request->loop = loop;
+    request->cb = cb;
+    request->buffer = buffer;
+    request->buffer_length = buffer_length;
+    random_fill(buffer, buffer_length);
+    request->status = 0;
+    request->next = loop->random_queue;
+    loop->random_queue = request;
+    return 0;
 }
 
 int uv_timer_init(uv_loop_t *loop, uv_timer_t *handle) {
@@ -944,6 +1099,19 @@ static void run_done_getaddrinfo(uv_loop_t *loop) {
         request->next = 0;
         if (request->cb != 0) {
             request->cb(request, request->status, request->status == 0 ? request->result : 0);
+        }
+        request = next;
+    }
+}
+
+static void run_done_random(uv_loop_t *loop) {
+    uv_random_t *request = loop->random_queue;
+    loop->random_queue = 0;
+    while (request != 0) {
+        uv_random_t *next = request->next;
+        request->next = 0;
+        if (request->cb != 0) {
+            request->cb(request, request->status, request->buffer, request->buffer_length);
         }
         request = next;
     }
@@ -1399,6 +1567,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
+    run_done_random(loop);
     run_pending_signals(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
         return 0;
@@ -1473,6 +1642,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
+    run_done_random(loop);
     run_pending_signals(loop);
     return uv_loop_alive(loop) ? 1 : 0;
 }
@@ -2938,6 +3108,64 @@ static void fs_execute(uv_fs_t *request) {
             request->result = total;
             break;
         }
+        case UV_FS_FSYNC:
+            request->result = fsync(request->fd) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_FDATASYNC:
+            request->result = fsync(request->fd) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_FTRUNCATE:
+            request->result = ftruncate(request->fd, (off_t)request->offset) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_SENDFILE: {
+            char buffer[512];
+            size_t remaining = request->length < 0 ? 0 : (size_t)request->length;
+            ssize_t total = 0;
+            if (request->offset >= 0 && lseek(request->flags, request->offset, SEEK_SET) < 0) {
+                request->result = uv_error_from_errno();
+                break;
+            }
+            while (remaining > 0) {
+                size_t chunk = remaining < sizeof(buffer) ? remaining : sizeof(buffer);
+                ssize_t count = read(request->flags, buffer, chunk);
+                if (count < 0) {
+                    request->result = uv_error_from_errno();
+                    return;
+                }
+                if (count == 0) {
+                    break;
+                }
+                size_t written_total = 0;
+                while (written_total < (size_t)count) {
+                    ssize_t written = write(request->fd, buffer + written_total, (size_t)count - written_total);
+                    if (written < 0) {
+                        request->result = uv_error_from_errno();
+                        return;
+                    }
+                    written_total += (size_t)written;
+                    total += written;
+                }
+                remaining -= (size_t)count;
+                if ((size_t)count < chunk) {
+                    break;
+                }
+            }
+            request->result = total;
+            break;
+        }
+        case UV_FS_UTIME: {
+            struct utimbuf times = {
+                .actime = (time_t)request->atime,
+                .modtime = (time_t)request->mtime,
+            };
+            request->result = utime(request->path, &times) < 0 ? uv_error_from_errno() : 0;
+            break;
+        }
+        case UV_FS_FUTIME: {
+            int result = fstat(request->fd, &request->statbuf);
+            request->result = result < 0 ? uv_error_from_errno() : 0;
+            break;
+        }
         case UV_FS_MKDIR:
             request->result = mkdir(request->path, (mode_t)request->mode) < 0 ? uv_error_from_errno() : 0;
             break;
@@ -3099,6 +3327,79 @@ int uv_fs_write(uv_loop_t *loop,
     }
     request->fd = fd;
     request->offset = offset;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_fsync(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb) {
+    int error = fs_prepare(loop, request, UV_FS_FSYNC, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->fd = fd;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_fdatasync(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb) {
+    int error = fs_prepare(loop, request, UV_FS_FDATASYNC, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->fd = fd;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_ftruncate(uv_loop_t *loop, uv_fs_t *request, uv_file fd, int64_t offset, uv_fs_cb cb) {
+    if (offset < 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_FTRUNCATE, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->fd = fd;
+    request->offset = offset;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_sendfile(uv_loop_t *loop,
+    uv_fs_t *request,
+    uv_file out_fd,
+    uv_file in_fd,
+    int64_t in_offset,
+    size_t length,
+    uv_fs_cb cb) {
+    int error = fs_prepare(loop, request, UV_FS_SENDFILE, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->fd = out_fd;
+    request->flags = in_fd;
+    request->offset = in_offset;
+    request->length = (int64_t)length;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_utime(uv_loop_t *loop, uv_fs_t *request, const char *path, double atime, double mtime, uv_fs_cb cb) {
+    if (request == 0 || path == 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_UTIME, path, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->atime = atime;
+    request->mtime = mtime;
+    return fs_finish(request, cb);
+}
+
+int uv_fs_futime(uv_loop_t *loop, uv_fs_t *request, uv_file fd, double atime, double mtime, uv_fs_cb cb) {
+    int error = fs_prepare(loop, request, UV_FS_FUTIME, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    request->fd = fd;
+    request->atime = atime;
+    request->mtime = mtime;
     return fs_finish(request, cb);
 }
 

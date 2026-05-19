@@ -93,6 +93,7 @@
 #define SYS_SIGNAL_CONFIG 88
 #define SYS_SIGNAL_POLL 89
 #define SYS_PIPE_PAIR 90
+#define SYS_MEMINFO 91
 
 #define SRV_ABI_VERSION 1
 
@@ -274,6 +275,15 @@ struct srv_arp_info {
     uint8_t mac[6];
     uint8_t reserved[2];
     uint64_t updated_tick;
+};
+
+struct srv_meminfo {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t total_bytes;
+    uint64_t free_bytes;
+    uint64_t used_bytes;
+    uint64_t page_size;
 };
 
 #define SRV_WAIT_NOHANG 0x01

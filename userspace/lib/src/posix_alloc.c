@@ -486,7 +486,7 @@ void *bsearch(const void *key,
     return 0;
 }
 
-static char *environment[32];
+static char *environment[64];
 char **environ = environment;
 
 static void ensure_environment_writable(void) {

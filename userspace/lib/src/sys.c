@@ -350,6 +350,14 @@ long srv_signal_poll(uint64_t *signal_out) {
     return srv_syscall1(SYS_SIGNAL_POLL, (long)signal_out);
 }
 
+long srv_meminfo(struct srv_meminfo *info) {
+    if (info != 0) {
+        info->abi_version = SRV_ABI_VERSION;
+        info->struct_size = sizeof(*info);
+    }
+    return srv_syscall1(SYS_MEMINFO, (long)info);
+}
+
 long srv_proc_group(uint64_t pid, uint64_t group, int foreground) {
     return srv_syscall3(SYS_PROC_GROUP, (long)pid, (long)group, (long)foreground);
 }

@@ -131,7 +131,9 @@ editor clients:
   submodule under `ports/upstream/libuv` at `v1.52.1`, and
   `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend
   toward that upstream source tree. Its process coverage now includes child
-  stdin/stdout pipe wiring, cwd-scoped spawn, and duplex stdio pipes.
+  stdin/stdout pipe wiring, cwd-scoped spawn, and duplex stdio pipes, and its
+  platform/filesystem coverage now includes cwd/env/exepath/pid/time/memory/
+  random helpers plus fsync, truncate, sendfile, and timestamp request shims.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

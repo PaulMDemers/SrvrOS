@@ -119,6 +119,7 @@ typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
+typedef struct uv_random_s uv_random_t;
 typedef struct uv_dirent_s uv_dirent_t;
 typedef int uv_os_fd_t;
 typedef int uv_file;
@@ -319,6 +320,7 @@ typedef void (*uv_fs_cb)(uv_fs_t *request);
 typedef void (*uv_work_cb)(uv_work_t *request);
 typedef void (*uv_after_work_cb)(uv_work_t *request, int status);
 typedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t *request, int status, struct addrinfo *result);
+typedef void (*uv_random_cb)(uv_random_t *request, int status, void *buffer, size_t buffer_length);
 typedef void (*uv_thread_cb)(void *arg);
 
 struct uv_handle_s {
@@ -338,6 +340,7 @@ struct uv_loop_s {
     uv_work_t *work_queue;
     uv_fs_t *fs_queue;
     uv_getaddrinfo_t *getaddrinfo_queue;
+    uv_random_t *random_queue;
     pthread_mutex_t queue_mutex;
     void *data;
     uint64_t now_ms;
@@ -487,6 +490,9 @@ struct uv_fs_s {
     int flags;
     int mode;
     int64_t offset;
+    int64_t length;
+    double atime;
+    double mtime;
     uv_dirent_t *dirents;
     size_t dirent_count;
     size_t dirent_index;
@@ -517,6 +523,17 @@ struct uv_getaddrinfo_s {
     struct addrinfo *result;
     int status;
     uv_getaddrinfo_t *next;
+};
+
+struct uv_random_s {
+    void *data;
+    int type;
+    uv_loop_t *loop;
+    uv_random_cb cb;
+    void *buffer;
+    size_t buffer_length;
+    int status;
+    uv_random_t *next;
 };
 
 typedef struct {
@@ -584,6 +601,18 @@ uv_req_type uv_req_get_type(const uv_req_t *request);
 void *uv_req_get_data(const uv_req_t *request);
 void uv_req_set_data(uv_req_t *request, void *data);
 int uv_cancel(uv_req_t *request);
+uint64_t uv_hrtime(void);
+uv_pid_t uv_os_getpid(void);
+uv_pid_t uv_os_getppid(void);
+int uv_os_getenv(const char *name, char *buffer, size_t *size);
+int uv_os_setenv(const char *name, const char *value);
+int uv_os_unsetenv(const char *name);
+int uv_exepath(char *buffer, size_t *size);
+int uv_cwd(char *buffer, size_t *size);
+int uv_chdir(const char *dir);
+uint64_t uv_get_free_memory(void);
+uint64_t uv_get_total_memory(void);
+int uv_random(uv_loop_t *loop, uv_random_t *request, void *buffer, size_t buffer_length, unsigned int flags, uv_random_cb cb);
 
 uv_buf_t uv_buf_init(char *base, unsigned int length);
 
@@ -743,6 +772,18 @@ int uv_fs_write(uv_loop_t *loop,
     unsigned int buffer_count,
     int64_t offset,
     uv_fs_cb cb);
+int uv_fs_fsync(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb);
+int uv_fs_fdatasync(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb);
+int uv_fs_ftruncate(uv_loop_t *loop, uv_fs_t *request, uv_file fd, int64_t offset, uv_fs_cb cb);
+int uv_fs_sendfile(uv_loop_t *loop,
+    uv_fs_t *request,
+    uv_file out_fd,
+    uv_file in_fd,
+    int64_t in_offset,
+    size_t length,
+    uv_fs_cb cb);
+int uv_fs_utime(uv_loop_t *loop, uv_fs_t *request, const char *path, double atime, double mtime, uv_fs_cb cb);
+int uv_fs_futime(uv_loop_t *loop, uv_fs_t *request, uv_file fd, double atime, double mtime, uv_fs_cb cb);
 int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb);
 int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
 int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb);
