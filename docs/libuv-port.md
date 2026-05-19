@@ -22,8 +22,10 @@ backend.
 - Core API parity now includes loop close/data helpers, backend timeout/fd
   stubs, handle type/name/size/data/active/closing helpers, request
   type/name/size/data helpers, and `uv_timer_get_due_in`.
-- Event loop init, run, stop, alive, and monotonic time refresh.
-- Timers with one-shot and repeating dispatch.
+- Event loop init, run, stop, alive, monotonic time refresh, and the first
+  prepare/check/idle phase handles.
+- Timers with one-shot and repeating dispatch, repeat setters/getters,
+  `uv_timer_again`, and due-in reporting.
 - Synchronous filesystem request helpers for open, close, read, write, mkdir,
   rmdir, rename, unlink, and stat.
 - TCP listener, accept, connect, read, write, and close entry points over the
@@ -35,12 +37,15 @@ backend.
 - `uv_async_t` pending notification dispatch inside the loop.
 - `uv_queue_work` backed by srvros pthreads, with completion pumped by
   `uv_run`.
+- `uv_getaddrinfo` and `uv_freeaddrinfo` over the srvros POSIX resolver, with
+  callbacks queued through the loop instead of invoked synchronously.
 
 `/fat/bin/uvdemo` remains the broad behavioral coverage app, including UDP,
 multi-client host-forwarded TCP, and guest-outbound TCP connect/write/read
 against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
-intentionally focuses on the subset we need to preserve while incrementally
-replacing adapter internals with upstream code.
+now covers the core object helpers, loop phases, timers, filesystem requests,
+async/work callbacks, poll callbacks, and resolver callbacks that need to stay
+stable while incrementally replacing adapter internals with upstream code.
 
 ## Replacement Strategy
 

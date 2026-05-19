@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -91,11 +92,15 @@ typedef enum {
 
 #define UV_READABLE 1
 #define UV_WRITABLE 2
+#define UV_DISCONNECT 4
 
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv_handle_s uv_handle_t;
 typedef struct uv_req_s uv_req_t;
 typedef struct uv_timer_s uv_timer_t;
+typedef struct uv_prepare_s uv_prepare_t;
+typedef struct uv_check_s uv_check_t;
+typedef struct uv_idle_s uv_idle_t;
 typedef struct uv_stream_s uv_stream_t;
 typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_udp_s uv_udp_t;
@@ -106,6 +111,7 @@ typedef struct uv_write_s uv_write_t;
 typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
+typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 
 typedef enum {
     UV_UNKNOWN_HANDLE = 0,
@@ -159,6 +165,9 @@ typedef void (*uv_alloc_cb)(uv_handle_t *handle, size_t suggested_size, uv_buf_t
 typedef void (*uv_read_cb)(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer);
 typedef void (*uv_poll_cb)(uv_poll_t *handle, int status, int events);
 typedef void (*uv_async_cb)(uv_async_t *handle);
+typedef void (*uv_prepare_cb)(uv_prepare_t *handle);
+typedef void (*uv_check_cb)(uv_check_t *handle);
+typedef void (*uv_idle_cb)(uv_idle_t *handle);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -168,6 +177,7 @@ typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
 typedef void (*uv_fs_cb)(uv_fs_t *request);
 typedef void (*uv_work_cb)(uv_work_t *request);
 typedef void (*uv_after_work_cb)(uv_work_t *request, int status);
+typedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t *request, int status, struct addrinfo *result);
 
 struct uv_handle_s {
     uv_loop_t *loop;
@@ -183,6 +193,7 @@ struct uv_handle_s {
 struct uv_loop_s {
     uv_handle_t *handles;
     uv_work_t *work_queue;
+    uv_getaddrinfo_t *getaddrinfo_queue;
     void *data;
     uint64_t now_ms;
     int stop_flag;
@@ -198,6 +209,21 @@ struct uv_timer_s {
     uv_timer_cb timer_cb;
     uint64_t timeout_ms;
     uint64_t repeat_ms;
+};
+
+struct uv_prepare_s {
+    uv_handle_t handle;
+    uv_prepare_cb prepare_cb;
+};
+
+struct uv_check_s {
+    uv_handle_t handle;
+    uv_check_cb check_cb;
+};
+
+struct uv_idle_s {
+    uv_handle_t handle;
+    uv_idle_cb idle_cb;
 };
 
 struct uv_tcp_s {
@@ -226,6 +252,7 @@ struct uv_poll_s {
     uv_handle_t handle;
     uv_poll_cb poll_cb;
     int events;
+    int dispatching;
 };
 
 struct uv_async_s {
@@ -278,6 +305,16 @@ struct uv_work_s {
     uv_work_t *next;
 };
 
+struct uv_getaddrinfo_s {
+    void *data;
+    int type;
+    uv_loop_t *loop;
+    uv_getaddrinfo_cb cb;
+    struct addrinfo *result;
+    int status;
+    uv_getaddrinfo_t *next;
+};
+
 uv_loop_t *uv_default_loop(void);
 unsigned int uv_version(void);
 const char *uv_version_string(void);
@@ -321,6 +358,16 @@ void uv_timer_set_repeat(uv_timer_t *handle, uint64_t repeat);
 uint64_t uv_timer_get_repeat(const uv_timer_t *handle);
 uint64_t uv_timer_get_due_in(const uv_timer_t *handle);
 
+int uv_prepare_init(uv_loop_t *loop, uv_prepare_t *handle);
+int uv_prepare_start(uv_prepare_t *handle, uv_prepare_cb cb);
+int uv_prepare_stop(uv_prepare_t *handle);
+int uv_check_init(uv_loop_t *loop, uv_check_t *handle);
+int uv_check_start(uv_check_t *handle, uv_check_cb cb);
+int uv_check_stop(uv_check_t *handle);
+int uv_idle_init(uv_loop_t *loop, uv_idle_t *handle);
+int uv_idle_start(uv_idle_t *handle, uv_idle_cb cb);
+int uv_idle_stop(uv_idle_t *handle);
+
 int uv_tcp_init(uv_loop_t *loop, uv_tcp_t *handle);
 int uv_tcp_bind(uv_tcp_t *handle, const struct sockaddr *addr, unsigned int flags);
 int uv_listen(uv_tcp_t *stream, int backlog, uv_connection_cb cb);
@@ -357,6 +404,14 @@ int uv_udp_send(uv_udp_send_t *request,
     unsigned int buffer_count,
     const struct sockaddr *addr,
     uv_udp_send_cb cb);
+
+int uv_getaddrinfo(uv_loop_t *loop,
+    uv_getaddrinfo_t *request,
+    uv_getaddrinfo_cb cb,
+    const char *node,
+    const char *service,
+    const struct addrinfo *hints);
+void uv_freeaddrinfo(struct addrinfo *ai);
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb);
 int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr);

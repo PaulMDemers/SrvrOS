@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <poll.h>
 #include <pthread.h>
@@ -18,6 +19,9 @@
 #define UV_HANDLE_UDP UV_UDP
 #define UV_HANDLE_POLL UV_POLL
 #define UV_HANDLE_ASYNC UV_ASYNC
+#define UV_HANDLE_PREPARE UV_PREPARE
+#define UV_HANDLE_CHECK UV_CHECK
+#define UV_HANDLE_IDLE UV_IDLE
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
@@ -149,6 +153,9 @@ int uv_loop_alive(const uv_loop_t *loop) {
     for (uv_work_t *work = loop->work_queue; work != 0; work = work->next) {
         return 1;
     }
+    if (loop->getaddrinfo_queue != 0) {
+        return 1;
+    }
     return 0;
 }
 
@@ -165,6 +172,12 @@ size_t uv_handle_size(uv_handle_type type) {
             return sizeof(uv_async_t);
         case UV_POLL:
             return sizeof(uv_poll_t);
+        case UV_PREPARE:
+            return sizeof(uv_prepare_t);
+        case UV_CHECK:
+            return sizeof(uv_check_t);
+        case UV_IDLE:
+            return sizeof(uv_idle_t);
         case UV_TCP:
             return sizeof(uv_tcp_t);
         case UV_TIMER:
@@ -182,6 +195,12 @@ const char *uv_handle_type_name(uv_handle_type type) {
             return "async";
         case UV_POLL:
             return "poll";
+        case UV_PREPARE:
+            return "prepare";
+        case UV_CHECK:
+            return "check";
+        case UV_IDLE:
+            return "idle";
         case UV_TCP:
             return "tcp";
         case UV_TIMER:
@@ -248,6 +267,8 @@ size_t uv_req_size(uv_req_type type) {
             return sizeof(uv_fs_t);
         case UV_WORK:
             return sizeof(uv_work_t);
+        case UV_GETADDRINFO:
+            return sizeof(uv_getaddrinfo_t);
         default:
             return (size_t)-1;
     }
@@ -265,6 +286,8 @@ const char *uv_req_type_name(uv_req_type type) {
             return "fs";
         case UV_WORK:
             return "work";
+        case UV_GETADDRINFO:
+            return "getaddrinfo";
         default:
             return 0;
     }
@@ -343,6 +366,84 @@ uint64_t uv_timer_get_due_in(const uv_timer_t *handle) {
     return handle->timeout_ms - loop->now_ms;
 }
 
+int uv_prepare_init(uv_loop_t *loop, uv_prepare_t *handle) {
+    if (loop == 0 || handle == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_PREPARE);
+    return 0;
+}
+
+int uv_prepare_start(uv_prepare_t *handle, uv_prepare_cb cb) {
+    if (handle == 0 || cb == 0) {
+        return -EINVAL;
+    }
+    handle->prepare_cb = cb;
+    handle->handle.active = 1;
+    return 0;
+}
+
+int uv_prepare_stop(uv_prepare_t *handle) {
+    if (handle == 0) {
+        return -EINVAL;
+    }
+    handle->handle.active = 0;
+    return 0;
+}
+
+int uv_check_init(uv_loop_t *loop, uv_check_t *handle) {
+    if (loop == 0 || handle == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_CHECK);
+    return 0;
+}
+
+int uv_check_start(uv_check_t *handle, uv_check_cb cb) {
+    if (handle == 0 || cb == 0) {
+        return -EINVAL;
+    }
+    handle->check_cb = cb;
+    handle->handle.active = 1;
+    return 0;
+}
+
+int uv_check_stop(uv_check_t *handle) {
+    if (handle == 0) {
+        return -EINVAL;
+    }
+    handle->handle.active = 0;
+    return 0;
+}
+
+int uv_idle_init(uv_loop_t *loop, uv_idle_t *handle) {
+    if (loop == 0 || handle == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_IDLE);
+    return 0;
+}
+
+int uv_idle_start(uv_idle_t *handle, uv_idle_cb cb) {
+    if (handle == 0 || cb == 0) {
+        return -EINVAL;
+    }
+    handle->idle_cb = cb;
+    handle->handle.active = 1;
+    return 0;
+}
+
+int uv_idle_stop(uv_idle_t *handle) {
+    if (handle == 0) {
+        return -EINVAL;
+    }
+    handle->handle.active = 0;
+    return 0;
+}
+
 static int next_timer_timeout(const uv_loop_t *loop) {
     uint64_t best = UINT64_MAX;
     for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
@@ -382,6 +483,42 @@ static void run_due_timers(uv_loop_t *loop) {
     }
 }
 
+static void run_idle_handles(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_idle_t *idle = (uv_idle_t *)base;
+        if (base->type == UV_HANDLE_IDLE && base->active && !base->closing && idle->idle_cb != 0) {
+            idle->idle_cb(idle);
+        }
+    }
+}
+
+static void run_prepare_handles(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_prepare_t *prepare = (uv_prepare_t *)base;
+        if (base->type == UV_HANDLE_PREPARE && base->active && !base->closing && prepare->prepare_cb != 0) {
+            prepare->prepare_cb(prepare);
+        }
+    }
+}
+
+static void run_check_handles(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_check_t *check = (uv_check_t *)base;
+        if (base->type == UV_HANDLE_CHECK && base->active && !base->closing && check->check_cb != 0) {
+            check->check_cb(check);
+        }
+    }
+}
+
+static int has_active_idle(const uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        if (base->type == UV_HANDLE_IDLE && base->active && !base->closing) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void run_pending_async(uv_loop_t *loop) {
     for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
         uv_async_t *async = (uv_async_t *)base;
@@ -407,6 +544,19 @@ static void run_done_work(uv_loop_t *loop) {
         if (work->after_work_cb != 0) {
             work->after_work_cb(work, work->status);
         }
+    }
+}
+
+static void run_done_getaddrinfo(uv_loop_t *loop) {
+    uv_getaddrinfo_t *request = loop->getaddrinfo_queue;
+    loop->getaddrinfo_queue = 0;
+    while (request != 0) {
+        uv_getaddrinfo_t *next = request->next;
+        request->next = 0;
+        if (request->cb != 0) {
+            request->cb(request, request->status, request->status == 0 ? request->result : 0);
+        }
+        request = next;
     }
 }
 
@@ -555,6 +705,9 @@ static int uv_events_from_poll(short revents) {
     if ((revents & (POLLOUT | POLLERR)) != 0) {
         events |= UV_WRITABLE;
     }
+    if ((revents & (POLLHUP | POLLNVAL)) != 0) {
+        events |= UV_DISCONNECT;
+    }
     return events;
 }
 
@@ -608,12 +761,20 @@ static void dispatch_readable(uv_handle_t *handle) {
 }
 
 static void dispatch_poll(uv_handle_t *handle, short revents) {
-    if (handle->type != UV_HANDLE_POLL) {
+    int status = 0;
+    if (handle == 0 || handle->type != UV_HANDLE_POLL || handle->closing || handle->fd < 0) {
         return;
     }
     uv_poll_t *poll_handle = (uv_poll_t *)handle;
-    if (poll_handle->poll_cb != 0) {
-        poll_handle->poll_cb(poll_handle, 0, uv_events_from_poll(revents));
+    if (poll_handle->poll_cb != 0 && !poll_handle->dispatching) {
+        if ((revents & POLLNVAL) != 0) {
+            status = UV_EBADF;
+        } else if ((revents & POLLERR) != 0 && (revents & (POLLIN | POLLOUT | POLLHUP)) == 0) {
+            status = UV_EIO;
+        }
+        poll_handle->dispatching = 1;
+        poll_handle->poll_cb(poll_handle, status, uv_events_from_poll(revents));
+        poll_handle->dispatching = 0;
     }
 }
 
@@ -647,11 +808,20 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_done_getaddrinfo(loop);
+    if (loop->stop_flag || !uv_loop_alive(loop)) {
+        return 0;
+    }
+    run_idle_handles(loop);
+    run_prepare_handles(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
         return 0;
     }
 
     timeout = mode == UV_RUN_NOWAIT ? 0 : next_timer_timeout(loop);
+    if (has_active_idle(loop)) {
+        timeout = 0;
+    }
     if (has_active_tcp_reader(loop) && (timeout < 0 || timeout > 20)) {
         timeout = 20;
     }
@@ -692,11 +862,13 @@ static int run_once(uv_loop_t *loop, int mode) {
         }
     }
     dispatch_active_tcp_reads(loop);
+    run_check_handles(loop);
 
     uv_update_time(loop);
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_done_getaddrinfo(loop);
     return uv_loop_alive(loop) ? 1 : 0;
 }
 
@@ -867,7 +1039,8 @@ int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd) {
 }
 
 int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb) {
-    if (handle == 0 || cb == 0 || (events & ~(UV_READABLE | UV_WRITABLE)) != 0) {
+    if (handle == 0 || cb == 0 || handle->handle.closing ||
+        (events & ~(UV_READABLE | UV_WRITABLE | UV_DISCONNECT)) != 0) {
         return -EINVAL;
     }
     handle->events = events;
@@ -1003,6 +1176,57 @@ int uv_udp_send(uv_udp_send_t *request,
         cb(request, status);
     }
     return status;
+}
+
+static int uv_gai_status(int status) {
+    if (status == 0) {
+        return 0;
+    }
+    switch (status) {
+        case EAI_FAIL:
+            return UV_EAI_FAIL;
+        case EAI_MEMORY:
+            return UV_EAI_MEMORY;
+        case EAI_NONAME:
+            return UV_EAI_NONAME;
+        case EAI_SERVICE:
+            return UV_EAI_SERVICE;
+        default:
+            return UV_EAI_FAIL;
+    }
+}
+
+int uv_getaddrinfo(uv_loop_t *loop,
+    uv_getaddrinfo_t *request,
+    uv_getaddrinfo_cb cb,
+    const char *node,
+    const char *service,
+    const struct addrinfo *hints) {
+    struct addrinfo *result = 0;
+    int status;
+    if (loop == 0 || request == 0) {
+        return UV_EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->type = UV_GETADDRINFO;
+    request->loop = loop;
+    request->cb = cb;
+    status = uv_gai_status(getaddrinfo(node, service, hints, &result));
+    request->status = status;
+    request->result = status == 0 ? result : 0;
+    if (status != 0 && result != 0) {
+        freeaddrinfo(result);
+    }
+    if (cb == 0) {
+        return status;
+    }
+    request->next = loop->getaddrinfo_queue;
+    loop->getaddrinfo_queue = request;
+    return 0;
+}
+
+void uv_freeaddrinfo(struct addrinfo *ai) {
+    freeaddrinfo(ai);
 }
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {

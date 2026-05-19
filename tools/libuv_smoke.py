@@ -117,10 +117,12 @@ def main():
         "libuvdemo: errors ok",
         "libuvdemo: core api ok",
         "libuvdemo: timer ok",
+        "libuvdemo: phases ok",
         "libuvdemo: fs ok",
         "libuvdemo: async ok",
         "libuvdemo: work ok",
         "libuvdemo: poll ok",
+        "libuvdemo: getaddrinfo ok",
         "libuvdemo: ok",
     ]
     missing = [marker for marker in expected if marker not in text]

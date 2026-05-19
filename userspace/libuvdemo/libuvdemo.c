@@ -1,5 +1,8 @@
 #include <errno.h>
+#include <arpa/inet.h>
 #include <fcntl.h>
+#include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -79,9 +82,17 @@ static int core_api_test(void) {
         uv_handle_get_loop((uv_handle_t *)&timer) != &loop ||
         uv_handle_get_type((uv_handle_t *)&timer) != UV_TIMER ||
         strcmp(uv_handle_type_name(UV_TIMER), "timer") != 0 ||
+        strcmp(uv_handle_type_name(UV_PREPARE), "prepare") != 0 ||
+        strcmp(uv_handle_type_name(UV_CHECK), "check") != 0 ||
+        strcmp(uv_handle_type_name(UV_IDLE), "idle") != 0 ||
         uv_handle_size(UV_TIMER) != sizeof(uv_timer_t) ||
+        uv_handle_size(UV_PREPARE) != sizeof(uv_prepare_t) ||
+        uv_handle_size(UV_CHECK) != sizeof(uv_check_t) ||
+        uv_handle_size(UV_IDLE) != sizeof(uv_idle_t) ||
         uv_req_size(UV_FS) != sizeof(uv_fs_t) ||
+        uv_req_size(UV_GETADDRINFO) != sizeof(uv_getaddrinfo_t) ||
         strcmp(uv_req_type_name(UV_FS), "fs") != 0 ||
+        strcmp(uv_req_type_name(UV_GETADDRINFO), "getaddrinfo") != 0 ||
         uv_backend_fd(&loop) != UV_ENOSYS ||
         uv_is_active((uv_handle_t *)&timer) ||
         uv_is_closing((uv_handle_t *)&timer)) {
@@ -143,6 +154,62 @@ static int timer_test(void) {
         return 1;
     }
     puts("libuvdemo: timer ok");
+    return 0;
+}
+
+static uv_loop_t phase_loop;
+static uv_prepare_t phase_prepare;
+static uv_check_t phase_check;
+static uv_idle_t phase_idle;
+static int phase_prepare_seen;
+static int phase_check_seen;
+static int phase_idle_seen;
+
+static void phase_idle_cb(uv_idle_t *handle) {
+    phase_idle_seen++;
+    if (phase_idle_seen >= 2) {
+        uv_idle_stop(handle);
+    }
+}
+
+static void phase_prepare_cb(uv_prepare_t *handle) {
+    phase_prepare_seen++;
+    if (phase_prepare_seen >= 2) {
+        uv_prepare_stop(handle);
+    }
+}
+
+static void phase_check_cb(uv_check_t *handle) {
+    phase_check_seen++;
+    if (phase_check_seen >= 2) {
+        uv_check_stop(handle);
+        uv_stop(&phase_loop);
+    }
+}
+
+static int phase_test(void) {
+    phase_prepare_seen = 0;
+    phase_check_seen = 0;
+    phase_idle_seen = 0;
+    if (uv_loop_init(&phase_loop) < 0 ||
+        uv_prepare_init(&phase_loop, &phase_prepare) < 0 ||
+        uv_check_init(&phase_loop, &phase_check) < 0 ||
+        uv_idle_init(&phase_loop, &phase_idle) < 0 ||
+        uv_prepare_start(&phase_prepare, phase_prepare_cb) < 0 ||
+        uv_check_start(&phase_check, phase_check_cb) < 0 ||
+        uv_idle_start(&phase_idle, phase_idle_cb) < 0) {
+        puts("libuvdemo: phase setup failed");
+        return 1;
+    }
+    (void)uv_run(&phase_loop, UV_RUN_DEFAULT);
+    if (phase_prepare_seen < 2 || phase_check_seen < 2 || phase_idle_seen < 2 ||
+        uv_is_active((uv_handle_t *)&phase_prepare) ||
+        uv_is_active((uv_handle_t *)&phase_check) ||
+        uv_is_active((uv_handle_t *)&phase_idle)) {
+        puts("libuvdemo: phase failed");
+        return 1;
+    }
+    puts("libuvdemo: phases ok");
     return 0;
 }
 
@@ -305,15 +372,61 @@ static int poll_test(void) {
     return 0;
 }
 
+static uv_loop_t gai_loop;
+static int gai_seen;
+static int gai_failed;
+
+static void gai_cb(uv_getaddrinfo_t *request, int status, struct addrinfo *result) {
+    struct sockaddr_in *addr;
+    if (uv_req_get_type((uv_req_t *)request) != UV_GETADDRINFO ||
+        status != 0 || result == 0 || result->ai_addr == 0) {
+        gai_failed = 1;
+    } else {
+        addr = (struct sockaddr_in *)result->ai_addr;
+        gai_seen = result->ai_family == AF_INET &&
+            result->ai_socktype == SOCK_STREAM &&
+            ntohs(addr->sin_port) == 80;
+    }
+    uv_freeaddrinfo(result);
+    uv_stop(&gai_loop);
+}
+
+static int getaddrinfo_test(void) {
+    uv_getaddrinfo_t request;
+    struct addrinfo hints;
+    gai_seen = 0;
+    gai_failed = 0;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_STREAM;
+    if (uv_loop_init(&gai_loop) < 0 ||
+        uv_getaddrinfo(&gai_loop, &request, gai_cb, "10.0.2.15", "80", &hints) < 0) {
+        puts("libuvdemo: getaddrinfo setup failed");
+        return 1;
+    }
+    if (uv_req_get_data((uv_req_t *)&request) != 0) {
+        puts("libuvdemo: getaddrinfo request data failed");
+        return 1;
+    }
+    (void)uv_run(&gai_loop, UV_RUN_DEFAULT);
+    if (gai_failed || !gai_seen) {
+        puts("libuvdemo: getaddrinfo failed");
+        return 1;
+    }
+    puts("libuvdemo: getaddrinfo ok");
+    return 0;
+}
+
 int main(void) {
     puts("libuvdemo: srvros libuv port staging");
     if (version_test() != 0 ||
         error_test() != 0 ||
         core_api_test() != 0 ||
         timer_test() != 0 ||
+        phase_test() != 0 ||
         fs_test() != 0 ||
         work_test() != 0 ||
-        poll_test() != 0) {
+        poll_test() != 0 ||
+        getaddrinfo_test() != 0) {
         puts("libuvdemo: failed");
         return 1;
     }

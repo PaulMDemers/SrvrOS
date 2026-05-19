@@ -209,6 +209,9 @@ active/closing checks, and timer due-in reporting.
 TCP stream parity now includes writable-readiness connect completion, deferred
 write queues with copied buffers, queued-byte reporting, and close-from-callback
 guards so accepted streams can be closed without stale poll-snapshot reads.
+Loop parity now includes prepare/check/idle phase handles, poll
+disconnect/error mapping with close/restart guards, richer timer repeat helpers,
+and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

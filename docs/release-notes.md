@@ -48,6 +48,9 @@ server.
   completion, deferred queued writes, pending write-byte accounting, an
   outbound guest-to-host TCP smoke path, and close-from-callback guards for
   poll snapshots.
+- Adds more libuv loop parity with prepare/check/idle phase handles, poll
+  disconnect/error mapping, timer repeat helpers, and queued `uv_getaddrinfo`
+  callbacks over the srvros resolver.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client
