@@ -221,6 +221,21 @@ int uv_is_closing(const uv_handle_t *handle) {
     return handle != 0 && handle->closing;
 }
 
+int uv_is_readable(const uv_stream_t *stream) {
+    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
+}
+
+int uv_is_writable(const uv_stream_t *stream) {
+    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
+}
+
+size_t uv_stream_get_write_queue_size(const uv_stream_t *stream) {
+    const uv_tcp_t *tcp = (const uv_tcp_t *)stream;
+    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP ? tcp->write_queue_size : 0;
+}
+
 size_t uv_req_size(uv_req_type type) {
     switch (type) {
         case UV_CONNECT:
@@ -401,7 +416,14 @@ static short poll_events_for_handle(uv_handle_t *handle) {
     }
     if (handle->type == UV_HANDLE_TCP) {
         uv_tcp_t *tcp = (uv_tcp_t *)handle;
-        return tcp->connection_cb != 0 || tcp->read_cb != 0 ? POLLIN : 0;
+        short events = 0;
+        if (tcp->connection_cb != 0 || tcp->read_cb != 0) {
+            events |= POLLIN;
+        }
+        if (tcp->connect_req != 0 || tcp->write_queue_head != 0) {
+            events |= POLLOUT;
+        }
+        return events;
     }
     if (handle->type == UV_HANDLE_UDP) {
         uv_udp_t *udp = (uv_udp_t *)handle;
@@ -421,6 +443,110 @@ static short poll_events_for_handle(uv_handle_t *handle) {
     return 0;
 }
 
+static int socket_pending_error(int error) {
+    return error == EINPROGRESS || error == EALREADY || error == EAGAIN || error == EWOULDBLOCK;
+}
+
+static int tcp_socket_error(uv_tcp_t *tcp) {
+    int error = 0;
+    socklen_t length = sizeof(error);
+    if (tcp == 0 || tcp->handle.fd < 0) {
+        return EBADF;
+    }
+    if (getsockopt(tcp->handle.fd, SOL_SOCKET, SO_ERROR, &error, &length) < 0) {
+        return errno;
+    }
+    return error;
+}
+
+static void update_tcp_active(uv_tcp_t *tcp) {
+    if (tcp == 0 || tcp->handle.closing) {
+        return;
+    }
+    tcp->handle.active = tcp->connection_cb != 0 ||
+        tcp->read_cb != 0 ||
+        tcp->connect_req != 0 ||
+        tcp->write_queue_head != 0;
+}
+
+static void dispatch_tcp_connect(uv_tcp_t *tcp) {
+    uv_connect_t *request;
+    uv_connect_cb cb;
+    int error;
+    if (tcp == 0 || tcp->connect_req == 0) {
+        return;
+    }
+    error = tcp_socket_error(tcp);
+    if (socket_pending_error(error)) {
+        return;
+    }
+    request = tcp->connect_req;
+    cb = tcp->connect_cb;
+    tcp->connect_req = 0;
+    tcp->connect_cb = 0;
+    update_tcp_active(tcp);
+    if (cb != 0) {
+        cb(request, error == 0 ? 0 : uv_translate_sys_error(error));
+    }
+}
+
+static void dispatch_tcp_writes(uv_tcp_t *tcp) {
+    while (tcp != 0 && tcp->write_queue_head != 0) {
+        uv_write_t *request = tcp->write_queue_head;
+        int status = 0;
+        while (request->offset < request->length) {
+            ssize_t written = send(tcp->handle.fd,
+                request->buffer + request->offset,
+                request->length - request->offset,
+                MSG_DONTWAIT);
+            if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                update_tcp_active(tcp);
+                return;
+            }
+            if (written < 0) {
+                status = uv_error_from_errno();
+                break;
+            }
+            if (written == 0) {
+                update_tcp_active(tcp);
+                return;
+            }
+            request->offset += (size_t)written;
+            tcp->write_queue_size -= (size_t)written;
+        }
+        tcp->write_queue_head = request->next;
+        if (tcp->write_queue_head == 0) {
+            tcp->write_queue_tail = 0;
+        }
+        request->next = 0;
+        if (status < 0 && tcp->write_queue_size >= request->length - request->offset) {
+            tcp->write_queue_size -= request->length - request->offset;
+        }
+        free(request->buffer);
+        request->buffer = 0;
+        request->length = 0;
+        request->offset = 0;
+        if (request->write_cb != 0) {
+            request->write_cb(request, status);
+        }
+        if (status < 0) {
+            break;
+        }
+    }
+    update_tcp_active(tcp);
+}
+
+static void dispatch_writable(uv_handle_t *handle) {
+    if (handle == 0 || handle->fd < 0 || handle->closing) {
+        return;
+    }
+    if (handle->type == UV_HANDLE_TCP) {
+        uv_tcp_t *tcp = (uv_tcp_t *)handle;
+        dispatch_tcp_connect(tcp);
+        dispatch_tcp_writes(tcp);
+    }
+}
+
 static int uv_events_from_poll(short revents) {
     int events = 0;
     if ((revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
@@ -433,6 +559,9 @@ static int uv_events_from_poll(short revents) {
 }
 
 static void dispatch_readable(uv_handle_t *handle) {
+    if (handle == 0 || handle->fd < 0 || handle->closing) {
+        return;
+    }
     if (handle->type == UV_HANDLE_TCP) {
         uv_tcp_t *tcp = (uv_tcp_t *)handle;
         if (tcp->connection_cb != 0) {
@@ -552,8 +681,13 @@ static int run_once(uv_loop_t *loop, int mode) {
         for (nfds_t i = 0; i < count; i++) {
             if (handles[i]->type == UV_HANDLE_POLL && fds[i].revents != 0) {
                 dispatch_poll(handles[i], fds[i].revents);
-            } else if ((fds[i].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
-                dispatch_readable(handles[i]);
+            } else {
+                if ((fds[i].revents & (POLLOUT | POLLERR)) != 0) {
+                    dispatch_writable(handles[i]);
+                }
+                if ((fds[i].revents & (POLLIN | POLLHUP | POLLERR)) != 0) {
+                    dispatch_readable(handles[i]);
+                }
             }
         }
     }
@@ -635,16 +769,24 @@ int uv_tcp_connect(uv_connect_t *request,
     uv_tcp_t *handle,
     const struct sockaddr *addr,
     uv_connect_cb cb) {
+    int status;
     if (request == 0 || handle == 0 || addr == 0) {
         return -EINVAL;
     }
+    if (handle->connect_req != 0) {
+        return UV_EALREADY;
+    }
     request->type = UV_CONNECT;
     request->handle = handle;
-    int status = connect(handle->handle.fd, addr, sizeof(struct sockaddr_in)) < 0 ? uv_error_from_errno() : 0;
-    if (cb != 0) {
-        cb(request, status);
+    set_nonblocking(handle->handle.fd);
+    status = connect(handle->handle.fd, addr, sizeof(struct sockaddr_in)) < 0 ? uv_error_from_errno() : 0;
+    if (status < 0 && status != uv_translate_sys_error(EINPROGRESS) && status != UV_EALREADY && status != UV_EAGAIN) {
+        return status;
     }
-    return status;
+    handle->connect_req = request;
+    handle->connect_cb = cb;
+    handle->handle.active = 1;
+    return 0;
 }
 
 int uv_read_start(uv_tcp_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
@@ -664,7 +806,7 @@ int uv_read_stop(uv_tcp_t *stream) {
     }
     stream->read_cb = 0;
     stream->alloc_cb = 0;
-    stream->handle.active = stream->connection_cb != 0;
+    update_tcp_active(stream);
     return 0;
 }
 
@@ -673,27 +815,42 @@ int uv_write(uv_write_t *request,
     const uv_buf_t buffers[],
     unsigned int buffer_count,
     uv_write_cb cb) {
+    size_t total = 0;
+    size_t cursor = 0;
     if (request == 0 || handle == 0 || buffers == 0) {
         return -EINVAL;
     }
+    if (handle->handle.fd < 0 || handle->handle.closing) {
+        return UV_EBADF;
+    }
+    for (unsigned int i = 0; i < buffer_count; i++) {
+        total += buffers[i].len;
+    }
     request->type = UV_WRITE;
     request->handle = handle;
-    int status = 0;
+    request->write_cb = cb;
+    request->length = total;
+    request->offset = 0;
+    request->next = 0;
+    request->buffer = total == 0 ? 0 : malloc(total);
+    if (total != 0 && request->buffer == 0) {
+        return UV_ENOMEM;
+    }
     for (unsigned int i = 0; i < buffer_count; i++) {
-        size_t offset = 0;
-        while (offset < buffers[i].len) {
-            ssize_t written = send(handle->handle.fd, buffers[i].base + offset, buffers[i].len - offset, 0);
-            if (written < 0) {
-                status = uv_error_from_errno();
-                break;
-            }
-            offset += (size_t)written;
+        if (buffers[i].len != 0) {
+            memcpy(request->buffer + cursor, buffers[i].base, buffers[i].len);
+            cursor += buffers[i].len;
         }
     }
-    if (cb != 0) {
-        cb(request, status);
+    if (handle->write_queue_tail != 0) {
+        handle->write_queue_tail->next = request;
+    } else {
+        handle->write_queue_head = request;
     }
-    return status;
+    handle->write_queue_tail = request;
+    handle->write_queue_size += total;
+    handle->handle.active = 1;
+    return 0;
 }
 
 int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd) {
@@ -851,6 +1008,20 @@ int uv_udp_send(uv_udp_send_t *request,
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
     if (handle == 0 || handle->closing) {
         return;
+    }
+    if (handle->type == UV_HANDLE_TCP) {
+        uv_tcp_t *tcp = (uv_tcp_t *)handle;
+        while (tcp->write_queue_head != 0) {
+            uv_write_t *request = tcp->write_queue_head;
+            tcp->write_queue_head = request->next;
+            free(request->buffer);
+            request->buffer = 0;
+            request->next = 0;
+        }
+        tcp->write_queue_tail = 0;
+        tcp->write_queue_size = 0;
+        tcp->connect_req = 0;
+        tcp->connect_cb = 0;
     }
     handle->active = 0;
     handle->closing = 1;

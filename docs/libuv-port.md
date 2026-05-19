@@ -27,17 +27,20 @@ backend.
 - Synchronous filesystem request helpers for open, close, read, write, mkdir,
   rmdir, rename, unlink, and stat.
 - TCP listener, accept, connect, read, write, and close entry points over the
-  srvros socket fd layer.
+  srvros socket fd layer. Connect completion and queued writes are now driven
+  from writable readiness instead of synchronous callbacks, and the stream
+  helpers report readability, writability, and pending write-queue bytes.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_async_t` pending notification dispatch inside the loop.
 - `uv_queue_work` backed by srvros pthreads, with completion pumped by
   `uv_run`.
 
-`/fat/bin/uvdemo` remains the broad behavioral coverage app, including UDP and
-multi-client host-forwarded TCP. `/fat/bin/libuvdemo` is the upstream staging
-harness and intentionally focuses on the subset we need to preserve while
-incrementally replacing adapter internals with upstream code.
+`/fat/bin/uvdemo` remains the broad behavioral coverage app, including UDP,
+multi-client host-forwarded TCP, and guest-outbound TCP connect/write/read
+against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
+intentionally focuses on the subset we need to preserve while incrementally
+replacing adapter internals with upstream code.
 
 ## Replacement Strategy
 

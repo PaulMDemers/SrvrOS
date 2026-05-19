@@ -7,6 +7,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 
 
@@ -70,6 +71,42 @@ def tcp_request(port, payload, timeout):
     raise RuntimeError(f"tcp request failed: {last_error}")
 
 
+def serve_guest_tcp(port, timeout):
+    result = {"payload": b"", "error": None}
+    ready = threading.Event()
+
+    def worker():
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server:
+                server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                server.bind(("0.0.0.0", port))
+                server.listen(1)
+                server.settimeout(timeout)
+                ready.set()
+                conn, _addr = server.accept()
+                with conn:
+                    conn.settimeout(timeout)
+                    chunks = []
+                    while True:
+                        chunk = conn.recv(4096)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                        if b"from-guest" in b"".join(chunks):
+                            break
+                    result["payload"] = b"".join(chunks)
+                    conn.sendall(b"uv-client-ok:" + result["payload"])
+        except Exception as exc:
+            result["error"] = exc
+            ready.set()
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+    if not ready.wait(timeout=3):
+        raise RuntimeError("host tcp server did not start")
+    return thread, result
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -94,8 +131,11 @@ def main():
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
     serial_port = random.randint(24000, 29000)
     host_port = random.randint(20000, 23999)
+    client_port = random.randint(30000, 33999)
     payloads = [b"from-host-one", b"from-host-two"]
     responses = []
+    client_thread = None
+    client_result = None
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -138,6 +178,10 @@ def main():
             for payload in payloads:
                 responses.append(tcp_request(host_port, payload, args.tcp_wait))
             output += read_until(sock, b" $ ", args.tcp_wait)
+            client_thread, client_result = serve_guest_tcp(client_port, args.tcp_wait)
+            sock.sendall(f"uvdemo client {client_port}\n".encode("ascii"))
+            output += read_until(sock, b"uvdemo: client all ok", args.tcp_wait)
+            output += read_until(sock, b" $ ", 3)
             output += read_for(sock, 1)
         finally:
             try:
@@ -171,11 +215,23 @@ def main():
         "uvdemo: tcp ok client 1",
         "uvdemo: tcp ok client 2",
         "uvdemo: tcp all ok",
+        "uvdemo: client connecting",
+        "uvdemo: client connected",
+        "uvdemo: client write ok",
+        "uvdemo: client read 23",
+        "uvdemo: client ok",
+        "uvdemo: client all ok",
     ]
     missing = [marker for marker in expected if marker not in text]
     expected_responses = [b"uv-tcp-ok:" + payload for payload in payloads]
     if responses != expected_responses:
         missing.append("uv tcp responses")
+    if client_thread is not None:
+        client_thread.join(timeout=3)
+    if client_result is None or client_result.get("payload") != b"from-guest":
+        missing.append("uv tcp client payload")
+    elif client_result.get("error") is not None:
+        missing.append(f"uv tcp client server error: {client_result['error']}")
     if has_fatal_exception(text):
         print("uv-smoke: fatal exception detected", file=sys.stderr)
         return 2

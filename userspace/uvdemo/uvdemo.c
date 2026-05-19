@@ -225,6 +225,14 @@ static int tcp_accept_count;
 static int tcp_ok_count;
 static int tcp_failed;
 
+static uv_loop_t tcp_client_loop;
+static uv_tcp_t tcp_client;
+static uv_connect_t tcp_client_connect_request;
+static uv_write_t tcp_client_write_request;
+static char tcp_client_storage[256];
+static int tcp_client_ok;
+static int tcp_client_failed;
+
 static void udp_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
     (void)handle;
     (void)suggested_size;
@@ -433,8 +441,113 @@ static int tcp_test(void) {
     return 0;
 }
 
+static void tcp_client_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    buffer->base = tcp_client_storage;
+    buffer->len = sizeof(tcp_client_storage) - 1;
+}
+
+static void tcp_client_read_cb(uv_tcp_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    if (nread < 0) {
+        printf("uvdemo: client read failed %s\n", uv_strerror((int)nread));
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+        return;
+    }
+    buffer->base[nread] = '\0';
+    printf("uvdemo: client read %ld\n", (long)nread);
+    if (strcmp(buffer->base, "uv-client-ok:from-guest") == 0) {
+        tcp_client_ok = 1;
+        puts("uvdemo: client ok");
+    } else {
+        tcp_client_failed = 1;
+        puts("uvdemo: client mismatch");
+    }
+    uv_close((uv_handle_t *)stream, 0);
+    uv_stop(&tcp_client_loop);
+}
+
+static void tcp_client_write_cb(uv_write_t *request, int status) {
+    (void)request;
+    if (status < 0) {
+        printf("uvdemo: client write failed %s\n", uv_strerror(status));
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+        return;
+    }
+    if (uv_stream_get_write_queue_size((uv_stream_t *)&tcp_client) != 0) {
+        puts("uvdemo: client write queue not drained");
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+        return;
+    }
+    puts("uvdemo: client write ok");
+    if (uv_read_start(&tcp_client, tcp_client_alloc_cb, tcp_client_read_cb) < 0) {
+        puts("uvdemo: client read start failed");
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+    }
+}
+
+static void tcp_client_connect_cb(uv_connect_t *request, int status) {
+    (void)request;
+    if (status < 0) {
+        printf("uvdemo: client connect failed %s\n", uv_strerror(status));
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+        return;
+    }
+    puts("uvdemo: client connected");
+    char payload[] = "from-guest";
+    uv_buf_t buffer = uv_buf_init(payload, (unsigned int)strlen(payload));
+    if (uv_write(&tcp_client_write_request, &tcp_client, &buffer, 1, tcp_client_write_cb) < 0) {
+        puts("uvdemo: client write start failed");
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+    } else if (uv_stream_get_write_queue_size((uv_stream_t *)&tcp_client) != strlen(payload)) {
+        puts("uvdemo: client write queue failed");
+        tcp_client_failed = 1;
+        uv_stop(&tcp_client_loop);
+    }
+}
+
+static void tcp_client_timeout_cb(uv_timer_t *timer) {
+    (void)timer;
+    puts("uvdemo: client timeout");
+    tcp_client_failed = 1;
+    uv_stop(&tcp_client_loop);
+}
+
+static int tcp_client_test(int port) {
+    uv_timer_t timeout;
+    struct sockaddr_in addr;
+    tcp_client_ok = 0;
+    tcp_client_failed = 0;
+    memset(tcp_client_storage, 0, sizeof(tcp_client_storage));
+    if (uv_loop_init(&tcp_client_loop) < 0 ||
+        uv_tcp_init(&tcp_client_loop, &tcp_client) < 0 ||
+        uv_ip4_addr("10.0.2.2", port, &addr) < 0 ||
+        uv_tcp_connect(&tcp_client_connect_request, &tcp_client, (const struct sockaddr *)&addr, tcp_client_connect_cb) < 0 ||
+        uv_timer_init(&tcp_client_loop, &timeout) < 0 ||
+        uv_timer_start(&timeout, tcp_client_timeout_cb, 5000, 0) < 0) {
+        puts("uvdemo: client setup failed");
+        return 1;
+    }
+    printf("uvdemo: client connecting %d\n", port);
+    (void)uv_run(&tcp_client_loop, UV_RUN_DEFAULT);
+    uv_timer_stop(&timeout);
+    uv_close((uv_handle_t *)&tcp_client, 0);
+    if (tcp_client_failed || !tcp_client_ok) {
+        puts("uvdemo: client failed");
+        return 1;
+    }
+    puts("uvdemo: client all ok");
+    return 0;
+}
+
 static void usage(void) {
-    puts("usage: uvdemo [basic|udp|tcp]");
+    puts("usage: uvdemo [basic|udp|tcp|client PORT]");
 }
 
 int main(int argc, char **argv) {
@@ -455,6 +568,9 @@ int main(int argc, char **argv) {
     }
     if (strcmp(mode, "tcp") == 0) {
         return tcp_test();
+    }
+    if (strcmp(mode, "client") == 0 && argc > 2) {
+        return tcp_client_test(atoi(argv[2]));
     }
     usage();
     return 2;

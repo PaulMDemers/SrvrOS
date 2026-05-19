@@ -189,8 +189,10 @@ ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
 handle entry points, `uv_poll_t` fd readiness, `uv_async_t` notifications, and
 a pthread-backed `uv_queue_work` path. Its demos cover timer, file I/O,
 directory create/remove, rename, async/work callbacks, pipe-backed polling, UDP
-echo, and a two-client host-forwarded TCP accept/read/write path. It is the
-staging point for replacing the shim with a proper libuv backend as the fd
+echo, a two-client host-forwarded TCP accept/read/write path, and a
+guest-outbound TCP client that connects to a host service, queues a deferred
+write, drains `uv_stream_get_write_queue_size`, and reads the response. It is
+the staging point for replacing the shim with a proper libuv backend as the fd
 readiness, thread-pool, signal, TTY, and socket surfaces mature.
 Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
 `v1.52.1` (`1cfa32f`). `/fat/bin/libuvdemo` is the first dedicated staging
@@ -204,6 +206,9 @@ The adapter also exposes libuv-style `UV_E*` errno constants plus
 Core loop and object parity covers loop data/close helpers, backend
 timeout/fd reporting, handle and request type/name/size/data helpers,
 active/closing checks, and timer due-in reporting.
+TCP stream parity now includes writable-readiness connect completion, deferred
+write queues with copied buffers, queued-byte reporting, and close-from-callback
+guards so accepted streams can be closed without stale poll-snapshot reads.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

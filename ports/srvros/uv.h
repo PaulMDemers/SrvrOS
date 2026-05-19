@@ -96,6 +96,7 @@ typedef struct uv_loop_s uv_loop_t;
 typedef struct uv_handle_s uv_handle_t;
 typedef struct uv_req_s uv_req_t;
 typedef struct uv_timer_s uv_timer_t;
+typedef struct uv_stream_s uv_stream_t;
 typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_udp_s uv_udp_t;
 typedef struct uv_poll_s uv_poll_t;
@@ -202,8 +203,17 @@ struct uv_timer_s {
 struct uv_tcp_s {
     uv_handle_t handle;
     uv_connection_cb connection_cb;
+    uv_connect_t *connect_req;
+    uv_connect_cb connect_cb;
     uv_alloc_cb alloc_cb;
     uv_read_cb read_cb;
+    uv_write_t *write_queue_head;
+    uv_write_t *write_queue_tail;
+    size_t write_queue_size;
+};
+
+struct uv_stream_s {
+    uv_tcp_t tcp;
 };
 
 struct uv_udp_s {
@@ -234,6 +244,11 @@ struct uv_write_s {
     void *data;
     int type;
     uv_tcp_t *handle;
+    uv_write_cb write_cb;
+    char *buffer;
+    size_t length;
+    size_t offset;
+    uv_write_t *next;
 };
 
 struct uv_udp_send_s {
@@ -286,6 +301,9 @@ void uv_handle_set_data(uv_handle_t *handle, void *data);
 uv_loop_t *uv_handle_get_loop(const uv_handle_t *handle);
 int uv_is_active(const uv_handle_t *handle);
 int uv_is_closing(const uv_handle_t *handle);
+int uv_is_readable(const uv_stream_t *stream);
+int uv_is_writable(const uv_stream_t *stream);
+size_t uv_stream_get_write_queue_size(const uv_stream_t *stream);
 
 size_t uv_req_size(uv_req_type type);
 const char *uv_req_type_name(uv_req_type type);
