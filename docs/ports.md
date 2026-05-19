@@ -216,9 +216,10 @@ closed without stale poll-snapshot reads.
 Loop parity now includes prepare/check/idle phase handles, poll
 disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
-Process/stdio staging now includes `uv_pipe_t` over srvros pipes and a compact
-`uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with `libuvdemo`
-verifying a child process whose stdout is read through a libuv pipe stream.
+Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
+and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
+`libuvdemo` verifying direct pipe streams and a child process whose stdout is
+read through a libuv pipe stream.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

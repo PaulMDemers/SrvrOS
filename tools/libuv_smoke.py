@@ -122,6 +122,7 @@ def main():
         "libuvdemo: async ok",
         "libuvdemo: work ok",
         "libuvdemo: poll ok",
+        "libuvdemo: pipe stream ok",
         "libuvdemo: getaddrinfo ok",
         "libuvdemo: pipe ok",
         "libuvdemo: process ok",

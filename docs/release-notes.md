@@ -56,9 +56,9 @@ server.
 - Adds libuv handle lifetime helpers for `uv_ref`, `uv_unref`, `uv_has_ref`,
   `uv_walk`, and `uv_fileno`, so unreferenced handles no longer keep the loop
   alive by themselves.
-- Adds first-pass libuv process/stdio staging with `uv_pipe_t`, `uv_spawn`,
-  `uv_process_t`, child stdout pipe wiring, and `waitpid(WNOHANG)` exit
-  callbacks.
+- Adds first-pass libuv process/stdio staging with `uv_pipe`, `uv_pipe_t`,
+  `uv_spawn`, `uv_process_t`, child stdout pipe wiring, and
+  `waitpid(WNOHANG)` exit callbacks.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

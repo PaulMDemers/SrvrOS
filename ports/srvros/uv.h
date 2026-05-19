@@ -116,6 +116,7 @@ typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 typedef int uv_os_fd_t;
+typedef int uv_file;
 typedef int uv_pid_t;
 
 typedef enum {
@@ -124,8 +125,21 @@ typedef enum {
     UV_INHERIT_FD = 0x02,
     UV_INHERIT_STREAM = 0x04,
     UV_READABLE_PIPE = 0x10,
-    UV_WRITABLE_PIPE = 0x20
+    UV_WRITABLE_PIPE = 0x20,
+    UV_NONBLOCK_PIPE = 0x40,
+    UV_OVERLAPPED_PIPE = 0x40
 } uv_stdio_flags;
+
+enum uv_process_flags {
+    UV_PROCESS_SETUID = (1 << 0),
+    UV_PROCESS_SETGID = (1 << 1),
+    UV_PROCESS_WINDOWS_VERBATIM_ARGUMENTS = (1 << 2),
+    UV_PROCESS_DETACHED = (1 << 3),
+    UV_PROCESS_WINDOWS_HIDE = (1 << 4),
+    UV_PROCESS_WINDOWS_HIDE_CONSOLE = (1 << 5),
+    UV_PROCESS_WINDOWS_HIDE_GUI = (1 << 6),
+    UV_PROCESS_WINDOWS_FILE_PATH_EXACT_NAME = (1 << 7)
+};
 
 typedef enum {
     UV_UNKNOWN_HANDLE = 0,
@@ -454,8 +468,9 @@ int uv_write(uv_write_t *request,
     uv_write_cb cb);
 int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb);
 
+int uv_pipe(uv_file fds[2], int read_flags, int write_flags);
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
-int uv_pipe_open(uv_pipe_t *handle, uv_os_fd_t fd);
+int uv_pipe_open(uv_pipe_t *handle, uv_file fd);
 
 int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
@@ -489,6 +504,7 @@ void uv_freeaddrinfo(struct addrinfo *ai);
 int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t *options);
 int uv_process_kill(uv_process_t *process, int signum);
 int uv_kill(int pid, int signum);
+uv_pid_t uv_process_get_pid(const uv_process_t *process);
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb);
 int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr);

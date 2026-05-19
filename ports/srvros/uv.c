@@ -29,6 +29,7 @@
 #define UV_HANDLE_IDLE UV_IDLE
 #define UV_HANDLE_PIPE UV_NAMED_PIPE
 #define UV_HANDLE_PROCESS UV_PROCESS
+#define UV_MAX_STDIO_HANDLES 32
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
@@ -62,6 +63,17 @@ static void set_nonblocking(int fd) {
     flags = fcntl(fd, F_GETFL, 0);
     if (flags >= 0) {
         (void)fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+    }
+}
+
+static void set_blocking(int fd) {
+    int flags;
+    if (fd < 0) {
+        return;
+    }
+    flags = fcntl(fd, F_GETFL, 0);
+    if (flags >= 0) {
+        (void)fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
     }
 }
 
@@ -1304,6 +1316,22 @@ int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb) 
     return 0;
 }
 
+int uv_pipe(uv_file fds[2], int read_flags, int write_flags) {
+    if (fds == 0) {
+        return UV_EINVAL;
+    }
+    if (pipe(fds) < 0) {
+        return uv_error_from_errno();
+    }
+    if ((read_flags & UV_NONBLOCK_PIPE) != 0) {
+        set_nonblocking(fds[0]);
+    }
+    if ((write_flags & UV_NONBLOCK_PIPE) != 0) {
+        set_nonblocking(fds[1]);
+    }
+    return 0;
+}
+
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
     if (loop == 0 || handle == 0) {
         return -EINVAL;
@@ -1314,7 +1342,7 @@ int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
     return 0;
 }
 
-int uv_pipe_open(uv_pipe_t *handle, uv_os_fd_t fd) {
+int uv_pipe_open(uv_pipe_t *handle, uv_file fd) {
     if (handle == 0 || fd < 0 || handle->handle.type != UV_HANDLE_PIPE) {
         return UV_EINVAL;
     }
@@ -1534,11 +1562,13 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
     const uv_stdio_container_t *stdio,
     int index,
     int parent_fds[],
-    int child_fds[]) {
+    int child_fds[],
+    uv_pipe_t *parent_pipes[]) {
     int flags = stdio[index].flags;
     int target_fd = index;
     parent_fds[index] = -1;
     child_fds[index] = -1;
+    parent_pipes[index] = 0;
     if ((flags & UV_IGNORE) != 0 || flags == 0) {
         return posix_spawn_file_actions_addclose(actions, target_fd);
     }
@@ -1557,6 +1587,9 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         int fds[2];
         uv_pipe_t *pipe_handle = pipe_from_stream(stdio[index].data.stream);
         int child_uses_read = (flags & UV_READABLE_PIPE) != 0 || (index == 0 && (flags & UV_WRITABLE_PIPE) == 0);
+        if ((flags & UV_READABLE_PIPE) != 0 && (flags & UV_WRITABLE_PIPE) != 0) {
+            return ENOSYS;
+        }
         if (pipe_handle == 0 || pipe(fds) < 0) {
             return errno != 0 ? errno : EINVAL;
         }
@@ -1567,6 +1600,11 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             child_fds[index] = fds[1];
             parent_fds[index] = fds[0];
         }
+        if ((flags & UV_NONBLOCK_PIPE) != 0) {
+            set_nonblocking(child_fds[index]);
+        } else {
+            set_blocking(child_fds[index]);
+        }
         if (uv_pipe_open(pipe_handle, parent_fds[index]) < 0) {
             close(fds[0]);
             close(fds[1]);
@@ -1574,20 +1612,44 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             child_fds[index] = -1;
             return EINVAL;
         }
+        parent_pipes[index] = pipe_handle;
         return posix_spawn_file_actions_adddup2(actions, child_fds[index], target_fd);
     }
     return EINVAL;
 }
 
+static void clear_spawn_parent_pipe_fd(uv_pipe_t *pipe_handle, int fd) {
+    if (pipe_handle != 0 && pipe_handle->handle.fd == fd) {
+        pipe_handle->handle.fd = -1;
+        pipe_handle->handle.active = 0;
+    }
+}
+
 int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t *options) {
     posix_spawn_file_actions_t actions;
-    int parent_fds[3] = {-1, -1, -1};
-    int child_fds[3] = {-1, -1, -1};
+    int parent_fds[UV_MAX_STDIO_HANDLES];
+    int child_fds[UV_MAX_STDIO_HANDLES];
+    uv_pipe_t *parent_pipes[UV_MAX_STDIO_HANDLES];
     int actions_ready = 0;
     pid_t pid = -1;
     int error = 0;
     if (loop == 0 || process == 0 || options == 0 || options->file == 0 || options->args == 0) {
         return UV_EINVAL;
+    }
+    if (options->stdio_count < 0 || options->stdio_count > UV_MAX_STDIO_HANDLES) {
+        return UV_EINVAL;
+    }
+    if (options->stdio_count > 0 && options->stdio == 0) {
+        return UV_EINVAL;
+    }
+    if (options->cwd != 0 ||
+        (options->flags & (UV_PROCESS_SETUID | UV_PROCESS_SETGID | UV_PROCESS_DETACHED)) != 0) {
+        return UV_ENOSYS;
+    }
+    for (int i = 0; i < UV_MAX_STDIO_HANDLES; i++) {
+        parent_fds[i] = -1;
+        child_fds[i] = -1;
+        parent_pipes[i] = 0;
     }
     memset(process, 0, sizeof(*process));
     init_handle(loop, &process->handle, -1, UV_HANDLE_PROCESS);
@@ -1596,8 +1658,8 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
         return UV_ENOMEM;
     }
     actions_ready = 1;
-    for (int i = 0; i < options->stdio_count && i < 3; i++) {
-        error = configure_spawn_stdio(&actions, options->stdio, i, parent_fds, child_fds);
+    for (int i = 0; i < options->stdio_count; i++) {
+        error = configure_spawn_stdio(&actions, options->stdio, i, parent_fds, child_fds, parent_pipes);
         if (error != 0) {
             goto out;
         }
@@ -1611,12 +1673,13 @@ out:
     if (actions_ready) {
         posix_spawn_file_actions_destroy(&actions);
     }
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < UV_MAX_STDIO_HANDLES; i++) {
         if (child_fds[i] >= 0) {
             close(child_fds[i]);
         }
         if (error != 0 && parent_fds[i] >= 0) {
             close(parent_fds[i]);
+            clear_spawn_parent_pipe_fd(parent_pipes[i], parent_fds[i]);
         }
     }
     return error == 0 ? 0 : uv_translate_sys_error(error);
@@ -1635,6 +1698,10 @@ int uv_kill(int pid, int signum) {
         return UV_ESRCH;
     }
     return srv_kill((uint64_t)pid) < 0 ? UV_ESRCH : 0;
+}
+
+uv_pid_t uv_process_get_pid(const uv_process_t *process) {
+    return process != 0 ? process->pid : 0;
 }
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {

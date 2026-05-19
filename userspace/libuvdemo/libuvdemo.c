@@ -407,6 +407,89 @@ static int poll_test(void) {
     return 0;
 }
 
+static uv_loop_t pipe_loop;
+static uv_pipe_t pipe_read_handle;
+static uv_pipe_t pipe_write_handle;
+static uv_write_t pipe_write_request;
+static char pipe_output[64];
+static int pipe_write_seen;
+static int pipe_read_eof;
+static int pipe_failed;
+
+static void maybe_stop_pipe_loop(void) {
+    if (pipe_write_seen && pipe_read_eof) {
+        uv_stop(&pipe_loop);
+    }
+}
+
+static void pipe_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    size_t used = strlen(pipe_output);
+    buffer->base = pipe_output + used;
+    buffer->len = sizeof(pipe_output) - used - 1;
+}
+
+static void pipe_write_cb(uv_write_t *request, int status) {
+    if (request != &pipe_write_request || status < 0) {
+        pipe_failed = 1;
+    }
+    pipe_write_seen = 1;
+    uv_close((uv_handle_t *)&pipe_write_handle, 0);
+    maybe_stop_pipe_loop();
+}
+
+static void pipe_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    (void)buffer;
+    if (nread > 0) {
+        size_t offset = (size_t)(buffer->base - pipe_output);
+        pipe_output[offset + (size_t)nread] = '\0';
+        return;
+    }
+    if (nread == UV_EOF) {
+        pipe_read_eof = 1;
+        uv_close((uv_handle_t *)stream, 0);
+        maybe_stop_pipe_loop();
+        return;
+    }
+    pipe_failed = 1;
+    uv_stop(&pipe_loop);
+}
+
+static int pipe_stream_test(void) {
+    uv_file fds[2] = {-1, -1};
+    uv_buf_t buffer = uv_buf_init("libuv-pipe-ok", 13);
+    memset(pipe_output, 0, sizeof(pipe_output));
+    pipe_write_seen = 0;
+    pipe_read_eof = 0;
+    pipe_failed = 0;
+    if (uv_loop_init(&pipe_loop) < 0 ||
+        uv_pipe(fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe_init(&pipe_loop, &pipe_read_handle, 0) < 0 ||
+        uv_pipe_init(&pipe_loop, &pipe_write_handle, 0) < 0 ||
+        uv_pipe_open(&pipe_read_handle, fds[0]) < 0 ||
+        uv_pipe_open(&pipe_write_handle, fds[1]) < 0 ||
+        uv_read_start((uv_stream_t *)&pipe_read_handle, pipe_alloc_cb, pipe_read_cb) < 0 ||
+        uv_write(&pipe_write_request, (uv_stream_t *)&pipe_write_handle, &buffer, 1, pipe_write_cb) < 0) {
+        puts("libuvdemo: pipe setup failed");
+        if (fds[0] >= 0) {
+            close(fds[0]);
+        }
+        if (fds[1] >= 0) {
+            close(fds[1]);
+        }
+        return 1;
+    }
+    (void)uv_run(&pipe_loop, UV_RUN_DEFAULT);
+    if (pipe_failed || !pipe_write_seen || !pipe_read_eof ||
+        strcmp(pipe_output, "libuv-pipe-ok") != 0) {
+        puts("libuvdemo: pipe failed");
+        return 1;
+    }
+    puts("libuvdemo: pipe stream ok");
+    return 0;
+}
+
 static uv_loop_t gai_loop;
 static int gai_seen;
 static int gai_failed;
@@ -523,6 +606,7 @@ static int process_test(void) {
     options.stdio_count = 3;
     options.stdio = stdio;
     if (uv_spawn(&process_loop, &process_handle, &options) < 0 ||
+        uv_process_get_pid(&process_handle) <= 0 ||
         uv_read_start((uv_stream_t *)&process_stdout_pipe, process_alloc_cb, process_read_cb) < 0) {
         puts("libuvdemo: process spawn failed");
         return 1;
@@ -549,6 +633,7 @@ int main(void) {
         fs_test() != 0 ||
         work_test() != 0 ||
         poll_test() != 0 ||
+        pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
         process_test() != 0) {
         puts("libuvdemo: failed");
