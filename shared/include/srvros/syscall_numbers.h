@@ -94,6 +94,9 @@
 #define SYS_SIGNAL_POLL 89
 #define SYS_PIPE_PAIR 90
 #define SYS_MEMINFO 91
+#define SYS_RANDOM 92
+#define SYS_UTIME 93
+#define SYS_FUTIME 94
 
 #define SRV_ABI_VERSION 1
 

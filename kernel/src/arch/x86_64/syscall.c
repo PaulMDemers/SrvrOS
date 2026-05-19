@@ -129,6 +129,7 @@ static struct srv_termios console_termios = {
 
 static struct srv_winsize console_winsize;
 static bool console_winsize_set;
+static uint64_t random_state;
 
 static uint64_t irq_save(void) {
     uint64_t flags;
@@ -207,6 +208,104 @@ static bool copy_abi_struct_to_user(void *user_info,
 
 static bool copy_net_struct_to_user(void *user_info, const void *kernel_info, uint64_t kernel_size) {
     return copy_abi_struct_to_user(user_info, kernel_info, kernel_size, SRV_NET_ABI_VERSION);
+}
+
+static void cpuid_leaf(uint32_t leaf, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx) {
+    __asm__ volatile (
+        "cpuid"
+        : "=a"(*eax), "=b"(*ebx), "=c"(*ecx), "=d"(*edx)
+        : "a"(leaf), "c"(0));
+}
+
+static bool cpu_has_rdrand(void) {
+    static bool initialized;
+    static bool supported;
+    if (!initialized) {
+        uint32_t eax;
+        uint32_t ebx;
+        uint32_t ecx;
+        uint32_t edx;
+        cpuid_leaf(1, &eax, &ebx, &ecx, &edx);
+        supported = (ecx & (1u << 30)) != 0;
+        initialized = true;
+    }
+    return supported;
+}
+
+static bool rdrand64(uint64_t *value) {
+    uint8_t ok;
+    if (!cpu_has_rdrand()) {
+        return false;
+    }
+    for (uint64_t attempt = 0; attempt < 10; attempt++) {
+        __asm__ volatile (
+            "rdrand %0; setc %1"
+            : "=r"(*value), "=qm"(ok));
+        if (ok != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static uint64_t rdtsc(void) {
+    uint32_t low;
+    uint32_t high;
+    __asm__ volatile ("rdtsc" : "=a"(low), "=d"(high));
+    return ((uint64_t)high << 32) | low;
+}
+
+static uint64_t splitmix64_next(uint64_t *state) {
+    uint64_t z = (*state += 0x9e3779b97f4a7c15ull);
+    z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ull;
+    z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
+    return z ^ (z >> 31);
+}
+
+static uint64_t random_u64(void) {
+    uint64_t hardware;
+    uint64_t flags = irq_save();
+    if (random_state == 0) {
+        random_state = rdtsc() ^
+            (timer_ticks() << 32) ^
+            (process_pid(process_current()) << 16) ^
+            (uint64_t)(uintptr_t)&random_state ^
+            0xa5a55a5ac3c33c3cull;
+    }
+    random_state ^= rdtsc() + (timer_ticks() << 7) + process_pid(process_current());
+    uint64_t value = splitmix64_next(&random_state);
+    if (rdrand64(&hardware)) {
+        random_state ^= hardware;
+        value ^= hardware;
+    }
+    irq_restore(flags);
+    return value;
+}
+
+static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
+    if (flags != 0 || length > MAX_SYSCALL_COPY || !user_buffer_ok(buffer, length, true)) {
+        return -1;
+    }
+
+    uint8_t chunk[64];
+    uint64_t copied = 0;
+    while (copied < length) {
+        for (uint64_t offset = 0; offset < sizeof(chunk); offset += sizeof(uint64_t)) {
+            uint64_t value = random_u64();
+            uint64_t remaining = sizeof(chunk) - offset;
+            uint64_t count = remaining < sizeof(value) ? remaining : sizeof(value);
+            for (uint64_t i = 0; i < count; i++) {
+                chunk[offset + i] = (uint8_t)(value >> (i * 8));
+            }
+        }
+        uint64_t remaining = length - copied;
+        uint64_t count = remaining < sizeof(chunk) ? remaining : sizeof(chunk);
+        if (!copy_to_user((uint8_t *)buffer + copied, chunk, count)) {
+            return -1;
+        }
+        copied += count;
+    }
+    return (int64_t)length;
 }
 
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
@@ -873,6 +972,14 @@ static int64_t syscall_chmod(const char *user_path, uint64_t mode) {
     return vfs_chmod(path, mode) ? 0 : -1;
 }
 
+static int64_t syscall_utime(const char *user_path, uint64_t atime, uint64_t mtime) {
+    char path[MAX_PATH_LENGTH];
+    if (!copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+    return vfs_utime(path, atime, mtime) ? 0 : -1;
+}
+
 static int64_t syscall_unlink(const char *user_path) {
     char path[MAX_PATH_LENGTH];
     if (!copy_user_string(user_path, path, sizeof(path))) {
@@ -947,6 +1054,10 @@ static int64_t syscall_fstat(uint64_t fd, struct syscall_stat *info) {
 
 static int64_t syscall_fchmod(uint64_t fd, uint64_t mode) {
     return process_file_chmod(process_current(), fd, mode);
+}
+
+static int64_t syscall_futime(uint64_t fd, uint64_t atime, uint64_t mtime) {
+    return process_file_utime(process_current(), fd, atime, mtime);
 }
 
 static int64_t syscall_sbrk(int64_t increment, uint64_t *previous_out) {
@@ -1908,6 +2019,15 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_MEMINFO:
         frame->rax = (uint64_t)syscall_meminfo((struct srv_meminfo *)frame->rdi);
+        return;
+    case SYS_RANDOM:
+        frame->rax = (uint64_t)syscall_random((void *)frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_UTIME:
+        frame->rax = (uint64_t)syscall_utime((const char *)frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_FUTIME:
+        frame->rax = (uint64_t)syscall_futime(frame->rdi, frame->rsi, frame->rdx);
         return;
     case SYS_SPAWN_BG_ARGS_FDS:
         frame->rax = (uint64_t)syscall_spawn_bg_args_fds((const char *)frame->rdi,

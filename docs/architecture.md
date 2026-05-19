@@ -463,8 +463,11 @@ stdio fd overrides plus inherited parent stdio redirects, seek, fd
 flush/truncate, fd-0 writes when stdin is redirected to a writable/duplex
 descriptor, process heap growth, `getpid`, raw timer ticks,
 sleep-by-ticks syscalls, a shared fd readiness wait queue,
-timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
-metadata with exFAT sidecar persistence.
+timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
+and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT
+sidecar persistence. `utime`/`futime` update VFS timestamps directly; writable
+fds flush pending data before applying explicit times so close-time writeback
+does not overwrite them.
 The native exec setup keeps argv compact and accepts up to 64 environment
 entries, enough for profile variables plus command-local shell environments in
 longer CLI sessions.

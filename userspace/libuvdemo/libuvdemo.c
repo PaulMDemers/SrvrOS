@@ -478,7 +478,8 @@ static int fs_test(void) {
     if (uv_fs_stat(&loop, &request, renamed, 0) < 0 ||
         uv_fs_get_type(&request) != UV_FS_STAT ||
         uv_fs_get_result(&request) != 0 ||
-        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload)) {
+        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload) ||
+        uv_fs_get_statbuf(&request)->st_mtime != 1) {
         puts("libuvdemo: fs stat failed");
         return 1;
     }
@@ -509,8 +510,15 @@ static int fs_test(void) {
         return 1;
     }
     uv_fs_req_cleanup(&request);
-    if (uv_fs_utime(&loop, &request, renamed, 1.0, 1.0, 0) < 0) {
+    if (uv_fs_utime(&loop, &request, renamed, 2.0, 3.0, 0) < 0) {
         puts("libuvdemo: fs utime failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_stat(&loop, &request, renamed, 0) < 0 ||
+        uv_fs_get_statbuf(&request)->st_atime != 2 ||
+        uv_fs_get_statbuf(&request)->st_mtime != 3) {
+        puts("libuvdemo: fs utime stat failed");
         return 1;
     }
     uv_fs_req_cleanup(&request);

@@ -3887,6 +3887,20 @@ int64_t process_file_chmod(struct process *process, uint64_t fd, uint64_t mode) 
     return -1;
 }
 
+int64_t process_file_utime(struct process *process, uint64_t fd, uint64_t atime, uint64_t mtime) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL) {
+        return -1;
+    }
+    if (file->type == PROCESS_FILE_VFS_WRITE && process_file_flush(process, fd) < 0) {
+        return -1;
+    }
+    if ((file->type == PROCESS_FILE_VFS || file->type == PROCESS_FILE_VFS_WRITE) && file->path[0] != '\0') {
+        return vfs_utime(file->path, atime, mtime) ? 0 : -1;
+    }
+    return -1;
+}
+
 int64_t process_sbrk(struct process *process, int64_t increment, uint64_t *previous_out) {
     if (process == NULL || previous_out == NULL || process->address_space == 0) {
         return -1;

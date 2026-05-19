@@ -332,6 +332,18 @@ bool vfs_chmod(const char *path, uint64_t mode) {
     return true;
 }
 
+bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime) {
+    struct vfs_node *node = mutable_lookup(path);
+    if (node == NULL) {
+        return false;
+    }
+    node->metadata.atime = atime;
+    node->metadata.mtime = mtime;
+    node->metadata.ctime = metadata_time();
+    notify_metadata_changed(node);
+    return true;
+}
+
 bool vfs_unregister_path(const char *path) {
     if (path == NULL) {
         return false;

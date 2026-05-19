@@ -28,15 +28,17 @@ backend.
   prepare/check/idle phase handles.
 - Platform helpers for cwd/chdir, executable path, pid/ppid, environment
   get/set/unset, high-resolution time, memory totals from the kernel meminfo
-  ABI, and sync/queued `uv_random` buffers.
+  ABI, and sync/queued `uv_random` buffers backed by the srvros random syscall.
 - Timers with one-shot and repeating dispatch, repeat setters/getters,
   `uv_timer_again`, and due-in reporting.
 - Filesystem request helpers for open, close, read, write, mkdir, rmdir,
   rename, unlink, stat, lstat, fstat, access, realpath, scandir, fsync,
-  fdatasync, ftruncate, sendfile, utime, and futime. Callback forms now run
-  through the shared worker pool and complete through the event loop queue
-  instead of inline callbacks, and `uv_fs_req_cleanup` releases path, realpath,
-  buffer-array, and scandir allocations.
+  fdatasync, ftruncate, sendfile, utime, and futime. Timestamp updates now call
+  the kernel VFS metadata path and persist on writable exFAT mounts through the
+  existing sidecar metadata file. Callback forms now run through the shared
+  worker pool and complete through the event loop queue instead of inline
+  callbacks, and `uv_fs_req_cleanup` releases path, realpath, buffer-array, and
+  scandir allocations.
 - TCP listener, accept, connect, read, write, shutdown, and close entry points
   over the srvros socket fd layer. Listener/accept/read/write/shutdown now use
   `uv_stream_t` signatures with TCP as the first concrete backend. Connect

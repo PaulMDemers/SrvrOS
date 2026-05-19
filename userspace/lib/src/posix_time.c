@@ -100,9 +100,24 @@ clock_t clock(void) {
 }
 
 int utime(const char *path, const struct utimbuf *times) {
-    (void)times;
-    struct stat st;
-    return stat(path, &st);
+    if (path == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    time_t atime;
+    time_t mtime;
+    if (times != 0) {
+        atime = times->actime;
+        mtime = times->modtime;
+    } else {
+        atime = time(0);
+        mtime = atime;
+    }
+    if (srv_utime(path, (uint64_t)atime, (uint64_t)mtime) < 0) {
+        errno = ENOENT;
+        return -1;
+    }
+    return 0;
 }
 
 int clock_gettime(int clock_id, struct timespec *tp) {

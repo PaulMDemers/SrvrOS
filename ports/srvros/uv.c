@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/wait.h>
@@ -52,7 +53,7 @@ static int uv_error_from_errno(void);
 static void set_nonblocking(int fd);
 static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request);
 static int uv_signal_supported(int signum);
-static void random_fill(void *buffer, size_t buffer_length);
+static int random_fill(void *buffer, size_t buffer_length);
 
 struct uv_worker_job {
     void (*run)(void *arg);
@@ -762,15 +763,9 @@ uint64_t uv_get_total_memory(void) {
     return srv_meminfo(&info) < 0 ? 0 : info.total_bytes;
 }
 
-static void random_fill(void *buffer, size_t buffer_length) {
-    uint8_t *bytes = buffer;
-    uint64_t state = uv_hrtime() ^ ((uint64_t)getpid() << 32) ^ 0x9e3779b97f4a7c15ull;
-    for (size_t i = 0; i < buffer_length; i++) {
-        state ^= state << 13;
-        state ^= state >> 7;
-        state ^= state << 17;
-        bytes[i] = (uint8_t)(state >> 24);
-    }
+static int random_fill(void *buffer, size_t buffer_length) {
+    ssize_t count = getrandom(buffer, buffer_length, 0);
+    return count == (ssize_t)buffer_length ? 0 : uv_error_from_errno();
 }
 
 int uv_random(uv_loop_t *loop,
@@ -786,15 +781,15 @@ int uv_random(uv_loop_t *loop,
         return UV_EINVAL;
     }
     if (cb == 0) {
-        random_fill(buffer, buffer_length);
+        int status = random_fill(buffer, buffer_length);
         if (request != 0) {
             memset(request, 0, sizeof(*request));
             request->type = UV_RANDOM;
             request->buffer = buffer;
             request->buffer_length = buffer_length;
-            request->status = 0;
+            request->status = status;
         }
-        return 0;
+        return status;
     }
     memset(request, 0, sizeof(*request));
     request->type = UV_RANDOM;
@@ -802,8 +797,7 @@ int uv_random(uv_loop_t *loop,
     request->cb = cb;
     request->buffer = buffer;
     request->buffer_length = buffer_length;
-    random_fill(buffer, buffer_length);
-    request->status = 0;
+    request->status = random_fill(buffer, buffer_length);
     request->next = loop->random_queue;
     loop->random_queue = request;
     return 0;
@@ -3162,8 +3156,11 @@ static void fs_execute(uv_fs_t *request) {
             break;
         }
         case UV_FS_FUTIME: {
-            int result = fstat(request->fd, &request->statbuf);
-            request->result = result < 0 ? uv_error_from_errno() : 0;
+            if (srv_futime(request->fd, (uint64_t)request->atime, (uint64_t)request->mtime) < 0) {
+                request->result = UV_EBADF;
+                break;
+            }
+            request->result = 0;
             break;
         }
         case UV_FS_MKDIR:

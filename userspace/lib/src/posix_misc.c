@@ -1,5 +1,7 @@
 #include <errno.h>
 #include <stddef.h>
+#include <srvros/sys.h>
+#include <sys/random.h>
 #include <string.h>
 #include <sys/utsname.h>
 #include <unistd.h>
@@ -105,4 +107,21 @@ long sysconf(int name) {
         errno = EINVAL;
         return -1;
     }
+}
+
+ssize_t getrandom(void *buffer, size_t length, unsigned int flags) {
+    if (buffer == 0 && length != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if ((flags & ~(GRND_NONBLOCK | GRND_RANDOM)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    long result = srv_random(buffer, length, 0);
+    if (result < 0) {
+        errno = EIO;
+        return -1;
+    }
+    return (ssize_t)result;
 }

@@ -230,11 +230,11 @@ disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
 Platform parity now covers cwd/chdir, executable path, environment helpers,
 pid/ppid, high-resolution time, memory totals from the kernel meminfo ABI, and
-sync/queued random fills.
+sync/queued random fills through `SYS_RANDOM`/`getrandom`.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 fsync/fdatasync/ftruncate/sendfile/utime/futime requests, request getters,
-cleanup-owned realpath/scandir memory, and queued callback completion through
-`uv_run`.
+cleanup-owned realpath/scandir memory, VFS-backed timestamp mutation with exFAT
+sidecar persistence, and queued callback completion through `uv_run`.
 TTY and signal support now covers `uv_guess_handle`, `uv_tty_t` init,
 window-size queries, termios-backed mode switching, stream writes, vterm state
 probes, and `uv_signal_t` start/stop/one-shot callback delivery for

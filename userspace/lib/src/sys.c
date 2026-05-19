@@ -358,6 +358,19 @@ long srv_meminfo(struct srv_meminfo *info) {
     return srv_syscall1(SYS_MEMINFO, (long)info);
 }
 
+long srv_random(void *buffer, size_t length, uint64_t flags) {
+    return srv_syscall3(SYS_RANDOM, (long)buffer, (long)length, (long)flags);
+}
+
+long srv_utime(const char *path, uint64_t atime, uint64_t mtime) {
+    char full[160];
+    return srv_syscall3(SYS_UTIME, (long)srv_make_path(path, full, sizeof(full)), (long)atime, (long)mtime);
+}
+
+long srv_futime(int fd, uint64_t atime, uint64_t mtime) {
+    return srv_syscall3(SYS_FUTIME, fd, (long)atime, (long)mtime);
+}
+
 long srv_proc_group(uint64_t pid, uint64_t group, int foreground) {
     return srv_syscall3(SYS_PROC_GROUP, (long)pid, (long)group, (long)foreground);
 }

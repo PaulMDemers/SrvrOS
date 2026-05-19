@@ -65,6 +65,7 @@ bool vfs_update_file_size(const char *path, uint64_t size);
 bool vfs_stat(const char *path, struct vfs_metadata *metadata_out, uint64_t *size_out, uint64_t *type_out);
 bool vfs_set_metadata(const char *path, const struct vfs_metadata *metadata);
 bool vfs_chmod(const char *path, uint64_t mode);
+bool vfs_utime(const char *path, uint64_t atime, uint64_t mtime);
 bool vfs_unregister_path(const char *path);
 uint64_t vfs_unregister_prefix(const char *prefix);
 

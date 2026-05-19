@@ -82,8 +82,8 @@ server.
   start/stop/one-shot callback delivery for SIGINT/SIGTERM.
 - Adds libuv platform and filesystem parity for cwd/chdir, exepath, env,
   pid/ppid, hrtime, memory totals, sync/queued random fills, fsync/fdatasync,
-  ftruncate, sendfile, utime, and futime, backed by a new kernel meminfo
-  syscall and expanded `/fat/bin/libuvdemo` coverage.
+  ftruncate, sendfile, utime, and futime, backed by kernel meminfo/random/time
+  mutation syscalls and expanded `/fat/bin/libuvdemo` coverage.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client
