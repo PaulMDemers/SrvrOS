@@ -115,9 +115,11 @@ typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
+typedef struct uv_dirent_s uv_dirent_t;
 typedef int uv_os_fd_t;
 typedef int uv_file;
 typedef int uv_pid_t;
+typedef struct stat uv_stat_t;
 
 typedef enum {
     UV_IGNORE = 0x00,
@@ -179,6 +181,58 @@ typedef enum {
     UV_REQ_TYPE_MAX
 } uv_req_type;
 
+typedef enum {
+    UV_DIRENT_UNKNOWN,
+    UV_DIRENT_FILE,
+    UV_DIRENT_DIR,
+    UV_DIRENT_LINK,
+    UV_DIRENT_FIFO,
+    UV_DIRENT_SOCKET,
+    UV_DIRENT_CHAR,
+    UV_DIRENT_BLOCK
+} uv_dirent_type_t;
+
+typedef enum {
+    UV_FS_UNKNOWN = -1,
+    UV_FS_CUSTOM,
+    UV_FS_OPEN,
+    UV_FS_CLOSE,
+    UV_FS_READ,
+    UV_FS_WRITE,
+    UV_FS_SENDFILE,
+    UV_FS_STAT,
+    UV_FS_LSTAT,
+    UV_FS_FSTAT,
+    UV_FS_FTRUNCATE,
+    UV_FS_UTIME,
+    UV_FS_FUTIME,
+    UV_FS_ACCESS,
+    UV_FS_CHMOD,
+    UV_FS_FCHMOD,
+    UV_FS_FSYNC,
+    UV_FS_FDATASYNC,
+    UV_FS_UNLINK,
+    UV_FS_RMDIR,
+    UV_FS_MKDIR,
+    UV_FS_MKDTEMP,
+    UV_FS_RENAME,
+    UV_FS_SCANDIR,
+    UV_FS_LINK,
+    UV_FS_SYMLINK,
+    UV_FS_READLINK,
+    UV_FS_CHOWN,
+    UV_FS_FCHOWN,
+    UV_FS_REALPATH,
+    UV_FS_COPYFILE,
+    UV_FS_LCHOWN,
+    UV_FS_OPENDIR,
+    UV_FS_READDIR,
+    UV_FS_CLOSEDIR,
+    UV_FS_STATFS,
+    UV_FS_MKSTEMP,
+    UV_FS_LUTIME
+} uv_fs_type;
+
 typedef struct {
     char *base;
     size_t len;
@@ -225,6 +279,7 @@ struct uv_handle_s {
 struct uv_loop_s {
     uv_handle_t *handles;
     uv_work_t *work_queue;
+    uv_fs_t *fs_queue;
     uv_getaddrinfo_t *getaddrinfo_queue;
     void *data;
     uint64_t now_ms;
@@ -339,10 +394,21 @@ struct uv_fs_s {
     void *data;
     int type;
     uv_loop_t *loop;
-    int fs_type;
+    uv_fs_type fs_type;
+    uv_fs_cb cb;
     ssize_t result;
+    void *ptr;
     struct stat statbuf;
     const char *path;
+    uv_dirent_t *dirents;
+    size_t dirent_count;
+    size_t dirent_index;
+    uv_fs_t *next;
+};
+
+struct uv_dirent_s {
+    const char *name;
+    uv_dirent_type_t type;
 };
 
 struct uv_work_s {
@@ -535,6 +601,18 @@ int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb
 int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb);
 int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
 int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
+int uv_fs_lstat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
+int uv_fs_fstat(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb);
+int uv_fs_access(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb);
+int uv_fs_scandir(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, uv_fs_cb cb);
+int uv_fs_scandir_next(uv_fs_t *request, uv_dirent_t *entry);
+int uv_fs_realpath(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb);
+uv_fs_type uv_fs_get_type(const uv_fs_t *request);
+ssize_t uv_fs_get_result(const uv_fs_t *request);
+int uv_fs_get_system_error(const uv_fs_t *request);
+void *uv_fs_get_ptr(const uv_fs_t *request);
+const char *uv_fs_get_path(const uv_fs_t *request);
+uv_stat_t *uv_fs_get_statbuf(uv_fs_t *request);
 void uv_fs_req_cleanup(uv_fs_t *request);
 
 #endif

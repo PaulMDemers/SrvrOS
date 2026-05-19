@@ -53,6 +53,9 @@ server.
 - Adds more libuv loop parity with prepare/check/idle phase handles, poll
   disconnect/error mapping, timer repeat helpers, and queued `uv_getaddrinfo`
   callbacks over the srvros resolver.
+- Expands libuv filesystem parity with lstat/fstat/access/realpath/scandir,
+  request getters, cleanup-owned allocations, and queued fs callbacks through
+  `uv_run`.
 - Adds libuv handle lifetime helpers for `uv_ref`, `uv_unref`, `uv_has_ref`,
   `uv_walk`, and `uv_fileno`, so unreferenced handles no longer keep the loop
   alive by themselves.

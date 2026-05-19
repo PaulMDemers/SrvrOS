@@ -216,6 +216,9 @@ closed without stale poll-snapshot reads.
 Loop parity now includes prepare/check/idle phase handles, poll
 disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
+Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
+request getters, cleanup-owned realpath/scandir memory, and queued callback
+completion through `uv_run`.
 Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
 and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 `libuvdemo` verifying direct pipe streams and a child process whose stdout is

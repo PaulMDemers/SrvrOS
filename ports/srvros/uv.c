@@ -1,6 +1,7 @@
 #include "uv.h"
 
 #include <arpa/inet.h>
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -30,9 +31,12 @@
 #define UV_HANDLE_PIPE UV_NAMED_PIPE
 #define UV_HANDLE_PROCESS UV_PROCESS
 #define UV_MAX_STDIO_HANDLES 32
+#define UV_SCANDIR_INITIAL_CAPACITY 8
+#define UV_REALPATH_MAX 160
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
+int __posix_make_path(const char *path, char *out, size_t capacity);
 
 static int next_timer_timeout(const uv_loop_t *loop);
 
@@ -171,6 +175,9 @@ int uv_loop_alive(const uv_loop_t *loop) {
         }
     }
     for (uv_work_t *work = loop->work_queue; work != 0; work = work->next) {
+        return 1;
+    }
+    if (loop->fs_queue != 0) {
         return 1;
     }
     if (loop->getaddrinfo_queue != 0) {
@@ -655,6 +662,19 @@ static void run_done_work(uv_loop_t *loop) {
     }
 }
 
+static void run_done_fs(uv_loop_t *loop) {
+    uv_fs_t *request = loop->fs_queue;
+    loop->fs_queue = 0;
+    while (request != 0) {
+        uv_fs_t *next = request->next;
+        request->next = 0;
+        if (request->cb != 0) {
+            request->cb(request);
+        }
+        request = next;
+    }
+}
+
 static void run_process_exits(uv_loop_t *loop) {
     for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
         uv_process_t *process = (uv_process_t *)base;
@@ -1044,6 +1064,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
@@ -1105,6 +1126,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_done_fs(loop);
     run_process_exits(loop);
     run_done_getaddrinfo(loop);
     return uv_loop_alive(loop) ? 1 : 0;
@@ -1833,34 +1855,75 @@ char *uv_strerror_r(int error, char *buffer, size_t buffer_length) {
     return copy_error_string(buffer, buffer_length, uv_strerror(error));
 }
 
+static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request) {
+    request->next = 0;
+    if (loop->fs_queue == 0) {
+        loop->fs_queue = request;
+        return;
+    }
+    uv_fs_t *tail = loop->fs_queue;
+    while (tail->next != 0) {
+        tail = tail->next;
+    }
+    tail->next = request;
+}
+
+static char *uv_strdup_text(const char *text) {
+    if (text == 0) {
+        return 0;
+    }
+    size_t length = strlen(text) + 1;
+    char *copy = malloc(length);
+    if (copy != 0) {
+        memcpy(copy, text, length);
+    }
+    return copy;
+}
+
+static int fs_prepare(uv_loop_t *loop, uv_fs_t *request, uv_fs_type type, const char *path, uv_fs_cb cb) {
+    if (request == 0 || (cb != 0 && loop == 0)) {
+        return UV_EINVAL;
+    }
+    memset(request, 0, sizeof(*request));
+    request->type = UV_FS;
+    request->loop = loop;
+    request->fs_type = type;
+    request->cb = cb;
+    if (path != 0) {
+        request->path = uv_strdup_text(path);
+        if (request->path == 0) {
+            return UV_ENOMEM;
+        }
+    }
+    return 0;
+}
+
 static int fs_finish(uv_fs_t *request, ssize_t result, uv_fs_cb cb) {
     request->result = result;
     if (cb != 0) {
-        cb(request);
+        fs_queue_done(request->loop, request);
+        return 0;
     }
     return result < 0 ? (int)result : 0;
 }
 
 int uv_fs_open(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, int mode, uv_fs_cb cb) {
-    (void)mode;
     if (request == 0 || path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->loop = loop;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_OPEN, path, cb);
+    if (error < 0) {
+        return error;
+    }
     int fd = open(path, flags, mode);
     return fs_finish(request, fd < 0 ? uv_error_from_errno() : fd, cb);
 }
 
 int uv_fs_close(uv_loop_t *loop, uv_fs_t *request, int fd, uv_fs_cb cb) {
-    (void)loop;
-    if (request == 0) {
-        return -EINVAL;
+    int error = fs_prepare(loop, request, UV_FS_CLOSE, 0, cb);
+    if (error < 0) {
+        return error;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
     return fs_finish(request, close(fd) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
@@ -1871,12 +1934,13 @@ int uv_fs_read(uv_loop_t *loop,
     unsigned int buffer_count,
     int64_t offset,
     uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || buffers == 0 || buffer_count == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
+    int error = fs_prepare(loop, request, UV_FS_READ, 0, cb);
+    if (error < 0) {
+        return error;
+    }
     if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
         return fs_finish(request, uv_error_from_errno(), cb);
     }
@@ -1901,12 +1965,13 @@ int uv_fs_write(uv_loop_t *loop,
     unsigned int buffer_count,
     int64_t offset,
     uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || buffers == 0 || buffer_count == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
+    int error = fs_prepare(loop, request, UV_FS_WRITE, 0, cb);
+    if (error < 0) {
+        return error;
+    }
     if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
         return fs_finish(request, uv_error_from_errno(), cb);
     }
@@ -1926,61 +1991,226 @@ int uv_fs_write(uv_loop_t *loop,
 }
 
 int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_MKDIR, path, cb);
+    if (error < 0) {
+        return error;
+    }
     return fs_finish(request, mkdir(path, (mode_t)mode) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
 int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_RMDIR, path, cb);
+    if (error < 0) {
+        return error;
+    }
     return fs_finish(request, rmdir(path) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
 int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || path == 0 || new_path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_RENAME, path, cb);
+    if (error < 0) {
+        return error;
+    }
     return fs_finish(request, rename(path, new_path) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
 int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_UNLINK, path, cb);
+    if (error < 0) {
+        return error;
+    }
     return fs_finish(request, unlink(path) < 0 ? uv_error_from_errno() : 0, cb);
 }
 
 int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
-    (void)loop;
     if (request == 0 || path == 0) {
-        return -EINVAL;
+        return UV_EINVAL;
     }
-    memset(request, 0, sizeof(*request));
-    request->type = UV_FS;
-    request->path = path;
+    int error = fs_prepare(loop, request, UV_FS_STAT, path, cb);
+    if (error < 0) {
+        return error;
+    }
     int result = stat(path, &request->statbuf);
     return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
 }
 
+int uv_fs_lstat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
+    if (request == 0 || path == 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_LSTAT, path, cb);
+    if (error < 0) {
+        return error;
+    }
+    int result = stat(path, &request->statbuf);
+    return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
+}
+
+int uv_fs_fstat(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb) {
+    int error = fs_prepare(loop, request, UV_FS_FSTAT, 0, cb);
+    if (error < 0) {
+        return error;
+    }
+    int result = fstat(fd, &request->statbuf);
+    return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
+}
+
+int uv_fs_access(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb) {
+    if (request == 0 || path == 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_ACCESS, path, cb);
+    if (error < 0) {
+        return error;
+    }
+    return fs_finish(request, access(path, mode) < 0 ? uv_error_from_errno() : 0, cb);
+}
+
+static uv_dirent_type_t uv_dirent_type_from_posix(unsigned char type) {
+    if (type == DT_DIR) {
+        return UV_DIRENT_DIR;
+    }
+    if (type == DT_REG) {
+        return UV_DIRENT_FILE;
+    }
+    return UV_DIRENT_UNKNOWN;
+}
+
+static int uv_scandir_append(uv_fs_t *request, const struct dirent *entry) {
+    if (request->dirent_count != 0 &&
+        (request->dirent_count & (request->dirent_count - 1)) == 0 &&
+        request->dirent_count >= UV_SCANDIR_INITIAL_CAPACITY) {
+        size_t next_capacity = request->dirent_count * 2;
+        uv_dirent_t *grown = realloc(request->dirents, next_capacity * sizeof(grown[0]));
+        if (grown == 0) {
+            return UV_ENOMEM;
+        }
+        request->dirents = grown;
+    } else if (request->dirents == 0) {
+        request->dirents = calloc(UV_SCANDIR_INITIAL_CAPACITY, sizeof(request->dirents[0]));
+        if (request->dirents == 0) {
+            return UV_ENOMEM;
+        }
+    }
+    char *name = uv_strdup_text(entry->d_name);
+    if (name == 0) {
+        return UV_ENOMEM;
+    }
+    request->dirents[request->dirent_count].name = name;
+    request->dirents[request->dirent_count].type = uv_dirent_type_from_posix(entry->d_type);
+    request->dirent_count++;
+    return 0;
+}
+
+int uv_fs_scandir(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, uv_fs_cb cb) {
+    (void)flags;
+    if (request == 0 || path == 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_SCANDIR, path, cb);
+    if (error < 0) {
+        return error;
+    }
+    DIR *dir = opendir(path);
+    if (dir == 0) {
+        return fs_finish(request, uv_error_from_errno(), cb);
+    }
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != 0) {
+        error = uv_scandir_append(request, entry);
+        if (error < 0) {
+            closedir(dir);
+            return fs_finish(request, error, cb);
+        }
+    }
+    closedir(dir);
+    return fs_finish(request, (ssize_t)request->dirent_count, cb);
+}
+
+int uv_fs_scandir_next(uv_fs_t *request, uv_dirent_t *entry) {
+    if (request == 0 || entry == 0 || request->fs_type != UV_FS_SCANDIR || request->result < 0) {
+        return UV_EINVAL;
+    }
+    if (request->dirent_index >= request->dirent_count) {
+        return UV_EOF;
+    }
+    *entry = request->dirents[request->dirent_index++];
+    return 0;
+}
+
+int uv_fs_realpath(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
+    if (request == 0 || path == 0) {
+        return UV_EINVAL;
+    }
+    int error = fs_prepare(loop, request, UV_FS_REALPATH, path, cb);
+    if (error < 0) {
+        return error;
+    }
+    char *resolved = malloc(UV_REALPATH_MAX);
+    if (resolved == 0) {
+        return fs_finish(request, UV_ENOMEM, cb);
+    }
+    if (__posix_make_path(path, resolved, UV_REALPATH_MAX) < 0) {
+        free(resolved);
+        return fs_finish(request, uv_error_from_errno(), cb);
+    }
+    request->ptr = resolved;
+    return fs_finish(request, 0, cb);
+}
+
+uv_fs_type uv_fs_get_type(const uv_fs_t *request) {
+    return request != 0 ? request->fs_type : UV_FS_UNKNOWN;
+}
+
+ssize_t uv_fs_get_result(const uv_fs_t *request) {
+    return request != 0 ? request->result : UV_EINVAL;
+}
+
+int uv_fs_get_system_error(const uv_fs_t *request) {
+    if (request == 0 || request->result >= 0) {
+        return 0;
+    }
+    return (int)request->result;
+}
+
+void *uv_fs_get_ptr(const uv_fs_t *request) {
+    return request != 0 ? request->ptr : 0;
+}
+
+const char *uv_fs_get_path(const uv_fs_t *request) {
+    return request != 0 ? request->path : 0;
+}
+
+uv_stat_t *uv_fs_get_statbuf(uv_fs_t *request) {
+    return request != 0 ? &request->statbuf : 0;
+}
+
 void uv_fs_req_cleanup(uv_fs_t *request) {
-    (void)request;
+    if (request == 0) {
+        return;
+    }
+    free((void *)request->path);
+    request->path = 0;
+    free(request->ptr);
+    request->ptr = 0;
+    for (size_t i = 0; i < request->dirent_count; i++) {
+        free((void *)request->dirents[i].name);
+    }
+    free(request->dirents);
+    request->dirents = 0;
+    request->dirent_count = 0;
+    request->dirent_index = 0;
+    request->next = 0;
 }

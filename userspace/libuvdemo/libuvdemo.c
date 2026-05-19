@@ -240,9 +240,22 @@ static int phase_test(void) {
     return 0;
 }
 
+static uv_fs_t *fs_async_expected;
+static int fs_async_seen;
+
+static void fs_async_cb(uv_fs_t *async_req) {
+    if (async_req == fs_async_expected &&
+        uv_fs_get_type(async_req) == UV_FS_STAT &&
+        uv_fs_get_result(async_req) == 0) {
+        fs_async_seen = 1;
+    }
+    uv_stop(async_req->loop);
+}
+
 static int fs_test(void) {
     uv_loop_t loop;
     uv_fs_t request;
+    uv_fs_t async_request;
     const char *path = "/fat/libuvdemo.txt";
     const char *renamed = "/fat/libuvdemo-renamed.txt";
     const char *dir = "/fat/libuvdemo-dir";
@@ -250,32 +263,43 @@ static int fs_test(void) {
     char readback[32];
     uv_buf_t buffer;
     int fd;
+    int saw_bin = 0;
+    int saw_echo = 0;
+    fs_async_expected = 0;
+    fs_async_seen = 0;
 
     if (uv_loop_init(&loop) < 0) {
         return 1;
     }
     (void)uv_fs_unlink(&loop, &request, path, 0);
+    uv_fs_req_cleanup(&request);
     (void)uv_fs_unlink(&loop, &request, renamed, 0);
+    uv_fs_req_cleanup(&request);
     (void)uv_fs_rmdir(&loop, &request, dir, 0);
+    uv_fs_req_cleanup(&request);
 
     if (uv_fs_open(&loop, &request, path, O_CREAT | O_TRUNC | O_RDWR, 0644, 0) < 0) {
         puts("libuvdemo: fs open failed");
         return 1;
     }
     fd = (int)request.result;
+    uv_fs_req_cleanup(&request);
     buffer = uv_buf_init(payload, (unsigned int)strlen(payload));
     if (uv_fs_write(&loop, &request, fd, &buffer, 1, 0, 0) < 0) {
         puts("libuvdemo: fs write failed");
         (void)uv_fs_close(&loop, &request, fd, 0);
         return 1;
     }
+    uv_fs_req_cleanup(&request);
     (void)uv_fs_close(&loop, &request, fd, 0);
+    uv_fs_req_cleanup(&request);
 
     if (uv_fs_open(&loop, &request, path, O_RDONLY, 0, 0) < 0) {
         puts("libuvdemo: fs reopen failed");
         return 1;
     }
     fd = (int)request.result;
+    uv_fs_req_cleanup(&request);
     memset(readback, 0, sizeof(readback));
     buffer = uv_buf_init(readback, sizeof(readback) - 1);
     if (uv_fs_read(&loop, &request, fd, &buffer, 1, 0, 0) < 0) {
@@ -283,21 +307,106 @@ static int fs_test(void) {
         (void)uv_fs_close(&loop, &request, fd, 0);
         return 1;
     }
+    uv_fs_req_cleanup(&request);
     (void)uv_fs_close(&loop, &request, fd, 0);
+    uv_fs_req_cleanup(&request);
     if (strcmp(readback, payload) != 0) {
         puts("libuvdemo: fs mismatch");
         return 1;
     }
 
-    if (uv_fs_mkdir(&loop, &request, dir, 0755, 0) < 0 ||
-        uv_fs_rename(&loop, &request, path, renamed, 0) < 0 ||
-        uv_fs_stat(&loop, &request, renamed, 0) < 0 ||
-        request.statbuf.st_size != (off_t)strlen(payload) ||
-        uv_fs_unlink(&loop, &request, renamed, 0) < 0 ||
-        uv_fs_rmdir(&loop, &request, dir, 0) < 0) {
+    if (uv_fs_mkdir(&loop, &request, dir, 0755, 0) < 0) {
         puts("libuvdemo: fs metadata failed");
         return 1;
     }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_rename(&loop, &request, path, renamed, 0) < 0) {
+        puts("libuvdemo: fs metadata failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_stat(&loop, &request, renamed, 0) < 0 ||
+        uv_fs_get_type(&request) != UV_FS_STAT ||
+        uv_fs_get_result(&request) != 0 ||
+        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload)) {
+        puts("libuvdemo: fs stat failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_open(&loop, &request, renamed, O_RDONLY, 0, 0) < 0) {
+        puts("libuvdemo: fs fstat open failed");
+        return 1;
+    }
+    fd = (int)request.result;
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_fstat(&loop, &request, fd, 0) < 0 ||
+        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload)) {
+        puts("libuvdemo: fs fstat failed");
+        (void)uv_fs_close(&loop, &request, fd, 0);
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    (void)uv_fs_close(&loop, &request, fd, 0);
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_lstat(&loop, &request, renamed, 0) < 0 ||
+        uv_fs_get_statbuf(&request)->st_size != (off_t)strlen(payload)) {
+        puts("libuvdemo: fs lstat failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_access(&loop, &request, renamed, F_OK | R_OK, 0) < 0) {
+        puts("libuvdemo: fs access failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_realpath(&loop, &request, renamed, 0) < 0 ||
+        strcmp((const char *)uv_fs_get_ptr(&request), renamed) != 0 ||
+        strcmp(uv_fs_get_path(&request), renamed) != 0) {
+        puts("libuvdemo: fs realpath failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_scandir(&loop, &request, "/fat/bin", 0, 0) < 0 ||
+        uv_fs_get_result(&request) <= 0) {
+        puts("libuvdemo: fs scandir failed");
+        return 1;
+    }
+    uv_dirent_t entry;
+    while (uv_fs_scandir_next(&request, &entry) == 0) {
+        if (strcmp(entry.name, "echo") == 0 && entry.type == UV_DIRENT_FILE) {
+            saw_echo = 1;
+        }
+        if (strcmp(entry.name, "sh") == 0 && entry.type == UV_DIRENT_FILE) {
+            saw_bin = 1;
+        }
+    }
+    uv_fs_req_cleanup(&request);
+    if (!saw_bin || !saw_echo) {
+        puts("libuvdemo: fs scandir contents failed");
+        return 1;
+    }
+    memset(&async_request, 0, sizeof(async_request));
+    fs_async_expected = &async_request;
+    if (uv_fs_stat(&loop, &async_request, renamed, fs_async_cb) < 0) {
+        puts("libuvdemo: fs async setup failed");
+        return 1;
+    }
+    (void)uv_run(&loop, UV_RUN_DEFAULT);
+    uv_fs_req_cleanup(&async_request);
+    if (!fs_async_seen) {
+        puts("libuvdemo: fs async failed");
+        return 1;
+    }
+    if (uv_fs_unlink(&loop, &request, renamed, 0) < 0) {
+        puts("libuvdemo: fs cleanup failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
+    if (uv_fs_rmdir(&loop, &request, dir, 0) < 0) {
+        puts("libuvdemo: fs cleanup failed");
+        return 1;
+    }
+    uv_fs_req_cleanup(&request);
     puts("libuvdemo: fs ok");
     return 0;
 }

@@ -27,8 +27,10 @@ backend.
   prepare/check/idle phase handles.
 - Timers with one-shot and repeating dispatch, repeat setters/getters,
   `uv_timer_again`, and due-in reporting.
-- Synchronous filesystem request helpers for open, close, read, write, mkdir,
-  rmdir, rename, unlink, and stat.
+- Filesystem request helpers for open, close, read, write, mkdir, rmdir,
+  rename, unlink, stat, lstat, fstat, access, realpath, and scandir. Callback
+  forms complete through the event loop queue instead of inline callbacks, and
+  `uv_fs_req_cleanup` releases path, realpath, and scandir allocations.
 - TCP listener, accept, connect, read, write, shutdown, and close entry points
   over the srvros socket fd layer. Listener/accept/read/write/shutdown now use
   `uv_stream_t` signatures with TCP as the first concrete backend. Connect
@@ -52,10 +54,11 @@ backend.
 `/fat/bin/uvdemo` remains the broad behavioral coverage app, including UDP,
 multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
 read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
-now covers the core object helpers, loop phases, timers, filesystem requests,
-async/work callbacks, poll callbacks, resolver callbacks, public pipe creation,
-pipe streams, and a child process stdout pipe that need to stay stable while
-incrementally replacing adapter internals with upstream code.
+now covers the core object helpers, loop phases, timers, filesystem metadata
+and directory requests, async/work callbacks, poll callbacks, resolver
+callbacks, public pipe creation, pipe streams, and a child process stdout pipe
+that need to stay stable while incrementally replacing adapter internals with
+upstream code.
 
 ## Replacement Strategy
 
