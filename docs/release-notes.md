@@ -51,6 +51,9 @@ server.
 - Adds more libuv loop parity with prepare/check/idle phase handles, poll
   disconnect/error mapping, timer repeat helpers, and queued `uv_getaddrinfo`
   callbacks over the srvros resolver.
+- Adds libuv handle lifetime helpers for `uv_ref`, `uv_unref`, `uv_has_ref`,
+  `uv_walk`, and `uv_fileno`, so unreferenced handles no longer keep the loop
+  alive by themselves.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

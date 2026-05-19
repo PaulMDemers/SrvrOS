@@ -71,6 +71,7 @@ static void init_handle(uv_loop_t *loop, uv_handle_t *handle, int fd, int type) 
     memset(handle, 0, sizeof(*handle));
     handle->fd = fd;
     handle->type = type;
+    handle->referenced = 1;
     handle->loop = 0;
     register_handle(loop, handle);
 }
@@ -146,7 +147,7 @@ int uv_loop_alive(const uv_loop_t *loop) {
         return 0;
     }
     for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
-        if (handle->active && !handle->closing) {
+        if (handle->active && handle->referenced && !handle->closing) {
             return 1;
         }
     }
@@ -238,6 +239,39 @@ int uv_is_active(const uv_handle_t *handle) {
 
 int uv_is_closing(const uv_handle_t *handle) {
     return handle != 0 && handle->closing;
+}
+
+void uv_ref(uv_handle_t *handle) {
+    if (handle != 0) {
+        handle->referenced = 1;
+    }
+}
+
+void uv_unref(uv_handle_t *handle) {
+    if (handle != 0) {
+        handle->referenced = 0;
+    }
+}
+
+int uv_has_ref(const uv_handle_t *handle) {
+    return handle != 0 && handle->referenced;
+}
+
+void uv_walk(uv_loop_t *loop, uv_walk_cb cb, void *arg) {
+    if (loop == 0 || cb == 0) {
+        return;
+    }
+    for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+        cb(handle, arg);
+    }
+}
+
+int uv_fileno(const uv_handle_t *handle, uv_os_fd_t *fd) {
+    if (handle == 0 || fd == 0 || handle->fd < 0 || handle->closing) {
+        return UV_EBADF;
+    }
+    *fd = handle->fd;
+    return 0;
 }
 
 int uv_is_readable(const uv_stream_t *stream) {

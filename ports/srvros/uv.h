@@ -112,6 +112,7 @@ typedef struct uv_udp_send_s uv_udp_send_t;
 typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
+typedef int uv_os_fd_t;
 
 typedef enum {
     UV_UNKNOWN_HANDLE = 0,
@@ -168,6 +169,7 @@ typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_prepare_cb)(uv_prepare_t *handle);
 typedef void (*uv_check_cb)(uv_check_t *handle);
 typedef void (*uv_idle_cb)(uv_idle_t *handle);
+typedef void (*uv_walk_cb)(uv_handle_t *handle, void *arg);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -186,6 +188,7 @@ struct uv_handle_s {
     int type;
     int active;
     int closing;
+    int referenced;
     uv_close_cb close_cb;
     uv_handle_t *next;
 };
@@ -338,6 +341,11 @@ void uv_handle_set_data(uv_handle_t *handle, void *data);
 uv_loop_t *uv_handle_get_loop(const uv_handle_t *handle);
 int uv_is_active(const uv_handle_t *handle);
 int uv_is_closing(const uv_handle_t *handle);
+void uv_ref(uv_handle_t *handle);
+void uv_unref(uv_handle_t *handle);
+int uv_has_ref(const uv_handle_t *handle);
+void uv_walk(uv_loop_t *loop, uv_walk_cb cb, void *arg);
+int uv_fileno(const uv_handle_t *handle, uv_os_fd_t *fd);
 int uv_is_readable(const uv_stream_t *stream);
 int uv_is_writable(const uv_stream_t *stream);
 size_t uv_stream_get_write_queue_size(const uv_stream_t *stream);

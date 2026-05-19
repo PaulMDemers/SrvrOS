@@ -176,7 +176,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   staging harness. It validates the currently mapped adapter subset before
   deeper upstream backend replacement: timer dispatch, filesystem requests,
   prepare/check/idle loop phases, async notification, queued work,
-  pipe-backed fd polling, and queued `uv_getaddrinfo` callbacks.
+  pipe-backed fd polling, handle ref/unref/walk/fileno helpers, and queued
+  `uv_getaddrinfo` callbacks.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

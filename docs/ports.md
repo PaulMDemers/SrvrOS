@@ -205,7 +205,8 @@ The adapter also exposes libuv-style `UV_E*` errno constants plus
 `uv_translate_sys_error`, `uv_err_name`, and reentrant string helpers.
 Core loop and object parity covers loop data/close helpers, backend
 timeout/fd reporting, handle and request type/name/size/data helpers,
-active/closing checks, and timer due-in reporting.
+active/closing checks, handle ref/unref state, loop walking, handle fd
+extraction, and timer due-in reporting.
 TCP stream parity now includes writable-readiness connect completion, deferred
 write queues with copied buffers, queued-byte reporting, and close-from-callback
 guards so accepted streams can be closed without stale poll-snapshot reads.

@@ -45,6 +45,8 @@ static int error_test(void) {
 
 static int core_timer_seen;
 static int core_close_seen;
+static int core_walk_seen;
+static int core_walk_arg_seen;
 
 static void core_timer_cb(uv_timer_t *timer) {
     core_timer_seen++;
@@ -54,6 +56,14 @@ static void core_timer_cb(uv_timer_t *timer) {
 static void core_close_cb(uv_handle_t *handle) {
     if (uv_is_closing(handle)) {
         core_close_seen = 1;
+    }
+}
+
+static void core_walk_cb(uv_handle_t *handle, void *arg) {
+    int *token = arg;
+    if (uv_handle_get_type(handle) == UV_TIMER && token != 0 && *token == 7) {
+        core_walk_seen++;
+        core_walk_arg_seen = 1;
     }
 }
 
@@ -67,6 +77,8 @@ static int core_api_test(void) {
 
     core_timer_seen = 0;
     core_close_seen = 0;
+    core_walk_seen = 0;
+    core_walk_arg_seen = 0;
     if (uv_loop_init(&loop) < 0 || uv_loop_close(&loop) != 0) {
         puts("libuvdemo: loop close failed");
         return 1;
@@ -95,7 +107,8 @@ static int core_api_test(void) {
         strcmp(uv_req_type_name(UV_GETADDRINFO), "getaddrinfo") != 0 ||
         uv_backend_fd(&loop) != UV_ENOSYS ||
         uv_is_active((uv_handle_t *)&timer) ||
-        uv_is_closing((uv_handle_t *)&timer)) {
+        uv_is_closing((uv_handle_t *)&timer) ||
+        !uv_has_ref((uv_handle_t *)&timer)) {
         puts("libuvdemo: core helpers failed");
         return 1;
     }
@@ -105,6 +118,20 @@ static int core_api_test(void) {
         uv_backend_timeout(&loop) < 0 ||
         uv_timer_get_due_in(&timer) > 50) {
         puts("libuvdemo: active helpers failed");
+        return 1;
+    }
+    int walk_token = 7;
+    uv_walk(&loop, core_walk_cb, &walk_token);
+    uv_unref((uv_handle_t *)&timer);
+    if (uv_loop_alive(&loop) || uv_has_ref((uv_handle_t *)&timer)) {
+        puts("libuvdemo: unref failed");
+        return 1;
+    }
+    uv_ref((uv_handle_t *)&timer);
+    if (!uv_loop_alive(&loop) || !uv_has_ref((uv_handle_t *)&timer) ||
+        core_walk_seen != 1 || !core_walk_arg_seen ||
+        uv_fileno((uv_handle_t *)&timer, 0) != UV_EBADF) {
+        puts("libuvdemo: ref/walk failed");
         return 1;
     }
     (void)uv_run(&loop, UV_RUN_DEFAULT);
@@ -346,12 +373,20 @@ static void poll_cb(uv_poll_t *handle, int status, int events) {
 
 static int poll_test(void) {
     char message[] = "libuv-poll-ok";
+    uv_os_fd_t fd = -1;
     poll_seen = 0;
     if (uv_loop_init(&poll_loop) < 0 ||
         pipe(poll_fds) < 0 ||
         uv_poll_init(&poll_loop, &poll_handle, poll_fds[0]) < 0 ||
         uv_poll_start(&poll_handle, UV_READABLE, poll_cb) < 0) {
         puts("libuvdemo: poll setup failed");
+        return 1;
+    }
+    if (uv_fileno((uv_handle_t *)&poll_handle, &fd) < 0 || fd != poll_fds[0]) {
+        puts("libuvdemo: poll fileno failed");
+        uv_poll_stop(&poll_handle);
+        close(poll_fds[0]);
+        close(poll_fds[1]);
         return 1;
     }
     if (write(poll_fds[1], message, strlen(message)) != (ssize_t)strlen(message)) {
