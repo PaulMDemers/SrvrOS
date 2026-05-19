@@ -213,6 +213,11 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return -1;
     }
 
+    if (fd == 0) {
+        int64_t redirected = process_input_write(process_current(), (const uint8_t *)buffer, length);
+        return redirected != -2 ? redirected : -1;
+    }
+
     if (fd != 1 && fd != 2) {
         struct process_file *file = process_file_at(process_current(), fd);
         if (file == NULL) {
@@ -231,7 +236,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         if (file->type == PROCESS_FILE_VFS_WRITE) {
             return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
         }
-        if (file->type == PROCESS_FILE_PIPE_WRITE) {
+        if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
             return process_file_pipe_write(process_current(), fd, (const uint8_t *)buffer, length);
         }
         if (file->type == PROCESS_FILE_NET_CONNECTION) {
@@ -355,7 +360,7 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if (file->type == PROCESS_FILE_NET_CONNECTION) {
         return net_read(file->handle, buffer, length, process_file_nonblocking(process_current(), fd));
     }
-    if (file->type == PROCESS_FILE_PIPE_READ) {
+    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
         return process_file_pipe_read(process_current(), fd, (uint8_t *)buffer, length);
     }
     if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) {
@@ -990,6 +995,20 @@ static int64_t syscall_pipe(int32_t *fds_out) {
         return -1;
     }
     if (process_file_pipe(process_current(), fds) < 0) {
+        return -1;
+    }
+    copy[0] = (int32_t)fds[0];
+    copy[1] = (int32_t)fds[1];
+    return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t syscall_pipe_pair(int32_t *fds_out) {
+    uint64_t fds[2];
+    int32_t copy[2];
+    if (fds_out == NULL || !user_buffer_ok(fds_out, sizeof(copy), true)) {
+        return -1;
+    }
+    if (process_file_pipe_pair(process_current(), fds) < 0) {
         return -1;
     }
     copy[0] = (int32_t)fds[0];
@@ -1867,6 +1886,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_PIPE:
         frame->rax = (uint64_t)syscall_pipe((int32_t *)frame->rdi);
+        return;
+    case SYS_PIPE_PAIR:
+        frame->rax = (uint64_t)syscall_pipe_pair((int32_t *)frame->rdi);
         return;
     case SYS_SPAWN_BG_ARGS_FDS:
         frame->rax = (uint64_t)syscall_spawn_bg_args_fds((const char *)frame->rdi,

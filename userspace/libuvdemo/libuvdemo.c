@@ -1039,8 +1039,10 @@ static int tty_signal_test(void) {
 }
 
 static uv_loop_t process_loop;
+static uv_pipe_t process_stdin_pipe;
 static uv_pipe_t process_stdout_pipe;
 static uv_process_t process_handle;
+static uv_write_t process_write_request;
 static char process_output[128];
 static int process_exit_seen;
 static int process_stdout_eof;
@@ -1085,8 +1087,25 @@ static void process_exit_cb(uv_process_t *process, int64_t exit_status, int term
     maybe_stop_process_loop();
 }
 
+static void process_write_close_cb(uv_write_t *request, int status) {
+    if (status < 0) {
+        process_failed = 1;
+    }
+    if (request->handle != 0) {
+        uv_close((uv_handle_t *)request->handle, 0);
+    }
+}
+
+static void process_write_keep_cb(uv_write_t *request, int status) {
+    (void)request;
+    if (status < 0) {
+        process_failed = 1;
+    }
+}
+
 static int process_test(void) {
-    char *argv[] = {"echo", "uv-process-ok", 0};
+    char *argv[] = {"cat", 0};
+    uv_buf_t input = uv_buf_init("uv-process-ok\n", 14);
     uv_stdio_container_t stdio[3];
     uv_process_options_t options;
     memset(process_output, 0, sizeof(process_output));
@@ -1096,22 +1115,29 @@ static int process_test(void) {
     process_stdout_eof = 0;
     process_failed = 0;
     if (uv_loop_init(&process_loop) < 0 ||
+        uv_pipe_init(&process_loop, &process_stdin_pipe, 0) < 0 ||
         uv_pipe_init(&process_loop, &process_stdout_pipe, 0) < 0) {
         puts("libuvdemo: process setup failed");
         return 1;
     }
-    stdio[0].flags = UV_IGNORE;
+    stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE;
+    stdio[0].data.stream = (uv_stream_t *)&process_stdin_pipe;
     stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
     stdio[1].data.stream = (uv_stream_t *)&process_stdout_pipe;
     stdio[2].flags = UV_IGNORE;
     options.exit_cb = process_exit_cb;
-    options.file = "echo";
+    options.file = "cat";
     options.args = argv;
     options.stdio_count = 3;
     options.stdio = stdio;
     if (uv_spawn(&process_loop, &process_handle, &options) < 0 ||
         uv_process_get_pid(&process_handle) <= 0 ||
-        uv_read_start((uv_stream_t *)&process_stdout_pipe, process_alloc_cb, process_read_cb) < 0) {
+        uv_read_start((uv_stream_t *)&process_stdout_pipe, process_alloc_cb, process_read_cb) < 0 ||
+        uv_write(&process_write_request,
+            (uv_stream_t *)&process_stdin_pipe,
+            &input,
+            1,
+            process_write_close_cb) < 0) {
         puts("libuvdemo: process spawn failed");
         return 1;
     }
@@ -1127,7 +1153,110 @@ static int process_test(void) {
     return 0;
 }
 
-int main(void) {
+static int process_cwd_test(void) {
+    char *argv[] = {"pwd", 0};
+    uv_stdio_container_t stdio[3];
+    uv_process_options_t options;
+    memset(process_output, 0, sizeof(process_output));
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    process_exit_seen = 0;
+    process_stdout_eof = 0;
+    process_failed = 0;
+    if (uv_loop_init(&process_loop) < 0 ||
+        uv_pipe_init(&process_loop, &process_stdout_pipe, 0) < 0) {
+        puts("libuvdemo: process cwd setup failed");
+        return 1;
+    }
+    stdio[0].flags = UV_IGNORE;
+    stdio[1].flags = UV_CREATE_PIPE | UV_WRITABLE_PIPE;
+    stdio[1].data.stream = (uv_stream_t *)&process_stdout_pipe;
+    stdio[2].flags = UV_IGNORE;
+    options.exit_cb = process_exit_cb;
+    options.file = "pwd";
+    options.args = argv;
+    options.cwd = "/fat/bin";
+    options.stdio_count = 3;
+    options.stdio = stdio;
+    if (uv_spawn(&process_loop, &process_handle, &options) < 0 ||
+        uv_read_start((uv_stream_t *)&process_stdout_pipe, process_alloc_cb, process_read_cb) < 0) {
+        puts("libuvdemo: process cwd spawn failed");
+        return 1;
+    }
+    (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+    if (process_failed || !process_exit_seen || !process_stdout_eof ||
+        strstr(process_output, "/fat/bin") == 0) {
+        puts("libuvdemo: process cwd failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&process_handle, 0);
+    puts("libuvdemo: process cwd ok");
+    return 0;
+}
+
+static int process_duplex_child(void) {
+    char buffer[32];
+    ssize_t count = read(0, buffer, sizeof(buffer));
+    if (count < 0) {
+        return 2;
+    }
+    if (write(0, "duplex:", 7) != 7) {
+        return 3;
+    }
+    return write(0, buffer, (size_t)count) == count ? 0 : 4;
+}
+
+static int process_duplex_test(void) {
+    char *argv[] = {"libuvdemo", "duplex-child", 0};
+    uv_buf_t input = uv_buf_init("ping", 4);
+    uv_stdio_container_t stdio[3];
+    uv_process_options_t options;
+    memset(process_output, 0, sizeof(process_output));
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    process_exit_seen = 0;
+    process_stdout_eof = 0;
+    process_failed = 0;
+    if (uv_loop_init(&process_loop) < 0 ||
+        uv_pipe_init(&process_loop, &process_stdout_pipe, 0) < 0) {
+        puts("libuvdemo: process duplex setup failed");
+        return 1;
+    }
+    stdio[0].flags = UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE;
+    stdio[0].data.stream = (uv_stream_t *)&process_stdout_pipe;
+    stdio[1].flags = UV_IGNORE;
+    stdio[2].flags = UV_IGNORE;
+    options.exit_cb = process_exit_cb;
+    options.file = "/libuvdemo";
+    options.args = argv;
+    options.stdio_count = 3;
+    options.stdio = stdio;
+    if (uv_spawn(&process_loop, &process_handle, &options) < 0 ||
+        uv_read_start((uv_stream_t *)&process_stdout_pipe, process_alloc_cb, process_read_cb) < 0 ||
+        uv_write(&process_write_request,
+            (uv_stream_t *)&process_stdout_pipe,
+            &input,
+            1,
+            process_write_keep_cb) < 0) {
+        puts("libuvdemo: process duplex spawn failed");
+        return 1;
+    }
+    (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+    if (process_failed || !process_exit_seen || !process_stdout_eof ||
+        strstr(process_output, "duplex:ping") == 0) {
+        puts("libuvdemo: process duplex failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&process_handle, 0);
+    puts("libuvdemo: process duplex ok");
+    return 0;
+}
+
+int main(int argc, char **argv) {
+    if (argc > 1 && strcmp(argv[1], "duplex-child") == 0) {
+        return process_duplex_child();
+    }
+
     puts("libuvdemo: srvros libuv port staging");
     if (version_test() != 0 ||
         error_test() != 0 ||
@@ -1141,7 +1270,9 @@ int main(void) {
         pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
-        process_test() != 0) {
+        process_test() != 0 ||
+        process_cwd_test() != 0 ||
+        process_duplex_test() != 0) {
         puts("libuvdemo: failed");
         return 1;
     }

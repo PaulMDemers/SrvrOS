@@ -2320,13 +2320,41 @@ int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t le
     if (file == NULL) {
         return -1;
     }
-    if (file->type == PROCESS_FILE_PIPE_READ) {
+    if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
         return process_file_pipe_read(process, (uint64_t)process->stdin_fd, buffer, length);
     }
     if (file->type == PROCESS_FILE_STDIO && file->handle == 0) {
         return -2;
     }
     return process_file_read(process, (uint64_t)process->stdin_fd, buffer, length);
+}
+
+int64_t process_input_write(struct process *process, const uint8_t *buffer, uint64_t length) {
+    if (process == NULL || !process->stdin_redirect) {
+        return -2;
+    }
+    if (buffer == NULL) {
+        return -1;
+    }
+    if (length == 0) {
+        return 0;
+    }
+
+    struct process_file *file = process_file_at(process, (uint64_t)process->stdin_fd);
+    if (file == NULL) {
+        return -1;
+    }
+    if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        return process_file_pipe_write(process, (uint64_t)process->stdin_fd, buffer, length);
+    }
+    if (file->type == PROCESS_FILE_VFS_WRITE) {
+        int64_t written = process_file_write(process, (uint64_t)process->stdin_fd, buffer, length);
+        if (written < 0) {
+            return written;
+        }
+        return process_file_flush(process, (uint64_t)process->stdin_fd) < 0 ? -1 : written;
+    }
+    return -1;
 }
 
 int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
@@ -2355,7 +2383,7 @@ int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t
         return -2;
     }
 
-    int64_t written = file->type == PROCESS_FILE_PIPE_WRITE ?
+    int64_t written = (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) ?
         process_file_pipe_write(process, (uint64_t)target_fd, buffer, length) :
         process_file_write(process, (uint64_t)target_fd, buffer, length);
     if (written < 0) {
@@ -3011,7 +3039,8 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
         if (file->type == PROCESS_FILE_VFS ||
             file->type == PROCESS_FILE_STDIO ||
             file->type == PROCESS_FILE_PIPE_READ ||
-            file->type == PROCESS_FILE_PIPE_WRITE) {
+            file->type == PROCESS_FILE_PIPE_WRITE ||
+            file->type == PROCESS_FILE_PIPE_DUPLEX) {
             return 0;
         }
         if (file->type != PROCESS_FILE_VFS_WRITE) {
@@ -3116,9 +3145,65 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]) {
     return 0;
 }
 
+int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
+    if (process == NULL || fds_out == NULL) {
+        return -1;
+    }
+
+    uint64_t first_index = PROCESS_MAX_OPEN_FILES;
+    uint64_t second_index = PROCESS_MAX_OPEN_FILES;
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (process->files[i].used) {
+            continue;
+        }
+        if (first_index == PROCESS_MAX_OPEN_FILES) {
+            first_index = i;
+        } else {
+            second_index = i;
+            break;
+        }
+    }
+    if (second_index == PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    uint64_t pipe_ab = pipe_alloc();
+    if (pipe_ab == 0) {
+        return -1;
+    }
+    uint64_t pipe_ba = pipe_alloc();
+    if (pipe_ba == 0) {
+        pipe_close(pipe_ab, false);
+        pipe_close(pipe_ab, true);
+        return -1;
+    }
+
+    struct process_file *first_file = &process->files[first_index];
+    struct process_file *second_file = &process->files[second_index];
+    uint8_t *first_bytes = (uint8_t *)first_file;
+    uint8_t *second_bytes = (uint8_t *)second_file;
+    for (uint64_t i = 0; i < sizeof(*first_file); i++) {
+        first_bytes[i] = 0;
+        second_bytes[i] = 0;
+    }
+    first_file->used = true;
+    first_file->type = PROCESS_FILE_PIPE_DUPLEX;
+    first_file->handle = pipe_ba;
+    first_file->aux_handle = pipe_ab;
+    second_file->used = true;
+    second_file->type = PROCESS_FILE_PIPE_DUPLEX;
+    second_file->handle = pipe_ab;
+    second_file->aux_handle = pipe_ba;
+    fds_out[0] = first_index + 3;
+    fds_out[1] = second_index + 3;
+    return 0;
+}
+
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process, fd);
-    if (file == NULL || file->type != PROCESS_FILE_PIPE_READ || (buffer == NULL && length != 0)) {
+    if (file == NULL ||
+        (file->type != PROCESS_FILE_PIPE_READ && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
+        (buffer == NULL && length != 0)) {
         return -1;
     }
     if (length == 0) {
@@ -3154,10 +3239,12 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
 
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process, fd);
-    if (file == NULL || file->type != PROCESS_FILE_PIPE_WRITE || (buffer == NULL && length != 0)) {
+    if (file == NULL ||
+        (file->type != PROCESS_FILE_PIPE_WRITE && file->type != PROCESS_FILE_PIPE_DUPLEX) ||
+        (buffer == NULL && length != 0)) {
         return -1;
     }
-    struct process_pipe *pipe = pipe_at(file->handle);
+    struct process_pipe *pipe = pipe_at(file->type == PROCESS_FILE_PIPE_DUPLEX ? file->aux_handle : file->handle);
     if (pipe == NULL || pipe->read_refs == 0) {
         return -1;
     }
@@ -3211,9 +3298,17 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
     }
 
     if (fd == 0) {
+        if (process->stdin_redirect) {
+            return process->stdin_fd >= 3 ? process_file_poll(process, process->stdin_fd, events) : SRV_POLLNVAL;
+        }
         return (events & SRV_POLLIN) != 0 ? SRV_POLLIN : 0;
     }
     if (fd == 1 || fd == 2) {
+        bool redirected = fd == 2 ? process->stderr_redirect : process->stdout_redirect;
+        int64_t target_fd = fd == 2 ? process->stderr_fd : process->stdout_fd;
+        if (redirected) {
+            return target_fd >= 3 ? process_file_poll(process, target_fd, events) : SRV_POLLNVAL;
+        }
         return (events & SRV_POLLOUT) != 0 ? SRV_POLLOUT : 0;
     }
 
@@ -3253,6 +3348,31 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
             revents |= SRV_POLLOUT;
         }
         if (write->failed) {
+            revents |= SRV_POLLERR;
+        }
+        return revents;
+    }
+
+    if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        struct process_pipe *read_pipe = pipe_at(file->handle);
+        struct process_pipe *write_pipe = pipe_at(file->aux_handle);
+        if (read_pipe == NULL || write_pipe == NULL) {
+            return SRV_POLLNVAL;
+        }
+
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0 && read_pipe->size > 0) {
+            revents |= SRV_POLLIN;
+        }
+        if (read_pipe->write_refs == 0) {
+            revents |= SRV_POLLHUP;
+        }
+        if ((events & SRV_POLLOUT) != 0 &&
+            write_pipe->read_refs != 0 &&
+            write_pipe->size < PROCESS_PIPE_CAPACITY) {
+            revents |= SRV_POLLOUT;
+        }
+        if (write_pipe->read_refs == 0) {
             revents |= SRV_POLLERR;
         }
         return revents;
@@ -3336,6 +3456,24 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         target->used = true;
         target->type = PROCESS_FILE_STDIO;
         target->handle = handle;
+        target->flags = source->flags;
+        return (int64_t)(target_index + 3);
+    }
+
+    if (source->type == PROCESS_FILE_PIPE_DUPLEX) {
+        if (pipe_at(source->handle) == NULL || pipe_at(source->aux_handle) == NULL) {
+            return -1;
+        }
+        uint8_t *bytes = (uint8_t *)target;
+        for (uint64_t i = 0; i < sizeof(*target); i++) {
+            bytes[i] = 0;
+        }
+        pipe_ref(source->handle, false);
+        pipe_ref(source->aux_handle, true);
+        target->used = true;
+        target->type = source->type;
+        target->handle = source->handle;
+        target->aux_handle = source->aux_handle;
         target->flags = source->flags;
         return (int64_t)(target_index + 3);
     }
@@ -3596,6 +3734,9 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
         pipe_close(file->handle, false);
     } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
         pipe_close(file->handle, true);
+    } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        pipe_close(file->handle, false);
+        pipe_close(file->aux_handle, true);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         if (write_file_close(file->handle) < 0) {
             result = -1;

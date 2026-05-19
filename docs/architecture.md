@@ -423,7 +423,8 @@ space and enter the new program with the same pid while closing any fds marked
 close-on-exec. The POSIX
 compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`,
 standard-fd dup/open/close spawn file actions, ordered non-stdio spawn file
-actions, `POSIX_SPAWN_SETPGROUP`, and process-replacing `execve`.
+actions, `POSIX_SPAWN_SETPGROUP`, cwd-aware spawn setup, and process-replacing
+`execve`.
 
 ## POSIX Compatibility
 
@@ -434,7 +435,8 @@ syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
 
 This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 `stat`/`fstat` with VFS-managed metadata, `chmod`/`fchmod`, `umask`,
-`dup`/`dup2` for standard streams, pipes, writable regular files, and
+`dup`/`dup2` for standard streams, pipes including full-duplex pipe-pair
+endpoints, writable regular files, and
 read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
 `FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`, process-wide
@@ -458,7 +460,8 @@ queries. The kernel additions
 for this slice are intentionally narrow: fd metadata/duplication, shared regular-file open
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides plus inherited parent stdio redirects, seek, fd
-flush/truncate, process heap growth, `getpid`, raw timer ticks,
+flush/truncate, fd-0 writes when stdin is redirected to a writable/duplex
+descriptor, process heap growth, `getpid`, raw timer ticks,
 sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, and runtime VFS inode/mode/timestamp
 metadata with exFAT sidecar persistence.

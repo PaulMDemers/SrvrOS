@@ -21,6 +21,7 @@ enum process_file_type {
     PROCESS_FILE_NET_UDP,
     PROCESS_FILE_PIPE_READ,
     PROCESS_FILE_PIPE_WRITE,
+    PROCESS_FILE_PIPE_DUPLEX,
 };
 
 struct process_file {
@@ -32,6 +33,7 @@ struct process_file {
     uint64_t offset;
     uint64_t capacity;
     uint64_t handle;
+    uint64_t aux_handle;
     uint64_t flags;
     bool dirty;
     bool failed;
@@ -112,6 +114,7 @@ const char *process_name(const struct process *process);
 bool process_current_quiet(void);
 bool process_set_stdout_redirect(struct process *process, const char *path, bool append);
 int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length);
+int64_t process_input_write(struct process *process, const uint8_t *buffer, uint64_t length);
 int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 void process_refresh_mappings(struct process *process);
 struct process_file *process_file_at(struct process *process, uint64_t fd);
@@ -124,6 +127,7 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 bool process_file_nonblocking(struct process *process, uint64_t fd);
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
+int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);

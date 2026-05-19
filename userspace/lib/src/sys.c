@@ -115,6 +115,10 @@ long srv_pipe(int fds[2]) {
     return srv_syscall1(SYS_PIPE, (long)fds);
 }
 
+long srv_pipe_pair(int fds[2]) {
+    return srv_syscall1(SYS_PIPE_PAIR, (long)fds);
+}
+
 long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
     return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
 }

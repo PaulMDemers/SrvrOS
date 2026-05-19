@@ -62,6 +62,9 @@ server.
 - Adds first-pass libuv process/stdio staging with `uv_pipe`, `uv_pipe_t`,
   `uv_spawn`, `uv_process_t`, child stdout pipe wiring, and
   `waitpid(WNOHANG)` exit callbacks.
+- Expands libuv process/stdio staging with child stdin pipes, cwd-scoped
+  `uv_spawn`, and duplex child stdio pipes backed by a kernel pipe-pair fd
+  primitive.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

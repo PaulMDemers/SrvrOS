@@ -50,9 +50,10 @@ backend.
   through `uv_run`. The adapter uses srvros signal catch/poll syscalls so a
   watched signal wakes blocking poll waits instead of terminating the process.
 - `uv_process_t`, `uv_spawn`, `uv_process_get_pid`, `uv_process_kill`, and `uv_kill` over
-  `posix_spawnp`, `waitpid(WNOHANG)`, and srvros process kill. The first
-  supported stdio bridge can create one-way pipes for child stdin/stdout/stderr
-  and can map inherited fds or streams into compact child fd tables.
+  `posix_spawnp`, `waitpid(WNOHANG)`, and srvros process kill. The stdio bridge
+  can create one-way pipes for child stdin/stdout/stderr, create a duplex pipe
+  endpoint for `UV_READABLE_PIPE | UV_WRITABLE_PIPE`, honor `cwd`, and map
+  inherited fds or streams into compact child fd tables.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_async_t` pending notification dispatch inside the loop.
@@ -79,8 +80,9 @@ multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
 read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
 now covers the core object helpers, loop phases, timers, filesystem metadata
 and directory requests, async/work callbacks, poll callbacks, resolver
-callbacks, public pipe creation, pipe streams, and a child process stdout pipe
-plus TTY/signal delivery and the current thread/synchronization wrappers that need to stay stable while
+callbacks, public pipe creation, pipe streams, child stdin/stdout pipe wiring,
+`uv_spawn` cwd handling, a duplex stdio child pipe, plus TTY/signal delivery
+and the current thread/synchronization wrappers that need to stay stable while
 incrementally replacing adapter internals with upstream code.
 
 ## Replacement Strategy
@@ -101,10 +103,9 @@ incrementally replacing adapter internals with upstream code.
 
 ## Known Gaps Before Full Upstream libuv
 
-- No `fork`, full process signals, or Unix domain sockets. `uv_spawn` is a
-  compact first pass and returns `UV_ENOSYS` for cwd changes, uid/gid,
-  detached children, and duplex `UV_CREATE_PIPE` requests until the srvros
-  process ABI grows those semantics.
+- No `fork`, full process signals, or Unix domain sockets. `uv_spawn` is still a
+  compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
+  children until the srvros process ABI grows those semantics.
 - Compact TTY model and no PTY support.
 - `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool

@@ -130,7 +130,8 @@ editor clients:
   behavior through a libuv-shaped loop API. Upstream libuv is pinned as a
   submodule under `ports/upstream/libuv` at `v1.52.1`, and
   `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend
-  toward that upstream source tree.
+  toward that upstream source tree. Its process coverage now includes child
+  stdin/stdout pipe wiring, cwd-scoped spawn, and duplex stdio pipes.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

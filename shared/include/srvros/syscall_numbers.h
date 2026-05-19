@@ -92,6 +92,7 @@
 #define SYS_SYNC 87
 #define SYS_SIGNAL_CONFIG 88
 #define SYS_SIGNAL_POLL 89
+#define SYS_PIPE_PAIR 90
 
 #define SRV_ABI_VERSION 1
 
