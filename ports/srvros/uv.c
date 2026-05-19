@@ -43,6 +43,7 @@ static int next_timer_timeout(const uv_loop_t *loop);
 static int uv_scandir_append(uv_fs_t *request, const struct dirent *entry);
 static int uv_error_from_errno(void);
 static void set_nonblocking(int fd);
+static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request);
 
 struct uv_worker_job {
     void (*run)(void *arg);
@@ -159,6 +160,33 @@ static int worker_pool_submit(void (*run)(void *arg), void *arg) {
     pthread_cond_signal(&worker_pool_cond);
     pthread_mutex_unlock(&worker_pool_mutex);
     return 0;
+}
+
+static int worker_pool_cancel(void *arg) {
+    int canceled = 0;
+    pthread_mutex_lock(&worker_pool_mutex);
+    struct uv_worker_job **link = &worker_pool_head;
+    while (*link != 0) {
+        struct uv_worker_job *job = *link;
+        if (job->arg == arg) {
+            *link = job->next;
+            if (worker_pool_tail == job) {
+                worker_pool_tail = 0;
+                for (struct uv_worker_job *tail = worker_pool_head; tail != 0; tail = tail->next) {
+                    if (tail->next == 0) {
+                        worker_pool_tail = tail;
+                        break;
+                    }
+                }
+            }
+            free(job);
+            canceled = 1;
+            break;
+        }
+        link = &job->next;
+    }
+    pthread_mutex_unlock(&worker_pool_mutex);
+    return canceled;
 }
 
 static int uv_error_from_errno(void) {
@@ -547,6 +575,32 @@ void uv_req_set_data(uv_req_t *request, void *data) {
     if (request != 0) {
         request->data = data;
     }
+}
+
+int uv_cancel(uv_req_t *request) {
+    if (request == 0) {
+        return UV_EINVAL;
+    }
+    if (request->type == UV_WORK) {
+        uv_work_t *work = (uv_work_t *)request;
+        if (work->done || work->loop == 0 || !worker_pool_cancel(work)) {
+            return UV_EBUSY;
+        }
+        work->status = UV_ECANCELED;
+        work->done = 1;
+        loop_wakeup(work->loop);
+        return 0;
+    }
+    if (request->type == UV_FS) {
+        uv_fs_t *fs = (uv_fs_t *)request;
+        if (fs->cb == 0 || fs->loop == 0 || !worker_pool_cancel(fs)) {
+            return UV_EBUSY;
+        }
+        fs->result = UV_ECANCELED;
+        fs_queue_done(fs->loop, fs);
+        return 0;
+    }
+    return UV_ENOSYS;
 }
 
 int uv_timer_init(uv_loop_t *loop, uv_timer_t *handle) {

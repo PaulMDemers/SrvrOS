@@ -548,6 +548,7 @@ const char *uv_req_type_name(uv_req_type type);
 uv_req_type uv_req_get_type(const uv_req_t *request);
 void *uv_req_get_data(const uv_req_t *request);
 void uv_req_set_data(uv_req_t *request, void *data);
+int uv_cancel(uv_req_t *request);
 
 uv_buf_t uv_buf_init(char *base, unsigned int length);
 

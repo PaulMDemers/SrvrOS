@@ -216,7 +216,8 @@ srvros pthread implementation.
 The adapter also has a reusable pthread worker pool for `uv_queue_work` and
 callback-based filesystem requests, plus per-loop wake pipes so async/work/fs
 completions can wake a blocked event loop instead of waiting for unrelated fd
-traffic or timer polling.
+traffic or timer polling. Queued work and async filesystem requests can now be
+canceled with `uv_cancel` before a worker starts them.
 TCP stream parity now includes writable-readiness connect completion, deferred
 write queues with copied buffers, queued-byte reporting, `uv_stream_t` public
 signatures for listener/accept/read/write/shutdown operations, queued

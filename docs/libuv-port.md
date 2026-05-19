@@ -48,7 +48,12 @@ backend.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_async_t` pending notification dispatch inside the loop.
 - `uv_queue_work` backed by a small reusable srvros pthread worker pool, with
-  completion pumped by `uv_run`.
+  completion pumped by `uv_run`. `uv_cancel` can cancel queued work before a
+  worker begins running it and delivers `UV_ECANCELED` to the after-work
+  callback.
+- Callback-based filesystem requests can also be canceled while still queued in
+  the worker pool, completing through their normal callback with
+  `UV_ECANCELED`.
 - Per-loop wake pipes so `uv_async_send`, worker completions, and async
   filesystem completions can interrupt a blocked poll wait. `uv_backend_fd`
   exposes the wake-read fd for compatibility probes.
@@ -95,7 +100,8 @@ incrementally replacing adapter internals with upstream code.
 - `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
   behavior are not yet upstream-compatible. The current thread APIs and worker
-  pool map onto srvros pthreads and are useful for portable consumers, but the
-  upstream libuv threadpool backend has not been swapped in yet.
+  pool map onto srvros pthreads and are useful for portable consumers. Queued
+  work/fs cancellation is present, but in-flight worker interruption and the
+  upstream libuv threadpool backend have not been swapped in yet.
 - Dynamic library loading is not available, so the initial target should be a
   statically linked libuv consumer.

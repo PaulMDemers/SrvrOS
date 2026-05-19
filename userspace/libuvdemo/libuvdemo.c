@@ -440,11 +440,20 @@ static int fs_test(void) {
 }
 
 static uv_loop_t work_loop;
+static uv_loop_t cancel_loop;
 static uv_async_t async_handle;
 static uv_work_t work_requests[6];
+static uv_work_t cancel_blockers[4];
+static uv_work_t cancel_request;
+static uv_fs_t cancel_fs_request;
 static uv_mutex_t work_mutex;
+static uv_sem_t work_block_sem;
 static int work_value;
 static int work_done_count;
+static int cancel_block_done_count;
+static int cancel_seen;
+static int cancel_fs_seen;
+static int cancel_ran;
 static int async_seen;
 static int work_seen;
 
@@ -473,6 +482,36 @@ static void after_work_cb(uv_work_t *request, int status) {
     }
 }
 
+static void cancel_blocking_work_cb(uv_work_t *request) {
+    (void)request;
+    uv_sem_wait(&work_block_sem);
+}
+
+static void canceled_work_cb(uv_work_t *request) {
+    (void)request;
+    cancel_ran = 1;
+}
+
+static void cancel_after_work_cb(uv_work_t *request, int status) {
+    if (request == &cancel_request) {
+        cancel_seen = status == UV_ECANCELED;
+    } else if (status == 0) {
+        cancel_block_done_count++;
+    }
+    if (cancel_seen && cancel_fs_seen && cancel_block_done_count == (int)(sizeof(cancel_blockers) / sizeof(cancel_blockers[0]))) {
+        uv_stop(&cancel_loop);
+    }
+}
+
+static void cancel_fs_cb(uv_fs_t *request) {
+    if (request == &cancel_fs_request && uv_fs_get_result(request) == UV_ECANCELED) {
+        cancel_fs_seen = 1;
+    }
+    if (cancel_seen && cancel_fs_seen && cancel_block_done_count == (int)(sizeof(cancel_blockers) / sizeof(cancel_blockers[0]))) {
+        uv_stop(&cancel_loop);
+    }
+}
+
 static int work_test(void) {
     work_value = 0;
     work_done_count = 0;
@@ -498,6 +537,38 @@ static int work_test(void) {
     uv_mutex_destroy(&work_mutex);
     if (!async_seen || !work_seen) {
         puts("libuvdemo: work failed");
+        return 1;
+    }
+    cancel_block_done_count = 0;
+    cancel_seen = 0;
+    cancel_fs_seen = 0;
+    cancel_ran = 0;
+    if (uv_loop_init(&cancel_loop) < 0 || uv_sem_init(&work_block_sem, 0) < 0) {
+        puts("libuvdemo: cancel setup failed");
+        return 1;
+    }
+    for (size_t i = 0; i < sizeof(cancel_blockers) / sizeof(cancel_blockers[0]); i++) {
+        if (uv_queue_work(&cancel_loop, &cancel_blockers[i], cancel_blocking_work_cb, cancel_after_work_cb) < 0) {
+            puts("libuvdemo: cancel setup failed");
+            return 1;
+        }
+    }
+    if (uv_queue_work(&cancel_loop, &cancel_request, canceled_work_cb, cancel_after_work_cb) < 0 ||
+        uv_fs_stat(&cancel_loop, &cancel_fs_request, "/fat", cancel_fs_cb) < 0 ||
+        uv_cancel((uv_req_t *)&cancel_request) < 0 ||
+        uv_cancel((uv_req_t *)&cancel_fs_request) < 0) {
+        puts("libuvdemo: cancel setup failed");
+        return 1;
+    }
+    for (size_t i = 0; i < sizeof(cancel_blockers) / sizeof(cancel_blockers[0]); i++) {
+        uv_sem_post(&work_block_sem);
+    }
+    (void)uv_run(&cancel_loop, UV_RUN_DEFAULT);
+    uv_fs_req_cleanup(&cancel_fs_request);
+    uv_sem_destroy(&work_block_sem);
+    if (!cancel_seen || !cancel_fs_seen || cancel_ran ||
+        cancel_block_done_count != (int)(sizeof(cancel_blockers) / sizeof(cancel_blockers[0]))) {
+        puts("libuvdemo: cancel failed");
         return 1;
     }
     puts("libuvdemo: async ok");

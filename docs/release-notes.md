@@ -69,6 +69,9 @@ server.
 - Moves libuv queued work and callback-based filesystem requests onto a small
   reusable pthread worker pool, adds per-loop wake pipes, and extends
   `/fat/bin/libuvdemo` to cover multi-request work and async fs completions.
+- Adds `uv_cancel` support for work and async filesystem requests that are
+  still queued in the libuv worker pool, returning `UV_EBUSY` once a worker has
+  started the request.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client
