@@ -7,11 +7,16 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <pthread.h>
+#include <signal.h>
+#include <spawn.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+
+#include <srvros/sys.h>
 
 #define UV_MAX_POLL_HANDLES 16
 #define UV_HANDLE_TIMER UV_TIMER
@@ -22,6 +27,8 @@
 #define UV_HANDLE_PREPARE UV_PREPARE
 #define UV_HANDLE_CHECK UV_CHECK
 #define UV_HANDLE_IDLE UV_IDLE
+#define UV_HANDLE_PIPE UV_NAMED_PIPE
+#define UV_HANDLE_PROCESS UV_PROCESS
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
@@ -173,6 +180,10 @@ size_t uv_handle_size(uv_handle_type type) {
             return sizeof(uv_async_t);
         case UV_POLL:
             return sizeof(uv_poll_t);
+        case UV_NAMED_PIPE:
+            return sizeof(uv_pipe_t);
+        case UV_PROCESS:
+            return sizeof(uv_process_t);
         case UV_PREPARE:
             return sizeof(uv_prepare_t);
         case UV_CHECK:
@@ -196,6 +207,10 @@ const char *uv_handle_type_name(uv_handle_type type) {
             return "async";
         case UV_POLL:
             return "poll";
+        case UV_NAMED_PIPE:
+            return "pipe";
+        case UV_PROCESS:
+            return "process";
         case UV_PREPARE:
             return "prepare";
         case UV_CHECK:
@@ -243,6 +258,8 @@ int uv_is_closing(const uv_handle_t *handle) {
 
 static uv_tcp_t *tcp_from_stream(uv_stream_t *stream);
 static const uv_tcp_t *tcp_from_const_stream(const uv_stream_t *stream);
+static uv_pipe_t *pipe_from_stream(uv_stream_t *stream);
+static const uv_pipe_t *pipe_from_const_stream(const uv_stream_t *stream);
 
 void uv_ref(uv_handle_t *handle) {
     if (handle != 0) {
@@ -279,17 +296,23 @@ int uv_fileno(const uv_handle_t *handle, uv_os_fd_t *fd) {
 
 int uv_is_readable(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
-    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
+    const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
+    return (tcp != 0 && !tcp->handle.closing) || (pipe_handle != 0 && !pipe_handle->handle.closing);
 }
 
 int uv_is_writable(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
-    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP && !tcp->handle.closing;
+    const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
+    return (tcp != 0 && !tcp->handle.closing) || (pipe_handle != 0 && !pipe_handle->handle.closing);
 }
 
 size_t uv_stream_get_write_queue_size(const uv_stream_t *stream) {
     const uv_tcp_t *tcp = tcp_from_const_stream(stream);
-    return tcp != 0 && tcp->handle.type == UV_HANDLE_TCP ? tcp->write_queue_size : 0;
+    const uv_pipe_t *pipe_handle = pipe_from_const_stream(stream);
+    if (tcp != 0) {
+        return tcp->write_queue_size;
+    }
+    return pipe_handle != 0 ? pipe_handle->write_queue_size : 0;
 }
 
 static uv_tcp_t *tcp_from_stream(uv_stream_t *stream) {
@@ -306,6 +329,22 @@ static const uv_tcp_t *tcp_from_const_stream(const uv_stream_t *stream) {
         return 0;
     }
     return tcp;
+}
+
+static uv_pipe_t *pipe_from_stream(uv_stream_t *stream) {
+    uv_pipe_t *pipe_handle = (uv_pipe_t *)stream;
+    if (pipe_handle == 0 || pipe_handle->handle.type != UV_HANDLE_PIPE) {
+        return 0;
+    }
+    return pipe_handle;
+}
+
+static const uv_pipe_t *pipe_from_const_stream(const uv_stream_t *stream) {
+    const uv_pipe_t *pipe_handle = (const uv_pipe_t *)stream;
+    if (pipe_handle == 0 || pipe_handle->handle.type != UV_HANDLE_PIPE) {
+        return 0;
+    }
+    return pipe_handle;
 }
 
 size_t uv_req_size(uv_req_type type) {
@@ -604,6 +643,27 @@ static void run_done_work(uv_loop_t *loop) {
     }
 }
 
+static void run_process_exits(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_process_t *process = (uv_process_t *)base;
+        int status = 0;
+        pid_t result;
+        if (base->type != UV_HANDLE_PROCESS || !base->active || base->closing || process->pid <= 0) {
+            continue;
+        }
+        result = waitpid(process->pid, &status, WNOHANG);
+        if (result <= 0) {
+            continue;
+        }
+        base->active = 0;
+        process->exit_status = WIFEXITED(status) ? WEXITSTATUS(status) : status;
+        process->term_signal = WIFSIGNALED(status) ? WTERMSIG(status) : 0;
+        if (process->exit_cb != 0) {
+            process->exit_cb(process, process->exit_status, process->term_signal);
+        }
+    }
+}
+
 static void run_done_getaddrinfo(uv_loop_t *loop) {
     uv_getaddrinfo_t *request = loop->getaddrinfo_queue;
     loop->getaddrinfo_queue = 0;
@@ -628,6 +688,17 @@ static short poll_events_for_handle(uv_handle_t *handle) {
             events |= POLLIN;
         }
         if (tcp->connect_req != 0 || tcp->write_queue_head != 0 || tcp->shutdown_req != 0) {
+            events |= POLLOUT;
+        }
+        return events;
+    }
+    if (handle->type == UV_HANDLE_PIPE) {
+        uv_pipe_t *pipe_handle = (uv_pipe_t *)handle;
+        short events = 0;
+        if (pipe_handle->read_cb != 0) {
+            events |= POLLIN;
+        }
+        if (pipe_handle->write_queue_head != 0) {
             events |= POLLOUT;
         }
         return events;
@@ -765,6 +836,58 @@ static void dispatch_tcp_writes(uv_tcp_t *tcp) {
     dispatch_tcp_shutdown(tcp);
 }
 
+static void update_pipe_active(uv_pipe_t *pipe_handle) {
+    if (pipe_handle == 0 || pipe_handle->handle.closing) {
+        return;
+    }
+    pipe_handle->handle.active = pipe_handle->read_cb != 0 || pipe_handle->write_queue_head != 0;
+}
+
+static void dispatch_pipe_writes(uv_pipe_t *pipe_handle) {
+    while (pipe_handle != 0 && pipe_handle->write_queue_head != 0) {
+        uv_write_t *request = pipe_handle->write_queue_head;
+        int status = 0;
+        while (request->offset < request->length) {
+            ssize_t written = write(pipe_handle->handle.fd,
+                request->buffer + request->offset,
+                request->length - request->offset);
+            if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                update_pipe_active(pipe_handle);
+                return;
+            }
+            if (written < 0) {
+                status = uv_error_from_errno();
+                break;
+            }
+            if (written == 0) {
+                update_pipe_active(pipe_handle);
+                return;
+            }
+            request->offset += (size_t)written;
+            pipe_handle->write_queue_size -= (size_t)written;
+        }
+        pipe_handle->write_queue_head = request->next;
+        if (pipe_handle->write_queue_head == 0) {
+            pipe_handle->write_queue_tail = 0;
+        }
+        request->next = 0;
+        if (status < 0 && pipe_handle->write_queue_size >= request->length - request->offset) {
+            pipe_handle->write_queue_size -= request->length - request->offset;
+        }
+        free(request->buffer);
+        request->buffer = 0;
+        request->length = 0;
+        request->offset = 0;
+        if (request->write_cb != 0) {
+            request->write_cb(request, status);
+        }
+        if (status < 0) {
+            break;
+        }
+    }
+    update_pipe_active(pipe_handle);
+}
+
 static void dispatch_writable(uv_handle_t *handle) {
     if (handle == 0 || handle->fd < 0 || handle->closing) {
         return;
@@ -774,6 +897,8 @@ static void dispatch_writable(uv_handle_t *handle) {
         dispatch_tcp_connect(tcp);
         dispatch_tcp_writes(tcp);
         dispatch_tcp_shutdown(tcp);
+    } else if (handle->type == UV_HANDLE_PIPE) {
+        dispatch_pipe_writes((uv_pipe_t *)handle);
     }
 }
 
@@ -813,6 +938,25 @@ static void dispatch_readable(uv_handle_t *handle) {
                 return;
             }
             tcp->read_cb((uv_stream_t *)tcp, count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count, &buffer);
+        }
+        return;
+    }
+    if (handle->type == UV_HANDLE_PIPE) {
+        uv_pipe_t *pipe_handle = (uv_pipe_t *)handle;
+        if (pipe_handle->read_cb != 0 && pipe_handle->alloc_cb != 0) {
+            uv_buf_t buffer;
+            pipe_handle->alloc_cb(handle, 4096, &buffer);
+            if (buffer.base == 0 || buffer.len == 0) {
+                pipe_handle->read_cb((uv_stream_t *)pipe_handle, -ENOMEM, &buffer);
+                return;
+            }
+            ssize_t count = read(handle->fd, buffer.base, buffer.len);
+            if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return;
+            }
+            pipe_handle->read_cb((uv_stream_t *)pipe_handle,
+                count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count,
+                &buffer);
         }
         return;
     }
@@ -888,6 +1032,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_process_exits(loop);
     run_done_getaddrinfo(loop);
     if (loop->stop_flag || !uv_loop_alive(loop)) {
         return 0;
@@ -948,6 +1093,7 @@ static int run_once(uv_loop_t *loop, int mode) {
     run_due_timers(loop);
     run_pending_async(loop);
     run_done_work(loop);
+    run_process_exits(loop);
     run_done_getaddrinfo(loop);
     return uv_loop_alive(loop) ? 1 : 0;
 }
@@ -1046,24 +1192,39 @@ int uv_tcp_connect(uv_connect_t *request,
 
 int uv_read_start(uv_stream_t *stream, uv_alloc_cb alloc_cb, uv_read_cb read_cb) {
     uv_tcp_t *tcp = tcp_from_stream(stream);
-    if (tcp == 0 || alloc_cb == 0 || read_cb == 0) {
+    uv_pipe_t *pipe_handle = pipe_from_stream(stream);
+    if ((tcp == 0 && pipe_handle == 0) || alloc_cb == 0 || read_cb == 0) {
         return -EINVAL;
     }
-    tcp->alloc_cb = alloc_cb;
-    tcp->read_cb = read_cb;
-    set_nonblocking(tcp->handle.fd);
-    tcp->handle.active = 1;
+    if (tcp != 0) {
+        tcp->alloc_cb = alloc_cb;
+        tcp->read_cb = read_cb;
+        set_nonblocking(tcp->handle.fd);
+        tcp->handle.active = 1;
+    } else {
+        pipe_handle->alloc_cb = alloc_cb;
+        pipe_handle->read_cb = read_cb;
+        set_nonblocking(pipe_handle->handle.fd);
+        pipe_handle->handle.active = 1;
+    }
     return 0;
 }
 
 int uv_read_stop(uv_stream_t *stream) {
     uv_tcp_t *tcp = tcp_from_stream(stream);
-    if (tcp == 0) {
+    uv_pipe_t *pipe_handle = pipe_from_stream(stream);
+    if (tcp == 0 && pipe_handle == 0) {
         return -EINVAL;
     }
-    tcp->read_cb = 0;
-    tcp->alloc_cb = 0;
-    update_tcp_active(tcp);
+    if (tcp != 0) {
+        tcp->read_cb = 0;
+        tcp->alloc_cb = 0;
+        update_tcp_active(tcp);
+    } else {
+        pipe_handle->read_cb = 0;
+        pipe_handle->alloc_cb = 0;
+        update_pipe_active(pipe_handle);
+    }
     return 0;
 }
 
@@ -1073,12 +1234,14 @@ int uv_write(uv_write_t *request,
     unsigned int buffer_count,
     uv_write_cb cb) {
     uv_tcp_t *tcp = tcp_from_stream(handle);
+    uv_pipe_t *pipe_handle = pipe_from_stream(handle);
     size_t total = 0;
     size_t cursor = 0;
-    if (request == 0 || tcp == 0 || buffers == 0) {
+    if (request == 0 || (tcp == 0 && pipe_handle == 0) || buffers == 0) {
         return -EINVAL;
     }
-    if (tcp->handle.fd < 0 || tcp->handle.closing) {
+    uv_handle_t *base = tcp != 0 ? &tcp->handle : &pipe_handle->handle;
+    if (base->fd < 0 || base->closing) {
         return UV_EBADF;
     }
     for (unsigned int i = 0; i < buffer_count; i++) {
@@ -1100,14 +1263,24 @@ int uv_write(uv_write_t *request,
             cursor += buffers[i].len;
         }
     }
-    if (tcp->write_queue_tail != 0) {
+    if (tcp != 0 && tcp->write_queue_tail != 0) {
         tcp->write_queue_tail->next = request;
-    } else {
+    } else if (tcp != 0) {
         tcp->write_queue_head = request;
+    } else if (pipe_handle->write_queue_tail != 0) {
+        pipe_handle->write_queue_tail->next = request;
+    } else {
+        pipe_handle->write_queue_head = request;
     }
-    tcp->write_queue_tail = request;
-    tcp->write_queue_size += total;
-    tcp->handle.active = 1;
+    if (tcp != 0) {
+        tcp->write_queue_tail = request;
+        tcp->write_queue_size += total;
+        tcp->handle.active = 1;
+    } else {
+        pipe_handle->write_queue_tail = request;
+        pipe_handle->write_queue_size += total;
+        pipe_handle->handle.active = 1;
+    }
     return 0;
 }
 
@@ -1128,6 +1301,28 @@ int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb) 
     tcp->shutdown_req = request;
     tcp->shutdown_cb = cb;
     tcp->handle.active = 1;
+    return 0;
+}
+
+int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
+    if (loop == 0 || handle == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_PIPE);
+    handle->ipc = ipc != 0;
+    return 0;
+}
+
+int uv_pipe_open(uv_pipe_t *handle, uv_os_fd_t fd) {
+    if (handle == 0 || fd < 0 || handle->handle.type != UV_HANDLE_PIPE) {
+        return UV_EINVAL;
+    }
+    if (handle->handle.fd >= 0) {
+        close(handle->handle.fd);
+    }
+    handle->handle.fd = fd;
+    set_nonblocking(fd);
     return 0;
 }
 
@@ -1335,6 +1530,113 @@ void uv_freeaddrinfo(struct addrinfo *ai) {
     freeaddrinfo(ai);
 }
 
+static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
+    const uv_stdio_container_t *stdio,
+    int index,
+    int parent_fds[],
+    int child_fds[]) {
+    int flags = stdio[index].flags;
+    int target_fd = index;
+    parent_fds[index] = -1;
+    child_fds[index] = -1;
+    if ((flags & UV_IGNORE) != 0 || flags == 0) {
+        return posix_spawn_file_actions_addclose(actions, target_fd);
+    }
+    if ((flags & UV_INHERIT_FD) != 0) {
+        return posix_spawn_file_actions_adddup2(actions, stdio[index].data.fd, target_fd);
+    }
+    if ((flags & UV_INHERIT_STREAM) != 0) {
+        uv_os_fd_t fd = -1;
+        int error = uv_fileno((const uv_handle_t *)stdio[index].data.stream, &fd);
+        if (error < 0) {
+            return -error;
+        }
+        return posix_spawn_file_actions_adddup2(actions, fd, target_fd);
+    }
+    if ((flags & UV_CREATE_PIPE) != 0) {
+        int fds[2];
+        uv_pipe_t *pipe_handle = pipe_from_stream(stdio[index].data.stream);
+        int child_uses_read = (flags & UV_READABLE_PIPE) != 0 || (index == 0 && (flags & UV_WRITABLE_PIPE) == 0);
+        if (pipe_handle == 0 || pipe(fds) < 0) {
+            return errno != 0 ? errno : EINVAL;
+        }
+        if (child_uses_read) {
+            child_fds[index] = fds[0];
+            parent_fds[index] = fds[1];
+        } else {
+            child_fds[index] = fds[1];
+            parent_fds[index] = fds[0];
+        }
+        if (uv_pipe_open(pipe_handle, parent_fds[index]) < 0) {
+            close(fds[0]);
+            close(fds[1]);
+            parent_fds[index] = -1;
+            child_fds[index] = -1;
+            return EINVAL;
+        }
+        return posix_spawn_file_actions_adddup2(actions, child_fds[index], target_fd);
+    }
+    return EINVAL;
+}
+
+int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t *options) {
+    posix_spawn_file_actions_t actions;
+    int parent_fds[3] = {-1, -1, -1};
+    int child_fds[3] = {-1, -1, -1};
+    int actions_ready = 0;
+    pid_t pid = -1;
+    int error = 0;
+    if (loop == 0 || process == 0 || options == 0 || options->file == 0 || options->args == 0) {
+        return UV_EINVAL;
+    }
+    memset(process, 0, sizeof(*process));
+    init_handle(loop, &process->handle, -1, UV_HANDLE_PROCESS);
+    process->exit_cb = options->exit_cb;
+    if (posix_spawn_file_actions_init(&actions) != 0) {
+        return UV_ENOMEM;
+    }
+    actions_ready = 1;
+    for (int i = 0; i < options->stdio_count && i < 3; i++) {
+        error = configure_spawn_stdio(&actions, options->stdio, i, parent_fds, child_fds);
+        if (error != 0) {
+            goto out;
+        }
+    }
+    error = posix_spawnp(&pid, options->file, &actions, 0, options->args, options->env);
+    if (error == 0) {
+        process->pid = pid;
+        process->handle.active = 1;
+    }
+out:
+    if (actions_ready) {
+        posix_spawn_file_actions_destroy(&actions);
+    }
+    for (int i = 0; i < 3; i++) {
+        if (child_fds[i] >= 0) {
+            close(child_fds[i]);
+        }
+        if (error != 0 && parent_fds[i] >= 0) {
+            close(parent_fds[i]);
+        }
+    }
+    return error == 0 ? 0 : uv_translate_sys_error(error);
+}
+
+int uv_process_kill(uv_process_t *process, int signum) {
+    if (process == 0) {
+        return UV_EINVAL;
+    }
+    return uv_kill(process->pid, signum);
+}
+
+int uv_kill(int pid, int signum) {
+    (void)signum;
+    if (pid <= 0) {
+        return UV_ESRCH;
+    }
+    return srv_kill((uint64_t)pid) < 0 ? UV_ESRCH : 0;
+}
+
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
     if (handle == 0 || handle->closing) {
         return;
@@ -1354,6 +1656,17 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         tcp->connect_cb = 0;
         tcp->shutdown_req = 0;
         tcp->shutdown_cb = 0;
+    } else if (handle->type == UV_HANDLE_PIPE) {
+        uv_pipe_t *pipe_handle = (uv_pipe_t *)handle;
+        while (pipe_handle->write_queue_head != 0) {
+            uv_write_t *request = pipe_handle->write_queue_head;
+            pipe_handle->write_queue_head = request->next;
+            free(request->buffer);
+            request->buffer = 0;
+            request->next = 0;
+        }
+        pipe_handle->write_queue_tail = 0;
+        pipe_handle->write_queue_size = 0;
     }
     handle->active = 0;
     handle->closing = 1;

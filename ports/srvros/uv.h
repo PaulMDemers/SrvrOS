@@ -103,9 +103,11 @@ typedef struct uv_check_s uv_check_t;
 typedef struct uv_idle_s uv_idle_t;
 typedef struct uv_stream_s uv_stream_t;
 typedef struct uv_tcp_s uv_tcp_t;
+typedef struct uv_pipe_s uv_pipe_t;
 typedef struct uv_udp_s uv_udp_t;
 typedef struct uv_poll_s uv_poll_t;
 typedef struct uv_async_s uv_async_t;
+typedef struct uv_process_s uv_process_t;
 typedef struct uv_connect_s uv_connect_t;
 typedef struct uv_write_s uv_write_t;
 typedef struct uv_shutdown_s uv_shutdown_t;
@@ -114,6 +116,16 @@ typedef struct uv_fs_s uv_fs_t;
 typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 typedef int uv_os_fd_t;
+typedef int uv_pid_t;
+
+typedef enum {
+    UV_IGNORE = 0x00,
+    UV_CREATE_PIPE = 0x01,
+    UV_INHERIT_FD = 0x02,
+    UV_INHERIT_STREAM = 0x04,
+    UV_READABLE_PIPE = 0x10,
+    UV_WRITABLE_PIPE = 0x20
+} uv_stdio_flags;
 
 typedef enum {
     UV_UNKNOWN_HANDLE = 0,
@@ -172,6 +184,7 @@ typedef void (*uv_prepare_cb)(uv_prepare_t *handle);
 typedef void (*uv_check_cb)(uv_check_t *handle);
 typedef void (*uv_idle_cb)(uv_idle_t *handle);
 typedef void (*uv_walk_cb)(uv_handle_t *handle, void *arg);
+typedef void (*uv_exit_cb)(uv_process_t *process, int64_t exit_status, int term_signal);
 typedef void (*uv_udp_send_cb)(uv_udp_send_t *request, int status);
 typedef void (*uv_udp_recv_cb)(uv_udp_t *handle,
     ssize_t nread,
@@ -246,7 +259,17 @@ struct uv_tcp_s {
 };
 
 struct uv_stream_s {
-    uv_tcp_t tcp;
+    uv_handle_t handle;
+};
+
+struct uv_pipe_s {
+    uv_handle_t handle;
+    uv_alloc_cb alloc_cb;
+    uv_read_cb read_cb;
+    uv_write_t *write_queue_head;
+    uv_write_t *write_queue_tail;
+    size_t write_queue_size;
+    int ipc;
 };
 
 struct uv_udp_s {
@@ -329,6 +352,33 @@ struct uv_getaddrinfo_s {
     uv_getaddrinfo_t *next;
 };
 
+typedef struct {
+    int flags;
+    union {
+        uv_stream_t *stream;
+        int fd;
+    } data;
+} uv_stdio_container_t;
+
+typedef struct {
+    uv_exit_cb exit_cb;
+    const char *file;
+    char **args;
+    char **env;
+    const char *cwd;
+    unsigned int flags;
+    int stdio_count;
+    uv_stdio_container_t *stdio;
+} uv_process_options_t;
+
+struct uv_process_s {
+    uv_handle_t handle;
+    uv_exit_cb exit_cb;
+    uv_pid_t pid;
+    int exit_status;
+    int term_signal;
+};
+
 uv_loop_t *uv_default_loop(void);
 unsigned int uv_version(void);
 const char *uv_version_string(void);
@@ -404,6 +454,9 @@ int uv_write(uv_write_t *request,
     uv_write_cb cb);
 int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb);
 
+int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
+int uv_pipe_open(uv_pipe_t *handle, uv_os_fd_t fd);
+
 int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb);
@@ -432,6 +485,10 @@ int uv_getaddrinfo(uv_loop_t *loop,
     const char *service,
     const struct addrinfo *hints);
 void uv_freeaddrinfo(struct addrinfo *ai);
+
+int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t *options);
+int uv_process_kill(uv_process_t *process, int signum);
+int uv_kill(int pid, int signum);
 
 void uv_close(uv_handle_t *handle, uv_close_cb close_cb);
 int uv_ip4_addr(const char *ip, int port, struct sockaddr_in *addr);

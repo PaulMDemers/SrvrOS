@@ -123,6 +123,8 @@ def main():
         "libuvdemo: work ok",
         "libuvdemo: poll ok",
         "libuvdemo: getaddrinfo ok",
+        "libuvdemo: pipe ok",
+        "libuvdemo: process ok",
         "libuvdemo: ok",
     ]
     missing = [marker for marker in expected if marker not in text]

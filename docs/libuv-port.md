@@ -35,6 +35,10 @@ backend.
   completion, queued writes, and queued shutdown are driven from writable
   readiness instead of synchronous callbacks, and the stream helpers report
   readability, writability, and pending write-queue bytes.
+- `uv_pipe_t` over srvros pipe fds, with stream reads/writes and close cleanup.
+- `uv_process_t`, `uv_spawn`, `uv_process_kill`, and `uv_kill` over
+  `posix_spawnp`, `waitpid(WNOHANG)`, and srvros process kill. The first
+  supported stdio bridge can create pipes for child stdin/stdout/stderr.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_async_t` pending notification dispatch inside the loop.
@@ -47,8 +51,9 @@ backend.
 multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
 read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
 now covers the core object helpers, loop phases, timers, filesystem requests,
-async/work callbacks, poll callbacks, and resolver callbacks that need to stay
-stable while incrementally replacing adapter internals with upstream code.
+async/work callbacks, poll callbacks, resolver callbacks, pipe streams, and a
+child process stdout pipe that need to stay stable while incrementally
+replacing adapter internals with upstream code.
 
 ## Replacement Strategy
 
@@ -68,7 +73,9 @@ stable while incrementally replacing adapter internals with upstream code.
 
 ## Known Gaps Before Full Upstream libuv
 
-- No `fork`, full process signals, or Unix domain sockets.
+- No `fork`, full process signals, or Unix domain sockets. `uv_spawn` is a
+  compact first pass and does not yet model cwd changes, uid/gid, detached
+  children, rich stdio flags, or signal semantics beyond srvros kill.
 - Compact TTY model and no PTY support.
 - `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
