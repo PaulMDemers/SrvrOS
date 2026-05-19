@@ -229,7 +229,9 @@ Loop parity now includes prepare/check/idle phase handles, poll
 disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
 Platform parity now covers cwd/chdir, kernel-reported executable path,
-environment helpers, pid/ppid from process metadata, high-resolution time,
+environment helpers including enumeration, pid/ppid from process metadata,
+process title, home/tmp paths, single-user passwd/group records, uname, uptime,
+load average, resource usage, CPU/interface enumeration, high-resolution time,
 memory totals from the kernel meminfo ABI, and sync/queued random fills through
 `SYS_RANDOM`/`getrandom`.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,

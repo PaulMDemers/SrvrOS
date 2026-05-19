@@ -96,6 +96,13 @@ typedef enum {
 #define UV_WRITABLE 2
 #define UV_DISCONNECT 4
 
+#define UV_PRIORITY_LOW 19
+#define UV_PRIORITY_BELOW_NORMAL 10
+#define UV_PRIORITY_NORMAL 0
+#define UV_PRIORITY_ABOVE_NORMAL -7
+#define UV_PRIORITY_HIGH -14
+#define UV_PRIORITY_HIGHEST -20
+
 typedef struct uv_loop_s uv_loop_t;
 typedef struct uv_handle_s uv_handle_t;
 typedef struct uv_req_s uv_req_t;
@@ -121,9 +128,18 @@ typedef struct uv_work_s uv_work_t;
 typedef struct uv_getaddrinfo_s uv_getaddrinfo_t;
 typedef struct uv_random_s uv_random_t;
 typedef struct uv_dirent_s uv_dirent_t;
+typedef struct uv_cpu_info_s uv_cpu_info_t;
+typedef struct uv_interface_address_s uv_interface_address_t;
+typedef struct uv_passwd_s uv_passwd_t;
+typedef struct uv_group_s uv_group_t;
+typedef struct uv_utsname_s uv_utsname_t;
+typedef struct uv_rusage_s uv_rusage_t;
+typedef struct uv_env_item_s uv_env_item_t;
 typedef int uv_os_fd_t;
 typedef int uv_file;
 typedef int uv_pid_t;
+typedef unsigned long uv_uid_t;
+typedef unsigned long uv_gid_t;
 typedef struct stat uv_stat_t;
 typedef pthread_t uv_thread_t;
 typedef pthread_once_t uv_once_t;
@@ -247,6 +263,99 @@ typedef enum {
     UV_DIRENT_CHAR,
     UV_DIRENT_BLOCK
 } uv_dirent_type_t;
+
+typedef struct {
+    long tv_sec;
+    long tv_usec;
+} uv_timeval_t;
+
+struct uv_cpu_times_s {
+    uint64_t user;
+    uint64_t nice;
+    uint64_t sys;
+    uint64_t idle;
+    uint64_t irq;
+};
+
+struct uv_cpu_info_s {
+    char *model;
+    int speed;
+    struct uv_cpu_times_s cpu_times;
+};
+
+#ifndef AF_INET6
+#define AF_INET6 10
+struct in6_addr {
+    unsigned char s6_addr[16];
+};
+
+struct sockaddr_in6 {
+    sa_family_t sin6_family;
+    in_port_t sin6_port;
+    uint32_t sin6_flowinfo;
+    struct in6_addr sin6_addr;
+    uint32_t sin6_scope_id;
+};
+#endif
+
+struct uv_interface_address_s {
+    char *name;
+    char phys_addr[6];
+    int is_internal;
+    union {
+        struct sockaddr_in address4;
+        struct sockaddr_in6 address6;
+    } address;
+    union {
+        struct sockaddr_in netmask4;
+        struct sockaddr_in6 netmask6;
+    } netmask;
+};
+
+struct uv_passwd_s {
+    char *username;
+    unsigned long uid;
+    unsigned long gid;
+    char *shell;
+    char *homedir;
+};
+
+struct uv_group_s {
+    char *groupname;
+    unsigned long gid;
+    char **members;
+};
+
+struct uv_utsname_s {
+    char sysname[256];
+    char release[256];
+    char version[256];
+    char machine[256];
+};
+
+struct uv_rusage_s {
+    uv_timeval_t ru_utime;
+    uv_timeval_t ru_stime;
+    uint64_t ru_maxrss;
+    uint64_t ru_ixrss;
+    uint64_t ru_idrss;
+    uint64_t ru_isrss;
+    uint64_t ru_minflt;
+    uint64_t ru_majflt;
+    uint64_t ru_nswap;
+    uint64_t ru_inblock;
+    uint64_t ru_oublock;
+    uint64_t ru_msgsnd;
+    uint64_t ru_msgrcv;
+    uint64_t ru_nsignals;
+    uint64_t ru_nvcsw;
+    uint64_t ru_nivcsw;
+};
+
+struct uv_env_item_s {
+    char *name;
+    char *value;
+};
 
 typedef enum {
     UV_FS_UNKNOWN = -1,
@@ -602,11 +711,36 @@ void *uv_req_get_data(const uv_req_t *request);
 void uv_req_set_data(uv_req_t *request, void *data);
 int uv_cancel(uv_req_t *request);
 uint64_t uv_hrtime(void);
+char **uv_setup_args(int argc, char **argv);
+int uv_get_process_title(char *buffer, size_t size);
+int uv_set_process_title(const char *title);
+int uv_resident_set_memory(size_t *rss);
+int uv_uptime(double *uptime);
+int uv_getrusage(uv_rusage_t *rusage);
+int uv_getrusage_thread(uv_rusage_t *rusage);
 uv_pid_t uv_os_getpid(void);
 uv_pid_t uv_os_getppid(void);
 int uv_os_getenv(const char *name, char *buffer, size_t *size);
 int uv_os_setenv(const char *name, const char *value);
 int uv_os_unsetenv(const char *name);
+int uv_os_environ(uv_env_item_t **envitems, int *count);
+void uv_os_free_environ(uv_env_item_t *envitems, int count);
+int uv_os_homedir(char *buffer, size_t *size);
+int uv_os_tmpdir(char *buffer, size_t *size);
+int uv_os_get_passwd(uv_passwd_t *pwd);
+int uv_os_get_passwd2(uv_passwd_t *pwd, uv_uid_t uid);
+void uv_os_free_passwd(uv_passwd_t *pwd);
+int uv_os_get_group(uv_group_t *grp, uv_gid_t gid);
+void uv_os_free_group(uv_group_t *grp);
+int uv_os_getpriority(uv_pid_t pid, int *priority);
+int uv_os_setpriority(uv_pid_t pid, int priority);
+unsigned int uv_available_parallelism(void);
+int uv_cpu_info(uv_cpu_info_t **cpu_infos, int *count);
+void uv_free_cpu_info(uv_cpu_info_t *cpu_infos, int count);
+int uv_interface_addresses(uv_interface_address_t **addresses, int *count);
+void uv_free_interface_addresses(uv_interface_address_t *addresses, int count);
+int uv_os_uname(uv_utsname_t *buffer);
+void uv_loadavg(double avg[3]);
 int uv_exepath(char *buffer, size_t *size);
 int uv_cwd(char *buffer, size_t *size);
 int uv_chdir(const char *dir);

@@ -177,8 +177,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   deeper upstream backend replacement: timer dispatch, filesystem requests
   including stat/lstat/fstat/access/realpath/scandir, sync/truncate/sendfile/
   time updates with stat-visible metadata, and queued fs callbacks, platform
-  helpers for cwd/chdir, env, exact kernel-reported exe path, pid/ppid, hrtime,
-  memory, and syscall-backed random, prepare/check/idle loop phases,
+  helpers for cwd/chdir, env/environ, title, home/tmp paths, passwd/group,
+  uname, uptime, resource, CPU/interface info, exact kernel-reported exe path,
+  pid/ppid, hrtime, memory, and syscall-backed random, prepare/check/idle loop phases,
   async notification, reusable-pool queued work, `uv_cancel` for queued work/fs
   requests, pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
   thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY

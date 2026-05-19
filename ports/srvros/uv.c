@@ -17,6 +17,7 @@
 #include <sys/random.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/utsname.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
@@ -54,6 +55,7 @@ static void set_nonblocking(int fd);
 static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request);
 static int uv_signal_supported(int signum);
 static int random_fill(void *buffer, size_t buffer_length);
+static char *uv_strdup_text(const char *text);
 
 struct uv_worker_job {
     void (*run)(void *arg);
@@ -71,6 +73,7 @@ static uv_tty_vtermstate_t tty_vterm_state = UV_TTY_UNSUPPORTED;
 static int tty_reset_fd = -1;
 static struct termios tty_reset_termios;
 static int signal_watch_counts[64];
+static char process_title[128] = "srvros";
 
 static uint64_t monotonic_ms(void) {
     struct timespec ts;
@@ -725,6 +728,352 @@ static int copy_sized_string(char *buffer, size_t *size, const char *value) {
     memcpy(buffer, value, length + 1);
     *size = length;
     return 0;
+}
+
+static char *uv_strndup_text(const char *text, size_t length) {
+    char *copy = malloc(length + 1);
+    if (copy == 0) {
+        return 0;
+    }
+    memcpy(copy, text, length);
+    copy[length] = '\0';
+    return copy;
+}
+
+char **uv_setup_args(int argc, char **argv) {
+    if (argc > 0 && argv != 0 && argv[0] != 0) {
+        (void)uv_set_process_title(argv[0]);
+    }
+    return argv;
+}
+
+int uv_get_process_title(char *buffer, size_t size) {
+    if (buffer == 0 || size == 0) {
+        return UV_EINVAL;
+    }
+    size_t needed = strlen(process_title) + 1;
+    if (size < needed) {
+        return UV_ENOBUFS;
+    }
+    memcpy(buffer, process_title, needed);
+    return 0;
+}
+
+int uv_set_process_title(const char *title) {
+    if (title == 0) {
+        return UV_EINVAL;
+    }
+    size_t length = strlen(title);
+    if (length >= sizeof(process_title)) {
+        length = sizeof(process_title) - 1;
+    }
+    memcpy(process_title, title, length);
+    process_title[length] = '\0';
+    return 0;
+}
+
+int uv_resident_set_memory(size_t *rss) {
+    if (rss == 0) {
+        return UV_EINVAL;
+    }
+    struct srv_meminfo info;
+    *rss = srv_meminfo(&info) < 0 ? 0 : (size_t)info.used_bytes;
+    return 0;
+}
+
+int uv_uptime(double *uptime) {
+    if (uptime == 0) {
+        return UV_EINVAL;
+    }
+    *uptime = (double)srv_ticks() / (double)sysconf(_SC_CLK_TCK);
+    return 0;
+}
+
+static int fill_rusage(uv_rusage_t *rusage) {
+    if (rusage == 0) {
+        return UV_EINVAL;
+    }
+    memset(rusage, 0, sizeof(*rusage));
+    size_t rss = 0;
+    (void)uv_resident_set_memory(&rss);
+    rusage->ru_maxrss = rss / 1024u;
+    return 0;
+}
+
+int uv_getrusage(uv_rusage_t *rusage) {
+    return fill_rusage(rusage);
+}
+
+int uv_getrusage_thread(uv_rusage_t *rusage) {
+    return fill_rusage(rusage);
+}
+
+int uv_os_environ(uv_env_item_t **envitems, int *count) {
+    if (envitems == 0 || count == 0) {
+        return UV_EINVAL;
+    }
+    *envitems = 0;
+    *count = 0;
+    int total = 0;
+    if (environ != 0) {
+        while (environ[total] != 0) {
+            total++;
+        }
+    }
+    if (total == 0) {
+        return 0;
+    }
+    uv_env_item_t *items = calloc((size_t)total, sizeof(*items));
+    if (items == 0) {
+        return UV_ENOMEM;
+    }
+    for (int i = 0; i < total; i++) {
+        const char *entry = environ[i];
+        const char *equals = strchr(entry, '=');
+        size_t name_length = equals == 0 ? strlen(entry) : (size_t)(equals - entry);
+        items[i].name = uv_strndup_text(entry, name_length);
+        items[i].value = uv_strdup_text(equals == 0 ? "" : equals + 1);
+        if (items[i].name == 0 || items[i].value == 0) {
+            uv_os_free_environ(items, total);
+            return UV_ENOMEM;
+        }
+    }
+    *envitems = items;
+    *count = total;
+    return 0;
+}
+
+void uv_os_free_environ(uv_env_item_t *envitems, int count) {
+    if (envitems == 0) {
+        return;
+    }
+    for (int i = 0; i < count; i++) {
+        free(envitems[i].name);
+        free(envitems[i].value);
+    }
+    free(envitems);
+}
+
+int uv_os_homedir(char *buffer, size_t *size) {
+    const char *home = getenv("HOME");
+    return copy_sized_string(buffer, size, home != 0 && home[0] != '\0' ? home : "/fat");
+}
+
+int uv_os_tmpdir(char *buffer, size_t *size) {
+    const char *tmp = getenv("TMPDIR");
+    if (tmp == 0 || tmp[0] == '\0') {
+        tmp = getenv("TMP");
+    }
+    return copy_sized_string(buffer, size, tmp != 0 && tmp[0] != '\0' ? tmp : "/fat/tmp");
+}
+
+int uv_os_get_passwd2(uv_passwd_t *pwd, uv_uid_t uid) {
+    if (pwd == 0) {
+        return UV_EINVAL;
+    }
+    if (uid != 0) {
+        return UV_ENOENT;
+    }
+    memset(pwd, 0, sizeof(*pwd));
+    pwd->username = uv_strdup_text("root");
+    pwd->uid = 0;
+    pwd->gid = 0;
+    pwd->shell = uv_strdup_text("/fat/bin/sh");
+    pwd->homedir = uv_strdup_text("/fat");
+    if (pwd->username == 0 || pwd->shell == 0 || pwd->homedir == 0) {
+        uv_os_free_passwd(pwd);
+        return UV_ENOMEM;
+    }
+    return 0;
+}
+
+int uv_os_get_passwd(uv_passwd_t *pwd) {
+    return uv_os_get_passwd2(pwd, 0);
+}
+
+void uv_os_free_passwd(uv_passwd_t *pwd) {
+    if (pwd == 0) {
+        return;
+    }
+    free(pwd->username);
+    free(pwd->shell);
+    free(pwd->homedir);
+    memset(pwd, 0, sizeof(*pwd));
+}
+
+int uv_os_get_group(uv_group_t *grp, uv_gid_t gid) {
+    if (grp == 0) {
+        return UV_EINVAL;
+    }
+    if (gid != 0) {
+        return UV_ENOENT;
+    }
+    memset(grp, 0, sizeof(*grp));
+    grp->members = calloc(2, sizeof(char *));
+    if (grp->members == 0) {
+        return UV_ENOMEM;
+    }
+    grp->groupname = uv_strdup_text("root");
+    grp->members[0] = uv_strdup_text("root");
+    grp->gid = 0;
+    if (grp->groupname == 0 || grp->members[0] == 0) {
+        uv_os_free_group(grp);
+        return UV_ENOMEM;
+    }
+    return 0;
+}
+
+void uv_os_free_group(uv_group_t *grp) {
+    if (grp == 0) {
+        return;
+    }
+    free(grp->groupname);
+    if (grp->members != 0) {
+        for (size_t i = 0; grp->members[i] != 0; i++) {
+            free(grp->members[i]);
+        }
+        free(grp->members);
+    }
+    memset(grp, 0, sizeof(*grp));
+}
+
+int uv_os_getpriority(uv_pid_t pid, int *priority) {
+    if (priority == 0) {
+        return UV_EINVAL;
+    }
+    if (pid < 0) {
+        return UV_ESRCH;
+    }
+    *priority = 0;
+    return 0;
+}
+
+int uv_os_setpriority(uv_pid_t pid, int priority) {
+    if (pid < 0 || priority < UV_PRIORITY_HIGHEST || priority > UV_PRIORITY_LOW) {
+        return UV_EINVAL;
+    }
+    return 0;
+}
+
+unsigned int uv_available_parallelism(void) {
+    long count = sysconf(_SC_NPROCESSORS_ONLN);
+    return count > 0 ? (unsigned int)count : 1u;
+}
+
+int uv_cpu_info(uv_cpu_info_t **cpu_infos, int *count) {
+    if (cpu_infos == 0 || count == 0) {
+        return UV_EINVAL;
+    }
+    *cpu_infos = 0;
+    *count = 0;
+    uv_cpu_info_t *info = calloc(1, sizeof(*info));
+    if (info == 0) {
+        return UV_ENOMEM;
+    }
+    info->model = uv_strdup_text("srvros x86_64 virtual CPU");
+    if (info->model == 0) {
+        free(info);
+        return UV_ENOMEM;
+    }
+    double up = 0.0;
+    (void)uv_uptime(&up);
+    info->speed = 0;
+    info->cpu_times.idle = (uint64_t)(up * 1000.0);
+    *cpu_infos = info;
+    *count = 1;
+    return 0;
+}
+
+void uv_free_cpu_info(uv_cpu_info_t *cpu_infos, int count) {
+    if (cpu_infos == 0) {
+        return;
+    }
+    for (int i = 0; i < count; i++) {
+        free(cpu_infos[i].model);
+    }
+    free(cpu_infos);
+}
+
+static void fill_ipv4_sockaddr(struct sockaddr_in *addr, uint32_t ip) {
+    memset(addr, 0, sizeof(*addr));
+    addr->sin_family = AF_INET;
+    addr->sin_port = 0;
+    addr->sin_addr.s_addr = ip;
+}
+
+int uv_interface_addresses(uv_interface_address_t **addresses, int *count) {
+    if (addresses == 0 || count == 0) {
+        return UV_EINVAL;
+    }
+    *addresses = 0;
+    *count = 0;
+    struct srv_net_status_info status;
+    int include_e1000 =
+        srv_net_status_info(&status) >= 0 &&
+        status.initialized != 0 &&
+        status.local_ip != 0;
+    int total = include_e1000 ? 2 : 1;
+    uv_interface_address_t *items = calloc((size_t)total, sizeof(*items));
+    if (items == 0) {
+        return UV_ENOMEM;
+    }
+    items[0].name = uv_strdup_text("lo");
+    items[0].is_internal = 1;
+    fill_ipv4_sockaddr(&items[0].address.address4, INADDR_LOOPBACK);
+    fill_ipv4_sockaddr(&items[0].netmask.netmask4, 0xff000000u);
+    if (items[0].name == 0) {
+        uv_free_interface_addresses(items, total);
+        return UV_ENOMEM;
+    }
+    if (include_e1000) {
+        items[1].name = uv_strdup_text("e1000");
+        items[1].is_internal = 0;
+        memcpy(items[1].phys_addr, status.local_mac, sizeof(items[1].phys_addr));
+        fill_ipv4_sockaddr(&items[1].address.address4, status.local_ip);
+        fill_ipv4_sockaddr(&items[1].netmask.netmask4, 0xffffff00u);
+        if (items[1].name == 0) {
+            uv_free_interface_addresses(items, total);
+            return UV_ENOMEM;
+        }
+    }
+    *addresses = items;
+    *count = total;
+    return 0;
+}
+
+void uv_free_interface_addresses(uv_interface_address_t *addresses, int count) {
+    if (addresses == 0) {
+        return;
+    }
+    for (int i = 0; i < count; i++) {
+        free(addresses[i].name);
+    }
+    free(addresses);
+}
+
+int uv_os_uname(uv_utsname_t *buffer) {
+    if (buffer == 0) {
+        return UV_EINVAL;
+    }
+    struct utsname uts;
+    if (uname(&uts) < 0) {
+        return uv_error_from_errno();
+    }
+    memset(buffer, 0, sizeof(*buffer));
+    snprintf(buffer->sysname, sizeof(buffer->sysname), "%s", uts.sysname);
+    snprintf(buffer->release, sizeof(buffer->release), "%s", uts.release);
+    snprintf(buffer->version, sizeof(buffer->version), "%s", uts.version);
+    snprintf(buffer->machine, sizeof(buffer->machine), "%s", uts.machine);
+    return 0;
+}
+
+void uv_loadavg(double avg[3]) {
+    if (avg == 0) {
+        return;
+    }
+    avg[0] = 0.0;
+    avg[1] = 0.0;
+    avg[2] = 0.0;
 }
 
 int uv_exepath(char *buffer, size_t *size) {

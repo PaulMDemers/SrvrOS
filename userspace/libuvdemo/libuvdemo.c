@@ -76,6 +76,20 @@ static int platform_test(void) {
     uint64_t end;
     uint64_t total_memory;
     uint64_t free_memory;
+    size_t rss;
+    double uptime_seconds;
+    double loadavg[3];
+    uv_rusage_t rusage;
+    uv_cpu_info_t *cpu_infos;
+    uv_interface_address_t *interfaces;
+    uv_env_item_t *envitems;
+    uv_passwd_t passwd_info;
+    uv_group_t group_info;
+    uv_utsname_t uname_info;
+    int cpu_count;
+    int interface_count;
+    int env_count;
+    int priority;
 
     size = sizeof(buffer);
     if (uv_os_setenv("UVDEMO_ENV", "srvros") != 0 ||
@@ -92,6 +106,44 @@ static int platform_test(void) {
         puts("libuvdemo: platform env failed");
         return 1;
     }
+
+    if (uv_set_process_title("libuvdemo-title") != 0 ||
+        uv_get_process_title(buffer, sizeof(buffer)) != 0 ||
+        strcmp(buffer, "libuvdemo-title") != 0) {
+        puts("libuvdemo: platform title failed");
+        return 1;
+    }
+    size = sizeof(buffer);
+    if (uv_os_homedir(buffer, &size) != 0 || size == 0 || buffer[0] != '/') {
+        puts("libuvdemo: platform homedir failed");
+        return 1;
+    }
+    size = sizeof(buffer);
+    if (uv_os_tmpdir(buffer, &size) != 0 || strcmp(buffer, "/fat/tmp") != 0) {
+        puts("libuvdemo: platform tmpdir failed");
+        return 1;
+    }
+    if (uv_os_get_passwd(&passwd_info) != 0 ||
+        strcmp(passwd_info.username, "root") != 0 ||
+        strcmp(passwd_info.homedir, "/fat") != 0 ||
+        strcmp(passwd_info.shell, "/fat/bin/sh") != 0) {
+        puts("libuvdemo: platform passwd failed");
+        return 1;
+    }
+    uv_os_free_passwd(&passwd_info);
+    if (uv_os_get_group(&group_info, 0) != 0 ||
+        strcmp(group_info.groupname, "root") != 0 ||
+        group_info.members == 0 ||
+        strcmp(group_info.members[0], "root") != 0) {
+        puts("libuvdemo: platform group failed");
+        return 1;
+    }
+    uv_os_free_group(&group_info);
+    if (uv_os_environ(&envitems, &env_count) != 0 || env_count <= 0) {
+        puts("libuvdemo: platform environ failed");
+        return 1;
+    }
+    uv_os_free_environ(envitems, env_count);
 
     size = sizeof(original_cwd);
     if (uv_cwd(original_cwd, &size) != 0) {
@@ -125,6 +177,44 @@ static int platform_test(void) {
     free_memory = uv_get_free_memory();
     if (start == 0 || end < start || total_memory == 0 || free_memory == 0 || free_memory > total_memory) {
         puts("libuvdemo: platform info failed");
+        return 1;
+    }
+    if (uv_resident_set_memory(&rss) != 0 ||
+        uv_uptime(&uptime_seconds) != 0 ||
+        uv_getrusage(&rusage) != 0 ||
+        uv_getrusage_thread(&rusage) != 0 ||
+        rss == 0 ||
+        uptime_seconds < 0.0 ||
+        uv_available_parallelism() == 0 ||
+        uv_os_getpriority(0, &priority) != 0 ||
+        priority != 0 ||
+        uv_os_setpriority(0, priority) != 0) {
+        puts("libuvdemo: platform resource failed");
+        return 1;
+    }
+    if (uv_cpu_info(&cpu_infos, &cpu_count) != 0 ||
+        cpu_count <= 0 ||
+        cpu_infos[0].model == 0) {
+        puts("libuvdemo: platform cpu failed");
+        return 1;
+    }
+    uv_free_cpu_info(cpu_infos, cpu_count);
+    if (uv_interface_addresses(&interfaces, &interface_count) != 0 ||
+        interface_count <= 0 ||
+        interfaces[0].name == 0) {
+        puts("libuvdemo: platform interfaces failed");
+        return 1;
+    }
+    uv_free_interface_addresses(interfaces, interface_count);
+    if (uv_os_uname(&uname_info) != 0 ||
+        strcmp(uname_info.sysname, "srvros") != 0 ||
+        strcmp(uname_info.machine, "x86_64") != 0) {
+        puts("libuvdemo: platform uname failed");
+        return 1;
+    }
+    uv_loadavg(loadavg);
+    if (loadavg[0] < 0.0 || loadavg[1] < 0.0 || loadavg[2] < 0.0) {
+        puts("libuvdemo: platform loadavg failed");
         return 1;
     }
 
