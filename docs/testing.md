@@ -177,10 +177,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   deeper upstream backend replacement: timer dispatch, filesystem requests
   including stat/lstat/fstat/access/realpath/scandir and queued fs callbacks,
   prepare/check/idle loop phases, async notification, queued work,
-  pipe-backed fd polling, handle ref/unref/walk/fileno helpers, and queued
-  `uv_getaddrinfo` callbacks. It also verifies `uv_pipe`, `uv_pipe_t`, and
-  `uv_spawn` by writing through a libuv pipe stream, running a child `echo`
-  process, and reading stdout through a libuv pipe stream.
+  pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
+  thread/synchronization wrappers, and queued `uv_getaddrinfo` callbacks. It
+  also verifies `uv_pipe`, `uv_pipe_t`, and `uv_spawn` by writing through a
+  libuv pipe stream, running a child `echo` process, and reading stdout through
+  a libuv pipe stream.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib

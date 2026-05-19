@@ -208,6 +208,11 @@ Core loop and object parity covers loop data/close helpers, backend
 timeout/fd reporting, handle and request type/name/size/data helpers,
 active/closing checks, handle ref/unref state, loop walking, handle fd
 extraction, and timer due-in reporting.
+Thread parity now covers `uv_thread_create`, stack-sized
+`uv_thread_create_ex`, `uv_thread_detach`, join/self/equality, mutexes,
+recursive mutex initialization, condition variables with relative timed waits,
+reader/writer locks, semaphores, barriers, `uv_once`, and TLS keys on top of the
+srvros pthread implementation.
 TCP stream parity now includes writable-readiness connect completion, deferred
 write queues with copied buffers, queued-byte reporting, `uv_stream_t` public
 signatures for listener/accept/read/write/shutdown operations, queued

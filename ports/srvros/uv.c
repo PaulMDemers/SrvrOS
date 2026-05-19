@@ -1429,6 +1429,383 @@ int uv_async_send(uv_async_t *handle) {
     return 0;
 }
 
+struct uv_thread_start {
+    uv_thread_cb entry;
+    void *arg;
+};
+
+static void *uv_thread_start_trampoline(void *arg) {
+    struct uv_thread_start *start = arg;
+    uv_thread_cb entry = start->entry;
+    void *entry_arg = start->arg;
+    free(start);
+    entry(entry_arg);
+    return 0;
+}
+
+int uv_thread_create_ex(uv_thread_t *thread, const uv_thread_options_t *params, uv_thread_cb entry, void *arg) {
+    if (thread == 0 || entry == 0) {
+        return UV_EINVAL;
+    }
+    pthread_attr_t attr;
+    pthread_attr_t *attr_ptr = 0;
+    if (params != 0) {
+        if ((params->flags & ~UV_THREAD_HAS_STACK_SIZE) != 0) {
+            return UV_EINVAL;
+        }
+        int status = pthread_attr_init(&attr);
+        if (status != 0) {
+            return uv_translate_sys_error(status);
+        }
+        attr_ptr = &attr;
+        if ((params->flags & UV_THREAD_HAS_STACK_SIZE) != 0) {
+            status = pthread_attr_setstacksize(&attr, params->stack_size);
+            if (status != 0) {
+                (void)pthread_attr_destroy(&attr);
+                return uv_translate_sys_error(status);
+            }
+        }
+    }
+    struct uv_thread_start *start = malloc(sizeof(*start));
+    if (start == 0) {
+        if (attr_ptr != 0) {
+            (void)pthread_attr_destroy(attr_ptr);
+        }
+        return UV_ENOMEM;
+    }
+    start->entry = entry;
+    start->arg = arg;
+    int status = pthread_create(thread, attr_ptr, uv_thread_start_trampoline, start);
+    if (attr_ptr != 0) {
+        (void)pthread_attr_destroy(attr_ptr);
+    }
+    if (status != 0) {
+        free(start);
+        return uv_translate_sys_error(status);
+    }
+    return 0;
+}
+
+int uv_thread_create(uv_thread_t *thread, uv_thread_cb entry, void *arg) {
+    return uv_thread_create_ex(thread, 0, entry, arg);
+}
+
+int uv_thread_detach(uv_thread_t *thread) {
+    if (thread == 0) {
+        return UV_EINVAL;
+    }
+    int status = pthread_detach(*thread);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+int uv_thread_join(uv_thread_t *thread) {
+    if (thread == 0) {
+        return UV_EINVAL;
+    }
+    int status = pthread_join(*thread, 0);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+uv_thread_t uv_thread_self(void) {
+    return pthread_self();
+}
+
+int uv_thread_equal(const uv_thread_t *left, const uv_thread_t *right) {
+    return left != 0 && right != 0 && pthread_equal(*left, *right);
+}
+
+int uv_mutex_init(uv_mutex_t *mutex) {
+    int status = pthread_mutex_init(mutex, 0);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+int uv_mutex_init_recursive(uv_mutex_t *mutex) {
+    pthread_mutexattr_t attr;
+    int status = pthread_mutexattr_init(&attr);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    status = pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    if (status == 0) {
+        status = pthread_mutex_init(mutex, &attr);
+    }
+    (void)pthread_mutexattr_destroy(&attr);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+void uv_mutex_destroy(uv_mutex_t *mutex) {
+    (void)pthread_mutex_destroy(mutex);
+}
+
+void uv_mutex_lock(uv_mutex_t *mutex) {
+    (void)pthread_mutex_lock(mutex);
+}
+
+int uv_mutex_trylock(uv_mutex_t *mutex) {
+    int status = pthread_mutex_trylock(mutex);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+void uv_mutex_unlock(uv_mutex_t *mutex) {
+    (void)pthread_mutex_unlock(mutex);
+}
+
+int uv_rwlock_init(uv_rwlock_t *lock) {
+    if (lock == 0) {
+        return UV_EINVAL;
+    }
+    memset(lock, 0, sizeof(*lock));
+    int status = pthread_mutex_init(&lock->mutex, 0);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    status = pthread_cond_init(&lock->cond, 0);
+    if (status != 0) {
+        (void)pthread_mutex_destroy(&lock->mutex);
+        return uv_translate_sys_error(status);
+    }
+    return 0;
+}
+
+void uv_rwlock_destroy(uv_rwlock_t *lock) {
+    if (lock == 0) {
+        return;
+    }
+    (void)pthread_cond_destroy(&lock->cond);
+    (void)pthread_mutex_destroy(&lock->mutex);
+}
+
+void uv_rwlock_rdlock(uv_rwlock_t *lock) {
+    (void)pthread_mutex_lock(&lock->mutex);
+    while (lock->writer || lock->waiting_writers != 0) {
+        (void)pthread_cond_wait(&lock->cond, &lock->mutex);
+    }
+    lock->readers++;
+    (void)pthread_mutex_unlock(&lock->mutex);
+}
+
+int uv_rwlock_tryrdlock(uv_rwlock_t *lock) {
+    int status = pthread_mutex_trylock(&lock->mutex);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    if (lock->writer || lock->waiting_writers != 0) {
+        (void)pthread_mutex_unlock(&lock->mutex);
+        return UV_EBUSY;
+    }
+    lock->readers++;
+    (void)pthread_mutex_unlock(&lock->mutex);
+    return 0;
+}
+
+void uv_rwlock_rdunlock(uv_rwlock_t *lock) {
+    (void)pthread_mutex_lock(&lock->mutex);
+    if (lock->readers != 0) {
+        lock->readers--;
+        if (lock->readers == 0) {
+            (void)pthread_cond_broadcast(&lock->cond);
+        }
+    }
+    (void)pthread_mutex_unlock(&lock->mutex);
+}
+
+void uv_rwlock_wrlock(uv_rwlock_t *lock) {
+    (void)pthread_mutex_lock(&lock->mutex);
+    lock->waiting_writers++;
+    while (lock->writer || lock->readers != 0) {
+        (void)pthread_cond_wait(&lock->cond, &lock->mutex);
+    }
+    lock->waiting_writers--;
+    lock->writer = 1;
+    (void)pthread_mutex_unlock(&lock->mutex);
+}
+
+int uv_rwlock_trywrlock(uv_rwlock_t *lock) {
+    int status = pthread_mutex_trylock(&lock->mutex);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    if (lock->writer || lock->readers != 0) {
+        (void)pthread_mutex_unlock(&lock->mutex);
+        return UV_EBUSY;
+    }
+    lock->writer = 1;
+    (void)pthread_mutex_unlock(&lock->mutex);
+    return 0;
+}
+
+void uv_rwlock_wrunlock(uv_rwlock_t *lock) {
+    (void)pthread_mutex_lock(&lock->mutex);
+    lock->writer = 0;
+    (void)pthread_cond_broadcast(&lock->cond);
+    (void)pthread_mutex_unlock(&lock->mutex);
+}
+
+int uv_sem_init(uv_sem_t *sem, unsigned int value) {
+    if (sem == 0) {
+        return UV_EINVAL;
+    }
+    memset(sem, 0, sizeof(*sem));
+    int status = pthread_mutex_init(&sem->mutex, 0);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    status = pthread_cond_init(&sem->cond, 0);
+    if (status != 0) {
+        (void)pthread_mutex_destroy(&sem->mutex);
+        return uv_translate_sys_error(status);
+    }
+    sem->value = value;
+    return 0;
+}
+
+void uv_sem_destroy(uv_sem_t *sem) {
+    if (sem == 0) {
+        return;
+    }
+    (void)pthread_cond_destroy(&sem->cond);
+    (void)pthread_mutex_destroy(&sem->mutex);
+}
+
+void uv_sem_post(uv_sem_t *sem) {
+    (void)pthread_mutex_lock(&sem->mutex);
+    sem->value++;
+    (void)pthread_cond_signal(&sem->cond);
+    (void)pthread_mutex_unlock(&sem->mutex);
+}
+
+void uv_sem_wait(uv_sem_t *sem) {
+    (void)pthread_mutex_lock(&sem->mutex);
+    while (sem->value == 0) {
+        (void)pthread_cond_wait(&sem->cond, &sem->mutex);
+    }
+    sem->value--;
+    (void)pthread_mutex_unlock(&sem->mutex);
+}
+
+int uv_sem_trywait(uv_sem_t *sem) {
+    int status = pthread_mutex_lock(&sem->mutex);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    if (sem->value == 0) {
+        (void)pthread_mutex_unlock(&sem->mutex);
+        return UV_EAGAIN;
+    }
+    sem->value--;
+    (void)pthread_mutex_unlock(&sem->mutex);
+    return 0;
+}
+
+int uv_cond_init(uv_cond_t *cond) {
+    int status = pthread_cond_init(cond, 0);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+void uv_cond_destroy(uv_cond_t *cond) {
+    (void)pthread_cond_destroy(cond);
+}
+
+void uv_cond_signal(uv_cond_t *cond) {
+    (void)pthread_cond_signal(cond);
+}
+
+void uv_cond_broadcast(uv_cond_t *cond) {
+    (void)pthread_cond_broadcast(cond);
+}
+
+void uv_cond_wait(uv_cond_t *cond, uv_mutex_t *mutex) {
+    (void)pthread_cond_wait(cond, mutex);
+}
+
+int uv_cond_timedwait(uv_cond_t *cond, uv_mutex_t *mutex, uint64_t timeout) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+        return uv_error_from_errno();
+    }
+    uint64_t sec = timeout / 1000000000ull;
+    uint64_t nsec = timeout % 1000000000ull;
+    struct timespec deadline = {
+        .tv_sec = now.tv_sec + (time_t)sec,
+        .tv_nsec = now.tv_nsec + (long)nsec,
+    };
+    if (deadline.tv_nsec >= 1000000000L) {
+        deadline.tv_sec++;
+        deadline.tv_nsec -= 1000000000L;
+    }
+    int status = pthread_cond_timedwait(cond, mutex, &deadline);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+void uv_once(uv_once_t *guard, void (*callback)(void)) {
+    (void)pthread_once(guard, callback);
+}
+
+int uv_key_create(uv_key_t *key) {
+    int status = pthread_key_create(key, 0);
+    return status == 0 ? 0 : uv_translate_sys_error(status);
+}
+
+void uv_key_delete(uv_key_t *key) {
+    if (key != 0) {
+        (void)pthread_key_delete(*key);
+    }
+}
+
+void *uv_key_get(uv_key_t *key) {
+    return key != 0 ? pthread_getspecific(*key) : 0;
+}
+
+void uv_key_set(uv_key_t *key, void *value) {
+    if (key != 0) {
+        (void)pthread_setspecific(*key, value);
+    }
+}
+
+int uv_barrier_init(uv_barrier_t *barrier, unsigned int count) {
+    if (barrier == 0 || count == 0) {
+        return UV_EINVAL;
+    }
+    memset(barrier, 0, sizeof(*barrier));
+    int status = pthread_mutex_init(&barrier->mutex, 0);
+    if (status != 0) {
+        return uv_translate_sys_error(status);
+    }
+    status = pthread_cond_init(&barrier->cond, 0);
+    if (status != 0) {
+        (void)pthread_mutex_destroy(&barrier->mutex);
+        return uv_translate_sys_error(status);
+    }
+    barrier->threshold = count;
+    return 0;
+}
+
+void uv_barrier_destroy(uv_barrier_t *barrier) {
+    if (barrier == 0) {
+        return;
+    }
+    (void)pthread_cond_destroy(&barrier->cond);
+    (void)pthread_mutex_destroy(&barrier->mutex);
+}
+
+int uv_barrier_wait(uv_barrier_t *barrier) {
+    (void)pthread_mutex_lock(&barrier->mutex);
+    unsigned int generation = barrier->generation;
+    barrier->count++;
+    if (barrier->count == barrier->threshold) {
+        barrier->count = 0;
+        barrier->generation++;
+        (void)pthread_cond_broadcast(&barrier->cond);
+        (void)pthread_mutex_unlock(&barrier->mutex);
+        return 1;
+    }
+    while (generation == barrier->generation) {
+        (void)pthread_cond_wait(&barrier->cond, &barrier->mutex);
+    }
+    (void)pthread_mutex_unlock(&barrier->mutex);
+    return 0;
+}
+
 static void *work_thread_main(void *arg) {
     uv_work_t *request = arg;
     if (request->work_cb != 0) {

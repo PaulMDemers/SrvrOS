@@ -48,6 +48,11 @@ backend.
 - `uv_async_t` pending notification dispatch inside the loop.
 - `uv_queue_work` backed by srvros pthreads, with completion pumped by
   `uv_run`.
+- Thread and synchronization wrappers over the srvros pthread layer:
+  `uv_thread_create`, `uv_thread_create_ex`, `uv_thread_detach`,
+  `uv_thread_join`, `uv_thread_self`, `uv_thread_equal`, mutexes including
+  recursive mutex initialization, reader/writer locks, semaphores, condition
+  variables including relative timed waits, `uv_once`, TLS keys, and barriers.
 - `uv_getaddrinfo` and `uv_freeaddrinfo` over the srvros POSIX resolver, with
   callbacks queued through the loop instead of invoked synchronously.
 
@@ -57,8 +62,8 @@ read against a host service. `/fat/bin/libuvdemo` is the upstream staging harnes
 now covers the core object helpers, loop phases, timers, filesystem metadata
 and directory requests, async/work callbacks, poll callbacks, resolver
 callbacks, public pipe creation, pipe streams, and a child process stdout pipe
-that need to stay stable while incrementally replacing adapter internals with
-upstream code.
+plus the current thread/synchronization wrappers that need to stay stable while
+incrementally replacing adapter internals with upstream code.
 
 ## Replacement Strategy
 
@@ -85,6 +90,8 @@ upstream code.
 - Compact TTY model and no PTY support.
 - `epoll`/`kqueue` are absent; srvros will need a poll-provider backend.
 - Thread cancellation, async signal interruption, and full DNS/thread-pool
-  behavior are not yet upstream-compatible.
+  behavior are not yet upstream-compatible. The current thread APIs map onto
+  srvros pthreads and are useful for portable consumers, but the upstream libuv
+  threadpool backend has not been swapped in yet.
 - Dynamic library loading is not available, so the initial target should be a
   statically linked libuv consumer.

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -120,6 +121,45 @@ typedef int uv_os_fd_t;
 typedef int uv_file;
 typedef int uv_pid_t;
 typedef struct stat uv_stat_t;
+typedef pthread_t uv_thread_t;
+typedef pthread_once_t uv_once_t;
+typedef pthread_mutex_t uv_mutex_t;
+typedef pthread_cond_t uv_cond_t;
+typedef pthread_key_t uv_key_t;
+
+#define UV_ONCE_INIT PTHREAD_ONCE_INIT
+
+typedef struct {
+    uv_mutex_t mutex;
+    uv_cond_t cond;
+    unsigned int readers;
+    unsigned int writer;
+    unsigned int waiting_writers;
+} uv_rwlock_t;
+
+typedef struct {
+    uv_mutex_t mutex;
+    uv_cond_t cond;
+    unsigned int value;
+} uv_sem_t;
+
+typedef struct {
+    uv_mutex_t mutex;
+    uv_cond_t cond;
+    unsigned int threshold;
+    unsigned int count;
+    unsigned int generation;
+} uv_barrier_t;
+
+typedef enum {
+    UV_THREAD_NO_FLAGS = 0x00,
+    UV_THREAD_HAS_STACK_SIZE = 0x01,
+} uv_thread_create_flags;
+
+typedef struct uv_thread_options_s {
+    unsigned int flags;
+    size_t stack_size;
+} uv_thread_options_t;
 
 typedef enum {
     UV_IGNORE = 0x00,
@@ -263,6 +303,7 @@ typedef void (*uv_fs_cb)(uv_fs_t *request);
 typedef void (*uv_work_cb)(uv_work_t *request);
 typedef void (*uv_after_work_cb)(uv_work_t *request, int status);
 typedef void (*uv_getaddrinfo_cb)(uv_getaddrinfo_t *request, int status, struct addrinfo *result);
+typedef void (*uv_thread_cb)(void *arg);
 
 struct uv_handle_s {
     uv_loop_t *loop;
@@ -547,6 +588,52 @@ int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb);
 int uv_async_send(uv_async_t *handle);
 
 int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_after_work_cb after_work_cb);
+
+int uv_thread_create(uv_thread_t *thread, uv_thread_cb entry, void *arg);
+int uv_thread_create_ex(uv_thread_t *thread, const uv_thread_options_t *params, uv_thread_cb entry, void *arg);
+int uv_thread_detach(uv_thread_t *thread);
+int uv_thread_join(uv_thread_t *thread);
+uv_thread_t uv_thread_self(void);
+int uv_thread_equal(const uv_thread_t *left, const uv_thread_t *right);
+
+int uv_mutex_init(uv_mutex_t *mutex);
+int uv_mutex_init_recursive(uv_mutex_t *mutex);
+void uv_mutex_destroy(uv_mutex_t *mutex);
+void uv_mutex_lock(uv_mutex_t *mutex);
+int uv_mutex_trylock(uv_mutex_t *mutex);
+void uv_mutex_unlock(uv_mutex_t *mutex);
+
+int uv_rwlock_init(uv_rwlock_t *lock);
+void uv_rwlock_destroy(uv_rwlock_t *lock);
+void uv_rwlock_rdlock(uv_rwlock_t *lock);
+int uv_rwlock_tryrdlock(uv_rwlock_t *lock);
+void uv_rwlock_rdunlock(uv_rwlock_t *lock);
+void uv_rwlock_wrlock(uv_rwlock_t *lock);
+int uv_rwlock_trywrlock(uv_rwlock_t *lock);
+void uv_rwlock_wrunlock(uv_rwlock_t *lock);
+
+int uv_sem_init(uv_sem_t *sem, unsigned int value);
+void uv_sem_destroy(uv_sem_t *sem);
+void uv_sem_post(uv_sem_t *sem);
+void uv_sem_wait(uv_sem_t *sem);
+int uv_sem_trywait(uv_sem_t *sem);
+
+int uv_cond_init(uv_cond_t *cond);
+void uv_cond_destroy(uv_cond_t *cond);
+void uv_cond_signal(uv_cond_t *cond);
+void uv_cond_broadcast(uv_cond_t *cond);
+void uv_cond_wait(uv_cond_t *cond, uv_mutex_t *mutex);
+int uv_cond_timedwait(uv_cond_t *cond, uv_mutex_t *mutex, uint64_t timeout);
+
+void uv_once(uv_once_t *guard, void (*callback)(void));
+int uv_key_create(uv_key_t *key);
+void uv_key_delete(uv_key_t *key);
+void *uv_key_get(uv_key_t *key);
+void uv_key_set(uv_key_t *key, void *value);
+
+int uv_barrier_init(uv_barrier_t *barrier, unsigned int count);
+void uv_barrier_destroy(uv_barrier_t *barrier);
+int uv_barrier_wait(uv_barrier_t *barrier);
 
 int uv_udp_init(uv_loop_t *loop, uv_udp_t *handle);
 int uv_udp_bind(uv_udp_t *handle, const struct sockaddr *addr, unsigned int flags);

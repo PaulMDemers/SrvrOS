@@ -4,6 +4,7 @@
 #include <netdb.h>
 #include <netinet/in.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -455,6 +456,171 @@ static int work_test(void) {
     return 0;
 }
 
+static uv_mutex_t thread_mutex;
+static uv_mutex_t thread_cond_mutex;
+static uv_cond_t thread_cond;
+static uv_sem_t thread_sem;
+static uv_rwlock_t thread_rwlock;
+static uv_barrier_t thread_barrier;
+static uv_once_t thread_once_guard = UV_ONCE_INIT;
+static uv_key_t thread_key;
+static int thread_value;
+static int thread_ready;
+static int thread_go;
+static int thread_once_count;
+static int thread_barrier_serial_count;
+static int thread_detached_value;
+
+static void thread_once_cb(void) {
+    thread_once_count++;
+}
+
+static void thread_worker(void *arg) {
+    uv_thread_t self = uv_thread_self();
+    if (!uv_thread_equal(&self, &self)) {
+        thread_value = -100;
+        return;
+    }
+    uv_key_set(&thread_key, arg);
+    uv_mutex_lock(&thread_mutex);
+    thread_value += (int)(uintptr_t)uv_key_get(&thread_key);
+    uv_mutex_unlock(&thread_mutex);
+
+    uv_mutex_lock(&thread_cond_mutex);
+    thread_ready = 1;
+    uv_cond_signal(&thread_cond);
+    while (!thread_go) {
+        uv_cond_wait(&thread_cond, &thread_cond_mutex);
+    }
+    uv_mutex_unlock(&thread_cond_mutex);
+}
+
+static void barrier_worker(void *arg) {
+    (void)arg;
+    if (uv_barrier_wait(&thread_barrier) != 0) {
+        thread_barrier_serial_count++;
+    }
+}
+
+static void detached_worker(void *arg) {
+    thread_detached_value = (int)(uintptr_t)arg;
+    uv_sem_post(&thread_sem);
+}
+
+static int thread_test(void) {
+    uv_thread_t thread;
+    uv_thread_t barrier_thread;
+    uv_thread_t detached_thread;
+    uv_thread_options_t options = {
+        .flags = UV_THREAD_HAS_STACK_SIZE,
+        .stack_size = PTHREAD_STACK_MIN,
+    };
+    thread_value = 0;
+    thread_ready = 0;
+    thread_go = 0;
+    thread_once_count = 0;
+    thread_barrier_serial_count = 0;
+    thread_detached_value = 0;
+
+    if (uv_mutex_init(&thread_mutex) < 0 ||
+        uv_mutex_init(&thread_cond_mutex) < 0 ||
+        uv_cond_init(&thread_cond) < 0 ||
+        uv_sem_init(&thread_sem, 0) < 0 ||
+        uv_rwlock_init(&thread_rwlock) < 0 ||
+        uv_key_create(&thread_key) < 0) {
+        puts("libuvdemo: thread setup failed");
+        return 1;
+    }
+
+    uv_once(&thread_once_guard, thread_once_cb);
+    uv_once(&thread_once_guard, thread_once_cb);
+    if (thread_once_count != 1) {
+        puts("libuvdemo: once failed");
+        return 1;
+    }
+
+    uv_mutex_lock(&thread_mutex);
+    if (uv_mutex_trylock(&thread_mutex) != UV_EBUSY) {
+        puts("libuvdemo: mutex try failed");
+        return 1;
+    }
+    uv_mutex_unlock(&thread_mutex);
+
+    if (uv_sem_trywait(&thread_sem) != UV_EAGAIN) {
+        puts("libuvdemo: sem empty failed");
+        return 1;
+    }
+    uv_sem_post(&thread_sem);
+    uv_sem_wait(&thread_sem);
+    if (uv_sem_trywait(&thread_sem) != UV_EAGAIN) {
+        puts("libuvdemo: sem wait failed");
+        return 1;
+    }
+
+    uv_rwlock_rdlock(&thread_rwlock);
+    if (uv_rwlock_trywrlock(&thread_rwlock) != UV_EBUSY) {
+        puts("libuvdemo: rwlock read failed");
+        return 1;
+    }
+    uv_rwlock_rdunlock(&thread_rwlock);
+    uv_rwlock_wrlock(&thread_rwlock);
+    if (uv_rwlock_tryrdlock(&thread_rwlock) != UV_EBUSY) {
+        puts("libuvdemo: rwlock write failed");
+        return 1;
+    }
+    uv_rwlock_wrunlock(&thread_rwlock);
+
+    if (uv_thread_create(&thread, thread_worker, (void *)(uintptr_t)37) < 0) {
+        puts("libuvdemo: thread create failed");
+        return 1;
+    }
+    uv_mutex_lock(&thread_cond_mutex);
+    while (!thread_ready) {
+        uv_cond_wait(&thread_cond, &thread_cond_mutex);
+    }
+    thread_go = 1;
+    uv_cond_signal(&thread_cond);
+    uv_mutex_unlock(&thread_cond_mutex);
+    if (uv_thread_join(&thread) < 0 || thread_value != 37) {
+        puts("libuvdemo: thread join failed");
+        return 1;
+    }
+
+    if (uv_thread_create_ex(&detached_thread, &options, detached_worker, (void *)(uintptr_t)11) < 0 ||
+        uv_thread_detach(&detached_thread) < 0) {
+        puts("libuvdemo: detached thread failed");
+        return 1;
+    }
+    uv_sem_wait(&thread_sem);
+    if (thread_detached_value != 11) {
+        puts("libuvdemo: detached thread failed");
+        return 1;
+    }
+
+    if (uv_barrier_init(&thread_barrier, 2) < 0 ||
+        uv_thread_create(&barrier_thread, barrier_worker, 0) < 0) {
+        puts("libuvdemo: barrier setup failed");
+        return 1;
+    }
+    if (uv_barrier_wait(&thread_barrier) != 0) {
+        thread_barrier_serial_count++;
+    }
+    if (uv_thread_join(&barrier_thread) < 0 || thread_barrier_serial_count != 1) {
+        puts("libuvdemo: barrier failed");
+        return 1;
+    }
+
+    uv_barrier_destroy(&thread_barrier);
+    uv_key_delete(&thread_key);
+    uv_rwlock_destroy(&thread_rwlock);
+    uv_sem_destroy(&thread_sem);
+    uv_cond_destroy(&thread_cond);
+    uv_mutex_destroy(&thread_cond_mutex);
+    uv_mutex_destroy(&thread_mutex);
+    puts("libuvdemo: thread ok");
+    return 0;
+}
+
 static uv_loop_t poll_loop;
 static uv_poll_t poll_handle;
 static int poll_fds[2] = {-1, -1};
@@ -741,6 +907,7 @@ int main(void) {
         phase_test() != 0 ||
         fs_test() != 0 ||
         work_test() != 0 ||
+        thread_test() != 0 ||
         poll_test() != 0 ||
         pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
