@@ -213,6 +213,10 @@ Thread parity now covers `uv_thread_create`, stack-sized
 recursive mutex initialization, condition variables with relative timed waits,
 reader/writer locks, semaphores, barriers, `uv_once`, and TLS keys on top of the
 srvros pthread implementation.
+The adapter also has a reusable pthread worker pool for `uv_queue_work` and
+callback-based filesystem requests, plus per-loop wake pipes so async/work/fs
+completions can wake a blocked event loop instead of waiting for unrelated fd
+traffic or timer polling.
 TCP stream parity now includes writable-readiness connect completion, deferred
 write queues with copied buffers, queued-byte reporting, `uv_stream_t` public
 signatures for listener/accept/read/write/shutdown operations, queued

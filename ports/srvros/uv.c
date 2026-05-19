@@ -33,12 +33,29 @@
 #define UV_MAX_STDIO_HANDLES 32
 #define UV_SCANDIR_INITIAL_CAPACITY 8
 #define UV_REALPATH_MAX 160
+#define UV_WORKER_POOL_SIZE 4
 
 static uv_loop_t default_loop;
 static int default_loop_ready;
 int __posix_make_path(const char *path, char *out, size_t capacity);
 
 static int next_timer_timeout(const uv_loop_t *loop);
+static int uv_scandir_append(uv_fs_t *request, const struct dirent *entry);
+static int uv_error_from_errno(void);
+static void set_nonblocking(int fd);
+
+struct uv_worker_job {
+    void (*run)(void *arg);
+    void *arg;
+    struct uv_worker_job *next;
+};
+
+static pthread_once_t worker_pool_once = PTHREAD_ONCE_INIT;
+static pthread_mutex_t worker_pool_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t worker_pool_cond = PTHREAD_COND_INITIALIZER;
+static pthread_t worker_pool_threads[UV_WORKER_POOL_SIZE];
+static struct uv_worker_job *worker_pool_head;
+static struct uv_worker_job *worker_pool_tail;
 
 static uint64_t monotonic_ms(void) {
     struct timespec ts;
@@ -53,6 +70,95 @@ static void sleep_ms(uint64_t ms) {
     ts.tv_sec = (time_t)(ms / 1000u);
     ts.tv_nsec = (long)((ms % 1000u) * 1000000u);
     (void)nanosleep(&ts, 0);
+}
+
+static void loop_wakeup(uv_loop_t *loop) {
+    if (loop == 0 || loop->wake_write_fd < 0) {
+        return;
+    }
+    char byte = 1;
+    ssize_t written = write(loop->wake_write_fd, &byte, 1);
+    (void)written;
+}
+
+static void loop_drain_wakeup(uv_loop_t *loop) {
+    if (loop == 0 || loop->wake_read_fd < 0) {
+        return;
+    }
+    char buffer[32];
+    while (read(loop->wake_read_fd, buffer, sizeof(buffer)) > 0) {
+    }
+}
+
+static int loop_ensure_wakeup(uv_loop_t *loop) {
+    if (loop == 0) {
+        return UV_EINVAL;
+    }
+    if (loop->wake_read_fd >= 0 && loop->wake_write_fd >= 0) {
+        return 0;
+    }
+    int wake_fds[2];
+    if (pipe(wake_fds) < 0) {
+        return uv_error_from_errno();
+    }
+    loop->wake_read_fd = wake_fds[0];
+    loop->wake_write_fd = wake_fds[1];
+    set_nonblocking(loop->wake_read_fd);
+    set_nonblocking(loop->wake_write_fd);
+    return 0;
+}
+
+static void *worker_pool_thread(void *arg) {
+    (void)arg;
+    for (;;) {
+        pthread_mutex_lock(&worker_pool_mutex);
+        while (worker_pool_head == 0) {
+            pthread_cond_wait(&worker_pool_cond, &worker_pool_mutex);
+        }
+        struct uv_worker_job *job = worker_pool_head;
+        worker_pool_head = job->next;
+        if (worker_pool_head == 0) {
+            worker_pool_tail = 0;
+        }
+        pthread_mutex_unlock(&worker_pool_mutex);
+
+        job->run(job->arg);
+        free(job);
+    }
+    return 0;
+}
+
+static void worker_pool_init(void) {
+    for (size_t i = 0; i < UV_WORKER_POOL_SIZE; i++) {
+        if (pthread_create(&worker_pool_threads[i], 0, worker_pool_thread, 0) == 0) {
+            (void)pthread_detach(worker_pool_threads[i]);
+        }
+    }
+}
+
+static int worker_pool_submit(void (*run)(void *arg), void *arg) {
+    if (run == 0) {
+        return UV_EINVAL;
+    }
+    pthread_once(&worker_pool_once, worker_pool_init);
+    struct uv_worker_job *job = malloc(sizeof(*job));
+    if (job == 0) {
+        return UV_ENOMEM;
+    }
+    job->run = run;
+    job->arg = arg;
+    job->next = 0;
+
+    pthread_mutex_lock(&worker_pool_mutex);
+    if (worker_pool_tail != 0) {
+        worker_pool_tail->next = job;
+    } else {
+        worker_pool_head = job;
+    }
+    worker_pool_tail = job;
+    pthread_cond_signal(&worker_pool_cond);
+    pthread_mutex_unlock(&worker_pool_mutex);
+    return 0;
 }
 
 static int uv_error_from_errno(void) {
@@ -112,6 +218,11 @@ int uv_loop_init(uv_loop_t *loop) {
         return -EINVAL;
     }
     memset(loop, 0, sizeof(*loop));
+    loop->wake_read_fd = -1;
+    loop->wake_write_fd = -1;
+    if (pthread_mutex_init(&loop->queue_mutex, 0) != 0) {
+        return UV_ENOMEM;
+    }
     loop->now_ms = monotonic_ms();
     return 0;
 }
@@ -123,7 +234,16 @@ int uv_loop_close(uv_loop_t *loop) {
     if (uv_loop_alive(loop)) {
         return UV_EBUSY;
     }
+    if (loop->wake_read_fd >= 0) {
+        close(loop->wake_read_fd);
+    }
+    if (loop->wake_write_fd >= 0) {
+        close(loop->wake_write_fd);
+    }
+    pthread_mutex_destroy(&loop->queue_mutex);
     memset(loop, 0, sizeof(*loop));
+    loop->wake_read_fd = -1;
+    loop->wake_write_fd = -1;
     return 0;
 }
 
@@ -138,8 +258,11 @@ void uv_loop_set_data(uv_loop_t *loop, void *data) {
 }
 
 int uv_backend_fd(const uv_loop_t *loop) {
-    (void)loop;
-    return UV_ENOSYS;
+    if (loop == 0) {
+        return UV_EINVAL;
+    }
+    int status = loop_ensure_wakeup((uv_loop_t *)loop);
+    return status < 0 ? status : loop->wake_read_fd;
 }
 
 int uv_backend_timeout(const uv_loop_t *loop) {
@@ -162,6 +285,7 @@ uint64_t uv_now(const uv_loop_t *loop) {
 void uv_stop(uv_loop_t *loop) {
     if (loop != 0) {
         loop->stop_flag = 1;
+        loop_wakeup(loop);
     }
 }
 
@@ -177,7 +301,10 @@ int uv_loop_alive(const uv_loop_t *loop) {
     for (uv_work_t *work = loop->work_queue; work != 0; work = work->next) {
         return 1;
     }
-    if (loop->fs_queue != 0) {
+    pthread_mutex_lock((pthread_mutex_t *)&loop->queue_mutex);
+    int has_fs = loop->fs_queue != 0 || loop->pending_fs_count != 0;
+    pthread_mutex_unlock((pthread_mutex_t *)&loop->queue_mutex);
+    if (has_fs) {
         return 1;
     }
     if (loop->getaddrinfo_queue != 0) {
@@ -625,9 +752,10 @@ static void run_check_handles(uv_loop_t *loop) {
     }
 }
 
-static int has_active_idle(const uv_loop_t *loop) {
+static int has_active_phase(const uv_loop_t *loop) {
     for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
-        if (base->type == UV_HANDLE_IDLE && base->active && !base->closing) {
+        if (base->active && !base->closing &&
+            (base->type == UV_HANDLE_IDLE || base->type == UV_HANDLE_PREPARE || base->type == UV_HANDLE_CHECK)) {
             return 1;
         }
     }
@@ -663,14 +791,21 @@ static void run_done_work(uv_loop_t *loop) {
 }
 
 static void run_done_fs(uv_loop_t *loop) {
+    pthread_mutex_lock(&loop->queue_mutex);
     uv_fs_t *request = loop->fs_queue;
     loop->fs_queue = 0;
+    pthread_mutex_unlock(&loop->queue_mutex);
     while (request != 0) {
         uv_fs_t *next = request->next;
         request->next = 0;
         if (request->cb != 0) {
             request->cb(request);
         }
+        pthread_mutex_lock(&loop->queue_mutex);
+        if (loop->pending_fs_count > 0) {
+            loop->pending_fs_count--;
+        }
+        pthread_mutex_unlock(&loop->queue_mutex);
         request = next;
     }
 }
@@ -1077,11 +1212,18 @@ static int run_once(uv_loop_t *loop, int mode) {
     }
 
     timeout = mode == UV_RUN_NOWAIT ? 0 : next_timer_timeout(loop);
-    if (has_active_idle(loop)) {
+    if (has_active_phase(loop)) {
         timeout = 0;
     }
     if (has_active_tcp_reader(loop) && (timeout < 0 || timeout > 20)) {
         timeout = 20;
+    }
+    if (timeout != 0 && count < UV_MAX_POLL_HANDLES && loop_ensure_wakeup(loop) == 0) {
+        fds[count].fd = loop->wake_read_fd;
+        fds[count].events = POLLIN;
+        fds[count].revents = 0;
+        handles[count] = 0;
+        count++;
     }
     for (uv_handle_t *handle = loop->handles; handle != 0 && count < UV_MAX_POLL_HANDLES; handle = handle->next) {
         short events = poll_events_for_handle(handle);
@@ -1107,7 +1249,11 @@ static int run_once(uv_loop_t *loop, int mode) {
             return uv_error_from_errno();
         }
         for (nfds_t i = 0; i < count; i++) {
-            if (handles[i]->type == UV_HANDLE_POLL && fds[i].revents != 0) {
+            if (handles[i] == 0) {
+                if (fds[i].revents != 0) {
+                    loop_drain_wakeup(loop);
+                }
+            } else if (handles[i]->type == UV_HANDLE_POLL && fds[i].revents != 0) {
                 dispatch_poll(handles[i], fds[i].revents);
             } else {
                 if ((fds[i].revents & (POLLOUT | POLLERR)) != 0) {
@@ -1426,6 +1572,7 @@ int uv_async_send(uv_async_t *handle) {
     }
     handle->pending = 1;
     handle->handle.active = 1;
+    loop_wakeup(handle->handle.loop);
     return 0;
 }
 
@@ -1806,21 +1953,23 @@ int uv_barrier_wait(uv_barrier_t *barrier) {
     return 0;
 }
 
-static void *work_thread_main(void *arg) {
+static void work_thread_main(void *arg) {
     uv_work_t *request = arg;
     if (request->work_cb != 0) {
         request->work_cb(request);
     }
     request->status = 0;
     request->done = 1;
-    return 0;
+    loop_wakeup(request->loop);
 }
 
 int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_after_work_cb after_work_cb) {
     if (loop == 0 || request == 0 || work_cb == 0) {
         return -EINVAL;
     }
+    void *data = request->data;
     memset(request, 0, sizeof(*request));
+    request->data = data;
     request->type = UV_WORK;
     request->loop = loop;
     request->work_cb = work_cb;
@@ -1828,14 +1977,12 @@ int uv_queue_work(uv_loop_t *loop, uv_work_t *request, uv_work_cb work_cb, uv_af
     request->next = loop->work_queue;
     loop->work_queue = request;
 
-    pthread_t thread;
-    int status = pthread_create(&thread, 0, work_thread_main, request);
+    int status = worker_pool_submit(work_thread_main, request);
     if (status != 0) {
         loop->work_queue = request->next;
         request->next = 0;
-        return -status;
+        return status;
     }
-    (void)pthread_detach(thread);
     return 0;
 }
 
@@ -2234,8 +2381,11 @@ char *uv_strerror_r(int error, char *buffer, size_t buffer_length) {
 
 static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request) {
     request->next = 0;
+    pthread_mutex_lock(&loop->queue_mutex);
     if (loop->fs_queue == 0) {
         loop->fs_queue = request;
+        pthread_mutex_unlock(&loop->queue_mutex);
+        loop_wakeup(loop);
         return;
     }
     uv_fs_t *tail = loop->fs_queue;
@@ -2243,6 +2393,8 @@ static void fs_queue_done(uv_loop_t *loop, uv_fs_t *request) {
         tail = tail->next;
     }
     tail->next = request;
+    pthread_mutex_unlock(&loop->queue_mutex);
+    loop_wakeup(loop);
 }
 
 static char *uv_strdup_text(const char *text) {
@@ -2275,13 +2427,167 @@ static int fs_prepare(uv_loop_t *loop, uv_fs_t *request, uv_fs_type type, const 
     return 0;
 }
 
-static int fs_finish(uv_fs_t *request, ssize_t result, uv_fs_cb cb) {
-    request->result = result;
+static int fs_copy_new_path(uv_fs_t *request, const char *path) {
+    request->new_path = uv_strdup_text(path);
+    return request->new_path != 0 ? 0 : UV_ENOMEM;
+}
+
+static int fs_copy_buffers(uv_fs_t *request, const uv_buf_t buffers[], unsigned int buffer_count) {
+    request->buffers = calloc(buffer_count, sizeof(request->buffers[0]));
+    if (request->buffers == 0) {
+        return UV_ENOMEM;
+    }
+    memcpy(request->buffers, buffers, buffer_count * sizeof(request->buffers[0]));
+    request->buffer_count = buffer_count;
+    return 0;
+}
+
+static void fs_execute(uv_fs_t *request) {
+    request->result = UV_EINVAL;
+    switch (request->fs_type) {
+        case UV_FS_OPEN: {
+            int fd = open(request->path, request->flags, request->mode);
+            request->result = fd < 0 ? uv_error_from_errno() : fd;
+            break;
+        }
+        case UV_FS_CLOSE:
+            request->result = close(request->fd) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_READ: {
+            if (request->offset >= 0 && lseek(request->fd, request->offset, SEEK_SET) < 0) {
+                request->result = uv_error_from_errno();
+                break;
+            }
+            ssize_t total = 0;
+            for (unsigned int i = 0; i < request->buffer_count; i++) {
+                ssize_t count = read(request->fd, request->buffers[i].base, request->buffers[i].len);
+                if (count < 0) {
+                    request->result = uv_error_from_errno();
+                    return;
+                }
+                total += count;
+                if ((size_t)count < request->buffers[i].len) {
+                    break;
+                }
+            }
+            request->result = total;
+            break;
+        }
+        case UV_FS_WRITE: {
+            if (request->offset >= 0 && lseek(request->fd, request->offset, SEEK_SET) < 0) {
+                request->result = uv_error_from_errno();
+                break;
+            }
+            ssize_t total = 0;
+            for (unsigned int i = 0; i < request->buffer_count; i++) {
+                size_t offset_in_buffer = 0;
+                while (offset_in_buffer < request->buffers[i].len) {
+                    ssize_t count = write(request->fd,
+                        request->buffers[i].base + offset_in_buffer,
+                        request->buffers[i].len - offset_in_buffer);
+                    if (count < 0) {
+                        request->result = uv_error_from_errno();
+                        return;
+                    }
+                    total += count;
+                    offset_in_buffer += (size_t)count;
+                }
+            }
+            request->result = total;
+            break;
+        }
+        case UV_FS_MKDIR:
+            request->result = mkdir(request->path, (mode_t)request->mode) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_RMDIR:
+            request->result = rmdir(request->path) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_RENAME:
+            request->result = rename(request->path, request->new_path) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_UNLINK:
+            request->result = unlink(request->path) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_STAT: {
+            int result = stat(request->path, &request->statbuf);
+            request->result = result < 0 ? uv_error_from_errno() : 0;
+            break;
+        }
+        case UV_FS_LSTAT: {
+            int result = stat(request->path, &request->statbuf);
+            request->result = result < 0 ? uv_error_from_errno() : 0;
+            break;
+        }
+        case UV_FS_FSTAT: {
+            int result = fstat(request->fd, &request->statbuf);
+            request->result = result < 0 ? uv_error_from_errno() : 0;
+            break;
+        }
+        case UV_FS_ACCESS:
+            request->result = access(request->path, request->mode) < 0 ? uv_error_from_errno() : 0;
+            break;
+        case UV_FS_SCANDIR: {
+            DIR *dir = opendir(request->path);
+            if (dir == 0) {
+                request->result = uv_error_from_errno();
+                break;
+            }
+            struct dirent *entry;
+            while ((entry = readdir(dir)) != 0) {
+                int error = uv_scandir_append(request, entry);
+                if (error < 0) {
+                    closedir(dir);
+                    request->result = error;
+                    return;
+                }
+            }
+            closedir(dir);
+            request->result = (ssize_t)request->dirent_count;
+            break;
+        }
+        case UV_FS_REALPATH: {
+            char *resolved = malloc(UV_REALPATH_MAX);
+            if (resolved == 0) {
+                request->result = UV_ENOMEM;
+                break;
+            }
+            if (__posix_make_path(request->path, resolved, UV_REALPATH_MAX) < 0) {
+                free(resolved);
+                request->result = uv_error_from_errno();
+                break;
+            }
+            request->ptr = resolved;
+            request->result = 0;
+            break;
+        }
+        default:
+            request->result = UV_ENOSYS;
+            break;
+    }
+}
+
+static void fs_worker_main(void *arg) {
+    uv_fs_t *request = arg;
+    fs_execute(request);
+    fs_queue_done(request->loop, request);
+}
+
+static int fs_finish(uv_fs_t *request, uv_fs_cb cb) {
     if (cb != 0) {
-        fs_queue_done(request->loop, request);
+        pthread_mutex_lock(&request->loop->queue_mutex);
+        request->loop->pending_fs_count++;
+        pthread_mutex_unlock(&request->loop->queue_mutex);
+        int status = worker_pool_submit(fs_worker_main, request);
+        if (status != 0) {
+            pthread_mutex_lock(&request->loop->queue_mutex);
+            request->loop->pending_fs_count--;
+            pthread_mutex_unlock(&request->loop->queue_mutex);
+            return status;
+        }
         return 0;
     }
-    return result < 0 ? (int)result : 0;
+    fs_execute(request);
+    return request->result < 0 ? (int)request->result : 0;
 }
 
 int uv_fs_open(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, int mode, uv_fs_cb cb) {
@@ -2292,8 +2598,9 @@ int uv_fs_open(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags, i
     if (error < 0) {
         return error;
     }
-    int fd = open(path, flags, mode);
-    return fs_finish(request, fd < 0 ? uv_error_from_errno() : fd, cb);
+    request->flags = flags;
+    request->mode = mode;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_close(uv_loop_t *loop, uv_fs_t *request, int fd, uv_fs_cb cb) {
@@ -2301,7 +2608,8 @@ int uv_fs_close(uv_loop_t *loop, uv_fs_t *request, int fd, uv_fs_cb cb) {
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, close(fd) < 0 ? uv_error_from_errno() : 0, cb);
+    request->fd = fd;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_read(uv_loop_t *loop,
@@ -2318,21 +2626,14 @@ int uv_fs_read(uv_loop_t *loop,
     if (error < 0) {
         return error;
     }
-    if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
-        return fs_finish(request, uv_error_from_errno(), cb);
+    error = fs_copy_buffers(request, buffers, buffer_count);
+    if (error < 0) {
+        uv_fs_req_cleanup(request);
+        return error;
     }
-    ssize_t total = 0;
-    for (unsigned int i = 0; i < buffer_count; i++) {
-        ssize_t count = read(fd, buffers[i].base, buffers[i].len);
-        if (count < 0) {
-            return fs_finish(request, uv_error_from_errno(), cb);
-        }
-        total += count;
-        if ((size_t)count < buffers[i].len) {
-            break;
-        }
-    }
-    return fs_finish(request, total, cb);
+    request->fd = fd;
+    request->offset = offset;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_write(uv_loop_t *loop,
@@ -2349,22 +2650,14 @@ int uv_fs_write(uv_loop_t *loop,
     if (error < 0) {
         return error;
     }
-    if (offset >= 0 && lseek(fd, offset, SEEK_SET) < 0) {
-        return fs_finish(request, uv_error_from_errno(), cb);
+    error = fs_copy_buffers(request, buffers, buffer_count);
+    if (error < 0) {
+        uv_fs_req_cleanup(request);
+        return error;
     }
-    ssize_t total = 0;
-    for (unsigned int i = 0; i < buffer_count; i++) {
-        size_t offset_in_buffer = 0;
-        while (offset_in_buffer < buffers[i].len) {
-            ssize_t count = write(fd, buffers[i].base + offset_in_buffer, buffers[i].len - offset_in_buffer);
-            if (count < 0) {
-                return fs_finish(request, uv_error_from_errno(), cb);
-            }
-            total += count;
-            offset_in_buffer += (size_t)count;
-        }
-    }
-    return fs_finish(request, total, cb);
+    request->fd = fd;
+    request->offset = offset;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb) {
@@ -2375,7 +2668,8 @@ int uv_fs_mkdir(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, u
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, mkdir(path, (mode_t)mode) < 0 ? uv_error_from_errno() : 0, cb);
+    request->mode = mode;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
@@ -2386,7 +2680,7 @@ int uv_fs_rmdir(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, rmdir(path) < 0 ? uv_error_from_errno() : 0, cb);
+    return fs_finish(request, cb);
 }
 
 int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char *new_path, uv_fs_cb cb) {
@@ -2397,7 +2691,12 @@ int uv_fs_rename(uv_loop_t *loop, uv_fs_t *request, const char *path, const char
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, rename(path, new_path) < 0 ? uv_error_from_errno() : 0, cb);
+    error = fs_copy_new_path(request, new_path);
+    if (error < 0) {
+        uv_fs_req_cleanup(request);
+        return error;
+    }
+    return fs_finish(request, cb);
 }
 
 int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
@@ -2408,7 +2707,7 @@ int uv_fs_unlink(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb c
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, unlink(path) < 0 ? uv_error_from_errno() : 0, cb);
+    return fs_finish(request, cb);
 }
 
 int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
@@ -2419,8 +2718,7 @@ int uv_fs_stat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb)
     if (error < 0) {
         return error;
     }
-    int result = stat(path, &request->statbuf);
-    return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
+    return fs_finish(request, cb);
 }
 
 int uv_fs_lstat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb) {
@@ -2431,8 +2729,7 @@ int uv_fs_lstat(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb cb
     if (error < 0) {
         return error;
     }
-    int result = stat(path, &request->statbuf);
-    return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
+    return fs_finish(request, cb);
 }
 
 int uv_fs_fstat(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb) {
@@ -2440,8 +2737,8 @@ int uv_fs_fstat(uv_loop_t *loop, uv_fs_t *request, uv_file fd, uv_fs_cb cb) {
     if (error < 0) {
         return error;
     }
-    int result = fstat(fd, &request->statbuf);
-    return fs_finish(request, result < 0 ? uv_error_from_errno() : 0, cb);
+    request->fd = fd;
+    return fs_finish(request, cb);
 }
 
 int uv_fs_access(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, uv_fs_cb cb) {
@@ -2452,7 +2749,8 @@ int uv_fs_access(uv_loop_t *loop, uv_fs_t *request, const char *path, int mode, 
     if (error < 0) {
         return error;
     }
-    return fs_finish(request, access(path, mode) < 0 ? uv_error_from_errno() : 0, cb);
+    request->mode = mode;
+    return fs_finish(request, cb);
 }
 
 static uv_dirent_type_t uv_dirent_type_from_posix(unsigned char type) {
@@ -2500,20 +2798,7 @@ int uv_fs_scandir(uv_loop_t *loop, uv_fs_t *request, const char *path, int flags
     if (error < 0) {
         return error;
     }
-    DIR *dir = opendir(path);
-    if (dir == 0) {
-        return fs_finish(request, uv_error_from_errno(), cb);
-    }
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != 0) {
-        error = uv_scandir_append(request, entry);
-        if (error < 0) {
-            closedir(dir);
-            return fs_finish(request, error, cb);
-        }
-    }
-    closedir(dir);
-    return fs_finish(request, (ssize_t)request->dirent_count, cb);
+    return fs_finish(request, cb);
 }
 
 int uv_fs_scandir_next(uv_fs_t *request, uv_dirent_t *entry) {
@@ -2535,16 +2820,7 @@ int uv_fs_realpath(uv_loop_t *loop, uv_fs_t *request, const char *path, uv_fs_cb
     if (error < 0) {
         return error;
     }
-    char *resolved = malloc(UV_REALPATH_MAX);
-    if (resolved == 0) {
-        return fs_finish(request, UV_ENOMEM, cb);
-    }
-    if (__posix_make_path(path, resolved, UV_REALPATH_MAX) < 0) {
-        free(resolved);
-        return fs_finish(request, uv_error_from_errno(), cb);
-    }
-    request->ptr = resolved;
-    return fs_finish(request, 0, cb);
+    return fs_finish(request, cb);
 }
 
 uv_fs_type uv_fs_get_type(const uv_fs_t *request) {
@@ -2580,6 +2856,11 @@ void uv_fs_req_cleanup(uv_fs_t *request) {
     }
     free((void *)request->path);
     request->path = 0;
+    free((void *)request->new_path);
+    request->new_path = 0;
+    free(request->buffers);
+    request->buffers = 0;
+    request->buffer_count = 0;
     free(request->ptr);
     request->ptr = 0;
     for (size_t i = 0; i < request->dirent_count; i++) {

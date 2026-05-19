@@ -322,8 +322,12 @@ struct uv_loop_s {
     uv_work_t *work_queue;
     uv_fs_t *fs_queue;
     uv_getaddrinfo_t *getaddrinfo_queue;
+    pthread_mutex_t queue_mutex;
     void *data;
     uint64_t now_ms;
+    int wake_read_fd;
+    int wake_write_fd;
+    int pending_fs_count;
     int stop_flag;
 };
 
@@ -441,6 +445,13 @@ struct uv_fs_s {
     void *ptr;
     struct stat statbuf;
     const char *path;
+    const char *new_path;
+    uv_buf_t *buffers;
+    unsigned int buffer_count;
+    int fd;
+    int flags;
+    int mode;
+    int64_t offset;
     uv_dirent_t *dirents;
     size_t dirent_count;
     size_t dirent_index;

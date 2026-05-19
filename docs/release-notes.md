@@ -66,6 +66,9 @@ server.
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,
   barriers, `uv_once`, and TLS keys in `/fat/bin/libuvdemo`.
+- Moves libuv queued work and callback-based filesystem requests onto a small
+  reusable pthread worker pool, adds per-loop wake pipes, and extends
+  `/fat/bin/libuvdemo` to cover multi-request work and async fs completions.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

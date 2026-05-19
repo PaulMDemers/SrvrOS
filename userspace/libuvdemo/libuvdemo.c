@@ -106,7 +106,7 @@ static int core_api_test(void) {
         uv_req_size(UV_GETADDRINFO) != sizeof(uv_getaddrinfo_t) ||
         strcmp(uv_req_type_name(UV_FS), "fs") != 0 ||
         strcmp(uv_req_type_name(UV_GETADDRINFO), "getaddrinfo") != 0 ||
-        uv_backend_fd(&loop) != UV_ENOSYS ||
+        uv_backend_fd(&loop) < 0 ||
         uv_is_active((uv_handle_t *)&timer) ||
         uv_is_closing((uv_handle_t *)&timer) ||
         !uv_has_ref((uv_handle_t *)&timer)) {
@@ -242,21 +242,37 @@ static int phase_test(void) {
 }
 
 static uv_fs_t *fs_async_expected;
+static uv_fs_t *fs_async_access_expected;
+static uv_fs_t *fs_async_realpath_expected;
 static int fs_async_seen;
+static int fs_async_expected_count;
 
 static void fs_async_cb(uv_fs_t *async_req) {
     if (async_req == fs_async_expected &&
         uv_fs_get_type(async_req) == UV_FS_STAT &&
         uv_fs_get_result(async_req) == 0) {
-        fs_async_seen = 1;
+        fs_async_seen++;
+    } else if (async_req == fs_async_access_expected &&
+        uv_fs_get_type(async_req) == UV_FS_ACCESS &&
+        uv_fs_get_result(async_req) == 0) {
+        fs_async_seen++;
+    } else if (async_req == fs_async_realpath_expected &&
+        uv_fs_get_type(async_req) == UV_FS_REALPATH &&
+        uv_fs_get_result(async_req) == 0 &&
+        strcmp((const char *)uv_fs_get_ptr(async_req), uv_fs_get_path(async_req)) == 0) {
+        fs_async_seen++;
     }
-    uv_stop(async_req->loop);
+    if (fs_async_seen == fs_async_expected_count) {
+        uv_stop(async_req->loop);
+    }
 }
 
 static int fs_test(void) {
     uv_loop_t loop;
     uv_fs_t request;
     uv_fs_t async_request;
+    uv_fs_t async_access_request;
+    uv_fs_t async_realpath_request;
     const char *path = "/fat/libuvdemo.txt";
     const char *renamed = "/fat/libuvdemo-renamed.txt";
     const char *dir = "/fat/libuvdemo-dir";
@@ -267,7 +283,10 @@ static int fs_test(void) {
     int saw_bin = 0;
     int saw_echo = 0;
     fs_async_expected = 0;
+    fs_async_access_expected = 0;
+    fs_async_realpath_expected = 0;
     fs_async_seen = 0;
+    fs_async_expected_count = 3;
 
     if (uv_loop_init(&loop) < 0) {
         return 1;
@@ -387,14 +406,22 @@ static int fs_test(void) {
         return 1;
     }
     memset(&async_request, 0, sizeof(async_request));
+    memset(&async_access_request, 0, sizeof(async_access_request));
+    memset(&async_realpath_request, 0, sizeof(async_realpath_request));
     fs_async_expected = &async_request;
-    if (uv_fs_stat(&loop, &async_request, renamed, fs_async_cb) < 0) {
+    fs_async_access_expected = &async_access_request;
+    fs_async_realpath_expected = &async_realpath_request;
+    if (uv_fs_stat(&loop, &async_request, renamed, fs_async_cb) < 0 ||
+        uv_fs_access(&loop, &async_access_request, renamed, F_OK | R_OK, fs_async_cb) < 0 ||
+        uv_fs_realpath(&loop, &async_realpath_request, renamed, fs_async_cb) < 0) {
         puts("libuvdemo: fs async setup failed");
         return 1;
     }
     (void)uv_run(&loop, UV_RUN_DEFAULT);
     uv_fs_req_cleanup(&async_request);
-    if (!fs_async_seen) {
+    uv_fs_req_cleanup(&async_access_request);
+    uv_fs_req_cleanup(&async_realpath_request);
+    if (fs_async_seen != fs_async_expected_count) {
         puts("libuvdemo: fs async failed");
         return 1;
     }
@@ -414,39 +441,61 @@ static int fs_test(void) {
 
 static uv_loop_t work_loop;
 static uv_async_t async_handle;
-static uv_work_t work_request;
+static uv_work_t work_requests[6];
+static uv_mutex_t work_mutex;
 static int work_value;
+static int work_done_count;
 static int async_seen;
 static int work_seen;
 
 static void async_cb(uv_async_t *handle) {
+    (void)handle;
     async_seen = 1;
-    uv_close((uv_handle_t *)handle, 0);
 }
 
 static void work_cb(uv_work_t *request) {
-    (void)request;
-    work_value = 21 * 2;
+    int value = (int)(uintptr_t)request->data;
+    uv_mutex_lock(&work_mutex);
+    work_value += value;
+    uv_mutex_unlock(&work_mutex);
     (void)uv_async_send(&async_handle);
 }
 
 static void after_work_cb(uv_work_t *request, int status) {
     (void)request;
-    work_seen = status == 0 && work_value == 42;
-    uv_stop(&work_loop);
+    if (status == 0) {
+        work_done_count++;
+    }
+    if (work_done_count == (int)(sizeof(work_requests) / sizeof(work_requests[0]))) {
+        work_seen = work_value == 21;
+        uv_close((uv_handle_t *)&async_handle, 0);
+        uv_stop(&work_loop);
+    }
 }
 
 static int work_test(void) {
     work_value = 0;
+    work_done_count = 0;
     async_seen = 0;
     work_seen = 0;
-    if (uv_loop_init(&work_loop) < 0 ||
-        uv_async_init(&work_loop, &async_handle, async_cb) < 0 ||
-        uv_queue_work(&work_loop, &work_request, work_cb, after_work_cb) < 0) {
+    if (uv_mutex_init(&work_mutex) < 0) {
         puts("libuvdemo: work setup failed");
         return 1;
     }
+    if (uv_loop_init(&work_loop) < 0 ||
+        uv_async_init(&work_loop, &async_handle, async_cb) < 0) {
+        puts("libuvdemo: work setup failed");
+        return 1;
+    }
+    for (size_t i = 0; i < sizeof(work_requests) / sizeof(work_requests[0]); i++) {
+        work_requests[i].data = (void *)(uintptr_t)(i + 1);
+        if (uv_queue_work(&work_loop, &work_requests[i], work_cb, after_work_cb) < 0) {
+            puts("libuvdemo: work setup failed");
+            return 1;
+        }
+    }
     (void)uv_run(&work_loop, UV_RUN_DEFAULT);
+    uv_mutex_destroy(&work_mutex);
     if (!async_seen || !work_seen) {
         puts("libuvdemo: work failed");
         return 1;
