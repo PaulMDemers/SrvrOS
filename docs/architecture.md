@@ -450,7 +450,7 @@ same-address-space `pthread_create`/`pthread_join`/`pthread_detach`,
 pthread mutex/condition/once/TLS primitives, common
 formatted-output width/precision/flag forms,
 `scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
-`popen`/`pclose`, `getpid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
+`popen`/`pclose`, `getpid`/`getppid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
 standard-fd and ordered non-stdio spawn file actions with dynamic userspace
 storage up to the native spawn ABI limit, `POSIX_SPAWN_SETPGROUP`,
 reset-id/signal-mask/default attr storage, process-replacing `execve`, IPv4 formatting and
@@ -461,7 +461,8 @@ for this slice are intentionally narrow: fd metadata/duplication, shared regular
 descriptions, fd readiness checks, nonblocking read/accept/write returns, child
 stdio fd overrides plus inherited parent stdio redirects, seek, fd
 flush/truncate, fd-0 writes when stdin is redirected to a writable/duplex
-descriptor, process heap growth, `getpid`, raw timer ticks,
+descriptor, process heap growth, `getpid`/`getppid`, executable-path queries,
+raw timer ticks,
 sleep-by-ticks syscalls, a shared fd readiness wait queue,
 timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
 and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT

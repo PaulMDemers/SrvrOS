@@ -1729,6 +1729,26 @@ static int64_t syscall_getpid(void) {
     return process == NULL ? 0 : (int64_t)process_pid(process);
 }
 
+static int64_t syscall_getppid(void) {
+    struct process *process = process_current();
+    return process == NULL ? 0 : (int64_t)process_parent_pid(process);
+}
+
+static int64_t syscall_exepath(char *buffer, uint64_t capacity) {
+    if (buffer == NULL || capacity == 0 || !user_buffer_ok(buffer, capacity, true)) {
+        return -1;
+    }
+    const char *path = process_executable_path(process_current());
+    uint64_t length = 0;
+    while (path[length] != '\0') {
+        length++;
+    }
+    if (length + 1 > capacity) {
+        return -1;
+    }
+    return copy_to_user(buffer, path, length + 1) ? (int64_t)length : -1;
+}
+
 static int64_t syscall_sleep_ticks(uint64_t ticks) {
     uint64_t start = timer_ticks();
     __asm__ volatile ("sti" : : : "memory");
@@ -1975,6 +1995,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GETPID:
         frame->rax = (uint64_t)syscall_getpid();
+        return;
+    case SYS_GETPPID:
+        frame->rax = (uint64_t)syscall_getppid();
+        return;
+    case SYS_EXEPATH:
+        frame->rax = (uint64_t)syscall_exepath((char *)frame->rdi, frame->rsi);
         return;
     case SYS_TICKS:
         frame->rax = timer_ticks();

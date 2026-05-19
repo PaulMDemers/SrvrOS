@@ -228,9 +228,10 @@ closed without stale poll-snapshot reads.
 Loop parity now includes prepare/check/idle phase handles, poll
 disconnect/error mapping with close/restart guards, richer timer repeat helpers,
 and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
-Platform parity now covers cwd/chdir, executable path, environment helpers,
-pid/ppid, high-resolution time, memory totals from the kernel meminfo ABI, and
-sync/queued random fills through `SYS_RANDOM`/`getrandom`.
+Platform parity now covers cwd/chdir, kernel-reported executable path,
+environment helpers, pid/ppid from process metadata, high-resolution time,
+memory totals from the kernel meminfo ABI, and sync/queued random fills through
+`SYS_RANDOM`/`getrandom`.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 fsync/fdatasync/ftruncate/sendfile/utime/futime requests, request getters,
 cleanup-owned realpath/scandir memory, VFS-backed timestamp mutation with exFAT

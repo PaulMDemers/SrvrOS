@@ -160,6 +160,8 @@ long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out);
 long srv_net_shutdown(int fd, int how);
 long srv_net_error(int fd);
 long srv_getpid(void);
+long srv_getppid(void);
+long srv_exepath(char *buffer, size_t capacity);
 long srv_ticks(void);
 long srv_sleep_ticks(uint64_t ticks);
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);

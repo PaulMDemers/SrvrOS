@@ -43,6 +43,7 @@ void *sbrk(intptr_t increment);
 char *getcwd(char *buffer, size_t size);
 int chdir(const char *path);
 pid_t getpid(void);
+pid_t getppid(void);
 int execve(const char *path, char *const argv[], char *const envp[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);

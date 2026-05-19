@@ -26,9 +26,10 @@ backend.
   that still have unclosed handles, even if those handles are inactive.
 - Event loop init, run, stop, alive, monotonic time refresh, and the first
   prepare/check/idle phase handles.
-- Platform helpers for cwd/chdir, executable path, pid/ppid, environment
-  get/set/unset, high-resolution time, memory totals from the kernel meminfo
-  ABI, and sync/queued `uv_random` buffers backed by the srvros random syscall.
+- Platform helpers for cwd/chdir, kernel-reported executable path, pid/ppid,
+  environment get/set/unset, high-resolution time, memory totals from the
+  kernel meminfo ABI, and sync/queued `uv_random` buffers backed by the srvros
+  random syscall.
 - Timers with one-shot and repeating dispatch, repeat setters/getters,
   `uv_timer_again`, and due-in reporting.
 - Filesystem request helpers for open, close, read, write, mkdir, rmdir,

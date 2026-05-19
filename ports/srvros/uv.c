@@ -678,7 +678,7 @@ uv_pid_t uv_os_getpid(void) {
 }
 
 uv_pid_t uv_os_getppid(void) {
-    return 1;
+    return getppid();
 }
 
 int uv_os_getenv(const char *name, char *buffer, size_t *size) {
@@ -728,9 +728,17 @@ static int copy_sized_string(char *buffer, size_t *size, const char *value) {
 }
 
 int uv_exepath(char *buffer, size_t *size) {
-    const char *path = getenv("_");
-    if (path == 0 || path[0] == '\0') {
-        path = "/fat/bin/srvros-app";
+    if (buffer == 0 || size == 0) {
+        return UV_EINVAL;
+    }
+    char path[UV_REALPATH_MAX];
+    long length = srv_exepath(path, sizeof(path));
+    if (length < 0) {
+        const char *fallback = getenv("_");
+        if (fallback == 0 || fallback[0] == '\0') {
+            fallback = "/fat/bin/srvros-app";
+        }
+        return copy_sized_string(buffer, size, fallback);
     }
     return copy_sized_string(buffer, size, path);
 }

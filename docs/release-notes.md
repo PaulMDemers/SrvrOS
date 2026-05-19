@@ -80,10 +80,11 @@ server.
 - Adds libuv TTY and signal staging with `uv_guess_handle`, `uv_tty_t`
   window-size/mode/write helpers, vterm-state probes, and `uv_signal_t`
   start/stop/one-shot callback delivery for SIGINT/SIGTERM.
-- Adds libuv platform and filesystem parity for cwd/chdir, exepath, env,
-  pid/ppid, hrtime, memory totals, sync/queued random fills, fsync/fdatasync,
-  ftruncate, sendfile, utime, and futime, backed by kernel meminfo/random/time
-  mutation syscalls and expanded `/fat/bin/libuvdemo` coverage.
+- Adds libuv platform and filesystem parity for cwd/chdir, kernel-reported
+  exepath, env, pid/ppid, hrtime, memory totals, sync/queued random fills,
+  fsync/fdatasync, ftruncate, sendfile, utime, and futime, backed by kernel
+  process metadata, meminfo/random/time mutation syscalls, and expanded
+  `/fat/bin/libuvdemo` coverage.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

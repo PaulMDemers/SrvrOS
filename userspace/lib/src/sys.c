@@ -481,6 +481,14 @@ long srv_getpid(void) {
     return srv_syscall0(SYS_GETPID);
 }
 
+long srv_getppid(void) {
+    return srv_syscall0(SYS_GETPPID);
+}
+
+long srv_exepath(char *buffer, size_t capacity) {
+    return srv_syscall2(SYS_EXEPATH, (long)buffer, (long)capacity);
+}
+
 long srv_ticks(void) {
     return srv_syscall0(SYS_TICKS);
 }

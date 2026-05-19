@@ -110,7 +110,8 @@ static int platform_test(void) {
     }
 
     size = sizeof(buffer);
-    if (uv_exepath(buffer, &size) != 0 || size == 0 || buffer[0] != '/') {
+    if (uv_exepath(buffer, &size) != 0 || size == 0 ||
+        strcmp(buffer, "/fat/bin/libuvdemo") != 0) {
         puts("libuvdemo: platform exepath failed");
         return 1;
     }

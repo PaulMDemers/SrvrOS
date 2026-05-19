@@ -149,6 +149,7 @@ struct process {
     uint64_t pending_signals;
     uint64_t process_group;
     uint64_t pid;
+    uint64_t parent_pid;
     uint64_t exit_status;
     uint64_t entry;
     uint64_t stack_top;
@@ -174,6 +175,7 @@ struct process {
     int64_t stderr_fd;
     char stdout_path[PROCESS_PATH_MAX];
     char name[PROCESS_NAME_MAX];
+    char executable_path[PROCESS_PATH_MAX];
     struct process_context context;
     struct fpu_state fpu;
     struct process_file files[PROCESS_MAX_OPEN_FILES];
@@ -342,11 +344,13 @@ static struct process *alloc_process(const char *path, bool detached) {
             if (next_pid == 0) {
                 next_pid = 1;
             }
+            processes[i].parent_pid = process_pid(process_current());
             processes[i].stack_top = USER_STACK_TOP;
             processes[i].kernel_stack_top = gdt_default_kernel_stack_top();
             processes[i].next_thread_id = 2;
             fpu_init_state(&processes[i].fpu);
             set_process_name(&processes[i], path);
+            (void)copy_process_path(processes[i].executable_path, sizeof(processes[i].executable_path), path);
             return &processes[i];
         }
     }
@@ -1284,6 +1288,7 @@ int64_t process_exec_replace(const char *path,
     cleanup_process_address_space(process);
     move_process_image(process, image);
     set_process_name(process, path);
+    (void)copy_process_path(process->executable_path, sizeof(process->executable_path), path);
     fpu_init_state(&process->fpu);
     process->signal_catch_mask = 0;
     process->signal_ignore_mask = 0;
@@ -2276,8 +2281,16 @@ uint64_t process_pid(const struct process *process) {
     return process != NULL ? process->pid : 0;
 }
 
+uint64_t process_parent_pid(const struct process *process) {
+    return process != NULL ? process->parent_pid : 0;
+}
+
 const char *process_name(const struct process *process) {
     return process != NULL ? process->name : "";
+}
+
+const char *process_executable_path(const struct process *process) {
+    return process != NULL ? process->executable_path : "";
 }
 
 bool process_current_quiet(void) {

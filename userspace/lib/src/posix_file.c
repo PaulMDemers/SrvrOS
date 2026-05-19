@@ -560,6 +560,10 @@ pid_t getpid(void) {
     return (pid_t)srv_getpid();
 }
 
+pid_t getppid(void) {
+    return (pid_t)srv_getppid();
+}
+
 void _exit(int status) {
     srv_exit(status);
     for (;;) {

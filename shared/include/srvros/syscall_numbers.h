@@ -97,6 +97,8 @@
 #define SYS_RANDOM 92
 #define SYS_UTIME 93
 #define SYS_FUTIME 94
+#define SYS_GETPPID 95
+#define SYS_EXEPATH 96
 
 #define SRV_ABI_VERSION 1
 

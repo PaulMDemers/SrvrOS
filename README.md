@@ -34,7 +34,8 @@ editor clients:
   `fxsave64`/`fxrstor64` state preservation across traps, syscalls,
   preemption, and kernel/user transitions.
 - Preemptive scheduler for kernel threads and ring-3 processes, wait queues,
-  process table, foreground/background tasks, `ps`, `kill`, and `wait`.
+  process table with parent PID and executable-path metadata,
+  foreground/background tasks, `ps`, `kill`, and `wait`.
 - USTAR initramfs and VFS layer.
 - Generic block-device registry, memory block devices, AHCI SATA read/write
   support, and a small write-through block cache.
