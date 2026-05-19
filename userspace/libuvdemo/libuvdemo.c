@@ -709,6 +709,72 @@ static int fs_test(void) {
     return 0;
 }
 
+static uv_loop_t fs_poll_loop;
+static uv_fs_poll_t fs_poll_handle;
+static uv_timer_t fs_poll_timer;
+static const char *fs_poll_path = "/fat/libuvdemo-fspoll.txt";
+static int fs_poll_seen;
+
+static void fs_poll_timer_cb(uv_timer_t *timer) {
+    (void)timer;
+    int fd = open(fs_poll_path, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if (fd >= 0) {
+        (void)write(fd, "libuv-fs-poll-changed", 21);
+        (void)close(fd);
+    }
+}
+
+static void fs_poll_cb(uv_fs_poll_t *handle, int status, const uv_stat_t *previous, const uv_stat_t *current) {
+    char path[96];
+    size_t size = sizeof(path);
+    if (handle == &fs_poll_handle &&
+        status == 0 &&
+        previous != 0 &&
+        current != 0 &&
+        current->st_size != previous->st_size &&
+        uv_fs_poll_getpath(handle, path, &size) == 0 &&
+        strcmp(path, fs_poll_path) == 0) {
+        fs_poll_seen = 1;
+        (void)uv_fs_poll_stop(handle);
+        (void)uv_timer_stop(&fs_poll_timer);
+        uv_stop(&fs_poll_loop);
+    }
+}
+
+static int fs_poll_test(void) {
+    int fd = open(fs_poll_path, O_CREAT | O_TRUNC | O_WRONLY, 0644);
+    if (fd < 0) {
+        puts("libuvdemo: fs poll setup failed");
+        return 1;
+    }
+    (void)write(fd, "seed", 4);
+    (void)close(fd);
+
+    fs_poll_seen = 0;
+    if (uv_loop_init(&fs_poll_loop) < 0 ||
+        uv_fs_poll_init(&fs_poll_loop, &fs_poll_handle) < 0 ||
+        uv_timer_init(&fs_poll_loop, &fs_poll_timer) < 0 ||
+        uv_fs_poll_start(&fs_poll_handle, fs_poll_cb, fs_poll_path, 10) < 0 ||
+        uv_timer_start(&fs_poll_timer, fs_poll_timer_cb, 30, 0) < 0) {
+        puts("libuvdemo: fs poll setup failed");
+        return 1;
+    }
+    (void)uv_run(&fs_poll_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&fs_poll_handle, 0);
+    uv_close((uv_handle_t *)&fs_poll_timer, 0);
+    if (uv_loop_close(&fs_poll_loop) != 0) {
+        puts("libuvdemo: fs poll loop close failed");
+        return 1;
+    }
+    (void)unlink(fs_poll_path);
+    if (!fs_poll_seen) {
+        puts("libuvdemo: fs poll failed");
+        return 1;
+    }
+    puts("libuvdemo: fs poll ok");
+    return 0;
+}
+
 static uv_loop_t work_loop;
 static uv_loop_t cancel_loop;
 static uv_async_t async_handle;
@@ -1525,6 +1591,7 @@ int main(int argc, char **argv) {
         timer_test() != 0 ||
         phase_test() != 0 ||
         fs_test() != 0 ||
+        fs_poll_test() != 0 ||
         work_test() != 0 ||
         thread_test() != 0 ||
         poll_test() != 0 ||

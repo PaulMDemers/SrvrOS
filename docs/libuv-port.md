@@ -65,6 +65,8 @@ backend.
   inherited fds or streams into compact child fd tables.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
+- `uv_fs_poll_t` file-change polling over periodic `stat`, integrated with the
+  same loop timer path as normal timers.
 - `uv_async_t` pending notification dispatch inside the loop.
 - `uv_queue_work` backed by a small reusable srvros pthread worker pool, with
   completion pumped by `uv_run`. `uv_cancel` can cancel queued work before a
@@ -88,7 +90,7 @@ backend.
 multi-client host-forwarded TCP, and guest-outbound TCP connect/write/shutdown/
 read against a host service. `/fat/bin/libuvdemo` is the upstream staging harness and
 now covers the core object helpers, loop phases, timers, filesystem metadata
-and directory requests, fsync/truncate/sendfile/time requests, platform
+requests, filesystem polling, directory requests, fsync/truncate/sendfile/time requests, platform
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
 resolver callbacks, public pipe creation, pipe streams, child stdin/stdout pipe
 wiring, `uv_spawn` cwd handling, a duplex stdio child pipe, plus TTY/signal

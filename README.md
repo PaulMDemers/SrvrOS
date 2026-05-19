@@ -135,8 +135,8 @@ editor clients:
   stdin/stdout pipe wiring, cwd-scoped spawn, and duplex stdio pipes, and its
   platform/filesystem coverage now includes cwd/env/environ/exepath/pid,
   title, passwd/group, uname, uptime/resource, CPU/interface, time/memory,
-  syscall-backed random helpers plus fsync, truncate, sendfile, and VFS-backed
-  timestamp request shims.
+  syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
+  timestamp request shims, and `uv_fs_poll` file-change polling.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

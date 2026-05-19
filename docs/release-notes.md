@@ -84,9 +84,9 @@ server.
   exepath, env/environ, process title, home/tmp paths, single-user passwd/group,
   uname, uptime, load average, resource usage, CPU/interface enumeration,
   pid/ppid, hrtime, memory totals, sync/queued random fills, fsync/fdatasync,
-  ftruncate, sendfile, utime, and futime, backed by kernel process metadata,
-  meminfo/random/time mutation syscalls, and expanded `/fat/bin/libuvdemo`
-  coverage.
+  ftruncate, sendfile, utime, futime, and `uv_fs_poll` file-change polling,
+  backed by kernel process metadata, meminfo/random/time mutation syscalls, and
+  expanded `/fat/bin/libuvdemo` coverage.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client

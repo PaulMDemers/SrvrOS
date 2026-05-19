@@ -31,6 +31,7 @@
 #define UV_HANDLE_TCP UV_TCP
 #define UV_HANDLE_UDP UV_UDP
 #define UV_HANDLE_POLL UV_POLL
+#define UV_HANDLE_FS_POLL UV_FS_POLL
 #define UV_HANDLE_ASYNC UV_ASYNC
 #define UV_HANDLE_PREPARE UV_PREPARE
 #define UV_HANDLE_CHECK UV_CHECK
@@ -379,6 +380,8 @@ size_t uv_handle_size(uv_handle_type type) {
             return sizeof(uv_async_t);
         case UV_POLL:
             return sizeof(uv_poll_t);
+        case UV_FS_POLL:
+            return sizeof(uv_fs_poll_t);
         case UV_NAMED_PIPE:
             return sizeof(uv_pipe_t);
         case UV_PROCESS:
@@ -410,6 +413,8 @@ const char *uv_handle_type_name(uv_handle_type type) {
             return "async";
         case UV_POLL:
             return "poll";
+        case UV_FS_POLL:
+            return "fs_poll";
         case UV_NAMED_PIPE:
             return "pipe";
         case UV_PROCESS:
@@ -1308,6 +1313,17 @@ static int next_timer_timeout(const uv_loop_t *loop) {
             if (timer->timeout_ms < best) {
                 best = timer->timeout_ms;
             }
+        } else if (base->type == UV_HANDLE_FS_POLL && base->active && !base->closing) {
+            uv_fs_poll_t *poll_handle = (uv_fs_poll_t *)base;
+            if (poll_handle->poll_cb == 0 || poll_handle->path == 0) {
+                continue;
+            }
+            if (poll_handle->next_due_ms <= loop->now_ms) {
+                return 0;
+            }
+            if (poll_handle->next_due_ms < best) {
+                best = poll_handle->next_due_ms;
+            }
         }
     }
     if (best == UINT64_MAX) {
@@ -1315,6 +1331,14 @@ static int next_timer_timeout(const uv_loop_t *loop) {
     }
     uint64_t delay = best - loop->now_ms;
     return delay > 1000u ? 1000 : (int)delay;
+}
+
+static int stat_changed(const uv_stat_t *left, const uv_stat_t *right) {
+    return left->st_mode != right->st_mode ||
+        left->st_size != right->st_size ||
+        left->st_atime != right->st_atime ||
+        left->st_mtime != right->st_mtime ||
+        left->st_ctime != right->st_ctime;
 }
 
 static void run_due_timers(uv_loop_t *loop) {
@@ -1333,6 +1357,55 @@ static void run_due_timers(uv_loop_t *loop) {
             base->active = 0;
         }
         cb(timer);
+    }
+}
+
+static void run_due_fs_polls(uv_loop_t *loop) {
+    for (uv_handle_t *base = loop->handles; base != 0; base = base->next) {
+        uv_fs_poll_t *poll_handle = (uv_fs_poll_t *)base;
+        if (base->type != UV_HANDLE_FS_POLL ||
+            !base->active ||
+            base->closing ||
+            poll_handle->poll_cb == 0 ||
+            poll_handle->path == 0 ||
+            poll_handle->next_due_ms > loop->now_ms) {
+            continue;
+        }
+        poll_handle->next_due_ms = loop->now_ms + poll_handle->interval_ms;
+        uv_stat_t observed;
+        memset(&observed, 0, sizeof(observed));
+        if (stat(poll_handle->path, &observed) < 0) {
+            int status = uv_error_from_errno();
+            memset(&poll_handle->current_stat, 0, sizeof(poll_handle->current_stat));
+            if (!poll_handle->has_previous || poll_handle->last_status != status) {
+                poll_handle->poll_cb(poll_handle, status, &poll_handle->previous_stat, &poll_handle->current_stat);
+            }
+            if (!base->closing) {
+                poll_handle->has_previous = 1;
+                poll_handle->last_status = status;
+            }
+            continue;
+        }
+        if (!poll_handle->has_previous) {
+            poll_handle->previous_stat = observed;
+            poll_handle->current_stat = observed;
+            poll_handle->has_previous = 1;
+            poll_handle->last_status = 0;
+            continue;
+        }
+        uv_stat_t previous = poll_handle->previous_stat;
+        int changed = poll_handle->last_status != 0 || stat_changed(&previous, &observed);
+        if (changed) {
+            poll_handle->previous_stat = previous;
+            poll_handle->current_stat = observed;
+            poll_handle->poll_cb(poll_handle, 0, &poll_handle->previous_stat, &poll_handle->current_stat);
+        }
+        if (!base->closing) {
+            poll_handle->previous_stat = observed;
+            poll_handle->current_stat = observed;
+            poll_handle->has_previous = 1;
+            poll_handle->last_status = 0;
+        }
     }
 }
 
@@ -1913,6 +1986,7 @@ static int run_once(uv_loop_t *loop, int mode) {
 
     uv_update_time(loop);
     run_due_timers(loop);
+    run_due_fs_polls(loop);
     run_pending_async(loop);
     run_done_work(loop);
     run_done_fs(loop);
@@ -1988,6 +2062,7 @@ static int run_once(uv_loop_t *loop, int mode) {
 
     uv_update_time(loop);
     run_due_timers(loop);
+    run_due_fs_polls(loop);
     run_pending_async(loop);
     run_done_work(loop);
     run_done_fs(loop);
@@ -2398,6 +2473,53 @@ int uv_poll_stop(uv_poll_t *handle) {
     handle->poll_cb = 0;
     handle->handle.active = 0;
     return 0;
+}
+
+int uv_fs_poll_init(uv_loop_t *loop, uv_fs_poll_t *handle) {
+    if (loop == 0 || handle == 0) {
+        return -EINVAL;
+    }
+    memset(handle, 0, sizeof(*handle));
+    init_handle(loop, &handle->handle, -1, UV_HANDLE_FS_POLL);
+    handle->last_status = 0;
+    return 0;
+}
+
+int uv_fs_poll_start(uv_fs_poll_t *handle, uv_fs_poll_cb cb, const char *path, unsigned int interval) {
+    if (handle == 0 || cb == 0 || path == 0 || path[0] == '\0' || handle->handle.closing) {
+        return -EINVAL;
+    }
+    char *copy = uv_strdup_text(path);
+    if (copy == 0) {
+        return UV_ENOMEM;
+    }
+    free(handle->path);
+    handle->path = copy;
+    handle->poll_cb = cb;
+    handle->interval_ms = interval == 0 ? 1 : interval;
+    handle->next_due_ms = handle->handle.loop != 0 ? handle->handle.loop->now_ms : monotonic_ms();
+    handle->has_previous = 0;
+    handle->last_status = 0;
+    memset(&handle->previous_stat, 0, sizeof(handle->previous_stat));
+    memset(&handle->current_stat, 0, sizeof(handle->current_stat));
+    handle->handle.active = 1;
+    return 0;
+}
+
+int uv_fs_poll_stop(uv_fs_poll_t *handle) {
+    if (handle == 0) {
+        return -EINVAL;
+    }
+    handle->handle.active = 0;
+    handle->poll_cb = 0;
+    return 0;
+}
+
+int uv_fs_poll_getpath(uv_fs_poll_t *handle, char *buffer, size_t *size) {
+    if (handle == 0 || handle->path == 0) {
+        return UV_EINVAL;
+    }
+    return copy_sized_string(buffer, size, handle->path);
 }
 
 int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb) {
@@ -3243,6 +3365,12 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         signal_handle->signal_cb = 0;
         signal_handle->signum = 0;
         signal_handle->oneshot = 0;
+    } else if (handle->type == UV_HANDLE_FS_POLL) {
+        uv_fs_poll_t *poll_handle = (uv_fs_poll_t *)handle;
+        free(poll_handle->path);
+        poll_handle->path = 0;
+        poll_handle->poll_cb = 0;
+        poll_handle->has_previous = 0;
     }
     handle->active = 0;
     handle->closing = 1;

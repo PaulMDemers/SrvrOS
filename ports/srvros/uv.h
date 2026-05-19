@@ -115,6 +115,7 @@ typedef struct uv_tcp_s uv_tcp_t;
 typedef struct uv_pipe_s uv_pipe_t;
 typedef struct uv_udp_s uv_udp_t;
 typedef struct uv_poll_s uv_poll_t;
+typedef struct uv_fs_poll_s uv_fs_poll_t;
 typedef struct uv_async_s uv_async_t;
 typedef struct uv_process_s uv_process_t;
 typedef struct uv_tty_s uv_tty_t;
@@ -412,6 +413,10 @@ typedef void (*uv_shutdown_cb)(uv_shutdown_t *request, int status);
 typedef void (*uv_alloc_cb)(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer);
 typedef void (*uv_read_cb)(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer);
 typedef void (*uv_poll_cb)(uv_poll_t *handle, int status, int events);
+typedef void (*uv_fs_poll_cb)(uv_fs_poll_t *handle,
+    int status,
+    const uv_stat_t *previous,
+    const uv_stat_t *current);
 typedef void (*uv_async_cb)(uv_async_t *handle);
 typedef void (*uv_prepare_cb)(uv_prepare_t *handle);
 typedef void (*uv_check_cb)(uv_check_t *handle);
@@ -537,6 +542,18 @@ struct uv_poll_s {
     uv_poll_cb poll_cb;
     int events;
     int dispatching;
+};
+
+struct uv_fs_poll_s {
+    uv_handle_t handle;
+    uv_fs_poll_cb poll_cb;
+    char *path;
+    uv_stat_t previous_stat;
+    uv_stat_t current_stat;
+    uint64_t interval_ms;
+    uint64_t next_due_ms;
+    int has_previous;
+    int last_status;
 };
 
 struct uv_async_s {
@@ -801,6 +818,10 @@ int uv_poll_init(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_init_socket(uv_loop_t *loop, uv_poll_t *handle, int fd);
 int uv_poll_start(uv_poll_t *handle, int events, uv_poll_cb cb);
 int uv_poll_stop(uv_poll_t *handle);
+int uv_fs_poll_init(uv_loop_t *loop, uv_fs_poll_t *handle);
+int uv_fs_poll_start(uv_fs_poll_t *handle, uv_fs_poll_cb cb, const char *path, unsigned int interval);
+int uv_fs_poll_stop(uv_fs_poll_t *handle);
+int uv_fs_poll_getpath(uv_fs_poll_t *handle, char *buffer, size_t *size);
 
 int uv_async_init(uv_loop_t *loop, uv_async_t *handle, uv_async_cb async_cb);
 int uv_async_send(uv_async_t *handle);

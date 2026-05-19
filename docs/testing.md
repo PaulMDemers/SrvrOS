@@ -176,7 +176,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   staging harness. It validates the currently mapped adapter subset before
   deeper upstream backend replacement: timer dispatch, filesystem requests
   including stat/lstat/fstat/access/realpath/scandir, sync/truncate/sendfile/
-  time updates with stat-visible metadata, and queued fs callbacks, platform
+  time updates with stat-visible metadata, `uv_fs_poll` change detection, and
+  queued fs callbacks, platform
   helpers for cwd/chdir, env/environ, title, home/tmp paths, passwd/group,
   uname, uptime, resource, CPU/interface info, exact kernel-reported exe path,
   pid/ppid, hrtime, memory, and syscall-backed random, prepare/check/idle loop phases,
