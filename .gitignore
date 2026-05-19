@@ -9,3 +9,4 @@ __pycache__/
 *.o
 *.d
 regs[R_EAX]=*
+/.vscode
