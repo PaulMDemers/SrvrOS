@@ -65,7 +65,9 @@ backend.
   inherited fds or streams into compact child fd tables. `uv_spawn` validates
   unsupported flags and stdio source combinations before changing cwd or
   opening pipes, leaves failed process handles unregistered, and closes
-  non-stdio temporary dup sources after the child-side dup action.
+  non-stdio temporary dup sources after the child-side dup action. While
+  process handles are active, the loop caps otherwise indefinite poll waits so
+  `waitpid(WNOHANG)` can observe exits without a host SIGCHLD-style wake fd.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`.
 - `uv_fs_poll_t` file-change polling over periodic `stat`, integrated with the
@@ -96,8 +98,8 @@ now covers the core object helpers, loop phases, timers, filesystem metadata
 requests, filesystem polling, directory requests, fsync/truncate/sendfile/time requests, platform
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
 resolver callbacks, public pipe creation, pipe streams, child stdin/stdout pipe
-wiring, `uv_spawn` validation/failure cleanup, cwd handling, a duplex stdio
-child pipe, plus TTY/signal delivery and the current
+wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
+stdin, a duplex stdio child pipe, plus TTY/signal delivery and the current
 thread/synchronization wrappers that need to stay stable while incrementally
 replacing adapter internals with upstream code.
 

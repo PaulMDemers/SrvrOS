@@ -1941,6 +1941,15 @@ static int has_active_tcp_reader(const uv_loop_t *loop) {
     return 0;
 }
 
+static int has_active_process_handle(const uv_loop_t *loop) {
+    for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
+        if (handle->type == UV_HANDLE_PROCESS && handle->active && !handle->closing) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static void dispatch_active_tcp_reads(uv_loop_t *loop) {
     for (uv_handle_t *handle = loop->handles; handle != 0; handle = handle->next) {
         uv_tcp_t *tcp = (uv_tcp_t *)handle;
@@ -2008,6 +2017,9 @@ static int run_once(uv_loop_t *loop, int mode) {
         timeout = 0;
     }
     if (has_active_tcp_reader(loop) && (timeout < 0 || timeout > 20)) {
+        timeout = 20;
+    }
+    if (has_active_process_handle(loop) && (timeout < 0 || timeout > 20)) {
         timeout = 20;
     }
     if (timeout != 0 && count < UV_MAX_POLL_HANDLES && loop_ensure_wakeup(loop) == 0) {

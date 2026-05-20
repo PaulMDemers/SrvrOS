@@ -72,6 +72,8 @@ server.
 - Raises per-process open-fd capacity for port-heavy workloads, grows the
   backing read/write/pipe pools, reports `_SC_OPEN_MAX`, aligns `FD_SETSIZE`,
   and adds `posixdemo`/`ports_smoke.py` coverage for many open files and pipes.
+- Restores libuv inherited-fd stdin spawn coverage and caps process-only
+  `uv_run` waits so child exits are observed without another fd event.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,
