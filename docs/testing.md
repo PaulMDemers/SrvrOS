@@ -182,7 +182,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   uname, uptime, resource, CPU/interface info, exact kernel-reported exe path,
   pid/ppid, hrtime, memory, and syscall-backed random, prepare/check/idle loop phases,
   async notification, reusable-pool queued work, `uv_cancel` for queued work/fs
-  requests, pipe-backed fd polling, handle ref/unref/walk/fileno helpers,
+  requests, pipe-backed fd polling including multi-handle readiness,
+  handle ref/unref/walk/fileno helpers,
   thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY
   handle/window-size/write helpers, and SIGINT/SIGTERM self-signal callback
   delivery through `uv_run`.
@@ -202,7 +203,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   linenoise history save/load coverage, SQLite create/insert/query/reopen on
   exFAT through the srvros VFS, termios raw-mode/restore/window-size/duplicated
   TTY fd/`ENOTTY` checks, and libc/POSIX file checks including `fstat`,
-  `dup`, shared regular-file offsets, writable-fd dup ownership, `statvfs`, advisory
+  `dup`, shared regular-file offsets, writable-fd dup ownership, high-fd
+  `select`, expanded `poll` entry capacity, `statvfs`, advisory
   `fcntl` byte-range locks with a
   spawned `/fat/bin/lockprobe` conflict check, `pipe`,
   expanded file/pipe fd capacity,

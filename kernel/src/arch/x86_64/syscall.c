@@ -23,7 +23,7 @@
 
 #define MAX_PATH_LENGTH 160
 #define MAX_SYSCALL_COPY (256 * 1024)
-#define MAX_POLL_FDS 32
+#define MAX_POLL_FDS 64
 #define MAX_EXEC_ARGS 16
 #define MAX_EXEC_ENV 64
 #define MAX_EXEC_STRING 256

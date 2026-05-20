@@ -221,10 +221,15 @@ static int pthread_heap_stress_test(void) {
 
 static int fd_capacity_test(const char *path) {
     int fds[40];
+    int high_fds[61];
+    int high_pipe[2] = {-1, -1};
     int pipes[20][2];
     char byte = 0;
     for (int i = 0; i < 40; i++) {
         fds[i] = -1;
+    }
+    for (int i = 0; i < 61; i++) {
+        high_fds[i] = -1;
     }
     for (int i = 0; i < 20; i++) {
         pipes[i][0] = -1;
@@ -240,9 +245,50 @@ static int fd_capacity_test(const char *path) {
     if (read(fds[39], &byte, 1) != 1 || byte != 'h') {
         goto fail;
     }
+    struct pollfd file_polls[40];
+    for (int i = 0; i < 40; i++) {
+        file_polls[i].fd = fds[i];
+        file_polls[i].events = POLLIN;
+        file_polls[i].revents = 0;
+    }
+    if (poll(file_polls, 40, 0) != 40) {
+        goto fail;
+    }
     for (int i = 0; i < 40; i++) {
         close(fds[i]);
         fds[i] = -1;
+    }
+
+    for (int i = 0; i < 61; i++) {
+        high_fds[i] = open(path, O_RDONLY);
+        if (high_fds[i] < 0) {
+            goto fail;
+        }
+    }
+    if (pipe(high_pipe) < 0 || high_pipe[0] <= 63) {
+        goto fail;
+    }
+    if (write(high_pipe[1], "s", 1) != 1) {
+        goto fail;
+    }
+    fd_set high_set;
+    FD_ZERO(&high_set);
+    FD_SET(high_pipe[0], &high_set);
+    struct timeval high_timeout = {.tv_sec = 0, .tv_usec = 0};
+    if (select(high_pipe[0] + 1, &high_set, 0, 0, &high_timeout) != 1 ||
+        !FD_ISSET(high_pipe[0], &high_set)) {
+        goto fail;
+    }
+    if (read(high_pipe[0], &byte, 1) != 1 || byte != 's') {
+        goto fail;
+    }
+    close(high_pipe[0]);
+    close(high_pipe[1]);
+    high_pipe[0] = -1;
+    high_pipe[1] = -1;
+    for (int i = 0; i < 61; i++) {
+        close(high_fds[i]);
+        high_fds[i] = -1;
     }
 
     for (int i = 0; i < 20; i++) {
@@ -266,6 +312,17 @@ fail:
         if (fds[i] >= 0) {
             close(fds[i]);
         }
+    }
+    for (int i = 0; i < 61; i++) {
+        if (high_fds[i] >= 0) {
+            close(high_fds[i]);
+        }
+    }
+    if (high_pipe[0] >= 0) {
+        close(high_pipe[0]);
+    }
+    if (high_pipe[1] >= 0) {
+        close(high_pipe[1]);
     }
     for (int i = 0; i < 20; i++) {
         if (pipes[i][0] >= 0) {

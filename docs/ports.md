@@ -226,8 +226,9 @@ signatures for listener/accept/read/write/shutdown operations, queued
 write-side shutdown, and close-from-callback guards so accepted streams can be
 closed without stale poll-snapshot reads.
 Loop parity now includes prepare/check/idle phase handles, poll
-disconnect/error mapping with close/restart guards, richer timer repeat helpers,
-and queued `uv_getaddrinfo` completions over the srvros POSIX resolver.
+disconnect/error mapping with close/restart guards, multi-handle pipe
+readiness, richer timer repeat helpers, and queued `uv_getaddrinfo`
+completions over the srvros POSIX resolver.
 Platform parity now covers cwd/chdir, kernel-reported executable path,
 environment helpers including enumeration, pid/ppid from process metadata,
 process title, home/tmp paths, single-user passwd/group records, uname, uptime,
@@ -270,8 +271,10 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   through `/fat/.srvros/meta.tmp`; mount recovery promotes complete temp files
   and removes malformed temp files before applying metadata.
 - `poll`/`select` cover the current fd types and sleep on a shared fd readiness
-  wait queue. Timer deadlines wake finite timeouts; broader fd-specific wait
-  queues are still future work as the descriptor model grows.
+  wait queue. The POSIX wrapper and syscall accept up to 64 poll entries, and
+  `select` can address the current high fd range through `FD_SETSIZE=128`.
+  Timer deadlines wake finite timeouts; broader fd-specific wait queues are
+  still future work as the descriptor model grows.
 - Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
   client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
   `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,

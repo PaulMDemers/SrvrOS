@@ -9,7 +9,7 @@
 
 int __posix_socket_poll_fd(int fd);
 
-#define POSIX_POLL_MAX 32
+#define POSIX_POLL_MAX 64
 
 int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     struct srv_pollfd srv_fds[POSIX_POLL_MAX];

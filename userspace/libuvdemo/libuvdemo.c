@@ -1081,6 +1081,12 @@ static uv_loop_t poll_loop;
 static uv_poll_t poll_handle;
 static int poll_fds[2] = {-1, -1};
 static int poll_seen;
+#define POLL_MANY_COUNT 20
+static uv_loop_t poll_many_loop;
+static uv_poll_t poll_many_handles[POLL_MANY_COUNT];
+static int poll_many_fds[POLL_MANY_COUNT][2];
+static int poll_many_seen;
+static int poll_many_failed;
 
 static void poll_cb(uv_poll_t *handle, int status, int events) {
     char buffer[32];
@@ -1135,6 +1141,70 @@ static int poll_test(void) {
         return 1;
     }
     puts("libuvdemo: poll ok");
+    return 0;
+}
+
+static void poll_many_cb(uv_poll_t *handle, int status, int events) {
+    char buffer[8];
+    ssize_t count;
+    int index = (int)(intptr_t)handle->handle.data;
+    if (index < 0 || index >= POLL_MANY_COUNT ||
+        status < 0 ||
+        (events & UV_READABLE) == 0) {
+        poll_many_failed = 1;
+        uv_stop(&poll_many_loop);
+        return;
+    }
+    count = read(poll_many_fds[index][0], buffer, sizeof(buffer));
+    if (count != 1 || buffer[0] != (char)('A' + index)) {
+        poll_many_failed = 1;
+        uv_stop(&poll_many_loop);
+        return;
+    }
+    uv_poll_stop(handle);
+    poll_many_seen++;
+    if (poll_many_seen == POLL_MANY_COUNT) {
+        uv_stop(&poll_many_loop);
+    }
+}
+
+static int poll_many_test(void) {
+    poll_many_seen = 0;
+    poll_many_failed = 0;
+    for (int i = 0; i < POLL_MANY_COUNT; i++) {
+        poll_many_fds[i][0] = -1;
+        poll_many_fds[i][1] = -1;
+    }
+    if (uv_loop_init(&poll_many_loop) < 0) {
+        puts("libuvdemo: poll many setup failed");
+        return 1;
+    }
+    for (int i = 0; i < POLL_MANY_COUNT; i++) {
+        char byte = (char)('A' + i);
+        if (pipe(poll_many_fds[i]) < 0 ||
+            uv_poll_init(&poll_many_loop, &poll_many_handles[i], poll_many_fds[i][0]) < 0 ||
+            uv_poll_start(&poll_many_handles[i], UV_READABLE, poll_many_cb) < 0 ||
+            write(poll_many_fds[i][1], &byte, 1) != 1) {
+            puts("libuvdemo: poll many setup failed");
+            return 1;
+        }
+        poll_many_handles[i].handle.data = (void *)(intptr_t)i;
+    }
+    (void)uv_run(&poll_many_loop, UV_RUN_DEFAULT);
+    for (int i = 0; i < POLL_MANY_COUNT; i++) {
+        uv_close((uv_handle_t *)&poll_many_handles[i], 0);
+        if (poll_many_fds[i][0] >= 0) {
+            close(poll_many_fds[i][0]);
+        }
+        if (poll_many_fds[i][1] >= 0) {
+            close(poll_many_fds[i][1]);
+        }
+    }
+    if (poll_many_failed || poll_many_seen != POLL_MANY_COUNT) {
+        puts("libuvdemo: poll many failed");
+        return 1;
+    }
+    puts("libuvdemo: poll many ok");
     return 0;
 }
 
@@ -1937,6 +2007,7 @@ int main(int argc, char **argv) {
         work_test() != 0 ||
         thread_test() != 0 ||
         poll_test() != 0 ||
+        poll_many_test() != 0 ||
         pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||

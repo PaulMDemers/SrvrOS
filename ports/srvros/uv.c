@@ -26,7 +26,7 @@
 
 #include <srvros/sys.h>
 
-#define UV_MAX_POLL_HANDLES 16
+#define UV_MAX_POLL_HANDLES 128
 #define UV_HANDLE_TIMER UV_TIMER
 #define UV_HANDLE_TCP UV_TCP
 #define UV_HANDLE_UDP UV_UDP

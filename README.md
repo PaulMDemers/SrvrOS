@@ -127,7 +127,8 @@ editor clients:
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
   `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
   exercises timer, filesystem operations, async handles, queued work, generic
-  fd polling, UDP, and multi-client host-forwarded TCP listener/read/write
+  fd polling including multi-handle readiness, UDP, and multi-client
+  host-forwarded TCP listener/read/write
   behavior through a libuv-shaped loop API. Upstream libuv is pinned as a
   submodule under `ports/upstream/libuv` at `v1.52.1`, and
   `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend

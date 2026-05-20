@@ -76,6 +76,8 @@ server.
   `uv_run` waits so child exits are observed without another fd event.
 - Adds libuv inherited-stream spawn coverage for stdin/stdout/stderr and a
   short-lived process-only spawn loop to guard exit polling behavior.
+- Raises POSIX/kernel poll snapshots to 64 entries, expands libuv's poll
+  snapshot, and adds high-fd `select` plus multi-handle poll readiness coverage.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

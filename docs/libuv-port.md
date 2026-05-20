@@ -69,7 +69,8 @@ backend.
   process handles are active, the loop caps otherwise indefinite poll waits so
   `waitpid(WNOHANG)` can observe exits without a host SIGCHLD-style wake fd.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
-- `uv_poll_t` readiness over POSIX `poll`.
+- `uv_poll_t` readiness over POSIX `poll`, including multi-handle readiness
+  coverage above the original tiny loop snapshot.
 - `uv_fs_poll_t` file-change polling over periodic `stat`, integrated with the
   same loop timer path as normal timers.
 - `uv_async_t` pending notification dispatch inside the loop.
