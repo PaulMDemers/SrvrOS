@@ -152,13 +152,18 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `netabi_smoke.py`: launches `/fat/bin/netabi`, which calls the raw network
   list/status/ARP syscalls with smaller versioned structs and verifies the
   kernel does not copy past the caller-declared size.
+- `tcpstress_smoke.py`: launches `/fat/bin/tcpstress` behind QEMU host
+  forwarding and drives three host clients through listener `dup`/close,
+  accepted-connection `dup`/close, socket `fstat` metadata, `accept4`,
+  name queries, reply writes, `shutdown`, and EOF handling.
 - `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
   structured syscalls (`stat`, `statfs`, process list, console/gfx info, and
   GUI receive) with smaller versioned structs and canary checks.
 - TCP socket coverage is split across `httpget_smoke.py` for outbound
   DNS/connect/send/recv, `web_smoke.py` and `dhcp_smoke.py` for inbound
   listener/accept/read/write/close, and `ports_smoke.py` for socket option,
-  name-query, and shutdown compatibility checks. `web_smoke.py` also requests a
+  name-query, shutdown compatibility checks, and `tcpstress_smoke.py` for
+  descriptor lifetime and close-order pressure. `web_smoke.py` also requests a
   multi-kilobyte static file to exercise segmented TCP writes and ACK-retired
   transmit history under bounded send backpressure, peer receive-window limits,
   dynamic receive-window advertisements, zero-window persist support, and

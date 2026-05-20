@@ -325,6 +325,35 @@ int __posix_socket_is_pseudo(int fd) {
     return socket_at(fd) != 0;
 }
 
+int __posix_socket_dup(int fd) {
+    struct posix_socket *source = socket_at(fd);
+    if (source == 0) {
+        errno = EBADF;
+        return -1;
+    }
+    for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
+        if (sockets[i].used) {
+            continue;
+        }
+        int listener_fd = -1;
+        if (source->listener_fd >= 0) {
+            long duplicated = srv_dup(source->listener_fd);
+            if (duplicated < 0) {
+                errno = EBADF;
+                return -1;
+            }
+            listener_fd = (int)duplicated;
+            __posix_socket_note_dup(source->listener_fd, listener_fd);
+        }
+        sockets[i] = *source;
+        sockets[i].listener_fd = listener_fd;
+        sockets[i].descriptor_flags &= ~SRV_FD_CLOEXEC;
+        return POSIX_SOCKET_BASE + i;
+    }
+    errno = EMFILE;
+    return -1;
+}
+
 int __posix_socket_poll_fd(int fd) {
     struct posix_socket *socket = socket_at(fd);
     if (socket == 0) {

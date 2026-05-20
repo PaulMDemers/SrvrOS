@@ -11,6 +11,7 @@
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
 int __posix_socket_close(int fd);
+int __posix_socket_dup(int fd);
 int __posix_socket_fcntl(int fd, int command, uint64_t flags);
 int __posix_socket_is_pseudo(int fd);
 void __posix_socket_note_close(int fd);
@@ -300,6 +301,9 @@ void sync(void) {
 }
 
 int dup(int fd) {
+    if (__posix_socket_is_pseudo(fd)) {
+        return __posix_socket_dup(fd);
+    }
     long result = srv_dup(fd);
     if (result < 0) {
         errno = EBADF;
@@ -465,6 +469,11 @@ int fstat(int fd, struct stat *st) {
     struct srv_stat info;
     if (st == 0) {
         errno = EINVAL;
+        return -1;
+    }
+    fd = __posix_socket_real_fd(fd);
+    if (fd < 0) {
+        errno = EBADF;
         return -1;
     }
     if (srv_fstat(fd, &info) < 0) {

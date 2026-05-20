@@ -80,7 +80,7 @@ covering the subset currently ready for incremental backend replacement.
 Guest-side networking diagnostics, clients, and socket probes:
 
 ```text
-webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi
+webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck netabi tcpstress
 ```
 
 The shell also has `dhcp`, `net`, and `dns` builtins for the kernel DHCP,

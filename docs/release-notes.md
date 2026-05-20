@@ -112,6 +112,11 @@ server.
   duplication, inheritance, and `SCM_RIGHTS` transfer, and extends the
   libuv TCP IPC smoke path so a received TCP handle remains valid after the
   sender closes its original fd.
+- Adds `/fat/bin/tcpstress` and `tools/tcpstress_smoke.py` for host-forwarded
+  POSIX TCP close-order pressure, covering listener and accepted-connection
+  `dup`/close survival, socket `fstat`, `accept4`, name queries, reply writes,
+  shutdown, and EOF handling. libc now maps pseudo socket `fstat` and `dup`
+  onto the underlying kernel fd.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,
