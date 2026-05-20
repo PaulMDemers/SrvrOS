@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,6 +33,7 @@ struct posix_socket {
     int so_rcvbuf;
     int so_sndbuf;
     int so_keepalive;
+    int tcp_nodelay;
     struct linger so_linger;
     uint64_t fd_flags;
     uint64_t descriptor_flags;
@@ -87,6 +89,12 @@ static int socket_error_for_fd(int fd) {
         return ENOTCONN;
     }
     return errno_from_net_error(result);
+}
+
+static int real_net_fd(int fd) {
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    return srv_net_sockname(fd, &ip, &port) == 0;
 }
 
 static long with_optional_nonblock(int fd,
@@ -273,6 +281,7 @@ int socket(int domain, int type, int protocol) {
             sockets[i].so_rcvbuf = 32768;
             sockets[i].so_sndbuf = 1400;
             sockets[i].so_keepalive = 0;
+            sockets[i].tcp_nodelay = 0;
             sockets[i].so_linger.l_onoff = 0;
             sockets[i].so_linger.l_linger = 0;
             sockets[i].fd_flags = 0;
@@ -701,13 +710,28 @@ ssize_t recvfrom(int fd,
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
     struct posix_socket *socket = socket_at(fd);
-    if (socket == 0 || option_value == 0) {
+    int is_real_net = socket == 0 && real_net_fd(fd);
+    if ((socket == 0 && !is_real_net) || option_value == 0) {
         errno = EINVAL;
         return -1;
     }
-    if (level != SOL_SOCKET) {
+    if (level != SOL_SOCKET && level != IPPROTO_TCP) {
         errno = ENOSYS;
         return -1;
+    }
+    if (level == IPPROTO_TCP) {
+        if (option_name != TCP_NODELAY || option_len < sizeof(int)) {
+            errno = option_name == TCP_NODELAY ? EINVAL : ENOSYS;
+            return -1;
+        }
+        if (socket != 0 && socket->type != SOCK_STREAM) {
+            errno = ENOPROTOOPT;
+            return -1;
+        }
+        if (socket != 0) {
+            socket->tcp_nodelay = (*(const int *)option_value) != 0;
+        }
+        return 0;
     }
     switch (option_name) {
     case SO_REUSEADDR:
@@ -754,16 +778,30 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
 
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
     struct posix_socket *socket = socket_at(fd);
-    if ((socket == 0 && srv_net_sockname(fd, &(uint32_t){0}, &(uint16_t){0}) < 0) ||
+    int is_real_net = socket == 0 && real_net_fd(fd);
+    if ((socket == 0 && !is_real_net) ||
         option_value == 0 ||
         option_len == 0 ||
         *option_len < sizeof(int)) {
         errno = EINVAL;
         return -1;
     }
-    if (level != SOL_SOCKET) {
+    if (level != SOL_SOCKET && level != IPPROTO_TCP) {
         errno = ENOSYS;
         return -1;
+    }
+    if (level == IPPROTO_TCP) {
+        if (option_name != TCP_NODELAY) {
+            errno = ENOSYS;
+            return -1;
+        }
+        if (socket != 0 && socket->type != SOCK_STREAM) {
+            errno = ENOPROTOOPT;
+            return -1;
+        }
+        *(int *)option_value = socket != 0 ? socket->tcp_nodelay : 0;
+        *option_len = sizeof(int);
+        return 0;
     }
     switch (option_name) {
     case SO_LINGER:

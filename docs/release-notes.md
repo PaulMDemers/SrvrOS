@@ -78,6 +78,9 @@ server.
   short-lived process-only spawn loop to guard exit polling behavior.
 - Raises POSIX/kernel poll snapshots to 64 entries, expands libuv's poll
   snapshot, and adds high-fd `select` plus multi-handle poll readiness coverage.
+- Adds `netinet/tcp.h`, `TCP_NODELAY` socket-option storage/no-op handling,
+  libuv `uv_tcp_nodelay`/keepalive/open helpers, and `netcheck` coverage for
+  nonblocking TCP connect readiness plus `getsockopt(SO_ERROR)`.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

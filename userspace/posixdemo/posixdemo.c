@@ -4,6 +4,7 @@
 #include <fcntl.h>
 #include <math.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
 #include <sched.h>
@@ -1435,8 +1436,11 @@ int main(void) {
         int so_acceptconn = -1;
         socklen_t so_acceptconn_len = sizeof(so_acceptconn);
         int got_keepalive = 0;
+        int tcp_nodelay = 1;
+        int got_nodelay = 0;
         socklen_t got_keepalive_len = sizeof(got_keepalive);
         socklen_t got_linger_len = sizeof(got_linger);
+        socklen_t got_nodelay_len = sizeof(got_nodelay);
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
         addr.sin_port = htons(18080);
@@ -1444,6 +1448,7 @@ int main(void) {
         if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == 0 &&
             setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, &keepalive, sizeof(keepalive)) == 0 &&
             setsockopt(s, SOL_SOCKET, SO_LINGER, &linger, sizeof(linger)) == 0 &&
+            setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &tcp_nodelay, sizeof(tcp_nodelay)) == 0 &&
             getsockopt(s, SOL_SOCKET, SO_TYPE, &so_type, &so_type_len) == 0 &&
             so_type == SOCK_STREAM &&
             getsockopt(s, SOL_SOCKET, SO_ACCEPTCONN, &so_acceptconn, &so_acceptconn_len) == 0 &&
@@ -1453,6 +1458,8 @@ int main(void) {
             getsockopt(s, SOL_SOCKET, SO_LINGER, &got_linger, &got_linger_len) == 0 &&
             got_linger.l_onoff == 1 &&
             got_linger.l_linger == 2 &&
+            getsockopt(s, IPPROTO_TCP, TCP_NODELAY, &got_nodelay, &got_nodelay_len) == 0 &&
+            got_nodelay == 1 &&
             shutdown(s, SHUT_RDWR) < 0 &&
             errno == ENOTCONN &&
             bind(s, (struct sockaddr *)&addr, sizeof(addr)) == 0) {

@@ -163,7 +163,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   dynamic receive-window advertisements, zero-window persist support, and
   guest-side closed-port TCP RST behavior through QEMU host forwarding.
   `httpget_smoke.py` covers outbound DNS/connect/send/recv with the newer
-  socket error propagation in place.
+  socket error propagation in place. `/fat/bin/netcheck` also verifies
+  `TCP_NODELAY`, nonblocking TCP connect completion through `poll`, and
+  `getsockopt(SO_ERROR)` clearing before a short HTTP request.
 - `uv_smoke.py`: shell launch of `/fat/bin/uvdemo` for the srvros `uv.h`
   compatibility shim, covering timer/file operations, mkdir/rename/rmdir,
   `uv_async_t`, pthread-backed `uv_queue_work`, pipe-backed `uv_poll_t`
@@ -183,7 +185,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   pid/ppid, hrtime, memory, and syscall-backed random, prepare/check/idle loop phases,
   async notification, reusable-pool queued work, `uv_cancel` for queued work/fs
   requests, pipe-backed fd polling including multi-handle readiness,
-  handle ref/unref/walk/fileno helpers,
+  TCP option helpers, handle ref/unref/walk/fileno helpers,
   thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY
   handle/window-size/write helpers, and SIGINT/SIGTERM self-signal callback
   delivery through `uv_run`.

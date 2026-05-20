@@ -1,6 +1,10 @@
 #include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <poll.h>
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <string.h>
@@ -30,6 +34,14 @@ static int write_all(int fd, const char *buffer, size_t length) {
         offset += (size_t)count;
     }
     return 0;
+}
+
+static int wait_for_socket(int fd, short events, int timeout_ms) {
+    struct pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = events;
+    pfd.revents = 0;
+    return poll(&pfd, 1, timeout_ms) == 1 ? pfd.revents : 0;
 }
 
 static int check_dhcp(struct srv_net_status_info *status) {
@@ -178,6 +190,114 @@ static int check_tcp_http(void) {
     return 0;
 }
 
+static int check_tcp_nonblocking(void) {
+    struct addrinfo hints;
+    struct addrinfo *info = 0;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    int gai = getaddrinfo("example.com", "80", &hints, &info);
+    if (gai != 0) {
+        printf("netcheck: getaddrinfo %s\n", gai_strerror(gai));
+        return 1;
+    }
+
+    int fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+    if (fd < 0) {
+        freeaddrinfo(info);
+        return fail("nb-socket");
+    }
+
+    int on = 1;
+    int nodelay = 0;
+    socklen_t nodelay_len = sizeof(nodelay);
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &on, sizeof(on)) < 0 ||
+        getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &nodelay, &nodelay_len) < 0 ||
+        nodelay != 1) {
+        close(fd);
+        freeaddrinfo(info);
+        return fail("tcp-nodelay");
+    }
+
+    int flags = fcntl(fd, F_GETFL, 0);
+    if (flags < 0 || fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0) {
+        close(fd);
+        freeaddrinfo(info);
+        return fail("nb-flags");
+    }
+
+    int connect_result = connect(fd, info->ai_addr, info->ai_addrlen);
+    freeaddrinfo(info);
+    if (connect_result < 0 && errno != EINPROGRESS) {
+        close(fd);
+        return fail("nb-connect");
+    }
+    if (connect_result < 0) {
+        int revents = wait_for_socket(fd, POLLOUT | POLLERR | POLLHUP, 6000);
+        if ((revents & (POLLOUT | POLLERR | POLLHUP)) == 0) {
+            close(fd);
+            return fail("nb-poll");
+        }
+        int error = -1;
+        socklen_t error_len = sizeof(error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &error_len) < 0 || error != 0) {
+            close(fd);
+            return fail("nb-soerror");
+        }
+    }
+
+    const char *request = "GET / HTTP/1.0\r\nHost: example.com\r\nConnection: close\r\n\r\n";
+    size_t offset = 0;
+    size_t length = strlen(request);
+    while (offset < length) {
+        ssize_t count = send(fd, request + offset, length - offset, MSG_NOSIGNAL);
+        if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if ((wait_for_socket(fd, POLLOUT | POLLERR | POLLHUP, 3000) & POLLOUT) == 0) {
+                close(fd);
+                return fail("nb-send-poll");
+            }
+            continue;
+        }
+        if (count <= 0) {
+            close(fd);
+            return fail("nb-send");
+        }
+        offset += (size_t)count;
+    }
+
+    char buffer[256];
+    ssize_t received = 0;
+    for (;;) {
+        ssize_t count = recv(fd, buffer + received, sizeof(buffer) - 1 - (size_t)received, 0);
+        if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if ((wait_for_socket(fd, POLLIN | POLLERR | POLLHUP, 6000) & (POLLIN | POLLHUP | POLLERR)) == 0) {
+                close(fd);
+                return fail("nb-recv-poll");
+            }
+            continue;
+        }
+        if (count <= 0) {
+            break;
+        }
+        received += count;
+        if ((size_t)received + 1 >= sizeof(buffer) || received >= 7) {
+            break;
+        }
+    }
+    close(fd);
+    if (received <= 0) {
+        return fail("nb-recv");
+    }
+    buffer[received] = '\0';
+    if (strstr(buffer, "HTTP/") == 0) {
+        return fail("nb-http");
+    }
+    printf("netcheck: tcp nonblock ok\n");
+    return 0;
+}
+
 int main(void) {
     struct srv_net_status_info status;
     memset(&status, 0, sizeof(status));
@@ -186,7 +306,8 @@ int main(void) {
         check_dns() != 0 ||
         check_ping(status.router_ip) != 0 ||
         check_udp(status.local_ip) != 0 ||
-        check_tcp_http() != 0) {
+        check_tcp_http() != 0 ||
+        check_tcp_nonblocking() != 0) {
         return 1;
     }
 

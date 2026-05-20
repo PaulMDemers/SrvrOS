@@ -113,7 +113,9 @@ editor clients:
   `waitpid`, `posix_spawn`, `posix_spawnp`, dynamically grown non-stdio spawn
   file actions, reset-id/signal-mask/default spawn attribute storage,
   process-replacing `execve`, IPv4
-  helpers, DNS-backed `getaddrinfo`, and TCP server sockets.
+  helpers, DNS-backed `getaddrinfo`, TCP server sockets, basic socket options
+  including `TCP_NODELAY`, and nonblocking TCP connect readiness through
+  `poll`/`getsockopt(SO_ERROR)`.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib, `/fat/bin/minizip` and
   `/fat/bin/miniunz` provide zip archive coverage, and `/fat/bin/lua` runs a
@@ -127,8 +129,8 @@ editor clients:
   small srvros VFS and verifies create/insert/query/reopen behavior on exFAT.
   `/fat/bin/uvdemo` links the first srvros `uv.h` compatibility shim and
   exercises timer, filesystem operations, async handles, queued work, generic
-  fd polling including multi-handle readiness, UDP, and multi-client
-  host-forwarded TCP listener/read/write
+  fd polling including multi-handle readiness, TCP option helpers, UDP, and
+  multi-client host-forwarded TCP listener/read/write
   behavior through a libuv-shaped loop API. Upstream libuv is pinned as a
   submodule under `ports/upstream/libuv` at `v1.52.1`, and
   `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend

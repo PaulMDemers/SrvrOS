@@ -45,6 +45,7 @@
 #define ECONNREFUSED 111
 #define EADDRINUSE 98
 #define EAFNOSUPPORT 97
+#define ENOPROTOOPT 92
 #define EPROTONOSUPPORT 93
 
 int *__errno_location(void);

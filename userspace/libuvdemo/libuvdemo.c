@@ -366,6 +366,35 @@ static int core_api_test(void) {
     return 0;
 }
 
+static int tcp_options_test(void) {
+    uv_loop_t loop;
+    uv_tcp_t tcp;
+    uv_tcp_t tcp_ex;
+    if (uv_loop_init(&loop) < 0 ||
+        uv_tcp_init(&loop, &tcp) < 0 ||
+        uv_tcp_nodelay(&tcp, 1) < 0 ||
+        uv_tcp_nodelay(&tcp, 0) < 0 ||
+        uv_tcp_keepalive(&tcp, 1, 30) < 0 ||
+        uv_tcp_keepalive_ex(&tcp, 0, 30, 10, 3) < 0 ||
+        uv_tcp_simultaneous_accepts(&tcp, 1) < 0 ||
+        uv_tcp_init_ex(&loop, &tcp_ex, AF_INET) < 0) {
+        puts("libuvdemo: tcp options failed");
+        return 1;
+    }
+    if (uv_tcp_init_ex(&loop, &tcp_ex, AF_INET6) != UV_EINVAL) {
+        puts("libuvdemo: tcp init flags failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&tcp, 0);
+    uv_close((uv_handle_t *)&tcp_ex, 0);
+    if (uv_loop_close(&loop) != 0) {
+        puts("libuvdemo: tcp options loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: tcp options ok");
+    return 0;
+}
+
 static int timer_seen;
 
 static void timer_cb(uv_timer_t *timer) {
@@ -2000,6 +2029,7 @@ int main(int argc, char **argv) {
         error_test() != 0 ||
         platform_test() != 0 ||
         core_api_test() != 0 ||
+        tcp_options_test() != 0 ||
         timer_test() != 0 ||
         phase_test() != 0 ||
         fs_test() != 0 ||

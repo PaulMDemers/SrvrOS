@@ -117,6 +117,7 @@ def main():
         "libuvdemo: errors ok",
         "libuvdemo: platform ok",
         "libuvdemo: core api ok",
+        "libuvdemo: tcp options ok",
         "libuvdemo: timer ok",
         "libuvdemo: phases ok",
         "libuvdemo: fs ok",

@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
 #include <signal.h>
@@ -2110,6 +2111,63 @@ int uv_tcp_init(uv_loop_t *loop, uv_tcp_t *handle) {
         return uv_error_from_errno();
     }
     init_handle(loop, &handle->handle, fd, UV_HANDLE_TCP);
+    return 0;
+}
+
+int uv_tcp_init_ex(uv_loop_t *loop, uv_tcp_t *handle, unsigned int flags) {
+    if (flags != 0 && flags != AF_INET) {
+        return UV_EINVAL;
+    }
+    return uv_tcp_init(loop, handle);
+}
+
+int uv_tcp_open(uv_tcp_t *handle, uv_os_sock_t socket) {
+    if (handle == 0 || socket < 0) {
+        return UV_EINVAL;
+    }
+    if (handle->handle.fd >= 0) {
+        close(handle->handle.fd);
+    }
+    handle->handle.fd = socket;
+    set_nonblocking(handle->handle.fd);
+    return 0;
+}
+
+int uv_tcp_nodelay(uv_tcp_t *handle, int enable) {
+    int value = enable != 0;
+    if (handle == 0 || handle->handle.fd < 0) {
+        return UV_EBADF;
+    }
+    return setsockopt(handle->handle.fd, IPPROTO_TCP, TCP_NODELAY, &value, sizeof(value)) < 0 ?
+        uv_error_from_errno() :
+        0;
+}
+
+int uv_tcp_keepalive(uv_tcp_t *handle, int enable, unsigned int delay) {
+    int value = enable != 0;
+    (void)delay;
+    if (handle == 0 || handle->handle.fd < 0) {
+        return UV_EBADF;
+    }
+    return setsockopt(handle->handle.fd, SOL_SOCKET, SO_KEEPALIVE, &value, sizeof(value)) < 0 ?
+        uv_error_from_errno() :
+        0;
+}
+
+int uv_tcp_keepalive_ex(uv_tcp_t *handle,
+    int enable,
+    unsigned int idle,
+    unsigned int interval,
+    unsigned int count) {
+    (void)idle;
+    (void)interval;
+    (void)count;
+    return uv_tcp_keepalive(handle, enable, 0);
+}
+
+int uv_tcp_simultaneous_accepts(uv_tcp_t *handle, int enable) {
+    (void)handle;
+    (void)enable;
     return 0;
 }
 

@@ -280,8 +280,10 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,
   kernel-backed TCP `shutdown`, connected UDP shutdown state,
   `setsockopt(SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`,
+  `setsockopt(IPPROTO_TCP/TCP_NODELAY)`,
   and
-  `getsockopt(SO_ERROR/SO_TYPE/SO_ACCEPTCONN/SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`.
+  `getsockopt(SO_ERROR/SO_TYPE/SO_ACCEPTCONN/SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`
+  plus `getsockopt(IPPROTO_TCP/TCP_NODELAY)`.
   Nonblocking mode is preserved when it is set on a socket before `listen()` or
   `connect()`, `MSG_DONTWAIT` is accepted on the common send/receive paths, and
   UDP sockets report poll readiness. TCP writes can span multiple payload-sized
