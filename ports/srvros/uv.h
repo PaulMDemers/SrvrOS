@@ -14,6 +14,8 @@
 #include "../upstream/libuv/include/uv/errno.h"
 #include "../upstream/libuv/include/uv/version.h"
 
+#define UV_PIPE_PENDING_CAPACITY 8
+
 #define UV_ERRNO_MAP(XX) \
     XX(E2BIG, "argument list too long") \
     XX(EACCES, "permission denied") \
@@ -521,8 +523,10 @@ struct uv_pipe_s {
     uv_write_t *write_queue_tail;
     size_t write_queue_size;
     int ipc;
-    int pending_fd;
-    uv_handle_type pending_type;
+    int pending_fds[UV_PIPE_PENDING_CAPACITY];
+    uv_handle_type pending_types[UV_PIPE_PENDING_CAPACITY];
+    int pending_head;
+    int pending_count;
 };
 
 struct uv_tty_s {

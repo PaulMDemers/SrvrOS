@@ -1727,6 +1727,60 @@ static uv_handle_type uv_guess_handle_for_fd(int fd) {
     return fd >= 0 ? uv_guess_handle(fd) : UV_UNKNOWN_HANDLE;
 }
 
+static void uv_pipe_pending_init(uv_pipe_t *pipe_handle) {
+    if (pipe_handle == 0) {
+        return;
+    }
+    for (int i = 0; i < UV_PIPE_PENDING_CAPACITY; i++) {
+        pipe_handle->pending_fds[i] = -1;
+        pipe_handle->pending_types[i] = UV_UNKNOWN_HANDLE;
+    }
+    pipe_handle->pending_head = 0;
+    pipe_handle->pending_count = 0;
+}
+
+static int uv_pipe_pending_push(uv_pipe_t *pipe_handle, int fd) {
+    if (pipe_handle == 0 || fd < 0 || pipe_handle->pending_count >= UV_PIPE_PENDING_CAPACITY) {
+        return -1;
+    }
+    int index = (pipe_handle->pending_head + pipe_handle->pending_count) % UV_PIPE_PENDING_CAPACITY;
+    pipe_handle->pending_fds[index] = fd;
+    pipe_handle->pending_types[index] = uv_guess_handle_for_fd(fd);
+    pipe_handle->pending_count++;
+    return 0;
+}
+
+static int uv_pipe_pending_pop(uv_pipe_t *pipe_handle, uv_handle_type *type) {
+    if (pipe_handle == 0 || pipe_handle->pending_count <= 0) {
+        return -1;
+    }
+    int fd = pipe_handle->pending_fds[pipe_handle->pending_head];
+    if (type != 0) {
+        *type = pipe_handle->pending_types[pipe_handle->pending_head];
+    }
+    pipe_handle->pending_fds[pipe_handle->pending_head] = -1;
+    pipe_handle->pending_types[pipe_handle->pending_head] = UV_UNKNOWN_HANDLE;
+    pipe_handle->pending_head = (pipe_handle->pending_head + 1) % UV_PIPE_PENDING_CAPACITY;
+    pipe_handle->pending_count--;
+    if (pipe_handle->pending_count == 0) {
+        pipe_handle->pending_head = 0;
+    }
+    return fd;
+}
+
+static void uv_pipe_pending_close_all(uv_pipe_t *pipe_handle) {
+    if (pipe_handle == 0) {
+        return;
+    }
+    while (pipe_handle->pending_count > 0) {
+        int fd = uv_pipe_pending_pop(pipe_handle, 0);
+        if (fd >= 0) {
+            close(fd);
+        }
+    }
+    uv_pipe_pending_init(pipe_handle);
+}
+
 static int fd_for_stream_handle(uv_stream_t *stream) {
     uv_tcp_t *tcp = tcp_from_stream(stream);
     uv_pipe_t *pipe_handle = pipe_from_stream(stream);
@@ -1947,6 +2001,9 @@ static void dispatch_readable(uv_handle_t *handle) {
             pipe_handle->connection_cb((uv_stream_t *)pipe_handle, 0);
             return;
         }
+        if (pipe_handle->ipc && pipe_handle->pending_count >= UV_PIPE_PENDING_CAPACITY) {
+            return;
+        }
         if (pipe_handle->read_cb != 0 && pipe_handle->alloc_cb != 0) {
             uv_buf_t buffer;
             pipe_handle->alloc_cb(handle, 4096, &buffer);
@@ -1964,7 +2021,7 @@ static void dispatch_readable(uv_handle_t *handle) {
             memset(control, 0, sizeof(control));
             message.msg_iov = &iov;
             message.msg_iovlen = 1;
-            if (pipe_handle->ipc && pipe_handle->pending_fd < 0) {
+            if (pipe_handle->ipc && pipe_handle->pending_count < UV_PIPE_PENDING_CAPACITY) {
                 message.msg_control = control;
                 message.msg_controllen = sizeof(control);
             }
@@ -1972,14 +2029,16 @@ static void dispatch_readable(uv_handle_t *handle) {
             if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 return;
             }
-            if (count > 0 && pipe_handle->ipc && pipe_handle->pending_fd < 0) {
+            if (count > 0 && pipe_handle->ipc && pipe_handle->pending_count < UV_PIPE_PENDING_CAPACITY) {
                 struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
                 if (cmsg != 0 &&
                     cmsg->cmsg_level == SOL_SOCKET &&
                     cmsg->cmsg_type == SCM_RIGHTS &&
                     cmsg->cmsg_len >= CMSG_LEN(sizeof(int))) {
-                    pipe_handle->pending_fd = *(int *)CMSG_DATA(cmsg);
-                    pipe_handle->pending_type = uv_guess_handle_for_fd(pipe_handle->pending_fd);
+                    int pending_fd = *(int *)CMSG_DATA(cmsg);
+                    if (uv_pipe_pending_push(pipe_handle, pending_fd) < 0) {
+                        close(pending_fd);
+                    }
                 }
             }
             pipe_handle->read_cb((uv_stream_t *)pipe_handle,
@@ -2321,21 +2380,29 @@ int uv_accept(uv_stream_t *server, uv_stream_t *client) {
     uv_tcp_t *tcp_client = tcp_from_stream(client);
     uv_pipe_t *pipe_server = pipe_from_stream(server);
     uv_pipe_t *pipe_client = pipe_from_stream(client);
-    if (pipe_server != 0 && pipe_server->pending_fd >= 0) {
+    if (pipe_server != 0 && pipe_server->pending_count > 0) {
         uv_tcp_t *pending_tcp_client = tcp_from_stream(client);
         uv_pipe_t *pending_pipe_client = pipe_from_stream(client);
+        uv_handle_type pending_type = UV_UNKNOWN_HANDLE;
         if (pending_pipe_client == 0 && pending_tcp_client == 0) {
             return UV_EINVAL;
         }
+        if ((pending_pipe_client != 0 && uv_pipe_pending_type(pipe_server) != UV_NAMED_PIPE) ||
+            (pending_tcp_client != 0 && uv_pipe_pending_type(pipe_server) != UV_TCP)) {
+            return UV_EINVAL;
+        }
         uv_handle_t *client_base = pending_pipe_client != 0 ? &pending_pipe_client->handle : &pending_tcp_client->handle;
+        int pending_fd = uv_pipe_pending_pop(pipe_server, &pending_type);
+        (void)pending_type;
+        if (pending_fd < 0) {
+            return UV_EINVAL;
+        }
         if (client_base->fd >= 0) {
             close(client_base->fd);
         }
-        client_base->fd = pipe_server->pending_fd;
+        client_base->fd = pending_fd;
         set_nonblocking(client_base->fd);
         client_base->active = 0;
-        pipe_server->pending_fd = -1;
-        pipe_server->pending_type = UV_UNKNOWN_HANDLE;
         return 0;
     }
     if ((tcp_server == 0 || tcp_client == 0) && (pipe_server == 0 || pipe_client == 0)) {
@@ -2578,8 +2645,7 @@ int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
     memset(handle, 0, sizeof(*handle));
     init_handle(loop, &handle->handle, -1, UV_HANDLE_PIPE);
     handle->ipc = ipc != 0;
-    handle->pending_fd = -1;
-    handle->pending_type = UV_UNKNOWN_HANDLE;
+    uv_pipe_pending_init(handle);
     return 0;
 }
 
@@ -2601,17 +2667,17 @@ void uv_pipe_pending_instances(uv_pipe_t *handle, int count) {
 }
 
 int uv_pipe_pending_count(uv_pipe_t *handle) {
-    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_fd < 0) {
+    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_count <= 0) {
         return 0;
     }
-    return 1;
+    return handle->pending_count;
 }
 
 uv_handle_type uv_pipe_pending_type(uv_pipe_t *handle) {
-    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_fd < 0) {
+    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_count <= 0) {
         return UV_UNKNOWN_HANDLE;
     }
-    return handle->pending_type;
+    return handle->pending_types[handle->pending_head];
 }
 
 int uv_pipe_bind(uv_pipe_t *handle, const char *name) {
@@ -3497,7 +3563,14 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         uv_pipe_t *pipe_handle = pipe_from_stream(stdio[index].data.stream);
         int child_uses_read = (flags & UV_READABLE_PIPE) != 0 || (index == 0 && (flags & UV_WRITABLE_PIPE) == 0);
         if ((flags & UV_READABLE_PIPE) != 0 && (flags & UV_WRITABLE_PIPE) != 0) {
-            if (pipe_handle == 0 || srv_pipe_pair(fds) < 0) {
+            int pipe_error = 0;
+            if (pipe_handle == 0) {
+                return EINVAL;
+            }
+            pipe_error = pipe_handle->ipc ?
+                socketpair(AF_UNIX, SOCK_STREAM, 0, fds) :
+                srv_pipe_pair(fds);
+            if (pipe_error < 0) {
                 return errno != 0 ? errno : EINVAL;
             }
             parent_fds[index] = fds[0];
@@ -3743,11 +3816,7 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         pipe_handle->connect_cb = 0;
         pipe_handle->read_cb = 0;
         pipe_handle->alloc_cb = 0;
-        if (pipe_handle->pending_fd >= 0) {
-            close(pipe_handle->pending_fd);
-            pipe_handle->pending_fd = -1;
-        }
-        pipe_handle->pending_type = UV_UNKNOWN_HANDLE;
+        uv_pipe_pending_close_all(pipe_handle);
     } else if (handle->type == UV_HANDLE_TTY) {
         uv_tty_t *tty = (uv_tty_t *)handle;
         while (tty->write_queue_head != 0) {

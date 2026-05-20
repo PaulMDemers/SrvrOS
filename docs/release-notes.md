@@ -97,11 +97,13 @@ server.
   local sockets.
 - Adds first-pass libuv IPC handle passing with `uv_write2`,
   `uv_pipe_pending_count`, `uv_pipe_pending_type`, and `uv_accept` of a pending
-  pipe handle over an IPC pipe; credentials, multi-handle pending queues, TCP
-  pending-handle typing, and broader ancillary messages remain future work.
-- Extends the libuv IPC smoke path across `uv_spawn` by inheriting an fd 3 IPC
-  channel into a child, sending a live pipe handle with `uv_write2`, and having
-  the child accept and write through that transferred handle.
+  pipe handle over an IPC pipe.
+- Extends libuv IPC staging with a bounded pending-handle queue and smoke
+  coverage for multiple `uv_write2` transfers before accept.
+- Extends the libuv IPC smoke path across `uv_spawn` by creating a duplex IPC
+  stdio pipe for a child, sending a live pipe handle with `uv_write2`, and
+  having the child accept and write through that transferred handle. Credentials,
+  TCP pending-handle typing, and broader ancillary messages remain future work.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

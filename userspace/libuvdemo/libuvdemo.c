@@ -1654,6 +1654,146 @@ static int pipe_ipc_write2_test(void) {
     return 0;
 }
 
+static uv_loop_t pipe_ipc_queue_loop;
+static uv_pipe_t pipe_ipc_queue_sender;
+static uv_pipe_t pipe_ipc_queue_receiver;
+static uv_pipe_t pipe_ipc_queue_send_handles[2];
+static uv_write_t pipe_ipc_queue_write_requests[2];
+static char pipe_ipc_queue_bytes[2];
+static int pipe_ipc_queue_write_count;
+static int pipe_ipc_queue_read_count;
+static int pipe_ipc_queue_failed;
+
+static void maybe_stop_pipe_ipc_queue_loop(void) {
+    if (pipe_ipc_queue_write_count == 2 && pipe_ipc_queue_read_count == 2) {
+        uv_stop(&pipe_ipc_queue_loop);
+    }
+}
+
+static void pipe_ipc_queue_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    if (pipe_ipc_queue_read_count < 2) {
+        buffer->base = &pipe_ipc_queue_bytes[pipe_ipc_queue_read_count];
+        buffer->len = 1;
+    } else {
+        buffer->base = pipe_ipc_queue_bytes;
+        buffer->len = 0;
+    }
+}
+
+static void pipe_ipc_queue_write_cb(uv_write_t *request, int status) {
+    if ((request != &pipe_ipc_queue_write_requests[0] &&
+            request != &pipe_ipc_queue_write_requests[1]) ||
+        status < 0) {
+        pipe_ipc_queue_failed = 1;
+    }
+    pipe_ipc_queue_write_count++;
+    maybe_stop_pipe_ipc_queue_loop();
+}
+
+static void pipe_ipc_queue_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    (void)stream;
+    if (nread != 1 || buffer->base != &pipe_ipc_queue_bytes[pipe_ipc_queue_read_count]) {
+        pipe_ipc_queue_failed = 1;
+    }
+    pipe_ipc_queue_read_count++;
+    maybe_stop_pipe_ipc_queue_loop();
+}
+
+static int pipe_ipc_queue_test(void) {
+    uv_os_sock_t channel_fds[2] = {-1, -1};
+    uv_file payload_fds[2][2] = {{-1, -1}, {-1, -1}};
+    uv_pipe_t received_handles[2];
+    uv_os_fd_t received_fd = -1;
+    char payload_byte = 0;
+    uv_buf_t buffers[2] = {
+        uv_buf_init("A", 1),
+        uv_buf_init("B", 1),
+    };
+    memset(&pipe_ipc_queue_loop, 0, sizeof(pipe_ipc_queue_loop));
+    memset(&pipe_ipc_queue_sender, 0, sizeof(pipe_ipc_queue_sender));
+    memset(&pipe_ipc_queue_receiver, 0, sizeof(pipe_ipc_queue_receiver));
+    memset(pipe_ipc_queue_send_handles, 0, sizeof(pipe_ipc_queue_send_handles));
+    memset(received_handles, 0, sizeof(received_handles));
+    memset(pipe_ipc_queue_write_requests, 0, sizeof(pipe_ipc_queue_write_requests));
+    memset(pipe_ipc_queue_bytes, 0, sizeof(pipe_ipc_queue_bytes));
+    pipe_ipc_queue_write_count = 0;
+    pipe_ipc_queue_read_count = 0;
+    pipe_ipc_queue_failed = 0;
+    if (uv_loop_init(&pipe_ipc_queue_loop) < 0 ||
+        uv_socketpair(SOCK_STREAM, 0, channel_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe(payload_fds[0], UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe(payload_fds[1], UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &pipe_ipc_queue_sender, 1) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &pipe_ipc_queue_receiver, 1) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &pipe_ipc_queue_send_handles[0], 0) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &pipe_ipc_queue_send_handles[1], 0) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &received_handles[0], 0) < 0 ||
+        uv_pipe_init(&pipe_ipc_queue_loop, &received_handles[1], 0) < 0 ||
+        uv_pipe_open(&pipe_ipc_queue_sender, channel_fds[0]) < 0 ||
+        uv_pipe_open(&pipe_ipc_queue_receiver, channel_fds[1]) < 0 ||
+        uv_pipe_open(&pipe_ipc_queue_send_handles[0], payload_fds[0][1]) < 0 ||
+        uv_pipe_open(&pipe_ipc_queue_send_handles[1], payload_fds[1][1]) < 0 ||
+        uv_read_start((uv_stream_t *)&pipe_ipc_queue_receiver,
+            pipe_ipc_queue_alloc_cb,
+            pipe_ipc_queue_read_cb) < 0 ||
+        uv_write2(&pipe_ipc_queue_write_requests[0],
+            (uv_stream_t *)&pipe_ipc_queue_sender,
+            &buffers[0],
+            1,
+            (uv_stream_t *)&pipe_ipc_queue_send_handles[0],
+            pipe_ipc_queue_write_cb) < 0 ||
+        uv_write2(&pipe_ipc_queue_write_requests[1],
+            (uv_stream_t *)&pipe_ipc_queue_sender,
+            &buffers[1],
+            1,
+            (uv_stream_t *)&pipe_ipc_queue_send_handles[1],
+            pipe_ipc_queue_write_cb) < 0) {
+        puts("libuvdemo: pipe ipc queue setup failed");
+        return 1;
+    }
+    (void)uv_run(&pipe_ipc_queue_loop, UV_RUN_DEFAULT);
+    if (pipe_ipc_queue_failed ||
+        pipe_ipc_queue_write_count != 2 ||
+        pipe_ipc_queue_read_count != 2 ||
+        pipe_ipc_queue_bytes[0] != 'A' ||
+        pipe_ipc_queue_bytes[1] != 'B' ||
+        uv_pipe_pending_count(&pipe_ipc_queue_receiver) != 2 ||
+        uv_pipe_pending_type(&pipe_ipc_queue_receiver) != UV_NAMED_PIPE) {
+        puts("libuvdemo: pipe ipc queue failed");
+        return 1;
+    }
+    for (int i = 0; i < 2; i++) {
+        if (uv_accept((uv_stream_t *)&pipe_ipc_queue_receiver, (uv_stream_t *)&received_handles[i]) < 0 ||
+            uv_fileno((const uv_handle_t *)&received_handles[i], &received_fd) < 0 ||
+            write(received_fd, i == 0 ? "1" : "2", 1) != 1 ||
+            read(payload_fds[i][0], &payload_byte, 1) != 1 ||
+            payload_byte != (i == 0 ? '1' : '2')) {
+            puts("libuvdemo: pipe ipc queue transfer failed");
+            return 1;
+        }
+    }
+    if (uv_pipe_pending_count(&pipe_ipc_queue_receiver) != 0) {
+        puts("libuvdemo: pipe ipc queue drain failed");
+        return 1;
+    }
+    close(payload_fds[0][0]);
+    close(payload_fds[1][0]);
+    uv_close((uv_handle_t *)&received_handles[0], 0);
+    uv_close((uv_handle_t *)&received_handles[1], 0);
+    uv_close((uv_handle_t *)&pipe_ipc_queue_send_handles[0], 0);
+    uv_close((uv_handle_t *)&pipe_ipc_queue_send_handles[1], 0);
+    uv_close((uv_handle_t *)&pipe_ipc_queue_receiver, 0);
+    uv_close((uv_handle_t *)&pipe_ipc_queue_sender, 0);
+    if (uv_loop_close(&pipe_ipc_queue_loop) < 0) {
+        puts("libuvdemo: pipe ipc queue loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: pipe ipc queue ok");
+    return 0;
+}
+
 static uv_loop_t process_ipc_loop;
 static uv_pipe_t process_ipc_channel;
 static uv_pipe_t process_ipc_send_handle;
@@ -1690,7 +1830,6 @@ static int process_ipc_write2_test(void) {
     uv_stdio_container_t stdio[4];
     uv_process_options_t options;
     uv_buf_t buffer = uv_buf_init("H", 1);
-    int channel_fds[2] = {-1, -1};
     int payload_fds[2] = {-1, -1};
     char payload_byte = 0;
     memset(stdio, 0, sizeof(stdio));
@@ -1704,19 +1843,11 @@ static int process_ipc_write2_test(void) {
     process_ipc_exit_seen = 0;
     process_ipc_failed = 0;
     if (uv_loop_init(&process_ipc_loop) < 0 ||
-        uv_socketpair(SOCK_STREAM, 0, channel_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
         uv_pipe(payload_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
         uv_pipe_init(&process_ipc_loop, &process_ipc_channel, 1) < 0 ||
         uv_pipe_init(&process_ipc_loop, &process_ipc_send_handle, 0) < 0 ||
-        uv_pipe_open(&process_ipc_channel, channel_fds[0]) < 0 ||
         uv_pipe_open(&process_ipc_send_handle, payload_fds[1]) < 0) {
         puts("libuvdemo: process ipc setup failed");
-        if (channel_fds[0] >= 0) {
-            close(channel_fds[0]);
-        }
-        if (channel_fds[1] >= 0) {
-            close(channel_fds[1]);
-        }
         if (payload_fds[0] >= 0) {
             close(payload_fds[0]);
         }
@@ -1725,13 +1856,12 @@ static int process_ipc_write2_test(void) {
         }
         return 1;
     }
-    channel_fds[0] = -1;
     payload_fds[1] = -1;
     stdio[0].flags = UV_IGNORE;
     stdio[1].flags = UV_IGNORE;
     stdio[2].flags = UV_IGNORE;
-    stdio[3].flags = UV_INHERIT_FD;
-    stdio[3].data.fd = channel_fds[1];
+    stdio[3].flags = UV_CREATE_PIPE | UV_READABLE_PIPE | UV_WRITABLE_PIPE | UV_NONBLOCK_PIPE;
+    stdio[3].data.stream = (uv_stream_t *)&process_ipc_channel;
     options.exit_cb = process_ipc_exit_cb;
     options.file = "/libuvdemo";
     options.args = argv;
@@ -1739,14 +1869,11 @@ static int process_ipc_write2_test(void) {
     options.stdio = stdio;
     if (uv_spawn(&process_ipc_loop, &process_ipc_handle, &options) < 0) {
         puts("libuvdemo: process ipc spawn failed");
-        close(channel_fds[1]);
         close(payload_fds[0]);
         uv_close((uv_handle_t *)&process_ipc_send_handle, 0);
         uv_close((uv_handle_t *)&process_ipc_channel, 0);
         return 1;
     }
-    close(channel_fds[1]);
-    channel_fds[1] = -1;
     if (uv_write2(&process_ipc_write_request,
             (uv_stream_t *)&process_ipc_channel,
             &buffer,
@@ -2569,6 +2696,7 @@ int main(int argc, char **argv) {
         socketpair_test() != 0 ||
         pipe_bind_connect_test() != 0 ||
         pipe_ipc_write2_test() != 0 ||
+        pipe_ipc_queue_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
         process_validation_test() != 0 ||

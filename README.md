@@ -149,9 +149,9 @@ editor clients:
   syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
   timestamp request shims, `uv_fs_poll` file-change polling, and local
   socketpair message I/O with vectored buffers and `SCM_RIGHTS` fd transfer,
-  plus `uv_pipe_bind`/`uv_pipe_connect`, `uv_write2`, pending pipe-handle
-  accept over pathname local sockets, and cross-process IPC handle passing over
-  an inherited child fd.
+  plus `uv_pipe_bind`/`uv_pipe_connect`, `uv_write2`, queued pending
+  pipe-handle accept over pathname local sockets, and cross-process IPC handle
+  passing over a `UV_CREATE_PIPE` child channel.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

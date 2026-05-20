@@ -130,6 +130,7 @@ def main():
         "libuvdemo: socketpair ok",
         "libuvdemo: pipe bind/connect ok",
         "libuvdemo: pipe ipc write2 ok",
+        "libuvdemo: pipe ipc queue ok",
         "libuvdemo: getaddrinfo ok",
         "libuvdemo: tty ok",
         "libuvdemo: signal ok",
