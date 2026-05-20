@@ -147,6 +147,9 @@ server.
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, and a bounded active-client
   table.
+- Adds `tools/webd_soak.py` to exercise `webd` under repeated host HTTP
+  requests, a small concurrent client burst, early client disconnects during a
+  larger response, and a final post-abort request.
 - Adds config-backed shell services under `/fat/etc/services/*.svc`; the
   generated image ships `webd.svc`, starts `/init --system` from the kernel,
   logs startup output to `/fat/var/log/init.log`, launches `/fat/bin/svscan`

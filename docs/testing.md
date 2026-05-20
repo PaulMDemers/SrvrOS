@@ -276,6 +276,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   networking, nested CSS asset fetch, `Content-Length`, bodyless `HEAD`,
   404/405 responses, and a slow partial client while another request completes
   through the poll loop.
+- `webd_soak.py`: repeated sequential host HTTP requests, a bounded concurrent
+  client burst, an early client disconnect during a larger response, and a
+  post-abort request to verify `webd` keeps serving static files.
 - `service_soak.py`: repeated host-side HTTP GETs with interleaved
   `service webd check-config`, `service webd check`, `service status --all`,
   `netstat`, log tailing, `service restart --wait`, log rotation, and svscan
