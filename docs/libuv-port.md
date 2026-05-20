@@ -98,7 +98,7 @@ read against a host service. `/fat/bin/libuvdemo` is the upstream staging harnes
 now covers the core object helpers, loop phases, timers, filesystem metadata
 requests, filesystem polling, directory requests, fsync/truncate/sendfile/time requests, platform
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
-resolver callbacks, public pipe creation, pipe streams, child stdin/stdout pipe
+resolver callbacks, public pipe creation, socketpair endpoints, pipe streams, child stdin/stdout pipe
 wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
 stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
 duplex stdio child pipe, plus TTY/signal delivery and the current
@@ -123,7 +123,9 @@ replacing adapter internals with upstream code.
 
 ## Known Gaps Before Full Upstream libuv
 
-- No `fork`, full process signals, or Unix domain sockets. `uv_spawn` is still a
+- No `fork`, full process signals, or named Unix domain sockets. `socketpair`
+  exists as a local duplex byte stream, but pathname sockets and fd-passing IPC
+  are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.
 - Compact TTY model and no PTY support.

@@ -10,6 +10,7 @@ enum vfs_node_type {
 };
 
 #define VFS_MODE_IFMT 0170000u
+#define VFS_MODE_IFIFO 0010000u
 #define VFS_MODE_IFDIR 0040000u
 #define VFS_MODE_IFREG 0100000u
 

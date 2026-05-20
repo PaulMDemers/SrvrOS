@@ -810,6 +810,7 @@ int uv_write(uv_write_t *request,
 int uv_shutdown(uv_shutdown_t *request, uv_stream_t *handle, uv_shutdown_cb cb);
 
 int uv_pipe(uv_file fds[2], int read_flags, int write_flags);
+int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int flags0, int flags1);
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
 int uv_pipe_open(uv_pipe_t *handle, uv_file fd);
 

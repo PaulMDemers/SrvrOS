@@ -6,7 +6,11 @@
 #include <sys/types.h>
 
 #define AF_INET 2
+#define AF_UNIX 1
+#define AF_LOCAL AF_UNIX
 #define PF_INET AF_INET
+#define PF_UNIX AF_UNIX
+#define PF_LOCAL AF_LOCAL
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
 #define SOCK_NONBLOCK 0x0800
@@ -44,6 +48,7 @@ struct linger {
 };
 
 int socket(int domain, int type, int protocol);
+int socketpair(int domain, int type, int protocol, int fds[2]);
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 int listen(int fd, int backlog);
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen);

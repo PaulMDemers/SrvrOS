@@ -393,6 +393,41 @@ int socket(int domain, int type, int protocol) {
     return -1;
 }
 
+int socketpair(int domain, int type, int protocol, int fds[2]) {
+    int flags = type & (SOCK_NONBLOCK | SOCK_CLOEXEC);
+    int base_type = type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC);
+    if (fds == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (domain != AF_UNIX) {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+    if (base_type != SOCK_STREAM || protocol != 0) {
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+    if (srv_pipe_pair(fds) < 0) {
+        errno = EMFILE;
+        return -1;
+    }
+    uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+    uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+    if ((fd_flags != 0 &&
+            (srv_fcntl(fds[0], SRV_F_SETFL, fd_flags) < 0 ||
+                srv_fcntl(fds[1], SRV_F_SETFL, fd_flags) < 0)) ||
+        (descriptor_flags != 0 &&
+            (srv_fcntl(fds[0], SRV_F_SETFD, descriptor_flags) < 0 ||
+                srv_fcntl(fds[1], SRV_F_SETFD, descriptor_flags) < 0))) {
+        (void)srv_close(fds[0]);
+        (void)srv_close(fds[1]);
+        errno = EBADF;
+        return -1;
+    }
+    return 0;
+}
+
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     struct posix_socket *socket = socket_at(fd);
     if (socket == 0 || addr == 0 || addrlen < sizeof(struct sockaddr_in)) {

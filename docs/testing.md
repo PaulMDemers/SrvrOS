@@ -191,8 +191,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   thread/synchronization wrappers, queued `uv_getaddrinfo` callbacks, TTY
   handle/window-size/write helpers, and SIGINT/SIGTERM self-signal callback
   delivery through `uv_run`.
-  It also verifies `uv_pipe`, `uv_pipe_t`, and `uv_spawn` by writing through a
-  libuv pipe stream, feeding a child `cat` process over stdin, reading child
+  It also verifies `uv_pipe`, `uv_pipe_t`, `uv_socketpair`, and `uv_spawn` by
+  writing through a libuv pipe stream, checking socketpair polling/handle
+  classification, feeding a child `cat` process over stdin, reading child
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,
   exercising inherited-fd stdin, inherited-stream stdin/stdout/stderr, short
   process-only exit loops, and a duplex child stdio pipe. The process section

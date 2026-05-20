@@ -13,7 +13,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `open`, `read`, `write`, `close`, `lseek`; `O_RDWR` works for regular files
   through the writable VFS fd path
 - `stat`, `fstat`, `mkdir`, `unlink`, `rename`, `rmdir`
-- `pipe`; pipes are bounded in-kernel ring buffers with read/write fd endpoints
+- `pipe`; pipes are bounded in-kernel ring buffers with read/write fd endpoints.
+  `socketpair(AF_UNIX, SOCK_STREAM)` is backed by the same duplex pipe-pair
+  primitive, supports `SOCK_NONBLOCK`/`SOCK_CLOEXEC`, and reports FIFO mode
+  through `fstat` so libuv can classify endpoints as pipe handles.
 - `dup` and `dup2` for standard streams, pipes, writable regular files, and
   read-only regular files. Regular-file descriptors share open-file-description
   offsets; writable descriptors also share dirty state, ownership, and
@@ -188,7 +191,7 @@ shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
 handle entry points, `uv_poll_t` fd readiness, `uv_async_t` notifications, and
 a pthread-backed `uv_queue_work` path. Its demos cover timer, file I/O,
-directory create/remove, rename, async/work callbacks, pipe-backed polling, UDP
+directory create/remove, rename, async/work callbacks, pipe/socketpair-backed polling, UDP
 echo, a two-client host-forwarded TCP accept/read/write path, and a
 guest-outbound TCP client that connects to a host service, queues a deferred
 write, drains `uv_stream_get_write_queue_size`, performs `uv_shutdown`, and
@@ -199,8 +202,8 @@ Upstream libuv is pinned as a submodule at `ports/upstream/libuv` on tag
 `v1.52.1` (`1cfa32f`). `/fat/bin/libuvdemo` is the first dedicated staging
 program for that port: it links the srvros adapter and exercises the subset we
 want to preserve while swapping in upstream internals, namely timers,
-filesystem requests, async notifications, queued work, generic fd polling, TTY
-wrappers, and signal-handle lifecycle staging.
+filesystem requests, async notifications, queued work, generic fd polling,
+`uv_pipe`/`uv_socketpair`, TTY wrappers, and signal-handle lifecycle staging.
 The version identity functions are already compiled from upstream
 `src/version.c`, giving the adapter a concrete upstream object in the link.
 The adapter also exposes libuv-style `UV_E*` errno constants plus

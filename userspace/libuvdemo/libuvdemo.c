@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <poll.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -1320,6 +1321,50 @@ static int pipe_stream_test(void) {
     return 0;
 }
 
+static int socketpair_test(void) {
+    uv_os_sock_t fds[2] = {-1, -1};
+    struct pollfd poll_fd;
+    char buffer[32];
+    if (uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0) {
+        puts("libuvdemo: socketpair setup failed");
+        return 1;
+    }
+    if (uv_guess_handle(fds[0]) != UV_NAMED_PIPE ||
+        uv_guess_handle(fds[1]) != UV_NAMED_PIPE) {
+        puts("libuvdemo: socketpair guess failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    if (write(fds[0], "uv-spair-ok", 11) != 11) {
+        puts("libuvdemo: socketpair write failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    poll_fd.fd = fds[1];
+    poll_fd.events = POLLIN;
+    poll_fd.revents = 0;
+    if (poll(&poll_fd, 1, 0) != 1 || (poll_fd.revents & POLLIN) == 0) {
+        puts("libuvdemo: socketpair poll failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    memset(buffer, 0, sizeof(buffer));
+    if (read(fds[1], buffer, sizeof(buffer) - 1) != 11 ||
+        strcmp(buffer, "uv-spair-ok") != 0) {
+        puts("libuvdemo: socketpair read failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    close(fds[0]);
+    close(fds[1]);
+    puts("libuvdemo: socketpair ok");
+    return 0;
+}
+
 static uv_loop_t gai_loop;
 static int gai_seen;
 static int gai_failed;
@@ -2039,6 +2084,7 @@ int main(int argc, char **argv) {
         poll_test() != 0 ||
         poll_many_test() != 0 ||
         pipe_stream_test() != 0 ||
+        socketpair_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
         process_validation_test() != 0 ||

@@ -84,6 +84,9 @@ server.
 - Adds TCP `MSG_PEEK` through a kernel peek syscall, exposes `accept4`, and
   tracks socket options on accepted real TCP fds so libuv/POSIX streams can
   set/query `TCP_NODELAY`, keepalive, linger, and buffer options after accept.
+- Adds `socketpair(AF_UNIX, SOCK_STREAM)` over the existing duplex pipe-pair
+  primitive, FIFO `fstat` metadata for pipe-like fds, and libuv
+  `uv_socketpair` smoke coverage.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

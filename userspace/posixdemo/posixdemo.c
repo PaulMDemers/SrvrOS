@@ -1510,6 +1510,30 @@ int main(void) {
         close(u);
     }
 
+    int pair[2] = {-1, -1};
+    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, pair) == 0) {
+        char pair_buffer[8];
+        struct stat pair_stat;
+        struct pollfd pair_poll = {.fd = pair[1], .events = POLLIN};
+        int cloexec_ok = fcntl(pair[0], F_GETFD, 0) == FD_CLOEXEC &&
+            fcntl(pair[1], F_GETFD, 0) == FD_CLOEXEC;
+        int nonblock_ok = (fcntl(pair[0], F_GETFL, 0) & O_NONBLOCK) != 0 &&
+            (fcntl(pair[1], F_GETFL, 0) & O_NONBLOCK) != 0;
+        if (send(pair[0], "spair", 5, MSG_NOSIGNAL) == 5 &&
+            poll(&pair_poll, 1, 0) == 1 &&
+            (pair_poll.revents & POLLIN) != 0 &&
+            recv(pair[1], pair_buffer, 5, 0) == 5 &&
+            memcmp(pair_buffer, "spair", 5) == 0 &&
+            fstat(pair[0], &pair_stat) == 0 &&
+            S_ISFIFO(pair_stat.st_mode) &&
+            cloexec_ok &&
+            nonblock_ok) {
+            say("posixdemo: socketpair ok\n");
+        }
+        close(pair[0]);
+        close(pair[1]);
+    }
+
     unlink("/fat/posixdemo/renamed.txt");
     rmdir("/fat/posixdemo");
     say("posixdemo: ok\n");

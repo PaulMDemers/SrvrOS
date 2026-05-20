@@ -3871,6 +3871,25 @@ int64_t process_file_stat(struct process *process,
         return 0;
     }
 
+    if (file->type == PROCESS_FILE_PIPE_READ ||
+        file->type == PROCESS_FILE_PIPE_WRITE ||
+        file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        struct process_pipe *pipe = pipe_at(file->handle);
+        if (pipe == NULL) {
+            return -1;
+        }
+        *size_out = pipe->size;
+        *type_out = 0;
+        if (metadata_out != NULL) {
+            *metadata_out = (struct vfs_metadata) {
+                .inode = file->handle,
+                .mode = VFS_MODE_IFIFO | 0600,
+                .nlink = 1,
+            };
+        }
+        return 0;
+    }
+
     *size_out = 0;
     *type_out = 0;
     if (metadata_out != NULL) {

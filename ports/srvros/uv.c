@@ -2385,6 +2385,24 @@ int uv_pipe(uv_file fds[2], int read_flags, int write_flags) {
     return 0;
 }
 
+int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int flags0, int flags1) {
+    if (socket_vector == 0 ||
+        (flags0 & ~UV_NONBLOCK_PIPE) != 0 ||
+        (flags1 & ~UV_NONBLOCK_PIPE) != 0) {
+        return UV_EINVAL;
+    }
+    if (socketpair(AF_UNIX, type, protocol, socket_vector) < 0) {
+        return uv_error_from_errno();
+    }
+    if ((flags0 & UV_NONBLOCK_PIPE) != 0) {
+        set_nonblocking(socket_vector[0]);
+    }
+    if ((flags1 & UV_NONBLOCK_PIPE) != 0) {
+        set_nonblocking(socket_vector[1]);
+    }
+    return 0;
+}
+
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
     if (loop == 0 || handle == 0) {
         return -EINVAL;
@@ -2415,8 +2433,13 @@ uv_handle_type uv_guess_handle(uv_file file) {
         return UV_TTY;
     }
     struct stat st;
-    if (fstat(file, &st) == 0 && S_ISREG(st.st_mode)) {
-        return UV_FILE;
+    if (fstat(file, &st) == 0) {
+        if (S_ISREG(st.st_mode)) {
+            return UV_FILE;
+        }
+        if (S_ISFIFO(st.st_mode)) {
+            return UV_NAMED_PIPE;
+        }
     }
     return UV_UNKNOWN_HANDLE;
 }
