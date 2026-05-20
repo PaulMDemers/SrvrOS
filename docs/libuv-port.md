@@ -110,8 +110,11 @@ thread/synchronization wrappers that need to stay stable while incrementally
 replacing adapter internals with upstream code.
 The POSIX socket layer now supplies `sendmsg`/`recvmsg` scatter/gather transfers,
 bounded `SCM_RIGHTS` fd passing for local socketpairs, and pathname `AF_UNIX`
-stream sockets backed by kernel accept queues. Richer libuv IPC still needs
-credentials and broader ancillary message coverage.
+stream sockets backed by kernel accept queues. Kernel TCP/UDP handles are
+refcounted across fd duplication and rights transfer, so a pending TCP IPC
+handle remains usable after the sending side closes its original descriptor.
+Richer libuv IPC still needs credentials and broader ancillary message
+coverage.
 
 ## Replacement Strategy
 

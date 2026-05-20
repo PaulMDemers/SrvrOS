@@ -81,6 +81,7 @@
 struct net_listener {
     bool used;
     uint64_t id;
+    uint32_t refs;
     struct process *owner;
     uint16_t port;
 };
@@ -108,6 +109,7 @@ struct tcp_connection {
     bool reset;
     bool request_counted;
     uint16_t error;
+    uint32_t refs;
     uint8_t remote_mac[6];
     struct process *owner;
     uint32_t remote_ip;
@@ -148,6 +150,7 @@ struct udp_datagram {
 struct udp_socket {
     bool used;
     uint64_t id;
+    uint32_t refs;
     struct process *owner;
     uint16_t local_port;
     uint8_t head;
@@ -1047,6 +1050,16 @@ static struct net_listener *find_listener(uint64_t listener_id) {
     return 0;
 }
 
+static struct tcp_connection *find_connection_by_id(uint64_t id) {
+    for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
+        if (tcp_connections[i].state != TCP_STATE_EMPTY &&
+            tcp_connections[i].id == id) {
+            return &tcp_connections[i];
+        }
+    }
+    return 0;
+}
+
 static bool port_is_listening(uint16_t port) {
     return find_listener_for_port(port) != 0;
 }
@@ -1126,6 +1139,7 @@ retry:
             tcp_connections[i].reset = false;
             tcp_connections[i].request_counted = false;
             tcp_connections[i].error = SRV_NETERR_NONE;
+            tcp_connections[i].refs = 0;
             tcp_connections[i].owner = listener->owner;
             tcp_connections[i].remote_ip = remote_ip;
             tcp_connections[i].local_port = local_port;
@@ -1223,6 +1237,7 @@ retry:
             tcp_connections[i].reset = false;
             tcp_connections[i].request_counted = false;
             tcp_connections[i].error = SRV_NETERR_NONE;
+            tcp_connections[i].refs = 1;
             tcp_connections[i].owner = owner;
             tcp_connections[i].remote_ip = remote_ip;
             tcp_connections[i].local_port = local_port;
@@ -1534,6 +1549,7 @@ static void close_connection(struct tcp_connection *connection) {
     connection->reset = false;
     connection->request_counted = false;
     connection->error = SRV_NETERR_NONE;
+    connection->refs = 0;
     connection->peer_window = TCP_RX_WINDOW;
     connection->rx_length = 0;
     connection->rx_offset = 0;
@@ -2622,6 +2638,10 @@ int64_t net_listen(uint16_t port) {
             if (listeners[i].owner != owner) {
                 return -1;
             }
+            if (listeners[i].refs == UINT32_MAX) {
+                return -1;
+            }
+            listeners[i].refs++;
             return (int64_t)make_handle(NET_HANDLE_LISTENER, listeners[i].id);
         }
     }
@@ -2630,6 +2650,7 @@ int64_t net_listen(uint16_t port) {
         if (!listeners[i].used) {
             listeners[i].used = true;
             listeners[i].id = next_listener_id++;
+            listeners[i].refs = 1;
             listeners[i].owner = owner;
             listeners[i].port = port;
             if (next_listener_id == 0) {
@@ -2657,6 +2678,7 @@ int64_t net_udp_open(void) {
             clear_bytes((uint8_t *)&udp_sockets[i], sizeof(udp_sockets[i]));
             udp_sockets[i].used = true;
             udp_sockets[i].id = next_udp_socket_id++;
+            udp_sockets[i].refs = 1;
             udp_sockets[i].owner = owner;
             if (next_udp_socket_id == 0) {
                 next_udp_socket_id = 1;
@@ -2670,7 +2692,7 @@ int64_t net_udp_open(void) {
 
 int64_t net_udp_bind(uint64_t socket_id, uint16_t port) {
     struct udp_socket *socket = find_udp_socket(socket_id);
-    if (!initialized || socket == 0 || socket->owner != process_current()) {
+    if (!initialized || socket == 0) {
         return -1;
     }
 
@@ -2699,7 +2721,7 @@ int64_t net_udp_sendto(uint64_t socket_id,
     }
 
     struct udp_socket *socket = find_udp_socket(socket_id);
-    if (socket == 0 || socket->owner != process_current()) {
+    if (socket == 0) {
         return -1;
     }
 
@@ -2727,20 +2749,18 @@ int64_t net_udp_sendto(uint64_t socket_id,
 }
 
 struct udp_wait_arg {
-    struct process *owner;
     uint64_t socket_id;
 };
 
 static bool udp_recv_ready(void *arg) {
     struct udp_wait_arg *wait = arg;
-    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current()) {
         return true;
     }
 
     for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
         if (udp_sockets[i].used &&
-            udp_sockets[i].id == wait->socket_id &&
-            udp_sockets[i].owner == wait->owner) {
+            udp_sockets[i].id == wait->socket_id) {
             return udp_sockets[i].count != 0;
         }
     }
@@ -2758,8 +2778,7 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
     }
 
     struct udp_socket *socket = find_udp_socket(socket_id);
-    struct process *owner = process_current();
-    if (socket == 0 || owner == 0 || socket->owner != owner) {
+    if (socket == 0) {
         return -1;
     }
     if (socket->local_port == 0 && net_udp_bind(socket_id, 0) < 0) {
@@ -2767,7 +2786,6 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
     }
 
     struct udp_wait_arg wait = {
-        .owner = owner,
         .socket_id = handle_value(socket_id),
     };
     for (;;) {
@@ -2776,7 +2794,7 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
         }
 
         socket = find_udp_socket(socket_id);
-        if (socket == 0 || socket->owner != owner) {
+        if (socket == 0) {
             return -1;
         }
         if (socket->count != 0) {
@@ -2809,14 +2827,9 @@ int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);
-        if (listener == 0 || listener->owner != owner) {
+        if (listener == 0) {
             return -1;
         }
         *ip_out = local_ip;
@@ -2825,7 +2838,7 @@ int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
     }
 
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
         if (connection == 0) {
             return -1;
         }
@@ -2836,7 +2849,7 @@ int64_t net_sockname(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
 
     if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
         struct udp_socket *socket = find_udp_socket(handle);
-        if (socket == 0 || socket->owner != owner) {
+        if (socket == 0) {
             return -1;
         }
         *ip_out = local_ip;
@@ -2852,12 +2865,11 @@ int64_t net_peername(uint64_t handle, uint32_t *ip_out, uint16_t *port_out) {
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0 || handle_type(handle) != NET_HANDLE_CONNECTION) {
+    if (handle_type(handle) != NET_HANDLE_CONNECTION) {
         return -1;
     }
 
-    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
@@ -2871,12 +2883,7 @@ int64_t net_shutdown(uint64_t handle, int how) {
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
-    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
     if (connection == 0 || !tcp_state_can_read(connection->state)) {
         return -1;
     }
@@ -2901,12 +2908,7 @@ int64_t net_error(uint64_t handle) {
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
-    struct tcp_connection *connection = find_connection_by_id_owner(handle_value(handle), owner);
+    struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
     if (connection == 0) {
         return -1;
     }
@@ -3007,7 +3009,7 @@ static bool accept_ready(void *arg) {
 
     for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
         struct pending_request *request = &pending_requests[i];
-        if (request->used && request->port == listener->port && request->owner == listener->owner) {
+        if (request->used && request->port == listener->port) {
             return true;
         }
     }
@@ -3024,7 +3026,7 @@ int64_t net_accept(uint64_t listener_id,
     }
 
     struct net_listener *listener = find_listener(listener_id);
-    if (listener == 0 || listener->owner != process_current()) {
+    if (listener == 0) {
         return -1;
     }
 
@@ -3035,7 +3037,7 @@ int64_t net_accept(uint64_t listener_id,
 
         for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
             struct pending_request *request = &pending_requests[i];
-            if (request->used && request->port == listener->port && request->owner == listener->owner) {
+            if (request->used && request->port == listener->port) {
                 struct tcp_connection *connection = &tcp_connections[request->connection_index];
                 uint64_t copied = 0;
                 if (buffer != 0 && capacity != 0) {
@@ -3055,6 +3057,7 @@ int64_t net_accept(uint64_t listener_id,
                 request->used = false;
                 connection->pending = false;
                 connection->accepted = true;
+                connection->refs = 1;
                 accepted_requests++;
                 return (int64_t)make_handle(NET_HANDLE_CONNECTION, request->connection_id);
             }
@@ -3071,21 +3074,19 @@ int64_t net_accept(uint64_t listener_id,
 }
 
 struct read_wait_arg {
-    struct process *owner;
     uint64_t connection_id;
 };
 
 static bool read_ready(void *arg) {
     struct read_wait_arg *wait = arg;
-    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current()) {
         return true;
     }
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
         if (connection->state != TCP_STATE_EMPTY &&
-            connection->id == wait->connection_id &&
-            connection->owner == wait->owner) {
+            connection->id == wait->connection_id) {
             return connection->rx_length != connection->rx_offset || connection->peer_closed || connection->reset;
         }
     }
@@ -3103,14 +3104,8 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
     uint64_t value = handle_value(connection_id);
     struct read_wait_arg wait = {
-        .owner = owner,
         .connection_id = value,
     };
     for (;;) {
@@ -3121,7 +3116,7 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
+            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
                 found = true;
                 if (connection->reset) {
                     return -1;
@@ -3174,21 +3169,19 @@ int64_t net_peek(uint64_t connection_id, char *buffer, uint64_t length, bool non
 }
 
 struct write_wait_arg {
-    struct process *owner;
     uint64_t connection_id;
 };
 
 static bool write_ready(void *arg) {
     struct write_wait_arg *wait = arg;
-    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current()) {
         return true;
     }
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         struct tcp_connection *connection = &tcp_connections[i];
         if (connection->state != TCP_STATE_EMPTY &&
-            connection->id == wait->connection_id &&
-            connection->owner == wait->owner) {
+            connection->id == wait->connection_id) {
             return connection->reset ||
                 connection->local_write_closed ||
                 !tcp_state_can_write(connection->state) ||
@@ -3209,15 +3202,9 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
     uint64_t value = handle_value(connection_id);
     uint64_t sent = 0;
     struct write_wait_arg wait = {
-        .owner = owner,
         .connection_id = value,
     };
     for (;;) {
@@ -3228,7 +3215,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
         bool found = false;
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
+            if (connection->state != TCP_STATE_EMPTY && connection->id == value) {
                 found = true;
                 if (!tcp_state_can_write(connection->state) ||
                     connection->local_write_closed ||
@@ -3281,16 +3268,11 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         return SRV_POLLNVAL;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return SRV_POLLNVAL;
-    }
-
     e1000_poll(32, false);
 
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);
-        if (listener == 0 || listener->owner != owner) {
+        if (listener == 0) {
             return SRV_POLLNVAL;
         }
 
@@ -3298,7 +3280,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         if ((events & SRV_POLLIN) != 0) {
             for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
                 struct pending_request *request = &pending_requests[i];
-                if (request->used && request->port == listener->port && request->owner == owner) {
+                if (request->used && request->port == listener->port) {
                     revents |= SRV_POLLIN;
                     break;
                 }
@@ -3312,8 +3294,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             struct tcp_connection *connection = &tcp_connections[i];
             if (connection->state == TCP_STATE_EMPTY ||
-                connection->id != value ||
-                connection->owner != owner) {
+                connection->id != value) {
                 continue;
             }
 
@@ -3344,7 +3325,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
 
     if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
         struct udp_socket *socket = find_udp_socket(handle);
-        if (socket == 0 || socket->owner != owner) {
+        if (socket == 0) {
             return SRV_POLLNVAL;
         }
 
@@ -3361,41 +3342,76 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
     return SRV_POLLNVAL;
 }
 
+int64_t net_hold(uint64_t handle) {
+    if (!initialized) {
+        return -1;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_CONNECTION) {
+        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        if (connection == 0 || connection->refs == UINT32_MAX) {
+            return -1;
+        }
+        connection->refs++;
+        return 0;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_LISTENER) {
+        struct net_listener *listener = find_listener(handle);
+        if (listener == 0 || listener->refs == UINT32_MAX) {
+            return -1;
+        }
+        listener->refs++;
+        return 0;
+    }
+
+    if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
+        struct udp_socket *socket = find_udp_socket(handle);
+        if (socket == 0 || socket->refs == UINT32_MAX) {
+            return -1;
+        }
+        socket->refs++;
+        return 0;
+    }
+
+    return -1;
+}
+
 int64_t net_close(uint64_t handle) {
     if (!initialized) {
         return -1;
     }
 
-    struct process *owner = process_current();
-    if (owner == 0) {
-        return -1;
-    }
-
     if (handle_type(handle) == NET_HANDLE_CONNECTION) {
-        uint64_t value = handle_value(handle);
-        for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
-            struct tcp_connection *connection = &tcp_connections[i];
-            if (connection->state != TCP_STATE_EMPTY && connection->id == value && connection->owner == owner) {
-                if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
-                    close_connection(connection);
-                } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
-                    if (!tcp_send_fin(connection)) {
-                        close_connection(connection);
-                    }
-                } else if (tcp_state_closing(connection->state) && connection->close_deadline == 0) {
-                    connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
-                }
-                completed_requests++;
-                return 0;
-            }
+        struct tcp_connection *connection = find_connection_by_id(handle_value(handle));
+        if (connection == 0 || connection->refs == 0) {
+            return -1;
         }
-        return -1;
+        connection->refs--;
+        if (connection->refs != 0) {
+            return 0;
+        }
+        if (connection->reset || connection->state == TCP_STATE_SYN_SENT) {
+            close_connection(connection);
+        } else if (tcp_state_can_write(connection->state) && !connection->local_write_closed) {
+            if (!tcp_send_fin(connection)) {
+                close_connection(connection);
+            }
+        } else if (tcp_state_closing(connection->state) && connection->close_deadline == 0) {
+            connection->close_deadline = timer_ticks() + TCP_CLOSE_TIMEOUT_TICKS;
+        }
+        completed_requests++;
+        return 0;
     }
 
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);
-        if (listener == 0 || listener->owner != owner) {
+        if (listener == 0 || listener->refs == 0) {
             return -1;
+        }
+        listener->refs--;
+        if (listener->refs != 0) {
+            return 0;
         }
 
         uint16_t port = listener->port;
@@ -3408,7 +3424,7 @@ int64_t net_close(uint64_t handle) {
         for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
             if (tcp_connections[i].state != TCP_STATE_EMPTY &&
                 tcp_connections[i].local_port == port &&
-                tcp_connections[i].owner == owner &&
+                tcp_connections[i].refs == 0 &&
                 !tcp_connections[i].accepted) {
                 close_connection(&tcp_connections[i]);
             }
@@ -3418,8 +3434,12 @@ int64_t net_close(uint64_t handle) {
 
     if (handle_type(handle) == NET_HANDLE_UDP_SOCKET) {
         struct udp_socket *socket = find_udp_socket(handle);
-        if (socket == 0 || socket->owner != owner) {
+        if (socket == 0 || socket->refs == 0) {
             return -1;
+        }
+        socket->refs--;
+        if (socket->refs != 0) {
+            return 0;
         }
         clear_bytes((uint8_t *)socket, sizeof(*socket));
         scheduler_wake_all(&udp_wait_queue);
@@ -3436,27 +3456,41 @@ void net_process_cleanup(struct process *process) {
     }
 
     for (uint64_t i = 0; i < NET_PENDING_REQUESTS; i++) {
-        if (pending_requests[i].used && pending_requests[i].owner == process) {
+        if (pending_requests[i].used &&
+            pending_requests[i].owner == process &&
+            find_listener_for_port(pending_requests[i].port) == 0) {
             pending_requests[i].used = false;
         }
     }
 
     for (uint64_t i = 0; i < NET_LISTENERS; i++) {
         if (listeners[i].used && listeners[i].owner == process) {
-            listeners[i].used = false;
+            if (listeners[i].refs == 0) {
+                listeners[i].used = false;
+            } else {
+                listeners[i].owner = 0;
+            }
         }
     }
 
     for (uint64_t i = 0; i < TCP_MAX_CONNECTIONS; i++) {
         if (tcp_connections[i].state != TCP_STATE_EMPTY &&
             tcp_connections[i].owner == process) {
-            close_connection(&tcp_connections[i]);
+            if (tcp_connections[i].refs == 0) {
+                close_connection(&tcp_connections[i]);
+            } else {
+                tcp_connections[i].owner = 0;
+            }
         }
     }
 
     for (uint64_t i = 0; i < UDP_MAX_SOCKETS; i++) {
         if (udp_sockets[i].used && udp_sockets[i].owner == process) {
-            clear_bytes((uint8_t *)&udp_sockets[i], sizeof(udp_sockets[i]));
+            if (udp_sockets[i].refs == 0) {
+                clear_bytes((uint8_t *)&udp_sockets[i], sizeof(udp_sockets[i]));
+            } else {
+                udp_sockets[i].owner = 0;
+            }
         }
     }
 }

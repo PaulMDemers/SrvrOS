@@ -3894,6 +3894,9 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
     if (source->type == PROCESS_FILE_NET_LISTENER ||
         source->type == PROCESS_FILE_NET_CONNECTION ||
         source->type == PROCESS_FILE_NET_UDP) {
+        if (net_hold(source->handle) < 0) {
+            return false;
+        }
         uint8_t *bytes = (uint8_t *)target;
         for (uint64_t i = 0; i < sizeof(*target); i++) {
             bytes[i] = 0;
@@ -4970,8 +4973,8 @@ void process_exit(uint64_t status) {
         process->user_threads[i].used = false;
         process->user_threads[i].active = false;
     }
-    net_process_cleanup(process);
     cleanup_process_files(process);
+    net_process_cleanup(process);
     process->active = false;
     scheduler_clear_user_context();
     cleanup_process_address_space(process);

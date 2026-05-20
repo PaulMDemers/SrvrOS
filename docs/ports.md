@@ -57,8 +57,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `uv_write2`, queue multiple pending handles, and repeat the transfer across
   a spawned-child `UV_CREATE_PIPE` channel. TCP handles now retain socket
   metadata through fd-rights transfer so `uv_pipe_pending_type` can report
-  `UV_TCP`. Credentials and broader ancillary control data are intentionally
-  still future work.
+  `UV_TCP`, and net handles are refcounted so transferred TCP/UDP descriptors
+  are not invalidated by closing another fd for the same kernel handle.
+  Credentials and broader ancillary control data are intentionally still
+  future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`

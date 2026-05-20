@@ -108,6 +108,10 @@ server.
   rights path, TCP handle classification in `uv_guess_handle`, and
   `/fat/bin/libuvdemo` coverage for `uv_write2` transfer of a TCP listener
   handle with `UV_TCP` pending-handle typing.
+- Refcounts TCP listener/connection and UDP kernel handles across fd
+  duplication, inheritance, and `SCM_RIGHTS` transfer, and extends the
+  libuv TCP IPC smoke path so a received TCP handle remains valid after the
+  sender closes its original fd.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

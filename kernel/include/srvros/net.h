@@ -45,6 +45,7 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
 int64_t net_peek(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock);
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock);
 uint16_t net_poll_events(uint64_t handle, uint16_t events);
+int64_t net_hold(uint64_t handle);
 int64_t net_close(uint64_t handle);
 void net_process_cleanup(struct process *process);
 void net_process_wake(struct process *process);

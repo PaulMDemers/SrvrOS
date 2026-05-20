@@ -1883,6 +1883,7 @@ static int tcp_ipc_handle_test(void) {
     tcp_ipc_server.connection_cb = 0;
     tcp_ipc_server.handle.active = 0;
     (void)uv_run(&tcp_ipc_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&tcp_ipc_server, 0);
     int pending_count_before = uv_pipe_pending_count(&tcp_ipc_receiver);
     uv_handle_type pending_type_before = uv_pipe_pending_type(&tcp_ipc_receiver);
     int wrong_accept = uv_accept((uv_stream_t *)&tcp_ipc_receiver, (uv_stream_t *)&tcp_ipc_wrong_pipe);
@@ -1906,7 +1907,6 @@ static int tcp_ipc_handle_test(void) {
         return 1;
     }
     uv_close((uv_handle_t *)&tcp_ipc_received, 0);
-    uv_close((uv_handle_t *)&tcp_ipc_server, 0);
     uv_close((uv_handle_t *)&tcp_ipc_wrong_pipe, 0);
     uv_close((uv_handle_t *)&tcp_ipc_receiver, 0);
     uv_close((uv_handle_t *)&tcp_ipc_sender, 0);

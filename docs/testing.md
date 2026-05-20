@@ -198,8 +198,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   through `uv_accept`, queueing multiple pending pipe handles, repeating handle
   transfer across a spawned child process over a `UV_CREATE_PIPE` IPC channel,
   transferring a TCP listener handle with `uv_write2` and confirming
-  `UV_TCP` pending-handle typing, checking socketpair polling/handle
-  classification, exercising socketpair `sendmsg`/`recvmsg` scatter/gather
+  `UV_TCP` pending-handle typing after the sender closes its original
+  listener fd, checking socketpair polling/handle classification, exercising
+  socketpair `sendmsg`/`recvmsg` scatter/gather
   transfers and `SCM_RIGHTS` fd passing, feeding a child `cat` process over stdin, reading child
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,
   exercising inherited-fd stdin, inherited-stream stdin/stdout/stderr, short
