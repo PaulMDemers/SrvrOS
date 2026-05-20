@@ -19,6 +19,7 @@
 #define FILE_BUFFER_CAPACITY 1024
 #define MAX_PATH 160
 #define MAX_CLIENTS 4
+#define REQUEST_LINE_CAPACITY 512
 #define POLL_TIMEOUT_MS 250
 #define CLIENT_IDLE_TICKS 1000
 #define STATUS_ENDPOINT_CODE 299
@@ -83,6 +84,9 @@ struct stat_info {
 
 static char web_root[MAX_PATH] = "/fat/www";
 static struct webd_stats stats;
+static size_t active_client_limit = MAX_CLIENTS;
+static uint64_t stats_every = 1;
+static int quiet_logs;
 
 static long syscall0(long number) {
     __asm__ volatile ("int $0x80" : "+a"(number) : : "memory");
@@ -157,6 +161,21 @@ static int string_equals_n(const char *left, const char *right, size_t length) {
     return right[length] == '\0';
 }
 
+static int parse_u64(const char *text, uint64_t *value) {
+    uint64_t result = 0;
+    if (text == 0 || text[0] == '\0') {
+        return 0;
+    }
+    for (size_t i = 0; text[i] != '\0'; i++) {
+        if (text[i] < '0' || text[i] > '9') {
+            return 0;
+        }
+        result = result * 10 + (uint64_t)(text[i] - '0');
+    }
+    *value = result;
+    return 1;
+}
+
 static void write_number(uint64_t value) {
     char digits[21];
     char output[21];
@@ -214,6 +233,18 @@ static size_t find_header_end(const char *buffer, size_t length) {
         }
     }
     return 0;
+}
+
+static int request_line_over_limit(const char *buffer, size_t length) {
+    if (length <= REQUEST_LINE_CAPACITY) {
+        return 0;
+    }
+    for (size_t i = 0; i <= REQUEST_LINE_CAPACITY && i < length; i++) {
+        if (buffer[i] == '\n') {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static int safe_url_char(char c) {
@@ -323,20 +354,63 @@ static int copy_static_path(const char *url, size_t url_length, char *path, size
     return 1;
 }
 
-static void configure_root(int argc, char **argv) {
-    if (argc < 2 || argv[1] == 0 || argv[1][0] == '\0') {
+static void set_root(const char *root) {
+    if (root == 0 || root[0] == '\0') {
         return;
     }
-    size_t length = strlen(argv[1]);
+    size_t length = strlen(root);
     if (length >= sizeof(web_root)) {
         return;
     }
     for (size_t i = 0; i <= length; i++) {
-        web_root[i] = argv[1][i];
+        web_root[i] = root[i];
     }
     while (length > 1 && web_root[length - 1] == '/') {
         web_root[--length] = '\0';
     }
+}
+
+static int configure(int argc, char **argv) {
+    for (int i = 1; i < argc; i++) {
+        if (argv[i] == 0 || argv[i][0] == '\0') {
+            continue;
+        }
+        if (string_equals(argv[i], "--root")) {
+            if (i + 1 >= argc) {
+                return 0;
+            }
+            set_root(argv[++i]);
+            continue;
+        }
+        if (string_equals(argv[i], "--max-clients")) {
+            uint64_t value;
+            if (i + 1 >= argc || !parse_u64(argv[++i], &value) || value < 1) {
+                return 0;
+            }
+            if (value > MAX_CLIENTS) {
+                value = MAX_CLIENTS;
+            }
+            active_client_limit = (size_t)value;
+            continue;
+        }
+        if (string_equals(argv[i], "--stats-every")) {
+            uint64_t value;
+            if (i + 1 >= argc || !parse_u64(argv[++i], &value)) {
+                return 0;
+            }
+            stats_every = value;
+            continue;
+        }
+        if (string_equals(argv[i], "--quiet")) {
+            quiet_logs = 1;
+            continue;
+        }
+        if (argv[i][0] == '-') {
+            return 0;
+        }
+        set_root(argv[i]);
+    }
+    return 1;
 }
 
 static int parse_request_line(const char *request,
@@ -350,6 +424,9 @@ static int parse_request_line(const char *request,
     }
     if (line_end == request_length) {
         return 400;
+    }
+    if (line_end > REQUEST_LINE_CAPACITY) {
+        return 414;
     }
     if (line_end > 0 && request[line_end - 1] == '\r') {
         line_end--;
@@ -382,6 +459,27 @@ static int parse_request_line(const char *request,
     }
     if (url_end == url_start) {
         return 400;
+    }
+
+    size_t version_start = url_end;
+    while (version_start < line_end && request[version_start] == ' ') {
+        version_start++;
+    }
+    size_t version_end = version_start;
+    while (version_end < line_end && request[version_end] != ' ') {
+        version_end++;
+    }
+    if (version_start == version_end ||
+        (version_end - version_start != 8) ||
+        (!string_equals_n(request + version_start, "HTTP/1.0", 8) &&
+            !string_equals_n(request + version_start, "HTTP/1.1", 8))) {
+        return 505;
+    }
+    while (version_end < line_end) {
+        if (request[version_end] != ' ') {
+            return 400;
+        }
+        version_end++;
     }
 
     if (string_equals_n(request + url_start, "/__status", url_end - url_start)) {
@@ -480,6 +578,9 @@ static int write_u64(long fd, uint64_t value) {
 }
 
 static void log_stats(void) {
+    if (quiet_logs) {
+        return;
+    }
     write_text("webd: stats accepted=");
     write_number(stats.accepted);
     write_text(" completed=");
@@ -499,6 +600,16 @@ static void log_stats(void) {
     write_text(" bytes=");
     write_number(stats.bytes);
     write_text("\n");
+}
+
+static void maybe_log_stats(int force) {
+    if (quiet_logs) {
+        return;
+    }
+    if (force || stats_every == 1 ||
+        (stats_every > 1 && stats.completed > 0 && (stats.completed % stats_every) == 0)) {
+        log_stats();
+    }
 }
 
 static void record_client_opened(void) {
@@ -664,6 +775,33 @@ static struct response_result handle_request(long connection, const char *reques
             method_not_allowed,
             is_head);
     }
+    if (status == 414) {
+        const char uri_too_long[] = "srvros webd: uri too long\n";
+        return send_simple_response(connection,
+            414,
+            "414 URI Too Long",
+            "text/plain; charset=utf-8",
+            uri_too_long,
+            is_head);
+    }
+    if (status == 431) {
+        const char fields_too_large[] = "srvros webd: request header fields too large\n";
+        return send_simple_response(connection,
+            431,
+            "431 Request Header Fields Too Large",
+            "text/plain; charset=utf-8",
+            fields_too_large,
+            is_head);
+    }
+    if (status == 505) {
+        const char version_unsupported[] = "srvros webd: http version not supported\n";
+        return send_simple_response(connection,
+            505,
+            "505 HTTP Version Not Supported",
+            "text/plain; charset=utf-8",
+            version_unsupported,
+            is_head);
+    }
     const char bad_request[] = "srvros webd: bad request\n";
     return send_simple_response(connection,
         400,
@@ -726,7 +864,7 @@ static void close_client(struct client *client) {
 }
 
 static struct client *find_free_client(struct client *clients) {
-    for (size_t i = 0; i < MAX_CLIENTS; i++) {
+    for (size_t i = 0; i < active_client_limit; i++) {
         if (!clients[i].used) {
             return &clients[i];
         }
@@ -757,8 +895,10 @@ static void accept_ready_client(long listener, struct client *clients) {
         stats.busy++;
         record_response_result(&result);
         syscall1(SYS_CLOSE, connection);
-        write_text("webd: busy\n");
-        log_stats();
+        if (!quiet_logs) {
+            write_text("webd: busy\n");
+        }
+        maybe_log_stats(1);
         return;
     }
 
@@ -776,17 +916,25 @@ static void read_ready_client(struct client *client, char *path) {
         return;
     }
 
-    if (client->request_used == sizeof(client->request)) {
+    if (client->request_used == sizeof(client->request) ||
+        request_line_over_limit(client->request, client->request_used)) {
+        int code = client->request_used == sizeof(client->request) ? 431 : 414;
+        const char *status = code == 431 ? "431 Request Header Fields Too Large" : "414 URI Too Long";
+        const char *body = code == 431 ?
+            "srvros webd: request header fields too large\n" :
+            "srvros webd: uri too long\n";
         struct response_result result = send_simple_response(client->fd,
-            413,
-            "413 Payload Too Large",
+            code,
+            status,
             "text/plain; charset=utf-8",
-            "srvros webd: request too large\n",
+            body,
             0);
         record_response_result(&result);
         close_client(client);
-        write_text("webd: request too large\n");
-        log_stats();
+        if (!quiet_logs) {
+            write_text("webd: request too large\n");
+        }
+        maybe_log_stats(1);
         return;
     }
 
@@ -801,8 +949,10 @@ static void read_ready_client(struct client *client, char *path) {
         stats.failed++;
         stats.read_closed++;
         close_client(client);
-        write_text("webd: read closed\n");
-        log_stats();
+        if (!quiet_logs) {
+            write_text("webd: read closed\n");
+        }
+        maybe_log_stats(1);
         return;
     }
 
@@ -814,16 +964,22 @@ static void read_ready_client(struct client *client, char *path) {
     }
 
     struct response_result result = handle_request(client->fd, client->request, header_end, path);
-    log_access_line(client->request, header_end, &result);
+    if (!quiet_logs) {
+        log_access_line(client->request, header_end, &result);
+    }
     record_response_result(&result);
     close_client(client);
     if (!result.sent) {
-        write_text("webd: respond failed\n");
-        log_stats();
+        if (!quiet_logs) {
+            write_text("webd: respond failed\n");
+        }
+        maybe_log_stats(1);
         return;
     }
-    write_text("webd: response sent\n");
-    log_stats();
+    if (!quiet_logs) {
+        write_text("webd: response sent\n");
+    }
+    maybe_log_stats(0);
 }
 
 static void close_idle_clients(struct client *clients) {
@@ -833,8 +989,10 @@ static void close_idle_clients(struct client *clients) {
             stats.idle_closed++;
             stats.failed++;
             close_client(&clients[i]);
-            write_text("webd: idle closed\n");
-            log_stats();
+            if (!quiet_logs) {
+                write_text("webd: idle closed\n");
+            }
+            maybe_log_stats(1);
         }
     }
 }
@@ -846,10 +1004,13 @@ int main(int argc, char **argv) {
     int indexes[MAX_CLIENTS + 1];
 
     if (argc > 1 && (string_equals(argv[1], "--help") || string_equals(argv[1], "-h"))) {
-        write_text("usage: webd <root>\n");
+        write_text("usage: webd [--root DIR] [--max-clients N] [--stats-every N] [--quiet] [root]\n");
         return 0;
     }
-    configure_root(argc, argv);
+    if (!configure(argc, argv)) {
+        write_text("usage: webd [--root DIR] [--max-clients N] [--stats-every N] [--quiet] [root]\n");
+        return 1;
+    }
     long listener = syscall1(SYS_NET_LISTEN, 80);
     if (listener < 0) {
         write_text("webd: listen failed\n");
@@ -867,7 +1028,7 @@ int main(int argc, char **argv) {
         fds[0].revents = 0;
         indexes[0] = -1;
 
-        for (size_t i = 0; i < MAX_CLIENTS; i++) {
+        for (size_t i = 0; i < active_client_limit; i++) {
             if (!clients[i].used) {
                 continue;
             }
@@ -904,8 +1065,10 @@ int main(int argc, char **argv) {
                 stats.failed++;
                 stats.read_closed++;
                 close_client(client);
-                write_text("webd: read closed\n");
-                log_stats();
+                if (!quiet_logs) {
+                    write_text("webd: read closed\n");
+                }
+                maybe_log_stats(1);
                 continue;
             }
             if ((fds[i].revents & POLLIN) != 0) {

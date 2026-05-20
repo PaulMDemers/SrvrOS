@@ -250,8 +250,9 @@ The network stack includes:
 Network file descriptors are process-owned and cleaned up on process exit.
 `webd` listens on port 80, polls the listener plus active connection fds, and
 serves files from `/fat/www`. It supports nested static asset paths, GET/HEAD,
-content lengths, basic MIME/cache headers, idle partial-client cleanup, and a
-small bounded active-client table.
+query-stripped static lookups, directory index fallback, content lengths, basic
+MIME/cache headers, idle partial-client cleanup, clear malformed-request
+responses, and a small runtime-limited active-client table.
 
 The shell service manager reads `/fat/etc/services/*.svc` files and uses them
 to start, stop, restart, and inspect persistent userspace daemons. The generated

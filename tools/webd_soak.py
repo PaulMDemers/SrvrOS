@@ -14,6 +14,7 @@ import time
 
 REQUEST_CASES = [
     ("/", [b"HTTP/1.1 200 OK", b"<h1>srvros</h1>"]),
+    ("/?cache=bust", [b"HTTP/1.1 200 OK", b"<h1>srvros</h1>"]),
     ("/assets/site.css", [b"HTTP/1.1 200 OK", b"Content-Type: text/css", b"max-width:48rem"]),
     ("/status.txt", [b"HTTP/1.1 200 OK", b"static file serving"]),
     ("/large.txt", [b"HTTP/1.1 200 OK", b"Content-Length: 5982", b"srvros large tcp payload ends"]),
@@ -73,6 +74,10 @@ def connect_serial(port, timeout):
 
 def http_get(port, path, timeout):
     request = f"GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".encode("ascii")
+    return http_request(port, request, timeout, f"GET {path}")
+
+
+def http_request(port, request, timeout, label):
     deadline = time.time() + timeout
     last_error = None
     last_response = b""
@@ -99,7 +104,7 @@ def http_get(port, path, timeout):
         time.sleep(0.2)
     if last_response:
         return last_response
-    raise RuntimeError(f"GET {path} failed: {last_error}")
+    raise RuntimeError(f"{label} failed: {last_error}")
 
 
 def early_disconnect(port, path):
@@ -152,8 +157,8 @@ def check_status_counters(counters, sequential, concurrent, missing):
             missing.append(f"/__status missing {name}")
     if not counters:
         return
-    expected_accepted = sequential + concurrent + 2
-    expected_completed = sequential + concurrent
+    expected_accepted = sequential + concurrent + 6
+    expected_completed = sequential + concurrent + 4
     if counters.get("accepted", 0) < expected_accepted:
         missing.append(f"/__status accepted < {expected_accepted}: {counters.get('accepted', 0)}")
     if counters.get("completed", 0) < expected_completed:
@@ -187,6 +192,26 @@ def concurrent_round(port, clients, timeout, missing):
     for index, thread in enumerate(threads):
         if thread.is_alive():
             missing.append(f"concurrent {index + 1} timed out")
+
+
+def malformed_round(port, timeout, missing):
+    cases = [
+        ("bad-version", b"GET / HTTP/2.0\r\nHost: bad\r\nConnection: close\r\n\r\n",
+            [b"HTTP/1.1 505 HTTP Version Not Supported"]),
+        ("bad-method", b"POST / HTTP/1.1\r\nHost: bad\r\nConnection: close\r\n\r\n",
+            [b"HTTP/1.1 405 Method Not Allowed"]),
+        ("bad-path", b"GET /../secret HTTP/1.1\r\nHost: bad\r\nConnection: close\r\n\r\n",
+            [b"HTTP/1.1 400 Bad Request"]),
+        ("long-uri",
+            b"GET /" + (b"a" * 620) + b" HTTP/1.1\r\nHost: bad\r\nConnection: close\r\n\r\n",
+            [b"HTTP/1.1 414 URI Too Long"]),
+    ]
+    for label, request, markers in cases:
+        try:
+            response = http_request(port, request, timeout, label)
+            check_response(label, response, markers, missing)
+        except Exception as exc:
+            missing.append(f"{label}: {exc}")
 
 
 def main():
@@ -257,6 +282,7 @@ def main():
                     missing.append(f"sequential {index + 1} {path}: {exc}")
 
             concurrent_round(http_port, args.concurrent, args.http_wait, missing)
+            malformed_round(http_port, args.http_wait, missing)
 
             try:
                 early_disconnect(http_port, "/large.txt")

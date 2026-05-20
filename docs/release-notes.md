@@ -147,11 +147,13 @@ server.
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
   idle cleanup, segmented larger TCP responses, a bounded active-client table,
   lightweight `webd: stats` observability, and a plain-text `/__status`
-  endpoint.
+  endpoint. Runtime options now cover `--root`, `--max-clients`,
+  `--stats-every`, and `--quiet`, while request parsing rejects unsupported
+  HTTP versions and oversized request lines/headers with clearer status codes.
 - Adds `tools/webd_soak.py` to exercise `webd` under repeated host HTTP
   requests, a small concurrent client burst, early client disconnects during a
-  larger response, a final post-abort request, and `/__status` counter
-  validation.
+  larger response, malformed requests, a final post-abort request, and
+  `/__status` counter validation.
 - Adds config-backed shell services under `/fat/etc/services/*.svc`; the
   generated image ships `webd.svc`, starts `/init --system` from the kernel,
   logs startup output to `/fat/var/log/init.log`, launches `/fat/bin/svscan`

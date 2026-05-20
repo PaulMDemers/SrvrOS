@@ -331,7 +331,8 @@ bounded diagnostics. `service <name> restart --wait` lets `svscan` bring
 compact access lines as
 `webd: access METHOD PATH STATUS BYTES`, emits `webd: stats` counter snapshots,
 and exposes the same accepted/completed/failed/busy/idle/active/byte counters
-at `/__status`.
+at `/__status`. It also accepts `--root DIR`, `--max-clients N`,
+`--stats-every N`, and `--quiet` for small operational tuning.
 
 The shell can also run non-interactively, which is useful for smoke tests,
 ports, and simple boot scripts:
