@@ -65,6 +65,11 @@ server.
 - Expands libuv process/stdio staging with child stdin pipes, cwd-scoped
   `uv_spawn`, and duplex child stdio pipes backed by a kernel pipe-pair fd
   primitive.
+- Hardens libuv `uv_spawn` validation so empty executables, empty argv,
+  unsupported process flags, invalid stdio source combinations, bad inherited
+  fds, missing executables, and bad cwd fail before registering a process
+  handle or leaving stdio resources behind. `libuvdemo` now also verifies
+  inherited-fd stdin into a spawned child.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

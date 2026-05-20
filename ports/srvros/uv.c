@@ -3070,6 +3070,59 @@ void uv_freeaddrinfo(struct addrinfo *ai) {
     freeaddrinfo(ai);
 }
 
+static int stdio_source_count(int flags) {
+    int count = 0;
+    if ((flags & UV_CREATE_PIPE) != 0) {
+        count++;
+    }
+    if ((flags & UV_INHERIT_FD) != 0) {
+        count++;
+    }
+    if ((flags & UV_INHERIT_STREAM) != 0) {
+        count++;
+    }
+    return count;
+}
+
+static int validate_spawn_stdio(const uv_stdio_container_t *stdio, int index) {
+    int flags = stdio[index].flags;
+    const int known_flags =
+        UV_CREATE_PIPE |
+        UV_INHERIT_FD |
+        UV_INHERIT_STREAM |
+        UV_READABLE_PIPE |
+        UV_WRITABLE_PIPE |
+        UV_NONBLOCK_PIPE;
+    if ((flags & ~known_flags) != 0) {
+        return UV_EINVAL;
+    }
+    if (flags == UV_IGNORE || flags == 0) {
+        return 0;
+    }
+    if (stdio_source_count(flags) != 1) {
+        return UV_EINVAL;
+    }
+    if ((flags & UV_CREATE_PIPE) == 0 &&
+        (flags & (UV_READABLE_PIPE | UV_WRITABLE_PIPE | UV_NONBLOCK_PIPE)) != 0) {
+        return UV_EINVAL;
+    }
+    if ((flags & UV_INHERIT_FD) != 0) {
+        return stdio[index].data.fd >= 0 ? 0 : UV_EBADF;
+    }
+    if ((flags & (UV_INHERIT_STREAM | UV_CREATE_PIPE)) != 0 && stdio[index].data.stream == 0) {
+        return UV_EINVAL;
+    }
+    return 0;
+}
+
+static int spawn_dup2_and_close(posix_spawn_file_actions_t *actions, int old_fd, int new_fd) {
+    int error = posix_spawn_file_actions_adddup2(actions, old_fd, new_fd);
+    if (error != 0 || old_fd == new_fd || new_fd < 3) {
+        return error;
+    }
+    return posix_spawn_file_actions_addclose(actions, old_fd);
+}
+
 static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
     const uv_stdio_container_t *stdio,
     int index,
@@ -3085,7 +3138,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         return posix_spawn_file_actions_addclose(actions, target_fd);
     }
     if ((flags & UV_INHERIT_FD) != 0) {
-        return posix_spawn_file_actions_adddup2(actions, stdio[index].data.fd, target_fd);
+        return spawn_dup2_and_close(actions, stdio[index].data.fd, target_fd);
     }
     if ((flags & UV_INHERIT_STREAM) != 0) {
         uv_os_fd_t fd = -1;
@@ -3093,7 +3146,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
         if (error < 0) {
             return -error;
         }
-        return posix_spawn_file_actions_adddup2(actions, fd, target_fd);
+        return spawn_dup2_and_close(actions, fd, target_fd);
     }
     if ((flags & UV_CREATE_PIPE) != 0) {
         int fds[2];
@@ -3118,7 +3171,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
                 return EINVAL;
             }
             parent_pipes[index] = pipe_handle;
-            return posix_spawn_file_actions_adddup2(actions, child_fds[index], target_fd);
+            return spawn_dup2_and_close(actions, child_fds[index], target_fd);
         }
         if (pipe_handle == 0 || pipe(fds) < 0) {
             return errno != 0 ? errno : EINVAL;
@@ -3143,7 +3196,7 @@ static int configure_spawn_stdio(posix_spawn_file_actions_t *actions,
             return EINVAL;
         }
         parent_pipes[index] = pipe_handle;
-        return posix_spawn_file_actions_adddup2(actions, child_fds[index], target_fd);
+        return spawn_dup2_and_close(actions, child_fds[index], target_fd);
     }
     return EINVAL;
 }
@@ -3165,7 +3218,8 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     pid_t pid = -1;
     int error = 0;
     char saved_cwd[UV_REALPATH_MAX];
-    if (loop == 0 || process == 0 || options == 0 || options->file == 0 || options->args == 0) {
+    if (loop == 0 || process == 0 || options == 0 || options->file == 0 ||
+        options->file[0] == '\0' || options->args == 0 || options->args[0] == 0) {
         return UV_EINVAL;
     }
     if (options->stdio_count < 0 || options->stdio_count > UV_MAX_STDIO_HANDLES) {
@@ -3177,14 +3231,17 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
     if ((options->flags & (UV_PROCESS_SETUID | UV_PROCESS_SETGID | UV_PROCESS_DETACHED)) != 0) {
         return UV_ENOSYS;
     }
+    for (int i = 0; i < options->stdio_count; i++) {
+        int validation = validate_spawn_stdio(options->stdio, i);
+        if (validation != 0) {
+            return validation;
+        }
+    }
     for (int i = 0; i < UV_MAX_STDIO_HANDLES; i++) {
         parent_fds[i] = -1;
         child_fds[i] = -1;
         parent_pipes[i] = 0;
     }
-    memset(process, 0, sizeof(*process));
-    init_handle(loop, &process->handle, -1, UV_HANDLE_PROCESS);
-    process->exit_cb = options->exit_cb;
     if (posix_spawn_file_actions_init(&actions) != 0) {
         return UV_ENOMEM;
     }
@@ -3209,6 +3266,9 @@ int uv_spawn(uv_loop_t *loop, uv_process_t *process, const uv_process_options_t 
         error = spawn_error;
     }
     if (error == 0) {
+        memset(process, 0, sizeof(*process));
+        init_handle(loop, &process->handle, -1, UV_HANDLE_PROCESS);
+        process->exit_cb = options->exit_cb;
         process->pid = pid;
         process->handle.active = 1;
     }

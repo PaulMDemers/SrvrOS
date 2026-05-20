@@ -1429,6 +1429,130 @@ static void process_write_keep_cb(uv_write_t *request, int status) {
     }
 }
 
+static int process_validation_test(void) {
+    uv_loop_t loop;
+    uv_process_t bad_process;
+    uv_process_options_t options;
+    uv_stdio_container_t stdio[1];
+    char *valid_argv[] = {"echo", "ignored", 0};
+    char *empty_argv[] = {0};
+    memset(&options, 0, sizeof(options));
+    memset(stdio, 0, sizeof(stdio));
+    if (uv_loop_init(&loop) < 0) {
+        puts("libuvdemo: process validation setup failed");
+        return 1;
+    }
+    options.file = "";
+    options.args = valid_argv;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_EINVAL) {
+        puts("libuvdemo: process empty file failed");
+        return 1;
+    }
+    options.file = "echo";
+    options.args = empty_argv;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_EINVAL) {
+        puts("libuvdemo: process empty args failed");
+        return 1;
+    }
+    options.args = valid_argv;
+    options.flags = UV_PROCESS_SETUID;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_ENOSYS) {
+        puts("libuvdemo: process unsupported flags failed");
+        return 1;
+    }
+    options.flags = 0;
+    options.stdio_count = 1;
+    options.stdio = 0;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_EINVAL) {
+        puts("libuvdemo: process null stdio failed");
+        return 1;
+    }
+    options.stdio = stdio;
+    stdio[0].flags = UV_CREATE_PIPE | UV_INHERIT_FD;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_EINVAL) {
+        puts("libuvdemo: process bad stdio flags failed");
+        return 1;
+    }
+    stdio[0].flags = UV_INHERIT_FD;
+    stdio[0].data.fd = -1;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_EBADF) {
+        puts("libuvdemo: process bad fd failed");
+        return 1;
+    }
+    options.file = "definitely-not-a-srvros-command";
+    options.args = valid_argv;
+    options.stdio_count = 0;
+    options.stdio = 0;
+    if (uv_spawn(&loop, &bad_process, &options) != UV_ENOENT) {
+        puts("libuvdemo: process missing executable failed");
+        return 1;
+    }
+    options.file = "echo";
+    options.cwd = "/fat/does-not-exist";
+    if (uv_spawn(&loop, &bad_process, &options) != UV_ENOENT) {
+        puts("libuvdemo: process bad cwd failed");
+        return 1;
+    }
+    if (uv_loop_close(&loop) != 0) {
+        puts("libuvdemo: process validation loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: process validation ok");
+    return 0;
+}
+
+static int process_inherit_fd_test(void) {
+    const char *path = "/fat/libuvdemo-inherit-input.txt";
+    char *argv[] = {"libuvdemo", "inherit-child", 0};
+    uv_stdio_container_t stdio[3];
+    uv_process_options_t options;
+    int fd = open(path, O_CREAT | O_TRUNC | O_RDWR, 0644);
+    if (fd < 0) {
+        puts("libuvdemo: process inherit setup failed");
+        return 1;
+    }
+    (void)write(fd, "uv-inherit-ok\n", 14);
+    (void)lseek(fd, 0, SEEK_SET);
+    memset(process_output, 0, sizeof(process_output));
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    process_exit_seen = 0;
+    process_stdout_eof = 0;
+    process_failed = 0;
+    if (uv_loop_init(&process_loop) < 0) {
+        puts("libuvdemo: process inherit setup failed");
+        close(fd);
+        return 1;
+    }
+    process_stdout_eof = 1;
+    stdio[0].flags = UV_INHERIT_FD;
+    stdio[0].data.fd = fd;
+    stdio[1].flags = UV_IGNORE;
+    stdio[2].flags = UV_IGNORE;
+    options.exit_cb = process_exit_cb;
+    options.file = "/libuvdemo";
+    options.args = argv;
+    options.stdio_count = 3;
+    options.stdio = stdio;
+    if (uv_spawn(&process_loop, &process_handle, &options) < 0 ||
+        uv_process_get_pid(&process_handle) <= 0) {
+        puts("libuvdemo: process inherit spawn failed");
+        close(fd);
+        return 1;
+    }
+    (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&process_handle, 0);
+    if (process_failed || !process_exit_seen || !process_stdout_eof) {
+        puts("libuvdemo: process inherit failed");
+        close(fd);
+        return 1;
+    }
+    close(fd);
+    (void)unlink(path);
+    puts("libuvdemo: process inherit ok");
+    return 0;
+}
+
 static int process_test(void) {
     char *argv[] = {"cat", 0};
     uv_buf_t input = uv_buf_init("uv-process-ok\n", 14);
@@ -1578,9 +1702,22 @@ static int process_duplex_test(void) {
     return 0;
 }
 
+static int process_inherit_child(void) {
+    char buffer[32];
+    ssize_t count = read(0, buffer, sizeof(buffer) - 1);
+    if (count <= 0) {
+        return 2;
+    }
+    buffer[count] = '\0';
+    return strstr(buffer, "uv-inherit-ok") != 0 ? 0 : 3;
+}
+
 int main(int argc, char **argv) {
     if (argc > 1 && strcmp(argv[1], "duplex-child") == 0) {
         return process_duplex_child();
+    }
+    if (argc > 1 && strcmp(argv[1], "inherit-child") == 0) {
+        return process_inherit_child();
     }
 
     puts("libuvdemo: srvros libuv port staging");
@@ -1598,9 +1735,11 @@ int main(int argc, char **argv) {
         pipe_stream_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
+        process_validation_test() != 0 ||
         process_test() != 0 ||
         process_cwd_test() != 0 ||
-        process_duplex_test() != 0) {
+        process_duplex_test() != 0 ||
+        process_inherit_fd_test() != 0) {
         puts("libuvdemo: failed");
         return 1;
     }
