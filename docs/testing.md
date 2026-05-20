@@ -222,7 +222,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   cwd.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
-  `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib
+  `/fat/bin/ttydemo`, `/fat/bin/posixdemo`, and `/fat/bin/ed`; zlib
   compress/decompress, cJSON parse/print/roundtrip, inih string/file parsing,
   linenoise history save/load coverage, SQLite create/insert/query/reopen on
   exFAT through the srvros VFS, termios raw-mode/restore/window-size/duplicated
@@ -243,6 +243,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
   `readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with
   local-socketpair `SCM_RIGHTS`,
+  scriptable `ed` line editing and writeback verified with `cmp`,
   pthread create/join plus mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
   EOF/error state, `scanf`/`sscanf` width, scanset, suppressed-assignment,

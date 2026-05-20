@@ -20,6 +20,9 @@ server.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.
+- Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
+  workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
+  port manifest at `ports/srvros/ed/PORT.md`.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Expands shell job tracking to 32 entries and makes bare `wait` drain every

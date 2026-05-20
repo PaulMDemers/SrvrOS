@@ -204,6 +204,11 @@ The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
 directly into a srvros executable. It uses the upstream C sources plus a small
 srvros config header, and the ports smoke test verifies that it can generate
 `y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
+The `/fat/bin/ed` app is currently a srvros-local compact line editor used to
+cover scriptable edit/write workflows while the libc grows enough for a fuller
+upstream POSIX `ed` port. It supports basic numeric range addressing plus
+append/insert/change/delete/print/read/write/load/quit commands, and the ports
+smoke test verifies an edit script against `cmp`.
 The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
 shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
@@ -368,6 +373,7 @@ Third-party source is kept as pinned submodules or snapshots under
 - linenoise `2.0`
 - SQLite amalgamation `3.53.1`
 - Berkeley Yacc snapshot `t20260126`
+- srvros-local `ed` staging tool, documented at `ports/srvros/ed/PORT.md`
 
 ## Next Porting Milestones
 

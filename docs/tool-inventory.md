@@ -47,8 +47,12 @@ Text processing, comparison, stream, and data inspection commands:
 
 ```text
 wc grep head tail tee tap sort uniq cut xargs seq cmp yes diff patch sed expr
-printf tr cksum sum comm paste join split od hexdump strings file dd
+printf tr cksum sum comm paste join split od hexdump strings file dd ed
 ```
+
+`ed` is currently a compact scriptable line editor intended for port/build
+scripts; regex addresses, substitutions, and the full POSIX diagnostic surface
+are still future work.
 
 `tap` reads from stdin, writes the stream to stdout, and also mirrors it to a
 secondary file.

@@ -12,6 +12,10 @@ that will be brought up on srvros through the POSIX-compat layer.
 - `upstream/linenoise`: linenoise line editing API, pinned to `2.0`.
 - `upstream/sqlite`: SQLite amalgamation snapshot, pinned to `3.53.1`.
 
+Port manifests for srvros-local staging tools live under `ports/srvros/*/PORT.md`.
+They record what is intentionally local, which upstream target it is preparing
+for, and which compatibility gaps remain.
+
 The zlib core sources are linked directly into `/fat/bin/zlibdemo`, which
 compresses data, writes the compressed bytes to exFAT, reads them back, and
 verifies decompression inside srvros.
@@ -46,6 +50,8 @@ advisory byte-range locks.
   submodule when possible.
 - Prefer small compatibility shims in `userspace/lib` over patching upstream.
 - Add one smoke app per port once it builds.
+- Add or update a `PORT.md` manifest for each staged port or local
+  compatibility tool.
 - Document unsupported POSIX calls explicitly instead of silently pretending.
 
 ## Near-Term Order
