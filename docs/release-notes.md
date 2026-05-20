@@ -117,6 +117,10 @@ server.
   `dup`/close survival, socket `fstat`, `accept4`, name queries, reply writes,
   shutdown, and EOF handling. libc now maps pseudo socket `fstat` and `dup`
   onto the underlying kernel fd.
+- Extends `/fat/bin/tcpstress` with a `ready` mode and adds
+  `tools/tcp_ready_smoke.py` for host-driven TCP readiness coverage: empty and
+  repeated listener polls, accepted-stream `POLLIN`/`POLLOUT` timing, peer
+  payload readiness, and post-reply cleanup.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

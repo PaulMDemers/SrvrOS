@@ -32,6 +32,52 @@ static int wait_fd(int fd, short events, int timeout_ms, const char *step) {
     return pfd.revents;
 }
 
+static int poll_once(int fd, short events, int timeout_ms, short *revents_out, const char *step) {
+    struct pollfd pfd;
+    pfd.fd = fd;
+    pfd.events = events;
+    pfd.revents = 0;
+    int result = poll(&pfd, 1, timeout_ms);
+    if (result < 0) {
+        printf("tcpstress: fail %s poll=%d errno=%d\n", step, result, errno);
+        return -1;
+    }
+    if (result > 1) {
+        printf("tcpstress: fail %s poll=%d\n", step, result);
+        return -1;
+    }
+    *revents_out = pfd.revents;
+    return result;
+}
+
+static int expect_poll(int fd, short events, int timeout_ms, short required, short forbidden, const char *step) {
+    short revents = 0;
+    int result = poll_once(fd, events, timeout_ms, &revents, step);
+    if (result <= 0) {
+        printf("tcpstress: fail %s ready=%d revents=0x%x\n", step, result, revents);
+        return -1;
+    }
+    if ((revents & required) != required || (revents & forbidden) != 0) {
+        printf("tcpstress: fail %s revents=0x%x required=0x%x forbidden=0x%x\n",
+            step,
+            revents,
+            required,
+            forbidden);
+        return -1;
+    }
+    return 0;
+}
+
+static int expect_no_poll(int fd, short events, const char *step) {
+    short revents = 0;
+    int result = poll_once(fd, events, 0, &revents, step);
+    if (result != 0 || revents != 0) {
+        printf("tcpstress: fail %s ready=%d revents=0x%x\n", step, result, revents);
+        return -1;
+    }
+    return 0;
+}
+
 static int write_all(int fd, const char *buffer, size_t length) {
     size_t offset = 0;
     while (offset < length) {
@@ -232,9 +278,103 @@ static int run_server(int port, int clients) {
     return 0;
 }
 
+static int run_ready_server(int port) {
+    int listener = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, IPPROTO_TCP);
+    if (listener < 0) {
+        return fail("ready-socket");
+    }
+
+    int on = 1;
+    (void)setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+    struct sockaddr_in address;
+    memset(&address, 0, sizeof(address));
+    address.sin_family = AF_INET;
+    address.sin_port = htons((uint16_t)port);
+    address.sin_addr.s_addr = INADDR_ANY;
+    if (bind(listener, (struct sockaddr *)&address, sizeof(address)) < 0 ||
+        listen(listener, 4) < 0 ||
+        check_socket_metadata(listener, 1) != 0) {
+        close(listener);
+        return fail("ready-listen");
+    }
+
+    if (expect_no_poll(listener, POLLIN, "ready-listener-empty") < 0) {
+        close(listener);
+        return 1;
+    }
+
+    printf("tcpstress: ready listening %d\n", port);
+    if (expect_poll(listener, POLLIN, 10000, POLLIN, POLLERR | POLLHUP, "ready-listener") < 0 ||
+        expect_poll(listener, POLLIN, 0, POLLIN, POLLERR | POLLHUP, "ready-listener-repeat") < 0) {
+        close(listener);
+        return 1;
+    }
+
+    struct sockaddr_in peer;
+    socklen_t peer_len = sizeof(peer);
+    int client = accept4(listener, (struct sockaddr *)&peer, &peer_len, SOCK_NONBLOCK | SOCK_CLOEXEC);
+    if (client < 0) {
+        close(listener);
+        return fail("ready-accept");
+    }
+    if (expect_no_poll(listener, POLLIN, "ready-listener-drained") < 0 ||
+        expect_poll(client, POLLOUT, 3000, POLLOUT, POLLERR, "ready-client-writable") < 0) {
+        close(client);
+        close(listener);
+        return 1;
+    }
+    printf("tcpstress: accepted writable ok\n");
+
+    if (expect_poll(client, POLLIN, 10000, POLLIN, POLLERR, "ready-client-readable") < 0 ||
+        expect_poll(client, POLLIN, 0, POLLIN, POLLERR, "ready-client-readable-repeat") < 0) {
+        close(client);
+        close(listener);
+        return 1;
+    }
+
+    char buffer[32];
+    ssize_t count = recv(client, buffer, sizeof(buffer) - 1, 0);
+    if (count <= 0) {
+        close(client);
+        close(listener);
+        return fail("ready-recv");
+    }
+    buffer[count] = '\0';
+    if (strcmp(buffer, "ready-data") != 0) {
+        printf("tcpstress: fail ready-payload got=%s\n", buffer);
+        close(client);
+        close(listener);
+        return 1;
+    }
+
+    if (write_all(client, "ready-reply", strlen("ready-reply")) < 0) {
+        close(client);
+        close(listener);
+        return fail("ready-write");
+    }
+    printf("tcpstress: payload readiness ok\n");
+
+    close(client);
+    close(listener);
+    printf("tcpstress: ready cleanup ok\n");
+    printf("tcpstress: readiness ok\n");
+    return 0;
+}
+
 int main(int argc, char **argv) {
     int port = 7121;
     int clients = 3;
+    if (argc > 1 && strcmp(argv[1], "ready") == 0) {
+        if (argc > 2) {
+            port = atoi(argv[2]);
+        }
+        if (port <= 0 || port > 65535) {
+            puts("usage: tcpstress ready [port]");
+            return 1;
+        }
+        return run_ready_server(port);
+    }
     if (argc > 1) {
         port = atoi(argv[1]);
     }
