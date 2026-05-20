@@ -195,7 +195,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   It also verifies `uv_pipe`, `uv_pipe_t`, `uv_socketpair`, and `uv_spawn` by
   writing through a libuv pipe stream, binding/connecting a pathname
   `uv_pipe_t`, sending a pending pipe handle with `uv_write2` and accepting it
-  through `uv_accept`, checking socketpair polling/handle
+  through `uv_accept`, repeating that handle transfer across a spawned child
+  process over an inherited fd 3 IPC channel, checking socketpair polling/handle
   classification, exercising socketpair `sendmsg`/`recvmsg` scatter/gather
   transfers and `SCM_RIGHTS` fd passing, feeding a child `cat` process over stdin, reading child
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,

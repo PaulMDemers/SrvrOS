@@ -1654,6 +1654,196 @@ static int pipe_ipc_write2_test(void) {
     return 0;
 }
 
+static uv_loop_t process_ipc_loop;
+static uv_pipe_t process_ipc_channel;
+static uv_pipe_t process_ipc_send_handle;
+static uv_process_t process_ipc_handle;
+static uv_write_t process_ipc_write_request;
+static int process_ipc_write_seen;
+static int process_ipc_exit_seen;
+static int process_ipc_failed;
+
+static void maybe_stop_process_ipc_loop(void) {
+    if (process_ipc_write_seen && process_ipc_exit_seen) {
+        uv_stop(&process_ipc_loop);
+    }
+}
+
+static void process_ipc_write_cb(uv_write_t *request, int status) {
+    if (request != &process_ipc_write_request || status < 0) {
+        process_ipc_failed = 1;
+    }
+    process_ipc_write_seen = 1;
+    maybe_stop_process_ipc_loop();
+}
+
+static void process_ipc_exit_cb(uv_process_t *process, int64_t exit_status, int term_signal) {
+    if (process != &process_ipc_handle || exit_status != 0 || term_signal != 0) {
+        process_ipc_failed = 1;
+    }
+    process_ipc_exit_seen = 1;
+    maybe_stop_process_ipc_loop();
+}
+
+static int process_ipc_write2_test(void) {
+    char *argv[] = {"libuvdemo", "process-ipc-child", 0};
+    uv_stdio_container_t stdio[4];
+    uv_process_options_t options;
+    uv_buf_t buffer = uv_buf_init("H", 1);
+    int channel_fds[2] = {-1, -1};
+    int payload_fds[2] = {-1, -1};
+    char payload_byte = 0;
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    memset(&process_ipc_loop, 0, sizeof(process_ipc_loop));
+    memset(&process_ipc_channel, 0, sizeof(process_ipc_channel));
+    memset(&process_ipc_send_handle, 0, sizeof(process_ipc_send_handle));
+    memset(&process_ipc_handle, 0, sizeof(process_ipc_handle));
+    memset(&process_ipc_write_request, 0, sizeof(process_ipc_write_request));
+    process_ipc_write_seen = 0;
+    process_ipc_exit_seen = 0;
+    process_ipc_failed = 0;
+    if (uv_loop_init(&process_ipc_loop) < 0 ||
+        uv_socketpair(SOCK_STREAM, 0, channel_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe(payload_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe_init(&process_ipc_loop, &process_ipc_channel, 1) < 0 ||
+        uv_pipe_init(&process_ipc_loop, &process_ipc_send_handle, 0) < 0 ||
+        uv_pipe_open(&process_ipc_channel, channel_fds[0]) < 0 ||
+        uv_pipe_open(&process_ipc_send_handle, payload_fds[1]) < 0) {
+        puts("libuvdemo: process ipc setup failed");
+        if (channel_fds[0] >= 0) {
+            close(channel_fds[0]);
+        }
+        if (channel_fds[1] >= 0) {
+            close(channel_fds[1]);
+        }
+        if (payload_fds[0] >= 0) {
+            close(payload_fds[0]);
+        }
+        if (payload_fds[1] >= 0) {
+            close(payload_fds[1]);
+        }
+        return 1;
+    }
+    channel_fds[0] = -1;
+    payload_fds[1] = -1;
+    stdio[0].flags = UV_IGNORE;
+    stdio[1].flags = UV_IGNORE;
+    stdio[2].flags = UV_IGNORE;
+    stdio[3].flags = UV_INHERIT_FD;
+    stdio[3].data.fd = channel_fds[1];
+    options.exit_cb = process_ipc_exit_cb;
+    options.file = "/libuvdemo";
+    options.args = argv;
+    options.stdio_count = 4;
+    options.stdio = stdio;
+    if (uv_spawn(&process_ipc_loop, &process_ipc_handle, &options) < 0) {
+        puts("libuvdemo: process ipc spawn failed");
+        close(channel_fds[1]);
+        close(payload_fds[0]);
+        uv_close((uv_handle_t *)&process_ipc_send_handle, 0);
+        uv_close((uv_handle_t *)&process_ipc_channel, 0);
+        return 1;
+    }
+    close(channel_fds[1]);
+    channel_fds[1] = -1;
+    if (uv_write2(&process_ipc_write_request,
+            (uv_stream_t *)&process_ipc_channel,
+            &buffer,
+            1,
+            (uv_stream_t *)&process_ipc_send_handle,
+            process_ipc_write_cb) < 0) {
+        puts("libuvdemo: process ipc write failed");
+        close(payload_fds[0]);
+        uv_close((uv_handle_t *)&process_ipc_handle, 0);
+        uv_close((uv_handle_t *)&process_ipc_send_handle, 0);
+        uv_close((uv_handle_t *)&process_ipc_channel, 0);
+        return 1;
+    }
+    (void)uv_run(&process_ipc_loop, UV_RUN_DEFAULT);
+    if (read(payload_fds[0], &payload_byte, 1) != 1) {
+        process_ipc_failed = 1;
+    }
+    close(payload_fds[0]);
+    uv_close((uv_handle_t *)&process_ipc_handle, 0);
+    uv_close((uv_handle_t *)&process_ipc_send_handle, 0);
+    uv_close((uv_handle_t *)&process_ipc_channel, 0);
+    if (process_ipc_failed ||
+        !process_ipc_write_seen ||
+        !process_ipc_exit_seen ||
+        process_ipc_handle.exit_status != 0 ||
+        payload_byte != 'C') {
+        puts("libuvdemo: process ipc transfer failed");
+        return 1;
+    }
+    if (uv_loop_close(&process_ipc_loop) < 0) {
+        puts("libuvdemo: process ipc loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: process ipc write2 ok");
+    return 0;
+}
+
+static uv_loop_t process_ipc_child_loop;
+static uv_pipe_t process_ipc_child_channel;
+static uv_pipe_t process_ipc_child_received;
+static char process_ipc_child_input[8];
+static int process_ipc_child_seen;
+static int process_ipc_child_failed;
+
+static void process_ipc_child_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    buffer->base = process_ipc_child_input;
+    buffer->len = sizeof(process_ipc_child_input);
+}
+
+static void process_ipc_child_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    uv_os_fd_t received_fd = -1;
+    (void)buffer;
+    if (nread <= 0) {
+        process_ipc_child_failed = 1;
+        uv_stop(&process_ipc_child_loop);
+        return;
+    }
+    if (stream != (uv_stream_t *)&process_ipc_child_channel ||
+        uv_pipe_pending_count(&process_ipc_child_channel) != 1 ||
+        uv_pipe_pending_type(&process_ipc_child_channel) != UV_NAMED_PIPE ||
+        uv_accept((uv_stream_t *)&process_ipc_child_channel,
+            (uv_stream_t *)&process_ipc_child_received) < 0 ||
+        uv_fileno((const uv_handle_t *)&process_ipc_child_received, &received_fd) < 0 ||
+        write(received_fd, "C", 1) != 1) {
+        process_ipc_child_failed = 1;
+    }
+    process_ipc_child_seen = 1;
+    uv_stop(&process_ipc_child_loop);
+}
+
+static int process_ipc_child(void) {
+    memset(&process_ipc_child_loop, 0, sizeof(process_ipc_child_loop));
+    memset(&process_ipc_child_channel, 0, sizeof(process_ipc_child_channel));
+    memset(&process_ipc_child_received, 0, sizeof(process_ipc_child_received));
+    memset(process_ipc_child_input, 0, sizeof(process_ipc_child_input));
+    process_ipc_child_seen = 0;
+    process_ipc_child_failed = 0;
+    if (uv_loop_init(&process_ipc_child_loop) < 0 ||
+        uv_pipe_init(&process_ipc_child_loop, &process_ipc_child_channel, 1) < 0 ||
+        uv_pipe_init(&process_ipc_child_loop, &process_ipc_child_received, 0) < 0 ||
+        uv_pipe_open(&process_ipc_child_channel, 3) < 0 ||
+        uv_read_start((uv_stream_t *)&process_ipc_child_channel,
+            process_ipc_child_alloc_cb,
+            process_ipc_child_read_cb) < 0) {
+        return 2;
+    }
+    (void)uv_run(&process_ipc_child_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&process_ipc_child_received, 0);
+    uv_close((uv_handle_t *)&process_ipc_child_channel, 0);
+    if (process_ipc_child_failed || !process_ipc_child_seen) {
+        return 3;
+    }
+    return uv_loop_close(&process_ipc_child_loop) == 0 ? 0 : 4;
+}
+
 static uv_loop_t gai_loop;
 static int gai_seen;
 static int gai_failed;
@@ -2354,6 +2544,9 @@ int main(int argc, char **argv) {
     if (argc > 1 && strcmp(argv[1], "inherit-stream-stderr-child") == 0) {
         return process_inherit_stream_stderr_child();
     }
+    if (argc > 1 && strcmp(argv[1], "process-ipc-child") == 0) {
+        return process_ipc_child();
+    }
     if (argc > 1 && strcmp(argv[1], "exit-child") == 0) {
         return 0;
     }
@@ -2384,6 +2577,7 @@ int main(int argc, char **argv) {
         process_duplex_test() != 0 ||
         process_inherit_fd_test() != 0 ||
         process_inherit_stream_test() != 0 ||
+        process_ipc_write2_test() != 0 ||
         process_many_test() != 0) {
         puts("libuvdemo: failed");
         return 1;

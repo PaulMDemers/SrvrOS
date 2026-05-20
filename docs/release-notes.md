@@ -99,6 +99,9 @@ server.
   `uv_pipe_pending_count`, `uv_pipe_pending_type`, and `uv_accept` of a pending
   pipe handle over an IPC pipe; credentials, multi-handle pending queues, TCP
   pending-handle typing, and broader ancillary messages remain future work.
+- Extends the libuv IPC smoke path across `uv_spawn` by inheriting an fd 3 IPC
+  channel into a child, sending a live pipe handle with `uv_write2`, and having
+  the child accept and write through that transferred handle.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

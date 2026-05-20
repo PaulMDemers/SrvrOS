@@ -54,9 +54,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `SCM_RIGHTS` fd passing over local socketpairs, plus pathname `AF_UNIX`
   stream sockets with bind/listen/connect/accept and `unlink` support.
   Libuv can send and accept a pending pipe handle over an IPC pipe with
-  `uv_write2`. Credentials, multi-handle pending queues, TCP pending-handle
-  typing, and broader ancillary control data are intentionally still future
-  work.
+  `uv_write2`, including a spawned-child inherited-fd channel. Credentials,
+  multi-handle pending queues, TCP pending-handle typing, and broader
+  ancillary control data are intentionally still future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`

@@ -100,7 +100,8 @@ requests, filesystem polling, directory requests, fsync/truncate/sendfile/time r
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
 resolver callbacks, public pipe creation, socketpair endpoints, pipe streams,
 pathname `uv_pipe_bind`/`uv_pipe_connect`, `uv_write2` pipe-handle transfer
-with `uv_pipe_pending_count`/`uv_pipe_pending_type`, child stdin/stdout pipe
+with `uv_pipe_pending_count`/`uv_pipe_pending_type`, cross-process IPC pipe
+handle passing through an inherited fd 3 channel, child stdin/stdout pipe
 wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
 stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
 duplex stdio child pipe, plus TTY/signal delivery and the current
@@ -132,8 +133,9 @@ broader ancillary message coverage.
 
 - No `fork` or full process signals. `socketpair` and pathname `AF_UNIX`
   streams exist as local duplex byte streams with bounded `SCM_RIGHTS` fd
-  passing, and libuv can send/accept a pending pipe handle with `uv_write2`.
-  Credentials, multi-handle pending queues, TCP pending-handle typing, and
+  passing, and libuv can send/accept a pending pipe handle with `uv_write2`
+  both in-process and across a spawned child IPC channel. Credentials,
+  multi-handle pending queues, TCP pending-handle typing, and
   fuller ancillary control-message support are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.

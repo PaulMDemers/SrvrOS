@@ -139,6 +139,7 @@ def main():
         "libuvdemo: process duplex ok",
         "libuvdemo: process inherit ok",
         "libuvdemo: process inherit stream ok",
+        "libuvdemo: process ipc write2 ok",
         "libuvdemo: process many ok",
         "libuvdemo: ok",
     ]
