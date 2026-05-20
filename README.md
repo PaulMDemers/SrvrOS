@@ -106,7 +106,8 @@ editor clients:
   global `sync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`,
   `readv`/`writev`/`preadv`/`pwritev`, minimal `sendmsg`/`recvmsg`
-  scatter/gather data transfer without ancillary control messages, minimal `termios`
+  scatter/gather data transfer plus bounded `SCM_RIGHTS` fd passing over local
+  socketpairs, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
   variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
@@ -146,7 +147,7 @@ editor clients:
   title, passwd/group, uname, uptime/resource, CPU/interface, time/memory,
   syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
   timestamp request shims, `uv_fs_poll` file-change polling, and local
-  socketpair message I/O over vectored buffers.
+  socketpair message I/O with vectored buffers and `SCM_RIGHTS` fd transfer.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

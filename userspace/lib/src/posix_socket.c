@@ -801,11 +801,69 @@ static int message_iov_valid(const struct msghdr *message) {
             return 0;
         }
     }
-    if (message->msg_controllen != 0 || message->msg_control != 0) {
-        errno = ENOSYS;
+    if (message->msg_control == 0 && message->msg_controllen != 0) {
+        errno = EINVAL;
         return 0;
     }
     return 1;
+}
+
+static int message_rights_capacity(const struct msghdr *message) {
+    if (message->msg_control == 0 || message->msg_controllen < CMSG_LEN(0)) {
+        return 0;
+    }
+    size_t payload_capacity = message->msg_controllen - CMSG_LEN(0);
+    size_t fd_capacity = payload_capacity / sizeof(int);
+    return fd_capacity > SRV_RIGHTS_MAX ? SRV_RIGHTS_MAX : (int)fd_capacity;
+}
+
+static int message_extract_rights(const struct msghdr *message, int rights[SRV_RIGHTS_MAX], size_t *count_out) {
+    *count_out = 0;
+    if (message->msg_control == 0 || message->msg_controllen == 0) {
+        return 0;
+    }
+    for (struct cmsghdr *cmsg = CMSG_FIRSTHDR(message); cmsg != 0; cmsg = CMSG_NXTHDR(message, cmsg)) {
+        if (cmsg->cmsg_len < CMSG_LEN(0) ||
+            (unsigned char *)cmsg + cmsg->cmsg_len > (unsigned char *)message->msg_control + message->msg_controllen) {
+            errno = EINVAL;
+            return -1;
+        }
+        if (cmsg->cmsg_level != SOL_SOCKET || cmsg->cmsg_type != SCM_RIGHTS) {
+            errno = ENOSYS;
+            return -1;
+        }
+        size_t bytes = cmsg->cmsg_len - CMSG_LEN(0);
+        if ((bytes % sizeof(int)) != 0 || bytes == 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        size_t count = bytes / sizeof(int);
+        if (*count_out + count > SRV_RIGHTS_MAX) {
+            errno = EINVAL;
+            return -1;
+        }
+        memcpy(&rights[*count_out], CMSG_DATA(cmsg), bytes);
+        *count_out += count;
+    }
+    return 0;
+}
+
+static void message_store_rights(struct msghdr *message, const int rights[SRV_RIGHTS_MAX], size_t count) {
+    size_t capacity = message->msg_controllen;
+    message->msg_controllen = 0;
+    if (message->msg_control == 0 || count == 0) {
+        return;
+    }
+    size_t needed = CMSG_LEN(count * sizeof(int));
+    if (needed > capacity) {
+        return;
+    }
+    struct cmsghdr *cmsg = (struct cmsghdr *)message->msg_control;
+    cmsg->cmsg_len = needed;
+    cmsg->cmsg_level = SOL_SOCKET;
+    cmsg->cmsg_type = SCM_RIGHTS;
+    memcpy(CMSG_DATA(cmsg), rights, count * sizeof(int));
+    message->msg_controllen = needed;
 }
 
 static int message_iov_length(const struct msghdr *message, size_t *length_out) {
@@ -907,6 +965,26 @@ ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
         errno = EINVAL;
         return -1;
     }
+    int rights[SRV_RIGHTS_MAX];
+    size_t rights_count = 0;
+    if (message_extract_rights(message, rights, &rights_count) < 0) {
+        return -1;
+    }
+    if (rights_count != 0) {
+        size_t payload_length = 0;
+        if (message_iov_length(message, &payload_length) < 0) {
+            return -1;
+        }
+        if (payload_length == 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        long rights_result = srv_pipe_send_rights(fd, rights, rights_count);
+        if (rights_result < 0) {
+            errno = rights_result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
+            return -1;
+        }
+    }
     struct posix_socket *socket = socket_at(fd);
     if (message->msg_name != 0 || (socket != 0 && socket->type == SOCK_DGRAM)) {
         uint8_t *buffer = 0;
@@ -999,6 +1077,24 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
         return -1;
     }
     message->msg_flags = 0;
+    int rights[SRV_RIGHTS_MAX];
+    size_t rights_count = 0;
+    if (message->msg_control != 0) {
+        uint64_t rights_flags = 0;
+        long rights_result = srv_pipe_recv_rights(fd, rights, message_rights_capacity(message), &rights_flags);
+        if (rights_result > 0) {
+            rights_count = (size_t)rights_result;
+            if ((flags & MSG_CMSG_CLOEXEC) != 0) {
+                for (size_t i = 0; i < rights_count; i++) {
+                    (void)fcntl(rights[i], F_SETFD, FD_CLOEXEC);
+                }
+            }
+        }
+        if ((rights_flags & SRV_MSG_CTRUNC) != 0) {
+            message->msg_flags |= MSG_CTRUNC;
+        }
+        message_store_rights(message, rights, rights_count);
+    }
     size_t capacity = 0;
     if (message_iov_length(message, &capacity) < 0) {
         return -1;
@@ -1034,7 +1130,7 @@ ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
         if (message->msg_iov[i].iov_len == 0) {
             continue;
         }
-        ssize_t count = recv(fd, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, flags);
+        ssize_t count = recv(fd, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, flags & ~MSG_CMSG_CLOEXEC);
         if (count < 0) {
             return total > 0 ? total : -1;
         }

@@ -194,7 +194,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   It also verifies `uv_pipe`, `uv_pipe_t`, `uv_socketpair`, and `uv_spawn` by
   writing through a libuv pipe stream, checking socketpair polling/handle
   classification, exercising socketpair `sendmsg`/`recvmsg` scatter/gather
-  transfers, feeding a child `cat` process over stdin, reading child
+  transfers and `SCM_RIGHTS` fd passing, feeding a child `cat` process over stdin, reading child
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,
   exercising inherited-fd stdin, inherited-stream stdin/stdout/stderr, short
   process-only exit loops, and a duplex child stdio pipe. The process section
@@ -223,7 +223,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
-  `readv`/`writev`/`preadv`/`pwritev`, data-only `sendmsg`/`recvmsg`,
+  `readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with
+  local-socketpair `SCM_RIGHTS`,
   pthread create/join plus mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
   EOF/error state, `scanf`/`sscanf` width, scanset, suppressed-assignment,

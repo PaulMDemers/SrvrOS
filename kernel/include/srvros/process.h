@@ -132,6 +132,12 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count);
+int64_t process_file_recv_rights(struct process *process,
+    uint64_t fd,
+    int32_t *fds_out,
+    uint64_t capacity,
+    uint64_t *flags_out);
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events);
 struct scheduler_wait_queue *process_file_poll_wait_queue(void);
 void process_file_poll_wake(void);

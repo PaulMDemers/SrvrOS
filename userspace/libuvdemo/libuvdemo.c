@@ -1327,6 +1327,12 @@ static int socketpair_test(void) {
     char buffer[32];
     char msg_a[4];
     char msg_b[4];
+    char rights_byte = 0;
+    char rights_pipe_byte = 0;
+    int rights_pipe[2] = {-1, -1};
+    int received_fd = -1;
+    unsigned char send_control[CMSG_SPACE(sizeof(int))];
+    unsigned char recv_control[CMSG_SPACE(sizeof(int))];
     struct iovec send_iov[2] = {
         {(void *)"uv-", 3},
         {(void *)"msg", 3},
@@ -1337,12 +1343,26 @@ static int socketpair_test(void) {
     };
     struct msghdr send_header;
     struct msghdr recv_header;
+    struct msghdr rights_send_header;
+    struct msghdr rights_recv_header;
     memset(&send_header, 0, sizeof(send_header));
     memset(&recv_header, 0, sizeof(recv_header));
+    memset(&rights_send_header, 0, sizeof(rights_send_header));
+    memset(&rights_recv_header, 0, sizeof(rights_recv_header));
     send_header.msg_iov = send_iov;
     send_header.msg_iovlen = 2;
     recv_header.msg_iov = recv_iov;
     recv_header.msg_iovlen = 2;
+    struct iovec rights_send_iov = {(void *)"F", 1};
+    struct iovec rights_recv_iov = {&rights_byte, 1};
+    rights_send_header.msg_iov = &rights_send_iov;
+    rights_send_header.msg_iovlen = 1;
+    rights_send_header.msg_control = send_control;
+    rights_send_header.msg_controllen = sizeof(send_control);
+    rights_recv_header.msg_iov = &rights_recv_iov;
+    rights_recv_header.msg_iovlen = 1;
+    rights_recv_header.msg_control = recv_control;
+    rights_recv_header.msg_controllen = sizeof(recv_control);
     if (uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0) {
         puts("libuvdemo: socketpair setup failed");
         return 1;
@@ -1400,6 +1420,56 @@ static int socketpair_test(void) {
         close(fds[1]);
         return 1;
     }
+    if (pipe(rights_pipe) < 0) {
+        puts("libuvdemo: socketpair rights pipe failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    struct cmsghdr *send_cmsg = CMSG_FIRSTHDR(&rights_send_header);
+    send_cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+    send_cmsg->cmsg_level = SOL_SOCKET;
+    send_cmsg->cmsg_type = SCM_RIGHTS;
+    *(int *)CMSG_DATA(send_cmsg) = rights_pipe[1];
+    if (sendmsg(fds[1], &rights_send_header, MSG_NOSIGNAL) != 1 ||
+        close(rights_pipe[1]) < 0 ||
+        recvmsg(fds[0], &rights_recv_header, MSG_CMSG_CLOEXEC) != 1 ||
+        rights_byte != 'F' ||
+        rights_recv_header.msg_controllen < CMSG_LEN(sizeof(int))) {
+        puts("libuvdemo: socketpair rights transfer failed");
+        close(rights_pipe[0]);
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    struct cmsghdr *recv_cmsg = CMSG_FIRSTHDR(&rights_recv_header);
+    if (recv_cmsg == 0 ||
+        recv_cmsg->cmsg_level != SOL_SOCKET ||
+        recv_cmsg->cmsg_type != SCM_RIGHTS ||
+        recv_cmsg->cmsg_len < CMSG_LEN(sizeof(int))) {
+        puts("libuvdemo: socketpair rights header failed");
+        close(rights_pipe[0]);
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    received_fd = *(int *)CMSG_DATA(recv_cmsg);
+    if (received_fd < 0 ||
+        fcntl(received_fd, F_GETFD, 0) != FD_CLOEXEC ||
+        write(received_fd, "R", 1) != 1 ||
+        read(rights_pipe[0], &rights_pipe_byte, 1) != 1 ||
+        rights_pipe_byte != 'R') {
+        puts("libuvdemo: socketpair rights fd failed");
+        if (received_fd >= 0) {
+            close(received_fd);
+        }
+        close(rights_pipe[0]);
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    close(received_fd);
+    close(rights_pipe[0]);
     close(fds[0]);
     close(fds[1]);
     puts("libuvdemo: socketpair ok");

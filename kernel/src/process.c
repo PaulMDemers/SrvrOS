@@ -47,6 +47,7 @@
 #define PROCESS_MAX_WRITE_FILES 64
 #define PROCESS_MAX_READ_FILES 128
 #define PROCESS_MAX_PIPES 64
+#define PROCESS_PIPE_RIGHTS_QUEUE 8
 #define PROCESS_MAX_FILE_LOCKS 64
 #define PROCESS_PIPE_CAPACITY 4096
 #define PROCESS_STDIO_CLOSED_FD (-2)
@@ -93,6 +94,13 @@ struct process_user_thread {
     struct fpu_state fpu;
 };
 
+struct process_pipe_rights {
+    bool used;
+    uint64_t offset;
+    uint64_t count;
+    struct process_file files[SRV_RIGHTS_MAX];
+};
+
 struct process_pipe {
     bool used;
     uint64_t refs;
@@ -102,6 +110,7 @@ struct process_pipe {
     uint64_t write_pos;
     uint64_t size;
     uint8_t buffer[PROCESS_PIPE_CAPACITY];
+    struct process_pipe_rights rights[PROCESS_PIPE_RIGHTS_QUEUE];
 };
 
 struct process_write_file {
@@ -270,7 +279,9 @@ static void process_irq_restore(uint64_t flags) {
         __asm__ volatile ("sti" : : : "memory");
     }
 }
-static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index);
+static bool process_file_clone_entry(struct process_file *target, const struct process_file *source);
+static void process_file_release_entry(struct process_file *file);
+static int64_t process_file_dup_into(struct process *process, const struct process_file *source, uint64_t target_index);
 static bool process_apply_spawn_file_actions(struct process *child,
     struct process *parent,
     const struct process_spawn_file_action *actions,
@@ -2970,6 +2981,48 @@ static void pipe_ref(uint64_t handle, bool write_end) {
     }
 }
 
+static void pipe_rights_release(struct process_pipe_rights *rights) {
+    if (rights == NULL || !rights->used) {
+        return;
+    }
+    for (uint64_t i = 0; i < rights->count && i < SRV_RIGHTS_MAX; i++) {
+        process_file_release_entry(&rights->files[i]);
+    }
+    uint8_t *bytes = (uint8_t *)rights;
+    for (uint64_t i = 0; i < sizeof(*rights); i++) {
+        bytes[i] = 0;
+    }
+}
+
+static void pipe_rights_shift(struct process_pipe *pipe, uint64_t index) {
+    if (pipe == NULL || index >= PROCESS_PIPE_RIGHTS_QUEUE) {
+        return;
+    }
+    pipe_rights_release(&pipe->rights[index]);
+    for (uint64_t i = index + 1; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
+        pipe->rights[i - 1] = pipe->rights[i];
+    }
+    uint8_t *bytes = (uint8_t *)&pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1];
+    for (uint64_t i = 0; i < sizeof(pipe->rights[PROCESS_PIPE_RIGHTS_QUEUE - 1]); i++) {
+        bytes[i] = 0;
+    }
+}
+
+static void pipe_rights_consume_read(struct process_pipe *pipe, uint64_t count) {
+    if (pipe == NULL || count == 0) {
+        return;
+    }
+    uint64_t i = 0;
+    while (i < PROCESS_PIPE_RIGHTS_QUEUE && pipe->rights[i].used) {
+        if (pipe->rights[i].offset < count) {
+            pipe_rights_shift(pipe, i);
+            continue;
+        }
+        pipe->rights[i].offset -= count;
+        i++;
+    }
+}
+
 static void pipe_close(uint64_t handle, bool write_end) {
     struct process_pipe *pipe = pipe_at(handle);
     if (pipe == NULL) {
@@ -2984,6 +3037,9 @@ static void pipe_close(uint64_t handle, bool write_end) {
         pipe->read_refs--;
     }
     if (pipe->refs == 0) {
+        for (uint64_t i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
+            pipe_rights_release(&pipe->rights[i]);
+        }
         pipe->used = false;
     }
     scheduler_wake_all(&pipe_wait_queue);
@@ -3244,6 +3300,7 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
     }
     pipe->size -= count;
     if (count > 0) {
+        pipe_rights_consume_read(pipe, count);
         scheduler_wake_all(&pipe_wait_queue);
         process_file_poll_wake();
     }
@@ -3454,12 +3511,11 @@ int64_t process_handle_alloc(struct process *process,
     return -1;
 }
 
-static int64_t process_file_dup_into(struct process *process, struct process_file *source, uint64_t target_index) {
-    if (process == NULL || source == NULL || target_index >= PROCESS_MAX_OPEN_FILES) {
-        return -1;
+static bool process_file_clone_entry(struct process_file *target, const struct process_file *source) {
+    if (target == NULL || source == NULL || !source->used) {
+        return false;
     }
 
-    struct process_file *target = &process->files[target_index];
     if (source->type == PROCESS_FILE_STDIO) {
         uint64_t handle = source->handle;
         uint8_t *bytes = (uint8_t *)target;
@@ -3470,12 +3526,12 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         target->type = PROCESS_FILE_STDIO;
         target->handle = handle;
         target->flags = source->flags;
-        return (int64_t)(target_index + 3);
+        return true;
     }
 
     if (source->type == PROCESS_FILE_PIPE_DUPLEX) {
         if (pipe_at(source->handle) == NULL || pipe_at(source->aux_handle) == NULL) {
-            return -1;
+            return false;
         }
         uint8_t *bytes = (uint8_t *)target;
         for (uint64_t i = 0; i < sizeof(*target); i++) {
@@ -3488,14 +3544,14 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         target->handle = source->handle;
         target->aux_handle = source->aux_handle;
         target->flags = source->flags;
-        return (int64_t)(target_index + 3);
+        return true;
     }
 
     if (source->type == PROCESS_FILE_PIPE_READ || source->type == PROCESS_FILE_PIPE_WRITE) {
         uint64_t handle = source->handle;
         bool write_end = source->type == PROCESS_FILE_PIPE_WRITE;
         if (pipe_at(handle) == NULL) {
-            return -1;
+            return false;
         }
         uint8_t *bytes = (uint8_t *)target;
         for (uint64_t i = 0; i < sizeof(*target); i++) {
@@ -3506,13 +3562,13 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         target->type = source->type;
         target->handle = handle;
         target->flags = source->flags;
-        return (int64_t)(target_index + 3);
+        return true;
     }
 
     if (source->type == PROCESS_FILE_VFS_WRITE) {
         uint64_t handle = source->handle;
         if (write_file_at(handle) == NULL) {
-            return -1;
+            return false;
         }
         uint8_t *bytes = (uint8_t *)target;
         for (uint64_t i = 0; i < sizeof(*target); i++) {
@@ -3523,15 +3579,15 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
         target->type = PROCESS_FILE_VFS_WRITE;
         target->handle = handle;
         target->flags = source->flags;
-        return (int64_t)(target_index + 3);
+        return true;
     }
 
     if (source->type != PROCESS_FILE_VFS || source->handle == 0 || source->path[0] == '\0') {
-        return -1;
+        return false;
     }
     struct process_read_file *read = read_file_at(source->handle);
     if (read == NULL) {
-        return -1;
+        return false;
     }
     read_file_ref(source->handle);
 
@@ -3547,6 +3603,45 @@ static int64_t process_file_dup_into(struct process *process, struct process_fil
     target->handle = source->handle;
     target->flags = source->flags;
     (void)copy_process_path(target->path, sizeof(target->path), source->path);
+    return true;
+}
+
+static void process_file_release_entry(struct process_file *file) {
+    if (file == NULL || !file->used) {
+        return;
+    }
+
+    if ((file->type == PROCESS_FILE_NET_LISTENER ||
+            file->type == PROCESS_FILE_NET_CONNECTION ||
+            file->type == PROCESS_FILE_NET_UDP)) {
+        (void)net_close(file->handle);
+    } else if (file->type == PROCESS_FILE_VFS) {
+        read_file_close(file->handle);
+    } else if (file->type == PROCESS_FILE_PIPE_READ) {
+        pipe_close(file->handle, false);
+    } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
+        pipe_close(file->handle, true);
+    } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
+        pipe_close(file->handle, false);
+        pipe_close(file->aux_handle, true);
+    } else if (file->type == PROCESS_FILE_VFS_WRITE) {
+        (void)write_file_close(file->handle);
+    }
+
+    uint8_t *bytes = (uint8_t *)file;
+    for (uint64_t i = 0; i < sizeof(*file); i++) {
+        bytes[i] = 0;
+    }
+}
+
+static int64_t process_file_dup_into(struct process *process, const struct process_file *source, uint64_t target_index) {
+    if (process == NULL || source == NULL || target_index >= PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    if (!process_file_clone_entry(&process->files[target_index], source)) {
+        return -1;
+    }
     return (int64_t)(target_index + 3);
 }
 
@@ -3613,6 +3708,136 @@ int64_t process_file_dup2(struct process *process, uint64_t old_fd, uint64_t new
         }
     }
     return process_file_dup_into(process, source, target_index);
+}
+
+static const struct process_file *process_file_source_for_fd(struct process *process,
+    uint64_t fd,
+    struct process_file *stdio_source) {
+    if (fd < 3) {
+        uint8_t *bytes = (uint8_t *)stdio_source;
+        for (uint64_t i = 0; i < sizeof(*stdio_source); i++) {
+            bytes[i] = 0;
+        }
+        stdio_source->used = true;
+        stdio_source->type = PROCESS_FILE_STDIO;
+        stdio_source->handle = fd;
+        return stdio_source;
+    }
+    return process_file_at(process, fd);
+}
+
+int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count) {
+    if (process == NULL || fds == NULL || count == 0 || count > SRV_RIGHTS_MAX) {
+        return -1;
+    }
+
+    struct process_file *endpoint = process_file_at(process, fd);
+    if (endpoint == NULL ||
+        (endpoint->type != PROCESS_FILE_PIPE_WRITE && endpoint->type != PROCESS_FILE_PIPE_DUPLEX)) {
+        return -1;
+    }
+    struct process_pipe *pipe = pipe_at(endpoint->type == PROCESS_FILE_PIPE_DUPLEX ? endpoint->aux_handle : endpoint->handle);
+    if (pipe == NULL || pipe->read_refs == 0) {
+        return -1;
+    }
+
+    struct process_pipe_rights *slot = NULL;
+    for (uint64_t i = 0; i < PROCESS_PIPE_RIGHTS_QUEUE; i++) {
+        if (!pipe->rights[i].used) {
+            slot = &pipe->rights[i];
+            break;
+        }
+    }
+    if (slot == NULL) {
+        return SRV_ERR_AGAIN;
+    }
+
+    uint8_t *slot_bytes = (uint8_t *)slot;
+    for (uint64_t i = 0; i < sizeof(*slot); i++) {
+        slot_bytes[i] = 0;
+    }
+    slot->used = true;
+    slot->offset = pipe->size;
+
+    for (uint64_t i = 0; i < count; i++) {
+        if (fds[i] < 0) {
+            pipe_rights_release(slot);
+            return -1;
+        }
+        struct process_file stdio_source;
+        const struct process_file *source = process_file_source_for_fd(process, (uint64_t)fds[i], &stdio_source);
+        if (source == NULL || !process_file_clone_entry(&slot->files[i], source)) {
+            pipe_rights_release(slot);
+            return -1;
+        }
+        slot->count++;
+    }
+
+    process_file_poll_wake();
+    return 0;
+}
+
+int64_t process_file_recv_rights(struct process *process,
+    uint64_t fd,
+    int32_t *fds_out,
+    uint64_t capacity,
+    uint64_t *flags_out) {
+    if (flags_out != NULL) {
+        *flags_out = 0;
+    }
+    if (process == NULL || capacity > SRV_RIGHTS_MAX || (capacity != 0 && fds_out == NULL)) {
+        return -1;
+    }
+
+    struct process_file *endpoint = process_file_at(process, fd);
+    if (endpoint == NULL ||
+        (endpoint->type != PROCESS_FILE_PIPE_READ && endpoint->type != PROCESS_FILE_PIPE_DUPLEX)) {
+        return -1;
+    }
+    struct process_pipe *pipe = pipe_at(endpoint->handle);
+    if (pipe == NULL) {
+        return -1;
+    }
+
+    if (!pipe->rights[0].used || pipe->rights[0].offset != 0) {
+        return 0;
+    }
+
+    struct process_pipe_rights *rights = &pipe->rights[0];
+    uint64_t deliver = rights->count < capacity ? rights->count : capacity;
+    int32_t delivered[SRV_RIGHTS_MAX];
+    for (uint64_t i = 0; i < SRV_RIGHTS_MAX; i++) {
+        delivered[i] = -1;
+    }
+
+    for (uint64_t i = 0; i < deliver; i++) {
+        uint64_t target_index = PROCESS_MAX_OPEN_FILES;
+        for (uint64_t j = 0; j < PROCESS_MAX_OPEN_FILES; j++) {
+            if (!process->files[j].used) {
+                target_index = j;
+                break;
+            }
+        }
+        if (target_index == PROCESS_MAX_OPEN_FILES ||
+            process_file_dup_into(process, &rights->files[i], target_index) < 0) {
+            for (uint64_t j = 0; j < i; j++) {
+                if (delivered[j] >= 0) {
+                    (void)process_file_close(process, (uint64_t)delivered[j]);
+                }
+            }
+            return -1;
+        }
+        delivered[i] = (int32_t)(target_index + 3);
+    }
+
+    for (uint64_t i = 0; i < deliver; i++) {
+        fds_out[i] = delivered[i];
+    }
+    if (flags_out != NULL && deliver < rights->count) {
+        *flags_out |= SRV_MSG_CTRUNC;
+    }
+    pipe_rights_shift(pipe, 0);
+    return (int64_t)deliver;
 }
 
 int64_t process_file_get_flags(struct process *process, uint64_t fd) {

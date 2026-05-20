@@ -96,6 +96,8 @@ long srv_dup(int fd);
 long srv_dup2(int old_fd, int new_fd);
 long srv_pipe(int fds[2]);
 long srv_pipe_pair(int fds[2]);
+long srv_pipe_send_rights(int fd, const int *fds, size_t count);
+long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out);
 long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms);
 long srv_fcntl(int fd, int command, uint64_t flags);
 long srv_ftruncate(int fd, uint64_t length);

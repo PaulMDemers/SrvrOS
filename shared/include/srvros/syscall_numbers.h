@@ -100,6 +100,8 @@
 #define SYS_GETPPID 95
 #define SYS_EXEPATH 96
 #define SYS_NET_PEEK 97
+#define SYS_PIPE_SEND_RIGHTS 98
+#define SYS_PIPE_RECV_RIGHTS 99
 
 #define SRV_ABI_VERSION 1
 
@@ -181,6 +183,9 @@ struct srv_winsize {
 };
 
 #define SRV_ERR_AGAIN -11
+
+#define SRV_RIGHTS_MAX 4
+#define SRV_MSG_CTRUNC 0x08
 
 #define SRV_NETERR_NONE 0
 #define SRV_NETERR_RESET 104

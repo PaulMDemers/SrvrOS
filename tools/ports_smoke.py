@@ -42,6 +42,12 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def send_serial_line(sock, line):
+    for byte in line.encode("ascii"):
+        sock.sendall(bytes([byte]))
+        time.sleep(0.001)
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -94,7 +100,7 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"run /fat/bin/sh\n")
+            send_serial_line(sock, "run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 5)
             lines = [
                 "zlibdemo\n",
@@ -160,9 +166,9 @@ def main():
                 "exit\n",
             ]
             for line in lines:
-                sock.sendall(line.encode("ascii"))
+                send_serial_line(sock, line)
                 output += read_until(sock, b"srv> " if line.strip() == "exit" else b" $ ", args.line_wait)
-            sock.sendall(b"fsck /fat\n")
+            send_serial_line(sock, "fsck /fat\n")
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
         finally:

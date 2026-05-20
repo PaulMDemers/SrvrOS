@@ -1532,6 +1532,12 @@ int main(void) {
         char readv_b[4];
         char msg_a[4];
         char msg_b[4];
+        char rights_byte = 0;
+        char rights_pipe_byte = 0;
+        int rights_pipe[2] = {-1, -1};
+        int received_fd = -1;
+        unsigned char send_control[CMSG_SPACE(sizeof(int))];
+        unsigned char recv_control[CMSG_SPACE(sizeof(int))];
         struct stat pair_stat;
         struct pollfd pair_poll = {.fd = pair[1], .events = POLLIN};
         struct iovec write_iov[2] = {
@@ -1552,37 +1558,125 @@ int main(void) {
         };
         struct msghdr send_header;
         struct msghdr recv_header;
+        struct msghdr rights_send_header;
+        struct msghdr rights_recv_header;
         memset(&send_header, 0, sizeof(send_header));
         memset(&recv_header, 0, sizeof(recv_header));
+        memset(&rights_send_header, 0, sizeof(rights_send_header));
+        memset(&rights_recv_header, 0, sizeof(rights_recv_header));
         send_header.msg_iov = sendmsg_iov;
         send_header.msg_iovlen = 2;
         recv_header.msg_iov = recvmsg_iov;
         recv_header.msg_iovlen = 2;
+        struct iovec rights_send_iov = {(void *)"F", 1};
+        struct iovec rights_recv_iov = {&rights_byte, 1};
+        rights_send_header.msg_iov = &rights_send_iov;
+        rights_send_header.msg_iovlen = 1;
+        rights_send_header.msg_control = send_control;
+        rights_send_header.msg_controllen = sizeof(send_control);
+        struct cmsghdr *send_cmsg = CMSG_FIRSTHDR(&rights_send_header);
+        send_cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+        send_cmsg->cmsg_level = SOL_SOCKET;
+        send_cmsg->cmsg_type = SCM_RIGHTS;
+        rights_recv_header.msg_iov = &rights_recv_iov;
+        rights_recv_header.msg_iovlen = 1;
+        rights_recv_header.msg_control = recv_control;
+        rights_recv_header.msg_controllen = sizeof(recv_control);
         int cloexec_ok = fcntl(pair[0], F_GETFD, 0) == FD_CLOEXEC &&
             fcntl(pair[1], F_GETFD, 0) == FD_CLOEXEC;
         int nonblock_ok = (fcntl(pair[0], F_GETFL, 0) & O_NONBLOCK) != 0 &&
             (fcntl(pair[1], F_GETFL, 0) & O_NONBLOCK) != 0;
-        if (send(pair[0], "spair", 5, MSG_NOSIGNAL) == 5 &&
-            poll(&pair_poll, 1, 0) == 1 &&
-            (pair_poll.revents & POLLIN) != 0 &&
-            recv(pair[1], pair_buffer, 5, 0) == 5 &&
-            memcmp(pair_buffer, "spair", 5) == 0 &&
-            fstat(pair[0], &pair_stat) == 0 &&
-            S_ISFIFO(pair_stat.st_mode) &&
-            writev(pair[0], write_iov, 2) == 6 &&
-            readv(pair[1], read_iov, 2) == 6 &&
-            memcmp(readv_a, "vec", 3) == 0 &&
-            memcmp(readv_b, "tor", 3) == 0 &&
-            sendmsg(pair[0], &send_header, MSG_NOSIGNAL) == 5 &&
-            recvmsg(pair[1], &recv_header, 0) == 5 &&
-            memcmp(msg_a, "msg", 3) == 0 &&
-            memcmp(msg_b, "io", 2) == 0 &&
-            cloexec_ok &&
-            nonblock_ok) {
+        int rights_ok = 0;
+        int socketpair_fail = 0;
+        int rights_fail = 0;
+        if (pipe(rights_pipe) == 0) {
+            *(int *)CMSG_DATA(send_cmsg) = rights_pipe[1];
+            if (sendmsg(pair[0], &rights_send_header, MSG_NOSIGNAL) != 1) {
+                rights_fail = 1;
+            } else if (close(rights_pipe[1]) != 0) {
+                rights_fail = 2;
+            } else if (recvmsg(pair[1], &rights_recv_header, MSG_CMSG_CLOEXEC) != 1) {
+                rights_fail = 3;
+            } else if (rights_byte != 'F') {
+                rights_fail = 4;
+            } else if (rights_recv_header.msg_controllen < CMSG_LEN(sizeof(int))) {
+                rights_fail = 5;
+            } else {
+                struct cmsghdr *recv_cmsg = CMSG_FIRSTHDR(&rights_recv_header);
+                if (recv_cmsg != 0 &&
+                    recv_cmsg->cmsg_level == SOL_SOCKET &&
+                    recv_cmsg->cmsg_type == SCM_RIGHTS &&
+                    recv_cmsg->cmsg_len >= CMSG_LEN(sizeof(int))) {
+                    received_fd = *(int *)CMSG_DATA(recv_cmsg);
+                    rights_ok = received_fd >= 0 &&
+                        fcntl(received_fd, F_GETFD, 0) == FD_CLOEXEC &&
+                        write(received_fd, "R", 1) == 1 &&
+                        read(rights_pipe[0], &rights_pipe_byte, 1) == 1 &&
+                        rights_pipe_byte == 'R';
+                    if (!rights_ok) {
+                        rights_fail = 7;
+                    }
+                } else {
+                    rights_fail = 6;
+                }
+            }
+            if (received_fd >= 0) {
+                close(received_fd);
+            }
+            close(rights_pipe[0]);
+        } else {
+            socketpair_fail = 1;
+        }
+        if (socketpair_fail == 0 && !rights_ok) {
+            socketpair_fail = 20 + rights_fail;
+        }
+        if (socketpair_fail == 0 && !cloexec_ok) {
+            socketpair_fail = 3;
+        }
+        if (socketpair_fail == 0 && !nonblock_ok) {
+            socketpair_fail = 4;
+        }
+        if (socketpair_fail == 0 && send(pair[0], "spair", 5, MSG_NOSIGNAL) != 5) {
+            socketpair_fail = 5;
+        }
+        if (socketpair_fail == 0 && (poll(&pair_poll, 1, 0) != 1 || (pair_poll.revents & POLLIN) == 0)) {
+            socketpair_fail = 6;
+        }
+        if (socketpair_fail == 0 &&
+            (recv(pair[1], pair_buffer, 5, 0) != 5 || memcmp(pair_buffer, "spair", 5) != 0)) {
+            socketpair_fail = 7;
+        }
+        if (socketpair_fail == 0 && (fstat(pair[0], &pair_stat) != 0 || !S_ISFIFO(pair_stat.st_mode))) {
+            socketpair_fail = 8;
+        }
+        if (socketpair_fail == 0 &&
+            (writev(pair[0], write_iov, 2) != 6 ||
+                readv(pair[1], read_iov, 2) != 6 ||
+                memcmp(readv_a, "vec", 3) != 0 ||
+                memcmp(readv_b, "tor", 3) != 0)) {
+            socketpair_fail = 9;
+        }
+        if (socketpair_fail == 0 &&
+            (sendmsg(pair[0], &send_header, MSG_NOSIGNAL) != 5 ||
+                recvmsg(pair[1], &recv_header, 0) != 5 ||
+                memcmp(msg_a, "msg", 3) != 0 ||
+                memcmp(msg_b, "io", 2) != 0)) {
+            socketpair_fail = 10;
+        }
+        int socketpair_ok = socketpair_fail == 0;
+        if (socketpair_ok) {
             say("posixdemo: socketpair ok\n");
+        } else {
+            printf("posixdemo: socketpair failed %d\n", socketpair_fail);
+            close(pair[0]);
+            close(pair[1]);
+            return 82;
         }
         close(pair[0]);
         close(pair[1]);
+    } else {
+        say("posixdemo: socketpair setup failed\n");
+        return 81;
     }
 
     unlink("/fat/posixdemo/renamed.txt");

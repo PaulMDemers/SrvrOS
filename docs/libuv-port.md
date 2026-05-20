@@ -104,9 +104,10 @@ stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
 duplex stdio child pipe, plus TTY/signal delivery and the current
 thread/synchronization wrappers that need to stay stable while incrementally
 replacing adapter internals with upstream code.
-The POSIX socket layer now supplies data-only `sendmsg`/`recvmsg` scatter/gather
-transfers for local socketpair and socket-adjacent ports; libuv fd-passing IPC
-still waits on richer Unix-domain-socket semantics.
+The POSIX socket layer now supplies `sendmsg`/`recvmsg` scatter/gather transfers
+and bounded `SCM_RIGHTS` fd passing for local socketpairs. Richer libuv IPC
+still waits on pathname Unix-domain-socket semantics and broader ancillary
+message coverage.
 
 ## Replacement Strategy
 
@@ -127,9 +128,9 @@ still waits on richer Unix-domain-socket semantics.
 ## Known Gaps Before Full Upstream libuv
 
 - No `fork`, full process signals, or named Unix domain sockets. `socketpair`
-  exists as a local duplex byte stream, but pathname sockets and fd-passing IPC
-  are still future work. Data-only `sendmsg`/`recvmsg` exists, but ancillary
-  control messages are rejected. `uv_spawn` is still a
+  exists as a local duplex byte stream with bounded `SCM_RIGHTS` fd passing,
+  but pathname sockets, credentials, and fuller ancillary control-message
+  support are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.
 - Compact TTY model and no PTY support.

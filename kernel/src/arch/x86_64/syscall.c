@@ -1128,6 +1128,40 @@ static int64_t syscall_pipe_pair(int32_t *fds_out) {
     return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
 }
 
+static int64_t syscall_pipe_send_rights(uint64_t fd, const int32_t *user_fds, uint64_t count) {
+    int32_t fds[SRV_RIGHTS_MAX];
+    if (count == 0 || count > SRV_RIGHTS_MAX ||
+        user_fds == NULL ||
+        !user_buffer_ok((void *)user_fds, count * sizeof(int32_t), false)) {
+        return -1;
+    }
+    if (!copy_from_user(fds, user_fds, count * sizeof(int32_t))) {
+        return -1;
+    }
+    return process_file_send_rights(process_current(), fd, fds, count);
+}
+
+static int64_t syscall_pipe_recv_rights(uint64_t fd, int32_t *user_fds, uint64_t capacity, uint64_t *user_flags) {
+    int32_t fds[SRV_RIGHTS_MAX];
+    uint64_t flags = 0;
+    if (capacity > SRV_RIGHTS_MAX ||
+        (capacity != 0 && (user_fds == NULL || !user_buffer_ok(user_fds, capacity * sizeof(int32_t), true))) ||
+        (user_flags != NULL && !user_buffer_ok(user_flags, sizeof(uint64_t), true))) {
+        return -1;
+    }
+    int64_t count = process_file_recv_rights(process_current(), fd, fds, capacity, &flags);
+    if (count < 0) {
+        return -1;
+    }
+    if (count > 0 && !copy_to_user(user_fds, fds, (uint64_t)count * sizeof(int32_t))) {
+        return -1;
+    }
+    if (user_flags != NULL && !copy_to_user(user_flags, &flags, sizeof(flags))) {
+        return -1;
+    }
+    return count;
+}
+
 static int64_t syscall_meminfo(struct srv_meminfo *info) {
     struct srv_meminfo copy = {
         .abi_version = SRV_ABI_VERSION,
@@ -1901,6 +1935,15 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_PEEK:
         frame->rax = (uint64_t)syscall_net_peek(frame->rdi, (uint8_t *)frame->rsi, frame->rdx);
+        return;
+    case SYS_PIPE_SEND_RIGHTS:
+        frame->rax = (uint64_t)syscall_pipe_send_rights(frame->rdi, (const int32_t *)frame->rsi, frame->rdx);
+        return;
+    case SYS_PIPE_RECV_RIGHTS:
+        frame->rax = (uint64_t)syscall_pipe_recv_rights(frame->rdi,
+            (int32_t *)frame->rsi,
+            frame->rdx,
+            (uint64_t *)frame->rcx);
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);

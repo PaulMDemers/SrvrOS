@@ -119,6 +119,14 @@ long srv_pipe_pair(int fds[2]) {
     return srv_syscall1(SYS_PIPE_PAIR, (long)fds);
 }
 
+long srv_pipe_send_rights(int fd, const int *fds, size_t count) {
+    return srv_syscall3(SYS_PIPE_SEND_RIGHTS, fd, (long)fds, (long)count);
+}
+
+long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out) {
+    return srv_syscall4(SYS_PIPE_RECV_RIGHTS, fd, (long)fds, (long)capacity, (long)flags_out);
+}
+
 long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
     return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
 }

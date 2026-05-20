@@ -50,9 +50,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   work.
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
-- `sendmsg` and `recvmsg` for data-only scatter/gather socket I/O. Ancillary
-  control data, credential passing, and fd-passing IPC are intentionally
-  rejected for now.
+- `sendmsg` and `recvmsg` for scatter/gather socket I/O, with bounded
+  `SCM_RIGHTS` fd passing over local socketpairs. Pathname Unix sockets,
+  credentials, and broader ancillary control data are intentionally still
+  future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`
@@ -259,8 +260,9 @@ cwd-scoped spawn, duplex stdio pipes, inherited-fd stdin, inherited-stream
 stdin/stdout/stderr, short process-only exit loops, and validation paths that
 fail before registering process handles or opening child stdio resources.
 Local socket compatibility now also includes `socketpair` scatter/gather
-coverage through POSIX `sendmsg`/`recvmsg`; ancillary data and fd-passing remain
-future Unix-domain-socket work.
+coverage and bounded `SCM_RIGHTS` fd transfer through POSIX
+`sendmsg`/`recvmsg`; pathname sockets and credentials remain future
+Unix-domain-socket work.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 
