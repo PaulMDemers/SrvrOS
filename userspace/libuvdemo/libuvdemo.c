@@ -1548,6 +1548,112 @@ static int pipe_bind_connect_test(void) {
     return 0;
 }
 
+static uv_loop_t pipe_ipc_loop;
+static uv_pipe_t pipe_ipc_sender;
+static uv_pipe_t pipe_ipc_receiver;
+static uv_pipe_t pipe_ipc_send_handle;
+static uv_write_t pipe_ipc_write_request;
+static char pipe_ipc_read_byte;
+static int pipe_ipc_write_seen;
+static int pipe_ipc_read_seen;
+static int pipe_ipc_failed;
+
+static void maybe_stop_pipe_ipc_loop(void) {
+    if (pipe_ipc_write_seen && pipe_ipc_read_seen) {
+        uv_stop(&pipe_ipc_loop);
+    }
+}
+
+static void pipe_ipc_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    buffer->base = &pipe_ipc_read_byte;
+    buffer->len = 1;
+}
+
+static void pipe_ipc_write_cb(uv_write_t *request, int status) {
+    if (request != &pipe_ipc_write_request || status < 0) {
+        pipe_ipc_failed = 1;
+    }
+    pipe_ipc_write_seen = 1;
+    maybe_stop_pipe_ipc_loop();
+}
+
+static void pipe_ipc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    (void)stream;
+    (void)buffer;
+    if (nread != 1 || pipe_ipc_read_byte != 'H') {
+        pipe_ipc_failed = 1;
+    }
+    pipe_ipc_read_seen = 1;
+    maybe_stop_pipe_ipc_loop();
+}
+
+static int pipe_ipc_write2_test(void) {
+    uv_os_sock_t channel_fds[2] = {-1, -1};
+    uv_file payload_fds[2] = {-1, -1};
+    uv_pipe_t received_handle;
+    uv_os_fd_t received_fd = -1;
+    char payload_byte = 0;
+    uv_buf_t buffer = uv_buf_init("H", 1);
+    memset(&pipe_ipc_loop, 0, sizeof(pipe_ipc_loop));
+    memset(&pipe_ipc_sender, 0, sizeof(pipe_ipc_sender));
+    memset(&pipe_ipc_receiver, 0, sizeof(pipe_ipc_receiver));
+    memset(&pipe_ipc_send_handle, 0, sizeof(pipe_ipc_send_handle));
+    memset(&received_handle, 0, sizeof(received_handle));
+    memset(&pipe_ipc_write_request, 0, sizeof(pipe_ipc_write_request));
+    pipe_ipc_read_byte = 0;
+    pipe_ipc_write_seen = 0;
+    pipe_ipc_read_seen = 0;
+    pipe_ipc_failed = 0;
+    if (uv_loop_init(&pipe_ipc_loop) < 0 ||
+        uv_socketpair(SOCK_STREAM, 0, channel_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe(payload_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe_init(&pipe_ipc_loop, &pipe_ipc_sender, 1) < 0 ||
+        uv_pipe_init(&pipe_ipc_loop, &pipe_ipc_receiver, 1) < 0 ||
+        uv_pipe_init(&pipe_ipc_loop, &pipe_ipc_send_handle, 0) < 0 ||
+        uv_pipe_init(&pipe_ipc_loop, &received_handle, 0) < 0 ||
+        uv_pipe_open(&pipe_ipc_sender, channel_fds[0]) < 0 ||
+        uv_pipe_open(&pipe_ipc_receiver, channel_fds[1]) < 0 ||
+        uv_pipe_open(&pipe_ipc_send_handle, payload_fds[1]) < 0 ||
+        uv_read_start((uv_stream_t *)&pipe_ipc_receiver, pipe_ipc_alloc_cb, pipe_ipc_read_cb) < 0 ||
+        uv_write2(&pipe_ipc_write_request,
+            (uv_stream_t *)&pipe_ipc_sender,
+            &buffer,
+            1,
+            (uv_stream_t *)&pipe_ipc_send_handle,
+            pipe_ipc_write_cb) < 0) {
+        puts("libuvdemo: pipe ipc setup failed");
+        return 1;
+    }
+    (void)uv_run(&pipe_ipc_loop, UV_RUN_DEFAULT);
+    if (pipe_ipc_failed ||
+        !pipe_ipc_write_seen ||
+        !pipe_ipc_read_seen ||
+        uv_pipe_pending_count(&pipe_ipc_receiver) != 1 ||
+        uv_pipe_pending_type(&pipe_ipc_receiver) != UV_NAMED_PIPE ||
+        uv_accept((uv_stream_t *)&pipe_ipc_receiver, (uv_stream_t *)&received_handle) < 0 ||
+        uv_fileno((const uv_handle_t *)&received_handle, &received_fd) < 0 ||
+        write(received_fd, "Z", 1) != 1 ||
+        read(payload_fds[0], &payload_byte, 1) != 1 ||
+        payload_byte != 'Z' ||
+        uv_pipe_pending_count(&pipe_ipc_receiver) != 0) {
+        puts("libuvdemo: pipe ipc transfer failed");
+        return 1;
+    }
+    close(payload_fds[0]);
+    uv_close((uv_handle_t *)&received_handle, 0);
+    uv_close((uv_handle_t *)&pipe_ipc_send_handle, 0);
+    uv_close((uv_handle_t *)&pipe_ipc_receiver, 0);
+    uv_close((uv_handle_t *)&pipe_ipc_sender, 0);
+    if (uv_loop_close(&pipe_ipc_loop) < 0) {
+        puts("libuvdemo: pipe ipc loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: pipe ipc write2 ok");
+    return 0;
+}
+
 static uv_loop_t gai_loop;
 static int gai_seen;
 static int gai_failed;
@@ -2269,6 +2375,7 @@ int main(int argc, char **argv) {
         pipe_stream_test() != 0 ||
         socketpair_test() != 0 ||
         pipe_bind_connect_test() != 0 ||
+        pipe_ipc_write2_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
         process_validation_test() != 0 ||

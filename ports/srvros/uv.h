@@ -521,6 +521,8 @@ struct uv_pipe_s {
     uv_write_t *write_queue_tail;
     size_t write_queue_size;
     int ipc;
+    int pending_fd;
+    uv_handle_type pending_type;
 };
 
 struct uv_tty_s {
@@ -587,6 +589,7 @@ struct uv_write_s {
     char *buffer;
     size_t length;
     size_t offset;
+    int send_fd;
     uv_write_t *next;
 };
 
@@ -818,6 +821,15 @@ int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
 int uv_pipe_open(uv_pipe_t *handle, uv_file fd);
 int uv_pipe_bind(uv_pipe_t *handle, const char *name);
 void uv_pipe_connect(uv_connect_t *request, uv_pipe_t *handle, const char *name, uv_connect_cb cb);
+void uv_pipe_pending_instances(uv_pipe_t *handle, int count);
+int uv_pipe_pending_count(uv_pipe_t *handle);
+uv_handle_type uv_pipe_pending_type(uv_pipe_t *handle);
+int uv_write2(uv_write_t *request,
+    uv_stream_t *handle,
+    const uv_buf_t buffers[],
+    unsigned int buffer_count,
+    uv_stream_t *send_handle,
+    uv_write_cb cb);
 
 uv_handle_type uv_guess_handle(uv_file file);
 int uv_tty_init(uv_loop_t *loop, uv_tty_t *handle, uv_file fd, int readable);

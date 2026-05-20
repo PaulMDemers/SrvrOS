@@ -94,8 +94,11 @@ server.
   accept queues, libc `sys/un.h`, `unlink` unbind support, and
   `posixdemo`/`libuvdemo` coverage for local socket transfer.
 - Adds libuv `uv_pipe_bind` and `uv_pipe_connect` staging over srvros pathname
-  local sockets; credentials, pending-handle typing, and broader ancillary
-  messages remain future work.
+  local sockets.
+- Adds first-pass libuv IPC handle passing with `uv_write2`,
+  `uv_pipe_pending_count`, `uv_pipe_pending_type`, and `uv_accept` of a pending
+  pipe handle over an IPC pipe; credentials, multi-handle pending queues, TCP
+  pending-handle typing, and broader ancillary messages remain future work.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

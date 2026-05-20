@@ -1723,6 +1723,95 @@ static void update_pipe_active(uv_pipe_t *pipe_handle) {
         pipe_handle->write_queue_head != 0;
 }
 
+static uv_handle_type uv_guess_handle_for_fd(int fd) {
+    return fd >= 0 ? uv_guess_handle(fd) : UV_UNKNOWN_HANDLE;
+}
+
+static int fd_for_stream_handle(uv_stream_t *stream) {
+    uv_tcp_t *tcp = tcp_from_stream(stream);
+    uv_pipe_t *pipe_handle = pipe_from_stream(stream);
+    uv_tty_t *tty = tty_from_stream(stream);
+    if (tcp != 0) {
+        return tcp->handle.fd;
+    }
+    if (pipe_handle != 0) {
+        return pipe_handle->handle.fd;
+    }
+    if (tty != 0) {
+        return tty->handle.fd;
+    }
+    return -1;
+}
+
+static int drain_pipe_write_queue(uv_pipe_t *pipe_handle) {
+    if (pipe_handle == 0) {
+        return 0;
+    }
+    while (pipe_handle->write_queue_head != 0) {
+        uv_write_t *request = pipe_handle->write_queue_head;
+        int status = 0;
+        while (request->offset < request->length) {
+            ssize_t written;
+            if (request->offset == 0 && request->send_fd >= 0) {
+                struct iovec iov = {
+                    .iov_base = request->buffer,
+                    .iov_len = request->length,
+                };
+                unsigned char control[CMSG_SPACE(sizeof(int))];
+                struct msghdr message;
+                memset(&message, 0, sizeof(message));
+                memset(control, 0, sizeof(control));
+                message.msg_iov = &iov;
+                message.msg_iovlen = 1;
+                message.msg_control = control;
+                message.msg_controllen = sizeof(control);
+                struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int));
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                *(int *)CMSG_DATA(cmsg) = request->send_fd;
+                written = sendmsg(pipe_handle->handle.fd, &message, MSG_NOSIGNAL | MSG_DONTWAIT);
+            } else {
+                written = write(pipe_handle->handle.fd,
+                    request->buffer + request->offset,
+                    request->length - request->offset);
+            }
+            if (written < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+                return 1;
+            }
+            if (written < 0) {
+                status = uv_error_from_errno();
+                break;
+            }
+            if (written == 0) {
+                return 1;
+            }
+            request->offset += (size_t)written;
+            pipe_handle->write_queue_size -= (size_t)written;
+        }
+        pipe_handle->write_queue_head = request->next;
+        if (pipe_handle->write_queue_head == 0) {
+            pipe_handle->write_queue_tail = 0;
+        }
+        request->next = 0;
+        if (status < 0 && pipe_handle->write_queue_size >= request->length - request->offset) {
+            pipe_handle->write_queue_size -= request->length - request->offset;
+        }
+        free(request->buffer);
+        request->buffer = 0;
+        request->length = 0;
+        request->offset = 0;
+        request->send_fd = -1;
+        if (request->write_cb != 0) {
+            request->write_cb(request, status);
+        }
+        if (status < 0) {
+            break;
+        }
+    }
+    return 0;
+}
+
 static int drain_write_queue(int fd,
     uv_write_t **head,
     uv_write_t **tail,
@@ -1774,11 +1863,7 @@ static void dispatch_pipe_writes(uv_pipe_t *pipe_handle) {
     if (pipe_handle == 0) {
         return;
     }
-    (void)drain_write_queue(pipe_handle->handle.fd,
-        &pipe_handle->write_queue_head,
-        &pipe_handle->write_queue_tail,
-        &pipe_handle->write_queue_size,
-        0);
+    (void)drain_pipe_write_queue(pipe_handle);
     update_pipe_active(pipe_handle);
 }
 
@@ -1869,9 +1954,33 @@ static void dispatch_readable(uv_handle_t *handle) {
                 pipe_handle->read_cb((uv_stream_t *)pipe_handle, -ENOMEM, &buffer);
                 return;
             }
-            ssize_t count = read(handle->fd, buffer.base, buffer.len);
+            unsigned char control[CMSG_SPACE(sizeof(int))];
+            struct iovec iov = {
+                .iov_base = buffer.base,
+                .iov_len = buffer.len,
+            };
+            struct msghdr message;
+            memset(&message, 0, sizeof(message));
+            memset(control, 0, sizeof(control));
+            message.msg_iov = &iov;
+            message.msg_iovlen = 1;
+            if (pipe_handle->ipc && pipe_handle->pending_fd < 0) {
+                message.msg_control = control;
+                message.msg_controllen = sizeof(control);
+            }
+            ssize_t count = recvmsg(handle->fd, &message, MSG_CMSG_CLOEXEC);
             if (count < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
                 return;
+            }
+            if (count > 0 && pipe_handle->ipc && pipe_handle->pending_fd < 0) {
+                struct cmsghdr *cmsg = CMSG_FIRSTHDR(&message);
+                if (cmsg != 0 &&
+                    cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_RIGHTS &&
+                    cmsg->cmsg_len >= CMSG_LEN(sizeof(int))) {
+                    pipe_handle->pending_fd = *(int *)CMSG_DATA(cmsg);
+                    pipe_handle->pending_type = uv_guess_handle_for_fd(pipe_handle->pending_fd);
+                }
             }
             pipe_handle->read_cb((uv_stream_t *)pipe_handle,
                 count == 0 ? UV_EOF : count < 0 ? uv_error_from_errno() : count,
@@ -2212,6 +2321,23 @@ int uv_accept(uv_stream_t *server, uv_stream_t *client) {
     uv_tcp_t *tcp_client = tcp_from_stream(client);
     uv_pipe_t *pipe_server = pipe_from_stream(server);
     uv_pipe_t *pipe_client = pipe_from_stream(client);
+    if (pipe_server != 0 && pipe_server->pending_fd >= 0) {
+        uv_tcp_t *pending_tcp_client = tcp_from_stream(client);
+        uv_pipe_t *pending_pipe_client = pipe_from_stream(client);
+        if (pending_pipe_client == 0 && pending_tcp_client == 0) {
+            return UV_EINVAL;
+        }
+        uv_handle_t *client_base = pending_pipe_client != 0 ? &pending_pipe_client->handle : &pending_tcp_client->handle;
+        if (client_base->fd >= 0) {
+            close(client_base->fd);
+        }
+        client_base->fd = pipe_server->pending_fd;
+        set_nonblocking(client_base->fd);
+        client_base->active = 0;
+        pipe_server->pending_fd = -1;
+        pipe_server->pending_type = UV_UNKNOWN_HANDLE;
+        return 0;
+    }
     if ((tcp_server == 0 || tcp_client == 0) && (pipe_server == 0 || pipe_client == 0)) {
         return -EINVAL;
     }
@@ -2308,6 +2434,15 @@ int uv_write(uv_write_t *request,
     const uv_buf_t buffers[],
     unsigned int buffer_count,
     uv_write_cb cb) {
+    return uv_write2(request, handle, buffers, buffer_count, 0, cb);
+}
+
+int uv_write2(uv_write_t *request,
+    uv_stream_t *handle,
+    const uv_buf_t buffers[],
+    unsigned int buffer_count,
+    uv_stream_t *send_handle,
+    uv_write_cb cb) {
     uv_tcp_t *tcp = tcp_from_stream(handle);
     uv_pipe_t *pipe_handle = pipe_from_stream(handle);
     uv_tty_t *tty = tty_from_stream(handle);
@@ -2316,6 +2451,16 @@ int uv_write(uv_write_t *request,
     if (request == 0 || (tcp == 0 && pipe_handle == 0 && tty == 0) || buffers == 0) {
         return -EINVAL;
     }
+    int send_fd = -1;
+    if (send_handle != 0) {
+        if (pipe_handle == 0 || !pipe_handle->ipc) {
+            return UV_EINVAL;
+        }
+        send_fd = fd_for_stream_handle(send_handle);
+        if (send_fd < 0) {
+            return UV_EBADF;
+        }
+    }
     uv_handle_t *base = tcp != 0 ? &tcp->handle : pipe_handle != 0 ? &pipe_handle->handle : &tty->handle;
     if (base->fd < 0 || base->closing) {
         return UV_EBADF;
@@ -2323,12 +2468,16 @@ int uv_write(uv_write_t *request,
     for (unsigned int i = 0; i < buffer_count; i++) {
         total += buffers[i].len;
     }
+    if (send_fd >= 0 && total == 0) {
+        return UV_EINVAL;
+    }
     request->type = UV_WRITE;
     request->handle = handle;
     request->write_cb = cb;
     request->length = total;
     request->offset = 0;
     request->next = 0;
+    request->send_fd = send_fd;
     request->buffer = total == 0 ? 0 : malloc(total);
     if (total != 0 && request->buffer == 0) {
         return UV_ENOMEM;
@@ -2429,6 +2578,8 @@ int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc) {
     memset(handle, 0, sizeof(*handle));
     init_handle(loop, &handle->handle, -1, UV_HANDLE_PIPE);
     handle->ipc = ipc != 0;
+    handle->pending_fd = -1;
+    handle->pending_type = UV_UNKNOWN_HANDLE;
     return 0;
 }
 
@@ -2442,6 +2593,25 @@ int uv_pipe_open(uv_pipe_t *handle, uv_file fd) {
     handle->handle.fd = fd;
     set_nonblocking(fd);
     return 0;
+}
+
+void uv_pipe_pending_instances(uv_pipe_t *handle, int count) {
+    (void)handle;
+    (void)count;
+}
+
+int uv_pipe_pending_count(uv_pipe_t *handle) {
+    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_fd < 0) {
+        return 0;
+    }
+    return 1;
+}
+
+uv_handle_type uv_pipe_pending_type(uv_pipe_t *handle) {
+    if (handle == 0 || handle->handle.type != UV_HANDLE_PIPE || handle->pending_fd < 0) {
+        return UV_UNKNOWN_HANDLE;
+    }
+    return handle->pending_type;
 }
 
 int uv_pipe_bind(uv_pipe_t *handle, const char *name) {
@@ -3573,6 +3743,11 @@ void uv_close(uv_handle_t *handle, uv_close_cb close_cb) {
         pipe_handle->connect_cb = 0;
         pipe_handle->read_cb = 0;
         pipe_handle->alloc_cb = 0;
+        if (pipe_handle->pending_fd >= 0) {
+            close(pipe_handle->pending_fd);
+            pipe_handle->pending_fd = -1;
+        }
+        pipe_handle->pending_type = UV_UNKNOWN_HANDLE;
     } else if (handle->type == UV_HANDLE_TTY) {
         uv_tty_t *tty = (uv_tty_t *)handle;
         while (tty->write_queue_head != 0) {
