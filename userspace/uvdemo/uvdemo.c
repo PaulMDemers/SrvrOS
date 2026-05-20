@@ -419,6 +419,8 @@ static void tcp_connection_cb(uv_stream_t *server, int status) {
     int index = tcp_accept_count;
     if (uv_tcp_init(&tcp_loop, &tcp_clients[index]) < 0 ||
         uv_accept(server, (uv_stream_t *)&tcp_clients[index]) < 0 ||
+        uv_tcp_nodelay(&tcp_clients[index], 1) < 0 ||
+        uv_tcp_keepalive(&tcp_clients[index], 1, 30) < 0 ||
         uv_read_start((uv_stream_t *)&tcp_clients[index], tcp_alloc_cb, tcp_read_cb) < 0) {
         puts("uvdemo: tcp accept failed");
         tcp_failed = 1;

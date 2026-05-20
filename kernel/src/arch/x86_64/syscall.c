@@ -1724,6 +1724,19 @@ static int64_t syscall_net_error(uint64_t fd) {
     return net_error(file->handle);
 }
 
+static int64_t syscall_net_peek(uint64_t fd, uint8_t *buffer, uint64_t capacity) {
+    if (!user_buffer_ok(buffer, capacity, true)) {
+        return -1;
+    }
+
+    struct process *process = process_current();
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_NET_CONNECTION) {
+        return -1;
+    }
+    return net_peek(file->handle, (char *)buffer, capacity, process_file_nonblocking(process, fd));
+}
+
 static int64_t syscall_getpid(void) {
     struct process *process = process_current();
     return process == NULL ? 0 : (int64_t)process_pid(process);
@@ -1885,6 +1898,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_NET_ERROR:
         frame->rax = (uint64_t)syscall_net_error(frame->rdi);
+        return;
+    case SYS_NET_PEEK:
+        frame->rax = (uint64_t)syscall_net_peek(frame->rdi, (uint8_t *)frame->rsi, frame->rdx);
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);

@@ -159,6 +159,7 @@ long srv_net_sockname(int fd, uint32_t *ip_out, uint16_t *port_out);
 long srv_net_peername(int fd, uint32_t *ip_out, uint16_t *port_out);
 long srv_net_shutdown(int fd, int how);
 long srv_net_error(int fd);
+long srv_net_peek(int fd, void *buffer, size_t capacity);
 long srv_getpid(void);
 long srv_getppid(void);
 long srv_exepath(char *buffer, size_t capacity);

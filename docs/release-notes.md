@@ -81,6 +81,9 @@ server.
 - Adds `netinet/tcp.h`, `TCP_NODELAY` socket-option storage/no-op handling,
   libuv `uv_tcp_nodelay`/keepalive/open helpers, and `netcheck` coverage for
   nonblocking TCP connect readiness plus `getsockopt(SO_ERROR)`.
+- Adds TCP `MSG_PEEK` through a kernel peek syscall, exposes `accept4`, and
+  tracks socket options on accepted real TCP fds so libuv/POSIX streams can
+  set/query `TCP_NODELAY`, keepalive, linger, and buffer options after accept.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

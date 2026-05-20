@@ -267,6 +267,24 @@ static int check_tcp_nonblocking(void) {
         offset += (size_t)count;
     }
 
+    char peek[8];
+    ssize_t peeked = 0;
+    for (;;) {
+        peeked = recv(fd, peek, 5, MSG_PEEK);
+        if (peeked < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+            if ((wait_for_socket(fd, POLLIN | POLLERR | POLLHUP, 6000) & (POLLIN | POLLHUP | POLLERR)) == 0) {
+                close(fd);
+                return fail("nb-peek-poll");
+            }
+            continue;
+        }
+        break;
+    }
+    if (peeked <= 0 || peeked > 5 || memcmp(peek, "HTTP/", (size_t)peeked) != 0) {
+        close(fd);
+        return fail("nb-peek");
+    }
+
     char buffer[256];
     ssize_t received = 0;
     for (;;) {

@@ -3092,7 +3092,7 @@ static bool read_ready(void *arg) {
     return true;
 }
 
-int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
+static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock, bool peek) {
     if (!initialized || (buffer == 0 && length != 0)) {
         return -1;
     }
@@ -3138,8 +3138,10 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
                     for (uint64_t j = 0; j < copied; j++) {
                         buffer[j] = connection->rx_data[connection->rx_offset + j];
                     }
-                    connection->rx_offset += copied;
-                    (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+                    if (!peek) {
+                        connection->rx_offset += copied;
+                        (void)send_tcp_segment(connection, connection->local_port, TCP_ACK, 0, 0);
+                    }
                     return (int64_t)copied;
                 }
 
@@ -3161,6 +3163,14 @@ int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool non
             scheduler_yield();
         }
     }
+}
+
+int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
+    return net_read_common(connection_id, buffer, length, nonblock, false);
+}
+
+int64_t net_peek(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock) {
+    return net_read_common(connection_id, buffer, length, nonblock, true);
 }
 
 struct write_wait_arg {

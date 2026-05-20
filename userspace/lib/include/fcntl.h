@@ -13,6 +13,7 @@
 #define O_APPEND 0x0400
 #define O_NONBLOCK 0x0800
 #define O_DIRECTORY 0x10000
+#define O_CLOEXEC 0x80000
 
 #define FD_CLOEXEC 1
 

@@ -114,7 +114,8 @@ editor clients:
   file actions, reset-id/signal-mask/default spawn attribute storage,
   process-replacing `execve`, IPv4
   helpers, DNS-backed `getaddrinfo`, TCP server sockets, basic socket options
-  including `TCP_NODELAY`, and nonblocking TCP connect readiness through
+  including `TCP_NODELAY`, accepted-fd option tracking, `accept4`,
+  TCP `MSG_PEEK`, and nonblocking TCP connect readiness through
   `poll`/`getsockopt(SO_ERROR)`.
 - Minimal `stdio` plus early libc/POSIX shims for third-party ports:
   `/fat/bin/zlibdemo` links pinned zlib, `/fat/bin/minizip` and

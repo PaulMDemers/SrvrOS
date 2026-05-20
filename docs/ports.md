@@ -278,15 +278,17 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
 - Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
   client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
   `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,
-  kernel-backed TCP `shutdown`, connected UDP shutdown state,
+  `accept4`, kernel-backed TCP `shutdown`, connected UDP shutdown state,
   `setsockopt(SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`,
   `setsockopt(IPPROTO_TCP/TCP_NODELAY)`,
   and
   `getsockopt(SO_ERROR/SO_TYPE/SO_ACCEPTCONN/SO_REUSEADDR/SO_KEEPALIVE/SO_LINGER/SO_RCVBUF/SO_SNDBUF)`
-  plus `getsockopt(IPPROTO_TCP/TCP_NODELAY)`.
+  plus `getsockopt(IPPROTO_TCP/TCP_NODELAY)`. Accepted TCP fds keep their
+  socket-option state across `setsockopt`, `getsockopt`, `dup`, and `dup2`.
   Nonblocking mode is preserved when it is set on a socket before `listen()` or
-  `connect()`, `MSG_DONTWAIT` is accepted on the common send/receive paths, and
-  UDP sockets report poll readiness. TCP writes can span multiple payload-sized
+  `connect()`, `MSG_DONTWAIT` is accepted on the common send/receive paths,
+  TCP `MSG_PEEK` can inspect queued stream bytes without consuming them, and UDP
+  sockets report poll readiness. TCP writes can span multiple payload-sized
   segments from one userspace `write` call, and the kernel keeps a small
   transmit history for timer-based SYN/FIN/data retransmission. TCP writes are
   bounded by a compact outstanding-send window, so `POLLOUT` and nonblocking

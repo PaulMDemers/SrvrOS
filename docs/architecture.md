@@ -242,8 +242,8 @@ The network stack includes:
 - A small fixed ARP cache plus kernel-backed ICMP echo requests for
   `/fat/bin/ping`.
 - `/fat/bin/netcheck`, a compact guest-side network health check covering DHCP,
-  DNS, ping, UDP loopback, outbound TCP HTTP, `TCP_NODELAY`, and nonblocking
-  connect readiness through `poll`/`SO_ERROR`.
+  DNS, ping, UDP loopback, outbound TCP HTTP, `TCP_NODELAY`, TCP `MSG_PEEK`,
+  and nonblocking connect readiness through `poll`/`SO_ERROR`.
 - `/fat/bin/netabi`, a regression probe for the size-versioned network structs
   that passes deliberately truncated buffers and checks canaries after them.
 

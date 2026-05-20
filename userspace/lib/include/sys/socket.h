@@ -9,6 +9,8 @@
 #define PF_INET AF_INET
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
+#define SOCK_NONBLOCK 0x0800
+#define SOCK_CLOEXEC 0x80000
 #define IPPROTO_TCP 6
 #define IPPROTO_UDP 17
 #define SOL_SOCKET 1
@@ -45,6 +47,7 @@ int socket(int domain, int type, int protocol);
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen);
 int listen(int fd, int backlog);
 int accept(int fd, struct sockaddr *addr, socklen_t *addrlen);
+int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags);
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen);
 int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen);
 int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen);

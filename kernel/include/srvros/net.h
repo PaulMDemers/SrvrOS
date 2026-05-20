@@ -42,6 +42,7 @@ int64_t net_shutdown(uint64_t handle, int how);
 int64_t net_error(uint64_t handle);
 int64_t net_accept(uint64_t listener_id, char *buffer, uint64_t capacity, uint64_t *length_out, bool nonblock);
 int64_t net_read(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock);
+int64_t net_peek(uint64_t connection_id, char *buffer, uint64_t length, bool nonblock);
 int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length, bool nonblock);
 uint16_t net_poll_events(uint64_t handle, uint16_t events);
 int64_t net_close(uint64_t handle);

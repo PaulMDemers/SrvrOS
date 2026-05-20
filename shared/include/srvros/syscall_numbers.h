@@ -99,6 +99,7 @@
 #define SYS_FUTIME 94
 #define SYS_GETPPID 95
 #define SYS_EXEPATH 96
+#define SYS_NET_PEEK 97
 
 #define SRV_ABI_VERSION 1
 

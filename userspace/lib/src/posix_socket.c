@@ -14,6 +14,7 @@
 
 #define POSIX_SOCKET_MAX 8
 #define POSIX_SOCKET_BASE 1000
+#define REAL_SOCKET_OPTIONS_MAX 32
 
 struct posix_socket {
     int used;
@@ -39,7 +40,20 @@ struct posix_socket {
     uint64_t descriptor_flags;
 };
 
+struct real_socket_options {
+    int used;
+    int fd;
+    int type;
+    int so_reuseaddr;
+    int so_rcvbuf;
+    int so_sndbuf;
+    int so_keepalive;
+    int tcp_nodelay;
+    struct linger so_linger;
+};
+
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
+static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
 
 static struct posix_socket *socket_at(int fd) {
     if (fd < POSIX_SOCKET_BASE || fd >= POSIX_SOCKET_BASE + POSIX_SOCKET_MAX) {
@@ -97,6 +111,89 @@ static int real_net_fd(int fd) {
     return srv_net_sockname(fd, &ip, &port) == 0;
 }
 
+static void init_socket_options(struct posix_socket *socket) {
+    socket->so_reuseaddr = 0;
+    socket->so_rcvbuf = 32768;
+    socket->so_sndbuf = 1400;
+    socket->so_keepalive = 0;
+    socket->tcp_nodelay = 0;
+    socket->so_linger.l_onoff = 0;
+    socket->so_linger.l_linger = 0;
+}
+
+static void init_real_options(struct real_socket_options *options, int fd) {
+    memset(options, 0, sizeof(*options));
+    options->used = 1;
+    options->fd = fd;
+    options->type = SOCK_STREAM;
+    options->so_rcvbuf = 32768;
+    options->so_sndbuf = 1400;
+}
+
+static struct real_socket_options *real_options_for_fd(int fd, int create) {
+    struct real_socket_options *free_slot = 0;
+    for (int i = 0; i < REAL_SOCKET_OPTIONS_MAX; i++) {
+        if (real_options[i].used && real_options[i].fd == fd) {
+            return &real_options[i];
+        }
+        if (!real_options[i].used && free_slot == 0) {
+            free_slot = &real_options[i];
+        }
+    }
+    if (!create || free_slot == 0) {
+        return 0;
+    }
+    init_real_options(free_slot, fd);
+    return free_slot;
+}
+
+static void real_options_clear(int fd) {
+    for (int i = 0; i < REAL_SOCKET_OPTIONS_MAX; i++) {
+        if (real_options[i].used && real_options[i].fd == fd) {
+            memset(&real_options[i], 0, sizeof(real_options[i]));
+            return;
+        }
+    }
+}
+
+static int real_options_set_from_socket(int fd, const struct posix_socket *socket) {
+    struct real_socket_options *options = real_options_for_fd(fd, 1);
+    if (options == 0) {
+        return -1;
+    }
+    options->type = socket->type;
+    options->so_reuseaddr = socket->so_reuseaddr;
+    options->so_rcvbuf = socket->so_rcvbuf;
+    options->so_sndbuf = socket->so_sndbuf;
+    options->so_keepalive = socket->so_keepalive;
+    options->tcp_nodelay = socket->tcp_nodelay;
+    options->so_linger = socket->so_linger;
+    return 0;
+}
+
+void __posix_socket_note_close(int fd) {
+    real_options_clear(fd);
+}
+
+void __posix_socket_note_dup(int old_fd, int new_fd) {
+    if (old_fd == new_fd) {
+        return;
+    }
+    real_options_clear(new_fd);
+    if (!real_net_fd(old_fd) || !real_net_fd(new_fd)) {
+        return;
+    }
+    struct real_socket_options *target = real_options_for_fd(new_fd, 1);
+    if (target == 0) {
+        return;
+    }
+    struct real_socket_options *source = real_options_for_fd(old_fd, 0);
+    if (source != 0) {
+        *target = *source;
+        target->fd = new_fd;
+    }
+}
+
 static long with_optional_nonblock(int fd,
     int enable,
     long (*operation)(int fd, void *buffer, size_t length),
@@ -127,6 +224,15 @@ static long with_optional_nonblock(int fd,
 
 static long read_operation(int fd, void *buffer, size_t length) {
     return read(fd, buffer, length);
+}
+
+static long peek_operation(int fd, void *buffer, size_t length) {
+    long result = srv_net_peek(fd, buffer, length);
+    if (result < 0) {
+        errno = result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
+        return -1;
+    }
+    return result;
 }
 
 static long write_operation(int fd, void *buffer, size_t length) {
@@ -232,6 +338,7 @@ int __posix_socket_close(int fd) {
         return -1;
     }
     if (socket->listener_fd >= 0) {
+        real_options_clear(socket->listener_fd);
         (void)srv_close(socket->listener_fd);
     }
     memset(socket, 0, sizeof(*socket));
@@ -277,13 +384,7 @@ int socket(int domain, int type, int protocol) {
             sockets[i].listening = 0;
             sockets[i].shutdown_read = 0;
             sockets[i].shutdown_write = 0;
-            sockets[i].so_reuseaddr = 0;
-            sockets[i].so_rcvbuf = 32768;
-            sockets[i].so_sndbuf = 1400;
-            sockets[i].so_keepalive = 0;
-            sockets[i].tcp_nodelay = 0;
-            sockets[i].so_linger.l_onoff = 0;
-            sockets[i].so_linger.l_linger = 0;
+            init_socket_options(&sockets[i]);
             sockets[i].fd_flags = 0;
             return POSIX_SOCKET_BASE + i;
         }
@@ -350,9 +451,13 @@ int listen(int fd, int backlog) {
     return 0;
 }
 
-int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
     struct posix_socket *socket = socket_at(fd);
     uint64_t length = 0;
+    if ((flags & ~(SOCK_NONBLOCK | SOCK_CLOEXEC)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     if (socket == 0 || socket->type != SOCK_STREAM || socket->listener_fd < 0) {
         errno = EBADF;
         return -1;
@@ -370,6 +475,15 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         errno = EIO;
         return -1;
     }
+    uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+    uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+    if ((fd_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFL, fd_flags) < 0) ||
+        (descriptor_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFD, descriptor_flags) < 0) ||
+        real_options_set_from_socket((int)connection, socket) < 0) {
+        (void)srv_close((int)connection);
+        errno = EBADF;
+        return -1;
+    }
     if (addr != 0 && addrlen != 0) {
         uint32_t peer_ip = 0;
         uint16_t peer_port = 0;
@@ -378,6 +492,14 @@ int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
         }
     }
     return (int)connection;
+}
+
+int accept(int fd, struct sockaddr *addr, socklen_t *addrlen) {
+    return accept_with_flags(fd, addr, addrlen, 0);
+}
+
+int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
+    return accept_with_flags(fd, addr, addrlen, flags);
 }
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
@@ -578,7 +700,7 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
 }
 
 ssize_t recv(int fd, void *buffer, size_t length, int flags) {
-    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL | MSG_PEEK)) != 0) {
         errno = EINVAL;
         return -1;
     }
@@ -587,6 +709,10 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
         return 0;
     }
     if (socket != 0 && socket->type == SOCK_DGRAM) {
+        if ((flags & MSG_PEEK) != 0) {
+            errno = ENOSYS;
+            return -1;
+        }
         if (!socket->connected) {
             errno = ENOTCONN;
             return -1;
@@ -610,7 +736,11 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
         }
     }
     int real_fd = socket != 0 ? socket->listener_fd : fd;
-    long result = with_optional_nonblock(real_fd, (flags & MSG_DONTWAIT) != 0, read_operation, buffer, length);
+    long result = with_optional_nonblock(real_fd,
+        (flags & MSG_DONTWAIT) != 0,
+        (flags & MSG_PEEK) != 0 ? peek_operation : read_operation,
+        buffer,
+        length);
     if (result < 0) {
         int error = socket_error_for_fd(real_fd);
         if (error == EINPROGRESS) {
@@ -671,8 +801,12 @@ ssize_t recvfrom(int fd,
     int flags,
     struct sockaddr *src_addr,
     socklen_t *addrlen) {
-    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL | MSG_PEEK)) != 0) {
         errno = EINVAL;
+        return -1;
+    }
+    if ((flags & MSG_PEEK) != 0) {
+        errno = ENOSYS;
         return -1;
     }
     struct posix_socket *socket = socket_at(fd);
@@ -711,8 +845,13 @@ ssize_t recvfrom(int fd,
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {
     struct posix_socket *socket = socket_at(fd);
     int is_real_net = socket == 0 && real_net_fd(fd);
+    struct real_socket_options *real = is_real_net ? real_options_for_fd(fd, 1) : 0;
     if ((socket == 0 && !is_real_net) || option_value == 0) {
         errno = EINVAL;
+        return -1;
+    }
+    if (is_real_net && real == 0) {
+        errno = EMFILE;
         return -1;
     }
     if (level != SOL_SOCKET && level != IPPROTO_TCP) {
@@ -730,6 +869,8 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
         }
         if (socket != 0) {
             socket->tcp_nodelay = (*(const int *)option_value) != 0;
+        } else {
+            real->tcp_nodelay = (*(const int *)option_value) != 0;
         }
         return 0;
     }
@@ -756,19 +897,39 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
     int value = *(const int *)option_value;
     switch (option_name) {
     case SO_REUSEADDR:
-        socket->so_reuseaddr = value != 0;
+        if (socket != 0) {
+            socket->so_reuseaddr = value != 0;
+        } else {
+            real->so_reuseaddr = value != 0;
+        }
         return 0;
     case SO_KEEPALIVE:
-        socket->so_keepalive = value != 0;
+        if (socket != 0) {
+            socket->so_keepalive = value != 0;
+        } else {
+            real->so_keepalive = value != 0;
+        }
         return 0;
     case SO_RCVBUF:
-        socket->so_rcvbuf = value > 0 ? value : socket->so_rcvbuf;
+        if (socket != 0) {
+            socket->so_rcvbuf = value > 0 ? value : socket->so_rcvbuf;
+        } else {
+            real->so_rcvbuf = value > 0 ? value : real->so_rcvbuf;
+        }
         return 0;
     case SO_SNDBUF:
-        socket->so_sndbuf = value > 0 ? value : socket->so_sndbuf;
+        if (socket != 0) {
+            socket->so_sndbuf = value > 0 ? value : socket->so_sndbuf;
+        } else {
+            real->so_sndbuf = value > 0 ? value : real->so_sndbuf;
+        }
         return 0;
     case SO_LINGER:
-        socket->so_linger = *(const struct linger *)option_value;
+        if (socket != 0) {
+            socket->so_linger = *(const struct linger *)option_value;
+        } else {
+            real->so_linger = *(const struct linger *)option_value;
+        }
         return 0;
     default:
         errno = ENOSYS;
@@ -779,11 +940,16 @@ int setsockopt(int fd, int level, int option_name, const void *option_value, soc
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len) {
     struct posix_socket *socket = socket_at(fd);
     int is_real_net = socket == 0 && real_net_fd(fd);
+    struct real_socket_options *real = is_real_net ? real_options_for_fd(fd, 1) : 0;
     if ((socket == 0 && !is_real_net) ||
         option_value == 0 ||
         option_len == 0 ||
         *option_len < sizeof(int)) {
         errno = EINVAL;
+        return -1;
+    }
+    if (is_real_net && real == 0) {
+        errno = EMFILE;
         return -1;
     }
     if (level != SOL_SOCKET && level != IPPROTO_TCP) {
@@ -799,17 +965,17 @@ int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t
             errno = ENOPROTOOPT;
             return -1;
         }
-        *(int *)option_value = socket != 0 ? socket->tcp_nodelay : 0;
+        *(int *)option_value = socket != 0 ? socket->tcp_nodelay : real->tcp_nodelay;
         *option_len = sizeof(int);
         return 0;
     }
     switch (option_name) {
     case SO_LINGER:
-        if (socket == 0 || *option_len < sizeof(struct linger)) {
+        if (*option_len < sizeof(struct linger)) {
             errno = EINVAL;
             return -1;
         }
-        *(struct linger *)option_value = socket->so_linger;
+        *(struct linger *)option_value = socket != 0 ? socket->so_linger : real->so_linger;
         *option_len = sizeof(struct linger);
         return 0;
     default:
@@ -843,22 +1009,22 @@ int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t
         }
         break;
     case SO_TYPE:
-        *(int *)option_value = socket != 0 ? socket->type : SOCK_STREAM;
+        *(int *)option_value = socket != 0 ? socket->type : real->type;
         break;
     case SO_ACCEPTCONN:
         *(int *)option_value = socket != 0 && socket->type == SOCK_STREAM && socket->listening;
         break;
     case SO_REUSEADDR:
-        *(int *)option_value = socket != 0 ? socket->so_reuseaddr : 0;
+        *(int *)option_value = socket != 0 ? socket->so_reuseaddr : real->so_reuseaddr;
         break;
     case SO_KEEPALIVE:
-        *(int *)option_value = socket != 0 ? socket->so_keepalive : 0;
+        *(int *)option_value = socket != 0 ? socket->so_keepalive : real->so_keepalive;
         break;
     case SO_RCVBUF:
-        *(int *)option_value = socket != 0 ? socket->so_rcvbuf : 32768;
+        *(int *)option_value = socket != 0 ? socket->so_rcvbuf : real->so_rcvbuf;
         break;
     case SO_SNDBUF:
-        *(int *)option_value = socket != 0 ? socket->so_sndbuf : 1400;
+        *(int *)option_value = socket != 0 ? socket->so_sndbuf : real->so_sndbuf;
         break;
     default:
         errno = ENOSYS;

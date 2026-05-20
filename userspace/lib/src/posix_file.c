@@ -12,6 +12,8 @@ int __posix_make_path(const char *path, char *out, size_t capacity);
 int __posix_socket_close(int fd);
 int __posix_socket_fcntl(int fd, int command, uint64_t flags);
 int __posix_socket_is_pseudo(int fd);
+void __posix_socket_note_close(int fd);
+void __posix_socket_note_dup(int old_fd, int new_fd);
 int __posix_socket_real_fd(int fd);
 
 #define POSIX_PATH_MAX 160
@@ -167,6 +169,7 @@ int close(int fd) {
         errno = EBADF;
         return -1;
     }
+    __posix_socket_note_close(fd);
     return 0;
 }
 
@@ -188,6 +191,7 @@ int dup(int fd) {
         errno = EBADF;
         return -1;
     }
+    __posix_socket_note_dup(fd, (int)result);
     return (int)result;
 }
 
@@ -197,6 +201,7 @@ int dup2(int old_fd, int new_fd) {
         errno = old_fd < 0 || new_fd < 0 ? EBADF : ENOSYS;
         return -1;
     }
+    __posix_socket_note_dup(old_fd, new_fd);
     return (int)result;
 }
 

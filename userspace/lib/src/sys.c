@@ -477,6 +477,10 @@ long srv_net_error(int fd) {
     return srv_syscall1(SYS_NET_ERROR, fd);
 }
 
+long srv_net_peek(int fd, void *buffer, size_t capacity) {
+    return srv_syscall3(SYS_NET_PEEK, fd, (long)buffer, (long)capacity);
+}
+
 long srv_getpid(void) {
     return srv_syscall0(SYS_GETPID);
 }
