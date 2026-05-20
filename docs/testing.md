@@ -188,9 +188,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   delivery through `uv_run`.
   It also verifies `uv_pipe`, `uv_pipe_t`, and `uv_spawn` by writing through a
   libuv pipe stream, feeding a child `cat` process over stdin, reading child
-  stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`, and
-  exercising inherited-fd stdin and a duplex child stdio pipe. The process
-  section also covers
+  stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,
+  exercising inherited-fd stdin, inherited-stream stdin/stdout/stderr, short
+  process-only exit loops, and a duplex child stdio pipe. The process section
+  also covers
   pre-side-effect spawn validation, failed-spawn loop cleanup, unsupported
   process flags, bad stdio source combinations, missing executables, and bad
   cwd.

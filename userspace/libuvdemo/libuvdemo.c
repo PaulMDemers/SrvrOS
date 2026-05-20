@@ -1551,6 +1551,183 @@ static int process_inherit_fd_test(void) {
     return 0;
 }
 
+static int read_pipe_text(int fd, char *buffer, size_t capacity) {
+    size_t used = 0;
+    if (capacity == 0) {
+        return -1;
+    }
+    for (;;) {
+        ssize_t count = read(fd, buffer + used, capacity - 1 - used);
+        if (count < 0) {
+            return -1;
+        }
+        if (count == 0) {
+            buffer[used] = '\0';
+            return 0;
+        }
+        used += (size_t)count;
+        if (used + 1 >= capacity) {
+            buffer[used] = '\0';
+            return 0;
+        }
+    }
+}
+
+static int process_inherit_stream_stdin_test(void) {
+    char *argv[] = {"libuvdemo", "inherit-stream-stdin-child", 0};
+    uv_stdio_container_t stdio[3];
+    uv_process_options_t options;
+    int fds[2] = {-1, -1};
+    if (pipe(fds) < 0) {
+        puts("libuvdemo: process inherit stream setup failed");
+        return 1;
+    }
+    (void)write(fds[1], "uv-stream-in\n", 13);
+    close(fds[1]);
+    fds[1] = -1;
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    process_exit_seen = 0;
+    process_stdout_eof = 1;
+    process_failed = 0;
+    if (uv_loop_init(&process_loop) < 0 ||
+        uv_pipe_init(&process_loop, &process_stdin_pipe, 0) < 0 ||
+        uv_pipe_open(&process_stdin_pipe, fds[0]) < 0) {
+        puts("libuvdemo: process inherit stream setup failed");
+        close(fds[0]);
+        return 1;
+    }
+    fds[0] = -1;
+    stdio[0].flags = UV_INHERIT_STREAM;
+    stdio[0].data.stream = (uv_stream_t *)&process_stdin_pipe;
+    stdio[1].flags = UV_IGNORE;
+    stdio[2].flags = UV_IGNORE;
+    options.exit_cb = process_exit_cb;
+    options.file = "/libuvdemo";
+    options.args = argv;
+    options.stdio_count = 3;
+    options.stdio = stdio;
+    if (uv_spawn(&process_loop, &process_handle, &options) < 0) {
+        puts("libuvdemo: process inherit stream spawn failed");
+        uv_close((uv_handle_t *)&process_stdin_pipe, 0);
+        return 1;
+    }
+    uv_close((uv_handle_t *)&process_stdin_pipe, 0);
+    (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&process_handle, 0);
+    if (process_failed || !process_exit_seen || process_handle.exit_status != 0) {
+        puts("libuvdemo: process inherit stream failed");
+        return 1;
+    }
+    return 0;
+}
+
+static int process_inherit_stream_output_test(int stderr_stream) {
+    char *stdout_argv[] = {"libuvdemo", "inherit-stream-stdout-child", 0};
+    char *stderr_argv[] = {"libuvdemo", "inherit-stream-stderr-child", 0};
+    uv_stdio_container_t stdio[3];
+    uv_process_options_t options;
+    int fds[2] = {-1, -1};
+    char output[64];
+    if (pipe(fds) < 0) {
+        puts("libuvdemo: process inherit stream setup failed");
+        return 1;
+    }
+    memset(stdio, 0, sizeof(stdio));
+    memset(&options, 0, sizeof(options));
+    memset(output, 0, sizeof(output));
+    process_exit_seen = 0;
+    process_stdout_eof = 1;
+    process_failed = 0;
+    if (uv_loop_init(&process_loop) < 0 ||
+        uv_pipe_init(&process_loop, &process_stdout_pipe, 0) < 0 ||
+        uv_pipe_open(&process_stdout_pipe, fds[1]) < 0) {
+        puts("libuvdemo: process inherit stream setup failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    fds[1] = -1;
+    stdio[0].flags = UV_IGNORE;
+    stdio[1].flags = stderr_stream ? UV_IGNORE : UV_INHERIT_STREAM;
+    stdio[1].data.stream = (uv_stream_t *)&process_stdout_pipe;
+    stdio[2].flags = stderr_stream ? UV_INHERIT_STREAM : UV_IGNORE;
+    stdio[2].data.stream = (uv_stream_t *)&process_stdout_pipe;
+    options.exit_cb = process_exit_cb;
+    options.file = "/libuvdemo";
+    options.args = stderr_stream ? stderr_argv : stdout_argv;
+    options.stdio_count = 3;
+    options.stdio = stdio;
+    if (uv_spawn(&process_loop, &process_handle, &options) < 0) {
+        puts("libuvdemo: process inherit stream spawn failed");
+        close(fds[0]);
+        uv_close((uv_handle_t *)&process_stdout_pipe, 0);
+        return 1;
+    }
+    uv_close((uv_handle_t *)&process_stdout_pipe, 0);
+    (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+    uv_close((uv_handle_t *)&process_handle, 0);
+    if (read_pipe_text(fds[0], output, sizeof(output)) < 0) {
+        close(fds[0]);
+        puts("libuvdemo: process inherit stream failed");
+        return 1;
+    }
+    close(fds[0]);
+    if (process_failed || !process_exit_seen || process_handle.exit_status != 0 ||
+        strstr(output, stderr_stream ? "uv-stream-err" : "uv-stream-out") == 0) {
+        puts("libuvdemo: process inherit stream failed");
+        return 1;
+    }
+    return 0;
+}
+
+static int process_inherit_stream_test(void) {
+    if (process_inherit_stream_stdin_test() != 0 ||
+        process_inherit_stream_output_test(0) != 0 ||
+        process_inherit_stream_output_test(1) != 0) {
+        return 1;
+    }
+    puts("libuvdemo: process inherit stream ok");
+    return 0;
+}
+
+static int process_many_test(void) {
+    for (int i = 0; i < 4; i++) {
+        char *argv[] = {"libuvdemo", "exit-child", 0};
+        uv_stdio_container_t stdio[3];
+        uv_process_options_t options;
+        memset(stdio, 0, sizeof(stdio));
+        memset(&options, 0, sizeof(options));
+        process_exit_seen = 0;
+        process_stdout_eof = 1;
+        process_failed = 0;
+        if (uv_loop_init(&process_loop) < 0) {
+            puts("libuvdemo: process many setup failed");
+            return 1;
+        }
+        stdio[0].flags = UV_IGNORE;
+        stdio[1].flags = UV_IGNORE;
+        stdio[2].flags = UV_IGNORE;
+        options.exit_cb = process_exit_cb;
+        options.file = "/libuvdemo";
+        options.args = argv;
+        options.stdio_count = 3;
+        options.stdio = stdio;
+        if (uv_spawn(&process_loop, &process_handle, &options) < 0) {
+            puts("libuvdemo: process many spawn failed");
+            return 1;
+        }
+        (void)uv_run(&process_loop, UV_RUN_DEFAULT);
+        uv_close((uv_handle_t *)&process_handle, 0);
+        if (process_failed || !process_exit_seen || process_handle.exit_status != 0) {
+            puts("libuvdemo: process many failed");
+            return 1;
+        }
+    }
+    puts("libuvdemo: process many ok");
+    return 0;
+}
+
 static int process_test(void) {
     char *argv[] = {"cat", 0};
     uv_buf_t input = uv_buf_init("uv-process-ok\n", 14);
@@ -1710,12 +1887,42 @@ static int process_inherit_child(void) {
     return strstr(buffer, "uv-inherit-ok") != 0 ? 0 : 3;
 }
 
+static int process_inherit_stream_stdin_child(void) {
+    char buffer[32];
+    ssize_t count = read(0, buffer, sizeof(buffer) - 1);
+    if (count <= 0) {
+        return 2;
+    }
+    buffer[count] = '\0';
+    return strstr(buffer, "uv-stream-in") != 0 ? 0 : 3;
+}
+
+static int process_inherit_stream_stdout_child(void) {
+    return write(1, "uv-stream-out\n", 14) == 14 ? 0 : 2;
+}
+
+static int process_inherit_stream_stderr_child(void) {
+    return write(2, "uv-stream-err\n", 14) == 14 ? 0 : 2;
+}
+
 int main(int argc, char **argv) {
     if (argc > 1 && strcmp(argv[1], "duplex-child") == 0) {
         return process_duplex_child();
     }
     if (argc > 1 && strcmp(argv[1], "inherit-child") == 0) {
         return process_inherit_child();
+    }
+    if (argc > 1 && strcmp(argv[1], "inherit-stream-stdin-child") == 0) {
+        return process_inherit_stream_stdin_child();
+    }
+    if (argc > 1 && strcmp(argv[1], "inherit-stream-stdout-child") == 0) {
+        return process_inherit_stream_stdout_child();
+    }
+    if (argc > 1 && strcmp(argv[1], "inherit-stream-stderr-child") == 0) {
+        return process_inherit_stream_stderr_child();
+    }
+    if (argc > 1 && strcmp(argv[1], "exit-child") == 0) {
+        return 0;
     }
 
     puts("libuvdemo: srvros libuv port staging");
@@ -1737,7 +1944,9 @@ int main(int argc, char **argv) {
         process_test() != 0 ||
         process_cwd_test() != 0 ||
         process_duplex_test() != 0 ||
-        process_inherit_fd_test() != 0) {
+        process_inherit_fd_test() != 0 ||
+        process_inherit_stream_test() != 0 ||
+        process_many_test() != 0) {
         puts("libuvdemo: failed");
         return 1;
     }

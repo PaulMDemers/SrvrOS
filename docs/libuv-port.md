@@ -99,7 +99,8 @@ requests, filesystem polling, directory requests, fsync/truncate/sendfile/time r
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
 resolver callbacks, public pipe creation, pipe streams, child stdin/stdout pipe
 wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
-stdin, a duplex stdio child pipe, plus TTY/signal delivery and the current
+stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
+duplex stdio child pipe, plus TTY/signal delivery and the current
 thread/synchronization wrappers that need to stay stable while incrementally
 replacing adapter internals with upstream code.
 

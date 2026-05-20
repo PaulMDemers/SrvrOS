@@ -246,8 +246,9 @@ SIGINT/SIGTERM through `uv_run`.
 Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
 and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 `libuvdemo` verifying direct pipe streams, child stdout/stdin pipe wiring,
-cwd-scoped spawn, duplex stdio pipes, inherited-fd stdin, and validation paths
-that fail before registering process handles or opening child stdio resources.
+cwd-scoped spawn, duplex stdio pipes, inherited-fd stdin, inherited-stream
+stdin/stdout/stderr, short process-only exit loops, and validation paths that
+fail before registering process handles or opening child stdio resources.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

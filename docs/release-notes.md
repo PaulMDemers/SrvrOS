@@ -74,6 +74,8 @@ server.
   and adds `posixdemo`/`ports_smoke.py` coverage for many open files and pipes.
 - Restores libuv inherited-fd stdin spawn coverage and caps process-only
   `uv_run` waits so child exits are observed without another fd event.
+- Adds libuv inherited-stream spawn coverage for stdin/stdout/stderr and a
+  short-lived process-only spawn loop to guard exit polling behavior.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

@@ -133,6 +133,8 @@ def main():
         "libuvdemo: process cwd ok",
         "libuvdemo: process duplex ok",
         "libuvdemo: process inherit ok",
+        "libuvdemo: process inherit stream ok",
+        "libuvdemo: process many ok",
         "libuvdemo: ok",
     ]
     missing = [marker for marker in expected if marker not in text]

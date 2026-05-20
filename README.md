@@ -133,7 +133,8 @@ editor clients:
   `/fat/bin/libuvdemo` is the staging harness for growing the srvros backend
   toward that upstream source tree. Its process coverage now includes child
   stdin/stdout pipe wiring, cwd-scoped spawn, duplex stdio pipes,
-  inherited-fd stdin, and failed-spawn validation cleanup, and its
+  inherited-fd/inherited-stream stdin, inherited-stream stdout/stderr, short
+  process-only exit loops, and failed-spawn validation cleanup, and its
   platform/filesystem coverage now includes cwd/env/environ/exepath/pid,
   title, passwd/group, uname, uptime/resource, CPU/interface, time/memory,
   syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
