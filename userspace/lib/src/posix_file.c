@@ -465,6 +465,10 @@ int stat(const char *path, struct stat *st) {
     return 0;
 }
 
+int lstat(const char *path, struct stat *st) {
+    return stat(path, st);
+}
+
 int fstat(int fd, struct stat *st) {
     struct srv_stat info;
     if (st == 0) {

@@ -103,9 +103,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
   compatibility-layer smoke app, including pathname `AF_UNIX` stream socket
-  bind/listen/connect/accept transfer coverage. The CLI harness also runs monitor `fsck /fat`
-  after the shell exits to catch filesystem consistency regressions from the
-  mutation path.
+  bind/listen/connect/accept transfer coverage and port-readiness checks for
+  `limits.h`, `lstat`, `realpath`, `scandir`, and `alphasort`. The CLI harness
+  also runs monitor `fsck /fat` after the shell exits to catch filesystem
+  consistency regressions from the mutation path.
 - `configure_smoke.py`: a compact configure/build-script probe harness covering
   long-option aliases for directory creation, install modes/directories, grep,
   sed, head/tail/wc, xargs batching, tee append, find, recursive copy/remove,

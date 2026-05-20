@@ -215,6 +215,7 @@ def main():
         "posixdemo: stdio ok",
         "posixdemo: rw ok",
         "posixdemo: dup write ok",
+        "posixdemo: path scan ok",
         "posixdemo: fs api ok",
         "lockprobe: conflict ok",
         "posixdemo: file lock ok",

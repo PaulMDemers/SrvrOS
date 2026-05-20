@@ -2,6 +2,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <math.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
@@ -699,6 +700,67 @@ int main(void) {
         return 33;
     }
     unlink("/fat/posixdemo/trunc.txt");
+
+    if (PATH_MAX < 160 || NAME_MAX < 95 || OPEN_MAX < 64) {
+        say("posixdemo: limits failed\n");
+        return 33;
+    }
+    struct stat lst;
+    if (stat("/fat/posixdemo/renamed.txt", &st) < 0 ||
+        lstat("/fat/posixdemo/renamed.txt", &lst) < 0 ||
+        lst.st_ino != st.st_ino ||
+        realpath("fat/posixdemo/renamed.txt", buffer) == 0 ||
+        strcmp(buffer, "/fat/posixdemo/renamed.txt") != 0) {
+        say("posixdemo: path parity failed\n");
+        return 33;
+    }
+    char *allocated_path = realpath("/fat/posixdemo/renamed.txt", 0);
+    if (allocated_path == 0 || strcmp(allocated_path, "/fat/posixdemo/renamed.txt") != 0) {
+        say("posixdemo: allocated realpath failed\n");
+        free(allocated_path);
+        return 33;
+    }
+    free(allocated_path);
+
+    fd = open("/fat/posixdemo/alpha.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0 || write(fd, "a", 1) != 1 || close(fd) < 0) {
+        say("posixdemo: scandir setup failed\n");
+        return 33;
+    }
+    fd = open("/fat/posixdemo/beta.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0 || write(fd, "b", 1) != 1 || close(fd) < 0) {
+        say("posixdemo: scandir setup failed\n");
+        return 33;
+    }
+    struct dirent **names = 0;
+    int name_count = scandir("/fat/posixdemo", &names, 0, alphasort);
+    int saw_alpha = 0;
+    int saw_beta = 0;
+    int sorted = 1;
+    if (name_count < 2 || names == 0) {
+        say("posixdemo: scandir failed\n");
+        return 33;
+    }
+    for (int i = 0; i < name_count; i++) {
+        if (i > 0 && strcmp(names[i - 1]->d_name, names[i]->d_name) > 0) {
+            sorted = 0;
+        }
+        if (strcmp(names[i]->d_name, "alpha.txt") == 0) {
+            saw_alpha = 1;
+        }
+        if (strcmp(names[i]->d_name, "beta.txt") == 0) {
+            saw_beta = 1;
+        }
+        free(names[i]);
+    }
+    free(names);
+    unlink("/fat/posixdemo/alpha.txt");
+    unlink("/fat/posixdemo/beta.txt");
+    if (!saw_alpha || !saw_beta || !sorted) {
+        say("posixdemo: scandir names failed\n");
+        return 33;
+    }
+    say("posixdemo: path scan ok\n");
     say("posixdemo: fs api ok\n");
 
     fd = open("/fat/posixdemo/lock.txt", O_RDWR | O_CREAT | O_TRUNC);

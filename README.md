@@ -106,6 +106,7 @@ editor clients:
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   global `sync`,
   `truncate`/`ftruncate`, `pread`/`pwrite`,
+  `lstat`, `realpath`, `scandir`, `alphasort`, `limits.h`,
   `readv`/`writev`/`preadv`/`pwritev`, minimal `sendmsg`/`recvmsg`
   scatter/gather data transfer plus bounded `SCM_RIGHTS` fd passing over local
   socketpairs and pathname local sockets, minimal `termios`

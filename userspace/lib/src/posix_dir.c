@@ -123,3 +123,65 @@ int closedir(DIR *dir) {
     free(dir);
     return 0;
 }
+
+int alphasort(const struct dirent **left, const struct dirent **right) {
+    return strcoll((*left)->d_name, (*right)->d_name);
+}
+
+int scandir(const char *path,
+    struct dirent ***namelist,
+    int (*filter)(const struct dirent *),
+    int (*compar)(const struct dirent **, const struct dirent **)) {
+    DIR *dir;
+    struct dirent *entry;
+    struct dirent **entries = 0;
+    size_t count = 0;
+    size_t capacity = 0;
+
+    if (namelist == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    *namelist = 0;
+    dir = opendir(path);
+    if (dir == 0) {
+        return -1;
+    }
+
+    while ((entry = readdir(dir)) != 0) {
+        if (filter != 0 && !filter(entry)) {
+            continue;
+        }
+        if (count == capacity) {
+            size_t next_capacity = capacity == 0 ? 8 : capacity * 2;
+            struct dirent **next = realloc(entries, next_capacity * sizeof(*entries));
+            if (next == 0) {
+                goto fail;
+            }
+            entries = next;
+            capacity = next_capacity;
+        }
+        entries[count] = malloc(sizeof(*entries[count]));
+        if (entries[count] == 0) {
+            goto fail;
+        }
+        memcpy(entries[count], entry, sizeof(*entries[count]));
+        count++;
+    }
+    closedir(dir);
+
+    if (compar != 0 && count > 1) {
+        qsort(entries, count, sizeof(*entries), (int (*)(const void *, const void *))compar);
+    }
+    *namelist = entries;
+    return (int)count;
+
+fail:
+    for (size_t i = 0; i < count; i++) {
+        free(entries[i]);
+    }
+    free(entries);
+    closedir(dir);
+    errno = ENOMEM;
+    return -1;
+}

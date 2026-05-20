@@ -44,6 +44,7 @@ double strtod(const char *text, char **endptr);
 float strtof(const char *text, char **endptr);
 int rand(void);
 void srand(unsigned seed);
+char *realpath(const char *path, char *resolved_path);
 void qsort(void *base, size_t nmemb, size_t size, int (*compar)(const void *, const void *));
 void *bsearch(const void *key,
     const void *base,

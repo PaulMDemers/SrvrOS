@@ -14,7 +14,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
   through the writable VFS fd path
 - `readv`, `writev`, `preadv`, and `pwritev` over the existing fd API for
   scatter/gather file and pipe-oriented ports.
-- `stat`, `fstat`, `mkdir`, `unlink`, `rename`, `rmdir`
+- `stat`, `lstat`, `fstat`, `mkdir`, `unlink`, `rename`, `rmdir`
 - `pipe`; pipes are bounded in-kernel ring buffers with read/write fd endpoints.
   `socketpair(AF_UNIX, SOCK_STREAM)` is backed by the same duplex pipe-pair
   primitive, supports `SOCK_NONBLOCK`/`SOCK_CLOEXEC`, and reports FIFO mode
@@ -66,8 +66,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
-- `getcwd`, `chdir`
-- `opendir`, `readdir`, `closedir`
+- `getcwd`, `chdir`, `realpath`
+- `opendir`, `readdir`, `closedir`, `scandir`, and `alphasort`
 - `malloc`, `calloc`, `realloc`, `free`, `posix_memalign`, and `aligned_alloc`
   backed by `sbrk`-grown heap chunks. The allocator has a process-local
   futex-backed heap lock so same-address-space pthreads can safely share it.
@@ -75,6 +75,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `atoi`, `atof`, `atol`, `strtod`, `strtof`, `strtol`, `strtoll`,
   `strtoul`, `strtoull`, `abs`, `labs`, `llabs`, `div`, `ldiv`, `lldiv`,
   `rand`, `srand`, `qsort`, and `bsearch`
+- `limits.h` exposes the fixed srvros path/name/open/iovec limits plus common
+  integer bounds used by portable C projects.
 - process-local `getenv`, `setenv`, `unsetenv`, `putenv`, `clearenv`, and
   `environ`
 - `strlen`, `strcmp`, `strncmp`, `strcpy`, `strncpy`, `strchr`, `strrchr`,

@@ -17,6 +17,9 @@ server.
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`/`VTIME`, erase,
   kill-line, EOF control characters, `ioctl` window-size support, and duplicated
   stdio TTY detection, plus `/fat/bin/ttydemo` smoke coverage.
+- Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
+  `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
+  `tools/ports_smoke.py` coverage.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Expands shell job tracking to 32 entries and makes bare `wait` drain every

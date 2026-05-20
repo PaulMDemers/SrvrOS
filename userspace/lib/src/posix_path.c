@@ -65,3 +65,23 @@ int chdir(const char *path) {
     setenv("PWD", current_directory, 1);
     return 0;
 }
+
+char *realpath(const char *path, char *resolved_path) {
+    char full[POSIX_PATH_MAX];
+    struct stat st;
+    if (__posix_make_path(path, full, sizeof(full)) < 0) {
+        return 0;
+    }
+    if (stat(full, &st) < 0) {
+        return 0;
+    }
+    if (resolved_path == 0) {
+        resolved_path = malloc(POSIX_PATH_MAX);
+        if (resolved_path == 0) {
+            errno = ENOMEM;
+            return 0;
+        }
+    }
+    strcpy(resolved_path, full);
+    return resolved_path;
+}
