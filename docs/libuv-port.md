@@ -101,8 +101,8 @@ helpers, sync and queued random fills, async/work callbacks, poll callbacks,
 resolver callbacks, public pipe creation, socketpair endpoints, pipe streams,
 pathname `uv_pipe_bind`/`uv_pipe_connect`, `uv_write2` pipe-handle transfer
 with `uv_pipe_pending_count`/`uv_pipe_pending_type`, queued pending pipe
-handles, cross-process IPC pipe handle passing through a `UV_CREATE_PIPE`
-child channel, child stdin/stdout pipe
+handles, TCP pending-handle typing, cross-process IPC pipe handle passing
+through a `UV_CREATE_PIPE` child channel, child stdin/stdout pipe
 wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
 stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
 duplex stdio child pipe, plus TTY/signal delivery and the current
@@ -111,8 +111,7 @@ replacing adapter internals with upstream code.
 The POSIX socket layer now supplies `sendmsg`/`recvmsg` scatter/gather transfers,
 bounded `SCM_RIGHTS` fd passing for local socketpairs, and pathname `AF_UNIX`
 stream sockets backed by kernel accept queues. Richer libuv IPC still needs
-credentials, multi-handle pending queues, TCP pending-handle typing, and
-broader ancillary message coverage.
+credentials and broader ancillary message coverage.
 
 ## Replacement Strategy
 
@@ -135,8 +134,8 @@ broader ancillary message coverage.
 - No `fork` or full process signals. `socketpair` and pathname `AF_UNIX`
   streams exist as local duplex byte streams with bounded `SCM_RIGHTS` fd
   passing, and libuv can send/accept a pending pipe handle with `uv_write2`
-  both in-process and across a spawned child IPC channel. Credentials,
-  TCP pending-handle typing, and
+  both in-process and across a spawned child IPC channel. TCP handles can be
+  typed and accepted from a pending IPC transfer. Credentials and
   fuller ancillary control-message support are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.

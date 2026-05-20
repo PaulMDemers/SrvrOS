@@ -50,6 +50,7 @@
 static uv_loop_t default_loop;
 static int default_loop_ready;
 int __posix_make_path(const char *path, char *out, size_t capacity);
+int __posix_socket_real_fd(int fd);
 
 static int next_timer_timeout(const uv_loop_t *loop);
 static int uv_scandir_append(uv_fs_t *request, const struct dirent *entry);
@@ -1786,7 +1787,7 @@ static int fd_for_stream_handle(uv_stream_t *stream) {
     uv_pipe_t *pipe_handle = pipe_from_stream(stream);
     uv_tty_t *tty = tty_from_stream(stream);
     if (tcp != 0) {
-        return tcp->handle.fd;
+        return __posix_socket_real_fd(tcp->handle.fd);
     }
     if (pipe_handle != 0) {
         return pipe_handle->handle.fd;
@@ -2749,6 +2750,17 @@ uv_handle_type uv_guess_handle(uv_file file) {
     if (isatty(file)) {
         return UV_TTY;
     }
+    struct sockaddr_in address;
+    socklen_t address_length = sizeof(address);
+    int socket_type = 0;
+    socklen_t socket_type_length = sizeof(socket_type);
+    if (getsockname(file, (struct sockaddr *)&address, &address_length) == 0) {
+        if (address.sin_family == AF_INET &&
+            (getsockopt(file, SOL_SOCKET, SO_TYPE, &socket_type, &socket_type_length) < 0 ||
+                socket_type == SOCK_STREAM)) {
+            return UV_TCP;
+        }
+    }
     struct stat st;
     if (fstat(file, &st) == 0) {
         if (S_ISREG(st.st_mode)) {
@@ -2756,6 +2768,9 @@ uv_handle_type uv_guess_handle(uv_file file) {
         }
         if (S_ISFIFO(st.st_mode)) {
             return UV_NAMED_PIPE;
+        }
+        if (S_ISSOCK(st.st_mode)) {
+            return UV_TCP;
         }
     }
     return UV_UNKNOWN_HANDLE;

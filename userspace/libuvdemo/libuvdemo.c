@@ -1794,6 +1794,130 @@ static int pipe_ipc_queue_test(void) {
     return 0;
 }
 
+static uv_loop_t tcp_ipc_loop;
+static uv_pipe_t tcp_ipc_sender;
+static uv_pipe_t tcp_ipc_receiver;
+static uv_tcp_t tcp_ipc_server;
+static uv_tcp_t tcp_ipc_received;
+static uv_pipe_t tcp_ipc_wrong_pipe;
+static uv_write_t tcp_ipc_write_request;
+static char tcp_ipc_read_byte;
+static int tcp_ipc_write_seen;
+static int tcp_ipc_read_seen;
+static int tcp_ipc_failed;
+
+static void maybe_stop_tcp_ipc_loop(void) {
+    if (tcp_ipc_write_seen && tcp_ipc_read_seen) {
+        uv_stop(&tcp_ipc_loop);
+    }
+}
+
+static void tcp_ipc_alloc_cb(uv_handle_t *handle, size_t suggested_size, uv_buf_t *buffer) {
+    (void)handle;
+    (void)suggested_size;
+    buffer->base = &tcp_ipc_read_byte;
+    buffer->len = 1;
+}
+
+static void tcp_ipc_write_cb(uv_write_t *request, int status) {
+    if (request != &tcp_ipc_write_request || status < 0) {
+        tcp_ipc_failed = 1;
+    }
+    tcp_ipc_write_seen = 1;
+    maybe_stop_tcp_ipc_loop();
+}
+
+static void tcp_ipc_read_cb(uv_stream_t *stream, ssize_t nread, const uv_buf_t *buffer) {
+    (void)stream;
+    (void)buffer;
+    if (nread != 1 || tcp_ipc_read_byte != 'T') {
+        tcp_ipc_failed = 1;
+    }
+    tcp_ipc_read_seen = 1;
+    maybe_stop_tcp_ipc_loop();
+}
+
+static void tcp_ipc_connection_cb(uv_stream_t *stream, int status) {
+    (void)stream;
+    (void)status;
+}
+
+static int tcp_ipc_handle_test(void) {
+    uv_os_sock_t channel_fds[2] = {-1, -1};
+    uv_os_fd_t received_fd = -1;
+    struct sockaddr_in address;
+    uv_buf_t buffer = uv_buf_init("T", 1);
+    memset(&tcp_ipc_loop, 0, sizeof(tcp_ipc_loop));
+    memset(&tcp_ipc_sender, 0, sizeof(tcp_ipc_sender));
+    memset(&tcp_ipc_receiver, 0, sizeof(tcp_ipc_receiver));
+    memset(&tcp_ipc_server, 0, sizeof(tcp_ipc_server));
+    memset(&tcp_ipc_received, 0, sizeof(tcp_ipc_received));
+    memset(&tcp_ipc_wrong_pipe, 0, sizeof(tcp_ipc_wrong_pipe));
+    memset(&tcp_ipc_write_request, 0, sizeof(tcp_ipc_write_request));
+    tcp_ipc_read_byte = 0;
+    tcp_ipc_write_seen = 0;
+    tcp_ipc_read_seen = 0;
+    tcp_ipc_failed = 0;
+    if (uv_ip4_addr("0.0.0.0", 7107, &address) < 0 ||
+        uv_loop_init(&tcp_ipc_loop) < 0 ||
+        uv_socketpair(SOCK_STREAM, 0, channel_fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0 ||
+        uv_pipe_init(&tcp_ipc_loop, &tcp_ipc_sender, 1) < 0 ||
+        uv_pipe_init(&tcp_ipc_loop, &tcp_ipc_receiver, 1) < 0 ||
+        uv_pipe_init(&tcp_ipc_loop, &tcp_ipc_wrong_pipe, 0) < 0 ||
+        uv_tcp_init(&tcp_ipc_loop, &tcp_ipc_server) < 0 ||
+        uv_tcp_init(&tcp_ipc_loop, &tcp_ipc_received) < 0 ||
+        uv_pipe_open(&tcp_ipc_sender, channel_fds[0]) < 0 ||
+        uv_pipe_open(&tcp_ipc_receiver, channel_fds[1]) < 0 ||
+        uv_tcp_bind(&tcp_ipc_server, (const struct sockaddr *)&address, 0) < 0 ||
+        uv_listen((uv_stream_t *)&tcp_ipc_server, 4, tcp_ipc_connection_cb) < 0 ||
+        uv_read_start((uv_stream_t *)&tcp_ipc_receiver, tcp_ipc_alloc_cb, tcp_ipc_read_cb) < 0 ||
+        uv_write2(&tcp_ipc_write_request,
+            (uv_stream_t *)&tcp_ipc_sender,
+            &buffer,
+            1,
+            (uv_stream_t *)&tcp_ipc_server,
+            tcp_ipc_write_cb) < 0) {
+        puts("libuvdemo: tcp ipc setup failed");
+        return 1;
+    }
+    tcp_ipc_server.connection_cb = 0;
+    tcp_ipc_server.handle.active = 0;
+    (void)uv_run(&tcp_ipc_loop, UV_RUN_DEFAULT);
+    int pending_count_before = uv_pipe_pending_count(&tcp_ipc_receiver);
+    uv_handle_type pending_type_before = uv_pipe_pending_type(&tcp_ipc_receiver);
+    int wrong_accept = uv_accept((uv_stream_t *)&tcp_ipc_receiver, (uv_stream_t *)&tcp_ipc_wrong_pipe);
+    int pending_count_after_wrong = uv_pipe_pending_count(&tcp_ipc_receiver);
+    int tcp_accept = uv_accept((uv_stream_t *)&tcp_ipc_receiver, (uv_stream_t *)&tcp_ipc_received);
+    int fileno_status = uv_fileno((const uv_handle_t *)&tcp_ipc_received, &received_fd);
+    uv_handle_type received_type = fileno_status < 0 ? UV_UNKNOWN_HANDLE : uv_guess_handle(received_fd);
+    int pending_count_after = uv_pipe_pending_count(&tcp_ipc_receiver);
+    if (tcp_ipc_failed ||
+        !tcp_ipc_write_seen ||
+        !tcp_ipc_read_seen ||
+        pending_count_before != 1 ||
+        pending_type_before != UV_TCP ||
+        wrong_accept != UV_EINVAL ||
+        pending_count_after_wrong != 1 ||
+        tcp_accept < 0 ||
+        fileno_status < 0 ||
+        received_type != UV_TCP ||
+        pending_count_after != 0) {
+        puts("libuvdemo: tcp ipc transfer failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&tcp_ipc_received, 0);
+    uv_close((uv_handle_t *)&tcp_ipc_server, 0);
+    uv_close((uv_handle_t *)&tcp_ipc_wrong_pipe, 0);
+    uv_close((uv_handle_t *)&tcp_ipc_receiver, 0);
+    uv_close((uv_handle_t *)&tcp_ipc_sender, 0);
+    if (uv_loop_close(&tcp_ipc_loop) < 0) {
+        puts("libuvdemo: tcp ipc loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: tcp ipc handle ok");
+    return 0;
+}
+
 static uv_loop_t process_ipc_loop;
 static uv_pipe_t process_ipc_channel;
 static uv_pipe_t process_ipc_send_handle;
@@ -2697,6 +2821,7 @@ int main(int argc, char **argv) {
         pipe_bind_connect_test() != 0 ||
         pipe_ipc_write2_test() != 0 ||
         pipe_ipc_queue_test() != 0 ||
+        tcp_ipc_handle_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
         process_validation_test() != 0 ||

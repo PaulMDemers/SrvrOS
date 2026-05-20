@@ -55,9 +55,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   stream sockets with bind/listen/connect/accept and `unlink` support.
   Libuv can send and accept a pending pipe handle over an IPC pipe with
   `uv_write2`, queue multiple pending handles, and repeat the transfer across
-  a spawned-child `UV_CREATE_PIPE` channel. Credentials, TCP pending-handle
-  typing, and broader ancillary control data are intentionally still future
-  work.
+  a spawned-child `UV_CREATE_PIPE` channel. TCP handles now retain socket
+  metadata through fd-rights transfer so `uv_pipe_pending_type` can report
+  `UV_TCP`. Credentials and broader ancillary control data are intentionally
+  still future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`

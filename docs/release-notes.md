@@ -102,8 +102,12 @@ server.
   coverage for multiple `uv_write2` transfers before accept.
 - Extends the libuv IPC smoke path across `uv_spawn` by creating a duplex IPC
   stdio pipe for a child, sending a live pipe handle with `uv_write2`, and
-  having the child accept and write through that transferred handle. Credentials,
-  TCP pending-handle typing, and broader ancillary messages remain future work.
+  having the child accept and write through that transferred handle. Credentials
+  and broader ancillary messages remain future work.
+- Adds socket-mode metadata for net fds, net fd cloning through the kernel
+  rights path, TCP handle classification in `uv_guess_handle`, and
+  `/fat/bin/libuvdemo` coverage for `uv_write2` transfer of a TCP listener
+  handle with `UV_TCP` pending-handle typing.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

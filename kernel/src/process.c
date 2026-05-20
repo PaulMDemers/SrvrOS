@@ -3891,6 +3891,20 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
         return true;
     }
 
+    if (source->type == PROCESS_FILE_NET_LISTENER ||
+        source->type == PROCESS_FILE_NET_CONNECTION ||
+        source->type == PROCESS_FILE_NET_UDP) {
+        uint8_t *bytes = (uint8_t *)target;
+        for (uint64_t i = 0; i < sizeof(*target); i++) {
+            bytes[i] = 0;
+        }
+        target->used = true;
+        target->type = source->type;
+        target->handle = source->handle;
+        target->flags = source->flags;
+        return true;
+    }
+
     if (source->type != PROCESS_FILE_VFS || source->handle == 0 || source->path[0] == '\0') {
         return false;
     }
@@ -4439,6 +4453,21 @@ int64_t process_file_stat(struct process *process,
             *metadata_out = (struct vfs_metadata) {
                 .inode = file->handle,
                 .mode = VFS_MODE_IFIFO | 0600,
+                .nlink = 1,
+            };
+        }
+        return 0;
+    }
+
+    if (file->type == PROCESS_FILE_NET_LISTENER ||
+        file->type == PROCESS_FILE_NET_CONNECTION ||
+        file->type == PROCESS_FILE_NET_UDP) {
+        *size_out = 0;
+        *type_out = 0;
+        if (metadata_out != NULL) {
+            *metadata_out = (struct vfs_metadata) {
+                .inode = file->handle,
+                .mode = VFS_MODE_IFSOCK | 0600,
                 .nlink = 1,
             };
         }

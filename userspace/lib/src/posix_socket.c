@@ -594,6 +594,45 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         errno = EINVAL;
         return -1;
     }
+    if (socket == 0 && real_net_fd(fd)) {
+        if (addr != 0 && (addrlen == 0 || *addrlen < sizeof(struct sockaddr_in))) {
+            errno = EINVAL;
+            return -1;
+        }
+        long connection = srv_net_accept(fd, 0, 0, &length);
+        if (connection < 0) {
+            if (connection == SRV_ERR_AGAIN) {
+                errno = EAGAIN;
+                return -1;
+            }
+            errno = EIO;
+            return -1;
+        }
+        uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+        uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        if ((fd_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFL, fd_flags) < 0) ||
+            (descriptor_flags != 0 && srv_fcntl((int)connection, SRV_F_SETFD, descriptor_flags) < 0)) {
+            (void)srv_close((int)connection);
+            errno = EBADF;
+            return -1;
+        }
+        struct real_socket_options *options = real_options_for_fd(fd, 0);
+        if (options != 0) {
+            struct real_socket_options *accepted_options = real_options_for_fd((int)connection, 1);
+            if (accepted_options != 0) {
+                *accepted_options = *options;
+                accepted_options->fd = (int)connection;
+            }
+        }
+        if (addr != 0 && addrlen != 0) {
+            uint32_t peer_ip = 0;
+            uint16_t peer_port = 0;
+            if (srv_net_peername((int)connection, &peer_ip, &peer_port) == 0) {
+                (void)fill_sockaddr(peer_ip, peer_port, addr, addrlen);
+            }
+        }
+        return (int)connection;
+    }
     if (socket == 0 || socket->type != SOCK_STREAM || socket->listener_fd < 0) {
         errno = EBADF;
         return -1;

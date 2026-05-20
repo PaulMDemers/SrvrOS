@@ -7,6 +7,7 @@
 #define S_IFIFO 0010000
 #define S_IFDIR 0040000
 #define S_IFREG 0100000
+#define S_IFSOCK 0140000
 #define S_IRUSR 0400
 #define S_IWUSR 0200
 #define S_IXUSR 0100
@@ -23,6 +24,7 @@
 #define S_ISDIR(mode) (((mode) & S_IFMT) == S_IFDIR)
 #define S_ISFIFO(mode) (((mode) & S_IFMT) == S_IFIFO)
 #define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
+#define S_ISSOCK(mode) (((mode) & S_IFMT) == S_IFSOCK)
 
 struct stat {
     uint64_t st_dev;

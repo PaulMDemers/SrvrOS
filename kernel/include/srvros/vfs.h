@@ -13,6 +13,7 @@ enum vfs_node_type {
 #define VFS_MODE_IFIFO 0010000u
 #define VFS_MODE_IFDIR 0040000u
 #define VFS_MODE_IFREG 0100000u
+#define VFS_MODE_IFSOCK 0140000u
 
 struct vfs_metadata {
     uint64_t inode;

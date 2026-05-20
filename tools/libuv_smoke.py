@@ -85,6 +85,8 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
+            "-netdev", "user,id=net0",
+            "-device", "e1000,netdev=net0",
             "-monitor", "none",
             "-no-reboot",
         ]
@@ -131,6 +133,7 @@ def main():
         "libuvdemo: pipe bind/connect ok",
         "libuvdemo: pipe ipc write2 ok",
         "libuvdemo: pipe ipc queue ok",
+        "libuvdemo: tcp ipc handle ok",
         "libuvdemo: getaddrinfo ok",
         "libuvdemo: tty ok",
         "libuvdemo: signal ok",
