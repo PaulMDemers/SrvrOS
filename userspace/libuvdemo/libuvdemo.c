@@ -1476,6 +1476,78 @@ static int socketpair_test(void) {
     return 0;
 }
 
+static int pipe_connect_status;
+static int pipe_connect_seen;
+static int pipe_listen_seen;
+
+static void pipe_listen_cb(uv_stream_t *server, int status) {
+    (void)server;
+    if (status == 0) {
+        pipe_listen_seen = 1;
+    }
+}
+
+static void pipe_connect_cb(uv_connect_t *request, int status) {
+    (void)request;
+    pipe_connect_seen = 1;
+    pipe_connect_status = status;
+}
+
+static int pipe_bind_connect_test(void) {
+    const char *path = "/fat/libuvdemo.sock";
+    uv_loop_t loop;
+    uv_pipe_t server;
+    uv_pipe_t client;
+    uv_pipe_t accepted;
+    uv_connect_t connect_req;
+    uv_os_fd_t client_fd = -1;
+    uv_os_fd_t accepted_fd = -1;
+    char byte = 0;
+    pipe_connect_status = UV_EINVAL;
+    pipe_connect_seen = 0;
+    pipe_listen_seen = 0;
+    unlink(path);
+    memset(&connect_req, 0, sizeof(connect_req));
+    if (uv_loop_init(&loop) < 0 ||
+        uv_pipe_init(&loop, &server, 0) < 0 ||
+        uv_pipe_init(&loop, &client, 0) < 0 ||
+        uv_pipe_init(&loop, &accepted, 0) < 0 ||
+        uv_pipe_bind(&server, path) < 0 ||
+        uv_listen((uv_stream_t *)&server, 4, pipe_listen_cb) < 0) {
+        puts("libuvdemo: pipe bind setup failed");
+        return 1;
+    }
+    uv_pipe_connect(&connect_req, &client, path, pipe_connect_cb);
+    (void)uv_run(&loop, UV_RUN_NOWAIT);
+    if (!pipe_connect_seen || pipe_connect_status != 0) {
+        puts("libuvdemo: pipe connect failed");
+        return 1;
+    }
+    if (!pipe_listen_seen ||
+        uv_accept((uv_stream_t *)&server, (uv_stream_t *)&accepted) < 0 ||
+        uv_fileno((const uv_handle_t *)&client, &client_fd) < 0 ||
+        uv_fileno((const uv_handle_t *)&accepted, &accepted_fd) < 0 ||
+        write(client_fd, "P", 1) != 1 ||
+        read(accepted_fd, &byte, 1) != 1 ||
+        byte != 'P' ||
+        write(accepted_fd, "Q", 1) != 1 ||
+        read(client_fd, &byte, 1) != 1 ||
+        byte != 'Q' ||
+        unlink(path) < 0) {
+        puts("libuvdemo: pipe bind transfer failed");
+        return 1;
+    }
+    uv_close((uv_handle_t *)&accepted, 0);
+    uv_close((uv_handle_t *)&client, 0);
+    uv_close((uv_handle_t *)&server, 0);
+    if (uv_loop_close(&loop) < 0) {
+        puts("libuvdemo: pipe bind loop close failed");
+        return 1;
+    }
+    puts("libuvdemo: pipe bind/connect ok");
+    return 0;
+}
+
 static uv_loop_t gai_loop;
 static int gai_seen;
 static int gai_failed;
@@ -2196,6 +2268,7 @@ int main(int argc, char **argv) {
         poll_many_test() != 0 ||
         pipe_stream_test() != 0 ||
         socketpair_test() != 0 ||
+        pipe_bind_connect_test() != 0 ||
         getaddrinfo_test() != 0 ||
         tty_signal_test() != 0 ||
         process_validation_test() != 0 ||

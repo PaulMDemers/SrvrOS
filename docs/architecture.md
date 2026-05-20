@@ -448,7 +448,8 @@ malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
 file-backed private `mmap`/`munmap`, `mprotect`, small buffered `stdio`,
 simple time functions including `nanosleep`, `getpagesize`/`sysconf`,
 `readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with scatter/gather
-data and bounded local-socketpair `SCM_RIGHTS` fd passing,
+data and bounded local-socketpair `SCM_RIGHTS` fd passing, pathname
+`AF_UNIX` stream sockets with kernel-backed bind/listen/connect/accept queues,
 same-address-space `pthread_create`/`pthread_join`/`pthread_detach`,
 pthread mutex/condition/once/TLS primitives, common
 formatted-output width/precision/flag forms,

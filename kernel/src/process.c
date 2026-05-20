@@ -48,6 +48,8 @@
 #define PROCESS_MAX_READ_FILES 128
 #define PROCESS_MAX_PIPES 64
 #define PROCESS_PIPE_RIGHTS_QUEUE 8
+#define PROCESS_MAX_UNIX_LISTENERS 16
+#define PROCESS_UNIX_ACCEPT_QUEUE 16
 #define PROCESS_MAX_FILE_LOCKS 64
 #define PROCESS_PIPE_CAPACITY 4096
 #define PROCESS_STDIO_CLOSED_FD (-2)
@@ -111,6 +113,20 @@ struct process_pipe {
     uint64_t size;
     uint8_t buffer[PROCESS_PIPE_CAPACITY];
     struct process_pipe_rights rights[PROCESS_PIPE_RIGHTS_QUEUE];
+};
+
+struct process_unix_pending {
+    bool used;
+    struct process_file file;
+};
+
+struct process_unix_listener {
+    bool used;
+    bool bound;
+    bool listening;
+    uint64_t backlog;
+    char path[SRV_UNIX_PATH_MAX];
+    struct process_unix_pending queue[PROCESS_UNIX_ACCEPT_QUEUE];
 };
 
 struct process_write_file {
@@ -242,12 +258,14 @@ static struct process processes[PROCESS_MAX_PROCESSES];
 static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
 static struct process_read_file read_files[PROCESS_MAX_READ_FILES];
 static struct process_pipe pipes[PROCESS_MAX_PIPES];
+static struct process_unix_listener unix_listeners[PROCESS_MAX_UNIX_LISTENERS];
 static struct process_file_lock file_locks[PROCESS_MAX_FILE_LOCKS];
 static struct process_futex futexes[PROCESS_MAX_FUTEXES];
 static struct process *loading_process;
 static uint64_t next_pid = 1;
 static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
+static struct scheduler_wait_queue unix_wait_queue;
 static struct scheduler_wait_queue fd_poll_wait_queue;
 static struct scheduler_wait_queue file_lock_wait_queue;
 static uint64_t foreground_process_group;
@@ -3268,6 +3286,285 @@ int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]) {
     return 0;
 }
 
+static struct process_unix_listener *unix_listener_at(uint64_t handle) {
+    if (handle == 0 || handle > PROCESS_MAX_UNIX_LISTENERS) {
+        return NULL;
+    }
+    struct process_unix_listener *listener = &unix_listeners[handle - 1];
+    return listener->used ? listener : NULL;
+}
+
+static struct process_unix_listener *unix_listener_for_path(const char *path) {
+    for (uint64_t i = 0; i < PROCESS_MAX_UNIX_LISTENERS; i++) {
+        if (unix_listeners[i].used &&
+            unix_listeners[i].bound &&
+            process_path_equal(unix_listeners[i].path, path)) {
+            return &unix_listeners[i];
+        }
+    }
+    return NULL;
+}
+
+static uint64_t unix_listener_pending_count(const struct process_unix_listener *listener) {
+    uint64_t count = 0;
+    if (listener == NULL) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+        if (listener->queue[i].used) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static bool unix_accept_ready(void *arg) {
+    struct process_unix_listener *listener = arg;
+    return process_should_exit_current() ||
+        listener == NULL ||
+        !listener->used ||
+        unix_listener_pending_count(listener) != 0;
+}
+
+static void unix_pending_release(struct process_unix_pending *pending) {
+    if (pending == NULL || !pending->used) {
+        return;
+    }
+    process_file_release_entry(&pending->file);
+    uint8_t *bytes = (uint8_t *)pending;
+    for (uint64_t i = 0; i < sizeof(*pending); i++) {
+        bytes[i] = 0;
+    }
+}
+
+static void unix_listener_release(uint64_t handle) {
+    struct process_unix_listener *listener = unix_listener_at(handle);
+    if (listener == NULL) {
+        return;
+    }
+    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+        unix_pending_release(&listener->queue[i]);
+    }
+    uint8_t *bytes = (uint8_t *)listener;
+    for (uint64_t i = 0; i < sizeof(*listener); i++) {
+        bytes[i] = 0;
+    }
+    scheduler_wake_all(&unix_wait_queue);
+    process_file_poll_wake();
+}
+
+static bool unix_fill_duplex_pair(struct process_file *first_file, struct process_file *second_file) {
+    if (first_file == NULL || second_file == NULL) {
+        return false;
+    }
+    uint64_t pipe_ab = pipe_alloc();
+    if (pipe_ab == 0) {
+        return false;
+    }
+    uint64_t pipe_ba = pipe_alloc();
+    if (pipe_ba == 0) {
+        pipe_close(pipe_ab, false);
+        pipe_close(pipe_ab, true);
+        return false;
+    }
+    uint8_t *first_bytes = (uint8_t *)first_file;
+    uint8_t *second_bytes = (uint8_t *)second_file;
+    for (uint64_t i = 0; i < sizeof(*first_file); i++) {
+        first_bytes[i] = 0;
+        second_bytes[i] = 0;
+    }
+    first_file->used = true;
+    first_file->type = PROCESS_FILE_PIPE_DUPLEX;
+    first_file->handle = pipe_ba;
+    first_file->aux_handle = pipe_ab;
+    second_file->used = true;
+    second_file->type = PROCESS_FILE_PIPE_DUPLEX;
+    second_file->handle = pipe_ab;
+    second_file->aux_handle = pipe_ba;
+    return true;
+}
+
+int64_t process_unix_bind(struct process *process, const char *path) {
+    if (process == NULL || path == NULL || path[0] == '\0') {
+        return -1;
+    }
+    if (unix_listener_for_path(path) != NULL) {
+        return -1;
+    }
+
+    uint64_t listener_index = PROCESS_MAX_UNIX_LISTENERS;
+    for (uint64_t i = 0; i < PROCESS_MAX_UNIX_LISTENERS; i++) {
+        if (!unix_listeners[i].used) {
+            listener_index = i;
+            break;
+        }
+    }
+    if (listener_index == PROCESS_MAX_UNIX_LISTENERS) {
+        return -1;
+    }
+
+    uint64_t fd_index = PROCESS_MAX_OPEN_FILES;
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (!process->files[i].used) {
+            fd_index = i;
+            break;
+        }
+    }
+    if (fd_index == PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    struct process_unix_listener *listener = &unix_listeners[listener_index];
+    uint8_t *listener_bytes = (uint8_t *)listener;
+    for (uint64_t i = 0; i < sizeof(*listener); i++) {
+        listener_bytes[i] = 0;
+    }
+    if (!copy_process_path(listener->path, sizeof(listener->path), path)) {
+        return -1;
+    }
+    listener->used = true;
+    listener->bound = true;
+    listener->backlog = 1;
+
+    struct process_file *file = &process->files[fd_index];
+    uint8_t *file_bytes = (uint8_t *)file;
+    for (uint64_t i = 0; i < sizeof(*file); i++) {
+        file_bytes[i] = 0;
+    }
+    file->used = true;
+    file->type = PROCESS_FILE_UNIX_LISTENER;
+    file->handle = listener_index + 1;
+    (void)copy_process_path(file->path, sizeof(file->path), path);
+    return (int64_t)(fd_index + 3);
+}
+
+int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backlog) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_UNIX_LISTENER) {
+        return -1;
+    }
+    struct process_unix_listener *listener = unix_listener_at(file->handle);
+    if (listener == NULL || !listener->bound) {
+        return -1;
+    }
+    if (backlog == 0) {
+        backlog = 1;
+    }
+    if (backlog > PROCESS_UNIX_ACCEPT_QUEUE) {
+        backlog = PROCESS_UNIX_ACCEPT_QUEUE;
+    }
+    listener->backlog = backlog;
+    listener->listening = true;
+    process_file_poll_wake();
+    return 0;
+}
+
+int64_t process_unix_connect(struct process *process, const char *path) {
+    if (process == NULL || path == NULL || path[0] == '\0') {
+        return -1;
+    }
+    struct process_unix_listener *listener = unix_listener_for_path(path);
+    if (listener == NULL || !listener->listening) {
+        return -1;
+    }
+    if (unix_listener_pending_count(listener) >= listener->backlog) {
+        return SRV_ERR_AGAIN;
+    }
+
+    struct process_unix_pending *pending = NULL;
+    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+        if (!listener->queue[i].used) {
+            pending = &listener->queue[i];
+            break;
+        }
+    }
+    if (pending == NULL) {
+        return SRV_ERR_AGAIN;
+    }
+
+    uint64_t fd_index = PROCESS_MAX_OPEN_FILES;
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (!process->files[i].used) {
+            fd_index = i;
+            break;
+        }
+    }
+    if (fd_index == PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    if (!unix_fill_duplex_pair(&process->files[fd_index], &pending->file)) {
+        return -1;
+    }
+    pending->used = true;
+    scheduler_wake_all(&unix_wait_queue);
+    process_file_poll_wake();
+    return (int64_t)(fd_index + 3);
+}
+
+int64_t process_unix_accept(struct process *process, uint64_t fd) {
+    struct process_file *file = process_file_at(process, fd);
+    if (file == NULL || file->type != PROCESS_FILE_UNIX_LISTENER) {
+        return -1;
+    }
+    struct process_unix_listener *listener = unix_listener_at(file->handle);
+    if (listener == NULL || !listener->listening) {
+        return -1;
+    }
+    while (unix_listener_pending_count(listener) == 0) {
+        if ((file->flags & SRV_FD_NONBLOCK) != 0) {
+            return SRV_ERR_AGAIN;
+        }
+        if (!scheduler_wait(&unix_wait_queue, unix_accept_ready, listener)) {
+            break;
+        }
+        if (process_should_exit_current()) {
+            return -1;
+        }
+    }
+
+    struct process_unix_pending *pending = NULL;
+    for (uint64_t i = 0; i < PROCESS_UNIX_ACCEPT_QUEUE; i++) {
+        if (listener->queue[i].used) {
+            pending = &listener->queue[i];
+            break;
+        }
+    }
+    if (pending == NULL) {
+        return SRV_ERR_AGAIN;
+    }
+
+    uint64_t fd_index = PROCESS_MAX_OPEN_FILES;
+    for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
+        if (!process->files[i].used) {
+            fd_index = i;
+            break;
+        }
+    }
+    if (fd_index == PROCESS_MAX_OPEN_FILES) {
+        return -1;
+    }
+
+    process->files[fd_index] = pending->file;
+    uint8_t *bytes = (uint8_t *)pending;
+    for (uint64_t i = 0; i < sizeof(*pending); i++) {
+        bytes[i] = 0;
+    }
+    process_file_poll_wake();
+    return (int64_t)(fd_index + 3);
+}
+
+int64_t process_unix_unlink(const char *path) {
+    struct process_unix_listener *listener = unix_listener_for_path(path);
+    if (listener == NULL) {
+        return -1;
+    }
+    listener->bound = false;
+    listener->path[0] = '\0';
+    process_file_poll_wake();
+    return 0;
+}
+
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
@@ -3480,6 +3777,18 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
         return net_poll_events(file->handle, events);
     }
 
+    if (file->type == PROCESS_FILE_UNIX_LISTENER) {
+        struct process_unix_listener *listener = unix_listener_at(file->handle);
+        if (listener == NULL) {
+            return SRV_POLLNVAL;
+        }
+        uint16_t revents = 0;
+        if ((events & SRV_POLLIN) != 0 && unix_listener_pending_count(listener) != 0) {
+            revents |= SRV_POLLIN;
+        }
+        return revents;
+    }
+
     return SRV_POLLNVAL;
 }
 
@@ -3624,6 +3933,8 @@ static void process_file_release_entry(struct process_file *file) {
     } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
         pipe_close(file->handle, false);
         pipe_close(file->aux_handle, true);
+    } else if (file->type == PROCESS_FILE_UNIX_LISTENER) {
+        unix_listener_release(file->handle);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         (void)write_file_close(file->handle);
     }
@@ -3975,6 +4286,8 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
     } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
         pipe_close(file->handle, false);
         pipe_close(file->aux_handle, true);
+    } else if (file->type == PROCESS_FILE_UNIX_LISTENER) {
+        unix_listener_release(file->handle);
     } else if (file->type == PROCESS_FILE_VFS_WRITE) {
         if (write_file_close(file->handle) < 0) {
             result = -1;
@@ -4104,6 +4417,23 @@ int64_t process_file_stat(struct process *process,
             return -1;
         }
         *size_out = pipe->size;
+        *type_out = 0;
+        if (metadata_out != NULL) {
+            *metadata_out = (struct vfs_metadata) {
+                .inode = file->handle,
+                .mode = VFS_MODE_IFIFO | 0600,
+                .nlink = 1,
+            };
+        }
+        return 0;
+    }
+
+    if (file->type == PROCESS_FILE_UNIX_LISTENER) {
+        struct process_unix_listener *listener = unix_listener_at(file->handle);
+        if (listener == NULL) {
+            return -1;
+        }
+        *size_out = unix_listener_pending_count(listener);
         *type_out = 0;
         if (metadata_out != NULL) {
             *metadata_out = (struct vfs_metadata) {

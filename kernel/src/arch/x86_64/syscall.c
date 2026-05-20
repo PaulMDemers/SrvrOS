@@ -1162,6 +1162,38 @@ static int64_t syscall_pipe_recv_rights(uint64_t fd, int32_t *user_fds, uint64_t
     return count;
 }
 
+static int64_t syscall_unix_bind(const char *user_path) {
+    char path[MAX_PATH_LENGTH];
+    if (!copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+    return process_unix_bind(process_current(), path);
+}
+
+static int64_t syscall_unix_listen(uint64_t fd, uint64_t backlog) {
+    return process_unix_listen(process_current(), fd, backlog);
+}
+
+static int64_t syscall_unix_connect(const char *user_path) {
+    char path[MAX_PATH_LENGTH];
+    if (!copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+    return process_unix_connect(process_current(), path);
+}
+
+static int64_t syscall_unix_accept(uint64_t fd) {
+    return process_unix_accept(process_current(), fd);
+}
+
+static int64_t syscall_unix_unlink(const char *user_path) {
+    char path[MAX_PATH_LENGTH];
+    if (!copy_user_string(user_path, path, sizeof(path))) {
+        return -1;
+    }
+    return process_unix_unlink(path);
+}
+
 static int64_t syscall_meminfo(struct srv_meminfo *info) {
     struct srv_meminfo copy = {
         .abi_version = SRV_ABI_VERSION,
@@ -1944,6 +1976,21 @@ void syscall_dispatch(struct isr_frame *frame) {
             (int32_t *)frame->rsi,
             frame->rdx,
             (uint64_t *)frame->rcx);
+        return;
+    case SYS_UNIX_BIND:
+        frame->rax = (uint64_t)syscall_unix_bind((const char *)frame->rdi);
+        return;
+    case SYS_UNIX_LISTEN:
+        frame->rax = (uint64_t)syscall_unix_listen(frame->rdi, frame->rsi);
+        return;
+    case SYS_UNIX_CONNECT:
+        frame->rax = (uint64_t)syscall_unix_connect((const char *)frame->rdi);
+        return;
+    case SYS_UNIX_ACCEPT:
+        frame->rax = (uint64_t)syscall_unix_accept(frame->rdi);
+        return;
+    case SYS_UNIX_UNLINK:
+        frame->rax = (uint64_t)syscall_unix_unlink((const char *)frame->rdi);
         return;
     case SYS_NET_LIST:
         frame->rax = (uint64_t)syscall_net_list(frame->rdi, (struct srv_net_info *)frame->rsi);

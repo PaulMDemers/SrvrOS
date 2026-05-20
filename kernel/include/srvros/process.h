@@ -22,6 +22,7 @@ enum process_file_type {
     PROCESS_FILE_PIPE_READ,
     PROCESS_FILE_PIPE_WRITE,
     PROCESS_FILE_PIPE_DUPLEX,
+    PROCESS_FILE_UNIX_LISTENER,
 };
 
 struct process_file {
@@ -132,6 +133,11 @@ int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
+int64_t process_unix_bind(struct process *process, const char *path);
+int64_t process_unix_listen(struct process *process, uint64_t fd, uint64_t backlog);
+int64_t process_unix_connect(struct process *process, const char *path);
+int64_t process_unix_accept(struct process *process, uint64_t fd);
+int64_t process_unix_unlink(const char *path);
 int64_t process_file_send_rights(struct process *process, uint64_t fd, const int32_t *fds, uint64_t count);
 int64_t process_file_recv_rights(struct process *process,
     uint64_t fd,

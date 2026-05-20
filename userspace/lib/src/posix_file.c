@@ -16,6 +16,7 @@ int __posix_socket_is_pseudo(int fd);
 void __posix_socket_note_close(int fd);
 void __posix_socket_note_dup(int old_fd, int new_fd);
 int __posix_socket_real_fd(int fd);
+long srv_unix_unlink(const char *path);
 
 #define POSIX_PATH_MAX 160
 
@@ -595,6 +596,9 @@ int unlink(const char *path) {
         return -1;
     }
     if (srv_unlink(full) < 0) {
+        if (srv_unix_unlink(full) == 0) {
+            return 0;
+        }
         errno = ENOENT;
         return -1;
     }

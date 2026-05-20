@@ -512,6 +512,9 @@ struct uv_stream_s {
 
 struct uv_pipe_s {
     uv_handle_t handle;
+    uv_connection_cb connection_cb;
+    uv_connect_t *connect_req;
+    uv_connect_cb connect_cb;
     uv_alloc_cb alloc_cb;
     uv_read_cb read_cb;
     uv_write_t *write_queue_head;
@@ -813,6 +816,8 @@ int uv_pipe(uv_file fds[2], int read_flags, int write_flags);
 int uv_socketpair(int type, int protocol, uv_os_sock_t socket_vector[2], int flags0, int flags1);
 int uv_pipe_init(uv_loop_t *loop, uv_pipe_t *handle, int ipc);
 int uv_pipe_open(uv_pipe_t *handle, uv_file fd);
+int uv_pipe_bind(uv_pipe_t *handle, const char *name);
+void uv_pipe_connect(uv_connect_t *request, uv_pipe_t *handle, const char *name, uv_connect_cb cb);
 
 uv_handle_type uv_guess_handle(uv_file file);
 int uv_tty_init(uv_loop_t *loop, uv_tty_t *handle, uv_file fd, int readable);

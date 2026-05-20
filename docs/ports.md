@@ -51,9 +51,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
 - `sendmsg` and `recvmsg` for scatter/gather socket I/O, with bounded
-  `SCM_RIGHTS` fd passing over local socketpairs. Pathname Unix sockets,
-  credentials, and broader ancillary control data are intentionally still
-  future work.
+  `SCM_RIGHTS` fd passing over local socketpairs, plus pathname `AF_UNIX`
+  stream sockets with bind/listen/connect/accept and `unlink` support.
+  Credentials, pending-handle typing, and broader ancillary control data are
+  intentionally still future work.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`
@@ -117,7 +118,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `w+`, `r+`, and `a+` update streams, including read/write transitions and
   append-after-seek behavior.
 - IPv4 helpers: `htons`, `ntohs`, `htonl`, `ntohl`, `inet_pton`, `inet_ntop`
-- TCP socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
+- TCP and local stream socket shims for `socket`, `bind`, `listen`, `accept`, `connect`,
   `send`, `recv`, `shutdown`, `setsockopt`, and `getsockopt`
 - `getaddrinfo` backed by a userspace UDP DNS query with srvros DNS fallback
 - newlib-style syscall glue symbols such as `_open`, `_read`, `_write`,

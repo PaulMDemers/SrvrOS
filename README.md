@@ -98,7 +98,8 @@ editor clients:
   framebuffer drawing, mouse polling, BMP helpers, a shared `crt0.S` startup
   object for static ELF apps, and a small widget toolkit.
 - First POSIX-compat headers/wrappers for file I/O, directories, errno, malloc,
-  `sbrk`, pipes, `socketpair(AF_UNIX, SOCK_STREAM)`, `dup`/`dup2` with shared
+  `sbrk`, pipes, `socketpair(AF_UNIX, SOCK_STREAM)`, pathname
+  `AF_UNIX` stream sockets, `dup`/`dup2` with shared
   regular-file offsets,
   `poll`/`select`, `fcntl`/`O_NONBLOCK`,
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
@@ -107,7 +108,7 @@ editor clients:
   `truncate`/`ftruncate`, `pread`/`pwrite`,
   `readv`/`writev`/`preadv`/`pwritev`, minimal `sendmsg`/`recvmsg`
   scatter/gather data transfer plus bounded `SCM_RIGHTS` fd passing over local
-  socketpairs, minimal `termios`
+  socketpairs and pathname local sockets, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
   variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
@@ -147,7 +148,8 @@ editor clients:
   title, passwd/group, uname, uptime/resource, CPU/interface, time/memory,
   syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
   timestamp request shims, `uv_fs_poll` file-change polling, and local
-  socketpair message I/O with vectored buffers and `SCM_RIGHTS` fd transfer.
+  socketpair message I/O with vectored buffers and `SCM_RIGHTS` fd transfer,
+  plus `uv_pipe_bind`/`uv_pipe_connect` over pathname local sockets.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

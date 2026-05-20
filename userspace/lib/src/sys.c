@@ -127,6 +127,26 @@ long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out
     return srv_syscall4(SYS_PIPE_RECV_RIGHTS, fd, (long)fds, (long)capacity, (long)flags_out);
 }
 
+long srv_unix_bind(const char *path) {
+    return srv_syscall1(SYS_UNIX_BIND, (long)path);
+}
+
+long srv_unix_listen(int fd, size_t backlog) {
+    return srv_syscall2(SYS_UNIX_LISTEN, fd, (long)backlog);
+}
+
+long srv_unix_connect(const char *path) {
+    return srv_syscall1(SYS_UNIX_CONNECT, (long)path);
+}
+
+long srv_unix_accept(int fd) {
+    return srv_syscall1(SYS_UNIX_ACCEPT, fd);
+}
+
+long srv_unix_unlink(const char *path) {
+    return srv_syscall1(SYS_UNIX_UNLINK, (long)path);
+}
+
 long srv_poll(struct srv_pollfd *fds, size_t nfds, int timeout_ms) {
     return srv_syscall3(SYS_POLL, (long)fds, (long)nfds, timeout_ms);
 }

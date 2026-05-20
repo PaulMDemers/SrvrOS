@@ -89,8 +89,13 @@ server.
   `uv_socketpair` smoke coverage.
 - Adds `sys/uio.h` with `readv`/`writev`/`preadv`/`pwritev` plus
   `sendmsg`/`recvmsg` scatter/gather socket wrappers and bounded
-  `SCM_RIGHTS` fd passing over local socketpairs; pathname sockets,
-  credentials, and broader ancillary messages remain future work.
+  `SCM_RIGHTS` fd passing over local socketpairs.
+- Adds pathname `AF_UNIX` stream sockets backed by kernel bind/listen/connect/
+  accept queues, libc `sys/un.h`, `unlink` unbind support, and
+  `posixdemo`/`libuvdemo` coverage for local socket transfer.
+- Adds libuv `uv_pipe_bind` and `uv_pipe_connect` staging over srvros pathname
+  local sockets; credentials, pending-handle typing, and broader ancillary
+  messages remain future work.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

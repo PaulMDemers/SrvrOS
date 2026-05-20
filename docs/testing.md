@@ -102,7 +102,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `tee`/`head`/`tail`/`wc`/`ln`, Ctrl-D/EOF shell exit,
   `tap` file splitting,
   foreground/background `fpdemo` userspace SSE checks, and the `posixdemo`
-  compatibility-layer smoke app. The CLI harness also runs monitor `fsck /fat`
+  compatibility-layer smoke app, including pathname `AF_UNIX` stream socket
+  bind/listen/connect/accept transfer coverage. The CLI harness also runs monitor `fsck /fat`
   after the shell exits to catch filesystem consistency regressions from the
   mutation path.
 - `configure_smoke.py`: a compact configure/build-script probe harness covering
@@ -192,7 +193,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   handle/window-size/write helpers, and SIGINT/SIGTERM self-signal callback
   delivery through `uv_run`.
   It also verifies `uv_pipe`, `uv_pipe_t`, `uv_socketpair`, and `uv_spawn` by
-  writing through a libuv pipe stream, checking socketpair polling/handle
+  writing through a libuv pipe stream, binding/connecting a pathname
+  `uv_pipe_t`, checking socketpair polling/handle
   classification, exercising socketpair `sendmsg`/`recvmsg` scatter/gather
   transfers and `SCM_RIGHTS` fd passing, feeding a child `cat` process over stdin, reading child
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`,

@@ -98,16 +98,17 @@ read against a host service. `/fat/bin/libuvdemo` is the upstream staging harnes
 now covers the core object helpers, loop phases, timers, filesystem metadata
 requests, filesystem polling, directory requests, fsync/truncate/sendfile/time requests, platform
 helpers, sync and queued random fills, async/work callbacks, poll callbacks,
-resolver callbacks, public pipe creation, socketpair endpoints, pipe streams, child stdin/stdout pipe
+resolver callbacks, public pipe creation, socketpair endpoints, pipe streams,
+pathname `uv_pipe_bind`/`uv_pipe_connect`, child stdin/stdout pipe
 wiring, `uv_spawn` validation/failure cleanup, cwd handling, inherited-fd
 stdin, inherited-stream stdin/stdout/stderr, short process-only exit loops, a
 duplex stdio child pipe, plus TTY/signal delivery and the current
 thread/synchronization wrappers that need to stay stable while incrementally
 replacing adapter internals with upstream code.
-The POSIX socket layer now supplies `sendmsg`/`recvmsg` scatter/gather transfers
-and bounded `SCM_RIGHTS` fd passing for local socketpairs. Richer libuv IPC
-still waits on pathname Unix-domain-socket semantics and broader ancillary
-message coverage.
+The POSIX socket layer now supplies `sendmsg`/`recvmsg` scatter/gather transfers,
+bounded `SCM_RIGHTS` fd passing for local socketpairs, and pathname `AF_UNIX`
+stream sockets backed by kernel accept queues. Richer libuv IPC still needs
+credentials, pending-handle typing, and broader ancillary message coverage.
 
 ## Replacement Strategy
 
@@ -127,10 +128,10 @@ message coverage.
 
 ## Known Gaps Before Full Upstream libuv
 
-- No `fork`, full process signals, or named Unix domain sockets. `socketpair`
-  exists as a local duplex byte stream with bounded `SCM_RIGHTS` fd passing,
-  but pathname sockets, credentials, and fuller ancillary control-message
-  support are still future work. `uv_spawn` is still a
+- No `fork` or full process signals. `socketpair` and pathname `AF_UNIX`
+  streams exist as local duplex byte streams with bounded `SCM_RIGHTS` fd
+  passing, but credentials, pending-handle typing, and fuller ancillary
+  control-message support are still future work. `uv_spawn` is still a
   compact first pass and returns `UV_ENOSYS` for uid/gid changes and detached
   children until the srvros process ABI grows those semantics.
 - Compact TTY model and no PTY support.

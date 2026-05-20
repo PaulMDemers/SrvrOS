@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <unistd.h>
 
 #include <srvros/sys.h>
@@ -38,6 +39,7 @@ struct posix_socket {
     struct linger so_linger;
     uint64_t fd_flags;
     uint64_t descriptor_flags;
+    char unix_path[SRV_UNIX_PATH_MAX];
 };
 
 struct real_socket_options {
@@ -77,6 +79,57 @@ static int fill_sockaddr(uint32_t ip,
     in->sin_port = htons(port);
     in->sin_addr.s_addr = ip;
     *addrlen = sizeof(*in);
+    return 0;
+}
+
+static int fill_sockaddr_un(const char *path, struct sockaddr *addr, socklen_t *addrlen) {
+    if (addr == 0 || addrlen == 0 || *addrlen < sizeof(struct sockaddr_un)) {
+        errno = EINVAL;
+        return -1;
+    }
+    struct sockaddr_un *un = (struct sockaddr_un *)addr;
+    memset(un, 0, sizeof(*un));
+    un->sun_family = AF_UNIX;
+    if (path != 0) {
+        strncpy(un->sun_path, path, sizeof(un->sun_path) - 1);
+    }
+    *addrlen = sizeof(*un);
+    return 0;
+}
+
+static int sockaddr_un_path(const struct sockaddr *addr, socklen_t addrlen, char path[SRV_UNIX_PATH_MAX]) {
+    if (addr == 0 || path == 0 || addrlen < offsetof(struct sockaddr_un, sun_path) + 1) {
+        errno = EINVAL;
+        return -1;
+    }
+    const struct sockaddr_un *un = (const struct sockaddr_un *)addr;
+    if (un->sun_family != AF_UNIX) {
+        errno = EAFNOSUPPORT;
+        return -1;
+    }
+    size_t max_path = addrlen - offsetof(struct sockaddr_un, sun_path);
+    if (max_path > SRV_UNIX_PATH_MAX) {
+        max_path = SRV_UNIX_PATH_MAX;
+    }
+    size_t i = 0;
+    while (i < max_path && un->sun_path[i] != '\0') {
+        path[i] = un->sun_path[i];
+        i++;
+    }
+    if (i == 0 || i >= SRV_UNIX_PATH_MAX || (i == max_path && un->sun_path[i - 1] != '\0')) {
+        errno = EINVAL;
+        return -1;
+    }
+    path[i] = '\0';
+    return 0;
+}
+
+static int apply_fd_socket_flags(int fd, uint64_t fd_flags, uint64_t descriptor_flags) {
+    if ((fd_flags != 0 && srv_fcntl(fd, SRV_F_SETFL, fd_flags) < 0) ||
+        (descriptor_flags != 0 && srv_fcntl(fd, SRV_F_SETFD, descriptor_flags) < 0)) {
+        errno = EBADF;
+        return -1;
+    }
     return 0;
 }
 
@@ -347,24 +400,30 @@ int __posix_socket_close(int fd) {
 }
 
 int socket(int domain, int type, int protocol) {
-    if (domain != AF_INET) {
+    int flags = type & (SOCK_NONBLOCK | SOCK_CLOEXEC);
+    int base_type = type & ~(SOCK_NONBLOCK | SOCK_CLOEXEC);
+    if (domain != AF_INET && domain != AF_UNIX) {
         errno = EAFNOSUPPORT;
         return -1;
     }
-    if (type != SOCK_STREAM && type != SOCK_DGRAM) {
+    if (base_type != SOCK_STREAM && base_type != SOCK_DGRAM) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
-    if (protocol != 0 &&
-        ((type == SOCK_STREAM && protocol != IPPROTO_TCP) ||
-            (type == SOCK_DGRAM && protocol != IPPROTO_UDP))) {
+    if (domain == AF_UNIX && (base_type != SOCK_STREAM || protocol != 0)) {
+        errno = EPROTONOSUPPORT;
+        return -1;
+    }
+    if (domain == AF_INET && protocol != 0 &&
+        ((base_type == SOCK_STREAM && protocol != IPPROTO_TCP) ||
+            (base_type == SOCK_DGRAM && protocol != IPPROTO_UDP))) {
         errno = EPROTONOSUPPORT;
         return -1;
     }
     for (int i = 0; i < POSIX_SOCKET_MAX; i++) {
         if (!sockets[i].used) {
             long udp_fd = -1;
-            if (type == SOCK_DGRAM) {
+            if (domain == AF_INET && base_type == SOCK_DGRAM) {
                 udp_fd = srv_net_udp_open();
                 if (udp_fd < 0) {
                     errno = EMFILE;
@@ -373,7 +432,7 @@ int socket(int domain, int type, int protocol) {
             }
             sockets[i].used = 1;
             sockets[i].domain = domain;
-            sockets[i].type = type;
+            sockets[i].type = base_type;
             sockets[i].protocol = protocol;
             sockets[i].port = 0;
             sockets[i].listener_fd = (int)udp_fd;
@@ -385,7 +444,8 @@ int socket(int domain, int type, int protocol) {
             sockets[i].shutdown_read = 0;
             sockets[i].shutdown_write = 0;
             init_socket_options(&sockets[i]);
-            sockets[i].fd_flags = 0;
+            sockets[i].fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+            sockets[i].descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
             return POSIX_SOCKET_BASE + i;
         }
     }
@@ -430,7 +490,33 @@ int socketpair(int domain, int type, int protocol, int fds[2]) {
 
 int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     struct posix_socket *socket = socket_at(fd);
-    if (socket == 0 || addr == 0 || addrlen < sizeof(struct sockaddr_in)) {
+    if (socket == 0 || addr == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (socket->domain == AF_UNIX) {
+        char path[SRV_UNIX_PATH_MAX];
+        if (sockaddr_un_path(addr, addrlen, path) < 0) {
+            return -1;
+        }
+        if (socket->listener_fd >= 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        long listener = srv_unix_bind(path);
+        if (listener < 0) {
+            errno = EADDRINUSE;
+            return -1;
+        }
+        if (apply_fd_socket_flags((int)listener, socket->fd_flags, socket->descriptor_flags) < 0) {
+            (void)srv_close((int)listener);
+            return -1;
+        }
+        socket->listener_fd = (int)listener;
+        strncpy(socket->unix_path, path, sizeof(socket->unix_path) - 1);
+        return 0;
+    }
+    if (addrlen < sizeof(struct sockaddr_in)) {
         errno = EINVAL;
         return -1;
     }
@@ -451,8 +537,23 @@ int bind(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
 int listen(int fd, int backlog) {
     struct posix_socket *socket = socket_at(fd);
-    (void)backlog;
-    if (socket == 0 || socket->type != SOCK_STREAM || socket->port == 0) {
+    if (socket == 0 || socket->type != SOCK_STREAM) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (socket->domain == AF_UNIX) {
+        if (socket->listener_fd < 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        if (srv_unix_listen(socket->listener_fd, backlog < 0 ? 0 : (size_t)backlog) < 0) {
+            errno = EINVAL;
+            return -1;
+        }
+        socket->listening = 1;
+        return 0;
+    }
+    if (socket->port == 0) {
         errno = EINVAL;
         return -1;
     }
@@ -497,6 +598,27 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         errno = EBADF;
         return -1;
     }
+    if (socket->domain == AF_UNIX) {
+        if (addr != 0 && (addrlen == 0 || *addrlen < sizeof(struct sockaddr_un))) {
+            errno = EINVAL;
+            return -1;
+        }
+        long connection = srv_unix_accept(socket->listener_fd);
+        if (connection < 0) {
+            errno = connection == SRV_ERR_AGAIN ? EAGAIN : EIO;
+            return -1;
+        }
+        uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+        uint64_t descriptor_flags = (flags & SOCK_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        if (apply_fd_socket_flags((int)connection, fd_flags, descriptor_flags) < 0) {
+            (void)srv_close((int)connection);
+            return -1;
+        }
+        if (addr != 0 && addrlen != 0) {
+            (void)fill_sockaddr_un("", addr, addrlen);
+        }
+        return (int)connection;
+    }
     if (addr != 0 && (addrlen == 0 || *addrlen < sizeof(struct sockaddr_in))) {
         errno = EINVAL;
         return -1;
@@ -539,7 +661,7 @@ int accept4(int fd, struct sockaddr *addr, socklen_t *addrlen, int flags) {
 
 int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     struct posix_socket *socket = socket_at(fd);
-    if (socket == 0 || addr == 0 || addrlen < sizeof(struct sockaddr_in)) {
+    if (socket == 0 || addr == 0) {
         errno = EINVAL;
         return -1;
     }
@@ -553,6 +675,32 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     }
     if (socket->type == SOCK_STREAM && socket->connected) {
         errno = EISCONN;
+        return -1;
+    }
+
+    if (socket->domain == AF_UNIX) {
+        char path[SRV_UNIX_PATH_MAX];
+        if (sockaddr_un_path(addr, addrlen, path) < 0) {
+            return -1;
+        }
+        long connection = srv_unix_connect(path);
+        if (connection < 0) {
+            errno = connection == SRV_ERR_AGAIN ? EAGAIN : ECONNREFUSED;
+            return -1;
+        }
+        if (apply_fd_socket_flags((int)connection, socket->fd_flags, socket->descriptor_flags) < 0) {
+            (void)srv_close((int)connection);
+            return -1;
+        }
+        socket->listener_fd = (int)connection;
+        socket->connected = 1;
+        socket->connecting = 0;
+        strncpy(socket->unix_path, path, sizeof(socket->unix_path) - 1);
+        return 0;
+    }
+
+    if (addrlen < sizeof(struct sockaddr_in)) {
+        errno = EINVAL;
         return -1;
     }
 
@@ -612,6 +760,9 @@ int getsockname(int fd, struct sockaddr *addr, socklen_t *addrlen) {
     uint16_t port = 0;
     struct posix_socket *socket = socket_at(fd);
     if (socket != 0) {
+        if (socket->domain == AF_UNIX) {
+            return fill_sockaddr_un(socket->unix_path, addr, addrlen);
+        }
         if (socket->listener_fd >= 0) {
             if (srv_net_sockname(socket->listener_fd, &ip, &port) < 0) {
                 errno = EINVAL;
@@ -635,6 +786,13 @@ int getpeername(int fd, struct sockaddr *addr, socklen_t *addrlen) {
     uint16_t port = 0;
     struct posix_socket *socket = socket_at(fd);
     if (socket != 0) {
+        if (socket->domain == AF_UNIX) {
+            if (socket->listener_fd < 0 || (!socket->connected && !socket->listening)) {
+                errno = ENOTCONN;
+                return -1;
+            }
+            return fill_sockaddr_un(socket->unix_path, addr, addrlen);
+        }
         if (socket->type == SOCK_DGRAM) {
             if (!socket->connected) {
                 errno = ENOTCONN;
@@ -676,6 +834,9 @@ int shutdown(int fd, int how) {
         }
         if (how == SHUT_WR || how == SHUT_RDWR) {
             socket->shutdown_write = 1;
+        }
+        if (socket->domain == AF_UNIX) {
+            return 0;
         }
         if (socket->type == SOCK_STREAM && srv_net_shutdown(socket->listener_fd, how) < 0) {
             errno = ENOTCONN;

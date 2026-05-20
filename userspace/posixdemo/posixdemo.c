@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/un.h>
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
@@ -1677,6 +1678,66 @@ int main(void) {
     } else {
         say("posixdemo: socketpair setup failed\n");
         return 81;
+    }
+
+    {
+        const char *path = "/fat/posixdemo.sock";
+        int server = -1;
+        int client = -1;
+        int accepted = -1;
+        char byte = 0;
+        struct sockaddr_un addr;
+        struct pollfd pfd;
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
+        unlink(path);
+        server = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0);
+        client = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (server < 0 ||
+            client < 0 ||
+            bind(server, (const struct sockaddr *)&addr, sizeof(addr)) < 0 ||
+            listen(server, 4) < 0 ||
+            connect(client, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            say("posixdemo: unix socket setup failed\n");
+            if (server >= 0) {
+                close(server);
+            }
+            if (client >= 0) {
+                close(client);
+            }
+            return 83;
+        }
+        pfd.fd = server;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+        if (poll(&pfd, 1, 0) != 1 || (pfd.revents & POLLIN) == 0) {
+            say("posixdemo: unix socket poll failed\n");
+            close(server);
+            close(client);
+            return 84;
+        }
+        accepted = accept(server, 0, 0);
+        if (accepted < 0 ||
+            write(client, "U", 1) != 1 ||
+            read(accepted, &byte, 1) != 1 ||
+            byte != 'U' ||
+            write(accepted, "V", 1) != 1 ||
+            read(client, &byte, 1) != 1 ||
+            byte != 'V' ||
+            unlink(path) < 0) {
+            say("posixdemo: unix socket transfer failed\n");
+            if (accepted >= 0) {
+                close(accepted);
+            }
+            close(server);
+            close(client);
+            return 85;
+        }
+        close(accepted);
+        close(client);
+        close(server);
+        say("posixdemo: unix socket ok\n");
     }
 
     unlink("/fat/posixdemo/renamed.txt");
