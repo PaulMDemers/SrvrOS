@@ -104,7 +104,9 @@ editor clients:
   `F_GETFD`/`F_SETFD` close-on-exec flags, `F_GETLK`/`F_SETLK`/`F_SETLKW`
   advisory byte-range locks for regular files, `access`, `isatty`, `fsync`,
   global `sync`,
-  `truncate`/`ftruncate`, `pread`/`pwrite`, minimal `termios`
+  `truncate`/`ftruncate`, `pread`/`pwrite`,
+  `readv`/`writev`/`preadv`/`pwritev`, minimal `sendmsg`/`recvmsg`
+  scatter/gather data transfer without ancillary control messages, minimal `termios`
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
   variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
@@ -143,7 +145,8 @@ editor clients:
   platform/filesystem coverage now includes cwd/env/environ/exepath/pid,
   title, passwd/group, uname, uptime/resource, CPU/interface, time/memory,
   syscall-backed random helpers plus fsync, truncate, sendfile, VFS-backed
-  timestamp request shims, and `uv_fs_poll` file-change polling.
+  timestamp request shims, `uv_fs_poll` file-change polling, and local
+  socketpair message I/O over vectored buffers.
   The support library also exports the first
   newlib-style syscall hooks, `float.h`, and small built-in `math.h`, `printf`,
   and `scanf` surfaces.

@@ -87,6 +87,9 @@ server.
 - Adds `socketpair(AF_UNIX, SOCK_STREAM)` over the existing duplex pipe-pair
   primitive, FIFO `fstat` metadata for pipe-like fds, and libuv
   `uv_socketpair` smoke coverage.
+- Adds `sys/uio.h` with `readv`/`writev`/`preadv`/`pwritev` plus data-only
+  `sendmsg`/`recvmsg` scatter/gather socket wrappers; ancillary control data
+  and fd-passing IPC remain future work.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

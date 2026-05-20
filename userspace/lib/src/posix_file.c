@@ -6,6 +6,7 @@
 #include <termios.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/uio.h>
 #include <unistd.h>
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
@@ -159,6 +160,118 @@ ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
     (void)lseek(fd, saved, SEEK_SET);
     errno = saved_errno;
     return result;
+}
+
+static int iov_valid(const struct iovec *iov, int iovcnt) {
+    if (iovcnt < 0 || iovcnt > IOV_MAX || (iov == 0 && iovcnt != 0)) {
+        errno = EINVAL;
+        return 0;
+    }
+    for (int i = 0; i < iovcnt; i++) {
+        if (iov[i].iov_base == 0 && iov[i].iov_len != 0) {
+            errno = EINVAL;
+            return 0;
+        }
+    }
+    return 1;
+}
+
+ssize_t readv(int fd, const struct iovec *iov, int iovcnt) {
+    if (!iov_valid(iov, iovcnt)) {
+        return -1;
+    }
+    ssize_t total = 0;
+    for (int i = 0; i < iovcnt; i++) {
+        if (iov[i].iov_len == 0) {
+            continue;
+        }
+        ssize_t count = read(fd, iov[i].iov_base, iov[i].iov_len);
+        if (count < 0) {
+            return total > 0 ? total : -1;
+        }
+        total += count;
+        if ((size_t)count < iov[i].iov_len) {
+            break;
+        }
+    }
+    return total;
+}
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt) {
+    if (!iov_valid(iov, iovcnt)) {
+        return -1;
+    }
+    ssize_t total = 0;
+    for (int i = 0; i < iovcnt; i++) {
+        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
+        size_t offset = 0;
+        while (offset < iov[i].iov_len) {
+            ssize_t count = write(fd, base + offset, iov[i].iov_len - offset);
+            if (count < 0) {
+                return total > 0 ? total : -1;
+            }
+            if (count == 0) {
+                return total;
+            }
+            offset += (size_t)count;
+            total += count;
+        }
+    }
+    return total;
+}
+
+ssize_t preadv(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
+    if (offset < 0 || !iov_valid(iov, iovcnt)) {
+        if (offset < 0) {
+            errno = EINVAL;
+        }
+        return -1;
+    }
+    ssize_t total = 0;
+    off_t cursor = offset;
+    for (int i = 0; i < iovcnt; i++) {
+        if (iov[i].iov_len == 0) {
+            continue;
+        }
+        ssize_t count = pread(fd, iov[i].iov_base, iov[i].iov_len, cursor);
+        if (count < 0) {
+            return total > 0 ? total : -1;
+        }
+        total += count;
+        cursor += count;
+        if ((size_t)count < iov[i].iov_len) {
+            break;
+        }
+    }
+    return total;
+}
+
+ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
+    if (offset < 0 || !iov_valid(iov, iovcnt)) {
+        if (offset < 0) {
+            errno = EINVAL;
+        }
+        return -1;
+    }
+    ssize_t total = 0;
+    off_t cursor = offset;
+    for (int i = 0; i < iovcnt; i++) {
+        const uint8_t *base = (const uint8_t *)iov[i].iov_base;
+        size_t iov_offset = 0;
+        while (iov_offset < iov[i].iov_len) {
+            ssize_t count = pwrite(fd, base + iov_offset, iov[i].iov_len - iov_offset, cursor);
+            if (count < 0) {
+                return total > 0 ? total : -1;
+            }
+            if (count == 0) {
+                return total;
+            }
+            iov_offset += (size_t)count;
+            total += count;
+            cursor += count;
+        }
+    }
+    return total;
 }
 
 int close(int fd) {

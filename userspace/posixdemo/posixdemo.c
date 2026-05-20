@@ -18,6 +18,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
+#include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
 #include <time.h>
@@ -1054,14 +1055,28 @@ int main(void) {
     say("posixdemo: math ok\n");
 
     fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC);
+    char preadv_a[3];
+    char preadv_b[3];
+    struct iovec pwrite_iov[2] = {
+        {(void *)"12", 2},
+        {(void *)"34", 2},
+    };
+    struct iovec pread_iov[2] = {
+        {preadv_a, 2},
+        {preadv_b, 2},
+    };
     if (fd < 0 ||
         write(fd, "abcdef", 6) != 6 ||
         pread(fd, buffer, 2, 2) != 2 ||
         buffer[0] != 'c' || buffer[1] != 'd' ||
         pwrite(fd, "ZZ", 2, 1) != 2 ||
+        pwritev(fd, pwrite_iov, 2, 2) != 4 ||
+        preadv(fd, pread_iov, 2, 2) != 4 ||
+        memcmp(preadv_a, "12", 2) != 0 ||
+        memcmp(preadv_b, "34", 2) != 0 ||
         lseek(fd, 0, SEEK_SET) < 0 ||
         read(fd, buffer, 6) != 6 ||
-        memcmp(buffer, "aZZdef", 6) != 0) {
+        memcmp(buffer, "aZ1234", 6) != 0) {
         say("posixdemo: pread failed\n");
         return 37;
     }
@@ -1513,8 +1528,36 @@ int main(void) {
     int pair[2] = {-1, -1};
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, pair) == 0) {
         char pair_buffer[8];
+        char readv_a[4];
+        char readv_b[4];
+        char msg_a[4];
+        char msg_b[4];
         struct stat pair_stat;
         struct pollfd pair_poll = {.fd = pair[1], .events = POLLIN};
+        struct iovec write_iov[2] = {
+            {(void *)"vec", 3},
+            {(void *)"tor", 3},
+        };
+        struct iovec read_iov[2] = {
+            {readv_a, 3},
+            {readv_b, 3},
+        };
+        struct iovec sendmsg_iov[2] = {
+            {(void *)"msg", 3},
+            {(void *)"io", 2},
+        };
+        struct iovec recvmsg_iov[2] = {
+            {msg_a, 3},
+            {msg_b, 2},
+        };
+        struct msghdr send_header;
+        struct msghdr recv_header;
+        memset(&send_header, 0, sizeof(send_header));
+        memset(&recv_header, 0, sizeof(recv_header));
+        send_header.msg_iov = sendmsg_iov;
+        send_header.msg_iovlen = 2;
+        recv_header.msg_iov = recvmsg_iov;
+        recv_header.msg_iovlen = 2;
         int cloexec_ok = fcntl(pair[0], F_GETFD, 0) == FD_CLOEXEC &&
             fcntl(pair[1], F_GETFD, 0) == FD_CLOEXEC;
         int nonblock_ok = (fcntl(pair[0], F_GETFL, 0) & O_NONBLOCK) != 0 &&
@@ -1526,6 +1569,14 @@ int main(void) {
             memcmp(pair_buffer, "spair", 5) == 0 &&
             fstat(pair[0], &pair_stat) == 0 &&
             S_ISFIFO(pair_stat.st_mode) &&
+            writev(pair[0], write_iov, 2) == 6 &&
+            readv(pair[1], read_iov, 2) == 6 &&
+            memcmp(readv_a, "vec", 3) == 0 &&
+            memcmp(readv_b, "tor", 3) == 0 &&
+            sendmsg(pair[0], &send_header, MSG_NOSIGNAL) == 5 &&
+            recvmsg(pair[1], &recv_header, 0) == 5 &&
+            memcmp(msg_a, "msg", 3) == 0 &&
+            memcmp(msg_b, "io", 2) == 0 &&
             cloexec_ok &&
             nonblock_ok) {
             say("posixdemo: socketpair ok\n");

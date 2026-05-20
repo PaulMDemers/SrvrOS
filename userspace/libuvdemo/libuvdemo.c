@@ -1325,6 +1325,24 @@ static int socketpair_test(void) {
     uv_os_sock_t fds[2] = {-1, -1};
     struct pollfd poll_fd;
     char buffer[32];
+    char msg_a[4];
+    char msg_b[4];
+    struct iovec send_iov[2] = {
+        {(void *)"uv-", 3},
+        {(void *)"msg", 3},
+    };
+    struct iovec recv_iov[2] = {
+        {msg_a, 3},
+        {msg_b, 3},
+    };
+    struct msghdr send_header;
+    struct msghdr recv_header;
+    memset(&send_header, 0, sizeof(send_header));
+    memset(&recv_header, 0, sizeof(recv_header));
+    send_header.msg_iov = send_iov;
+    send_header.msg_iovlen = 2;
+    recv_header.msg_iov = recv_iov;
+    recv_header.msg_iovlen = 2;
     if (uv_socketpair(SOCK_STREAM, 0, fds, UV_NONBLOCK_PIPE, UV_NONBLOCK_PIPE) < 0) {
         puts("libuvdemo: socketpair setup failed");
         return 1;
@@ -1355,6 +1373,29 @@ static int socketpair_test(void) {
     if (read(fds[1], buffer, sizeof(buffer) - 1) != 11 ||
         strcmp(buffer, "uv-spair-ok") != 0) {
         puts("libuvdemo: socketpair read failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    if (sendmsg(fds[1], &send_header, MSG_NOSIGNAL) != 6) {
+        puts("libuvdemo: socketpair sendmsg failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    poll_fd.fd = fds[0];
+    poll_fd.events = POLLIN;
+    poll_fd.revents = 0;
+    if (poll(&poll_fd, 1, 0) != 1 || (poll_fd.revents & POLLIN) == 0) {
+        puts("libuvdemo: socketpair msg poll failed");
+        close(fds[0]);
+        close(fds[1]);
+        return 1;
+    }
+    if (recvmsg(fds[0], &recv_header, 0) != 6 ||
+        memcmp(msg_a, "uv-", 3) != 0 ||
+        memcmp(msg_b, "msg", 3) != 0) {
+        puts("libuvdemo: socketpair recvmsg failed");
         close(fds[0]);
         close(fds[1]);
         return 1;

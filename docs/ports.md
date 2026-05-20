@@ -12,6 +12,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `errno`
 - `open`, `read`, `write`, `close`, `lseek`; `O_RDWR` works for regular files
   through the writable VFS fd path
+- `readv`, `writev`, `preadv`, and `pwritev` over the existing fd API for
+  scatter/gather file and pipe-oriented ports.
 - `stat`, `fstat`, `mkdir`, `unlink`, `rename`, `rmdir`
 - `pipe`; pipes are bounded in-kernel ring buffers with read/write fd endpoints.
   `socketpair(AF_UNIX, SOCK_STREAM)` is backed by the same duplex pipe-pair
@@ -48,6 +50,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   work.
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
+- `sendmsg` and `recvmsg` for data-only scatter/gather socket I/O. Ancillary
+  control data, credential passing, and fd-passing IPC are intentionally
+  rejected for now.
 - `cat`, `grep`, `head`, and `wc` consume stdin for pipeline-friendly text
   processing
 - `getcwd`, `chdir`
@@ -253,6 +258,9 @@ and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 cwd-scoped spawn, duplex stdio pipes, inherited-fd stdin, inherited-stream
 stdin/stdout/stderr, short process-only exit loops, and validation paths that
 fail before registering process handles or opening child stdio resources.
+Local socket compatibility now also includes `socketpair` scatter/gather
+coverage through POSIX `sendmsg`/`recvmsg`; ancillary data and fd-passing remain
+future Unix-domain-socket work.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 

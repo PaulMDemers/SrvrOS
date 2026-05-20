@@ -788,6 +788,75 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
     return result;
 }
 
+static int message_iov_valid(const struct msghdr *message) {
+    if (message == 0 ||
+        message->msg_iovlen > IOV_MAX ||
+        (message->msg_iov == 0 && message->msg_iovlen != 0)) {
+        errno = EINVAL;
+        return 0;
+    }
+    for (size_t i = 0; i < message->msg_iovlen; i++) {
+        if (message->msg_iov[i].iov_base == 0 && message->msg_iov[i].iov_len != 0) {
+            errno = EINVAL;
+            return 0;
+        }
+    }
+    if (message->msg_controllen != 0 || message->msg_control != 0) {
+        errno = ENOSYS;
+        return 0;
+    }
+    return 1;
+}
+
+static int message_iov_length(const struct msghdr *message, size_t *length_out) {
+    size_t total = 0;
+    for (size_t i = 0; i < message->msg_iovlen; i++) {
+        size_t length = message->msg_iov[i].iov_len;
+        if (total + length < total) {
+            errno = EINVAL;
+            return -1;
+        }
+        total += length;
+    }
+    *length_out = total;
+    return 0;
+}
+
+static int gather_message_iov(const struct msghdr *message, uint8_t **buffer_out, size_t *length_out) {
+    *buffer_out = 0;
+    *length_out = 0;
+    if (message_iov_length(message, length_out) < 0) {
+        return -1;
+    }
+    if (*length_out == 0) {
+        return 0;
+    }
+    uint8_t *buffer = malloc(*length_out);
+    if (buffer == 0) {
+        errno = ENOMEM;
+        return -1;
+    }
+    size_t offset = 0;
+    for (size_t i = 0; i < message->msg_iovlen; i++) {
+        memcpy(buffer + offset, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len);
+        offset += message->msg_iov[i].iov_len;
+    }
+    *buffer_out = buffer;
+    return 0;
+}
+
+static void scatter_message_iov(const struct msghdr *message, const uint8_t *buffer, size_t length) {
+    size_t offset = 0;
+    for (size_t i = 0; i < message->msg_iovlen && offset < length; i++) {
+        size_t remaining = length - offset;
+        size_t count = message->msg_iov[i].iov_len < remaining ? message->msg_iov[i].iov_len : remaining;
+        if (count != 0) {
+            memcpy(message->msg_iov[i].iov_base, buffer + offset, count);
+            offset += count;
+        }
+    }
+}
+
 ssize_t sendto(int fd,
     const void *buffer,
     size_t length,
@@ -828,6 +897,50 @@ ssize_t sendto(int fd,
         return -1;
     }
     return result;
+}
+
+ssize_t sendmsg(int fd, const struct msghdr *message, int flags) {
+    if (!message_iov_valid(message)) {
+        return -1;
+    }
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    struct posix_socket *socket = socket_at(fd);
+    if (message->msg_name != 0 || (socket != 0 && socket->type == SOCK_DGRAM)) {
+        uint8_t *buffer = 0;
+        size_t length = 0;
+        if (gather_message_iov(message, &buffer, &length) < 0) {
+            return -1;
+        }
+        ssize_t result;
+        if (message->msg_name != 0) {
+            result = sendto(fd, buffer, length, flags, message->msg_name, message->msg_namelen);
+        } else {
+            result = send(fd, buffer, length, flags);
+        }
+        free(buffer);
+        return result;
+    }
+
+    ssize_t total = 0;
+    for (size_t i = 0; i < message->msg_iovlen; i++) {
+        const uint8_t *base = (const uint8_t *)message->msg_iov[i].iov_base;
+        size_t offset = 0;
+        while (offset < message->msg_iov[i].iov_len) {
+            ssize_t count = send(fd, base + offset, message->msg_iov[i].iov_len - offset, flags);
+            if (count < 0) {
+                return total > 0 ? total : -1;
+            }
+            if (count == 0) {
+                return total;
+            }
+            offset += (size_t)count;
+            total += count;
+        }
+    }
+    return total;
 }
 
 ssize_t recvfrom(int fd,
@@ -875,6 +988,62 @@ ssize_t recvfrom(int fd,
         *addrlen = sizeof(*in);
     }
     return result;
+}
+
+ssize_t recvmsg(int fd, struct msghdr *message, int flags) {
+    if (!message_iov_valid(message)) {
+        return -1;
+    }
+    if ((flags & ~(MSG_DONTWAIT | MSG_NOSIGNAL | MSG_PEEK | MSG_CMSG_CLOEXEC)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    message->msg_flags = 0;
+    size_t capacity = 0;
+    if (message_iov_length(message, &capacity) < 0) {
+        return -1;
+    }
+    if (capacity == 0) {
+        return 0;
+    }
+
+    struct posix_socket *socket = socket_at(fd);
+    if ((socket != 0 && socket->type == SOCK_DGRAM) || message->msg_name != 0 || (flags & MSG_PEEK) != 0) {
+        uint8_t *buffer = malloc(capacity);
+        if (buffer == 0) {
+            errno = ENOMEM;
+            return -1;
+        }
+        struct sockaddr *addr = (struct sockaddr *)message->msg_name;
+        socklen_t addrlen = message->msg_namelen;
+        ssize_t count = (socket != 0 && socket->type == SOCK_DGRAM) ?
+            recvfrom(fd, buffer, capacity, flags & ~MSG_CMSG_CLOEXEC, addr, message->msg_name != 0 ? &addrlen : 0) :
+            recv(fd, buffer, capacity, flags & ~MSG_CMSG_CLOEXEC);
+        if (count >= 0) {
+            if (message->msg_name != 0) {
+                message->msg_namelen = addrlen;
+            }
+            scatter_message_iov(message, buffer, (size_t)count);
+        }
+        free(buffer);
+        return count;
+    }
+
+    ssize_t total = 0;
+    for (size_t i = 0; i < message->msg_iovlen; i++) {
+        if (message->msg_iov[i].iov_len == 0) {
+            continue;
+        }
+        ssize_t count = recv(fd, message->msg_iov[i].iov_base, message->msg_iov[i].iov_len, flags);
+        if (count < 0) {
+            return total > 0 ? total : -1;
+        }
+        total += count;
+        if (count == 0 || (size_t)count < message->msg_iov[i].iov_len) {
+            break;
+        }
+    }
+    return total;
 }
 
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len) {

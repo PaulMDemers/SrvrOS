@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <sys/types.h>
+#include <sys/uio.h>
 
 #define AF_INET 2
 #define AF_UNIX 1
@@ -29,6 +30,7 @@
 
 #define MSG_PEEK 0x02
 #define MSG_DONTWAIT 0x40
+#define MSG_CMSG_CLOEXEC 0x40000000
 #define MSG_NOSIGNAL 0x4000
 
 #define SHUT_RD 0
@@ -45,6 +47,16 @@ struct sockaddr {
 struct linger {
     int l_onoff;
     int l_linger;
+};
+
+struct msghdr {
+    void *msg_name;
+    socklen_t msg_namelen;
+    struct iovec *msg_iov;
+    size_t msg_iovlen;
+    void *msg_control;
+    size_t msg_controllen;
+    int msg_flags;
 };
 
 int socket(int domain, int type, int protocol);
@@ -71,6 +83,8 @@ ssize_t recvfrom(int fd,
     int flags,
     struct sockaddr *src_addr,
     socklen_t *addrlen);
+ssize_t sendmsg(int fd, const struct msghdr *message, int flags);
+ssize_t recvmsg(int fd, struct msghdr *message, int flags);
 int setsockopt(int fd, int level, int option_name, const void *option_value, socklen_t option_len);
 int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t *option_len);
 
