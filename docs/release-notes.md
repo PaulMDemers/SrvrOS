@@ -145,11 +145,13 @@ server.
   expanded `/fat/bin/libuvdemo` coverage.
 - Ships `/fat/bin/webd`, a poll-driven ring-3 web server serving static files
   from `/fat/www` with nested asset paths, content lengths, MIME/cache headers,
-  idle cleanup, segmented larger TCP responses, and a bounded active-client
-  table.
+  idle cleanup, segmented larger TCP responses, a bounded active-client table,
+  lightweight `webd: stats` observability, and a plain-text `/__status`
+  endpoint.
 - Adds `tools/webd_soak.py` to exercise `webd` under repeated host HTTP
   requests, a small concurrent client burst, early client disconnects during a
-  larger response, and a final post-abort request.
+  larger response, a final post-abort request, and `/__status` counter
+  validation.
 - Adds config-backed shell services under `/fat/etc/services/*.svc`; the
   generated image ships `webd.svc`, starts `/init --system` from the kernel,
   logs startup output to `/fat/var/log/init.log`, launches `/fat/bin/svscan`

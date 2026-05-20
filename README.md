@@ -49,8 +49,8 @@ editor clients:
   `write`, and `close`.
 - Ring-3 `/fat/bin/webd`, a poll-driven static HTTP server for `/fat/www` with
   nested asset paths, content lengths, MIME types, cache headers, idle cleanup,
-  a bounded active-client table, and init-owned service logging under
-  `/fat/var/log`.
+  a bounded active-client table, `/__status` counters, and init-owned service
+  logging under `/fat/var/log`.
 - Shell with PATH lookup, builtins, foreground/background jobs, stdin/stdout/
   stderr redirection, pipeline output redirection, foreground/background
   multi-stage pipelines,
@@ -329,7 +329,9 @@ persistently toggle startup, `service reload` asks `svscan` to rescan via
 bounded diagnostics. `service <name> restart --wait` lets `svscan` bring
 `restart=always` services back online and waits for health. `webd` writes
 compact access lines as
-`webd: access METHOD PATH STATUS BYTES`.
+`webd: access METHOD PATH STATUS BYTES`, emits `webd: stats` counter snapshots,
+and exposes the same accepted/completed/failed/busy/idle/active/byte counters
+at `/__status`.
 
 The shell can also run non-interactively, which is useful for smoke tests,
 ports, and simple boot scripts:

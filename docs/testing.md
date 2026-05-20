@@ -278,7 +278,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   through the poll loop.
 - `webd_soak.py`: repeated sequential host HTTP requests, a bounded concurrent
   client burst, an early client disconnect during a larger response, and a
-  post-abort request to verify `webd` keeps serving static files.
+  post-abort request to verify `webd` keeps serving static files. It also
+  checks the `/__status` endpoint and `webd: stats` log lines for accepted,
+  completed, failed, busy, idle, active-client, high-water, and byte counters.
 - `service_soak.py`: repeated host-side HTTP GETs with interleaved
   `service webd check-config`, `service webd check`, `service status --all`,
   `netstat`, log tailing, `service restart --wait`, log rotation, and svscan

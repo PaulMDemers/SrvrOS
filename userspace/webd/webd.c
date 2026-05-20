@@ -21,6 +21,7 @@
 #define MAX_CLIENTS 4
 #define POLL_TIMEOUT_MS 250
 #define CLIENT_IDLE_TICKS 1000
+#define STATUS_ENDPOINT_CODE 299
 
 #define POLLIN 0x0001
 #define POLLOUT 0x0004
@@ -51,6 +52,18 @@ struct response_result {
     uint64_t bytes;
 };
 
+struct webd_stats {
+    uint64_t accepted;
+    uint64_t completed;
+    uint64_t failed;
+    uint64_t busy;
+    uint64_t idle_closed;
+    uint64_t read_closed;
+    uint64_t bytes;
+    uint64_t active;
+    uint64_t active_high;
+};
+
 struct stat_info {
     uint64_t abi_version;
     uint64_t struct_size;
@@ -69,6 +82,7 @@ struct stat_info {
 };
 
 static char web_root[MAX_PATH] = "/fat/www";
+static struct webd_stats stats;
 
 static long syscall0(long number) {
     __asm__ volatile ("int $0x80" : "+a"(number) : : "memory");
@@ -132,6 +146,15 @@ static int string_equals(const char *left, const char *right) {
         right++;
     }
     return *left == '\0' && *right == '\0';
+}
+
+static int string_equals_n(const char *left, const char *right, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        if (left[i] != right[i] || right[i] == '\0') {
+            return 0;
+        }
+    }
+    return right[length] == '\0';
 }
 
 static void write_number(uint64_t value) {
@@ -361,6 +384,11 @@ static int parse_request_line(const char *request,
         return 400;
     }
 
+    if (string_equals_n(request + url_start, "/__status", url_end - url_start)) {
+        path[0] = '\0';
+        return STATUS_ENDPOINT_CODE;
+    }
+
     if (!copy_static_path(request + url_start, url_end - url_start, path, path_capacity)) {
         return 400;
     }
@@ -451,12 +479,88 @@ static int write_u64(long fd, uint64_t value) {
     return write_all(fd, output, count) == (long)count;
 }
 
+static void log_stats(void) {
+    write_text("webd: stats accepted=");
+    write_number(stats.accepted);
+    write_text(" completed=");
+    write_number(stats.completed);
+    write_text(" failed=");
+    write_number(stats.failed);
+    write_text(" busy=");
+    write_number(stats.busy);
+    write_text(" idle=");
+    write_number(stats.idle_closed);
+    write_text(" read_closed=");
+    write_number(stats.read_closed);
+    write_text(" active=");
+    write_number(stats.active);
+    write_text(" high=");
+    write_number(stats.active_high);
+    write_text(" bytes=");
+    write_number(stats.bytes);
+    write_text("\n");
+}
+
+static void record_client_opened(void) {
+    stats.accepted++;
+    stats.active++;
+    if (stats.active > stats.active_high) {
+        stats.active_high = stats.active;
+    }
+}
+
+static void record_client_closed(void) {
+    if (stats.active > 0) {
+        stats.active--;
+    }
+}
+
 static struct response_result make_response_result(int sent, int status, uint64_t bytes) {
     struct response_result result;
     result.sent = sent;
     result.status = status;
     result.bytes = bytes;
     return result;
+}
+
+static void record_response_result(const struct response_result *result) {
+    if (result->sent) {
+        stats.completed++;
+        stats.bytes += result->bytes;
+    } else {
+        stats.failed++;
+    }
+}
+
+static int write_status_pair(long connection, const char *name, uint64_t value) {
+    return write_cstr(connection, name) >= 0 &&
+        write_cstr(connection, "=") >= 0 &&
+        write_u64(connection, value) &&
+        write_cstr(connection, "\n") >= 0;
+}
+
+static struct response_result send_status_response(long connection, int is_head) {
+    if (write_cstr(connection, "HTTP/1.1 200 OK\r\nServer: srvros-webd") < 0 ||
+        write_cstr(connection, "\r\nContent-Type: text/plain; charset=utf-8") < 0 ||
+        write_cstr(connection, "\r\nCache-Control: no-cache") < 0 ||
+        write_cstr(connection, "\r\nConnection: close\r\n\r\n") < 0) {
+        return make_response_result(0, 200, 0);
+    }
+    if (is_head) {
+        return make_response_result(1, 200, 0);
+    }
+    if (!write_status_pair(connection, "accepted", stats.accepted) ||
+        !write_status_pair(connection, "completed", stats.completed) ||
+        !write_status_pair(connection, "failed", stats.failed) ||
+        !write_status_pair(connection, "busy", stats.busy) ||
+        !write_status_pair(connection, "idle", stats.idle_closed) ||
+        !write_status_pair(connection, "read_closed", stats.read_closed) ||
+        !write_status_pair(connection, "active", stats.active) ||
+        !write_status_pair(connection, "high", stats.active_high) ||
+        !write_status_pair(connection, "bytes", stats.bytes)) {
+        return make_response_result(0, 200, 0);
+    }
+    return make_response_result(1, 200, 0);
 }
 
 static struct response_result send_simple_response(long connection,
@@ -548,6 +652,9 @@ static struct response_result handle_request(long connection, const char *reques
     if (status == 200) {
         return send_file_response(connection, path, is_head);
     }
+    if (status == STATUS_ENDPOINT_CODE) {
+        return send_status_response(connection, is_head);
+    }
     if (status == 405) {
         const char method_not_allowed[] = "srvros webd: method not allowed\n";
         return send_simple_response(connection,
@@ -615,6 +722,7 @@ static void close_client(struct client *client) {
     client->fd = -1;
     client->request_used = 0;
     client->last_activity = 0;
+    record_client_closed();
 }
 
 static struct client *find_free_client(struct client *clients) {
@@ -639,14 +747,18 @@ static void accept_ready_client(long listener, struct client *clients) {
 
     struct client *client = find_free_client(clients);
     if (client == 0) {
-        (void)send_simple_response(connection,
+        struct response_result result = send_simple_response(connection,
             503,
             "503 Service Unavailable",
             "text/plain; charset=utf-8",
             "srvros webd: busy\n",
             0);
+        stats.accepted++;
+        stats.busy++;
+        record_response_result(&result);
         syscall1(SYS_CLOSE, connection);
         write_text("webd: busy\n");
+        log_stats();
         return;
     }
 
@@ -655,6 +767,7 @@ static void accept_ready_client(long listener, struct client *clients) {
     client->fd = connection;
     client->request_used = 0;
     client->last_activity = (uint64_t)syscall0(SYS_TICKS);
+    record_client_opened();
     set_nonblocking(connection);
 }
 
@@ -664,14 +777,16 @@ static void read_ready_client(struct client *client, char *path) {
     }
 
     if (client->request_used == sizeof(client->request)) {
-        (void)send_simple_response(client->fd,
+        struct response_result result = send_simple_response(client->fd,
             413,
             "413 Payload Too Large",
             "text/plain; charset=utf-8",
             "srvros webd: request too large\n",
             0);
+        record_response_result(&result);
         close_client(client);
         write_text("webd: request too large\n");
+        log_stats();
         return;
     }
 
@@ -683,8 +798,11 @@ static void read_ready_client(struct client *client, char *path) {
         if (read_count == SRV_ERR_AGAIN) {
             return;
         }
+        stats.failed++;
+        stats.read_closed++;
         close_client(client);
         write_text("webd: read closed\n");
+        log_stats();
         return;
     }
 
@@ -697,20 +815,26 @@ static void read_ready_client(struct client *client, char *path) {
 
     struct response_result result = handle_request(client->fd, client->request, header_end, path);
     log_access_line(client->request, header_end, &result);
+    record_response_result(&result);
     close_client(client);
     if (!result.sent) {
         write_text("webd: respond failed\n");
+        log_stats();
         return;
     }
     write_text("webd: response sent\n");
+    log_stats();
 }
 
 static void close_idle_clients(struct client *clients) {
     uint64_t now = (uint64_t)syscall0(SYS_TICKS);
     for (size_t i = 0; i < MAX_CLIENTS; i++) {
         if (clients[i].used && now - clients[i].last_activity > CLIENT_IDLE_TICKS) {
+            stats.idle_closed++;
+            stats.failed++;
             close_client(&clients[i]);
             write_text("webd: idle closed\n");
+            log_stats();
         }
     }
 }
@@ -777,7 +901,11 @@ int main(int argc, char **argv) {
 
             struct client *client = &clients[indexes[i]];
             if ((fds[i].revents & (POLLHUP | POLLERR | POLLNVAL)) != 0) {
+                stats.failed++;
+                stats.read_closed++;
                 close_client(client);
+                write_text("webd: read closed\n");
+                log_stats();
                 continue;
             }
             if ((fds[i].revents & POLLIN) != 0) {

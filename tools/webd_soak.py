@@ -4,6 +4,7 @@ import os
 import random
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
@@ -110,6 +111,10 @@ def early_disconnect(port, path):
             sock.recv(128)
         except socket.timeout:
             pass
+        try:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("hh", 1, 0))
+        except OSError:
+            pass
 
 
 def has_fatal_exception(text):
@@ -123,6 +128,40 @@ def check_response(label, response, markers, missing):
     for marker in markers:
         if marker not in response:
             missing.append(f"{label} missing {marker.decode('ascii')}")
+
+
+def parse_status_response(response):
+    if b"\r\n\r\n" not in response:
+        raise RuntimeError("missing status response body")
+    body = response.split(b"\r\n\r\n", 1)[1].decode("ascii", "replace")
+    counters = {}
+    for line in body.splitlines():
+        if "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        try:
+            counters[name.strip()] = int(value.strip())
+        except ValueError:
+            raise RuntimeError(f"bad counter line: {line}")
+    return counters
+
+
+def check_status_counters(counters, sequential, concurrent, missing):
+    for name in ["accepted", "completed", "failed", "busy", "idle", "read_closed", "active", "high", "bytes"]:
+        if name not in counters:
+            missing.append(f"/__status missing {name}")
+    if not counters:
+        return
+    expected_accepted = sequential + concurrent + 2
+    expected_completed = sequential + concurrent
+    if counters.get("accepted", 0) < expected_accepted:
+        missing.append(f"/__status accepted < {expected_accepted}: {counters.get('accepted', 0)}")
+    if counters.get("completed", 0) < expected_completed:
+        missing.append(f"/__status completed < {expected_completed}: {counters.get('completed', 0)}")
+    if counters.get("high", 0) < 1:
+        missing.append("/__status high < 1")
+    if counters.get("bytes", 0) <= 0:
+        missing.append("/__status bytes did not increase")
 
 
 def concurrent_round(port, clients, timeout, missing):
@@ -231,7 +270,18 @@ def main():
             except Exception as exc:
                 missing.append(f"post-abort /status.txt: {exc}")
 
-            output += send_command(sock, "service webd tail 12", "webd: response sent", args.service_wait)
+            try:
+                response = http_get(http_port, "/__status", args.http_wait)
+                check_response("/__status", response,
+                    [b"HTTP/1.1 200 OK", b"accepted=", b"completed=", b"bytes="], missing)
+                check_status_counters(parse_status_response(response),
+                    args.sequential,
+                    args.concurrent,
+                    missing)
+            except Exception as exc:
+                missing.append(f"/__status: {exc}")
+
+            output += send_command(sock, "service webd tail 16", "webd: stats", args.service_wait)
             output += send_command(sock, "netstat", "10.0.2.15:80", args.service_wait)
             output += send_command(sock, "ifconfig", "rx frames", args.service_wait)
             output += read_for(sock, 1)
@@ -248,6 +298,7 @@ def main():
     for marker in [
         "webd background pid",
         "webd: serving /fat/www on 10.0.2.15:80",
+        "webd: stats accepted=",
         "10.0.2.15:80",
         "e1000: flags=UP,RUNNING",
     ]:

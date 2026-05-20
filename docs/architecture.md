@@ -278,7 +278,9 @@ configs in-place. `service restart <name> --wait` asks the supervisor to bring
 the service back and waits for the declared health check. `service supervise
 [cycles]` keeps the same restart policy available as a bounded diagnostic loop.
 `svscan` logs start counts and stop statuses for restart forensics. `webd` adds
-compact access lines containing method, URL, status, and body bytes.
+compact access lines containing method, URL, status, and body bytes, periodic
+`webd: stats` snapshots, and a plain-text `/__status` endpoint exposing the
+same connection, response, error, active-client, high-water, and byte counters.
 
 Service files are simple `key=value` records. Supported keys are `command`,
 `args`, `process`, `log`, `requires`, `health`, `max_log`, `enabled`, and
