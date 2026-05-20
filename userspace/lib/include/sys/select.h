@@ -6,7 +6,7 @@
 
 #include <sys/time.h>
 
-#define FD_SETSIZE 64
+#define FD_SETSIZE 128
 
 typedef struct fd_set {
     uint64_t bits[(FD_SETSIZE + 63) / 64];

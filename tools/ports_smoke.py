@@ -205,6 +205,7 @@ def main():
         "ttydemo: ok",
         "posixdemo: fstat-size=",
         "posixdemo: dup ok",
+        "posixdemo: fd capacity ok",
         "posixdemo: stdio ok",
         "posixdemo: rw ok",
         "posixdemo: dup write ok",

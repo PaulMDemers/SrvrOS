@@ -66,7 +66,7 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
-  and `sysconf(_SC_CLK_TCK)`
+  `sysconf(_SC_CLK_TCK)`, and `sysconf(_SC_OPEN_MAX)`
 - First same-address-space pthread surface: `pthread_create`, `pthread_join`,
   `pthread_detach`, `pthread_exit`, self/equality, basic attributes, stack
   attribute helpers, per-thread user stacks, per-thread TLS keys, mutexes,
@@ -246,8 +246,8 @@ SIGINT/SIGTERM through `uv_run`.
 Process/stdio staging now includes `uv_pipe`, `uv_pipe_t` over srvros pipes,
 and a compact `uv_spawn` path over `posix_spawnp`/`waitpid(WNOHANG)`, with
 `libuvdemo` verifying direct pipe streams, child stdout/stdin pipe wiring,
-cwd-scoped spawn, duplex stdio pipes, inherited-fd stdin, and validation paths
-that fail before registering process handles or opening child stdio resources.
+cwd-scoped spawn, duplex stdio pipes, and validation paths that fail before
+registering process handles or opening child stdio resources.
 The intent is to keep `uvdemo` as broad behavioral coverage while
 `libuvdemo` tracks the upstream replacement work.
 
@@ -256,6 +256,9 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
 - `fork` is still missing, and pthreads are intentionally compact: threads
   share process resources, detached stack cleanup is opportunistic rather than
   timer-driven, and robust cancellation/signal interactions are missing.
+- libuv inherited-fd spawn coverage needs another focused pass now that the
+  process fd table has expanded; the always-on smoke path currently covers
+  standard stdio pipes and duplex child pipes instead.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
   in userspace, with the native spawn ABI currently capped at 32 actions per

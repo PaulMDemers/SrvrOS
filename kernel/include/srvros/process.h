@@ -8,7 +8,7 @@
 #include <srvros/syscall_numbers.h>
 #include <srvros/vfs.h>
 
-#define PROCESS_MAX_OPEN_FILES 16
+#define PROCESS_MAX_OPEN_FILES 64
 #define PROCESS_MAX_PROCESSES 64
 
 enum process_file_type {

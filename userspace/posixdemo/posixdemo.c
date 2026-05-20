@@ -219,6 +219,65 @@ static int pthread_heap_stress_test(void) {
     return pthread_stress_once_count == 1 ? 0 : -1;
 }
 
+static int fd_capacity_test(const char *path) {
+    int fds[40];
+    int pipes[20][2];
+    char byte = 0;
+    for (int i = 0; i < 40; i++) {
+        fds[i] = -1;
+    }
+    for (int i = 0; i < 20; i++) {
+        pipes[i][0] = -1;
+        pipes[i][1] = -1;
+    }
+
+    for (int i = 0; i < 40; i++) {
+        fds[i] = open(path, O_RDONLY);
+        if (fds[i] < 0) {
+            goto fail;
+        }
+    }
+    if (read(fds[39], &byte, 1) != 1 || byte != 'h') {
+        goto fail;
+    }
+    for (int i = 0; i < 40; i++) {
+        close(fds[i]);
+        fds[i] = -1;
+    }
+
+    for (int i = 0; i < 20; i++) {
+        if (pipe(pipes[i]) < 0) {
+            goto fail;
+        }
+    }
+    if (write(pipes[19][1], "x", 1) != 1 ||
+        read(pipes[19][0], &byte, 1) != 1 ||
+        byte != 'x') {
+        goto fail;
+    }
+    for (int i = 0; i < 20; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    return 0;
+
+fail:
+    for (int i = 0; i < 40; i++) {
+        if (fds[i] >= 0) {
+            close(fds[i]);
+        }
+    }
+    for (int i = 0; i < 20; i++) {
+        if (pipes[i][0] >= 0) {
+            close(pipes[i][0]);
+        }
+        if (pipes[i][1] >= 0) {
+            close(pipes[i][1]);
+        }
+    }
+    return -1;
+}
+
 static int pthread_check_failed(const char *name) {
     say("posixdemo: pthread compat failed: ");
     say(name);
@@ -305,6 +364,12 @@ int main(void) {
         return 7;
     }
     say("posixdemo: dup ok\n");
+
+    if (fd_capacity_test("/fat/posixdemo/renamed.txt") < 0) {
+        say("posixdemo: fd capacity failed\n");
+        return 7;
+    }
+    say("posixdemo: fd capacity ok\n");
 
     if (stat("/fat/posixdemo/renamed.txt", &st) == 0) {
         say("posixdemo: size=");
@@ -1298,6 +1363,7 @@ int main(void) {
     PTHREAD_CHECK(getpagesize() == 4096);
     PTHREAD_CHECK(sysconf(_SC_PAGESIZE) == 4096);
     PTHREAD_CHECK(sysconf(_SC_NPROCESSORS_ONLN) == 1);
+    PTHREAD_CHECK(sysconf(_SC_OPEN_MAX) >= 67);
     say("posixdemo: pthread compat ok\n");
 
     int s = socket(AF_INET, SOCK_STREAM, 0);

@@ -13,6 +13,7 @@
 #define _SC_PAGE_SIZE _SC_PAGESIZE
 #define _SC_NPROCESSORS_ONLN 2
 #define _SC_CLK_TCK 3
+#define _SC_OPEN_MAX 4
 
 #define F_OK 0
 #define X_OK 1

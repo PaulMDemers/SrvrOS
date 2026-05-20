@@ -8,6 +8,7 @@
 
 #define SRVROS_PAGE_SIZE 4096
 #define SRVROS_TICKS_PER_SECOND 100
+#define SRVROS_OPEN_MAX 67
 
 char *optarg;
 int optind = 1;
@@ -103,6 +104,8 @@ long sysconf(int name) {
         return 1;
     case _SC_CLK_TCK:
         return SRVROS_TICKS_PER_SECOND;
+    case _SC_OPEN_MAX:
+        return SRVROS_OPEN_MAX;
     default:
         errno = EINVAL;
         return -1;

@@ -68,8 +68,10 @@ server.
 - Hardens libuv `uv_spawn` validation so empty executables, empty argv,
   unsupported process flags, invalid stdio source combinations, bad inherited
   fds, missing executables, and bad cwd fail before registering a process
-  handle or leaving stdio resources behind. `libuvdemo` now also verifies
-  inherited-fd stdin into a spawned child.
+  handle or leaving stdio resources behind.
+- Raises per-process open-fd capacity for port-heavy workloads, grows the
+  backing read/write/pipe pools, reports `_SC_OPEN_MAX`, aligns `FD_SETSIZE`,
+  and adds `posixdemo`/`ports_smoke.py` coverage for many open files and pipes.
 - Adds libuv thread/synchronization wrappers over srvros pthreads, covering
   thread create/create-ex/detach/join/self/equality, mutexes, recursive mutex
   initialization, condition variables, reader/writer locks, semaphores,

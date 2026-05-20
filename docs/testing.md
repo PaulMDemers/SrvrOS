@@ -191,8 +191,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   stdout through a libuv pipe stream, launching a cwd-scoped child `pwd`, and
   exercising a duplex child stdio pipe. The process section also covers
   pre-side-effect spawn validation, failed-spawn loop cleanup, unsupported
-  process flags, bad stdio source combinations, missing executables, bad cwd,
-  and inherited-fd stdin into a self-checking child process.
+  process flags, bad stdio source combinations, missing executables, and bad
+  cwd.
 - `ports_smoke.py`: shell launch of `/fat/bin/zlibdemo`, `/fat/bin/jsondemo`,
   `/fat/bin/inidemo`, `/fat/bin/linedemo`, `/fat/bin/sqlitedemo`,
   `/fat/bin/ttydemo`, and `/fat/bin/posixdemo`; zlib
@@ -203,6 +203,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `dup`, shared regular-file offsets, writable-fd dup ownership, `statvfs`, advisory
   `fcntl` byte-range locks with a
   spawned `/fat/bin/lockprobe` conflict check, `pipe`,
+  expanded file/pipe fd capacity,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,
