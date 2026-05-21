@@ -410,6 +410,7 @@ Third-party source is kept as pinned submodules or snapshots under
 - inih `r62`
 - linenoise `2.0`
 - SQLite amalgamation `3.53.1`
+- Node.js `v24.16.0` LTS
 - Berkeley Yacc snapshot `t20260126`
 - srvros-local `ed` staging tool, documented at `ports/srvros/ed/PORT.md`
 
@@ -435,3 +436,5 @@ Third-party source is kept as pinned submodules or snapshots under
 7. Continue the libuv bring-up: replace the srvros shim in layers with a real
    backend once stream lifetimes, nonblocking readiness, timers, filesystem
    requests, TTY, signals, and thread-pool work are boring under smoke tests.
+8. Register srvros as a Node.js configure/GYP OS flavor and keep the first
+   Node target static and CLI-only while V8, libuv, and libc gaps are reduced.

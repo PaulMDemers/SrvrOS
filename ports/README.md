@@ -11,6 +11,7 @@ that will be brought up on srvros through the POSIX-compat layer.
 - `upstream/inih`: inih INI parser, pinned to `r62`.
 - `upstream/linenoise`: linenoise line editing API, pinned to `2.0`.
 - `upstream/sqlite`: SQLite amalgamation snapshot, pinned to `3.53.1`.
+- `upstream/node`: Node.js runtime source, pinned to `v24.16.0` LTS.
 
 Port manifests for srvros-local staging tools live under `ports/srvros/*/PORT.md`.
 They record what is intentionally local, which upstream target it is preparing
@@ -44,6 +45,12 @@ a small srvros VFS, and verifies create/insert/query/reopen behavior on exFAT.
 The VFS maps SQLite shared/reserved/pending/exclusive states onto srvros
 advisory byte-range locks.
 
+Node.js is staged as a pinned upstream source checkout for the long-running
+runtime port. The first probe is documented in `docs/node-port.md` and
+`ports/srvros/node/PORT.md`; it confirms that upstream configure does not yet
+recognize `--dest-os=srvros`, while a stripped Linux stand-in profile can
+generate a build graph.
+
 ## Porting Rules
 
 - Keep upstream repos clean. Put srvros-specific build glue outside the
@@ -61,3 +68,5 @@ advisory byte-range locks.
 3. Add `mmap`-style mappings for larger ports.
 4. Broaden client-side TCP, UDP, socket options, and readiness edge cases.
 5. Replace the current srvros `uv.h` shim with a real upstream libuv backend.
+6. Register srvros as a Node/GYP OS flavor and build a minimal Node platform
+   probe before attempting the full runtime.
