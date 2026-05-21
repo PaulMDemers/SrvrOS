@@ -390,6 +390,10 @@ the caller's process group, negative process-group ids, and signal `0` probes.
 Processes can also opt into the small catch/poll signal path used by libuv:
 caught `SIGINT`/`SIGTERM` values are queued as pending signals, wake blocking
 poll/fd waits, and are consumed by userspace instead of forcing process exit.
+The kernel exposes both consuming and non-consuming pending-signal probes; libc
+uses those to provide first-pass `sigaction`, process-wide `sigprocmask` and
+`pthread_sigmask`, `sigpending`, and `sigwait` compatibility for ports that
+expect POSIX signal names before srvros grows full per-thread signal masks.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,

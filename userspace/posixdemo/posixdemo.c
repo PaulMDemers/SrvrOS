@@ -1262,6 +1262,42 @@ int main(void) {
         say("posixdemo: signal failed\n");
         return 40;
     }
+    struct sigaction action = {
+        .sa_handler = demo_signal_handler,
+        .sa_mask = 0,
+        .sa_flags = SA_RESTART,
+    };
+    struct sigaction old_action;
+    struct sigaction readback_action;
+    sigset_t term_set;
+    sigset_t old_signal_mask;
+    sigset_t pending_set;
+    int waited_signal = 0;
+    if (sigemptyset(&action.sa_mask) < 0 ||
+        sigaddset(&action.sa_mask, SIGINT) < 0 ||
+        sigaction(SIGTERM, &action, &old_action) < 0 ||
+        old_action.sa_handler != SIG_DFL ||
+        sigaction(SIGTERM, 0, &readback_action) < 0 ||
+        readback_action.sa_handler != demo_signal_handler ||
+        readback_action.sa_flags != SA_RESTART ||
+        !sigismember(&readback_action.sa_mask, SIGINT) ||
+        sigemptyset(&term_set) < 0 ||
+        sigaddset(&term_set, SIGTERM) < 0 ||
+        sigprocmask(SIG_BLOCK, &term_set, &old_signal_mask) < 0 ||
+        pthread_sigmask(SIG_UNBLOCK, &term_set, 0) != 0 ||
+        sigprocmask(SIG_BLOCK, &term_set, 0) < 0 ||
+        kill(self_pid, SIGTERM) < 0 ||
+        sigpending(&pending_set) < 0 ||
+        !sigismember(&pending_set, SIGTERM) ||
+        sigwait(&term_set, &waited_signal) != 0 ||
+        waited_signal != SIGTERM ||
+        sigpending(&pending_set) < 0 ||
+        sigismember(&pending_set, SIGTERM) != 0 ||
+        sigprocmask(SIG_SETMASK, &old_signal_mask, 0) < 0 ||
+        signal(SIGTERM, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: sigaction failed\n");
+        return 40;
+    }
     say("posixdemo: signal ok\n");
     say("posixdemo: posix misc ok\n");
 

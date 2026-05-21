@@ -13,7 +13,24 @@ typedef void (*sighandler_t)(int);
 #define SIG_IGN ((sighandler_t)1)
 #define SIG_ERR ((sighandler_t)-1)
 
+#define SIG_BLOCK 0
+#define SIG_UNBLOCK 1
+#define SIG_SETMASK 2
+
+#define SA_RESTART 0x10000000
+
+struct sigaction {
+    sighandler_t sa_handler;
+    sigset_t sa_mask;
+    int sa_flags;
+};
+
 sighandler_t signal(int signum, sighandler_t handler);
+int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
+int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+int sigpending(sigset_t *set);
+int sigwait(const sigset_t *set, int *sig);
 int kill(pid_t pid, int sig);
 int raise(int sig);
 int sigemptyset(sigset_t *set);

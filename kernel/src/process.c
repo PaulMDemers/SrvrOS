@@ -1940,6 +1940,11 @@ bool process_signal_pending_current(void) {
     return process != NULL && process->pending_signals != 0;
 }
 
+uint64_t process_signal_pending_mask_current(void) {
+    struct process *process = process_current();
+    return process != NULL ? process->pending_signals : 0;
+}
+
 uint64_t process_signal_poll_current(void) {
     struct process *process = process_current();
     if (process == NULL) {

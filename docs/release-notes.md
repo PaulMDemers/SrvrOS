@@ -505,6 +505,9 @@ server.
   The shell `kill` builtin and `/fat/bin/kill` now accept `-signal`, and libc
   exposes `kill`, `raise`, and first-pass `signal` handling for
   `SIGINT`/`SIGTERM`.
+- Expands libc signal compatibility with `sigaction`, process-wide
+  `sigprocmask`/`pthread_sigmask`, `sigpending`, and `sigwait` over the
+  kernel catch/poll pending-signal path, with `/fat/bin/posixdemo` coverage.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

@@ -2,6 +2,7 @@
 #define SRVROS_POSIX_PTHREAD_H
 
 #include <stddef.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <time.h>
 
@@ -94,5 +95,6 @@ int pthread_key_create(pthread_key_t *key, void (*destructor)(void *));
 int pthread_key_delete(pthread_key_t key);
 void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
+int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 
 #endif

@@ -1513,6 +1513,14 @@ static int64_t syscall_signal_poll(uint64_t *signal_out) {
     return (int64_t)signal;
 }
 
+static int64_t syscall_signal_pending(uint64_t *mask_out) {
+    uint64_t mask = process_signal_pending_mask_current();
+    if (mask_out != NULL && !copy_to_user(mask_out, &mask, sizeof(mask))) {
+        return -1;
+    }
+    return (int64_t)mask;
+}
+
 static int64_t syscall_proc_group(uint64_t pid, uint64_t group, uint64_t foreground) {
     if (pid != 0 && !process_set_group(pid, group)) {
         return -1;
@@ -2256,6 +2264,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SIGNAL_POLL:
         frame->rax = (uint64_t)syscall_signal_poll((uint64_t *)frame->rdi);
+        return;
+    case SYS_SIGNAL_PENDING:
+        frame->rax = (uint64_t)syscall_signal_pending((uint64_t *)frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;
