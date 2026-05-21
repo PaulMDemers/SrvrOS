@@ -34,9 +34,10 @@ server.
 - Adds `fcntl(F_DUPFD/F_DUPFD_CLOEXEC)` plus `mkostemp`, extending the
   temporary-file and fd-duplication surface expected by configure scripts and
   source ports.
-- Applies `open(O_CLOEXEC)` at descriptor creation and makes
-  `open(O_CREAT|O_EXCL)` reject existing paths, giving `mkostemp` safer
-  no-clobber behavior.
+- Applies POSIX-style `open(..., O_CREAT, mode)` mode handling,
+  `open(O_CLOEXEC)` descriptor flags at creation, and
+  `open(O_CREAT|O_EXCL)` existing-path rejection, giving source ports and
+  `mkostemp` safer no-clobber behavior.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

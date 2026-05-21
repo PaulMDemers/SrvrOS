@@ -740,7 +740,7 @@ my_mkstemp(char *temp)
     }
     if ((name = tempnam(dname, fname)) != 0)
     {
-	fd = open(name, O_CREAT | O_EXCL | O_RDWR);
+	fd = open(name, O_CREAT | O_EXCL | O_RDWR, 0666);
 	strcpy(temp, name);
     }
     else

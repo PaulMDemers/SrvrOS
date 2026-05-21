@@ -78,6 +78,12 @@ int open(const char *path, int flags, ...) {
     char full[POSIX_PATH_MAX];
     uint64_t srv_flags = 0;
     mode_t create_mode = 0666;
+    if ((flags & O_CREAT) != 0) {
+        va_list args;
+        va_start(args, flags);
+        create_mode = (mode_t)va_arg(args, int);
+        va_end(args);
+    }
     if (__posix_make_path(path, full, sizeof(full)) < 0 ||
         translate_open_flags(flags, &srv_flags) < 0) {
         return -1;

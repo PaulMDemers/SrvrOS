@@ -467,7 +467,7 @@ int main(void) {
     }
 
     mkdir("/fat/posixdemo", 0755);
-    int fd = open("/fat/posixdemo/hello.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    int fd = open("/fat/posixdemo/hello.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: open-write failed\n");
         return 1;
@@ -714,7 +714,7 @@ int main(void) {
 
     say("posixdemo: stdio ok\n");
 
-    fd = open("/fat/posixdemo/rw.txt", O_RDWR | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/rw.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: open-rw failed\n");
         return 11;
@@ -732,7 +732,7 @@ int main(void) {
     unlink("/fat/posixdemo/rw.txt");
     say("posixdemo: rw ok\n");
 
-    fd = open("/fat/posixdemo/dupwrite.txt", O_RDWR | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/dupwrite.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: dup-write open failed\n");
         return 13;
@@ -779,8 +779,26 @@ int main(void) {
         say("posixdemo: umask mkdir failed\n");
         return 27;
     }
+    fd = open("/fat/posixdemo/open-mode.txt",
+        O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC,
+        0666);
+    if (fd < 0 ||
+        fcntl(fd, F_GETFD) != FD_CLOEXEC ||
+        fstat(fd, &st) < 0 ||
+        (st.st_mode & 0777) != 0640) {
+        say("posixdemo: open mode failed\n");
+        return 27;
+    }
+    close(fd);
+    errno = 0;
+    if (open("/fat/posixdemo/open-mode.txt", O_RDWR | O_CREAT | O_EXCL, 0666) >= 0 ||
+        errno != EEXIST) {
+        say("posixdemo: open excl failed\n");
+        return 27;
+    }
+    unlink("/fat/posixdemo/open-mode.txt");
     (void)umask(old_mask);
-    fd = open("/fat/posixdemo/trunc.txt", O_RDWR | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/trunc.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: trunc open failed\n");
         return 28;
@@ -842,12 +860,12 @@ int main(void) {
     }
     free(allocated_path);
 
-    fd = open("/fat/posixdemo/alpha.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/alpha.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0 || write(fd, "a", 1) != 1 || close(fd) < 0) {
         say("posixdemo: scandir setup failed\n");
         return 33;
     }
-    fd = open("/fat/posixdemo/beta.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/beta.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0 || write(fd, "b", 1) != 1 || close(fd) < 0) {
         say("posixdemo: scandir setup failed\n");
         return 33;
@@ -883,7 +901,7 @@ int main(void) {
     say("posixdemo: path scan ok\n");
     say("posixdemo: fs api ok\n");
 
-    fd = open("/fat/posixdemo/lock.txt", O_RDWR | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/lock.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: lock open failed\n");
         return 34;
@@ -1171,7 +1189,7 @@ int main(void) {
         return 26;
     }
 
-    fd = open("/fat/posixdemo/mmap-file.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/mmap-file.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         say("posixdemo: mmap file create failed\n");
         return 26;
@@ -1370,7 +1388,7 @@ int main(void) {
     }
     say("posixdemo: regex ok\n");
 
-    fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC, 0644);
     char preadv_a[3];
     char preadv_b[3];
     struct iovec pwrite_iov[2] = {
@@ -1704,7 +1722,7 @@ int main(void) {
         return 41;
     }
     say("posixdemo: spawn attrs ok\n");
-    fd = open("/fat/posixdemo/spawn.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/spawn.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     posix_spawn_file_actions_t actions;
     char *echo_argv[] = {"/fat/bin/echo", "spawned", 0};
     if (fd < 0 ||
@@ -1731,7 +1749,7 @@ int main(void) {
         say("posixdemo: spawn redirect read failed\n");
         return 43;
     }
-    fd = open("/fat/posixdemo/spawn-fd.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/spawn-fd.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0 || write(fd, "x", 1) != 1 || close(fd) < 0) {
         say("posixdemo: spawn fd file setup failed\n");
         return 43;
@@ -1818,7 +1836,7 @@ int main(void) {
     }
     posix_spawn_file_actions_destroy(&actions);
     unlink("/fat/posixdemo/spawn-fd.txt");
-    fd = open("/fat/posixdemo/spawn-input.txt", O_WRONLY | O_CREAT | O_TRUNC);
+    fd = open("/fat/posixdemo/spawn-input.txt", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0 ||
         write(fd, "opened-stdin\n", 13) != 13 ||
         close(fd) < 0 ||

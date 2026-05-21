@@ -26,7 +26,7 @@ int main(void) {
         return 1;
     }
 
-    int fd = open("/fat/zlib.bin", O_WRONLY | O_CREAT | O_TRUNC);
+    int fd = open("/fat/zlib.bin", O_WRONLY | O_CREAT | O_TRUNC, 0644);
     if (fd < 0) {
         printf("zlibdemo: write open failed\n");
         return 2;

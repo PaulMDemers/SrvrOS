@@ -507,7 +507,8 @@ timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
 and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT
 sidecar persistence. `utime`/`futime` update VFS timestamps directly; writable
 fds flush pending data before applying explicit times so close-time writeback
-does not overwrite them. `open(O_CLOEXEC)` now applies close-on-exec during
+does not overwrite them. `open(..., O_CREAT, mode)` applies the requested mode
+through the active umask, `open(O_CLOEXEC)` applies close-on-exec during
 creation, and `open(O_CREAT|O_EXCL)` refuses existing paths for temporary-file
 callers. `pipe2`, `dup3`, and the `fcntl` fd-duplication commands are
 implemented in libc on top of the native pipe, dup2, and fd-flag calls, giving

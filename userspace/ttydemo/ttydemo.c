@@ -94,7 +94,7 @@ int main(void) {
     close(tty_dup);
     printf("ttydemo: dup tty ok\n");
 
-    int fd = open("/fat/ttydemo.tmp", O_CREAT | O_RDWR | O_TRUNC);
+    int fd = open("/fat/ttydemo.tmp", O_CREAT | O_RDWR | O_TRUNC, 0644);
     if (fd < 0) {
         printf("ttydemo: open failed errno=%d\n", errno);
         return 1;
