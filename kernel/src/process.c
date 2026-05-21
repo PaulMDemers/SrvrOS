@@ -280,6 +280,7 @@ static struct process_write_file *write_file_at(uint64_t handle);
 static void background_process_thread(void *arg);
 static void process_user_thread_start(void *arg);
 static void process_futex_wake_process(struct process *process);
+static void process_futex_cleanup_process(struct process *process);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
@@ -2505,6 +2506,7 @@ struct process_futex_wait {
 static bool process_futex_wait_ready(void *arg) {
     struct process_futex_wait *wait = arg;
     return process_should_exit_current() ||
+        process_signal_pending_current() ||
         __atomic_load_n(wait->address, __ATOMIC_ACQUIRE) != wait->expected;
 }
 
@@ -2541,6 +2543,9 @@ int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeou
         if (__atomic_load_n(address, __ATOMIC_ACQUIRE) != expected) {
             return 0;
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
         if (timeout_ticks != 0 && timer_ticks() - start_ticks >= timeout_ticks) {
             return -110;
         }
@@ -2567,6 +2572,19 @@ int64_t process_futex_wake(uint32_t *address, uint64_t max_count) {
 }
 
 static void process_futex_wake_process(struct process *process) {
+    if (process == NULL) {
+        return;
+    }
+    uint64_t flags = process_irq_save();
+    for (uint64_t i = 0; i < PROCESS_MAX_FUTEXES; i++) {
+        if (futexes[i].used && futexes[i].process == process) {
+            scheduler_wake_all(&futexes[i].wait_queue);
+        }
+    }
+    process_irq_restore(flags);
+}
+
+static void process_futex_cleanup_process(struct process *process) {
     if (process == NULL) {
         return;
     }
@@ -5257,7 +5275,7 @@ void process_exit(uint64_t status) {
         scheduler_wake_all(&pipe_wait_queue);
         scheduler_wake_all(&process->thread_wait_queue);
         process_file_poll_wake();
-        process_futex_wake_process(process);
+        process_futex_cleanup_process(process);
         scheduler_clear_user_context();
         __asm__ volatile ("sti" : : : "memory");
         scheduler_exit_current();
@@ -5266,7 +5284,7 @@ void process_exit(uint64_t status) {
     __asm__ volatile ("cli" : : : "memory");
     process->exit_status = status;
     scheduler_kill_user_threads(process, NULL);
-    process_futex_wake_process(process);
+    process_futex_cleanup_process(process);
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
         process->user_threads[i].used = false;
         process->user_threads[i].active = false;

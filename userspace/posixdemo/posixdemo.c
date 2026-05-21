@@ -119,6 +119,15 @@ static void *pthread_wait_signal_worker(void *arg) {
     return (void *)0x24;
 }
 
+static void *pthread_cond_signal_worker(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    kill(getpid(), SIGUSR2);
+    return (void *)0x25;
+}
+
 struct restart_pipe_arg {
     int fd;
 };
@@ -253,6 +262,32 @@ static int pthread_cond_futex_test(void) {
     int timed = pthread_cond_timedwait(&demo.cond, &demo.mutex, &timeout);
     pthread_mutex_unlock(&demo.mutex);
     if (timed != ETIMEDOUT) {
+        return -1;
+    }
+
+    if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR) {
+        return -1;
+    }
+    demo_signal_count = 0;
+    if (pthread_create(&thread, 0, pthread_cond_signal_worker, 0) != 0) {
+        return -1;
+    }
+    if (clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
+        return -1;
+    }
+    timeout.tv_nsec += 30000000L;
+    if (timeout.tv_nsec >= 1000000000L) {
+        timeout.tv_sec++;
+        timeout.tv_nsec -= 1000000000L;
+    }
+    pthread_mutex_lock(&demo.mutex);
+    timed = pthread_cond_timedwait(&demo.cond, &demo.mutex, &timeout);
+    pthread_mutex_unlock(&demo.mutex);
+    if (pthread_join(thread, &value) != 0 ||
+        value != (void *)0x25 ||
+        timed != ETIMEDOUT ||
+        demo_signal_count == 0 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
         return -1;
     }
 

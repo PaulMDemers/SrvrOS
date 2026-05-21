@@ -138,9 +138,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `thread_smoke.py`: launches `/fat/bin/threadstress`, which stresses explicit
   user-thread yields, pthread mutexes, condition variables, `pthread_once`,
   TLS keys, stack and mutex/condition attributes, timed condition waits,
-  recursive/error-checking mutexes, detached-thread reaping, shared heap
-  allocation, shared regular-file fd writes, and recursive stdio stream locks
-  under QEMU preemption.
+  signal wakeups during futex-backed timed condition waits, recursive/error-checking
+  mutexes, detached-thread reaping, shared heap allocation, shared regular-file
+  fd writes, and recursive stdio stream locks under QEMU preemption.
 - `dhcp_smoke.py`: e1000 path, DHCP address acquisition, starting `webd`, host
   HTTP request, and file update served by the web server.
 - `dns_smoke.py`: DHCP DNS configuration, `net` status, DNS A-record

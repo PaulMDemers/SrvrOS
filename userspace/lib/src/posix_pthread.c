@@ -45,6 +45,38 @@ static struct pthread_key_slot pthread_keys[PTHREAD_KEYS_MAX];
 static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
 static struct pthread_tls_slot pthread_tls_slots[PTHREAD_TLS_THREADS];
 
+static long pthread_futex_wait_absorbing_signals(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
+    for (;;) {
+        long result = srv_futex_wait(address, expected, timeout_ticks);
+        if (result != SRV_ERR_INTR) {
+            return result;
+        }
+        (void)__posix_signal_dispatch_pending();
+    }
+}
+
+static int pthread_ticks_until_realtime(const struct timespec *abstime, uint64_t *ticks_out) {
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
+        return errno != 0 ? errno : EINVAL;
+    }
+    if (abstime->tv_sec < now.tv_sec ||
+        (abstime->tv_sec == now.tv_sec && abstime->tv_nsec <= now.tv_nsec)) {
+        return ETIMEDOUT;
+    }
+
+    uint64_t sec = (uint64_t)(abstime->tv_sec - now.tv_sec);
+    long nsec = abstime->tv_nsec - now.tv_nsec;
+    if (nsec < 0) {
+        sec--;
+        nsec += 1000000000L;
+    }
+    uint64_t ticks = sec * PTHREAD_TICKS_PER_SECOND;
+    ticks += ((uint64_t)nsec * PTHREAD_TICKS_PER_SECOND + 999999999ull) / 1000000000ull;
+    *ticks_out = ticks == 0 ? 1 : ticks;
+    return 0;
+}
+
 static struct pthread_record *pthread_record_find(pthread_t tid) {
     for (int i = 0; i < PTHREAD_MAX_RECORDS; i++) {
         if (pthread_records[i].used && pthread_records[i].tid == tid) {
@@ -448,7 +480,7 @@ int pthread_mutex_lock(pthread_mutex_t *mutex) {
             __ATOMIC_ACQUIRE,
             __ATOMIC_RELAXED)) {
         expected = 0;
-        (void)srv_futex_wait((uint32_t *)&mutex->locked, 1, 0);
+        (void)pthread_futex_wait_absorbing_signals((uint32_t *)&mutex->locked, 1, 0);
     }
     mutex->owner = self;
     mutex->depth = 1;
@@ -548,14 +580,26 @@ int pthread_cond_broadcast(pthread_cond_t *cond) {
     return 0;
 }
 
-static int pthread_cond_wait_ticks(pthread_cond_t *cond, pthread_mutex_t *mutex, uint64_t timeout_ticks) {
+static int pthread_cond_wait_until(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime) {
     if (cond == 0 || mutex == 0) {
         return EINVAL;
     }
     unsigned int observed = __atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE);
     pthread_mutex_unlock(mutex);
     while (__atomic_load_n(&cond->sequence, __ATOMIC_ACQUIRE) == observed) {
+        uint64_t timeout_ticks = 0;
+        if (abstime != 0) {
+            int error = pthread_ticks_until_realtime(abstime, &timeout_ticks);
+            if (error != 0) {
+                (void)pthread_mutex_lock(mutex);
+                return error;
+            }
+        }
         long result = srv_futex_wait((uint32_t *)&cond->sequence, observed, timeout_ticks);
+        if (result == SRV_ERR_INTR) {
+            (void)__posix_signal_dispatch_pending();
+            continue;
+        }
         if (result == -ETIMEDOUT) {
             (void)pthread_mutex_lock(mutex);
             return ETIMEDOUT;
@@ -565,7 +609,7 @@ static int pthread_cond_wait_ticks(pthread_cond_t *cond, pthread_mutex_t *mutex,
 }
 
 int pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
-    return pthread_cond_wait_ticks(cond, mutex, 0);
+    return pthread_cond_wait_until(cond, mutex, 0);
 }
 
 int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime) {
@@ -576,27 +620,7 @@ int pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const s
         return EINVAL;
     }
 
-    struct timespec now;
-    if (clock_gettime(CLOCK_REALTIME, &now) != 0) {
-        return errno;
-    }
-    if (abstime->tv_sec < now.tv_sec ||
-        (abstime->tv_sec == now.tv_sec && abstime->tv_nsec <= now.tv_nsec)) {
-        return ETIMEDOUT;
-    }
-
-    uint64_t sec = (uint64_t)(abstime->tv_sec - now.tv_sec);
-    long nsec = abstime->tv_nsec - now.tv_nsec;
-    if (nsec < 0) {
-        sec--;
-        nsec += 1000000000L;
-    }
-    uint64_t ticks = sec * PTHREAD_TICKS_PER_SECOND;
-    ticks += ((uint64_t)nsec * PTHREAD_TICKS_PER_SECOND + 999999999ull) / 1000000000ull;
-    if (ticks == 0) {
-        ticks = 1;
-    }
-    return pthread_cond_wait_ticks(cond, mutex, ticks);
+    return pthread_cond_wait_until(cond, mutex, abstime);
 }
 
 int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
@@ -624,7 +648,7 @@ int pthread_once(pthread_once_t *once_control, void (*init_routine)(void)) {
             }
             continue;
         }
-        (void)srv_futex_wait((uint32_t *)once_control, 1, 0);
+        (void)pthread_futex_wait_absorbing_signals((uint32_t *)once_control, 1, 0);
     }
 }
 

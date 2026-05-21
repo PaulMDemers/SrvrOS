@@ -21,6 +21,11 @@ server.
   ids, foreground TTY process-group queries/updates, libc
   `getpgrp`/`setpgid`/`getsid`/`setsid` and `tcgetpgrp`/`tcsetpgrp`, and
   `/fat/bin/posixdemo` coverage for the new wrappers.
+- Makes futex waits signal-aware without tearing down their wait table entries,
+  and keeps pthread mutexes, condition waits, and `pthread_once` POSIX-shaped by
+  dispatching caught signals internally while timed condition waits preserve
+  their real timeout deadline. `posixdemo` and `threadstress` cover the signal
+  wake path.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

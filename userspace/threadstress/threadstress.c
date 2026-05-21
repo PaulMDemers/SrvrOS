@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <pthread.h>
 #include <sched.h>
+#include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -28,6 +29,7 @@ static int shared_detached_done;
 static int shared_fd = -1;
 static FILE *shared_stream;
 static pthread_key_t shared_key;
+static volatile sig_atomic_t shared_signal_count;
 
 static void say(const char *text) {
     write(STDOUT_FILENO, text, strlen(text));
@@ -277,6 +279,58 @@ static int compat_test(void) {
     return 0;
 }
 
+static void signal_handler(int signum) {
+    if (signum == SIGUSR2) {
+        shared_signal_count++;
+    }
+}
+
+static void *signal_worker(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    kill(getpid(), SIGUSR2);
+    return (void *)0x440;
+}
+
+static int signal_wait_test(void) {
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+    pthread_t thread;
+    void *value = 0;
+    struct timespec timeout;
+
+    shared_signal_count = 0;
+    if (signal(SIGUSR2, signal_handler) == SIG_ERR ||
+        pthread_create(&thread, 0, signal_worker, 0) != 0 ||
+        clock_gettime(CLOCK_REALTIME, &timeout) != 0) {
+        return -1;
+    }
+    timeout.tv_nsec += 30000000L;
+    if (timeout.tv_nsec >= 1000000000L) {
+        timeout.tv_sec++;
+        timeout.tv_nsec -= 1000000000L;
+    }
+
+    if (pthread_mutex_lock(&mutex) != 0) {
+        return -1;
+    }
+    int result = pthread_cond_timedwait(&cond, &mutex, &timeout);
+    pthread_mutex_unlock(&mutex);
+    if (pthread_join(thread, &value) != 0 ||
+        value != (void *)0x440 ||
+        result != ETIMEDOUT ||
+        shared_signal_count == 0 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR ||
+        pthread_cond_destroy(&cond) != 0 ||
+        pthread_mutex_destroy(&mutex) != 0) {
+        return -1;
+    }
+    say("threadstress: signal wait ok\n");
+    return 0;
+}
+
 static void *heap_worker(void *arg) {
     int id = (int)(uintptr_t)arg;
     for (int i = 0; i < 64; i++) {
@@ -497,6 +551,7 @@ int main(int argc, char **argv) {
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);
     RUN_TEST("compat", compat_test);
+    RUN_TEST("signal", signal_wait_test);
     RUN_TEST("heap", heap_test);
     RUN_TEST("detached", detached_test);
     RUN_TEST("fd", fd_test);

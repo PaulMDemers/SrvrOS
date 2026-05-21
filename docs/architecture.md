@@ -525,10 +525,14 @@ address-keyed wait primitive; pthread mutexes and condition variables use it to
 sleep on shared userspace words instead of spin-yielding. The userspace heap
 allocator also uses a process-local futex-backed lock, and `pthread_once` now
 tracks unstarted/running/complete states so contending threads wait for the
-initializer to finish before returning. The scheduler updates the TSS from each
-thread's effective kernel trap stack when switching between user threads, and
-the native thread launch path preserves the exact userspace stack alignment
-chosen by libc so SSE-using code keeps the SysV ABI alignment it expects.
+initializer to finish before returning. Caught signals wake futex waiters with
+`SRV_ERR_INTR`; libc pthread internals dispatch the signal and keep waiting
+where POSIX requires mutexes, condition waits, and `pthread_once` not to surface
+`EINTR`, while timed condition waits recompute their remaining deadline after
+each signal wake. The scheduler updates the TSS from each thread's effective
+kernel trap stack when switching between user threads, and the native thread
+launch path preserves the exact userspace stack alignment chosen by libc so
+SSE-using code keeps the SysV ABI alignment it expects.
 Regular-file `read`/`write`/`seek` offset updates are serialized in the kernel
 under preemption, and libc stdio streams have recursive futex-backed locks for
 shared `FILE *` use from pthreads. `/fat/bin/threadstress` plus

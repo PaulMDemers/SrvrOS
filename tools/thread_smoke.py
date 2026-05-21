@@ -124,6 +124,7 @@ def main():
             "threadstress: cond ok",
             "threadstress: once ok",
             "threadstress: compat ok",
+            "threadstress: signal wait ok",
             "threadstress: heap ok",
             "threadstress: detached ok",
             "threadstress: fd ok",
