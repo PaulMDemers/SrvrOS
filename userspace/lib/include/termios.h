@@ -2,6 +2,7 @@
 #define SRVROS_TERMIOS_H
 
 #include <srvros/syscall_numbers.h>
+#include <sys/types.h>
 
 typedef unsigned char cc_t;
 typedef unsigned int speed_t;
@@ -37,5 +38,7 @@ struct termios {
 
 int tcgetattr(int fd, struct termios *termios_p);
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p);
+pid_t tcgetpgrp(int fd);
+int tcsetpgrp(int fd, pid_t pgrp);
 
 #endif

@@ -1523,6 +1523,28 @@ static int64_t syscall_proc_group(uint64_t pid, uint64_t group, uint64_t foregro
     return 0;
 }
 
+static int64_t syscall_proc_control(uint64_t operation, uint64_t pid, uint64_t value) {
+    switch (operation) {
+    case SRV_PROC_GET_PGROUP:
+        return (int64_t)process_group(pid);
+    case SRV_PROC_SET_PGROUP:
+        return process_set_group(pid, value) ? 0 : -1;
+    case SRV_PROC_GET_SESSION:
+        return (int64_t)process_session(pid);
+    case SRV_PROC_SET_SESSION: {
+        uint64_t session = 0;
+        return process_create_session_current(&session) ? (int64_t)session : -1;
+    }
+    case SRV_PROC_GET_FOREGROUND_PGROUP:
+        return (int64_t)process_foreground_group();
+    case SRV_PROC_SET_FOREGROUND_PGROUP:
+        process_set_foreground_group(value);
+        return 0;
+    default:
+        return -1;
+    }
+}
+
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
     uint64_t status = 0;
     __asm__ volatile ("sti" : : : "memory");
@@ -2201,6 +2223,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_PROC_GROUP:
         frame->rax = (uint64_t)syscall_proc_group(frame->rdi, frame->rsi, frame->rdx);
+        return;
+    case SYS_PROC_CONTROL:
+        frame->rax = (uint64_t)syscall_proc_control(frame->rdi, frame->rsi, frame->rdx);
         return;
     case SYS_THREAD_CREATE:
         frame->rax = (uint64_t)syscall_thread_create(frame->rdi, frame->rsi, frame->rdx, frame->rcx);

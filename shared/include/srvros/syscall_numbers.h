@@ -107,6 +107,7 @@
 #define SYS_UNIX_CONNECT 102
 #define SYS_UNIX_ACCEPT 103
 #define SYS_UNIX_UNLINK 104
+#define SYS_PROC_CONTROL 105
 
 #define SRV_ABI_VERSION 1
 
@@ -179,6 +180,13 @@ struct srv_termios {
 
 #define SRV_TIOCGWINSZ 0x5413u
 #define SRV_TIOCSWINSZ 0x5414u
+
+#define SRV_PROC_GET_PGROUP 1
+#define SRV_PROC_SET_PGROUP 2
+#define SRV_PROC_GET_SESSION 3
+#define SRV_PROC_SET_SESSION 4
+#define SRV_PROC_GET_FOREGROUND_PGROUP 5
+#define SRV_PROC_SET_FOREGROUND_PGROUP 6
 
 struct srv_winsize {
     uint16_t row;

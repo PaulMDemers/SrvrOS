@@ -46,8 +46,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
   current console dimensions and framebuffer pixel size, while
   `ioctl(TIOCSWINSZ)` stores an override for terminal-oriented ports.
   Terminal-generated Ctrl-C is routed to the shell's active foreground process
-  group; richer terminal-session modeling and baud settings are still future
-  work.
+  group. `getpgrp`, `setpgid`, `getsid`, `setsid`, `tcgetpgrp`, and
+  `tcsetpgrp` provide a small process-group/session surface for shells and
+  interactive ports. Richer controlling-terminal permission checks and baud
+  settings are still future work.
 - `pread` and `pwrite` for seekable fds. These currently save/restore the file
   offset in userspace around the underlying `lseek` plus `read`/`write`.
 - `sendmsg` and `recvmsg` for scatter/gather socket I/O, with bounded
@@ -353,8 +355,8 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   cross-machine semantics, and WAL shared-memory locking are future work.
 - The TTY layer is intentionally small. It tracks one console termios state and
   supports canonical/raw reads plus Ctrl-C delivery to the active foreground
-  process group, but does not yet model controlling terminals, sessions, or baud
-  settings.
+  process group. Process groups and session ids exist, but controlling-terminal
+  ownership/permission rules and baud settings are not yet modeled.
 - `stdio` is intentionally small: formatted output covers the common
   width/precision/flag forms needed by current ports, input scanning covers
   integers, strings, characters, floating values, scansets, width limits,

@@ -74,6 +74,13 @@ The shell supports foreground jobs, foreground/background pipeline groups,
 keyboard input, network accept/read readiness, and descriptor readiness in
 `poll`/`select`, so a blocked process does not busy-spin.
 
+Each process carries a process-group id and a session id. New children inherit
+their parent's group/session unless an exec request or `posix_spawn` attribute
+asks for a new process group. The console tracks one foreground process group
+for Ctrl-C delivery and exposes the current group/session state through the
+small libc `getpgrp`/`setpgid`/`getsid`/`setsid` and
+`tcgetpgrp`/`tcsetpgrp` surface.
+
 ## Syscall ABI
 
 Userspace calls the kernel through `int 0x80`. Shared syscall numbers live in

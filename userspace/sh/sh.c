@@ -5648,7 +5648,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
     }
 
     if (background) {
-        status = exec_external_command(path, args, 1, input_fd, output_fd, error_fd, 0, 0);
+        status = exec_external_command(path, args, 1, input_fd, output_fd, error_fd, SRV_EXEC_GROUP_SELF, 0);
         if (status < 0) {
             cli_puts("sh: background spawn failed\n");
             close_redirection_fds(input_fd, output_fd, error_fd);
@@ -5666,12 +5666,13 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return 0;
     }
 
-    status = exec_external_command(path, args, 0, input_fd, output_fd, error_fd, 0, 0);
+    status = exec_external_command(path, args, 0, input_fd, output_fd, error_fd, SRV_EXEC_GROUP_SELF, 1);
     close_redirection_fds(input_fd, output_fd, error_fd);
     if (status < 0) {
         cli_puts("sh: exec failed\n");
         return 126;
     }
+    (void)srv_proc_group(0, shell_pid, 1);
     cli_puts("status ");
     cli_putn((uint64_t)status);
     cli_puts("\n");

@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <stddef.h>
+#include <sys/types.h>
 #include <termios.h>
+#include <unistd.h>
 
 #include <srvros/sys.h>
 
@@ -50,6 +52,35 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     termios_to_srv(&srv, termios_p);
     if (srv_tty_setattr(fd, optional_actions, &srv) < 0) {
         errno = ENOTTY;
+        return -1;
+    }
+    return 0;
+}
+
+pid_t tcgetpgrp(int fd) {
+    if (!isatty(fd)) {
+        errno = ENOTTY;
+        return -1;
+    }
+    long result = srv_proc_control(SRV_PROC_GET_FOREGROUND_PGROUP, 0, 0);
+    if (result <= 0) {
+        errno = ENOTTY;
+        return -1;
+    }
+    return (pid_t)result;
+}
+
+int tcsetpgrp(int fd, pid_t pgrp) {
+    if (pgrp <= 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (!isatty(fd)) {
+        errno = ENOTTY;
+        return -1;
+    }
+    if (srv_proc_control(SRV_PROC_SET_FOREGROUND_PGROUP, 0, (uint64_t)pgrp) < 0) {
+        errno = EINVAL;
         return -1;
     }
     return 0;

@@ -173,6 +173,7 @@ struct process {
     uint64_t signal_ignore_mask;
     uint64_t pending_signals;
     uint64_t process_group;
+    uint64_t session_id;
     uint64_t pid;
     uint64_t parent_pid;
     uint64_t exit_status;
@@ -373,7 +374,16 @@ static struct process *alloc_process(const char *path, bool detached) {
             if (next_pid == 0) {
                 next_pid = 1;
             }
-            processes[i].parent_pid = process_pid(process_current());
+            struct process *parent = process_current();
+            processes[i].parent_pid = process_pid(parent);
+            processes[i].process_group = parent != NULL ? parent->process_group : processes[i].pid;
+            processes[i].session_id = parent != NULL ? parent->session_id : processes[i].pid;
+            if (processes[i].process_group == 0) {
+                processes[i].process_group = processes[i].pid;
+            }
+            if (processes[i].session_id == 0) {
+                processes[i].session_id = processes[i].pid;
+            }
             processes[i].stack_top = USER_STACK_TOP;
             processes[i].kernel_stack_top = gdt_default_kernel_stack_top();
             processes[i].next_thread_id = 2;
@@ -1217,7 +1227,7 @@ int64_t process_spawn_exec(const char *path,
 
     if (process_group == UINT64_MAX) {
         child->process_group = child->pid;
-    } else {
+    } else if (process_group != 0) {
         child->process_group = process_group;
     }
     if (foreground && child->process_group != 0) {
@@ -1905,6 +1915,16 @@ uint64_t process_signal_poll_current(void) {
 }
 
 bool process_set_group(uint64_t pid, uint64_t group) {
+    if (pid == 0) {
+        struct process *current = process_current();
+        if (current == NULL) {
+            return false;
+        }
+        pid = current->pid;
+    }
+    if (group == 0) {
+        group = pid;
+    }
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         if (processes[i].allocated && processes[i].pid == pid) {
             processes[i].process_group = group;
@@ -1914,8 +1934,51 @@ bool process_set_group(uint64_t pid, uint64_t group) {
     return false;
 }
 
+uint64_t process_group(uint64_t pid) {
+    if (pid == 0) {
+        struct process *current = process_current();
+        return current != NULL ? current->process_group : 0;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && processes[i].pid == pid) {
+            return processes[i].process_group;
+        }
+    }
+    return 0;
+}
+
+uint64_t process_session(uint64_t pid) {
+    if (pid == 0) {
+        struct process *current = process_current();
+        return current != NULL ? current->session_id : 0;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && processes[i].pid == pid) {
+            return processes[i].session_id;
+        }
+    }
+    return 0;
+}
+
+bool process_create_session_current(uint64_t *session_out) {
+    struct process *current = process_current();
+    if (current == NULL || current->process_group == current->pid) {
+        return false;
+    }
+    current->session_id = current->pid;
+    current->process_group = current->pid;
+    if (session_out != NULL) {
+        *session_out = current->session_id;
+    }
+    return true;
+}
+
 void process_set_foreground_group(uint64_t group) {
     foreground_process_group = group;
+}
+
+uint64_t process_foreground_group(void) {
+    return foreground_process_group;
 }
 
 static bool is_root_interactive_shell(const struct process *process) {

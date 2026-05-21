@@ -147,6 +147,7 @@ long srv_random(void *buffer, size_t length, uint64_t flags);
 long srv_utime(const char *path, uint64_t atime, uint64_t mtime);
 long srv_futime(int fd, uint64_t atime, uint64_t mtime);
 long srv_proc_group(uint64_t pid, uint64_t group, int foreground);
+long srv_proc_control(uint64_t operation, uint64_t pid, uint64_t value);
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags);
 long srv_net_dhcp(void);
 long srv_net_status(void);

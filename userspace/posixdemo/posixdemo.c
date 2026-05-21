@@ -24,6 +24,7 @@
 #include <sys/uio.h>
 #include <sys/utsname.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -1218,6 +1219,28 @@ int main(void) {
         say("posixdemo: system failed\n");
         return 39;
     }
+    pid_t self_pid = getpid();
+    pid_t original_group = getpgrp();
+    pid_t original_session = getsid(0);
+    if (self_pid <= 0 || original_group <= 0 || original_session <= 0 ||
+        setpgid(0, 0) < 0 ||
+        getpgrp() != self_pid ||
+        getsid(self_pid) != original_session) {
+        say("posixdemo: process group failed\n");
+        return 40;
+    }
+    errno = 0;
+    if (setsid() >= 0 || errno != EPERM) {
+        say("posixdemo: setsid leader failed\n");
+        return 40;
+    }
+    if (tcgetpgrp(STDIN_FILENO) <= 0 ||
+        tcsetpgrp(STDIN_FILENO, self_pid) < 0 ||
+        tcgetpgrp(STDIN_FILENO) != self_pid) {
+        say("posixdemo: tty pgrp failed\n");
+        return 40;
+    }
+    say("posixdemo: process control ok\n");
     say("posixdemo: posix misc ok\n");
 
     char *true_argv[] = {"true", 0};

@@ -699,6 +699,50 @@ pid_t getppid(void) {
     return (pid_t)srv_getppid();
 }
 
+pid_t getpgrp(void) {
+    long result = srv_proc_control(SRV_PROC_GET_PGROUP, 0, 0);
+    if (result <= 0) {
+        errno = ESRCH;
+        return -1;
+    }
+    return (pid_t)result;
+}
+
+int setpgid(pid_t pid, pid_t pgid) {
+    if (pid < 0 || pgid < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    long result = srv_proc_control(SRV_PROC_SET_PGROUP, (uint64_t)pid, (uint64_t)pgid);
+    if (result < 0) {
+        errno = ESRCH;
+        return -1;
+    }
+    return 0;
+}
+
+pid_t getsid(pid_t pid) {
+    if (pid < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    long result = srv_proc_control(SRV_PROC_GET_SESSION, (uint64_t)pid, 0);
+    if (result <= 0) {
+        errno = ESRCH;
+        return -1;
+    }
+    return (pid_t)result;
+}
+
+pid_t setsid(void) {
+    long result = srv_proc_control(SRV_PROC_SET_SESSION, 0, 0);
+    if (result <= 0) {
+        errno = EPERM;
+        return -1;
+    }
+    return (pid_t)result;
+}
+
 void _exit(int status) {
     srv_exit(status);
     for (;;) {

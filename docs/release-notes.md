@@ -17,6 +17,10 @@ server.
   canonical/raw input mode toggles, `ICRNL`, `ECHO`, `VMIN`/`VTIME`, erase,
   kill-line, EOF control characters, `ioctl` window-size support, and duplicated
   stdio TTY detection, plus `/fat/bin/ttydemo` smoke coverage.
+- Adds a first process-group/session control surface: kernel-tracked session
+  ids, foreground TTY process-group queries/updates, libc
+  `getpgrp`/`setpgid`/`getsid`/`setsid` and `tcgetpgrp`/`tcsetpgrp`, and
+  `/fat/bin/posixdemo` coverage for the new wrappers.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

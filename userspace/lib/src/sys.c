@@ -403,6 +403,10 @@ long srv_proc_group(uint64_t pid, uint64_t group, int foreground) {
     return srv_syscall3(SYS_PROC_GROUP, (long)pid, (long)group, (long)foreground);
 }
 
+long srv_proc_control(uint64_t operation, uint64_t pid, uint64_t value) {
+    return srv_syscall3(SYS_PROC_CONTROL, (long)operation, (long)pid, (long)value);
+}
+
 long srv_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
     return srv_syscall3(SYS_WAIT, (long)pid, (long)status_out, (long)flags);
 }
