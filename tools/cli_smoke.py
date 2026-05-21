@@ -68,7 +68,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=20)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--after-wait", type=float, default=2)
-    parser.add_argument("--line-wait", type=float, default=0.7)
+    parser.add_argument("--line-wait", type=float, default=1.0)
     parser.add_argument("--send-delay", type=float, default=0.001)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
@@ -283,9 +283,13 @@ def main():
         "grep --ignore-case --line-number --regexp=alpha /fat/longopts.txt\n"
         "grep --fixed-strings --quiet beta /fat/longopts.txt && echo grep-long-ok\n"
         "grep -E 'Al.*a' /fat/longopts.txt\n"
+        "grep -o -E 'A(lph)a' /fat/longopts.txt\n"
+        "grep -l beta /fat/longopts.txt /fat/status.txt\n"
+        "grep -L beta /fat/longopts.txt /fat/status.txt\n"
         "sed --quiet --expression=/beta/p /fat/longopts.txt\n"
         "sed -n '/b[aeiou]t./p' /fat/longopts.txt\n"
         "sed 's/[Aa]lph./regex-&/' /fat/longopts.txt\n"
+        "sed 's/([Aa]lph)(.)/cap-\\\\2-\\\\1/' /fat/longopts.txt\n"
         "find /fat -name longopts.txt -type f -print\n"
         "mkdir -p /fat/longsrc/sub\n"
         "write /fat/longsrc/sub/data.txt long-copy\n"
@@ -759,7 +763,9 @@ def main():
         "grep-long-ok",
         "beta",
         "regex-Alpha",
+        "cap-a-Alph",
         "/fat/longopts.txt",
+        "/fat/status.txt",
         "long-copy",
         "/fat/longdst/",
         "Alpha",

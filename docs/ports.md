@@ -84,8 +84,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `strerror`
 - `regex.h` with first-pass `regcomp`, `regexec`, `regerror`, and `regfree`
   support for common script-port patterns: `.`, anchors, bracket/range/class
-  expressions, `*`, ERE `+`/`?`, match offsets, `REG_ICASE`, `REG_EXTENDED`,
-  and `REG_NOSUB`.
+  expressions, alternation, grouped captures, bounded repeats, `*`, ERE `+`/`?`,
+  match offsets, `REG_ICASE`, `REG_EXTENDED`, and `REG_NOSUB`.
 - `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
   `setjmp`/`longjmp`, and integer-safe `math.h` macros
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
@@ -209,13 +209,15 @@ directly into a srvros executable. It uses the upstream C sources plus a small
 srvros config header, and the ports smoke test verifies that it can generate
 `y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
 The text utilities now share the libc regex engine where useful: `grep` uses
-`regexec` by default while retaining `-F` fixed-string mode, and `sed` uses
-regex addresses plus regex substitutions with `&` replacement expansion. The
+`regexec` by default while retaining `-F` fixed-string mode and adding
+`-o`/`-l`/`-L`, and `sed` uses regex addresses plus regex substitutions with
+`&` and `\1`-style replacement expansion. The
 `/fat/bin/ed` app is currently a srvros-local compact line editor used to
 cover scriptable edit/write workflows while the libc grows enough for a fuller
 upstream POSIX `ed` port. It supports basic numeric range addressing plus
-append/insert/change/delete/print/read/write/load/quit commands, and the ports
-smoke test verifies an edit script against `cmp`.
+regex addresses, regex substitutions, append/insert/change/delete/print/read/
+write/load/quit commands, and the ports smoke test verifies an edit script
+against `cmp`.
 The `/fat/bin/uvdemo` app links the first srvros `uv.h` compatibility shim. The
 shim is not upstream libuv yet; it is a deliberately small bridge that gives
 ports a libuv-shaped loop, timers, synchronous filesystem requests, TCP/UDP
@@ -296,10 +298,10 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   share process resources, detached stack cleanup is opportunistic rather than
   timer-driven, and robust cancellation/signal interactions are missing.
 - The first `regex.h` implementation is intentionally compact. It covers the
-  common literals, wildcard, anchors, bracket classes, ranges, `*`, ERE `+` and
-  `?`, and whole-match offsets needed by current text tools, but not full
-  POSIX subexpression capture, alternation, bounded repeats, locale collation,
-  or backreferences yet.
+  common literals, wildcard, anchors, bracket classes, ranges, captures,
+  alternation, bounded repeats, `*`, ERE `+` and `?`, and match offsets needed
+  by current text tools, but not full POSIX locale collation, pattern
+  backreferences, or every corner of nested subexpression behavior yet.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
   in userspace, with the native spawn ABI currently capped at 32 actions per

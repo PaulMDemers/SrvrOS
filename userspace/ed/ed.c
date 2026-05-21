@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <regex.h>
 #include <string.h>
 
 struct line_buffer {
@@ -147,6 +148,69 @@ static int write_file(struct line_buffer *buffer, const char *path) {
     return 0;
 }
 
+static int parse_delimited(char *out, size_t capacity, const char **cursor, char delimiter) {
+    const char *text = *cursor;
+    size_t length = 0;
+    if (*text != delimiter) {
+        return 0;
+    }
+    text++;
+    while (*text != '\0' && *text != delimiter && *text != '\n' && length + 1 < capacity) {
+        if (*text == '\\' && text[1] != '\0') {
+            text++;
+            if (*text != delimiter && length + 1 < capacity) {
+                out[length++] = '\\';
+            }
+        }
+        out[length++] = *text++;
+    }
+    if (*text != delimiter) {
+        return 0;
+    }
+    out[length] = '\0';
+    *cursor = text + 1;
+    return 1;
+}
+
+static int parse_until_delimiter(char *out, size_t capacity, const char **cursor, char delimiter) {
+    const char *text = *cursor;
+    size_t length = 0;
+    while (*text != '\0' && *text != delimiter && *text != '\n' && length + 1 < capacity) {
+        if (*text == '\\' && text[1] != '\0') {
+            text++;
+            if (*text != delimiter && length + 1 < capacity) {
+                out[length++] = '\\';
+            }
+        }
+        out[length++] = *text++;
+    }
+    if (*text != delimiter) {
+        return 0;
+    }
+    out[length] = '\0';
+    *cursor = text + 1;
+    return 1;
+}
+
+static size_t find_regex_address(const struct line_buffer *buffer, const char *pattern, size_t fallback) {
+    regex_t regex;
+    if (buffer->count == 0 || regcomp(&regex, pattern, REG_EXTENDED | REG_NOSUB) != 0) {
+        puts("?");
+        return 0;
+    }
+    size_t start = fallback == 0 || fallback > buffer->count ? 1 : fallback + 1;
+    for (size_t step = 0; step < buffer->count; step++) {
+        size_t index = ((start - 1 + step) % buffer->count) + 1;
+        if (regexec(&regex, buffer->lines[index - 1], 0, 0, 0) == 0) {
+            regfree(&regex);
+            return index;
+        }
+    }
+    regfree(&regex);
+    puts("?");
+    return 0;
+}
+
 static size_t parse_address(const char **cursor, const struct line_buffer *buffer, size_t fallback) {
     const char *text = *cursor;
     while (*text == ' ' || *text == '\t') {
@@ -168,6 +232,16 @@ static size_t parse_address(const char **cursor, const struct line_buffer *buffe
         }
         *cursor = text;
         return value;
+    }
+    if (*text == '/') {
+        char pattern[160];
+        const char *pattern_cursor = text;
+        if (!parse_delimited(pattern, sizeof(pattern), &pattern_cursor, '/')) {
+            puts("?");
+            return 0;
+        }
+        *cursor = pattern_cursor;
+        return find_regex_address(buffer, pattern, fallback);
     }
     *cursor = text;
     return fallback;
@@ -210,6 +284,148 @@ static char *trim_arg(char *text) {
     return text;
 }
 
+static void append_text_range(char *out, size_t capacity, size_t *length,
+    const char *text, size_t start, size_t end) {
+    for (size_t i = start; i < end && *length + 1 < capacity; i++) {
+        out[(*length)++] = text[i];
+        out[*length] = '\0';
+    }
+}
+
+static void append_replacement(char *out, size_t capacity, size_t *length,
+    const char *line, const char *replacement, regmatch_t *matches, size_t match_count) {
+    for (size_t i = 0; replacement[i] != '\0' && *length + 1 < capacity; i++) {
+        if (replacement[i] == '&') {
+            append_text_range(out, capacity, length, line,
+                (size_t)matches[0].rm_so, (size_t)matches[0].rm_eo);
+        } else if (replacement[i] == '\\' && replacement[i + 1] >= '0' && replacement[i + 1] <= '9') {
+            size_t index = (size_t)(replacement[++i] - '0');
+            if (index < match_count && matches[index].rm_so >= 0 && matches[index].rm_eo >= matches[index].rm_so) {
+                append_text_range(out, capacity, length, line,
+                    (size_t)matches[index].rm_so, (size_t)matches[index].rm_eo);
+            }
+        } else if (replacement[i] == '\\' && replacement[i + 1] != '\0') {
+            out[(*length)++] = replacement[++i];
+            out[*length] = '\0';
+        } else {
+            out[(*length)++] = replacement[i];
+            out[*length] = '\0';
+        }
+    }
+}
+
+static int substitute_one_line(struct line_buffer *buffer, size_t index, regex_t *regex,
+    const char *replacement, int global) {
+    char line_storage[512];
+    const char *source = buffer->lines[index - 1];
+    size_t source_length = strlen(source);
+    int had_newline = source_length > 0 && source[source_length - 1] == '\n';
+    if (source_length >= sizeof(line_storage)) {
+        source_length = sizeof(line_storage) - 1;
+    }
+    memcpy(line_storage, source, source_length);
+    line_storage[source_length] = '\0';
+    if (had_newline && source_length > 0) {
+        line_storage[source_length - 1] = '\0';
+    }
+    const char *line = line_storage;
+    char out[512];
+    size_t out_length = 0;
+    size_t offset = 0;
+    int changed = 0;
+    out[0] = '\0';
+    while (line[offset] != '\0') {
+        regmatch_t matches[10];
+        if (regexec(regex, line + offset, sizeof(matches) / sizeof(matches[0]), matches, 0) != 0) {
+            append_text_range(out, sizeof(out), &out_length, line, offset, strlen(line));
+            break;
+        }
+        for (size_t i = 0; i < sizeof(matches) / sizeof(matches[0]); i++) {
+            if (matches[i].rm_so >= 0) {
+                matches[i].rm_so += (regoff_t)offset;
+                matches[i].rm_eo += (regoff_t)offset;
+            }
+        }
+        append_text_range(out, sizeof(out), &out_length, line, offset, (size_t)matches[0].rm_so);
+        append_replacement(out, sizeof(out), &out_length, line, replacement, matches,
+            sizeof(matches) / sizeof(matches[0]));
+        offset = matches[0].rm_eo > matches[0].rm_so ? (size_t)matches[0].rm_eo : (size_t)matches[0].rm_eo + 1;
+        changed = 1;
+        if (!global) {
+            append_text_range(out, sizeof(out), &out_length, line, offset, strlen(line));
+            break;
+        }
+    }
+    if (!changed) {
+        return 0;
+    }
+    if (had_newline && out_length + 1 < sizeof(out)) {
+        out[out_length++] = '\n';
+        out[out_length] = '\0';
+    }
+    char *copy = dup_line(out);
+    if (copy == 0) {
+        puts("?");
+        return -1;
+    }
+    free(buffer->lines[index - 1]);
+    buffer->lines[index - 1] = copy;
+    buffer->current = index;
+    buffer->modified = 1;
+    return 1;
+}
+
+static int substitute_range(struct line_buffer *buffer, size_t first, size_t last, const char *script) {
+    const char *cursor = script;
+    char pattern[160];
+    char replacement[160];
+    int global = 0;
+    regex_t regex;
+    if (*cursor != 's') {
+        return -1;
+    }
+    cursor++;
+    char delimiter = *cursor;
+    if (delimiter == '\0' || delimiter == '\n') {
+        puts("?");
+        return -1;
+    }
+    if (!parse_delimited(pattern, sizeof(pattern), &cursor, delimiter) ||
+        !parse_until_delimiter(replacement, sizeof(replacement), &cursor, delimiter)) {
+        puts("?");
+        return -1;
+    }
+    cursor = skip_spaces(cursor);
+    if (*cursor == 'g') {
+        global = 1;
+        cursor++;
+    }
+    cursor = skip_spaces(cursor);
+    if (*cursor != '\0' && *cursor != '\n') {
+        puts("?");
+        return -1;
+    }
+    if (regcomp(&regex, pattern, REG_EXTENDED) != 0) {
+        puts("?");
+        return -1;
+    }
+    int any = 0;
+    for (size_t i = first; i <= last; i++) {
+        int result = substitute_one_line(buffer, i, &regex, replacement, global);
+        if (result < 0) {
+            regfree(&regex);
+            return -1;
+        }
+        any = any || result > 0;
+    }
+    regfree(&regex);
+    if (!any) {
+        puts("?");
+        return -1;
+    }
+    return 0;
+}
+
 static int run_command(struct line_buffer *buffer, char *command) {
     const char *cursor = command;
     size_t first = 0;
@@ -241,6 +457,18 @@ static int run_command(struct line_buffer *buffer, char *command) {
         }
         buffer->current = last;
         return 0;
+    case 's':
+        if (first == 0 || last > buffer->count || last < first) {
+            puts("?");
+            return -1;
+        }
+        {
+            char script[512];
+            script[0] = 's';
+            strncpy(script + 1, cursor, sizeof(script) - 2);
+            script[sizeof(script) - 1] = '\0';
+            return substitute_range(buffer, first, last, script);
+        }
     case 'e':
         {
             char *path = trim_arg((char *)cursor);

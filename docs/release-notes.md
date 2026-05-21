@@ -26,6 +26,10 @@ server.
 - Adds first-pass libc `regex.h` support for `regcomp`, `regexec`, `regerror`,
   and `regfree`, then moves `grep` and the existing `sed` subset onto the
   shared matcher for regex addresses/substitutions and fixed-string fallback.
+- Extends the compact regex engine with alternation, capture offsets, and
+  bounded repeats; adds `grep -o/-l/-L`, sed numbered replacement expansion,
+  `ed` regex address/substitution support, and `tools/regex_smoke.py` as a
+  focused text-stack harness.
 - Expands the generated exFAT image to 128 MiB with a matching FAT reservation
   so the growing userspace and smoke-test write workload still have headroom.
 - Schedules kernel threads and userspace processes with timer preemption.

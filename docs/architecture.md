@@ -384,11 +384,12 @@ are queued as pending signals, wake blocking poll/fd waits, and are consumed by
 userspace instead of forcing process exit.
 
 The first text-tool compatibility passes cover common script-facing flags:
-`grep -i/-n/-v/-c/-q`, shared libc regex matching with fixed-string fallback,
+`grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,
 `wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for
 line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
 `sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses,
-regex `/pattern/` addresses, and regex substitutions. Shell `test`/`[` covers boolean `-a`/`-o`/`!`, common
+regex `/pattern/` addresses, and regex substitutions with numbered capture
+replacement. Shell `test`/`[` covers boolean `-a`/`-o`/`!`, common
 file probes, mtime comparisons, and same-file checks. `/fat/bin/seq` covers
 integer ranges, `id`/`whoami` provide a fixed root identity, `cmp` compares
 files, `yes` feeds simple pipeline prompts, `xargs` can batch with `-n` and skip

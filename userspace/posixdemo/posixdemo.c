@@ -1136,6 +1136,18 @@ int main(void) {
         return 40;
     }
     regfree(&regex);
+    regmatch_t regex_groups[4];
+    if (regcomp(&regex, "^(srv|demo)-([0-9]{2,3})$", REG_EXTENDED) != 0 ||
+        regex.re_nsub != 2 ||
+        regexec(&regex, "demo-123", 4, regex_groups, 0) != 0 ||
+        regex_groups[0].rm_so != 0 || regex_groups[0].rm_eo != 8 ||
+        regex_groups[1].rm_so != 0 || regex_groups[1].rm_eo != 4 ||
+        regex_groups[2].rm_so != 5 || regex_groups[2].rm_eo != 8 ||
+        regexec(&regex, "test-1234", 4, regex_groups, 0) != REG_NOMATCH) {
+        say("posixdemo: regex groups failed\n");
+        return 40;
+    }
+    regfree(&regex);
     if (regcomp(&regex, "[abc", REG_EXTENDED) != REG_EBRACK ||
         regerror(REG_EBRACK, 0, regex_error, sizeof(regex_error)) == 0 ||
         strcmp(regex_error, "unmatched bracket") != 0) {

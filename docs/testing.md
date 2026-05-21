@@ -88,11 +88,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   usage output across the core CLI tools, `--` option termination for common
   file/text utilities,
   `grep -i/-n/-v/-c/-q` plus `--regexp`/`--ignore-case`/`--quiet`,
-  regex matching, and `--fixed-strings`,
+  regex matching, `--fixed-strings`, only-match output, and file listing modes,
   `wc -l/-c`, `head -1`/`tail -1`,
   `find -type`/`-print`, `ls -a/-la/-d/-1` and long option aliases,
   `sed -n`/`-e`/`p`/`d` plus `--quiet`/`--expression`, regex addresses,
-  and regex substitutions with `&` replacement expansion
+  and regex substitutions with `&`/capture replacement expansion
   with simple addresses, `expr` arithmetic/string expressions,
   `printf`, `tr`, `while` loops, `case` pattern matching, compound-command
   tail chaining, command-local environment assignments, comments, script line
@@ -245,8 +245,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   environment variables, `pread`/`pwrite`, `uname`, `getopt`,
   `readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with
   local-socketpair `SCM_RIGHTS`,
-  libc `regex.h` compile/execute/error behavior,
-  scriptable `ed` line editing and writeback verified with `cmp`,
+  libc `regex.h` compile/execute/error behavior including alternation,
+  captures, and bounded repeats,
+  scriptable `ed` line editing, regex address/substitution, and writeback
+  verified with `cmp`,
   pthread create/join plus mutex/condition/once/TLS compatibility, `nanosleep`, `sysconf`,
   formatted-output width/precision/flag handling, stream buffering/`fflush`,
   EOF/error state, `scanf`/`sscanf` width, scanset, suppressed-assignment,

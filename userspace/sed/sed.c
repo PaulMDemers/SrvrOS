@@ -66,6 +66,9 @@ static int parse_delimited(char *out, size_t capacity, const char *text, size_t 
     while (text[i] != '\0' && text[i] != delimiter) {
         if (text[i] == '\\' && text[i + 1] != '\0') {
             i++;
+            if (text[i] != delimiter && !append_char(out, capacity, &length, '\\')) {
+                return 0;
+            }
         }
         if (!append_char(out, capacity, &length, text[i])) {
             return 0;
@@ -113,13 +116,26 @@ static int command_matches(const struct sed_command *command, const char *line, 
     return 1;
 }
 
+static void append_slice(char *out, size_t capacity, size_t *length, const char *text,
+    size_t start, size_t end) {
+    for (size_t i = start; i < end; i++) {
+        append_char(out, capacity, length, text[i]);
+    }
+}
+
 static void append_replacement(char *out, size_t capacity, size_t *length,
-    const struct sed_substitution *sub, const char *match, size_t match_length) {
+    const struct sed_substitution *sub, const char *line, const regmatch_t *matches,
+    size_t match_count) {
     for (size_t i = 0; sub->to[i] != '\0'; i++) {
         if (sub->to[i] == '&') {
-            for (size_t j = 0; j < match_length; j++) {
-                append_char(out, capacity, length, match[j]);
+            append_slice(out, capacity, length, line, (size_t)matches[0].rm_so, (size_t)matches[0].rm_eo);
+        } else if (sub->to[i] == '\\' && sub->to[i + 1] >= '0' && sub->to[i + 1] <= '9') {
+            size_t index = (size_t)(sub->to[++i] - '0');
+            if (index < match_count && matches[index].rm_so >= 0 && matches[index].rm_eo >= matches[index].rm_so) {
+                append_slice(out, capacity, length, line, (size_t)matches[index].rm_so, (size_t)matches[index].rm_eo);
             }
+        } else if (sub->to[i] == '\\' && sub->to[i + 1] != '\0') {
+            append_char(out, capacity, length, sub->to[++i]);
         } else {
             append_char(out, capacity, length, sub->to[i]);
         }
@@ -133,10 +149,18 @@ static void substitute_line(char *line, size_t capacity, const struct sed_substi
     out[0] = '\0';
     for (size_t i = 0; line[i] != '\0'; i++) {
         if (!replaced || sub->global) {
-            regmatch_t match;
-            if (regexec(&sub->regex, line + i, 1, &match, 0) == 0 && match.rm_so == 0) {
-                size_t match_length = (size_t)(match.rm_eo - match.rm_so);
-                append_replacement(out, sizeof(out), &out_length, sub, line + i, match_length);
+            regmatch_t matches[10];
+            if (regexec(&sub->regex, line + i, sizeof(matches) / sizeof(matches[0]), matches, 0) == 0 &&
+                matches[0].rm_so == 0) {
+                size_t match_length = (size_t)(matches[0].rm_eo - matches[0].rm_so);
+                for (size_t j = 0; j < sizeof(matches) / sizeof(matches[0]); j++) {
+                    if (matches[j].rm_so >= 0) {
+                        matches[j].rm_so += (regoff_t)i;
+                        matches[j].rm_eo += (regoff_t)i;
+                    }
+                }
+                append_replacement(out, sizeof(out), &out_length, sub, line, matches,
+                    sizeof(matches) / sizeof(matches[0]));
                 if (match_length == 0) {
                     append_char(out, sizeof(out), &out_length, line[i]);
                 } else {

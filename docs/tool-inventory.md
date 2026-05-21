@@ -51,12 +51,14 @@ printf tr cksum sum comm paste join split od hexdump strings file dd ed
 ```
 
 `ed` is currently a compact scriptable line editor intended for port/build
-scripts; regex addresses, substitutions, and the full POSIX diagnostic surface
-are still future work.
+scripts; it supports numeric and regex addresses plus basic regex
+substitutions, while the full POSIX diagnostic surface is still future work.
 
 `grep` now uses the shared libc `regex.h` matcher by default and keeps
-`--fixed-strings`/`-F` for literal matching. `sed` uses the same matcher for
-`/pattern/` addresses and substitutions.
+`--fixed-strings`/`-F` for literal matching. It also supports common
+`-o`/`-l`/`-L` script-porting modes. `sed` uses the same matcher for
+`/pattern/` addresses and substitutions, including `&` and numbered capture
+replacement.
 
 `tap` reads from stdin, writes the stream to stdout, and also mirrors it to a
 secondary file.
