@@ -175,11 +175,19 @@ static int spawn_path(pid_t *pid,
         }
     }
 
+    uint64_t exec_flags = SRV_EXEC_BACKGROUND;
+    if (attrp != 0 && (attrp->flags & POSIX_SPAWN_SETSIGMASK) != 0) {
+        exec_flags |= SRV_EXEC_SET_SIGNAL_MASK;
+    }
+    if (attrp != 0 && (attrp->flags & POSIX_SPAWN_SETSIGDEF) != 0) {
+        exec_flags |= SRV_EXEC_SET_SIGNAL_DEFAULT;
+    }
+
     struct srv_exec_request request = {
         .path = full,
         .argv = argv,
         .envp = effective_envp(envp),
-        .flags = SRV_EXEC_BACKGROUND,
+        .flags = exec_flags,
         .stdin_fd = stdin_fd,
         .stdout_fd = stdout_fd,
         .stderr_fd = stderr_fd,
@@ -188,6 +196,8 @@ static int spawn_path(pid_t *pid,
             0,
         .file_actions = srv_action_count != 0 ? srv_actions : 0,
         .file_action_count = srv_action_count,
+        .signal_mask = attrp != 0 ? (uint64_t)attrp->sigmask : 0,
+        .signal_default = attrp != 0 ? (uint64_t)attrp->sigdefault : 0,
     };
     long result = srv_exec(&request);
     int saved_errno = errno;

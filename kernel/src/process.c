@@ -91,6 +91,7 @@ struct process_user_thread {
     uint64_t arg;
     uint64_t stack_top;
     uint64_t return_value;
+    uint64_t signal_mask;
     struct process *owner;
     struct process_context context;
     struct fpu_state fpu;
@@ -172,6 +173,7 @@ struct process {
     uint64_t signal_catch_mask;
     uint64_t signal_ignore_mask;
     uint64_t pending_signals;
+    uint64_t main_signal_mask;
     uint64_t process_group;
     uint64_t session_id;
     uint64_t pid;
@@ -310,6 +312,34 @@ static struct process_user_thread *process_current_user_thread(void) {
     return (struct process_user_thread *)scheduler_current_user_thread_context();
 }
 
+static uint64_t process_current_signal_mask(struct process *process) {
+    struct process_user_thread *thread = process_current_user_thread();
+    if (thread != NULL && thread->owner == process && thread->used) {
+        return thread->signal_mask;
+    }
+    return process != NULL ? process->main_signal_mask : 0;
+}
+
+static void process_set_current_signal_mask(struct process *process, uint64_t mask) {
+    struct process_user_thread *thread = process_current_user_thread();
+    if (thread != NULL && thread->owner == process && thread->used) {
+        thread->signal_mask = mask;
+    } else if (process != NULL) {
+        process->main_signal_mask = mask;
+    }
+}
+
+static void process_apply_signal_defaults(struct process *process, uint64_t signal_default) {
+    if (process == NULL) {
+        return;
+    }
+    uint64_t supported = (1ull << SRV_SIGNAL_INT) | (1ull << SRV_SIGNAL_TERM);
+    uint64_t mask = signal_default & supported;
+    process->signal_catch_mask &= ~mask;
+    process->signal_ignore_mask &= ~mask;
+    process->pending_signals &= ~mask;
+}
+
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
     if (destination == NULL || capacity == 0 || source == NULL || source[0] == '\0') {
         return false;
@@ -378,6 +408,7 @@ static struct process *alloc_process(const char *path, bool detached) {
             processes[i].parent_pid = process_pid(parent);
             processes[i].process_group = parent != NULL ? parent->process_group : processes[i].pid;
             processes[i].session_id = parent != NULL ? parent->session_id : processes[i].pid;
+            processes[i].main_signal_mask = process_current_signal_mask(parent);
             if (processes[i].process_group == 0) {
                 processes[i].process_group = processes[i].pid;
             }
@@ -1197,7 +1228,10 @@ int64_t process_spawn_exec(const char *path,
     uint64_t process_group,
     bool foreground,
     const struct process_spawn_file_action *file_actions,
-    uint64_t file_action_count) {
+    uint64_t file_action_count,
+    uint64_t signal_flags,
+    uint64_t signal_mask,
+    uint64_t signal_default) {
     struct process *parent = process_current();
     if (parent == NULL || path == NULL || path[0] == '\0') {
         return -1;
@@ -1229,6 +1263,12 @@ int64_t process_spawn_exec(const char *path,
         child->process_group = child->pid;
     } else if (process_group != 0) {
         child->process_group = process_group;
+    }
+    if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
+        process_apply_signal_defaults(child, signal_default);
+    }
+    if ((signal_flags & SRV_EXEC_SET_SIGNAL_MASK) != 0) {
+        child->main_signal_mask = signal_mask;
     }
     if (foreground && child->process_group != 0) {
         foreground_process_group = child->process_group;
@@ -1299,7 +1339,10 @@ int64_t process_exec_replace(const char *path,
     const char *const *envp,
     int64_t stdin_fd,
     int64_t stdout_fd,
-    int64_t stderr_fd) {
+    int64_t stderr_fd,
+    uint64_t signal_flags,
+    uint64_t signal_mask,
+    uint64_t signal_default) {
     struct process *process = process_current();
     if (process == NULL || path == NULL || path[0] == '\0') {
         return -1;
@@ -1332,6 +1375,12 @@ int64_t process_exec_replace(const char *path,
     process->signal_catch_mask = 0;
     process->signal_ignore_mask = 0;
     process->pending_signals = 0;
+    if ((signal_flags & SRV_EXEC_SET_SIGNAL_DEFAULT) != 0) {
+        process_apply_signal_defaults(process, signal_default);
+    }
+    if ((signal_flags & SRV_EXEC_SET_SIGNAL_MASK) != 0) {
+        process->main_signal_mask = signal_mask;
+    }
     kfree(image);
 
     close_cloexec_files(process);
@@ -1849,6 +1898,14 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
             if ((processes[i].signal_ignore_mask & mask) != 0) {
                 return true;
             }
+            if ((processes[i].main_signal_mask & mask) != 0) {
+                processes[i].pending_signals |= mask;
+                net_process_wake(&processes[i]);
+                scheduler_wake_all(&pipe_wait_queue);
+                process_file_poll_wake();
+                process_futex_wake_process(&processes[i]);
+                return true;
+            }
             if ((processes[i].signal_catch_mask & mask) != 0) {
                 processes[i].pending_signals |= mask;
                 net_process_wake(&processes[i]);
@@ -1958,6 +2015,61 @@ uint64_t process_signal_poll_current(void) {
         uint64_t mask = 1ull << signal;
         if ((pending & mask) != 0) {
             process->pending_signals &= ~mask;
+            return signal;
+        }
+    }
+    return 0;
+}
+
+bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_out) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return false;
+    }
+
+    uint64_t current = process_current_signal_mask(process);
+    if (oldset_out != NULL) {
+        *oldset_out = current;
+    }
+
+    uint64_t next = current;
+    if (how == SRV_SIGNAL_BLOCK) {
+        next |= set;
+    } else if (how == SRV_SIGNAL_UNBLOCK) {
+        next &= ~set;
+    } else if (how == SRV_SIGNAL_SETMASK) {
+        next = set;
+    } else {
+        return false;
+    }
+    process_set_current_signal_mask(process, next);
+
+    uint64_t unblocked = process->pending_signals & ~next &
+        ~(process->signal_catch_mask | process->signal_ignore_mask);
+    if (unblocked != 0) {
+        for (uint64_t signal = 1; signal < 64; signal++) {
+            uint64_t mask = 1ull << signal;
+            if ((unblocked & mask) != 0) {
+                process->pending_signals &= ~mask;
+                process->killed = true;
+                process->kill_signal = signal;
+                break;
+            }
+        }
+    }
+    return true;
+}
+
+uint64_t process_signal_consume_current(uint64_t mask) {
+    struct process *process = process_current();
+    if (process == NULL || mask == 0) {
+        return 0;
+    }
+    uint64_t pending = process->pending_signals & mask;
+    for (uint64_t signal = 1; signal < 64; signal++) {
+        uint64_t signal_mask = 1ull << signal;
+        if ((pending & signal_mask) != 0) {
+            process->pending_signals &= ~signal_mask;
             return signal;
         }
     }
@@ -2226,6 +2338,7 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         .arg = arg,
         .stack_top = stack_top,
         .return_value = 0,
+        .signal_mask = process_current_signal_mask(process),
         .owner = process,
     };
     fpu_init_state(&thread->fpu);

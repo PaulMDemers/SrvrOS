@@ -69,6 +69,8 @@ struct srv_exec_request {
     uint64_t foreground;
     const struct srv_spawn_file_action *file_actions;
     uint64_t file_action_count;
+    uint64_t signal_mask;
+    uint64_t signal_default;
 };
 
 struct srv_spawn_file_action {
@@ -143,6 +145,8 @@ long srv_kill_signal(int64_t pid, uint64_t signal);
 long srv_signal_config(uint64_t signal, uint64_t action);
 long srv_signal_poll(uint64_t *signal_out);
 long srv_signal_pending(uint64_t *mask_out);
+long srv_signal_mask(uint64_t how, uint64_t set, uint64_t *oldset_out);
+long srv_signal_consume(uint64_t mask, uint64_t *signal_out);
 long srv_meminfo(struct srv_meminfo *info);
 long srv_random(void *buffer, size_t length, uint64_t flags);
 long srv_utime(const char *path, uint64_t atime, uint64_t mtime);

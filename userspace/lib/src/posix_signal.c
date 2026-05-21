@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 static struct sigaction signal_actions[64];
-static sigset_t process_signal_mask;
 
 static int signal_valid(int signum) {
     return signum > 0 && signum < (int)(sizeof(sigset_t) * 8);
@@ -97,27 +96,31 @@ int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact)
 }
 
 int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
-    if (oldset != 0) {
-        *oldset = process_signal_mask;
-    }
-    if (set == 0) {
-        return 0;
-    }
-
-    switch (how) {
-    case SIG_BLOCK:
-        process_signal_mask |= *set;
-        return 0;
-    case SIG_UNBLOCK:
-        process_signal_mask &= ~(*set);
-        return 0;
-    case SIG_SETMASK:
-        process_signal_mask = *set;
-        return 0;
-    default:
+    uint64_t old_mask = 0;
+    uint64_t srv_how;
+    if (how == SIG_BLOCK) {
+        srv_how = SRV_SIGNAL_BLOCK;
+    } else if (how == SIG_UNBLOCK) {
+        srv_how = SRV_SIGNAL_UNBLOCK;
+    } else if (how == SIG_SETMASK) {
+        srv_how = SRV_SIGNAL_SETMASK;
+    } else {
         errno = EINVAL;
         return -1;
     }
+    uint64_t next = set != 0 ? (uint64_t)(*set) : 0;
+    if (set == 0) {
+        srv_how = SRV_SIGNAL_BLOCK;
+        next = 0;
+    }
+    if (srv_signal_mask(srv_how, next, oldset != 0 ? &old_mask : 0) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (oldset != 0) {
+        *oldset = (sigset_t)old_mask;
+    }
+    return 0;
 }
 
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset) {
@@ -138,11 +141,16 @@ int sigpending(sigset_t *set) {
     }
 
     uint64_t pending = 0;
+    uint64_t blocked = 0;
     if (srv_signal_pending(&pending) < 0) {
         errno = EINVAL;
         return -1;
     }
-    *set = (sigset_t)pending & process_signal_mask;
+    if (srv_signal_mask(SRV_SIGNAL_BLOCK, 0, &blocked) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    *set = (sigset_t)pending & (sigset_t)blocked;
     return 0;
 }
 
@@ -160,11 +168,10 @@ int sigwait(const sigset_t *set, int *sig) {
         for (int signum = 1; signum < 64; signum++) {
             if ((wanted & (uint64_t)signal_mask_for(signum)) != 0) {
                 uint64_t polled = 0;
-                do {
-                    if (srv_signal_poll(&polled) < 0) {
-                        return EINVAL;
-                    }
-                } while (polled != 0 && polled != (uint64_t)signum);
+                if (srv_signal_consume((uint64_t)signal_mask_for(signum), &polled) < 0 ||
+                    polled != (uint64_t)signum) {
+                    return EINVAL;
+                }
                 *sig = signum;
                 return 0;
             }

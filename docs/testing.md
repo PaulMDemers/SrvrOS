@@ -257,7 +257,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `popen`/`pclose`, standard-fd and non-stdio spawn `dup2`/`open`/`close`
   actions, dynamically grown non-stdio spawn action lists,
   `POSIX_SPAWN_SETPGROUP`, reset-id and signal-mask/default attr storage,
-  libc `sigaction`, signal mask, pending-signal, and `sigwait` behavior,
+  libc `sigaction`, kernel-backed signal mask inheritance, pending-signal, and
+  targeted `sigwait` behavior,
   process-replacing `execve`,
   inherited fd and close-on-exec checks, exFAT
   binary file write/read/unlink, and

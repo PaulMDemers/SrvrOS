@@ -382,6 +382,14 @@ long srv_signal_pending(uint64_t *mask_out) {
     return srv_syscall1(SYS_SIGNAL_PENDING, (long)mask_out);
 }
 
+long srv_signal_mask(uint64_t how, uint64_t set, uint64_t *oldset_out) {
+    return srv_syscall3(SYS_SIGNAL_MASK, (long)how, (long)set, (long)oldset_out);
+}
+
+long srv_signal_consume(uint64_t mask, uint64_t *signal_out) {
+    return srv_syscall2(SYS_SIGNAL_CONSUME, (long)mask, (long)signal_out);
+}
+
 long srv_meminfo(struct srv_meminfo *info) {
     if (info != 0) {
         info->abi_version = SRV_ABI_VERSION;

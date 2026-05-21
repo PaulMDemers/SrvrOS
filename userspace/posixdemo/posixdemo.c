@@ -92,6 +92,24 @@ static void *pthread_worker(void *arg) {
     return (void *)0x2a;
 }
 
+static void *pthread_signal_mask_worker(void *arg) {
+    sigset_t current = 0;
+    sigset_t unblock;
+    if (pthread_sigmask(SIG_BLOCK, 0, &current) != 0 ||
+        !sigismember(&current, SIGTERM)) {
+        return (void *)0xbad;
+    }
+    sigemptyset(&unblock);
+    sigaddset(&unblock, SIGTERM);
+    if (pthread_sigmask(SIG_UNBLOCK, &unblock, 0) != 0 ||
+        pthread_sigmask(SIG_BLOCK, 0, &current) != 0 ||
+        sigismember(&current, SIGTERM) != 0) {
+        return (void *)0xbad;
+    }
+    (void)arg;
+    return (void *)0x5a;
+}
+
 static void *pthread_detached_worker(void *arg) {
     pthread_detached_shared += (int)(uintptr_t)arg;
     return (void *)0x55;
@@ -1607,6 +1625,15 @@ int main(void) {
     PTHREAD_CHECK(pthread_attr_destroy(&pthread_attr) == 0);
     PTHREAD_CHECK(pthread_equal(pthread_self(), pthread_self()));
     PTHREAD_CHECK(pthread_create(0, 0, 0, 0) == EINVAL);
+    PTHREAD_CHECK(sigemptyset(&term_set) == 0);
+    PTHREAD_CHECK(sigaddset(&term_set, SIGTERM) == 0);
+    PTHREAD_CHECK(sigprocmask(SIG_BLOCK, &term_set, &old_signal_mask) == 0);
+    PTHREAD_CHECK(pthread_create(&worker, 0, pthread_signal_mask_worker, 0) == 0);
+    PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);
+    PTHREAD_CHECK(joined_value == (void *)0x5a);
+    PTHREAD_CHECK(sigprocmask(SIG_BLOCK, 0, &pending_set) == 0);
+    PTHREAD_CHECK(sigismember(&pending_set, SIGTERM) == 1);
+    PTHREAD_CHECK(sigprocmask(SIG_SETMASK, &old_signal_mask, 0) == 0);
     PTHREAD_CHECK(pthread_key_create(&pthread_demo_key, 0) == 0);
     PTHREAD_CHECK(pthread_create(&worker, 0, pthread_worker, (void *)0x4444) == 0);
     PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);

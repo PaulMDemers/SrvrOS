@@ -90,8 +90,11 @@ The first compatibility slice now lives under `userspace/lib/include` and
   match offsets, `REG_ICASE`, `REG_EXTENDED`, and `REG_NOSUB`.
 - `ctype`, C-locale `setlocale`/`localeconv`, first-pass `signal`,
   `sigaction`, `sigprocmask`, `pthread_sigmask`, `sigpending`, `sigwait`,
-  `kill`, and `raise` support for `SIGINT`/`SIGTERM`, `assert`,
-  `setjmp`/`longjmp`, and integer-safe `math.h` macros
+  `kill`, and `raise` support for `SIGINT`/`SIGTERM`, with common signal
+  constants present for source probes. Signal masks are kernel-backed for the
+  main thread and spawned pthreads, and `posix_spawn` applies stored
+  signal-mask/default attributes through the native exec path. `assert`,
+  `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
@@ -310,11 +313,8 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
   in userspace, with the native spawn ABI currently capped at 32 actions per
   spawn. Reset-id and signal-mask/default spawn attributes are accepted and
-  round-tripped for source compatibility, but reset-id has no visible effect
-  until srvros grows a uid/gid model. The libc signal-mask APIs are currently
-  process-wide compatibility state layered over the kernel pending-signal mask;
-  applying spawn-time masks/defaults still awaits fuller per-thread signal
-  delivery.
+  applied through the native exec request. Reset-id has no visible effect until
+  srvros grows a uid/gid model.
 - VFS metadata on writable exFAT mounts is persisted through the srvros sidecar
   file `/fat/.srvros/meta`. The metadata is intentionally srvros-specific and
   is not encoded into native exFAT directory entries. Sidecar updates stage
@@ -399,9 +399,9 @@ Third-party source is kept as pinned submodules or snapshots under
 
 1. Expand `stdio` toward command-line port expectations: more ISO C edge cases,
    binary/update-mode corner cases, and broader formatted input behavior.
-2. Move signal handling from the current process-wide libc compatibility layer
-   toward per-thread kernel masks, then apply stored `posix_spawn`
-   signal-mask/default attributes; reset-id remains a no-op until a uid/gid
+2. Continue signal handling toward fuller POSIX semantics: broader real signal
+   delivery, `SIGCHLD`, and default-action behavior beyond the current
+   SIGINT/SIGTERM catch/poll path; reset-id remains a no-op until a uid/gid
    model exists.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp

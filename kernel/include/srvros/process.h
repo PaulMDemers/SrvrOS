@@ -71,7 +71,10 @@ int64_t process_spawn_exec(const char *path,
     uint64_t process_group,
     bool foreground,
     const struct process_spawn_file_action *file_actions,
-    uint64_t file_action_count);
+    uint64_t file_action_count,
+    uint64_t signal_flags,
+    uint64_t signal_mask,
+    uint64_t signal_default);
 int64_t process_exec_replace(const char *path,
     uint64_t argc,
     const char *const *argv,
@@ -79,7 +82,10 @@ int64_t process_exec_replace(const char *path,
     const char *const *envp,
     int64_t stdin_fd,
     int64_t stdout_fd,
-    int64_t stderr_fd);
+    int64_t stderr_fd,
+    uint64_t signal_flags,
+    uint64_t signal_mask,
+    uint64_t signal_default);
 int64_t process_spawn_background_elf(const char *path);
 int64_t process_spawn_background_elf_args(const char *path, const char *args);
 int64_t process_spawn_background_elf_args_quiet(const char *path, const char *args);
@@ -100,6 +106,8 @@ bool process_signal_config_current(uint64_t signal, uint64_t action);
 bool process_signal_pending_current(void);
 uint64_t process_signal_pending_mask_current(void);
 uint64_t process_signal_poll_current(void);
+bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_out);
+uint64_t process_signal_consume_current(uint64_t mask);
 bool process_interrupt_foreground(uint64_t signal);
 bool process_set_group(uint64_t pid, uint64_t group);
 uint64_t process_group(uint64_t pid);

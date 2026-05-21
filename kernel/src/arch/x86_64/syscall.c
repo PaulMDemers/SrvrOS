@@ -109,6 +109,8 @@ struct syscall_exec_request {
     uint64_t foreground;
     const struct process_spawn_file_action *file_actions;
     uint64_t file_action_count;
+    uint64_t signal_mask;
+    uint64_t signal_default;
 };
 
 static struct srv_termios console_termios = {
@@ -799,7 +801,10 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             envp,
             request.stdin_fd,
             request.stdout_fd,
-            request.stderr_fd);
+            request.stderr_fd,
+            request.flags,
+            request.signal_mask,
+            request.signal_default);
     } else {
         result = process_spawn_exec(path,
             argc,
@@ -813,7 +818,10 @@ static int64_t syscall_exec(const struct syscall_exec_request *user_request) {
             request.process_group,
             request.foreground != 0,
             request.file_action_count != 0 ? file_actions : NULL,
-            request.file_action_count);
+            request.file_action_count,
+            request.flags,
+            request.signal_mask,
+            request.signal_default);
     }
     irq_restore(flags);
     process_refresh_mappings(process_current());
@@ -1519,6 +1527,25 @@ static int64_t syscall_signal_pending(uint64_t *mask_out) {
         return -1;
     }
     return (int64_t)mask;
+}
+
+static int64_t syscall_signal_mask(uint64_t how, uint64_t set, uint64_t *oldset_out) {
+    uint64_t oldset = 0;
+    if (!process_signal_mask_current(how, set, oldset_out != NULL ? &oldset : NULL)) {
+        return -1;
+    }
+    if (oldset_out != NULL && !copy_to_user(oldset_out, &oldset, sizeof(oldset))) {
+        return -1;
+    }
+    return 0;
+}
+
+static int64_t syscall_signal_consume(uint64_t mask, uint64_t *signal_out) {
+    uint64_t signal = process_signal_consume_current(mask);
+    if (signal_out != NULL && !copy_to_user(signal_out, &signal, sizeof(signal))) {
+        return -1;
+    }
+    return (int64_t)signal;
 }
 
 static int64_t syscall_proc_group(uint64_t pid, uint64_t group, uint64_t foreground) {
@@ -2267,6 +2294,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SIGNAL_PENDING:
         frame->rax = (uint64_t)syscall_signal_pending((uint64_t *)frame->rdi);
+        return;
+    case SYS_SIGNAL_MASK:
+        frame->rax = (uint64_t)syscall_signal_mask(frame->rdi, frame->rsi, (uint64_t *)frame->rdx);
+        return;
+    case SYS_SIGNAL_CONSUME:
+        frame->rax = (uint64_t)syscall_signal_consume(frame->rdi, (uint64_t *)frame->rsi);
         return;
     default:
         frame->rax = (uint64_t)-1;
