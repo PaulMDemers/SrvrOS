@@ -99,7 +99,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   libc dispatches caught pending signals at cooperative interruption points,
   and interrupted `waitpid`, `poll`/`select`, sleep, pipe I/O, tty input,
   Unix-domain accept, TCP/UDP socket waits, and blocking file-lock calls can
-  surface `EINTR`.
+  surface `EINTR`. `SA_RESTART` is honored for restartable blocking fd,
+  socket, `waitpid`, and file-lock waits; non-restartable calls such as
+  `poll`/`select`, `sigsuspend`, and sleeps still report `EINTR`.
   `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`

@@ -260,8 +260,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   libc `sigaction`, kernel-backed signal mask inheritance, pending-signal,
   targeted `sigwait`, blocked `SIGCHLD` child-exit notification behavior, and
   cooperative caught `SIGCHLD`/`SIGUSR1` handler dispatch, `sigsuspend`,
-  `poll`/`waitpid`/sleep/pipe-read `EINTR`, Unix-domain accept interruption,
-  and burst child exit reaping,
+  `poll`/`waitpid`/sleep/pipe-read `EINTR`, `SA_RESTART` pipe-read retry,
+  Unix-domain accept interruption, and burst child exit reaping,
   process-replacing `execve`,
   inherited fd and close-on-exec checks, exFAT
   binary file write/read/unlink, and

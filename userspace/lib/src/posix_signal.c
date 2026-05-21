@@ -85,8 +85,11 @@ int raise(int sig) {
     return kill(getpid(), sig);
 }
 
-int __posix_signal_dispatch_pending(void) {
+static int signal_dispatch_pending(int *restartable_out) {
     if (signal_dispatching) {
+        if (restartable_out != 0) {
+            *restartable_out = 0;
+        }
         return 0;
     }
 
@@ -98,6 +101,7 @@ int __posix_signal_dispatch_pending(void) {
     }
 
     int dispatched = 0;
+    int restartable = 1;
     signal_dispatching = 1;
     for (int signum = 1; signum < 64; signum++) {
         uint64_t mask = (uint64_t)signal_mask_for(signum);
@@ -120,10 +124,25 @@ int __posix_signal_dispatch_pending(void) {
         }
         action.sa_handler(signum);
         (void)srv_signal_mask(SRV_SIGNAL_SETMASK, old_mask, 0);
+        if ((action.sa_flags & SA_RESTART) == 0) {
+            restartable = 0;
+        }
         dispatched++;
     }
     signal_dispatching = 0;
+    if (restartable_out != 0) {
+        *restartable_out = dispatched != 0 && restartable;
+    }
     return dispatched;
+}
+
+int __posix_signal_dispatch_pending(void) {
+    return signal_dispatch_pending(0);
+}
+
+int __posix_signal_dispatch_pending_restartable(void) {
+    int restartable = 0;
+    return signal_dispatch_pending(&restartable) != 0 && restartable;
 }
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {

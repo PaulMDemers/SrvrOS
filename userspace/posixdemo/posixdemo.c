@@ -119,6 +119,22 @@ static void *pthread_wait_signal_worker(void *arg) {
     return (void *)0x24;
 }
 
+struct restart_pipe_arg {
+    int fd;
+};
+
+static void *pthread_restart_pipe_worker(void *arg) {
+    struct restart_pipe_arg *pipe_arg = arg;
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    kill(getpid(), SIGUSR2);
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    return write(pipe_arg->fd, "R", 1) == 1 ? (void *)0x42 : (void *)0xbad;
+}
+
 static void *pthread_detached_worker(void *arg) {
     pthread_detached_shared += (int)(uintptr_t)arg;
     return (void *)0x55;
@@ -936,6 +952,41 @@ int main(void) {
     close(intr_pipe[1]);
     demo_signal_count = 0;
     say("posixdemo: pipe eintr ok\n");
+
+    struct sigaction restart_action = {
+        .sa_handler = demo_signal_handler,
+        .sa_mask = 0,
+        .sa_flags = SA_RESTART,
+    };
+    char restart_byte = 0;
+    struct restart_pipe_arg restart_arg;
+    if (pipe(intr_pipe) < 0) {
+        say("posixdemo: pipe restart setup failed\n");
+        return 24;
+    }
+    restart_arg.fd = intr_pipe[1];
+    io_signal_value = 0;
+    demo_signal_count = 0;
+    errno = 0;
+    if (sigemptyset(&restart_action.sa_mask) < 0 ||
+        sigaction(SIGUSR2, &restart_action, 0) < 0 ||
+        pthread_create(&io_signal_thread, 0, pthread_restart_pipe_worker, &restart_arg) != 0 ||
+        read(intr_pipe[0], &restart_byte, 1) != 1 ||
+        restart_byte != 'R' ||
+        errno == EINTR ||
+        demo_signal_count != 1 ||
+        pthread_join(io_signal_thread, &io_signal_value) != 0 ||
+        io_signal_value != (void *)0x42 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: pipe restart failed\n");
+        close(intr_pipe[0]);
+        close(intr_pipe[1]);
+        return 24;
+    }
+    close(intr_pipe[0]);
+    close(intr_pipe[1]);
+    demo_signal_count = 0;
+    say("posixdemo: pipe restart ok\n");
 
     DIR *dir = opendir("/fat/posixdemo");
     if (dir != 0) {

@@ -15,6 +15,7 @@
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
 int __posix_signal_dispatch_pending(void);
+int __posix_signal_dispatch_pending_restartable(void);
 
 static char *const *effective_envp(char *const envp[]) {
     return envp != 0 ? envp : environ;
@@ -531,13 +532,20 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     if ((options & WNOHANG) != 0) {
         flags |= SRV_WAIT_NOHANG;
     }
-    int dispatched_before = __posix_signal_dispatch_pending();
-    long result = srv_wait((uint64_t)pid, &raw_status, flags);
-    int dispatched_after = __posix_signal_dispatch_pending();
+    long result;
+    for (;;) {
+        (void)__posix_signal_dispatch_pending();
+        result = srv_wait((uint64_t)pid, &raw_status, flags);
+        if (result != SRV_ERR_INTR) {
+            break;
+        }
+        if (!__posix_signal_dispatch_pending_restartable()) {
+            errno = EINTR;
+            return -1;
+        }
+    }
     if (result < 0) {
-        (void)dispatched_before;
-        (void)dispatched_after;
-        errno = result == SRV_ERR_INTR ? EINTR : ECHILD;
+        errno = ECHILD;
         return -1;
     }
     if (result == 0) {

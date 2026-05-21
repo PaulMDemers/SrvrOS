@@ -18,6 +18,7 @@
 #define REAL_SOCKET_OPTIONS_MAX 32
 
 int __posix_signal_dispatch_pending(void);
+int __posix_signal_dispatch_pending_restartable(void);
 
 struct posix_socket {
     int used;
@@ -163,6 +164,10 @@ static int errno_from_blocking_result(long result, int fallback) {
         return EINTR;
     }
     return fallback;
+}
+
+static int interrupted_restartable(long result) {
+    return result == SRV_ERR_INTR && __posix_signal_dispatch_pending_restartable();
 }
 
 static int socket_error_for_fd(int fd) {
@@ -329,7 +334,10 @@ static long udp_recvfrom_sys(int fd,
         }
     }
 
-    long result = srv_net_udp_recvfrom(fd, buffer, length, remote_ip, remote_port);
+    long result;
+    do {
+        result = srv_net_udp_recvfrom(fd, buffer, length, remote_ip, remote_port);
+    } while (!dontwait && interrupted_restartable(result));
     if (changed) {
         (void)srv_fcntl(fd, SRV_F_SETFL, saved);
     }
@@ -643,7 +651,10 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
             errno = EINVAL;
             return -1;
         }
-        long connection = srv_net_accept(fd, 0, 0, &length);
+        long connection;
+        do {
+            connection = srv_net_accept(fd, 0, 0, &length);
+        } while (interrupted_restartable(connection));
         if (connection < 0) {
             errno = errno_from_blocking_result(connection, EIO);
             return -1;
@@ -682,7 +693,10 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
             errno = EINVAL;
             return -1;
         }
-        long connection = srv_unix_accept(socket->listener_fd);
+        long connection;
+        do {
+            connection = srv_unix_accept(socket->listener_fd);
+        } while (interrupted_restartable(connection));
         if (connection < 0) {
             errno = errno_from_blocking_result(connection, EIO);
             return -1;
@@ -702,7 +716,10 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         errno = EINVAL;
         return -1;
     }
-    long connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
+    long connection;
+    do {
+        connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
+    } while (interrupted_restartable(connection));
     if (connection < 0) {
         errno = errno_from_blocking_result(connection, EIO);
         return -1;
@@ -799,7 +816,10 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     }
 
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
-    long connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
+    long connection;
+    do {
+        connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
+    } while ((connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection));
     if (connection < 0) {
         (void)__posix_signal_dispatch_pending();
         errno = errno_from_net_error(-connection);

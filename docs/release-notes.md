@@ -531,6 +531,9 @@ server.
   TCP accept/connect/read/write, UDP receive, and blocking file locks, with
   libc `EINTR` mapping and `/fat/bin/posixdemo` coverage for pipe read and
   Unix-domain accept interruption.
+- Honors `SA_RESTART` in libc for restartable blocking calls including fd I/O,
+  `waitpid`, blocking file locks, and socket accept/connect/receive paths, with
+  `/fat/bin/posixdemo` coverage for a restarted pipe read after a caught signal.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

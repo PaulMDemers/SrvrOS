@@ -408,6 +408,9 @@ temporarily swaps the thread mask and returns `EINTR` after dispatching a caught
 signal; blocking `waitpid`, `poll`/`select`, sleeps, pipe I/O, console input,
 Unix-domain accept, TCP accept/connect/read/write, UDP receive, and blocking
 file-lock waits also surface `EINTR` when a caught signal interrupts their wait.
+libc honors `SA_RESTART` for restartable blocking calls such as fd I/O,
+`waitpid`, blocking file locks, and socket accept/connect/receive paths by
+dispatching the caught handler and then retrying the underlying syscall.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,
