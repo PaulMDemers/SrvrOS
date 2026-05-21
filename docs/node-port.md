@@ -34,6 +34,22 @@ immediate configure-time dependency failure. The stand-in profile is only a
 probe; srvros should get its own OS flavor so Linux-only assumptions do not
 leak into the runtime.
 
+The first local patch queue lives at:
+
+```text
+ports/srvros/node/patches/0001-add-srvros-gyp-configure-probe.patch
+```
+
+It adds `srvros` to configure/GYP, maps the first POSIX-ish compiler/linker
+branches, fixes MSYS Python/Ninja path handling for the probe, and disables a
+few Windows/shared-library assumptions that prevented V8 from reaching normal
+source compilation.
+
+After applying that patch, `--dest-os=srvros` configure completes. A
+non-cross-compiling host probe reaches V8 compilation and stops when Abseil
+rejects the MSYS/Cygwin host environment. A true cross build still needs V8's
+host-generated and target-generated files split cleanly.
+
 ## Initial Minimal Profile
 
 The first runnable target should be a small, static CLI Node:
@@ -80,12 +96,14 @@ The upstream tree makes the expected platform demands for a real Node port:
 
 ## Next Porting Steps
 
-1. Add `srvros` to Node's configure/GYP OS list in a local patch queue.
-2. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
+1. Split V8 host/target generated files cleanly for `--cross-compiling`.
+2. Run the same patched probe from a Linux host or a real srvros cross
+   compiler so Abseil no longer sees Cygwin/MSYS as the target environment.
+3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
    branches while auditing every Linux-specific syscall assumption.
-3. Decide whether the first milestone links against the existing srvros libuv
+4. Decide whether the first milestone links against the existing srvros libuv
    adapter or starts replacing it with an upstream libuv srvros backend.
-4. Add a `nodeprobe` build target that compiles only the platform probe layer
+5. Add a `nodeprobe` build target that compiles only the platform probe layer
    before attempting the full V8 and Node executable.
-5. Keep upstream clean: carry srvros-specific patches or generated build glue
+6. Keep upstream clean: carry srvros-specific patches or generated build glue
    outside `ports/upstream/node` until a patch queue format is chosen.

@@ -9,13 +9,31 @@
 
 ## Status
 
-This is an exploratory source staging point. Node has not been patched or built
-for srvros yet.
+This is an exploratory source staging point. Node has not been built for srvros
+yet, but the first local patch queue now gets upstream configure past OS
+selection and into V8 compilation.
 
 The first configure probe found that upstream Node does not accept
 `--dest-os=srvros`. A reduced `--dest-os=linux` cross-configure completes, so
 the first real task is to register srvros as a build-system OS and then drive
 the failures down into compile/link/runtime compatibility gaps.
+
+`patches/0001-add-srvros-gyp-configure-probe.patch` is the current local probe
+patch. Apply it with:
+
+```sh
+ports/srvros/node/apply-patches.sh
+```
+
+Then run the host-side probe with:
+
+```sh
+ports/srvros/node/probe.sh
+```
+
+The probe expects MSYS2 packages `python`, `ninja`, `nasm`, and `gcc`. It uses
+MSYS GCC intentionally; UCRT/MinGW GCC leaks Windows platform defines into V8
+and hides the POSIX-ish surface we actually want to inspect.
 
 ## First Target
 
@@ -33,3 +51,8 @@ and TCP/UDP.
 - Real upstream libuv backend or a compatibility bridge broad enough for Node.
 - Diagnostic stubs for backtrace/debug paths.
 - Static-first policy for native addons until `dlopen` exists.
+- Cross-build host/target generated-file separation for V8.
+- Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
+  Abseil rejects it, so the next serious compile probe should use a Linux host
+  or the eventual srvros cross compiler rather than treating MSYS as the final
+  build environment.

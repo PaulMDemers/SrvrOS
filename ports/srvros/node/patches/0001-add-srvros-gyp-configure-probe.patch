@@ -1,0 +1,203 @@
+diff --git a/common.gypi b/common.gypi
+index 6dd4674a..79e443b1 100644
+--- a/common.gypi
++++ b/common.gypi
+@@ -75,7 +75,7 @@
+     # https://github.com/nodejs/node/pull/22920/files#r222779926
+     'v8_enable_fast_mksnapshot': 0,
+ 
+-    'v8_win64_unwinding_info': 1,
++    'v8_win64_unwinding_info': 0,
+ 
+     # Variables controlling external defines exposed in public headers.
+     'v8_enable_conservative_stack_scanning%': 0,
+@@ -123,7 +123,7 @@
+       ['target_arch in "ppc64 s390x"', {
+         'v8_enable_backtrace': 1,
+       }],
+-      ['OS=="linux" or OS=="openharmony"', {
++      ['OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+         'node_section_ordering_info%': ''
+       }],
+       ['OS == "zos"', {
+@@ -205,7 +205,7 @@
+               'LLVM_LTO': 'YES',
+             },
+           }],
+-          ['OS=="linux" or OS=="openharmony"', {
++          ['OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+             'conditions': [
+               ['node_section_ordering_info!=""', {
+                 'cflags': [
+@@ -233,7 +233,7 @@
+             # frames otherwise, even with --call-graph dwarf.
+             'cflags': [ '-fno-omit-frame-pointer' ],
+           }],
+-          ['OS=="linux" or OS=="openharmony"', {
++          ['OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+             'conditions': [
+               ['enable_pgo_generate=="true"', {
+                 'cflags': ['<(pgo_generate)'],
+@@ -504,11 +504,11 @@
+           'NOMINMAX',
+         ],
+       }],
+-      [ 'OS in "linux freebsd openbsd solaris aix os400 openharmony"', {
++      [ 'OS in "linux freebsd openbsd solaris aix os400 openharmony srvros"', {
+         'cflags': [ '-pthread' ],
+         'ldflags': [ '-pthread' ],
+       }],
+-      [ 'OS in "linux freebsd openbsd solaris android aix os400 cloudabi openharmony"', {
++      [ 'OS in "linux freebsd openbsd solaris android aix os400 cloudabi openharmony srvros"', {
+         'cflags': [ '-Wall', '-Wextra', '-Wno-unused-parameter', ],
+         'cflags_cc': [
+           '-fno-rtti',
+diff --git a/configure.py b/configure.py
+index e05c1161..546128a1 100755
+--- a/configure.py
++++ b/configure.py
+@@ -45,7 +45,8 @@ from utils import SearchFiles
+ parser = argparse.ArgumentParser()
+ 
+ valid_os = ('win', 'mac', 'solaris', 'freebsd', 'openbsd', 'linux',
+-            'android', 'aix', 'cloudabi', 'os400', 'ios', 'openharmony')
++            'android', 'aix', 'cloudabi', 'os400', 'ios', 'openharmony',
++            'srvros')
+ valid_arch = ('arm', 'arm64', 'ia32', 'mips', 'mipsel', 'mips64el',
+               'ppc64', 'x64', 'x86', 'x86_64', 's390x', 'riscv64', 'loong64')
+ valid_arm_float_abi = ('soft', 'softfp', 'hard')
+diff --git a/deps/v8/src/base/export-template.h b/deps/v8/src/base/export-template.h
+index 861cfe40..1e739549 100644
+--- a/deps/v8/src/base/export-template.h
++++ b/deps/v8/src/base/export-template.h
+@@ -153,8 +153,10 @@
+ 
+ EXPORT_TEMPLATE_TEST(DEFAULT, );
+ EXPORT_TEMPLATE_TEST(DEFAULT, __attribute__((visibility("default"))));
++#if defined(_MSC_VER)
+ EXPORT_TEMPLATE_TEST(MSVC_HACK, __declspec(dllexport));
+ EXPORT_TEMPLATE_TEST(DEFAULT, __declspec(dllimport));
++#endif
+ 
+ #undef EXPORT_TEMPLATE_TEST
+ #undef EXPORT_TEMPLATE_TEST_DEFAULT_DEFAULT
+diff --git a/node.gypi b/node.gypi
+index 6587270c..7c421bc4 100644
+--- a/node.gypi
++++ b/node.gypi
+@@ -317,7 +317,7 @@
+         'NODE_PLATFORM="sunos"',
+       ],
+     }],
+-    [ '(OS=="freebsd" or OS=="linux" or OS=="openharmony") and node_shared=="false"'
++    [ '(OS=="freebsd" or OS=="linux" or OS=="openharmony" or OS=="srvros") and node_shared=="false"'
+         ' and force_load=="true"', {
+       'ldflags': [
+         '-Wl,-z,noexecstack',
+@@ -342,7 +342,7 @@
+         ],
+       },
+     }],
+-    [ 'coverage=="true" and node_shared=="false" and OS in "mac freebsd linux openharmony"', {
++    [ 'coverage=="true" and node_shared=="false" and OS in "mac freebsd linux openharmony srvros"', {
+       'cflags!': [ '-O3' ],
+       'ldflags': [ '--coverage',
+                    '-g',
+@@ -374,12 +374,12 @@
+     [ 'OS=="sunos"', {
+       'ldflags': [ '-Wl,-M,/usr/lib/ld/map.noexstk' ],
+     }],
+-    [ 'OS=="linux" or OS=="openharmony"', {
++    [ 'OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+       'libraries!': [
+         '-lrt'
+       ],
+     }],
+-    [ 'OS in "freebsd linux openharmony"', {
++    [ 'OS in "freebsd linux openharmony srvros"', {
+       'ldflags': [ '-Wl,-z,relro',
+                    '-Wl,-z,now' ]
+     }],
+@@ -411,7 +411,7 @@
+                 },
+               },
+               'conditions': [
+-                ['OS in "linux freebsd openharmony" and node_shared=="false"', {
++                ['OS in "linux freebsd openharmony srvros" and node_shared=="false"', {
+                   'ldflags': [
+                     '-Wl,--whole-archive',
+                       '<(obj_dir)/deps/openssl/<(openssl_product)',
+diff --git a/tools/gyp/pylib/gyp/generator/ninja.py b/tools/gyp/pylib/gyp/generator/ninja.py
+index 3ceaf470..3f67c3e6 100644
+--- a/tools/gyp/pylib/gyp/generator/ninja.py
++++ b/tools/gyp/pylib/gyp/generator/ninja.py
+@@ -2082,7 +2082,7 @@ def GetDefaultConcurrentLinks():
+     if pool_size := int(os.environ.get("GYP_LINK_CONCURRENCY") or 0):
+         return pool_size
+ 
+-    if sys.platform in ("win32", "cygwin"):
++    if sys.platform in ("win32", "cygwin") and hasattr(ctypes, "windll"):
+ 
+         class MEMORYSTATUSEX(ctypes.Structure):
+             _fields_ = [
+@@ -2106,7 +2106,7 @@ def GetDefaultConcurrentLinks():
+         mem_limit = max(1, stat.ullTotalPhys // (5 * (2**30)))  # total / 5GiB
+         hard_cap = max(1, int(os.environ.get("GYP_LINK_CONCURRENCY_MAX") or 2**32))
+         return min(mem_limit, hard_cap)
+-    elif sys.platform.startswith("linux"):
++    elif sys.platform.startswith("linux") or sys.platform in ("cygwin", "msys"):
+         if os.path.exists("/proc/meminfo"):
+             with open("/proc/meminfo") as meminfo:
+                 memtotal_re = re.compile(r"^MemTotal:\s*(\d*)\s*kB")
+diff --git a/tools/gyp_node.py b/tools/gyp_node.py
+index 2bcc912a..cb4aabf5 100755
+--- a/tools/gyp_node.py
++++ b/tools/gyp_node.py
+@@ -32,15 +32,19 @@ def run_gyp(args):
+   if os.path.exists(options_fn):
+     args.extend(['-I', options_fn])
+ 
+-  args.append('--depth=' + node_root)
++  args.append('--depth=' + a_path)
+ 
+   # There's a bug with windows which doesn't allow this feature.
+-  if sys.platform != 'win32' and 'ninja' not in args:
+-    # Tell gyp to write the Makefiles into output_dir
+-    args.extend(['--generator-output', output_dir])
++  if sys.platform != 'win32':
++    is_ninja = any('ninja' in arg for arg in args)
++    generator_output = 'out' if is_ninja else output_dir
++    generator_output_dir = 'out' if is_ninja else output_dir
+ 
+-    # Tell make to write its output into the same dir
+-    args.extend(['-Goutput_dir=' + output_dir])
++    # Tell gyp to write the generated files into output_dir.
++    args.extend(['--generator-output', generator_output])
++
++    # Tell make/ninja to write its output into the same dir.
++    args.extend(['-Goutput_dir=' + generator_output_dir])
+ 
+   args.append('-Dcomponent=static_library')
+   args.append('-Dlibrary=static_library')
+diff --git a/tools/v8_gypfiles/features.gypi b/tools/v8_gypfiles/features.gypi
+index 53886830..fc792f8d 100644
+--- a/tools/v8_gypfiles/features.gypi
++++ b/tools/v8_gypfiles/features.gypi
+@@ -57,7 +57,7 @@
+       }, {
+         'is_posix': 0,
+       }],
+-      ['component and "library" in component', {
++      ['component=="shared_library"', {
+         'is_component_build': 1,
+       }, {
+         'is_component_build': 0,
+@@ -144,7 +144,7 @@
+     'v8_enable_concurrent_mksnapshot%': 1,
+ 
+     # Enable the registration of unwinding info for Windows/x64 and ARM64.
+-    'v8_win64_unwinding_info%': 1,
++    'v8_win64_unwinding_info%': 0,
+ 
+     # Enable code comments for builtins in the snapshot (impacts performance).
+     'v8_enable_snapshot_code_comments%': 0,
