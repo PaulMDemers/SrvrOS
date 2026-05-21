@@ -23,6 +23,11 @@ server.
 - Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
   workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
   port manifest at `ports/srvros/ed/PORT.md`.
+- Adds first-pass libc `regex.h` support for `regcomp`, `regexec`, `regerror`,
+  and `regfree`, then moves `grep` and the existing `sed` subset onto the
+  shared matcher for regex addresses/substitutions and fixed-string fallback.
+- Expands the generated exFAT image to 128 MiB with a matching FAT reservation
+  so the growing userspace and smoke-test write workload still have headroom.
 - Schedules kernel threads and userspace processes with timer preemption.
 - Provides foreground/background process control through the monitor and shell.
 - Expands shell job tracking to 32 entries and makes bare `wait` drain every

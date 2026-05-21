@@ -241,6 +241,7 @@ def main():
         "posixdemo: stdlib extra ok",
         "posixdemo: scanf ok",
         "posixdemo: math ok",
+        "posixdemo: regex ok",
         "posixdemo: pread ok",
         "posixdemo: posix misc ok",
         "posixdemo: spawn attrs ok",

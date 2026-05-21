@@ -82,6 +82,10 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `strlen`, `strcmp`, `strncmp`, `strcpy`, `strncpy`, `strchr`, `strrchr`,
   `strpbrk`, `strstr`, `strspn`, `strcspn`, `memchr`, `memcmp`, `strcoll`,
   `strerror`
+- `regex.h` with first-pass `regcomp`, `regexec`, `regerror`, and `regfree`
+  support for common script-port patterns: `.`, anchors, bracket/range/class
+  expressions, `*`, ERE `+`/`?`, match offsets, `REG_ICASE`, `REG_EXTENDED`,
+  and `REG_NOSUB`.
 - `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
   `setjmp`/`longjmp`, and integer-safe `math.h` macros
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
@@ -204,7 +208,10 @@ The `/fat/bin/byacc` app links a pinned Berkeley Yacc snapshot (`t20260126`)
 directly into a srvros executable. It uses the upstream C sources plus a small
 srvros config header, and the ports smoke test verifies that it can generate
 `y.tab.c` and `y.tab.h` from a compact grammar on the exFAT volume.
-The `/fat/bin/ed` app is currently a srvros-local compact line editor used to
+The text utilities now share the libc regex engine where useful: `grep` uses
+`regexec` by default while retaining `-F` fixed-string mode, and `sed` uses
+regex addresses plus regex substitutions with `&` replacement expansion. The
+`/fat/bin/ed` app is currently a srvros-local compact line editor used to
 cover scriptable edit/write workflows while the libc grows enough for a fuller
 upstream POSIX `ed` port. It supports basic numeric range addressing plus
 append/insert/change/delete/print/read/write/load/quit commands, and the ports
@@ -288,6 +295,11 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
 - `fork` is still missing, and pthreads are intentionally compact: threads
   share process resources, detached stack cleanup is opportunistic rather than
   timer-driven, and robust cancellation/signal interactions are missing.
+- The first `regex.h` implementation is intentionally compact. It covers the
+  common literals, wildcard, anchors, bracket classes, ranges, `*`, ERE `+` and
+  `?`, and whole-match offsets needed by current text tools, but not full
+  POSIX subexpression capture, alternation, bounded repeats, locale collation,
+  or backreferences yet.
 - `posix_spawn` file actions currently model the final state of standard fds
   `0`, `1`, and `2`; non-stdio file actions are ordered and dynamically stored
   in userspace, with the native spawn ABI currently capped at 32 actions per

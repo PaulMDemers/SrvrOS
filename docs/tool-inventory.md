@@ -54,6 +54,10 @@ printf tr cksum sum comm paste join split od hexdump strings file dd ed
 scripts; regex addresses, substitutions, and the full POSIX diagnostic surface
 are still future work.
 
+`grep` now uses the shared libc `regex.h` matcher by default and keeps
+`--fixed-strings`/`-F` for literal matching. `sed` uses the same matcher for
+`/pattern/` addresses and substitutions.
+
 `tap` reads from stdin, writes the stream to stdout, and also mirrors it to a
 secondary file.
 

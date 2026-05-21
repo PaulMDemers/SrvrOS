@@ -1,3 +1,4 @@
+#include <regex.h>
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
@@ -8,6 +9,8 @@
 struct sed_substitution {
     char from[SED_PATTERN_MAX];
     char to[SED_PATTERN_MAX];
+    regex_t regex;
+    int regex_ready;
     int global;
 };
 
@@ -21,6 +24,8 @@ struct sed_command {
     enum sed_command_type type;
     uint64_t address_line;
     char address_pattern[SED_PATTERN_MAX];
+    regex_t address_regex;
+    int address_regex_ready;
     struct sed_substitution sub;
 };
 
@@ -98,51 +103,48 @@ static int parse_substitution_at(const char *expression, size_t *index, struct s
     return 1;
 }
 
-static int starts_with_at(const char *text, size_t index, const char *needle) {
-    for (size_t i = 0; needle[i] != '\0'; i++) {
-        if (text[index + i] != needle[i]) {
-            return 0;
-        }
-    }
-    return 1;
-}
-
-static int contains(const char *line, const char *needle) {
-    if (needle[0] == '\0') {
-        return 1;
-    }
-    for (size_t i = 0; line[i] != '\0'; i++) {
-        if (starts_with_at(line, i, needle)) {
-            return 1;
-        }
-    }
-    return 0;
-}
-
 static int command_matches(const struct sed_command *command, const char *line, uint64_t line_number) {
     if (command->address_line != 0) {
         return command->address_line == line_number;
     }
     if (command->address_pattern[0] != '\0') {
-        return contains(line, command->address_pattern);
+        return regexec(&command->address_regex, line, 0, 0, 0) == 0;
     }
     return 1;
 }
 
+static void append_replacement(char *out, size_t capacity, size_t *length,
+    const struct sed_substitution *sub, const char *match, size_t match_length) {
+    for (size_t i = 0; sub->to[i] != '\0'; i++) {
+        if (sub->to[i] == '&') {
+            for (size_t j = 0; j < match_length; j++) {
+                append_char(out, capacity, length, match[j]);
+            }
+        } else {
+            append_char(out, capacity, length, sub->to[i]);
+        }
+    }
+}
+
 static void substitute_line(char *line, size_t capacity, const struct sed_substitution *sub) {
     char out[SED_LINE_MAX];
-    size_t from_length = cli_strlen(sub->from);
     size_t out_length = 0;
     int replaced = 0;
     out[0] = '\0';
     for (size_t i = 0; line[i] != '\0'; i++) {
-        if ((!replaced || sub->global) && starts_with_at(line, i, sub->from)) {
-            for (size_t j = 0; sub->to[j] != '\0'; j++) {
-                append_char(out, sizeof(out), &out_length, sub->to[j]);
+        if (!replaced || sub->global) {
+            regmatch_t match;
+            if (regexec(&sub->regex, line + i, 1, &match, 0) == 0 && match.rm_so == 0) {
+                size_t match_length = (size_t)(match.rm_eo - match.rm_so);
+                append_replacement(out, sizeof(out), &out_length, sub, line + i, match_length);
+                if (match_length == 0) {
+                    append_char(out, sizeof(out), &out_length, line[i]);
+                } else {
+                    i += match_length - 1;
+                }
+                replaced = 1;
+                continue;
             }
-            i += from_length - 1;
-            replaced = 1;
-            continue;
         }
         append_char(out, sizeof(out), &out_length, line[i]);
     }
@@ -165,6 +167,8 @@ static int parse_command(const char *expression, struct sed_program *program) {
     command->type = SED_CMD_SUBSTITUTE;
     command->address_line = 0;
     command->address_pattern[0] = '\0';
+    command->address_regex_ready = 0;
+    command->sub.regex_ready = 0;
 
     if (expression[i] >= '0' && expression[i] <= '9') {
         if (!parse_u64_text(expression, &i, &command->address_line)) {
@@ -175,6 +179,10 @@ static int parse_command(const char *expression, struct sed_program *program) {
         if (!parse_delimited(command->address_pattern, sizeof(command->address_pattern), expression, &i, '/')) {
             return 0;
         }
+        if (regcomp(&command->address_regex, command->address_pattern, REG_EXTENDED | REG_NOSUB) != 0) {
+            return 0;
+        }
+        command->address_regex_ready = 1;
     }
 
     if (expression[i] == 's') {
@@ -182,6 +190,14 @@ static int parse_command(const char *expression, struct sed_program *program) {
         if (!parse_substitution_at(expression, &i, &command->sub)) {
             return 0;
         }
+        if (regcomp(&command->sub.regex, command->sub.from, REG_EXTENDED) != 0) {
+            if (command->address_regex_ready) {
+                regfree(&command->address_regex);
+                command->address_regex_ready = 0;
+            }
+            return 0;
+        }
+        command->sub.regex_ready = 1;
     } else if (expression[i] == 'p') {
         command->type = SED_CMD_PRINT;
         i++;
@@ -196,6 +212,19 @@ static int parse_command(const char *expression, struct sed_program *program) {
     }
     program->count++;
     return 1;
+}
+
+static void free_program(struct sed_program *program) {
+    for (size_t i = 0; i < program->count; i++) {
+        if (program->commands[i].address_regex_ready) {
+            regfree(&program->commands[i].address_regex);
+            program->commands[i].address_regex_ready = 0;
+        }
+        if (program->commands[i].sub.regex_ready) {
+            regfree(&program->commands[i].sub.regex);
+            program->commands[i].sub.regex_ready = 0;
+        }
+    }
 }
 
 static void process_line(char *line, const struct sed_program *program, uint64_t line_number) {
@@ -316,12 +345,15 @@ int main(int argc, char **argv) {
         return 1;
     }
     if (argc <= first_file) {
-        return sed_fd(SRV_STDIN, 0, &program);
+        status = sed_fd(SRV_STDIN, 0, &program);
+        free_program(&program);
+        return status;
     }
     for (int i = first_file; i < argc; i++) {
         if (sed_file(argv[i], &program) != 0) {
             status = 1;
         }
     }
+    free_program(&program);
     return status;
 }

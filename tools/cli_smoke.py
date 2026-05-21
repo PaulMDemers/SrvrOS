@@ -99,7 +99,8 @@ def main():
         "service --help\n"
         "more --plain /fat/share/help/more.txt\n"
         "for c in ls cat more cp rm mkdir mv tap wc grep; do $c --help; done\n"
-        "for c in head tail tee find du df sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff tar gzip gunzip patch make; do $c --help; done\n"
+        "for c in head tail tee find du df sort uniq cut xargs seq; do $c --help; done\n"
+        "for c in realpath id whoami readlink cmp yes install diff tar gzip gunzip patch make; do $c --help; done\n"
         "for c in sed expr printf tr dd stat chmod which touch mktemp basename; do $c --help; done\n"
         "for c in dirname uname hostname uptime date pwd env ps kill svscan; do $c --help; done\n"
         "for c in webd httpget udpdns udpecho host ping netstat ifconfig route arp; do $c --help; done\n"
@@ -281,7 +282,10 @@ def main():
         "write -a /fat/longopts.txt beta\n"
         "grep --ignore-case --line-number --regexp=alpha /fat/longopts.txt\n"
         "grep --fixed-strings --quiet beta /fat/longopts.txt && echo grep-long-ok\n"
+        "grep -E 'Al.*a' /fat/longopts.txt\n"
         "sed --quiet --expression=/beta/p /fat/longopts.txt\n"
+        "sed -n '/b[aeiou]t./p' /fat/longopts.txt\n"
+        "sed 's/[Aa]lph./regex-&/' /fat/longopts.txt\n"
         "find /fat -name longopts.txt -type f -print\n"
         "mkdir -p /fat/longsrc/sub\n"
         "write /fat/longsrc/sub/data.txt long-copy\n"
@@ -397,6 +401,7 @@ def main():
         "sh /fat/fn.sh\n"
         "sh -c 'while test $# -gt 0; do echo while-$1; shift; done' wh alpha beta\n"
         "for n in one skip three; do test $n = skip && continue; echo cont-$n; done\n"
+        "sh -c 'for n in one skip three; do test $n = skip && continue; echo cont-$n; done'\n"
         "for n in one stop three; do test $n = stop && break; echo break-$n; done\n"
         "case apple in banana) echo case-bad ;; app*) echo case-glob-ok ;; esac\n"
         "case blue in red|blue) echo case-alt-ok ;; *) echo case-alt-bad ;; esac\n"
@@ -615,7 +620,7 @@ def main():
         "usage: service list|status --all",
         "usage: ls [-1adl] [path ...]",
         "usage: cp [-fRr] <source>... <dest>",
-        "usage: webd <root>",
+        "usage: webd [--root DIR] [--max-clients N] [--stats-every N] [--quiet] [root]",
         "usage: xargs [-r] [-n count] [command [arg ...]]",
         "usage: seq [first [increment]] last",
         "usage: realpath [-q] path [...]",
@@ -753,6 +758,7 @@ def main():
         "1:Alpha",
         "grep-long-ok",
         "beta",
+        "regex-Alpha",
         "/fat/longopts.txt",
         "long-copy",
         "/fat/longdst/",

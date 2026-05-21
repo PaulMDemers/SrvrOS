@@ -8,6 +8,7 @@
 #include <netinet/tcp.h>
 #include <poll.h>
 #include <pthread.h>
+#include <regex.h>
 #include <sched.h>
 #include <spawn.h>
 #include <stdio.h>
@@ -1116,6 +1117,32 @@ int main(void) {
     remove("/fat/posixdemo/scan.txt");
     say("posixdemo: scanf ok\n");
     say("posixdemo: math ok\n");
+
+    regex_t regex;
+    regmatch_t regex_match[1];
+    char regex_error[32];
+    if (regcomp(&regex, "^h[[:alpha:]]+o[0-9]*$", REG_EXTENDED) != 0 ||
+        regexec(&regex, "hello42", 1, regex_match, 0) != 0 ||
+        regex_match[0].rm_so != 0 || regex_match[0].rm_eo != 7 ||
+        regexec(&regex, "he-llo", 1, regex_match, 0) != REG_NOMATCH) {
+        say("posixdemo: regex basic failed\n");
+        return 40;
+    }
+    regfree(&regex);
+    if (regcomp(&regex, "srv[0-9]+", REG_EXTENDED | REG_ICASE) != 0 ||
+        regexec(&regex, "boot SRV42 ok", 1, regex_match, 0) != 0 ||
+        regex_match[0].rm_so != 5 || regex_match[0].rm_eo != 10) {
+        say("posixdemo: regex icase failed\n");
+        return 40;
+    }
+    regfree(&regex);
+    if (regcomp(&regex, "[abc", REG_EXTENDED) != REG_EBRACK ||
+        regerror(REG_EBRACK, 0, regex_error, sizeof(regex_error)) == 0 ||
+        strcmp(regex_error, "unmatched bracket") != 0) {
+        say("posixdemo: regex error failed\n");
+        return 40;
+    }
+    say("posixdemo: regex ok\n");
 
     fd = open("/fat/posixdemo/pread.txt", O_RDWR | O_CREAT | O_TRUNC);
     char preadv_a[3];

@@ -8,9 +8,9 @@ CLUSTER_SIZE = SECTOR_SIZE * SECTORS_PER_CLUSTER
 # Keep enough room for the growing base userspace and early ports. The builder
 # validates cluster usage below so future growth fails loudly instead of writing
 # data past the declared exFAT volume.
-TOTAL_SECTORS = 131072
+TOTAL_SECTORS = 262144
 FAT_OFFSET = 24
-FAT_LENGTH = 128
+FAT_LENGTH = 256
 CLUSTER_HEAP_OFFSET = FAT_OFFSET + FAT_LENGTH
 CLUSTER_COUNT = (TOTAL_SECTORS - CLUSTER_HEAP_OFFSET) // SECTORS_PER_CLUSTER
 ROOT_DIRECTORY_CLUSTER = 4

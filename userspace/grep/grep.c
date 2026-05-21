@@ -1,3 +1,4 @@
+#include <regex.h>
 #include <srvros/cli.h>
 #include <srvros/sys.h>
 
@@ -9,6 +10,7 @@ struct grep_options {
     int ignore_case;
     int multi_file;
     int suppress_errors;
+    int fixed_strings;
 };
 
 static char lower_char(char c) {
@@ -65,7 +67,16 @@ static void print_match_prefix(const char *label, const struct grep_options *opt
     }
 }
 
-static int grep_fd(const char *needle, int fd, int close_fd, const char *label, const struct grep_options *options) {
+static int line_matches(const char *line, const char *needle, const regex_t *regex,
+    const struct grep_options *options) {
+    if (options->fixed_strings) {
+        return contains_case(line, needle, options->ignore_case);
+    }
+    return regexec(regex, line, 0, 0, 0) == 0;
+}
+
+static int grep_fd(const char *needle, const regex_t *regex, int fd, int close_fd,
+    const char *label, const struct grep_options *options) {
     char buffer[128];
     char line[256];
     size_t line_len = 0;
@@ -87,7 +98,7 @@ static int grep_fd(const char *needle, int fd, int close_fd, const char *label, 
             char c = buffer[i];
             if (c == '\n' || line_len + 1 >= sizeof(line)) {
                 line[line_len] = '\0';
-                int is_match = contains_case(line, needle, options->ignore_case);
+                int is_match = line_matches(line, needle, regex, options);
                 if (options->invert) {
                     is_match = !is_match;
                 }
@@ -115,7 +126,7 @@ static int grep_fd(const char *needle, int fd, int close_fd, const char *label, 
     }
     if (line_len > 0) {
         line[line_len] = '\0';
-        int is_match = contains_case(line, needle, options->ignore_case);
+        int is_match = line_matches(line, needle, regex, options);
         if (options->invert) {
             is_match = !is_match;
         }
@@ -149,9 +160,10 @@ static int grep_fd(const char *needle, int fd, int close_fd, const char *label, 
     return matched ? 0 : 1;
 }
 
-static int grep_file(const char *needle, const char *path, const struct grep_options *options) {
+static int grep_file(const char *needle, const regex_t *regex, const char *path,
+    const struct grep_options *options) {
     if (cli_streq(path, "-")) {
-        return grep_fd(needle, SRV_STDIN, 0, "", options);
+        return grep_fd(needle, regex, SRV_STDIN, 0, "", options);
     }
 
     int fd = (int)srv_open(path);
@@ -163,11 +175,13 @@ static int grep_file(const char *needle, const char *path, const struct grep_opt
         }
         return 2;
     }
-    return grep_fd(needle, fd, 1, path, options);
+    return grep_fd(needle, regex, fd, 1, path, options);
 }
 
 int main(int argc, char **argv) {
     struct grep_options options = {0};
+    regex_t regex;
+    int regex_ready = 0;
     int status = 1;
     int pattern_index = 1;
     const char *pattern = 0;
@@ -216,7 +230,11 @@ int main(int argc, char **argv) {
             options.suppress_errors = 1;
             continue;
         }
-        if (cli_streq(arg, "--fixed-strings") || cli_streq(arg, "--extended-regexp")) {
+        if (cli_streq(arg, "--fixed-strings")) {
+            options.fixed_strings = 1;
+            continue;
+        }
+        if (cli_streq(arg, "--extended-regexp")) {
             continue;
         }
         for (size_t j = 1; arg[j] != '\0'; j++) {
@@ -232,7 +250,9 @@ int main(int argc, char **argv) {
                 options.ignore_case = 1;
             } else if (arg[j] == 's') {
                 options.suppress_errors = 1;
-            } else if (arg[j] == 'F' || arg[j] == 'E') {
+            } else if (arg[j] == 'F') {
+                options.fixed_strings = 1;
+            } else if (arg[j] == 'E') {
                 continue;
             } else {
                 cli_puts("usage: grep [-invcq] <text> [file ...]\n");
@@ -251,17 +271,37 @@ int main(int argc, char **argv) {
         cli_puts("usage: grep [-invcq] <text> [file ...]\n");
         return 2;
     }
+    if (!options.fixed_strings) {
+        int error = regcomp(&regex, pattern,
+            REG_EXTENDED | (options.ignore_case ? REG_ICASE : 0) | REG_NOSUB);
+        if (error != 0) {
+            char error_text[48];
+            regerror(error, &regex, error_text, sizeof(error_text));
+            cli_puts("grep: ");
+            cli_puts(error_text);
+            cli_puts("\n");
+            return 2;
+        }
+        regex_ready = 1;
+    }
     if (pattern_index >= argc) {
-        return grep_fd(pattern, SRV_STDIN, 0, "", &options);
+        status = grep_fd(pattern, &regex, SRV_STDIN, 0, "", &options);
+        if (regex_ready) {
+            regfree(&regex);
+        }
+        return status;
     }
     options.multi_file = argc - pattern_index > 1;
     for (int i = pattern_index; i < argc; i++) {
-        int result = grep_file(pattern, argv[i], &options);
+        int result = grep_file(pattern, &regex, argv[i], &options);
         if (result == 0) {
             status = 0;
         } else if (result > status) {
             status = result;
         }
+    }
+    if (regex_ready) {
+        regfree(&regex);
     }
     return status;
 }
