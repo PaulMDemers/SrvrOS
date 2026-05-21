@@ -259,7 +259,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `POSIX_SPAWN_SETPGROUP`, reset-id and signal-mask/default attr storage,
   libc `sigaction`, kernel-backed signal mask inheritance, pending-signal,
   targeted `sigwait`, blocked `SIGCHLD` child-exit notification behavior, and
-  cooperative caught `SIGCHLD`/`SIGUSR1` handler dispatch,
+  cooperative caught `SIGCHLD`/`SIGUSR1` handler dispatch, `sigsuspend`,
+  `poll`/`waitpid`/sleep `EINTR`, and burst child exit reaping,
   process-replacing `execve`,
   inherited fd and close-on-exec checks, exFAT
   binary file write/read/unlink, and

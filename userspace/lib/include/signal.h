@@ -40,6 +40,7 @@ sighandler_t signal(int signum, sighandler_t handler);
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact);
 int sigprocmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+int sigsuspend(const sigset_t *mask);
 int sigpending(sigset_t *set);
 int sigwait(const sigset_t *set, int *sig);
 int kill(pid_t pid, int sig);

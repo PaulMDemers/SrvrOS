@@ -531,11 +531,13 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     if ((options & WNOHANG) != 0) {
         flags |= SRV_WAIT_NOHANG;
     }
-    (void)__posix_signal_dispatch_pending();
+    int dispatched_before = __posix_signal_dispatch_pending();
     long result = srv_wait((uint64_t)pid, &raw_status, flags);
-    (void)__posix_signal_dispatch_pending();
+    int dispatched_after = __posix_signal_dispatch_pending();
     if (result < 0) {
-        errno = ECHILD;
+        (void)dispatched_before;
+        (void)dispatched_after;
+        errno = result == -2 ? EINTR : ECHILD;
         return -1;
     }
     if (result == 0) {

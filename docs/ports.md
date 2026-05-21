@@ -89,14 +89,15 @@ The first compatibility slice now lives under `userspace/lib/include` and
   expressions, alternation, grouped captures, bounded repeats, `*`, ERE `+`/`?`,
   match offsets, `REG_ICASE`, `REG_EXTENDED`, and `REG_NOSUB`.
 - `ctype`, C-locale `setlocale`/`localeconv`, first-pass `signal`,
-  `sigaction`, `sigprocmask`, `pthread_sigmask`, `sigpending`, `sigwait`,
-  `kill`, and `raise` support for `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
-  `SIGPIPE`, `SIGALRM`, `SIGTERM`, and `SIGCHLD`, with common signal constants
-  present for source probes. Signal masks are kernel-backed for the main thread
-  and spawned pthreads, and `posix_spawn` applies stored signal-mask/default
-  attributes through the native exec path. Child exit queues observable
-  `SIGCHLD` to active parents for blocked/caught wait paths, and libc dispatches
-  caught pending signals at cooperative interruption points.
+  `sigaction`, `sigprocmask`, `pthread_sigmask`, `sigsuspend`, `sigpending`,
+  `sigwait`, `kill`, and `raise` support for `SIGINT`, `SIGQUIT`, `SIGUSR1`,
+  `SIGUSR2`, `SIGPIPE`, `SIGALRM`, `SIGTERM`, and `SIGCHLD`, with common signal
+  constants present for source probes. Signal masks are kernel-backed for the
+  main thread and spawned pthreads, and `posix_spawn` applies stored
+  signal-mask/default attributes through the native exec path. Child exit
+  queues observable `SIGCHLD` to active parents for blocked/caught wait paths,
+  libc dispatches caught pending signals at cooperative interruption points,
+  and interrupted `waitpid`/`poll`/sleep calls can surface `EINTR`.
   `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`

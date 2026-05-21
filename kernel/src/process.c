@@ -352,6 +352,7 @@ static void process_apply_signal_defaults(struct process *process, uint64_t sign
 
 static void process_wake_for_signal(struct process *process) {
     net_process_wake(process);
+    scheduler_wake_all(&process_wait_queue);
     scheduler_wake_all(&pipe_wait_queue);
     process_file_poll_wake();
     process_futex_wake_process(process);
@@ -391,6 +392,14 @@ static void process_notify_parent_child_exit(struct process *child) {
             return;
         }
     }
+}
+
+static void process_clear_current_signal(uint64_t signal) {
+    struct process *process = process_current();
+    if (process == NULL || signal == 0 || signal >= 64) {
+        return;
+    }
+    process->pending_signals &= ~(1ull << signal);
 }
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
@@ -1882,7 +1891,9 @@ static bool has_wait_target(uint64_t pid) {
 
 static bool process_wait_ready(void *arg) {
     uint64_t pid = arg != NULL ? *(uint64_t *)arg : 0;
-    return find_reapable_process(pid) != NULL || !has_wait_target(pid);
+    return process_signal_pending_current() ||
+        find_reapable_process(pid) != NULL ||
+        !has_wait_target(pid);
 }
 
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
@@ -1895,11 +1906,17 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
                 *status_out = status;
             }
             release_process(process);
+            if (find_reapable_process(0) == NULL) {
+                process_clear_current_signal(SRV_SIGNAL_CHLD);
+            }
             return (int64_t)waited_pid;
         }
 
         if (!has_wait_target(pid)) {
             return -1;
+        }
+        if (process_signal_pending_current()) {
+            return -2;
         }
         if (nohang) {
             return 0;
@@ -2074,6 +2091,7 @@ bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_ou
 
     uint64_t unblocked = process->pending_signals & ~next &
         ~(process->signal_catch_mask | process->signal_ignore_mask);
+    unblocked &= ~(1ull << SRV_SIGNAL_CHLD);
     if (unblocked != 0) {
         for (uint64_t signal = 1; signal < 64; signal++) {
             uint64_t mask = 1ull << signal;

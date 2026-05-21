@@ -147,9 +147,13 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     if (ticks == 0 && (request->tv_sec != 0 || request->tv_nsec != 0)) {
         ticks = 1;
     }
-    (void)__posix_signal_dispatch_pending();
-    int result = srv_sleep_ticks(ticks) < 0 ? -1 : 0;
-    (void)__posix_signal_dispatch_pending();
+    int dispatched_before = __posix_signal_dispatch_pending();
+    long slept = srv_sleep_ticks(ticks);
+    int dispatched_after = __posix_signal_dispatch_pending();
+    int result = slept < 0 ? -1 : 0;
+    if (slept < 0 && (slept == -2 || dispatched_before != 0 || dispatched_after != 0)) {
+        errno = EINTR;
+    }
     return result;
 }
 
@@ -178,9 +182,13 @@ int gettimeofday(struct timeval *tv, void *tz) {
 }
 
 unsigned int sleep(unsigned int seconds) {
-    (void)__posix_signal_dispatch_pending();
-    unsigned int result = srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND) < 0 ? seconds : 0;
-    (void)__posix_signal_dispatch_pending();
+    int dispatched_before = __posix_signal_dispatch_pending();
+    long slept = srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND);
+    int dispatched_after = __posix_signal_dispatch_pending();
+    unsigned int result = slept < 0 ? seconds : 0;
+    if (slept < 0 && (slept == -2 || dispatched_before != 0 || dispatched_after != 0)) {
+        errno = EINTR;
+    }
     return result;
 }
 

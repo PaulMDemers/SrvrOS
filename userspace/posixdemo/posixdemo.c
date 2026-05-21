@@ -52,7 +52,7 @@ static void say_u64(uint64_t value) {
 static volatile sig_atomic_t demo_signal_count;
 
 static void demo_signal_handler(int signum) {
-    if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGCHLD) {
+    if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGUSR2 || signum == SIGCHLD) {
         demo_signal_count++;
     }
 }
@@ -108,6 +108,15 @@ static void *pthread_signal_mask_worker(void *arg) {
     }
     (void)arg;
     return (void *)0x5a;
+}
+
+static void *pthread_wait_signal_worker(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 8; i++) {
+        sched_yield();
+    }
+    kill(getpid(), SIGUSR2);
+    return (void *)0x24;
 }
 
 static void *pthread_detached_worker(void *arg) {
@@ -1327,6 +1336,38 @@ int main(void) {
         return 40;
     }
     say("posixdemo: signal usr ok\n");
+    demo_signal_count = 0;
+    sigset_t suspend_block;
+    sigset_t suspend_mask;
+    errno = 0;
+    if (sigemptyset(&suspend_block) < 0 ||
+        sigaddset(&suspend_block, SIGUSR1) < 0 ||
+        sigprocmask(SIG_BLOCK, &suspend_block, &old_signal_mask) < 0 ||
+        signal(SIGUSR1, demo_signal_handler) == SIG_ERR ||
+        kill(self_pid, SIGUSR1) < 0 ||
+        sigemptyset(&suspend_mask) < 0 ||
+        sigsuspend(&suspend_mask) != -1 ||
+        errno != EINTR ||
+        demo_signal_count != 1 ||
+        sigprocmask(SIG_SETMASK, &old_signal_mask, 0) < 0 ||
+        signal(SIGUSR1, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: sigsuspend failed\n");
+        return 40;
+    }
+    say("posixdemo: sigsuspend ok\n");
+    demo_signal_count = 0;
+    struct pollfd empty_poll;
+    errno = 0;
+    if (signal(SIGUSR1, demo_signal_handler) == SIG_ERR ||
+        kill(self_pid, SIGUSR1) < 0 ||
+        poll(&empty_poll, 0, 1) != -1 ||
+        errno != EINTR ||
+        demo_signal_count != 1 ||
+        signal(SIGUSR1, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: poll eintr failed\n");
+        return 40;
+    }
+    say("posixdemo: poll eintr ok\n");
     say("posixdemo: posix misc ok\n");
 
     char *true_argv[] = {"true", 0};
@@ -1349,6 +1390,29 @@ int main(void) {
         return 41;
     }
     say("posixdemo: sigchld ok\n");
+    pid_t burst_children[3] = {0, 0, 0};
+    if (sigprocmask(SIG_BLOCK, &chld_set, &old_signal_mask) < 0 ||
+        posix_spawnp(&burst_children[0], "true", 0, 0, true_argv, environ) != 0 ||
+        posix_spawnp(&burst_children[1], "true", 0, 0, true_argv, environ) != 0 ||
+        posix_spawnp(&burst_children[2], "true", 0, 0, true_argv, environ) != 0 ||
+        sigwait(&chld_set, &waited_signal) != 0 ||
+        waited_signal != SIGCHLD) {
+        say("posixdemo: sigchld burst setup failed\n");
+        return 41;
+    }
+    for (int i = 0; i < 3; i++) {
+        if (waitpid(burst_children[i], &child_status, 0) != burst_children[i] ||
+            !WIFEXITED(child_status) ||
+            WEXITSTATUS(child_status) != 0) {
+            say("posixdemo: sigchld burst wait failed\n");
+            return 41;
+        }
+    }
+    if (sigprocmask(SIG_SETMASK, &old_signal_mask, 0) < 0) {
+        say("posixdemo: sigchld burst restore failed\n");
+        return 41;
+    }
+    say("posixdemo: sigchld burst ok\n");
     demo_signal_count = 0;
     if (signal(SIGCHLD, demo_signal_handler) == SIG_ERR ||
         posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
@@ -1379,6 +1443,42 @@ int main(void) {
     }
     say("posixdemo: sigchld handler ok\n");
     child_status = 0;
+    char *sleep_argv[] = {"sleep", "1", 0};
+    pthread_t wait_signal_thread;
+    void *wait_signal_value = 0;
+    demo_signal_count = 0;
+    errno = 0;
+    if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
+        posix_spawnp(&child, "sleep", 0, 0, sleep_argv, environ) != 0 ||
+        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        waitpid(child, &child_status, 0) != -1 ||
+        errno != EINTR ||
+        demo_signal_count != 1 ||
+        pthread_join(wait_signal_thread, &wait_signal_value) != 0 ||
+        wait_signal_value != (void *)0x24 ||
+        waitpid(child, &child_status, 0) != child ||
+        !WIFEXITED(child_status) ||
+        WEXITSTATUS(child_status) != 0 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: wait eintr failed\n");
+        return 41;
+    }
+    say("posixdemo: wait eintr ok\n");
+    wait_signal_value = 0;
+    demo_signal_count = 0;
+    errno = 0;
+    if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
+        pthread_create(&wait_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        sleep(1) != 1 ||
+        errno != EINTR ||
+        demo_signal_count != 1 ||
+        pthread_join(wait_signal_thread, &wait_signal_value) != 0 ||
+        wait_signal_value != (void *)0x24 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: sleep eintr failed\n");
+        return 41;
+    }
+    say("posixdemo: sleep eintr ok\n");
     if (posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
         child <= 0 ||
         waitpid(child, &child_status, 0) != child ||

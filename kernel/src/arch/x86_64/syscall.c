@@ -1892,6 +1892,9 @@ static int64_t syscall_sleep_ticks(uint64_t ticks) {
         if (process_should_exit_current()) {
             return -1;
         }
+        if (process_signal_pending_current()) {
+            return -2;
+        }
         scheduler_yield();
     }
     return 0;

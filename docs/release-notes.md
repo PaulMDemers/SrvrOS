@@ -522,6 +522,10 @@ server.
 - Broadens the catchable signal set to include `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
   `SIGPIPE`, and `SIGALRM` alongside the existing `SIGINT`/`SIGTERM`/`SIGCHLD`
   path, with POSIX and libuv smoke coverage for `SIGUSR1`.
+- Adds `sigsuspend`, distinct interrupted wait/sleep kernel results, libc
+  `EINTR` mapping for interrupted `waitpid`, `poll`/`select`, and sleeps, and
+  `/fat/bin/posixdemo` coverage for `sigsuspend`, `poll`/`waitpid` interruption,
+  and burst `SIGCHLD` child reaping.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

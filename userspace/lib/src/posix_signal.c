@@ -179,6 +179,25 @@ int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
     return 0;
 }
 
+int sigsuspend(const sigset_t *mask) {
+    if (mask == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    uint64_t old_mask = 0;
+    if (srv_signal_mask(SRV_SIGNAL_SETMASK, (uint64_t)(*mask), &old_mask) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    while (__posix_signal_dispatch_pending() == 0) {
+        srv_yield();
+    }
+    (void)srv_signal_mask(SRV_SIGNAL_SETMASK, old_mask, 0);
+    errno = EINTR;
+    return -1;
+}
+
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset) {
     int saved_errno = errno;
     if (sigprocmask(how, set, oldset) < 0) {
