@@ -32,7 +32,11 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `EAGAIN`/`EWOULDBLOCK`.
 - `fcntl` descriptor flags with `F_GETFD`/`F_SETFD` and `FD_CLOEXEC` for
   regular fds and POSIX socket pseudo-fds. Process replacement closes marked
-  descriptors while preserving explicit stdio redirection fds.
+  descriptors while preserving explicit stdio redirection fds, and
+  `open(O_CLOEXEC)` applies the descriptor flag at creation time.
+- `fcntl(F_DUPFD)` and `fcntl(F_DUPFD_CLOEXEC)` for allocating duplicate fds at
+  or above a requested minimum, including close-on-exec setup for source ports
+  that prefer the `fcntl` duplication path.
 - `fcntl` advisory byte-range locks with `F_GETLK`, `F_SETLK`, and `F_SETLKW`
   for regular files. Locks are process-owned, conflict by pathname and range,
   and are released when that process closes a descriptor for the same path.
@@ -123,6 +127,8 @@ The first compatibility slice now lives under `userspace/lib/include` and
 - `getpid`
 - fd helpers: `dup`, `dup2`, `dup3`, `pipe`, and `pipe2`, including `O_CLOEXEC`
   and `O_NONBLOCK` flag setup for the atomic-style wrappers
+- temporary-file helpers: `mkstemp` and `mkostemp`, with `O_CLOEXEC`,
+  `O_NONBLOCK`, and `O_APPEND` accepted for `mkostemp`
 - `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
   with PATH lookup and standard-fd `posix_spawn_file_actions_adddup2`,
   `posix_spawn_file_actions_addopen`, and `posix_spawn_file_actions_addclose`

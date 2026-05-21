@@ -474,7 +474,8 @@ This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
 endpoints, writable regular files, and
 read-only regular files, `poll`/`select` readiness, blocking pipes,
 `O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
-`FD_CLOEXEC`, permission-aware `access`, `isatty`, `fsync`, process-wide
+`FD_CLOEXEC`, `F_DUPFD`/`F_DUPFD_CLOEXEC`, permission-aware `access`,
+`isatty`, `fsync`, process-wide
 `sync`,
 `truncate`/`ftruncate`, `statvfs`, minimal terminal `tcgetattr`/`tcsetattr`
 plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
@@ -506,9 +507,13 @@ timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
 and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT
 sidecar persistence. `utime`/`futime` update VFS timestamps directly; writable
 fds flush pending data before applying explicit times so close-time writeback
-does not overwrite them. `pipe2` and `dup3` are implemented in libc on top of
-the native pipe, dup2, and fd-flag calls, giving source ports the common
-`O_CLOEXEC`/`O_NONBLOCK` setup paths without widening the kernel ABI yet.
+does not overwrite them. `open(O_CLOEXEC)` now applies close-on-exec during
+creation, and `open(O_CREAT|O_EXCL)` refuses existing paths for temporary-file
+callers. `pipe2`, `dup3`, and the `fcntl` fd-duplication commands are
+implemented in libc on top of the native pipe, dup2, and fd-flag calls, giving
+source ports the common `O_CLOEXEC`/`O_NONBLOCK` setup paths without widening
+the kernel ABI yet. `mkstemp` and `mkostemp` provide the first temporary-file
+creation helpers for configure scripts and small ports.
 The native exec setup keeps argv compact and accepts up to 64 environment
 entries, enough for profile variables plus command-local shell environments in
 longer CLI sessions.

@@ -237,6 +237,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   spawned `/fat/bin/lockprobe` conflict check, `pipe`,
   expanded file/pipe fd capacity,
   nonblocking `fcntl`/`O_NONBLOCK`, `F_GETFD`/`F_SETFD` `FD_CLOEXEC`,
+  `F_DUPFD`/`F_DUPFD_CLOEXEC`, `mkostemp`,
   `access`, `isatty`, `fsync`, `truncate`/`ftruncate`, `poll`/`select`
   readiness and hangup behavior,
   `w+`/`r+`/`a+` stdio update streams,

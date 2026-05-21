@@ -31,6 +31,12 @@ server.
   create/join and detached-thread lifecycle coverage.
 - Adds libc `pipe2` and `dup3` wrappers with `O_CLOEXEC`/`O_NONBLOCK` flag
   handling and `/fat/bin/posixdemo` coverage.
+- Adds `fcntl(F_DUPFD/F_DUPFD_CLOEXEC)` plus `mkostemp`, extending the
+  temporary-file and fd-duplication surface expected by configure scripts and
+  source ports.
+- Applies `open(O_CLOEXEC)` at descriptor creation and makes
+  `open(O_CREAT|O_EXCL)` reject existing paths, giving `mkostemp` safer
+  no-clobber behavior.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

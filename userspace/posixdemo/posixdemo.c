@@ -506,12 +506,26 @@ int main(void) {
         return 5;
     }
     lseek(fd, 6, SEEK_SET);
+    if (fcntl(fd, F_SETFD, FD_CLOEXEC) < 0) {
+        say("posixdemo: dup cloexec setup failed\n");
+        return 6;
+    }
     int fd2 = dup(fd);
     int fd3 = dup2(fd, 10);
     int fd4 = dup3(fd, 11, O_CLOEXEC);
+    int fd5 = fcntl(fd, F_DUPFD, 12);
+    int fd6 = fcntl(fd, F_DUPFD_CLOEXEC, 13);
     if (fd2 < 0 || fd3 != 10 || fd4 != 11 ||
+        fcntl(fd2, F_GETFD) != 0 ||
+        fcntl(fd3, F_GETFD) != 0 ||
         fcntl(fd4, F_GETFD) != FD_CLOEXEC ||
+        fd5 < 12 ||
+        fcntl(fd5, F_GETFD) != 0 ||
+        fd6 < 13 ||
+        fcntl(fd6, F_GETFD) != FD_CLOEXEC ||
         dup3(fd, fd, 0) >= 0 ||
+        errno != EINVAL ||
+        fcntl(fd, F_DUPFD, -1) >= 0 ||
         errno != EINVAL) {
         say("posixdemo: dup failed\n");
         return 6;
@@ -523,6 +537,8 @@ int main(void) {
     close(fd2);
     close(fd3);
     close(fd4);
+    close(fd5);
+    close(fd6);
     if (n != 4 || n2 != 4 || n3 != 1 ||
         memcmp(buffer, "from pos", 8) != 0) {
         say("posixdemo: dup read failed\n");
@@ -1242,6 +1258,22 @@ int main(void) {
         unsetenv("SRVTEST") < 0 ||
         getenv("SRVTEST") != 0) {
         say("posixdemo: env failed\n");
+        return 36;
+    }
+    char temp_path[] = "/fat/posixdemo/mkostemp-XXXXXX";
+    int temp_fd = mkostemp(temp_path, O_CLOEXEC | O_NONBLOCK);
+    if (temp_fd < 0 ||
+        fcntl(temp_fd, F_GETFD) != FD_CLOEXEC ||
+        (fcntl(temp_fd, F_GETFL) & O_NONBLOCK) == 0) {
+        say("posixdemo: mkostemp failed\n");
+        return 36;
+    }
+    close(temp_fd);
+    unlink(temp_path);
+    char bad_temp_path[] = "/fat/posixdemo/mkostemp-bad-XXXXXX";
+    errno = 0;
+    if (mkostemp(bad_temp_path, O_CREAT) >= 0 || errno != EINVAL) {
+        say("posixdemo: mkostemp invalid failed\n");
         return 36;
     }
     say("posixdemo: stdlib extra ok\n");

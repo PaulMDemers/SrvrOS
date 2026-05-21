@@ -59,6 +59,8 @@ int putenv(char *string);
 int clearenv(void);
 int atexit(void (*function)(void));
 int system(const char *command);
+int mkstemp(char *template_path);
+int mkostemp(char *template_path, int flags);
 void abort(void) __attribute__((noreturn));
 void exit(int status) __attribute__((noreturn));
 

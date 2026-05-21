@@ -58,6 +58,7 @@ int usleep(unsigned int usec);
 int getpagesize(void);
 long sysconf(int name);
 int mkstemp(char *template_path);
+int mkostemp(char *template_path, int flags);
 extern char *optarg;
 extern int optind;
 extern int opterr;

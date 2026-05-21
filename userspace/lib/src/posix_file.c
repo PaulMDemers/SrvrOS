@@ -22,6 +22,7 @@ int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
 
 #define POSIX_PATH_MAX 160
+#define POSIX_FD_DUP_TEMP_MAX 80
 
 static mode_t current_umask;
 
@@ -84,6 +85,10 @@ int open(const char *path, int flags, ...) {
 
     struct srv_stat before;
     int existed = srv_stat(full, &before) == 0;
+    if ((flags & O_CREAT) != 0 && (flags & O_EXCL) != 0 && existed) {
+        errno = EEXIST;
+        return -1;
+    }
     long fd = (flags & O_ACCMODE) == O_RDONLY ? srv_open(full) : srv_open_mode(full, srv_flags);
     if (fd < 0) {
         errno = (flags & O_CREAT) != 0 ? EIO : ENOENT;
@@ -94,6 +99,9 @@ int open(const char *path, int flags, ...) {
     }
     if ((flags & O_NONBLOCK) != 0) {
         (void)srv_fcntl((int)fd, SRV_F_SETFL, SRV_FD_NONBLOCK);
+    }
+    if ((flags & O_CLOEXEC) != 0) {
+        (void)srv_fcntl((int)fd, SRV_F_SETFD, SRV_FD_CLOEXEC);
     }
     return (int)fd;
 }
@@ -340,16 +348,28 @@ int dup(int fd) {
         return -1;
     }
     __posix_socket_note_dup(fd, (int)result);
+    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
 int dup2(int old_fd, int new_fd) {
+    if (old_fd == new_fd) {
+        if (old_fd < 0) {
+            errno = EBADF;
+            return -1;
+        }
+        if (old_fd >= 3 && fcntl(old_fd, F_GETFD) < 0) {
+            return -1;
+        }
+        return new_fd;
+    }
     long result = srv_dup2(old_fd, new_fd);
     if (result < 0) {
         errno = old_fd < 0 || new_fd < 0 ? EBADF : ENOSYS;
         return -1;
     }
     __posix_socket_note_dup(old_fd, new_fd);
+    (void)fcntl((int)result, F_SETFD, 0);
     return (int)result;
 }
 
@@ -406,7 +426,54 @@ int pipe2(int fds[2], int flags) {
     return 0;
 }
 
+static int fcntl_dupfd(int fd, int minimum, int cloexec) {
+    if (minimum < 0 || minimum >= sysconf(_SC_OPEN_MAX)) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    int temps[POSIX_FD_DUP_TEMP_MAX];
+    int temp_count = 0;
+    int result = -1;
+    for (;;) {
+        result = dup(fd);
+        if (result < 0) {
+            break;
+        }
+        if (result >= minimum) {
+            if (fcntl(result, F_SETFD, cloexec ? FD_CLOEXEC : 0) < 0) {
+                int saved_errno = errno;
+                close(result);
+                result = -1;
+                errno = saved_errno;
+            }
+            break;
+        }
+        if (temp_count >= POSIX_FD_DUP_TEMP_MAX) {
+            close(result);
+            result = -1;
+            errno = EMFILE;
+            break;
+        }
+        temps[temp_count++] = result;
+    }
+
+    int saved_errno = errno;
+    for (int i = 0; i < temp_count; i++) {
+        close(temps[i]);
+    }
+    errno = saved_errno;
+    return result;
+}
+
 int fcntl(int fd, int command, ...) {
+    if (command == F_DUPFD || command == F_DUPFD_CLOEXEC) {
+        va_list args;
+        va_start(args, command);
+        int minimum = va_arg(args, int);
+        va_end(args);
+        return fcntl_dupfd(fd, minimum, command == F_DUPFD_CLOEXEC);
+    }
     if (command == F_GETFD) {
         if (__posix_socket_is_pseudo(fd)) {
             long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFD, 0);
@@ -707,9 +774,13 @@ int unlink(const char *path) {
     return 0;
 }
 
-int mkstemp(char *template_path) {
+int mkostemp(char *template_path, int flags) {
     size_t length;
     size_t suffix;
+    if ((flags & ~(O_CLOEXEC | O_NONBLOCK | O_APPEND)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
     if (template_path == 0) {
         errno = EINVAL;
         return -1;
@@ -732,13 +803,18 @@ int mkstemp(char *template_path) {
             template_path[suffix + 5 - digit] = (char)('0' + (value % 10));
             value /= 10;
         }
-        int fd = open(template_path, O_RDWR | O_CREAT | O_EXCL, 0600);
+        int fd = open(template_path, O_RDWR | O_CREAT | O_EXCL | flags, 0600);
         if (fd >= 0) {
+            (void)fchmod(fd, 0600);
             return fd;
         }
     }
     errno = EEXIST;
     return -1;
+}
+
+int mkstemp(char *template_path) {
+    return mkostemp(template_path, 0);
 }
 
 int mkdir(const char *path, mode_t mode) {

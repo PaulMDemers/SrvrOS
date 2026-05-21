@@ -17,6 +17,7 @@
 
 #define FD_CLOEXEC 1
 
+#define F_DUPFD 0
 #define F_GETFD 1
 #define F_SETFD 2
 #define F_GETFL 3
@@ -24,6 +25,7 @@
 #define F_GETLK 5
 #define F_SETLK 6
 #define F_SETLKW 7
+#define F_DUPFD_CLOEXEC 8
 
 #define F_RDLCK 1
 #define F_WRLCK 2
