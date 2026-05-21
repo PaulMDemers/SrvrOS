@@ -333,11 +333,56 @@ static void process_apply_signal_defaults(struct process *process, uint64_t sign
     if (process == NULL) {
         return;
     }
-    uint64_t supported = (1ull << SRV_SIGNAL_INT) | (1ull << SRV_SIGNAL_TERM);
+    uint64_t supported = (1ull << SRV_SIGNAL_INT) |
+        (1ull << SRV_SIGNAL_TERM) |
+        (1ull << SRV_SIGNAL_CHLD);
     uint64_t mask = signal_default & supported;
     process->signal_catch_mask &= ~mask;
     process->signal_ignore_mask &= ~mask;
     process->pending_signals &= ~mask;
+}
+
+static void process_wake_for_signal(struct process *process) {
+    net_process_wake(process);
+    scheduler_wake_all(&pipe_wait_queue);
+    process_file_poll_wake();
+    process_futex_wake_process(process);
+}
+
+static bool process_queue_signal(struct process *process, uint64_t signal) {
+    if (process == NULL || !process->active || signal == 0 || signal >= 64) {
+        return false;
+    }
+    uint64_t mask = 1ull << signal;
+    if ((process->signal_ignore_mask & mask) != 0) {
+        return true;
+    }
+    if ((process->signal_catch_mask & mask) != 0 ||
+        (process->main_signal_mask & mask) != 0) {
+        process->pending_signals |= mask;
+        process_wake_for_signal(process);
+        return true;
+    }
+    if (signal == SRV_SIGNAL_CHLD) {
+        return true;
+    }
+    process->killed = true;
+    process->kill_signal = signal;
+    process_wake_for_signal(process);
+    return true;
+}
+
+static void process_notify_parent_child_exit(struct process *child) {
+    if (child == NULL || child->parent_pid == 0) {
+        return;
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        struct process *parent = &processes[i];
+        if (parent->allocated && parent->pid == child->parent_pid) {
+            (void)process_queue_signal(parent, SRV_SIGNAL_CHLD);
+            return;
+        }
+    }
 }
 
 static bool copy_process_path(char *destination, uint64_t capacity, const char *source) {
@@ -1406,6 +1451,7 @@ static void background_process_thread(void *arg) {
     }
     release_process_runtime(process);
     process->reapable = true;
+    process_notify_parent_child_exit(process);
     scheduler_wake_all(&process_wait_queue);
 }
 
@@ -1886,7 +1932,6 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
     if (signal >= 64) {
         return false;
     }
-    uint64_t mask = 1ull << signal;
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
         if (processes[i].allocated && processes[i].pid == pid) {
             if (signal == 0) {
@@ -1895,32 +1940,7 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
             if (!processes[i].active) {
                 return false;
             }
-            if ((processes[i].signal_ignore_mask & mask) != 0) {
-                return true;
-            }
-            if ((processes[i].main_signal_mask & mask) != 0) {
-                processes[i].pending_signals |= mask;
-                net_process_wake(&processes[i]);
-                scheduler_wake_all(&pipe_wait_queue);
-                process_file_poll_wake();
-                process_futex_wake_process(&processes[i]);
-                return true;
-            }
-            if ((processes[i].signal_catch_mask & mask) != 0) {
-                processes[i].pending_signals |= mask;
-                net_process_wake(&processes[i]);
-                scheduler_wake_all(&pipe_wait_queue);
-                process_file_poll_wake();
-                process_futex_wake_process(&processes[i]);
-                return true;
-            }
-            processes[i].killed = true;
-            processes[i].kill_signal = signal;
-            net_process_wake(&processes[i]);
-            scheduler_wake_all(&pipe_wait_queue);
-            process_file_poll_wake();
-            process_futex_wake_process(&processes[i]);
-            return true;
+            return process_queue_signal(&processes[i], signal);
         }
     }
     return false;
@@ -1971,7 +1991,7 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
 bool process_signal_config_current(uint64_t signal, uint64_t action) {
     struct process *process = process_current();
     if (process == NULL || signal == 0 || signal >= 64 ||
-        (signal != SRV_SIGNAL_INT && signal != SRV_SIGNAL_TERM) ||
+        (signal != SRV_SIGNAL_INT && signal != SRV_SIGNAL_TERM && signal != SRV_SIGNAL_CHLD) ||
         (action != SRV_SIGNAL_DEFAULT &&
             action != SRV_SIGNAL_CATCH &&
             action != SRV_SIGNAL_IGNORE)) {

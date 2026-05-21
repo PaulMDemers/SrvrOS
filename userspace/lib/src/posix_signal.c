@@ -11,7 +11,7 @@ static int signal_valid(int signum) {
 }
 
 static int signal_supported(int signum) {
-    return signum == SIGINT || signum == SIGTERM;
+    return signum == SIGINT || signum == SIGTERM || signum == SIGCHLD;
 }
 
 static sigset_t signal_mask_for(int signum) {

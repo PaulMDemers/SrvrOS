@@ -1322,6 +1322,23 @@ int main(void) {
     char *true_argv[] = {"true", 0};
     pid_t child = 0;
     int child_status = 0;
+    sigset_t chld_set;
+    if (sigemptyset(&chld_set) < 0 ||
+        sigaddset(&chld_set, SIGCHLD) < 0 ||
+        sigprocmask(SIG_BLOCK, &chld_set, &old_signal_mask) < 0 ||
+        signal(SIGCHLD, SIG_DFL) == SIG_ERR ||
+        posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
+        child <= 0 ||
+        sigwait(&chld_set, &waited_signal) != 0 ||
+        waited_signal != SIGCHLD ||
+        waitpid(child, &child_status, 0) != child ||
+        !WIFEXITED(child_status) ||
+        WEXITSTATUS(child_status) != 0 ||
+        sigprocmask(SIG_SETMASK, &old_signal_mask, 0) < 0) {
+        say("posixdemo: sigchld failed\n");
+        return 41;
+    }
+    say("posixdemo: sigchld ok\n");
     if (posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
         child <= 0 ||
         waitpid(child, &child_status, 0) != child ||

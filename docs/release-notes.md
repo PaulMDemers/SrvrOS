@@ -512,6 +512,9 @@ server.
   signal consumption for `sigwait`, applies stored `posix_spawn` signal
   mask/default attributes through exec, and exposes common signal constants for
   source-compatibility probes.
+- Queues observable `SIGCHLD` to active parents when detached children become
+  reapable, with default unblocked `SIGCHLD` remaining non-terminating and
+  `/fat/bin/posixdemo` covering blocked `SIGCHLD` plus `sigwait`/`waitpid`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

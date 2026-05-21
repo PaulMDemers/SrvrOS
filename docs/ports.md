@@ -93,8 +93,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `kill`, and `raise` support for `SIGINT`/`SIGTERM`, with common signal
   constants present for source probes. Signal masks are kernel-backed for the
   main thread and spawned pthreads, and `posix_spawn` applies stored
-  signal-mask/default attributes through the native exec path. `assert`,
-  `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
+  signal-mask/default attributes through the native exec path. Child exit
+  queues observable `SIGCHLD` to active parents for blocked/caught wait paths.
+  `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,
@@ -400,8 +401,8 @@ Third-party source is kept as pinned submodules or snapshots under
 1. Expand `stdio` toward command-line port expectations: more ISO C edge cases,
    binary/update-mode corner cases, and broader formatted input behavior.
 2. Continue signal handling toward fuller POSIX semantics: broader real signal
-   delivery, `SIGCHLD`, and default-action behavior beyond the current
-   SIGINT/SIGTERM catch/poll path; reset-id remains a no-op until a uid/gid
+   delivery, richer `SIGCHLD` handler dispatch, and default-action behavior
+   beyond the current catch/poll path; reset-id remains a no-op until a uid/gid
    model exists.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,
    recovery from broader directory-update failures, and richer timestamp

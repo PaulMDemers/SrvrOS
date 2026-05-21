@@ -396,6 +396,10 @@ uses those to provide first-pass `sigaction`, `sigprocmask`,
 live in kernel process/thread state: new pthreads inherit the creator's current
 mask, `sigwait` can consume a specific pending signal, and `posix_spawn`
 forwards stored signal-mask/default attributes through the native exec request.
+When a detached child becomes reapable, the kernel queues observable
+`SIGCHLD` to the active parent; default unblocked `SIGCHLD` remains
+non-terminating, while blocked or caught `SIGCHLD` can be observed with the
+same pending/sigwait path.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,
