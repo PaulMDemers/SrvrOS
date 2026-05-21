@@ -297,8 +297,10 @@ memory totals from the kernel meminfo ABI, and sync/queued random fills through
 `/fat/bin/nodeprobe` concentrates the Node.js-readiness slice into one fast
 probe: random/time, mmap/mprotect/msync, temp files, cloexec fd duplication,
 scatter/gather writes, realpath, pthread attrs/TLS/once/condition variables,
-sysconf resource values, rlimits, rusage, socketpair, numeric resolver
-behavior, libuv version linkage, and static-first `execinfo`/`dlfcn` stubs.
+pthread stack inspection, sysconf resource values, rlimits, rusage, sysinfo,
+auxv, affinity stubs, madvise, prctl, basic syscall dispatch, socketpair,
+numeric resolver behavior, libuv version linkage, and static-first
+`execinfo`/`dlfcn` stubs.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 fsync/fdatasync/ftruncate/sendfile/utime/futime requests, `uv_fs_poll`
 file-change polling, request getters, cleanup-owned realpath/scandir memory,

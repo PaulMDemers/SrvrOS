@@ -45,6 +45,9 @@ server.
   `/fat/bin/nodeprobe`, a focused Node.js-readiness smoke app for time/random,
   mmap, fd, pthread, resource/accounting, socketpair/resolver, libuv, and
   diagnostic-loader probes.
+- Expands Node/V8-oriented libc compatibility with `sys/param.h`,
+  `sys/sysinfo.h`, `sys/auxv.h`, `sys/prctl.h`, `sys/syscall.h`, `madvise`,
+  `pthread_getattr_np`, and single-CPU affinity stubs.
 - Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
   workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
   port manifest at `ports/srvros/ed/PORT.md`.

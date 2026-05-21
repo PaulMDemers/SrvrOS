@@ -75,3 +75,29 @@ int msync(void *address, size_t length, int flags) {
     }
     return 0;
 }
+
+int madvise(void *address, size_t length, int advice) {
+    if (address == 0 || length == 0 || (((uintptr_t)address) & 0xfff) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    switch (advice) {
+    case MADV_NORMAL:
+    case MADV_RANDOM:
+    case MADV_SEQUENTIAL:
+    case MADV_WILLNEED:
+    case MADV_DONTNEED:
+    case MADV_FREE:
+    case MADV_REMOVE:
+    case MADV_DONTFORK:
+    case MADV_DOFORK:
+    case MADV_MERGEABLE:
+    case MADV_UNMERGEABLE:
+    case MADV_HUGEPAGE:
+    case MADV_NOHUGEPAGE:
+        return 0;
+    default:
+        errno = EINVAL;
+        return -1;
+    }
+}

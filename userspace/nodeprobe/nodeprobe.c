@@ -12,11 +12,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/auxv.h>
 #include <sys/mman.h>
+#include <sys/param.h>
+#include <sys/prctl.h>
 #include <sys/random.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/syscall.h>
+#include <sys/sysinfo.h>
 #include <sys/uio.h>
 #include <time.h>
 #include <unistd.h>
@@ -92,6 +97,11 @@ static int check_mmap(void) {
     }
     if (mprotect(anon, page, PROT_READ) != 0 || msync(anon, page, MS_SYNC) != 0) {
         fail("mprotect-msync");
+        munmap(anon, page);
+        return -1;
+    }
+    if (madvise(anon, page, MADV_DONTNEED) != 0) {
+        fail("madvise");
         munmap(anon, page);
         return -1;
     }
@@ -178,6 +188,13 @@ static int check_threads(void) {
         fail("pthread-setup");
         return -1;
     }
+    pthread_attr_t self_attr;
+    if (pthread_getattr_np(pthread_self(), &self_attr) != 0 ||
+        pthread_attr_getstacksize(&self_attr, &stack_size) != 0 ||
+        stack_size < PTHREAD_STACK_MIN) {
+        fail("pthread-getattr");
+        return -1;
+    }
     if (pthread_create(&thread, &attr, thread_worker, (void *)0x1234) != 0) {
         fail("pthread-create");
         return -1;
@@ -200,8 +217,24 @@ static int check_threads(void) {
 static int check_resource_limits(void) {
     struct rlimit limit;
     struct rusage usage;
+    struct sysinfo system_info;
+    cpu_set_t cpu_set;
+    char thread_name[16];
+    CPU_ZERO(&cpu_set);
     if (sysconf(_SC_NPROCESSORS_CONF) < 1 ||
         sysconf(_SC_HOST_NAME_MAX) < 1 ||
+        getauxval(AT_PAGESZ) != 4096 ||
+        getauxval(AT_SECURE) != 0 ||
+        sysinfo(&system_info) != 0 ||
+        system_info.totalram == 0 ||
+        system_info.mem_unit == 0 ||
+        sched_getaffinity(0, sizeof(cpu_set), &cpu_set) != 0 ||
+        CPU_COUNT(&cpu_set) != 1 ||
+        !CPU_ISSET(0, &cpu_set) ||
+        sched_setaffinity(0, sizeof(cpu_set), &cpu_set) != 0 ||
+        prctl(PR_SET_NAME, "nodeprobe") != 0 ||
+        prctl(PR_GET_NAME, thread_name) != 0 ||
+        syscall(SYS_gettid) <= 0 ||
         getrlimit(RLIMIT_NOFILE, &limit) != 0 ||
         limit.rlim_cur < 16 ||
         limit.rlim_cur > limit.rlim_max ||
@@ -213,6 +246,10 @@ static int check_resource_limits(void) {
         getrusage(RUSAGE_THREAD, &usage) != 0 ||
         getrusage(RUSAGE_CHILDREN, &usage) != 0) {
         fail("resource");
+        return -1;
+    }
+    if (MAXHOSTNAMELEN < 16 || MAXPATHLEN < 64) {
+        fail("param");
         return -1;
     }
     puts("nodeprobe: resource ok");

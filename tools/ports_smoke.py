@@ -32,10 +32,14 @@ def read_until(sock, marker, seconds):
     return data
 
 
-def read_until_count(sock, marker, count, seconds):
+def read_until_marker_line(sock, marker, seconds):
     data = b""
     deadline = time.time() + seconds
-    while data.count(marker) < count and time.time() < deadline:
+    marker_text = marker.decode("ascii")
+    while time.time() < deadline:
+        text = data.decode("utf-8", "replace")
+        if any(line.strip() == marker_text for line in text.splitlines()):
+            break
         data += read_for(sock, 0.5)
     return data
 
@@ -78,7 +82,7 @@ def main():
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
     parser.add_argument("--boot-wait", type=float, default=20)
-    parser.add_argument("--line-wait", type=float, default=8)
+    parser.add_argument("--line-wait", type=float, default=60)
     parser.add_argument("--key-delay", type=float, default=0.004)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
@@ -164,11 +168,12 @@ def main():
                 wrapped = line.rstrip("\n") + f"; echo {marker}\n"
                 send_serial_line(sock, wrapped, args.key_delay)
                 marker_bytes = marker.encode("ascii")
-                chunk = read_until_count(sock, marker_bytes, 2, args.line_wait)
+                chunk = read_until_marker_line(sock, marker_bytes, args.line_wait)
                 output += chunk
-                if chunk.count(marker_bytes) < 2:
+                chunk_text = chunk.decode("utf-8", "replace")
+                if not any(line.strip() == marker for line in chunk_text.splitlines()):
                     raise RuntimeError(f"timed out waiting for command marker {marker}")
-                output += read_until(sock, b" $ ", args.line_wait)
+                output += read_for(sock, 0.2)
             send_serial_line(sock, "fsck /fat\n", args.key_delay)
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)

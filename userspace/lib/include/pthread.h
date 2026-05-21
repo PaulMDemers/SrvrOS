@@ -68,6 +68,7 @@ int pthread_attr_getstackaddr(const pthread_attr_t *attr, void **stackaddr);
 int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr);
 int pthread_attr_getstack(const pthread_attr_t *attr, void **stackaddr, size_t *stacksize);
 int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize);
+int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr);
 
 int pthread_mutexattr_init(pthread_mutexattr_t *attr);
 int pthread_mutexattr_destroy(pthread_mutexattr_t *attr);

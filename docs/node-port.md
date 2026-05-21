@@ -107,9 +107,20 @@ srvros now also ships `/fat/bin/nodeprobe`, a small userspace readiness probe
 that exercises the local pieces Node is likely to lean on before V8 itself is
 portable: `clock_gettime`, `getrandom`, anonymous/file-backed `mmap`,
 `mprotect`, `msync`, `mkostemp`, `fcntl(F_DUPFD_CLOEXEC)`, `writev`,
-`realpath`, pthread attrs/TLS/once/condition variables, `sysconf`,
-`getrlimit`, `getrusage`, `socketpair`, numeric `getaddrinfo`, libuv version
-linkage, `execinfo` stubs, and static-first `dlfcn` stubs.
+`realpath`, pthread attrs/TLS/once/condition variables, `pthread_getattr_np`,
+`sysconf`, `getrlimit`, `getrusage`, `sysinfo`, `getauxval`, CPU affinity
+stubs, `madvise`, `prctl`, basic `syscall` dispatch, `socketpair`, numeric
+`getaddrinfo`, libuv version linkage, `execinfo` stubs, and static-first
+`dlfcn` stubs.
+
+The WSL probe host is available in the current workspace, but it does not yet
+have `ninja` installed and `sudo` requires an interactive password. Install
+`ninja-build` in Ubuntu/WSL, then run:
+
+```sh
+ports/srvros/node/apply-patches.sh
+ports/srvros/node/probe-linux.sh
+```
 
 ## Next Porting Steps
 

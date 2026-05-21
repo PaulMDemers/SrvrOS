@@ -430,6 +430,29 @@ int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksiz
     return 0;
 }
 
+int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
+    if (attr == 0) {
+        return EINVAL;
+    }
+    int error = pthread_attr_init(attr);
+    if (error != 0) {
+        return error;
+    }
+    if (thread == pthread_self()) {
+        attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
+        attr->stackaddr = 0;
+        return 0;
+    }
+    struct pthread_record *record = pthread_record_find(thread);
+    if (record == 0 || record->start == 0) {
+        return ESRCH;
+    }
+    attr->detachstate = record->detached ? PTHREAD_CREATE_DETACHED : PTHREAD_CREATE_JOINABLE;
+    attr->stacksize = record->start->stack_size;
+    attr->stackaddr = record->start->stack;
+    return 0;
+}
+
 int pthread_mutexattr_init(pthread_mutexattr_t *attr) {
     if (attr == 0) {
         return EINVAL;
@@ -729,5 +752,36 @@ int pthread_setspecific(pthread_key_t key, const void *value) {
 int sched_yield(void) {
     srv_syscall0(SYS_YIELD);
     (void)__posix_signal_dispatch_pending();
+    return 0;
+}
+
+int __sched_cpu_count(const cpu_set_t *mask) {
+    if (mask == 0) {
+        return 0;
+    }
+    int count = 0;
+    for (int i = 0; i < CPU_SETSIZE; i++) {
+        if (CPU_ISSET(i, mask)) {
+            count++;
+        }
+    }
+    return count;
+}
+
+int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask) {
+    if (pid < 0 || mask == 0 || cpusetsize < sizeof(cpu_set_t)) {
+        errno = EINVAL;
+        return -1;
+    }
+    CPU_ZERO(mask);
+    CPU_SET(0, mask);
+    return 0;
+}
+
+int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask) {
+    if (pid < 0 || mask == 0 || cpusetsize < sizeof(cpu_set_t) || !CPU_ISSET(0, mask)) {
+        errno = EINVAL;
+        return -1;
+    }
     return 0;
 }

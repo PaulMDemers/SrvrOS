@@ -47,7 +47,12 @@ Abseil/Cygwin host rejection.
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
 worth iterating on, including resource/accounting calls such as `getrlimit` and
-`getrusage`.
+`getrusage`, Linux-ish discovery calls such as `getauxval`, `sysinfo`, `prctl`,
+`madvise`, and scheduler affinity stubs.
+
+The Windows workspace can enter Ubuntu/WSL at `/mnt/c/Users/Paul/Desktop/srvros`.
+At the time this note was written, `ninja` was not installed in WSL and `sudo`
+required a password, so `probe-linux.sh` could not be launched from automation.
 
 ## First Target
 
