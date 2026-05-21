@@ -107,9 +107,9 @@ srvros now also ships `/fat/bin/nodeprobe`, a small userspace readiness probe
 that exercises the local pieces Node is likely to lean on before V8 itself is
 portable: `clock_gettime`, `getrandom`, anonymous/file-backed `mmap`,
 `mprotect`, `msync`, `mkostemp`, `fcntl(F_DUPFD_CLOEXEC)`, `writev`,
-`realpath`, pthread attrs/TLS/once/condition variables, `socketpair`, numeric
-`getaddrinfo`, libuv version linkage, `execinfo` stubs, and static-first
-`dlfcn` stubs.
+`realpath`, pthread attrs/TLS/once/condition variables, `sysconf`,
+`getrlimit`, `getrusage`, `socketpair`, numeric `getaddrinfo`, libuv version
+linkage, `execinfo` stubs, and static-first `dlfcn` stubs.
 
 ## Next Porting Steps
 

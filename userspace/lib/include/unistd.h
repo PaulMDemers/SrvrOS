@@ -14,6 +14,9 @@
 #define _SC_NPROCESSORS_ONLN 2
 #define _SC_CLK_TCK 3
 #define _SC_OPEN_MAX 4
+#define _SC_NPROCESSORS_CONF 5
+#define _SC_HOST_NAME_MAX 6
+#define _SC_LOGIN_NAME_MAX 7
 
 #define F_OK 0
 #define X_OK 1

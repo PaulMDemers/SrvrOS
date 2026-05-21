@@ -43,7 +43,8 @@ server.
   `tools/ports_smoke.py` coverage.
 - Adds static-first `execinfo.h` and `dlfcn.h` compatibility stubs plus
   `/fat/bin/nodeprobe`, a focused Node.js-readiness smoke app for time/random,
-  mmap, fd, pthread, socketpair/resolver, libuv, and diagnostic-loader probes.
+  mmap, fd, pthread, resource/accounting, socketpair/resolver, libuv, and
+  diagnostic-loader probes.
 - Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
   workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
   port manifest at `ports/srvros/ed/PORT.md`.

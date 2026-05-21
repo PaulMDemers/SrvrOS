@@ -290,6 +290,61 @@ def main():
             b"service webd check-config\n"
             b"service webd start\n"
             b"service webd status\n"),
+        ("ed-script",
+            b"a\n"
+            b"alpha\n"
+            b"beta\n"
+            b".\n"
+            b"1,2p\n"
+            b"1d\n"
+            b"$a\n"
+            b"gamma\n"
+            b".\n"
+            b"/beta/s/be[[:alpha:]]a/ta-be/\n"
+            b"w /fat/ed-output.txt\n"
+            b"q\n"),
+        ("ed-expected",
+            b"ta-be\n"
+            b"gamma\n"),
+        ("ports-smoke-ed.sh",
+            b"#!/fat/bin/sh\n"
+            b"rm -f /fat/ed-output.txt\n"
+            b"ed -s < /fat/share/examples/ed-script\n"
+            b"cmp /fat/ed-output.txt /fat/share/examples/ed-expected && echo ed-smoke-ok\n"),
+        ("ports-smoke-miniport.sh",
+            b"#!/fat/bin/sh\n"
+            b"rm -r /fat/miniport-src\n"
+            b"rm -r /fat/work\n"
+            b"rm -r /fat/local\n"
+            b"mkdir -p /fat/miniport-src/src\n"
+            b"write /fat/miniport-src/src/miniport.sh 'echo miniport-v1'\n"
+            b"write /fat/miniport-src/Makefile 'PREFIX = /fat/local'\n"
+            b"write -a /fat/miniport-src/Makefile 'all: build/miniport'\n"
+            b"write -a /fat/miniport-src/Makefile 'build/miniport: src/miniport.sh'\n"
+            b"write -a /fat/miniport-src/Makefile 'mkdir -p build'\n"
+            b"write -a /fat/miniport-src/Makefile 'cp $< $@'\n"
+            b"write -a /fat/miniport-src/Makefile '.PHONY: install clean'\n"
+            b"write -a /fat/miniport-src/Makefile 'install: all'\n"
+            b"write -a /fat/miniport-src/Makefile 'install -D build/miniport $(PREFIX)/bin/miniport'\n"
+            b"write -a /fat/miniport-src/Makefile 'clean:'\n"
+            b"write -a /fat/miniport-src/Makefile 'rm -r build'\n"
+            b"write /fat/miniport.patch '--- src/miniport.sh'\n"
+            b"write -a /fat/miniport.patch '+++ src/miniport.sh'\n"
+            b"write -a /fat/miniport.patch '@@ -1 +1 @@'\n"
+            b"write -a /fat/miniport.patch '-echo miniport-v1'\n"
+            b"write -a /fat/miniport.patch '+echo miniport-patched'\n"
+            b"tar -cf /fat/miniport.tar /fat/miniport-src\n"
+            b"gzip -c /fat/miniport.tar > /fat/miniport.tar.gz\n"
+            b"rm -r /fat/miniport-src\n"
+            b"mkdir -p /fat/work\n"
+            b"gunzip -c /fat/miniport.tar.gz > /fat/work/miniport.tar\n"
+            b"tar -xf /fat/work/miniport.tar -C /fat/work\n"
+            b"cd /fat/work/fat/miniport-src\n"
+            b"patch -i /fat/miniport.patch\n"
+            b"make install\n"
+            b"sh /fat/local/bin/miniport\n"
+            b"make clean\n"
+            b"stat build/miniport\n"),
     ]
     files = []
     for name, data in static_files:

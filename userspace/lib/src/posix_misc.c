@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <srvros/sys.h>
 #include <sys/random.h>
@@ -102,10 +103,16 @@ long sysconf(int name) {
         return SRVROS_PAGE_SIZE;
     case _SC_NPROCESSORS_ONLN:
         return 1;
+    case _SC_NPROCESSORS_CONF:
+        return 1;
     case _SC_CLK_TCK:
         return SRVROS_TICKS_PER_SECOND;
     case _SC_OPEN_MAX:
         return SRVROS_OPEN_MAX;
+    case _SC_HOST_NAME_MAX:
+        return HOST_NAME_MAX;
+    case _SC_LOGIN_NAME_MAX:
+        return LOGIN_NAME_MAX;
     default:
         errno = EINVAL;
         return -1;

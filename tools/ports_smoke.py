@@ -32,6 +32,14 @@ def read_until(sock, marker, seconds):
     return data
 
 
+def read_until_count(sock, marker, count, seconds):
+    data = b""
+    deadline = time.time() + seconds
+    while data.count(marker) < count and time.time() < deadline:
+        data += read_for(sock, 0.5)
+    return data
+
+
 def connect_serial(port, timeout):
     deadline = time.time() + timeout
     while time.time() < deadline:
@@ -42,10 +50,10 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
-def send_serial_line(sock, line):
+def send_serial_line(sock, line, byte_delay=0.004):
     for byte in line.encode("ascii"):
         sock.sendall(bytes([byte]))
-        time.sleep(0.001)
+        time.sleep(byte_delay)
 
 
 def has_fatal_exception(text):
@@ -55,6 +63,14 @@ def has_fatal_exception(text):
     return False
 
 
+def has_smoke_failure(text):
+    failure_fragments = [
+        "sh: unmatched quote",
+        "differ",
+    ]
+    return any(fragment in text for fragment in failure_fragments)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Verify srvros staged ports in QEMU.")
     parser.add_argument("--root", default=os.getcwd())
@@ -62,7 +78,8 @@ def main():
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
     parser.add_argument("--boot-wait", type=float, default=20)
-    parser.add_argument("--line-wait", type=float, default=4)
+    parser.add_argument("--line-wait", type=float, default=8)
+    parser.add_argument("--key-delay", type=float, default=0.004)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -100,7 +117,7 @@ def main():
             sock = connect_serial(port, 15)
             sock.settimeout(0.3)
             output += read_until(sock, b"srv> ", args.boot_wait)
-            send_serial_line(sock, "run /fat/bin/sh\n")
+            send_serial_line(sock, "run /fat/bin/sh\n", args.key_delay)
             output += read_until(sock, b" $ ", 5)
             lines = [
                 "zlibdemo\n",
@@ -112,52 +129,8 @@ def main():
                 "nodeprobe\n",
                 "ttydemo\n",
                 "posixdemo\n",
-                "write /fat/ed-script 'a'\n",
-                "write -a /fat/ed-script 'alpha'\n",
-                "write -a /fat/ed-script 'beta'\n",
-                "write -a /fat/ed-script '.'\n",
-                "write -a /fat/ed-script '1,2p'\n",
-                "write -a /fat/ed-script '1d'\n",
-                "write -a /fat/ed-script '$a'\n",
-                "write -a /fat/ed-script 'gamma'\n",
-                "write -a /fat/ed-script '.'\n",
-                "write -a /fat/ed-script '/beta/s/be[[:alpha:]]a/ta-be/'\n",
-                "write -a /fat/ed-script 'w /fat/ed-output.txt'\n",
-                "write -a /fat/ed-script 'q'\n",
-                "write /fat/ed-expected ta-be\n",
-                "write -a /fat/ed-expected gamma\n",
-                "ed -s < /fat/ed-script\n",
-                "cmp /fat/ed-output.txt /fat/ed-expected && echo ed-smoke-ok\n",
-                "mkdir -p /fat/miniport-src/src\n",
-                "write /fat/miniport-src/src/miniport.sh 'echo miniport-v1'\n",
-                "write /fat/miniport-src/Makefile 'PREFIX = /fat/local'\n",
-                "write -a /fat/miniport-src/Makefile 'all: build/miniport'\n",
-                "write -a /fat/miniport-src/Makefile 'build/miniport: src/miniport.sh'\n",
-                "write -a /fat/miniport-src/Makefile 'mkdir -p build'\n",
-                "write -a /fat/miniport-src/Makefile 'cp $< $@'\n",
-                "write -a /fat/miniport-src/Makefile '.PHONY: install clean'\n",
-                "write -a /fat/miniport-src/Makefile 'install: all'\n",
-                "write -a /fat/miniport-src/Makefile 'install -D build/miniport $(PREFIX)/bin/miniport'\n",
-                "write -a /fat/miniport-src/Makefile 'clean:'\n",
-                "write -a /fat/miniport-src/Makefile 'rm -r build'\n",
-                "write /fat/miniport.patch '--- src/miniport.sh'\n",
-                "write -a /fat/miniport.patch '+++ src/miniport.sh'\n",
-                "write -a /fat/miniport.patch '@@ -1 +1 @@'\n",
-                "write -a /fat/miniport.patch '-echo miniport-v1'\n",
-                "write -a /fat/miniport.patch '+echo miniport-patched'\n",
-                "tar -cf /fat/miniport.tar /fat/miniport-src\n",
-                "gzip -c /fat/miniport.tar > /fat/miniport.tar.gz\n",
-                "rm -r /fat/miniport-src\n",
-                "mkdir -p /fat/work\n",
-                "gunzip -c /fat/miniport.tar.gz > /fat/work/miniport.tar\n",
-                "tar -xf /fat/work/miniport.tar -C /fat/work\n",
-                "cd /fat/work/fat/miniport-src\n",
-                "patch -i /fat/miniport.patch\n",
-                "make install\n",
-                "sh /fat/local/bin/miniport\n",
-                "make clean\n",
-                "stat build/miniport\n",
-                "cd /\n",
+                "sh /fat/share/examples/ports-smoke-ed.sh\n",
+                "sh /fat/share/examples/ports-smoke-miniport.sh\n",
                 "mkdir -p /fat/byacctest\n",
                 "cd /fat/byacctest\n",
                 "write grammar.y '%token WORD'\n",
@@ -182,10 +155,21 @@ def main():
                 "cd /\n",
                 "exit\n",
             ]
-            for line in lines:
-                send_serial_line(sock, line)
-                output += read_until(sock, b"srv> " if line.strip() == "exit" else b" $ ", args.line_wait)
-            send_serial_line(sock, "fsck /fat\n")
+            for index, line in enumerate(lines):
+                if line.strip() == "exit":
+                    send_serial_line(sock, line, args.key_delay)
+                    output += read_until(sock, b"srv> ", args.line_wait)
+                    continue
+                marker = f"__SMOKE_STEP_{index:03d}__"
+                wrapped = line.rstrip("\n") + f"; echo {marker}\n"
+                send_serial_line(sock, wrapped, args.key_delay)
+                marker_bytes = marker.encode("ascii")
+                chunk = read_until_count(sock, marker_bytes, 2, args.line_wait)
+                output += chunk
+                if chunk.count(marker_bytes) < 2:
+                    raise RuntimeError(f"timed out waiting for command marker {marker}")
+                output += read_until(sock, b" $ ", args.line_wait)
+            send_serial_line(sock, "fsck /fat\n", args.key_delay)
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
         finally:
@@ -223,6 +207,7 @@ def main():
         "nodeprobe: mmap ok",
         "nodeprobe: fs/fd ok",
         "nodeprobe: pthread ok",
+        "nodeprobe: resource ok",
         "nodeprobe: socket/dns ok",
         "nodeprobe: uv/diagnostic stubs ok",
         "nodeprobe: ok",
@@ -283,6 +268,9 @@ def main():
     if has_fatal_exception(text):
         print("ports-smoke: fatal exception detected", file=sys.stderr)
         return 2
+    if has_smoke_failure(text):
+        print("ports-smoke: command failure detected", file=sys.stderr)
+        return 4
     if missing:
         print("ports-smoke: missing markers:", file=sys.stderr)
         for marker in missing:

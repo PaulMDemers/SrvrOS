@@ -14,6 +14,7 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/random.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/uio.h>
@@ -196,6 +197,28 @@ static int check_threads(void) {
     return 0;
 }
 
+static int check_resource_limits(void) {
+    struct rlimit limit;
+    struct rusage usage;
+    if (sysconf(_SC_NPROCESSORS_CONF) < 1 ||
+        sysconf(_SC_HOST_NAME_MAX) < 1 ||
+        getrlimit(RLIMIT_NOFILE, &limit) != 0 ||
+        limit.rlim_cur < 16 ||
+        limit.rlim_cur > limit.rlim_max ||
+        getrlimit(RLIMIT_STACK, &limit) != 0 ||
+        limit.rlim_cur < PTHREAD_STACK_MIN ||
+        getrusage(RUSAGE_SELF, &usage) != 0 ||
+        usage.ru_utime.tv_usec < 0 ||
+        usage.ru_utime.tv_usec >= 1000000 ||
+        getrusage(RUSAGE_THREAD, &usage) != 0 ||
+        getrusage(RUSAGE_CHILDREN, &usage) != 0) {
+        fail("resource");
+        return -1;
+    }
+    puts("nodeprobe: resource ok");
+    return 0;
+}
+
 static int check_sockets(void) {
     int fds[2];
     if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK | SOCK_CLOEXEC, 0, fds) != 0) {
@@ -263,6 +286,7 @@ int main(void) {
         check_mmap() != 0 ||
         check_files() != 0 ||
         check_threads() != 0 ||
+        check_resource_limits() != 0 ||
         check_sockets() != 0 ||
         check_uv_and_stubs() != 0) {
         return 1;

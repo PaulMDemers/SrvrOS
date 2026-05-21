@@ -46,7 +46,8 @@ Abseil/Cygwin host rejection.
 
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
-worth iterating on.
+worth iterating on, including resource/accounting calls such as `getrlimit` and
+`getrusage`.
 
 ## First Target
 

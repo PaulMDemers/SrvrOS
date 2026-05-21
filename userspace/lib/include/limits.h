@@ -26,6 +26,8 @@
 
 #define PATH_MAX 160
 #define NAME_MAX 95
+#define HOST_NAME_MAX 63
+#define LOGIN_NAME_MAX 32
 #define OPEN_MAX 128
 #define IOV_MAX 16
 
