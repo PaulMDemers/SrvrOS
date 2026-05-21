@@ -50,6 +50,15 @@ non-cross-compiling host probe reaches V8 compilation and stops when Abseil
 rejects the MSYS/Cygwin host environment. A true cross build still needs V8's
 host-generated and target-generated files split cleanly.
 
+There are now two probe runners:
+
+- `ports/srvros/node/probe.sh`: MSYS-side discovery probe. This verifies the
+  patch still reaches V8 compilation, but it is expected to stop at Abseil's
+  Cygwin rejection.
+- `ports/srvros/node/probe-linux.sh`: Linux/WSL-oriented probe using the same
+  reduced Node profile. This is the better path for the next upstream compile
+  failure because it avoids MSYS/Cygwin platform distortion.
+
 ## Initial Minimal Profile
 
 The first runnable target should be a small, static CLI Node:
@@ -94,11 +103,19 @@ The upstream tree makes the expected platform demands for a real Node port:
   `execinfo.h`/`backtrace` for debug paths. These can be stubbed or disabled
   for the first static CLI milestone.
 
+srvros now also ships `/fat/bin/nodeprobe`, a small userspace readiness probe
+that exercises the local pieces Node is likely to lean on before V8 itself is
+portable: `clock_gettime`, `getrandom`, anonymous/file-backed `mmap`,
+`mprotect`, `msync`, `mkostemp`, `fcntl(F_DUPFD_CLOEXEC)`, `writev`,
+`realpath`, pthread attrs/TLS/once/condition variables, `socketpair`, numeric
+`getaddrinfo`, libuv version linkage, `execinfo` stubs, and static-first
+`dlfcn` stubs.
+
 ## Next Porting Steps
 
-1. Split V8 host/target generated files cleanly for `--cross-compiling`.
-2. Run the same patched probe from a Linux host or a real srvros cross
+1. Run the patched probe from a Linux host or a real srvros cross
    compiler so Abseil no longer sees Cygwin/MSYS as the target environment.
+2. Split V8 host/target generated files cleanly for `--cross-compiling`.
 3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
    branches while auditing every Linux-specific syscall assumption.
 4. Decide whether the first milestone links against the existing srvros libuv
