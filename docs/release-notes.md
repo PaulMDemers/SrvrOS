@@ -29,6 +29,8 @@ server.
 - Adds libc `pthread_kill`, wakes `pthread_join` waits for caught signals while
   preserving non-`EINTR` pthread semantics, and extends `threadstress` with
   create/join and detached-thread lifecycle coverage.
+- Adds libc `pipe2` and `dup3` wrappers with `O_CLOEXEC`/`O_NONBLOCK` flag
+  handling and `/fat/bin/posixdemo` coverage.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

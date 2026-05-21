@@ -353,6 +353,22 @@ int dup2(int old_fd, int new_fd) {
     return (int)result;
 }
 
+int dup3(int old_fd, int new_fd, int flags) {
+    if (old_fd == new_fd || (flags & ~O_CLOEXEC) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    int result = dup2(old_fd, new_fd);
+    if (result < 0) {
+        return -1;
+    }
+    if ((flags & O_CLOEXEC) != 0 && fcntl(result, F_SETFD, FD_CLOEXEC) < 0) {
+        close(result);
+        return -1;
+    }
+    return result;
+}
+
 int pipe(int fds[2]) {
     if (fds == 0) {
         errno = EINVAL;
@@ -360,6 +376,31 @@ int pipe(int fds[2]) {
     }
     if (srv_pipe(fds) < 0) {
         errno = EMFILE;
+        return -1;
+    }
+    return 0;
+}
+
+int pipe2(int fds[2], int flags) {
+    if ((flags & ~(O_CLOEXEC | O_NONBLOCK)) != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (pipe(fds) < 0) {
+        return -1;
+    }
+    if (((flags & O_CLOEXEC) != 0 &&
+            (fcntl(fds[0], F_SETFD, FD_CLOEXEC) < 0 ||
+                fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0)) ||
+        ((flags & O_NONBLOCK) != 0 &&
+            (fcntl(fds[0], F_SETFL, O_NONBLOCK) < 0 ||
+                fcntl(fds[1], F_SETFL, O_NONBLOCK) < 0))) {
+        int saved_errno = errno;
+        close(fds[0]);
+        close(fds[1]);
+        fds[0] = -1;
+        fds[1] = -1;
+        errno = saved_errno;
         return -1;
     }
     return 0;

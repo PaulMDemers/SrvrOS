@@ -508,16 +508,22 @@ int main(void) {
     lseek(fd, 6, SEEK_SET);
     int fd2 = dup(fd);
     int fd3 = dup2(fd, 10);
-    if (fd2 < 0 || fd3 != 10) {
+    int fd4 = dup3(fd, 11, O_CLOEXEC);
+    if (fd2 < 0 || fd3 != 10 || fd4 != 11 ||
+        fcntl(fd4, F_GETFD) != FD_CLOEXEC ||
+        dup3(fd, fd, 0) >= 0 ||
+        errno != EINVAL) {
         say("posixdemo: dup failed\n");
         return 6;
     }
     n = read(fd2, buffer, 4);
     ssize_t n2 = read(fd3, buffer + 4, 4);
+    ssize_t n3 = read(fd4, buffer + 8, 1);
     close(fd);
     close(fd2);
     close(fd3);
-    if (n != 4 || n2 != 4 ||
+    close(fd4);
+    if (n != 4 || n2 != 4 || n3 != 1 ||
         memcmp(buffer, "from pos", 8) != 0) {
         say("posixdemo: dup read failed\n");
         return 7;
@@ -920,6 +926,28 @@ int main(void) {
     if (n != -1 || errno != EAGAIN ||
         fcntl(pfds[0], F_SETFL, pipe_flags) < 0) {
         say("posixdemo: nonblock read failed\n");
+        return 18;
+    }
+    int p2fds[2];
+    if (pipe2(p2fds, O_NONBLOCK | O_CLOEXEC) < 0 ||
+        fcntl(p2fds[0], F_GETFD) != FD_CLOEXEC ||
+        fcntl(p2fds[1], F_GETFD) != FD_CLOEXEC ||
+        (fcntl(p2fds[0], F_GETFL) & O_NONBLOCK) == 0 ||
+        (fcntl(p2fds[1], F_GETFL) & O_NONBLOCK) == 0) {
+        say("posixdemo: pipe2 flags failed\n");
+        return 18;
+    }
+    errno = 0;
+    n = read(p2fds[0], buffer, 1);
+    close(p2fds[0]);
+    close(p2fds[1]);
+    if (n != -1 || errno != EAGAIN) {
+        say("posixdemo: pipe2 nonblock failed\n");
+        return 18;
+    }
+    errno = 0;
+    if (pipe2(p2fds, O_TRUNC) >= 0 || errno != EINVAL) {
+        say("posixdemo: pipe2 invalid failed\n");
         return 18;
     }
     say("posixdemo: nonblock ok\n");

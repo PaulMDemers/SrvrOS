@@ -506,7 +506,9 @@ timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
 and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT
 sidecar persistence. `utime`/`futime` update VFS timestamps directly; writable
 fds flush pending data before applying explicit times so close-time writeback
-does not overwrite them.
+does not overwrite them. `pipe2` and `dup3` are implemented in libc on top of
+the native pipe, dup2, and fd-flag calls, giving source ports the common
+`O_CLOEXEC`/`O_NONBLOCK` setup paths without widening the kernel ABI yet.
 The native exec setup keeps argv compact and accepts up to 64 environment
 entries, enough for profile variables plus command-local shell environments in
 longer CLI sessions.

@@ -111,16 +111,18 @@ The first compatibility slice now lives under `userspace/lib/include` and
   `pthread_detach`, `pthread_exit`, self/equality, basic attributes, stack
   attribute helpers, per-thread user stacks, per-thread TLS keys, mutexes,
   mutex attributes including recursive and error-checking modes, condition
-  variables, condition attributes, and `pthread_once`. Threads share the
-  process address space and fd table;
-  each spawned user thread gets its own scheduler kernel trap stack and user
-  FPU state. Detached pthread stacks are reclaimed opportunistically by libc
-  when later pthread calls observe completion. Mutexes, condition variables,
-  and in-progress `pthread_once` waiters now sleep through srvros futex-style
-  wait/wake syscalls instead of spinning.
+  variables, condition attributes, `pthread_once`, and `pthread_kill`. Threads
+  share the process address space and fd table; each spawned user thread gets
+  its own scheduler kernel trap stack and user FPU state. Detached pthread
+  stacks are reclaimed opportunistically by libc when later pthread calls
+  observe completion. Mutexes, condition variables, and in-progress
+  `pthread_once` waiters now sleep through srvros futex-style wait/wake syscalls
+  instead of spinning.
 - `getopt`, `uname`, `atexit`, and `system` backed by `sh -c` through
   `posix_spawnp` plus `waitpid`
 - `getpid`
+- fd helpers: `dup`, `dup2`, `dup3`, `pipe`, and `pipe2`, including `O_CLOEXEC`
+  and `O_NONBLOCK` flag setup for the atomic-style wrappers
 - `waitpid` for srvros background children, plus `posix_spawn`/`posix_spawnp`
   with PATH lookup and standard-fd `posix_spawn_file_actions_adddup2`,
   `posix_spawn_file_actions_addopen`, and `posix_spawn_file_actions_addclose`
