@@ -97,7 +97,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   signal-mask/default attributes through the native exec path. Child exit
   queues observable `SIGCHLD` to active parents for blocked/caught wait paths,
   libc dispatches caught pending signals at cooperative interruption points,
-  and interrupted `waitpid`/`poll`/sleep calls can surface `EINTR`.
+  and interrupted `waitpid`, `poll`/`select`, sleep, pipe I/O, tty input,
+  Unix-domain accept, TCP/UDP socket waits, and blocking file-lock calls can
+  surface `EINTR`.
   `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
@@ -328,7 +330,8 @@ The intent is to keep `uvdemo` as broad behavioral coverage while
   wait queue. The POSIX wrapper and syscall accept up to 64 poll entries, and
   `select` can address the current high fd range through `FD_SETSIZE=128`.
   Timer deadlines wake finite timeouts; broader fd-specific wait queues are
-  still future work as the descriptor model grows.
+  still future work as the descriptor model grows. Caught signals now wake the
+  major blocking fd wait paths so libc can map them to `EINTR`.
 - Socket wrappers cover TCP server flow over `net_listen`/`net_accept`,
   client-side `connect` over `net_connect`, and IPv4 UDP datagrams through
   `sendto`/`recvfrom`. They also expose `getsockname`, `getpeername`,

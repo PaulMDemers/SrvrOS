@@ -376,11 +376,17 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
         if (process_should_exit_current()) {
             return -1;
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
         if (console_termios.cc[SRV_TTY_VMIN] == 0 && !keyboard_scan_char(&c)) {
             return 0;
         }
         if (c == 0) {
             c = keyboard_read_char();
+        }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
         }
         if (process_should_exit_current()) {
             return -1;
@@ -399,6 +405,9 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
             return -1;
         }
         char c = tty_filter_input(keyboard_read_char());
+        if (process_signal_pending_current()) {
+            return count == 0 ? SRV_ERR_INTR : (int64_t)count;
+        }
         char erase = console_termios.cc[SRV_TTY_VERASE] != 0 ? (char)console_termios.cc[SRV_TTY_VERASE] : '\b';
         char eof = console_termios.cc[SRV_TTY_VEOF] != 0 ? (char)console_termios.cc[SRV_TTY_VEOF] : 4;
         char kill = console_termios.cc[SRV_TTY_VKILL] != 0 ? (char)console_termios.cc[SRV_TTY_VKILL] : 21;
@@ -1893,7 +1902,7 @@ static int64_t syscall_sleep_ticks(uint64_t ticks) {
             return -1;
         }
         if (process_signal_pending_current()) {
-            return -2;
+            return SRV_ERR_INTR;
         }
         scheduler_yield();
     }

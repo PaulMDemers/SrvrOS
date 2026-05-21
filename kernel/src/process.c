@@ -2,6 +2,7 @@
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
 #include <srvros/heap.h>
+#include <srvros/keyboard.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
@@ -354,6 +355,9 @@ static void process_wake_for_signal(struct process *process) {
     net_process_wake(process);
     scheduler_wake_all(&process_wait_queue);
     scheduler_wake_all(&pipe_wait_queue);
+    scheduler_wake_all(&unix_wait_queue);
+    scheduler_wake_all(&file_lock_wait_queue);
+    keyboard_wake_waiters();
     process_file_poll_wake();
     process_futex_wake_process(process);
 }
@@ -1916,7 +1920,7 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
             return -1;
         }
         if (process_signal_pending_current()) {
-            return -2;
+            return SRV_ERR_INTR;
         }
         if (nohang) {
             return 0;
@@ -3443,6 +3447,7 @@ int64_t process_file_sync_all(void) {
 static bool pipe_read_ready(void *arg) {
     struct process_pipe *pipe = arg;
     return process_should_exit_current() ||
+        process_signal_pending_current() ||
         pipe == NULL ||
         !pipe->used ||
         pipe->size > 0 ||
@@ -3452,6 +3457,7 @@ static bool pipe_read_ready(void *arg) {
 static bool pipe_write_ready(void *arg) {
     struct process_pipe *pipe = arg;
     return process_should_exit_current() ||
+        process_signal_pending_current() ||
         pipe == NULL ||
         !pipe->used ||
         pipe->read_refs == 0 ||
@@ -3593,6 +3599,7 @@ static uint64_t unix_listener_pending_count(const struct process_unix_listener *
 static bool unix_accept_ready(void *arg) {
     struct process_unix_listener *listener = arg;
     return process_should_exit_current() ||
+        process_signal_pending_current() ||
         listener == NULL ||
         !listener->used ||
         unix_listener_pending_count(listener) != 0;
@@ -3790,6 +3797,9 @@ int64_t process_unix_accept(struct process *process, uint64_t fd) {
         if (!scheduler_wait(&unix_wait_queue, unix_accept_ready, listener)) {
             break;
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
         if (process_should_exit_current()) {
             return -1;
         }
@@ -3861,6 +3871,9 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         if (!scheduler_wait(&pipe_wait_queue, pipe_read_ready, pipe)) {
             break;
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
     }
     uint64_t count = length < pipe->size ? length : pipe->size;
     for (uint64_t i = 0; i < count; i++) {
@@ -3900,6 +3913,9 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
             if (!scheduler_wait(&pipe_wait_queue, pipe_write_ready, pipe)) {
                 break;
             }
+            if (process_signal_pending_current()) {
+                return done > 0 ? (int64_t)done : SRV_ERR_INTR;
+            }
         }
         if (!pipe->used || pipe->read_refs == 0) {
             return done > 0 ? (int64_t)done : -1;
@@ -3929,6 +3945,11 @@ struct scheduler_wait_queue *process_file_poll_wait_queue(void) {
 
 void process_file_poll_wake(void) {
     scheduler_wake_all(&fd_poll_wait_queue);
+}
+
+static bool file_lock_wait_ready(void *arg) {
+    (void)arg;
+    return process_signal_pending_current();
 }
 
 uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events) {
@@ -4544,7 +4565,12 @@ int64_t process_file_set_lock(struct process *process, uint64_t fd, const struct
         if (!wait) {
             return SRV_ERR_AGAIN;
         }
-        scheduler_yield();
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
+        if (!scheduler_wait(&file_lock_wait_queue, file_lock_wait_ready, NULL)) {
+            scheduler_yield();
+        }
     }
 }
 

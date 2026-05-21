@@ -526,6 +526,11 @@ server.
   `EINTR` mapping for interrupted `waitpid`, `poll`/`select`, and sleeps, and
   `/fat/bin/posixdemo` coverage for `sigsuspend`, `poll`/`waitpid` interruption,
   and burst `SIGCHLD` child reaping.
+- Adds a shared `SRV_ERR_INTR` syscall result and extends caught-signal
+  interruption across blocking pipe I/O, console input, Unix-domain accept,
+  TCP accept/connect/read/write, UDP receive, and blocking file locks, with
+  libc `EINTR` mapping and `/fat/bin/posixdemo` coverage for pipe read and
+  Unix-domain accept interruption.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

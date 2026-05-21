@@ -537,7 +537,7 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     if (result < 0) {
         (void)dispatched_before;
         (void)dispatched_after;
-        errno = result == -2 ? EINTR : ECHILD;
+        errno = result == SRV_ERR_INTR ? EINTR : ECHILD;
         return -1;
     }
     if (result == 0) {

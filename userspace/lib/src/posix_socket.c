@@ -17,6 +17,8 @@
 #define POSIX_SOCKET_BASE 1000
 #define REAL_SOCKET_OPTIONS_MAX 32
 
+int __posix_signal_dispatch_pending(void);
+
 struct posix_socket {
     int used;
     int domain;
@@ -145,9 +147,22 @@ static int errno_from_net_error(long error) {
         return ECONNRESET;
     case SRV_NETERR_INPROGRESS:
         return EINPROGRESS;
+    case EINTR:
+        return EINTR;
     default:
         return EIO;
     }
+}
+
+static int errno_from_blocking_result(long result, int fallback) {
+    int dispatched = __posix_signal_dispatch_pending();
+    if (result == SRV_ERR_AGAIN) {
+        return EAGAIN;
+    }
+    if (result == SRV_ERR_INTR || dispatched != 0) {
+        return EINTR;
+    }
+    return fallback;
 }
 
 static int socket_error_for_fd(int fd) {
@@ -282,7 +297,7 @@ static long read_operation(int fd, void *buffer, size_t length) {
 static long peek_operation(int fd, void *buffer, size_t length) {
     long result = srv_net_peek(fd, buffer, length);
     if (result < 0) {
-        errno = result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
+        errno = errno_from_blocking_result(result, EBADF);
         return -1;
     }
     return result;
@@ -630,11 +645,7 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         }
         long connection = srv_net_accept(fd, 0, 0, &length);
         if (connection < 0) {
-            if (connection == SRV_ERR_AGAIN) {
-                errno = EAGAIN;
-                return -1;
-            }
-            errno = EIO;
+            errno = errno_from_blocking_result(connection, EIO);
             return -1;
         }
         uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
@@ -673,7 +684,7 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
         }
         long connection = srv_unix_accept(socket->listener_fd);
         if (connection < 0) {
-            errno = connection == SRV_ERR_AGAIN ? EAGAIN : EIO;
+            errno = errno_from_blocking_result(connection, EIO);
             return -1;
         }
         uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
@@ -693,11 +704,7 @@ static int accept_with_flags(int fd, struct sockaddr *addr, socklen_t *addrlen, 
     }
     long connection = srv_net_accept(socket->listener_fd, 0, 0, &length);
     if (connection < 0) {
-        if (connection == SRV_ERR_AGAIN) {
-            errno = EAGAIN;
-            return -1;
-        }
-        errno = EIO;
+        errno = errno_from_blocking_result(connection, EIO);
         return -1;
     }
     uint64_t fd_flags = (flags & SOCK_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
@@ -794,6 +801,7 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
     long connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
     if (connection < 0) {
+        (void)__posix_signal_dispatch_pending();
         errno = errno_from_net_error(-connection);
         return -1;
     }
@@ -940,7 +948,7 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
             buffer,
             length);
         if (result < 0) {
-            errno = EIO;
+            errno = errno_from_blocking_result(result, EIO);
             return -1;
         }
         return result;
@@ -953,7 +961,9 @@ ssize_t send(int fd, const void *buffer, size_t length, int flags) {
         length);
     if (result < 0) {
         int error = socket_error_for_fd(real_fd);
-        if (error == EINPROGRESS) {
+        if (errno == EINTR || result == SRV_ERR_INTR) {
+            errno = EINTR;
+        } else if (error == EINPROGRESS) {
             errno = EALREADY;
         } else if (error != 0 && error != ENOTCONN) {
             errno = error;
@@ -991,7 +1001,7 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
                 &remote_port,
                 (flags & MSG_DONTWAIT) != 0);
             if (result < 0) {
-                errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
+                errno = errno_from_blocking_result(result, EIO);
                 return -1;
             }
             if (remote_ip == socket->peer_ip && remote_port == socket->peer_port) {
@@ -1007,7 +1017,9 @@ ssize_t recv(int fd, void *buffer, size_t length, int flags) {
         length);
     if (result < 0) {
         int error = socket_error_for_fd(real_fd);
-        if (error == EINPROGRESS) {
+        if (errno == EINTR || result == SRV_ERR_INTR) {
+            errno = EINTR;
+        } else if (error == EINPROGRESS) {
             errno = EALREADY;
         } else if (error != 0 && error != ENOTCONN) {
             errno = error;
@@ -1180,7 +1192,7 @@ ssize_t sendto(int fd,
 
     long result = srv_net_udp_sendto(socket->listener_fd, in->sin_addr.s_addr, port, buffer, length);
     if (result < 0) {
-        errno = EIO;
+        errno = errno_from_blocking_result(result, EIO);
         return -1;
     }
     return result;
@@ -1282,7 +1294,7 @@ ssize_t recvfrom(int fd,
         &remote_port,
         (flags & MSG_DONTWAIT) != 0);
     if (result < 0) {
-        errno = result == SRV_ERR_AGAIN ? EAGAIN : EIO;
+        errno = errno_from_blocking_result(result, EIO);
         return -1;
     }
 

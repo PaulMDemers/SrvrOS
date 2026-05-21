@@ -151,7 +151,7 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     long slept = srv_sleep_ticks(ticks);
     int dispatched_after = __posix_signal_dispatch_pending();
     int result = slept < 0 ? -1 : 0;
-    if (slept < 0 && (slept == -2 || dispatched_before != 0 || dispatched_after != 0)) {
+    if (slept < 0 && (slept == SRV_ERR_INTR || dispatched_before != 0 || dispatched_after != 0)) {
         errno = EINTR;
     }
     return result;
@@ -186,7 +186,7 @@ unsigned int sleep(unsigned int seconds) {
     long slept = srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND);
     int dispatched_after = __posix_signal_dispatch_pending();
     unsigned int result = slept < 0 ? seconds : 0;
-    if (slept < 0 && (slept == -2 || dispatched_before != 0 || dispatched_after != 0)) {
+    if (slept < 0 && (slept == SRV_ERR_INTR || dispatched_before != 0 || dispatched_after != 0)) {
         errno = EINTR;
     }
     return result;

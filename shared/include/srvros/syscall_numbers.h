@@ -198,6 +198,7 @@ struct srv_winsize {
     uint16_t ypixel;
 };
 
+#define SRV_ERR_INTR -4
 #define SRV_ERR_AGAIN -11
 
 #define SRV_RIGHTS_MAX 4

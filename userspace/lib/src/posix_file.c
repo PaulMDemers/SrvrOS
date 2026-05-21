@@ -17,6 +17,7 @@ int __posix_socket_is_pseudo(int fd);
 void __posix_socket_note_close(int fd);
 void __posix_socket_note_dup(int old_fd, int new_fd);
 int __posix_socket_real_fd(int fd);
+int __posix_signal_dispatch_pending(void);
 long srv_unix_unlink(const char *path);
 
 #define POSIX_PATH_MAX 160
@@ -103,9 +104,14 @@ ssize_t read(int fd, void *buffer, size_t length) {
         return -1;
     }
     long result = srv_read(fd, buffer, length);
+    int dispatched = __posix_signal_dispatch_pending();
     if (result < 0) {
         if (result == SRV_ERR_AGAIN) {
             errno = EAGAIN;
+            return -1;
+        }
+        if (result == SRV_ERR_INTR || dispatched != 0) {
+            errno = EINTR;
             return -1;
         }
         errno = EBADF;
@@ -121,9 +127,14 @@ ssize_t write(int fd, const void *buffer, size_t length) {
         return -1;
     }
     long result = srv_write(fd, buffer, length);
+    int dispatched = __posix_signal_dispatch_pending();
     if (result < 0) {
         if (result == SRV_ERR_AGAIN) {
             errno = EAGAIN;
+            return -1;
+        }
+        if (result == SRV_ERR_INTR || dispatched != 0) {
+            errno = EINTR;
             return -1;
         }
         errno = EBADF;
@@ -422,8 +433,10 @@ int fcntl(int fd, int command, ...) {
         int srv_command = command == F_GETLK ? SRV_F_GETLK :
             command == F_SETLK ? SRV_F_SETLK : SRV_F_SETLKW;
         long result = srv_fcntl(fd, srv_command, (uint64_t)&srv_lock);
+        int dispatched = __posix_signal_dispatch_pending();
         if (result < 0) {
-            errno = result == SRV_ERR_AGAIN ? EAGAIN : EBADF;
+            errno = result == SRV_ERR_AGAIN ? EAGAIN :
+                (result == SRV_ERR_INTR || dispatched != 0) ? EINTR : EBADF;
             return -1;
         }
 

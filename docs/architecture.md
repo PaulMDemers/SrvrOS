@@ -405,8 +405,9 @@ cooperative interruption points such as `waitpid`, `poll`/`select`, sleeps, and
 `sched_yield`; this is enough for child watchers and libuv-style signal handles,
 but it is not yet full asynchronous POSIX signal-frame delivery. `sigsuspend`
 temporarily swaps the thread mask and returns `EINTR` after dispatching a caught
-signal; blocking `waitpid`, `poll`/`select`, and sleep calls also surface
-`EINTR` when a caught signal interrupts their wait.
+signal; blocking `waitpid`, `poll`/`select`, sleeps, pipe I/O, console input,
+Unix-domain accept, TCP accept/connect/read/write, UDP receive, and blocking
+file-lock waits also surface `EINTR` when a caught signal interrupts their wait.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,

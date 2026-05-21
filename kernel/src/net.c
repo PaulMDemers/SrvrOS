@@ -2754,7 +2754,7 @@ struct udp_wait_arg {
 
 static bool udp_recv_ready(void *arg) {
     struct udp_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -2818,6 +2818,9 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
         }
         if (!scheduler_wait(&udp_wait_queue, udp_recv_ready, &wait)) {
             scheduler_yield();
+        }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
         }
     }
 }
@@ -2928,7 +2931,7 @@ struct connect_wait_arg {
 
 static bool connect_ready(void *arg) {
     struct connect_wait_arg *wait = arg;
-    if (wait == 0 || wait->owner == 0 || process_should_exit_current()) {
+    if (wait == 0 || wait->owner == 0 || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -2998,12 +3001,16 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
         if (!scheduler_wait_timeout(&connect_wait_queue, connect_ready, &wait, deadline)) {
             scheduler_yield();
         }
+        if (process_signal_pending_current()) {
+            close_connection(find_connection_by_id_owner(connection_id, owner));
+            return SRV_ERR_INTR;
+        }
     }
 }
 
 static bool accept_ready(void *arg) {
     struct net_listener *listener = arg;
-    if (listener == 0 || !listener->used || process_should_exit_current()) {
+    if (listener == 0 || !listener->used || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3070,6 +3077,9 @@ int64_t net_accept(uint64_t listener_id,
         if (!scheduler_wait(&accept_wait_queue, accept_ready, listener)) {
             scheduler_yield();
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
     }
 }
 
@@ -3079,7 +3089,7 @@ struct read_wait_arg {
 
 static bool read_ready(void *arg) {
     struct read_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3157,6 +3167,9 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
         if (!scheduler_wait(&read_wait_queue, read_ready, &wait)) {
             scheduler_yield();
         }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
     }
 }
 
@@ -3174,7 +3187,7 @@ struct write_wait_arg {
 
 static bool write_ready(void *arg) {
     struct write_wait_arg *wait = arg;
-    if (wait == 0 || process_should_exit_current()) {
+    if (wait == 0 || process_should_exit_current() || process_signal_pending_current()) {
         return true;
     }
 
@@ -3259,6 +3272,9 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
         }
         if (!scheduler_wait(&write_wait_queue, write_ready, &wait)) {
             scheduler_yield();
+        }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
         }
     }
 }
@@ -3500,6 +3516,7 @@ void net_process_wake(struct process *process) {
     scheduler_wake_all(&accept_wait_queue);
     scheduler_wake_all(&read_wait_queue);
     scheduler_wake_all(&connect_wait_queue);
+    scheduler_wake_all(&write_wait_queue);
     scheduler_wake_all(&udp_wait_queue);
     process_file_poll_wake();
 }

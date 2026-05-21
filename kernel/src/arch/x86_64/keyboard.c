@@ -111,7 +111,10 @@ bool keyboard_scan_char(char *out) {
 
 static bool keyboard_has_char(void *arg) {
     (void)arg;
-    return process_should_exit_current() || read_index != write_index || serial_has_char();
+    return process_should_exit_current() ||
+        process_signal_pending_current() ||
+        read_index != write_index ||
+        serial_has_char();
 }
 
 char keyboard_read_char(void) {

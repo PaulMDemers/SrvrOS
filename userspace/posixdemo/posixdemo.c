@@ -915,6 +915,28 @@ int main(void) {
     say("posixdemo: poll ok\n");
     say("posixdemo: pipe ok\n");
 
+    int intr_pipe[2];
+    pthread_t io_signal_thread;
+    void *io_signal_value = 0;
+    demo_signal_count = 0;
+    errno = 0;
+    if (pipe(intr_pipe) < 0 ||
+        signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
+        pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+        read(intr_pipe[0], buffer, 1) != -1 ||
+        errno != EINTR ||
+        demo_signal_count != 1 ||
+        pthread_join(io_signal_thread, &io_signal_value) != 0 ||
+        io_signal_value != (void *)0x24 ||
+        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: pipe eintr failed\n");
+        return 24;
+    }
+    close(intr_pipe[0]);
+    close(intr_pipe[1]);
+    demo_signal_count = 0;
+    say("posixdemo: pipe eintr ok\n");
+
     DIR *dir = opendir("/fat/posixdemo");
     if (dir != 0) {
         struct dirent *entry;
@@ -2063,8 +2085,7 @@ int main(void) {
         if (server < 0 ||
             client < 0 ||
             bind(server, (const struct sockaddr *)&addr, sizeof(addr)) < 0 ||
-            listen(server, 4) < 0 ||
-            connect(client, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            listen(server, 4) < 0) {
             say("posixdemo: unix socket setup failed\n");
             if (server >= 0) {
                 close(server);
@@ -2072,6 +2093,28 @@ int main(void) {
             if (client >= 0) {
                 close(client);
             }
+            return 83;
+        }
+        io_signal_value = 0;
+        demo_signal_count = 0;
+        errno = 0;
+        if (signal(SIGUSR2, demo_signal_handler) == SIG_ERR ||
+            pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) != 0 ||
+            accept(server, 0, 0) != -1 ||
+            errno != EINTR ||
+            demo_signal_count != 1 ||
+            pthread_join(io_signal_thread, &io_signal_value) != 0 ||
+            io_signal_value != (void *)0x24 ||
+            signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+            say("posixdemo: unix socket accept eintr failed\n");
+            close(server);
+            close(client);
+            return 84;
+        }
+        if (connect(client, (const struct sockaddr *)&addr, sizeof(addr)) < 0) {
+            say("posixdemo: unix socket setup failed\n");
+            close(server);
+            close(client);
             return 83;
         }
         pfd.fd = server;
