@@ -287,8 +287,15 @@ int pthread_join(pthread_t thread, void **value_ptr) {
     }
 
     uint64_t value = 0;
-    if (srv_thread_join(thread, &value) < 0) {
-        return EINVAL;
+    for (;;) {
+        long result = srv_thread_join(thread, &value);
+        if (result == 0) {
+            break;
+        }
+        if (result != SRV_ERR_INTR) {
+            return EINVAL;
+        }
+        (void)__posix_signal_dispatch_pending();
     }
     if (value_ptr != 0) {
         *value_ptr = (void *)(uintptr_t)value;
@@ -327,6 +334,19 @@ pthread_t pthread_self(void) {
 
 int pthread_equal(pthread_t left, pthread_t right) {
     return left == right;
+}
+
+int pthread_kill(pthread_t thread, int sig) {
+    if (sig < 0 || sig >= 64) {
+        return EINVAL;
+    }
+    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+        return ESRCH;
+    }
+    if (sig == 0) {
+        return 0;
+    }
+    return kill(getpid(), sig) == 0 ? 0 : ESRCH;
 }
 
 int pthread_attr_init(pthread_attr_t *attr) {

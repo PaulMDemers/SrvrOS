@@ -96,5 +96,6 @@ int pthread_key_delete(pthread_key_t key);
 void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
+int pthread_kill(pthread_t thread, int sig);
 
 #endif

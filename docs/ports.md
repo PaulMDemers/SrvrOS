@@ -169,8 +169,9 @@ inherited descriptors and `FD_CLOEXEC` descriptor cleanup across exec.
 The `/fat/bin/threadstress` app focuses on preemptive same-process threading:
 explicit yields, mutex/condition/once synchronization, TLS keys, pthread
 attributes, timed condition waits, signal wakeups during futex-backed condition
-waits, recursive/error-checking mutexes, detached reaping, shared heap
-allocation, shared regular-file fd writes, and shared stdio stream writes.
+waits, create/join slot reuse, detached reaping, recursive/error-checking
+mutexes, shared heap allocation, shared regular-file fd writes, and shared
+stdio stream writes.
 The `zlibdemo` app links pinned zlib `v1.3.2`, compresses data, writes the
 compressed stream to `/fat`, reads it back, and verifies decompression.
 The `jsondemo` app links pinned cJSON `v1.7.19`, parses a service description,

@@ -44,6 +44,7 @@ int sigsuspend(const sigset_t *mask);
 int sigpending(sigset_t *set);
 int sigwait(const sigset_t *set, int *sig);
 int kill(pid_t pid, int sig);
+int pthread_kill(unsigned long thread, int sig);
 int raise(int sig);
 int sigemptyset(sigset_t *set);
 int sigfillset(sigset_t *set);

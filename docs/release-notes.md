@@ -26,6 +26,9 @@ server.
   dispatching caught signals internally while timed condition waits preserve
   their real timeout deadline. `posixdemo` and `threadstress` cover the signal
   wake path.
+- Adds libc `pthread_kill`, wakes `pthread_join` waits for caught signals while
+  preserving non-`EINTR` pthread semantics, and extends `threadstress` with
+  create/join and detached-thread lifecycle coverage.
 - Adds port-readiness libc surface for `limits.h`, `lstat`, `realpath`,
   `scandir`, and `alphasort`, with `/fat/bin/posixdemo` and
   `tools/ports_smoke.py` coverage.

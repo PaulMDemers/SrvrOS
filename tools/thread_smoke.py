@@ -123,6 +123,7 @@ def main():
             "threadstress: mutex ok",
             "threadstress: cond ok",
             "threadstress: once ok",
+            "threadstress: lifecycle ok",
             "threadstress: compat ok",
             "threadstress: signal wait ok",
             "threadstress: heap ok",

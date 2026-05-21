@@ -529,10 +529,13 @@ initializer to finish before returning. Caught signals wake futex waiters with
 `SRV_ERR_INTR`; libc pthread internals dispatch the signal and keep waiting
 where POSIX requires mutexes, condition waits, and `pthread_once` not to surface
 `EINTR`, while timed condition waits recompute their remaining deadline after
-each signal wake. The scheduler updates the TSS from each thread's effective
-kernel trap stack when switching between user threads, and the native thread
-launch path preserves the exact userspace stack alignment chosen by libc so
-SSE-using code keeps the SysV ABI alignment it expects.
+each signal wake. `pthread_join` also wakes for caught signals and retries after
+dispatch, and `pthread_kill` is provided as a process-local compatibility shim
+that validates known pthread ids before using the current process signal path.
+The scheduler updates the TSS from each thread's effective kernel trap stack
+when switching between user threads, and the native thread launch path preserves
+the exact userspace stack alignment chosen by libc so SSE-using code keeps the
+SysV ABI alignment it expects.
 Regular-file `read`/`write`/`seek` offset updates are serialized in the kernel
 under preemption, and libc stdio streams have recursive futex-backed locks for
 shared `FILE *` use from pthreads. `/fat/bin/threadstress` plus

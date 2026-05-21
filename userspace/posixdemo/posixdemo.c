@@ -51,6 +51,8 @@ static void say_u64(uint64_t value) {
 
 static volatile sig_atomic_t demo_signal_count;
 
+int __posix_signal_dispatch_pending(void);
+
 static void demo_signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGUSR2 || signum == SIGCHLD) {
         demo_signal_count++;
@@ -117,6 +119,14 @@ static void *pthread_wait_signal_worker(void *arg) {
     }
     kill(getpid(), SIGUSR2);
     return (void *)0x24;
+}
+
+static void *pthread_slow_worker(void *arg) {
+    (void)arg;
+    for (int i = 0; i < 32; i++) {
+        sched_yield();
+    }
+    return (void *)0x26;
 }
 
 static void *pthread_cond_signal_worker(void *arg) {
@@ -1904,6 +1914,22 @@ int main(void) {
     PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);
     PTHREAD_CHECK(joined_value == (void *)0x2a);
     PTHREAD_CHECK(pthread_shared == 12);
+    PTHREAD_CHECK(signal(SIGUSR2, demo_signal_handler) != SIG_ERR);
+    demo_signal_count = 0;
+    PTHREAD_CHECK(pthread_create(&worker, 0, pthread_slow_worker, 0) == 0);
+    PTHREAD_CHECK(pthread_create(&io_signal_thread, 0, pthread_wait_signal_worker, 0) == 0);
+    PTHREAD_CHECK(pthread_join(worker, &joined_value) == 0);
+    PTHREAD_CHECK(joined_value == (void *)0x26);
+    PTHREAD_CHECK(pthread_join(io_signal_thread, &io_signal_value) == 0);
+    PTHREAD_CHECK(io_signal_value == (void *)0x24);
+    PTHREAD_CHECK(demo_signal_count != 0);
+    PTHREAD_CHECK(pthread_kill(pthread_self(), 0) == 0);
+    PTHREAD_CHECK(pthread_kill((pthread_t)999999, 0) == ESRCH);
+    demo_signal_count = 0;
+    PTHREAD_CHECK(pthread_kill(pthread_self(), SIGUSR2) == 0);
+    PTHREAD_CHECK(__posix_signal_dispatch_pending() > 0);
+    PTHREAD_CHECK(demo_signal_count != 0);
+    PTHREAD_CHECK(signal(SIGUSR2, SIG_DFL) != SIG_ERR);
     PTHREAD_CHECK(pthread_heap_stress_test() == 0);
     PTHREAD_CHECK(pthread_key_delete(pthread_demo_key) == 0);
     PTHREAD_CHECK(nanosleep(&short_sleep, 0) == 0);

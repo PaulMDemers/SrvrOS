@@ -204,6 +204,53 @@ static int once_test(void) {
     return 0;
 }
 
+static void *lifecycle_worker(void *arg) {
+    uintptr_t id = (uintptr_t)arg;
+    for (int i = 0; i < 4; i++) {
+        sched_yield();
+    }
+    return (void *)(uintptr_t)(0x900 + id);
+}
+
+static int lifecycle_test(void) {
+    for (int i = 0; i < 24; i++) {
+        pthread_t thread;
+        if (pthread_create(&thread, 0, lifecycle_worker, (void *)(uintptr_t)i) != 0 ||
+            pthread_kill(thread, 0) != 0 ||
+            join_worker(thread, (uintptr_t)(0x900 + i)) != 0 ||
+            pthread_kill(thread, 0) != ESRCH) {
+            return -1;
+        }
+    }
+
+    pthread_attr_t attr;
+    if (pthread_attr_init(&attr) != 0 ||
+        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED) != 0) {
+        return -1;
+    }
+    for (int i = 0; i < 12; i++) {
+        pthread_t thread;
+        if (pthread_create(&thread, &attr, lifecycle_worker, (void *)(uintptr_t)i) != 0) {
+            pthread_attr_destroy(&attr);
+            return -1;
+        }
+        for (int j = 0; j < 8; j++) {
+            sched_yield();
+        }
+    }
+    pthread_attr_destroy(&attr);
+    for (int i = 0; i < 32; i++) {
+        sched_yield();
+    }
+    pthread_t thread;
+    if (pthread_create(&thread, 0, lifecycle_worker, (void *)24) != 0 ||
+        join_worker(thread, (uintptr_t)(0x900 + 24)) != 0) {
+        return -1;
+    }
+    say("threadstress: lifecycle ok\n");
+    return 0;
+}
+
 static int compat_test(void) {
     pthread_mutexattr_t mattr;
     pthread_mutex_t recursive;
@@ -550,6 +597,7 @@ int main(int argc, char **argv) {
     RUN_TEST("mutex", mutex_test);
     RUN_TEST("cond", cond_test);
     RUN_TEST("once", once_test);
+    RUN_TEST("lifecycle", lifecycle_test);
     RUN_TEST("compat", compat_test);
     RUN_TEST("signal", signal_wait_test);
     RUN_TEST("heap", heap_test);

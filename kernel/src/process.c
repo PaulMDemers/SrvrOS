@@ -358,6 +358,9 @@ static void process_wake_for_signal(struct process *process) {
     scheduler_wake_all(&pipe_wait_queue);
     scheduler_wake_all(&unix_wait_queue);
     scheduler_wake_all(&file_lock_wait_queue);
+    if (process != NULL) {
+        scheduler_wake_all(&process->thread_wait_queue);
+    }
     keyboard_wake_waiters();
     process_file_poll_wake();
     process_futex_wake_process(process);
@@ -2336,7 +2339,11 @@ static struct process_user_thread *process_find_user_thread(struct process *proc
 
 static bool process_user_thread_done(void *arg) {
     struct process_user_thread *thread = arg;
-    return thread == NULL || !thread->used || !thread->active;
+    return thread == NULL ||
+        !thread->used ||
+        !thread->active ||
+        process_should_exit_current() ||
+        process_signal_pending_current();
 }
 
 static void process_user_thread_start(void *arg) {
@@ -2433,6 +2440,12 @@ int64_t process_thread_join(uint64_t tid, uint64_t *value_out) {
 
     __asm__ volatile ("sti" : : : "memory");
     while (thread->active) {
+        if (process_should_exit_current()) {
+            return -1;
+        }
+        if (process_signal_pending_current()) {
+            return SRV_ERR_INTR;
+        }
         if (!scheduler_wait(&process->thread_wait_queue, process_user_thread_done, thread)) {
             scheduler_yield();
         }
