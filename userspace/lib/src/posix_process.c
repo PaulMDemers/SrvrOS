@@ -14,6 +14,7 @@
 #define SPAWN_CLOSED_FD (-2)
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
+int __posix_signal_dispatch_pending(void);
 
 static char *const *effective_envp(char *const envp[]) {
     return envp != 0 ? envp : environ;
@@ -530,7 +531,9 @@ pid_t waitpid(pid_t pid, int *status, int options) {
     if ((options & WNOHANG) != 0) {
         flags |= SRV_WAIT_NOHANG;
     }
+    (void)__posix_signal_dispatch_pending();
     long result = srv_wait((uint64_t)pid, &raw_status, flags);
+    (void)__posix_signal_dispatch_pending();
     if (result < 0) {
         errno = ECHILD;
         return -1;

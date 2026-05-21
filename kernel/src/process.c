@@ -329,14 +329,22 @@ static void process_set_current_signal_mask(struct process *process, uint64_t ma
     }
 }
 
+static uint64_t process_supported_signal_mask(void) {
+    return (1ull << SRV_SIGNAL_INT) |
+        (1ull << SRV_SIGNAL_QUIT) |
+        (1ull << SRV_SIGNAL_USR1) |
+        (1ull << SRV_SIGNAL_USR2) |
+        (1ull << SRV_SIGNAL_PIPE) |
+        (1ull << SRV_SIGNAL_ALRM) |
+        (1ull << SRV_SIGNAL_TERM) |
+        (1ull << SRV_SIGNAL_CHLD);
+}
+
 static void process_apply_signal_defaults(struct process *process, uint64_t signal_default) {
     if (process == NULL) {
         return;
     }
-    uint64_t supported = (1ull << SRV_SIGNAL_INT) |
-        (1ull << SRV_SIGNAL_TERM) |
-        (1ull << SRV_SIGNAL_CHLD);
-    uint64_t mask = signal_default & supported;
+    uint64_t mask = signal_default & process_supported_signal_mask();
     process->signal_catch_mask &= ~mask;
     process->signal_ignore_mask &= ~mask;
     process->pending_signals &= ~mask;
@@ -1991,7 +1999,7 @@ bool process_signal_target(int64_t pid, uint64_t signal) {
 bool process_signal_config_current(uint64_t signal, uint64_t action) {
     struct process *process = process_current();
     if (process == NULL || signal == 0 || signal >= 64 ||
-        (signal != SRV_SIGNAL_INT && signal != SRV_SIGNAL_TERM && signal != SRV_SIGNAL_CHLD) ||
+        ((process_supported_signal_mask() & (1ull << signal)) == 0) ||
         (action != SRV_SIGNAL_DEFAULT &&
             action != SRV_SIGNAL_CATCH &&
             action != SRV_SIGNAL_IGNORE)) {

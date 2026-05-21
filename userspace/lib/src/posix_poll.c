@@ -8,6 +8,7 @@
 #include <srvros/sys.h>
 
 int __posix_socket_poll_fd(int fd);
+int __posix_signal_dispatch_pending(void);
 
 #define POSIX_POLL_MAX 64
 
@@ -31,7 +32,9 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
         }
     }
 
+    (void)__posix_signal_dispatch_pending();
     long result = srv_poll(srv_fds, nfds, pre_ready != 0 ? 0 : timeout);
+    (void)__posix_signal_dispatch_pending();
     if (result < 0) {
         errno = EINVAL;
         return -1;

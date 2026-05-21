@@ -52,7 +52,7 @@ static void say_u64(uint64_t value) {
 static volatile sig_atomic_t demo_signal_count;
 
 static void demo_signal_handler(int signum) {
-    if (signum == SIGTERM) {
+    if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGCHLD) {
         demo_signal_count++;
     }
 }
@@ -1317,6 +1317,16 @@ int main(void) {
         return 40;
     }
     say("posixdemo: signal ok\n");
+    demo_signal_count = 0;
+    if (signal(SIGUSR1, demo_signal_handler) == SIG_ERR ||
+        kill(self_pid, SIGUSR1) < 0 ||
+        sched_yield() < 0 ||
+        demo_signal_count != 1 ||
+        signal(SIGUSR1, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: signal usr failed\n");
+        return 40;
+    }
+    say("posixdemo: signal usr ok\n");
     say("posixdemo: posix misc ok\n");
 
     char *true_argv[] = {"true", 0};
@@ -1339,6 +1349,36 @@ int main(void) {
         return 41;
     }
     say("posixdemo: sigchld ok\n");
+    demo_signal_count = 0;
+    if (signal(SIGCHLD, demo_signal_handler) == SIG_ERR ||
+        posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
+        child <= 0) {
+        say("posixdemo: sigchld handler setup failed\n");
+        return 41;
+    }
+    child_status = -1;
+    for (int spins = 0; spins < 200 &&
+        (demo_signal_count == 0 || child_status < 0); spins++) {
+        int status = 0;
+        pid_t got = waitpid(child, &status, WNOHANG);
+        if (got == child) {
+            child_status = status;
+        } else if (got < 0) {
+            say("posixdemo: sigchld handler wait failed\n");
+            return 41;
+        }
+        sched_yield();
+    }
+    if (demo_signal_count != 1 ||
+        child_status < 0 ||
+        !WIFEXITED(child_status) ||
+        WEXITSTATUS(child_status) != 0 ||
+        signal(SIGCHLD, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: sigchld handler failed\n");
+        return 41;
+    }
+    say("posixdemo: sigchld handler ok\n");
+    child_status = 0;
     if (posix_spawnp(&child, "true", 0, 0, true_argv, environ) != 0 ||
         child <= 0 ||
         waitpid(child, &child_status, 0) != child ||

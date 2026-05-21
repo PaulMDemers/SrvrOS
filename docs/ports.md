@@ -90,11 +90,13 @@ The first compatibility slice now lives under `userspace/lib/include` and
   match offsets, `REG_ICASE`, `REG_EXTENDED`, and `REG_NOSUB`.
 - `ctype`, C-locale `setlocale`/`localeconv`, first-pass `signal`,
   `sigaction`, `sigprocmask`, `pthread_sigmask`, `sigpending`, `sigwait`,
-  `kill`, and `raise` support for `SIGINT`/`SIGTERM`, with common signal
-  constants present for source probes. Signal masks are kernel-backed for the
-  main thread and spawned pthreads, and `posix_spawn` applies stored
-  signal-mask/default attributes through the native exec path. Child exit
-  queues observable `SIGCHLD` to active parents for blocked/caught wait paths.
+  `kill`, and `raise` support for `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
+  `SIGPIPE`, `SIGALRM`, `SIGTERM`, and `SIGCHLD`, with common signal constants
+  present for source probes. Signal masks are kernel-backed for the main thread
+  and spawned pthreads, and `posix_spawn` applies stored signal-mask/default
+  attributes through the native exec path. Child exit queues observable
+  `SIGCHLD` to active parents for blocked/caught wait paths, and libc dispatches
+  caught pending signals at cooperative interruption points.
   `assert`, `setjmp`/`longjmp`, and integer-safe `math.h` macros are also present.
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
@@ -401,7 +403,7 @@ Third-party source is kept as pinned submodules or snapshots under
 1. Expand `stdio` toward command-line port expectations: more ISO C edge cases,
    binary/update-mode corner cases, and broader formatted input behavior.
 2. Continue signal handling toward fuller POSIX semantics: broader real signal
-   delivery, richer `SIGCHLD` handler dispatch, and default-action behavior
+   delivery, signal-frame style async handler entry, and default-action behavior
    beyond the current catch/poll path; reset-id remains a no-op until a uid/gid
    model exists.
 3. Harden the exFAT metadata sidecar further: stronger atomic replacement,

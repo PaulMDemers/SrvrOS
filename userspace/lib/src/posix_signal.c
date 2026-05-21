@@ -5,17 +5,29 @@
 #include <unistd.h>
 
 static struct sigaction signal_actions[64];
+static volatile sig_atomic_t signal_dispatching;
 
 static int signal_valid(int signum) {
     return signum > 0 && signum < (int)(sizeof(sigset_t) * 8);
 }
 
 static int signal_supported(int signum) {
-    return signum == SIGINT || signum == SIGTERM || signum == SIGCHLD;
+    return signum == SIGINT ||
+        signum == SIGQUIT ||
+        signum == SIGUSR1 ||
+        signum == SIGUSR2 ||
+        signum == SIGPIPE ||
+        signum == SIGALRM ||
+        signum == SIGTERM ||
+        signum == SIGCHLD;
 }
 
 static sigset_t signal_mask_for(int signum) {
     return (sigset_t)1 << signum;
+}
+
+static int signal_action_is_handler(sighandler_t handler) {
+    return handler != SIG_DFL && handler != SIG_IGN && handler != SIG_ERR && handler != 0;
 }
 
 static int signal_apply_action(int signum, sighandler_t handler) {
@@ -66,11 +78,52 @@ int raise(int sig) {
     if (handler == SIG_IGN) {
         return 0;
     }
-    if (handler != SIG_DFL && handler != SIG_ERR && handler != 0) {
+    if (signal_action_is_handler(handler)) {
         handler(sig);
         return 0;
     }
     return kill(getpid(), sig);
+}
+
+int __posix_signal_dispatch_pending(void) {
+    if (signal_dispatching) {
+        return 0;
+    }
+
+    uint64_t pending = 0;
+    uint64_t blocked = 0;
+    if (srv_signal_pending(&pending) < 0 ||
+        srv_signal_mask(SRV_SIGNAL_BLOCK, 0, &blocked) < 0) {
+        return 0;
+    }
+
+    int dispatched = 0;
+    signal_dispatching = 1;
+    for (int signum = 1; signum < 64; signum++) {
+        uint64_t mask = (uint64_t)signal_mask_for(signum);
+        if ((pending & mask) == 0 || (blocked & mask) != 0 ||
+            !signal_supported(signum) ||
+            !signal_action_is_handler(signal_actions[signum].sa_handler)) {
+            continue;
+        }
+
+        uint64_t polled = 0;
+        if (srv_signal_consume(mask, &polled) < 0 || polled != (uint64_t)signum) {
+            continue;
+        }
+
+        struct sigaction action = signal_actions[signum];
+        uint64_t handler_mask = (uint64_t)(action.sa_mask | signal_mask_for(signum));
+        uint64_t old_mask = 0;
+        if (srv_signal_mask(SRV_SIGNAL_BLOCK, handler_mask, &old_mask) < 0) {
+            old_mask = blocked;
+        }
+        action.sa_handler(signum);
+        (void)srv_signal_mask(SRV_SIGNAL_SETMASK, old_mask, 0);
+        dispatched++;
+    }
+    signal_dispatching = 0;
+    return dispatched;
 }
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
@@ -119,6 +172,9 @@ int sigprocmask(int how, const sigset_t *set, sigset_t *oldset) {
     }
     if (oldset != 0) {
         *oldset = (sigset_t)old_mask;
+    }
+    if (set != 0 && how != SIG_BLOCK) {
+        (void)__posix_signal_dispatch_pending();
     }
     return 0;
 }

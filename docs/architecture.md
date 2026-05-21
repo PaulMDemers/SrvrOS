@@ -388,7 +388,8 @@ and exits them with the conventional `128 + signal` status. `kill` uses the
 same process signal machinery with POSIX-style targets: positive pids, `0` for
 the caller's process group, negative process-group ids, and signal `0` probes.
 Processes can also opt into the small catch/poll signal path used by libuv:
-caught `SIGINT`/`SIGTERM` values are queued as pending signals, wake blocking
+caught `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`, `SIGPIPE`, `SIGALRM`,
+`SIGTERM`, and `SIGCHLD` values are queued as pending signals, wake blocking
 poll/fd waits, and are consumed by userspace instead of forcing process exit.
 The kernel exposes both consuming and non-consuming pending-signal probes; libc
 uses those to provide first-pass `sigaction`, `sigprocmask`,
@@ -399,7 +400,10 @@ forwards stored signal-mask/default attributes through the native exec request.
 When a detached child becomes reapable, the kernel queues observable
 `SIGCHLD` to the active parent; default unblocked `SIGCHLD` remains
 non-terminating, while blocked or caught `SIGCHLD` can be observed with the
-same pending/sigwait path.
+same pending/sigwait path. libc dispatches unblocked caught pending signals at
+cooperative interruption points such as `waitpid`, `poll`/`select`, sleeps, and
+`sched_yield`; this is enough for child watchers and libuv-style signal handles,
+but it is not yet full asynchronous POSIX signal-frame delivery.
 
 The first text-tool compatibility passes cover common script-facing flags:
 `grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,

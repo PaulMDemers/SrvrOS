@@ -13,6 +13,8 @@
 #define PTHREAD_TLS_THREADS 16
 #define PTHREAD_TICKS_PER_SECOND 100
 
+int __posix_signal_dispatch_pending(void);
+
 struct pthread_key_slot {
     int used;
     void (*destructor)(void *);
@@ -682,5 +684,6 @@ int pthread_setspecific(pthread_key_t key, const void *value) {
 
 int sched_yield(void) {
     srv_syscall0(SYS_YIELD);
+    (void)__posix_signal_dispatch_pending();
     return 0;
 }

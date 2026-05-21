@@ -8,6 +8,8 @@
 
 #define SRVROS_TICKS_PER_SECOND 100
 
+int __posix_signal_dispatch_pending(void);
+
 time_t time(time_t *out) {
     time_t seconds = (time_t)(srv_ticks() / SRVROS_TICKS_PER_SECOND);
     if (out != 0) {
@@ -145,7 +147,10 @@ int nanosleep(const struct timespec *request, struct timespec *remaining) {
     if (ticks == 0 && (request->tv_sec != 0 || request->tv_nsec != 0)) {
         ticks = 1;
     }
-    return srv_sleep_ticks(ticks) < 0 ? -1 : 0;
+    (void)__posix_signal_dispatch_pending();
+    int result = srv_sleep_ticks(ticks) < 0 ? -1 : 0;
+    (void)__posix_signal_dispatch_pending();
+    return result;
 }
 
 int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining) {
@@ -173,7 +178,10 @@ int gettimeofday(struct timeval *tv, void *tz) {
 }
 
 unsigned int sleep(unsigned int seconds) {
-    return srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND) < 0 ? seconds : 0;
+    (void)__posix_signal_dispatch_pending();
+    unsigned int result = srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND) < 0 ? seconds : 0;
+    (void)__posix_signal_dispatch_pending();
+    return result;
 }
 
 int usleep(unsigned int usec) {

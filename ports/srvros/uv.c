@@ -3739,7 +3739,14 @@ uv_pid_t uv_process_get_pid(const uv_process_t *process) {
 }
 
 static int uv_signal_supported(int signum) {
-    return signum == SIGINT || signum == SIGTERM;
+    return signum == SIGINT ||
+        signum == SIGQUIT ||
+        signum == SIGUSR1 ||
+        signum == SIGUSR2 ||
+        signum == SIGPIPE ||
+        signum == SIGALRM ||
+        signum == SIGTERM ||
+        signum == SIGCHLD;
 }
 
 int uv_signal_init(uv_loop_t *loop, uv_signal_t *handle) {

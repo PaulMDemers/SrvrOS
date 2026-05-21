@@ -515,6 +515,13 @@ server.
 - Queues observable `SIGCHLD` to active parents when detached children become
   reapable, with default unblocked `SIGCHLD` remaining non-terminating and
   `/fat/bin/posixdemo` covering blocked `SIGCHLD` plus `sigwait`/`waitpid`.
+- Adds cooperative libc dispatch for unblocked caught pending signals at
+  `waitpid`, `poll`/`select`, sleep, and `sched_yield` boundaries, extends
+  `/fat/bin/posixdemo` with caught `SIGCHLD` handler coverage, and lets the
+  srvros libuv adapter watch `SIGCHLD`.
+- Broadens the catchable signal set to include `SIGQUIT`, `SIGUSR1`, `SIGUSR2`,
+  `SIGPIPE`, and `SIGALRM` alongside the existing `SIGINT`/`SIGTERM`/`SIGCHLD`
+  path, with POSIX and libuv smoke coverage for `SIGUSR1`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

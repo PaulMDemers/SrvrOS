@@ -54,10 +54,12 @@ backend.
   terminal window-size queries, normal/raw mode switching, stream writes, and
   vterm state probes. Closing a libuv TTY wrapper leaves the inherited stdio fd
   open.
-- `uv_signal_t` delivery for SIGINT/SIGTERM watchers, including start,
-  one-shot start, stop, handle sizing, handle naming, and callback dispatch
-  through `uv_run`. The adapter uses srvros signal catch/poll syscalls so a
-  watched signal wakes blocking poll waits instead of terminating the process.
+- `uv_signal_t` delivery for the srvros catchable signal set (`SIGINT`,
+  `SIGQUIT`, `SIGUSR1`, `SIGUSR2`, `SIGPIPE`, `SIGALRM`, `SIGTERM`, and
+  `SIGCHLD`), including start, one-shot start, stop, handle sizing, handle
+  naming, and callback dispatch through `uv_run`. The adapter uses srvros
+  signal catch/poll syscalls so a watched signal wakes blocking poll waits
+  instead of terminating the process.
 - `uv_process_t`, `uv_spawn`, `uv_process_get_pid`, `uv_process_kill`, and `uv_kill` over
   `posix_spawnp`, `waitpid(WNOHANG)`, and srvros process kill. The stdio bridge
   can create one-way pipes for child stdin/stdout/stderr, create a duplex pipe
@@ -67,7 +69,8 @@ backend.
   opening pipes, leaves failed process handles unregistered, and closes
   non-stdio temporary dup sources after the child-side dup action. While
   process handles are active, the loop caps otherwise indefinite poll waits so
-  `waitpid(WNOHANG)` can observe exits without a host SIGCHLD-style wake fd.
+  `waitpid(WNOHANG)` can observe exits; caught `SIGCHLD` also wakes loop waits
+  through the srvros pending-signal path.
 - UDP bind, recv, and send entry points over the srvros datagram fd layer.
 - `uv_poll_t` readiness over POSIX `poll`, including multi-handle readiness
   coverage above the original tiny loop snapshot.
