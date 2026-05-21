@@ -95,6 +95,7 @@ uint64_t process_list(uint64_t start_index,
     const char **state_out);
 bool process_kill_pid(uint64_t pid);
 bool process_signal_pid(uint64_t pid, uint64_t signal);
+bool process_signal_target(int64_t pid, uint64_t signal);
 bool process_signal_config_current(uint64_t signal, uint64_t action);
 bool process_signal_pending_current(void);
 uint64_t process_signal_poll_current(void);

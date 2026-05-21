@@ -49,6 +49,7 @@ pid_t getpgrp(void);
 int setpgid(pid_t pid, pid_t pgid);
 pid_t getsid(pid_t pid);
 pid_t setsid(void);
+int kill(pid_t pid, int sig);
 int execve(const char *path, char *const argv[], char *const envp[]);
 unsigned int sleep(unsigned int seconds);
 int usleep(unsigned int usec);

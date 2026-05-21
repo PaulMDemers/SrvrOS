@@ -76,10 +76,7 @@ int _getpid(void) {
 }
 
 int _kill(int pid, int signal) {
-    (void)pid;
-    (void)signal;
-    errno = ENOSYS;
-    return -1;
+    return kill((pid_t)pid, signal);
 }
 
 clock_t _times(struct tms *buffer) {

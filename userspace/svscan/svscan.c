@@ -366,7 +366,7 @@ static void stop_running_service(const struct service_config *config, const char
         return;
     }
     log_pid_line(config->name, reason, info.pid);
-    (void)srv_kill(info.pid);
+    (void)srv_kill((int64_t)info.pid);
     if (srv_wait(info.pid, &status, 0) > 0) {
         log_pid_value_line(config->name, "stopped", info.pid, "status", status);
     }

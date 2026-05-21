@@ -2334,7 +2334,7 @@ static uint64_t wait_shell_job(struct shell_job *job, int foreground) {
     }
     status = wait_job_pids(job->pids, job->count);
     if (foreground) {
-        (void)srv_proc_group(0, 0, 1);
+        (void)srv_proc_group(0, shell_pid, 1);
     }
     forget_job_id(job->id);
     job->used = 0;
@@ -2510,6 +2510,8 @@ static uint64_t kill_command(const char *args) {
     char work[ARG_EXPANDED_MAX];
     char *argv[8];
     int argc;
+    int signal = (int)SRV_SIGNAL_TERM;
+    int first_target = 0;
     uint64_t failures = 0;
 
     cli_copy(work, sizeof(work), args);
@@ -2519,35 +2521,60 @@ static uint64_t kill_command(const char *args) {
         return 2;
     }
     if (argc == 0) {
-        cli_puts("usage: kill <pid|%job> [...]\n");
+        cli_puts("usage: kill [-signal] <pid|%job> [...]\n");
         return 2;
     }
     if (argc == 1 && cli_is_help_arg(argv[0])) {
-        cli_puts("usage: kill <pid|%job> [...]\n");
+        cli_puts("usage: kill [-signal] <pid|%job> [...]\n");
         return 0;
     }
+    if (cli_streq(argv[0], "--")) {
+        first_target = 1;
+    } else if (argv[0][0] == '-' && argv[0][1] != '\0') {
+        int64_t parsed_signal = 0;
+        if (!parse_i64(argv[0] + 1, &parsed_signal) ||
+            parsed_signal < 0 ||
+            parsed_signal >= 64) {
+            cli_puts("kill: invalid signal: ");
+            cli_puts(argv[0]);
+            cli_puts("\n");
+            return 2;
+        }
+        signal = (int)parsed_signal;
+        first_target = 1;
+    }
+    if (first_target >= argc) {
+        cli_puts("usage: kill [-signal] <pid|%job> [...]\n");
+        return 2;
+    }
 
-    for (int i = 0; i < argc; i++) {
-        uint64_t target = parse_job_reference(argv[i]);
-        struct shell_job *job = argv[i][0] == '%' ? find_job(target) : 0;
-        if (target == 0) {
+    for (int i = first_target; i < argc; i++) {
+        if (cli_streq(argv[i], "--")) {
+            continue;
+        }
+        int is_job = argv[i][0] == '%';
+        uint64_t job_id = is_job ? parse_job_reference(argv[i]) : 0;
+        struct shell_job *job = is_job ? find_job(job_id) : 0;
+        int64_t target = 0;
+        if (is_job) {
+            if (job == 0) {
+                target = 0;
+            } else {
+                target = -(int64_t)job->group;
+            }
+        } else if (!parse_i64(argv[i], &target)) {
+            target = 0;
+        }
+        if (target == 0 && !cli_streq(argv[i], "0")) {
             cli_puts("kill: invalid target: ");
             cli_puts(argv[i]);
             cli_puts("\n");
             failures++;
             continue;
         }
-        if (job != 0) {
-            for (size_t j = 0; j < job->count; j++) {
-                if (job->pids[j] >= 0 && srv_kill((uint64_t)job->pids[j]) < 0) {
-                    failures++;
-                }
-            }
-            continue;
-        }
-        if (srv_kill(target) < 0) {
-            cli_puts("kill: no such pid: ");
-            cli_putn(target);
+        if (srv_kill_signal(target, (uint64_t)signal) < 0) {
+            cli_puts("kill: no such target: ");
+            cli_puts(argv[i]);
             cli_puts("\n");
             failures++;
         }

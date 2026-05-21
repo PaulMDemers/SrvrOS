@@ -138,8 +138,8 @@ long srv_spawn_bg_args_fds(const char *path, const char *args, int stdin_fd, int
 long srv_exec(const struct srv_exec_request *request);
 long srv_execve(const char *path, char *const argv[], char *const envp[]);
 long srv_proc_list(uint64_t index, struct srv_process_info *info);
-long srv_kill(uint64_t pid);
-long srv_kill_signal(uint64_t pid, uint64_t signal);
+long srv_kill(int64_t pid);
+long srv_kill_signal(int64_t pid, uint64_t signal);
 long srv_signal_config(uint64_t signal, uint64_t action);
 long srv_signal_poll(uint64_t *signal_out);
 long srv_meminfo(struct srv_meminfo *info);

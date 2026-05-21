@@ -362,11 +362,11 @@ long srv_proc_list(uint64_t index, struct srv_process_info *info) {
     return srv_syscall2(SYS_PROC_LIST, (long)index, (long)info);
 }
 
-long srv_kill(uint64_t pid) {
+long srv_kill(int64_t pid) {
     return srv_syscall2(SYS_KILL, (long)pid, SRV_SIGNAL_TERM);
 }
 
-long srv_kill_signal(uint64_t pid, uint64_t signal) {
+long srv_kill_signal(int64_t pid, uint64_t signal) {
     return srv_syscall2(SYS_KILL, (long)pid, (long)signal);
 }
 

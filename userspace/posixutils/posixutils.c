@@ -949,7 +949,7 @@ static int spawn_and_wait(char **argv, uint64_t timeout_seconds, int use_timeout
         }
         uint64_t now = (uint64_t)clock();
         if (now - start >= timeout_seconds * 100u) {
-            srv_kill((uint64_t)pid);
+            srv_kill((int64_t)pid);
             (void)waitpid(pid, &status, 0);
             return 124;
         }

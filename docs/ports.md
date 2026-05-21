@@ -88,8 +88,9 @@ The first compatibility slice now lives under `userspace/lib/include` and
   support for common script-port patterns: `.`, anchors, bracket/range/class
   expressions, alternation, grouped captures, bounded repeats, `*`, ERE `+`/`?`,
   match offsets, `REG_ICASE`, `REG_EXTENDED`, and `REG_NOSUB`.
-- `ctype`, C-locale `setlocale`/`localeconv`, `signal` stubs, `assert`,
-  `setjmp`/`longjmp`, and integer-safe `math.h` macros
+- `ctype`, C-locale `setlocale`/`localeconv`, first-pass `signal`, `kill`,
+  and `raise` support for `SIGINT`/`SIGTERM`, `assert`, `setjmp`/`longjmp`,
+  and integer-safe `math.h` macros
 - `time`, `clock_gettime`, `gettimeofday`, `sleep`, `usleep`,
   `nanosleep`, and relative `clock_nanosleep`
 - `getpagesize`, `sysconf(_SC_PAGESIZE)`, `sysconf(_SC_NPROCESSORS_ONLN)`,

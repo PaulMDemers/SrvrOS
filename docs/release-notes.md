@@ -500,6 +500,11 @@ server.
   to be foregrounded with `fg $!` and interrupted as a process group.
 - Adds shell job references (`%+`, `%-`, numeric `%N`), `jobs -l` pid listing,
   and built-in `kill %job` delivery across every process tracked for a job.
+- Expands `kill` to POSIX-style signal targets: positive pids, caller process
+  group (`0`), negative process-group ids, and signal `0` existence probes.
+  The shell `kill` builtin and `/fat/bin/kill` now accept `-signal`, and libc
+  exposes `kill`, `raise`, and first-pass `signal` handling for
+  `SIGINT`/`SIGTERM`.
 - Expands `srvsh` with `$VAR`/`${VAR}` expansion, `$?`, `$$`, and `&&`/`||`
   command chaining.
 - Extends shell parameter expansion with `${VAR:-word}`, `${VAR:=word}`,

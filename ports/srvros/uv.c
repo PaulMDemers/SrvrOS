@@ -3731,7 +3731,7 @@ int uv_kill(int pid, int signum) {
     if (pid <= 0 || !uv_signal_supported(signum)) {
         return UV_ESRCH;
     }
-    return srv_kill_signal((uint64_t)pid, (uint64_t)signum) < 0 ? UV_ESRCH : 0;
+    return srv_kill_signal((int64_t)pid, (uint64_t)signum) < 0 ? UV_ESRCH : 0;
 }
 
 uv_pid_t uv_process_get_pid(const uv_process_t *process) {

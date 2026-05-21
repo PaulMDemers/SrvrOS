@@ -131,6 +131,18 @@ def main():
             output += read_until(sock, b" $ ", args.line_wait)
             sock.sendall(b"echo bg-pipeline-status-$?\n")
             output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"kill -0 $$ && echo kill-self-probe-ok\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"spin | cat &\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"kill -0 %+ && echo kill-job-probe-ok\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"kill %+\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"wait %+\n")
+            output += read_until(sock, b" $ ", args.line_wait)
+            sock.sendall(b"echo kill-job-status-$?\n")
+            output += read_until(sock, b" $ ", args.line_wait)
             sock.sendall(b"exit 0\n")
             output += read_until(sock, b"srv> ", 10)
             output += read_for(sock, 1)
@@ -158,6 +170,9 @@ def main():
         "  pid ",
         "background spin | cat",
         "bg-pipeline-status-130",
+        "kill-self-probe-ok",
+        "kill-job-probe-ok",
+        "kill-job-status-143",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

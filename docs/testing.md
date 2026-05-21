@@ -128,8 +128,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   and `fsck`.
 - `process_smoke.py`: background process launch, process listing, exit status,
   `wait`, `jobs -l`, `%+` job references, foreground/background pipeline job
-  control, and Ctrl-C interruption of CPU-bound processes and pipelines with
-  `status 130`.
+  control, `kill -0` probes, `%job` process-group kill, and Ctrl-C interruption
+  of CPU-bound processes and pipelines with `status 130`.
 - `process_pressure.py`: repeated foreground execs, multi-stage pipelines, many
   concurrent background sleeps, `jobs -l`, `wait`, and a final pipeline pass. It
   fails on process-table, scheduler-thread, pipe, or pipeline-spawn exhaustion

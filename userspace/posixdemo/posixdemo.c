@@ -49,6 +49,14 @@ static void say_u64(uint64_t value) {
     }
 }
 
+static volatile sig_atomic_t demo_signal_count;
+
+static void demo_signal_handler(int signum) {
+    if (signum == SIGTERM) {
+        demo_signal_count++;
+    }
+}
+
 static int compare_ints(const void *left, const void *right) {
     int a = *(const int *)left;
     int b = *(const int *)right;
@@ -1241,6 +1249,20 @@ int main(void) {
         return 40;
     }
     say("posixdemo: process control ok\n");
+    if (kill(self_pid, 0) < 0 ||
+        kill(-getpgrp(), 0) < 0 ||
+        kill(999999, 0) == 0 ||
+        signal(SIGTERM, demo_signal_handler) == SIG_ERR ||
+        raise(SIGTERM) < 0 ||
+        demo_signal_count != 1 ||
+        signal(SIGTERM, SIG_IGN) == SIG_ERR ||
+        raise(SIGTERM) < 0 ||
+        demo_signal_count != 1 ||
+        signal(SIGTERM, SIG_DFL) == SIG_ERR) {
+        say("posixdemo: signal failed\n");
+        return 40;
+    }
+    say("posixdemo: signal ok\n");
     say("posixdemo: posix misc ok\n");
 
     char *true_argv[] = {"true", 0};

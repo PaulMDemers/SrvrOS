@@ -1497,8 +1497,8 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? (int64_t)next : -1;
 }
 
-static int64_t syscall_kill(uint64_t pid) {
-    return process_kill_pid(pid) ? 0 : -1;
+static int64_t syscall_kill(int64_t pid, uint64_t signal) {
+    return process_signal_target(pid, signal) ? 0 : -1;
 }
 
 static int64_t syscall_signal_config(uint64_t signal, uint64_t action) {
@@ -2078,9 +2078,7 @@ void syscall_dispatch(struct isr_frame *frame) {
         frame->rax = (uint64_t)syscall_proc_list(frame->rdi, (struct syscall_process_info *)frame->rsi);
         return;
     case SYS_KILL:
-        frame->rax = (uint64_t)(frame->rsi != 0 ?
-            (process_signal_pid(frame->rdi, frame->rsi) ? 0 : -1) :
-            syscall_kill(frame->rdi));
+        frame->rax = (uint64_t)syscall_kill((int64_t)frame->rdi, frame->rsi);
         return;
     case SYS_SPAWN_BG_ARGS:
         frame->rax = (uint64_t)syscall_spawn_bg_args((const char *)frame->rdi, (const char *)frame->rsi);

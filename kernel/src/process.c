@@ -1834,15 +1834,18 @@ bool process_kill_pid(uint64_t pid) {
 }
 
 bool process_signal_pid(uint64_t pid, uint64_t signal) {
-    if (signal == 0) {
-        signal = SRV_SIGNAL_TERM;
-    }
     if (signal >= 64) {
         return false;
     }
     uint64_t mask = 1ull << signal;
     for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
-        if (processes[i].allocated && processes[i].active && processes[i].pid == pid) {
+        if (processes[i].allocated && processes[i].pid == pid) {
+            if (signal == 0) {
+                return processes[i].active || processes[i].reapable;
+            }
+            if (!processes[i].active) {
+                return false;
+            }
             if ((processes[i].signal_ignore_mask & mask) != 0) {
                 return true;
             }
@@ -1864,6 +1867,48 @@ bool process_signal_pid(uint64_t pid, uint64_t signal) {
         }
     }
     return false;
+}
+
+bool process_signal_target(int64_t pid, uint64_t signal) {
+    if (signal >= 64) {
+        return false;
+    }
+    if (pid > 0) {
+        return process_signal_pid((uint64_t)pid, signal);
+    }
+
+    uint64_t target_group = 0;
+    if (pid == 0) {
+        target_group = process_group(0);
+        if (target_group == 0) {
+            return false;
+        }
+    } else if (pid < -1) {
+        target_group = (uint64_t)(-pid);
+    }
+
+    bool matched = false;
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        struct process *candidate = &processes[i];
+        if (!candidate->allocated) {
+            continue;
+        }
+        if (pid == -1) {
+            if (!candidate->active && !candidate->reapable) {
+                continue;
+            }
+        } else if (candidate->process_group != target_group) {
+            continue;
+        }
+        if (signal == 0) {
+            matched = matched || candidate->active || candidate->reapable;
+            continue;
+        }
+        if (candidate->active) {
+            matched = process_signal_pid(candidate->pid, signal) || matched;
+        }
+    }
+    return matched;
 }
 
 bool process_signal_config_current(uint64_t signal, uint64_t action) {
