@@ -13,7 +13,7 @@ This is an exploratory source staging point. Node has not been built for srvros
 yet, but the local patch queue now gets upstream configure past OS selection,
 generates a Ninja graph, separates V8 host/target generated files, builds
 target and host libuv focused archives, and produces V8's host `mksnapshot`
-generator under WSL-native probing.
+generator plus a reduced static `node` executable under WSL-native probing.
 
 The first configure probe found that upstream Node does not accept
 `--dest-os=srvros`. A reduced `--dest-os=linux` cross-configure completes, so
@@ -87,6 +87,11 @@ last concrete build blockers fixed were:
 - Target and host libuv focused probes now build successfully.
 - V8 `v8_libbase` omitting POSIX/Linux platform and stack-trace sources for the
   srvros OS flavor; `mksnapshot` now links and answers `--help`.
+- c-ares not selecting a generated config header for srvros.
+- QUIC metadata version includes not respecting the no-OpenSSL/no-QUIC reduced
+  profile.
+- The reduced static `node` WSL-host probe now links and reports platform
+  `srvros` and arch `x64`.
 
 ## First Target
 
@@ -106,8 +111,9 @@ and TCP/UDP.
 - Static-first policy for native addons until `dlopen` exists.
 - More targeted srvros libuv backend work instead of the temporary
   Linux-like probe mapping.
-- Full static `node` executable link and the next round of unresolved Node/V8
-  platform symbols beyond `mksnapshot`.
+- Real srvros cross-linking instead of the current WSL-host static probe.
+- Replacing glibc-only static-link dependencies such as passwd/group/service
+  lookup and dynamic-loader paths with srvros libc/POSIX behavior.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

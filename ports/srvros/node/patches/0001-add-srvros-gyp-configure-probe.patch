@@ -244,6 +244,39 @@ diff --git a/tools/v8_gypfiles/v8.gyp b/tools/v8_gypfiles/v8.gyp
            'sources': [
              '<(V8_ROOT)/src/base/debug/stack_trace_posix.cc',
              '<(V8_ROOT)/src/base/platform/platform-linux.cc',
+diff --git a/deps/cares/cares.gyp b/deps/cares/cares.gyp
+--- a/deps/cares/cares.gyp
++++ b/deps/cares/cares.gyp
+@@ -220,7 +220,7 @@
+             '--std=gnu11'
+           ],
+         }],
+-        [ 'OS=="linux"', {
++        [ 'OS=="linux" or OS=="srvros"', {
+           'include_dirs': [ 'config/linux' ],
+           'sources': [ 'config/linux/ares_config.h' ]
+         }],
+diff --git a/src/node_metadata.cc b/src/node_metadata.cc
+--- a/src/node_metadata.cc
++++ b/src/node_metadata.cc
+@@ -37,7 +37,7 @@
+ #endif
+ #endif  // HAVE_OPENSSL
+ 
+-#ifndef OPENSSL_NO_QUIC
++#if HAVE_OPENSSL && HAVE_QUIC
+ #include <ngtcp2/version.h>
+ #include <nghttp3/version.h>
+ #endif
+@@ -147,7 +147,7 @@ Metadata::Versions::Versions() {
+   unicode = U_UNICODE_VERSION;
+ #endif  // NODE_HAVE_I18N_SUPPORT
+ 
+-#ifndef OPENSSL_NO_QUIC
++#if HAVE_OPENSSL && HAVE_QUIC
+   ngtcp2 = NGTCP2_VERSION;
+   nghttp3 = NGHTTP3_VERSION;
+ #endif
 diff --git a/tools/v8_gypfiles/features.gypi b/tools/v8_gypfiles/features.gypi
 index 53886830..fc792f8d 100644
 --- a/tools/v8_gypfiles/features.gypi

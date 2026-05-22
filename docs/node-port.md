@@ -51,9 +51,10 @@ rejects the MSYS/Cygwin host environment.
 
 The WSL/Linux probe now gets past configure, Ninja graph generation, V8
 inspector/Torque generated-file collisions, libuv's first GNU feature visibility
-issue, and V8's host `mksnapshot` link. The build is slow from the Windows
-filesystem, but it is no longer blocked at configure, early graph generation,
-libuv archive generation, or the first major V8 host generator.
+issue, V8's host `mksnapshot` link, bundled c-ares compilation, and the reduced
+static `node` link. The build is slow from the Windows filesystem, but it is no
+longer blocked at configure, early graph generation, libuv archive generation,
+the first major V8 host generator, or the first static Node executable.
 
 Focused WSL-native probes now confirm that both target and host upstream libuv
 archives build with the current srvros patch queue:
@@ -73,6 +74,21 @@ The last blocker there was V8's `v8_libbase` source selection: srvros now maps
 onto the POSIX/Linux base sources for `platform-linux.cc` and
 `stack_trace_posix.cc`, which provide the host OS and debug helpers needed by
 the generator link.
+
+The reduced static Node milestone now builds with:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget node
+```
+
+The resulting WSL-host probe binary reports `v24.16.0`, `process.platform` as
+`srvros`, and `process.arch` as `x64`. This is not yet a srvros-native
+executable, but it proves the patched upstream tree can produce a full static
+CLI Node binary shape for the srvros OS flavor. The last two blockers were:
+
+- c-ares needed srvros to select the bundled Linux `ares_config.h`.
+- Node metadata needed QUIC version includes and assignments guarded by
+  `HAVE_OPENSSL && HAVE_QUIC` for the no-OpenSSL/no-QUIC reduced profile.
 
 There are now two probe runners:
 
@@ -181,8 +197,8 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Run the focused `node` WSL-native target until the static CLI executable
-   reaches its next compile or link failure.
+1. Start replacing the temporary Linux-host probe with a srvros cross-link path
+   that uses the srvros libc/POSIX/syscall surface instead of glibc.
 2. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
 3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
