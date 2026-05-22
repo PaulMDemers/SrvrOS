@@ -122,6 +122,7 @@ ZIG_VERSION := 0.15.2
 ZIG_DIR := build/tooling/zig
 ZIG := $(ZIG_DIR)/zig.exe
 CC := $(ZIG) cc
+AR := $(ZIG) ar
 LD := $(ZIG) ld.lld
 QEMU := qemu-system-x86_64
 
@@ -204,6 +205,8 @@ USER_APP_LDFLAGS := \
 	-T userspace/app.ld
 
 USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
+USER_LIB_A := build/userspace/lib/libsrvros.a
+USER_SYSROOT := build/sysroot/srvros
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -874,6 +877,25 @@ build/%.S.o: %.S $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
 $(USER_INIT): $(ZIG) $(USER_CRT0_OBJ) $(USER_INIT_OBJ) $(USER_LIB_OBJ) userspace/linker.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_LDFLAGS) $(USER_CRT0_OBJ) $(USER_INIT_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_LIB_A): $(ZIG) $(USER_LIB_OBJ)
+	mkdir -p $(dir $@)
+	rm -f $@
+	$(AR) rcs $@ $(USER_LIB_OBJ)
+
+.PHONY: srvros-sysroot
+srvros-sysroot: $(USER_SYSROOT)/.ready
+
+$(USER_SYSROOT)/.ready: $(ZIG) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld
+	rm -rf $(USER_SYSROOT)
+	mkdir -p $(USER_SYSROOT)/include $(USER_SYSROOT)/lib
+	cp -R shared/include/* $(USER_SYSROOT)/include/
+	cp -R userspace/lib/include/* $(USER_SYSROOT)/include/
+	cp userspace/app.ld $(USER_SYSROOT)/lib/app.ld
+	cp $(USER_CRT0_OBJ) $(USER_SYSROOT)/lib/crt0.o
+	cp $(USER_LIB_A) $(USER_SYSROOT)/lib/libsrvros.a
+	printf '%s\n' 'x86_64-freestanding-none' > $(USER_SYSROOT)/TARGET
+	touch $@
 
 $(USER_HELLO): $(ZIG) $(USER_CRT0_OBJ) $(USER_HELLO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)

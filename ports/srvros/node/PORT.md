@@ -71,6 +71,16 @@ The convenience wrappers `probe-libuv-linux.sh` and
 `probe-mksnapshot-linux.sh` exercise the two most useful smaller milestones.
 The PowerShell WSL helpers expose the same choice as `-ProbeTarget`.
 
+For the first srvros-native link check, run:
+
+```powershell
+ports\srvros\node\probe-srvros-toolchain.ps1
+```
+
+This exports `build/sysroot/srvros`, then builds a tiny freestanding C/C++
+program against `crt0.o`, `app.ld`, and `libsrvros.a`. It does not compile Node
+itself yet; it verifies the local ABI package that the Node cross-link will use.
+
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
 worth iterating on, including resource/accounting calls such as `getrlimit` and
@@ -114,6 +124,8 @@ and TCP/UDP.
 - Real srvros cross-linking instead of the current WSL-host static probe.
 - Replacing glibc-only static-link dependencies such as passwd/group/service
   lookup and dynamic-loader paths with srvros libc/POSIX behavior.
+- Wiring Node's generated Ninja/GYP link command to the exported srvros sysroot
+  and recording the first true srvros-native Node unresolved symbols.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

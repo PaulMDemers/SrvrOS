@@ -90,6 +90,19 @@ CLI Node binary shape for the srvros OS flavor. The last two blockers were:
 - Node metadata needed QUIC version includes and assignments guarded by
   `HAVE_OPENSSL && HAVE_QUIC` for the no-OpenSSL/no-QUIC reduced profile.
 
+The first srvros-native link bridge is now available through:
+
+```powershell
+ports\srvros\node\probe-srvros-toolchain.ps1
+```
+
+That probe exports `build/sysroot/srvros` with the userspace headers, shared
+syscall headers, `crt0.o`, `app.ld`, and `libsrvros.a`, then compiles and links
+a tiny C plus C++ executable with the same freestanding Zig/LLD path used by
+normal srvros apps. This gives Node and other C/C++ ports a stable local
+toolchain contract before the full Node object graph is pointed at the srvros
+libc/POSIX surface.
+
 There are now two probe runners:
 
 - `ports/srvros/node/probe.sh`: MSYS-side discovery probe. This verifies the
@@ -197,8 +210,8 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Start replacing the temporary Linux-host probe with a srvros cross-link path
-   that uses the srvros libc/POSIX/syscall surface instead of glibc.
+1. Teach the Node probe to emit or reuse srvros-flavored compiler/linker
+   settings from the exported sysroot instead of the Linux-host glibc link.
 2. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
 3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
