@@ -1,4 +1,5 @@
 #include <errno.h>
+#include <inttypes.h>
 #include <spawn.h>
 #include <srvros/sys.h>
 #include <stdint.h>
@@ -291,6 +292,10 @@ long atol(const char *text) {
     return strtol(text, 0, 10);
 }
 
+long long atoll(const char *text) {
+    return strtoll(text, 0, 10);
+}
+
 static int digit_value(int c) {
     if (c >= '0' && c <= '9') {
         return c - '0';
@@ -348,6 +353,14 @@ unsigned long strtoul(const char *text, char **endptr, int base) {
 
 unsigned long long strtoull(const char *text, char **endptr, int base) {
     return (unsigned long long)strtoll(text, endptr, base);
+}
+
+intmax_t strtoimax(const char *text, char **endptr, int base) {
+    return (intmax_t)strtoll(text, endptr, base);
+}
+
+uintmax_t strtoumax(const char *text, char **endptr, int base) {
+    return (uintmax_t)strtoull(text, endptr, base);
 }
 
 static double pow10_int(int exponent) {

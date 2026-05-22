@@ -57,6 +57,10 @@ typedef struct {
     int reserved;
 } pthread_rwlockattr_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int pthread_create(pthread_t *thread,
     const pthread_attr_t *attr,
     void *(*start_routine)(void *),
@@ -117,5 +121,9 @@ void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

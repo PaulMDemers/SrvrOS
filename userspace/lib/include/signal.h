@@ -40,6 +40,10 @@ typedef struct {
 
 #define SA_RESTART 0x10000000
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct sigaction {
     sighandler_t sa_handler;
     sigset_t sa_mask;
@@ -61,5 +65,9 @@ int sigfillset(sigset_t *set);
 int sigaddset(sigset_t *set, int signum);
 int sigdelset(sigset_t *set, int signum);
 int sigismember(const sigset_t *set, int signum);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

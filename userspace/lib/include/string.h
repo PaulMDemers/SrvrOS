@@ -3,6 +3,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *memset(void *destination, int value, size_t length);
 void *memcpy(void *destination, const void *source, size_t length);
 void *memmove(void *destination, const void *source, size_t length);
@@ -26,5 +30,9 @@ char *strerror(int error);
 char *strdup(const char *text);
 int strcasecmp(const char *left, const char *right);
 int strncasecmp(const char *left, const char *right, size_t length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

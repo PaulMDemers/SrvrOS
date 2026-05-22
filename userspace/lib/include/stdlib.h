@@ -25,6 +25,10 @@ typedef struct {
     long long rem;
 } lldiv_t;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *malloc(size_t size);
 void free(void *ptr);
 void *calloc(size_t count, size_t size);
@@ -33,6 +37,7 @@ int posix_memalign(void **memptr, size_t alignment, size_t size);
 void *aligned_alloc(size_t alignment, size_t size);
 int atoi(const char *text);
 double atof(const char *text);
+long long atoll(const char *text);
 int abs(int value);
 long labs(long value);
 long long llabs(long long value);
@@ -74,5 +79,9 @@ int mkstemp(char *template_path);
 int mkostemp(char *template_path, int flags);
 void abort(void) __attribute__((noreturn));
 void exit(int status) __attribute__((noreturn));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

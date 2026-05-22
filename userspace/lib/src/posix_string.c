@@ -24,6 +24,18 @@ int memcmp(const void *left, const void *right, size_t length) {
     return 0;
 }
 
+int bcmp(const void *left, const void *right, size_t length) {
+    return memcmp(left, right, length);
+}
+
+void bcopy(const void *source, void *destination, size_t length) {
+    memmove(destination, source, length);
+}
+
+void bzero(void *destination, size_t length) {
+    memset(destination, 0, length);
+}
+
 size_t strlen(const char *text) {
     size_t length = 0;
     while (text != 0 && text[length] != '\0') {
@@ -50,6 +62,14 @@ int strncmp(const char *left, const char *right, size_t length) {
         }
     }
     return 0;
+}
+
+char *index(const char *text, int value) {
+    return strchr(text, value);
+}
+
+char *rindex(const char *text, int value) {
+    return strrchr(text, value);
 }
 
 int strcoll(const char *left, const char *right) {

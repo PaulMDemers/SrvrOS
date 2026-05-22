@@ -3,6 +3,8 @@ param(
   [string]$NativePath = "~/srvros-node-probe",
   [string]$Sysroot = "build\sysroot\srvros",
   [string]$OutDir = "build\node-srvros-compile-probe",
+  [string]$Objects = "",
+  [string]$ObjectList = "",
   [switch]$FailOnError
 )
 
@@ -68,6 +70,74 @@ function Write-UndefinedSymbols([string]$ObjectPath, [string]$OutputPath) {
   } elseif (Test-Path -LiteralPath $OutputPath) {
     Remove-Item -LiteralPath $OutputPath
   }
+}
+
+function Convert-ObjectPathToName([string]$ObjectPath) {
+  if ($ObjectPath -eq "obj/src/node.node_main.o") {
+    return "node.node_main"
+  }
+  if ($ObjectPath -eq "obj/src/node.node_snapshot_stub.o") {
+    return "node.node_snapshot_stub"
+  }
+  return (($ObjectPath -replace '^obj/', '') -replace '[\\/]', '_' -replace '\.o$', '')
+}
+
+function Split-ObjectSpec([string]$Spec) {
+  if ($Spec.Length -eq 0) {
+    return @()
+  }
+  return @($Spec -split '[,;\s]+' | Where-Object { $_.Length -gt 0 })
+}
+
+function Resolve-NinjaObjectSource(
+  [string]$ObjectPath,
+  [string]$NativeRoot,
+  [string]$ReleaseUnix,
+  [string]$NodeRootUnix,
+  [string]$SourceRootWin,
+  [string]$GeneratedRootWin,
+  [string[]]$WslArgs
+) {
+  $quotedObject = $ObjectPath -replace "'", "'\''"
+  $queryCommand = "build/wsl-tools/ninja-linux/ninja -C ports/upstream/node/out/out/Release -t query '$quotedObject'"
+  $query = & wsl.exe @WslArgs --cd "$NativeRoot" -- bash -lc $queryCommand
+  if ($LASTEXITCODE -ne 0) {
+    throw "Unable to query Ninja object '$ObjectPath'"
+  }
+
+  $source = ""
+  foreach ($line in $query) {
+    $item = $line.Trim()
+    if ($item -match '\.(cc|cxx|cpp)$') {
+      $source = $item
+      break
+    }
+  }
+  if ($source.Length -eq 0) {
+    throw "Ninja object '$ObjectPath' did not expose a C++ source"
+  }
+
+  if ($source.StartsWith("../../../")) {
+    $relative = $source.Substring(9)
+    return Join-Path $SourceRootWin ($relative -replace '/', '\')
+  }
+  if ($source.StartsWith("gen/")) {
+    return Join-Path $GeneratedRootWin ($source -replace '/', '\')
+  }
+
+  $quotedSource = $source -replace "'", "'\''"
+  $sourceUnix = (& wsl.exe @WslArgs --cd "$ReleaseUnix" -- bash -lc "realpath '$quotedSource'").Trim()
+  if ($LASTEXITCODE -ne 0 -or $sourceUnix.Length -eq 0) {
+    throw "Unable to resolve source '$source' for '$ObjectPath'"
+  }
+  if ($sourceUnix.StartsWith("$NodeRootUnix/")) {
+    $relative = $sourceUnix.Substring($NodeRootUnix.Length + 1)
+    if ($relative.StartsWith("out/out/Release/gen/")) {
+      return Join-Path $GeneratedRootWin (($relative.Substring("out/out/Release/".Length)) -replace '/', '\')
+    }
+    return Join-Path $SourceRootWin ($relative -replace '/', '\')
+  }
+  return (& wsl.exe @WslArgs --cd "$NativeRoot" -- bash -lc "wslpath -w '$sourceUnix'").Trim()
 }
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -223,23 +293,58 @@ foreach ($include in $includeDirs) {
   $commonArgs += $include
 }
 
-$targets = @(
-  @{
-    Name = "node_main"
-    Source = Join-Path $sourceRootWin "src\node_main.cc"
-    LinuxObject = Join-Path $releaseWin "obj\src\node.node_main.o"
-    SrvrosObject = Join-Path $outPath "node.node_main.srvros.o"
-  },
-  @{
-    Name = "node_snapshot_stub"
-    Source = Join-Path $sourceRootWin "src\node_snapshot_stub.cc"
-    LinuxObject = Join-Path $releaseWin "obj\src\node.node_snapshot_stub.o"
-    SrvrosObject = Join-Path $outPath "node.node_snapshot_stub.srvros.o"
-  }
+$defaultObjects = @(
+  "obj/src/node.node_main.o",
+  "obj/src/node.node_snapshot_stub.o",
+  "obj/src/libnode.node_options.o",
+  "obj/src/libnode.node_errors.o",
+  "obj/src/libnode.node_metadata.o",
+  "obj/src/libnode.node_config_file.o",
+  "obj/src/libnode.node_types.o",
+  "obj/src/libnode.node_debug.o",
+  "obj/src/libnode.node_task_queue.o",
+  "obj/src/libnode.node_platform.o"
 )
+
+$requestedObjects = @()
+$requestedObjects += Split-ObjectSpec $Objects
+if ($ObjectList.Length -gt 0) {
+  if (!(Test-Path -LiteralPath $ObjectList)) {
+    throw "Missing object list at $ObjectList"
+  }
+  $requestedObjects += Get-Content -LiteralPath $ObjectList |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_.Length -gt 0 -and !($_.StartsWith("#")) }
+}
+if ($requestedObjects.Count -eq 0) {
+  $requestedObjects = $defaultObjects
+}
+$requestedObjects = @($requestedObjects | Select-Object -Unique)
+
+$targets = @()
+foreach ($objectPath in $requestedObjects) {
+  $name = Convert-ObjectPathToName $objectPath
+  $source = Resolve-NinjaObjectSource `
+    -ObjectPath $objectPath `
+    -NativeRoot $nativeRoot `
+    -ReleaseUnix $releaseUnix `
+    -NodeRootUnix $nodeRootUnix `
+    -SourceRootWin $sourceRootWin `
+    -GeneratedRootWin $generatedRootWin `
+    -WslArgs $wslArgs
+  $targets += @{
+    Name = $name
+    Source = $source
+    ObjectPath = $objectPath
+    LinuxObject = Join-Path $releaseWin ($objectPath -replace '/', '\')
+    SrvrosObject = Join-Path $outPath "$name.srvros.o"
+  }
+}
 
 $failed = $false
 $compiled = @()
+$failedTargets = @()
+$manifest = @("object`tname`tsource`tsrvros_object")
 
 foreach ($target in $targets) {
   $name = $target.Name
@@ -258,14 +363,23 @@ foreach ($target in $targets) {
   $output | Tee-Object -FilePath $log
 
   if ($exitCode -eq 0) {
-    $compiled += $name
+    $compiled += $target.ObjectPath
+    $manifest += "$($target.ObjectPath)`t$name`t$($target.Source)`t$srvrosObject"
     Write-UndefinedSymbols -ObjectPath $srvrosObject -OutputPath (Join-Path $outPath "$name.srvros.undefined.txt")
     Write-UndefinedSymbols -ObjectPath $target.LinuxObject -OutputPath (Join-Path $outPath "$name.linux.undefined.txt")
     Write-Host "  wrote $srvrosObject"
   } else {
     $failed = $true
+    $failedTargets += $target.ObjectPath
     Write-Host "  stopped at compile frontier; see $log"
   }
+}
+
+$manifest | Set-Content -LiteralPath (Join-Path $outPath "replacements.tsv")
+if ($failedTargets.Count -gt 0) {
+  $failedTargets | Set-Content -LiteralPath (Join-Path $outPath "failed.txt")
+} elseif (Test-Path -LiteralPath (Join-Path $outPath "failed.txt")) {
+  Remove-Item -LiteralPath (Join-Path $outPath "failed.txt")
 }
 
 $summary = @(
@@ -274,7 +388,9 @@ $summary = @(
   "sourceRoot=$sourceRootWin",
   "generatedRoot=$generatedRootWin",
   "release=$releaseWin",
+  "requested=$($requestedObjects -join ', ')",
   "compiled=$($compiled -join ', ')",
+  "failedTargets=$($failedTargets -join ', ')",
   "failed=$failed"
 )
 $summary | Set-Content -LiteralPath (Join-Path $outPath "summary.txt")

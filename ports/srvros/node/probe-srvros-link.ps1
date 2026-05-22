@@ -16,6 +16,37 @@ function Quote-RspArg([string]$Value) {
   '"' + ($Value -replace '"', '\"') + '"'
 }
 
+function Read-ReplacementManifest([string]$CompileProbePath) {
+  $replacements = @{}
+  $manifest = Join-Path $CompileProbePath "replacements.tsv"
+  if (Test-Path -LiteralPath $manifest) {
+    $rows = Import-Csv -LiteralPath $manifest -Delimiter "`t"
+    foreach ($row in $rows) {
+      if ($row.object -and $row.srvros_object -and
+          (Test-Path -LiteralPath $row.srvros_object)) {
+        $replacements[$row.object] = $row.srvros_object
+      }
+    }
+  }
+
+  $fallback = @{
+    "obj/src/node.node_main.o" = Join-Path $CompileProbePath "node.node_main.srvros.o"
+    "obj/src/node.node_snapshot_stub.o" = Join-Path $CompileProbePath "node.node_snapshot_stub.srvros.o"
+  }
+  foreach ($entry in $fallback.GetEnumerator()) {
+    if (!$replacements.ContainsKey($entry.Key) -and
+        (Test-Path -LiteralPath $entry.Value)) {
+      $replacements[$entry.Key] = $entry.Value
+    }
+  }
+
+  return $replacements
+}
+
+function Quote-BashArg([string]$Value) {
+  "'" + ($Value -replace "'", "'\''") + "'"
+}
+
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..\..")
 $sysrootPath = Join-Path $repoRoot $Sysroot
@@ -90,14 +121,47 @@ $wholeArchive = @(
   "obj/tools/v8_gypfiles/libv8_snapshot.a"
 )
 
-$srvrosObjectReplacements = @{
-  "obj/src/node.node_main.o" = Join-Path $compileProbePath "node.node_main.srvros.o"
-  "obj/src/node.node_snapshot_stub.o" = Join-Path $compileProbePath "node.node_snapshot_stub.srvros.o"
+$srvrosObjectReplacements = Read-ReplacementManifest $compileProbePath
+$directReplacements = @($srvrosObjectReplacements.Keys | Where-Object { $inputs -contains $_ })
+$archiveReplacements = @($srvrosObjectReplacements.Keys | Where-Object { !($inputs -contains $_) })
+$filteredArchives = @{}
+if ($archiveReplacements.Count -gt 0) {
+  $wholeArchive = @($wholeArchive | Where-Object { $_ -ne "obj/libnode.a" })
+
+  $filteredLibnode = Join-Path $outPath "libnode.filtered.a"
+  $filteredLibnodeArg = $filteredLibnode -replace "'", "'\''"
+  $filteredLibnodeUnix = (& wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc "wslpath -u '$filteredLibnodeArg'").Trim()
+  if ($LASTEXITCODE -ne 0 -or $filteredLibnodeUnix.Length -eq 0) {
+    throw "Unable to translate filtered archive path $filteredLibnode"
+  }
+  $deleteListUnix = "$filteredLibnodeUnix.delete-list"
+  $keepListUnix = "$filteredLibnodeUnix.keep-list"
+  $deleteLines = ($archiveReplacements -join "`n") -replace "'", "'\''"
+  $filterCommand = @"
+cd $(Quote-BashArg $releaseUnix) &&
+cat > $(Quote-BashArg $deleteListUnix) <<'EOF'
+$deleteLines
+EOF
+ar t obj/libnode.a | grep -vxF -f $(Quote-BashArg $deleteListUnix) > $(Quote-BashArg $keepListUnix) &&
+rm -f $(Quote-BashArg $filteredLibnodeUnix) &&
+xargs -a $(Quote-BashArg $keepListUnix) ar rcs $(Quote-BashArg $filteredLibnodeUnix)
+"@
+  & wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc $filterCommand
+  if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $filteredLibnode)) {
+    throw "Unable to create filtered libnode archive at $filteredLibnode"
+  }
+  $filteredArchives["obj/libnode.a"] = $filteredLibnode
 }
 
 $rspArgs += "--start-group"
+foreach ($replacement in $archiveReplacements) {
+  $rspArgs += $srvrosObjectReplacements[$replacement]
+}
 foreach ($input in $inputs) {
   $full = Join-Path $releaseWin ($input -replace '/', '\')
+  if ($filteredArchives.ContainsKey($input)) {
+    $full = $filteredArchives[$input]
+  }
   if ($srvrosObjectReplacements.ContainsKey($input) -and
       (Test-Path -LiteralPath $srvrosObjectReplacements[$input])) {
     $full = $srvrosObjectReplacements[$input]
@@ -118,6 +182,8 @@ $rspArgs += @("-o", $elf)
 
 Write-Host "Linking Node object graph against srvros sysroot..."
 Write-Host "  inputs: $($inputs.Count)"
+Write-Host "  direct replacements: $($directReplacements.Count)"
+Write-Host "  archive replacements: $($archiveReplacements.Count)"
 Write-Host "  rsp: $rsp"
 
 $process = Start-Process `

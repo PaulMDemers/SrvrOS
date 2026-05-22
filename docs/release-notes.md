@@ -48,6 +48,11 @@ server.
 - Expands Node/V8-oriented libc compatibility with `sys/param.h`,
   `sys/sysinfo.h`, `sys/auxv.h`, `sys/prctl.h`, `sys/syscall.h`, `madvise`,
   `pthread_getattr_np`, and single-CPU affinity stubs.
+- Expands the Node srvros compile bridge from two entry objects to a manifest
+  driven 10-object batch, adds filtered `libnode.a` replacement support in the
+  link probe, and fills the exposed libc header gaps for `<inttypes.h>`,
+  `<strings.h>`, C++ linkage guards, BSD string aliases, and integer conversion
+  helpers.
 - Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
   workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
   port manifest at `ports/srvros/ed/PORT.md`.

@@ -26,6 +26,10 @@ extern FILE *stdin;
 extern FILE *stdout;
 extern FILE *stderr;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int printf(const char *format, ...);
 int fprintf(FILE *stream, const char *format, ...);
 int vfprintf(FILE *stream, const char *format, va_list args);
@@ -80,5 +84,9 @@ int pclose(FILE *stream);
 void flockfile(FILE *stream);
 int ftrylockfile(FILE *stream);
 void funlockfile(FILE *stream);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

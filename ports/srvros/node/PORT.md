@@ -99,14 +99,22 @@ ports\srvros\node\probe-srvros-compile.ps1
 
 This uses Zig's freestanding C++ frontend, the exported srvros sysroot, and
 Zig's bundled libc++ headers. It now enables the minimal C-locale profile needed
-for libc++ `<sstream>` declarations and compiles both `src/node_main.cc` and
-`src/node_snapshot_stub.cc` into srvros objects under
-`build/node-srvros-compile-probe`.
+for libc++ declarations and compiles a default batch of 10 Node objects into
+srvros objects under `build/node-srvros-compile-probe`. The batch includes the
+two entry objects plus `node_options`, `node_errors`, `node_metadata`,
+`node_config_file`, `node_types`, `node_debug`, `node_task_queue`, and
+`node_platform`.
 
-`probe-srvros-link.ps1` will prefer those srvros-compiled entry objects when
-they exist, and maps the freestanding C++ `main(int, char**)` symbol back to
-the C `crt0.o` entry contract. The link frontier has moved on to the remaining
-host-built libnode/V8 C++ runtime symbols and the Linux-shaped libuv backend.
+The compile probe accepts `-Objects` for ad hoc comma/space separated object
+lists and `-ObjectList` for file-backed batches. Successful replacements are
+recorded in `replacements.tsv`.
+
+`probe-srvros-link.ps1` reads that manifest, prefers direct srvros-compiled
+entry objects, rebuilds a filtered non-thin `libnode.a` when libnode archive
+members have srvros replacements, and maps the freestanding C++ `main(int,
+char**)` symbol back to the C `crt0.o` entry contract. The link frontier has
+moved on to libc++ implementation symbols, the remaining host-built Node/V8
+objects, and the Linux-shaped libuv/c-ares backend.
 
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
@@ -159,10 +167,10 @@ and TCP/UDP.
   is mostly host-glibc aliases, math/wide-char gaps, and libuv/Linux backend
   APIs rather than `operator new/delete` or `__cxa_guard_*`.
 - The first real srvros-compiled Node entry objects (`node_main.cc` and
-  `node_snapshot_stub.cc`) now build against the sysroot. The next object-level
-  work is compiling more libnode/V8 objects with the same srvros C++ profile,
-  then deciding whether to link a real libc++ archive or keep pruning runtime
-  dependencies from the reduced profile.
+  `node_snapshot_stub.cc`) plus eight libnode objects now build against the
+  sysroot. The next object-level work is compiling broader libnode/V8 batches
+  with the same srvros C++ profile, then deciding whether to link a real libc++
+  archive or keep pruning runtime dependencies from the reduced profile.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

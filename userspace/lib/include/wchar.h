@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdio.h>
+#include <time.h>
 
 #ifndef __cplusplus
 typedef __WCHAR_TYPE__ wchar_t;
@@ -14,6 +15,10 @@ typedef struct {
 } mbstate_t;
 
 #define WEOF ((wint_t)-1)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 size_t wcslen(const wchar_t *s);
 int wcscmp(const wchar_t *left, const wchar_t *right);
@@ -36,5 +41,10 @@ size_t mbsnrtowcs(wchar_t *dest, const char **src, size_t nms, size_t len, mbsta
 size_t wcrtomb(char *s, wchar_t wc, mbstate_t *ps);
 size_t wcsrtombs(char *dest, const wchar_t **src, size_t len, mbstate_t *ps);
 size_t wcsnrtombs(char *dest, const wchar_t **src, size_t nwc, size_t len, mbstate_t *ps);
+size_t wcsftime(wchar_t *s, size_t max, const wchar_t *format, const struct tm *tm);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

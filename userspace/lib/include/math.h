@@ -27,6 +27,10 @@
 #define islessgreater(left, right) (!isnan(left) && !isnan(right) && (left) != (right))
 #define isunordered(left, right) (isnan(left) || isnan(right))
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 double fabs(double value);
 float fabsf(float value);
 long double fabsl(long double value);
@@ -87,5 +91,9 @@ long double ldexpl(long double value, int exponent);
 double frexp(double value, int *exponent);
 float frexpf(float value, int *exponent);
 long double frexpl(long double value, int *exponent);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -27,6 +27,10 @@ struct timespec {
     long tv_nsec;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 time_t time(time_t *out);
 struct tm *localtime(const time_t *timer);
 time_t mktime(struct tm *timeptr);
@@ -35,5 +39,9 @@ int clock_gettime(int clock_id, struct timespec *tp);
 int nanosleep(const struct timespec *request, struct timespec *remaining);
 int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining);
 size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

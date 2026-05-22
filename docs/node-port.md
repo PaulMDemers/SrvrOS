@@ -123,15 +123,40 @@ ports\srvros\node\probe-srvros-compile.ps1
 
 It exports `build/sysroot/srvros`, uses the local patched Node checkout for
 headers and sources, and compiles selected Node translation units with Zig C++
-for `x86_64-freestanding-none`. It now enables enough of libc++'s C-locale
-profile for `<sstream>` declarations and compiles both `src/node_main.cc` and
-`src/node_snapshot_stub.cc` as srvros objects.
+for `x86_64-freestanding-none`. The default batch now compiles the two entry
+objects plus eight low-risk libnode objects:
 
-`probe-srvros-link.ps1` prefers those srvros-compiled entry objects when they
-exist. Because freestanding C++ mangles `main(int, char**)`, the link probe
-also maps `main` to `_Z4mainiPPc` for this bridge. The link frontier has moved
-past those entry objects and is now dominated by host-built libnode/V8 C++
-runtime symbols plus the Linux-shaped libuv backend.
+```text
+obj/src/node.node_main.o
+obj/src/node.node_snapshot_stub.o
+obj/src/libnode.node_options.o
+obj/src/libnode.node_errors.o
+obj/src/libnode.node_metadata.o
+obj/src/libnode.node_config_file.o
+obj/src/libnode.node_types.o
+obj/src/libnode.node_debug.o
+obj/src/libnode.node_task_queue.o
+obj/src/libnode.node_platform.o
+```
+
+The compile probe writes `build/node-srvros-compile-probe/replacements.tsv` so
+the link probe can consume replacement objects without duplicating object-name
+knowledge. Use `-Objects` for a comma/space separated list or `-ObjectList` for
+a text file when expanding the batch.
+
+`probe-srvros-link.ps1` now reads that manifest. Direct final-link objects are
+replaced in place; libnode archive members are handled by rebuilding a filtered
+copy of `libnode.a` with replaced members removed, then adding the srvros
+objects ahead of the archive. Because freestanding C++ mangles
+`main(int, char**)`, the link probe also maps `main` to `_Z4mainiPPc` for this
+bridge.
+
+The link frontier has moved past the entry-object proof and the archive
+substitution mechanics. It is now dominated by missing libc++ implementation
+symbols, Node/V8 objects still built against host libstdc++, Linux-shaped libuv
+and c-ares backend calls (`epoll`, `inotify`, `getifaddrs`, credential and
+process helpers), and the next batch of libnode objects that should be compiled
+with the srvros C++ profile.
 
 The first srvros-link run captured 200 unique unresolved symbols before the
 configured linker error limit. The dominant buckets were:
@@ -159,11 +184,12 @@ libuv/Linux backend calls.
 
 The sysroot also picked up the first headers and implementations needed by this
 compile probe and later libuv/Node passes: minimal `<wchar.h>`, `<pwd.h>`,
-`<grp.h>`, `<semaphore.h>`, IPv6 socket structs, `sockaddr_storage`,
-`pthread_rwlock_*`, root passwd/group lookup, C-locale handles, ASCII wide-char
-conversion helpers, simple unnamed semaphore operations, locale-aware numeric
-conversion wrappers, `is*_*_l` wrappers, `asprintf`/`vasprintf`, `isblank`,
-`strncasecmp`, and a small `strftime` fallback.
+`<grp.h>`, `<semaphore.h>`, `<inttypes.h>`, `<strings.h>`, IPv6 socket structs,
+`sockaddr_storage`, `pthread_rwlock_*`, root passwd/group lookup, C-locale
+handles, ASCII wide-char conversion helpers, simple unnamed semaphore
+operations, locale-aware numeric conversion wrappers, `is*_*_l` wrappers,
+`asprintf`/`vasprintf`, `isblank`, `strcasecmp`/`strncasecmp`, BSD string
+aliases, integer conversion helpers, and a small `strftime` fallback.
 
 There are now two probe runners:
 
