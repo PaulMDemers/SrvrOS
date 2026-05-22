@@ -11,8 +11,9 @@
 
 This is an exploratory source staging point. Node has not been built for srvros
 yet, but the local patch queue now gets upstream configure past OS selection,
-generates a Ninja graph, separates V8 host/target generated files, and drives a
-WSL/Linux probe deep into V8 and Node compilation.
+generates a Ninja graph, separates V8 host/target generated files, builds
+target and host libuv focused archives, and produces V8's host `mksnapshot`
+generator under WSL-native probing.
 
 The first configure probe found that upstream Node does not accept
 `--dest-os=srvros`. A reduced `--dest-os=linux` cross-configure completes, so
@@ -84,6 +85,8 @@ last concrete build blockers fixed were:
 - Ninja duplicate outputs from host and target V8 generated files.
 - libuv's Linux/GNU feature branch not being selected for the srvros probe.
 - Target and host libuv focused probes now build successfully.
+- V8 `v8_libbase` omitting POSIX/Linux platform and stack-trace sources for the
+  srvros OS flavor; `mksnapshot` now links and answers `--help`.
 
 ## First Target
 
@@ -103,6 +106,8 @@ and TCP/UDP.
 - Static-first policy for native addons until `dlopen` exists.
 - More targeted srvros libuv backend work instead of the temporary
   Linux-like probe mapping.
+- Full static `node` executable link and the next round of unresolved Node/V8
+  platform symbols beyond `mksnapshot`.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

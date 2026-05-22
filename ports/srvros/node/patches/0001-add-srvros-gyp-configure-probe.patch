@@ -232,6 +232,18 @@ index 2bcc912a..cb4aabf5 100755
  
    args.append('-Dcomponent=static_library')
    args.append('-Dlibrary=static_library')
+diff --git a/tools/v8_gypfiles/v8.gyp b/tools/v8_gypfiles/v8.gyp
+--- a/tools/v8_gypfiles/v8.gyp
++++ b/tools/v8_gypfiles/v8.gyp
+@@ -1436,7 +1436,7 @@
+             }],
+           ],
+         }],
+-        ['OS=="linux" or OS=="openharmony"', {
++        ['OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+           'sources': [
+             '<(V8_ROOT)/src/base/debug/stack_trace_posix.cc',
+             '<(V8_ROOT)/src/base/platform/platform-linux.cc',
 diff --git a/tools/v8_gypfiles/features.gypi b/tools/v8_gypfiles/features.gypi
 index 53886830..fc792f8d 100644
 --- a/tools/v8_gypfiles/features.gypi

@@ -50,10 +50,10 @@ non-cross-compiling host probe reaches V8 compilation and stops when Abseil
 rejects the MSYS/Cygwin host environment.
 
 The WSL/Linux probe now gets past configure, Ninja graph generation, V8
-inspector/Torque generated-file collisions, and libuv's first GNU feature
-visibility issue. The current run reaches late V8/Node compilation; the build is
-slow from the Windows filesystem, but it is no longer blocked at configure or
-early graph generation.
+inspector/Torque generated-file collisions, libuv's first GNU feature visibility
+issue, and V8's host `mksnapshot` link. The build is slow from the Windows
+filesystem, but it is no longer blocked at configure, early graph generation,
+libuv archive generation, or the first major V8 host generator.
 
 Focused WSL-native probes now confirm that both target and host upstream libuv
 archives build with the current srvros patch queue:
@@ -63,10 +63,16 @@ ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget libuv
 ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget libuv-host
 ```
 
-The next bounded upstream build milestone is `mksnapshot`. It reaches V8
-generated initializer compilation and still has several hundred edges before
-final host link, so it is useful as a longer V8 check but no longer a quick
-POSIX/libuv smoke test.
+The `mksnapshot` milestone now builds with:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget mksnapshot
+```
+
+The last blocker there was V8's `v8_libbase` source selection: srvros now maps
+onto the POSIX/Linux base sources for `platform-linux.cc` and
+`stack_trace_posix.cc`, which provide the host OS and debug helpers needed by
+the generator link.
 
 There are now two probe runners:
 
@@ -175,8 +181,8 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Continue the `mksnapshot` WSL-native probe until it reaches a concrete
-   compile/link failure or produces the host generator.
+1. Run the focused `node` WSL-native target until the static CLI executable
+   reaches its next compile or link failure.
 2. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
 3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
