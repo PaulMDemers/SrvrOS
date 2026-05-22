@@ -116,7 +116,7 @@ unresolved-symbol frontier, written to
 `build/node-srvros-link-probe/unresolved-symbols.txt`.
 
 The first srvros-link run captured 200 unique unresolved symbols before the
-configured linker error limit. The dominant buckets are now clear:
+configured linker error limit. The dominant buckets were:
 
 - C++ runtime and libstdc++: `operator new/delete`, `std::basic_*`,
   `std::__throw_*`, `std::cout`/`std::cerr`, locale and stream support.
@@ -128,6 +128,16 @@ configured linker error limit. The dominant buckets are now clear:
 - libuv/Linux process and event backend calls: `fork`, `execvp`, `epoll_*`,
   `inotify_*`, `getifaddrs`, `getnameinfo`, and pthread affinity/name/rwlock
   helpers.
+
+srvros now ships the first minimal no-exception C++ runtime/ABI slice in
+`libsrvros.a`: malloc-backed `operator new/delete`, aligned and nothrow
+overloads, `std::nothrow`, `__cxa_atexit`, `__cxa_thread_atexit`,
+`__cxa_guard_*`, pure/deleted virtual traps, `__stack_chk_fail`, `__assert_fail`,
+`__cxa_demangle` as an unsupported stub, `__libc_single_threaded`, and unsigned
+128-bit division/mod compiler helpers. After that slice, the intended first
+runtime bucket is gone from the Node frontier; the remaining list is led by
+host-glibc fortified/C23/`*64` aliases, math and wide-character helpers, and
+libuv/Linux backend calls.
 
 There are now two probe runners:
 
@@ -238,9 +248,9 @@ ports/srvros/node/probe-linux.sh
 
 1. Replace the host-built Node objects with srvros-compiled objects so the
    unresolved list stops including glibc fortified and `*64` alias symbols.
-2. Add a minimal C++ runtime/ABI layer for no-exception Node/V8 builds:
-   allocation, static destructor registration, guard variables, compiler-rt
-   integer helpers, and stack-check policy.
+2. Expand the srvros C/POSIX layer for the post-runtime Node frontier: math,
+   wide-character, passwd/group, file timestamp/statfs, and process identity
+   calls.
 3. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
 4. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony

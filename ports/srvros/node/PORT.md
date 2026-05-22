@@ -138,6 +138,9 @@ and TCP/UDP.
   and recording the first true srvros-native Node unresolved symbols.
 - C++ runtime/ABI support for Node/V8's no-exception C++ build, plus replacing
   host-glibc-built Node objects with srvros-compiled objects.
+- The first C++ runtime/ABI slice is in `libsrvros.a`, so the next link frontier
+  is mostly host-glibc aliases, math/wide-char gaps, and libuv/Linux backend
+  APIs rather than `operator new/delete` or `__cxa_guard_*`.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

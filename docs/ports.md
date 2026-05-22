@@ -9,6 +9,12 @@ familiar API while the kernel keeps a compact srvros syscall ABI.
 `crt0.o`, `app.ld`, and `libsrvros.a`, giving larger ports a stable package to
 compile and link against without scraping the main application Makefile.
 
+The userspace library also includes a small no-exception C++ ABI/runtime slice
+for C++ ports: allocation/deallocation operators, aligned and nothrow variants,
+static destructor registration stubs, guard variables for function-local
+statics, stack-check failure handling, and a few compiler helper symbols used by
+large C++ runtimes such as V8.
+
 ## Foundation Added
 
 The first compatibility slice now lives under `userspace/lib/include` and

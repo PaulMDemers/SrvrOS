@@ -122,6 +122,7 @@ ZIG_VERSION := 0.15.2
 ZIG_DIR := build/tooling/zig
 ZIG := $(ZIG_DIR)/zig.exe
 CC := $(ZIG) cc
+CXX := $(ZIG) c++
 AR := $(ZIG) ar
 LD := $(ZIG) ld.lld
 QEMU := qemu-system-x86_64
@@ -166,6 +167,34 @@ USER_CFLAGS := \
 	-target x86_64-freestanding-none \
 	-std=gnu11 \
 	-ffreestanding \
+	-fno-stack-protector \
+	-fno-stack-check \
+	-fno-lto \
+	-fno-PIC \
+	-ffunction-sections \
+	-fdata-sections \
+	-m64 \
+	-march=x86_64 \
+	-mabi=sysv \
+	-mno-80387 \
+	-mno-mmx \
+	-mno-red-zone \
+	-Wall \
+	-Wextra \
+	-Werror \
+	-g \
+	-O2 \
+	-I shared/include \
+	-I userspace/lib/include \
+	-MMD \
+	-MP
+
+USER_CXXFLAGS := \
+	-target x86_64-freestanding-none \
+	-std=gnu++20 \
+	-ffreestanding \
+	-fno-exceptions \
+	-fno-rtti \
 	-fno-stack-protector \
 	-fno-stack-check \
 	-fno-lto \
@@ -724,9 +753,10 @@ USER_NODEPROBE_OBJ := $(USER_NODEPROBE_C:%.c=build/%.c.o) $(USER_NODEPROBE_S:%.S
 USER_NODEPROBE_DEP := $(USER_NODEPROBE_C:%.c=build/%.c.d) $(USER_NODEPROBE_S:%.S=build/%.S.d)
 
 USER_LIB_C := $(shell find userspace/lib/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_LIB_CC := $(shell find userspace/lib/src -type f -name '*.cc' 2>/dev/null | LC_ALL=C sort)
 USER_LIB_S := $(shell find userspace/lib/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
-USER_LIB_OBJ := $(USER_LIB_C:%.c=build/%.c.o) $(USER_LIB_S:%.S=build/%.S.o)
-USER_LIB_DEP := $(USER_LIB_C:%.c=build/%.c.d) $(USER_LIB_S:%.S=build/%.S.d)
+USER_LIB_OBJ := $(USER_LIB_C:%.c=build/%.c.o) $(USER_LIB_CC:%.cc=build/%.cc.o) $(USER_LIB_S:%.S=build/%.S.o)
+USER_LIB_DEP := $(USER_LIB_C:%.c=build/%.c.d) $(USER_LIB_CC:%.cc=build/%.cc.d) $(USER_LIB_S:%.S=build/%.S.d)
 
 ZLIB_C := \
 	ports/upstream/zlib/adler32.c \
@@ -1316,6 +1346,10 @@ $(USER_NODEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_NODEPROBE_OBJ) $(UV_SRVROS_OBJ
 build/userspace/%.c.o: userspace/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
+
+build/userspace/lib/src/%.cc.o: userspace/lib/src/%.cc $(ZIG)
+	mkdir -p $(dir $@)
+	$(CXX) $(USER_CXXFLAGS) -c $< -o $@
 
 build/userspace/lua/%.c.o: userspace/lua/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
