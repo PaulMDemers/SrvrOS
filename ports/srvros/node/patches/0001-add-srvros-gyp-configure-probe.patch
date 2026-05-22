@@ -127,10 +127,63 @@ index 6587270c..7c421bc4 100644
                    'ldflags': [
                      '-Wl,--whole-archive',
                        '<(obj_dir)/deps/openssl/<(openssl_product)',
+diff --git a/deps/uv/uv.gyp b/deps/uv/uv.gyp
+--- a/deps/uv/uv.gyp
++++ b/deps/uv/uv.gyp
+@@ -176,7 +176,7 @@
+         ],
+         'include_dirs': [ 'include' ],
+         'conditions': [
+-          ['OS == "linux" or OS=="openharmony"', {
++          ['OS == "linux" or OS=="openharmony" or OS=="srvros"', {
+             'defines': [ '_POSIX_C_SOURCE=200112' ],
+           }],
+         ],
+@@ -255,7 +255,7 @@
+             }],
+           ],
+         }],
+-        [ 'OS in "linux mac ios android zos openharmony"', {
++        [ 'OS in "linux mac ios android zos openharmony srvros"', {
+           'sources': [ 'src/unix/proctitle.c' ],
+         }],
+         [ 'OS != "zos"', {
+@@ -279,7 +279,7 @@
+             '_DARWIN_UNLIMITED_SELECT=1',
+           ]
+         }],
+-        [ 'OS=="linux" or OS=="openharmony"', {
++        [ 'OS=="linux" or OS=="openharmony" or OS=="srvros"', {
+           'defines': [ '_GNU_SOURCE' ],
+           'sources': [
+             '<@(uv_sources_linux)',
 diff --git a/tools/gyp/pylib/gyp/generator/ninja.py b/tools/gyp/pylib/gyp/generator/ninja.py
 index 3ceaf470..3f67c3e6 100644
 --- a/tools/gyp/pylib/gyp/generator/ninja.py
 +++ b/tools/gyp/pylib/gyp/generator/ninja.py
+@@ -42,6 +42,6 @@ generator_default_variables = {
+     # anywhere in a string.
+     "INTERMEDIATE_DIR": "$!INTERMEDIATE_DIR",
+-    "SHARED_INTERMEDIATE_DIR": "$!PRODUCT_DIR/gen",
++    "SHARED_INTERMEDIATE_DIR": "$!SHARED_INTERMEDIATE_DIR",
+     "PRODUCT_DIR": "$!PRODUCT_DIR",
+     "CONFIGURATION_NAME": "$|CONFIGURATION_NAME",
+     # Special variables that may be used by gyp 'rule' targets.
+@@ -280,6 +280,14 @@ class NinjaWriter:
+                 INTERMEDIATE_DIR, os.path.join(product_dir or "", int_dir)
+             )
+ 
++        if (SHARED_INTERMEDIATE_DIR := "$!SHARED_INTERMEDIATE_DIR") in path:
++            shared_dir = "gen"
++            if self.toolset != "target":
++                shared_dir += "." + self.toolset
++            path = path.replace(
++                SHARED_INTERMEDIATE_DIR, os.path.join(product_dir or "", shared_dir)
++            )
++
+         CONFIGURATION_NAME = "$|CONFIGURATION_NAME"
+         path = path.replace(CONFIGURATION_NAME, self.config_name)
+ 
 @@ -2082,7 +2082,7 @@ def GetDefaultConcurrentLinks():
      if pool_size := int(os.environ.get("GYP_LINK_CONCURRENCY") or 0):
          return pool_size

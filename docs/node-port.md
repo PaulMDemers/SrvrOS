@@ -47,8 +47,26 @@ source compilation.
 
 After applying that patch, `--dest-os=srvros` configure completes. A
 non-cross-compiling host probe reaches V8 compilation and stops when Abseil
-rejects the MSYS/Cygwin host environment. A true cross build still needs V8's
-host-generated and target-generated files split cleanly.
+rejects the MSYS/Cygwin host environment.
+
+The WSL/Linux probe now gets past configure, Ninja graph generation, V8
+inspector/Torque generated-file collisions, and libuv's first GNU feature
+visibility issue. The current run reaches late V8/Node compilation; the build is
+slow from the Windows filesystem, but it is no longer blocked at configure or
+early graph generation.
+
+Focused WSL-native probes now confirm that both target and host upstream libuv
+archives build with the current srvros patch queue:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget libuv
+ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget libuv-host
+```
+
+The next bounded upstream build milestone is `mksnapshot`. It reaches V8
+generated initializer compilation and still has several hundred edges before
+final host link, so it is useful as a longer V8 check but no longer a quick
+POSIX/libuv smoke test.
 
 There are now two probe runners:
 
@@ -57,7 +75,22 @@ There are now two probe runners:
   Cygwin rejection.
 - `ports/srvros/node/probe-linux.sh`: Linux/WSL-oriented probe using the same
   reduced Node profile. This is the better path for the next upstream compile
-  failure because it avoids MSYS/Cygwin platform distortion.
+  failure because it avoids MSYS/Cygwin platform distortion. It defaults to
+  `NINJA_FLAGS=-j2` so V8 does not overwhelm the host while probing. Override
+  `NODE_PROBE_TARGET` to build a smaller target such as `libuv`, `libuv-host`,
+  `v8-base`, `mksnapshot`, or `node`.
+- `ports/srvros/node/probe-libuv-linux.sh`: focused Linux/WSL probe for the
+  target-side upstream libuv archive.
+- `ports/srvros/node/probe-mksnapshot-linux.sh`: focused Linux/WSL probe for
+  V8's host `mksnapshot` executable, the first major V8 runtime generator.
+- `ports/srvros/node/probe-wsl.ps1`: Windows helper that downloads a pinned
+  local Linux Ninja into `build/wsl-tools` if needed, then launches the Linux
+  probe inside WSL. Pass `-ProbeTarget libuv`, `-ProbeTarget mksnapshot`, or
+  another `NODE_PROBE_TARGET` value for focused runs.
+- `ports/srvros/node/probe-wsl-native.ps1`: Windows helper that mirrors the
+  workspace into `~/srvros-node-probe` and runs the Linux probe from WSL's
+  native filesystem. Use this for long V8 builds. It supports the same
+  `-ProbeTarget` parameter.
 
 ## Initial Minimal Profile
 
@@ -113,9 +146,27 @@ stubs, `madvise`, `prctl`, basic `syscall` dispatch, `socketpair`, numeric
 `getaddrinfo`, libuv version linkage, `execinfo` stubs, and static-first
 `dlfcn` stubs.
 
-The WSL probe host is available in the current workspace, but it does not yet
-have `ninja` installed and `sudo` requires an interactive password. Install
-`ninja-build` in Ubuntu/WSL, then run:
+The WSL probe host is available in the current workspace. Ubuntu did not have
+`ninja` installed and `sudo` required an interactive password, so the helper
+uses a pinned local Ninja instead of modifying the WSL distro:
+
+```powershell
+ports\srvros\node\probe-wsl.ps1
+```
+
+For long compile passes, prefer:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1
+```
+
+For example, the fastest upstream libuv check is:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1 -ProbeTarget libuv
+```
+
+If Ninja already exists in WSL, the direct path is still:
 
 ```sh
 ports/srvros/node/apply-patches.sh
@@ -124,9 +175,10 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Run the patched probe from a Linux host or a real srvros cross
-   compiler so Abseil no longer sees Cygwin/MSYS as the target environment.
-2. Split V8 host/target generated files cleanly for `--cross-compiling`.
+1. Continue the `mksnapshot` WSL-native probe until it reaches a concrete
+   compile/link failure or produces the host generator.
+2. Replace the temporary libuv Linux-like srvros probe mapping with a real
+   srvros backend or a narrower compatibility shim.
 3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
    branches while auditing every Linux-specific syscall assumption.
 4. Decide whether the first milestone links against the existing srvros libuv

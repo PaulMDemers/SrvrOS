@@ -10,8 +10,9 @@
 ## Status
 
 This is an exploratory source staging point. Node has not been built for srvros
-yet, but the first local patch queue now gets upstream configure past OS
-selection and into V8 compilation.
+yet, but the local patch queue now gets upstream configure past OS selection,
+generates a Ninja graph, separates V8 host/target generated files, and drives a
+WSL/Linux probe deep into V8 and Node compilation.
 
 The first configure probe found that upstream Node does not accept
 `--dest-os=srvros`. A reduced `--dest-os=linux` cross-configure completes, so
@@ -44,6 +45,31 @@ ports/srvros/node/probe-linux.sh
 from Linux or WSL after applying the patch queue. That path avoids the current
 Abseil/Cygwin host rejection.
 
+On this Windows workspace the WSL helper downloads a pinned local Ninja under
+`build/wsl-tools` when Ubuntu does not already have `ninja` installed:
+
+```powershell
+ports\srvros\node\probe-wsl.ps1
+```
+
+For the full V8 compile, prefer the WSL-native helper. It mirrors the workspace
+to `~/srvros-node-probe`, skips generated build output, reuses the same patch
+queue, and avoids the `/mnt/c` filesystem bridge:
+
+```powershell
+ports\srvros\node\probe-wsl-native.ps1
+```
+
+The Linux probe defaults to `NINJA_FLAGS=-j2` to keep long V8 compiles from
+overwhelming the host. Override it only when the machine has enough spare CPU
+and memory for a full Node build.
+
+For narrower iteration, `probe-linux.sh` also accepts `NODE_PROBE_TARGET`.
+Useful aliases are `libuv`, `libuv-host`, `v8-base`, `mksnapshot`, and `node`.
+The convenience wrappers `probe-libuv-linux.sh` and
+`probe-mksnapshot-linux.sh` exercise the two most useful smaller milestones.
+The PowerShell WSL helpers expose the same choice as `-ProbeTarget`.
+
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
 worth iterating on, including resource/accounting calls such as `getrlimit` and
@@ -51,8 +77,13 @@ worth iterating on, including resource/accounting calls such as `getrlimit` and
 `madvise`, and scheduler affinity stubs.
 
 The Windows workspace can enter Ubuntu/WSL at `/mnt/c/Users/Paul/Desktop/srvros`.
-At the time this note was written, `ninja` was not installed in WSL and `sudo`
-required a password, so `probe-linux.sh` could not be launched from automation.
+The mounted-workspace WSL probe reached late V8/Node compilation. It is slow on
+the Windows filesystem, so the WSL-native helper is now the preferred path. The
+last concrete build blockers fixed were:
+
+- Ninja duplicate outputs from host and target V8 generated files.
+- libuv's Linux/GNU feature branch not being selected for the srvros probe.
+- Target and host libuv focused probes now build successfully.
 
 ## First Target
 
@@ -70,7 +101,8 @@ and TCP/UDP.
 - Real upstream libuv backend or a compatibility bridge broad enough for Node.
 - Diagnostic stubs for backtrace/debug paths.
 - Static-first policy for native addons until `dlopen` exists.
-- Cross-build host/target generated-file separation for V8.
+- More targeted srvros libuv backend work instead of the temporary
+  Linux-like probe mapping.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final
