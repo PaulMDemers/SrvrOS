@@ -32,6 +32,8 @@ int vfprintf(FILE *stream, const char *format, va_list args);
 int snprintf(char *buffer, size_t size, const char *format, ...);
 int sprintf(char *buffer, const char *format, ...);
 int vsnprintf(char *buffer, size_t size, const char *format, va_list args);
+int vasprintf(char **out, const char *format, va_list args);
+int asprintf(char **out, const char *format, ...);
 int vprintf(const char *format, va_list args);
 int scanf(const char *format, ...);
 int fscanf(FILE *stream, const char *format, ...);

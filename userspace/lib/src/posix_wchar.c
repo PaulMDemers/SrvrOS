@@ -146,6 +146,14 @@ size_t mbrtowc(wchar_t *pwc, const char *s, size_t n, mbstate_t *ps) {
     return 1;
 }
 
+int mbtowc(wchar_t *pwc, const char *s, size_t n) {
+    size_t result = mbrtowc(pwc, s, n, 0);
+    if (result == (size_t)-1 || result == (size_t)-2) {
+        return -1;
+    }
+    return (int)result;
+}
+
 size_t mbsrtowcs(wchar_t *dest, const char **src, size_t len, mbstate_t *ps) {
     return mbsnrtowcs(dest, src, (size_t)-1, len, ps);
 }

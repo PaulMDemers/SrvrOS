@@ -680,6 +680,39 @@ int printf(const char *format, ...) {
     return result;
 }
 
+int vasprintf(char **out, const char *format, va_list args) {
+    if (out == 0 || format == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    va_list copy;
+    va_copy(copy, args);
+    int needed = vsnprintf(0, 0, format, copy);
+    va_end(copy);
+    if (needed < 0) {
+        return -1;
+    }
+    char *buffer = malloc((size_t)needed + 1);
+    if (buffer == 0) {
+        return -1;
+    }
+    int written = vsnprintf(buffer, (size_t)needed + 1, format, args);
+    if (written < 0) {
+        free(buffer);
+        return -1;
+    }
+    *out = buffer;
+    return written;
+}
+
+int asprintf(char **out, const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vasprintf(out, format, args);
+    va_end(args);
+    return result;
+}
+
 int vprintf(const char *format, va_list args) {
     return vfprintf(stdout, format, args);
 }

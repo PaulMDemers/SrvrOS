@@ -199,3 +199,29 @@ int usleep(unsigned int usec) {
     };
     return nanosleep(&request, 0);
 }
+
+size_t strftime(char *s, size_t max, const char *format, const struct tm *tm) {
+    (void)tm;
+    if (s == 0 || format == 0 || max == 0) {
+        return 0;
+    }
+    size_t out = 0;
+    for (size_t i = 0; format[i] != '\0'; i++) {
+        if (out + 1 >= max) {
+            s[0] = '\0';
+            return 0;
+        }
+        if (format[i] == '%' && format[i + 1] != '\0') {
+            i++;
+            if (format[i] == '%') {
+                s[out++] = '%';
+            } else {
+                s[out++] = '?';
+            }
+        } else {
+            s[out++] = format[i];
+        }
+    }
+    s[out] = '\0';
+    return out;
+}

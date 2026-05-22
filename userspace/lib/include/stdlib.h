@@ -1,7 +1,9 @@
 #ifndef SRVROS_POSIX_STDLIB_H
 #define SRVROS_POSIX_STDLIB_H
 
+#include <locale.h>
 #include <stddef.h>
+#include <wchar.h>
 
 #define MB_CUR_MAX 4
 
@@ -44,6 +46,12 @@ unsigned long strtoul(const char *text, char **endptr, int base);
 unsigned long long strtoull(const char *text, char **endptr, int base);
 double strtod(const char *text, char **endptr);
 float strtof(const char *text, char **endptr);
+long double strtold(const char *text, char **endptr);
+float strtof_l(const char *text, char **endptr, locale_t locale);
+double strtod_l(const char *text, char **endptr, locale_t locale);
+long double strtold_l(const char *text, char **endptr, locale_t locale);
+long long strtoll_l(const char *text, char **endptr, int base, locale_t locale);
+unsigned long long strtoull_l(const char *text, char **endptr, int base, locale_t locale);
 int rand(void);
 void srand(unsigned seed);
 char *realpath(const char *path, char *resolved_path);
@@ -59,6 +67,7 @@ int setenv(const char *name, const char *value, int overwrite);
 int unsetenv(const char *name);
 int putenv(char *string);
 int clearenv(void);
+int mbtowc(wchar_t *pwc, const char *s, size_t n);
 int atexit(void (*function)(void));
 int system(const char *command);
 int mkstemp(char *template_path);

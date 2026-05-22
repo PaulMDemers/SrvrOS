@@ -425,6 +425,35 @@ float strtof(const char *text, char **endptr) {
     return (float)strtod(text, endptr);
 }
 
+long double strtold(const char *text, char **endptr) {
+    return (long double)strtod(text, endptr);
+}
+
+float strtof_l(const char *text, char **endptr, locale_t locale) {
+    (void)locale;
+    return strtof(text, endptr);
+}
+
+double strtod_l(const char *text, char **endptr, locale_t locale) {
+    (void)locale;
+    return strtod(text, endptr);
+}
+
+long double strtold_l(const char *text, char **endptr, locale_t locale) {
+    (void)locale;
+    return strtold(text, endptr);
+}
+
+long long strtoll_l(const char *text, char **endptr, int base, locale_t locale) {
+    (void)locale;
+    return strtoll(text, endptr, base);
+}
+
+unsigned long long strtoull_l(const char *text, char **endptr, int base, locale_t locale) {
+    (void)locale;
+    return strtoull(text, endptr, base);
+}
+
 static unsigned rand_state = 1;
 
 int rand(void) {

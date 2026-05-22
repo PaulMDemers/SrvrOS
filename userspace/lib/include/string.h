@@ -24,5 +24,7 @@ size_t strspn(const char *text, const char *accept);
 size_t strcspn(const char *text, const char *reject);
 char *strerror(int error);
 char *strdup(const char *text);
+int strcasecmp(const char *left, const char *right);
+int strncasecmp(const char *left, const char *right, size_t length);
 
 #endif

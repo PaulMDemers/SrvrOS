@@ -123,12 +123,15 @@ ports\srvros\node\probe-srvros-compile.ps1
 
 It exports `build/sysroot/srvros`, uses the local patched Node checkout for
 headers and sources, and compiles selected Node translation units with Zig C++
-for `x86_64-freestanding-none`. `src/node_main.cc` now compiles as a srvros
-object; its remaining unresolved symbol is the expected `node::Start(int,
-char**)` entry point from libnode. `src/node_snapshot_stub.cc` is the current
-object-level frontier because the included Node utility layer declares
-`std::ostringstream`, and Zig's freestanding libc++ headers leave stream classes
-forward-declared unless localization/iostream support is configured.
+for `x86_64-freestanding-none`. It now enables enough of libc++'s C-locale
+profile for `<sstream>` declarations and compiles both `src/node_main.cc` and
+`src/node_snapshot_stub.cc` as srvros objects.
+
+`probe-srvros-link.ps1` prefers those srvros-compiled entry objects when they
+exist. Because freestanding C++ mangles `main(int, char**)`, the link probe
+also maps `main` to `_Z4mainiPPc` for this bridge. The link frontier has moved
+past those entry objects and is now dominated by host-built libnode/V8 C++
+runtime symbols plus the Linux-shaped libuv backend.
 
 The first srvros-link run captured 200 unique unresolved symbols before the
 configured linker error limit. The dominant buckets were:
@@ -158,7 +161,9 @@ The sysroot also picked up the first headers and implementations needed by this
 compile probe and later libuv/Node passes: minimal `<wchar.h>`, `<pwd.h>`,
 `<grp.h>`, `<semaphore.h>`, IPv6 socket structs, `sockaddr_storage`,
 `pthread_rwlock_*`, root passwd/group lookup, C-locale handles, ASCII wide-char
-conversion helpers, and simple unnamed semaphore operations.
+conversion helpers, simple unnamed semaphore operations, locale-aware numeric
+conversion wrappers, `is*_*_l` wrappers, `asprintf`/`vasprintf`, `isblank`,
+`strncasecmp`, and a small `strftime` fallback.
 
 There are now two probe runners:
 
@@ -269,19 +274,20 @@ ports/srvros/node/probe-linux.sh
 
 1. Keep replacing host-built Node objects with srvros-compiled objects so the
    unresolved list stops including glibc fortified and `*64` alias symbols.
-2. Configure or port enough libc++ iostream/localization support for
-   `std::ostringstream`, then compile `node_snapshot_stub.cc` and keep walking
-   through the final Node executable objects.
-3. Expand the srvros C/POSIX layer for the post-runtime Node frontier: file
+2. Compile the next libnode/V8 object slice with the srvros C++ profile and
+   replace those host-built objects in the link probe.
+3. Decide whether to build a real srvros libc++/libc++abi archive or keep
+   pruning iostream/diagnostic dependencies from the reduced Node profile.
+4. Expand the srvros C/POSIX layer for the post-runtime Node frontier: file
    timestamp/statfs, process identity, locale, and remaining math/wide-char
    calls.
-4. Replace the temporary libuv Linux-like srvros probe mapping with a real
+5. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
-5. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
+6. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
    branches while auditing every Linux-specific syscall assumption.
-6. Decide whether the first milestone links against the existing srvros libuv
+7. Decide whether the first milestone links against the existing srvros libuv
    adapter or starts replacing it with an upstream libuv srvros backend.
-7. Add a `nodeprobe` build target that compiles only the platform probe layer
+8. Add a `nodeprobe` build target that compiles only the platform probe layer
    before attempting the full V8 and Node executable.
-8. Keep upstream clean: carry srvros-specific patches or generated build glue
+9. Keep upstream clean: carry srvros-specific patches or generated build glue
    outside `ports/upstream/node` until a patch queue format is chosen.

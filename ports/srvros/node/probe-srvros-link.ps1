@@ -3,6 +3,7 @@ param(
   [string]$NativePath = "~/srvros-node-probe",
   [string]$Sysroot = "build\sysroot\srvros",
   [string]$OutDir = "build\node-srvros-link-probe",
+  [string]$CompileProbeDir = "build\node-srvros-compile-probe",
   [switch]$FailOnUnresolved
 )
 
@@ -19,6 +20,7 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..\..")
 $sysrootPath = Join-Path $repoRoot $Sysroot
 $outPath = Join-Path $repoRoot $OutDir
+$compileProbePath = Join-Path $repoRoot $CompileProbeDir
 $zig = Join-Path $repoRoot "build\tooling\zig\zig.exe"
 $make = "make"
 
@@ -76,6 +78,7 @@ $rspArgs = @(
   "--no-undefined",
   "--error-limit=200",
   "-T", $appLd,
+  "--defsym=main=_Z4mainiPPc",
   $crt0
 )
 
@@ -87,9 +90,18 @@ $wholeArchive = @(
   "obj/tools/v8_gypfiles/libv8_snapshot.a"
 )
 
+$srvrosObjectReplacements = @{
+  "obj/src/node.node_main.o" = Join-Path $compileProbePath "node.node_main.srvros.o"
+  "obj/src/node.node_snapshot_stub.o" = Join-Path $compileProbePath "node.node_snapshot_stub.srvros.o"
+}
+
 $rspArgs += "--start-group"
 foreach ($input in $inputs) {
   $full = Join-Path $releaseWin ($input -replace '/', '\')
+  if ($srvrosObjectReplacements.ContainsKey($input) -and
+      (Test-Path -LiteralPath $srvrosObjectReplacements[$input])) {
+    $full = $srvrosObjectReplacements[$input]
+  }
   if ($wholeArchive -contains $input) {
     $rspArgs += "--whole-archive"
     $rspArgs += $full

@@ -98,13 +98,15 @@ ports\srvros\node\probe-srvros-compile.ps1
 ```
 
 This uses Zig's freestanding C++ frontend, the exported srvros sysroot, and
-Zig's bundled libc++ headers. It now compiles `src/node_main.cc` into
-`build/node-srvros-compile-probe/node.node_main.srvros.o`; that object reaches
-the expected `node::Start(int, char**)` unresolved reference instead of glibc
-fortified or `*64` aliases. The next compile frontier is
-`src/node_snapshot_stub.cc`, which currently stops because Node's broad
-`util.h` path needs `std::ostringstream` while the freestanding libc++ profile
-does not enable stream/localization classes yet.
+Zig's bundled libc++ headers. It now enables the minimal C-locale profile needed
+for libc++ `<sstream>` declarations and compiles both `src/node_main.cc` and
+`src/node_snapshot_stub.cc` into srvros objects under
+`build/node-srvros-compile-probe`.
+
+`probe-srvros-link.ps1` will prefer those srvros-compiled entry objects when
+they exist, and maps the freestanding C++ `main(int, char**)` symbol back to
+the C `crt0.o` entry contract. The link frontier has moved on to the remaining
+host-built libnode/V8 C++ runtime symbols and the Linux-shaped libuv backend.
 
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
@@ -156,9 +158,11 @@ and TCP/UDP.
 - The first C++ runtime/ABI slice is in `libsrvros.a`, so the next link frontier
   is mostly host-glibc aliases, math/wide-char gaps, and libuv/Linux backend
   APIs rather than `operator new/delete` or `__cxa_guard_*`.
-- The first real srvros-compiled Node object (`node_main.cc`) now builds
-  against the sysroot. The next object-level blocker is libc++ stream and
-  localization support needed by `std::ostringstream`.
+- The first real srvros-compiled Node entry objects (`node_main.cc` and
+  `node_snapshot_stub.cc`) now build against the sysroot. The next object-level
+  work is compiling more libnode/V8 objects with the same srvros C++ profile,
+  then deciding whether to link a real libc++ archive or keep pruning runtime
+  dependencies from the reduced profile.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 void *memchr(const void *ptr, int value, size_t length) {
     const unsigned char *bytes = ptr;
@@ -198,4 +199,28 @@ char *strdup(const char *text) {
     }
     memcpy(copy, text, length);
     return copy;
+}
+
+int strcasecmp(const char *left, const char *right) {
+    while (*left != '\0' && *right != '\0') {
+        int a = tolower((unsigned char)*left);
+        int b = tolower((unsigned char)*right);
+        if (a != b) {
+            return a - b;
+        }
+        left++;
+        right++;
+    }
+    return tolower((unsigned char)*left) - tolower((unsigned char)*right);
+}
+
+int strncasecmp(const char *left, const char *right, size_t length) {
+    for (size_t i = 0; i < length; i++) {
+        int a = tolower((unsigned char)left[i]);
+        int b = tolower((unsigned char)right[i]);
+        if (a != b || left[i] == '\0' || right[i] == '\0') {
+            return a - b;
+        }
+    }
+    return 0;
 }

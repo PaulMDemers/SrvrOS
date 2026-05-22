@@ -2,6 +2,7 @@
 #define SRVROS_POSIX_TIME_H
 
 #include <sys/types.h>
+#include <stddef.h>
 
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
@@ -9,7 +10,7 @@
 
 typedef long clock_t;
 
-struct tm {
+typedef struct tm {
     int tm_sec;
     int tm_min;
     int tm_hour;
@@ -19,7 +20,7 @@ struct tm {
     int tm_wday;
     int tm_yday;
     int tm_isdst;
-};
+} tm;
 
 struct timespec {
     time_t tv_sec;
@@ -33,5 +34,6 @@ clock_t clock(void);
 int clock_gettime(int clock_id, struct timespec *tp);
 int nanosleep(const struct timespec *request, struct timespec *remaining);
 int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining);
+size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
 
 #endif
