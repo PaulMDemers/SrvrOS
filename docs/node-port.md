@@ -103,6 +103,32 @@ normal srvros apps. This gives Node and other C/C++ ports a stable local
 toolchain contract before the full Node object graph is pointed at the srvros
 libc/POSIX surface.
 
+The next bridge probe is:
+
+```powershell
+ports\srvros\node\probe-srvros-link.ps1
+```
+
+It queries the generated WSL-native Node Ninja graph, translates the final
+`node` object/archive inputs to Windows paths, and replays the final link with
+srvros `crt0.o`, `app.ld`, and `libsrvros.a`. The expected result today is an
+unresolved-symbol frontier, written to
+`build/node-srvros-link-probe/unresolved-symbols.txt`.
+
+The first srvros-link run captured 200 unique unresolved symbols before the
+configured linker error limit. The dominant buckets are now clear:
+
+- C++ runtime and libstdc++: `operator new/delete`, `std::basic_*`,
+  `std::__throw_*`, `std::cout`/`std::cerr`, locale and stream support.
+- C++ ABI/runtime guards: `__cxa_atexit`, `__cxa_guard_*`, `__cxa_demangle`.
+- Compiler runtime and hardening helpers: `__stack_chk_fail`, `__udivti3`,
+  `__umodti3`, checked libc aliases such as `__memcpy_chk`.
+- glibc/Linux aliases from host-built objects: `open64`, `fstat64`,
+  `mmap64`, `__open64_2`, `__isoc23_*`, `__libc_single_threaded`.
+- libuv/Linux process and event backend calls: `fork`, `execvp`, `epoll_*`,
+  `inotify_*`, `getifaddrs`, `getnameinfo`, and pthread affinity/name/rwlock
+  helpers.
+
 There are now two probe runners:
 
 - `ports/srvros/node/probe.sh`: MSYS-side discovery probe. This verifies the
@@ -210,15 +236,18 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Teach the Node probe to emit or reuse srvros-flavored compiler/linker
-   settings from the exported sysroot instead of the Linux-host glibc link.
-2. Replace the temporary libuv Linux-like srvros probe mapping with a real
+1. Replace the host-built Node objects with srvros-compiled objects so the
+   unresolved list stops including glibc fortified and `*64` alias symbols.
+2. Add a minimal C++ runtime/ABI layer for no-exception Node/V8 builds:
+   allocation, static destructor registration, guard variables, compiler-rt
+   integer helpers, and stack-check policy.
+3. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
-3. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
+4. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony
    branches while auditing every Linux-specific syscall assumption.
-4. Decide whether the first milestone links against the existing srvros libuv
+5. Decide whether the first milestone links against the existing srvros libuv
    adapter or starts replacing it with an upstream libuv srvros backend.
-5. Add a `nodeprobe` build target that compiles only the platform probe layer
+6. Add a `nodeprobe` build target that compiles only the platform probe layer
    before attempting the full V8 and Node executable.
-6. Keep upstream clean: carry srvros-specific patches or generated build glue
+7. Keep upstream clean: carry srvros-specific patches or generated build glue
    outside `ports/upstream/node` until a patch queue format is chosen.

@@ -81,6 +81,16 @@ This exports `build/sysroot/srvros`, then builds a tiny freestanding C/C++
 program against `crt0.o`, `app.ld`, and `libsrvros.a`. It does not compile Node
 itself yet; it verifies the local ABI package that the Node cross-link will use.
 
+To replay the generated Node final link against that sysroot, run:
+
+```powershell
+ports\srvros\node\probe-srvros-link.ps1
+```
+
+This expects the WSL-native `node` probe to have already generated and built the
+Node object graph. It writes the raw link output and a deduplicated unresolved
+symbol list under `build/node-srvros-link-probe`.
+
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
 worth iterating on, including resource/accounting calls such as `getrlimit` and
@@ -126,6 +136,8 @@ and TCP/UDP.
   lookup and dynamic-loader paths with srvros libc/POSIX behavior.
 - Wiring Node's generated Ninja/GYP link command to the exported srvros sysroot
   and recording the first true srvros-native Node unresolved symbols.
+- C++ runtime/ABI support for Node/V8's no-exception C++ build, plus replacing
+  host-glibc-built Node objects with srvros-compiled objects.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final
