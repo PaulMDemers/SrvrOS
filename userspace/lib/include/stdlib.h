@@ -3,6 +3,8 @@
 
 #include <stddef.h>
 
+#define MB_CUR_MAX 4
+
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 

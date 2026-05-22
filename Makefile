@@ -236,6 +236,7 @@ USER_APP_LDFLAGS := \
 USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
 USER_LIB_A := build/userspace/lib/libsrvros.a
 USER_SYSROOT := build/sysroot/srvros
+USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type f 2>/dev/null | LC_ALL=C sort)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -916,7 +917,7 @@ $(USER_LIB_A): $(ZIG) $(USER_LIB_OBJ)
 .PHONY: srvros-sysroot
 srvros-sysroot: $(USER_SYSROOT)/.ready
 
-$(USER_SYSROOT)/.ready: $(ZIG) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld
+$(USER_SYSROOT)/.ready: $(ZIG) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld $(USER_SYSROOT_HEADERS)
 	rm -rf $(USER_SYSROOT)
 	mkdir -p $(USER_SYSROOT)/include $(USER_SYSROOT)/lib
 	cp -R shared/include/* $(USER_SYSROOT)/include/

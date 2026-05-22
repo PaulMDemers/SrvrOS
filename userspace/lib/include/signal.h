@@ -7,6 +7,16 @@ typedef int sig_atomic_t;
 typedef unsigned long sigset_t;
 typedef void (*sighandler_t)(int);
 
+typedef struct {
+    int si_signo;
+    int si_errno;
+    int si_code;
+    pid_t si_pid;
+    uid_t si_uid;
+    void *si_addr;
+    int si_status;
+} siginfo_t;
+
 #define SIGINT 2
 #define SIGQUIT 3
 #define SIGKILL 9

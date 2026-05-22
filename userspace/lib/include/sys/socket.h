@@ -47,6 +47,11 @@ struct sockaddr {
     char sa_data[14];
 };
 
+struct sockaddr_storage {
+    sa_family_t ss_family;
+    char __storage[126];
+};
+
 struct linger {
     int l_onoff;
     int l_linger;

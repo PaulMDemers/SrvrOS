@@ -7,9 +7,25 @@
 #define INFINITY (__builtin_huge_valf())
 #define NAN (__builtin_nanf(""))
 
+#define FP_NAN 0
+#define FP_INFINITE 1
+#define FP_ZERO 2
+#define FP_SUBNORMAL 3
+#define FP_NORMAL 4
+
+#define fpclassify(value) __builtin_fpclassify(FP_NAN, FP_INFINITE, FP_NORMAL, FP_SUBNORMAL, FP_ZERO, (value))
+#define signbit(value) __builtin_signbit(value)
 #define isnan(value) ((value) != (value))
 #define isinf(value) (!isnan(value) && isnan((value) - (value)))
 #define isfinite(value) (!isnan(value) && !isinf(value))
+#define isnormal(value) (fpclassify(value) == FP_NORMAL)
+
+#define isgreater(left, right) (!isnan(left) && !isnan(right) && (left) > (right))
+#define isgreaterequal(left, right) (!isnan(left) && !isnan(right) && (left) >= (right))
+#define isless(left, right) (!isnan(left) && !isnan(right) && (left) < (right))
+#define islessequal(left, right) (!isnan(left) && !isnan(right) && (left) <= (right))
+#define islessgreater(left, right) (!isnan(left) && !isnan(right) && (left) != (right))
+#define isunordered(left, right) (isnan(left) || isnan(right))
 
 double fabs(double value);
 float fabsf(float value);

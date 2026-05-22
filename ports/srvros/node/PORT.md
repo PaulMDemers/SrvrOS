@@ -91,6 +91,21 @@ This expects the WSL-native `node` probe to have already generated and built the
 Node object graph. It writes the raw link output and a deduplicated unresolved
 symbol list under `build/node-srvros-link-probe`.
 
+To compile real Node translation units with the srvros sysroot, run:
+
+```powershell
+ports\srvros\node\probe-srvros-compile.ps1
+```
+
+This uses Zig's freestanding C++ frontend, the exported srvros sysroot, and
+Zig's bundled libc++ headers. It now compiles `src/node_main.cc` into
+`build/node-srvros-compile-probe/node.node_main.srvros.o`; that object reaches
+the expected `node::Start(int, char**)` unresolved reference instead of glibc
+fortified or `*64` aliases. The next compile frontier is
+`src/node_snapshot_stub.cc`, which currently stops because Node's broad
+`util.h` path needs `std::ostringstream` while the freestanding libc++ profile
+does not enable stream/localization classes yet.
+
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
 worth iterating on, including resource/accounting calls such as `getrlimit` and
@@ -141,6 +156,9 @@ and TCP/UDP.
 - The first C++ runtime/ABI slice is in `libsrvros.a`, so the next link frontier
   is mostly host-glibc aliases, math/wide-char gaps, and libuv/Linux backend
   APIs rather than `operator new/delete` or `__cxa_guard_*`.
+- The first real srvros-compiled Node object (`node_main.cc`) now builds
+  against the sysroot. The next object-level blocker is libc++ stream and
+  localization support needed by `std::ostringstream`.
 - Abseil/V8 host-probe behavior: MSYS/Cygwin is useful for discovery but
   Abseil rejects it, so the next serious compile probe should use a Linux host
   or the eventual srvros cross compiler rather than treating MSYS as the final

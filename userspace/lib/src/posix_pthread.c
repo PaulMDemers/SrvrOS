@@ -580,6 +580,67 @@ int pthread_mutex_unlock(pthread_mutex_t *mutex) {
     return 0;
 }
 
+int pthread_rwlock_init(pthread_rwlock_t *rwlock, const pthread_rwlockattr_t *attr) {
+    (void)attr;
+    if (rwlock == 0) {
+        return EINVAL;
+    }
+    rwlock->state = 0;
+    return 0;
+}
+
+int pthread_rwlock_destroy(pthread_rwlock_t *rwlock) {
+    return rwlock == 0 ? EINVAL : 0;
+}
+
+int pthread_rwlock_rdlock(pthread_rwlock_t *rwlock) {
+    if (rwlock == 0) {
+        return EINVAL;
+    }
+    int expected = 0;
+    while (!__atomic_compare_exchange_n(&rwlock->state, &expected, 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE)) {
+        expected = 0;
+        sched_yield();
+    }
+    return 0;
+}
+
+int pthread_rwlock_wrlock(pthread_rwlock_t *rwlock) {
+    return pthread_rwlock_rdlock(rwlock);
+}
+
+int pthread_rwlock_tryrdlock(pthread_rwlock_t *rwlock) {
+    if (rwlock == 0) {
+        return EINVAL;
+    }
+    int expected = 0;
+    return __atomic_compare_exchange_n(&rwlock->state, &expected, 1, 0, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE) ? 0 : EBUSY;
+}
+
+int pthread_rwlock_trywrlock(pthread_rwlock_t *rwlock) {
+    return pthread_rwlock_tryrdlock(rwlock);
+}
+
+int pthread_rwlock_unlock(pthread_rwlock_t *rwlock) {
+    if (rwlock == 0) {
+        return EINVAL;
+    }
+    __atomic_store_n(&rwlock->state, 0, __ATOMIC_RELEASE);
+    return 0;
+}
+
+int pthread_rwlockattr_init(pthread_rwlockattr_t *attr) {
+    if (attr == 0) {
+        return EINVAL;
+    }
+    attr->reserved = 0;
+    return 0;
+}
+
+int pthread_rwlockattr_destroy(pthread_rwlockattr_t *attr) {
+    return attr == 0 ? EINVAL : 0;
+}
+
 int pthread_condattr_init(pthread_condattr_t *attr) {
     if (attr == 0) {
         return EINVAL;
