@@ -202,15 +202,41 @@ static int read_byte(void) {
     return srv_read(SRV_STDIN, &c, 1) == 1 ? (unsigned char)c : -1;
 }
 
+static int read_byte_scan(void);
+
+static int read_byte_scan_with_pending(int *pending_byte) {
+    if (*pending_byte >= 0) {
+        int c = *pending_byte;
+        *pending_byte = -1;
+        return c;
+    }
+    return read_byte_scan();
+}
+
+static int read_byte_with_pending(int *pending_byte) {
+    if (*pending_byte >= 0) {
+        int c = *pending_byte;
+        *pending_byte = -1;
+        return c;
+    }
+    return read_byte();
+}
+
+static void push_pending_byte(int *pending_byte, int value) {
+    if (*pending_byte < 0 && value >= 0) {
+        *pending_byte = value;
+    }
+}
+
 static int read_byte_scan(void) {
-    for (int spin = 0; spin < 8; spin++) {
+    for (int spin = 0; spin < 24; spin++) {
         int c = kbhit();
         if (c != 0) {
             return c;
         }
         srv_yield();
     }
-    for (int spin = 0; spin < 4; spin++) {
+    for (int spin = 0; spin < 12; spin++) {
         srv_sleep_ticks(1);
         int c = kbhit();
         if (c != 0) {
@@ -371,8 +397,9 @@ static int consume_escape(char *buffer,
     char *draft,
     int *draft_saved,
     char *kill,
-    size_t kill_capacity) {
-    int first = read_byte_scan();
+    size_t kill_capacity,
+    int *pending_byte) {
+    int first = read_byte_scan_with_pending(pending_byte);
     if (first == 127 || first == '\b') {
         delete_previous_word(buffer, length, position, kill, kill_capacity);
         return 1;
@@ -395,63 +422,165 @@ static int consume_escape(char *buffer,
         }
         return 1;
     }
-    if (first != '[' && first != 'O') {
-        return 0;
-    }
-    int second = read_byte_scan();
-    if (second < 0) {
-        return 0;
-    }
-    if (second == 'A') {
+    if (first == 'A') {
         history_prev(buffer, capacity, length, position, history_index, draft, draft_saved);
         return 1;
     }
-    if (second == 'B') {
+    if (first == 'B') {
         history_next(buffer, capacity, length, position, history_index, draft, draft_saved);
         return 1;
     }
-    if (second == 'C') {
+    if (first == 'C') {
         if (*position < *length) {
             (*position)++;
         }
         return 1;
     }
-    if (second == 'D') {
+    if (first == 'D') {
         if (*position > 0) {
             (*position)--;
         }
         return 1;
     }
-    if (second == 'H') {
+    if (first == 'H') {
         *position = 0;
         return 1;
     }
-    if (second == 'F') {
+    if (first == 'F') {
         *position = *length;
         return 1;
     }
-    if (second == '1' || second == '7') {
-        int tilde = read_byte_scan();
-        if (tilde == '~') {
-            *position = 0;
-            return 1;
+    if (first != '[' && first != 'O') {
+        return 0;
+    }
+
+    {
+        char tail = 0;
+        char sequence[16];
+        size_t sequence_length = 0;
+        int next = read_byte_with_pending(pending_byte);
+        if (next < 0) {
+            push_pending_byte(pending_byte, first);
+            return 0;
+        }
+        while (next >= 0) {
+            if (sequence_length < sizeof(sequence)) {
+                sequence[sequence_length++] = (char)next;
+            }
+            tail = (char)next;
+            if ((unsigned char)tail >= 0x40 && (unsigned char)tail <= 0x7E) {
+                break;
+            }
+            next = read_byte_with_pending(pending_byte);
+        }
+        if ((unsigned char)tail >= 0x40 && (unsigned char)tail <= 0x7E) {
+            if (tail == 'A') {
+                history_prev(buffer, capacity, length, position, history_index, draft, draft_saved);
+                return 1;
+            }
+            if (tail == 'B') {
+                history_next(buffer, capacity, length, position, history_index, draft, draft_saved);
+                return 1;
+            }
+            if (tail == 'C') {
+                if (*position < *length) {
+                    (*position)++;
+                }
+                return 1;
+            }
+            if (tail == 'D') {
+                if (*position > 0) {
+                    (*position)--;
+                }
+                return 1;
+            }
+            if (tail == 'H') {
+                *position = 0;
+                return 1;
+            }
+            if (tail == 'F') {
+                *position = *length;
+                return 1;
+            }
+            if (tail == '~' && sequence_length >= 2) {
+                char first_param = sequence[0];
+                char second_param = sequence_length >= 3 ? sequence[1] : 0;
+                if (first_param == '1' || first_param == '7' || (first_param == '1' && second_param == ';')) {
+                    *position = 0;
+                    return 1;
+                }
+                if ((first_param == '3' || (first_param == '3' && second_param == ';')) && first == '[') {
+                    delete_at(buffer, length, *position);
+                    return 1;
+                }
+                if ((first_param == '4' || first_param == '8' || (first_param == '4' && second_param == ';')) && first == '[') {
+                    *position = *length;
+                    return 1;
+                }
+            }
         }
     }
-    if (second == '4' || second == '8') {
-        int tilde = read_byte_scan();
-        if (tilde == '~') {
-            *position = *length;
-            return 1;
-        }
-    }
-    if (second == '3') {
-        int tilde = read_byte_scan();
-        if (tilde == '~') {
-            delete_at(buffer, length, *position);
-            return 1;
-        }
+    if (first == '[' || first == 'O') {
+        push_pending_byte(pending_byte, first);
     }
     return 0;
+}
+
+static int consume_bracket_code(char *buffer,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    size_t *history_index,
+    char *draft,
+    int *draft_saved,
+    int code) {
+    if (code == 'A') {
+        history_prev(buffer, capacity, length, position, history_index, draft, draft_saved);
+        return 1;
+    }
+    if (code == 'B') {
+        history_next(buffer, capacity, length, position, history_index, draft, draft_saved);
+        return 1;
+    }
+    if (code == 'C') {
+        if (*position < *length) {
+            (*position)++;
+        }
+        return 1;
+    }
+    if (code == 'D') {
+        if (*position > 0) {
+            (*position)--;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+static int consume_bracket_escape(char *buffer,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    size_t *history_index,
+    char *draft,
+    int *draft_saved,
+    int *pending_byte) {
+    int code = read_byte_scan_with_pending(pending_byte);
+    if (code < 0) {
+        return 0;
+    }
+    if (consume_bracket_code(buffer,
+            capacity,
+            length,
+            position,
+            history_index,
+            draft,
+            draft_saved,
+            code)) {
+        return 1;
+    }
+    push_pending_byte(pending_byte, code);
+    return -1;
 }
 
 char *linenoise(const char *prompt) {
@@ -465,6 +594,8 @@ char *linenoise(const char *prompt) {
     size_t rendered_length = 0;
     size_t history_index = history_len;
     int draft_saved = 0;
+    int pending_byte = -1;
+    int awaiting_bracket_code = 0;
     buffer[0] = '\0';
     draft[0] = '\0';
     kill[0] = '\0';
@@ -482,7 +613,7 @@ char *linenoise(const char *prompt) {
     refresh_line(prompt, buffer, length, position, &rendered_length);
 
     for (;;) {
-        int c = read_byte();
+        int c = read_byte_with_pending(&pending_byte);
         if (c < 0) {
             if (raw_mode) {
                 tcsetattr(SRV_STDIN, TCSANOW, &original_termios);
@@ -580,7 +711,53 @@ char *linenoise(const char *prompt) {
                 draft,
                 &draft_saved,
                 kill,
-                sizeof(kill));
+                sizeof(kill),
+                &pending_byte);
+        } else if (awaiting_bracket_code) {
+            awaiting_bracket_code = 0;
+            if (consume_bracket_code(buffer,
+                    sizeof(buffer),
+                    &length,
+                    &position,
+                    &history_index,
+                    draft,
+                    &draft_saved,
+                    c)) {
+                refresh_line(prompt, buffer, length, position, &rendered_length);
+                continue;
+            }
+            push_pending_byte(&pending_byte, c);
+            if (position == length) {
+                insert_at(buffer, sizeof(buffer), &length, &position, '[');
+                ln_write_len(buffer + length - 1, 1);
+                rendered_length++;
+                continue;
+            }
+            insert_at(buffer, sizeof(buffer), &length, &position, '[');
+        } else if (c == '[') {
+            int handled = consume_bracket_escape(buffer,
+                    sizeof(buffer),
+                    &length,
+                    &position,
+                    &history_index,
+                    draft,
+                    &draft_saved,
+                    &pending_byte);
+            if (handled == 1) {
+                refresh_line(prompt, buffer, length, position, &rendered_length);
+                continue;
+            }
+            if (handled == 0) {
+                awaiting_bracket_code = 1;
+                continue;
+            }
+            if (position == length) {
+                insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
+                ln_write_len(buffer + length - 1, 1);
+                rendered_length++;
+                continue;
+            }
+            insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
         } else if (c >= 32 && c < 127 && position == length) {
             insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
             ln_write_len(buffer + length - 1, 1);
