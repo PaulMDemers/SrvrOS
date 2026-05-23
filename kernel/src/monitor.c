@@ -22,6 +22,10 @@
 #define LINE_MAX 128
 #define LS_CHILD_NAME_MAX 64
 #define LS_CHILDREN_MAX 64
+#define MONITOR_HISTORY_MAX 16
+
+static char monitor_history[MONITOR_HISTORY_MAX][LINE_MAX];
+static uint64_t monitor_history_count;
 
 static bool streq(const char *a, const char *b) {
     while (*a != '\0' && *b != '\0') {
@@ -102,29 +106,278 @@ static char *next_token(char **cursor) {
     return token;
 }
 
-static void read_line(char *line, size_t capacity) {
+static void line_copy(char *destination, size_t capacity, const char *source) {
+    size_t i = 0;
+    if (capacity == 0) {
+        return;
+    }
+    while (source[i] != '\0' && i + 1 < capacity) {
+        destination[i] = source[i];
+        i++;
+    }
+    destination[i] = '\0';
+}
+
+static bool line_empty(const char *line) {
+    return line == NULL || line[0] == '\0';
+}
+
+static void monitor_history_add(const char *line) {
+    if (line_empty(line)) {
+        return;
+    }
+    if (monitor_history_count > 0 &&
+        streq(monitor_history[monitor_history_count - 1], line)) {
+        return;
+    }
+    if (monitor_history_count == MONITOR_HISTORY_MAX) {
+        for (uint64_t i = 1; i < MONITOR_HISTORY_MAX; i++) {
+            line_copy(monitor_history[i - 1], sizeof(monitor_history[i - 1]), monitor_history[i]);
+        }
+        monitor_history_count--;
+    }
+    line_copy(monitor_history[monitor_history_count], sizeof(monitor_history[0]), line);
+    monitor_history_count++;
+}
+
+static bool read_scan_timeout(char *out) {
+    uint64_t deadline = timer_ticks() + 2;
+    do {
+        if (keyboard_scan_char(out)) {
+            return true;
+        }
+        scheduler_yield();
+    } while (timer_ticks() <= deadline);
+    return false;
+}
+
+static char read_pending_or_keyboard(int *pending) {
+    if (*pending >= 0) {
+        char c = (char)*pending;
+        *pending = -1;
+        return c;
+    }
+    return keyboard_read_char();
+}
+
+static bool read_pending_or_scan(int *pending, char *out) {
+    if (*pending >= 0) {
+        *out = (char)*pending;
+        *pending = -1;
+        return true;
+    }
+    return read_scan_timeout(out);
+}
+
+static void refresh_monitor_line(const char *prompt,
+    const char *line,
+    size_t length,
+    size_t position) {
+    console_putc('\r');
+    console_write(prompt);
+    console_write(line);
+    console_write("\x1b[K\r");
+    console_write(prompt);
+    for (size_t i = 0; i < position && i < length; i++) {
+        console_putc(line[i]);
+    }
+}
+
+static void line_replace(char *line,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    const char *source) {
+    line_copy(line, capacity, source);
+    *length = cstrlen(line);
+    *position = *length;
+}
+
+static void line_insert(char *line,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    char c) {
+    if (*length + 1 >= capacity) {
+        return;
+    }
+    for (size_t i = *length + 1; i > *position; i--) {
+        line[i] = line[i - 1];
+    }
+    line[*position] = c;
+    (*length)++;
+    (*position)++;
+}
+
+static void line_delete_previous(char *line, size_t *length, size_t *position) {
+    if (*position == 0) {
+        return;
+    }
+    (*position)--;
+    for (size_t i = *position; i < *length; i++) {
+        line[i] = line[i + 1];
+    }
+    (*length)--;
+}
+
+static bool handle_monitor_arrow(char code,
+    char *line,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    uint64_t *history_index,
+    char *draft,
+    bool *draft_saved) {
+    if (code == 'A') {
+        if (monitor_history_count == 0 || *history_index == 0) {
+            return true;
+        }
+        if (!*draft_saved && *history_index == monitor_history_count) {
+            line_copy(draft, capacity, line);
+            *draft_saved = true;
+        }
+        (*history_index)--;
+        line_replace(line, capacity, length, position, monitor_history[*history_index]);
+        return true;
+    }
+    if (code == 'B') {
+        if (*history_index >= monitor_history_count) {
+            return true;
+        }
+        (*history_index)++;
+        if (*history_index < monitor_history_count) {
+            line_replace(line, capacity, length, position, monitor_history[*history_index]);
+        } else {
+            line_replace(line, capacity, length, position, *draft_saved ? draft : "");
+        }
+        return true;
+    }
+    if (code == 'C') {
+        if (*position < *length) {
+            (*position)++;
+        }
+        return true;
+    }
+    if (code == 'D') {
+        if (*position > 0) {
+            (*position)--;
+        }
+        return true;
+    }
+    return false;
+}
+
+static bool consume_monitor_escape(int *pending,
+    char *line,
+    size_t capacity,
+    size_t *length,
+    size_t *position,
+    uint64_t *history_index,
+    char *draft,
+    bool *draft_saved) {
+    char first = 0;
+    char code = 0;
+    if (!read_pending_or_scan(pending, &first)) {
+        return true;
+    }
+    if (first != '[' && first != 'O') {
+        *pending = (unsigned char)first;
+        return true;
+    }
+    if (!read_pending_or_scan(pending, &code)) {
+        *pending = (unsigned char)first;
+        return true;
+    }
+    if (!handle_monitor_arrow(code,
+            line,
+            capacity,
+            length,
+            position,
+            history_index,
+            draft,
+            draft_saved)) {
+        *pending = (unsigned char)code;
+    }
+    return true;
+}
+
+static void read_line(const char *prompt, char *line, size_t capacity) {
     size_t length = 0;
+    size_t position = 0;
+    uint64_t history_index = monitor_history_count;
+    char draft[LINE_MAX];
+    int pending = -1;
+    bool draft_saved = false;
+
+    if (capacity == 0) {
+        return;
+    }
+    line[0] = '\0';
+    draft[0] = '\0';
 
     for (;;) {
-        char c = keyboard_read_char();
+        char c = read_pending_or_keyboard(&pending);
 
         if (c == '\n') {
             console_putc('\n');
             line[length] = '\0';
+            monitor_history_add(line);
             return;
         }
 
-        if (c == '\b') {
-            if (length > 0) {
-                length--;
-                console_putc('\b');
+        if (c == 27) {
+            (void)consume_monitor_escape(&pending,
+                line,
+                capacity,
+                &length,
+                &position,
+                &history_index,
+                draft,
+                &draft_saved);
+            refresh_monitor_line(prompt, line, length, position);
+            continue;
+        }
+
+        if (c == '[') {
+            char code = 0;
+            if (read_pending_or_scan(&pending, &code) &&
+                handle_monitor_arrow(code,
+                    line,
+                    capacity,
+                    &length,
+                    &position,
+                    &history_index,
+                    draft,
+                    &draft_saved)) {
+                refresh_monitor_line(prompt, line, length, position);
+                continue;
             }
+            if (code != 0) {
+                pending = (unsigned char)code;
+            }
+        }
+
+        if (c == '\b' || c == 127) {
+            line_delete_previous(line, &length, &position);
+            refresh_monitor_line(prompt, line, length, position);
+            continue;
+        }
+
+        if (c == 1) {
+            position = 0;
+            refresh_monitor_line(prompt, line, length, position);
+            continue;
+        }
+
+        if (c == 5) {
+            position = length;
+            refresh_monitor_line(prompt, line, length, position);
             continue;
         }
 
         if (c >= 32 && c < 127 && length + 1 < capacity) {
-            line[length++] = c;
-            console_putc(c);
+            line_insert(line, capacity, &length, &position, c);
+            refresh_monitor_line(prompt, line, length, position);
         }
     }
 }
@@ -596,7 +849,7 @@ void monitor_run(void) {
     console_write("\nsrvros monitor ready. Type 'help'.\n");
     for (;;) {
         console_write("srv> ");
-        read_line(line, sizeof(line));
+        read_line("srv> ", line, sizeof(line));
         run_command(line);
     }
 }
