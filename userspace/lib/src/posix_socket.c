@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <poll.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -59,6 +60,7 @@ struct real_socket_options {
 
 static struct posix_socket sockets[POSIX_SOCKET_MAX];
 static struct real_socket_options real_options[REAL_SOCKET_OPTIONS_MAX];
+const struct in6_addr in6addr_any = {{0}};
 
 static struct posix_socket *socket_at(int fd) {
     if (fd < POSIX_SOCKET_BASE || fd >= POSIX_SOCKET_BASE + POSIX_SOCKET_MAX) {
@@ -1999,4 +2001,101 @@ const char *gai_strerror(int errcode) {
     default:
         return "resolver failure";
     }
+}
+
+int getnameinfo(const struct sockaddr *addr,
+    socklen_t addrlen,
+    char *host,
+    socklen_t hostlen,
+    char *serv,
+    socklen_t servlen,
+    int flags) {
+    (void)flags;
+    if (addr == 0 || addrlen < sizeof(struct sockaddr_in) || addr->sa_family != AF_INET) {
+        return EAI_FAIL;
+    }
+    const struct sockaddr_in *in = (const struct sockaddr_in *)addr;
+    if (host != 0 && hostlen != 0 &&
+        inet_ntop(AF_INET, &in->sin_addr, host, hostlen) == 0) {
+        return EAI_FAIL;
+    }
+    if (serv != 0 && servlen != 0) {
+        snprintf(serv, servlen, "%u", (unsigned)ntohs(in->sin_port));
+    }
+    return 0;
+}
+
+static struct servent static_service;
+static char *service_aliases[] = {0};
+
+struct servent *getservbyname(const char *name, const char *proto) {
+    static char service_name[16];
+    static char service_proto[8];
+    if (name == 0) {
+        return 0;
+    }
+    int port = 0;
+    if (strcmp(name, "http") == 0) {
+        port = 80;
+    } else if (strcmp(name, "https") == 0) {
+        port = 443;
+    } else if (strcmp(name, "domain") == 0) {
+        port = 53;
+    } else {
+        return 0;
+    }
+    strncpy(service_name, name, sizeof(service_name) - 1);
+    service_name[sizeof(service_name) - 1] = '\0';
+    strncpy(service_proto, proto != 0 ? proto : "tcp", sizeof(service_proto) - 1);
+    service_proto[sizeof(service_proto) - 1] = '\0';
+    static_service.s_name = service_name;
+    static_service.s_aliases = service_aliases;
+    static_service.s_port = htons((uint16_t)port);
+    static_service.s_proto = service_proto;
+    return &static_service;
+}
+
+int getservbyport_r(int port,
+    const char *proto,
+    struct servent *result_buf,
+    char *buf,
+    size_t buflen,
+    struct servent **result) {
+    if (result == 0 || result_buf == 0 || buf == 0 || buflen < 16) {
+        return EINVAL;
+    }
+    *result = 0;
+    const char *name = 0;
+    int host_port = ntohs((uint16_t)port);
+    if (host_port == 80) {
+        name = "http";
+    } else if (host_port == 443) {
+        name = "https";
+    } else if (host_port == 53) {
+        name = "domain";
+    }
+    if (name == 0) {
+        return 0;
+    }
+    strncpy(buf, name, buflen - 1);
+    buf[buflen - 1] = '\0';
+    result_buf->s_name = buf;
+    result_buf->s_aliases = service_aliases;
+    result_buf->s_port = port;
+    result_buf->s_proto = (char *)(proto != 0 ? proto : "tcp");
+    *result = result_buf;
+    return 0;
+}
+
+unsigned int if_nametoindex(const char *ifname) {
+    return ifname != 0 && strcmp(ifname, "eth0") == 0 ? 1u : 0u;
+}
+
+char *if_indextoname(unsigned int ifindex, char *ifname) {
+    if (ifindex != 1 || ifname == 0) {
+        errno = ENODEV;
+        return 0;
+    }
+    strcpy(ifname, "eth0");
+    return ifname;
 }

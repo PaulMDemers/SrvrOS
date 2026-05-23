@@ -175,6 +175,14 @@ void free(void *ptr) {
     heap_unlock();
 }
 
+size_t malloc_usable_size(void *ptr) {
+    if (ptr == 0) {
+        return 0;
+    }
+    struct block_header *block = ((struct block_header *)ptr) - 1;
+    return block->size;
+}
+
 void *calloc(size_t count, size_t size) {
     if (size != 0 && count > ((size_t)-1) / size) {
         errno = ENOMEM;
@@ -353,6 +361,22 @@ unsigned long strtoul(const char *text, char **endptr, int base) {
 
 unsigned long long strtoull(const char *text, char **endptr, int base) {
     return (unsigned long long)strtoll(text, endptr, base);
+}
+
+long __isoc23_strtol(const char *text, char **endptr, int base) {
+    return strtol(text, endptr, base);
+}
+
+long long __isoc23_strtoll(const char *text, char **endptr, int base) {
+    return strtoll(text, endptr, base);
+}
+
+unsigned long __isoc23_strtoul(const char *text, char **endptr, int base) {
+    return strtoul(text, endptr, base);
+}
+
+unsigned long long __isoc23_strtoull(const char *text, char **endptr, int base) {
+    return strtoull(text, endptr, base);
 }
 
 intmax_t strtoimax(const char *text, char **endptr, int base) {

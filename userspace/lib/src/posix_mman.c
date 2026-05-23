@@ -33,6 +33,19 @@ void *mmap(void *address, size_t length, int protection, int flags, int fd, off_
     return (void *)(uintptr_t)result;
 }
 
+void *mmap64(void *address, size_t length, int protection, int flags, int fd, off_t offset) {
+    return mmap(address, length, protection, flags, fd, offset);
+}
+
+void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ...) {
+    (void)old_address;
+    (void)old_size;
+    (void)new_size;
+    (void)flags;
+    errno = ENOSYS;
+    return MAP_FAILED;
+}
+
 int munmap(void *address, size_t length) {
     if (address == 0 || length == 0 || (((uintptr_t)address) & 0xfff) != 0) {
         errno = EINVAL;

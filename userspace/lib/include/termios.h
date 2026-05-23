@@ -38,6 +38,7 @@ struct termios {
 
 int tcgetattr(int fd, struct termios *termios_p);
 int tcsetattr(int fd, int optional_actions, const struct termios *termios_p);
+void cfmakeraw(struct termios *termios_p);
 pid_t tcgetpgrp(int fd);
 int tcsetpgrp(int fd, pid_t pgrp);
 

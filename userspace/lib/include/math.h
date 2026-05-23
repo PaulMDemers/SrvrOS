@@ -43,6 +43,13 @@ long double ceill(long double value);
 double trunc(double value);
 float truncf(float value);
 long double truncl(long double value);
+double round(double value);
+float roundf(float value);
+long double roundl(long double value);
+long long llround(double value);
+long lrint(double value);
+double nearbyint(double value);
+float nearbyintf(float value);
 double fmod(double left, double right);
 float fmodf(float left, float right);
 long double fmodl(long double left, long double right);
@@ -73,6 +80,7 @@ long double acosl(long double value);
 double exp(double value);
 float expf(float value);
 long double expl(long double value);
+double exp2(double value);
 double log(double value);
 float logf(float value);
 long double logl(long double value);
@@ -88,9 +96,14 @@ long double powl(long double base, long double exponent);
 double ldexp(double value, int exponent);
 float ldexpf(float value, int exponent);
 long double ldexpl(long double value, int exponent);
+double scalbn(double value, int exponent);
 double frexp(double value, int *exponent);
 float frexpf(float value, int *exponent);
 long double frexpl(long double value, int *exponent);
+double modf(double value, double *iptr);
+float modff(float value, float *iptr);
+double nextafter(double from, double to);
+float nextafterf(float from, float to);
 
 #ifdef __cplusplus
 }

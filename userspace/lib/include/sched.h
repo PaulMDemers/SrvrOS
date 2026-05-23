@@ -41,6 +41,9 @@ typedef struct {
 #define CPU_COUNT(set) __sched_cpu_count(set)
 
 int sched_yield(void);
+int sched_getcpu(void);
+int sched_get_priority_min(int policy);
+int sched_get_priority_max(int policy);
 int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask);
 int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask);
 int __sched_cpu_count(const cpu_set_t *mask);

@@ -57,6 +57,17 @@ int tcsetattr(int fd, int optional_actions, const struct termios *termios_p) {
     return 0;
 }
 
+void cfmakeraw(struct termios *termios_p) {
+    if (termios_p == 0) {
+        return;
+    }
+    termios_p->c_iflag = 0;
+    termios_p->c_oflag = 0;
+    termios_p->c_lflag &= ~(ECHO | ICANON | ISIG);
+    termios_p->c_cc[VMIN] = 1;
+    termios_p->c_cc[VTIME] = 0;
+}
+
 pid_t tcgetpgrp(int fd) {
     if (!isatty(fd)) {
         errno = ENOTTY;

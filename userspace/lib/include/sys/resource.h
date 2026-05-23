@@ -48,7 +48,11 @@ struct rusage {
 };
 
 int getrlimit(int resource, struct rlimit *limit);
+int getrlimit64(int resource, struct rlimit *limit);
 int setrlimit(int resource, const struct rlimit *limit);
+int setrlimit64(int resource, const struct rlimit *limit);
 int getrusage(int who, struct rusage *usage);
+int getpriority(int which, int who);
+int setpriority(int which, int who, int prio);
 
 #endif

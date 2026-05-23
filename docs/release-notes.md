@@ -53,6 +53,12 @@ server.
   link probe, and fills the exposed libc header gaps for `<inttypes.h>`,
   `<strings.h>`, C++ linkage guards, BSD string aliases, and integer conversion
   helpers.
+- Adds a focused srvros libc++ probe archive for the Node bridge and broadens
+  the libc/POSIX compatibility frontier with C23/fortified aliases, `*64` file
+  wrappers, root uid/gid helpers, pthread naming/affinity shims, terminal raw
+  mode, extra math/time/wide-char helpers, service/name lookup, and conservative
+  Linux event/discovery stubs, shifting the Node link frontier toward C++
+  standard-library coverage and srvros-compiled object consistency.
 - Adds `/fat/bin/ed`, a compact scriptable line editor for early source-port
   workflows, with edit/write/compare coverage in `tools/ports_smoke.py` and a
   port manifest at `ports/srvros/ed/PORT.md`.

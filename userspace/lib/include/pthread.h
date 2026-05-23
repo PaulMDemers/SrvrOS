@@ -106,6 +106,8 @@ int pthread_rwlockattr_destroy(pthread_rwlockattr_t *attr);
 
 int pthread_condattr_init(pthread_condattr_t *attr);
 int pthread_condattr_destroy(pthread_condattr_t *attr);
+int pthread_condattr_getclock(const pthread_condattr_t *attr, int *clock_id);
+int pthread_condattr_setclock(pthread_condattr_t *attr, int clock_id);
 
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr);
 int pthread_cond_destroy(pthread_cond_t *cond);
@@ -121,6 +123,8 @@ void *pthread_getspecific(pthread_key_t key);
 int pthread_setspecific(pthread_key_t key, const void *value);
 int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
+int pthread_setname_np(pthread_t thread, const char *name);
+int pthread_getname_np(pthread_t thread, char *name, size_t length);
 
 #ifdef __cplusplus
 }

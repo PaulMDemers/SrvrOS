@@ -37,3 +37,14 @@ int dlclose(void *handle) {
 char *dlerror(void) {
     return dlerror_buffer[0] != 0 ? dlerror_buffer : 0;
 }
+
+int dladdr(const void *addr, Dl_info *info) {
+    if (addr == 0 || info == 0) {
+        return 0;
+    }
+    info->dli_fname = "srvros";
+    info->dli_fbase = 0;
+    info->dli_sname = 0;
+    info->dli_saddr = 0;
+    return 1;
+}

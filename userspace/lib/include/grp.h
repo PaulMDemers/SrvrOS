@@ -3,6 +3,10 @@
 
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct group {
     char *gr_name;
     char *gr_passwd;
@@ -22,5 +26,11 @@ int getgrgid_r(gid_t gid,
                char *buf,
                size_t buflen,
                struct group **result);
+int setgroups(size_t size, const gid_t *list);
+int initgroups(const char *user, gid_t group);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

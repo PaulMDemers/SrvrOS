@@ -278,6 +278,10 @@ int posix_spawnp(pid_t *pid,
     return ENOENT;
 }
 
+int execvp(const char *file, char *const argv[]) {
+    return execve(file, argv, environ);
+}
+
 int posix_spawn_file_actions_init(posix_spawn_file_actions_t *file_actions) {
     if (file_actions == 0) {
         return EINVAL;

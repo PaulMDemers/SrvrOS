@@ -349,6 +349,33 @@ int pthread_kill(pthread_t thread, int sig) {
     return kill(getpid(), sig) == 0 ? 0 : ESRCH;
 }
 
+int pthread_setname_np(pthread_t thread, const char *name) {
+    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+        return ESRCH;
+    }
+    if (name == 0) {
+        return EINVAL;
+    }
+    return 0;
+}
+
+int pthread_getname_np(pthread_t thread, char *name, size_t length) {
+    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+        return ESRCH;
+    }
+    if (name == 0 || length == 0) {
+        return EINVAL;
+    }
+    const char *text = "srvros-thread";
+    size_t i = 0;
+    while (text[i] != '\0' && i + 1 < length) {
+        name[i] = text[i];
+        i++;
+    }
+    name[i] = '\0';
+    return 0;
+}
+
 int pthread_attr_init(pthread_attr_t *attr) {
     if (attr == 0) {
         return EINVAL;
@@ -653,6 +680,22 @@ int pthread_condattr_destroy(pthread_condattr_t *attr) {
     return attr == 0 ? EINVAL : 0;
 }
 
+int pthread_condattr_getclock(const pthread_condattr_t *attr, int *clock_id) {
+    if (attr == 0 || clock_id == 0) {
+        return EINVAL;
+    }
+    *clock_id = attr->clock;
+    return 0;
+}
+
+int pthread_condattr_setclock(pthread_condattr_t *attr, int clock_id) {
+    if (attr == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
+        return EINVAL;
+    }
+    attr->clock = clock_id;
+    return 0;
+}
+
 int pthread_cond_init(pthread_cond_t *cond, const pthread_condattr_t *attr) {
     (void)attr;
     if (cond == 0) {
@@ -813,6 +856,20 @@ int pthread_setspecific(pthread_key_t key, const void *value) {
 int sched_yield(void) {
     srv_syscall0(SYS_YIELD);
     (void)__posix_signal_dispatch_pending();
+    return 0;
+}
+
+int sched_getcpu(void) {
+    return 0;
+}
+
+int sched_get_priority_min(int policy) {
+    (void)policy;
+    return 0;
+}
+
+int sched_get_priority_max(int policy) {
+    (void)policy;
     return 0;
 }
 

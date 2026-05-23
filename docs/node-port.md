@@ -144,6 +144,20 @@ the link probe can consume replacement objects without duplicating object-name
 knowledge. Use `-Objects` for a comma/space separated list or `-ObjectList` for
 a text file when expanding the batch.
 
+The first libc++ implementation bridge is:
+
+```powershell
+ports\srvros\node\probe-srvros-libcxx.ps1
+```
+
+It compiles a focused subset of Zig's bundled libc++ sources against the srvros
+sysroot and writes `build/node-srvros-libcxx-probe/libsrvros-libcxx-probe.a`.
+`probe-srvros-link.ps1` automatically includes that archive when present. The
+current subset builds string, memory, stdexcept, verbose abort, hash, ios,
+ostream, and typeinfo support. The expected compile frontier is now libc++
+locale/xlocale wrappers plus the disabled legacy unexpected-handler path in
+`exception.cpp`.
+
 `probe-srvros-link.ps1` now reads that manifest. Direct final-link objects are
 replaced in place; libnode archive members are handled by rebuilding a filtered
 copy of `libnode.a` with replaced members removed, then adding the srvros
@@ -151,26 +165,37 @@ objects ahead of the archive. Because freestanding C++ mangles
 `main(int, char**)`, the link probe also maps `main` to `_Z4mainiPPc` for this
 bridge.
 
-The link frontier has moved past the entry-object proof and the archive
-substitution mechanics. It is now dominated by missing libc++ implementation
-symbols, Node/V8 objects still built against host libstdc++, Linux-shaped libuv
-and c-ares backend calls (`epoll`, `inotify`, `getifaddrs`, credential and
-process helpers), and the next batch of libnode objects that should be compiled
-with the srvros C++ profile.
+The link frontier has moved past the entry-object proof, archive substitution
+mechanics, the first libc++ archive slice, and most of the easy C/POSIX/Linux
+compatibility aliases exposed by host-built objects. srvros libc now carries
+the Node-probe-facing pieces for `*64` file aliases, C23/fortified glibc
+aliases, scheduler and pthread naming/affinity shims, root uid/gid helpers,
+service/name lookup, terminal raw-mode helpers, wide-character whitespace and
+conversion helpers, extra math functions, mmap/resource aliases, conservative
+epoll/eventfd/inotify/fork/ifaddrs stubs, and `dladdr`.
 
-The first srvros-link run captured 200 unique unresolved symbols before the
-configured linker error limit. The dominant buckets were:
+The current unresolved list is now dominated by C++ standard-library/runtime
+work and object-set consistency: host libstdc++ iostream/filesystem/regex/list/
+tree symbols, libc++ locale/filesystem pieces from srvros-compiled objects,
+and Node/V8 symbols that disappear only when broader dependent object batches
+are rebuilt with the same srvros C++ profile.
 
-- C++ runtime and libstdc++: `operator new/delete`, `std::basic_*`,
-  `std::__throw_*`, `std::cout`/`std::cerr`, locale and stream support.
-- C++ ABI/runtime guards: `__cxa_atexit`, `__cxa_guard_*`, `__cxa_demangle`.
-- Compiler runtime and hardening helpers: `__stack_chk_fail`, `__udivti3`,
-  `__umodti3`, checked libc aliases such as `__memcpy_chk`.
-- glibc/Linux aliases from host-built objects: `open64`, `fstat64`,
-  `mmap64`, `__open64_2`, `__isoc23_*`, `__libc_single_threaded`.
-- libuv/Linux process and event backend calls: `fork`, `execvp`, `epoll_*`,
-  `inotify_*`, `getifaddrs`, `getnameinfo`, and pthread affinity/name/rwlock
-  helpers.
+Early srvros-link runs captured 200 unique unresolved symbols before the
+configured linker error limit. After the first C++ runtime slice, libc++ probe
+archive, and POSIX compatibility pass, the list is still intentionally
+frontier-shaped but is no longer led by basic C runtime availability. The
+dominant buckets are:
+
+- Host libstdc++ containers, streams, filesystem, regex, locale, and throw
+  helpers from upstream objects that have not yet been rebuilt for srvros.
+- libc++ locale/filesystem implementation symbols required by the current
+  srvros-compiled object batch.
+- Node/V8 internal symbols caused by replacing only a small set of libnode
+  objects while their provider objects remain host-built or absent from the
+  reduced link set.
+- True platform decisions still deferred for a real port: an upstream libuv
+  srvros backend, child process semantics beyond `posix_spawn`, and dynamic
+  loading/native addon policy.
 
 srvros now ships the first minimal no-exception C++ runtime/ABI slice in
 `libsrvros.a`: malloc-backed `operator new/delete`, aligned and nothrow
@@ -298,15 +323,15 @@ ports/srvros/node/probe-linux.sh
 
 ## Next Porting Steps
 
-1. Keep replacing host-built Node objects with srvros-compiled objects so the
-   unresolved list stops including glibc fortified and `*64` alias symbols.
-2. Compile the next libnode/V8 object slice with the srvros C++ profile and
-   replace those host-built objects in the link probe.
-3. Decide whether to build a real srvros libc++/libc++abi archive or keep
-   pruning iostream/diagnostic dependencies from the reduced Node profile.
-4. Expand the srvros C/POSIX layer for the post-runtime Node frontier: file
-   timestamp/statfs, process identity, locale, and remaining math/wide-char
-   calls.
+1. Compile the next libnode/V8 provider slice with the srvros C++ profile so
+   replaced objects and their dependencies agree on libc++ ABI and namespace.
+2. Expand `probe-srvros-libcxx.ps1` into a deliberate libc++/libc++abi archive
+   plan, starting with locale C wrappers or a reduced no-localization profile.
+3. Decide whether to keep pruning iostream/filesystem/regex-heavy diagnostic
+   Node code from the first CLI milestone, or to support those libc++ pieces
+   early.
+4. Keep C/POSIX additions tied to concrete unresolved symbols from the link
+   probe rather than growing Linux compatibility blindly.
 5. Replace the temporary libuv Linux-like srvros probe mapping with a real
    srvros backend or a narrower compatibility shim.
 6. Map the first `srvros` build profile near the POSIX/Linux/OpenHarmony

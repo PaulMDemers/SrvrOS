@@ -109,12 +109,25 @@ The compile probe accepts `-Objects` for ad hoc comma/space separated object
 lists and `-ObjectList` for file-backed batches. Successful replacements are
 recorded in `replacements.tsv`.
 
+To build the first focused srvros libc++ implementation archive, run:
+
+```powershell
+ports\srvros\node\probe-srvros-libcxx.ps1
+```
+
+The archive is written to `build/node-srvros-libcxx-probe` and is consumed by
+`probe-srvros-link.ps1` when present. Today it successfully builds a small
+string/memory/stdexcept/hash/ios/ostream/typeinfo slice and stops at the
+expected locale/exception frontier.
+
 `probe-srvros-link.ps1` reads that manifest, prefers direct srvros-compiled
 entry objects, rebuilds a filtered non-thin `libnode.a` when libnode archive
-members have srvros replacements, and maps the freestanding C++ `main(int,
-char**)` symbol back to the C `crt0.o` entry contract. The link frontier has
-moved on to libc++ implementation symbols, the remaining host-built Node/V8
-objects, and the Linux-shaped libuv/c-ares backend.
+members have srvros replacements, adds the libc++ probe archive when present,
+and maps the freestanding C++ `main(int, char**)` symbol back to the C `crt0.o`
+entry contract. The link frontier has moved on from basic C/POSIX availability
+to libc++/libstdc++ implementation symbols, the remaining host-built Node/V8
+objects, and the next object-provider batches that must be compiled with the
+srvros C++ profile.
 
 The srvros image also includes `/fat/bin/nodeprobe`, a small local readiness
 probe for the libc/POSIX/libuv surface Node needs before the full V8 build is
@@ -163,9 +176,11 @@ and TCP/UDP.
   and recording the first true srvros-native Node unresolved symbols.
 - C++ runtime/ABI support for Node/V8's no-exception C++ build, plus replacing
   host-glibc-built Node objects with srvros-compiled objects.
-- The first C++ runtime/ABI slice is in `libsrvros.a`, so the next link frontier
-  is mostly host-glibc aliases, math/wide-char gaps, and libuv/Linux backend
-  APIs rather than `operator new/delete` or `__cxa_guard_*`.
+- The first C++ runtime/ABI slice is in `libsrvros.a`, and the first libc++
+  probe archive is linkable. The next frontier is mostly C++ standard-library
+  implementation coverage and object-set consistency rather than basic
+  `operator new/delete`, `__cxa_guard_*`, fortified libc, `*64`, math,
+  wide-char, or Linux discovery aliases.
 - The first real srvros-compiled Node entry objects (`node_main.cc` and
   `node_snapshot_stub.cc`) plus eight libnode objects now build against the
   sysroot. The next object-level work is compiling broader libnode/V8 batches

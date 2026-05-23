@@ -3,6 +3,10 @@
 
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define O_RDONLY 0x0000
 #define O_WRONLY 0x0001
 #define O_RDWR 0x0002
@@ -40,5 +44,12 @@ struct flock {
 };
 
 int fcntl(int fd, int command, ...);
+int fcntl64(int fd, int command, ...);
+int open(const char *path, int flags, ...);
+int open64(const char *path, int flags, ...);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

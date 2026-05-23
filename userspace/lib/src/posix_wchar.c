@@ -1,5 +1,7 @@
 #include <errno.h>
+#include <stdarg.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <wchar.h>
 
 size_t wcslen(const wchar_t *s) {
@@ -154,6 +156,91 @@ int mbtowc(wchar_t *pwc, const char *s, size_t n) {
     return (int)result;
 }
 
+static size_t wide_to_narrow(const wchar_t *src, char *dest, size_t capacity) {
+    size_t count = 0;
+    if (capacity == 0) {
+        return 0;
+    }
+    while (src != 0 && src[count] != 0 && count + 1 < capacity) {
+        if ((unsigned long)src[count] > 0x7f) {
+            break;
+        }
+        dest[count] = (char)src[count];
+        count++;
+    }
+    dest[count] = '\0';
+    return count;
+}
+
+static void assign_wide_endptr(const wchar_t *nptr, wchar_t **endptr, const char *narrow, char *narrow_end) {
+    if (endptr != 0) {
+        *endptr = (wchar_t *)(nptr + (narrow_end != 0 ? (narrow_end - narrow) : 0));
+    }
+}
+
+long wcstol(const wchar_t *nptr, wchar_t **endptr, int base) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    long value = strtol(narrow, &narrow_end, base);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+long long wcstoll(const wchar_t *nptr, wchar_t **endptr, int base) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    long long value = strtoll(narrow, &narrow_end, base);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+unsigned long wcstoul(const wchar_t *nptr, wchar_t **endptr, int base) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    unsigned long value = strtoul(narrow, &narrow_end, base);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+unsigned long long wcstoull(const wchar_t *nptr, wchar_t **endptr, int base) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    unsigned long long value = strtoull(narrow, &narrow_end, base);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+float wcstof(const wchar_t *nptr, wchar_t **endptr) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    float value = strtof(narrow, &narrow_end);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+double wcstod(const wchar_t *nptr, wchar_t **endptr) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    double value = strtod(narrow, &narrow_end);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
+long double wcstold(const wchar_t *nptr, wchar_t **endptr) {
+    char narrow[128];
+    char *narrow_end = 0;
+    wide_to_narrow(nptr, narrow, sizeof(narrow));
+    long double value = strtold(narrow, &narrow_end);
+    assign_wide_endptr(nptr, endptr, narrow, narrow_end);
+    return value;
+}
+
 size_t mbsrtowcs(wchar_t *dest, const char **src, size_t len, mbstate_t *ps) {
     return mbsnrtowcs(dest, src, (size_t)-1, len, ps);
 }
@@ -221,4 +308,53 @@ size_t wcsnrtombs(char *dest, const wchar_t **src, size_t nwc, size_t len, mbsta
         *src = 0;
     }
     return count;
+}
+
+int vswprintf(wchar_t *s, size_t n, const wchar_t *format, va_list args) {
+    (void)args;
+    if (s == 0 || n == 0 || format == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    size_t count = 0;
+    while (format[count] != 0 && count + 1 < n) {
+        s[count] = format[count];
+        count++;
+    }
+    s[count] = 0;
+    return (int)count;
+}
+
+int swprintf(wchar_t *s, size_t n, const wchar_t *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vswprintf(s, n, format, args);
+    va_end(args);
+    return result;
+}
+
+wint_t fputwc(wchar_t wc, FILE *stream) {
+    int c = wctob(wc);
+    if (c == EOF) {
+        return WEOF;
+    }
+    return fputc(c, stream) == EOF ? WEOF : (wint_t)wc;
+}
+
+wint_t getwc(FILE *stream) {
+    int c = fgetc(stream);
+    return c == EOF ? WEOF : (wint_t)(unsigned char)c;
+}
+
+wint_t ungetwc(wint_t wc, FILE *stream) {
+    int c = wctob(wc);
+    if (c == EOF) {
+        return WEOF;
+    }
+    return ungetc(c, stream) == EOF ? WEOF : wc;
+}
+
+int iswspace(wint_t wc) {
+    return wc == L' ' || wc == L'\t' || wc == L'\n' ||
+        wc == L'\r' || wc == L'\f' || wc == L'\v';
 }

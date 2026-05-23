@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/auxv.h>
 #include <sys/mman.h>
@@ -9,6 +10,7 @@
 #include <sys/random.h>
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
+#include <fcntl.h>
 #include <unistd.h>
 
 #include <srvros/sys.h>
@@ -147,4 +149,64 @@ long syscall(long number, ...) {
     }
     va_end(args);
     return result;
+}
+
+ssize_t __read_chk(int fd, void *buffer, size_t length, size_t buffer_length) {
+    if (length > buffer_length) {
+        errno = EINVAL;
+        return -1;
+    }
+    return read(fd, buffer, length);
+}
+
+void *__memmove_chk(void *destination, const void *source, size_t length, size_t destination_length) {
+    if (length > destination_length) {
+        errno = EINVAL;
+        return 0;
+    }
+    return memmove(destination, source, length);
+}
+
+void *__memcpy_chk(void *destination, const void *source, size_t length, size_t destination_length) {
+    if (length > destination_length) {
+        errno = EINVAL;
+        return 0;
+    }
+    return memcpy(destination, source, length);
+}
+
+void *__memset_chk(void *destination, int value, size_t length, size_t destination_length) {
+    if (length > destination_length) {
+        errno = EINVAL;
+        return 0;
+    }
+    return memset(destination, value, length);
+}
+
+int __open64_2(const char *path, int flags) {
+    return open64(path, flags);
+}
+
+char *__realpath_chk(const char *path, char *resolved_path, size_t resolved_length) {
+    if (resolved_path != 0 && resolved_length < 160) {
+        errno = EINVAL;
+        return 0;
+    }
+    return realpath(path, resolved_path);
+}
+
+long __fdelt_chk(long fd) {
+    if (fd < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    return fd / (long)(8 * sizeof(long));
+}
+
+long __sysconf(int name) {
+    return sysconf(name);
+}
+
+const char *gnu_get_libc_version(void) {
+    return "srvros-libc";
 }

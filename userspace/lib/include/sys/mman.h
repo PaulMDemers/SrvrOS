@@ -38,7 +38,9 @@
 #define MADV_NOHUGEPAGE 15
 
 void *mmap(void *address, size_t length, int protection, int flags, int fd, off_t offset);
+void *mmap64(void *address, size_t length, int protection, int flags, int fd, off_t offset);
 int munmap(void *address, size_t length);
+void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ...);
 int mprotect(void *address, size_t length, int protection);
 int msync(void *address, size_t length, int flags);
 int madvise(void *address, size_t length, int advice);

@@ -3,6 +3,10 @@
 
 #include <sys/types.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define DT_UNKNOWN 0
 #define DT_REG 8
 #define DT_DIR 4
@@ -17,11 +21,20 @@ typedef struct DIR DIR;
 
 DIR *opendir(const char *path);
 struct dirent *readdir(DIR *dir);
+struct dirent *readdir64(DIR *dir);
 int closedir(DIR *dir);
 int scandir(const char *path,
     struct dirent ***namelist,
     int (*filter)(const struct dirent *),
     int (*compar)(const struct dirent **, const struct dirent **));
+int scandir64(const char *path,
+    struct dirent ***namelist,
+    int (*filter)(const struct dirent *),
+    int (*compar)(const struct dirent **, const struct dirent **));
 int alphasort(const struct dirent **left, const struct dirent **right);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

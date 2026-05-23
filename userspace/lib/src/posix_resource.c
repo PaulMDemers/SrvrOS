@@ -56,6 +56,10 @@ int getrlimit(int resource, struct rlimit *limit) {
     return 0;
 }
 
+int getrlimit64(int resource, struct rlimit *limit) {
+    return getrlimit(resource, limit);
+}
+
 int setrlimit(int resource, const struct rlimit *limit) {
     if (limit == 0 || !valid_resource(resource) || limit->rlim_cur > limit->rlim_max) {
         errno = EINVAL;
@@ -67,6 +71,23 @@ int setrlimit(int resource, const struct rlimit *limit) {
         return -1;
     }
     resource_limits[resource] = *limit;
+    return 0;
+}
+
+int setrlimit64(int resource, const struct rlimit *limit) {
+    return setrlimit(resource, limit);
+}
+
+int getpriority(int which, int who) {
+    (void)which;
+    (void)who;
+    return 0;
+}
+
+int setpriority(int which, int who, int prio) {
+    (void)which;
+    (void)who;
+    (void)prio;
     return 0;
 }
 

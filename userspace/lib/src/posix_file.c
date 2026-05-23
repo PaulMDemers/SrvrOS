@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <termios.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 #include <sys/uio.h>
@@ -112,6 +113,18 @@ int open(const char *path, int flags, ...) {
     return (int)fd;
 }
 
+int open64(const char *path, int flags, ...) {
+    mode_t create_mode = 0666;
+    if ((flags & O_CREAT) != 0) {
+        va_list args;
+        va_start(args, flags);
+        create_mode = (mode_t)va_arg(args, int);
+        va_end(args);
+        return open(path, flags, create_mode);
+    }
+    return open(path, flags);
+}
+
 ssize_t read(int fd, void *buffer, size_t length) {
     fd = __posix_socket_real_fd(fd);
     if (fd < 0) {
@@ -192,6 +205,10 @@ ssize_t pread(int fd, void *buffer, size_t length, off_t offset) {
     return result;
 }
 
+ssize_t pread64(int fd, void *buffer, size_t length, off_t offset) {
+    return pread(fd, buffer, length, offset);
+}
+
 ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
     if (offset < 0) {
         errno = EINVAL;
@@ -206,6 +223,10 @@ ssize_t pwrite(int fd, const void *buffer, size_t length, off_t offset) {
     (void)lseek(fd, saved, SEEK_SET);
     errno = saved_errno;
     return result;
+}
+
+ssize_t pwrite64(int fd, const void *buffer, size_t length, off_t offset) {
+    return pwrite(fd, buffer, length, offset);
 }
 
 static int iov_valid(const struct iovec *iov, int iovcnt) {
@@ -338,6 +359,10 @@ int fsync(int fd) {
         return -1;
     }
     return 0;
+}
+
+int fdatasync(int fd) {
+    return fsync(fd);
 }
 
 void sync(void) {
@@ -603,6 +628,24 @@ int fcntl(int fd, int command, ...) {
     return -1;
 }
 
+int fcntl64(int fd, int command, ...) {
+    va_list args;
+    va_start(args, command);
+    int result;
+    if (command == F_DUPFD || command == F_DUPFD_CLOEXEC ||
+        command == F_SETFD || command == F_SETFL) {
+        int value = va_arg(args, int);
+        result = fcntl(fd, command, value);
+    } else if (command == F_GETLK || command == F_SETLK || command == F_SETLKW) {
+        struct flock *lock = va_arg(args, struct flock *);
+        result = fcntl(fd, command, lock);
+    } else {
+        result = fcntl(fd, command);
+    }
+    va_end(args);
+    return result;
+}
+
 off_t lseek(int fd, off_t offset, int whence) {
     long result = srv_seek(fd, (int64_t)offset, (uint64_t)whence);
     if (result < 0) {
@@ -610,6 +653,10 @@ off_t lseek(int fd, off_t offset, int whence) {
         return -1;
     }
     return (off_t)result;
+}
+
+off_t lseek64(int fd, off_t offset, int whence) {
+    return lseek(fd, offset, whence);
 }
 
 int stat(const char *path, struct stat *st) {
@@ -631,6 +678,14 @@ int lstat(const char *path, struct stat *st) {
     return stat(path, st);
 }
 
+int stat64(const char *path, struct stat *st) {
+    return stat(path, st);
+}
+
+int lstat64(const char *path, struct stat *st) {
+    return lstat(path, st);
+}
+
 int fstat(int fd, struct stat *st) {
     struct srv_stat info;
     if (st == 0) {
@@ -648,6 +703,61 @@ int fstat(int fd, struct stat *st) {
     }
     fill_stat(st, &info);
     return 0;
+}
+
+int fstat64(int fd, struct stat *st) {
+    return fstat(fd, st);
+}
+
+struct srvros_statfs64 {
+    long f_type;
+    long f_bsize;
+    unsigned long f_blocks;
+    unsigned long f_bfree;
+    unsigned long f_bavail;
+    unsigned long f_files;
+    unsigned long f_ffree;
+    unsigned long f_fsid;
+    long f_namelen;
+    long f_frsize;
+    long f_flags;
+    long f_spare[4];
+};
+
+static int fill_statfs64(const char *path, struct srvros_statfs64 *buf) {
+    char full[POSIX_PATH_MAX];
+    struct srv_fsinfo info;
+    if (buf == 0 || __posix_make_path(path, full, sizeof(full)) < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (srv_statfs(full, &info) < 0) {
+        errno = ENOENT;
+        return -1;
+    }
+    memset(buf, 0, sizeof(*buf));
+    buf->f_type = 0x53525652;
+    buf->f_bsize = (long)info.block_size;
+    buf->f_frsize = (long)info.block_size;
+    buf->f_blocks = (unsigned long)info.blocks;
+    buf->f_bfree = (unsigned long)info.blocks_free;
+    buf->f_bavail = (unsigned long)info.blocks_available;
+    buf->f_files = (unsigned long)info.files;
+    buf->f_ffree = (unsigned long)info.files_free;
+    buf->f_namelen = 255;
+    return 0;
+}
+
+int statfs64(const char *path, void *buf) {
+    return fill_statfs64(path, (struct srvros_statfs64 *)buf);
+}
+
+int fstatfs64(int fd, void *buf) {
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        return -1;
+    }
+    return fill_statfs64("/", (struct srvros_statfs64 *)buf);
 }
 
 int statvfs(const char *path, struct statvfs *buf) {
@@ -721,6 +831,10 @@ int ftruncate(int fd, off_t length) {
     return 0;
 }
 
+int ftruncate64(int fd, off_t length) {
+    return ftruncate(fd, length);
+}
+
 int truncate(const char *path, off_t length) {
     if (length < 0) {
         errno = EINVAL;
@@ -780,6 +894,52 @@ int unlink(const char *path) {
     return 0;
 }
 
+int link(const char *old_path, const char *new_path) {
+    (void)old_path;
+    (void)new_path;
+    errno = ENOSYS;
+    return -1;
+}
+
+int symlink(const char *target, const char *link_path) {
+    (void)target;
+    (void)link_path;
+    errno = ENOSYS;
+    return -1;
+}
+
+static int path_exists_for_metadata(const char *path) {
+    struct stat st;
+    return stat(path, &st);
+}
+
+int chown(const char *path, uid_t owner, gid_t group) {
+    if (path_exists_for_metadata(path) < 0) {
+        return -1;
+    }
+    if ((owner != (uid_t)-1 && owner != 0) || (group != (gid_t)-1 && group != 0)) {
+        errno = EPERM;
+        return -1;
+    }
+    return 0;
+}
+
+int lchown(const char *path, uid_t owner, gid_t group) {
+    return chown(path, owner, group);
+}
+
+int fchown(int fd, uid_t owner, gid_t group) {
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        return -1;
+    }
+    if ((owner != (uid_t)-1 && owner != 0) || (group != (gid_t)-1 && group != 0)) {
+        errno = EPERM;
+        return -1;
+    }
+    return 0;
+}
+
 int mkostemp(char *template_path, int flags) {
     size_t length;
     size_t suffix;
@@ -823,6 +983,41 @@ int mkstemp(char *template_path) {
     return mkostemp(template_path, 0);
 }
 
+int mkstemp64(char *template_path) {
+    return mkstemp(template_path);
+}
+
+char *mkdtemp(char *template_path) {
+    if (template_path == 0) {
+        errno = EINVAL;
+        return 0;
+    }
+    size_t length = strlen(template_path);
+    if (length < 6) {
+        errno = EINVAL;
+        return 0;
+    }
+    size_t suffix = length - 6;
+    for (size_t i = suffix; i < length; i++) {
+        if (template_path[i] != 'X') {
+            errno = EINVAL;
+            return 0;
+        }
+    }
+    for (uint64_t attempt = 0; attempt < 10000; attempt++) {
+        uint64_t value = ((uint64_t)getpid() * 1103515245u + attempt * 2654435761u) % 1000000u;
+        for (size_t digit = 0; digit < 6; digit++) {
+            template_path[suffix + 5 - digit] = (char)('0' + (value % 10));
+            value /= 10;
+        }
+        if (mkdir(template_path, 0700) == 0) {
+            return template_path;
+        }
+    }
+    errno = EEXIST;
+    return 0;
+}
+
 int mkdir(const char *path, mode_t mode) {
     char full[POSIX_PATH_MAX];
     if (__posix_make_path(path, full, sizeof(full)) < 0) {
@@ -860,6 +1055,33 @@ int rename(const char *old_path, const char *new_path) {
         return -1;
     }
     return 0;
+}
+
+int futimens(int fd, const struct timespec times[2]) {
+    (void)times;
+    struct stat st;
+    if (fstat(fd, &st) < 0) {
+        return -1;
+    }
+    return 0;
+}
+
+int utimensat(int dirfd, const char *path, const struct timespec times[2], int flags) {
+    (void)dirfd;
+    (void)times;
+    if (flags != 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    return path_exists_for_metadata(path);
+}
+
+int posix_fadvise64(int fd, off_t offset, off_t length, int advice) {
+    (void)offset;
+    (void)length;
+    (void)advice;
+    struct stat st;
+    return fstat(fd, &st) == 0 ? 0 : errno;
 }
 
 pid_t getpid(void) {

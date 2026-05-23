@@ -4,6 +4,7 @@ param(
   [string]$Sysroot = "build\sysroot\srvros",
   [string]$OutDir = "build\node-srvros-link-probe",
   [string]$CompileProbeDir = "build\node-srvros-compile-probe",
+  [string]$LibcxxProbeDir = "build\node-srvros-libcxx-probe",
   [switch]$FailOnUnresolved
 )
 
@@ -52,6 +53,7 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..\..")
 $sysrootPath = Join-Path $repoRoot $Sysroot
 $outPath = Join-Path $repoRoot $OutDir
 $compileProbePath = Join-Path $repoRoot $CompileProbeDir
+$libcxxProbePath = Join-Path $repoRoot $LibcxxProbeDir
 $zig = Join-Path $repoRoot "build\tooling\zig\zig.exe"
 $make = "make"
 
@@ -99,6 +101,7 @@ $unresolved = Join-Path $outPath "unresolved-symbols.txt"
 $crt0 = Join-Path $sysrootPath "lib\crt0.o"
 $appLd = Join-Path $sysrootPath "lib\app.ld"
 $srvrosLib = Join-Path $sysrootPath "lib\libsrvros.a"
+$libcxxProbeLib = Join-Path $libcxxProbePath "libsrvros-libcxx-probe.a"
 
 $rspArgs = @(
   "-m", "elf_x86_64",
@@ -157,6 +160,9 @@ $rspArgs += "--start-group"
 foreach ($replacement in $archiveReplacements) {
   $rspArgs += $srvrosObjectReplacements[$replacement]
 }
+if (Test-Path -LiteralPath $libcxxProbeLib) {
+  $rspArgs += $libcxxProbeLib
+}
 foreach ($input in $inputs) {
   $full = Join-Path $releaseWin ($input -replace '/', '\')
   if ($filteredArchives.ContainsKey($input)) {
@@ -184,6 +190,9 @@ Write-Host "Linking Node object graph against srvros sysroot..."
 Write-Host "  inputs: $($inputs.Count)"
 Write-Host "  direct replacements: $($directReplacements.Count)"
 Write-Host "  archive replacements: $($archiveReplacements.Count)"
+if (Test-Path -LiteralPath $libcxxProbeLib) {
+  Write-Host "  libc++ probe: $libcxxProbeLib"
+}
 Write-Host "  rsp: $rsp"
 
 $process = Start-Process `

@@ -115,6 +115,10 @@ struct dirent *readdir(DIR *dir) {
     return 0;
 }
 
+struct dirent *readdir64(DIR *dir) {
+    return readdir(dir);
+}
+
 int closedir(DIR *dir) {
     if (dir == 0) {
         errno = EBADF;
@@ -184,4 +188,11 @@ fail:
     closedir(dir);
     errno = ENOMEM;
     return -1;
+}
+
+int scandir64(const char *path,
+    struct dirent ***namelist,
+    int (*filter)(const struct dirent *),
+    int (*compar)(const struct dirent **, const struct dirent **)) {
+    return scandir(path, namelist, filter, compar);
 }

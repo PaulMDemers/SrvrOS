@@ -56,6 +56,34 @@ long double truncl(long double value) {
     return (long double)(long long)value;
 }
 
+double round(double value) {
+    return value < 0.0 ? ceil(value - 0.5) : floor(value + 0.5);
+}
+
+float roundf(float value) {
+    return (float)round(value);
+}
+
+long double roundl(long double value) {
+    return (long double)round((double)value);
+}
+
+long long llround(double value) {
+    return (long long)round(value);
+}
+
+long lrint(double value) {
+    return (long)round(value);
+}
+
+double nearbyint(double value) {
+    return round(value);
+}
+
+float nearbyintf(float value) {
+    return (float)nearbyint(value);
+}
+
 double floor(double value) {
     if (!isfinite(value) || value >= SRV_INT_LIMIT || value <= -SRV_INT_LIMIT) {
         return value;
@@ -301,6 +329,10 @@ long double ldexpl(long double value, int exponent) {
     return (long double)ldexp((double)value, exponent);
 }
 
+double scalbn(double value, int exponent) {
+    return ldexp(value, exponent);
+}
+
 double frexp(double value, int *exponent) {
     if (exponent != 0) {
         *exponent = 0;
@@ -333,6 +365,55 @@ long double frexpl(long double value, int *exponent) {
     return (long double)frexp((double)value, exponent);
 }
 
+double modf(double value, double *iptr) {
+    double integer = trunc(value);
+    if (iptr != 0) {
+        *iptr = integer;
+    }
+    return value - integer;
+}
+
+float modff(float value, float *iptr) {
+    double integer = 0.0;
+    float fraction = (float)modf(value, &integer);
+    if (iptr != 0) {
+        *iptr = (float)integer;
+    }
+    return fraction;
+}
+
+double nextafter(double from, double to) {
+    if (isnan(from) || isnan(to) || from == to) {
+        return to;
+    }
+    union {
+        double d;
+        uint64_t u;
+    } value = {.d = from};
+    if ((from < to) == (from > 0.0)) {
+        value.u++;
+    } else {
+        value.u--;
+    }
+    return value.d;
+}
+
+float nextafterf(float from, float to) {
+    if (isnan(from) || isnan(to) || from == to) {
+        return to;
+    }
+    union {
+        float f;
+        uint32_t u;
+    } value = {.f = from};
+    if ((from < to) == (from > 0.0f)) {
+        value.u++;
+    } else {
+        value.u--;
+    }
+    return value.f;
+}
+
 double exp(double value) {
     if (isnan(value)) {
         return value;
@@ -352,6 +433,10 @@ double exp(double value) {
         sum += term;
     }
     return ldexp(sum, k);
+}
+
+double exp2(double value) {
+    return exp(value * SRV_LN2);
 }
 
 float expf(float value) {

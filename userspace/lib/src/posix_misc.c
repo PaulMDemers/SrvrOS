@@ -93,6 +93,15 @@ int uname(struct utsname *name) {
     return 0;
 }
 
+int gethostname(char *name, size_t length) {
+    if (name == 0 || length == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    copy_field(name, length, "srvros");
+    return 0;
+}
+
 int getpagesize(void) {
     return SRVROS_PAGE_SIZE;
 }
@@ -113,6 +122,20 @@ long sysconf(int name) {
         return HOST_NAME_MAX;
     case _SC_LOGIN_NAME_MAX:
         return LOGIN_NAME_MAX;
+    default:
+        errno = EINVAL;
+        return -1;
+    }
+}
+
+long pathconf(const char *path, int name) {
+    if (path == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    switch (name) {
+    case _SC_PAGESIZE:
+        return SRVROS_PAGE_SIZE;
     default:
         errno = EINVAL;
         return -1;

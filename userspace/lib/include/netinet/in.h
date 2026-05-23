@@ -30,6 +30,8 @@ struct sockaddr_in6 {
     uint32_t sin6_scope_id;
 };
 
+extern const struct in6_addr in6addr_any;
+
 #define INADDR_ANY 0x00000000u
 #define INADDR_LOOPBACK 0x7f000001u
 

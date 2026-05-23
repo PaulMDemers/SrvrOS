@@ -2,6 +2,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <string.h>
+#include <unistd.h>
 
 static struct passwd root_passwd = {
     .pw_name = "root",
@@ -112,4 +113,78 @@ int getgrgid_r(gid_t gid, struct group *grp, char *buf, size_t buflen, struct gr
         return 0;
     }
     return getgrnam_r("root", grp, buf, buflen, result);
+}
+
+uid_t getuid(void) {
+    return 0;
+}
+
+uid_t geteuid(void) {
+    return 0;
+}
+
+gid_t getgid(void) {
+    return 0;
+}
+
+gid_t getegid(void) {
+    return 0;
+}
+
+int setuid(uid_t uid) {
+    if (uid != 0) {
+        errno = EPERM;
+        return -1;
+    }
+    return 0;
+}
+
+int seteuid(uid_t uid) {
+    return setuid(uid);
+}
+
+int setgid(gid_t gid) {
+    if (gid != 0) {
+        errno = EPERM;
+        return -1;
+    }
+    return 0;
+}
+
+int setegid(gid_t gid) {
+    return setgid(gid);
+}
+
+int getgroups(int size, gid_t list[]) {
+    if (size < 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (size == 0) {
+        return 1;
+    }
+    if (list == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    list[0] = 0;
+    return 1;
+}
+
+int setgroups(size_t size, const gid_t *list) {
+    for (size_t i = 0; i < size; i++) {
+        if (list == 0 || list[i] != 0) {
+            errno = EPERM;
+            return -1;
+        }
+    }
+    return 0;
+}
+
+int initgroups(const char *user, gid_t group) {
+    if (user == 0 || group != 0) {
+        errno = user == 0 ? EINVAL : EPERM;
+        return -1;
+    }
+    return 0;
 }

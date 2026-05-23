@@ -13,6 +13,18 @@ void *memchr(const void *ptr, int value, size_t length) {
     return 0;
 }
 
+void *memrchr(const void *ptr, int value, size_t length) {
+    const unsigned char *bytes = ptr;
+    unsigned char needle = (unsigned char)value;
+    while (length > 0) {
+        length--;
+        if (bytes[length] == needle) {
+            return (void *)(bytes + length);
+        }
+    }
+    return 0;
+}
+
 int memcmp(const void *left, const void *right, size_t length) {
     const unsigned char *a = left;
     const unsigned char *b = right;
@@ -39,6 +51,14 @@ void bzero(void *destination, size_t length) {
 size_t strlen(const char *text) {
     size_t length = 0;
     while (text != 0 && text[length] != '\0') {
+        length++;
+    }
+    return length;
+}
+
+size_t strnlen(const char *text, size_t maxlen) {
+    size_t length = 0;
+    while (text != 0 && length < maxlen && text[length] != '\0') {
         length++;
     }
     return length;
@@ -81,6 +101,14 @@ char *strcpy(char *destination, const char *source) {
     do {
         destination[i] = source[i];
     } while (source[i++] != '\0');
+    return destination;
+}
+
+char *stpcpy(char *destination, const char *source) {
+    while (*source != '\0') {
+        *destination++ = *source++;
+    }
+    *destination = '\0';
     return destination;
 }
 

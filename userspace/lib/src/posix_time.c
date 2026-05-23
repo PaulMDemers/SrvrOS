@@ -72,6 +72,26 @@ struct tm *localtime(const time_t *timer) {
     return &result;
 }
 
+struct tm *localtime_r(const time_t *timer, struct tm *result) {
+    if (result == 0) {
+        errno = EINVAL;
+        return 0;
+    }
+    struct tm *source = localtime(timer);
+    if (source == 0) {
+        return 0;
+    }
+    *result = *source;
+    return result;
+}
+
+struct tm *gmtime_r(const time_t *timer, struct tm *result) {
+    return localtime_r(timer, result);
+}
+
+void tzset(void) {
+}
+
 time_t mktime(struct tm *timeptr) {
     if (timeptr == 0) {
         errno = EINVAL;
@@ -130,6 +150,16 @@ int clock_gettime(int clock_id, struct timespec *tp) {
     uint64_t ticks = (uint64_t)srv_ticks();
     tp->tv_sec = (time_t)(ticks / SRVROS_TICKS_PER_SECOND);
     tp->tv_nsec = (long)((ticks % SRVROS_TICKS_PER_SECOND) * (1000000000ull / SRVROS_TICKS_PER_SECOND));
+    return 0;
+}
+
+int clock_getres(int clock_id, struct timespec *tp) {
+    if (tp == 0 || (clock_id != CLOCK_REALTIME && clock_id != CLOCK_MONOTONIC)) {
+        errno = EINVAL;
+        return -1;
+    }
+    tp->tv_sec = 0;
+    tp->tv_nsec = 1000000000L / SRVROS_TICKS_PER_SECOND;
     return 0;
 }
 
