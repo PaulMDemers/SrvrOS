@@ -431,7 +431,12 @@ but srvros allows `node:sqlite` at pre-execution time and `lib/sqlite.js` routes
 to `internal/srvros_sqlite` instead of `internalBinding('sqlite')`. The shim
 implements the narrow synchronous `DatabaseSync`/`StatementSync` surface needed
 by the demo: create table, delete, insert, select, persistence, and close. The
-srvros compile probe can also resolve and build Node's native
+shim now also covers simple `WHERE column = ?` or named-parameter filters,
+`ORDER BY`, `COUNT(*)`, positional and named insert bindings, and
+`lastInsertRowid`. `tools/node_sqlite_shim_smoke.py` boots one exFAT image,
+runs a writer Node process, then runs a second reader process against the same
+disk to verify persistence across process restart.
+The srvros compile probe can also resolve and build Node's native
 `src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
 `deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can
 succeed when those objects are included. Native runtime enablement remains

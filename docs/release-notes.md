@@ -23,6 +23,9 @@ server.
   compile/link through the srvros probe. The native binding profile still stays
   off until the `HAVE_SQLITE=1` dispatch path no longer faults inside V8
   module-object setup.
+- Expands the transitional `node:sqlite` shim with named bindings, simple
+  filters, ordering, counts, filtered deletes, and a two-process persistence
+  smoke against one exFAT image.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

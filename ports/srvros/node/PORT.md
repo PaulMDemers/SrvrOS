@@ -285,9 +285,14 @@ keeps `HAVE_SQLITE=0`, but `pre_execution.js` allows the builtin on srvros and
 `lib/sqlite.js` routes to `internal/srvros_sqlite`, a narrow JSON-backed
 `DatabaseSync`/`StatementSync` shim. That public require path now passes the
 QEMU smoke for create/insert/select/close and the Express/JWT demo smoke asserts
-that `/health` reports the `node:sqlite` backend. The native binding remains at
-the compile/link bridge stage: `probe-srvros-compile.ps1` has manual source
-mappings for `obj/src/libnode.node_sqlite.o`,
+that `/health` reports the `node:sqlite` backend. The shim supports simple
+positional and named bindings, `WHERE column = value`, `ORDER BY`, `COUNT(*)`,
+delete filtering, persistence, and `lastInsertRowid`.
+`tools/node_sqlite_shim_smoke.py` verifies that a writer process and a later
+reader process see the same `/fat` database on one mounted image. The native
+binding remains at the compile/link bridge stage:
+`probe-srvros-compile.ps1` has manual source mappings for
+`obj/src/libnode.node_sqlite.o`,
 `obj/src/libnode.node_webstorage.o`, and
 `obj/deps/sqlite/sqlite.sqlite3.o`, and includes Node's bundled `deps/sqlite`
 headers when compiling selected objects. With `HAVE_SQLITE=1` and the bundled

@@ -225,6 +225,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   compile/link through the srvros bridge, but the default runtime keeps
   `HAVE_SQLITE=0` because the native sqlite-enabled dispatch profile currently
   faults in V8 while defining the module object.
+  `node_sqlite_shim_smoke.py` is the focused storage smoke for the transitional
+  shim; it runs two Node processes against the same exFAT image and verifies
+  named bindings, `WHERE`, `ORDER BY`, `COUNT(*)`, delete filtering, and
+  persistence across process restart.
   The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
   `dns.lookupService()` are covered, while async resolver durability remains a
   libuv/threadpool follow-up.
