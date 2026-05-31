@@ -430,12 +430,24 @@ transitional JavaScript shim. The stable runtime still keeps `HAVE_SQLITE=0`,
 but srvros allows `node:sqlite` at pre-execution time and `lib/sqlite.js` routes
 to `internal/srvros_sqlite` instead of `internalBinding('sqlite')`. The shim
 implements the narrow synchronous `DatabaseSync`/`StatementSync` surface needed
-by the demo: create table, delete, insert, select, persistence, and close. The
-shim now also covers simple `WHERE column = ?` or named-parameter filters,
-`ORDER BY`, `COUNT(*)`, positional and named insert bindings, and
-`lastInsertRowid`. `tools/node_sqlite_shim_smoke.py` boots one exFAT image,
-runs a writer Node process, then runs a second reader process against the same
-disk to verify persistence across process restart.
+by the demo: create table, delete, insert, update, select, persistence, and
+close. The shim now also covers simple `WHERE column = ?` or named-parameter
+filters, `ORDER BY`, `LIMIT`, `COUNT(*) AS alias`, positional and named
+bindings, filtered deletes, and `lastInsertRowid`.
+`tools/node_sqlite_shim_smoke.py` boots one exFAT image, runs a writer Node
+process, then runs a second reader process against the same disk to verify
+persistence across process restart. `tools/node_app_suite_smoke.py` is the
+broader application smoke: it runs one script across stable core modules
+(`fs` synchronous file I/O, timers, `path`, `url`, `querystring`, `events`, and
+the srvros `crypto` HMAC shim) and a second script across SQLite
+`UPDATE`/`LIMIT`/named and positional binding behavior.
+
+Current intentional boundaries are documented by the smoke suite. General
+`SELECT column AS alias` projection is rejected by the shim for now; the
+count-specific `COUNT(*) AS alias` form remains supported. A broader app probe
+also found `fs/promises` plus the stream machinery can still fault the runtime,
+so those remain libuv/V8 runtime follow-ups instead of advertised application
+surface.
 The srvros compile probe can also resolve and build Node's native
 `src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
 `deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can

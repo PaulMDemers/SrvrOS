@@ -227,8 +227,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   faults in V8 while defining the module object.
   `node_sqlite_shim_smoke.py` is the focused storage smoke for the transitional
   shim; it runs two Node processes against the same exFAT image and verifies
-  named bindings, `WHERE`, `ORDER BY`, `COUNT(*)`, delete filtering, and
-  persistence across process restart.
+  named bindings, `WHERE`, `ORDER BY`, `COUNT(*) AS alias`, delete filtering,
+  and persistence across process restart. `node_app_suite_smoke.py` is the
+  broader application smoke for stable Node app behavior: synchronous `fs`,
+  timers, `path`, `url`, `querystring`, `events`, the srvros `crypto` HMAC shim,
+  and SQLite `UPDATE`, `LIMIT`, named bindings, positional bindings, counts,
+  and filtered deletes. General projected-column aliases and the
+  `fs/promises`/stream-heavy path are known follow-ups rather than passing
+  coverage.
   The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
   `dns.lookupService()` are covered, while async resolver durability remains a
   libuv/threadpool follow-up.

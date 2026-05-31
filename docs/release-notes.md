@@ -24,8 +24,13 @@ server.
   off until the `HAVE_SQLITE=1` dispatch path no longer faults inside V8
   module-object setup.
 - Expands the transitional `node:sqlite` shim with named bindings, simple
-  filters, ordering, counts, filtered deletes, and a two-process persistence
-  smoke against one exFAT image.
+  filters, ordering, counts, filtered deletes, `UPDATE`, `LIMIT`, stricter
+  binding errors, and a two-process persistence smoke against one exFAT image.
+- Adds `tools/node_app_suite_smoke.py`, a hidden-QEMU Node app compatibility
+  suite covering synchronous `fs`, timers, `path`, `url`, `querystring`,
+  `events`, the srvros `crypto` HMAC shim, and the SQLite update/limit path.
+  General projected-column SQLite aliases plus `fs/promises`/stream-heavy apps
+  remain documented follow-ups.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

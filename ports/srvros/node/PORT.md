@@ -284,12 +284,22 @@ diagnostics.
 keeps `HAVE_SQLITE=0`, but `pre_execution.js` allows the builtin on srvros and
 `lib/sqlite.js` routes to `internal/srvros_sqlite`, a narrow JSON-backed
 `DatabaseSync`/`StatementSync` shim. That public require path now passes the
-QEMU smoke for create/insert/select/close and the Express/JWT demo smoke asserts
-that `/health` reports the `node:sqlite` backend. The shim supports simple
-positional and named bindings, `WHERE column = value`, `ORDER BY`, `COUNT(*)`,
-delete filtering, persistence, and `lastInsertRowid`.
+QEMU smoke for create/insert/update/select/close and the Express/JWT demo smoke
+asserts that `/health` reports the `node:sqlite` backend. The shim supports
+simple positional and named bindings, `WHERE column = value`, `ORDER BY`,
+`LIMIT`, `COUNT(*) AS alias`, delete filtering, persistence, and
+`lastInsertRowid`. General projected-column aliases such as
+`SELECT id AS ident` are intentionally rejected until the runtime-side alias
+fault is understood; the count alias path is the supported exception.
 `tools/node_sqlite_shim_smoke.py` verifies that a writer process and a later
-reader process see the same `/fat` database on one mounted image. The native
+reader process see the same `/fat` database on one mounted image.
+`tools/node_app_suite_smoke.py` adds a broader app-compatibility check for the
+stable core surface: synchronous `fs`, timers, `path`, `url`, `querystring`,
+`events`, the srvros `crypto` HMAC shim, and the SQLite update/limit path.
+`fs/promises` and wider stream plumbing remain active follow-ups because the
+current runtime can still fault when that broader async file/stream surface is
+exercised.
+The native
 binding remains at the compile/link bridge stage:
 `probe-srvros-compile.ps1` has manual source mappings for
 `obj/src/libnode.node_sqlite.o`,
