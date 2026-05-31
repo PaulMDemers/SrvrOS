@@ -109,6 +109,27 @@ db.close();
 """
 
 
+FSP_APP = r"""
+const fsp = require('fs/promises');
+
+(async () => {
+  await fsp.mkdir('/fat/pdir', { recursive: true });
+  await fsp.writeFile('/fat/pdir/a.txt', 'abc');
+  const text = await fsp.readFile('/fat/pdir/a.txt', 'utf8');
+  const stat = await fsp.stat('/fat/pdir/a.txt');
+  const names = await fsp.readdir('/fat/pdir');
+  const handle = await fsp.open('/fat/pdir/b.txt', 'w+');
+  await handle.writeFile('def');
+  await handle.close();
+  const other = await fsp.readFile('/fat/pdir/b.txt', 'utf8');
+  console.log('APP-FSP', names[0], stat.size, text, other);
+})().catch((err) => {
+  console.log('APP-FSP-ERR', err && err.message);
+  process.exitCode = 1;
+});
+"""
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a suite of srvros Node app compatibility smokes.")
     parser.add_argument("--root", default=os.getcwd())
@@ -143,9 +164,11 @@ def main():
     with tempfile.TemporaryDirectory(prefix="srvros-node-app-suite-") as temp_dir:
         core_script = os.path.join(temp_dir, "app-core.js")
         sqlite_script = os.path.join(temp_dir, "app-sqlite.js")
+        fsp_script = os.path.join(temp_dir, "app-fsp.js")
         disk = os.path.join(temp_dir, "srvros-node.exfat")
         write_text(core_script, CORE_APP)
         write_text(sqlite_script, SQLITE_APP)
+        write_text(fsp_script, FSP_APP)
         subprocess.check_call([
             sys.executable,
             os.path.join(root, "tools", "mk_exfat_image.py"),
@@ -153,6 +176,7 @@ def main():
             f"node={node_elf}",
             f"app-core.js={core_script}",
             f"app-sqlite.js={sqlite_script}",
+            f"app-fsp.js={fsp_script}",
         ], cwd=root)
 
         command = [
@@ -181,6 +205,8 @@ def main():
                 raise RuntimeError("monitor prompt not observed")
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-core.js",
                 "APP-CORE sync-output.txt 42 two event 5031fe3d ready-srvros", args.runtime_wait)
+            output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-fsp.js",
+                "APP-FSP a.txt 3 abc def", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-sqlite.js",
                 "APP-SQLITE Bob Grace 1 1 1", args.runtime_wait)
         finally:

@@ -295,10 +295,13 @@ fault is understood; the count alias path is the supported exception.
 reader process see the same `/fat` database on one mounted image.
 `tools/node_app_suite_smoke.py` adds a broader app-compatibility check for the
 stable core surface: synchronous `fs`, timers, `path`, `url`, `querystring`,
-`events`, the srvros `crypto` HMAC shim, and the SQLite update/limit path.
-`fs/promises` and wider stream plumbing remain active follow-ups because the
-current runtime can still fault when that broader async file/stream surface is
-exercised.
+`events`, the srvros `crypto` HMAC shim, the srvros `fs/promises` shim, and the
+SQLite update/limit path. `fs/promises` is currently routed through
+`internal/srvros_fs_promises`, which wraps synchronous `fs` operations in real
+Promises and covers common package-facing file I/O: read/write/append,
+mkdir/readdir/stat, rm/rmdir, rename/unlink, copy, and a compact `FileHandle`.
+Stream-producing promise APIs remain explicit unsupported boundaries until the
+native FSReqPromise/libuv request path is safe.
 The native
 binding remains at the compile/link bridge stage:
 `probe-srvros-compile.ps1` has manual source mappings for

@@ -439,15 +439,19 @@ process, then runs a second reader process against the same disk to verify
 persistence across process restart. `tools/node_app_suite_smoke.py` is the
 broader application smoke: it runs one script across stable core modules
 (`fs` synchronous file I/O, timers, `path`, `url`, `querystring`, `events`, and
-the srvros `crypto` HMAC shim) and a second script across SQLite
-`UPDATE`/`LIMIT`/named and positional binding behavior.
+the srvros `crypto` HMAC shim), one script across the srvros `fs/promises`
+shim, and a second script across SQLite `UPDATE`/`LIMIT`/named and positional
+binding behavior. The `fs/promises` path is transitional but useful: on srvros,
+`lib/fs/promises.js` routes to a synchronous-`fs`-backed Promise shim covering
+basic path operations, read/write, mkdir/readdir/stat, rm/rmdir, rename/unlink,
+and a small `FileHandle` for common package I/O shapes.
 
 Current intentional boundaries are documented by the smoke suite. General
-`SELECT column AS alias` projection is rejected by the shim for now; the
-count-specific `COUNT(*) AS alias` form remains supported. A broader app probe
-also found `fs/promises` plus the stream machinery can still fault the runtime,
-so those remain libuv/V8 runtime follow-ups instead of advertised application
-surface.
+`SELECT column AS alias` projection is rejected by the SQLite shim for now; the
+count-specific `COUNT(*) AS alias` form remains supported. Stream-producing
+promise APIs such as `opendir()`, `watch()`, `FileHandle.createReadStream()`,
+and `FileHandle.createWriteStream()` still throw explicit unsupported errors
+while the native FSReqPromise/libuv request path remains under investigation.
 The srvros compile probe can also resolve and build Node's native
 `src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
 `deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can

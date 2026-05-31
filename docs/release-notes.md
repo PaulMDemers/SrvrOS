@@ -28,9 +28,13 @@ server.
   binding errors, and a two-process persistence smoke against one exFAT image.
 - Adds `tools/node_app_suite_smoke.py`, a hidden-QEMU Node app compatibility
   suite covering synchronous `fs`, timers, `path`, `url`, `querystring`,
-  `events`, the srvros `crypto` HMAC shim, and the SQLite update/limit path.
-  General projected-column SQLite aliases plus `fs/promises`/stream-heavy apps
-  remain documented follow-ups.
+  `events`, the srvros `crypto` HMAC shim, the srvros `fs/promises` shim, and
+  the SQLite update/limit path. General projected-column SQLite aliases plus
+  stream-heavy promise APIs remain documented follow-ups.
+- Routes `fs/promises` through a transitional srvros shim backed by synchronous
+  `fs`, giving Node packages Promise-shaped basic file I/O, directory listing,
+  metadata, removal/rename/copy, and compact `FileHandle` support without
+  entering the native FSReqPromise path that previously faulted.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.
