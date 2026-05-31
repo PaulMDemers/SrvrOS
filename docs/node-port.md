@@ -405,15 +405,19 @@ with a bearer token. This app now runs through Node's real `http.createServer()`
 and repeated JSON `http.ServerResponse` writes after the srvros V8 UTF-8 safety
 guard was fixed to inspect `Vector::size()` instead of asserting through
 `Vector::length()` while handling a suspicious vector. The runtime bundle still
-uses a small dependency-light router instead of Express proper because the
-current Node image is built without OpenSSL/`crypto`, npm, native addons, and
-`node:sqlite`. The database adapter is Promise-based and persists JSON rows to
+uses a small dependency-light router instead of Express proper. It now bundles
+and exercises `jsonwebtoken` with HS256 through the srvros `crypto` shim, while
+full OpenSSL, npm/native-addon loading, and `node:sqlite` remain future work.
+The database adapter is Promise-based and persists JSON rows to
 `/fat/express-demo.sqlite`; it is shaped so the storage layer can switch to
 `node:sqlite` once that builtin is enabled.
-Uncaught `require('crypto')` now reports Node's normal `ERR_NO_CRYPTO` stack
-instead of faulting while V8 formats call-site type names; actual HMAC/JWT
-support still requires enabling OpenSSL-backed `crypto` or adding a deliberate
-srvros crypto provider.
+`require('crypto')` now loads a deliberately narrow srvros provider when Node is
+built without OpenSSL. The provider covers SHA-256 hashing, HS256 HMAC,
+`randomBytes`, `randomFill`, `timingSafeEqual`, and a minimal symmetric
+`KeyObject`/`createSecretKey` shape. This is enough for bundled
+`jsonwebtoken` HS256 issue/verify paths. Unsupported asymmetric crypto,
+ciphers, TLS, and WebCrypto APIs still throw explicit shim errors until the
+full OpenSSL-backed provider is brought over.
 The repeatable app smoke is:
 
 ```powershell

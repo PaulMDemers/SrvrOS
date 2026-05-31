@@ -214,12 +214,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   runtime image. The smoke uses Node `--jitless` by default while srvros V8
   compiler-tier support matures. `node_express_demo_smoke.py` builds and boots
   the `ports/node/express-jwt-sqlite-demo` app, then verifies the async API
-  path for health, POST JSON JWT-shaped token generation, POST JSON local
+  path for health, POST JSON `jsonwebtoken` HS256 token generation, POST JSON local
   DB-backed user creation, user listing, and bearer-token validation over QEMU
   host forwarding. The app installs real Express and `jsonwebtoken` host
   dependencies, while the srvros runtime bundle uses Node's `http.createServer()`
-  with a small dependency-light router until OpenSSL/`crypto`, npm/native-addon
-  loading, and `node:sqlite` are available.
+  with a small dependency-light router and the srvros `crypto` shim for HMAC
+  until full OpenSSL, npm/native-addon loading, and `node:sqlite` are available.
   The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
   `dns.lookupService()` are covered, while async resolver durability remains a
   libuv/threadpool follow-up.

@@ -4,7 +4,7 @@
   "description": "srvros Node API smoke app using Express, JWT, and an async SQLite adapter.",
   "main": "src/server.js",
   "scripts": {
-    "build": "esbuild src/server.js --bundle --platform=node --target=node24 --external:jsonwebtoken --outfile=dist/server.bundle.js",
+    "build": "esbuild src/server.js --bundle --platform=node --target=node24 --outfile=dist/server.bundle.js",
     "start": "node dist/server.bundle.js"
   },
   "keywords": [],

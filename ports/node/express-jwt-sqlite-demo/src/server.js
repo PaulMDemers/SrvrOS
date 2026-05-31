@@ -1,5 +1,11 @@
 const http = require('http');
 const fs = require('fs');
+let jwt = null;
+try {
+  jwt = require('jsonwebtoken');
+} catch (err) {
+  console.log('EXPRESS-DEMO-JWT-COMPAT ' + err.message);
+}
 
 const PORT = Number(process.env.PORT || 8080);
 const JWT_SECRET = process.env.JWT_SECRET || 'srvros-demo-secret';
@@ -37,6 +43,9 @@ function signToken(payload) {
     sub: String(payload.sub || 'demo-user'),
     scope: String(payload.scope || 'demo'),
   };
+  if (jwt) {
+    return jwt.sign(fullPayload, JWT_SECRET, { algorithm: 'HS256' });
+  }
   const head = base64urlText(JSON.stringify({ alg: 'SRVROS-HS256-COMPAT', typ: 'JWT' }));
   const body = base64urlText(JSON.stringify(fullPayload));
   return head + '.' + body + '.' + compatSignature(head + '.' + body, JWT_SECRET);
@@ -45,6 +54,9 @@ function signToken(payload) {
 function verifyToken(token) {
   const parts = String(token || '').split('.');
   if (parts.length !== 3) throw new Error('invalid token');
+  if (jwt) {
+    return jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
+  }
   const expected = compatSignature(parts[0] + '.' + parts[1], JWT_SECRET);
   if (expected !== parts[2]) throw new Error('bad signature');
   return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));

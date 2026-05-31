@@ -4,9 +4,10 @@ This package is the Node application smoke target for the srvros port.
 
 It installs real `express` and `jsonwebtoken` dependencies on the host side so
 the dependency tree is visible and ready for the eventual full Node runtime.
-The srvros runtime path currently uses a bundled dependency-light server shape
-over `http.createServer()` because srvros Node is still built without
-OpenSSL/`crypto`, npm, native addons, and `node:sqlite`.
+The srvros runtime path currently bundles `jsonwebtoken` and uses Node's
+`http.createServer()` with a dependency-light router. JWT signing and
+verification use the srvros `crypto` shim for HS256 HMAC while full OpenSSL,
+npm, native addons, and `node:sqlite` remain follow-up milestones.
 
 The API exposes `GET /health`, `POST /token`, `POST /users`, `GET /users`,
 and `GET /secure` with `Authorization: Bearer <token>`.

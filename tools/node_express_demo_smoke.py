@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import base64
 import json
 import os
 import random
@@ -76,6 +77,12 @@ def build_bundle(root):
     app_dir = os.path.join(root, "ports", "node", "express-jwt-sqlite-demo")
     subprocess.check_call(["npm", "run", "build"], cwd=app_dir)
     return os.path.join(app_dir, "dist", "server.bundle.js")
+
+
+def decode_jwt_header(token):
+    head = token.split(".", 1)[0]
+    padded = head + ("=" * ((4 - len(head) % 4) % 4))
+    return json.loads(base64.urlsafe_b64decode(padded.encode("ascii")).decode("utf-8"))
 
 
 def main():
@@ -168,6 +175,9 @@ def main():
                 else:
                     token = http_request(http_port, "POST", "/token",
                         body={"sub": "paul"}, timeout=args.http_wait)["token"]
+                header = decode_jwt_header(token)
+                if header.get("alg") != "HS256":
+                    raise RuntimeError(f"expected jsonwebtoken HS256 token, got header {header!r}")
                 created = http_request(http_port, "POST", "/users",
                     body={"name": "Grace"}, timeout=args.http_wait)
                 users = http_request(http_port, "GET", "/users", timeout=args.http_wait)

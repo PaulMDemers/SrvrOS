@@ -24,6 +24,8 @@ $copyToNative = @"
 set -eu
 mkdir -p "$nativeRoot/ports/upstream/node/lib/internal/main"
 mkdir -p "$nativeRoot/ports/upstream/node/lib/internal"
+cp "$mountedRoot/ports/upstream/node/lib/crypto.js" "$nativeRoot/ports/upstream/node/lib/crypto.js"
+cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_crypto.js" "$nativeRoot/ports/upstream/node/lib/internal/srvros_crypto.js"
 cp "$mountedRoot/ports/upstream/node/lib/timers.js" "$nativeRoot/ports/upstream/node/lib/timers.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/timers.js" "$nativeRoot/ports/upstream/node/lib/internal/timers.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/main/run_main_module.js" "$nativeRoot/ports/upstream/node/lib/internal/main/run_main_module.js"
