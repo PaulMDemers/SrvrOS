@@ -35,6 +35,10 @@ server.
   `fs`, giving Node packages Promise-shaped basic file I/O, directory listing,
   metadata, removal/rename/copy, and compact `FileHandle` support without
   entering the native FSReqPromise path that previously faulted.
+- Adds a srvros file-stream shim for `fs.createReadStream()`,
+  `fs.createWriteStream()`, and `FileHandle` read/write streams. The Node app
+  suite now verifies file stream reads, writes, `Readable.from()`, and
+  `pipeline()` copy behavior under hidden QEMU.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

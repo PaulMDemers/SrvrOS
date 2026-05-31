@@ -130,6 +130,47 @@ const fsp = require('fs/promises');
 """
 
 
+STREAM_APP = r"""
+const fs = require('fs');
+const { pipeline, Readable } = require('stream');
+
+fs.writeFileSync('/fat/stream-src.txt', 'file-stream-ok');
+let readText = '';
+fs.createReadStream('/fat/stream-src.txt', { encoding: 'utf8' })
+  .on('data', (chunk) => { readText += chunk; })
+  .on('end', () => {
+    const writer = fs.createWriteStream('/fat/stream-write.txt');
+    writer.write('write-');
+    writer.end('stream-ok');
+    writer.on('finish', () => {
+      pipeline(
+        fs.createReadStream('/fat/stream-write.txt'),
+        fs.createWriteStream('/fat/stream-copy.txt'),
+        (err) => {
+          if (err) {
+            console.log('APP-STREAM-ERR', err && err.message);
+            process.exitCode = 1;
+            return;
+          }
+          let from = '';
+          Readable.from(['readable-', 'from-ok'])
+            .on('data', (chunk) => { from += chunk.toString(); })
+            .on('end', () => {
+              console.log('APP-STREAM', readText,
+                fs.readFileSync('/fat/stream-write.txt', 'utf8'),
+                fs.readFileSync('/fat/stream-copy.txt', 'utf8'),
+                from);
+            });
+        });
+    });
+  })
+  .on('error', (err) => {
+    console.log('APP-STREAM-ERR', err && err.message);
+    process.exitCode = 1;
+  });
+"""
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a suite of srvros Node app compatibility smokes.")
     parser.add_argument("--root", default=os.getcwd())
@@ -165,10 +206,12 @@ def main():
         core_script = os.path.join(temp_dir, "app-core.js")
         sqlite_script = os.path.join(temp_dir, "app-sqlite.js")
         fsp_script = os.path.join(temp_dir, "app-fsp.js")
+        stream_script = os.path.join(temp_dir, "app-stream.js")
         disk = os.path.join(temp_dir, "srvros-node.exfat")
         write_text(core_script, CORE_APP)
         write_text(sqlite_script, SQLITE_APP)
         write_text(fsp_script, FSP_APP)
+        write_text(stream_script, STREAM_APP)
         subprocess.check_call([
             sys.executable,
             os.path.join(root, "tools", "mk_exfat_image.py"),
@@ -177,6 +220,7 @@ def main():
             f"app-core.js={core_script}",
             f"app-sqlite.js={sqlite_script}",
             f"app-fsp.js={fsp_script}",
+            f"app-stream.js={stream_script}",
         ], cwd=root)
 
         command = [
@@ -207,6 +251,8 @@ def main():
                 "APP-CORE sync-output.txt 42 two event 5031fe3d ready-srvros", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-fsp.js",
                 "APP-FSP a.txt 3 abc def", args.runtime_wait)
+            output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-stream.js",
+                "APP-STREAM file-stream-ok write-stream-ok write-stream-ok readable-from-ok", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-sqlite.js",
                 "APP-SQLITE Bob Grace 1 1 1", args.runtime_wait)
         finally:

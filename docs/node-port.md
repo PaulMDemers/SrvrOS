@@ -444,14 +444,19 @@ shim, and a second script across SQLite `UPDATE`/`LIMIT`/named and positional
 binding behavior. The `fs/promises` path is transitional but useful: on srvros,
 `lib/fs/promises.js` routes to a synchronous-`fs`-backed Promise shim covering
 basic path operations, read/write, mkdir/readdir/stat, rm/rmdir, rename/unlink,
-and a small `FileHandle` for common package I/O shapes.
+and a small `FileHandle` for common package I/O shapes. `fs.createReadStream()`,
+`fs.createWriteStream()`, and `FileHandle` read/write streams also route
+through a srvros file-stream shim layered under Node's generic stream classes.
+The app suite now verifies file stream reads, writes, `Readable.from()`, and
+`pipeline()` file copy behavior without entering the native async FS request
+path.
 
 Current intentional boundaries are documented by the smoke suite. General
 `SELECT column AS alias` projection is rejected by the SQLite shim for now; the
-count-specific `COUNT(*) AS alias` form remains supported. Stream-producing
-promise APIs such as `opendir()`, `watch()`, `FileHandle.createReadStream()`,
-and `FileHandle.createWriteStream()` still throw explicit unsupported errors
-while the native FSReqPromise/libuv request path remains under investigation.
+count-specific `COUNT(*) AS alias` form remains supported. Directory/watch
+promise APIs such as `opendir()` and `watch()` still throw explicit unsupported
+errors while the native FSReqPromise/libuv request path remains under
+investigation.
 The srvros compile probe can also resolve and build Node's native
 `src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
 `deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can

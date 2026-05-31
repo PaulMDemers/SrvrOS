@@ -300,8 +300,12 @@ SQLite update/limit path. `fs/promises` is currently routed through
 `internal/srvros_fs_promises`, which wraps synchronous `fs` operations in real
 Promises and covers common package-facing file I/O: read/write/append,
 mkdir/readdir/stat, rm/rmdir, rename/unlink, copy, and a compact `FileHandle`.
-Stream-producing promise APIs remain explicit unsupported boundaries until the
-native FSReqPromise/libuv request path is safe.
+`fs.createReadStream()`, `fs.createWriteStream()`, and `FileHandle` read/write
+streams are routed through `internal/srvros_fs_streams`, a synchronous-fd-backed
+shim layered under Node's generic stream classes. The native FSReqPromise/libuv
+request path is still unsafe, but file streams, `Readable.from()`, and
+`pipeline()` now have QEMU app-suite coverage. Directory and watch promise APIs
+remain explicit unsupported boundaries.
 The native
 binding remains at the compile/link bridge stage:
 `probe-srvros-compile.ps1` has manual source mappings for

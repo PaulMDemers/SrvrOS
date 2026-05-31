@@ -232,9 +232,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   broader application smoke for stable Node app behavior: synchronous `fs`,
   timers, `path`, `url`, `querystring`, `events`, the srvros `crypto` HMAC shim,
   srvros `fs/promises` read/write/mkdir/readdir/stat/FileHandle behavior, and
-  SQLite `UPDATE`, `LIMIT`, named bindings, positional bindings, counts, and
-  filtered deletes. General projected-column aliases and stream-producing
-  promise APIs are known follow-ups rather than passing coverage.
+  file stream read/write plus `pipeline()` copy behavior. It also covers SQLite
+  `UPDATE`, `LIMIT`, named bindings, positional bindings, counts, and filtered
+  deletes. General projected-column aliases plus directory/watch promise APIs
+  are known follow-ups rather than passing coverage.
   The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
   `dns.lookupService()` are covered, while async resolver durability remains a
   libuv/threadpool follow-up.
