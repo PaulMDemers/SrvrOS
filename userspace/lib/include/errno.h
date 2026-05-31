@@ -48,8 +48,19 @@
 #define EAFNOSUPPORT 97
 #define ENOPROTOOPT 92
 #define EPROTONOSUPPORT 93
+#define EOPNOTSUPP 95
+#define EOWNERDEAD 130
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 int *__errno_location(void);
+
+#ifdef __cplusplus
+}
+#endif
+
 #define errno (*__errno_location())
 
 #endif

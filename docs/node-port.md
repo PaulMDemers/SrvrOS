@@ -111,8 +111,9 @@ ports\srvros\node\probe-srvros-link.ps1
 
 It queries the generated WSL-native Node Ninja graph, translates the final
 `node` object/archive inputs to Windows paths, and replays the final link with
-srvros `crt0.o`, `app.ld`, and `libsrvros.a`. The expected result today is an
-unresolved-symbol frontier, written to
+srvros `crt0.o`, `app.ld`, and `libsrvros.a`. The expected result today is a
+linked static probe ELF at `build/node-srvros-link-probe/node-srvros.elf`; if a
+future regression reintroduces unresolved symbols, they are written to
 `build/node-srvros-link-probe/unresolved-symbols.txt`.
 
 The first compile-side bridge is now:
@@ -123,8 +124,10 @@ ports\srvros\node\probe-srvros-compile.ps1
 
 It exports `build/sysroot/srvros`, uses the local patched Node checkout for
 headers and sources, and compiles selected Node translation units with Zig C++
-for `x86_64-freestanding-none`. The default batch now compiles the two entry
-objects plus eight low-risk libnode objects:
+for `x86_64-freestanding-none`. The default batch now compiles 147 objects:
+the two entry objects, a broad libnode/provider slice, V8 libplatform, the
+first V8 API/heap/object/profiler/builtin/provider slices, merve, and ADA with
+the srvros C++ profile. The initial seed of that list was:
 
 ```text
 obj/src/node.node_main.o
@@ -137,6 +140,67 @@ obj/src/libnode.node_types.o
 obj/src/libnode.node_debug.o
 obj/src/libnode.node_task_queue.o
 obj/src/libnode.node_platform.o
+obj/src/libnode.debug_utils.o
+obj/src/libnode.util.o
+obj/src/api/libnode.callback.o
+obj/src/libnode.node_report.o
+obj/src/tracing/libnode.agent.o
+obj/src/libnode.node_process_events.o
+obj/src/libnode.node_process_methods.o
+obj/src/libnode.node_buffer.o
+obj/src/api/libnode.hooks.o
+obj/src/api/libnode.exceptions.o
+obj/src/api/libnode.encoding.o
+obj/src/libnode.async_context_frame.o
+obj/src/libnode.env.o
+obj/src/libnode.node_credentials.o
+obj/src/permission/libnode.permission.o
+obj/src/libnode.node_dotenv.o
+obj/src/libnode.json_utils.o
+obj/src/libnode.heap_utils.o
+obj/src/libnode.node.o
+obj/src/libnode.module_wrap.o
+obj/src/libnode.node_worker.o
+obj/src/libnode.node_main_instance.o
+obj/src/permission/libnode.fs_permission.o
+obj/src/libnode.tcp_wrap.o
+obj/src/libnode.udp_wrap.o
+obj/src/libnode.pipe_wrap.o
+obj/src/libnode.stream_base.o
+obj/src/libnode.stream_wrap.o
+obj/src/libnode.compile_cache.o
+obj/src/api/libnode.environment.o
+obj/src/libnode.node_binding.o
+obj/src/api/libnode.async_resource.o
+obj/src/libnode.async_wrap.o
+obj/src/libnode.node_file.o
+obj/src/libnode.path.o
+obj/src/libnode.node_report_utils.o
+obj/src/libnode.node_snapshotable.o
+obj/src/libnode.node_modules.o
+obj/src/libnode.node_contextify.o
+obj/src/libnode.node_dir.o
+obj/src/libnode.node_api.o
+obj/src/libnode.node_process_object.o
+obj/src/libnode.node_sea.o
+obj/src/libnode.node_task_runner.o
+obj/src/tracing/libnode.node_trace_writer.o
+obj/src/tracing/libnode.node_trace_buffer.o
+obj/src/tracing/libnode.trace_event.o
+obj/src/tracing/libnode.traced_value.o
+obj/src/libnode.node_url.o
+obj/src/libnode.node_perf.o
+obj/src/libnode.histogram.o
+obj/src/libnode.node_messaging.o
+obj/src/dataqueue/libnode.queue.o
+obj/src/api/libnode.embed_helpers.o
+obj/src/libnode.node_report_module.o
+obj/src/libnode.node_util.o
+obj/src/libnode.node_builtins.o
+obj/src/libnode.node_sea_bin.o
+obj/src/libnode.signal_wrap.o
+obj/src/libnode.node_wasi.o
+obj/deps/ada/ada.ada.o
 ```
 
 The compile probe writes `build/node-srvros-compile-probe/replacements.tsv` so
@@ -153,15 +217,25 @@ ports\srvros\node\probe-srvros-libcxx.ps1
 It compiles a focused subset of Zig's bundled libc++ sources against the srvros
 sysroot and writes `build/node-srvros-libcxx-probe/libsrvros-libcxx-probe.a`.
 `probe-srvros-link.ps1` automatically includes that archive when present. The
-current subset builds string, memory, stdexcept, verbose abort, hash, ios,
-ostream, and typeinfo support. The expected compile frontier is now libc++
-locale/xlocale wrappers plus the disabled legacy unexpected-handler path in
-`exception.cpp`.
+current subset builds 38 implementation objects: string, algorithm, memory,
+stdexcept, verbose abort, hash, new/new-handler/new-helpers, ios,
+ios-instantiations, ostream, locale, typeinfo, exception, call-once,
+system-error, chrono, functional, iostream, fstream, error-category,
+random-shuffle, vector, variant, optional, any, memory-resource, print,
+strstream, valarray, regex, and the first filesystem path/directory/operations
+support. It is still a probe
+archive, but it now covers the stream/filebuf, filesystem, regex, allocator,
+polymorphic-memory-resource, and common utility pieces pulled in by Node
+reports, module/path logic, debug output, and the task runner. The deliberate
+no-threads profile still excludes the libc++ thread/mutex/condition-variable
+sources, and Zig's packaged libc++ tree is missing the `shared/fp_bits.h`
+helper needed by `charconv.cpp`, so those remain explicit runtime frontiers.
 
 `probe-srvros-link.ps1` now reads that manifest. Direct final-link objects are
-replaced in place; libnode archive members are handled by rebuilding a filtered
-copy of `libnode.a` with replaced members removed, then adding the srvros
-objects ahead of the archive. Because freestanding C++ mangles
+replaced in place; archive members are handled by rebuilding filtered copies of
+the affected archives with replaced members removed, then adding the srvros
+objects ahead of the archives. This now covers `libnode.a` and dependency
+archives such as `deps/ada/libada.a`. Because freestanding C++ mangles
 `main(int, char**)`, the link probe also maps `main` to `_Z4mainiPPc` for this
 bridge.
 
@@ -174,28 +248,225 @@ service/name lookup, terminal raw-mode helpers, wide-character whitespace and
 conversion helpers, extra math functions, mmap/resource aliases, conservative
 epoll/eventfd/inotify/fork/ifaddrs stubs, and `dladdr`.
 
-The current unresolved list is now dominated by C++ standard-library/runtime
-work and object-set consistency: host libstdc++ iostream/filesystem/regex/list/
-tree symbols, libc++ locale/filesystem pieces from srvros-compiled objects,
-and Node/V8 symbols that disappear only when broader dependent object batches
-are rebuilt with the same srvros C++ profile.
+The May 23, 2026 replay now links a static srvros-native Node probe ELF:
+`build/node-srvros-link-probe/node-srvros.elf`. The link uses 514 srvros object
+replacements, including 512 archive-member replacements across libnode, V8
+libplatform, V8 API/heap/object/profiler/builtin/provider slices, generated
+Torque objects, merve, ADA, V8 compiler/Maglev/cppgc, and Abseil objects, plus
+the 38-object libc++ probe archive. The unresolved-symbol frontier is currently
+empty: `make node-unresolved-audit` reports 0 host libstdc++, 0 runtime-shim,
+0 libc++, 0 V8-provider, and 0 other unresolved symbols. The user linker script
+now emits a `PT_TLS` program header with `.tdata`/`.tbss` sections so the ELF
+can represent Node/V8 thread-local storage. The kernel loader now consumes that
+header, maps a TLS template for the initial thread, gives spawned user threads
+their own TLS copies, and preserves `FS.base` across preemptive scheduler
+switches. `/tlsprobe` and `/fat/bin/tlsprobe` provide the small local runtime
+check for this path.
+`tools/node_unresolved_audit.py` now buckets that frontier, ranks referrer
+objects, writes priority-preserving object lists for the next compile batch,
+and can infer ambiguous V8 source paths and generated providers such as
+`flags.cc`, `types.cc`, `json-parser.cc`, and Torque
+`objects-printer.o`, and it now treats a successful link with no
+`unresolved-symbols.txt` as a zero-unresolved result. After adding the safe
+runtime shims for `std::__throw_*`, `std::thread::hardware_concurrency`, and
+`std::_Hash_bytes`, enabling libc++ monotonic-clock support on top of srvros
+`clock_gettime`, advertising mmap to Abseil through the srvros probe platform
+shim, and adding Linux compatibility headers for `dev_t`, `sys/sysmacros.h`,
+`MREMAP_*`, `MAP_NORESERVE`, `useconds_t`, `ucontext.h`, and `SA_ONSTACK`, the
+remaining work has moved from symbol availability to executable semantics.
+The first runtime boundary is now crossed: `make node-runtime-image` strips the
+linked ELF into a small exFAT image as `/fat/bin/node`, and
+`tools/node_runtime_smoke.py` boots QEMU, runs `node --version`, observes
+`v24.16.0`, and verifies that the process exits cleanly. Getting there required
+runtime ELF TLS, C++ global constructor/finalizer dispatch from `crt0`,
+stdio-compatible `fstat`/`fcntl`, and tolerant default/ignored signal
+registration for the signal setup Node performs during startup.
+`tools/node_runtime_smoke.py` now also has `--program`, `--eval`,
+`--script-text`, `--node-arg`, and `--expect` modes for probing the next
+frontier. Script-text probes are injected into a temporary exFAT image before
+boot so longer JavaScript tests do not depend on typing large commands through
+the monitor. The first `node -e "console.log(1+1)"` run exposed and retired the
+initial libuv loop startup blockers by adding a conservative
+pseudo-`epoll_create1` surface, pseudo-`eventfd`, and best-effort `pipe2` flag
+handling. It then exposed a C++ object-layout mismatch: the bridge still links
+upstream Linux-built libuv objects, whose `uv_loop_init()` clears the larger
+Linux `uv_loop_t` layout, while `src/tracing/agent.cc` is compiled with the
+srvros/freestanding `uv.h` view. A srvros-only padding guard after
+`Agent::tracing_loop_` now keeps libuv from zeroing the following C++ fields and
+retires the null `TracingController` assertion.
+
+The next runtime pass moved through V8 platform worker startup, cppgc
+initialization, and the first segmented-table virtual reservations. That
+required making the pseudo `epoll_wait()` compatible with libuv's
+`timeout == -1` expectation, treating `abort()` as exit 134, accepting and
+stripping advisory `MAP_NORESERVE`, and changing kernel `PROT_NONE` mmap from
+eager physical page allocation to virtual reservation with lazy `mprotect`
+commit. A follow-up pass fixed the userspace heap alignment contract so normal
+`malloc()`/`operator new` payloads are 16-byte aligned, added the libc++
+`__libcpp_verbose_abort` hook, and introduced `/fat/bin/cxxstlprobe` to exercise
+`std::set`, `std::map`, `std::vector`, and heap alignment under the same libc++
+header profile used by the Node bridge. A focused srvros replacement for V8's
+`region-allocator.cc` is currently compiled at `-O0` to avoid an aligned SSE
+store emitted for a member that V8 places at only 8-byte alignment.
+
+The current runtime milestone is past V8 initialization. `node --version`,
+`node -e "console.log(1+1)"`, pure JavaScript array/string work, CommonJS
+`require('node:path')`, script files from `/fat/bin`, synchronous `node:fs`
+read/write/stat/readdir, `Dirent` file entries, and requiring a user module
+written to `/fat` now complete with status 0 in QEMU. The srvros Node bridge
+currently bypasses Linux `statx` and uses a srvros-specific synchronous
+`readdir` path backed by `srv_list()` while the general libc `DIR`/libuv scandir
+surface matures.
+
+The next hard boundary is event-loop fidelity rather than basic execution:
+the port still carries pragmatic srvros shims around callback-scope draining,
+loop liveness, and process teardown. The smoke harness now searches expected
+markers only after `run: entering`, so queued-work probes cannot pass by
+matching text echoed while the monitor typed the command. Regenerating Node's
+builtin JavaScript after the srvros startup hooks moved top-level
+`process.nextTick()`, Promise microtasks, and `queueMicrotask()` to passing
+strict QEMU smoke tests. The reproducible path for that generated source is:
+
+```powershell
+ports\srvros\node\regenerate-node-builtins.ps1
+```
+
+Timers now use the real Node/libuv timer path by default. The earlier srvros
+JavaScript fallback is still present for diagnostics, but it is opt-in through
+`SRVROS_NODE_TIMER_FALLBACK=1` so long delays no longer collapse into
+`process.nextTick()`. The durable fix was to let the srvros checkpoint call
+Node's stored timer callback directly after a libuv timer marks itself due, and
+to enter that callback under `AllowJavascriptExecutionScope`, matching the V8
+guard already needed by TCP accept/connect callbacks. Clean headless QEMU
+smokes now pass for `process.nextTick()`, Promise microtasks,
+`queueMicrotask()`, `setTimeout()`, `setInterval()`/`clearInterval()`, and
+`setImmediate()`.
+
+The Node runtime smoke harness can now opt into the same explicit QEMU e1000
+device used by the networking smokes with `--net` and `--hostfwd`. Without
+that flag QEMU exposes an unsupported default NIC, so `net.createServer()` sees
+the srvros stack as idle and `listen()` reports a misleading `EADDRINUSE` from
+the current libc fallback. With `--net`, `require('net')` loads, TCP
+`server.listen()` reaches its JavaScript callback, referenced TCP handles now
+keep the srvros Node embed loop alive instead of falling through to process
+exit, and host-forwarded TCP connects reach JavaScript `connection` handlers.
+The smoke harness can actively probe the forwarded host port and verify bytes
+returned by the Node process; the current minimal server test accepts a client
+and replies with `node-ok`. This required a real poll-backed epoll shim for
+libuv readiness and an srvros `AllowJavascriptExecutionScope` around the later
+TCP accept callback path so V8 actually enters JavaScript during libuv phases.
+The harness also has a one-shot host TCP server mode for outbound-client
+testing. That probe now keeps the Node process alive while a connect request is
+pending, and a numeric IPv4 outbound client now reaches the JavaScript
+`connect` callback against `172.66.147.243:80`. DNS-backed hostnames now cross
+the first Node boundary too: `dns.lookup('example.com')` returns an IPv4
+address in JavaScript, and `net.createConnection({ host: 'example.com',
+port: 80 })` reaches the JavaScript `connect` callback. Stream callbacks now
+enter JavaScript with the same srvros V8 execution guard used by timers and TCP
+connect/accept, so an explicit `socket.write()` HTTP request receives response
+data from `example.com`, and the host-forwarded `net.createServer()` smoke can
+reply with `socket.end('node-ok')`. The srvros bridge currently runs
+`uv_getaddrinfo()` synchronously and allows immediate libuv request callbacks by
+counting the request before dispatch; `uv_getnameinfo()` now has the same
+srvros direct-completion bridge, which lets `dns.lookupService('127.0.0.1',
+80)` return through JavaScript. A first-class async threadpool/libuv backend
+remains the durability follow-up. A probe that performed DNS work synchronously
+but queued completion through libuv's `wq_async` work-done path linked cleanly
+but never delivered the JavaScript callback under Node, so the next resolver
+hardening step is making async/eventfd work-done dispatch observable before
+moving DNS off the direct completion path.
+Node's built-in `http` module now reaches the first hosted-site milestone.
+`/fat/bin/node-http-demo.js` is packaged into the generated exFAT image and
+serves the existing static `/fat/www` tree with `http.createServer()`,
+`fs.readFileSync()`, status codes, `Content-Type`, and `Content-Length`.
+The host-forwarded smoke now keeps one QEMU boot and one Node server process
+alive while it repeats `/`, `/hello.html`, and `/status.txt`; a five-round run
+verified 15 responses with no retries when using the default 15-second
+per-request response window.
+Getting `http.ServerResponse` through response assembly exposed a V8 bring-up
+edge where `NewStringFromUtf8()` could receive a null byte pointer; the srvros
+V8 profile now guards null/low pointers and suspiciously large external UTF-8
+vectors, treating them as empty strings instead of faulting while the producer
+side is still under investigation. The demo smoke launches Node with
+`--jitless` by default so the hosted-site milestone does not depend on V8
+compiler tiers that are not yet part of the srvros runtime contract.
+The repeatable route smoke is:
+
+```powershell
+python tools\node_http_demo_smoke.py --skip-build
+```
+
+The next Node application smoke target lives at
+`ports/node/express-jwt-sqlite-demo`. It installs real `express` and
+`jsonwebtoken` dependencies on the host side, bundles a srvros-friendly runtime
+server into `/fat/bin/express-demo.js`, and exercises an async API with:
+`GET /health`, `POST /token`, `POST /users`, `GET /users`, and `GET /secure`
+with a bearer token. This app now runs through Node's real `http.createServer()`
+and repeated JSON `http.ServerResponse` writes after the srvros V8 UTF-8 safety
+guard was fixed to inspect `Vector::size()` instead of asserting through
+`Vector::length()` while handling a suspicious vector. The runtime bundle still
+uses a small dependency-light router instead of Express proper because the
+current Node image is built without OpenSSL/`crypto`, npm, native addons, and
+`node:sqlite`. The database adapter is Promise-based and persists JSON rows to
+`/fat/express-demo.sqlite`; it is shaped so the storage layer can switch to
+`node:sqlite` once that builtin is enabled.
+Uncaught `require('crypto')` now reports Node's normal `ERR_NO_CRYPTO` stack
+instead of faulting while V8 formats call-site type names; actual HMAC/JWT
+support still requires enabling OpenSSL-backed `crypto` or adding a deliberate
+srvros crypto provider.
+The repeatable app smoke is:
+
+```powershell
+npm --prefix ports\node\express-jwt-sqlite-demo run build
+python tools\node_express_demo_smoke.py --skip-build --skip-app-build
+```
+`/fat/bin/tcpprobe` is now the native companion for that boundary. It exercises
+nonblocking `connect()`, `poll(POLLOUT)`, `SO_ERROR`, send, and receive while
+printing srvros TCP state. The probe confirms that outbound TCP to
+`example.com:80` can reach `ESTABLISHED` and receive an HTTP response, so the
+remaining Node outbound work is hardening shutdown/end ordering and async
+resolver durability rather than the kernel TCP state machine. The kernel `poll`
+syscall now wakes internally in short chunks for infinite waits so network
+progress is still driven without returning spurious timeouts to epoll/libuv
+callers.
+The libc compatibility layer also has runtime diagnostics for this boundary:
+`SRVROS_EPOLL_TRACE=1`, `SRVROS_POLL_TRACE=1`, and `SRVROS_SOCKET_TRACE=1`
+trace epoll watches/results, POSIX-to-kernel fd mapping, and socket
+connect/SO_ERROR state without rebuilding the Node image.
+
+The timer bridge is still diagnosable without rebuilding Node:
+`process.env.SRVROS_NODE_TIMER_TRACE = '1'` traces JS timer queue insertion,
+and `SRVROS_NODE_TIMER_FALLBACK=1` opts into the old next-tick fallback when a
+minimal bootstrap comparison is useful. The important lesson from the trace
+work was that timer storage was correct; the missing piece was V8 callback
+entry from a later libuv turn.
+
+A focused upstream-libuv replacement experiment can now compile the Linux
+backend's timer/core/loop objects under the srvros sysroot after adding the
+small missing Linux/POSIX header declarations. That experiment is intentionally
+opt-in through `probe-srvros-compile.ps1 -LinuxLibuvLayout` and should stay in
+separate build directories. Replacing only libuv objects makes libuv's
+`uv_loop_t` layout disagree with Node objects that allocate `uv_loop_t`,
+causing page faults inside the Linux epoll/io_uring path. Replacing libuv plus
+the uv-facing Node wrappers now links and boots after merging those overrides
+with the known-good replacement manifest, but the observable runtime boundary
+is unchanged: `process.nextTick()` passes, `setTimeout()` exits before firing,
+and `setImmediate()` stays alive without dispatching the callback. The next
+pass should focus on Node's timer binding state and libuv phase dispatch, or
+introduce a first-class srvros libuv backend with a stable public layout.
+
+`/fat/bin/cxxprobe` verifies that srvros user programs run global constructors,
+heap `new`, and local RAII-style ownership before the Node-specific libc++
+bridge is involved. `/fat/bin/cxxstlprobe` covers the first STL container and
+alignment assumptions needed by the V8 startup path.
 
 Early srvros-link runs captured 200 unique unresolved symbols before the
-configured linker error limit. After the first C++ runtime slice, libc++ probe
-archive, and POSIX compatibility pass, the list is still intentionally
-frontier-shaped but is no longer led by basic C runtime availability. The
-dominant buckets are:
-
-- Host libstdc++ containers, streams, filesystem, regex, locale, and throw
-  helpers from upstream objects that have not yet been rebuilt for srvros.
-- libc++ locale/filesystem implementation symbols required by the current
-  srvros-compiled object batch.
-- Node/V8 internal symbols caused by replacing only a small set of libnode
-  objects while their provider objects remain host-built or absent from the
-  reduced link set.
-- True platform decisions still deferred for a real port: an upstream libuv
-  srvros backend, child process semantics beyond `posix_spawn`, and dynamic
-  loading/native addon policy.
+configured linker error limit. That entire unresolved list has been retired by
+rebuilding the relevant Node, V8, cppgc, Torque, Abseil, merve, ADA, libc++, and
+runtime-support objects under the srvros profile. True platform decisions still
+deferred for a real port include executable memory policy for V8, child process
+semantics beyond `posix_spawn`, a first-class srvros libuv backend, and dynamic
+loading/native addon policy.
 
 srvros now ships the first minimal no-exception C++ runtime/ABI slice in
 `libsrvros.a`: malloc-backed `operator new/delete`, aligned and nothrow
@@ -215,6 +486,15 @@ handles, ASCII wide-char conversion helpers, simple unnamed semaphore
 operations, locale-aware numeric conversion wrappers, `is*_*_l` wrappers,
 `asprintf`/`vasprintf`, `isblank`, `strcasecmp`/`strncasecmp`, BSD string
 aliases, integer conversion helpers, and a small `strftime` fallback.
+`/fat/bin/libcprobe` and `tools/libc_smoke.py` now keep the fast C/POSIX
+readiness loop separate from the larger ports smoke by covering the newly added
+string helpers, line-oriented and unlocked stdio, formatting/scanning, numeric
+conversion, C-locale helpers, temp files, environment variables, time
+formatting, and wide-character classification. `make libc-audit` compares
+installed libc header declarations against `libsrvros.a` exports before the
+Node probes are run. `make node-unresolved-audit` summarizes the latest
+srvros Node link replay by bucket so the next work item is visible without
+reading the full linker log.
 
 There are now two probe runners:
 
@@ -259,8 +539,8 @@ The first runnable target should be a small, static CLI Node:
 - `--v8-lite-mode`
 - `--ninja`
 
-This avoids npm, TLS, inspector, ICU, SQLite, and snapshot generation until the
-base executable, event loop, filesystem, console, timers, and TCP path are
+This avoids npm, corepack, inspector, ICU, SQLite, and snapshot generation until
+the base executable, event loop, filesystem, console, timers, and TCP path are
 stable.
 
 ## Early API Surface Node Uses

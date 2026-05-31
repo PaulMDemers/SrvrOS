@@ -211,6 +211,7 @@ def main():
         "nodeprobe: time/random ok",
         "nodeprobe: mmap ok",
         "nodeprobe: fs/fd ok",
+        "nodeprobe: libc helpers ok",
         "nodeprobe: pthread ok",
         "nodeprobe: resource ok",
         "nodeprobe: socket/dns ok",

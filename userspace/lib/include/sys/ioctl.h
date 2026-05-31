@@ -5,6 +5,7 @@
 
 #define TIOCGWINSZ SRV_TIOCGWINSZ
 #define TIOCSWINSZ SRV_TIOCSWINSZ
+#define FIONBIO 0x5421
 
 struct winsize {
     unsigned short ws_row;

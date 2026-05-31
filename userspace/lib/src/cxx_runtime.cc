@@ -1,4 +1,6 @@
 #include <stddef.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdint.h>
 
 extern "C" {
@@ -16,6 +18,92 @@ struct nothrow_t {
 enum class align_val_t : size_t {};
 
 [[gnu::used]] const nothrow_t nothrow;
+
+namespace regex_constants {
+enum error_type {
+    error_collate = 0,
+};
+}
+
+namespace _LIBCPP_ABI_NAMESPACE {
+[[noreturn]] void __libcpp_verbose_abort(const char *format, ...) {
+    if (format != nullptr) {
+        va_list args;
+        va_start(args, format);
+        fputs("libc++ abort: ", stderr);
+        vfprintf(stderr, format, args);
+        fputc('\n', stderr);
+        va_end(args);
+    }
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wframe-address"
+    fprintf(stderr, "libc++ abort ra: %p %p %p\n",
+        __builtin_return_address(0),
+        __builtin_return_address(1),
+        __builtin_return_address(2));
+#pragma clang diagnostic pop
+    abort();
+}
+}
+
+class thread {
+public:
+    static unsigned hardware_concurrency() noexcept;
+};
+
+unsigned thread::hardware_concurrency() noexcept {
+    return 1;
+}
+
+[[noreturn]] void __throw_bad_array_new_length() {
+    abort();
+}
+
+[[noreturn]] void __throw_bad_cast() {
+    abort();
+}
+
+[[noreturn]] void __throw_bad_function_call() {
+    abort();
+}
+
+[[noreturn]] void __throw_invalid_argument(const char *) {
+    abort();
+}
+
+[[noreturn]] void __throw_length_error(const char *) {
+    abort();
+}
+
+[[noreturn]] void __throw_logic_error(const char *) {
+    abort();
+}
+
+[[noreturn]] void __throw_out_of_range(const char *) {
+    abort();
+}
+
+[[noreturn]] void __throw_out_of_range_fmt(const char *, ...) {
+    abort();
+}
+
+[[noreturn]] void __throw_regex_error(regex_constants::error_type) {
+    abort();
+}
+
+[[noreturn]] void __throw_system_error(int) {
+    abort();
+}
+
+size_t _Hash_bytes(const void *data, size_t length, size_t seed) {
+    const unsigned char *bytes = (const unsigned char *)data;
+    size_t hash = seed != 0 ? seed : (size_t)1469598103934665603ull;
+    for (size_t i = 0; i < length; i++) {
+        hash ^= (size_t)bytes[i];
+        hash *= (size_t)1099511628211ull;
+    }
+    return hash;
+}
 }
 
 static void *cxx_allocate(size_t size) {

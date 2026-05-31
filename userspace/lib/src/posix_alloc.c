@@ -1,6 +1,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <spawn.h>
+#include <stdio.h>
 #include <srvros/sys.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -15,6 +16,8 @@
 struct block_header {
     size_t size;
     int free;
+    int reserved;
+    uintptr_t padding;
     struct block_header *next;
 };
 
@@ -67,6 +70,8 @@ static void split_block(struct block_header *block, size_t size) {
     struct block_header *next = (struct block_header *)((unsigned char *)(block + 1) + size);
     next->size = block->size - size - sizeof(struct block_header);
     next->free = 1;
+    next->reserved = 0;
+    next->padding = 0;
     next->next = block->next;
     block->size = size;
     block->next = next;
@@ -78,15 +83,20 @@ static void split_block(struct block_header *block, size_t size) {
 static struct block_header *extend_heap(size_t size) {
     size_t needed = align_size(size + sizeof(struct block_header));
     size_t chunk = needed < HEAP_CHUNK_SIZE ? HEAP_CHUNK_SIZE : needed;
+    chunk += ALIGNMENT;
     void *memory = sbrk((intptr_t)chunk);
     if (memory == (void *)-1) {
         errno = ENOMEM;
         return 0;
     }
 
-    struct block_header *block = memory;
-    block->size = chunk - sizeof(struct block_header);
+    uintptr_t aligned = ((uintptr_t)memory + ALIGNMENT - 1) & ~(uintptr_t)(ALIGNMENT - 1);
+    size_t prefix = aligned - (uintptr_t)memory;
+    struct block_header *block = (struct block_header *)aligned;
+    block->size = chunk - prefix - sizeof(struct block_header);
     block->free = 1;
+    block->reserved = 0;
+    block->padding = 0;
     block->next = 0;
 
     if (heap_tail != 0 && heap_tail->free &&
@@ -155,6 +165,23 @@ static void coalesce(void) {
     }
 }
 
+static struct block_header *find_heap_block(void *ptr) {
+    if (ptr == 0) {
+        return 0;
+    }
+    size_t guard = 0;
+    for (struct block_header *block = heap_head; block != 0; block = block->next) {
+        if (++guard > HEAP_MAX_BLOCKS ||
+            (block->next != 0 && (uintptr_t)block->next <= (uintptr_t)block)) {
+            return 0;
+        }
+        if ((void *)(block + 1) == ptr) {
+            return block;
+        }
+    }
+    return 0;
+}
+
 void free(void *ptr) {
     if (ptr == 0) {
         return;
@@ -168,7 +195,11 @@ void free(void *ptr) {
             break;
         }
     }
-    struct block_header *block = ((struct block_header *)ptr) - 1;
+    struct block_header *block = find_heap_block(ptr);
+    if (block == 0) {
+        heap_unlock();
+        return;
+    }
     block->free = 1;
     coalesce();
     recompute_tail();
@@ -179,8 +210,11 @@ size_t malloc_usable_size(void *ptr) {
     if (ptr == 0) {
         return 0;
     }
-    struct block_header *block = ((struct block_header *)ptr) - 1;
-    return block->size;
+    heap_lock();
+    struct block_header *block = find_heap_block(ptr);
+    size_t size = block == 0 ? 0 : block->size;
+    heap_unlock();
+    return size;
 }
 
 void *calloc(size_t count, size_t size) {
@@ -206,7 +240,12 @@ void *realloc(void *ptr, size_t size) {
     }
 
     heap_lock();
-    struct block_header *block = ((struct block_header *)ptr) - 1;
+    struct block_header *block = find_heap_block(ptr);
+    if (block == 0) {
+        heap_unlock();
+        errno = EINVAL;
+        return 0;
+    }
     size_t old_size = block->size;
     if (block->size >= size) {
         heap_unlock();
@@ -698,7 +737,9 @@ int system(const char *command) {
 }
 
 void abort(void) {
-    _exit(127);
+    void *ra0 = __builtin_return_address(0);
+    fprintf(stderr, "abort: ra0=%p\n", ra0);
+    _exit(134);
 }
 
 void exit(int status) {

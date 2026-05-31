@@ -87,6 +87,7 @@ USER_HOST := build/userspace/host.elf
 USER_NETCHECK := build/userspace/netcheck.elf
 USER_NETABI := build/userspace/netabi.elf
 USER_TCPSTRESS := build/userspace/tcpstress.elf
+USER_TCPPROBE := build/userspace/tcpprobe.elf
 USER_SYSABI := build/userspace/sysabi.elf
 USER_SPIN := build/userspace/spin.elf
 USER_FPDEMO := build/userspace/fpdemo.elf
@@ -111,6 +112,13 @@ USER_LUA := build/userspace/lua.elf
 USER_UVDEMO := build/userspace/uvdemo.elf
 USER_LIBUVDEMO := build/userspace/libuvdemo.elf
 USER_NODEPROBE := build/userspace/nodeprobe.elf
+USER_LIBCPROBE := build/userspace/libcprobe.elf
+USER_TLSPROBE := build/userspace/tlsprobe.elf
+USER_CXXPROBE := build/userspace/cxxprobe.elf
+USER_CXXSTLPROBE := build/userspace/cxxstlprobe.elf
+NODE_RUNTIME_ELF := build/node-srvros-link-probe/node-srvros.elf
+NODE_RUNTIME_STRIPPED := build/node-srvros-runtime/node-srvros-stripped.elf
+NODE_RUNTIME_EXFAT := build/node-srvros-runtime/srvros-node.exfat
 EXFAT_IMAGE := build/srvros.exfat
 SECOND_EXFAT_IMAGE := build/srvros-secondary.exfat
 
@@ -126,6 +134,7 @@ CXX := $(ZIG) c++
 AR := $(ZIG) ar
 LD := $(ZIG) ld.lld
 QEMU := qemu-system-x86_64
+PYTHON ?= python
 
 CFLAGS := \
 	-target x86_64-freestanding-none \
@@ -216,6 +225,54 @@ USER_CXXFLAGS := \
 	-I userspace/lib/include \
 	-MMD \
 	-MP
+
+USER_STL_CXXFLAGS := \
+	-target x86_64-freestanding-none \
+	-std=gnu++20 \
+	-ffreestanding \
+	-fno-exceptions \
+	-fno-rtti \
+	-fno-stack-protector \
+	-fno-stack-check \
+	-fno-lto \
+	-fno-PIC \
+	-ffunction-sections \
+	-fdata-sections \
+	-m64 \
+	-march=x86_64 \
+	-mabi=sysv \
+	-mno-80387 \
+	-mno-mmx \
+	-mno-red-zone \
+	-Wall \
+	-Wextra \
+	-Werror \
+	-g \
+	-O2 \
+	-MMD \
+	-MP \
+	-nostdinc++ \
+	-fno-strict-aliasing \
+	-Wno-unused-parameter \
+	-Wno-deprecated-declarations \
+	-Wno-invalid-offsetof \
+	-include ports/srvros/node/srvros-node-probe-shims.h \
+	-D_LIBCPP_HAS_NO_THREADS \
+	-D_LIBCPP_HAS_MONOTONIC_CLOCK=1 \
+	-D_LIBCPP_HAS_CLOCK_GETTIME=1 \
+	-D_LIBCPP_HAS_WIDE_CHARACTERS=1 \
+	-D_LIBCPP_HAS_LOCALIZATION=1 \
+	-D_LIBCPP_HAS_FILESYSTEM=1 \
+	-D_LIBCPP_PROVIDES_DEFAULT_RUNE_TABLE=1 \
+	-D_LIBCPP_HARDENING_MODE_DEFAULT=_LIBCPP_HARDENING_MODE_NONE \
+	-DPATH_MAX=160 \
+	-DHOST_NAME_MAX=63 \
+	-I $(ZIG_DIR)/lib/libcxx/include \
+	-I $(ZIG_DIR)/lib/libcxx/src/include \
+	-I $(ZIG_DIR)/lib/libcxxabi/include \
+	-I $(ZIG_DIR)/lib/include \
+	-isystem shared/include \
+	-isystem userspace/lib/include
 
 USER_LDFLAGS := \
 	-m elf_x86_64 \
@@ -633,6 +690,11 @@ USER_TCPSTRESS_S := $(shell find userspace/tcpstress -type f -name '*.S' 2>/dev/
 USER_TCPSTRESS_OBJ := $(USER_TCPSTRESS_C:%.c=build/%.c.o) $(USER_TCPSTRESS_S:%.S=build/%.S.o)
 USER_TCPSTRESS_DEP := $(USER_TCPSTRESS_C:%.c=build/%.c.d) $(USER_TCPSTRESS_S:%.S=build/%.S.d)
 
+USER_TCPPROBE_C := $(shell find userspace/tcpprobe -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TCPPROBE_S := $(shell find userspace/tcpprobe -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TCPPROBE_OBJ := $(USER_TCPPROBE_C:%.c=build/%.c.o) $(USER_TCPPROBE_S:%.S=build/%.S.o)
+USER_TCPPROBE_DEP := $(USER_TCPPROBE_C:%.c=build/%.c.d) $(USER_TCPPROBE_S:%.S=build/%.S.d)
+
 USER_SYSABI_C := $(shell find userspace/sysabi -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_SYSABI_S := $(shell find userspace/sysabi -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_SYSABI_OBJ := $(USER_SYSABI_C:%.c=build/%.c.o) $(USER_SYSABI_S:%.S=build/%.S.o)
@@ -752,6 +814,21 @@ USER_NODEPROBE_C := $(shell find userspace/nodeprobe -type f -name '*.c' 2>/dev/
 USER_NODEPROBE_S := $(shell find userspace/nodeprobe -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 USER_NODEPROBE_OBJ := $(USER_NODEPROBE_C:%.c=build/%.c.o) $(USER_NODEPROBE_S:%.S=build/%.S.o)
 USER_NODEPROBE_DEP := $(USER_NODEPROBE_C:%.c=build/%.c.d) $(USER_NODEPROBE_S:%.S=build/%.S.d)
+USER_LIBCPROBE_C := $(shell find userspace/libcprobe -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_LIBCPROBE_S := $(shell find userspace/libcprobe -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_LIBCPROBE_OBJ := $(USER_LIBCPROBE_C:%.c=build/%.c.o) $(USER_LIBCPROBE_S:%.S=build/%.S.o)
+USER_LIBCPROBE_DEP := $(USER_LIBCPROBE_C:%.c=build/%.c.d) $(USER_LIBCPROBE_S:%.S=build/%.S.d)
+
+USER_TLSPROBE_C := $(shell find userspace/tlsprobe -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
+USER_TLSPROBE_S := $(shell find userspace/tlsprobe -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
+USER_TLSPROBE_OBJ := $(USER_TLSPROBE_C:%.c=build/%.c.o) $(USER_TLSPROBE_S:%.S=build/%.S.o)
+USER_TLSPROBE_DEP := $(USER_TLSPROBE_C:%.c=build/%.c.d) $(USER_TLSPROBE_S:%.S=build/%.S.d)
+USER_CXXPROBE_CC := $(shell find userspace/cxxprobe -type f -name '*.cc' 2>/dev/null | LC_ALL=C sort)
+USER_CXXPROBE_OBJ := $(USER_CXXPROBE_CC:%.cc=build/%.cc.o)
+USER_CXXPROBE_DEP := $(USER_CXXPROBE_CC:%.cc=build/%.cc.d)
+USER_CXXSTLPROBE_CC := $(shell find userspace/cxxstlprobe -type f -name '*.cc' 2>/dev/null | LC_ALL=C sort)
+USER_CXXSTLPROBE_OBJ := $(USER_CXXSTLPROBE_CC:%.cc=build/%.cc.o)
+USER_CXXSTLPROBE_DEP := $(USER_CXXSTLPROBE_CC:%.cc=build/%.cc.d)
 
 USER_LIB_C := $(shell find userspace/lib/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_LIB_CC := $(shell find userspace/lib/src -type f -name '*.cc' 2>/dev/null | LC_ALL=C sort)
@@ -916,6 +993,14 @@ $(USER_LIB_A): $(ZIG) $(USER_LIB_OBJ)
 
 .PHONY: srvros-sysroot
 srvros-sysroot: $(USER_SYSROOT)/.ready
+
+.PHONY: libc-audit
+libc-audit: $(USER_LIB_A)
+	$(PYTHON) tools/libc_symbol_audit.py --archive $(USER_LIB_A) --fail-missing
+
+.PHONY: node-unresolved-audit
+node-unresolved-audit:
+	$(PYTHON) tools/node_unresolved_audit.py --show 0
 
 $(USER_SYSROOT)/.ready: $(ZIG) $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld $(USER_SYSROOT_HEADERS)
 	rm -rf $(USER_SYSROOT)
@@ -1240,6 +1325,10 @@ $(USER_TCPSTRESS): $(ZIG) $(USER_CRT0_OBJ) $(USER_TCPSTRESS_OBJ) $(USER_LIB_OBJ)
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TCPSTRESS_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_TCPPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_TCPPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TCPPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+
 $(USER_SYSABI): $(ZIG) $(USER_CRT0_OBJ) $(USER_SYSABI_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_SYSABI_OBJ) $(USER_LIB_OBJ) -o $@
@@ -1344,9 +1433,33 @@ $(USER_NODEPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_NODEPROBE_OBJ) $(UV_SRVROS_OBJ
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_NODEPROBE_OBJ) $(UV_SRVROS_OBJ) $(UV_UPSTREAM_CORE_OBJ) $(USER_LIB_OBJ) -o $@
 
+$(USER_LIBCPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_LIBCPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_LIBCPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_TLSPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_TLSPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_TLSPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_CXXPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_CXXPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CXXPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+
+$(USER_CXXSTLPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_CXXSTLPROBE_OBJ) $(USER_LIB_OBJ) userspace/app.ld
+	mkdir -p $(dir $@)
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CXXSTLPROBE_OBJ) $(USER_LIB_OBJ) -o $@
+
 build/userspace/%.c.o: userspace/%.c $(ZIG)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
+
+build/userspace/cxxstlprobe/%.cc.o: userspace/cxxstlprobe/%.cc $(ZIG)
+	mkdir -p $(dir $@)
+	$(CXX) $(USER_STL_CXXFLAGS) -c $< -o $@
+
+build/userspace/%.cc.o: userspace/%.cc $(ZIG)
+	mkdir -p $(dir $@)
+	$(CXX) $(USER_CXXFLAGS) -c $< -o $@
 
 build/userspace/lib/src/%.cc.o: userspace/lib/src/%.cc $(ZIG)
 	mkdir -p $(dir $@)
@@ -1410,7 +1523,7 @@ build/ports/upstream/zlib/contrib/minizip/%.c.o: ports/upstream/zlib/contrib/min
 
 $(MINIUNZ_PATCHED_C): ports/upstream/zlib/contrib/minizip/miniunz.c
 	mkdir -p $(dir $@)
-	python3 -c "from pathlib import Path; src=Path('$<'); dst=Path('$@'); text=src.read_text(); text=text.replace('char filename_inzip[65536+1];', 'char filename_inzip[MAXFILENAME+1];'); dst.write_text(text)"
+	$(PYTHON) -c "from pathlib import Path; src=Path('$<'); dst=Path('$@'); text=src.read_text(); text=text.replace('char filename_inzip[65536+1];', 'char filename_inzip[MAXFILENAME+1];'); dst.write_text(text)"
 
 $(MINIUNZ_PATCHED_OBJ): $(MINIUNZ_PATCHED_C) $(ZIG)
 	mkdir -p $(dir $@)
@@ -1442,7 +1555,7 @@ build/ports/upstream/byacc/%.c.o: ports/upstream/byacc/%.c $(ZIG) ports/srvros/b
 
 $(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxdepth 1 -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p $(LUA_SRVROS_DIR)
-	python3 tools/prepare_lua_port.py ports/upstream/lua $(LUA_SRVROS_DIR)
+	$(PYTHON) tools/prepare_lua_port.py ports/upstream/lua $(LUA_SRVROS_DIR)
 
 $(LUA_CORE_C): $(LUA_PREPARED)
 	@true
@@ -1451,14 +1564,28 @@ $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -DNDEBUG -Dl_signalT=int -Wno-error -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -c $< -o $@
 
-$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE)
+$(EXFAT_IMAGE): tools/mk_exfat_image.py $(USER_HELLO) $(USER_CAT) $(USER_MORE) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE)
 	mkdir -p $(dir $@)
-	python3 tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE)
+	$(PYTHON) tools/mk_exfat_image.py $@ hello=$(USER_HELLO) cat=$(USER_CAT) more=$(USER_MORE) sh=$(USER_SH) ls=$(USER_LS) echo=$(USER_ECHO) write=$(USER_WRITE) wc=$(USER_WC) clear=$(USER_CLEAR) ps=$(USER_PS) kill=$(USER_KILL) which=$(USER_WHICH) env=$(USER_ENV) pwd=$(USER_PWD) true=$(USER_TRUE) false=$(USER_FALSE) sleep=$(USER_SLEEP) date=$(USER_DATE) touch=$(USER_TOUCH) mktemp=$(USER_MKTEMP) basename=$(USER_BASENAME) dirname=$(USER_DIRNAME) grep=$(USER_GREP) head=$(USER_HEAD) tail=$(USER_TAIL) tee=$(USER_TEE) uname=$(USER_UNAME) hostname=$(USER_HOSTNAME) uptime=$(USER_UPTIME) find=$(USER_FIND) du=$(USER_DU) df=$(USER_DF) sort=$(USER_SORT) uniq=$(USER_UNIQ) cut=$(USER_CUT) xargs=$(USER_XARGS) seq=$(USER_SEQ) realpath=$(USER_REALPATH) id=$(USER_ID) whoami=$(USER_WHOAMI) readlink=$(USER_READLINK) cmp=$(USER_CMP) yes=$(USER_YES) install=$(USER_INSTALL) diff=$(USER_DIFF) tar=$(USER_TAR) gzip=$(USER_GZIP) gunzip=$(USER_GZIP) minizip=$(USER_MINIZIP) miniunz=$(USER_MINIUNZ) patch=$(USER_PATCH) make=$(USER_MAKE) byacc=$(USER_BYACC) sed=$(USER_SED) expr=$(USER_EXPR) printf=$(USER_PRINTF) tr=$(USER_TR) dd=$(USER_DD) ed=$(USER_ED) ln=$(USER_POSIXUTILS) sync=$(USER_POSIXUTILS) test=$(USER_POSIXUTILS) '[=$(USER_POSIXUTILS)' cksum=$(USER_POSIXUTILS) sum=$(USER_POSIXUTILS) comm=$(USER_POSIXUTILS) paste=$(USER_POSIXUTILS) join=$(USER_POSIXUTILS) split=$(USER_POSIXUTILS) od=$(USER_POSIXUTILS) hexdump=$(USER_POSIXUTILS) strings=$(USER_POSIXUTILS) file=$(USER_POSIXUTILS) tty=$(USER_POSIXUTILS) stty=$(USER_POSIXUTILS) time=$(USER_POSIXUTILS) timeout=$(USER_POSIXUTILS) nohup=$(USER_POSIXUTILS) nice=$(USER_POSIXUTILS) stat=$(USER_STAT) chmod=$(USER_CHMOD) cp=$(USER_CP) rm=$(USER_RM) mkdir=$(USER_MKDIR) mv=$(USER_MV) tap=$(USER_TAP) svscan=$(USER_SVSCAN) webd=$(USER_WEBD) httpget=$(USER_HTTPGET) udpdns=$(USER_UDPDNS) udpecho=$(USER_UDPECHO) netstat=$(USER_NETSTAT) ifconfig=$(USER_IFCONFIG) route=$(USER_ROUTE) arp=$(USER_ARP) ping=$(USER_PING) host=$(USER_HOST) netcheck=$(USER_NETCHECK) netabi=$(USER_NETABI) tcpstress=$(USER_TCPSTRESS) tcpprobe=$(USER_TCPPROBE) sysabi=$(USER_SYSABI) spin=$(USER_SPIN) fpdemo=$(USER_FPDEMO) ui=$(USER_UI) desktop=$(USER_DESKTOP) calcgui=$(USER_CALCGUI) notesgui=$(USER_NOTESGUI) textedit=$(USER_TEXTEDIT) imgedit=$(USER_IMGEDIT) posixdemo=$(USER_POSIXDEMO) threadstress=$(USER_THREADSTRESS) execdemo=$(USER_EXECDEMO) fdprobe=$(USER_FDPROBE) lockprobe=$(USER_LOCKPROBE) ttydemo=$(USER_TTYDEMO) jsondemo=$(USER_JSONDEMO) inidemo=$(USER_INIDEMO) linedemo=$(USER_LINEDEMO) sqlitedemo=$(USER_SQLITEDEMO) zlibdemo=$(USER_ZLIBDEMO) lua=$(USER_LUA) uvdemo=$(USER_UVDEMO) libuvdemo=$(USER_LIBUVDEMO) nodeprobe=$(USER_NODEPROBE) libcprobe=$(USER_LIBCPROBE) tlsprobe=$(USER_TLSPROBE) cxxprobe=$(USER_CXXPROBE) cxxstlprobe=$(USER_CXXSTLPROBE)
 
 $(SECOND_EXFAT_IMAGE): $(EXFAT_IMAGE)
 	cp $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
-$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
+$(NODE_RUNTIME_ELF): ports/srvros/node/probe-srvros-link.ps1 $(USER_CRT0_OBJ) $(USER_LIB_A) userspace/app.ld
+	powershell -ExecutionPolicy Bypass -File ports/srvros/node/probe-srvros-link.ps1
+
+$(NODE_RUNTIME_STRIPPED): $(NODE_RUNTIME_ELF)
+	mkdir -p $(dir $@)
+	llvm-strip -o $@ $(NODE_RUNTIME_ELF)
+
+$(NODE_RUNTIME_EXFAT): tools/mk_exfat_image.py $(NODE_RUNTIME_STRIPPED)
+	mkdir -p $(dir $@)
+	$(PYTHON) tools/mk_exfat_image.py $@ node=$(NODE_RUNTIME_STRIPPED)
+
+.PHONY: node-runtime-image
+node-runtime-image: $(NODE_RUNTIME_EXFAT)
+
+$(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(USER_WC) $(USER_CLEAR) $(USER_PS) $(USER_KILL) $(USER_WHICH) $(USER_ENV) $(USER_PWD) $(USER_TRUE) $(USER_FALSE) $(USER_SLEEP) $(USER_DATE) $(USER_TOUCH) $(USER_MKTEMP) $(USER_BASENAME) $(USER_DIRNAME) $(USER_GREP) $(USER_HEAD) $(USER_TAIL) $(USER_TEE) $(USER_MORE) $(USER_UNAME) $(USER_HOSTNAME) $(USER_UPTIME) $(USER_FIND) $(USER_DU) $(USER_DF) $(USER_SORT) $(USER_UNIQ) $(USER_CUT) $(USER_XARGS) $(USER_SEQ) $(USER_REALPATH) $(USER_ID) $(USER_WHOAMI) $(USER_READLINK) $(USER_CMP) $(USER_YES) $(USER_INSTALL) $(USER_DIFF) $(USER_TAR) $(USER_GZIP) $(USER_MINIZIP) $(USER_MINIUNZ) $(USER_PATCH) $(USER_MAKE) $(USER_BYACC) $(USER_SED) $(USER_EXPR) $(USER_PRINTF) $(USER_TR) $(USER_DD) $(USER_ED) $(USER_POSIXUTILS) $(USER_STAT) $(USER_CHMOD) $(USER_CP) $(USER_RM) $(USER_MKDIR) $(USER_MV) $(USER_TAP) $(USER_SVSCAN) $(USER_WEBD) $(USER_HTTPGET) $(USER_UDPDNS) $(USER_UDPECHO) $(USER_NETSTAT) $(USER_IFCONFIG) $(USER_ROUTE) $(USER_ARP) $(USER_PING) $(USER_HOST) $(USER_NETCHECK) $(USER_NETABI) $(USER_TCPSTRESS) $(USER_TCPPROBE) $(USER_SYSABI) $(USER_SPIN) $(USER_FPDEMO) $(USER_UI) $(USER_DESKTOP) $(USER_CALCGUI) $(USER_NOTESGUI) $(USER_TEXTEDIT) $(USER_IMGEDIT) $(USER_POSIXDEMO) $(USER_THREADSTRESS) $(USER_EXECDEMO) $(USER_FDPROBE) $(USER_LOCKPROBE) $(USER_TTYDEMO) $(USER_JSONDEMO) $(USER_INIDEMO) $(USER_LINEDEMO) $(USER_SQLITEDEMO) $(USER_ZLIBDEMO) $(USER_LUA) $(USER_UVDEMO) $(USER_LIBUVDEMO) $(USER_NODEPROBE) $(USER_LIBCPROBE) $(USER_TLSPROBE) $(USER_CXXPROBE) $(USER_CXXSTLPROBE) $(EXFAT_IMAGE) $(shell find initramfs -type f 2>/dev/null | LC_ALL=C sort)
 	mkdir -p build
 	rm -rf $(INITRAMFS_ROOT)
 	mkdir -p $(INITRAMFS_ROOT)
@@ -1562,6 +1689,7 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_NETCHECK) $(INITRAMFS_ROOT)/netcheck
 	cp $(USER_NETABI) $(INITRAMFS_ROOT)/netabi
 	cp $(USER_TCPSTRESS) $(INITRAMFS_ROOT)/tcpstress
+	cp $(USER_TCPPROBE) $(INITRAMFS_ROOT)/tcpprobe
 	cp $(USER_SYSABI) $(INITRAMFS_ROOT)/sysabi
 	cp $(USER_SPIN) $(INITRAMFS_ROOT)/spin
 	cp $(USER_FPDEMO) $(INITRAMFS_ROOT)/fpdemo
@@ -1586,6 +1714,10 @@ $(INITRAMFS): $(USER_INIT) $(USER_SH) $(USER_LS) $(USER_ECHO) $(USER_WRITE) $(US
 	cp $(USER_UVDEMO) $(INITRAMFS_ROOT)/uvdemo
 	cp $(USER_LIBUVDEMO) $(INITRAMFS_ROOT)/libuvdemo
 	cp $(USER_NODEPROBE) $(INITRAMFS_ROOT)/nodeprobe
+	cp $(USER_LIBCPROBE) $(INITRAMFS_ROOT)/libcprobe
+	cp $(USER_TLSPROBE) $(INITRAMFS_ROOT)/tlsprobe
+	cp $(USER_CXXPROBE) $(INITRAMFS_ROOT)/cxxprobe
+	cp $(USER_CXXSTLPROBE) $(INITRAMFS_ROOT)/cxxstlprobe
 	cp $(EXFAT_IMAGE) $(INITRAMFS_ROOT)/srvros.exfat
 	tar --format=ustar --owner=0 --group=0 --numeric-owner -C $(INITRAMFS_ROOT) -cf $(INITRAMFS) .
 
@@ -1662,4 +1794,4 @@ clean:
 distclean:
 	rm -rf build
 
--include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_MORE_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_MKTEMP_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_FIND_DEP) $(USER_DU_DEP) $(USER_DF_DEP) $(USER_SORT_DEP) $(USER_UNIQ_DEP) $(USER_CUT_DEP) $(USER_XARGS_DEP) $(USER_SEQ_DEP) $(USER_REALPATH_DEP) $(USER_ID_DEP) $(USER_WHOAMI_DEP) $(USER_READLINK_DEP) $(USER_CMP_DEP) $(USER_YES_DEP) $(USER_INSTALL_DEP) $(USER_DIFF_DEP) $(USER_TAR_DEP) $(USER_GZIP_DEP) $(USER_PATCH_DEP) $(USER_MAKE_DEP) $(USER_SED_DEP) $(USER_EXPR_DEP) $(USER_PRINTF_DEP) $(USER_TR_DEP) $(USER_DD_DEP) $(USER_ED_DEP) $(USER_POSIXUTILS_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_SVSCAN_DEP) $(USER_WEBD_DEP) $(USER_HTTPGET_DEP) $(USER_UDPDNS_DEP) $(USER_UDPECHO_DEP) $(USER_NETSTAT_DEP) $(USER_IFCONFIG_DEP) $(USER_ROUTE_DEP) $(USER_ARP_DEP) $(USER_PING_DEP) $(USER_HOST_DEP) $(USER_NETCHECK_DEP) $(USER_NETABI_DEP) $(USER_TCPSTRESS_DEP) $(USER_SYSABI_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_THREADSTRESS_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_UVDEMO_DEP) $(USER_LIBUVDEMO_DEP) $(USER_NODEPROBE_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(MINIZIP_DEP) $(MINIUNZ_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(UV_SRVROS_DEP) $(UV_UPSTREAM_CORE_DEP) $(SQLITE_DEP) $(BYACC_DEP) $(LUA_CORE_DEP)
+-include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_MORE_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_MKTEMP_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_FIND_DEP) $(USER_DU_DEP) $(USER_DF_DEP) $(USER_SORT_DEP) $(USER_UNIQ_DEP) $(USER_CUT_DEP) $(USER_XARGS_DEP) $(USER_SEQ_DEP) $(USER_REALPATH_DEP) $(USER_ID_DEP) $(USER_WHOAMI_DEP) $(USER_READLINK_DEP) $(USER_CMP_DEP) $(USER_YES_DEP) $(USER_INSTALL_DEP) $(USER_DIFF_DEP) $(USER_TAR_DEP) $(USER_GZIP_DEP) $(USER_PATCH_DEP) $(USER_MAKE_DEP) $(USER_SED_DEP) $(USER_EXPR_DEP) $(USER_PRINTF_DEP) $(USER_TR_DEP) $(USER_DD_DEP) $(USER_ED_DEP) $(USER_POSIXUTILS_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_SVSCAN_DEP) $(USER_WEBD_DEP) $(USER_HTTPGET_DEP) $(USER_UDPDNS_DEP) $(USER_UDPECHO_DEP) $(USER_NETSTAT_DEP) $(USER_IFCONFIG_DEP) $(USER_ROUTE_DEP) $(USER_ARP_DEP) $(USER_PING_DEP) $(USER_HOST_DEP) $(USER_NETCHECK_DEP) $(USER_NETABI_DEP) $(USER_TCPSTRESS_DEP) $(USER_TCPPROBE_DEP) $(USER_SYSABI_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_CALCGUI_DEP) $(USER_NOTESGUI_DEP) $(USER_TEXTEDIT_DEP) $(USER_IMGEDIT_DEP) $(USER_POSIXDEMO_DEP) $(USER_THREADSTRESS_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_UVDEMO_DEP) $(USER_LIBUVDEMO_DEP) $(USER_NODEPROBE_DEP) $(USER_LIBCPROBE_DEP) $(USER_TLSPROBE_DEP) $(USER_CXXPROBE_DEP) $(USER_CXXSTLPROBE_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(MINIZIP_DEP) $(MINIUNZ_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(UV_SRVROS_DEP) $(UV_UPSTREAM_CORE_DEP) $(SQLITE_DEP) $(BYACC_DEP) $(LUA_CORE_DEP)

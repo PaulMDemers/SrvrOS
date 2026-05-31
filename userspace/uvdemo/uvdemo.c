@@ -548,7 +548,7 @@ static void tcp_client_timeout_cb(uv_timer_t *timer) {
     uv_stop(&tcp_client_loop);
 }
 
-static int tcp_client_test(int port) {
+static int tcp_client_test(const char *host, int port) {
     uv_timer_t timeout;
     struct sockaddr_in addr;
     tcp_client_ok = 0;
@@ -556,14 +556,14 @@ static int tcp_client_test(int port) {
     memset(tcp_client_storage, 0, sizeof(tcp_client_storage));
     if (uv_loop_init(&tcp_client_loop) < 0 ||
         uv_tcp_init(&tcp_client_loop, &tcp_client) < 0 ||
-        uv_ip4_addr("10.0.2.2", port, &addr) < 0 ||
+        uv_ip4_addr(host, port, &addr) < 0 ||
         uv_tcp_connect(&tcp_client_connect_request, &tcp_client, (const struct sockaddr *)&addr, tcp_client_connect_cb) < 0 ||
         uv_timer_init(&tcp_client_loop, &timeout) < 0 ||
         uv_timer_start(&timeout, tcp_client_timeout_cb, 5000, 0) < 0) {
         puts("uvdemo: client setup failed");
         return 1;
     }
-    printf("uvdemo: client connecting %d\n", port);
+    printf("uvdemo: client connecting %s:%d\n", host, port);
     (void)uv_run(&tcp_client_loop, UV_RUN_DEFAULT);
     uv_timer_stop(&timeout);
     uv_close((uv_handle_t *)&tcp_client, 0);
@@ -576,7 +576,7 @@ static int tcp_client_test(int port) {
 }
 
 static void usage(void) {
-    puts("usage: uvdemo [basic|udp|tcp|client PORT]");
+    puts("usage: uvdemo [basic|udp|tcp|client PORT|client-ip HOST PORT]");
 }
 
 int main(int argc, char **argv) {
@@ -599,7 +599,10 @@ int main(int argc, char **argv) {
         return tcp_test();
     }
     if (strcmp(mode, "client") == 0 && argc > 2) {
-        return tcp_client_test(atoi(argv[2]));
+        return tcp_client_test("10.0.2.2", atoi(argv[2]));
+    }
+    if (strcmp(mode, "client-ip") == 0 && argc > 3) {
+        return tcp_client_test(argv[2], atoi(argv[3]));
     }
     usage();
     return 2;

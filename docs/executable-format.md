@@ -1,8 +1,9 @@
 # Executable Format
 
 srvros currently runs statically linked ELF64 executables. The kernel loader
-maps `PT_LOAD` segments, creates a user stack, jumps to the ELF entry point, and
-passes a compact argc/argv block for programs launched with arguments.
+maps `PT_LOAD` segments, captures `PT_TLS` templates for thread-local storage,
+creates a user stack, jumps to the ELF entry point, and passes a compact
+argc/argv block for programs launched with arguments.
 
 ## Current Direction
 
@@ -23,7 +24,15 @@ runtime startup object. srvros now links all userspace programs through
 - Application directories can stay as C/source assets unless they need custom
   assembly for their own behavior.
 - The common `_start` calls `main(argc, argv)` using the argc/argv registers
-  populated by the kernel loader, then exits via the srvros syscall ABI.
+  populated by the kernel loader, but first runs `.init_array` constructors and
+  then runs `.fini_array` finalizers before exiting through the srvros syscall
+  ABI.
+- ELF TLS is represented with standard `PT_TLS`, `.tdata`, and `.tbss`
+  metadata. The kernel maps a per-process initial TLS block, gives each spawned
+  user thread its own copy, and restores the x86_64 `FS.base` MSR during
+  scheduler switches.
+- Larger static executables can be placed below a higher dynamic user stack when
+  they would collide with the original compact stack window.
 
 That gives us the single static executable behavior we want while keeping the
 format boring and inspectable.

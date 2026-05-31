@@ -15,6 +15,7 @@ static volatile uint64_t read_index;
 static volatile uint64_t write_index;
 static bool shift_down;
 static bool ctrl_down;
+static bool extended_scancode;
 static struct scheduler_wait_queue keyboard_wait_queue;
 
 static const char scancode_set1[128] = {
@@ -50,6 +51,12 @@ static void push_char(char c) {
     scheduler_wake_all(&keyboard_wait_queue);
 }
 
+static void push_escape_sequence(const char *sequence) {
+    while (*sequence != '\0') {
+        push_char(*sequence++);
+    }
+}
+
 void keyboard_init(void) {
     while ((inb(PS2_STATUS) & 0x01) != 0) {
         (void)inb(PS2_DATA);
@@ -62,6 +69,42 @@ void keyboard_handle_irq(void) {
     uint8_t scancode = inb(PS2_DATA);
     bool released = (scancode & 0x80) != 0;
     uint8_t key = scancode & 0x7f;
+
+    if (scancode == 0xe0) {
+        extended_scancode = true;
+        return;
+    }
+
+    if (extended_scancode) {
+        extended_scancode = false;
+        if (released) {
+            return;
+        }
+        switch (key) {
+            case 0x48:
+                push_escape_sequence("\x1b[A");
+                return;
+            case 0x50:
+                push_escape_sequence("\x1b[B");
+                return;
+            case 0x4b:
+                push_escape_sequence("\x1b[D");
+                return;
+            case 0x4d:
+                push_escape_sequence("\x1b[C");
+                return;
+            case 0x47:
+                push_escape_sequence("\x1b[H");
+                return;
+            case 0x4f:
+                push_escape_sequence("\x1b[F");
+                return;
+            case 0x53:
+                push_escape_sequence("\x1b[3~");
+                return;
+        }
+        return;
+    }
 
     if (key == 42 || key == 54) {
         shift_down = !released;

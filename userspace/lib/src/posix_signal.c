@@ -31,6 +31,13 @@ static int signal_action_is_handler(sighandler_t handler) {
 }
 
 static int signal_apply_action(int signum, sighandler_t handler) {
+    if (!signal_supported(signum)) {
+        if (handler == SIG_DFL || handler == SIG_IGN) {
+            return 0;
+        }
+        errno = EINVAL;
+        return -1;
+    }
     uint64_t action = SRV_SIGNAL_DEFAULT;
     if (handler == SIG_IGN) {
         action = SRV_SIGNAL_IGNORE;
@@ -146,11 +153,11 @@ int __posix_signal_dispatch_pending_restartable(void) {
 }
 
 int sigaction(int signum, const struct sigaction *act, struct sigaction *oldact) {
-    if (!signal_valid(signum) || !signal_supported(signum)) {
+    if (!signal_valid(signum)) {
         errno = EINVAL;
         return -1;
     }
-    if (act != 0 && (act->sa_flags & ~SA_RESTART) != 0) {
+    if (act != 0 && (act->sa_flags & ~(SA_RESTART | SA_SIGINFO | SA_ONSTACK | SA_RESETHAND)) != 0) {
         errno = EINVAL;
         return -1;
     }

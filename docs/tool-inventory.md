@@ -120,7 +120,7 @@ ui desktop calcgui notesgui textedit imgedit
 Regression and compatibility probes used by smoke tests:
 
 ```text
-sysabi spin fpdemo posixdemo threadstress execdemo fdprobe lockprobe ttydemo
+sysabi libcprobe spin fpdemo posixdemo threadstress execdemo fdprobe lockprobe ttydemo
 ```
 
 These are intentionally shipped in the generated image so QEMU smoke tests can

@@ -310,8 +310,14 @@ probe: random/time, mmap/mprotect/msync, temp files, cloexec fd duplication,
 scatter/gather writes, realpath, pthread attrs/TLS/once/condition variables,
 pthread stack inspection, sysconf resource values, rlimits, rusage, sysinfo,
 auxv, affinity stubs, madvise, prctl, basic syscall dispatch, socketpair,
-numeric resolver behavior, libuv version linkage, and static-first
-`execinfo`/`dlfcn` stubs.
+numeric resolver behavior, libuv version linkage, libc helper checks, and
+static-first `execinfo`/`dlfcn` stubs. `/fat/bin/libcprobe` is the narrower
+libc smoke companion for recently added C/POSIX functions such as `mempcpy`,
+`stpncpy`, `strndup`, `strerror_r`, `getline`, `getdelim`, unlocked stdio,
+formatted output, scanning, numeric conversion, C-locale helpers, temporary
+files, environment variables, time formatting, and wide-character
+classification. `make libc-audit` checks that functions declared in the
+installed libc headers are exported by `libsrvros.a`.
 Filesystem parity now covers stat/lstat/fstat/access/realpath/scandir helpers,
 fsync/fdatasync/ftruncate/sendfile/utime/futime requests, `uv_fs_poll`
 file-change polling, request getters, cleanup-owned realpath/scandir memory,

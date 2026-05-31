@@ -16,8 +16,13 @@ extern "C" {
 #define O_TRUNC 0x0200
 #define O_APPEND 0x0400
 #define O_NONBLOCK 0x0800
+#define O_NOFOLLOW 0x20000
 #define O_DIRECTORY 0x10000
 #define O_CLOEXEC 0x80000
+
+#define AT_FDCWD -100
+#define AT_REMOVEDIR 0x200
+#define AT_SYMLINK_NOFOLLOW 0x100
 
 #define FD_CLOEXEC 1
 
@@ -47,6 +52,7 @@ int fcntl(int fd, int command, ...);
 int fcntl64(int fd, int command, ...);
 int open(const char *path, int flags, ...);
 int open64(const char *path, int flags, ...);
+int openat(int dirfd, const char *path, int flags, ...);
 
 #ifdef __cplusplus
 }

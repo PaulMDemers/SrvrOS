@@ -13,13 +13,19 @@ typedef uint64_t rlim_t;
 #define RUSAGE_CHILDREN -1
 #define RUSAGE_THREAD 1
 
+#define PRIO_PROCESS 0
+#define PRIO_PGRP 1
+#define PRIO_USER 2
+
 #define RLIMIT_CPU 0
 #define RLIMIT_FSIZE 1
 #define RLIMIT_DATA 2
 #define RLIMIT_STACK 3
 #define RLIMIT_CORE 4
 #define RLIMIT_RSS 5
+#define RLIMIT_NPROC 6
 #define RLIMIT_NOFILE 7
+#define RLIMIT_MEMLOCK 8
 #define RLIMIT_AS 9
 #define RLIM_NLIMITS 10
 
@@ -47,6 +53,10 @@ struct rusage {
     long ru_nivcsw;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int getrlimit(int resource, struct rlimit *limit);
 int getrlimit64(int resource, struct rlimit *limit);
 int setrlimit(int resource, const struct rlimit *limit);
@@ -54,5 +64,9 @@ int setrlimit64(int resource, const struct rlimit *limit);
 int getrusage(int who, struct rusage *usage);
 int getpriority(int which, int who);
 int setpriority(int which, int who, int prio);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

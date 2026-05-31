@@ -6,6 +6,8 @@
 
 #define CLOCK_REALTIME 0
 #define CLOCK_MONOTONIC 1
+#define CLOCK_MONOTONIC_COARSE CLOCK_MONOTONIC
+#define CLOCK_BOOTTIME CLOCK_MONOTONIC
 #define CLOCKS_PER_SEC 100
 
 typedef long clock_t;
@@ -42,6 +44,8 @@ int clock_getres(int clock_id, struct timespec *tp);
 int nanosleep(const struct timespec *request, struct timespec *remaining);
 int clock_nanosleep(int clock_id, int flags, const struct timespec *request, struct timespec *remaining);
 size_t strftime(char *s, size_t max, const char *format, const struct tm *tm);
+typedef struct srvros_locale *locale_t;
+size_t strftime_l(char *s, size_t max, const char *format, const struct tm *tm, locale_t locale);
 void tzset(void);
 
 #ifdef __cplusplus

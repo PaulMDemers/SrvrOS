@@ -210,6 +210,7 @@ uint64_t process_thread_self(void);
 int64_t process_futex_wait(uint32_t *address, uint32_t expected, uint64_t timeout_ticks);
 int64_t process_futex_wake(uint32_t *address, uint64_t max_count);
 struct fpu_state *process_fpu_state(void *process);
+uint64_t process_fs_base(void *process);
 void process_fpu_save(void *process);
 void process_fpu_restore(void *process);
 void process_exit(uint64_t status) __attribute__((noreturn));

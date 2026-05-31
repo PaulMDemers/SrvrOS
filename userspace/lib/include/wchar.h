@@ -32,6 +32,8 @@ wchar_t *wmemcpy(wchar_t *dest, const wchar_t *src, size_t n);
 wchar_t *wmemmove(wchar_t *dest, const wchar_t *src, size_t n);
 wchar_t *wmemset(wchar_t *s, wchar_t c, size_t n);
 int wmemcmp(const wchar_t *left, const wchar_t *right, size_t n);
+int wcscoll(const wchar_t *left, const wchar_t *right);
+size_t wcsxfrm(wchar_t *destination, const wchar_t *source, size_t length);
 int btowc(int c);
 int wctob(wint_t c);
 size_t mbrlen(const char *s, size_t n, mbstate_t *ps);
@@ -56,6 +58,38 @@ wint_t fputwc(wchar_t wc, FILE *stream);
 wint_t getwc(FILE *stream);
 wint_t ungetwc(wint_t wc, FILE *stream);
 int iswspace(wint_t wc);
+
+typedef struct srvros_locale *locale_t;
+typedef unsigned long wctype_t;
+
+int wcscoll_l(const wchar_t *left, const wchar_t *right, locale_t locale);
+size_t wcsxfrm_l(wchar_t *destination, const wchar_t *source, size_t length, locale_t locale);
+int iswctype(wint_t wc, wctype_t type);
+wctype_t wctype(const char *property);
+int iswctype_l(wint_t wc, wctype_t type, locale_t locale);
+int iswspace_l(wint_t wc, locale_t locale);
+int iswprint(wint_t wc);
+int iswprint_l(wint_t wc, locale_t locale);
+int iswcntrl(wint_t wc);
+int iswcntrl_l(wint_t wc, locale_t locale);
+int iswupper(wint_t wc);
+int iswupper_l(wint_t wc, locale_t locale);
+int iswlower(wint_t wc);
+int iswlower_l(wint_t wc, locale_t locale);
+int iswalpha(wint_t wc);
+int iswalpha_l(wint_t wc, locale_t locale);
+int iswblank(wint_t wc);
+int iswblank_l(wint_t wc, locale_t locale);
+int iswdigit(wint_t wc);
+int iswdigit_l(wint_t wc, locale_t locale);
+int iswpunct(wint_t wc);
+int iswpunct_l(wint_t wc, locale_t locale);
+int iswxdigit(wint_t wc);
+int iswxdigit_l(wint_t wc, locale_t locale);
+wint_t towupper(wint_t wc);
+wint_t towupper_l(wint_t wc, locale_t locale);
+wint_t towlower(wint_t wc);
+wint_t towlower_l(wint_t wc, locale_t locale);
 
 #ifdef __cplusplus
 }

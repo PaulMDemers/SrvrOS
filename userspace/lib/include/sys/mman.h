@@ -16,8 +16,13 @@
 #define MAP_FIXED SRV_MAP_FIXED
 #define MAP_ANONYMOUS SRV_MAP_ANONYMOUS
 #define MAP_ANON MAP_ANONYMOUS
+#define MAP_NORESERVE 0x4000
+#define MAP_POPULATE 0x8000
 
 #define MAP_FAILED ((void *)-1)
+
+#define MREMAP_MAYMOVE 1
+#define MREMAP_FIXED 2
 
 #define MS_ASYNC SRV_MS_ASYNC
 #define MS_SYNC SRV_MS_SYNC
@@ -37,6 +42,10 @@
 #define MADV_HUGEPAGE 14
 #define MADV_NOHUGEPAGE 15
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void *mmap(void *address, size_t length, int protection, int flags, int fd, off_t offset);
 void *mmap64(void *address, size_t length, int protection, int flags, int fd, off_t offset);
 int munmap(void *address, size_t length);
@@ -44,5 +53,9 @@ void *mremap(void *old_address, size_t old_size, size_t new_size, int flags, ...
 int mprotect(void *address, size_t length, int protection);
 int msync(void *address, size_t length, int flags);
 int madvise(void *address, size_t length, int advice);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -128,32 +128,87 @@ $srvrosObjectReplacements = Read-ReplacementManifest $compileProbePath
 $directReplacements = @($srvrosObjectReplacements.Keys | Where-Object { $inputs -contains $_ })
 $archiveReplacements = @($srvrosObjectReplacements.Keys | Where-Object { !($inputs -contains $_) })
 $filteredArchives = @{}
+$droppedArchives = @{}
 if ($archiveReplacements.Count -gt 0) {
-  $wholeArchive = @($wholeArchive | Where-Object { $_ -ne "obj/libnode.a" })
+  $archiveInputs = @($inputs | Where-Object { $_.EndsWith(".a") })
+  foreach ($archiveInput in $archiveInputs) {
+    $quotedArchive = $archiveInput -replace "'", "'\''"
+    $members = @(& wsl.exe @wslArgs --cd "$releaseUnix" -- bash -lc "ar t '$quotedArchive'")
+    if ($LASTEXITCODE -ne 0) {
+      throw "Unable to list archive members for $archiveInput"
+    }
 
-  $filteredLibnode = Join-Path $outPath "libnode.filtered.a"
-  $filteredLibnodeArg = $filteredLibnode -replace "'", "'\''"
-  $filteredLibnodeUnix = (& wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc "wslpath -u '$filteredLibnodeArg'").Trim()
-  if ($LASTEXITCODE -ne 0 -or $filteredLibnodeUnix.Length -eq 0) {
-    throw "Unable to translate filtered archive path $filteredLibnode"
-  }
-  $deleteListUnix = "$filteredLibnodeUnix.delete-list"
-  $keepListUnix = "$filteredLibnodeUnix.keep-list"
-  $deleteLines = ($archiveReplacements -join "`n") -replace "'", "'\''"
-  $filterCommand = @"
+    $deleteForArchive = @()
+    $memberBasenameCounts = @{}
+    foreach ($member in $members) {
+      $basename = Split-Path -Leaf ($member -replace '\\', '/')
+      if (!$memberBasenameCounts.ContainsKey($basename)) {
+        $memberBasenameCounts[$basename] = 0
+      }
+      $memberBasenameCounts[$basename]++
+    }
+    foreach ($replacement in $archiveReplacements) {
+      if ($members -contains $replacement) {
+        $deleteForArchive += $replacement
+        continue
+      }
+
+      $suffix = ($replacement -replace '^obj/', '') -replace '\\', '/'
+      $matchedMember = @($members | Where-Object {
+        $member = ($_ -replace '\\', '/')
+        $member.EndsWith("/$suffix") -or $member.EndsWith($suffix)
+      } | Select-Object -First 1)
+      if ($matchedMember.Count -eq 0) {
+        $replacementBasename = Split-Path -Leaf ($replacement -replace '\\', '/')
+        if ($memberBasenameCounts.ContainsKey($replacementBasename) -and
+            $memberBasenameCounts[$replacementBasename] -eq 1) {
+          $matchedMember = @($members | Where-Object {
+            (Split-Path -Leaf ($_ -replace '\\', '/')) -eq $replacementBasename
+          } | Select-Object -First 1)
+        }
+      }
+      if ($matchedMember.Count -gt 0) {
+        $deleteForArchive += $matchedMember[0]
+      }
+    }
+    $deleteForArchive = @($deleteForArchive | Select-Object -Unique)
+    if ($deleteForArchive.Count -eq 0) {
+      continue
+    }
+
+    if ($wholeArchive -contains $archiveInput) {
+      $wholeArchive = @($wholeArchive | Where-Object { $_ -ne $archiveInput })
+    }
+    if ($deleteForArchive.Count -eq $members.Count) {
+      $droppedArchives[$archiveInput] = $true
+      continue
+    }
+
+    $filteredName = (($archiveInput -replace '^obj/', '') -replace '[\\/]', '_' -replace '\.a$', '.filtered.a')
+    $filteredArchive = Join-Path $outPath $filteredName
+    $filteredArchiveArg = $filteredArchive -replace "'", "'\''"
+    $filteredArchiveUnix = (& wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc "wslpath -u '$filteredArchiveArg'").Trim()
+    if ($LASTEXITCODE -ne 0 -or $filteredArchiveUnix.Length -eq 0) {
+      throw "Unable to translate filtered archive path $filteredArchive"
+    }
+    $deleteListUnix = "$filteredArchiveUnix.delete-list"
+    $keepListUnix = "$filteredArchiveUnix.keep-list"
+    $deleteLines = ($deleteForArchive -join "`n") -replace "'", "'\''"
+    $filterCommand = @"
 cd $(Quote-BashArg $releaseUnix) &&
 cat > $(Quote-BashArg $deleteListUnix) <<'EOF'
 $deleteLines
 EOF
-ar t obj/libnode.a | grep -vxF -f $(Quote-BashArg $deleteListUnix) > $(Quote-BashArg $keepListUnix) &&
-rm -f $(Quote-BashArg $filteredLibnodeUnix) &&
-xargs -a $(Quote-BashArg $keepListUnix) ar rcs $(Quote-BashArg $filteredLibnodeUnix)
+ar t $(Quote-BashArg $archiveInput) | grep -vxF -f $(Quote-BashArg $deleteListUnix) > $(Quote-BashArg $keepListUnix) &&
+rm -f $(Quote-BashArg $filteredArchiveUnix) &&
+xargs -a $(Quote-BashArg $keepListUnix) ar rcs $(Quote-BashArg $filteredArchiveUnix)
 "@
-  & wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc $filterCommand
-  if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $filteredLibnode)) {
-    throw "Unable to create filtered libnode archive at $filteredLibnode"
+    & wsl.exe @wslArgs --cd "$nativeRoot" -- bash -lc $filterCommand
+    if ($LASTEXITCODE -ne 0 -or !(Test-Path -LiteralPath $filteredArchive)) {
+      throw "Unable to create filtered archive at $filteredArchive"
+    }
+    $filteredArchives[$archiveInput] = $filteredArchive
   }
-  $filteredArchives["obj/libnode.a"] = $filteredLibnode
 }
 
 $rspArgs += "--start-group"
@@ -164,6 +219,9 @@ if (Test-Path -LiteralPath $libcxxProbeLib) {
   $rspArgs += $libcxxProbeLib
 }
 foreach ($input in $inputs) {
+  if ($droppedArchives.ContainsKey($input)) {
+    continue
+  }
   $full = Join-Path $releaseWin ($input -replace '/', '\')
   if ($filteredArchives.ContainsKey($input)) {
     $full = $filteredArchives[$input]

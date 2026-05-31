@@ -1253,6 +1253,18 @@ int putchar(int c) {
     return fputc(c, stdout);
 }
 
+int fputc_unlocked(int c, FILE *stream) {
+    return fputc(c, stream);
+}
+
+int putc_unlocked(int c, FILE *stream) {
+    return fputc(c, stream);
+}
+
+int putchar_unlocked(int c) {
+    return fputc(c, stdout);
+}
+
 int getc(FILE *stream) {
     unsigned char c;
     flockfile(stream);
@@ -1308,6 +1320,22 @@ int getc(FILE *stream) {
 
 int fgetc(FILE *stream) {
     return getc(stream);
+}
+
+int getchar(void) {
+    return getc(stdin);
+}
+
+int getc_unlocked(FILE *stream) {
+    return getc(stream);
+}
+
+int fgetc_unlocked(FILE *stream) {
+    return getc(stream);
+}
+
+int getchar_unlocked(void) {
+    return getc(stdin);
 }
 
 int ungetc(int c, FILE *stream) {
@@ -1663,6 +1691,10 @@ int fflush(FILE *stream) {
     return 0;
 }
 
+int fflush_unlocked(FILE *stream) {
+    return fflush(stream);
+}
+
 int setvbuf(FILE *stream, char *buffer, int mode, size_t size) {
     if (stream == 0) {
         errno = EBADF;
@@ -1848,6 +1880,14 @@ size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
     return result;
 }
 
+size_t fread_unlocked(void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    return fread(ptr, size, nmemb, stream);
+}
+
+size_t fwrite_unlocked(const void *ptr, size_t size, size_t nmemb, FILE *stream) {
+    return fwrite(ptr, size, nmemb, stream);
+}
+
 char *fgets(char *text, int size, FILE *stream) {
     if (text == 0 || size <= 0) {
         errno = EINVAL;
@@ -1872,6 +1912,56 @@ char *fgets(char *text, int size, FILE *stream) {
     text[used] = '\0';
     funlockfile(stream);
     return text;
+}
+
+ssize_t getdelim(char **lineptr, size_t *n, int delimiter, FILE *stream) {
+    if (lineptr == 0 || n == 0 || stream == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (*lineptr == 0 || *n == 0) {
+        *n = 128;
+        *lineptr = malloc(*n);
+        if (*lineptr == 0) {
+            errno = ENOMEM;
+            *n = 0;
+            return -1;
+        }
+    }
+
+    size_t used = 0;
+    for (;;) {
+        int c = fgetc(stream);
+        if (c == EOF) {
+            if (used == 0) {
+                return -1;
+            }
+            break;
+        }
+        if (used + 1 >= *n) {
+            size_t next_size = *n * 2;
+            if (next_size <= *n) {
+                errno = ENOMEM;
+                return -1;
+            }
+            char *next = realloc(*lineptr, next_size);
+            if (next == 0) {
+                return -1;
+            }
+            *lineptr = next;
+            *n = next_size;
+        }
+        (*lineptr)[used++] = (char)c;
+        if (c == delimiter) {
+            break;
+        }
+    }
+    (*lineptr)[used] = '\0';
+    return (ssize_t)used;
+}
+
+ssize_t getline(char **lineptr, size_t *n, FILE *stream) {
+    return getdelim(lineptr, n, '\n', stream);
 }
 
 int ferror(FILE *stream) {
@@ -1906,6 +1996,10 @@ int fileno(FILE *stream) {
     int fd = stream->fd;
     funlockfile(stream);
     return fd;
+}
+
+int fileno_unlocked(FILE *stream) {
+    return fileno(stream);
 }
 
 long ftell(FILE *stream) {

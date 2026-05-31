@@ -4,12 +4,18 @@
 #include <sys/socket.h>
 
 #define AI_PASSIVE 0x01
+#define AI_ADDRCONFIG 0x20
 #define EAI_FAIL -4
 #define EAI_MEMORY -10
 #define EAI_NONAME -2
 #define EAI_SERVICE -8
 #define NI_MAXHOST 1025
 #define NI_MAXSERV 32
+#define NI_NUMERICHOST 0x01
+#define NI_NUMERICSERV 0x02
+#define NI_NOFQDN 0x04
+#define NI_NAMEREQD 0x08
+#define NI_DGRAM 0x10
 
 struct addrinfo {
     int ai_flags;
@@ -20,6 +26,14 @@ struct addrinfo {
     struct sockaddr *ai_addr;
     char *ai_canonname;
     struct addrinfo *ai_next;
+};
+
+struct hostent {
+    char *h_name;
+    char **h_aliases;
+    int h_addrtype;
+    int h_length;
+    char **h_addr_list;
 };
 
 struct servent {

@@ -113,7 +113,8 @@ editor clients:
   `tcgetattr`/`tcsetattr`, `ioctl` `TIOCGWINSZ`/`TIOCSWINSZ`, `statvfs`, time,
   `nanosleep`, `getpagesize`/`sysconf`, cwd, `getopt`, `uname`, environment
   variables, same-address-space `pthread_create`/`pthread_join`/`pthread_detach`
-  with per-thread stacks and TLS plus pthread mutex/cond/once primitives,
+  with per-thread stacks, pthread TLS keys, static ELF TLS blocks backed by
+  `PT_TLS`/`FS.base`, plus pthread mutex/cond/once primitives,
   mutex/cond attributes, recursive mutexes, stack attribute helpers, and
   futex-backed stdio stream locks,
   `waitpid`, `posix_spawn`, `posix_spawnp`, dynamically grown non-stdio spawn
@@ -392,6 +393,12 @@ python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+make libc-audit
+python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+make node-unresolved-audit
+python3 tools/node_runtime_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/node_http_demo_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --skip-build
+python3 tools/node_express_demo_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --skip-build
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/libuv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64

@@ -8,7 +8,9 @@
 #include <time.h>
 #include <unistd.h>
 
-#define PTHREAD_DEFAULT_STACK_SIZE 65536
+#define PTHREAD_DEFAULT_STACK_SIZE (2 * 1024 * 1024)
+#define SRVROS_MAIN_STACK_TOP 0x1000000ull
+#define SRVROS_DYNAMIC_STACK_TOP 0x0ffff000ull
 #define PTHREAD_MAX_RECORDS 16
 #define PTHREAD_TLS_THREADS 16
 #define PTHREAD_TICKS_PER_SECOND 100
@@ -44,6 +46,10 @@ struct pthread_tls_slot {
 static struct pthread_key_slot pthread_keys[PTHREAD_KEYS_MAX];
 static struct pthread_record pthread_records[PTHREAD_MAX_RECORDS];
 static struct pthread_tls_slot pthread_tls_slots[PTHREAD_TLS_THREADS];
+
+static long pthread_tid_value(pthread_t thread) {
+    return (long)(uintptr_t)thread;
+}
 
 static long pthread_futex_wait_absorbing_signals(uint32_t *address, uint32_t expected, uint64_t timeout_ticks) {
     for (;;) {
@@ -133,10 +139,10 @@ static void pthread_reap_detached(void) {
         if (!record->used || !record->detached || record->tid == self) {
             continue;
         }
-        long status = srv_thread_status(record->tid);
+        long status = srv_thread_status(pthread_tid_value(record->tid));
         if (status == 0) {
             uint64_t ignored = 0;
-            if (srv_thread_join(record->tid, &ignored) == 0) {
+            if (srv_thread_join(pthread_tid_value(record->tid), &ignored) == 0) {
                 pthread_record_cleanup(record);
             }
         } else if (status < 0) {
@@ -272,8 +278,8 @@ int pthread_create(pthread_t *thread,
         return EAGAIN;
     }
 
-    *thread = (pthread_t)tid;
-    record->tid = (pthread_t)tid;
+    *thread = (pthread_t)(uintptr_t)tid;
+    record->tid = (pthread_t)(uintptr_t)tid;
     record->detached = detachstate == PTHREAD_CREATE_DETACHED;
     record->start = start;
     return 0;
@@ -288,7 +294,7 @@ int pthread_join(pthread_t thread, void **value_ptr) {
 
     uint64_t value = 0;
     for (;;) {
-        long result = srv_thread_join(thread, &value);
+        long result = srv_thread_join(pthread_tid_value(thread), &value);
         if (result == 0) {
             break;
         }
@@ -312,9 +318,9 @@ int pthread_detach(pthread_t thread) {
         return EINVAL;
     }
     record->detached = 1;
-    if (srv_thread_status(thread) == 0) {
+    if (srv_thread_status(pthread_tid_value(thread)) == 0) {
         uint64_t ignored = 0;
-        if (srv_thread_join(thread, &ignored) == 0) {
+        if (srv_thread_join(pthread_tid_value(thread), &ignored) == 0) {
             pthread_record_cleanup(record);
         }
     }
@@ -329,7 +335,7 @@ void pthread_exit(void *value_ptr) {
 
 pthread_t pthread_self(void) {
     long tid = srv_thread_self();
-    return tid > 0 ? (pthread_t)tid : 1;
+    return tid > 0 ? (pthread_t)(uintptr_t)tid : (pthread_t)(uintptr_t)1;
 }
 
 int pthread_equal(pthread_t left, pthread_t right) {
@@ -340,7 +346,7 @@ int pthread_kill(pthread_t thread, int sig) {
     if (sig < 0 || sig >= 64) {
         return EINVAL;
     }
-    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
         return ESRCH;
     }
     if (sig == 0) {
@@ -350,7 +356,7 @@ int pthread_kill(pthread_t thread, int sig) {
 }
 
 int pthread_setname_np(pthread_t thread, const char *name) {
-    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
         return ESRCH;
     }
     if (name == 0) {
@@ -360,7 +366,7 @@ int pthread_setname_np(pthread_t thread, const char *name) {
 }
 
 int pthread_getname_np(pthread_t thread, char *name, size_t length) {
-    if (thread != pthread_self() && srv_thread_status(thread) < 0) {
+    if (thread != pthread_self() && srv_thread_status(pthread_tid_value(thread)) < 0) {
         return ESRCH;
     }
     if (name == 0 || length == 0) {
@@ -466,8 +472,12 @@ int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr) {
         return error;
     }
     if (thread == pthread_self()) {
+        uintptr_t frame = (uintptr_t)__builtin_frame_address(0);
+        uintptr_t stack_top = frame > SRVROS_MAIN_STACK_TOP
+                                  ? SRVROS_DYNAMIC_STACK_TOP
+                                  : SRVROS_MAIN_STACK_TOP;
         attr->stacksize = PTHREAD_DEFAULT_STACK_SIZE;
-        attr->stackaddr = 0;
+        attr->stackaddr = (void *)(stack_top - PTHREAD_DEFAULT_STACK_SIZE);
         return 0;
     }
     struct pthread_record *record = pthread_record_find(thread);

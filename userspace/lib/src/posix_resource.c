@@ -4,8 +4,8 @@
 #include <sys/resource.h>
 #include <unistd.h>
 
-#define SRVROS_DEFAULT_STACK_LIMIT (8ull * 1024ull * 1024ull)
-#define SRVROS_DEFAULT_DATA_LIMIT (64ull * 1024ull * 1024ull)
+#define SRVROS_DEFAULT_STACK_LIMIT (2ull * 1024ull * 1024ull)
+#define SRVROS_DEFAULT_DATA_LIMIT (512ull * 1024ull * 1024ull)
 #define SRVROS_DEFAULT_CORE_LIMIT 0ull
 
 static struct rlimit resource_limits[RLIM_NLIMITS];

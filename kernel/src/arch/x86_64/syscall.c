@@ -1300,7 +1300,11 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         if (timeout_ms > 0 && timer_ticks() - start >= timeout_ticks) {
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
         }
-        if (!scheduler_wait_timeout(process_file_poll_wait_queue(), poll_wait_ready, &wait, deadline_ticks)) {
+        uint64_t wait_deadline = deadline_ticks;
+        if (timeout_ms < 0) {
+            wait_deadline = timer_ticks() + 10;
+        }
+        if (!scheduler_wait_timeout(process_file_poll_wait_queue(), poll_wait_ready, &wait, wait_deadline)) {
             scheduler_yield();
         }
     }

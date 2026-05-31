@@ -22,6 +22,8 @@ extern "C" {
 #define _SC_HOST_NAME_MAX 6
 #define _SC_LOGIN_NAME_MAX 7
 
+#define _PC_PATH_MAX 1
+
 #define F_OK 0
 #define X_OK 1
 #define W_OK 2
@@ -46,8 +48,10 @@ int pipe2(int fds[2], int flags);
 off_t lseek(int fd, off_t offset, int whence);
 off_t lseek64(int fd, off_t offset, int whence);
 int unlink(const char *path);
+int unlinkat(int dirfd, const char *path, int flags);
 int link(const char *old_path, const char *new_path);
 int symlink(const char *target, const char *link_path);
+ssize_t readlink(const char *path, char *buffer, size_t size);
 int chown(const char *path, uid_t owner, gid_t group);
 int lchown(const char *path, uid_t owner, gid_t group);
 int fchown(int fd, uid_t owner, gid_t group);

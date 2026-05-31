@@ -8,6 +8,12 @@ typedef unsigned long sigset_t;
 typedef void (*sighandler_t)(int);
 
 typedef struct {
+    void *ss_sp;
+    int ss_flags;
+    size_t ss_size;
+} stack_t;
+
+typedef struct {
     int si_signo;
     int si_errno;
     int si_code;
@@ -30,6 +36,9 @@ typedef struct {
 #define SIGCONT 18
 #define SIGSTOP 19
 #define SIGTSTP 20
+#define SIGTTOU 22
+#define SIGXFSZ 25
+#define SIGPROF 27
 #define SIG_DFL ((sighandler_t)0)
 #define SIG_IGN ((sighandler_t)1)
 #define SIG_ERR ((sighandler_t)-1)
@@ -39,13 +48,19 @@ typedef struct {
 #define SIG_SETMASK 2
 
 #define SA_RESTART 0x10000000
+#define SA_SIGINFO 0x00000004
+#define SA_RESETHAND 0x80000000
+#define SA_ONSTACK 0x08000000
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 struct sigaction {
-    sighandler_t sa_handler;
+    union {
+        sighandler_t sa_handler;
+        void (*sa_sigaction)(int, siginfo_t *, void *);
+    };
     sigset_t sa_mask;
     int sa_flags;
 };
@@ -58,7 +73,7 @@ int sigsuspend(const sigset_t *mask);
 int sigpending(sigset_t *set);
 int sigwait(const sigset_t *set, int *sig);
 int kill(pid_t pid, int sig);
-int pthread_kill(unsigned long thread, int sig);
+int pthread_kill(void *thread, int sig);
 int raise(int sig);
 int sigemptyset(sigset_t *set);
 int sigfillset(sigset_t *set);

@@ -10,10 +10,85 @@
 #include <sys/random.h>
 #include <sys/syscall.h>
 #include <sys/sysinfo.h>
+#include <time.h>
 #include <fcntl.h>
+#include <linux/capability.h>
 #include <unistd.h>
 
 #include <srvros/sys.h>
+
+#define SRVROS_TICKS_PER_SECOND 100
+#define LINUX_FUTEX_WAIT 0
+#define LINUX_FUTEX_WAKE 1
+#define LINUX_FUTEX_WAIT_BITSET 9
+#define LINUX_FUTEX_PRIVATE_FLAG 128
+#define LINUX_FUTEX_CLOCK_REALTIME 256
+
+static uint64_t timespec_to_ticks_ceil(const struct timespec *ts) {
+    if (ts == 0) {
+        return 0;
+    }
+    if (ts->tv_sec < 0 || ts->tv_nsec < 0 || ts->tv_nsec >= 1000000000L) {
+        return 1;
+    }
+    uint64_t ticks = (uint64_t)ts->tv_sec * (uint64_t)SRVROS_TICKS_PER_SECOND;
+    uint64_t ns_per_tick = 1000000000ull / (uint64_t)SRVROS_TICKS_PER_SECOND;
+    uint64_t ns_ticks = ((uint64_t)ts->tv_nsec + ns_per_tick - 1) / ns_per_tick;
+    ticks += ns_ticks;
+    return ticks == 0 ? 1 : ticks;
+}
+
+static uint64_t absolute_timespec_to_relative_ticks(const struct timespec *ts) {
+    if (ts == 0) {
+        return 0;
+    }
+    struct timespec now;
+    if (clock_gettime(CLOCK_REALTIME, &now) < 0) {
+        return 1;
+    }
+    if (ts->tv_sec < now.tv_sec ||
+        (ts->tv_sec == now.tv_sec && ts->tv_nsec <= now.tv_nsec)) {
+        return 1;
+    }
+    struct timespec delta = {
+        .tv_sec = ts->tv_sec - now.tv_sec,
+        .tv_nsec = ts->tv_nsec - now.tv_nsec,
+    };
+    if (delta.tv_nsec < 0) {
+        delta.tv_sec--;
+        delta.tv_nsec += 1000000000L;
+    }
+    return timespec_to_ticks_ceil(&delta);
+}
+
+static long linux_futex(uint32_t *address, int operation, uint32_t expected, const struct timespec *timeout) {
+    int command = operation & ~(LINUX_FUTEX_PRIVATE_FLAG | LINUX_FUTEX_CLOCK_REALTIME);
+    if (command == LINUX_FUTEX_WAKE) {
+        long woke = srv_futex_wake(address, expected);
+        if (woke < 0) {
+            errno = (int)-woke;
+            return -1;
+        }
+        return woke;
+    }
+    if (command == LINUX_FUTEX_WAIT || command == LINUX_FUTEX_WAIT_BITSET) {
+        uint64_t timeout_ticks = 0;
+        if (timeout != 0) {
+            timeout_ticks = ((operation & LINUX_FUTEX_CLOCK_REALTIME) != 0 ||
+                    command == LINUX_FUTEX_WAIT_BITSET)
+                ? absolute_timespec_to_relative_ticks(timeout)
+                : timespec_to_ticks_ceil(timeout);
+        }
+        long waited = srv_futex_wait(address, expected, timeout_ticks);
+        if (waited < 0) {
+            errno = (int)-waited;
+            return -1;
+        }
+        return 0;
+    }
+    errno = ENOSYS;
+    return -1;
+}
 
 int sysinfo(struct sysinfo *info) {
     if (info == 0) {
@@ -135,11 +210,36 @@ long syscall(long number, ...) {
             result = getpid();
         }
         break;
+    case SYS_capget: {
+        struct __user_cap_header_struct *header = va_arg(args, struct __user_cap_header_struct *);
+        struct __user_cap_data_struct *data = va_arg(args, struct __user_cap_data_struct *);
+        if (header == 0 || data == 0) {
+            errno = EFAULT;
+            result = -1;
+            break;
+        }
+        data[0].effective = 0;
+        data[0].permitted = 0;
+        data[0].inheritable = 0;
+        data[1].effective = 0;
+        data[1].permitted = 0;
+        data[1].inheritable = 0;
+        result = 0;
+        break;
+    }
     case SYS_getrandom: {
         void *buffer = va_arg(args, void *);
         size_t length = va_arg(args, size_t);
         unsigned int flags = va_arg(args, unsigned int);
         result = getrandom(buffer, length, flags);
+        break;
+    }
+    case SYS_futex: {
+        uint32_t *address = va_arg(args, uint32_t *);
+        int operation = va_arg(args, int);
+        uint32_t expected = va_arg(args, uint32_t);
+        const struct timespec *timeout = va_arg(args, const struct timespec *);
+        result = linux_futex(address, operation, expected, timeout);
         break;
     }
     default:

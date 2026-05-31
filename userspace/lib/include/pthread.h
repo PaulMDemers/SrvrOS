@@ -20,7 +20,7 @@
 #define PTHREAD_MUTEX_RECURSIVE 2
 #define PTHREAD_MUTEX_DEFAULT PTHREAD_MUTEX_NORMAL
 
-typedef unsigned long pthread_t;
+typedef void *pthread_t;
 typedef unsigned int pthread_key_t;
 typedef int pthread_once_t;
 
@@ -70,6 +70,7 @@ int pthread_detach(pthread_t thread);
 void pthread_exit(void *value_ptr) __attribute__((noreturn));
 pthread_t pthread_self(void);
 int pthread_equal(pthread_t left, pthread_t right);
+int pthread_atfork(void (*prepare)(void), void (*parent)(void), void (*child)(void));
 
 int pthread_attr_init(pthread_attr_t *attr);
 int pthread_attr_destroy(pthread_attr_t *attr);
@@ -125,6 +126,8 @@ int pthread_sigmask(int how, const sigset_t *set, sigset_t *oldset);
 int pthread_kill(pthread_t thread, int sig);
 int pthread_setname_np(pthread_t thread, const char *name);
 int pthread_getname_np(pthread_t thread, char *name, size_t length);
+int pthread_getschedparam(pthread_t thread, int *policy, void *param);
+int pthread_setschedparam(pthread_t thread, int policy, const void *param);
 
 #ifdef __cplusplus
 }

@@ -1,6 +1,8 @@
 build/
 iso_root/
 __pycache__/
+node_modules/
+ports/node/*/node_modules/
 *.py[cod]
 *.pyo
 *.iso

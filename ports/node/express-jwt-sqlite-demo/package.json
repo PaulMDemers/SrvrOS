@@ -1,0 +1,21 @@
+{
+  "name": "express-jwt-sqlite-demo",
+  "version": "1.0.0",
+  "description": "srvros Node API smoke app using Express, JWT, and an async SQLite adapter.",
+  "main": "src/server.js",
+  "scripts": {
+    "build": "esbuild src/server.js --bundle --platform=node --target=node24 --external:jsonwebtoken --outfile=dist/server.bundle.js",
+    "start": "node dist/server.bundle.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.0"
+  }
+}

@@ -19,6 +19,9 @@ const char *linenoiseHistoryGet(size_t index);
 #define SHELL_MAX_FUNCTIONS 16
 #define SHELL_MAX_FUNCTION_ARGS 16
 #define SHELL_MAX_JOBS 32
+#define DEFAULT_HISTORY_SIZE 64
+#define MAX_HISTORY_SIZE 512
+#define DEFAULT_HISTORY_FILE "/fat/.srvsh_history"
 
 static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
     "/fat/bin",
@@ -1890,23 +1893,37 @@ static int split_words(char *text, char **argv, size_t capacity) {
 
 static int history_size_from_env(void) {
     const char *text = getenv("HISTSIZE");
-    int64_t parsed = 64;
+    int64_t parsed = DEFAULT_HISTORY_SIZE;
     if (text != 0 && text[0] != '\0' && (!parse_i64(text, &parsed) || parsed < 1)) {
-        parsed = 64;
+        parsed = DEFAULT_HISTORY_SIZE;
     }
-    if (parsed > 512) {
-        parsed = 512;
+    if (parsed > MAX_HISTORY_SIZE) {
+        parsed = MAX_HISTORY_SIZE;
     }
     return (int)parsed;
 }
 
 static const char *history_file_from_env(void) {
     const char *file = getenv("HISTFILE");
-    return file != 0 && file[0] != '\0' ? file : "/fat/.srvsh_history";
+    return file != 0 && file[0] != '\0' ? file : DEFAULT_HISTORY_FILE;
 }
 
 static void configure_history(void) {
     linenoiseHistorySetMaxLen(history_size_from_env());
+}
+
+static void save_history(void);
+
+static void save_history_line(const char *line) {
+    if (line == 0 || line[0] == '\0') {
+        return;
+    }
+    linenoiseHistoryAdd(line);
+    save_history();
+}
+
+static int load_history_file(const char *file) {
+    return file != 0 && file[0] != '\0' ? linenoiseHistoryLoad(file) : 0;
 }
 
 static void save_history(void) {
@@ -3917,6 +3934,8 @@ static uint64_t export_command(const char *args) {
         set_path_list(equals);
     } else if (cli_streq(name, "HISTSIZE") && equals != 0) {
         configure_history();
+    } else if (cli_streq(name, "HISTFILE") && equals != 0) {
+        configure_history();
     }
     return 0;
 }
@@ -3942,6 +3961,8 @@ static uint64_t unset_command(const char *args) {
         if (cli_streq(name, "PATH")) {
             set_path_list("");
         } else if (cli_streq(name, "HISTSIZE")) {
+            configure_history();
+        } else if (cli_streq(name, "HISTFILE")) {
             configure_history();
         }
         name = cli_trim(next);
@@ -6813,10 +6834,17 @@ int main(int argc, char **argv) {
         setenv("TMPDIR", "/fat/tmp", 1);
     }
     if (getenv("HISTFILE") == 0) {
-        setenv("HISTFILE", "/fat/.srvsh_history", 1);
+        setenv("HISTFILE", DEFAULT_HISTORY_FILE, 1);
     }
     if (getenv("HISTSIZE") == 0) {
-        setenv("HISTSIZE", "64", 1);
+        char default_history_size[16];
+        size_t default_history_size_length = 0;
+        default_history_size[0] = '\0';
+        append_number(default_history_size,
+            sizeof(default_history_size),
+            &default_history_size_length,
+            (uint64_t)DEFAULT_HISTORY_SIZE);
+        setenv("HISTSIZE", default_history_size, 1);
     }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
@@ -6857,7 +6885,7 @@ int main(int argc, char **argv) {
     cli_puts("srvsh: interactive shell\n");
     print_help();
     configure_history();
-    linenoiseHistoryLoad(history_file_from_env());
+    load_history_file(history_file_from_env());
     linenoiseSetCompletionCallback(shell_completion_callback);
     for (;;) {
         char prompt[LINE_MAX];
@@ -6868,10 +6896,7 @@ int main(int argc, char **argv) {
             cli_puts("exit\n");
             break;
         }
-        if (line[0] != '\0') {
-            linenoiseHistoryAdd(line);
-            save_history();
-        }
+        save_history_line(line);
         run_line(line, cwd);
         linenoiseFree(line);
     }

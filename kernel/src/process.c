@@ -26,16 +26,23 @@
 #define ET_EXEC 2
 #define EM_X86_64 62
 #define PT_LOAD 1
+#define PT_TLS 7
 #define PF_X 1
 #define PF_W 2
 #define PAGE_SIZE 4096ull
 #define USER_STACK_TOP 0x1000000ull
-#define USER_STACK_PAGES 16
+#define USER_STACK_PAGES 512
+#define USER_STACK_GUARD_PAGES 1
 #define USER_HEAP_LIMIT (USER_STACK_TOP - (USER_STACK_PAGES * PAGE_SIZE) - PAGE_SIZE)
 #define USER_MMAP_BASE 0x10000000ull
-#define USER_MMAP_LIMIT 0x40000000ull
-#define PROCESS_MAX_MAPPINGS 4096
-#define PROCESS_MAX_MMAP_REGIONS 64
+#define USER_MMAP_LIMIT 0x70000000ull
+#define USER_DYNAMIC_STACK_TOP (USER_MMAP_BASE - PAGE_SIZE)
+#define USER_TLS_BASE 0x70000000ull
+#define USER_TLS_LIMIT 0x74000000ull
+#define USER_TLS_TCB_SIZE 16
+#define PROCESS_TLS_TEMPLATE_MAX 4096
+#define PROCESS_MAX_MAPPINGS 65536
+#define PROCESS_MAX_MMAP_REGIONS 512
 #define PROCESS_NAME_MAX 64
 #define PROCESS_KERNEL_STACK_SIZE 131072
 #define PROCESS_KERNEL_STACK_MIN_PHYSICAL 0x100000ull
@@ -91,6 +98,8 @@ struct process_user_thread {
     uint64_t entry;
     uint64_t arg;
     uint64_t stack_top;
+    uint64_t tls_base;
+    uint64_t tls_thread_pointer;
     uint64_t return_value;
     uint64_t signal_mask;
     struct process *owner;
@@ -190,6 +199,13 @@ struct process {
     uint64_t program_break;
     uint64_t mapped_break;
     uint64_t heap_limit;
+    uint64_t tls_filesz;
+    uint64_t tls_memsz;
+    uint64_t tls_align;
+    uint64_t tls_next;
+    uint64_t tls_base;
+    uint64_t tls_thread_pointer;
+    uint8_t tls_template[PROCESS_TLS_TEMPLATE_MAX];
     uint8_t *kernel_stack;
     uint64_t kernel_stack_physical;
     uint64_t kernel_stack_frames;
@@ -252,7 +268,12 @@ struct process_futex {
     struct scheduler_wait_queue wait_queue;
 };
 
-void usermode_enter(uint64_t entry, uint64_t stack_top, uint64_t argc, uint64_t argv, uint64_t envp) __attribute__((noreturn));
+void usermode_enter(uint64_t entry,
+    uint64_t stack_top,
+    uint64_t argc,
+    uint64_t argv,
+    uint64_t envp,
+    uint64_t fs_base) __attribute__((noreturn));
 uint64_t process_context_save(struct process_context *context) __attribute__((returns_twice));
 void process_context_restore(struct process_context *context, uint64_t value) __attribute__((noreturn));
 uint64_t gdt_default_kernel_stack_top(void);
@@ -281,6 +302,7 @@ static void background_process_thread(void *arg);
 static void process_user_thread_start(void *arg);
 static void process_futex_wake_process(struct process *process);
 static void process_futex_cleanup_process(struct process *process);
+static bool mmap_range_free(struct process *process, uint64_t base, uint64_t length);
 static bool process_configure_stdio_fds(struct process *child,
     struct process *parent,
     int64_t stdin_fd,
@@ -565,6 +587,18 @@ static uint64_t page_down(uint64_t value) {
 
 static uint64_t page_up(uint64_t value) {
     return (value + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+}
+
+static uint64_t align_up_u64(uint64_t value, uint64_t align) {
+    if (align <= 1) {
+        return value;
+    }
+    uint64_t mask = align - 1;
+    if ((align & mask) != 0) {
+        align = 16;
+        mask = align - 1;
+    }
+    return (value + mask) & ~mask;
 }
 
 static void zero_page(void *page) {
@@ -1034,6 +1068,121 @@ static bool map_user_stack(uint64_t stack_top) {
     return true;
 }
 
+static bool choose_process_stack_top(uint64_t image_end, uint64_t requested_stack_top, uint64_t *stack_top_out) {
+    uint64_t stack_size = USER_STACK_PAGES * PAGE_SIZE;
+    uint64_t guard_size = USER_STACK_GUARD_PAGES * PAGE_SIZE;
+    uint64_t stack_top = requested_stack_top;
+    if (stack_top < stack_size + guard_size) {
+        return false;
+    }
+
+    uint64_t stack_bottom = stack_top - stack_size;
+    if (page_up(image_end) + guard_size <= stack_bottom) {
+        *stack_top_out = stack_top;
+        return true;
+    }
+
+    stack_top = USER_DYNAMIC_STACK_TOP;
+    if (stack_top < stack_size + guard_size) {
+        return false;
+    }
+    stack_bottom = stack_top - stack_size;
+    if (page_up(image_end) + guard_size > stack_bottom) {
+        console_printf("run: image too large for user stack image_end=%x stack_bottom=%x\n",
+            image_end,
+            stack_bottom);
+        return false;
+    }
+
+    *stack_top_out = stack_top;
+    return true;
+}
+
+static bool process_capture_tls_template(struct process *process,
+    const uint8_t *file,
+    uint64_t file_size,
+    const struct elf64_program_header *program) {
+    if (process == NULL || program == NULL || program->memsz == 0) {
+        return true;
+    }
+    if (program->filesz > program->memsz ||
+        program->filesz > PROCESS_TLS_TEMPLATE_MAX ||
+        program->memsz > PROCESS_TLS_TEMPLATE_MAX ||
+        program->offset > file_size ||
+        program->filesz > file_size - program->offset) {
+        console_printf("run: unsupported TLS filesz=%x memsz=%x\n",
+            program->filesz,
+            program->memsz);
+        return false;
+    }
+
+    for (uint64_t i = 0; i < PROCESS_TLS_TEMPLATE_MAX; i++) {
+        process->tls_template[i] = 0;
+    }
+    copy_bytes(process->tls_template, file + program->offset, program->filesz);
+    process->tls_filesz = program->filesz;
+    process->tls_memsz = program->memsz;
+    process->tls_align = program->align != 0 ? program->align : 16;
+    process->tls_next = USER_TLS_BASE;
+    return true;
+}
+
+static bool process_setup_tls_block(struct process *process, uint64_t *base_out, uint64_t *thread_pointer_out) {
+    if (process == NULL || process->tls_memsz == 0) {
+        if (base_out != NULL) {
+            *base_out = 0;
+        }
+        if (thread_pointer_out != NULL) {
+            *thread_pointer_out = 0;
+        }
+        return true;
+    }
+
+    uint64_t base = page_up(process->tls_next);
+    uint64_t block_size = align_up_u64(process->tls_memsz, process->tls_align);
+    uint64_t thread_pointer = base + block_size;
+    uint64_t mapped_length = page_up(block_size + USER_TLS_TCB_SIZE);
+    if (mapped_length == 0 ||
+        base < USER_TLS_BASE ||
+        base >= USER_TLS_LIMIT ||
+        mapped_length > USER_TLS_LIMIT - base ||
+        !mmap_range_free(process, base, mapped_length)) {
+        return false;
+    }
+
+    uint64_t mapped = 0;
+    for (; mapped < mapped_length; mapped += PAGE_SIZE) {
+        if (!map_process_page(process, base + mapped, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE)) {
+            for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
+                (void)process_unmap_tracked_page(process, base + rollback);
+            }
+            return false;
+        }
+    }
+    if (process->tls_filesz != 0 &&
+        !user_space_write(process, base, process->tls_template, process->tls_filesz)) {
+        for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
+            (void)process_unmap_tracked_page(process, base + rollback);
+        }
+        return false;
+    }
+    if (!user_space_write(process, thread_pointer, &thread_pointer, sizeof(thread_pointer))) {
+        for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
+            (void)process_unmap_tracked_page(process, base + rollback);
+        }
+        return false;
+    }
+
+    process->tls_next = base + mapped_length;
+    if (base_out != NULL) {
+        *base_out = base;
+    }
+    if (thread_pointer_out != NULL) {
+        *thread_pointer_out = thread_pointer;
+    }
+    return true;
+}
+
 static bool load_elf_image(const char *path, struct process *process, uint64_t stack_top, uint64_t *entry_out) {
     if (process == NULL || process->address_space != 0) {
         return false;
@@ -1071,13 +1220,24 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         (const struct elf64_program_header *)(data + header->phoff);
 
     uint64_t image_end = 0;
+    uint64_t tls_program = UINT64_MAX;
     for (uint64_t i = 0; i < header->phnum; i++) {
         if (programs[i].type == PT_LOAD) {
             uint64_t end = programs[i].vaddr + programs[i].memsz;
             if (end > image_end) {
                 image_end = end;
             }
+        } else if (programs[i].type == PT_TLS) {
+            tls_program = i;
         }
+    }
+
+    if (!choose_process_stack_top(image_end, stack_top, &stack_top)) {
+        vfs_release_data(node, data);
+        vmm_destroy_address_space(process->address_space);
+        process->address_space = 0;
+        loading_process = NULL;
+        return false;
     }
 
     for (uint64_t i = 0; i < header->phnum; i++) {
@@ -1090,6 +1250,26 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
             loading_process = NULL;
             return false;
         }
+    }
+
+    if (tls_program != UINT64_MAX &&
+        !process_capture_tls_template(process, data, size, &programs[tls_program])) {
+        vfs_release_data(node, data);
+        cleanup_process_mappings(process);
+        vmm_destroy_address_space(process->address_space);
+        process->address_space = 0;
+        loading_process = NULL;
+        return false;
+    }
+
+    if (!process_setup_tls_block(process, &process->tls_base, &process->tls_thread_pointer)) {
+        console_write("run: failed to map TLS block\n");
+        vfs_release_data(node, data);
+        cleanup_process_mappings(process);
+        vmm_destroy_address_space(process->address_space);
+        process->address_space = 0;
+        loading_process = NULL;
+        return false;
     }
 
     if (!map_user_stack(stack_top)) {
@@ -1108,7 +1288,7 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     process->heap_base = page_up(image_end);
     process->program_break = process->heap_base;
     process->mapped_break = process->heap_base;
-    process->heap_limit = USER_HEAP_LIMIT;
+    process->heap_limit = stack_top - (USER_STACK_PAGES * PAGE_SIZE) - (USER_STACK_GUARD_PAGES * PAGE_SIZE);
     loading_process = NULL;
     vfs_release_data(node, data);
     return true;
@@ -1154,7 +1334,12 @@ static bool enter_process(struct process *process, const char *label) {
                 process->entry,
                 process->stack_top);
         }
-        usermode_enter(process->entry, process->stack_top, process->argc, process->argv, process->envp);
+        usermode_enter(process->entry,
+            process->stack_top,
+            process->argc,
+            process->argv,
+            process->envp,
+            process->tls_thread_pointer);
     }
 
     scheduler_clear_user_context();
@@ -1230,7 +1415,12 @@ int64_t process_spawn_elf_args(const char *path, const char *args) {
             path,
             child->entry,
             child->stack_top);
-        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
+        usermode_enter(child->entry,
+            child->stack_top,
+            child->argc,
+            child->argv,
+            child->envp,
+            child->tls_thread_pointer);
     }
 
     int64_t status = (int64_t)child->exit_status;
@@ -1276,7 +1466,12 @@ int64_t process_spawn_elf_args_redirect(const char *path,
             path,
             child->entry,
             child->stack_top);
-        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
+        usermode_enter(child->entry,
+            child->stack_top,
+            child->argc,
+            child->argv,
+            child->envp,
+            child->tls_thread_pointer);
     }
 
     int64_t status = (int64_t)child->exit_status;
@@ -1365,7 +1560,12 @@ int64_t process_spawn_exec(const char *path,
             path,
             child->entry,
             child->stack_top);
-        usermode_enter(child->entry, child->stack_top, child->argc, child->argv, child->envp);
+        usermode_enter(child->entry,
+            child->stack_top,
+            child->argc,
+            child->argv,
+            child->envp,
+            child->tls_thread_pointer);
     }
 
     int64_t status = (int64_t)child->exit_status;
@@ -1391,6 +1591,15 @@ static void move_process_image(struct process *destination, struct process *sour
     destination->program_break = load_process_u64(&source->program_break);
     destination->mapped_break = load_process_u64(&source->mapped_break);
     destination->heap_limit = load_process_u64(&source->heap_limit);
+    destination->tls_filesz = load_process_u64(&source->tls_filesz);
+    destination->tls_memsz = load_process_u64(&source->tls_memsz);
+    destination->tls_align = load_process_u64(&source->tls_align);
+    destination->tls_next = load_process_u64(&source->tls_next);
+    destination->tls_base = load_process_u64(&source->tls_base);
+    destination->tls_thread_pointer = load_process_u64(&source->tls_thread_pointer);
+    for (uint64_t i = 0; i < PROCESS_TLS_TEMPLATE_MAX; i++) {
+        destination->tls_template[i] = source->tls_template[i];
+    }
     destination->mapping_count = load_process_u64(&source->mapping_count);
     for (uint64_t i = 0; i < source->mapping_count; i++) {
         destination->mappings[i].virtual_address = load_process_u64(&source->mappings[i].virtual_address);
@@ -1461,7 +1670,12 @@ int64_t process_exec_replace(const char *path,
         path,
         process->entry,
         process->stack_top);
-    usermode_enter(process->entry, process->stack_top, process->argc, process->argv, process->envp);
+    usermode_enter(process->entry,
+        process->stack_top,
+        process->argc,
+        process->argv,
+        process->envp,
+        process->tls_thread_pointer);
 }
 
 static void background_process_thread(void *arg) {
@@ -2353,12 +2567,12 @@ static void process_user_thread_start(void *arg) {
     }
 
     struct process *process = thread->owner;
+    scheduler_set_user_thread_context(thread);
     scheduler_set_user_context_fpu(process,
         process->address_space,
         0,
         &thread->fpu);
-    scheduler_set_user_thread_context(thread);
-    usermode_enter(thread->entry, thread->stack_top, thread->arg, 0, 0);
+    usermode_enter(thread->entry, thread->stack_top, thread->arg, 0, 0, thread->tls_thread_pointer);
 }
 
 int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
@@ -2386,6 +2600,12 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         process->next_thread_id = 2;
     }
 
+    uint64_t tls_base = 0;
+    uint64_t tls_thread_pointer = 0;
+    if (!process_setup_tls_block(process, &tls_base, &tls_thread_pointer)) {
+        return -1;
+    }
+
     *thread = (struct process_user_thread) {
         .used = true,
         .active = true,
@@ -2395,6 +2615,8 @@ int64_t process_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, 
         .entry = entry,
         .arg = arg,
         .stack_top = stack_top,
+        .tls_base = tls_base,
+        .tls_thread_pointer = tls_thread_pointer,
         .return_value = 0,
         .signal_mask = process_current_signal_mask(process),
         .owner = process,
@@ -4717,8 +4939,23 @@ int64_t process_file_stat(struct process *process,
     struct vfs_metadata *metadata_out,
     uint64_t *size_out,
     uint64_t *type_out) {
+    if (process == NULL || size_out == NULL || type_out == NULL) {
+        return -1;
+    }
+    if (fd < 3) {
+        *size_out = 0;
+        *type_out = 0;
+        if (metadata_out != NULL) {
+            *metadata_out = (struct vfs_metadata) {
+                .inode = fd + 1,
+                .mode = VFS_MODE_IFIFO | 0600,
+                .nlink = 1,
+            };
+        }
+        return 0;
+    }
     struct process_file *file = process_file_at(process, fd);
-    if (file == NULL || size_out == NULL || type_out == NULL) {
+    if (file == NULL) {
         return -1;
     }
 
@@ -4901,8 +5138,18 @@ static bool mmap_range_valid(uint64_t base, uint64_t length) {
 }
 
 static bool mmap_range_free(struct process *process, uint64_t base, uint64_t length) {
-    for (uint64_t page = base; page < base + length; page += PAGE_SIZE) {
-        if (process_mapping_index(process, page) >= 0) {
+    if (process == NULL) {
+        return false;
+    }
+    uint64_t end = base + length;
+    for (uint64_t i = 0; i < PROCESS_MAX_MMAP_REGIONS; i++) {
+        struct process_mmap_region *region = &process->mmap_regions[i];
+        if (!region->used) {
+            continue;
+        }
+        uint64_t region_start = region->base;
+        uint64_t region_end = region_start + region->length;
+        if (base < region_end && end > region_start) {
             return false;
         }
     }
@@ -5140,23 +5387,20 @@ int64_t process_mmap(struct process *process,
         base = (uint64_t)found;
     }
 
-    uint64_t page_flags = mmap_page_flags_for_protection(protection);
-    uint64_t initial_page_flags = page_flags;
-    if (protection == SRV_PROT_NONE) {
-        initial_page_flags = VMM_PAGE_USER | VMM_PAGE_NO_EXECUTE;
-    }
-
     uint64_t mapped = 0;
-    for (; mapped < mapped_length; mapped += PAGE_SIZE) {
-        if (!map_process_page(process, base + mapped, initial_page_flags)) {
-            for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
-                (void)process_unmap_tracked_page(process, base + rollback);
+    uint64_t page_flags = mmap_page_flags_for_protection(protection);
+    if (protection != SRV_PROT_NONE) {
+        for (; mapped < mapped_length; mapped += PAGE_SIZE) {
+            if (!map_process_page(process, base + mapped, page_flags)) {
+                for (uint64_t rollback = 0; rollback < mapped; rollback += PAGE_SIZE) {
+                    (void)process_unmap_tracked_page(process, base + rollback);
+                }
+                return -1;
             }
-            return -1;
         }
     }
 
-    if (!anonymous && (uint64_t)offset < file_size) {
+    if (protection != SRV_PROT_NONE && !anonymous && (uint64_t)offset < file_size) {
         uint64_t available = file_size - (uint64_t)offset;
         uint64_t copy_length = length < available ? length : available;
         if (copy_length != 0 &&
@@ -5165,17 +5409,6 @@ int64_t process_mmap(struct process *process,
                 (void)process_unmap_tracked_page(process, base + rollback);
             }
             return -1;
-        }
-    }
-
-    if (protection == SRV_PROT_NONE) {
-        for (uint64_t protected = 0; protected < mapped_length; protected += PAGE_SIZE) {
-            if (!mmap_apply_protection(process, base + protected, page_flags)) {
-                for (uint64_t rollback = 0; rollback < mapped_length; rollback += PAGE_SIZE) {
-                    (void)process_unmap_tracked_page(process, base + rollback);
-                }
-                return -1;
-            }
         }
     }
 
@@ -5203,13 +5436,14 @@ int64_t process_munmap(struct process *process, uint64_t address, uint64_t lengt
         return -1;
     }
     for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0 ||
-            process_mapping_index(process, page) < 0) {
+        if (mmap_region_index_for_page(process, page) < 0) {
             return -1;
         }
     }
     for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        (void)process_unmap_tracked_page(process, page);
+        if (process_mapping_index(process, page) >= 0) {
+            (void)process_unmap_tracked_page(process, page);
+        }
     }
     mmap_forget_range(process, address, mapped_length);
     if (address < process->mmap_next) {
@@ -5232,14 +5466,22 @@ int64_t process_mprotect(struct process *process,
         return -1;
     }
     for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (mmap_region_index_for_page(process, page) < 0 ||
-            process_mapping_index(process, page) < 0) {
+        if (mmap_region_index_for_page(process, page) < 0) {
             return -1;
         }
     }
 
     uint64_t page_flags = mmap_page_flags_for_protection(protection);
     for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
+        if (process_mapping_index(process, page) < 0) {
+            if (protection == SRV_PROT_NONE) {
+                continue;
+            }
+            if (!map_process_page(process, page, page_flags)) {
+                return -1;
+            }
+            continue;
+        }
         if (!mmap_apply_protection(process, page, page_flags)) {
             return -1;
         }
@@ -5325,6 +5567,18 @@ struct fpu_state *process_fpu_state(void *process_ptr) {
         return NULL;
     }
     return &process->fpu;
+}
+
+uint64_t process_fs_base(void *process_ptr) {
+    struct process *process = process_ptr;
+    if (process == NULL || !process->allocated) {
+        return 0;
+    }
+    struct process_user_thread *thread = process_current_user_thread();
+    if (thread != NULL && thread->owner == process && thread->used) {
+        return thread->tls_thread_pointer;
+    }
+    return process->tls_thread_pointer;
 }
 
 void process_fpu_restore(void *process_ptr) {

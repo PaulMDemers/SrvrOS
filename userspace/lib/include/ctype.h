@@ -1,6 +1,10 @@
 #ifndef SRVROS_POSIX_CTYPE_H
 #define SRVROS_POSIX_CTYPE_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int isalnum(int c);
 int isalpha(int c);
 int isblank(int c);
@@ -32,5 +36,9 @@ int isupper_l(int c, locale_t locale);
 int isxdigit_l(int c, locale_t locale);
 int tolower_l(int c, locale_t locale);
 int toupper_l(int c, locale_t locale);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

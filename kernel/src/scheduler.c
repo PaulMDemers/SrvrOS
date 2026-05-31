@@ -41,6 +41,7 @@ struct thread {
     void *user_context;
     void *user_thread_context;
     struct fpu_state *user_fpu;
+    uint64_t user_fs_base;
     uint64_t address_space;
     uint64_t kernel_stack_top;
     uint8_t *stack;
@@ -91,6 +92,19 @@ static uint64_t thread_address_space(const struct thread *thread) {
         return thread->address_space;
     }
     return vmm_kernel_address_space();
+}
+
+static uint64_t read_fs_base(void) {
+    uint32_t low;
+    uint32_t high;
+    __asm__ volatile ("rdmsr" : "=a"(low), "=d"(high) : "c"(0xC0000100u));
+    return ((uint64_t)high << 32) | low;
+}
+
+static void write_fs_base(uint64_t value) {
+    uint32_t low = (uint32_t)value;
+    uint32_t high = (uint32_t)(value >> 32);
+    __asm__ volatile ("wrmsr" : : "c"(0xC0000100u), "a"(low), "d"(high) : "memory");
 }
 
 static struct fpu_state *thread_user_fpu(struct thread *thread) {
@@ -166,6 +180,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
                 .user_context = NULL,
                 .user_thread_context = NULL,
                 .user_fpu = NULL,
+                .user_fs_base = 0,
                 .address_space = 0,
                 .kernel_stack_top = 0,
                 .stack = stack,
@@ -213,6 +228,9 @@ void scheduler_yield(void) {
     switching = true;
     struct thread *old = &threads[old_index];
     struct thread *next = &threads[next_index];
+    if (old->user_context != NULL) {
+        old->user_fs_base = read_fs_base();
+    }
 
     if (old->state == THREAD_RUNNING) {
         old->state = THREAD_READY;
@@ -233,6 +251,7 @@ void scheduler_yield(void) {
         gdt_set_kernel_stack(next_stack_top);
     }
     fpu_switch_kernel_state(&old->kernel_fpu, &next->kernel_fpu, thread_user_fpu(next));
+    write_fs_base(next->user_context != NULL ? next->user_fs_base : 0);
 
     scheduler_context_switch(&old->context, &next->context);
 
@@ -277,6 +296,7 @@ void scheduler_kill_user_threads(void *process, void *except_user_thread_context
         thread->user_context = NULL;
         thread->user_thread_context = NULL;
         thread->user_fpu = NULL;
+        thread->user_fs_base = 0;
         thread->address_space = 0;
         thread->kernel_stack_top = 0;
         thread->state = THREAD_DEAD;
@@ -404,7 +424,9 @@ void scheduler_set_user_context_fpu(void *process,
     thread->address_space = address_space;
     thread->kernel_stack_top = kernel_stack_top;
     thread->user_fpu = user_fpu;
+    thread->user_fs_base = process_fs_base(process);
     fpu_set_current_user_state(user_fpu);
+    write_fs_base(thread->user_fs_base);
 
     if (address_space != 0) {
         vmm_refresh_kernel_mappings(address_space);
@@ -426,9 +448,11 @@ void scheduler_clear_user_context(void) {
     thread->user_context = NULL;
     thread->user_thread_context = NULL;
     thread->user_fpu = NULL;
+    thread->user_fs_base = 0;
     thread->address_space = 0;
     thread->kernel_stack_top = 0;
     fpu_set_current_user_state(NULL);
+    write_fs_base(0);
 
     uint64_t kernel_address_space = vmm_kernel_address_space();
     if (kernel_address_space != 0) {

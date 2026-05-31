@@ -2002,7 +2002,7 @@ int main(void) {
     PTHREAD_CHECK(io_signal_value == (void *)0x24);
     PTHREAD_CHECK(demo_signal_count != 0);
     PTHREAD_CHECK(pthread_kill(pthread_self(), 0) == 0);
-    PTHREAD_CHECK(pthread_kill((pthread_t)999999, 0) == ESRCH);
+    PTHREAD_CHECK(pthread_kill((pthread_t)(uintptr_t)999999, 0) == ESRCH);
     demo_signal_count = 0;
     PTHREAD_CHECK(pthread_kill(pthread_self(), SIGUSR2) == 0);
     PTHREAD_CHECK(__posix_signal_dispatch_pending() > 0);

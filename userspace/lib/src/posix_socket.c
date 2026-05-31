@@ -70,6 +70,19 @@ static struct posix_socket *socket_at(int fd) {
     return socket->used ? socket : 0;
 }
 
+static uint32_t sockaddr_ip_to_srv(uint32_t address) {
+    return ntohl(address);
+}
+
+static uint32_t srv_ip_to_sockaddr(uint32_t ip) {
+    return htonl(ip);
+}
+
+static int socket_trace_enabled(void) {
+    const char *trace = getenv("SRVROS_SOCKET_TRACE");
+    return trace != 0 && trace[0] != '\0' && trace[0] != '0';
+}
+
 static int fill_sockaddr(uint32_t ip,
     uint16_t port,
     struct sockaddr *addr,
@@ -82,7 +95,7 @@ static int fill_sockaddr(uint32_t ip,
     memset(in, 0, sizeof(*in));
     in->sin_family = AF_INET;
     in->sin_port = htons(port);
-    in->sin_addr.s_addr = ip;
+    in->sin_addr.s_addr = srv_ip_to_sockaddr(ip);
     *addrlen = sizeof(*in);
     return 0;
 }
@@ -384,11 +397,51 @@ int __posix_socket_poll_fd(int fd) {
     if (socket == 0) {
         return fd;
     }
+    if (socket_trace_enabled()) {
+        fprintf(stderr,
+            "srvros-socket: poll-fd pseudo=%d real=%d connecting=%d connected=%d listening=%d\n",
+            fd,
+            socket->listener_fd,
+            socket->connecting,
+            socket->connected,
+            socket->listening);
+    }
     return socket->listener_fd;
 }
 
 int __posix_socket_real_fd(int fd) {
     return __posix_socket_poll_fd(fd);
+}
+
+short __posix_socket_poll_update(int fd, short requested, short current_revents) {
+    struct posix_socket *socket = socket_at(fd);
+    if (socket == 0 || socket->listener_fd < 0) {
+        return current_revents;
+    }
+    if (socket->type == SOCK_STREAM && socket->connecting) {
+        int error = socket_error_for_fd(socket->listener_fd);
+        if (socket_trace_enabled()) {
+            fprintf(stderr,
+                "srvros-socket: poll-update pseudo=%d real=%d requested=0x%x revents=0x%x error=%d\n",
+                fd,
+                socket->listener_fd,
+                (unsigned int)requested,
+                (unsigned int)current_revents,
+                error);
+        }
+        if (error == 0) {
+            socket->connecting = 0;
+            socket->connected = 1;
+            if ((requested & POLLOUT) != 0) {
+                current_revents |= POLLOUT;
+            }
+        } else if (error != EINPROGRESS) {
+            socket->connecting = 0;
+            socket->connected = 0;
+            current_revents |= POLLERR;
+        }
+    }
+    return current_revents;
 }
 
 int __posix_socket_fcntl(int fd, int command, uint64_t flags) {
@@ -805,13 +858,14 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     }
 
     uint16_t port = ntohs(in->sin_port);
-    if (port == 0 || in->sin_addr.s_addr == INADDR_ANY) {
+    uint32_t remote_ip = sockaddr_ip_to_srv(in->sin_addr.s_addr);
+    if (port == 0 || remote_ip == INADDR_ANY) {
         errno = EINVAL;
         return -1;
     }
 
     if (socket->type == SOCK_DGRAM) {
-        socket->peer_ip = in->sin_addr.s_addr;
+        socket->peer_ip = remote_ip;
         socket->peer_port = port;
         socket->connected = 1;
         return 0;
@@ -820,8 +874,20 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
     uint64_t connect_flags = socket->fd_flags & SRV_FD_NONBLOCK;
     long connection;
     do {
-        connection = srv_net_connect(in->sin_addr.s_addr, port, connect_flags);
+        connection = srv_net_connect(remote_ip, port, connect_flags);
     } while ((connect_flags & SRV_FD_NONBLOCK) == 0 && interrupted_restartable(connection));
+    if (socket_trace_enabled()) {
+        fprintf(stderr,
+            "srvros-socket: connect pseudo=%d target=%u.%u.%u.%u:%u flags=0x%llx result=%ld\n",
+            fd,
+            (unsigned int)((remote_ip >> 24) & 0xffu),
+            (unsigned int)((remote_ip >> 16) & 0xffu),
+            (unsigned int)((remote_ip >> 8) & 0xffu),
+            (unsigned int)(remote_ip & 0xffu),
+            port,
+            (unsigned long long)connect_flags,
+            connection);
+    }
     if (connection < 0) {
         (void)__posix_signal_dispatch_pending();
         errno = errno_from_net_error(-connection);
@@ -845,6 +911,12 @@ int connect(int fd, const struct sockaddr *addr, socklen_t addrlen) {
 
     if ((socket->fd_flags & SRV_FD_NONBLOCK) != 0) {
         socket->connecting = 1;
+        if (socket_trace_enabled()) {
+            fprintf(stderr,
+                "srvros-socket: connect-in-progress pseudo=%d real=%d\n",
+                fd,
+                socket->listener_fd);
+        }
         errno = EINPROGRESS;
         return -1;
     }
@@ -1207,12 +1279,13 @@ ssize_t sendto(int fd,
     }
 
     uint16_t port = ntohs(in->sin_port);
-    if (port == 0 || in->sin_addr.s_addr == INADDR_ANY) {
+    uint32_t remote_ip = sockaddr_ip_to_srv(in->sin_addr.s_addr);
+    if (port == 0 || remote_ip == INADDR_ANY) {
         errno = EINVAL;
         return -1;
     }
 
-    long result = srv_net_udp_sendto(socket->listener_fd, in->sin_addr.s_addr, port, buffer, length);
+    long result = srv_net_udp_sendto(socket->listener_fd, remote_ip, port, buffer, length);
     if (result < 0) {
         errno = errno_from_blocking_result(result, EIO);
         return -1;
@@ -1325,7 +1398,7 @@ ssize_t recvfrom(int fd,
         memset(in, 0, sizeof(*in));
         in->sin_family = AF_INET;
         in->sin_port = htons(remote_port);
-        in->sin_addr.s_addr = remote_ip;
+        in->sin_addr.s_addr = srv_ip_to_sockaddr(remote_ip);
         *addrlen = sizeof(*in);
     }
     return result;
@@ -1552,6 +1625,15 @@ int getsockopt(int fd, int level, int option_name, void *option_value, socklen_t
     case SO_ERROR:
         if (socket != 0 && socket->type == SOCK_STREAM && socket->listener_fd >= 0 && !socket->listening) {
             int error = socket_error_for_fd(socket->listener_fd);
+            if (socket_trace_enabled()) {
+                fprintf(stderr,
+                    "srvros-socket: getsockopt SO_ERROR pseudo=%d real=%d error=%d connecting=%d connected=%d\n",
+                    fd,
+                    socket->listener_fd,
+                    error,
+                    socket->connecting,
+                    socket->connected);
+            }
             *(int *)option_value = error;
             if (error == 0 && socket->connecting) {
                 socket->connecting = 0;
@@ -1652,8 +1734,8 @@ int inet_pton(int af, const char *src, void *dst) {
     if (*p != '\0') {
         return 0;
     }
-    ((struct in_addr *)dst)->s_addr =
-        (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+    uint32_t ip = (parts[0] << 24) | (parts[1] << 16) | (parts[2] << 8) | parts[3];
+    ((struct in_addr *)dst)->s_addr = srv_ip_to_sockaddr(ip);
     return 1;
 }
 
@@ -1679,7 +1761,7 @@ const char *inet_ntop(int af, const void *src, char *dst, socklen_t size) {
         errno = EINVAL;
         return 0;
     }
-    uint32_t ip = ((const struct in_addr *)src)->s_addr;
+    uint32_t ip = sockaddr_ip_to_srv(((const struct in_addr *)src)->s_addr);
     char *out = dst;
     out = write_u8(out, (uint8_t)(ip >> 24));
     *out++ = '.';
@@ -1798,7 +1880,7 @@ static int dns_parse_response(const unsigned char *packet, size_t length, uint16
             return -1;
         }
         if (type == 1 && class == 1 && rdlength == 4) {
-            *ip_out = dns_read_be32(packet + offset);
+            *ip_out = srv_ip_to_sockaddr(dns_read_be32(packet + offset));
             return 0;
         }
         offset += rdlength;
@@ -1871,7 +1953,7 @@ static int read_resolv_conf(uint32_t *ip_out) {
 static uint32_t resolver_server_ip(void) {
     struct srv_net_status_info status;
     if (srv_net_status_info(&status) == 0 && status.dns_ip != 0) {
-        return status.dns_ip;
+        return srv_ip_to_sockaddr(status.dns_ip);
     }
 
     const char *server = getenv("DNS_SERVER");
@@ -1885,7 +1967,7 @@ static uint32_t resolver_server_ip(void) {
         return ip;
     }
 
-    return ((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 3;
+    return srv_ip_to_sockaddr(((uint32_t)10 << 24) | ((uint32_t)0 << 16) | ((uint32_t)2 << 8) | 3);
 }
 
 static int resolve_dns_udp(const char *name, uint32_t *ip_out) {
@@ -1952,10 +2034,14 @@ int getaddrinfo(const char *node,
         address.s_addr = 0;
     } else if (inet_pton(AF_INET, node, &address) != 1) {
         uint32_t resolved = 0;
-        if (resolve_dns_udp(node, &resolved) < 0 && srv_net_dns(node, &resolved) < 0) {
-            return EAI_NONAME;
+        if (resolve_dns_udp(node, &resolved) == 0) {
+            address.s_addr = resolved;
+        } else {
+            if (srv_net_dns(node, &resolved) < 0) {
+                return EAI_NONAME;
+            }
+            address.s_addr = srv_ip_to_sockaddr(resolved);
         }
-        address.s_addr = resolved;
     }
 
     struct addrinfo *info = calloc(1, sizeof(*info));

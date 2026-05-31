@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <ctype.h>
+#include <string.h>
 #include <stdlib.h>
 #include <wchar.h>
 
@@ -114,6 +116,30 @@ int wmemcmp(const wchar_t *left, const wchar_t *right, size_t n) {
         }
     }
     return 0;
+}
+
+int wcscoll(const wchar_t *left, const wchar_t *right) {
+    return wcscmp(left, right);
+}
+
+size_t wcsxfrm(wchar_t *destination, const wchar_t *source, size_t length) {
+    size_t source_length = wcslen(source);
+    if (length != 0 && destination != 0) {
+        size_t copy = source_length < length - 1 ? source_length : length - 1;
+        wmemcpy(destination, source, copy);
+        destination[copy] = 0;
+    }
+    return source_length;
+}
+
+int wcscoll_l(const wchar_t *left, const wchar_t *right, locale_t locale) {
+    (void)locale;
+    return wcscoll(left, right);
+}
+
+size_t wcsxfrm_l(wchar_t *destination, const wchar_t *source, size_t length, locale_t locale) {
+    (void)locale;
+    return wcsxfrm(destination, source, length);
 }
 
 int btowc(int c) {
@@ -310,6 +336,36 @@ size_t wcsnrtombs(char *dest, const wchar_t **src, size_t nwc, size_t len, mbsta
     return count;
 }
 
+size_t wcsftime(wchar_t *s, size_t max, const wchar_t *format, const struct tm *tm) {
+    if (s == 0 || format == 0 || max == 0) {
+        return 0;
+    }
+    char narrow_format[128];
+    char narrow_output[128];
+    const wchar_t *format_source = format;
+    size_t converted = wcsnrtombs(narrow_format,
+        &format_source,
+        (size_t)-1,
+        sizeof(narrow_format),
+        0);
+    if (converted == (size_t)-1) {
+        return 0;
+    }
+    size_t written = strftime(narrow_output, sizeof(narrow_output), narrow_format, tm);
+    if (written == 0) {
+        return 0;
+    }
+    const char *output_source = narrow_output;
+    size_t wide = mbsrtowcs(s, &output_source, max, 0);
+    if (wide == (size_t)-1 || wide >= max) {
+        if (max != 0) {
+            s[0] = 0;
+        }
+        return 0;
+    }
+    return wide;
+}
+
 int vswprintf(wchar_t *s, size_t n, const wchar_t *format, va_list args) {
     (void)args;
     if (s == 0 || n == 0 || format == 0) {
@@ -358,3 +414,121 @@ int iswspace(wint_t wc) {
     return wc == L' ' || wc == L'\t' || wc == L'\n' ||
         wc == L'\r' || wc == L'\f' || wc == L'\v';
 }
+
+enum {
+    WCTYPE_ALNUM = 1,
+    WCTYPE_ALPHA,
+    WCTYPE_BLANK,
+    WCTYPE_CNTRL,
+    WCTYPE_DIGIT,
+    WCTYPE_GRAPH,
+    WCTYPE_LOWER,
+    WCTYPE_PRINT,
+    WCTYPE_PUNCT,
+    WCTYPE_SPACE,
+    WCTYPE_UPPER,
+    WCTYPE_XDIGIT,
+};
+
+static int wide_ascii(wint_t wc) {
+    return wc >= 0 && wc <= 0x7f;
+}
+
+int iswprint(wint_t wc) {
+    return wide_ascii(wc) && isprint((int)wc);
+}
+
+int iswcntrl(wint_t wc) {
+    return wide_ascii(wc) && iscntrl((int)wc);
+}
+
+int iswupper(wint_t wc) {
+    return wide_ascii(wc) && isupper((int)wc);
+}
+
+int iswlower(wint_t wc) {
+    return wide_ascii(wc) && islower((int)wc);
+}
+
+int iswalpha(wint_t wc) {
+    return wide_ascii(wc) && isalpha((int)wc);
+}
+
+int iswblank(wint_t wc) {
+    return wc == L' ' || wc == L'\t';
+}
+
+int iswdigit(wint_t wc) {
+    return wide_ascii(wc) && isdigit((int)wc);
+}
+
+int iswpunct(wint_t wc) {
+    return wide_ascii(wc) && ispunct((int)wc);
+}
+
+int iswxdigit(wint_t wc) {
+    return wide_ascii(wc) && isxdigit((int)wc);
+}
+
+wint_t towupper(wint_t wc) {
+    return wide_ascii(wc) ? (wint_t)toupper((int)wc) : wc;
+}
+
+wint_t towlower(wint_t wc) {
+    return wide_ascii(wc) ? (wint_t)tolower((int)wc) : wc;
+}
+
+wctype_t wctype(const char *property) {
+    if (property == 0) {
+        return 0;
+    }
+    if (strcmp(property, "alnum") == 0) return WCTYPE_ALNUM;
+    if (strcmp(property, "alpha") == 0) return WCTYPE_ALPHA;
+    if (strcmp(property, "blank") == 0) return WCTYPE_BLANK;
+    if (strcmp(property, "cntrl") == 0) return WCTYPE_CNTRL;
+    if (strcmp(property, "digit") == 0) return WCTYPE_DIGIT;
+    if (strcmp(property, "graph") == 0) return WCTYPE_GRAPH;
+    if (strcmp(property, "lower") == 0) return WCTYPE_LOWER;
+    if (strcmp(property, "print") == 0) return WCTYPE_PRINT;
+    if (strcmp(property, "punct") == 0) return WCTYPE_PUNCT;
+    if (strcmp(property, "space") == 0) return WCTYPE_SPACE;
+    if (strcmp(property, "upper") == 0) return WCTYPE_UPPER;
+    if (strcmp(property, "xdigit") == 0) return WCTYPE_XDIGIT;
+    return 0;
+}
+
+int iswctype(wint_t wc, wctype_t type) {
+    switch (type) {
+        case WCTYPE_ALNUM: return iswalpha(wc) || iswdigit(wc);
+        case WCTYPE_ALPHA: return iswalpha(wc);
+        case WCTYPE_BLANK: return iswblank(wc);
+        case WCTYPE_CNTRL: return iswcntrl(wc);
+        case WCTYPE_DIGIT: return iswdigit(wc);
+        case WCTYPE_GRAPH: return wide_ascii(wc) && isgraph((int)wc);
+        case WCTYPE_LOWER: return iswlower(wc);
+        case WCTYPE_PRINT: return iswprint(wc);
+        case WCTYPE_PUNCT: return iswpunct(wc);
+        case WCTYPE_SPACE: return iswspace(wc);
+        case WCTYPE_UPPER: return iswupper(wc);
+        case WCTYPE_XDIGIT: return iswxdigit(wc);
+        default: return 0;
+    }
+}
+
+int iswctype_l(wint_t wc, wctype_t type, locale_t locale) {
+    (void)locale;
+    return iswctype(wc, type);
+}
+
+int iswspace_l(wint_t wc, locale_t locale) { (void)locale; return iswspace(wc); }
+int iswprint_l(wint_t wc, locale_t locale) { (void)locale; return iswprint(wc); }
+int iswcntrl_l(wint_t wc, locale_t locale) { (void)locale; return iswcntrl(wc); }
+int iswupper_l(wint_t wc, locale_t locale) { (void)locale; return iswupper(wc); }
+int iswlower_l(wint_t wc, locale_t locale) { (void)locale; return iswlower(wc); }
+int iswalpha_l(wint_t wc, locale_t locale) { (void)locale; return iswalpha(wc); }
+int iswblank_l(wint_t wc, locale_t locale) { (void)locale; return iswblank(wc); }
+int iswdigit_l(wint_t wc, locale_t locale) { (void)locale; return iswdigit(wc); }
+int iswpunct_l(wint_t wc, locale_t locale) { (void)locale; return iswpunct(wc); }
+int iswxdigit_l(wint_t wc, locale_t locale) { (void)locale; return iswxdigit(wc); }
+wint_t towupper_l(wint_t wc, locale_t locale) { (void)locale; return towupper(wc); }
+wint_t towlower_l(wint_t wc, locale_t locale) { (void)locale; return towlower(wc); }

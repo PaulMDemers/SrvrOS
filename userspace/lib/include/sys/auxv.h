@@ -23,6 +23,14 @@
 #define AT_HWCAP2 26
 #define AT_SYSINFO_EHDR 33
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 unsigned long getauxval(unsigned long type);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,0 +1,6 @@
+#ifndef SRVROS_POSIX_NET_ETHERNET_H
+#define SRVROS_POSIX_NET_ETHERNET_H
+
+#define ETH_ALEN 6
+
+#endif

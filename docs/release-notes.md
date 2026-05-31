@@ -10,6 +10,29 @@ server.
 
 - Boots a higher-half x86_64 kernel through Limine.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
+- Adds runtime ELF TLS support: the linker emits `PT_TLS`, the kernel maps the
+  main-thread and per-user-thread TLS blocks, the scheduler preserves `FS.base`,
+  and `/fat/bin/tlsprobe` verifies the path.
+- Boots the experimental stripped Node.js runtime from a dedicated exFAT image:
+  `make node-runtime-image` packages `/fat/bin/node`, and
+  `tools/node_runtime_smoke.py` verifies `node --version` prints `v24.16.0` and
+  exits cleanly under QEMU.
+- Extends the Node runtime harness to probe `--eval` and script text, and adds
+  the first conservative Linux-libuv compatibility shims for pseudo-epoll,
+  pseudo-eventfd, and best-effort `pipe2` flag handling.
+- Adds `/fat/bin/cxxprobe` as a standalone C++ runtime sanity check and moves
+  the Node JavaScript smoke boundary past the tracing-agent null-controller
+  assertion by guarding against the temporary Linux-libuv/srvros-`uv_loop_t`
+  layout mismatch.
+- Moves the Node JavaScript smoke boundary through V8 platform worker startup,
+  cppgc initialization, and no-access virtual reservations by fixing
+  pseudo-epoll infinite waits, using conventional abort status 134, accepting
+  advisory `MAP_NORESERVE`, and adding lazy kernel `PROT_NONE` mmap
+  reservations.
+- Adds `/fat/bin/cxxstlprobe` for libc++ `std::set`/`std::map`/`std::vector`
+  coverage, fixes normal `malloc()` payloads to be 16-byte aligned, adds the
+  libc++ verbose-abort runtime hook, and moves the current `node -e` boundary
+  past V8 `RegionAllocator` construction to read-only snapshot deserialization.
 - Adds framebuffer-console parsing for a compact ANSI CSI subset covering
   cursor movement, cursor positioning, clear screen, and clear line while
   preserving raw escape output on serial.

@@ -211,6 +211,21 @@ int gettimeofday(struct timeval *tv, void *tz) {
     return 0;
 }
 
+int utimes(const char *path, const struct timeval times[2]) {
+    if (path == 0) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (times == 0) {
+        return utime(path, 0);
+    }
+    struct utimbuf buffer = {
+        .actime = times[0].tv_sec,
+        .modtime = times[1].tv_sec,
+    };
+    return utime(path, &buffer);
+}
+
 unsigned int sleep(unsigned int seconds) {
     int dispatched_before = __posix_signal_dispatch_pending();
     long slept = srv_sleep_ticks((uint64_t)seconds * SRVROS_TICKS_PER_SECOND);
@@ -254,4 +269,9 @@ size_t strftime(char *s, size_t max, const char *format, const struct tm *tm) {
     }
     s[out] = '\0';
     return out;
+}
+
+size_t strftime_l(char *s, size_t max, const char *format, const struct tm *tm, locale_t locale) {
+    (void)locale;
+    return strftime(s, max, format, tm);
 }

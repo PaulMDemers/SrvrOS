@@ -6,18 +6,26 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 
+#define AF_UNSPEC 0
 #define AF_INET 2
+#define AF_INET6 10
 #define AF_UNIX 1
 #define AF_LOCAL AF_UNIX
+#define AF_PACKET 17
+#define PF_UNSPEC AF_UNSPEC
 #define PF_INET AF_INET
+#define PF_INET6 AF_INET6
 #define PF_UNIX AF_UNIX
 #define PF_LOCAL AF_LOCAL
+#define PF_PACKET AF_PACKET
 #define SOCK_STREAM 1
 #define SOCK_DGRAM 2
 #define SOCK_NONBLOCK 0x0800
 #define SOCK_CLOEXEC 0x80000
+#define IPPROTO_IP 0
 #define IPPROTO_TCP 6
 #define IPPROTO_UDP 17
+#define IPPROTO_IPV6 41
 #define SOL_SOCKET 1
 #define SO_REUSEADDR 2
 #define SO_ERROR 4

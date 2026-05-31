@@ -1,6 +1,8 @@
 #include <errno.h>
 #include <poll.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/select.h>
 #include <sys/time.h>
@@ -8,9 +10,15 @@
 #include <srvros/sys.h>
 
 int __posix_socket_poll_fd(int fd);
+short __posix_socket_poll_update(int fd, short requested, short current_revents);
 int __posix_signal_dispatch_pending(void);
 
 #define POSIX_POLL_MAX 64
+
+static int poll_trace_enabled(void) {
+    const char *trace = getenv("SRVROS_POLL_TRACE");
+    return trace != 0 && trace[0] != '\0' && trace[0] != '0';
+}
 
 int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
     struct srv_pollfd srv_fds[POSIX_POLL_MAX];
@@ -19,6 +27,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
         return -1;
     }
 
+    int trace = poll_trace_enabled();
     int pre_ready = 0;
     for (nfds_t i = 0; i < nfds; i++) {
         int real_fd = fds[i].fd < 0 ? -1 : __posix_socket_poll_fd(fds[i].fd);
@@ -26,6 +35,14 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
         srv_fds[i].events = fds[i].events;
         srv_fds[i].revents = 0;
         fds[i].revents = 0;
+        if (trace) {
+            fprintf(stderr,
+                "srvros-poll: in fd=%d real=%d events=0x%x timeout=%d\n",
+                fds[i].fd,
+                real_fd,
+                (unsigned int)fds[i].events,
+                timeout);
+        }
         if (fds[i].fd >= 0 && real_fd < 0) {
             fds[i].revents = POLLNVAL;
             pre_ready++;
@@ -39,6 +56,9 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
         errno = EINVAL;
         return -1;
     }
+    if (trace) {
+        fprintf(stderr, "srvros-poll: result=%ld\n", result);
+    }
     if (result == 0 && (dispatched_before != 0 || dispatched_after != 0)) {
         errno = EINTR;
         return -1;
@@ -50,7 +70,16 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
             ready++;
             continue;
         }
-        fds[i].revents = srv_fds[i].revents;
+        fds[i].revents = __posix_socket_poll_update(fds[i].fd,
+            fds[i].events,
+            srv_fds[i].revents);
+        if (trace) {
+            fprintf(stderr,
+                "srvros-poll: out fd=%d real=%d revents=0x%x\n",
+                fds[i].fd,
+                srv_fds[i].fd,
+                (unsigned int)fds[i].revents);
+        }
         if (fds[i].revents != 0) {
             ready++;
         }

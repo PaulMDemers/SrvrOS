@@ -461,6 +461,14 @@ standard-fd dup/open/close spawn file actions, ordered non-stdio spawn file
 actions, `POSIX_SPAWN_SETPGROUP`, cwd-aware spawn setup, and process-replacing
 `execve`.
 
+The ELF loader maps static `PT_LOAD` images and consumes `PT_TLS` for
+thread-local storage. It captures the TLS initialization template, maps an
+initial TLS block for the main user thread, allocates a fresh block for each
+spawned user thread, and asks the scheduler to preserve x86_64 `FS.base` across
+context switches. If a large static executable would collide with the original
+compact user stack window, the loader moves that program to a higher stack
+below the mmap arena.
+
 ## POSIX Compatibility
 
 The first POSIX-compat layer is implemented in userspace on top of srvros
@@ -522,8 +530,9 @@ longer CLI sessions.
 User pthreads are backed by a compact native thread syscall set. The libc shim
 allocates a stack with `mmap`, enters the requested routine in the same process
 address space, and `pthread_join` collects the returned pointer-sized value.
-Each spawned user thread has its own scheduler kernel trap stack and user FPU
-state while sharing the owning process fd table, mappings, and heap. Detached
+Each spawned user thread has its own scheduler kernel trap stack, user FPU
+state, and ELF TLS block while sharing the owning process fd table, mappings,
+and heap. Detached
 pthread stacks are tracked by libc and reclaimed through a hidden join after
 `SYS_THREAD_STATUS` reports completion. If one user thread exits the whole
 process, the kernel marks the process exiting, wakes blocked file/pipe/network

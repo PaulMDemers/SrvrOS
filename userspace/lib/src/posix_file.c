@@ -18,6 +18,11 @@ int __posix_socket_is_pseudo(int fd);
 void __posix_socket_note_close(int fd);
 void __posix_socket_note_dup(int old_fd, int new_fd);
 int __posix_socket_real_fd(int fd);
+int __posix_eventfd_is_pseudo(int fd);
+ssize_t __posix_eventfd_read(int fd, void *buffer, size_t length);
+ssize_t __posix_eventfd_write(int fd, const void *buffer, size_t length);
+int __posix_eventfd_close(int fd);
+int __posix_eventfd_fcntl(int fd, int command, uint64_t flags);
 int __posix_signal_dispatch_pending(void);
 int __posix_signal_dispatch_pending_restartable(void);
 long srv_unix_unlink(const char *path);
@@ -42,6 +47,9 @@ static void fill_stat(struct stat *st, const struct srv_stat *info) {
     st->st_atime = (time_t)info->atime;
     st->st_mtime = (time_t)info->mtime;
     st->st_ctime = (time_t)info->ctime;
+    st->st_atim.tv_sec = st->st_atime;
+    st->st_mtim.tv_sec = st->st_mtime;
+    st->st_ctim.tv_sec = st->st_ctime;
     st->st_blksize = info->blksize != 0 ? info->blksize : 4096;
     st->st_blocks = info->blocks != 0 ? info->blocks : (info->size + 511) / 512;
 }
@@ -126,6 +134,9 @@ int open64(const char *path, int flags, ...) {
 }
 
 ssize_t read(int fd, void *buffer, size_t length) {
+    if (__posix_eventfd_is_pseudo(fd)) {
+        return __posix_eventfd_read(fd, buffer, length);
+    }
     fd = __posix_socket_real_fd(fd);
     if (fd < 0) {
         errno = EBADF;
@@ -158,6 +169,9 @@ ssize_t read(int fd, void *buffer, size_t length) {
 }
 
 ssize_t write(int fd, const void *buffer, size_t length) {
+    if (__posix_eventfd_is_pseudo(fd)) {
+        return __posix_eventfd_write(fd, buffer, length);
+    }
     fd = __posix_socket_real_fd(fd);
     if (fd < 0) {
         errno = EBADF;
@@ -342,6 +356,9 @@ ssize_t pwritev(int fd, const struct iovec *iov, int iovcnt, off_t offset) {
 }
 
 int close(int fd) {
+    if (__posix_eventfd_is_pseudo(fd)) {
+        return __posix_eventfd_close(fd);
+    }
     if (__posix_socket_is_pseudo(fd)) {
         return __posix_socket_close(fd);
     }
@@ -440,19 +457,13 @@ int pipe2(int fds[2], int flags) {
     if (pipe(fds) < 0) {
         return -1;
     }
-    if (((flags & O_CLOEXEC) != 0 &&
-            (fcntl(fds[0], F_SETFD, FD_CLOEXEC) < 0 ||
-                fcntl(fds[1], F_SETFD, FD_CLOEXEC) < 0)) ||
-        ((flags & O_NONBLOCK) != 0 &&
-            (fcntl(fds[0], F_SETFL, O_NONBLOCK) < 0 ||
-                fcntl(fds[1], F_SETFL, O_NONBLOCK) < 0))) {
-        int saved_errno = errno;
-        close(fds[0]);
-        close(fds[1]);
-        fds[0] = -1;
-        fds[1] = -1;
-        errno = saved_errno;
-        return -1;
+    if ((flags & O_CLOEXEC) != 0) {
+        (void)fcntl(fds[0], F_SETFD, FD_CLOEXEC);
+        (void)fcntl(fds[1], F_SETFD, FD_CLOEXEC);
+    }
+    if ((flags & O_NONBLOCK) != 0) {
+        (void)fcntl(fds[0], F_SETFL, O_NONBLOCK);
+        (void)fcntl(fds[1], F_SETFL, O_NONBLOCK);
     }
     return 0;
 }
@@ -506,6 +517,16 @@ int fcntl(int fd, int command, ...) {
         return fcntl_dupfd(fd, minimum, command == F_DUPFD_CLOEXEC);
     }
     if (command == F_GETFD) {
+        if (fd >= 0 && fd < 3) {
+            return 0;
+        }
+        if (__posix_eventfd_is_pseudo(fd)) {
+            long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFD, 0);
+            if (flags < 0) {
+                return -1;
+            }
+            return (flags & SRV_FD_CLOEXEC) != 0 ? FD_CLOEXEC : 0;
+        }
         if (__posix_socket_is_pseudo(fd)) {
             long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFD, 0);
             if (socket_flags < 0) {
@@ -526,6 +547,12 @@ int fcntl(int fd, int command, ...) {
         int flags = va_arg(args, int);
         va_end(args);
         uint64_t srv_flags = (flags & FD_CLOEXEC) != 0 ? SRV_FD_CLOEXEC : 0;
+        if (fd >= 0 && fd < 3) {
+            return 0;
+        }
+        if (__posix_eventfd_is_pseudo(fd)) {
+            return __posix_eventfd_fcntl(fd, SRV_F_SETFD, srv_flags);
+        }
         if (__posix_socket_is_pseudo(fd)) {
             return __posix_socket_fcntl(fd, SRV_F_SETFD, srv_flags);
         }
@@ -536,6 +563,16 @@ int fcntl(int fd, int command, ...) {
         return 0;
     }
     if (command == F_GETFL) {
+        if (fd >= 0 && fd < 3) {
+            return fd == 0 ? O_RDONLY : O_WRONLY;
+        }
+        if (__posix_eventfd_is_pseudo(fd)) {
+            long flags = __posix_eventfd_fcntl(fd, SRV_F_GETFL, 0);
+            if (flags < 0) {
+                return -1;
+            }
+            return (flags & SRV_FD_NONBLOCK) != 0 ? O_NONBLOCK : 0;
+        }
         if (__posix_socket_is_pseudo(fd)) {
             long socket_flags = __posix_socket_fcntl(fd, SRV_F_GETFL, 0);
             if (socket_flags < 0) {
@@ -556,6 +593,12 @@ int fcntl(int fd, int command, ...) {
         int flags = va_arg(args, int);
         va_end(args);
         uint64_t srv_flags = (flags & O_NONBLOCK) != 0 ? SRV_FD_NONBLOCK : 0;
+        if (fd >= 0 && fd < 3) {
+            return 0;
+        }
+        if (__posix_eventfd_is_pseudo(fd)) {
+            return __posix_eventfd_fcntl(fd, SRV_F_SETFL, srv_flags);
+        }
         if (__posix_socket_is_pseudo(fd)) {
             return __posix_socket_fcntl(fd, SRV_F_SETFL, srv_flags);
         }

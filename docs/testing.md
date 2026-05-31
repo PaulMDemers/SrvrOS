@@ -34,6 +34,12 @@ python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+make libc-audit
+python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+make node-unresolved-audit
+python3 tools/node_runtime_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/node_http_demo_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --skip-build
+python3 tools/node_express_demo_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64 --skip-build
 python3 tools/ports_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/uv_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/lua_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
@@ -167,6 +173,60 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
   structured syscalls (`stat`, `statfs`, process list, console/gfx info, and
   GUI receive) with smaller versioned structs and canary checks.
+- `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
+  keep the focused libc/POSIX readiness slice fast and visible. It covers
+  string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented
+  stdio (`getline`, `getdelim`, unlocked stdio wrappers), formatted output,
+  `sscanf`, numeric conversion, C-locale helpers, temp files, process-local
+  environment variables, UTC time formatting, and wide-character
+  classification/formatting. `make libc-audit` complements it by comparing
+  libc header declarations against `libsrvros.a` exports.
+- `node_unresolved_audit.py`: buckets the current Node srvros link replay from
+  `build/node-srvros-link-probe/unresolved-symbols.txt` into host libstdc++,
+  small runtime shims, libc++, V8 provider, and other symbols. It also ranks
+  referrer objects, writes priority-preserving compile lists, and infers common
+  V8 provider objects including generated Torque sources. It is a report tool
+  rather than a QEMU harness.
+- `node_runtime_smoke.py`: boots QEMU with the stripped Node runtime exFAT image
+  produced by `make node-runtime-image`, runs `/fat/bin/node --version`, and
+  treats `v24.16.0` plus a clean process exit as the current executable Node
+  milestone. It also supports alternate `--program` probes such as
+  `/fat/bin/cxxprobe` and `/fat/bin/cxxstlprobe`, `--eval`, `--script-text`,
+  repeated `--node-arg`, repeated `--expect`, and `--allow-boundary`.
+  `--script-text` now injects `/fat/bin/node-smoke.js` into a temporary runtime
+  image before boot, which keeps larger Node filesystem and module-loading
+  probes out of the interactive monitor input path. QEMU defaults to
+  `--display none` and uses hidden Windows process startup flags so repeated
+  smoke runs do not open visible emulator windows. Expected-output matching is
+  scoped to the captured runtime text after `run: entering`, avoiding false
+  positives from the monitor echoing a typed command. Current Node runtime
+  probes also cover real `setTimeout()` dispatch, numeric IPv4 outbound TCP
+  connect completion through `--net`, `dns.lookup('example.com')`, and
+  hostname-backed `net.createConnection({ host: 'example.com' })` connect
+  completion. Stream smoke coverage now includes explicit outbound
+  `socket.write()` receiving HTTP response data from `example.com`, plus a
+  host-forwarded `net.createServer()` replying with `socket.end('node-ok')`.
+  The generated runtime image also includes `/fat/bin/node-http-demo.js`, a
+  Node `http.createServer()` static file demo for `/fat/www`; the QEMU
+  host-forward smoke keeps one server alive and repeats `/`, `/hello.html`,
+  and `/status.txt`. Run the full route set with
+  `python tools/node_http_demo_smoke.py --skip-build` after rebuilding the Node
+  runtime image. The smoke uses Node `--jitless` by default while srvros V8
+  compiler-tier support matures. `node_express_demo_smoke.py` builds and boots
+  the `ports/node/express-jwt-sqlite-demo` app, then verifies the async API
+  path for health, POST JSON JWT-shaped token generation, POST JSON local
+  DB-backed user creation, user listing, and bearer-token validation over QEMU
+  host forwarding. The app installs real Express and `jsonwebtoken` host
+  dependencies, while the srvros runtime bundle uses Node's `http.createServer()`
+  with a small dependency-light router until OpenSSL/`crypto`, npm/native-addon
+  loading, and `node:sqlite` are available.
+  The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
+  `dns.lookupService()` are covered, while async resolver durability remains a
+  libuv/threadpool follow-up.
+- `/fat/bin/tlsprobe`: small manual runtime probe for static ELF TLS. It uses
+  `__thread` storage, verifies the kernel-loaded `PT_TLS` template is writable
+  through the thread pointer, and is useful before trying larger Node/V8-linked
+  images.
 - TCP socket coverage is split across `httpget_smoke.py` for outbound
   DNS/connect/send/recv, `web_smoke.py` and `dhcp_smoke.py` for inbound
   listener/accept/read/write/close, and `ports_smoke.py` for socket option,
@@ -247,7 +307,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `msync`,
   `O_RDWR`, seek, malloc-on-`sbrk`, raw `sbrk`, `qsort`, `bsearch`,
   integer and floating conversion helpers, random numbers, process-local
-  environment variables, `pread`/`pwrite`, `uname`, `getopt`,
+  environment variables, `mempcpy`, `stpncpy`, `strndup`, `strerror_r`,
+  `getline`, `pread`/`pwrite`, `uname`, `getopt`,
   `readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with
   local-socketpair `SCM_RIGHTS`,
   libc `regex.h` compile/execute/error behavior including alternation,

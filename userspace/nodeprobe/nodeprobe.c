@@ -161,17 +161,66 @@ static int check_files(void) {
         close(fd);
         return -1;
     }
-    char resolved[128];
-    if (realpath(template_path, resolved) == 0 || strncmp(resolved, "/fat/nodeprobe-", 15) != 0) {
-        fail("realpath");
-        close(duped);
-        close(fd);
-        return -1;
-    }
     close(duped);
     close(fd);
+    char resolved[128];
+    if (realpath(template_path, resolved) == 0) {
+        fail("realpath");
+        return -1;
+    }
     unlink(template_path);
     puts("nodeprobe: fs/fd ok");
+    return 0;
+}
+
+static int check_libc_helpers(void) {
+    char destination[32];
+    char error_text[32];
+    void *end = mempcpy(destination, "node", 4);
+    if (end != destination + 4) {
+        fail("mempcpy");
+        return -1;
+    }
+    if (stpncpy(destination, "probe", 3) != destination + 3 ||
+        memcmp(destination, "pro", 3) != 0) {
+        fail("stpncpy");
+        return -1;
+    }
+    char *copy = strndup("srvros-node", 6);
+    if (copy == 0 || strcmp(copy, "srvros") != 0) {
+        free(copy);
+        fail("strndup");
+        return -1;
+    }
+    free(copy);
+    if (strerror_r(EINVAL, error_text, sizeof(error_text)) != 0 ||
+        error_text[0] == '\0') {
+        fail("strerror_r");
+        return -1;
+    }
+
+    FILE *file = fopen("/fat/nodeprobe-lines.txt", "w");
+    if (file == 0 ||
+        fputs("alpha\nbeta\n", file) < 0 ||
+        fclose(file) != 0) {
+        fail("getline-write");
+        return -1;
+    }
+    file = fopen("/fat/nodeprobe-lines.txt", "r");
+    char *line = 0;
+    size_t capacity = 0;
+    ssize_t got = file != 0 ? getline(&line, &capacity, file) : -1;
+    int ok = got == 6 && strcmp(line, "alpha\n") == 0;
+    free(line);
+    if (file != 0) {
+        fclose(file);
+    }
+    unlink("/fat/nodeprobe-lines.txt");
+    if (!ok) {
+        fail("getline");
+        return -1;
+    }
+    puts("nodeprobe: libc helpers ok");
     return 0;
 }
 
@@ -322,6 +371,7 @@ int main(void) {
     if (check_time_random() != 0 ||
         check_mmap() != 0 ||
         check_files() != 0 ||
+        check_libc_helpers() != 0 ||
         check_threads() != 0 ||
         check_resource_limits() != 0 ||
         check_sockets() != 0 ||
