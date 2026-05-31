@@ -220,6 +220,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   dependencies, while the srvros runtime bundle uses Node's `http.createServer()`
   with a small dependency-light router and the srvros `crypto` shim for HMAC
   until full OpenSSL, npm/native-addon loading, and `node:sqlite` are available.
+  SQLite-native Node objects can compile/link through the srvros bridge, but
+  the default runtime keeps `HAVE_SQLITE=0` because the sqlite-enabled builtin
+  dispatch profile currently faults in V8 while defining the module object.
   The current DNS path is a srvros bring-up bridge; `dns.lookup()` and numeric
   `dns.lookupService()` are covered, while async resolver durability remains a
   libuv/threadpool follow-up.

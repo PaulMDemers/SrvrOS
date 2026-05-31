@@ -101,6 +101,15 @@ function Resolve-NinjaObjectSource(
   [string]$GeneratedRootWin,
   [string[]]$WslArgs
 ) {
+  $manualSources = @{
+    "obj/src/libnode.node_sqlite.o" = Join-Path $SourceRootWin "src\node_sqlite.cc"
+    "obj/src/libnode.node_webstorage.o" = Join-Path $SourceRootWin "src\node_webstorage.cc"
+    "obj/deps/sqlite/sqlite.sqlite3.o" = Join-Path $SourceRootWin "deps\sqlite\sqlite3.c"
+  }
+  if ($manualSources.ContainsKey($ObjectPath)) {
+    return $manualSources[$ObjectPath]
+  }
+
   $quotedObject = $ObjectPath -replace "'", "'\''"
   $queryCommand = "build/wsl-tools/ninja-linux/ninja -C ports/upstream/node/out/out/Release -t query '$quotedObject'"
   $query = & wsl.exe @WslArgs --cd "$NativeRoot" -- bash -lc $queryCommand
@@ -304,6 +313,7 @@ $includeDirs = @(
   (Join-Path $sourceRootWin "deps\histogram\src"),
   (Join-Path $sourceRootWin "deps\histogram\include"),
   (Join-Path $sourceRootWin "deps\nbytes\include"),
+  (Join-Path $sourceRootWin "deps\sqlite"),
   (Join-Path $sourceRootWin "deps\zlib"),
   (Join-Path $sourceRootWin "deps\llhttp\include"),
   (Join-Path $sourceRootWin "deps\cares\include"),
