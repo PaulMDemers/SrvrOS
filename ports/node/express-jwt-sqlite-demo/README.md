@@ -7,14 +7,15 @@ the dependency tree is visible and ready for the eventual full Node runtime.
 The srvros runtime path currently bundles `jsonwebtoken` and uses Node's
 `http.createServer()` with a dependency-light router. JWT signing and
 verification use the srvros `crypto` shim for HS256 HMAC while full OpenSSL,
-npm, native addons, and `node:sqlite` remain follow-up milestones.
+npm, and native addons remain follow-up milestones. The app prefers public
+`node:sqlite`, currently backed by the transitional srvros JavaScript shim.
 
 The API exposes `GET /health`, `POST /token`, `POST /users`, `GET /users`,
 and `GET /secure` with `Authorization: Bearer <token>`.
 
-The database adapter is async and writes to `/fat/express-demo.sqlite`.
-Once srvros Node is rebuilt with `node:sqlite`, the adapter can switch to real
-SQLite statements without changing the HTTP API.
+The database adapter is async and writes to `/fat/express-demo.sqlite`. Current
+srvros Node images use public `node:sqlite`; older host or runtime builds fall
+back to a JSON file without changing the HTTP API.
 
 Smoke test from the repo root:
 

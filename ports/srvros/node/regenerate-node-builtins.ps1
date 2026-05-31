@@ -32,6 +32,7 @@ cp "$mountedRoot/ports/upstream/node/lib/timers.js" "$nativeRoot/ports/upstream/
 cp "$mountedRoot/ports/upstream/node/lib/internal/timers.js" "$nativeRoot/ports/upstream/node/lib/internal/timers.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/main/run_main_module.js" "$nativeRoot/ports/upstream/node/lib/internal/main/run_main_module.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/main/eval_string.js" "$nativeRoot/ports/upstream/node/lib/internal/main/eval_string.js"
+cp "$mountedRoot/ports/upstream/node/lib/internal/process/pre_execution.js" "$nativeRoot/ports/upstream/node/lib/internal/process/pre_execution.js"
 "@ -replace "`r?`n", "; "
 & wsl.exe @wslArgs --cd "$repoRoot" -- bash -lc $copyToNative
 

@@ -280,19 +280,21 @@ traces: `SRVROS_EPOLL_TRACE=1`, `SRVROS_POLL_TRACE=1`, and
 same linked Node image can be used for normal smokes and for fd/readiness
 diagnostics.
 
-`node:sqlite` is at the compile/link bridge stage. `probe-srvros-compile.ps1`
-now has manual source mappings for `obj/src/libnode.node_sqlite.o`,
+`node:sqlite` has a verified transitional srvros path. The default runtime
+keeps `HAVE_SQLITE=0`, but `pre_execution.js` allows the builtin on srvros and
+`lib/sqlite.js` routes to `internal/srvros_sqlite`, a narrow JSON-backed
+`DatabaseSync`/`StatementSync` shim. That public require path now passes the
+QEMU smoke for create/insert/select/close and the Express/JWT demo smoke asserts
+that `/health` reports the `node:sqlite` backend. The native binding remains at
+the compile/link bridge stage: `probe-srvros-compile.ps1` has manual source
+mappings for `obj/src/libnode.node_sqlite.o`,
 `obj/src/libnode.node_webstorage.o`, and
-`obj/deps/sqlite/sqlite.sqlite3.o`, and includes Node's bundled
-`deps/sqlite` headers when compiling selected objects. With `HAVE_SQLITE=1`
-and the bundled SQLite feature defines, those objects compile against the
-srvros sysroot and the static Node link can complete. The default runtime still
-rebuilds the dispatch/config objects without `HAVE_SQLITE`, because enabling
-the public builtin currently page-faults in V8's
-`v8::Object::DefineOwnProperty` path during early module setup. A narrow
-`internal/srvros_sqlite` JavaScript shim is staged in the Node checkout for the
-next runtime pass, but it is not treated as a verified public API until the
-sqlite-enabled builtin profile boots cleanly.
+`obj/deps/sqlite/sqlite.sqlite3.o`, and includes Node's bundled `deps/sqlite`
+headers when compiling selected objects. With `HAVE_SQLITE=1` and the bundled
+SQLite feature defines, those objects compile against the srvros sysroot and
+the static Node link can complete, but enabling the native dispatch/config
+profile still page-faults in V8's `v8::Object::DefineOwnProperty` path during
+early module setup.
 
 Timer tracing remains available with
 `process.env.SRVROS_NODE_TIMER_TRACE = '1'`, and the old fallback can be

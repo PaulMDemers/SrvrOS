@@ -425,19 +425,19 @@ npm --prefix ports\node\express-jwt-sqlite-demo run build
 python tools\node_express_demo_smoke.py --skip-build --skip-app-build
 ```
 
-The first `node:sqlite` bridge work is staged but intentionally kept out of the
-default runtime profile. The srvros compile probe can now resolve and build
-Node's `src/node_sqlite.cc`, `src/node_webstorage.cc`, and the bundled
-`deps/sqlite/sqlite3.c` object with `HAVE_SQLITE=1`, and the full static link
-can succeed when those objects are included. The libc surface gained `ENOLCK`
-for SQLite's POSIX error mapping, and the builtin-regeneration helper now knows
-to copy the srvros sqlite shims into the WSL-native Node checkout. Runtime
-enablement is still blocked: rebuilding Node's builtin/metadata/option dispatch
-objects with `HAVE_SQLITE=1` causes an early V8 page fault while defining the
-sqlite module object (`v8::Object::DefineOwnProperty` through
-`MemoryChunk::Metadata`). The stable runtime image therefore keeps
-`HAVE_SQLITE=0`; the Express/JWT demo continues to use its JSON-backed adapter
-until the public `node:sqlite` require path is safe.
+The first public `node:sqlite` path is now usable on srvros through a
+transitional JavaScript shim. The stable runtime still keeps `HAVE_SQLITE=0`,
+but srvros allows `node:sqlite` at pre-execution time and `lib/sqlite.js` routes
+to `internal/srvros_sqlite` instead of `internalBinding('sqlite')`. The shim
+implements the narrow synchronous `DatabaseSync`/`StatementSync` surface needed
+by the demo: create table, delete, insert, select, persistence, and close. The
+srvros compile probe can also resolve and build Node's native
+`src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
+`deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can
+succeed when those objects are included. Native runtime enablement remains
+blocked: rebuilding Node's builtin/metadata/option dispatch objects with
+`HAVE_SQLITE=1` causes an early V8 page fault while defining the sqlite module
+object (`v8::Object::DefineOwnProperty` through `MemoryChunk::Metadata`).
 
 `/fat/bin/tcpprobe` is now the native companion for that boundary. It exercises
 nonblocking `connect()`, `poll(POLLOUT)`, `SO_ERROR`, send, and receive while

@@ -1,15 +1,22 @@
 const http = require('http');
 const fs = require('fs');
 let jwt = null;
+let nodeSqlite = null;
 try {
   jwt = require('jsonwebtoken');
 } catch (err) {
   console.log('EXPRESS-DEMO-JWT-COMPAT ' + err.message);
 }
+try {
+  nodeSqlite = require('node:sqlite');
+} catch (err) {
+  console.log('EXPRESS-DEMO-SQLITE-COMPAT ' + err.message);
+}
 
 const PORT = Number(process.env.PORT || 8080);
 const JWT_SECRET = process.env.JWT_SECRET || 'srvros-demo-secret';
 const DB_PATH = process.env.DB_PATH || '/fat/express-demo.sqlite';
+const DB_BACKEND = nodeSqlite ? 'node:sqlite' : 'json-file';
 
 function base64urlText(text) {
   return Buffer.from(String(text), 'utf8').toString('base64')
@@ -62,7 +69,17 @@ function verifyToken(token) {
   return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
 }
 
-function readDb() {
+function withSqlite(operation) {
+  const db = new nodeSqlite.DatabaseSync(DB_PATH);
+  try {
+    db.exec('CREATE TABLE IF NOT EXISTS users(id INTEGER, name TEXT, created_at TEXT);');
+    return operation(db);
+  } finally {
+    db.close();
+  }
+}
+
+function readJsonDb() {
   try {
     const text = fs.readFileSync(DB_PATH, 'utf8');
     const rows = JSON.parse(text);
@@ -72,8 +89,31 @@ function readDb() {
   }
 }
 
-function writeDb(rows) {
+function writeJsonDb(rows) {
   fs.writeFileSync(DB_PATH, JSON.stringify(rows), 'utf8');
+}
+
+function readDb() {
+  if (nodeSqlite) {
+    return withSqlite(function readSqliteDb(db) {
+      return db.prepare('SELECT id, name, created_at FROM users').all();
+    });
+  }
+  return readJsonDb();
+}
+
+function writeDb(rows) {
+  if (nodeSqlite) {
+    withSqlite(function writeSqliteDb(db) {
+      db.exec('DELETE FROM users;');
+      const insert = db.prepare('INSERT INTO users(id, name, created_at) VALUES (?, ?, ?)');
+      for (let i = 0; i < rows.length; i++) {
+        insert.run(rows[i].id, rows[i].name, rows[i].created_at);
+      }
+    });
+    return;
+  }
+  writeJsonDb(rows);
 }
 
 function asyncDb(operation) {
@@ -170,7 +210,7 @@ function handle(req, res) {
   console.log('EXPRESS-DEMO-REQ ' + req.method + ' ' + path);
   let work;
   if (req.method === 'GET' && path === '/health') {
-    work = Promise.resolve({ ok: true, api: 'express-jwt-sqlite-demo', db: 'async sqlite adapter' });
+    work = Promise.resolve({ ok: true, api: 'express-jwt-sqlite-demo', db: DB_BACKEND });
   } else if (req.method === 'POST' && path === '/token') {
     work = readJsonBody(req).then(function tokenBody(body) {
       return { token: signToken({ sub: body.sub || body.name || 'demo-user', scope: 'demo' }) };

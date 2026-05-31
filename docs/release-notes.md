@@ -17,10 +17,12 @@ server.
   `make node-runtime-image` packages `/fat/bin/node`, and
   `tools/node_runtime_smoke.py` verifies `node --version` prints `v24.16.0` and
   exits cleanly under QEMU.
-- Advances the Node sqlite bridge: `node_sqlite.cc`, `node_webstorage.cc`, and
-  bundled SQLite now compile/link through the srvros probe, while the stable
-  runtime keeps `HAVE_SQLITE=0` until the sqlite-enabled builtin path no longer
-  faults inside V8 module-object setup.
+- Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
+  through a transitional JavaScript shim, the Express/JWT demo uses and verifies
+  that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite
+  compile/link through the srvros probe. The native binding profile still stays
+  off until the `HAVE_SQLITE=1` dispatch path no longer faults inside V8
+  module-object setup.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

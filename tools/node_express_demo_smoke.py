@@ -169,6 +169,8 @@ def main():
                 raise RuntimeError("Express demo did not start listening")
 
             health = http_request(http_port, "GET", "/health", timeout=args.http_wait)
+            if health.get("db") != "node:sqlite":
+                raise RuntimeError(f"expected node:sqlite backend, got health {health!r}")
             try:
                 if args.token_path:
                     token = http_request(http_port, "GET", args.token_path, timeout=args.http_wait)["token"]
