@@ -197,7 +197,8 @@ The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
 Intel graphics discovery, xHCI capability registers, and block devices. The
 `xhci` monitor command prints the USB controller inventory, command/event ring
 state, command completion counters, root-port connection/reset status, addressed
-HID keyboard/mouse devices, interrupt poll counts, and input report counts.
+HID keyboard/mouse devices, interrupt poll counts, input report counts, and
+descriptor class/vendor/product summaries for unsupported or hub-like devices.
 
 ## Networking
 

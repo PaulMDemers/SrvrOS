@@ -78,6 +78,7 @@
 #define USB_DESC_INTERFACE 4
 #define USB_DESC_ENDPOINT 5
 #define USB_CLASS_HID 3
+#define USB_CLASS_HUB 9
 #define USB_HID_SUBCLASS_BOOT 1
 #define USB_HID_PROTOCOL_KEYBOARD 1
 #define USB_HID_PROTOCOL_MOUSE 2
@@ -120,9 +121,22 @@ struct xhci_device {
     uint8_t port_id;
     uint8_t speed;
     uint8_t ep0_max_packet;
+    uint8_t device_class;
+    uint8_t device_subclass;
+    uint8_t device_protocol;
+    uint8_t configuration_count;
+    uint8_t configuration_value;
+    uint8_t interface_count;
+    bool have_interface_descriptor;
+    uint8_t first_interface_class;
+    uint8_t first_interface_subclass;
+    uint8_t first_interface_protocol;
     uint8_t interface_number;
     uint8_t interrupt_dci;
     uint8_t interrupt_interval;
+    uint16_t vendor_id;
+    uint16_t product_id;
+    uint16_t device_bcd;
     uint16_t interrupt_max_packet;
     uint64_t input_context_phys;
     uint64_t output_context_phys;
@@ -188,6 +202,8 @@ struct xhci_state {
     uint64_t configured_devices;
     uint64_t hid_keyboards;
     uint64_t hid_mice;
+    uint64_t hubs_seen;
+    uint64_t unsupported_devices;
     uint64_t transfer_events;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
@@ -751,6 +767,22 @@ static bool get_descriptor(struct xhci_device *device,
     return control_transfer(device, &setup, device->descriptor_buffer_phys, length, true);
 }
 
+static void parse_device_descriptor(struct xhci_device *device) {
+    device->device_class = device->descriptor_buffer[4];
+    device->device_subclass = device->descriptor_buffer[5];
+    device->device_protocol = device->descriptor_buffer[6];
+    device->vendor_id =
+        (uint16_t)device->descriptor_buffer[8] |
+        ((uint16_t)device->descriptor_buffer[9] << 8);
+    device->product_id =
+        (uint16_t)device->descriptor_buffer[10] |
+        ((uint16_t)device->descriptor_buffer[11] << 8);
+    device->device_bcd =
+        (uint16_t)device->descriptor_buffer[12] |
+        ((uint16_t)device->descriptor_buffer[13] << 8);
+    device->configuration_count = device->descriptor_buffer[17];
+}
+
 static bool set_configuration(struct xhci_device *device, uint8_t configuration) {
     struct usb_setup_packet setup = {
         .request_type = 0x00,
@@ -849,6 +881,8 @@ static bool parse_hid_boot_config(struct xhci_device *device,
     uint8_t current_interface = 0;
     uint8_t current_protocol = 0;
     *configuration_out = device->descriptor_buffer[5];
+    device->configuration_value = device->descriptor_buffer[5];
+    device->interface_count = device->descriptor_buffer[4];
 
     while (offset + 2 <= length) {
         uint8_t size = device->descriptor_buffer[offset];
@@ -859,6 +893,12 @@ static bool parse_hid_boot_config(struct xhci_device *device,
         if (type == USB_DESC_INTERFACE && size >= 9) {
             current_interface = device->descriptor_buffer[offset + 2];
             current_protocol = device->descriptor_buffer[offset + 7];
+            if (!device->have_interface_descriptor) {
+                device->have_interface_descriptor = true;
+                device->first_interface_class = device->descriptor_buffer[offset + 5];
+                device->first_interface_subclass = device->descriptor_buffer[offset + 6];
+                device->first_interface_protocol = current_protocol;
+            }
             boot_hid =
                 device->descriptor_buffer[offset + 5] == USB_CLASS_HID &&
                 device->descriptor_buffer[offset + 6] == USB_HID_SUBCLASS_BOOT &&
@@ -1116,6 +1156,7 @@ static bool enumerate_port(uint64_t port_index) {
         console_printf("xhci: slot=%u device descriptor failed\n", (uint64_t)device->slot_id);
         return false;
     }
+    parse_device_descriptor(device);
     if (device->descriptor_buffer[7] != 0) {
         device->ep0_max_packet = device->descriptor_buffer[7];
     }
@@ -1137,7 +1178,27 @@ static bool enumerate_port(uint64_t port_index) {
 
     uint8_t configuration = 0;
     if (!parse_hid_boot_config(device, total_length, &configuration)) {
-        console_printf("xhci: slot=%u no boot HID interface\n", (uint64_t)device->slot_id);
+        bool hub_like =
+            device->device_class == USB_CLASS_HUB ||
+            device->first_interface_class == USB_CLASS_HUB;
+        if (hub_like) {
+            xhci.hubs_seen++;
+        } else {
+            xhci.unsupported_devices++;
+        }
+        console_printf("xhci: slot=%u no boot HID class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x configs=%u interfaces=%u%s\n",
+            (uint64_t)device->slot_id,
+            (uint64_t)device->device_class,
+            (uint64_t)device->device_subclass,
+            (uint64_t)device->device_protocol,
+            (uint64_t)device->first_interface_class,
+            (uint64_t)device->first_interface_subclass,
+            (uint64_t)device->first_interface_protocol,
+            (uint64_t)device->vendor_id,
+            (uint64_t)device->product_id,
+            (uint64_t)device->configuration_count,
+            (uint64_t)device->interface_count,
+            hub_like ? " hub" : "");
         return true;
     }
     if (!set_configuration(device, configuration)) {
@@ -1305,11 +1366,13 @@ void xhci_print_status(void) {
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
-    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u transfer_events=%u\n",
+    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u hubs=%u unsupported=%u transfer_events=%u\n",
         xhci.addressed_devices,
         xhci.configured_devices,
         xhci.hid_keyboards,
         xhci.hid_mice,
+        xhci.hubs_seen,
+        xhci.unsupported_devices,
         xhci.transfer_events);
     uint64_t count = xhci.port_count;
     if (count > XHCI_MAX_PORTS) {
@@ -1333,11 +1396,19 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
-        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
+        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,
             (uint64_t)device->port_id,
             (uint64_t)device->addressed,
             (uint64_t)device->configured,
+            (uint64_t)device->device_class,
+            (uint64_t)device->device_subclass,
+            (uint64_t)device->device_protocol,
+            (uint64_t)device->first_interface_class,
+            (uint64_t)device->first_interface_subclass,
+            (uint64_t)device->first_interface_protocol,
+            (uint64_t)device->vendor_id,
+            (uint64_t)device->product_id,
             (uint64_t)device->hid_keyboard,
             (uint64_t)device->hid_mouse,
             (uint64_t)device->interrupt_dci,

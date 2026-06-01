@@ -20,6 +20,8 @@ server.
 - Adds USB HID boot mouse support on the xHCI path and extends the hidden-QEMU
   UEFI USB smoke to attach both USB keyboard and mouse devices, type a monitor
   command, send a synthetic pointer move, and verify per-device input reports.
+- Extends xHCI diagnostics with USB descriptor class/vendor/product summaries
+  and hub-like device counts so real-machine input failures are easier to sort.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

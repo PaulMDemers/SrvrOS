@@ -112,7 +112,9 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
   descriptors, and configures HID boot keyboard/mouse interrupt endpoints. QEMU
   smoke coverage now types a monitor command through the USB keyboard path,
   sends a synthetic USB mouse move, and verifies HID reports feed the console
-  input queue and pointer event path.
+  input queue and pointer event path. xHCI status also reports descriptor
+  class/vendor/product details for unsupported or hub-like devices, which should
+  make the first A1466 USB input boot log much more actionable.
 - Validate the same USB keyboard report path on the A1466 internal keyboard.
 - Validate the same USB mouse report path on the A1466 internal trackpad.
 - Add broader USB hub/root-port enumeration beyond the first directly attached
@@ -276,6 +278,7 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add USB descriptor walking and first-device address/configuration.
 - Add USB HID boot keyboard endpoint configuration.
 - Add USB HID boot mouse pointer events.
+- Add class/vendor/product diagnostics for unsupported and hub-like devices.
 
 ### Slice D: Display ABI
 
