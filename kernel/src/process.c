@@ -1,6 +1,7 @@
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
+#include <srvros/gui.h>
 #include <srvros/heap.h>
 #include <srvros/keyboard.h>
 #include <srvros/net.h>
@@ -5545,6 +5546,7 @@ void process_exit(uint64_t status) {
         process->user_threads[i].active = false;
     }
     cleanup_process_files(process);
+    gui_process_cleanup(process->pid);
     net_process_cleanup(process);
     process->active = false;
     scheduler_clear_user_context();

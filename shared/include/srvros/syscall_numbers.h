@@ -112,6 +112,10 @@
 #define SYS_SIGNAL_MASK 107
 #define SYS_SIGNAL_CONSUME 108
 #define SYS_GFX_BLIT_RECT 109
+#define SYS_GUI_SURFACE_CREATE 110
+#define SYS_GUI_SURFACE_DESTROY 111
+#define SYS_GUI_SURFACE_BLIT 112
+#define SYS_GUI_SURFACE_COPY 113
 
 #define SRV_ABI_VERSION 1
 
@@ -371,6 +375,27 @@ struct srv_gfx_blit_rect {
     uint64_t height;
     uint64_t stride;
     const uint32_t *pixels;
+};
+
+struct srv_gui_surface_create {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t width;
+    uint64_t height;
+    uint64_t flags;
+    uint64_t surface_id;
+};
+
+struct srv_gui_surface_rect {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t surface_id;
+    uint64_t x;
+    uint64_t y;
+    uint64_t width;
+    uint64_t height;
+    uint64_t stride;
+    uint32_t *pixels;
 };
 
 #define SRV_POLLIN 0x0001

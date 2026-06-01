@@ -611,8 +611,10 @@ updates, and events.
 userspace GUI server, allocates its root backbuffer dynamically from the current
 framebuffer dimensions, derives panel/dock/status metrics from the resolution,
 presents damaged rectangles through `gfx_blit_rect`, and has its own hidden-QEMU
-smoke test. It currently coexists with `desktop` while the client surface
-protocol is designed.
+smoke test. It now also accepts the first GUI protocol v2 messages for
+client-owned surfaces: apps create kernel-managed pixel surfaces, blit damaged
+rectangles into them, announce a surface window, and the compositor copies the
+surface into its root backbuffer. `/fat/bin/surfacedemo` exercises that path.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic
@@ -630,8 +632,9 @@ geometry. Intel integrated graphics discovery is initialized during boot and is
 visible through the monitor `gpu` command plus `gfx_info` flags, allowing the
 future compositor to choose software, Intel blitter, or Intel render backends
 without changing app-facing surface semantics. `gfx_blit_rect` gives that path
-a bulk dirty-rectangle present primitive before shared framebuffer mappings
-exist.
+a bulk dirty-rectangle present primitive, while the GUI surface syscalls provide
+the first app-to-compositor pixel transfer path before true shared framebuffer
+mappings exist.
 
 ## Testing Strategy
 

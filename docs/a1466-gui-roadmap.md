@@ -159,6 +159,9 @@ The prototype GUI has useful pieces:
 - `displayd` is now a parallel compositor seed with a dynamically allocated root
   backbuffer, resolution-derived shell metrics, GUI server registration, and a
   smoke mode for hidden-QEMU regression coverage.
+- Kernel-managed GUI surfaces now provide an app-to-compositor pixel path:
+  clients can create a surface, blit pixels into it, send v2 create/damage
+  messages, and let `displayd` copy the damaged surface into its root buffer.
 
 The parts that should be replaced:
 
@@ -166,8 +169,9 @@ The parts that should be replaced:
   sizes, title bars, launcher geometry, and static backing buffers.
 - Apps describe server-owned widgets through a narrow fixed-size message ABI
   rather than owning a drawable window surface.
-- The framebuffer API exposes info, put-pixel, and fill-rect syscalls, but no
-  mapped framebuffer, bulk blit, shared surface, or present queue.
+- The framebuffer API exposes info, put-pixel, fill-rect, and bulk blit
+  syscalls. GUI v2 has kernel-managed surfaces, but not true mapped/shared
+  user pages or a present queue yet.
 - Text rendering is small bitmap glyph drawing with no font metrics, wrapping
   model, or DPI-scale concept.
 - Keyboard focus, pointer capture, resize/configure events, clipboard, drag
@@ -193,8 +197,8 @@ path:
   and explicit staged capabilities for software, Intel blitter, and Intel render
   backends.
 - `display_map` or controlled compositor-only framebuffer mapping.
-- `surface_create`, `surface_map`, `surface_destroy`, and surface metadata for
-  client buffers.
+- `surface_create`, `surface_destroy`, surface copy/blit, and later
+  `surface_map` plus surface metadata for client buffers.
 - `present`/`damage` calls that operate on rectangles, not pixels.
 
 The first implementation can stay entirely software-composited and 32-bit RGB.
@@ -217,10 +221,11 @@ Replace the current fixed desktop with a compositor process, tentatively
 The compositor should not own application widgets. It should decorate windows
 and route input.
 
-The first checked-in `displayd` slice already owns a root backbuffer, draws a
-resolution-aware shell scene, receives legacy GUI IPC messages, and presents
-dirty cursor rectangles. The next slice is to add the real client surface ABI
-beside the legacy fixed-widget protocol.
+The checked-in `displayd` slice owns a root backbuffer, draws a
+resolution-aware shell scene, receives legacy GUI IPC messages, accepts v2
+surface-window and damage messages, composites kernel-managed client surfaces,
+and presents dirty cursor rectangles. The next slice is input/configure events
+for those surface clients.
 
 ### GUI Protocol V2
 
@@ -234,6 +239,13 @@ Add a new protocol beside the legacy one:
   logical units, and raw pixel coordinates when useful.
 - Keep the old fixed-widget protocol as a compatibility bridge until the sample
   apps have been ported.
+
+Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
+`GUI_MSG_V2_DAMAGE_SURFACE`, and `GUI_MSG_V2_DESTROY_SURFACE` are wired through
+the existing GUI queue. Pixel storage is currently kernel-managed through
+`gui_surface_create`, `gui_surface_blit`, `gui_surface_copy`, and
+`gui_surface_destroy` wrappers. `/fat/bin/surfacedemo` is the first app using
+that path.
 
 ### Toolkit
 
@@ -303,7 +315,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add compositor-only framebuffer mapping or a bulk blit/present syscall.
   The first bulk `gfx_blit_rect` syscall is in place for root-backbuffer
   dirty-rect presents; shared/mapped surfaces remain future work.
-- Add kernel-managed surface allocation/mapping.
+- Add true mapped shared-surface pages on top of the current kernel-managed
+  surface allocation/copy path.
 - Add damage-rectangle helpers and tests.
 
 ### Slice D2: Intel Acceleration Backend

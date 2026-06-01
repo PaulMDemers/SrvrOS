@@ -11,6 +11,8 @@
 
 #define CURSOR_W 16
 #define CURSOR_H 16
+#define DISPLAY_CLIENT_MAX 8
+#define WINDOW_TITLE_H 24
 
 struct display_metrics {
     uint64_t width;
@@ -23,10 +25,23 @@ struct display_metrics {
     uint64_t status_h;
 };
 
+struct display_client {
+    int used;
+    uint64_t pid;
+    uint64_t window_id;
+    uint64_t surface_id;
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    char title[GUI_TEXT_MAX];
+};
+
 struct display_state {
     struct display_metrics metrics;
     uint64_t gui_messages;
     uint64_t mouse_events;
+    struct display_client clients[DISPLAY_CLIENT_MAX];
 };
 
 static uint64_t max_u64(uint64_t a, uint64_t b) {
@@ -67,6 +82,20 @@ static int streq(const char *a, const char *b) {
         b++;
     }
     return *a == *b;
+}
+
+static void copy_text(char *to, const char *from) {
+    uint64_t i = 0;
+    if (to == 0) {
+        return;
+    }
+    if (from != 0) {
+        while (from[i] != '\0' && i + 1 < GUI_TEXT_MAX) {
+            to[i] = from[i];
+            i++;
+        }
+    }
+    to[i] = '\0';
 }
 
 static void print_u64(uint64_t value) {
@@ -143,6 +172,72 @@ static void draw_panel(struct ui_element *root, int64_t x, int64_t y,
     ui_draw_rect(root, x + (int64_t)width - 1, y, 1, height, border);
 }
 
+static struct display_client *find_client(struct display_state *state,
+    uint64_t pid,
+    uint64_t window_id,
+    uint64_t surface_id) {
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        struct display_client *client = &state->clients[i];
+        if (!client->used) {
+            continue;
+        }
+        if (surface_id != 0 && client->surface_id == surface_id) {
+            return client;
+        }
+        if (client->pid == pid && client->window_id == window_id) {
+            return client;
+        }
+    }
+    return 0;
+}
+
+static struct display_client *alloc_client(struct display_state *state) {
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (!state->clients[i].used) {
+            return &state->clients[i];
+        }
+    }
+    return 0;
+}
+
+static void draw_surface_client(struct ui_element *root, const struct display_client *client) {
+    uint64_t frame_w = client->width + 2;
+    uint64_t frame_h = client->height + WINDOW_TITLE_H + 2;
+    int64_t frame_x = client->x;
+    int64_t frame_y = client->y;
+    int64_t content_x = frame_x + 1;
+    int64_t content_y = frame_y + WINDOW_TITLE_H + 1;
+
+    draw_panel(root, frame_x, frame_y, frame_w, frame_h, 0x17232d, 0x8fd0d4);
+    ui_draw_rect(root, frame_x + 1, frame_y + 1, frame_w - 2, WINDOW_TITLE_H - 1, 0x2f6f68);
+    ui_draw_text(root, frame_x + 12, frame_y + 8,
+        client->title[0] != '\0' ? client->title : "SURFACE", 0xffffff);
+    ui_draw_rect(root, content_x, content_y, client->width, client->height, 0x0f1720);
+
+    if (client->surface_id != 0 && root->surface.pixels != 0 &&
+        content_x >= 0 && content_y >= 0 &&
+        (uint64_t)content_x < root->surface.width &&
+        (uint64_t)content_y < root->surface.height) {
+        uint64_t width = client->width;
+        uint64_t height = client->height;
+        if ((uint64_t)content_x + width > root->surface.width) {
+            width = root->surface.width - (uint64_t)content_x;
+        }
+        if ((uint64_t)content_y + height > root->surface.height) {
+            height = root->surface.height - (uint64_t)content_y;
+        }
+        if (width != 0 && height != 0) {
+            uint32_t *target = root->surface.pixels +
+                (uint64_t)content_y * root->surface.stride + (uint64_t)content_x;
+            if (gui_surface_copy(client->surface_id, 0, 0, width, height,
+                    target, root->surface.stride) != 0) {
+                ui_draw_text(root, content_x + 12, content_y + 16,
+                    "SURFACE UNAVAILABLE", 0xf87171);
+            }
+        }
+    }
+}
+
 static void draw_dock_button(struct ui_element *root, const struct display_metrics *m,
     uint64_t index, const char *label, uint32_t color) {
     int64_t x = (int64_t)m->margin;
@@ -211,6 +306,12 @@ static void draw_scene(struct ui_element *root) {
     ui_draw_text(root, (int64_t)work_x + 14,
         (int64_t)(m->height - m->status_h - m->margin + 32),
         "GUI IPC SERVER ONLINE", 0xb9d8df);
+
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (state->clients[i].used) {
+            draw_surface_client(root, &state->clients[i]);
+        }
+    }
 }
 
 static void draw_cursor(uint64_t x, uint64_t y, uint64_t screen_width,
@@ -251,7 +352,7 @@ static void present_dirty(struct ui_element *root, uint64_t mouse_x, uint64_t mo
     }
 }
 
-static void handle_gui_messages(struct display_state *state) {
+static void handle_gui_messages(struct ui_element *root, struct display_state *state) {
     struct gui_message msg;
     while (gui_recv(&msg) > 0) {
         state->gui_messages++;
@@ -261,6 +362,62 @@ static void handle_gui_messages(struct display_state *state) {
             srv_puts(" pid=");
             print_u64(msg.source_pid);
             srv_puts("\n");
+        } else if (msg.type == GUI_MSG_V2_CREATE_SURFACE_WINDOW) {
+            struct display_client *client = find_client(state,
+                msg.source_pid,
+                msg.window_id,
+                (uint64_t)msg.value);
+            if (client == 0) {
+                client = alloc_client(state);
+            }
+            if (client != 0) {
+                client->used = 1;
+                client->pid = msg.source_pid;
+                client->window_id = msg.window_id;
+                client->surface_id = (uint64_t)msg.value;
+                client->x = msg.x;
+                client->y = msg.y;
+                client->width = msg.width;
+                client->height = msg.height;
+                copy_text(client->title, msg.text);
+                ui_mark_dirty_rect(root,
+                    client->x,
+                    client->y,
+                    client->width + 2,
+                    client->height + WINDOW_TITLE_H + 2);
+                srv_puts("displayd: mapped surface window ");
+                srv_puts(client->title);
+                srv_puts(" surface=");
+                print_u64(client->surface_id);
+                srv_puts(" pid=");
+                print_u64(client->pid);
+                srv_puts("\n");
+            }
+        } else if (msg.type == GUI_MSG_V2_DAMAGE_SURFACE) {
+            struct display_client *client = find_client(state,
+                msg.source_pid,
+                msg.window_id,
+                (uint64_t)msg.value);
+            if (client != 0) {
+                ui_mark_dirty_rect(root,
+                    client->x + 1 + msg.x,
+                    client->y + WINDOW_TITLE_H + 1 + msg.y,
+                    msg.width,
+                    msg.height);
+            }
+        } else if (msg.type == GUI_MSG_V2_DESTROY_SURFACE) {
+            struct display_client *client = find_client(state,
+                msg.source_pid,
+                msg.window_id,
+                (uint64_t)msg.value);
+            if (client != 0) {
+                ui_mark_dirty_rect(root,
+                    client->x,
+                    client->y,
+                    client->width + 2,
+                    client->height + WINDOW_TITLE_H + 2);
+                client->used = 0;
+            }
         }
     }
 }
@@ -280,10 +437,14 @@ int main(int argc, char **argv) {
     uint8_t buttons = 0;
     uint64_t start_ticks;
     int smoke = 0;
+    int smoke_autostart = 0;
 
     for (int i = 1; i < argc; i++) {
         if (streq(argv[i], "--smoke")) {
             smoke = 1;
+        } else if (streq(argv[i], "--smoke-autostart")) {
+            smoke = 1;
+            smoke_autostart = 1;
         }
     }
 
@@ -326,6 +487,16 @@ int main(int argc, char **argv) {
     ui_present(&root);
     draw_cursor(mouse_x, mouse_y, gfx.width, gfx.height, 0xffffff);
     srv_puts("displayd: root backbuffer ready\n");
+    if (smoke_autostart) {
+        long pid = srv_spawn_bg("/fat/bin/surfacedemo");
+        srv_puts("displayd: launched surfacedemo pid=");
+        if (pid < 0) {
+            srv_puts("failed\n");
+        } else {
+            print_u64((uint64_t)pid);
+            srv_puts("\n");
+        }
+    }
 
     start_ticks = (uint64_t)srv_ticks();
     for (;;) {
@@ -334,7 +505,7 @@ int main(int argc, char **argv) {
         old_mouse_x = mouse_x;
         old_mouse_y = mouse_y;
 
-        handle_gui_messages(&state);
+        handle_gui_messages(&root, &state);
         if (key == 'q' || key == 'Q' || key == 27) {
             break;
         }
@@ -354,7 +525,7 @@ int main(int argc, char **argv) {
         present_dirty(&root, mouse_x, mouse_y, old_mouse_x, old_mouse_y,
             cursor_dirty, buttons != 0 ? 0xf87171 : 0xffffff);
 
-        if (smoke && (uint64_t)srv_ticks() - start_ticks > 20) {
+        if (smoke && (uint64_t)srv_ticks() - start_ticks > (smoke_autostart ? 80 : 20)) {
             srv_puts("displayd: smoke ok\n");
             break;
         }

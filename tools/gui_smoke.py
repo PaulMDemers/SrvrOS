@@ -58,7 +58,7 @@ def main():
     parser.add_argument("--keys", default="", help="extra keys to send after desktop starts")
     parser.add_argument("--key-delay", type=float, default=0,
         help="seconds to wait between sent keys")
-    parser.add_argument("--boot-wait", type=float, default=20)
+    parser.add_argument("--boot-wait", type=float, default=45)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--desktop-wait", type=float, default=5)
     parser.add_argument("--after-wait", type=float, default=20)

@@ -173,8 +173,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   readiness, and readable readiness repeats once payload arrives.
 - `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
   structured syscalls (`stat`, `statfs`, process list, console/gfx info,
-  graphics blit, and GUI receive) with smaller versioned structs and canary
-  checks.
+  graphics blit, GUI receive, and GUI surface create/blit/copy/destroy) with
+  smaller versioned structs and canary checks.
 - `uefi_usb_smoke.py`: boots `build/srvros-usb.img` through OVMF from a
   temporary copy, confirms the GPT/FAT32 Limine path reaches the kernel,
   verifies ACPI MCFG/PCI ECAM discovery, exercises QEMU xHCI command
@@ -427,8 +427,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   clusters.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 - `displayd_smoke.py`: hidden-QEMU compositor seed smoke that verifies
-  `/fat/bin/displayd --smoke` registers, draws its root backbuffer, and exits
-  without a fatal exception.
+  `/fat/bin/displayd --smoke-autostart` registers, draws its root backbuffer,
+  launches `/fat/bin/surfacedemo`, maps a v2 surface window, and exits without
+  a fatal exception.
 
 ## DNS Test Domains
 

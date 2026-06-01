@@ -205,6 +205,28 @@ static int check_gui(void) {
         probe.info.type != GUI_MSG_EVENT_CLICK) {
         return fail("gui-copy");
     }
+
+    uint64_t surface_id = 0;
+    uint32_t input[4] = {
+        0x112233, 0x445566,
+        0x778899, 0xaabbcc,
+    };
+    uint32_t output[4] = {0};
+    if (gui_surface_create(2, 2, 0, &surface_id) != 0 || surface_id == 0) {
+        return fail("gui-surface-create");
+    }
+    if (gui_surface_blit(surface_id, 0, 0, 2, 2, input, 2) != 0) {
+        return fail("gui-surface-blit");
+    }
+    if (gui_surface_copy(surface_id, 0, 0, 2, 2, output, 2) != 0) {
+        return fail("gui-surface-copy");
+    }
+    if (memcmp(input, output, sizeof(input)) != 0) {
+        return fail("gui-surface-data");
+    }
+    if (gui_surface_destroy(surface_id) != 0) {
+        return fail("gui-surface-destroy");
+    }
     return 0;
 }
 

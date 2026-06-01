@@ -55,9 +55,9 @@ def main():
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=20)
+    parser.add_argument("--boot-wait", type=float, default=45)
     parser.add_argument("--shell-wait", type=float, default=2)
-    parser.add_argument("--displayd-wait", type=float, default=8)
+    parser.add_argument("--displayd-wait", type=float, default=15)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -99,7 +99,7 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", args.shell_wait)
-            sock.sendall(b"displayd --smoke\n")
+            sock.sendall(b"displayd --smoke-autostart\n")
             output += read_for(sock, args.displayd_wait)
         finally:
             try:
@@ -113,6 +113,7 @@ def main():
 
     expected = [
         "displayd: root backbuffer ready",
+        "displayd: mapped surface window SURFACE DEMO",
         "displayd: smoke ok",
         "displayd: exited",
     ]

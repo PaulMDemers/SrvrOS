@@ -1536,6 +1536,154 @@ static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_reques
     return 0;
 }
 
+static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_request) {
+    struct srv_gui_surface_create request;
+    struct process *process = process_current();
+    if (process == NULL ||
+        abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) {
+        return -1;
+    }
+
+    int64_t surface_id = gui_surface_create(process_pid(process),
+        request.width,
+        request.height,
+        request.flags);
+    if (surface_id < 0) {
+        return -1;
+    }
+    request.abi_version = SRV_ABI_VERSION;
+    request.struct_size = sizeof(request);
+    request.surface_id = (uint64_t)surface_id;
+    return copy_to_user(user_request, &request, sizeof(request)) ? 0 : -1;
+}
+
+static int64_t syscall_gui_surface_destroy(uint64_t surface_id) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return -1;
+    }
+    return gui_surface_destroy(process_pid(process), surface_id);
+}
+
+static int64_t syscall_gui_surface_blit(const struct srv_gui_surface_rect *user_request) {
+    struct process *process = process_current();
+    struct srv_gui_surface_rect request;
+    if (process == NULL ||
+        abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) {
+        return -1;
+    }
+    if (request.width == 0 || request.height == 0 || request.stride < request.width ||
+        request.width > 4096 || request.height > 4096 ||
+        request.height - 1 > UINT64_MAX / request.stride ||
+        (request.height - 1) * request.stride > UINT64_MAX - request.width ||
+        ((request.height - 1) * request.stride + request.width) > UINT64_MAX / sizeof(uint32_t) ||
+        !user_buffer_ok(request.pixels,
+            ((request.height - 1) * request.stride + request.width) * sizeof(uint32_t),
+            false)) {
+        return -1;
+    }
+
+    uint64_t row_bytes = request.width * sizeof(uint32_t);
+    uint64_t chunk_rows = (64 * 1024) / row_bytes;
+    if (chunk_rows == 0) {
+        chunk_rows = 1;
+    }
+    if (chunk_rows > request.height) {
+        chunk_rows = request.height;
+    }
+    uint32_t *copy = kmalloc((size_t)(chunk_rows * row_bytes));
+    if (copy == NULL) {
+        return -1;
+    }
+    for (uint64_t row = 0; row < request.height; row += chunk_rows) {
+        uint64_t rows = request.height - row;
+        if (rows > chunk_rows) {
+            rows = chunk_rows;
+        }
+        for (uint64_t copy_row = 0; copy_row < rows; copy_row++) {
+            const uint32_t *source = request.pixels + (row + copy_row) * request.stride;
+            if (!copy_from_user(copy + copy_row * request.width, source, row_bytes)) {
+                kfree(copy);
+                return -1;
+            }
+        }
+        if (gui_surface_blit(process_pid(process),
+                request.surface_id,
+                request.x,
+                request.y + row,
+                request.width,
+                rows,
+                copy,
+                request.width) != 0) {
+            kfree(copy);
+            return -1;
+        }
+    }
+    kfree(copy);
+    return 0;
+}
+
+static int64_t syscall_gui_surface_copy(const struct srv_gui_surface_rect *user_request) {
+    struct process *process = process_current();
+    struct srv_gui_surface_rect request;
+    if (process == NULL ||
+        abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) {
+        return -1;
+    }
+    if (request.width == 0 || request.height == 0 || request.stride < request.width ||
+        request.width > 4096 || request.height > 4096 ||
+        request.height - 1 > UINT64_MAX / request.stride ||
+        (request.height - 1) * request.stride > UINT64_MAX - request.width ||
+        ((request.height - 1) * request.stride + request.width) > UINT64_MAX / sizeof(uint32_t) ||
+        !user_buffer_ok(request.pixels,
+            ((request.height - 1) * request.stride + request.width) * sizeof(uint32_t),
+            true)) {
+        return -1;
+    }
+
+    uint64_t row_bytes = request.width * sizeof(uint32_t);
+    uint64_t chunk_rows = (64 * 1024) / row_bytes;
+    if (chunk_rows == 0) {
+        chunk_rows = 1;
+    }
+    if (chunk_rows > request.height) {
+        chunk_rows = request.height;
+    }
+    uint32_t *copy = kmalloc((size_t)(chunk_rows * row_bytes));
+    if (copy == NULL) {
+        return -1;
+    }
+    for (uint64_t row = 0; row < request.height; row += chunk_rows) {
+        uint64_t rows = request.height - row;
+        if (rows > chunk_rows) {
+            rows = chunk_rows;
+        }
+        if (gui_surface_copy(process_pid(process),
+                request.surface_id,
+                request.x,
+                request.y + row,
+                request.width,
+                rows,
+                copy,
+                request.width) != 0) {
+            kfree(copy);
+            return -1;
+        }
+        for (uint64_t copy_row = 0; copy_row < rows; copy_row++) {
+            uint32_t *target = request.pixels + (row + copy_row) * request.stride;
+            if (!copy_to_user(target, copy + copy_row * request.width, row_bytes)) {
+                kfree(copy);
+                return -1;
+            }
+        }
+    }
+    kfree(copy);
+    return 0;
+}
+
 static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
     struct mouse_event kernel_event;
     struct syscall_mouse_event copy = {
@@ -2420,6 +2568,18 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GFX_BLIT_RECT:
         frame->rax = (uint64_t)syscall_gfx_blit_rect((const struct srv_gfx_blit_rect *)frame->rdi);
+        return;
+    case SYS_GUI_SURFACE_CREATE:
+        frame->rax = (uint64_t)syscall_gui_surface_create((struct srv_gui_surface_create *)frame->rdi);
+        return;
+    case SYS_GUI_SURFACE_DESTROY:
+        frame->rax = (uint64_t)syscall_gui_surface_destroy(frame->rdi);
+        return;
+    case SYS_GUI_SURFACE_BLIT:
+        frame->rax = (uint64_t)syscall_gui_surface_blit((const struct srv_gui_surface_rect *)frame->rdi);
+        return;
+    case SYS_GUI_SURFACE_COPY:
+        frame->rax = (uint64_t)syscall_gui_surface_copy((const struct srv_gui_surface_rect *)frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;
