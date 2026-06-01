@@ -584,6 +584,12 @@ dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic
 controls. This is enough for calculator, notes, text editor, and BMP image
 editor experiments.
 
+The next GUI architecture replaces the fixed-pixel desktop with a display
+server/compositor model. Apps should own drawable surfaces, the compositor
+should own z-order/decorations/input routing, and rendering should be driven by
+damage rectangles plus resolution-aware logical units. The design and hardware
+bring-up plan are tracked in `docs/a1466-gui-roadmap.md`.
+
 ## Testing Strategy
 
 The test harnesses boot QEMU, connect to the serial console, run monitor/shell
@@ -600,5 +606,6 @@ than mocking subsystems. See `docs/testing.md`.
 - Add NVMe as a second storage backend.
 - Grow the support library toward a small libc-shaped layer.
 - Move GUI clients toward shared pixel buffers and damage rectangles.
+- Add a real-hardware boot artifact and USB/HID path for the MacBook Air A1466.
 - Add a FUSE-like userspace filesystem interface once fd passing and server
   process supervision are stronger.

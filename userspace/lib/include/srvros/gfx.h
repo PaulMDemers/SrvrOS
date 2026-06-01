@@ -9,6 +9,17 @@ struct gfx_info {
     uint64_t width;
     uint64_t height;
     uint64_t pitch;
+    uint64_t flags;
+    uint32_t bpp;
+    uint32_t memory_model;
+    uint32_t red_mask_size;
+    uint32_t red_mask_shift;
+    uint32_t green_mask_size;
+    uint32_t green_mask_shift;
+    uint32_t blue_mask_size;
+    uint32_t blue_mask_shift;
+    uint64_t scale_num;
+    uint64_t scale_den;
 };
 
 int gfx_info(struct gfx_info *info);

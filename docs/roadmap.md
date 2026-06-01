@@ -379,7 +379,13 @@ kernel, and a minimal Unix-like userspace.
 
 ## Next milestones
 
-1. Move the now-usable CLI toward port/build-script compatibility: broader long
+1. Bring srvros up on the Apple MacBook Air A1466 and replace the prototype GUI
+   with a resolution-aware compositor/toolkit. The full plan is in
+   `docs/a1466-gui-roadmap.md`; the first slices are a GPT/ESP real-boot image,
+   framebuffer-first boot diagnostics, ACPI MCFG/ECAM enumeration, timer
+   calibration, USB xHCI/HID input, a display info/mapping ABI, and a new
+   client-surface compositor.
+2. Move the now-usable CLI toward port/build-script compatibility: broader long
    option aliases, more POSIX utility edge cases, and stronger scripted error
    reporting.
    The shell now has positional parameters, functions, `for` loops,
@@ -404,7 +410,7 @@ kernel, and a minimal Unix-like userspace.
    `find`, `ls`, `cp`, `rm`, `mv`, `mkdir`, `install`, `tee`, `head`, `tail`,
    `wc`, and `ln`, with a compact configure-style QEMU smoke harness that also
    checks same-line `set -e` aborts and configure-probe exemptions.
-2. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
+3. Harden writable exFAT: fragmented FAT-chain allocation fallback, allocator
    FAT rollback, directory-entry create/rename/delete rollback, and
    stress/corruption coverage are in place; remaining work is better rollback
    around truncate, dirty-cache writeback, and crash-consistency documentation.
@@ -420,34 +426,34 @@ kernel, and a minimal Unix-like userspace.
    `/fat/.srvros/meta` sidecar with temp-file promotion and malformed-temp
    cleanup, but broader write/rename recovery semantics are still intentionally
    small.
-3. Add interrupt-driven AHCI command completion instead of purely polling
+4. Add interrupt-driven AHCI command completion instead of purely polling
    commands.
-4. Add NVMe discovery and read/write support as the second storage backend.
-5. Expand `/webd` from the current poll-driven connection table to fuller
+5. Add NVMe discovery and read/write support as the second storage backend.
+6. Expand `/webd` from the current poll-driven connection table to fuller
    concurrent response handling, richer response metadata, stronger long-lived
    low-rate client behavior, and multi-worker web server designs. UDP
    userspace sockets and DNS-over-UDP probes are now in place, so the remaining
    networking work is broader socket/readiness polish and more complete TCP
    behavior.
-6. Add a simple userspace filesystem server interface for experimental
+7. Add a simple userspace filesystem server interface for experimental
    FUSE-like mounts.
-7. Continue the libc/newlib track: terminal process groups/signals, applying
+8. Continue the libc/newlib track: terminal process groups/signals, applying
    stored spawn signal/default attributes once richer userspace signals exist,
    broader `stdio` ISO C edge cases, stronger sidecar recovery, and more
    fd-specific readiness queues as the descriptor model grows.
-8. Grow the first same-address-space user thread support into a fuller pthread
+9. Grow the first same-address-space user thread support into a fuller pthread
    implementation: deterministic detached-thread reaping, fd/stdio locking,
    richer condition-variable attributes, robust cancellation/signal
    interactions, explicit multi-thread scheduler stress coverage, and the
    pieces libuv expects for a useful Node bring-up.
-9. Add kernel-supported graphics buffer allocation/mapping so full-screen
+10. Add kernel-supported graphics buffer allocation/mapping so full-screen
    desktops and larger app windows are not constrained by static ELF BSS size.
-10. Extend GUI IPC from server-rendered controls to client-owned surfaces:
+11. Extend GUI IPC from server-rendered controls to client-owned surfaces:
    shared/mapped buffers, damage rectangles, focus tracking, keyboard delivery,
    and richer pointer events.
-11. Expand syscall validation to include structured copyin/copyout helpers and
+12. Expand syscall validation to include structured copyin/copyout helpers and
    better process termination on bad pointers.
-12. Replace the LAPIC EOI mapping guard with a stronger invariant once all
+13. Replace the LAPIC EOI mapping guard with a stronger invariant once all
    interrupt entry paths switch through a known kernel mapping context.
-13. Expand floating-point runtime coverage and tighten the first software
+14. Expand floating-point runtime coverage and tighten the first software
     `math.h` implementation toward production libm behavior.

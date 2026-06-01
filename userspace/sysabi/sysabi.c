@@ -149,6 +149,22 @@ static int check_gfx(void) {
         probe.info.width == 0) {
         return fail("gfx-copy");
     }
+
+    struct gfx_info full;
+    memset(&full, 0, sizeof(full));
+    full.abi_version = SRV_ABI_VERSION;
+    full.struct_size = sizeof(full);
+    if (gfx_info(&full) != 0) {
+        return fail("gfx-full");
+    }
+    if (full.width == 0 ||
+        full.height == 0 ||
+        full.pitch == 0 ||
+        full.bpp == 0 ||
+        full.scale_num == 0 ||
+        full.scale_den == 0) {
+        return fail("gfx-full-fields");
+    }
     return 0;
 }
 

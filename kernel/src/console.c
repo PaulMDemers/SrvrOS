@@ -569,6 +569,27 @@ bool console_framebuffer_info(uint64_t *width_out, uint64_t *height_out, uint64_
     return true;
 }
 
+bool console_display_info(struct console_display_info *info) {
+    if (fb == NULL || info == NULL) {
+        return false;
+    }
+
+    *info = (struct console_display_info) {
+        .width = fb->width,
+        .height = fb->height,
+        .pitch = fb->pitch,
+        .bpp = fb->bpp,
+        .memory_model = fb->memory_model,
+        .red_mask_size = fb->red_mask_size,
+        .red_mask_shift = fb->red_mask_shift,
+        .green_mask_size = fb->green_mask_size,
+        .green_mask_shift = fb->green_mask_shift,
+        .blue_mask_size = fb->blue_mask_size,
+        .blue_mask_shift = fb->blue_mask_shift,
+    };
+    return true;
+}
+
 bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb) {
     if (fb == NULL || x >= fb->width || y >= fb->height) {
         return false;

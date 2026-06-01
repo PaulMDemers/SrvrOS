@@ -294,6 +294,7 @@ USER_CRT0_OBJ := build/userspace/lib/crt0.S.o
 USER_LIB_A := build/userspace/lib/libsrvros.a
 USER_SYSROOT := build/sysroot/srvros
 USER_SYSROOT_HEADERS := $(shell find shared/include userspace/lib/include -type f 2>/dev/null | LC_ALL=C sort)
+KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null | LC_ALL=C sort)
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -970,15 +971,15 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) $(KERNEL_OBJ) -o $@
 
-build/kernel/src/arch/x86_64/fpu.c.o: kernel/src/arch/x86_64/fpu.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+build/kernel/src/arch/x86_64/fpu.c.o: kernel/src/arch/x86_64/fpu.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
-build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-build/%.S.o: %.S $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready
+build/%.S.o: %.S $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -1449,67 +1450,67 @@ $(USER_CXXSTLPROBE): $(ZIG) $(USER_CRT0_OBJ) $(USER_CXXSTLPROBE_OBJ) $(USER_LIB_
 	mkdir -p $(dir $@)
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(USER_CXXSTLPROBE_OBJ) $(USER_LIB_OBJ) -o $@
 
-build/userspace/%.c.o: userspace/%.c $(ZIG)
+build/userspace/%.c.o: userspace/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 
-build/userspace/cxxstlprobe/%.cc.o: userspace/cxxstlprobe/%.cc $(ZIG)
+build/userspace/cxxstlprobe/%.cc.o: userspace/cxxstlprobe/%.cc $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CXX) $(USER_STL_CXXFLAGS) -c $< -o $@
 
-build/userspace/%.cc.o: userspace/%.cc $(ZIG)
+build/userspace/%.cc.o: userspace/%.cc $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CXX) $(USER_CXXFLAGS) -c $< -o $@
 
-build/userspace/lib/src/%.cc.o: userspace/lib/src/%.cc $(ZIG)
+build/userspace/lib/src/%.cc.o: userspace/lib/src/%.cc $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CXX) $(USER_CXXFLAGS) -c $< -o $@
 
-build/userspace/lua/%.c.o: userspace/lua/%.c $(ZIG) $(LUA_PREPARED)
+build/userspace/lua/%.c.o: userspace/lua/%.c $(ZIG) $(LUA_PREPARED) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I $(LUA_SRVROS_DIR) -I ports/upstream/linenoise -c $< -o $@
 
-build/userspace/zlibdemo/%.c.o: userspace/zlibdemo/%.c $(ZIG)
+build/userspace/zlibdemo/%.c.o: userspace/zlibdemo/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/zlib -c $< -o $@
 
-build/userspace/gzip/%.c.o: userspace/gzip/%.c $(ZIG)
+build/userspace/gzip/%.c.o: userspace/gzip/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/zlib -c $< -o $@
 
-build/userspace/jsondemo/%.c.o: userspace/jsondemo/%.c $(ZIG)
+build/userspace/jsondemo/%.c.o: userspace/jsondemo/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/cjson -c $< -o $@
 
-build/userspace/inidemo/%.c.o: userspace/inidemo/%.c $(ZIG)
+build/userspace/inidemo/%.c.o: userspace/inidemo/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/inih -c $< -o $@
 
-build/userspace/linedemo/%.c.o: userspace/linedemo/%.c $(ZIG)
+build/userspace/linedemo/%.c.o: userspace/linedemo/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/linenoise -c $< -o $@
 
-build/userspace/sqlitedemo/%.c.o: userspace/sqlitedemo/%.c $(ZIG)
+build/userspace/sqlitedemo/%.c.o: userspace/sqlitedemo/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/sqlite -c $< -o $@
 
-build/userspace/uvdemo/%.c.o: userspace/uvdemo/%.c $(ZIG) ports/srvros/uv.h
+build/userspace/uvdemo/%.c.o: userspace/uvdemo/%.c $(ZIG) ports/srvros/uv.h $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/srvros -c $< -o $@
 
-build/userspace/libuvdemo/%.c.o: userspace/libuvdemo/%.c $(ZIG) ports/srvros/uv.h
+build/userspace/libuvdemo/%.c.o: userspace/libuvdemo/%.c $(ZIG) ports/srvros/uv.h $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/srvros -c $< -o $@
 
-build/userspace/nodeprobe/%.c.o: userspace/nodeprobe/%.c $(ZIG) ports/srvros/uv.h
+build/userspace/nodeprobe/%.c.o: userspace/nodeprobe/%.c $(ZIG) ports/srvros/uv.h $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/srvros -c $< -o $@
 
-build/userspace/sh/%.c.o: userspace/sh/%.c $(ZIG)
+build/userspace/sh/%.c.o: userspace/sh/%.c $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -I ports/upstream/linenoise -c $< -o $@
 
-build/userspace/%.S.o: userspace/%.S $(ZIG)
+build/userspace/%.S.o: userspace/%.S $(ZIG) $(USER_SYSROOT_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 

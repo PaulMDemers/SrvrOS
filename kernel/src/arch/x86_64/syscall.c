@@ -71,6 +71,17 @@ struct syscall_gfx_info {
     uint64_t width;
     uint64_t height;
     uint64_t pitch;
+    uint64_t flags;
+    uint32_t bpp;
+    uint32_t memory_model;
+    uint32_t red_mask_size;
+    uint32_t red_mask_shift;
+    uint32_t green_mask_size;
+    uint32_t green_mask_shift;
+    uint32_t blue_mask_size;
+    uint32_t blue_mask_shift;
+    uint64_t scale_num;
+    uint64_t scale_den;
 };
 
 struct syscall_mouse_event {
@@ -1396,14 +1407,28 @@ static int64_t syscall_key_scan(void) {
 }
 
 static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
+    struct console_display_info display;
     struct syscall_gfx_info copy = {
         .abi_version = SRV_ABI_VERSION,
         .struct_size = sizeof(copy),
+        .scale_num = 1,
+        .scale_den = 1,
     };
 
-    if (!console_framebuffer_info(&copy.width, &copy.height, &copy.pitch)) {
+    if (!console_display_info(&display)) {
         return -1;
     }
+    copy.width = display.width;
+    copy.height = display.height;
+    copy.pitch = display.pitch;
+    copy.bpp = display.bpp;
+    copy.memory_model = display.memory_model;
+    copy.red_mask_size = display.red_mask_size;
+    copy.red_mask_shift = display.red_mask_shift;
+    copy.green_mask_size = display.green_mask_size;
+    copy.green_mask_shift = display.green_mask_shift;
+    copy.blue_mask_size = display.blue_mask_size;
+    copy.blue_mask_shift = display.blue_mask_shift;
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 
