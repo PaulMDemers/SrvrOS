@@ -1,5 +1,6 @@
 #include <srvros/acpi.h>
 #include <srvros/console.h>
+#include <srvros/bootlog.h>
 #include <srvros/block.h>
 #include <srvros/e1000.h>
 #include <srvros/elf.h>
@@ -16,6 +17,7 @@
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
 #include <srvros/workqueue.h>
+#include <srvros/xhci.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -50,6 +52,21 @@ static uint64_t cstrlen(const char *text) {
         length++;
     }
     return length;
+}
+
+static uint64_t parse_decimal(const char *text) {
+    uint64_t value = 0;
+    if (text == NULL) {
+        return 0;
+    }
+    while (*text == ' ' || *text == '\t') {
+        text++;
+    }
+    while (*text >= '0' && *text <= '9') {
+        value = value * 10 + (uint64_t)(*text - '0');
+        text++;
+    }
+    return value;
 }
 
 static bool starts_with(const char *text, const char *prefix) {
@@ -385,7 +402,7 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo mem memstat ticks heap workers block mount unmount fsck pci gpu net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static void command_bootinfo(void) {
@@ -411,6 +428,7 @@ static void command_bootinfo(void) {
     console_printf("pci: devices=%u config=%s\n", pci_device_count(), pci_config_backend_name());
     acpi_print_status();
     intel_gfx_print_status();
+    xhci_print_status();
     block_print_status();
 }
 
@@ -811,6 +829,9 @@ static void run_command(char *line) {
         print_help();
     } else if (streq(command, "bootinfo")) {
         command_bootinfo();
+    } else if (streq(command, "dmesg")) {
+        uint64_t max = parse_decimal(args);
+        bootlog_dump(max);
     } else if (streq(command, "clear")) {
         console_clear();
     } else if (streq(command, "mem")) {
@@ -849,6 +870,8 @@ static void run_command(char *line) {
         command_pci();
     } else if (streq(command, "gpu")) {
         intel_gfx_print_status();
+    } else if (streq(command, "xhci") || streq(command, "usb")) {
+        xhci_print_status();
     } else if (streq(command, "net")) {
         command_net(args);
     } else if (streq(command, "ps")) {

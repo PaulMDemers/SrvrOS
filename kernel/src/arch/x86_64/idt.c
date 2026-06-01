@@ -1,4 +1,5 @@
 #include <srvros/console.h>
+#include <srvros/bootlog.h>
 #include <srvros/halt.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
@@ -178,6 +179,10 @@ void isr_dispatch(struct isr_frame *frame) {
     }
 
     struct process *process = process_current();
+    if (frame->vector != 3) {
+        console_clear();
+        console_write("srvros panic\n");
+    }
     console_printf("exception: vector=%u (%s) error=%x rip=%x rsp=%x rbp=%x cs=%x ss=%x rflags=%x cr2=%x cr3=%x pid=%u name=%s\n",
         frame->vector,
         exception_name(frame->vector),
@@ -219,5 +224,7 @@ void isr_dispatch(struct isr_frame *frame) {
         return;
     }
 
+    console_write("last log lines:\n");
+    bootlog_dump(2048);
     halt_forever();
 }

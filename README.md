@@ -371,6 +371,8 @@ ports, and simple boot scripts:
 ```text
 help
 clear
+bootinfo
+dmesg [bytes]
 mem
 heap
 ticks
@@ -381,6 +383,8 @@ mount ahci1 /disk
 unmount /disk
 fsck /fat
 pci
+gpu
+xhci
 net
 ps
 run /path

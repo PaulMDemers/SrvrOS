@@ -80,11 +80,12 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 ### 2. Strengthen Early Observability
 
 - Keep framebuffer console as the first-class real-machine console.
-- Mirror boot logs into an in-memory ring buffer.
-- Persist the ring buffer to `/fat/var/log/boot.log` after the filesystem mounts.
+- Boot logs are mirrored into an in-memory ring buffer, exposed through
+  `dmesg`, and persisted to `/fat/var/log/boot.log` after the filesystem mounts.
 - `bootinfo` covers framebuffer geometry, ACPI tables, PCI/PCIe config mode,
-  Intel graphics discovery, timers, and storage.
-- Add a panic screen that does not depend on serial.
+  Intel graphics discovery, xHCI diagnostics, timers, and storage.
+- Fatal exceptions clear to a framebuffer panic screen with register details and
+  recent boot-log context.
 
 ### 3. Broaden ACPI and PCI Enumeration
 
@@ -104,9 +105,10 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 
 ### 5. Bring Up USB xHCI and HID
 
-- Implement xHCI PCI discovery, MMIO mapping, controller reset, command ring,
-  event ring, device context, slot enable, address-device, endpoint setup, and
-  transfer rings.
+- xHCI PCI discovery, MMIO mapping, and capability-register inventory are in
+  place.
+- Implement controller reset, command ring, event ring, device context, slot
+  enable, address-device, endpoint setup, and transfer rings.
 - Add USB hub/root-port enumeration.
 - Add USB HID boot keyboard and mouse/trackpad support.
 - Merge USB keyboard events into the existing console/shell input path.

@@ -7,9 +7,10 @@ single-purpose, static-capacity, and easy to inspect.
 ## Boot Flow
 
 1. Limine loads the higher-half ELF kernel and `build/initramfs.tar`.
-2. The kernel initializes serial logging, the framebuffer console, GDT, IDT,
-   memory management, scheduler structures, ACPI/MADT, APIC/IOAPIC routing,
-   PS/2 devices, PCI, block devices, AHCI, exFAT, e1000, and the monitor.
+2. The kernel initializes serial logging, the boot-log ring, the framebuffer
+   console, GDT, IDT, memory management, scheduler structures, ACPI/MADT,
+   APIC/IOAPIC routing, PS/2 devices, PCI/PCIe, xHCI discovery, block devices,
+   AHCI, exFAT, e1000, and the monitor.
 3. The initramfs is mounted through VFS and also carries `srvros.exfat`.
 4. If an AHCI disk with the generated exFAT image is present, it becomes `/fat`.
    Otherwise `/fat` falls back to a memory-backed block device over the image
@@ -24,6 +25,8 @@ interrupts, syscalls, usermode entry, and context switching.
 Important pieces:
 
 - `kernel/src/main.c`: bootstrap sequence.
+- `kernel/src/bootlog.c`: in-memory boot log, `dmesg` source, and
+  `/fat/var/log/boot.log` persistence.
 - `kernel/src/arch/x86_64`: descriptor tables, interrupts, APIC, IOAPIC, PCI,
   serial, keyboard, mouse, and syscall dispatch.
 - `kernel/src/memory`: physical frames, heap, and virtual memory mapping.
@@ -32,6 +35,8 @@ Important pieces:
 - `kernel/src/vfs.c`: stable VFS node registry.
 - `kernel/src/block.c`: block-device registry and write-through cache.
 - `kernel/src/fs/exfat.c`: exFAT mount/read/write/directory operations.
+- `kernel/src/drivers/xhci.c`: xHCI PCI discovery and capability-register
+  diagnostics for real-hardware USB bring-up.
 - `kernel/src/net.c`: e1000-facing ARP, ICMP, DHCP, DNS, TCP, and fd handoff.
 - `kernel/src/gui.c`: fixed-size GUI IPC queues for the desktop experiment.
 
@@ -172,9 +177,23 @@ Implemented devices:
 
 - Memory-backed initramfs exFAT image.
 - AHCI SATA disks using IDENTIFY, READ DMA EXT, and WRITE DMA EXT.
+- GPT partition views over block devices, used by the UEFI USB image to expose
+  the ESP and exFAT data partitions as `ahci0p1`/`ahci0p2`.
 
 The Makefile can boot with one or two AHCI-attached exFAT images. This lets the
 same filesystem code run against both an embedded image and a real block path.
+
+## Real-Hardware Diagnostics
+
+All console output is mirrored into a fixed-size boot-log ring. The monitor
+`dmesg [bytes]` command dumps the full log or a trailing byte window, and the
+kernel writes `/fat/var/log/boot.log` after `/fat` mounts. Fatal exceptions clear
+the framebuffer to a panic page, print register/mapping context, and include the
+recent boot log so real-machine failures are readable without serial.
+
+The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
+Intel graphics discovery, xHCI capability registers, and block devices. The
+`xhci` monitor command prints the USB controller inventory directly.
 
 ## Networking
 

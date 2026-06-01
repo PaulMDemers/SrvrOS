@@ -1,4 +1,5 @@
 #include <srvros/console.h>
+#include <srvros/bootlog.h>
 #include <srvros/serial.h>
 
 #include <limine.h>
@@ -476,6 +477,7 @@ void console_init(struct limine_framebuffer *framebuffer) {
 }
 
 void console_putc(char c) {
+    bootlog_putc(c);
     serial_putc(c);
     framebuffer_putc(c);
 }

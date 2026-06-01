@@ -2,6 +2,7 @@
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
+#include <srvros/bootlog.h>
 #include <srvros/console.h>
 #include <srvros/e1000.h>
 #include <srvros/exfat.h>
@@ -22,6 +23,7 @@
 #include <srvros/vfs.h>
 #include <srvros/vmm.h>
 #include <srvros/workqueue.h>
+#include <srvros/xhci.h>
 
 #include <limine.h>
 #include <stdbool.h>
@@ -222,6 +224,16 @@ static void mount_exfat_volume(void) {
     }
 }
 
+static void persist_bootlog(void) {
+    exfat_create_directory("/fat/var");
+    exfat_create_directory("/fat/var/log");
+    if (bootlog_persist("/fat/var/log/boot.log")) {
+        console_write("bootlog: persisted /fat/var/log/boot.log\n");
+    } else {
+        console_write("bootlog: persist skipped\n");
+    }
+}
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -276,9 +288,11 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    xhci_init();
     intel_gfx_init();
     ahci_init();
     mount_exfat_volume();
+    persist_bootlog();
     e1000_init();
     if (e1000_available()) {
         uint8_t irq = e1000_irq_line();

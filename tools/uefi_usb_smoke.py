@@ -71,6 +71,8 @@ def main():
     parser.add_argument("--ovmf", default=default_ovmf_path())
     parser.add_argument("--boot-wait", type=float, default=90)
     parser.add_argument("--memory", default="2G")
+    parser.add_argument("--no-xhci", action="store_true",
+        help="Do not add QEMU's xHCI PCI controller to the smoke boot.")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -100,6 +102,8 @@ def main():
             "-display", "none",
             "-no-reboot",
         ]
+        if not args.no_xhci:
+            command.extend(["-device", "qemu-xhci,id=xhci"])
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -108,6 +112,8 @@ def main():
             output += read_until_any(sock, [b"srv> ", b" $ "], args.boot_wait)
             if b"srv> " in output:
                 sock.sendall(b"bootinfo\n")
+                output += read_until_any(sock, [b"srv> "], 10)
+                sock.sendall(b"dmesg 512\n")
                 output += read_until_any(sock, [b"srv> "], 10)
         finally:
             try:
@@ -128,6 +134,10 @@ def main():
         missing.append("PCI inventory")
     if "config=ecam" not in text:
         missing.append("ECAM PCI config")
+    if not args.no_xhci and "xhci: vendor=" not in text:
+        missing.append("xHCI inventory")
+    if "dmesg 512" not in text:
+        missing.append("dmesg output")
     if has_fatal_exception(text):
         print("uefi-usb-smoke: fatal exception detected", file=sys.stderr)
         return 2

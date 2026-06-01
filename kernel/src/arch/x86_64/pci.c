@@ -118,6 +118,9 @@ const char *pci_class_name(uint8_t class_code, uint8_t subclass) {
         }
         return "bridge";
     case 0x0c:
+        if (subclass == 0x03) {
+            return "usb";
+        }
         return "serial bus";
     default:
         return "device";
