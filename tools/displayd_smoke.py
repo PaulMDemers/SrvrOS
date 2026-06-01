@@ -114,6 +114,7 @@ def main():
     expected = [
         "displayd: root backbuffer ready",
         "displayd: mapped surface window SURFACE DEMO",
+        "surfacedemo: configure",
         "displayd: smoke ok",
         "displayd: exited",
     ]

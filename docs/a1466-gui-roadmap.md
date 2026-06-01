@@ -224,8 +224,8 @@ and route input.
 The checked-in `displayd` slice owns a root backbuffer, draws a
 resolution-aware shell scene, receives legacy GUI IPC messages, accepts v2
 surface-window and damage messages, composites kernel-managed client surfaces,
-and presents dirty cursor rectangles. The next slice is input/configure events
-for those surface clients.
+routes configure/focus/pointer/key events back to surface clients, and presents
+dirty cursor rectangles.
 
 ### GUI Protocol V2
 
@@ -241,11 +241,13 @@ Add a new protocol beside the legacy one:
   apps have been ported.
 
 Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
-`GUI_MSG_V2_DAMAGE_SURFACE`, and `GUI_MSG_V2_DESTROY_SURFACE` are wired through
-the existing GUI queue. Pixel storage is currently kernel-managed through
-`gui_surface_create`, `gui_surface_blit`, `gui_surface_copy`, and
-`gui_surface_destroy` wrappers. `/fat/bin/surfacedemo` is the first app using
-that path.
+`GUI_MSG_V2_DAMAGE_SURFACE`, `GUI_MSG_V2_DESTROY_SURFACE`,
+`GUI_MSG_V2_EVENT_CONFIGURE`, `GUI_MSG_V2_EVENT_FOCUS`,
+`GUI_MSG_V2_EVENT_POINTER_MOVE`, `GUI_MSG_V2_EVENT_POINTER_BUTTON`, and
+`GUI_MSG_V2_EVENT_KEY_DOWN` are wired through the existing GUI queue. Pixel
+storage is currently kernel-managed through `gui_surface_create`,
+`gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
+`/fat/bin/surfacedemo` is the first app using that path.
 
 ### Toolkit
 

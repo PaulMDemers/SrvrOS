@@ -614,7 +614,9 @@ presents damaged rectangles through `gfx_blit_rect`, and has its own hidden-QEMU
 smoke test. It now also accepts the first GUI protocol v2 messages for
 client-owned surfaces: apps create kernel-managed pixel surfaces, blit damaged
 rectangles into them, announce a surface window, and the compositor copies the
-surface into its root backbuffer. `/fat/bin/surfacedemo` exercises that path.
+surface into its root backbuffer. `displayd` also routes v2 configure, focus,
+pointer, and key events back to those clients so apps can react from their own
+process. `/fat/bin/surfacedemo` exercises that path.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

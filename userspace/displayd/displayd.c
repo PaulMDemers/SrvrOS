@@ -34,6 +34,7 @@ struct display_client {
     int64_t y;
     uint64_t width;
     uint64_t height;
+    int focused;
     char title[GUI_TEXT_MAX];
 };
 
@@ -41,6 +42,9 @@ struct display_state {
     struct display_metrics metrics;
     uint64_t gui_messages;
     uint64_t mouse_events;
+    uint64_t focused_surface_id;
+    uint64_t hovered_surface_id;
+    uint8_t last_buttons;
     struct display_client clients[DISPLAY_CLIENT_MAX];
 };
 
@@ -200,6 +204,100 @@ static struct display_client *alloc_client(struct display_state *state) {
     return 0;
 }
 
+static struct display_client *find_client_by_surface(struct display_state *state, uint64_t surface_id) {
+    if (surface_id == 0) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (state->clients[i].used && state->clients[i].surface_id == surface_id) {
+            return &state->clients[i];
+        }
+    }
+    return 0;
+}
+
+static void send_client_event(const struct display_client *client, uint64_t type,
+    int64_t x, int64_t y, uint64_t width, uint64_t height, int64_t value, const char *text) {
+    struct gui_message event;
+    if (client == 0 || !client->used || client->pid == 0) {
+        return;
+    }
+    memset(&event, 0, sizeof(event));
+    event.type = type;
+    event.target_pid = client->pid;
+    event.window_id = client->window_id;
+    event.control_id = client->surface_id;
+    event.x = x;
+    event.y = y;
+    event.width = width;
+    event.height = height;
+    event.value = value;
+    copy_text(event.text, text);
+    gui_send(&event);
+}
+
+static void mark_client_frame_dirty(struct ui_element *root, const struct display_client *client) {
+    if (root == 0 || client == 0 || !client->used) {
+        return;
+    }
+    ui_mark_dirty_rect(root,
+        client->x,
+        client->y,
+        client->width + 2,
+        client->height + WINDOW_TITLE_H + 2);
+}
+
+static void focus_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client) {
+    if (client != 0 && (!client->used || client->surface_id == 0)) {
+        client = 0;
+    }
+    uint64_t next_id = client != 0 ? client->surface_id : 0;
+    if (state->focused_surface_id == next_id) {
+        return;
+    }
+
+    struct display_client *old = find_client_by_surface(state, state->focused_surface_id);
+    if (old != 0) {
+        old->focused = 0;
+        mark_client_frame_dirty(root, old);
+        send_client_event(old, GUI_MSG_V2_EVENT_FOCUS, 0, 0,
+            old->width, old->height, 0, "");
+    }
+
+    state->focused_surface_id = next_id;
+    if (client != 0) {
+        client->focused = 1;
+        mark_client_frame_dirty(root, client);
+        send_client_event(client, GUI_MSG_V2_EVENT_FOCUS, 0, 0,
+            client->width, client->height, 1, "");
+    }
+}
+
+static struct display_client *client_at(struct display_state *state,
+    int64_t x, int64_t y, int64_t *local_x, int64_t *local_y) {
+    for (int64_t i = DISPLAY_CLIENT_MAX - 1; i >= 0; i--) {
+        struct display_client *client = &state->clients[i];
+        if (!client->used) {
+            continue;
+        }
+        int64_t content_x = client->x + 1;
+        int64_t content_y = client->y + WINDOW_TITLE_H + 1;
+        if (x >= content_x && y >= content_y &&
+            (uint64_t)(x - content_x) < client->width &&
+            (uint64_t)(y - content_y) < client->height) {
+            if (local_x != 0) {
+                *local_x = x - content_x;
+            }
+            if (local_y != 0) {
+                *local_y = y - content_y;
+            }
+            return client;
+        }
+    }
+    return 0;
+}
+
 static void draw_surface_client(struct ui_element *root, const struct display_client *client) {
     uint64_t frame_w = client->width + 2;
     uint64_t frame_h = client->height + WINDOW_TITLE_H + 2;
@@ -208,7 +306,8 @@ static void draw_surface_client(struct ui_element *root, const struct display_cl
     int64_t content_x = frame_x + 1;
     int64_t content_y = frame_y + WINDOW_TITLE_H + 1;
 
-    draw_panel(root, frame_x, frame_y, frame_w, frame_h, 0x17232d, 0x8fd0d4);
+    draw_panel(root, frame_x, frame_y, frame_w, frame_h, 0x17232d,
+        client->focused ? 0xf5b84b : 0x8fd0d4);
     ui_draw_rect(root, frame_x + 1, frame_y + 1, frame_w - 2, WINDOW_TITLE_H - 1, 0x2f6f68);
     ui_draw_text(root, frame_x + 12, frame_y + 8,
         client->title[0] != '\0' ? client->title : "SURFACE", 0xffffff);
@@ -379,6 +478,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 client->y = msg.y;
                 client->width = msg.width;
                 client->height = msg.height;
+                client->focused = 0;
                 copy_text(client->title, msg.text);
                 ui_mark_dirty_rect(root,
                     client->x,
@@ -392,6 +492,14 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 srv_puts(" pid=");
                 print_u64(client->pid);
                 srv_puts("\n");
+                send_client_event(client, GUI_MSG_V2_EVENT_CONFIGURE,
+                    client->x,
+                    client->y,
+                    client->width,
+                    client->height,
+                    0,
+                    "");
+                focus_client(root, state, client);
             }
         } else if (msg.type == GUI_MSG_V2_DAMAGE_SURFACE) {
             struct display_client *client = find_client(state,
@@ -416,6 +524,12 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                     client->y,
                     client->width + 2,
                     client->height + WINDOW_TITLE_H + 2);
+                if (state->focused_surface_id == client->surface_id) {
+                    focus_client(root, state, 0);
+                }
+                if (state->hovered_surface_id == client->surface_id) {
+                    state->hovered_surface_id = 0;
+                }
                 client->used = 0;
             }
         }
@@ -502,15 +616,26 @@ int main(int argc, char **argv) {
     for (;;) {
         int key = kbhit();
         int cursor_dirty = 0;
+        struct display_client *focused_client;
         old_mouse_x = mouse_x;
         old_mouse_y = mouse_y;
 
         handle_gui_messages(&root, &state);
-        if (key == 'q' || key == 'Q' || key == 27) {
-            break;
+        focused_client = find_client_by_surface(&state, state.focused_surface_id);
+        if (key != 0) {
+            if (focused_client != 0) {
+                send_client_event(focused_client, GUI_MSG_V2_EVENT_KEY_DOWN, 0, 0,
+                    focused_client->width, focused_client->height, key, "");
+            } else if (key == 'q' || key == 'Q' || key == 27) {
+                break;
+            }
         }
 
         if (mouse_scan(&mouse) > 0) {
+            uint8_t old_buttons = buttons;
+            int64_t local_x = 0;
+            int64_t local_y = 0;
+            struct display_client *client;
             if (gfx.width > CURSOR_W) {
                 mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - CURSOR_W);
             }
@@ -520,6 +645,23 @@ int main(int argc, char **argv) {
             buttons = mouse.buttons;
             cursor_dirty = mouse_x != old_mouse_x || mouse_y != old_mouse_y;
             state.mouse_events++;
+            client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
+            state.hovered_surface_id = client != 0 ? client->surface_id : 0;
+            if (client != 0 && cursor_dirty) {
+                send_client_event(client, GUI_MSG_V2_EVENT_POINTER_MOVE,
+                    local_x, local_y, client->width, client->height, buttons, "");
+            }
+            if (old_buttons != buttons) {
+                if (client != 0) {
+                    if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
+                        focus_client(&root, &state, client);
+                    }
+                    send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
+                        local_x, local_y, client->width, client->height, buttons, "");
+                } else if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
+                    focus_client(&root, &state, 0);
+                }
+            }
         }
 
         present_dirty(&root, mouse_x, mouse_y, old_mouse_x, old_mouse_y,
