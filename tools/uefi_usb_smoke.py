@@ -73,6 +73,8 @@ def main():
     parser.add_argument("--memory", default="2G")
     parser.add_argument("--no-xhci", action="store_true",
         help="Do not add QEMU's xHCI PCI controller to the smoke boot.")
+    parser.add_argument("--no-usb-kbd", action="store_true",
+        help="Do not attach a QEMU USB keyboard to the xHCI controller.")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -104,6 +106,8 @@ def main():
         ]
         if not args.no_xhci:
             command.extend(["-device", "qemu-xhci,id=xhci"])
+            if not args.no_usb_kbd:
+                command.extend(["-device", "usb-kbd,bus=xhci.0"])
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -134,8 +138,15 @@ def main():
         missing.append("PCI inventory")
     if "config=ecam" not in text:
         missing.append("ECAM PCI config")
-    if not args.no_xhci and "xhci: vendor=" not in text:
-        missing.append("xHCI inventory")
+    if not args.no_xhci:
+        if "xhci: vendor=" not in text or "op=yes" not in text:
+            missing.append("xHCI inventory")
+        if "enable_slot=1" not in text:
+            missing.append("xHCI command completion")
+        if not args.no_usb_kbd and "connected=1" not in text:
+            missing.append("xHCI connected port")
+        if not args.no_usb_kbd and "ports_enabled=1" not in text:
+            missing.append("xHCI port reset")
     if "dmesg 512" not in text:
         missing.append("dmesg output")
     if has_fatal_exception(text):

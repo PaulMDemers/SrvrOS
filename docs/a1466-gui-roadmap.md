@@ -105,11 +105,12 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 
 ### 5. Bring Up USB xHCI and HID
 
-- xHCI PCI discovery, MMIO mapping, and capability-register inventory are in
-  place.
-- Implement controller reset, command ring, event ring, device context, slot
-  enable, address-device, endpoint setup, and transfer rings.
-- Add USB hub/root-port enumeration.
+- xHCI PCI discovery, MMIO mapping, controller halt/reset, command/event rings,
+  No-op and Enable Slot command completion, and connected root-port reset
+  diagnostics are in place.
+- Implement device context allocation, address-device, endpoint setup, and
+  transfer rings.
+- Add USB descriptor walking and hub/root-port enumeration.
 - Add USB HID boot keyboard and mouse/trackpad support.
 - Merge USB keyboard events into the existing console/shell input path.
 - Merge USB pointer events into the GUI pointer path.
@@ -266,6 +267,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 ### Slice C: USB Control Path
 
 - Add xHCI skeleton, reset, rings, command completion, and root-port inventory.
+  QEMU smoke coverage now verifies No-op, Enable Slot, and USB keyboard port
+  reset through the xHCI path.
 - Add USB descriptor walking.
 - Add USB HID boot keyboard.
 - Add USB mouse/trackpad pointer events.

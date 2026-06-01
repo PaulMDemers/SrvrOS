@@ -176,9 +176,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   GUI receive) with smaller versioned structs and canary checks.
 - `uefi_usb_smoke.py`: boots `build/srvros-usb.img` through OVMF from a
   temporary copy, confirms the GPT/FAT32 Limine path reaches the kernel,
-  verifies ACPI MCFG/PCI ECAM discovery, exercises QEMU xHCI inventory,
-  checks `dmesg`, and confirms that the GPT exFAT data partition mounts as
-  `/fat`.
+  verifies ACPI MCFG/PCI ECAM discovery, exercises QEMU xHCI command
+  completion with No-op and Enable Slot, verifies a USB keyboard connected
+  root-port reset, checks `dmesg`, and confirms that the GPT exFAT data
+  partition mounts as `/fat`.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented
