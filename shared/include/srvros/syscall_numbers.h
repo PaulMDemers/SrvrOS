@@ -111,6 +111,7 @@
 #define SYS_SIGNAL_PENDING 106
 #define SYS_SIGNAL_MASK 107
 #define SYS_SIGNAL_CONSUME 108
+#define SYS_GFX_BLIT_RECT 109
 
 #define SRV_ABI_VERSION 1
 
@@ -360,6 +361,17 @@ struct srv_meminfo {
 #define SRV_MS_ASYNC 0x01
 #define SRV_MS_SYNC 0x02
 #define SRV_MS_INVALIDATE 0x04
+
+struct srv_gfx_blit_rect {
+    uint64_t abi_version;
+    uint64_t struct_size;
+    uint64_t x;
+    uint64_t y;
+    uint64_t width;
+    uint64_t height;
+    uint64_t stride;
+    const uint32_t *pixels;
+};
 
 #define SRV_POLLIN 0x0001
 #define SRV_POLLOUT 0x0004

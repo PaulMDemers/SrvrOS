@@ -166,6 +166,14 @@ static int check_gfx(void) {
         full.accel_backend > GFX_ACCEL_INTEL_GEN8) {
         return fail("gfx-full-fields");
     }
+
+    uint32_t pixels[4] = {
+        0x1f6feb, 0x2ea043,
+        0xd29922, 0xf85149,
+    };
+    if (blitrect(0, 0, 2, 2, pixels, 2) != 0) {
+        return fail("gfx-blit");
+    }
     return 0;
 }
 

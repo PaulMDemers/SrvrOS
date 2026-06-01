@@ -1,10 +1,6 @@
 #include <srvros/gfx.h>
 #include <srvros/sys.h>
 
-#define SYS_GFX_INFO 15
-#define SYS_GFX_PUT_PIXEL 16
-#define SYS_GFX_FILL_RECT 17
-
 int gfx_info(struct gfx_info *info) {
     if (info != 0) {
         info->abi_version = SRV_ABI_VERSION;
@@ -19,4 +15,19 @@ int putpixel(uint64_t x, uint64_t y, uint32_t rgb) {
 
 int fillrect(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb) {
     return (int)srv_syscall5(SYS_GFX_FILL_RECT, (long)x, (long)y, (long)width, (long)height, (long)rgb);
+}
+
+int blitrect(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+    const uint32_t *rgb_pixels, uint64_t stride) {
+    struct srv_gfx_blit_rect request = {
+        .abi_version = SRV_ABI_VERSION,
+        .struct_size = sizeof(request),
+        .x = x,
+        .y = y,
+        .width = width,
+        .height = height,
+        .stride = stride,
+        .pixels = rgb_pixels,
+    };
+    return (int)srv_syscall1(SYS_GFX_BLIT_RECT, (long)&request);
 }

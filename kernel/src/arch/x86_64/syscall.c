@@ -1465,6 +1465,77 @@ static int64_t syscall_gfx_fill_rect(uint64_t x, uint64_t y, uint64_t width, uin
     return ok ? 0 : -1;
 }
 
+static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_request) {
+    struct srv_gfx_blit_rect request;
+    if (abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) {
+        return -1;
+    }
+
+    uint64_t x = request.x;
+    uint64_t y = request.y;
+    uint64_t width = request.width;
+    uint64_t height = request.height;
+    uint64_t stride = request.stride;
+    const uint32_t *pixels = request.pixels;
+
+    if (width == 0 || height == 0 || stride < width ||
+        width > 4096 || height > 4096 ||
+        height - 1 > UINT64_MAX / stride ||
+        (height - 1) * stride > UINT64_MAX - width ||
+        ((height - 1) * stride + width) > UINT64_MAX / sizeof(uint32_t)) {
+        return -1;
+    }
+    if (!user_buffer_ok(pixels, ((height - 1) * stride + width) * sizeof(uint32_t), false)) {
+        return -1;
+    }
+
+    uint64_t row_bytes = width * sizeof(uint32_t);
+    uint64_t chunk_rows = (64 * 1024) / row_bytes;
+    if (chunk_rows == 0) {
+        chunk_rows = 1;
+    }
+    if (chunk_rows > height) {
+        chunk_rows = height;
+    }
+    uint32_t *copy = kmalloc((size_t)(chunk_rows * row_bytes));
+    if (copy == NULL) {
+        return -1;
+    }
+
+    for (uint64_t row = 0; row < height; row += chunk_rows) {
+        uint64_t rows = height - row;
+        if (rows > chunk_rows) {
+            rows = chunk_rows;
+        }
+        for (uint64_t copy_row = 0; copy_row < rows; copy_row++) {
+            const uint32_t *source = pixels + (row + copy_row) * stride;
+            if (!copy_from_user(copy + copy_row * width, source, row_bytes)) {
+                kfree(copy);
+                return -1;
+            }
+        }
+
+        uint64_t previous = vmm_current_address_space();
+        uint64_t kernel = vmm_kernel_address_space();
+        bool ok;
+        if (kernel != 0 && previous != kernel) {
+            vmm_switch_address_space(kernel);
+        }
+        ok = console_blit_rgb(x, y + row, width, rows, copy, width);
+        if (kernel != 0 && previous != kernel) {
+            vmm_switch_address_space(previous);
+        }
+        if (!ok) {
+            kfree(copy);
+            return -1;
+        }
+    }
+
+    kfree(copy);
+    return 0;
+}
+
 static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
     struct mouse_event kernel_event;
     struct syscall_mouse_event copy = {
@@ -2346,6 +2417,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SIGNAL_CONSUME:
         frame->rax = (uint64_t)syscall_signal_consume(frame->rdi, (uint64_t *)frame->rsi);
+        return;
+    case SYS_GFX_BLIT_RECT:
+        frame->rax = (uint64_t)syscall_gfx_blit_rect((const struct srv_gfx_blit_rect *)frame->rdi);
         return;
     default:
         frame->rax = (uint64_t)-1;

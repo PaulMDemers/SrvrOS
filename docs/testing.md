@@ -172,8 +172,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   readiness stays visible until `accept4`, accepted streams report writable
   readiness, and readable readiness repeats once payload arrives.
 - `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
-  structured syscalls (`stat`, `statfs`, process list, console/gfx info, and
-  GUI receive) with smaller versioned structs and canary checks.
+  structured syscalls (`stat`, `statfs`, process list, console/gfx info,
+  graphics blit, and GUI receive) with smaller versioned structs and canary
+  checks.
 - `uefi_usb_smoke.py`: boots `build/srvros-usb.img` through OVMF from a
   temporary copy, confirms the GPT/FAT32 Limine path reaches the kernel,
   verifies ACPI MCFG/PCI ECAM discovery, exercises QEMU xHCI command

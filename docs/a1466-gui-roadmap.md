@@ -293,6 +293,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Detect Intel integrated graphics early and advertise accelerator metadata to
   userspace without making the GUI depend on acceleration being available.
 - Add compositor-only framebuffer mapping or a bulk blit/present syscall.
+  The first bulk `gfx_blit_rect` syscall is in place for root-backbuffer
+  dirty-rect presents; shared/mapped surfaces remain future work.
 - Add kernel-managed surface allocation/mapping.
 - Add damage-rectangle helpers and tests.
 

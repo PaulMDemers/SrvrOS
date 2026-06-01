@@ -105,7 +105,7 @@ The ABI currently covers:
 - Network: DHCP, status, DNS, listen, accept, connect.
 - Console/graphics/input: console info, clear, cursor positioning, a small
   framebuffer-side ANSI CSI subset for common cursor/erase sequences, key scan,
-  framebuffer info/pixels/rects, mouse scan.
+  framebuffer info/pixels/rects/blits, mouse scan.
 - Memory mapping: `mmap`, `munmap`, `mprotect`, `msync`.
 - GUI IPC: register server, send message, receive message.
 
@@ -622,7 +622,9 @@ The graphics ABI now carries accelerator metadata beside the framebuffer
 geometry. Intel integrated graphics discovery is initialized during boot and is
 visible through the monitor `gpu` command plus `gfx_info` flags, allowing the
 future compositor to choose software, Intel blitter, or Intel render backends
-without changing app-facing surface semantics.
+without changing app-facing surface semantics. `gfx_blit_rect` gives that path
+a bulk dirty-rectangle present primitive before shared framebuffer mappings
+exist.
 
 ## Testing Strategy
 

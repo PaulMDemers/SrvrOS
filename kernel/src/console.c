@@ -609,3 +609,36 @@ bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t hei
     fill_rect(x, y, width, height, rgb_color(rgb));
     return true;
 }
+
+bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+    const uint32_t *rgb_pixels, uint64_t stride) {
+    if (fb == NULL || rgb_pixels == NULL || width == 0 || height == 0 ||
+        stride < width || x >= fb->width || y >= fb->height) {
+        return false;
+    }
+
+    uint64_t copy_width = width;
+    uint64_t copy_height = height;
+    if (x + copy_width > fb->width) {
+        copy_width = fb->width - x;
+    }
+    if (y + copy_height > fb->height) {
+        copy_height = fb->height - y;
+    }
+
+    volatile uint32_t *pixels = fb->address;
+    uint64_t fb_stride = fb->pitch / 4;
+    bool direct_rgb = fb->bpp == 32 &&
+        fb->red_mask_size == 8 && fb->red_mask_shift == 16 &&
+        fb->green_mask_size == 8 && fb->green_mask_shift == 8 &&
+        fb->blue_mask_size == 8 && fb->blue_mask_shift == 0;
+
+    for (uint64_t py = 0; py < copy_height; py++) {
+        volatile uint32_t *destination = pixels + (y + py) * fb_stride + x;
+        const uint32_t *source = rgb_pixels + py * stride;
+        for (uint64_t px = 0; px < copy_width; px++) {
+            destination[px] = direct_rgb ? source[px] : rgb_color(source[px]);
+        }
+    }
+    return true;
+}

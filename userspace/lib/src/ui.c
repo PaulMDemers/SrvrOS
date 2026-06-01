@@ -397,6 +397,11 @@ void ui_present_rect(struct ui_element *root, int64_t x, int64_t y,
     if (root->surface.pixels == 0) {
         fillrect((uint64_t)x0, (uint64_t)y0,
             (uint64_t)(x1 - x0), (uint64_t)(y1 - y0), root->background);
+    } else if (blitrect((uint64_t)x0, (uint64_t)y0, (uint64_t)(x1 - x0),
+            (uint64_t)(y1 - y0),
+            root->surface.pixels + (uint64_t)y0 * root->surface.stride + (uint64_t)x0,
+            root->surface.stride) == 0) {
+        return;
     } else {
         present_surface_rect(root, x0, y0, x1 - x0, y1 - y0);
     }

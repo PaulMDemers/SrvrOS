@@ -35,5 +35,7 @@ bool console_framebuffer_info(uint64_t *width_out, uint64_t *height_out, uint64_
 bool console_display_info(struct console_display_info *info);
 bool console_put_pixel(uint64_t x, uint64_t y, uint32_t rgb);
 bool console_fill_rectangle(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb);
+bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+    const uint32_t *rgb_pixels, uint64_t stride);
 
 #endif
