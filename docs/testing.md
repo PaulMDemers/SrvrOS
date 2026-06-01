@@ -428,9 +428,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 - `displayd_smoke.py`: hidden-QEMU compositor seed smoke that verifies
   `/fat/bin/displayd --smoke-autostart` registers, draws its root backbuffer,
-  launches `/fat/bin/surfacedemo` and `/fat/bin/gui2demo`, maps both v2 surface
-  windows, routes configure events to both clients, and exits without a fatal
-  exception.
+  launches `/fat/bin/surfacedemo`, `/fat/bin/gui2demo`, and `/fat/bin/notes2`,
+  maps all three v2 surface windows, routes configure events to the clients, and
+  exits without a fatal exception.
 
 ## DNS Test Domains
 

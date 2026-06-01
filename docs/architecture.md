@@ -363,7 +363,7 @@ The generated `/fat/bin` command set is tracked in
 - Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
   `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
 - GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `surfacedemo`,
-  `gui2demo`, `calcgui`, `notesgui`, `textedit`, `imgedit`, `sysabi`, `spin`,
+  `gui2demo`, `calcgui`, `notesgui`, `notes2`, `textedit`, `imgedit`, `sysabi`, `spin`,
   `fpdemo`, `posixdemo`,
   `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
@@ -618,9 +618,12 @@ rectangles into them, announce a surface window, and the compositor copies the
 surface into its root backbuffer. `displayd` also routes v2 configure, focus,
 pointer, and key events back to those clients so apps can react from their own
 process. The app-side `gui2` library wraps that protocol with window open/close,
-surface present/damage, event polling, and early button/textbox widgets.
+surface present/damage, event polling, theme/layout helpers, shared widget
+dispatch, and early button/textbox widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
-`/fat/bin/gui2demo` exercises the first app-owned widget path.
+`/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes2`
+is the first small GUI2 utility, with a focused textbox and buttons rendered
+inside an app-owned surface.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

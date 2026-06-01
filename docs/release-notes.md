@@ -44,6 +44,10 @@ server.
 - Adds `gui2`, an app-side helper library for v2 surface windows, dirty
   presents, event polling, and first button/textbox widgets. `/fat/bin/gui2demo`
   exercises that path under the displayd smoke.
+- Gives `gui2` a shared theme, row layout helper, focus-aware widget dispatch,
+  and textbox cursor support, then adds `/fat/bin/notes2` as the first small
+  GUI2 utility app. The displayd smoke now launches and maps it beside the raw
+  surface and widget demos.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

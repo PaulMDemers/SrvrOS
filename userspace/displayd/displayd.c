@@ -618,6 +618,14 @@ int main(int argc, char **argv) {
             print_u64((uint64_t)pid);
             srv_puts("\n");
         }
+        pid = srv_spawn_bg("/fat/bin/notes2");
+        srv_puts("displayd: launched notes2 pid=");
+        if (pid < 0) {
+            srv_puts("failed\n");
+        } else {
+            print_u64((uint64_t)pid);
+            srv_puts("\n");
+        }
     }
 
     start_ticks = (uint64_t)srv_ticks();

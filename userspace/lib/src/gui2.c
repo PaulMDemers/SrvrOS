@@ -4,6 +4,24 @@
 #include <stdlib.h>
 #include <string.h>
 
+static const struct gui2_theme default_theme = {
+    .canvas = 0x101820,
+    .panel = 0x182632,
+    .panel_alt = 0x20313b,
+    .field = 0x0f1720,
+    .border = 0x6a8695,
+    .border_focus = 0xf5b84b,
+    .text = 0xffffff,
+    .text_muted = 0x8fa9b6,
+    .accent = 0x3d63df,
+    .accent_hover = 0x4f74b8,
+    .accent_down = 0x2f4b74,
+    .danger = 0x8a3f48,
+    .pad = 12,
+    .gap = 8,
+    .control_h = 30,
+};
+
 static void copy_text(char *to, const char *from) {
     uint64_t i = 0;
     if (to == 0) {
@@ -34,6 +52,13 @@ static int event_hits(const struct gui2_event *event,
         (uint64_t)(event->y - y) < height;
 }
 
+static int rect_contains(int64_t x, int64_t y, uint64_t width, uint64_t height,
+    int64_t px, int64_t py) {
+    return px >= x && py >= y &&
+        (uint64_t)(px - x) < width &&
+        (uint64_t)(py - y) < height;
+}
+
 static void send_window_msg(const struct gui2_window *window, uint64_t type,
     int64_t x, int64_t y, uint64_t width, uint64_t height,
     int64_t value, const char *text) {
@@ -55,6 +80,10 @@ static void send_window_msg(const struct gui2_window *window, uint64_t type,
 
 uint32_t gui2_rgb(uint8_t r, uint8_t g, uint8_t b) {
     return ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+}
+
+const struct gui2_theme *gui2_theme_default(void) {
+    return &default_theme;
 }
 
 int gui2_window_open(struct gui2_window *window, uint64_t window_id,
@@ -255,6 +284,53 @@ void gui2_text(struct gui2_window *window, int64_t x, int64_t y,
     gui2_window_mark_dirty(window, x, y, 8 * (text != 0 ? strlen(text) : 1), 9);
 }
 
+void gui2_panel(struct gui2_window *window, int64_t x, int64_t y,
+    uint64_t width, uint64_t height, uint32_t fill) {
+    const struct gui2_theme *theme = gui2_theme_default();
+    if (window == 0 || width == 0 || height == 0) {
+        return;
+    }
+    gui2_rect(window, x, y, width, height, fill);
+    gui2_rect(window, x, y, width, 1, theme->border);
+    gui2_rect(window, x, y + (int64_t)height - 1, width, 1, theme->border);
+    gui2_rect(window, x, y, 1, height, theme->border);
+    gui2_rect(window, x + (int64_t)width - 1, y, 1, height, theme->border);
+}
+
+void gui2_label(struct gui2_window *window, int64_t x, int64_t y,
+    const char *text) {
+    gui2_text(window, x, y, text, gui2_theme_default()->text);
+}
+
+void gui2_layout_begin(struct gui2_layout *layout, int64_t x, int64_t y,
+    uint64_t width) {
+    const struct gui2_theme *theme = gui2_theme_default();
+    if (layout == 0) {
+        return;
+    }
+    layout->x = x;
+    layout->y = y;
+    layout->width = width;
+    layout->gap = theme->gap;
+    layout->control_h = theme->control_h;
+}
+
+struct gui2_rect gui2_layout_next(struct gui2_layout *layout, uint64_t height) {
+    struct gui2_rect rect = {0};
+    if (layout == 0) {
+        return rect;
+    }
+    if (height == 0) {
+        height = layout->control_h;
+    }
+    rect.x = layout->x;
+    rect.y = layout->y;
+    rect.width = layout->width;
+    rect.height = height;
+    layout->y += (int64_t)(height + layout->gap);
+    return rect;
+}
+
 void gui2_button_init(struct gui2_button *button, int64_t x, int64_t y,
     uint64_t width, uint64_t height, const char *label) {
     if (button == 0) {
@@ -269,17 +345,22 @@ void gui2_button_init(struct gui2_button *button, int64_t x, int64_t y,
 }
 
 void gui2_button_draw(struct gui2_window *window, const struct gui2_button *button) {
+    const struct gui2_theme *theme = gui2_theme_default();
     if (window == 0 || button == 0) {
         return;
     }
-    uint32_t fill = button->pressed ? gui2_rgb(0x2f, 0x4b, 0x74) :
-        button->hovered ? gui2_rgb(0x4f, 0x74, 0xb8) : gui2_rgb(0x3d, 0x63, 0xdf);
+    uint32_t fill = button->pressed ? theme->accent_down :
+        button->hovered ? theme->accent_hover : theme->accent;
+    uint32_t border = button->focused ? theme->border_focus : theme->border;
     gui2_rect(window, button->x, button->y, button->width, button->height, fill);
-    gui2_rect(window, button->x, button->y, button->width, 1, gui2_rgb(0xb9, 0xd8, 0xdf));
+    gui2_rect(window, button->x, button->y, button->width, 1, border);
     gui2_rect(window, button->x, button->y + (int64_t)button->height - 1,
-        button->width, 1, gui2_rgb(0x18, 0x24, 0x34));
+        button->width, 1, border);
+    gui2_rect(window, button->x, button->y, 1, button->height, border);
+    gui2_rect(window, button->x + (int64_t)button->width - 1, button->y,
+        1, button->height, border);
     gui2_text(window, button->x + 8,
-        button->y + (int64_t)((button->height - 7) / 2), button->label, gui2_rgb(0xff, 0xff, 0xff));
+        button->y + (int64_t)((button->height - 7) / 2), button->label, theme->text);
 }
 
 int gui2_button_event(struct gui2_button *button, const struct gui2_event *event) {
@@ -290,18 +371,28 @@ int gui2_button_event(struct gui2_button *button, const struct gui2_event *event
     if (event->type == GUI2_EVENT_POINTER_MOVE) {
         int old = button->hovered;
         button->hovered = hit;
-        return old != button->hovered;
+        return old != button->hovered ? GUI2_WIDGET_DIRTY : GUI2_WIDGET_NONE;
     }
     if (event->type == GUI2_EVENT_POINTER_BUTTON && (event->changed_buttons & 1) != 0) {
         int old_pressed = button->pressed;
         button->pressed = hit && (event->buttons & 1) != 0;
         if (old_pressed && (event->buttons & 1) == 0 && hit) {
             button->clicks++;
-            return 1;
+            return GUI2_WIDGET_DIRTY | GUI2_WIDGET_CLICK;
         }
-        return old_pressed != button->pressed;
+        return old_pressed != button->pressed ? GUI2_WIDGET_DIRTY : GUI2_WIDGET_NONE;
     }
-    return 0;
+    if (event->type == GUI2_EVENT_KEY_DOWN && button->focused &&
+        (event->key == '\n' || event->key == '\r' || event->key == ' ')) {
+        button->clicks++;
+        return GUI2_WIDGET_DIRTY | GUI2_WIDGET_CLICK;
+    }
+    return GUI2_WIDGET_NONE;
+}
+
+int gui2_button_contains(const struct gui2_button *button, int64_t x, int64_t y) {
+    return button != 0 && rect_contains(button->x, button->y,
+        button->width, button->height, x, y);
 }
 
 void gui2_textbox_init(struct gui2_textbox *textbox, int64_t x, int64_t y,
@@ -319,22 +410,39 @@ void gui2_textbox_init(struct gui2_textbox *textbox, int64_t x, int64_t y,
     if (buffer != 0 && capacity != 0) {
         buffer[0] = '\0';
     }
+    textbox->length = 0;
+    textbox->cursor = 0;
+    textbox->placeholder = "TYPE HERE";
+}
+
+void gui2_textbox_set_placeholder(struct gui2_textbox *textbox, const char *placeholder) {
+    if (textbox != 0) {
+        textbox->placeholder = placeholder;
+    }
 }
 
 void gui2_textbox_draw(struct gui2_window *window, const struct gui2_textbox *textbox) {
+    const struct gui2_theme *theme = gui2_theme_default();
     if (window == 0 || textbox == 0) {
         return;
     }
-    uint32_t border = textbox->focused ? gui2_rgb(0xf5, 0xb8, 0x4b) : gui2_rgb(0x6a, 0x86, 0x95);
-    gui2_rect(window, textbox->x, textbox->y, textbox->width, textbox->height, gui2_rgb(0x0f, 0x17, 0x20));
+    uint32_t border = textbox->focused ? theme->border_focus : theme->border;
+    int has_text = textbox->buffer != 0 && textbox->buffer[0] != '\0';
+    gui2_rect(window, textbox->x, textbox->y, textbox->width, textbox->height, theme->field);
     gui2_rect(window, textbox->x, textbox->y, textbox->width, 1, border);
     gui2_rect(window, textbox->x, textbox->y + (int64_t)textbox->height - 1, textbox->width, 1, border);
     gui2_rect(window, textbox->x, textbox->y, 1, textbox->height, border);
     gui2_rect(window, textbox->x + (int64_t)textbox->width - 1, textbox->y, 1, textbox->height, border);
     gui2_text(window, textbox->x + 8, textbox->y + 8,
-        textbox->buffer != 0 && textbox->buffer[0] != '\0' ? textbox->buffer : "TYPE HERE",
-        textbox->buffer != 0 && textbox->buffer[0] != '\0' ?
-            gui2_rgb(0xff, 0xff, 0xff) : gui2_rgb(0x8f, 0xa9, 0xb6));
+        has_text ? textbox->buffer : textbox->placeholder,
+        has_text ? theme->text : theme->text_muted);
+    if (textbox->focused) {
+        int64_t cursor_x = textbox->x + 8 + (int64_t)(textbox->cursor * 6);
+        if (cursor_x < textbox->x + (int64_t)textbox->width - 5) {
+            gui2_rect(window, cursor_x, textbox->y + 6, 1, textbox->height - 12,
+                theme->border_focus);
+        }
+    }
 }
 
 int gui2_textbox_event(struct gui2_textbox *textbox, const struct gui2_event *event) {
@@ -346,19 +454,136 @@ int gui2_textbox_event(struct gui2_textbox *textbox, const struct gui2_event *ev
         int was_focused = textbox->focused;
         textbox->focused = event_hits(event, textbox->x, textbox->y,
             textbox->width, textbox->height);
-        return was_focused != textbox->focused;
+        if (textbox->focused) {
+            textbox->cursor = textbox->length;
+        }
+        return was_focused != textbox->focused ? GUI2_WIDGET_DIRTY | GUI2_WIDGET_FOCUS : GUI2_WIDGET_NONE;
     }
     if (event->type == GUI2_EVENT_KEY_DOWN && textbox->focused &&
         textbox->buffer != 0 && textbox->capacity != 0) {
-        if ((event->key == 8 || event->key == 127) && textbox->length > 0) {
-            textbox->buffer[--textbox->length] = '\0';
-            return 1;
+        if ((event->key == 8 || event->key == 127) && textbox->cursor > 0) {
+            for (size_t i = textbox->cursor - 1; i < textbox->length; i++) {
+                textbox->buffer[i] = textbox->buffer[i + 1];
+            }
+            textbox->cursor--;
+            textbox->length--;
+            return GUI2_WIDGET_DIRTY | GUI2_WIDGET_VALUE;
+        }
+        if (event->key == 4 && textbox->cursor < textbox->length) {
+            for (size_t i = textbox->cursor; i < textbox->length; i++) {
+                textbox->buffer[i] = textbox->buffer[i + 1];
+            }
+            textbox->length--;
+            return GUI2_WIDGET_DIRTY | GUI2_WIDGET_VALUE;
+        }
+        if (event->key == 2 && textbox->cursor > 0) {
+            textbox->cursor--;
+            return GUI2_WIDGET_DIRTY;
+        }
+        if (event->key == 6 && textbox->cursor < textbox->length) {
+            textbox->cursor++;
+            return GUI2_WIDGET_DIRTY;
         }
         if (event->key >= 32 && event->key < 127 && textbox->length + 1 < textbox->capacity) {
-            textbox->buffer[textbox->length++] = (char)event->key;
+            for (size_t i = textbox->length + 1; i > textbox->cursor; i--) {
+                textbox->buffer[i] = textbox->buffer[i - 1];
+            }
+            textbox->buffer[textbox->cursor++] = (char)event->key;
+            textbox->length++;
             textbox->buffer[textbox->length] = '\0';
-            return 1;
+            return GUI2_WIDGET_DIRTY | GUI2_WIDGET_VALUE;
         }
     }
+    return GUI2_WIDGET_NONE;
+}
+
+int gui2_textbox_contains(const struct gui2_textbox *textbox, int64_t x, int64_t y) {
+    return textbox != 0 && rect_contains(textbox->x, textbox->y,
+        textbox->width, textbox->height, x, y);
+}
+
+void gui2_context_init(struct gui2_context *context) {
+    if (context != 0) {
+        memset(context, 0, sizeof(*context));
+    }
+}
+
+static int control_contains(const struct gui2_control *control, int64_t x, int64_t y) {
+    if (control == 0 || control->ptr == 0) {
+        return 0;
+    }
+    if (control->kind == GUI2_CONTROL_BUTTON) {
+        return gui2_button_contains((const struct gui2_button *)control->ptr, x, y);
+    }
+    if (control->kind == GUI2_CONTROL_TEXTBOX) {
+        return gui2_textbox_contains((const struct gui2_textbox *)control->ptr, x, y);
+    }
     return 0;
+}
+
+static void control_set_focus(struct gui2_control *control, int focused) {
+    if (control == 0 || control->ptr == 0) {
+        return;
+    }
+    if (control->kind == GUI2_CONTROL_BUTTON) {
+        ((struct gui2_button *)control->ptr)->focused = focused;
+    } else if (control->kind == GUI2_CONTROL_TEXTBOX) {
+        struct gui2_textbox *textbox = (struct gui2_textbox *)control->ptr;
+        textbox->focused = focused;
+        if (focused && textbox->cursor > textbox->length) {
+            textbox->cursor = textbox->length;
+        }
+    }
+}
+
+static int control_event(struct gui2_control *control, const struct gui2_event *event) {
+    if (control == 0 || control->ptr == 0 || event == 0) {
+        return GUI2_WIDGET_NONE;
+    }
+    if (control->kind == GUI2_CONTROL_BUTTON) {
+        return gui2_button_event((struct gui2_button *)control->ptr, event);
+    }
+    if (control->kind == GUI2_CONTROL_TEXTBOX) {
+        return gui2_textbox_event((struct gui2_textbox *)control->ptr, event);
+    }
+    return GUI2_WIDGET_NONE;
+}
+
+int gui2_dispatch_event(struct gui2_context *context, const struct gui2_event *event,
+    const struct gui2_control *controls, size_t count) {
+    int result = GUI2_WIDGET_NONE;
+    if (context == 0 || event == 0 || controls == 0) {
+        return result;
+    }
+    if (event->type == GUI2_EVENT_POINTER_MOVE) {
+        for (size_t i = 0; i < count; i++) {
+            struct gui2_control control = controls[i];
+            result |= control_event(&control, event);
+        }
+        return result;
+    }
+    if (event->type == GUI2_EVENT_POINTER_BUTTON && (event->changed_buttons & 1) != 0 &&
+        (event->buttons & 1) != 0) {
+        struct gui2_control next_focus = {0};
+        for (size_t i = 0; i < count; i++) {
+            if (control_contains(&controls[i], event->x, event->y)) {
+                next_focus = controls[i];
+            }
+        }
+        if (context->focused.ptr != next_focus.ptr || context->focused.kind != next_focus.kind) {
+            control_set_focus(&context->focused, 0);
+            context->focused = next_focus;
+            control_set_focus(&context->focused, 1);
+            result |= GUI2_WIDGET_DIRTY | GUI2_WIDGET_FOCUS;
+        }
+    }
+    if (event->type == GUI2_EVENT_KEY_DOWN) {
+        result |= control_event(&context->focused, event);
+        return result;
+    }
+    for (size_t i = 0; i < count; i++) {
+        struct gui2_control control = controls[i];
+        result |= control_event(&control, event);
+    }
+    return result;
 }

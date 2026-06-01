@@ -248,9 +248,11 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 storage is currently kernel-managed through `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window
-open/close, dirty presents, event polling, buttons, and textboxes.
+open/close, dirty presents, event polling, theme/layout helpers, focus-aware
+widget dispatch, buttons, and textboxes.
 `/fat/bin/surfacedemo` now uses it for a raw animated surface, and
-`/fat/bin/gui2demo` uses it for the first v2 widget sample.
+`/fat/bin/gui2demo` uses it for the first v2 widget sample. `/fat/bin/notes2`
+uses the same toolkit pieces for a small utility app under `displayd`.
 
 ### Toolkit
 
