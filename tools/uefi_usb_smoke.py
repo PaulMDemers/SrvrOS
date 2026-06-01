@@ -141,6 +141,8 @@ def main():
         help="Do not attach a QEMU USB keyboard to the xHCI controller.")
     parser.add_argument("--usb-type-text", default="",
         help="Type this monitor command through QEMU's keyboard event path, then press Enter.")
+    parser.add_argument("--usb-type-expect", default="",
+        help="Text expected in serial output after --usb-type-text is submitted.")
     parser.add_argument("--usb-key-delay", type=float, default=0.05)
     args = parser.parse_args()
 
@@ -224,6 +226,11 @@ def main():
             missing.append("USB HID keyboard enumeration")
         if not args.no_usb_kbd and "addressed=1 configured=1 hid=1" not in text:
             missing.append("USB HID keyboard device state")
+        if args.usb_type_text:
+            if "reports=0" in text or "intr=0" in text:
+                missing.append("USB HID keyboard input reports")
+            if args.usb_type_expect and args.usb_type_expect not in text:
+                missing.append("USB HID typed command output")
     if "dmesg 512" not in text:
         missing.append("dmesg output")
     if has_fatal_exception(text):

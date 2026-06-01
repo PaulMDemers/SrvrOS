@@ -180,9 +180,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   completion with No-op and Enable Slot, verifies a USB keyboard connected
   root-port reset, confirms the USB keyboard is addressed/configured as a HID
   boot keyboard, checks `dmesg`, and confirms that the GPT exFAT data partition
-  mounts as `/fat`. The optional `--usb-type-text` hook sends QMP keyboard
-  events for interactive experiments; the default headless smoke asserts the
-  reliable enumeration/device-state markers.
+  mounts as `/fat`. The optional `--usb-type-text` plus `--usb-type-expect`
+  hook sends QMP keyboard events through QEMU's USB keyboard path and can assert
+  that the typed command reached the monitor while HID interrupt report counters
+  advanced.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented

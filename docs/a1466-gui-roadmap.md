@@ -109,9 +109,10 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
   No-op and Enable Slot command completion, and connected root-port reset
   diagnostics are in place. The first USB device path now allocates xHCI device
   contexts, addresses/configures QEMU's USB keyboard, walks descriptors, and
-  configures a HID boot-keyboard interrupt endpoint.
-- Finish interrupt-driven or reliably polled USB keyboard report delivery into
-  the console/shell input path on real hardware.
+  configures a HID boot-keyboard interrupt endpoint. QEMU smoke coverage now
+  types a monitor command through the USB keyboard path and verifies HID reports
+  feed the console input queue.
+- Validate the same USB keyboard report path on the A1466 internal keyboard.
 - Add broader USB hub/root-port enumeration beyond the first directly attached
   device.
 - Add USB HID mouse/trackpad support and merge pointer events into the GUI path.

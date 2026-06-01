@@ -900,10 +900,10 @@ static bool configure_interrupt_endpoint(struct xhci_device *device) {
     context_write32(device->input_context, 1, 1, context_read32(device->output_context, 0, 1));
 
     uint64_t endpoint_context = (uint64_t)device->interrupt_dci + 1;
-    uint32_t ep_info = ((uint32_t)device->interrupt_interval << 16) | (3u << 1) | (7u << 3);
-    uint32_t packet = ((uint32_t)device->interrupt_max_packet << 16);
+    uint32_t ep_info = ((uint32_t)device->interrupt_interval << 16);
+    uint32_t ep_type_packet = (3u << 1) | (7u << 3) | ((uint32_t)device->interrupt_max_packet << 16);
     context_write32(device->input_context, endpoint_context, 0, ep_info);
-    context_write32(device->input_context, endpoint_context, 1, packet);
+    context_write32(device->input_context, endpoint_context, 1, ep_type_packet);
     context_write32(device->input_context, endpoint_context, 2, (uint32_t)(device->interrupt_ring_phys | 1u));
     context_write32(device->input_context, endpoint_context, 3, (uint32_t)(device->interrupt_ring_phys >> 32));
     context_write32(device->input_context, endpoint_context, 4, device->interrupt_max_packet);
