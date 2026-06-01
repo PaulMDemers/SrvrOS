@@ -402,8 +402,11 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
+
+static void command_pci(void);
+static void command_ps(void);
 
 static void command_bootinfo(void) {
     struct console_display_info display;
@@ -430,6 +433,38 @@ static void command_bootinfo(void) {
     intel_gfx_print_status();
     xhci_print_status();
     block_print_status();
+}
+
+static void command_hwdiag(void) {
+    console_write("hwdiag: begin\n");
+    console_write("== bootinfo ==\n");
+    command_bootinfo();
+    console_write("== pci ==\n");
+    command_pci();
+    console_write("== memory ==\n");
+    pmm_print_status();
+    console_printf("heap: total=%u free=%u used=%u bytes\n",
+        heap_total_bytes(),
+        heap_free_bytes(),
+        heap_used_bytes());
+    console_write("== scheduler ==\n");
+    console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u\n",
+        scheduler_thread_count(),
+        scheduler_preemptions(),
+        scheduler_demo_counter());
+    workqueue_print_status();
+    console_write("== network ==\n");
+    e1000_print_status();
+    net_print_status();
+    console_write("== mounts ==\n");
+    exfat_print_mounts();
+    console_write("== fsck ==\n");
+    exfat_check_print("/fat");
+    console_write("== processes ==\n");
+    command_ps();
+    console_write("== dmesg tail ==\n");
+    bootlog_dump(4096);
+    console_write("hwdiag: end\n");
 }
 
 static bool child_seen(char children[LS_CHILDREN_MAX][LS_CHILD_NAME_MAX], uint64_t count, const char *name) {
@@ -829,6 +864,8 @@ static void run_command(char *line) {
         print_help();
     } else if (streq(command, "bootinfo")) {
         command_bootinfo();
+    } else if (streq(command, "hwdiag")) {
+        command_hwdiag();
     } else if (streq(command, "dmesg")) {
         uint64_t max = parse_decimal(args);
         bootlog_dump(max);

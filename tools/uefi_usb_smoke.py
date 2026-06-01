@@ -224,6 +224,8 @@ def main():
     parser.add_argument("--usb-key-delay", type=float, default=0.05)
     parser.add_argument("--usb-input-settle", type=float, default=1.5,
         help="Seconds to keep reading after QMP USB input before serial monitor commands.")
+    parser.add_argument("--diag-command", default="bootinfo",
+        help="Monitor diagnostic command to run before dmesg, usually bootinfo or hwdiag.")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -297,7 +299,7 @@ def main():
                     else:
                         send_qmp_mouse_move(qmp, dx, dy)
                     output += read_for(sock, 1)
-                sock.sendall(b"bootinfo\n")
+                sock.sendall(args.diag_command.encode("ascii") + b"\n")
                 output += read_until_any(sock, [b"srv> "], 10)
                 sock.sendall(b"dmesg 512\n")
                 output += read_until_any(sock, [b"srv> "], 10)
@@ -349,6 +351,8 @@ def main():
                 missing.append("USB HID typed command output")
         if args.usb_mouse_move and not device_line_matches(text, ["mouse=1"], min_intr=1, min_mouse_reports=1):
             missing.append("USB HID mouse input reports")
+    if args.diag_command not in text:
+        missing.append(f"{args.diag_command} output")
     if "dmesg 512" not in text:
         missing.append("dmesg output")
     if has_fatal_exception(text):

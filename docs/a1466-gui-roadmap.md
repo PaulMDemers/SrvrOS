@@ -83,7 +83,9 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 - Boot logs are mirrored into an in-memory ring buffer, exposed through
   `dmesg`, and persisted to `/fat/var/log/boot.log` after the filesystem mounts.
 - `bootinfo` covers framebuffer geometry, ACPI tables, PCI/PCIe config mode,
-  Intel graphics discovery, xHCI diagnostics, timers, and storage.
+  Intel graphics discovery, xHCI diagnostics, timers, and storage. `hwdiag`
+  now wraps that with full PCI, memory, scheduler/workqueue, network, mounts,
+  `/fat` fsck, process list, and boot-log tail capture for first-boot reports.
 - Fatal exceptions clear to a framebuffer panic screen with register details and
   recent boot-log context.
 
@@ -266,6 +268,7 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add QEMU UEFI test coverage for that image.
 - Add boot logging ring buffer and `/fat/var/log/boot.log` persistence.
 - Add `bootinfo`.
+- Add `hwdiag` for one-command real-hardware diagnostic capture.
 
 ### Slice B: Hardware Discovery
 

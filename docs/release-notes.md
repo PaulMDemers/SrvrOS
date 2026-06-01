@@ -27,6 +27,9 @@ server.
   coverage for keyboard and mouse devices behind a hub.
 - Adds a generic absolute HID pointer path for QEMU `usb-tablet`, including
   QMP absolute-input smoke coverage directly on xHCI root ports and behind a hub.
+- Adds monitor `hwdiag` and an A1466 first-boot checklist so real-machine runs
+  can capture display, ACPI, PCI, xHCI, storage, memory, network, mounts, fsck,
+  process, and boot-log state with one command.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

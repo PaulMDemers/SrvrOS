@@ -196,11 +196,13 @@ recent boot log so real-machine failures are readable without serial.
 
 The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
 Intel graphics discovery, xHCI capability registers, and block devices. The
-`xhci` monitor command prints the USB controller inventory, command/event ring
-state, command completion counters, root-port connection/reset status, addressed
-USB hubs and routed HID keyboard/mouse/tablet devices, interrupt poll counts,
-input report counts, and descriptor class/vendor/product summaries for
-unsupported or hub-like devices.
+`hwdiag` command bundles that with full PCI inventory, memory/workqueue/process
+state, network status, mounts, `/fat` fsck, and a boot-log tail for real-machine
+capture. The `xhci` monitor command prints the USB controller inventory,
+command/event ring state, command completion counters, root-port
+connection/reset status, addressed USB hubs and routed HID
+keyboard/mouse/tablet devices, interrupt poll counts, input report counts, and
+descriptor class/vendor/product summaries for unsupported or hub-like devices.
 
 ## Networking
 

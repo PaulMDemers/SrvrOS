@@ -190,7 +190,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   moves.
   The optional `--usb-hub` topology puts both HID devices behind a QEMU USB hub
   and verifies hub detection, routed downstream HID enumeration, typed keyboard
-  input, and pointer reports.
+  input, and pointer reports. `--diag-command hwdiag` runs the real-hardware
+  diagnostic bundle instead of the shorter `bootinfo` command.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented
