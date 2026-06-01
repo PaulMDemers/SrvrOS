@@ -252,16 +252,20 @@ The first Node-hosted static-site demo is now packaged as
 `/fat/bin/node-http-demo.js`. It uses Node's built-in `http` and `fs` modules to
 serve the existing `/fat/www` tree, including `/`, `/hello.html`, and
 `/status.txt`, through QEMU host forwarding. The smoke keeps one server process
-alive and repeats those routes; the current five-round run verified 15
-responses with no retries when using the default 15-second per-request response
-window. The `http.ServerResponse` path required one more V8
+alive and repeats those routes; the milestone closeout verified 4 rounds across
+12 route responses with no retries when using the default retry policy. The
+`http.ServerResponse` path required one more V8
 bring-up guard: under srvros, `Factory::NewStringFromUtf8` now tolerates
 null/low byte pointers and suspiciously large external UTF-8 vectors by
 returning the empty string, and `NonAsciiStart` avoids zero-length null vector
 scanning. The smoke launches the static demo with Node `--jitless` by default
 while srvros compiler-tier support matures.
-Use `python tools\node_http_demo_smoke.py --skip-build` after building the
-runtime image to rerun the three-route demo.
+Use `python tools\node_http_demo_smoke.py --skip-build --rounds 4` after
+building the runtime image to rerun the repeated three-route demo. The
+Express/JWT/SQLite API smoke also accepts `--rounds`; the closeout pass used
+`python tools\node_express_demo_smoke.py --skip-build --skip-app-build --rounds 4`
+to repeat health, token, user-create/list, and secure-token validation against
+one guest server.
 
 `/fat/bin/tcpprobe` is the native TCP companion for the outbound boundary. It
 uses nonblocking `connect()`, `poll(POLLOUT)`, `getsockopt(SO_ERROR)`, `send`,

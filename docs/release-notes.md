@@ -49,6 +49,10 @@ server.
   `fs.promises.watch()`. The Node app suite now bundles and verifies real
   `accepts`, `cookie`, `mime-types`, and `qs` package behavior under hidden
   QEMU.
+- Adds `--rounds` to the Express/JWT/SQLite smoke harness and closes the Node
+  milestone with a rebuilt runtime image plus hidden-QEMU passes for
+  `node --version`, the app suite, SQLite persistence, 4 static HTTP route
+  rounds, and 4 Express API route rounds.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

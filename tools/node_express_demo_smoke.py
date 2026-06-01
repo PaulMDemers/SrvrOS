@@ -95,6 +95,8 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=90)
     parser.add_argument("--listen-wait", type=float, default=80)
     parser.add_argument("--http-wait", type=float, default=15)
+    parser.add_argument("--rounds", type=int, default=1,
+        help="Repeat the health/token/users/secure route set this many times against one guest server.")
     parser.add_argument("--token-path", default="",
         help="Optional GET token route override. Defaults to POST /token with a JSON body.")
     parser.add_argument("--skip-build", action="store_true")
@@ -168,33 +170,37 @@ def main():
             if b"EXPRESS-DEMO-LISTEN 8080" not in output:
                 raise RuntimeError("Express demo did not start listening")
 
-            health = http_request(http_port, "GET", "/health", timeout=args.http_wait)
-            if health.get("db") != "node:sqlite":
-                raise RuntimeError(f"expected node:sqlite backend, got health {health!r}")
-            try:
-                if args.token_path:
-                    token = http_request(http_port, "GET", args.token_path, timeout=args.http_wait)["token"]
-                else:
-                    token = http_request(http_port, "POST", "/token",
-                        body={"sub": "paul"}, timeout=args.http_wait)["token"]
-                header = decode_jwt_header(token)
-                if header.get("alg") != "HS256":
-                    raise RuntimeError(f"expected jsonwebtoken HS256 token, got header {header!r}")
-                created = http_request(http_port, "POST", "/users",
-                    body={"name": "Grace"}, timeout=args.http_wait)
-                users = http_request(http_port, "GET", "/users", timeout=args.http_wait)
-                secure = http_request(http_port, "GET", "/secure",
-                    headers={"Authorization": f"Bearer {token}"}, timeout=args.http_wait)
-            except Exception:
-                output += read_for(sock, 2)
-                raise
+            for index in range(args.rounds):
+                subject = f"paul-{index + 1}"
+                name = f"Grace-{index + 1}"
+                health = http_request(http_port, "GET", "/health", timeout=args.http_wait)
+                if health.get("db") != "node:sqlite":
+                    raise RuntimeError(f"expected node:sqlite backend, got health {health!r}")
+                try:
+                    if args.token_path:
+                        token = http_request(http_port, "GET", args.token_path, timeout=args.http_wait)["token"]
+                        subject = "paul"
+                    else:
+                        token = http_request(http_port, "POST", "/token",
+                            body={"sub": subject}, timeout=args.http_wait)["token"]
+                    header = decode_jwt_header(token)
+                    if header.get("alg") != "HS256":
+                        raise RuntimeError(f"expected jsonwebtoken HS256 token, got header {header!r}")
+                    created = http_request(http_port, "POST", "/users",
+                        body={"name": name}, timeout=args.http_wait)
+                    users = http_request(http_port, "GET", "/users", timeout=args.http_wait)
+                    secure = http_request(http_port, "GET", "/secure",
+                        headers={"Authorization": f"Bearer {token}"}, timeout=args.http_wait)
+                except Exception:
+                    output += read_for(sock, 2)
+                    raise
 
-            if not health.get("ok") or created["user"]["name"] != "Grace":
-                raise RuntimeError("API payload mismatch")
-            if not any(user.get("name") == "Grace" for user in users.get("users", [])):
-                raise RuntimeError("created user missing from list")
-            if secure.get("claims", {}).get("sub") != "paul":
-                raise RuntimeError("JWT validation mismatch")
+                if not health.get("ok") or created["user"]["name"] != name:
+                    raise RuntimeError("API payload mismatch")
+                if not any(user.get("name") == name for user in users.get("users", [])):
+                    raise RuntimeError("created user missing from list")
+                if secure.get("claims", {}).get("sub") != subject:
+                    raise RuntimeError("JWT validation mismatch")
             output += read_for(sock, 1)
         except Exception:
             sys.stdout.write(output.decode("utf-8", "replace"))
@@ -211,7 +217,7 @@ def main():
     if "exception:" in text or "Fatal error" in text:
         print("node-express-demo-smoke: fatal exception detected", file=sys.stderr)
         return 2
-    print("node-express-demo-smoke: ok health token users secure")
+    print(f"node-express-demo-smoke: ok health token users secure rounds={args.rounds}")
     return 0
 
 

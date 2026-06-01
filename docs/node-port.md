@@ -478,6 +478,26 @@ blocked: rebuilding Node's builtin/metadata/option dispatch objects with
 `HAVE_SQLITE=1` causes an early V8 page fault while defining the sqlite module
 object (`v8::Object::DefineOwnProperty` through `MemoryChunk::Metadata`).
 
+## Current Runtime Support Summary
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Process startup | Supported | `/fat/bin/node --version`, `-e`, and script-file execution pass hidden-QEMU smokes. |
+| Event loop | Supported with bring-up shims | `nextTick`, Promises, `queueMicrotask`, timers, intervals, immediates, TCP callbacks, and server request dispatch pass smokes. |
+| HTTP servers | Supported for demos | Static `http.createServer()` and the Express/JWT/SQLite demo run under `--jitless`; final sweep covered 4 static route rounds and 4 Express API rounds. |
+| Networking | Supported for current Node server/client paths | Host-forwarded inbound TCP, outbound numeric TCP, `dns.lookup()`, and hostname-backed `net.createConnection()` have smoke coverage. |
+| Synchronous `fs` | Supported for common package I/O | Read/write/stat/readdir/Dirent/module-loading paths pass runtime and app-suite coverage. |
+| `fs/promises` | Shimmed | `internal/srvros_fs_promises` wraps synchronous `fs` operations in Promise-shaped APIs to avoid native FSReqPromise faults. |
+| File streams | Shimmed | `internal/srvros_fs_streams` backs `createReadStream`, `createWriteStream`, `pipeline`, and FileHandle streams with synchronous fd operations. |
+| Directory handles | Shimmed | `internal/srvros_fs_dir` backs `opendir`, `opendirSync`, promise opendir, async iteration, and `withFileTypes` Dirents. |
+| File watchers | Shimmed | `internal/srvros_fs_watch` provides polling `watchFile`, `unwatchFile`, `watch`, and `fs.promises.watch`; this is compatibility, not a native event backend. |
+| SQLite | Shimmed | Public `node:sqlite` routes to `internal/srvros_sqlite`; persistence, named/positional bindings, `UPDATE`, `LIMIT`, counts, and filtered deletes are covered. |
+| Pure JS packages | Supported when bundled | App-suite smoke bundles and verifies `accepts`, `cookie`, `mime-types`, and `qs`; Express and `jsonwebtoken` are covered through the server demo. |
+| JIT/compiler tiers | Known boundary | Server demos use `--jitless` while V8 compiler-tier support matures. |
+| Native async FS/libuv FS requests | Known boundary | Package-facing JS shims are the supported path for now. |
+| Native sqlite binding | Known boundary | The native objects compile/link, but enabling native dispatch still faults during early V8 module-object setup. |
+| SQLite general projected aliases | Known boundary | `COUNT(*) AS alias` is supported; arbitrary projected aliases remain intentionally limited in the JS shim. |
+
 `/fat/bin/tcpprobe` is now the native companion for that boundary. It exercises
 nonblocking `connect()`, `poll(POLLOUT)`, `SO_ERROR`, send, and receive while
 printing srvros TCP state. The probe confirms that outbound TCP to

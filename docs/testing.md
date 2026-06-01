@@ -211,12 +211,14 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   host-forward smoke keeps one server alive and repeats `/`, `/hello.html`,
   and `/status.txt`. Run the full route set with
   `python tools/node_http_demo_smoke.py --skip-build` after rebuilding the Node
-  runtime image. The smoke uses Node `--jitless` by default while srvros V8
+  runtime image; use `--rounds 4` for the current short repeated-route pass.
+  The smoke uses Node `--jitless` by default while srvros V8
   compiler-tier support matures. `node_express_demo_smoke.py` builds and boots
   the `ports/node/express-jwt-sqlite-demo` app, then verifies the async API
   path for health, POST JSON `jsonwebtoken` HS256 token generation, POST JSON local
   DB-backed user creation, user listing, and bearer-token validation over QEMU
-  host forwarding. The app installs real Express and `jsonwebtoken` host
+  host forwarding. It accepts `--rounds` to repeat that route set against one
+  guest server; the milestone closeout used 4 rounds. The app installs real Express and `jsonwebtoken` host
   dependencies, while the srvros runtime bundle uses Node's `http.createServer()`
   with a small dependency-light router and the srvros `crypto` shim for HMAC
   until full OpenSSL and npm/native-addon loading are available. Public
