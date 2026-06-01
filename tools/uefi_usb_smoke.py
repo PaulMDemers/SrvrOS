@@ -185,6 +185,8 @@ def main():
         help="Do not attach a QEMU USB keyboard to the xHCI controller.")
     parser.add_argument("--no-usb-mouse", action="store_true",
         help="Do not attach a QEMU USB mouse to the xHCI controller.")
+    parser.add_argument("--usb-hub", action="store_true",
+        help="Attach the USB keyboard and mouse behind a QEMU USB hub.")
     parser.add_argument("--usb-type-text", default="",
         help="Type this monitor command through QEMU's keyboard event path, then press Enter.")
     parser.add_argument("--usb-type-expect", default="",
@@ -192,6 +194,8 @@ def main():
     parser.add_argument("--usb-mouse-move", default="",
         help="Send a QEMU mouse_move 'dx,dy' event through the USB mouse path.")
     parser.add_argument("--usb-key-delay", type=float, default=0.05)
+    parser.add_argument("--usb-input-settle", type=float, default=1.5,
+        help="Seconds to keep reading after QMP USB input before serial monitor commands.")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -225,10 +229,24 @@ def main():
         ]
         if not args.no_xhci:
             command.extend(["-device", "qemu-xhci,id=xhci"])
+            kbd_bus = "xhci.0"
+            kbd_port = None
+            mouse_bus = "xhci.0"
+            mouse_port = None
+            if args.usb_hub:
+                command.extend(["-device", "usb-hub,bus=xhci.0,port=1"])
+                kbd_port = "1.1"
+                mouse_port = "1.2"
             if not args.no_usb_kbd:
-                command.extend(["-device", "usb-kbd,bus=xhci.0"])
+                device = f"usb-kbd,bus={kbd_bus}"
+                if kbd_port is not None:
+                    device += f",port={kbd_port}"
+                command.extend(["-device", device])
             if not args.no_usb_mouse:
-                command.extend(["-device", "usb-mouse,bus=xhci.0"])
+                device = f"usb-mouse,bus={mouse_bus}"
+                if mouse_port is not None:
+                    device += f",port={mouse_port}"
+                command.extend(["-device", device])
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -239,6 +257,7 @@ def main():
             if b"srv> " in output:
                 if args.usb_type_text and not args.no_xhci and not args.no_usb_kbd:
                     send_qmp_text(qmp, args.usb_type_text + "\n", args.usb_key_delay)
+                    output += read_for(sock, args.usb_input_settle)
                     output += read_until_any(sock, [b"srv> "], 10)
                 if args.usb_mouse_move and not args.no_xhci and not args.no_usb_mouse:
                     parts = args.usb_mouse_move.replace("x", ",").split(",", 1)
@@ -271,14 +290,18 @@ def main():
         missing.append("ECAM PCI config")
     if not args.no_xhci:
         expected_hid_devices = int(not args.no_usb_kbd) + int(not args.no_usb_mouse)
+        expected_addressed = expected_hid_devices + int(args.usb_hub and expected_hid_devices > 0)
+        expected_root_devices = 1 if args.usb_hub and expected_hid_devices > 0 else expected_hid_devices
         if "xhci: vendor=" not in text or "op=yes" not in text:
             missing.append("xHCI inventory")
-        if not numeric_marker_at_least(text, "enable_slot", max(1, expected_hid_devices)):
+        if not numeric_marker_at_least(text, "enable_slot", max(1, expected_addressed)):
             missing.append("xHCI command completion")
-        if expected_hid_devices > 0 and not marker_occurrences_at_least(text, "connected", 1, expected_hid_devices):
+        if expected_root_devices > 0 and not marker_occurrences_at_least(text, "connected", 1, expected_root_devices):
             missing.append("xHCI connected port")
-        if expected_hid_devices > 0 and not numeric_marker_at_least(text, "ports_enabled", expected_hid_devices):
+        if expected_root_devices > 0 and not numeric_marker_at_least(text, "ports_enabled", expected_root_devices):
             missing.append("xHCI port reset")
+        if args.usb_hub and expected_hid_devices > 0 and not numeric_marker_at_least(text, "hubs", 1):
+            missing.append("USB hub enumeration")
         if not args.no_usb_kbd and not numeric_marker_at_least(text, "hid_keyboards", 1):
             missing.append("USB HID keyboard enumeration")
         if not args.no_usb_kbd and not device_line_matches(text, ["addressed=1", "configured=1", "keyboard=1"]):

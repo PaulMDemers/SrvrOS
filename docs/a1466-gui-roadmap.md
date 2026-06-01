@@ -109,16 +109,17 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
   No-op and Enable Slot command completion, and connected root-port reset
   diagnostics are in place. The first USB device path now allocates xHCI device
   contexts, addresses/configures QEMU's USB keyboard and mouse, walks
-  descriptors, and configures HID boot keyboard/mouse interrupt endpoints. QEMU
-  smoke coverage now types a monitor command through the USB keyboard path,
-  sends a synthetic USB mouse move, and verifies HID reports feed the console
-  input queue and pointer event path. xHCI status also reports descriptor
-  class/vendor/product details for unsupported or hub-like devices, which should
-  make the first A1466 USB input boot log much more actionable.
+  descriptors, powers/resets QEMU USB2 hub ports, routes downstream devices, and
+  configures HID boot keyboard/mouse interrupt endpoints. QEMU smoke coverage
+  now types a monitor command through the USB keyboard path, sends a synthetic
+  USB mouse move, and verifies HID reports both directly on root ports and behind
+  a QEMU hub. xHCI status also reports descriptor class/vendor/product details
+  plus parent hub port and route strings, which should make the first A1466 USB
+  input boot log much more actionable.
 - Validate the same USB keyboard report path on the A1466 internal keyboard.
 - Validate the same USB mouse report path on the A1466 internal trackpad.
-- Add broader USB hub/root-port enumeration beyond the first directly attached
-  device.
+- Validate the hub-routed input path against the A1466 internal USB topology.
+- Add broader USB hub enumeration beyond one USB2 hub layer.
 - Add richer HID report parsing for non-boot trackpad features.
 
 This is the main real-machine usability blocker. Without it, the MacBook may
@@ -279,6 +280,7 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add USB HID boot keyboard endpoint configuration.
 - Add USB HID boot mouse pointer events.
 - Add class/vendor/product diagnostics for unsupported and hub-like devices.
+- Add QEMU USB hub smoke coverage and one-layer USB2 hub-routed HID input.
 
 ### Slice D: Display ABI
 

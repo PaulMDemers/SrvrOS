@@ -59,6 +59,7 @@
 #define XHCI_TRB_TYPE_STATUS_STAGE 4
 #define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
 #define XHCI_TRB_TYPE_CONFIGURE_ENDPOINT 12
+#define XHCI_TRB_TYPE_EVALUATE_CONTEXT 13
 #define XHCI_TRB_TYPE_NOOP 23
 #define XHCI_TRB_TYPE_TRANSFER_EVENT 32
 #define XHCI_TRB_TYPE_COMMAND_COMPLETION 33
@@ -71,14 +72,29 @@
 #define XHCI_STATUS_DIR_IN (1u << 16)
 
 #define USB_REQ_GET_DESCRIPTOR 6
+#define USB_REQ_GET_STATUS 0
+#define USB_REQ_SET_FEATURE 3
+#define USB_REQ_CLEAR_FEATURE 1
 #define USB_REQ_SET_CONFIGURATION 9
 #define USB_REQ_SET_PROTOCOL 11
 #define USB_DESC_DEVICE 1
 #define USB_DESC_CONFIGURATION 2
 #define USB_DESC_INTERFACE 4
 #define USB_DESC_ENDPOINT 5
+#define USB_DESC_HUB 0x29
 #define USB_CLASS_HID 3
 #define USB_CLASS_HUB 9
+#define USB_FEATURE_PORT_ENABLE 1
+#define USB_FEATURE_PORT_RESET 4
+#define USB_FEATURE_PORT_POWER 8
+#define USB_FEATURE_C_PORT_CONNECTION 16
+#define USB_FEATURE_C_PORT_ENABLE 17
+#define USB_FEATURE_C_PORT_RESET 20
+#define USB_HUB_PORT_CONNECTION 0x0001u
+#define USB_HUB_PORT_ENABLE 0x0002u
+#define USB_HUB_PORT_LOW_SPEED 0x0200u
+#define USB_HUB_PORT_HIGH_SPEED 0x0400u
+#define USB_HUB_STATUS_CHANGE_MASK 0xffff0000u
 #define USB_HID_SUBCLASS_BOOT 1
 #define USB_HID_PROTOCOL_KEYBOARD 1
 #define USB_HID_PROTOCOL_MOUSE 2
@@ -119,6 +135,9 @@ struct xhci_device {
     bool interrupt_pending;
     uint8_t slot_id;
     uint8_t port_id;
+    uint8_t parent_slot_id;
+    uint8_t hub_port_id;
+    uint8_t hub_ports;
     uint8_t speed;
     uint8_t ep0_max_packet;
     uint8_t device_class;
@@ -138,6 +157,7 @@ struct xhci_device {
     uint16_t product_id;
     uint16_t device_bcd;
     uint16_t interrupt_max_packet;
+    uint32_t route_string;
     uint64_t input_context_phys;
     uint64_t output_context_phys;
     uint64_t ep0_ring_phys;
@@ -203,6 +223,9 @@ struct xhci_state {
     uint64_t hid_keyboards;
     uint64_t hid_mice;
     uint64_t hubs_seen;
+    uint64_t hub_ports_powered;
+    uint64_t hub_ports_reset;
+    uint64_t routed_devices;
     uint64_t unsupported_devices;
     uint64_t transfer_events;
     uint64_t last_completion_code;
@@ -767,6 +790,58 @@ static bool get_descriptor(struct xhci_device *device,
     return control_transfer(device, &setup, device->descriptor_buffer_phys, length, true);
 }
 
+static bool get_hub_descriptor(struct xhci_device *device, uint16_t length) {
+    struct usb_setup_packet setup = {
+        .request_type = 0xa0,
+        .request = USB_REQ_GET_DESCRIPTOR,
+        .value = (uint16_t)(USB_DESC_HUB << 8),
+        .index = 0,
+        .length = length,
+    };
+    return control_transfer(device, &setup, device->descriptor_buffer_phys, length, true);
+}
+
+static bool hub_set_port_feature(struct xhci_device *hub, uint8_t port, uint16_t feature) {
+    struct usb_setup_packet setup = {
+        .request_type = 0x23,
+        .request = USB_REQ_SET_FEATURE,
+        .value = feature,
+        .index = port,
+        .length = 0,
+    };
+    return control_transfer(hub, &setup, 0, 0, false);
+}
+
+static bool hub_clear_port_feature(struct xhci_device *hub, uint8_t port, uint16_t feature) {
+    struct usb_setup_packet setup = {
+        .request_type = 0x23,
+        .request = USB_REQ_CLEAR_FEATURE,
+        .value = feature,
+        .index = port,
+        .length = 0,
+    };
+    return control_transfer(hub, &setup, 0, 0, false);
+}
+
+static bool hub_get_port_status(struct xhci_device *hub, uint8_t port, uint32_t *status_out) {
+    struct usb_setup_packet setup = {
+        .request_type = 0xa3,
+        .request = USB_REQ_GET_STATUS,
+        .value = 0,
+        .index = port,
+        .length = 4,
+    };
+    if (!control_transfer(hub, &setup, hub->descriptor_buffer_phys, 4, true)) {
+        return false;
+    }
+    *status_out =
+        (uint32_t)hub->descriptor_buffer[0] |
+        ((uint32_t)hub->descriptor_buffer[1] << 8) |
+        ((uint32_t)hub->descriptor_buffer[2] << 16) |
+        ((uint32_t)hub->descriptor_buffer[3] << 24);
+    return true;
+}
+
 static void parse_device_descriptor(struct xhci_device *device) {
     device->device_class = device->descriptor_buffer[4];
     device->device_subclass = device->descriptor_buffer[5];
@@ -831,14 +906,59 @@ static bool allocate_device_runtime(struct xhci_device *device) {
     return true;
 }
 
+static struct xhci_device *device_by_slot(uint8_t slot_id) {
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        if (xhci.devices[i].present && xhci.devices[i].slot_id == slot_id) {
+            return &xhci.devices[i];
+        }
+    }
+    return 0;
+}
+
+static uint8_t device_root_port(const struct xhci_device *device) {
+    if (device->parent_slot_id != 0) {
+        const struct xhci_device *parent = device_by_slot(device->parent_slot_id);
+        if (parent != 0) {
+            return parent->port_id;
+        }
+    }
+    return device->port_id;
+}
+
+static uint32_t child_route_string(uint32_t parent_route, uint8_t hub_port_id) {
+    if (hub_port_id == 0 || hub_port_id > 15) {
+        return parent_route;
+    }
+    for (uint32_t shift = 0; shift < 20; shift += 4) {
+        if (((parent_route >> shift) & 0xfu) == 0) {
+            return parent_route | ((uint32_t)hub_port_id << shift);
+        }
+    }
+    return parent_route;
+}
+
+static bool device_needs_tt(const struct xhci_device *device) {
+    if (device->parent_slot_id == 0) {
+        return false;
+    }
+    return device->speed == 1 || device->speed == 2;
+}
+
 static void setup_address_input_context(struct xhci_device *device) {
     zero_bytes(device->input_context, PMM_FRAME_SIZE);
     context_write32(device->input_context, 0, 1, (1u << 0) | (1u << 1));
 
-    uint32_t slot0 = ((uint32_t)device->speed << 20) | (1u << 27);
-    uint32_t slot1 = ((uint32_t)device->port_id << 16);
+    uint32_t slot0 = device->route_string | ((uint32_t)device->speed << 20) | (1u << 27);
+    uint32_t slot1 = ((uint32_t)device_root_port(device) << 16);
+    uint32_t slot2 = 0;
+    if (device_needs_tt(device)) {
+        slot2 =
+            ((uint32_t)device->parent_slot_id) |
+            ((uint32_t)device->hub_port_id << 8);
+    }
     context_write32(device->input_context, 1, 0, slot0);
     context_write32(device->input_context, 1, 1, slot1);
+    context_write32(device->input_context, 1, 2, slot2);
 
     uint32_t ep0_info = (3u << 1) | (4u << 3);
     uint32_t ep0_packet = ((uint32_t)device->ep0_max_packet << 16);
@@ -965,6 +1085,26 @@ static bool configure_interrupt_endpoint(struct xhci_device *device) {
         .control = (XHCI_TRB_TYPE_CONFIGURE_ENDPOINT << 10) | ((uint32_t)device->slot_id << 24),
     };
     return submit_command_trb(&command, XHCI_TRB_TYPE_CONFIGURE_ENDPOINT, 0);
+}
+
+static bool evaluate_hub_context(struct xhci_device *hub) {
+    zero_bytes(hub->input_context, PMM_FRAME_SIZE);
+    context_write32(hub->input_context, 0, 1, 1u << 0);
+    uint32_t slot0 = context_read32(hub->output_context, 0, 0) | (1u << 26);
+    uint32_t slot1 = context_read32(hub->output_context, 0, 1);
+    slot1 &= ~(0xffu << 24);
+    slot1 |= ((uint32_t)hub->hub_ports << 24);
+    context_write32(hub->input_context, 1, 0, slot0);
+    context_write32(hub->input_context, 1, 1, slot1);
+    context_write32(hub->input_context, 1, 2, context_read32(hub->output_context, 0, 2));
+
+    struct xhci_trb command = {
+        .parameter_low = (uint32_t)hub->input_context_phys,
+        .parameter_high = (uint32_t)(hub->input_context_phys >> 32),
+        .status = 0,
+        .control = (XHCI_TRB_TYPE_EVALUATE_CONTEXT << 10) | ((uint32_t)hub->slot_id << 24),
+    };
+    return submit_command_trb(&command, XHCI_TRB_TYPE_EVALUATE_CONTEXT, 0);
 }
 
 static const char hid_usage[256] = {
@@ -1129,26 +1269,136 @@ static void xhci_poll_worker(void *arg) {
     }
 }
 
-static bool enumerate_port(uint64_t port_index) {
+static struct xhci_device *allocate_device_record(void) {
+    if (xhci.addressed_devices >= XHCI_MAX_DEVICES) {
+        return 0;
+    }
+    return &xhci.devices[xhci.addressed_devices];
+}
+
+static uint8_t hub_status_speed(uint32_t port_status) {
+    if ((port_status & USB_HUB_PORT_HIGH_SPEED) != 0) {
+        return 3;
+    }
+    if ((port_status & USB_HUB_PORT_LOW_SPEED) != 0) {
+        return 2;
+    }
+    return 1;
+}
+
+static void clear_hub_port_changes(struct xhci_device *hub, uint8_t port, uint32_t status) {
+    if ((status & (1u << USB_FEATURE_C_PORT_CONNECTION)) != 0) {
+        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_CONNECTION);
+    }
+    if ((status & (1u << USB_FEATURE_C_PORT_ENABLE)) != 0) {
+        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_ENABLE);
+    }
+    if ((status & (1u << USB_FEATURE_C_PORT_RESET)) != 0) {
+        (void)hub_clear_port_feature(hub, port, USB_FEATURE_C_PORT_RESET);
+    }
+}
+
+static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *status_out) {
+    uint32_t status = 0;
+    if (!hub_set_port_feature(hub, port, USB_FEATURE_PORT_POWER)) {
+        return false;
+    }
+    xhci.hub_ports_powered++;
+    for (uint64_t i = 0; i < 50000; i++) {
+        __asm__ volatile ("pause");
+    }
+    if (!hub_get_port_status(hub, port, &status) ||
+        (status & USB_HUB_PORT_CONNECTION) == 0) {
+        return false;
+    }
+    if (!hub_set_port_feature(hub, port, USB_FEATURE_PORT_RESET)) {
+        return false;
+    }
+    for (uint64_t i = 0; i < XHCI_RESET_TIMEOUT; i++) {
+        if (!hub_get_port_status(hub, port, &status)) {
+            return false;
+        }
+        if ((status & USB_HUB_PORT_ENABLE) != 0 && (status & (1u << USB_FEATURE_PORT_RESET)) == 0) {
+            break;
+        }
+    }
+    clear_hub_port_changes(hub, port, status);
+    xhci.hub_ports_reset++;
+    *status_out = status;
+    return (status & USB_HUB_PORT_ENABLE) != 0;
+}
+
+static bool enumerate_device(struct xhci_device *device);
+
+static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
+    if (!set_configuration(hub, configuration)) {
+        return false;
+    }
+    hub->configured = true;
+    xhci.configured_devices++;
+
+    if (!get_hub_descriptor(hub, 8)) {
+        console_printf("xhci: hub slot=%u descriptor failed\n", (uint64_t)hub->slot_id);
+        return false;
+    }
+    hub->hub_ports = hub->descriptor_buffer[2];
+    if (hub->hub_ports > 8) {
+        hub->hub_ports = 8;
+    }
+    if (hub->hub_ports == 0) {
+        return true;
+    }
+    if (!evaluate_hub_context(hub)) {
+        console_printf("xhci: hub slot=%u evaluate failed\n", (uint64_t)hub->slot_id);
+        return false;
+    }
+    console_printf("xhci: hub slot=%u root_port=%u ports=%u route=%x\n",
+        (uint64_t)hub->slot_id,
+        (uint64_t)hub->port_id,
+        (uint64_t)hub->hub_ports,
+        (uint64_t)hub->route_string);
+
+    for (uint8_t port = 1; port <= hub->hub_ports; port++) {
+        uint32_t status = 0;
+        if (!reset_hub_port(hub, port, &status)) {
+            continue;
+        }
+        struct xhci_device *child = allocate_device_record();
+        if (child == 0) {
+            return false;
+        }
+        *child = (struct xhci_device) {
+            .present = true,
+            .port_id = hub->port_id,
+            .parent_slot_id = hub->slot_id,
+            .hub_port_id = port,
+            .speed = hub_status_speed(status),
+            .ep0_max_packet = 64,
+            .route_string = child_route_string(hub->route_string, port),
+        };
+        xhci.routed_devices++;
+        if (!enumerate_device(child)) {
+            console_printf("xhci: hub slot=%u port=%u child enumerate failed\n",
+                (uint64_t)hub->slot_id,
+                (uint64_t)port);
+        }
+    }
+    return true;
+}
+
+static bool enumerate_device(struct xhci_device *device) {
+    if (device == 0) {
+        return false;
+    }
+
     if (xhci.addressed_devices >= XHCI_MAX_DEVICES) {
         return false;
     }
 
-    uint32_t portsc = xhci.ports[port_index].portsc;
-    if ((portsc & XHCI_PORTSC_CCS) == 0 || (portsc & XHCI_PORTSC_PED) == 0) {
-        return false;
-    }
-
-    struct xhci_device *device = &xhci.devices[xhci.addressed_devices];
-    *device = (struct xhci_device) {
-        .present = true,
-        .port_id = (uint8_t)(port_index + 1),
-        .speed = (uint8_t)port_speed(portsc),
-        .ep0_max_packet = 64,
-    };
-
     if (!allocate_device_runtime(device) || !address_device(device)) {
-        console_printf("xhci: enumerate port%u address failed\n", port_index + 1);
+        console_printf("xhci: enumerate port%u route=%x address failed\n",
+            (uint64_t)device->port_id,
+            (uint64_t)device->route_string);
         return false;
     }
 
@@ -1183,6 +1433,7 @@ static bool enumerate_port(uint64_t port_index) {
             device->first_interface_class == USB_CLASS_HUB;
         if (hub_like) {
             xhci.hubs_seen++;
+            return enumerate_hub(device, configuration);
         } else {
             xhci.unsupported_devices++;
         }
@@ -1217,14 +1468,37 @@ static bool enumerate_port(uint64_t port_index) {
     } else if (device->hid_mouse) {
         xhci.hid_mice++;
     }
-    console_printf("xhci: hid %s slot=%u port=%u dci=%u packet=%u interval=%u\n",
+    console_printf("xhci: hid %s slot=%u port=%u parent=%u hub_port=%u route=%x dci=%u packet=%u interval=%u\n",
         device->hid_mouse ? "mouse" : "keyboard",
         (uint64_t)device->slot_id,
         (uint64_t)device->port_id,
+        (uint64_t)device->parent_slot_id,
+        (uint64_t)device->hub_port_id,
+        (uint64_t)device->route_string,
         (uint64_t)device->interrupt_dci,
         (uint64_t)device->interrupt_max_packet,
         (uint64_t)device->interrupt_interval);
     return true;
+}
+
+static bool enumerate_port(uint64_t port_index) {
+    uint32_t portsc = xhci.ports[port_index].portsc;
+    if ((portsc & XHCI_PORTSC_CCS) == 0 || (portsc & XHCI_PORTSC_PED) == 0) {
+        return false;
+    }
+
+    struct xhci_device *device = allocate_device_record();
+    if (device == 0) {
+        return false;
+    }
+    *device = (struct xhci_device) {
+        .present = true,
+        .port_id = (uint8_t)(port_index + 1),
+        .speed = (uint8_t)port_speed(portsc),
+        .ep0_max_packet = 64,
+        .route_string = 0,
+    };
+    return enumerate_device(device);
 }
 
 static void enumerate_connected_ports(void) {
@@ -1366,12 +1640,15 @@ void xhci_print_status(void) {
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
-    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u hubs=%u unsupported=%u transfer_events=%u\n",
+    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u hubs=%u hub_power=%u hub_reset=%u routed=%u unsupported=%u transfer_events=%u\n",
         xhci.addressed_devices,
         xhci.configured_devices,
         xhci.hid_keyboards,
         xhci.hid_mice,
         xhci.hubs_seen,
+        xhci.hub_ports_powered,
+        xhci.hub_ports_reset,
+        xhci.routed_devices,
         xhci.unsupported_devices,
         xhci.transfer_events);
     uint64_t count = xhci.port_count;
@@ -1396,9 +1673,12 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
-        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
+        console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,
             (uint64_t)device->port_id,
+            (uint64_t)device->parent_slot_id,
+            (uint64_t)device->hub_port_id,
+            (uint64_t)device->route_string,
             (uint64_t)device->addressed,
             (uint64_t)device->configured,
             (uint64_t)device->device_class,

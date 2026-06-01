@@ -37,8 +37,9 @@ Important pieces:
 - `kernel/src/fs/exfat.c`: exFAT mount/read/write/directory operations.
 - `kernel/src/drivers/xhci.c`: xHCI PCI discovery, MMIO mapping, controller
   reset, command/event rings, USB device addressing/configuration, descriptor
-  walking, HID boot keyboard/mouse interrupt endpoint setup, and connected
-  root-port diagnostics for real-hardware USB bring-up.
+  walking, USB2 hub port power/reset routing, HID boot keyboard/mouse interrupt
+  endpoint setup, and connected root-port diagnostics for real-hardware USB
+  bring-up.
 - `kernel/src/net.c`: e1000-facing ARP, ICMP, DHCP, DNS, TCP, and fd handoff.
 - `kernel/src/gui.c`: fixed-size GUI IPC queues for the desktop experiment.
 
@@ -197,8 +198,9 @@ The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
 Intel graphics discovery, xHCI capability registers, and block devices. The
 `xhci` monitor command prints the USB controller inventory, command/event ring
 state, command completion counters, root-port connection/reset status, addressed
-HID keyboard/mouse devices, interrupt poll counts, input report counts, and
-descriptor class/vendor/product summaries for unsupported or hub-like devices.
+USB hubs and routed HID keyboard/mouse devices, interrupt poll counts, input
+report counts, and descriptor class/vendor/product summaries for unsupported or
+hub-like devices.
 
 ## Networking
 
