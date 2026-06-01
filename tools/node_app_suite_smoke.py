@@ -171,6 +171,76 @@ fs.createReadStream('/fat/stream-src.txt', { encoding: 'utf8' })
 """
 
 
+DIR_APP = r"""
+const fs = require('fs');
+const fsp = require('fs/promises');
+
+function collectCallback(path) {
+  return new Promise((resolve, reject) => {
+    fs.opendir(path, (err, dir) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      const names = [];
+      function next() {
+        dir.read((err, dirent) => {
+          if (err) {
+            reject(err);
+            return;
+          }
+          if (dirent === null) {
+            dir.close((err) => err ? reject(err) : resolve(names.sort().join(',')));
+            return;
+          }
+          names.push(dirent.name + ':' + (dirent.isDirectory() ? 'd' : 'f'));
+          next();
+        });
+      }
+      next();
+    });
+  });
+}
+
+function collectSync(path) {
+  const dir = fs.opendirSync(path);
+  const names = [];
+  while (true) {
+    const dirent = dir.readSync();
+    if (dirent === null)
+      break;
+    names.push(dirent.name + ':' + (dirent.isDirectory() ? 'd' : 'f'));
+  }
+  dir.closeSync();
+  return names.sort().join(',');
+}
+
+async function collectAsyncIterator(dir) {
+  const names = [];
+  for await (const dirent of dir)
+    names.push(dirent.name + ':' + (dirent.isDirectory() ? 'd' : 'f'));
+  return names.sort().join(',');
+}
+
+(async () => {
+  try { fs.mkdirSync('/fat/dirsuite'); } catch (err) {}
+  try { fs.mkdirSync('/fat/dirsuite/sub'); } catch (err) {}
+  fs.writeFileSync('/fat/dirsuite/a.txt', 'a');
+  fs.writeFileSync('/fat/dirsuite/sub/b.txt', 'b');
+  const typed = fs.readdirSync('/fat/dirsuite', { withFileTypes: true });
+  const callbackNames = await collectCallback('/fat/dirsuite');
+  const syncNames = collectSync('/fat/dirsuite');
+  const promiseNames = await collectAsyncIterator(await fs.promises.opendir('/fat/dirsuite'));
+  const moduleNames = await collectAsyncIterator(await fsp.opendir('/fat/dirsuite'));
+  console.log('APP-DIR', callbackNames, syncNames, promiseNames, moduleNames,
+    typed.some((entry) => entry.name === 'sub' && entry.isDirectory()));
+})().catch((err) => {
+  console.log('APP-DIR-ERR', err && err.stack || err);
+  process.exitCode = 1;
+});
+"""
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a suite of srvros Node app compatibility smokes.")
     parser.add_argument("--root", default=os.getcwd())
@@ -207,11 +277,13 @@ def main():
         sqlite_script = os.path.join(temp_dir, "app-sqlite.js")
         fsp_script = os.path.join(temp_dir, "app-fsp.js")
         stream_script = os.path.join(temp_dir, "app-stream.js")
+        dir_script = os.path.join(temp_dir, "app-dir.js")
         disk = os.path.join(temp_dir, "srvros-node.exfat")
         write_text(core_script, CORE_APP)
         write_text(sqlite_script, SQLITE_APP)
         write_text(fsp_script, FSP_APP)
         write_text(stream_script, STREAM_APP)
+        write_text(dir_script, DIR_APP)
         subprocess.check_call([
             sys.executable,
             os.path.join(root, "tools", "mk_exfat_image.py"),
@@ -221,6 +293,7 @@ def main():
             f"app-sqlite.js={sqlite_script}",
             f"app-fsp.js={fsp_script}",
             f"app-stream.js={stream_script}",
+            f"app-dir.js={dir_script}",
         ], cwd=root)
 
         command = [
@@ -253,6 +326,8 @@ def main():
                 "APP-FSP a.txt 3 abc def", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-stream.js",
                 "APP-STREAM file-stream-ok write-stream-ok write-stream-ok readable-from-ok", args.runtime_wait)
+            output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-dir.js",
+                "APP-DIR a.txt:f,sub:d a.txt:f,sub:d a.txt:f,sub:d a.txt:f,sub:d true", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-sqlite.js",
                 "APP-SQLITE Bob Grace 1 1 1", args.runtime_wait)
         finally:

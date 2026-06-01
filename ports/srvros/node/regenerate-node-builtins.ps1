@@ -33,6 +33,7 @@ cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_crypto.js" "$nativeRoot
 cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_sqlite.js" "$nativeRoot/ports/upstream/node/lib/internal/srvros_sqlite.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_fs_promises.js" "$nativeRoot/ports/upstream/node/lib/internal/srvros_fs_promises.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_fs_streams.js" "$nativeRoot/ports/upstream/node/lib/internal/srvros_fs_streams.js"
+cp "$mountedRoot/ports/upstream/node/lib/internal/srvros_fs_dir.js" "$nativeRoot/ports/upstream/node/lib/internal/srvros_fs_dir.js"
 cp "$mountedRoot/ports/upstream/node/lib/timers.js" "$nativeRoot/ports/upstream/node/lib/timers.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/timers.js" "$nativeRoot/ports/upstream/node/lib/internal/timers.js"
 cp "$mountedRoot/ports/upstream/node/lib/internal/main/run_main_module.js" "$nativeRoot/ports/upstream/node/lib/internal/main/run_main_module.js"

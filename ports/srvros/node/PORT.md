@@ -304,8 +304,11 @@ mkdir/readdir/stat, rm/rmdir, rename/unlink, copy, and a compact `FileHandle`.
 streams are routed through `internal/srvros_fs_streams`, a synchronous-fd-backed
 shim layered under Node's generic stream classes. The native FSReqPromise/libuv
 request path is still unsafe, but file streams, `Readable.from()`, and
-`pipeline()` now have QEMU app-suite coverage. Directory and watch promise APIs
-remain explicit unsupported boundaries.
+`pipeline()` now have QEMU app-suite coverage. Directory iteration is routed
+through `internal/srvros_fs_dir`; `fs.opendir`, `fs.opendirSync`,
+`fs.promises.opendir`, `require('fs/promises').opendir`, async iteration, and
+`readdirSync({ withFileTypes: true })` Dirent checks now have QEMU app-suite
+coverage. Watch APIs remain explicit unsupported boundaries.
 The native
 binding remains at the compile/link bridge stage:
 `probe-srvros-compile.ps1` has manual source mappings for

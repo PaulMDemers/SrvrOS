@@ -39,6 +39,11 @@ server.
   `fs.createWriteStream()`, and `FileHandle` read/write streams. The Node app
   suite now verifies file stream reads, writes, `Readable.from()`, and
   `pipeline()` copy behavior under hidden QEMU.
+- Adds a srvros directory shim for `fs.opendir()`, `fs.opendirSync()`,
+  `fs.promises.opendir()`, and `require('fs/promises').opendir()`, with callback
+  reads, sync reads, async iteration, and stat-backed `Dirent` checks. The same
+  path fills `readdirSync({ withFileTypes: true })` when the native srvros
+  binding returns plain names.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.
