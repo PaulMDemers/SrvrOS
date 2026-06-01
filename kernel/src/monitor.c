@@ -1,3 +1,4 @@
+#include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/block.h>
 #include <srvros/e1000.h>
@@ -384,7 +385,33 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear mem memstat ticks heap workers block mount unmount fsck pci gpu net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo mem memstat ticks heap workers block mount unmount fsck pci gpu net ps bg kill echo ls [dir] cat write elf run [args]\n");
+}
+
+static void command_bootinfo(void) {
+    struct console_display_info display;
+    if (console_display_info(&display)) {
+        console_printf("display: %ux%u pitch=%u bpp=%u model=%u rgb=%u:%u %u:%u %u:%u\n",
+            display.width,
+            display.height,
+            display.pitch,
+            (uint64_t)display.bpp,
+            (uint64_t)display.memory_model,
+            (uint64_t)display.red_mask_size,
+            (uint64_t)display.red_mask_shift,
+            (uint64_t)display.green_mask_size,
+            (uint64_t)display.green_mask_shift,
+            (uint64_t)display.blue_mask_size,
+            (uint64_t)display.blue_mask_shift);
+    } else {
+        console_write("display: unavailable\n");
+    }
+
+    console_printf("timer: ticks=%u\n", timer_ticks());
+    console_printf("pci: devices=%u config=%s\n", pci_device_count(), pci_config_backend_name());
+    acpi_print_status();
+    intel_gfx_print_status();
+    block_print_status();
 }
 
 static bool child_seen(char children[LS_CHILDREN_MAX][LS_CHILD_NAME_MAX], uint64_t count, const char *name) {
@@ -782,6 +809,8 @@ static void run_command(char *line) {
 
     if (streq(command, "help")) {
         print_help();
+    } else if (streq(command, "bootinfo")) {
+        command_bootinfo();
     } else if (streq(command, "clear")) {
         console_clear();
     } else if (streq(command, "mem")) {

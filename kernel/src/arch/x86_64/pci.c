@@ -1,5 +1,7 @@
+#include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/pci.h>
+#include <srvros/vmm.h>
 
 #include "io.h"
 
@@ -8,11 +10,15 @@
 #define PCI_CONFIG_ADDRESS 0xcf8
 #define PCI_CONFIG_DATA 0xcfc
 #define PCI_VENDOR_INVALID 0xffff
+#define PCI_ECAM_VIRTUAL_BASE 0xffffc00300000000ull
+#define PCI_ECAM_ALLOCATION_STRIDE 0x10000000ull
 
 static struct pci_device devices[PCI_MAX_DEVICES];
 static uint64_t device_count;
+static bool ecam_available;
+static uint64_t ecam_virtual_base[8];
 
-static uint32_t pci_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+static uint32_t pci_legacy_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
     uint32_t address =
         (1u << 31) |
         ((uint32_t)bus << 16) |
@@ -24,12 +30,7 @@ static uint32_t pci_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_
     return inl(PCI_CONFIG_DATA);
 }
 
-static uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-    uint32_t value = pci_read32(bus, device, function, offset);
-    return (value >> ((offset & 2) * 8)) & 0xffff;
-}
-
-static void pci_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
+static void pci_legacy_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
     uint32_t address =
         (1u << 31) |
         ((uint32_t)bus << 16) |
@@ -39,6 +40,46 @@ static void pci_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t o
 
     outl(PCI_CONFIG_ADDRESS, address);
     outl(PCI_CONFIG_DATA, value);
+}
+
+static volatile uint32_t *pci_ecam_config32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    for (uint64_t i = 0; i < acpi_mcfg_allocation_count(); i++) {
+        const struct acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
+        if (mcfg == 0 || !mcfg->present || ecam_virtual_base[i] == 0 ||
+            bus < mcfg->start_bus || bus > mcfg->end_bus) {
+            continue;
+        }
+
+        uint64_t offset_in_window =
+            (((uint64_t)bus - mcfg->start_bus) << 20) +
+            ((uint64_t)device << 15) +
+            ((uint64_t)function << 12) +
+            (offset & 0xffc);
+        return (volatile uint32_t *)(ecam_virtual_base[i] + offset_in_window);
+    }
+    return 0;
+}
+
+static uint32_t pci_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    volatile uint32_t *ecam = ecam_available ? pci_ecam_config32(bus, device, function, offset) : 0;
+    if (ecam != 0) {
+        return *ecam;
+    }
+    return pci_legacy_read32(bus, device, function, offset);
+}
+
+static uint16_t pci_read16(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
+    uint32_t value = pci_read32(bus, device, function, offset);
+    return (value >> ((offset & 2) * 8)) & 0xffff;
+}
+
+static void pci_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
+    volatile uint32_t *ecam = ecam_available ? pci_ecam_config32(bus, device, function, offset) : 0;
+    if (ecam != 0) {
+        *ecam = value;
+        return;
+    }
+    pci_legacy_write32(bus, device, function, offset, value);
 }
 
 static void pci_write16_raw(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t value) {
@@ -140,8 +181,47 @@ static void scan_device(uint8_t bus, uint8_t device) {
     }
 }
 
+static bool map_ecam_windows(void) {
+    uint64_t count = acpi_mcfg_allocation_count();
+    bool any_mapped = false;
+    for (uint64_t i = 0; i < count && i < sizeof(ecam_virtual_base) / sizeof(ecam_virtual_base[0]); i++) {
+        const struct acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
+        if (mcfg == 0 || !mcfg->present) {
+            continue;
+        }
+
+        uint64_t buses = (uint64_t)mcfg->end_bus - mcfg->start_bus + 1;
+        uint64_t bytes = buses << 20;
+        uint64_t pages = (bytes + 4095) / 4096;
+        uint64_t virtual_base = PCI_ECAM_VIRTUAL_BASE + i * PCI_ECAM_ALLOCATION_STRIDE;
+        bool ok = true;
+        for (uint64_t page = 0; page < pages; page++) {
+            if (!vmm_map_page(virtual_base + page * 4096,
+                    mcfg->base_address + page * 4096,
+                    VMM_PAGE_WRITABLE | VMM_PAGE_CACHE_DISABLE | VMM_PAGE_NO_EXECUTE)) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            ecam_virtual_base[i] = virtual_base;
+            any_mapped = true;
+        } else {
+            console_printf("pci: ecam map failed base=%x buses=%u-%u\n",
+                mcfg->base_address,
+                (uint64_t)mcfg->start_bus,
+                (uint64_t)mcfg->end_bus);
+        }
+    }
+    return any_mapped;
+}
+
 void pci_init(void) {
     device_count = 0;
+    for (uint64_t i = 0; i < sizeof(ecam_virtual_base) / sizeof(ecam_virtual_base[0]); i++) {
+        ecam_virtual_base[i] = 0;
+    }
+    ecam_available = acpi_mcfg_allocation_count() > 0 && map_ecam_windows();
 
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t device = 0; device < 32; device++) {
@@ -149,7 +229,7 @@ void pci_init(void) {
         }
     }
 
-    console_printf("pci: devices=%u\n", device_count);
+    console_printf("pci: devices=%u config=%s\n", device_count, pci_config_backend_name());
     for (uint64_t i = 0; i < device_count; i++) {
         const struct pci_device *dev = &devices[i];
         if (dev->class_code == 0x02) {
@@ -164,6 +244,10 @@ void pci_init(void) {
                 (uint64_t)dev->bar[0]);
         }
     }
+}
+
+const char *pci_config_backend_name(void) {
+    return ecam_available ? "ecam" : "legacy-cf8";
 }
 
 uint64_t pci_device_count(void) {

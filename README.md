@@ -204,9 +204,22 @@ The main artifacts are:
 
 ```text
 build/srvros-x86_64.iso
+build/srvros-usb.img
 build/srvros.exfat
 build/initramfs.tar
 ```
+
+Build the GPT/UEFI USB image explicitly with:
+
+```sh
+make usb-image
+```
+
+`build/srvros-usb.img` is intended for UEFI hardware bring-up. It contains a
+FAT32 EFI System Partition plus an exFAT `/fat` data partition. To write it to
+real media, use a raw-image writer such as Rufus/Etcher or `dd` from a shell
+where you have positively identified the target disk. Writing to the wrong disk
+will destroy data.
 
 ## Running
 
@@ -393,6 +406,7 @@ python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/uefi_usb_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make libc-audit
 python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make node-unresolved-audit

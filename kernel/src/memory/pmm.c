@@ -131,7 +131,8 @@ static uint64_t find_bitmap_location(struct limine_memmap_response *memmap, uint
             continue;
         }
 
-        uint64_t base = align_up(entry->base, PMM_FRAME_SIZE);
+        uint64_t candidate = entry->base < PMM_DEFAULT_MIN_PHYSICAL ? PMM_DEFAULT_MIN_PHYSICAL : entry->base;
+        uint64_t base = align_up(candidate, PMM_FRAME_SIZE);
         uint64_t end = entry->base + entry->length;
         if (base < end && end - base >= size) {
             return base;
@@ -139,6 +140,18 @@ static uint64_t find_bitmap_location(struct limine_memmap_response *memmap, uint
     }
 
     return 0;
+}
+
+static void print_bitmap_location_failure(struct limine_memmap_response *memmap, uint64_t size) {
+    console_printf("pmm: bitmap bytes=%u entries=%u\n", size, memmap->entry_count);
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *entry = memmap->entries[i];
+        console_printf("  [%u] base=%x length=%x type=%u\n",
+            i,
+            entry->base,
+            entry->length,
+            entry->type);
+    }
 }
 
 void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
@@ -153,6 +166,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
 
     uint64_t bitmap_physical = find_bitmap_location(memmap, bitmap_bytes);
     if (bitmap_physical == 0) {
+        print_bitmap_location_failure(memmap, bitmap_bytes);
         console_write("pmm: no usable range can hold the bitmap\n");
         halt_forever();
     }

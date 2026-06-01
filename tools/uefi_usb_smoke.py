@@ -15,7 +15,7 @@ def read_for(sock, seconds):
     deadline = time.time() + seconds
     while time.time() < deadline:
         try:
-            chunk = sock.recv(4096)
+            chunk = sock.recv(8192)
             if not chunk:
                 break
             chunks.append(chunk)
@@ -24,10 +24,10 @@ def read_for(sock, seconds):
     return b"".join(chunks)
 
 
-def read_until(sock, marker, seconds):
+def read_until_any(sock, markers, seconds):
     data = b""
     deadline = time.time() + seconds
-    while marker not in data and time.time() < deadline:
+    while not any(marker in data for marker in markers) and time.time() < deadline:
         data += read_for(sock, 0.5)
     return data
 
@@ -49,21 +49,33 @@ def has_fatal_exception(text):
     return False
 
 
+def default_ovmf_path():
+    env = os.environ.get("OVMF_CODE")
+    if env:
+        return env
+    candidates = [
+        r"C:\msys64\ucrt64\share\qemu\edk2-x86_64-code.fd",
+        "/ucrt64/share/qemu/edk2-x86_64-code.fd",
+    ]
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            return candidate
+    return candidates[0]
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Verify size-versioned core syscall ABI copies.")
+    parser = argparse.ArgumentParser(description="Boot the srvros GPT/FAT32 USB image through OVMF.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
-    parser.add_argument("--iso", default="build/srvros-x86_64.iso")
-    parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=45)
-    parser.add_argument("--command-wait", type=float, default=20)
-    parser.add_argument("--memory", default="512M")
+    parser.add_argument("--image", default="build/srvros-usb.img")
+    parser.add_argument("--ovmf", default=default_ovmf_path())
+    parser.add_argument("--boot-wait", type=float, default=90)
+    parser.add_argument("--memory", default="2G")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
-    iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
-    source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
-    serial_port = random.randint(24000, 29000)
+    source_image = args.image if os.path.isabs(args.image) else os.path.join(root, args.image)
+    serial_port = random.randint(30000, 39000)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -72,19 +84,18 @@ def main():
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
     output = b""
-    with tempfile.TemporaryDirectory(prefix="srvros-sysabi-") as temp_dir:
-        disk = os.path.join(temp_dir, "srvros-sysabi.exfat")
-        shutil.copyfile(source_disk, disk)
+    with tempfile.TemporaryDirectory(prefix="srvros-uefi-usb-") as temp_dir:
+        image = os.path.join(temp_dir, "srvros-usb.img")
+        shutil.copyfile(source_image, image)
         command = [
             args.qemu,
             "-M", "q35",
             "-m", args.memory,
-            "-cdrom", iso,
-            "-boot", "d",
-            "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
-            "-drive", f"if=none,id=exfat,file={disk},format=raw",
+            "-drive", f"if=pflash,format=raw,readonly=on,file={args.ovmf}",
+            "-drive", f"if=none,id=usb,file={image},format=raw",
             "-device", "ich9-ahci,id=ahci",
-            "-device", "ide-hd,drive=exfat,bus=ahci.0",
+            "-device", "ide-hd,drive=usb,bus=ahci.0",
+            "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
             "-monitor", "none",
             "-display", "none",
             "-no-reboot",
@@ -92,15 +103,12 @@ def main():
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
-            sock = connect_serial(serial_port, 15)
+            sock = connect_serial(serial_port, 20)
             sock.settimeout(0.3)
-            output += read_until(sock, b"srv> ", args.boot_wait)
-            sock.sendall(b"run /fat/bin/sh\n")
-            output += read_until(sock, b" $ ", 6)
-            sock.sendall(b"sysabi\n")
-            output += read_until(sock, b"sysabi: ok", args.command_wait)
-            output += read_until(sock, b" $ ", 3)
-            output += read_for(sock, 1)
+            output += read_until_any(sock, [b"srv> ", b" $ "], args.boot_wait)
+            if b"srv> " in output:
+                sock.sendall(b"bootinfo\n")
+                output += read_until_any(sock, [b"srv> "], 10)
         finally:
             try:
                 process.terminate()
@@ -112,20 +120,24 @@ def main():
     sys.stdout.write(text)
 
     missing = []
-    if "sysabi: ok" not in text:
-        missing.append("sysabi: ok")
-    if "sysabi: fail" in text:
-        missing.append("sysabi failure")
+    if "exfat: mounted /fat" not in text:
+        missing.append("exfat mount")
+    if "srv>" not in text and " $ " not in text:
+        missing.append("shell or monitor prompt")
+    if "pci: devices=" not in text:
+        missing.append("PCI inventory")
+    if "config=ecam" not in text:
+        missing.append("ECAM PCI config")
     if has_fatal_exception(text):
-        print("sysabi-smoke: fatal exception detected", file=sys.stderr)
+        print("uefi-usb-smoke: fatal exception detected", file=sys.stderr)
         return 2
     if missing:
-        print("sysabi-smoke: missing markers:", file=sys.stderr)
+        print("uefi-usb-smoke: missing markers:", file=sys.stderr)
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
 
-    print("sysabi-smoke: ok")
+    print("uefi-usb-smoke: ok")
     return 0
 
 

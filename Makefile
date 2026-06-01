@@ -3,6 +3,7 @@
 ARCH := x86_64
 KERNEL := build/kernel/srvros.elf
 IMAGE := build/srvros-$(ARCH).iso
+USB_IMAGE := build/srvros-usb.img
 ISO_ROOT := build/iso_root
 INITRAMFS_ROOT := build/initramfs_root
 INITRAMFS := build/initramfs.tar
@@ -1743,6 +1744,19 @@ $(IMAGE): $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS) boot/limine.conf
 		$(ISO_ROOT) -o $(IMAGE)
 	$(LIMINE_TOOL) bios-install $(IMAGE)
 
+$(USB_IMAGE): $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS) $(EXFAT_IMAGE) boot/limine.conf tools/mk_usb_image.py
+	$(PYTHON) tools/mk_usb_image.py \
+		--output $@ \
+		--kernel $(KERNEL) \
+		--initramfs $(INITRAMFS) \
+		--config boot/limine.conf \
+		--bootx64 $(LIMINE_DIR)/BOOTX64.EFI \
+		--bootia32 $(LIMINE_DIR)/BOOTIA32.EFI \
+		--exfat $(EXFAT_IMAGE)
+
+.PHONY: usb-image
+usb-image: $(USB_IMAGE)
+
 .PHONY: run
 run: $(IMAGE)
 	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot
@@ -1789,7 +1803,7 @@ debug: $(IMAGE)
 
 .PHONY: clean
 clean:
-	rm -rf build/kernel build/userspace build/iso_root $(INITRAMFS_ROOT) $(IMAGE) $(INITRAMFS) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
+	rm -rf build/kernel build/userspace build/iso_root $(INITRAMFS_ROOT) $(IMAGE) $(USB_IMAGE) $(INITRAMFS) $(EXFAT_IMAGE) $(SECOND_EXFAT_IMAGE)
 
 .PHONY: distclean
 distclean:

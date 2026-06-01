@@ -66,22 +66,24 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 
 ### 1. Add a Real-Hardware Boot Artifact
 
-- Add a `realboot` or `usb-image` build target that creates a GPT disk image.
+- `make usb-image` creates `build/srvros-usb.img`, a GPT disk image.
 - Partition 1: FAT32 ESP with `EFI/BOOT/BOOTX64.EFI`, Limine config, kernel,
   and initramfs.
-- Partition 2, optional: exFAT srvros data volume, matching the QEMU AHCI image
+- Partition 2: exFAT srvros data volume, matching the QEMU AHCI image
   layout.
 - Document writing the image with platform-specific commands and a clear
   warning about selecting the correct disk.
-- Add a QEMU UEFI smoke mode that boots the GPT/ESP artifact, not only the ISO.
+- `tools/uefi_usb_smoke.py` boots the GPT/ESP artifact through OVMF from a
+  temporary copy, verifies PCIe ECAM, and confirms `/fat` mounts from the GPT
+  exFAT data partition.
 
 ### 2. Strengthen Early Observability
 
 - Keep framebuffer console as the first-class real-machine console.
 - Mirror boot logs into an in-memory ring buffer.
 - Persist the ring buffer to `/fat/var/log/boot.log` after the filesystem mounts.
-- Add a `bootinfo` monitor command covering framebuffer geometry, Limine
-  bootloader info, ACPI tables found, PCI/PCIe devices, timers, and storage.
+- `bootinfo` covers framebuffer geometry, ACPI tables, PCI/PCIe config mode,
+  Intel graphics discovery, timers, and storage.
 - Add a panic screen that does not depend on serial.
 
 ### 3. Broaden ACPI and PCI Enumeration

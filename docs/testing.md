@@ -34,6 +34,7 @@ python3 tools/httpget_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/uefi_usb_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make libc-audit
 python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make node-unresolved-audit
@@ -173,6 +174,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `sysabi_smoke.py`: launches `/fat/bin/sysabi`, which calls raw core
   structured syscalls (`stat`, `statfs`, process list, console/gfx info, and
   GUI receive) with smaller versioned structs and canary checks.
+- `uefi_usb_smoke.py`: boots `build/srvros-usb.img` through OVMF from a
+  temporary copy, confirms the GPT/FAT32 Limine path reaches the kernel,
+  verifies ACPI MCFG/PCI ECAM discovery, and checks that the GPT exFAT data
+  partition mounts as `/fat`.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented

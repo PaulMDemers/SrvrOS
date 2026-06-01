@@ -194,6 +194,18 @@ static void mount_exfat_volume(void) {
     if (ahci != NULL && exfat_mount_block_device("/fat", ahci)) {
         return;
     }
+    if (ahci != NULL) {
+        block_register_gpt_partitions(ahci);
+        uint64_t order[] = {2, 1, 3, 4, 5, 6, 7, 8};
+        for (uint64_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
+            char name[] = "ahci0p0";
+            name[6] = (char)('0' + order[i]);
+            struct block_device *partition = block_find(name);
+            if (partition != NULL && exfat_mount_block_device("/fat", partition)) {
+                return;
+            }
+        }
+    }
 
     const struct vfs_node *node = vfs_lookup("/srvros.exfat");
     const uint8_t *data;

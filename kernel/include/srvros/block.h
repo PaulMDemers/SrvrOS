@@ -39,6 +39,7 @@ struct block_device *block_register(const char *name,
     block_write_fn write,
     void *private_data);
 struct block_device *block_find(const char *name);
+uint64_t block_register_gpt_partitions(struct block_device *device);
 bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length);
 bool block_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length);
 bool block_flush_all(void);
