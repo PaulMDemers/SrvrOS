@@ -25,6 +25,8 @@ server.
 - Adds one-layer USB2 hub enumeration on xHCI, including hub port power/reset,
   route-string child addressing, parent/port diagnostics, and hidden-QEMU smoke
   coverage for keyboard and mouse devices behind a hub.
+- Adds a generic absolute HID pointer path for QEMU `usb-tablet`, including
+  QMP absolute-input smoke coverage directly on xHCI root ports and behind a hub.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

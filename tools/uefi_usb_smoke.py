@@ -116,6 +116,32 @@ def send_qmp_mouse_move(sock, dx, dy):
     })
 
 
+def send_qmp_tablet_move(sock, dx, dy):
+    x = max(0, min(32767, 16000 + dx * 128))
+    y = max(0, min(32767, 12000 + dy * 128))
+    qmp_command(sock, {
+        "execute": "input-send-event",
+        "arguments": {
+            "events": [
+                {
+                    "type": "abs",
+                    "data": {
+                        "axis": "x",
+                        "value": x,
+                    },
+                },
+                {
+                    "type": "abs",
+                    "data": {
+                        "axis": "y",
+                        "value": y,
+                    },
+                },
+            ],
+        },
+    })
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -185,6 +211,8 @@ def main():
         help="Do not attach a QEMU USB keyboard to the xHCI controller.")
     parser.add_argument("--no-usb-mouse", action="store_true",
         help="Do not attach a QEMU USB mouse to the xHCI controller.")
+    parser.add_argument("--usb-pointer", choices=("mouse", "tablet"), default="mouse",
+        help="QEMU USB pointer device to attach when --no-usb-mouse is not set.")
     parser.add_argument("--usb-hub", action="store_true",
         help="Attach the USB keyboard and mouse behind a QEMU USB hub.")
     parser.add_argument("--usb-type-text", default="",
@@ -243,7 +271,8 @@ def main():
                     device += f",port={kbd_port}"
                 command.extend(["-device", device])
             if not args.no_usb_mouse:
-                device = f"usb-mouse,bus={mouse_bus}"
+                pointer_device = "usb-tablet" if args.usb_pointer == "tablet" else "usb-mouse"
+                device = f"{pointer_device},bus={mouse_bus}"
                 if mouse_port is not None:
                     device += f",port={mouse_port}"
                 command.extend(["-device", device])
@@ -263,7 +292,10 @@ def main():
                     parts = args.usb_mouse_move.replace("x", ",").split(",", 1)
                     dx = int(parts[0])
                     dy = int(parts[1]) if len(parts) > 1 else 0
-                    send_qmp_mouse_move(qmp, dx, dy)
+                    if args.usb_pointer == "tablet":
+                        send_qmp_tablet_move(qmp, dx, dy)
+                    else:
+                        send_qmp_mouse_move(qmp, dx, dy)
                     output += read_for(sock, 1)
                 sock.sendall(b"bootinfo\n")
                 output += read_until_any(sock, [b"srv> "], 10)

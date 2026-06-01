@@ -185,6 +185,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   that the typed command reached the monitor while HID interrupt report counters
   advanced. The optional `--usb-mouse-move dx,dy` hook sends a QEMU mouse move
   through the USB mouse path and checks that mouse report counters advanced.
+  `--usb-pointer tablet` swaps the pointer device to QEMU's absolute
+  `usb-tablet` and sends QMP absolute pointer events instead of HMP relative
+  moves.
   The optional `--usb-hub` topology puts both HID devices behind a QEMU USB hub
   and verifies hub detection, routed downstream HID enumeration, typed keyboard
   input, and pointer reports.

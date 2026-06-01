@@ -132,6 +132,9 @@ struct xhci_device {
     bool configured;
     bool hid_keyboard;
     bool hid_mouse;
+    bool hid_boot_mouse;
+    bool hid_absolute_pointer;
+    bool hid_have_absolute;
     bool interrupt_pending;
     uint8_t slot_id;
     uint8_t port_id;
@@ -175,6 +178,8 @@ struct xhci_device {
     bool ep0_cycle;
     bool interrupt_cycle;
     uint8_t previous_report[8];
+    uint16_t previous_absolute_x;
+    uint16_t previous_absolute_y;
     uint64_t control_success;
     uint64_t interrupt_success;
     uint64_t hid_reports;
@@ -993,12 +998,14 @@ static bool address_device(struct xhci_device *device) {
     return true;
 }
 
-static bool parse_hid_boot_config(struct xhci_device *device,
+static bool parse_hid_input_config(struct xhci_device *device,
     uint16_t length,
     uint8_t *configuration_out) {
     uint64_t offset = 0;
-    bool boot_hid = false;
+    bool input_hid = false;
     uint8_t current_interface = 0;
+    uint8_t current_class = 0;
+    uint8_t current_subclass = 0;
     uint8_t current_protocol = 0;
     *configuration_out = device->descriptor_buffer[5];
     device->configuration_value = device->descriptor_buffer[5];
@@ -1012,24 +1019,36 @@ static bool parse_hid_boot_config(struct xhci_device *device,
         }
         if (type == USB_DESC_INTERFACE && size >= 9) {
             current_interface = device->descriptor_buffer[offset + 2];
+            current_class = device->descriptor_buffer[offset + 5];
+            current_subclass = device->descriptor_buffer[offset + 6];
             current_protocol = device->descriptor_buffer[offset + 7];
             if (!device->have_interface_descriptor) {
                 device->have_interface_descriptor = true;
-                device->first_interface_class = device->descriptor_buffer[offset + 5];
-                device->first_interface_subclass = device->descriptor_buffer[offset + 6];
+                device->first_interface_class = current_class;
+                device->first_interface_subclass = current_subclass;
                 device->first_interface_protocol = current_protocol;
             }
-            boot_hid =
-                device->descriptor_buffer[offset + 5] == USB_CLASS_HID &&
-                device->descriptor_buffer[offset + 6] == USB_HID_SUBCLASS_BOOT &&
+            bool boot_hid =
+                current_class == USB_CLASS_HID &&
+                current_subclass == USB_HID_SUBCLASS_BOOT &&
                 (current_protocol == USB_HID_PROTOCOL_KEYBOARD ||
                     current_protocol == USB_HID_PROTOCOL_MOUSE);
+            bool generic_pointer_candidate =
+                current_class == USB_CLASS_HID &&
+                current_subclass == 0 &&
+                current_protocol == 0;
+            input_hid = boot_hid || generic_pointer_candidate;
             if (boot_hid) {
                 device->interface_number = current_interface;
                 device->hid_keyboard = current_protocol == USB_HID_PROTOCOL_KEYBOARD;
                 device->hid_mouse = current_protocol == USB_HID_PROTOCOL_MOUSE;
+                device->hid_boot_mouse = current_protocol == USB_HID_PROTOCOL_MOUSE;
+            } else if (generic_pointer_candidate) {
+                device->interface_number = current_interface;
+                device->hid_mouse = true;
+                device->hid_absolute_pointer = true;
             }
-        } else if (type == USB_DESC_ENDPOINT && size >= 7 && boot_hid) {
+        } else if (type == USB_DESC_ENDPOINT && size >= 7 && input_hid) {
             uint8_t address = device->descriptor_buffer[offset + 2];
             uint8_t attributes = device->descriptor_buffer[offset + 3] & 0x03;
             if ((address & USB_ENDPOINT_IN) != 0 && attributes == USB_ENDPOINT_INTERRUPT) {
@@ -1174,9 +1193,6 @@ static void handle_hid_report(struct xhci_device *device) {
 static void handle_hid_mouse_report(struct xhci_device *device) {
     uint8_t *report = device->interrupt_buffer;
     uint64_t length = device->interrupt_max_packet;
-    if (length < 3) {
-        return;
-    }
     if (length > 8) {
         length = 8;
     }
@@ -1184,8 +1200,36 @@ static void handle_hid_mouse_report(struct xhci_device *device) {
         return;
     }
 
-    int32_t dx = (int8_t)report[1];
-    int32_t dy = (int8_t)report[2];
+    int32_t dx = 0;
+    int32_t dy = 0;
+    if (device->hid_absolute_pointer) {
+        if (length < 5) {
+            return;
+        }
+        uint16_t x = (uint16_t)report[1] | ((uint16_t)report[2] << 8);
+        uint16_t y = (uint16_t)report[3] | ((uint16_t)report[4] << 8);
+        if (device->hid_have_absolute) {
+            int32_t raw_dx = (int32_t)x - (int32_t)device->previous_absolute_x;
+            int32_t raw_dy = (int32_t)y - (int32_t)device->previous_absolute_y;
+            dx = raw_dx / 256;
+            dy = raw_dy / 256;
+            if (dx == 0 && raw_dx != 0) {
+                dx = raw_dx > 0 ? 1 : -1;
+            }
+            if (dy == 0 && raw_dy != 0) {
+                dy = raw_dy > 0 ? 1 : -1;
+            }
+        }
+        device->previous_absolute_x = x;
+        device->previous_absolute_y = y;
+        device->hid_have_absolute = true;
+    } else {
+        if (length < 3) {
+            return;
+        }
+        dx = (int8_t)report[1];
+        dy = (int8_t)report[2];
+    }
     mouse_inject_event(dx, dy, report[0] & 0x07);
     copy_bytes(device->previous_report, report, length);
     device->mouse_reports++;
@@ -1427,7 +1471,7 @@ static bool enumerate_device(struct xhci_device *device) {
     }
 
     uint8_t configuration = 0;
-    if (!parse_hid_boot_config(device, total_length, &configuration)) {
+    if (!parse_hid_input_config(device, total_length, &configuration)) {
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
@@ -1457,7 +1501,9 @@ static bool enumerate_device(struct xhci_device *device) {
     }
     device->configured = true;
     xhci.configured_devices++;
-    (void)set_hid_boot_protocol(device);
+    if (device->hid_keyboard || device->hid_boot_mouse) {
+        (void)set_hid_boot_protocol(device);
+    }
 
     if (!configure_interrupt_endpoint(device)) {
         console_printf("xhci: slot=%u interrupt endpoint config failed\n", (uint64_t)device->slot_id);
@@ -1469,7 +1515,7 @@ static bool enumerate_device(struct xhci_device *device) {
         xhci.hid_mice++;
     }
     console_printf("xhci: hid %s slot=%u port=%u parent=%u hub_port=%u route=%x dci=%u packet=%u interval=%u\n",
-        device->hid_mouse ? "mouse" : "keyboard",
+        device->hid_mouse ? (device->hid_absolute_pointer ? "tablet" : "mouse") : "keyboard",
         (uint64_t)device->slot_id,
         (uint64_t)device->port_id,
         (uint64_t)device->parent_slot_id,
@@ -1673,7 +1719,7 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
-        console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
+        console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u absolute=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,
             (uint64_t)device->port_id,
             (uint64_t)device->parent_slot_id,
@@ -1691,6 +1737,7 @@ void xhci_print_status(void) {
             (uint64_t)device->product_id,
             (uint64_t)device->hid_keyboard,
             (uint64_t)device->hid_mouse,
+            (uint64_t)device->hid_absolute_pointer,
             (uint64_t)device->interrupt_dci,
             device->control_success,
             device->interrupt_success,

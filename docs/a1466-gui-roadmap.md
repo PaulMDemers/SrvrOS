@@ -110,17 +110,19 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
   diagnostics are in place. The first USB device path now allocates xHCI device
   contexts, addresses/configures QEMU's USB keyboard and mouse, walks
   descriptors, powers/resets QEMU USB2 hub ports, routes downstream devices, and
-  configures HID boot keyboard/mouse interrupt endpoints. QEMU smoke coverage
-  now types a monitor command through the USB keyboard path, sends a synthetic
-  USB mouse move, and verifies HID reports both directly on root ports and behind
-  a QEMU hub. xHCI status also reports descriptor class/vendor/product details
-  plus parent hub port and route strings, which should make the first A1466 USB
-  input boot log much more actionable.
+  configures HID boot keyboard/mouse plus generic absolute pointer interrupt
+  endpoints. QEMU smoke coverage now types a monitor command through the USB
+  keyboard path, sends synthetic relative and absolute pointer moves, and
+  verifies HID reports both directly on root ports and behind a QEMU hub. xHCI
+  status also reports descriptor class/vendor/product details, parent hub port,
+  route strings, and whether a pointer is absolute, which should make the first
+  A1466 USB input boot log much more actionable.
 - Validate the same USB keyboard report path on the A1466 internal keyboard.
 - Validate the same USB mouse report path on the A1466 internal trackpad.
+- Validate the generic absolute pointer path on the A1466 internal trackpad.
 - Validate the hub-routed input path against the A1466 internal USB topology.
 - Add broader USB hub enumeration beyond one USB2 hub layer.
-- Add richer HID report parsing for non-boot trackpad features.
+- Add a real HID report-descriptor parser for non-boot trackpad features.
 
 This is the main real-machine usability blocker. Without it, the MacBook may
 boot visually but be hard or impossible to control without firmware-provided
