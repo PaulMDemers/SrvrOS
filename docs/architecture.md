@@ -590,6 +590,12 @@ should own z-order/decorations/input routing, and rendering should be driven by
 damage rectangles plus resolution-aware logical units. The design and hardware
 bring-up plan are tracked in `docs/a1466-gui-roadmap.md`.
 
+The graphics ABI now carries accelerator metadata beside the framebuffer
+geometry. Intel integrated graphics discovery is initialized during boot and is
+visible through the monitor `gpu` command plus `gfx_info` flags, allowing the
+future compositor to choose software, Intel blitter, or Intel render backends
+without changing app-facing surface semantics.
+
 ## Testing Strategy
 
 The test harnesses boot QEMU, connect to the serial console, run monitor/shell

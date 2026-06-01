@@ -4,6 +4,7 @@
 #include <srvros/elf.h>
 #include <srvros/exfat.h>
 #include <srvros/heap.h>
+#include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
 #include <srvros/monitor.h>
 #include <srvros/net.h>
@@ -383,7 +384,7 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear mem memstat ticks heap workers block mount unmount fsck pci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear mem memstat ticks heap workers block mount unmount fsck pci gpu net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static bool child_seen(char children[LS_CHILDREN_MAX][LS_CHILD_NAME_MAX], uint64_t count, const char *name) {
@@ -817,6 +818,8 @@ static void run_command(char *line) {
         exfat_check_print(args);
     } else if (streq(command, "pci")) {
         command_pci();
+    } else if (streq(command, "gpu")) {
+        intel_gfx_print_status();
     } else if (streq(command, "net")) {
         command_net(args);
     } else if (streq(command, "ps")) {

@@ -170,6 +170,9 @@ path:
 
 - `display_info`: width, height, pitch, bpp, memory model, RGB mask sizes and
   shifts, framebuffer generation, and preferred scale.
+- Accelerator metadata: backend kind, device-present flags, mapped-MMIO flags,
+  and explicit staged capabilities for software, Intel blitter, and Intel render
+  backends.
 - `display_map` or controlled compositor-only framebuffer mapping.
 - `surface_create`, `surface_map`, `surface_destroy`, and surface metadata for
   client buffers.
@@ -266,9 +269,23 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 ### Slice D: Display ABI
 
 - Extend framebuffer info to a versioned display info ABI.
+- Detect Intel integrated graphics early and advertise accelerator metadata to
+  userspace without making the GUI depend on acceleration being available.
 - Add compositor-only framebuffer mapping or a bulk blit/present syscall.
 - Add kernel-managed surface allocation/mapping.
 - Add damage-rectangle helpers and tests.
+
+### Slice D2: Intel Acceleration Backend
+
+- Map the Intel graphics MMIO BAR and expose `gpu` diagnostics.
+- Implement a GPU memory manager for pages visible through the global GTT.
+- Add a kernel-owned command submission path with completion fences and hang
+  detection.
+- Bring up the Broadwell blitter engine first for accelerated fills, copies,
+  scrolls, and window moves.
+- Keep the compositor backend-pluggable so the GUI can run through software,
+  Intel blitter, or later Intel render-engine paths with the same surface and
+  damage protocol.
 
 ### Slice E: Compositor V2
 

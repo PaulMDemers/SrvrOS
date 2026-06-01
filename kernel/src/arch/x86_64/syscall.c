@@ -7,6 +7,7 @@
 #include <srvros/heap.h>
 #include <srvros/halt.h>
 #include <srvros/keyboard.h>
+#include <srvros/intel_gfx.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
 #include <srvros/pmm.h>
@@ -82,6 +83,8 @@ struct syscall_gfx_info {
     uint32_t blue_mask_shift;
     uint64_t scale_num;
     uint64_t scale_den;
+    uint64_t accel_backend;
+    uint64_t reserved;
 };
 
 struct syscall_mouse_event {
@@ -1429,6 +1432,8 @@ static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     copy.green_mask_shift = display.green_mask_shift;
     copy.blue_mask_size = display.blue_mask_size;
     copy.blue_mask_shift = display.blue_mask_shift;
+    copy.flags = intel_gfx_flags();
+    copy.accel_backend = intel_gfx_backend();
     return copy_abi_struct_to_user(info, &copy, sizeof(copy), SRV_ABI_VERSION) ? 0 : -1;
 }
 

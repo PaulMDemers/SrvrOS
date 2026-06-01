@@ -8,6 +8,7 @@
 #include <srvros/heap.h>
 #include <srvros/halt.h>
 #include <srvros/initramfs.h>
+#include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
 #include <srvros/monitor.h>
 #include <srvros/mouse.h>
@@ -263,6 +264,7 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    intel_gfx_init();
     ahci_init();
     mount_exfat_volume();
     e1000_init();

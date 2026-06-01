@@ -162,7 +162,8 @@ static int check_gfx(void) {
         full.pitch == 0 ||
         full.bpp == 0 ||
         full.scale_num == 0 ||
-        full.scale_den == 0) {
+        full.scale_den == 0 ||
+        full.accel_backend > GFX_ACCEL_INTEL_GEN8) {
         return fail("gfx-full-fields");
     }
     return 0;
