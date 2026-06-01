@@ -115,6 +115,8 @@ def main():
         "displayd: root backbuffer ready",
         "displayd: mapped surface window SURFACE DEMO",
         "surfacedemo: configure",
+        "displayd: mapped surface window GUI2 DEMO",
+        "gui2demo: configure",
         "displayd: smoke ok",
         "displayd: exited",
     ]

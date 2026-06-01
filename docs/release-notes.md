@@ -41,6 +41,9 @@ server.
 - Routes GUI v2 configure, focus, pointer, and key events from `displayd` back
   to surface clients; `surfacedemo` now receives those events and redraws its
   client-owned surface in response.
+- Adds `gui2`, an app-side helper library for v2 surface windows, dirty
+  presents, event polling, and first button/textbox widgets. `/fat/bin/gui2demo`
+  exercises that path under the displayd smoke.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

@@ -247,11 +247,14 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 `GUI_MSG_V2_EVENT_KEY_DOWN` are wired through the existing GUI queue. Pixel
 storage is currently kernel-managed through `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
-`/fat/bin/surfacedemo` is the first app using that path.
+`gui2` is the first app-side helper library for that path, wrapping window
+open/close, dirty presents, event polling, buttons, and textboxes.
+`/fat/bin/surfacedemo` now uses it for a raw animated surface, and
+`/fat/bin/gui2demo` uses it for the first v2 widget sample.
 
 ### Toolkit
 
-Create a new app-side toolkit library that owns widgets and renders into the
+Grow the new app-side toolkit library so it owns widgets and renders into the
 client surface:
 
 - Rect, point, size, color, and damage-list primitives.

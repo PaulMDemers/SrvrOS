@@ -167,8 +167,8 @@ editor clients:
   image replacement for POSIX `execve`; descriptor close-on-exec flags are
   applied during replacement.
 - GUI experiments: fullscreen desktop/window server, `displayd` compositor
-  seed, a v2 surface demo client, freestanding calculator, notes, text editor,
-  and BMP paint/image editor clients.
+  seed, app-owned v2 surface clients through `gui2`, freestanding calculator,
+  notes, text editor, and BMP paint/image editor clients.
 - The full shipped command surface is tracked in
   [docs/tool-inventory.md](docs/tool-inventory.md), including shell builtins,
   applet aliases, network tools, GUI clients, demos, and regression probes.

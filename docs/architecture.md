@@ -362,8 +362,9 @@ The generated `/fat/bin` command set is tracked in
   `sqlitedemo`, `uvdemo`, and `lua`.
 - Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
   `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
-- GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `calcgui`, `notesgui`,
-  `textedit`, `imgedit`, `sysabi`, `spin`, `fpdemo`, `posixdemo`,
+- GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `surfacedemo`,
+  `gui2demo`, `calcgui`, `notesgui`, `textedit`, `imgedit`, `sysabi`, `spin`,
+  `fpdemo`, `posixdemo`,
   `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
 The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
@@ -616,12 +617,16 @@ client-owned surfaces: apps create kernel-managed pixel surfaces, blit damaged
 rectangles into them, announce a surface window, and the compositor copies the
 surface into its root backbuffer. `displayd` also routes v2 configure, focus,
 pointer, and key events back to those clients so apps can react from their own
-process. `/fat/bin/surfacedemo` exercises that path.
+process. The app-side `gui2` library wraps that protocol with window open/close,
+surface present/damage, event polling, and early button/textbox widgets.
+`/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
+`/fat/bin/gui2demo` exercises the first app-owned widget path.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic
 controls. This is enough for calculator, notes, text editor, and BMP image
-editor experiments.
+editor experiments. `gui2` reuses the pixel/text drawing pieces while moving
+window ownership and event handling to app-side surfaces.
 
 The next GUI architecture replaces the fixed-pixel desktop with a display
 server/compositor model. Apps should own drawable surfaces, the compositor
