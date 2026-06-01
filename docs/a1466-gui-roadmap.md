@@ -108,15 +108,16 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 - xHCI PCI discovery, MMIO mapping, controller halt/reset, command/event rings,
   No-op and Enable Slot command completion, and connected root-port reset
   diagnostics are in place. The first USB device path now allocates xHCI device
-  contexts, addresses/configures QEMU's USB keyboard, walks descriptors, and
-  configures a HID boot-keyboard interrupt endpoint. QEMU smoke coverage now
-  types a monitor command through the USB keyboard path and verifies HID reports
-  feed the console input queue.
+  contexts, addresses/configures QEMU's USB keyboard and mouse, walks
+  descriptors, and configures HID boot keyboard/mouse interrupt endpoints. QEMU
+  smoke coverage now types a monitor command through the USB keyboard path,
+  sends a synthetic USB mouse move, and verifies HID reports feed the console
+  input queue and pointer event path.
 - Validate the same USB keyboard report path on the A1466 internal keyboard.
+- Validate the same USB mouse report path on the A1466 internal trackpad.
 - Add broader USB hub/root-port enumeration beyond the first directly attached
   device.
-- Add USB HID mouse/trackpad support and merge pointer events into the GUI path.
-- Merge USB pointer events into the GUI pointer path.
+- Add richer HID report parsing for non-boot trackpad features.
 
 This is the main real-machine usability blocker. Without it, the MacBook may
 boot visually but be hard or impossible to control without firmware-provided
@@ -270,11 +271,11 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 ### Slice C: USB Control Path
 
 - Add xHCI skeleton, reset, rings, command completion, and root-port inventory.
-  QEMU smoke coverage now verifies No-op, Enable Slot, and USB keyboard port
-  reset through the xHCI path.
+  QEMU smoke coverage now verifies No-op, Enable Slot, and USB HID port reset
+  through the xHCI path.
 - Add USB descriptor walking and first-device address/configuration.
 - Add USB HID boot keyboard endpoint configuration.
-- Add USB mouse/trackpad pointer events.
+- Add USB HID boot mouse pointer events.
 
 ### Slice D: Display ABI
 

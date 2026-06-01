@@ -14,6 +14,7 @@ struct mouse_event {
 
 bool mouse_init(void);
 void mouse_handle_irq(void);
+void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons);
 bool mouse_scan(struct mouse_event *event);
 
 #endif

@@ -157,6 +157,13 @@ void mouse_handle_irq(void) {
     changed = true;
 }
 
+void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons) {
+    pending_dx += dx;
+    pending_dy += dy;
+    current_buttons = buttons & (MOUSE_FLAG_LEFT | MOUSE_FLAG_RIGHT | MOUSE_FLAG_MIDDLE);
+    changed = true;
+}
+
 bool mouse_scan(struct mouse_event *event) {
     if (event == 0 || !changed) {
         return false;

@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
+#include <srvros/mouse.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/scheduler.h>
@@ -79,6 +80,7 @@
 #define USB_CLASS_HID 3
 #define USB_HID_SUBCLASS_BOOT 1
 #define USB_HID_PROTOCOL_KEYBOARD 1
+#define USB_HID_PROTOCOL_MOUSE 2
 #define USB_ENDPOINT_IN 0x80
 #define USB_ENDPOINT_INTERRUPT 3
 
@@ -112,6 +114,7 @@ struct xhci_device {
     bool addressed;
     bool configured;
     bool hid_keyboard;
+    bool hid_mouse;
     bool interrupt_pending;
     uint8_t slot_id;
     uint8_t port_id;
@@ -141,6 +144,7 @@ struct xhci_device {
     uint64_t control_success;
     uint64_t interrupt_success;
     uint64_t hid_reports;
+    uint64_t mouse_reports;
 };
 
 struct xhci_state {
@@ -183,6 +187,7 @@ struct xhci_state {
     uint64_t addressed_devices;
     uint64_t configured_devices;
     uint64_t hid_keyboards;
+    uint64_t hid_mice;
     uint64_t transfer_events;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
@@ -836,12 +841,13 @@ static bool address_device(struct xhci_device *device) {
     return true;
 }
 
-static bool parse_hid_keyboard_config(struct xhci_device *device,
+static bool parse_hid_boot_config(struct xhci_device *device,
     uint16_t length,
     uint8_t *configuration_out) {
     uint64_t offset = 0;
-    bool boot_keyboard = false;
+    bool boot_hid = false;
     uint8_t current_interface = 0;
+    uint8_t current_protocol = 0;
     *configuration_out = device->descriptor_buffer[5];
 
     while (offset + 2 <= length) {
@@ -852,14 +858,18 @@ static bool parse_hid_keyboard_config(struct xhci_device *device,
         }
         if (type == USB_DESC_INTERFACE && size >= 9) {
             current_interface = device->descriptor_buffer[offset + 2];
-            boot_keyboard =
+            current_protocol = device->descriptor_buffer[offset + 7];
+            boot_hid =
                 device->descriptor_buffer[offset + 5] == USB_CLASS_HID &&
                 device->descriptor_buffer[offset + 6] == USB_HID_SUBCLASS_BOOT &&
-                device->descriptor_buffer[offset + 7] == USB_HID_PROTOCOL_KEYBOARD;
-            if (boot_keyboard) {
+                (current_protocol == USB_HID_PROTOCOL_KEYBOARD ||
+                    current_protocol == USB_HID_PROTOCOL_MOUSE);
+            if (boot_hid) {
                 device->interface_number = current_interface;
+                device->hid_keyboard = current_protocol == USB_HID_PROTOCOL_KEYBOARD;
+                device->hid_mouse = current_protocol == USB_HID_PROTOCOL_MOUSE;
             }
-        } else if (type == USB_DESC_ENDPOINT && size >= 7 && boot_keyboard) {
+        } else if (type == USB_DESC_ENDPOINT && size >= 7 && boot_hid) {
             uint8_t address = device->descriptor_buffer[offset + 2];
             uint8_t attributes = device->descriptor_buffer[offset + 3] & 0x03;
             if ((address & USB_ENDPOINT_IN) != 0 && attributes == USB_ENDPOINT_INTERRUPT) {
@@ -981,16 +991,40 @@ static void handle_hid_report(struct xhci_device *device) {
     device->hid_reports++;
 }
 
-static void submit_interrupt_poll(struct xhci_device *device) {
-    if (device->interrupt_pending || !device->hid_keyboard) {
+static void handle_hid_mouse_report(struct xhci_device *device) {
+    uint8_t *report = device->interrupt_buffer;
+    uint64_t length = device->interrupt_max_packet;
+    if (length < 3) {
+        return;
+    }
+    if (length > 8) {
+        length = 8;
+    }
+    if (bytes_equal(report, device->previous_report, length)) {
         return;
     }
 
-    zero_bytes(device->interrupt_buffer, 8);
+    int32_t dx = (int8_t)report[1];
+    int32_t dy = (int8_t)report[2];
+    mouse_inject_event(dx, dy, report[0] & 0x07);
+    copy_bytes(device->previous_report, report, length);
+    device->mouse_reports++;
+}
+
+static void submit_interrupt_poll(struct xhci_device *device) {
+    if (device->interrupt_pending || (!device->hid_keyboard && !device->hid_mouse)) {
+        return;
+    }
+
+    uint64_t length = device->interrupt_max_packet;
+    if (length == 0 || length > PMM_FRAME_SIZE) {
+        length = 8;
+    }
+    zero_bytes(device->interrupt_buffer, length);
     struct xhci_trb trb = {
         .parameter_low = (uint32_t)device->interrupt_buffer_phys,
         .parameter_high = (uint32_t)(device->interrupt_buffer_phys >> 32),
-        .status = 8,
+        .status = (uint32_t)length,
         .control = (XHCI_TRB_TYPE_NORMAL << 10) | XHCI_TRB_IOC,
     };
     (void)ring_push(device->interrupt_ring,
@@ -1024,7 +1058,7 @@ static void poll_hid_events_once(void) {
         xhci.last_slot_id = slot_id;
         for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
             struct xhci_device *device = &xhci.devices[i];
-            if (!device->hid_keyboard ||
+            if ((!device->hid_keyboard && !device->hid_mouse) ||
                 device->slot_id != slot_id ||
                 device->interrupt_dci != dci) {
                 continue;
@@ -1032,7 +1066,11 @@ static void poll_hid_events_once(void) {
             device->interrupt_pending = false;
             if (completion == 1 || completion == 13) {
                 device->interrupt_success++;
-                handle_hid_report(device);
+                if (device->hid_keyboard) {
+                    handle_hid_report(device);
+                } else if (device->hid_mouse) {
+                    handle_hid_mouse_report(device);
+                }
             }
         }
     }
@@ -1041,7 +1079,7 @@ static void poll_hid_events_once(void) {
 static void xhci_poll_worker(void *arg) {
     (void)arg;
     for (;;) {
-        if (xhci.operational && xhci.hid_keyboards != 0) {
+        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
             poll_hid_events_once();
         }
         for (uint64_t i = 0; i < 10000; i++) {
@@ -1098,8 +1136,8 @@ static bool enumerate_port(uint64_t port_index) {
     }
 
     uint8_t configuration = 0;
-    if (!parse_hid_keyboard_config(device, total_length, &configuration)) {
-        console_printf("xhci: slot=%u no boot keyboard interface\n", (uint64_t)device->slot_id);
+    if (!parse_hid_boot_config(device, total_length, &configuration)) {
+        console_printf("xhci: slot=%u no boot HID interface\n", (uint64_t)device->slot_id);
         return true;
     }
     if (!set_configuration(device, configuration)) {
@@ -1113,9 +1151,13 @@ static bool enumerate_port(uint64_t port_index) {
         console_printf("xhci: slot=%u interrupt endpoint config failed\n", (uint64_t)device->slot_id);
         return false;
     }
-    device->hid_keyboard = true;
-    xhci.hid_keyboards++;
-    console_printf("xhci: hid keyboard slot=%u port=%u dci=%u packet=%u interval=%u\n",
+    if (device->hid_keyboard) {
+        xhci.hid_keyboards++;
+    } else if (device->hid_mouse) {
+        xhci.hid_mice++;
+    }
+    console_printf("xhci: hid %s slot=%u port=%u dci=%u packet=%u interval=%u\n",
+        device->hid_mouse ? "mouse" : "keyboard",
         (uint64_t)device->slot_id,
         (uint64_t)device->port_id,
         (uint64_t)device->interrupt_dci,
@@ -1132,7 +1174,7 @@ static void enumerate_connected_ports(void) {
     for (uint64_t i = 0; i < count; i++) {
         (void)enumerate_port(i);
     }
-    if (xhci.hid_keyboards != 0) {
+    if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0) {
         if (!scheduler_spawn("xhci-hid", xhci_poll_worker, 0)) {
             console_write("xhci: hid poll worker failed\n");
         }
@@ -1263,10 +1305,11 @@ void xhci_print_status(void) {
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
-    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u transfer_events=%u\n",
+    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u transfer_events=%u\n",
         xhci.addressed_devices,
         xhci.configured_devices,
         xhci.hid_keyboards,
+        xhci.hid_mice,
         xhci.transfer_events);
     uint64_t count = xhci.port_count;
     if (count > XHCI_MAX_PORTS) {
@@ -1290,15 +1333,17 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
-        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u hid=%u dci=%u control=%u intr=%u reports=%u\n",
+        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u keyboard=%u mouse=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,
             (uint64_t)device->port_id,
             (uint64_t)device->addressed,
             (uint64_t)device->configured,
             (uint64_t)device->hid_keyboard,
+            (uint64_t)device->hid_mouse,
             (uint64_t)device->interrupt_dci,
             device->control_success,
             device->interrupt_success,
-            device->hid_reports);
+            device->hid_reports,
+            device->mouse_reports);
     }
 }

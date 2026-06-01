@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import random
+import re
 import shutil
 import socket
 import subprocess
@@ -106,11 +107,54 @@ def send_qmp_text(sock, text, key_delay):
         time.sleep(key_delay)
 
 
+def send_qmp_mouse_move(sock, dx, dy):
+    qmp_command(sock, {
+        "execute": "human-monitor-command",
+        "arguments": {
+            "command-line": f"mouse_move {dx} {dy}",
+        },
+    })
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
             return True
     return False
+
+
+def device_line_matches(text, required, min_intr=None, min_reports=None, min_mouse_reports=None):
+    for line in text.splitlines():
+        if not line.startswith("xhci: device "):
+            continue
+        if any(token not in line for token in required):
+            continue
+        if min_intr is not None:
+            match = re.search(r"\bintr=(\d+)", line)
+            if match is None or int(match.group(1)) < min_intr:
+                continue
+        if min_reports is not None:
+            match = re.search(r"\breports=(\d+)", line)
+            if match is None or int(match.group(1)) < min_reports:
+                continue
+        if min_mouse_reports is not None:
+            match = re.search(r"\bmouse_reports=(\d+)", line)
+            if match is None or int(match.group(1)) < min_mouse_reports:
+                continue
+        return True
+    return False
+
+
+def numeric_marker_at_least(text, name, minimum):
+    for match in re.finditer(rf"\b{re.escape(name)}=(\d+)", text):
+        if int(match.group(1)) >= minimum:
+            return True
+    return False
+
+
+def marker_occurrences_at_least(text, name, value, minimum):
+    pattern = rf"\b{re.escape(name)}={re.escape(str(value))}\b"
+    return len(re.findall(pattern, text)) >= minimum
 
 
 def default_ovmf_path():
@@ -139,10 +183,14 @@ def main():
         help="Do not add QEMU's xHCI PCI controller to the smoke boot.")
     parser.add_argument("--no-usb-kbd", action="store_true",
         help="Do not attach a QEMU USB keyboard to the xHCI controller.")
+    parser.add_argument("--no-usb-mouse", action="store_true",
+        help="Do not attach a QEMU USB mouse to the xHCI controller.")
     parser.add_argument("--usb-type-text", default="",
         help="Type this monitor command through QEMU's keyboard event path, then press Enter.")
     parser.add_argument("--usb-type-expect", default="",
         help="Text expected in serial output after --usb-type-text is submitted.")
+    parser.add_argument("--usb-mouse-move", default="",
+        help="Send a QEMU mouse_move 'dx,dy' event through the USB mouse path.")
     parser.add_argument("--usb-key-delay", type=float, default=0.05)
     args = parser.parse_args()
 
@@ -179,6 +227,8 @@ def main():
             command.extend(["-device", "qemu-xhci,id=xhci"])
             if not args.no_usb_kbd:
                 command.extend(["-device", "usb-kbd,bus=xhci.0"])
+            if not args.no_usb_mouse:
+                command.extend(["-device", "usb-mouse,bus=xhci.0"])
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -190,6 +240,12 @@ def main():
                 if args.usb_type_text and not args.no_xhci and not args.no_usb_kbd:
                     send_qmp_text(qmp, args.usb_type_text + "\n", args.usb_key_delay)
                     output += read_until_any(sock, [b"srv> "], 10)
+                if args.usb_mouse_move and not args.no_xhci and not args.no_usb_mouse:
+                    parts = args.usb_mouse_move.replace("x", ",").split(",", 1)
+                    dx = int(parts[0])
+                    dy = int(parts[1]) if len(parts) > 1 else 0
+                    send_qmp_mouse_move(qmp, dx, dy)
+                    output += read_for(sock, 1)
                 sock.sendall(b"bootinfo\n")
                 output += read_until_any(sock, [b"srv> "], 10)
                 sock.sendall(b"dmesg 512\n")
@@ -214,23 +270,30 @@ def main():
     if "config=ecam" not in text:
         missing.append("ECAM PCI config")
     if not args.no_xhci:
+        expected_hid_devices = int(not args.no_usb_kbd) + int(not args.no_usb_mouse)
         if "xhci: vendor=" not in text or "op=yes" not in text:
             missing.append("xHCI inventory")
-        if "enable_slot=1" not in text:
+        if not numeric_marker_at_least(text, "enable_slot", max(1, expected_hid_devices)):
             missing.append("xHCI command completion")
-        if not args.no_usb_kbd and "connected=1" not in text:
+        if expected_hid_devices > 0 and not marker_occurrences_at_least(text, "connected", 1, expected_hid_devices):
             missing.append("xHCI connected port")
-        if not args.no_usb_kbd and "ports_enabled=1" not in text:
+        if expected_hid_devices > 0 and not numeric_marker_at_least(text, "ports_enabled", expected_hid_devices):
             missing.append("xHCI port reset")
-        if not args.no_usb_kbd and "hid_keyboards=1" not in text:
+        if not args.no_usb_kbd and not numeric_marker_at_least(text, "hid_keyboards", 1):
             missing.append("USB HID keyboard enumeration")
-        if not args.no_usb_kbd and "addressed=1 configured=1 hid=1" not in text:
+        if not args.no_usb_kbd and not device_line_matches(text, ["addressed=1", "configured=1", "keyboard=1"]):
             missing.append("USB HID keyboard device state")
+        if not args.no_usb_mouse and not numeric_marker_at_least(text, "hid_mice", 1):
+            missing.append("USB HID mouse enumeration")
+        if not args.no_usb_mouse and not device_line_matches(text, ["addressed=1", "configured=1", "mouse=1"]):
+            missing.append("USB HID mouse device state")
         if args.usb_type_text:
-            if "reports=0" in text or "intr=0" in text:
+            if not device_line_matches(text, ["keyboard=1"], min_intr=1, min_reports=1):
                 missing.append("USB HID keyboard input reports")
             if args.usb_type_expect and args.usb_type_expect not in text:
                 missing.append("USB HID typed command output")
+        if args.usb_mouse_move and not device_line_matches(text, ["mouse=1"], min_intr=1, min_mouse_reports=1):
+            missing.append("USB HID mouse input reports")
     if "dmesg 512" not in text:
         missing.append("dmesg output")
     if has_fatal_exception(text):
