@@ -178,8 +178,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   temporary copy, confirms the GPT/FAT32 Limine path reaches the kernel,
   verifies ACPI MCFG/PCI ECAM discovery, exercises QEMU xHCI command
   completion with No-op and Enable Slot, verifies a USB keyboard connected
-  root-port reset, checks `dmesg`, and confirms that the GPT exFAT data
-  partition mounts as `/fat`.
+  root-port reset, confirms the USB keyboard is addressed/configured as a HID
+  boot keyboard, checks `dmesg`, and confirms that the GPT exFAT data partition
+  mounts as `/fat`. The optional `--usb-type-text` hook sends QMP keyboard
+  events for interactive experiments; the default headless smoke asserts the
+  reliable enumeration/device-state markers.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented

@@ -36,8 +36,9 @@ Important pieces:
 - `kernel/src/block.c`: block-device registry and write-through cache.
 - `kernel/src/fs/exfat.c`: exFAT mount/read/write/directory operations.
 - `kernel/src/drivers/xhci.c`: xHCI PCI discovery, MMIO mapping, controller
-  reset, command/event rings, slot-enable command completion, and connected
-  root-port reset diagnostics for real-hardware USB bring-up.
+  reset, command/event rings, USB device addressing/configuration, descriptor
+  walking, HID boot-keyboard endpoint setup, and connected root-port diagnostics
+  for real-hardware USB bring-up.
 - `kernel/src/net.c`: e1000-facing ARP, ICMP, DHCP, DNS, TCP, and fd handoff.
 - `kernel/src/gui.c`: fixed-size GUI IPC queues for the desktop experiment.
 

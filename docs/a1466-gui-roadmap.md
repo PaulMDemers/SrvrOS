@@ -107,12 +107,14 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 
 - xHCI PCI discovery, MMIO mapping, controller halt/reset, command/event rings,
   No-op and Enable Slot command completion, and connected root-port reset
-  diagnostics are in place.
-- Implement device context allocation, address-device, endpoint setup, and
-  transfer rings.
-- Add USB descriptor walking and hub/root-port enumeration.
-- Add USB HID boot keyboard and mouse/trackpad support.
-- Merge USB keyboard events into the existing console/shell input path.
+  diagnostics are in place. The first USB device path now allocates xHCI device
+  contexts, addresses/configures QEMU's USB keyboard, walks descriptors, and
+  configures a HID boot-keyboard interrupt endpoint.
+- Finish interrupt-driven or reliably polled USB keyboard report delivery into
+  the console/shell input path on real hardware.
+- Add broader USB hub/root-port enumeration beyond the first directly attached
+  device.
+- Add USB HID mouse/trackpad support and merge pointer events into the GUI path.
 - Merge USB pointer events into the GUI pointer path.
 
 This is the main real-machine usability blocker. Without it, the MacBook may
@@ -269,8 +271,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add xHCI skeleton, reset, rings, command completion, and root-port inventory.
   QEMU smoke coverage now verifies No-op, Enable Slot, and USB keyboard port
   reset through the xHCI path.
-- Add USB descriptor walking.
-- Add USB HID boot keyboard.
+- Add USB descriptor walking and first-device address/configuration.
+- Add USB HID boot keyboard endpoint configuration.
 - Add USB mouse/trackpad pointer events.
 
 ### Slice D: Display ABI

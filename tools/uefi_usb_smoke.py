@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import os
 import random
 import shutil
@@ -42,6 +43,69 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def connect_qmp(port, timeout):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            sock = socket.create_connection(("127.0.0.1", port), timeout=1)
+            sock.settimeout(1)
+            sock.recv(4096)
+            qmp_command(sock, {"execute": "qmp_capabilities"})
+            return sock
+        except OSError:
+            time.sleep(0.2)
+    raise RuntimeError("qmp connection failed")
+
+
+def qmp_command(sock, command):
+    sock.sendall(json.dumps(command).encode("ascii") + b"\r\n")
+    data = b""
+    while b"\r\n" not in data:
+        data += sock.recv(4096)
+    return data
+
+
+def send_qmp_key(sock, key):
+    for down in (True, False):
+        qmp_command(sock, {
+            "execute": "input-send-event",
+            "arguments": {
+                "events": [{
+                    "type": "key",
+                    "data": {
+                        "down": down,
+                        "key": {
+                            "type": "qcode",
+                            "data": key,
+                        },
+                    },
+                }],
+            },
+        })
+
+
+def send_qmp_text(sock, text, key_delay):
+    key_names = {
+        " ": "spc",
+        "\n": "ret",
+        "\r": "ret",
+        "-": "minus",
+        "=": "equal",
+        ".": "dot",
+        "/": "slash",
+        "\\": "backslash",
+        "'": "apostrophe",
+        ";": "semicolon",
+        ",": "comma",
+    }
+    for char in text:
+        key = key_names.get(char, char.lower())
+        if len(key) != 1 and key not in key_names.values():
+            continue
+        send_qmp_key(sock, key)
+        time.sleep(key_delay)
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -75,11 +139,15 @@ def main():
         help="Do not add QEMU's xHCI PCI controller to the smoke boot.")
     parser.add_argument("--no-usb-kbd", action="store_true",
         help="Do not attach a QEMU USB keyboard to the xHCI controller.")
+    parser.add_argument("--usb-type-text", default="",
+        help="Type this monitor command through QEMU's keyboard event path, then press Enter.")
+    parser.add_argument("--usb-key-delay", type=float, default=0.05)
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
     source_image = args.image if os.path.isabs(args.image) else os.path.join(root, args.image)
     serial_port = random.randint(30000, 39000)
+    qmp_port = random.randint(39001, 45000)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
@@ -101,6 +169,7 @@ def main():
             "-device", "ide-hd,drive=usb,bus=ahci.0",
             "-serial", f"tcp:127.0.0.1:{serial_port},server,nowait",
             "-monitor", "none",
+            "-qmp", f"tcp:127.0.0.1:{qmp_port},server,nowait",
             "-display", "none",
             "-no-reboot",
         ]
@@ -113,8 +182,12 @@ def main():
         try:
             sock = connect_serial(serial_port, 20)
             sock.settimeout(0.3)
+            qmp = connect_qmp(qmp_port, 20)
             output += read_until_any(sock, [b"srv> ", b" $ "], args.boot_wait)
             if b"srv> " in output:
+                if args.usb_type_text and not args.no_xhci and not args.no_usb_kbd:
+                    send_qmp_text(qmp, args.usb_type_text + "\n", args.usb_key_delay)
+                    output += read_until_any(sock, [b"srv> "], 10)
                 sock.sendall(b"bootinfo\n")
                 output += read_until_any(sock, [b"srv> "], 10)
                 sock.sendall(b"dmesg 512\n")
@@ -147,6 +220,10 @@ def main():
             missing.append("xHCI connected port")
         if not args.no_usb_kbd and "ports_enabled=1" not in text:
             missing.append("xHCI port reset")
+        if not args.no_usb_kbd and "hid_keyboards=1" not in text:
+            missing.append("USB HID keyboard enumeration")
+        if not args.no_usb_kbd and "addressed=1 configured=1 hid=1" not in text:
+            missing.append("USB HID keyboard device state")
     if "dmesg 512" not in text:
         missing.append("dmesg output")
     if has_fatal_exception(text):

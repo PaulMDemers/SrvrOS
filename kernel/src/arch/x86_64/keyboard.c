@@ -138,6 +138,12 @@ void keyboard_wake_waiters(void) {
     scheduler_wake_all(&keyboard_wait_queue);
 }
 
+void keyboard_inject_char(char c) {
+    if (c != 0) {
+        push_char(c);
+    }
+}
+
 bool keyboard_try_read_char(char *out) {
     if (read_index == write_index) {
         return false;

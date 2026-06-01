@@ -1,6 +1,8 @@
 #include <srvros/console.h>
+#include <srvros/keyboard.h>
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
+#include <srvros/scheduler.h>
 #include <srvros/vmm.h>
 #include <srvros/xhci.h>
 
@@ -15,8 +17,10 @@
 #define XHCI_TRB_COUNT 64
 #define XHCI_EVENT_TRB_COUNT 64
 #define XHCI_MAX_PORTS 32
+#define XHCI_MAX_DEVICES 8
 #define XHCI_RESET_TIMEOUT 10000000ull
 #define XHCI_COMMAND_TIMEOUT 10000000ull
+#define XHCI_TRANSFER_TIMEOUT 20000000ull
 
 #define XHCI_USBCMD_RUN 0x00000001u
 #define XHCI_USBCMD_HCRST 0x00000002u
@@ -48,8 +52,35 @@
 
 #define XHCI_TRB_TYPE_ENABLE_SLOT 9
 #define XHCI_TRB_TYPE_LINK 6
+#define XHCI_TRB_TYPE_NORMAL 1
+#define XHCI_TRB_TYPE_SETUP_STAGE 2
+#define XHCI_TRB_TYPE_DATA_STAGE 3
+#define XHCI_TRB_TYPE_STATUS_STAGE 4
+#define XHCI_TRB_TYPE_ADDRESS_DEVICE 11
+#define XHCI_TRB_TYPE_CONFIGURE_ENDPOINT 12
 #define XHCI_TRB_TYPE_NOOP 23
+#define XHCI_TRB_TYPE_TRANSFER_EVENT 32
 #define XHCI_TRB_TYPE_COMMAND_COMPLETION 33
+
+#define XHCI_TRB_IOC (1u << 5)
+#define XHCI_TRB_IDT (1u << 6)
+#define XHCI_SETUP_TRT_IN (3u << 16)
+#define XHCI_SETUP_TRT_NONE (0u << 16)
+#define XHCI_DATA_DIR_IN (1u << 16)
+#define XHCI_STATUS_DIR_IN (1u << 16)
+
+#define USB_REQ_GET_DESCRIPTOR 6
+#define USB_REQ_SET_CONFIGURATION 9
+#define USB_REQ_SET_PROTOCOL 11
+#define USB_DESC_DEVICE 1
+#define USB_DESC_CONFIGURATION 2
+#define USB_DESC_INTERFACE 4
+#define USB_DESC_ENDPOINT 5
+#define USB_CLASS_HID 3
+#define USB_HID_SUBCLASS_BOOT 1
+#define USB_HID_PROTOCOL_KEYBOARD 1
+#define USB_ENDPOINT_IN 0x80
+#define USB_ENDPOINT_INTERRUPT 3
 
 struct xhci_trb {
     uint32_t parameter_low;
@@ -66,6 +97,50 @@ struct xhci_erst_entry {
 
 struct xhci_port_state {
     uint32_t portsc;
+};
+
+struct usb_setup_packet {
+    uint8_t request_type;
+    uint8_t request;
+    uint16_t value;
+    uint16_t index;
+    uint16_t length;
+} __attribute__((packed));
+
+struct xhci_device {
+    bool present;
+    bool addressed;
+    bool configured;
+    bool hid_keyboard;
+    bool interrupt_pending;
+    uint8_t slot_id;
+    uint8_t port_id;
+    uint8_t speed;
+    uint8_t ep0_max_packet;
+    uint8_t interface_number;
+    uint8_t interrupt_dci;
+    uint8_t interrupt_interval;
+    uint16_t interrupt_max_packet;
+    uint64_t input_context_phys;
+    uint64_t output_context_phys;
+    uint64_t ep0_ring_phys;
+    uint64_t interrupt_ring_phys;
+    uint64_t descriptor_buffer_phys;
+    uint64_t interrupt_buffer_phys;
+    uint8_t *input_context;
+    uint8_t *output_context;
+    struct xhci_trb *ep0_ring;
+    struct xhci_trb *interrupt_ring;
+    uint8_t *descriptor_buffer;
+    uint8_t *interrupt_buffer;
+    uint64_t ep0_enqueue;
+    uint64_t interrupt_enqueue;
+    bool ep0_cycle;
+    bool interrupt_cycle;
+    uint8_t previous_report[8];
+    uint64_t control_success;
+    uint64_t interrupt_success;
+    uint64_t hid_reports;
 };
 
 struct xhci_state {
@@ -89,6 +164,7 @@ struct xhci_state {
     uint8_t max_slots;
     uint8_t port_count;
     uint64_t dcbaa_phys;
+    uint64_t *dcbaa;
     struct xhci_trb *command_ring;
     uint64_t command_ring_phys;
     uint64_t command_enqueue;
@@ -104,9 +180,14 @@ struct xhci_state {
     uint64_t enable_slot_completions;
     uint64_t ports_reset;
     uint64_t ports_enabled;
+    uint64_t addressed_devices;
+    uint64_t configured_devices;
+    uint64_t hid_keyboards;
+    uint64_t transfer_events;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
     struct xhci_port_state ports[XHCI_MAX_PORTS];
+    struct xhci_device devices[XHCI_MAX_DEVICES];
 };
 
 static struct xhci_state xhci;
@@ -164,6 +245,55 @@ static void copy_trb(struct xhci_trb *dst, const struct xhci_trb *src) {
     dst->parameter_high = src->parameter_high;
     dst->status = src->status;
     dst->control = src->control;
+}
+
+static void copy_bytes(uint8_t *dst, const uint8_t *src, uint64_t length) {
+    for (uint64_t i = 0; i < length; i++) {
+        dst[i] = src[i];
+    }
+}
+
+static bool bytes_equal(const uint8_t *a, const uint8_t *b, uint64_t length) {
+    for (uint64_t i = 0; i < length; i++) {
+        if (a[i] != b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static uint8_t context_size(void) {
+    return (xhci.hcc_params1 & (1u << 2)) != 0 ? 64 : 32;
+}
+
+static uint32_t context_read32(const uint8_t *base, uint64_t context_index, uint64_t dword) {
+    const uint32_t *words = (const uint32_t *)(base + context_index * context_size());
+    return words[dword];
+}
+
+static void context_write32(uint8_t *base, uint64_t context_index, uint64_t dword, uint32_t value) {
+    uint32_t *words = (uint32_t *)(base + context_index * context_size());
+    words[dword] = value;
+}
+
+static void write_link_trb(struct xhci_trb *ring, uint64_t ring_phys, bool cycle) {
+    ring[XHCI_TRB_COUNT - 1] = (struct xhci_trb) {
+        .parameter_low = (uint32_t)ring_phys,
+        .parameter_high = (uint32_t)(ring_phys >> 32),
+        .control = (XHCI_TRB_TYPE_LINK << 10) | (1u << 1) | (cycle ? 1u : 0u),
+    };
+}
+
+static uint32_t port_speed(uint32_t portsc) {
+    return (portsc >> 10) & 0xfu;
+}
+
+static uint8_t endpoint_dci(uint8_t endpoint_address) {
+    uint8_t endpoint_number = endpoint_address & 0x0f;
+    if (endpoint_number == 0) {
+        return 1;
+    }
+    return (uint8_t)(endpoint_number * 2 + ((endpoint_address & USB_ENDPOINT_IN) != 0 ? 1 : 0));
 }
 
 static uint64_t bar_mmio_base(const struct pci_device *device) {
@@ -324,6 +454,7 @@ static bool allocate_runtime_structures(void) {
     if (!alloc_frame_zero(&xhci.dcbaa_phys, &virt)) {
         return false;
     }
+    xhci.dcbaa = virt;
 
     if (!alloc_frame_zero(&xhci.command_ring_phys, &virt)) {
         return false;
@@ -331,11 +462,7 @@ static bool allocate_runtime_structures(void) {
     xhci.command_ring = virt;
     xhci.command_enqueue = 0;
     xhci.command_cycle = true;
-    xhci.command_ring[XHCI_TRB_COUNT - 1] = (struct xhci_trb) {
-        .parameter_low = (uint32_t)xhci.command_ring_phys,
-        .parameter_high = (uint32_t)(xhci.command_ring_phys >> 32),
-        .control = (XHCI_TRB_TYPE_LINK << 10) | (1u << 1),
-    };
+    write_link_trb(xhci.command_ring, xhci.command_ring_phys, true);
 
     if (!alloc_frame_zero(&xhci.event_ring_phys, &virt)) {
         return false;
@@ -435,7 +562,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
     return false;
 }
 
-static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {
+static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_type, uint64_t *slot_out) {
     uint64_t index = xhci.command_enqueue;
     if (index >= XHCI_TRB_COUNT - 1) {
         index = 0;
@@ -443,23 +570,573 @@ static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {
     }
 
     uint64_t command_phys = xhci.command_ring_phys + index * sizeof(struct xhci_trb);
-    struct xhci_trb trb = {
-        .parameter_low = 0,
-        .parameter_high = 0,
-        .status = 0,
-        .control = (type << 10) | flags | (xhci.command_cycle ? 1u : 0u),
-    };
+    struct xhci_trb trb = *source;
+    trb.control = (trb.control & ~1u) | (xhci.command_cycle ? 1u : 0u);
     copy_trb(&xhci.command_ring[index], &trb);
     xhci.command_enqueue++;
     if (xhci.command_enqueue == XHCI_TRB_COUNT - 1) {
-        xhci.command_ring[XHCI_TRB_COUNT - 1].control =
-            (XHCI_TRB_TYPE_LINK << 10) | (1u << 1) | (xhci.command_cycle ? 1u : 0u);
+        write_link_trb(xhci.command_ring, xhci.command_ring_phys, xhci.command_cycle);
         xhci.command_enqueue = 0;
         xhci.command_cycle = !xhci.command_cycle;
     }
 
     db_write32(0, 0);
-    return wait_command_completion(command_phys, type, slot_out);
+    return wait_command_completion(command_phys, expected_type, slot_out);
+}
+
+static bool submit_command(uint32_t type, uint32_t flags, uint64_t *slot_out) {
+    struct xhci_trb trb = {
+        .parameter_low = 0,
+        .parameter_high = 0,
+        .status = 0,
+        .control = (type << 10) | flags,
+    };
+    return submit_command_trb(&trb, type, slot_out);
+}
+
+static uint64_t ring_push(struct xhci_trb *ring,
+    uint64_t ring_phys,
+    uint64_t *enqueue,
+    bool *cycle,
+    const struct xhci_trb *source) {
+    uint64_t index = *enqueue;
+    if (index >= XHCI_TRB_COUNT - 1) {
+        index = 0;
+        *enqueue = 0;
+    }
+
+    uint64_t trb_phys = ring_phys + index * sizeof(struct xhci_trb);
+    struct xhci_trb trb = *source;
+    trb.control = (trb.control & ~1u) | (*cycle ? 1u : 0u);
+    copy_trb(&ring[index], &trb);
+    *enqueue = index + 1;
+    if (*enqueue == XHCI_TRB_COUNT - 1) {
+        write_link_trb(ring, ring_phys, *cycle);
+        *enqueue = 0;
+        *cycle = !*cycle;
+    }
+    return trb_phys;
+}
+
+static bool wait_transfer_completion(uint8_t slot_id,
+    uint8_t dci,
+    uint64_t expected_trb,
+    uint64_t *completion_out) {
+    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; i++) {
+        struct xhci_trb event;
+        if (!poll_event(&event)) {
+            continue;
+        }
+
+        uint64_t type = (event.control >> 10) & 0x3f;
+        if (type == XHCI_TRB_TYPE_COMMAND_COMPLETION) {
+            xhci.command_events++;
+            xhci.last_completion_code = (event.status >> 24) & 0xff;
+            xhci.last_slot_id = (event.control >> 24) & 0xff;
+            continue;
+        }
+        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) {
+            continue;
+        }
+
+        uint64_t event_slot = (event.control >> 24) & 0xff;
+        uint64_t event_dci = (event.control >> 16) & 0x1f;
+        uint64_t pointer = (uint64_t)event.parameter_low | ((uint64_t)event.parameter_high << 32);
+        uint64_t completion = (event.status >> 24) & 0xff;
+        xhci.transfer_events++;
+        xhci.last_completion_code = completion;
+        xhci.last_slot_id = event_slot;
+        if (event_slot != slot_id || event_dci != dci) {
+            continue;
+        }
+        if (expected_trb != 0 && pointer != expected_trb) {
+            continue;
+        }
+        if (completion_out != 0) {
+            *completion_out = completion;
+        }
+        return completion == 1 || completion == 13;
+    }
+    console_printf("xhci: transfer timeout slot=%u dci=%u last_cc=%u\n",
+        (uint64_t)slot_id,
+        (uint64_t)dci,
+        xhci.last_completion_code);
+    return false;
+}
+
+static bool control_transfer(struct xhci_device *device,
+    const struct usb_setup_packet *setup,
+    uint64_t buffer_phys,
+    uint32_t length,
+    bool data_in) {
+    uint64_t setup_value =
+        (uint64_t)setup->request_type |
+        ((uint64_t)setup->request << 8) |
+        ((uint64_t)setup->value << 16) |
+        ((uint64_t)setup->index << 32) |
+        ((uint64_t)setup->length << 48);
+
+    struct xhci_trb setup_trb = {
+        .parameter_low = (uint32_t)setup_value,
+        .parameter_high = (uint32_t)(setup_value >> 32),
+        .status = 8,
+        .control = (XHCI_TRB_TYPE_SETUP_STAGE << 10) |
+            XHCI_TRB_IDT |
+            (length == 0 ? XHCI_SETUP_TRT_NONE : XHCI_SETUP_TRT_IN),
+    };
+    (void)ring_push(device->ep0_ring,
+        device->ep0_ring_phys,
+        &device->ep0_enqueue,
+        &device->ep0_cycle,
+        &setup_trb);
+
+    if (length != 0) {
+        struct xhci_trb data_trb = {
+            .parameter_low = (uint32_t)buffer_phys,
+            .parameter_high = (uint32_t)(buffer_phys >> 32),
+            .status = length,
+            .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
+                (data_in ? XHCI_DATA_DIR_IN : 0),
+        };
+        (void)ring_push(device->ep0_ring,
+            device->ep0_ring_phys,
+            &device->ep0_enqueue,
+            &device->ep0_cycle,
+            &data_trb);
+    }
+
+    struct xhci_trb status_trb = {
+        .parameter_low = 0,
+        .parameter_high = 0,
+        .status = 0,
+        .control = (XHCI_TRB_TYPE_STATUS_STAGE << 10) |
+            XHCI_TRB_IOC |
+            (length == 0 || !data_in ? XHCI_STATUS_DIR_IN : 0),
+    };
+    uint64_t status_phys = ring_push(device->ep0_ring,
+        device->ep0_ring_phys,
+        &device->ep0_enqueue,
+        &device->ep0_cycle,
+        &status_trb);
+
+    db_write32(device->slot_id, 1);
+    uint64_t completion = 0;
+    if (!wait_transfer_completion(device->slot_id, 1, status_phys, &completion)) {
+        console_printf("xhci: control request=%u failed cc=%u\n",
+            (uint64_t)setup->request,
+            completion);
+        return false;
+    }
+    device->control_success++;
+    return true;
+}
+
+static bool get_descriptor(struct xhci_device *device,
+    uint8_t type,
+    uint8_t index,
+    uint16_t language,
+    uint16_t length) {
+    struct usb_setup_packet setup = {
+        .request_type = 0x80,
+        .request = USB_REQ_GET_DESCRIPTOR,
+        .value = (uint16_t)(((uint16_t)type << 8) | index),
+        .index = language,
+        .length = length,
+    };
+    return control_transfer(device, &setup, device->descriptor_buffer_phys, length, true);
+}
+
+static bool set_configuration(struct xhci_device *device, uint8_t configuration) {
+    struct usb_setup_packet setup = {
+        .request_type = 0x00,
+        .request = USB_REQ_SET_CONFIGURATION,
+        .value = configuration,
+        .index = 0,
+        .length = 0,
+    };
+    return control_transfer(device, &setup, 0, 0, false);
+}
+
+static bool set_hid_boot_protocol(struct xhci_device *device) {
+    struct usb_setup_packet setup = {
+        .request_type = 0x21,
+        .request = USB_REQ_SET_PROTOCOL,
+        .value = 0,
+        .index = device->interface_number,
+        .length = 0,
+    };
+    return control_transfer(device, &setup, 0, 0, false);
+}
+
+static bool allocate_device_runtime(struct xhci_device *device) {
+    void *virt = 0;
+    if (!alloc_frame_zero(&device->input_context_phys, &virt)) {
+        return false;
+    }
+    device->input_context = virt;
+
+    if (!alloc_frame_zero(&device->output_context_phys, &virt)) {
+        return false;
+    }
+    device->output_context = virt;
+
+    if (!alloc_frame_zero(&device->ep0_ring_phys, &virt)) {
+        return false;
+    }
+    device->ep0_ring = virt;
+    device->ep0_cycle = true;
+    write_link_trb(device->ep0_ring, device->ep0_ring_phys, true);
+
+    if (!alloc_frame_zero(&device->descriptor_buffer_phys, &virt)) {
+        return false;
+    }
+    device->descriptor_buffer = virt;
+    return true;
+}
+
+static void setup_address_input_context(struct xhci_device *device) {
+    zero_bytes(device->input_context, PMM_FRAME_SIZE);
+    context_write32(device->input_context, 0, 1, (1u << 0) | (1u << 1));
+
+    uint32_t slot0 = ((uint32_t)device->speed << 20) | (1u << 27);
+    uint32_t slot1 = ((uint32_t)device->port_id << 16);
+    context_write32(device->input_context, 1, 0, slot0);
+    context_write32(device->input_context, 1, 1, slot1);
+
+    uint32_t ep0_info = (3u << 1) | (4u << 3);
+    uint32_t ep0_packet = ((uint32_t)device->ep0_max_packet << 16);
+    context_write32(device->input_context, 2, 1, ep0_info | ep0_packet);
+    context_write32(device->input_context, 2, 2, (uint32_t)(device->ep0_ring_phys | 1u));
+    context_write32(device->input_context, 2, 3, (uint32_t)(device->ep0_ring_phys >> 32));
+    context_write32(device->input_context, 2, 4, 8);
+}
+
+static bool address_device(struct xhci_device *device) {
+    uint64_t slot = 0;
+    if (!submit_command(XHCI_TRB_TYPE_ENABLE_SLOT, 0, &slot) || slot == 0 || slot > xhci.max_slots) {
+        return false;
+    }
+    device->slot_id = (uint8_t)slot;
+    xhci.enable_slot_completions++;
+    xhci.last_slot_id = slot;
+    xhci.dcbaa[device->slot_id] = device->output_context_phys;
+
+    setup_address_input_context(device);
+    struct xhci_trb command = {
+        .parameter_low = (uint32_t)device->input_context_phys,
+        .parameter_high = (uint32_t)(device->input_context_phys >> 32),
+        .status = 0,
+        .control = (XHCI_TRB_TYPE_ADDRESS_DEVICE << 10) | ((uint32_t)device->slot_id << 24),
+    };
+    if (!submit_command_trb(&command, XHCI_TRB_TYPE_ADDRESS_DEVICE, 0)) {
+        return false;
+    }
+    device->addressed = true;
+    xhci.addressed_devices++;
+    return true;
+}
+
+static bool parse_hid_keyboard_config(struct xhci_device *device,
+    uint16_t length,
+    uint8_t *configuration_out) {
+    uint64_t offset = 0;
+    bool boot_keyboard = false;
+    uint8_t current_interface = 0;
+    *configuration_out = device->descriptor_buffer[5];
+
+    while (offset + 2 <= length) {
+        uint8_t size = device->descriptor_buffer[offset];
+        uint8_t type = device->descriptor_buffer[offset + 1];
+        if (size < 2 || offset + size > length) {
+            break;
+        }
+        if (type == USB_DESC_INTERFACE && size >= 9) {
+            current_interface = device->descriptor_buffer[offset + 2];
+            boot_keyboard =
+                device->descriptor_buffer[offset + 5] == USB_CLASS_HID &&
+                device->descriptor_buffer[offset + 6] == USB_HID_SUBCLASS_BOOT &&
+                device->descriptor_buffer[offset + 7] == USB_HID_PROTOCOL_KEYBOARD;
+            if (boot_keyboard) {
+                device->interface_number = current_interface;
+            }
+        } else if (type == USB_DESC_ENDPOINT && size >= 7 && boot_keyboard) {
+            uint8_t address = device->descriptor_buffer[offset + 2];
+            uint8_t attributes = device->descriptor_buffer[offset + 3] & 0x03;
+            if ((address & USB_ENDPOINT_IN) != 0 && attributes == USB_ENDPOINT_INTERRUPT) {
+                device->interrupt_dci = endpoint_dci(address);
+                device->interrupt_max_packet =
+                    (uint16_t)device->descriptor_buffer[offset + 4] |
+                    ((uint16_t)device->descriptor_buffer[offset + 5] << 8);
+                device->interrupt_interval = device->descriptor_buffer[offset + 6];
+                return true;
+            }
+        }
+        offset += size;
+    }
+    return false;
+}
+
+static bool configure_interrupt_endpoint(struct xhci_device *device) {
+    void *virt = 0;
+    if (!alloc_frame_zero(&device->interrupt_ring_phys, &virt)) {
+        return false;
+    }
+    device->interrupt_ring = virt;
+    device->interrupt_cycle = true;
+    write_link_trb(device->interrupt_ring, device->interrupt_ring_phys, true);
+
+    if (!alloc_frame_zero(&device->interrupt_buffer_phys, &virt)) {
+        return false;
+    }
+    device->interrupt_buffer = virt;
+
+    zero_bytes(device->input_context, PMM_FRAME_SIZE);
+    uint32_t add_flags = (1u << 0) | (1u << device->interrupt_dci);
+    context_write32(device->input_context, 0, 1, add_flags);
+    uint32_t slot0 = context_read32(device->output_context, 0, 0);
+    slot0 &= ~(0x1fu << 27);
+    slot0 |= ((uint32_t)device->interrupt_dci << 27);
+    context_write32(device->input_context, 1, 0, slot0);
+    context_write32(device->input_context, 1, 1, context_read32(device->output_context, 0, 1));
+
+    uint64_t endpoint_context = (uint64_t)device->interrupt_dci + 1;
+    uint32_t ep_info = ((uint32_t)device->interrupt_interval << 16) | (3u << 1) | (7u << 3);
+    uint32_t packet = ((uint32_t)device->interrupt_max_packet << 16);
+    context_write32(device->input_context, endpoint_context, 0, ep_info);
+    context_write32(device->input_context, endpoint_context, 1, packet);
+    context_write32(device->input_context, endpoint_context, 2, (uint32_t)(device->interrupt_ring_phys | 1u));
+    context_write32(device->input_context, endpoint_context, 3, (uint32_t)(device->interrupt_ring_phys >> 32));
+    context_write32(device->input_context, endpoint_context, 4, device->interrupt_max_packet);
+
+    struct xhci_trb command = {
+        .parameter_low = (uint32_t)device->input_context_phys,
+        .parameter_high = (uint32_t)(device->input_context_phys >> 32),
+        .status = 0,
+        .control = (XHCI_TRB_TYPE_CONFIGURE_ENDPOINT << 10) | ((uint32_t)device->slot_id << 24),
+    };
+    return submit_command_trb(&command, XHCI_TRB_TYPE_CONFIGURE_ENDPOINT, 0);
+}
+
+static const char hid_usage[256] = {
+    [0x04] = 'a', [0x05] = 'b', [0x06] = 'c', [0x07] = 'd',
+    [0x08] = 'e', [0x09] = 'f', [0x0a] = 'g', [0x0b] = 'h',
+    [0x0c] = 'i', [0x0d] = 'j', [0x0e] = 'k', [0x0f] = 'l',
+    [0x10] = 'm', [0x11] = 'n', [0x12] = 'o', [0x13] = 'p',
+    [0x14] = 'q', [0x15] = 'r', [0x16] = 's', [0x17] = 't',
+    [0x18] = 'u', [0x19] = 'v', [0x1a] = 'w', [0x1b] = 'x',
+    [0x1c] = 'y', [0x1d] = 'z',
+    [0x1e] = '1', [0x1f] = '2', [0x20] = '3', [0x21] = '4',
+    [0x22] = '5', [0x23] = '6', [0x24] = '7', [0x25] = '8',
+    [0x26] = '9', [0x27] = '0', [0x28] = '\n', [0x29] = 27,
+    [0x2a] = '\b', [0x2b] = '\t', [0x2c] = ' ', [0x2d] = '-',
+    [0x2e] = '=', [0x2f] = '[', [0x30] = ']', [0x31] = '\\',
+    [0x33] = ';', [0x34] = '\'', [0x35] = '`', [0x36] = ',',
+    [0x37] = '.', [0x38] = '/',
+};
+
+static const char hid_usage_shift[256] = {
+    [0x04] = 'A', [0x05] = 'B', [0x06] = 'C', [0x07] = 'D',
+    [0x08] = 'E', [0x09] = 'F', [0x0a] = 'G', [0x0b] = 'H',
+    [0x0c] = 'I', [0x0d] = 'J', [0x0e] = 'K', [0x0f] = 'L',
+    [0x10] = 'M', [0x11] = 'N', [0x12] = 'O', [0x13] = 'P',
+    [0x14] = 'Q', [0x15] = 'R', [0x16] = 'S', [0x17] = 'T',
+    [0x18] = 'U', [0x19] = 'V', [0x1a] = 'W', [0x1b] = 'X',
+    [0x1c] = 'Y', [0x1d] = 'Z',
+    [0x1e] = '!', [0x1f] = '@', [0x20] = '#', [0x21] = '$',
+    [0x22] = '%', [0x23] = '^', [0x24] = '&', [0x25] = '*',
+    [0x26] = '(', [0x27] = ')', [0x28] = '\n', [0x29] = 27,
+    [0x2a] = '\b', [0x2b] = '\t', [0x2c] = ' ', [0x2d] = '_',
+    [0x2e] = '+', [0x2f] = '{', [0x30] = '}', [0x31] = '|',
+    [0x33] = ':', [0x34] = '"', [0x35] = '~', [0x36] = '<',
+    [0x37] = '>', [0x38] = '?',
+};
+
+static bool usage_was_down(const uint8_t *report, uint8_t usage) {
+    for (uint64_t i = 2; i < 8; i++) {
+        if (report[i] == usage) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void handle_hid_report(struct xhci_device *device) {
+    uint8_t *report = device->interrupt_buffer;
+    if (bytes_equal(report, device->previous_report, 8)) {
+        return;
+    }
+
+    bool shift = (report[0] & 0x22) != 0;
+    for (uint64_t i = 2; i < 8; i++) {
+        uint8_t usage = report[i];
+        if (usage == 0 || usage_was_down(device->previous_report, usage)) {
+            continue;
+        }
+        char c = shift ? hid_usage_shift[usage] : hid_usage[usage];
+        if (c != 0) {
+            keyboard_inject_char(c);
+        }
+    }
+    copy_bytes(device->previous_report, report, 8);
+    device->hid_reports++;
+}
+
+static void submit_interrupt_poll(struct xhci_device *device) {
+    if (device->interrupt_pending || !device->hid_keyboard) {
+        return;
+    }
+
+    zero_bytes(device->interrupt_buffer, 8);
+    struct xhci_trb trb = {
+        .parameter_low = (uint32_t)device->interrupt_buffer_phys,
+        .parameter_high = (uint32_t)(device->interrupt_buffer_phys >> 32),
+        .status = 8,
+        .control = (XHCI_TRB_TYPE_NORMAL << 10) | XHCI_TRB_IOC,
+    };
+    (void)ring_push(device->interrupt_ring,
+        device->interrupt_ring_phys,
+        &device->interrupt_enqueue,
+        &device->interrupt_cycle,
+        &trb);
+    db_write32(device->slot_id, device->interrupt_dci);
+    device->interrupt_pending = true;
+}
+
+static void poll_hid_events_once(void) {
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        submit_interrupt_poll(&xhci.devices[i]);
+    }
+
+    for (;;) {
+        struct xhci_trb event;
+        if (!poll_event(&event)) {
+            return;
+        }
+        uint64_t type = (event.control >> 10) & 0x3f;
+        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) {
+            continue;
+        }
+        uint64_t slot_id = (event.control >> 24) & 0xff;
+        uint64_t dci = (event.control >> 16) & 0x1f;
+        uint64_t completion = (event.status >> 24) & 0xff;
+        xhci.transfer_events++;
+        xhci.last_completion_code = completion;
+        xhci.last_slot_id = slot_id;
+        for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+            struct xhci_device *device = &xhci.devices[i];
+            if (!device->hid_keyboard ||
+                device->slot_id != slot_id ||
+                device->interrupt_dci != dci) {
+                continue;
+            }
+            device->interrupt_pending = false;
+            if (completion == 1 || completion == 13) {
+                device->interrupt_success++;
+                handle_hid_report(device);
+            }
+        }
+    }
+}
+
+static void xhci_poll_worker(void *arg) {
+    (void)arg;
+    for (;;) {
+        if (xhci.operational && xhci.hid_keyboards != 0) {
+            poll_hid_events_once();
+        }
+        for (uint64_t i = 0; i < 10000; i++) {
+            __asm__ volatile ("pause");
+        }
+        scheduler_yield();
+    }
+}
+
+static bool enumerate_port(uint64_t port_index) {
+    if (xhci.addressed_devices >= XHCI_MAX_DEVICES) {
+        return false;
+    }
+
+    uint32_t portsc = xhci.ports[port_index].portsc;
+    if ((portsc & XHCI_PORTSC_CCS) == 0 || (portsc & XHCI_PORTSC_PED) == 0) {
+        return false;
+    }
+
+    struct xhci_device *device = &xhci.devices[xhci.addressed_devices];
+    *device = (struct xhci_device) {
+        .present = true,
+        .port_id = (uint8_t)(port_index + 1),
+        .speed = (uint8_t)port_speed(portsc),
+        .ep0_max_packet = 64,
+    };
+
+    if (!allocate_device_runtime(device) || !address_device(device)) {
+        console_printf("xhci: enumerate port%u address failed\n", port_index + 1);
+        return false;
+    }
+
+    if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 18)) {
+        console_printf("xhci: slot=%u device descriptor failed\n", (uint64_t)device->slot_id);
+        return false;
+    }
+    if (device->descriptor_buffer[7] != 0) {
+        device->ep0_max_packet = device->descriptor_buffer[7];
+    }
+
+    if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, 9)) {
+        console_printf("xhci: slot=%u config header failed\n", (uint64_t)device->slot_id);
+        return false;
+    }
+    uint16_t total_length =
+        (uint16_t)device->descriptor_buffer[2] |
+        ((uint16_t)device->descriptor_buffer[3] << 8);
+    if (total_length > PMM_FRAME_SIZE) {
+        total_length = PMM_FRAME_SIZE;
+    }
+    if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, total_length)) {
+        console_printf("xhci: slot=%u config descriptor failed\n", (uint64_t)device->slot_id);
+        return false;
+    }
+
+    uint8_t configuration = 0;
+    if (!parse_hid_keyboard_config(device, total_length, &configuration)) {
+        console_printf("xhci: slot=%u no boot keyboard interface\n", (uint64_t)device->slot_id);
+        return true;
+    }
+    if (!set_configuration(device, configuration)) {
+        return false;
+    }
+    device->configured = true;
+    xhci.configured_devices++;
+    (void)set_hid_boot_protocol(device);
+
+    if (!configure_interrupt_endpoint(device)) {
+        console_printf("xhci: slot=%u interrupt endpoint config failed\n", (uint64_t)device->slot_id);
+        return false;
+    }
+    device->hid_keyboard = true;
+    xhci.hid_keyboards++;
+    console_printf("xhci: hid keyboard slot=%u port=%u dci=%u packet=%u interval=%u\n",
+        (uint64_t)device->slot_id,
+        (uint64_t)device->port_id,
+        (uint64_t)device->interrupt_dci,
+        (uint64_t)device->interrupt_max_packet,
+        (uint64_t)device->interrupt_interval);
+    return true;
+}
+
+static void enumerate_connected_ports(void) {
+    uint64_t count = xhci.port_count;
+    if (count > XHCI_MAX_PORTS) {
+        count = XHCI_MAX_PORTS;
+    }
+    for (uint64_t i = 0; i < count; i++) {
+        (void)enumerate_port(i);
+    }
+    if (xhci.hid_keyboards != 0) {
+        if (!scheduler_spawn("xhci-hid", xhci_poll_worker, 0)) {
+            console_write("xhci: hid poll worker failed\n");
+        }
+    }
 }
 
 static bool bringup_command_path(void) {
@@ -478,13 +1155,6 @@ static bool bringup_command_path(void) {
 
     if (submit_command(XHCI_TRB_TYPE_NOOP, 0, 0)) {
         xhci.noop_completions++;
-    } else {
-        return false;
-    }
-    uint64_t slot = 0;
-    if (submit_command(XHCI_TRB_TYPE_ENABLE_SLOT, 0, &slot)) {
-        xhci.enable_slot_completions++;
-        xhci.last_slot_id = slot;
     } else {
         return false;
     }
@@ -527,6 +1197,7 @@ void xhci_init(void) {
     xhci.operational = bringup_command_path();
     if (xhci.operational) {
         reset_connected_ports();
+        enumerate_connected_ports();
     }
     read_ports();
 
@@ -592,6 +1263,11 @@ void xhci_print_status(void) {
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
+    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u transfer_events=%u\n",
+        xhci.addressed_devices,
+        xhci.configured_devices,
+        xhci.hid_keyboards,
+        xhci.transfer_events);
     uint64_t count = xhci.port_count;
     if (count > XHCI_MAX_PORTS) {
         count = XHCI_MAX_PORTS;
@@ -608,5 +1284,21 @@ void xhci_print_status(void) {
             (uint64_t)((portsc >> 10) & 0xfu),
             (uint64_t)((portsc >> 5) & 0xfu),
             (uint64_t)((portsc >> 17) & 0x7fu));
+    }
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        const struct xhci_device *device = &xhci.devices[i];
+        if (!device->present) {
+            continue;
+        }
+        console_printf("xhci: device slot=%u port=%u addressed=%u configured=%u hid=%u dci=%u control=%u intr=%u reports=%u\n",
+            (uint64_t)device->slot_id,
+            (uint64_t)device->port_id,
+            (uint64_t)device->addressed,
+            (uint64_t)device->configured,
+            (uint64_t)device->hid_keyboard,
+            (uint64_t)device->interrupt_dci,
+            device->control_success,
+            device->interrupt_success,
+            device->hid_reports);
     }
 }
