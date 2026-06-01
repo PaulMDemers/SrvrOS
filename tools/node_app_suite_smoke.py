@@ -223,8 +223,7 @@ async function collectAsyncIterator(dir) {
 }
 
 (async () => {
-  try { fs.mkdirSync('/fat/dirsuite'); } catch (err) {}
-  try { fs.mkdirSync('/fat/dirsuite/sub'); } catch (err) {}
+  fs.mkdirSync('/fat/dirsuite/sub', { recursive: true });
   fs.writeFileSync('/fat/dirsuite/a.txt', 'a');
   fs.writeFileSync('/fat/dirsuite/sub/b.txt', 'b');
   const typed = fs.readdirSync('/fat/dirsuite', { withFileTypes: true });
@@ -238,6 +237,90 @@ async function collectAsyncIterator(dir) {
   console.log('APP-DIR-ERR', err && err.stack || err);
   process.exitCode = 1;
 });
+"""
+
+
+WATCH_APP = r"""
+const fs = require('fs');
+const fsp = require('fs/promises');
+
+function waitForWatchFile() {
+  return new Promise((resolve, reject) => {
+    const file = '/fat/watchsuite/file.txt';
+    const timeout = setTimeout(() => reject(new Error('watchFile timeout')), 2000);
+    function listener(current, previous) {
+      if (current && previous && current.size !== previous.size) {
+        clearTimeout(timeout);
+        fs.unwatchFile(file, listener);
+        resolve('watchfile-ok');
+      }
+    }
+    fs.watchFile(file, { interval: 50, persistent: false }, listener);
+    setTimeout(() => fs.writeFileSync(file, 'changed'), 100);
+  });
+}
+
+function waitForWatch() {
+  return new Promise((resolve, reject) => {
+    const file = '/fat/watchsuite/file.txt';
+    const timeout = setTimeout(() => reject(new Error('watch timeout')), 2000);
+    const watcher = fs.watch(file, { interval: 50, persistent: false }, (eventType) => {
+      clearTimeout(timeout);
+      watcher.close();
+      resolve(eventType === 'change' ? 'watch-ok' : 'watch-' + eventType);
+    });
+    setTimeout(() => fs.writeFileSync(file, 'changed-again'), 100);
+  });
+}
+
+async function waitForPromisesWatch() {
+  const file = '/fat/watchsuite/file.txt';
+  const watcher = fsp.watch(file, { interval: 50, persistent: false });
+  setTimeout(() => fs.writeFileSync(file, 'changed-promises'), 100);
+  for await (const event of watcher) {
+    return event.eventType === 'change' ? 'pwatch-ok' : 'pwatch-' + event.eventType;
+  }
+  throw new Error('promises watch ended early');
+}
+
+(async () => {
+  fs.mkdirSync('/fat/watchsuite/deep/child', { recursive: true });
+  fs.writeFileSync('/fat/watchsuite/file.txt', 'start');
+  const mkdirText = fs.existsSync('/fat/watchsuite/deep/child') ? 'mkdir-recursive-ok' : 'mkdir-recursive-fail';
+  const watchFileText = await waitForWatchFile();
+  const watchText = await waitForWatch();
+  const promiseWatchText = await waitForPromisesWatch();
+  console.log('APP-WATCH', mkdirText, watchFileText, watchText, promiseWatchText);
+})().catch((err) => {
+  console.log('APP-WATCH-ERR', err && err.stack || err);
+  process.exitCode = 1;
+});
+"""
+
+
+PACKAGE_APP = r"""
+const accepts = require('accepts');
+const cookie = require('cookie');
+const mime = require('mime-types');
+const qs = require('qs');
+
+const parsed = qs.parse('a[b]=1&list[]=x&list[]=y');
+const parsedCookie = cookie.parse('sid=abc; theme=dark');
+const serialized = cookie.serialize('sid', 'abc', { httpOnly: true, path: '/' });
+const req = {
+  headers: {
+    accept: 'text/html, application/json;q=0.8',
+    'accept-language': 'en-US,en;q=0.9',
+  },
+};
+console.log('APP-PACKAGE',
+  parsed.a.b,
+  parsed.list.join('-'),
+  parsedCookie.theme,
+  serialized.includes('HttpOnly'),
+  mime.lookup('index.html'),
+  mime.charset('text/html'),
+  accepts(req).type(['json', 'html']));
 """
 
 
@@ -278,12 +361,41 @@ def main():
         fsp_script = os.path.join(temp_dir, "app-fsp.js")
         stream_script = os.path.join(temp_dir, "app-stream.js")
         dir_script = os.path.join(temp_dir, "app-dir.js")
+        watch_script = os.path.join(temp_dir, "app-watch.js")
+        package_source = os.path.join(temp_dir, "app-package-src.js")
+        package_bundle = os.path.join(temp_dir, "app-package.js")
         disk = os.path.join(temp_dir, "srvros-node.exfat")
         write_text(core_script, CORE_APP)
         write_text(sqlite_script, SQLITE_APP)
         write_text(fsp_script, FSP_APP)
         write_text(stream_script, STREAM_APP)
         write_text(dir_script, DIR_APP)
+        write_text(watch_script, WATCH_APP)
+        write_text(package_source, PACKAGE_APP)
+
+        demo_dir = os.path.join(root, "ports", "node", "express-jwt-sqlite-demo")
+        esbuild = os.path.join(demo_dir, "node_modules", "esbuild", "bin", "esbuild")
+        if not os.path.exists(esbuild):
+            raise FileNotFoundError(esbuild)
+        package_aliases = []
+        for package_name in ("accepts", "cookie", "mime-types", "qs"):
+            resolved = subprocess.check_output([
+                "node",
+                "-e",
+                f"process.stdout.write(require.resolve('{package_name}'))",
+            ], cwd=demo_dir, text=True)
+            package_aliases.append(f"--alias:{package_name}={resolved}")
+        subprocess.check_call([
+            "node",
+            esbuild,
+            package_source,
+            "--bundle",
+            "--platform=node",
+            "--target=node24",
+            *package_aliases,
+            f"--outfile={package_bundle}",
+        ], cwd=demo_dir)
+
         subprocess.check_call([
             sys.executable,
             os.path.join(root, "tools", "mk_exfat_image.py"),
@@ -294,6 +406,8 @@ def main():
             f"app-fsp.js={fsp_script}",
             f"app-stream.js={stream_script}",
             f"app-dir.js={dir_script}",
+            f"app-watch.js={watch_script}",
+            f"app-package.js={package_bundle}",
         ], cwd=root)
 
         command = [
@@ -328,6 +442,10 @@ def main():
                 "APP-STREAM file-stream-ok write-stream-ok write-stream-ok readable-from-ok", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-dir.js",
                 "APP-DIR a.txt:f,sub:d a.txt:f,sub:d a.txt:f,sub:d a.txt:f,sub:d true", args.runtime_wait)
+            output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-watch.js",
+                "APP-WATCH mkdir-recursive-ok watchfile-ok watch-ok pwatch-ok", args.runtime_wait)
+            output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-package.js",
+                "APP-PACKAGE 1 x-y dark true text/html UTF-8 html", args.runtime_wait)
             output += run_monitor_command(sock, "run /fat/bin/node /fat/bin/app-sqlite.js",
                 "APP-SQLITE Bob Grace 1 1 1", args.runtime_wait)
         finally:

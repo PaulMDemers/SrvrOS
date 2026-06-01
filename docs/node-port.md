@@ -440,8 +440,10 @@ persistence across process restart. `tools/node_app_suite_smoke.py` is the
 broader application smoke: it runs one script across stable core modules
 (`fs` synchronous file I/O, timers, `path`, `url`, `querystring`, `events`, and
 the srvros `crypto` HMAC shim), one script across the srvros `fs/promises`
-shim, one script across file streams and directory iteration, and a second
-script across SQLite `UPDATE`/`LIMIT`/named and positional binding behavior.
+shim, one script across file streams and directory iteration, one script across
+polling-backed watch APIs, one bundled package-compatibility script, and a
+second script across SQLite `UPDATE`/`LIMIT`/named and positional binding
+behavior.
 The `fs/promises` path is transitional but useful: on srvros,
 `lib/fs/promises.js` routes to a synchronous-`fs`-backed Promise shim covering
 basic path operations, read/write, mkdir/readdir/stat, rm/rmdir, rename/unlink,
@@ -454,13 +456,20 @@ path. `fs.opendir()`, `fs.opendirSync()`, `fs.promises.opendir()`, and
 `require('fs/promises').opendir()` route through a stat-backed srvros directory
 shim with callback reads, sync reads, async iteration, and `Dirent` file/type
 checks. The same shim also fills `readdirSync({ withFileTypes: true })` when the
-native srvros binding returns plain names.
+native srvros binding returns plain names. Recursive `mkdir()` and `mkdirSync()`
+now use a srvros JS parent-creation path when the native binding cannot create
+multiple missing levels. `fs.watchFile()`, `fs.unwatchFile()`, `fs.watch()`, and
+`fs.promises.watch()` route through `internal/srvros_fs_watch`, a polling bridge
+that gives packages EventEmitter-style and async-iterator watch behavior without
+entering libuv's native FS watcher path. The package smoke bundles real
+`accepts`, `cookie`, `mime-types`, and `qs` modules with esbuild and verifies
+them on srvros.
 
 Current intentional boundaries are documented by the smoke suite. General
 `SELECT column AS alias` projection is rejected by the SQLite shim for now; the
-count-specific `COUNT(*) AS alias` form remains supported. Watch promise APIs
-such as `watch()` still throw explicit unsupported errors while the native
-FSReqPromise/libuv request path remains under investigation.
+count-specific `COUNT(*) AS alias` form remains supported. The native
+FSReqPromise/libuv request path remains under investigation; srvros uses the JS
+filesystem shims above for package-facing coverage in the meantime.
 The srvros compile probe can also resolve and build Node's native
 `src/node_sqlite.cc`, `src/node_webstorage.cc`, and bundled
 `deps/sqlite/sqlite3.c` with `HAVE_SQLITE=1`, and the full static link can

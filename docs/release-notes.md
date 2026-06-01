@@ -44,6 +44,11 @@ server.
   reads, sync reads, async iteration, and stat-backed `Dirent` checks. The same
   path fills `readdirSync({ withFileTypes: true })` when the native srvros
   binding returns plain names.
+- Adds srvros JS fallbacks for recursive `mkdir()`/`mkdirSync()` and
+  polling-backed `fs.watchFile()`/`fs.unwatchFile()`, `fs.watch()`, and
+  `fs.promises.watch()`. The Node app suite now bundles and verifies real
+  `accepts`, `cookie`, `mime-types`, and `qs` package behavior under hidden
+  QEMU.
 - Extends the Node runtime harness to probe `--eval` and script text, and adds
   the first conservative Linux-libuv compatibility shims for pseudo-epoll,
   pseudo-eventfd, and best-effort `pipe2` flag handling.

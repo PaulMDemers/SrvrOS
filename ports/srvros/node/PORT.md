@@ -308,7 +308,11 @@ request path is still unsafe, but file streams, `Readable.from()`, and
 through `internal/srvros_fs_dir`; `fs.opendir`, `fs.opendirSync`,
 `fs.promises.opendir`, `require('fs/promises').opendir`, async iteration, and
 `readdirSync({ withFileTypes: true })` Dirent checks now have QEMU app-suite
-coverage. Watch APIs remain explicit unsupported boundaries.
+coverage. Recursive `mkdir()`/`mkdirSync()` use a srvros JS parent-creation
+fallback, and polling-backed `fs.watchFile`, `fs.unwatchFile`, `fs.watch`, and
+`fs.promises.watch` route through `internal/srvros_fs_watch`. The app suite also
+bundles real `accepts`, `cookie`, `mime-types`, and `qs` packages and verifies
+them under QEMU.
 The native
 binding remains at the compile/link bridge stage:
 `probe-srvros-compile.ps1` has manual source mappings for
