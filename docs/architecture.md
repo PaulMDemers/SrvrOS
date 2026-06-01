@@ -362,7 +362,7 @@ The generated `/fat/bin` command set is tracked in
   `sqlitedemo`, `uvdemo`, and `lua`.
 - Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
   `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
-- GUI/demo/regression tools: `ui`, `desktop`, `calcgui`, `notesgui`,
+- GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `calcgui`, `notesgui`,
   `textedit`, `imgedit`, `sysabi`, `spin`, `fpdemo`, `posixdemo`,
   `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
@@ -606,6 +606,13 @@ The GUI layer is experimental and deliberately simple. `desktop` acts as a
 fullscreen userspace window server. GUI clients are separate ring-3 processes
 that send fixed-size messages for window creation, labels, buttons, text
 updates, and events.
+
+`displayd` is the first replacement-compositor seed. It runs as a separate
+userspace GUI server, allocates its root backbuffer dynamically from the current
+framebuffer dimensions, derives panel/dock/status metrics from the resolution,
+presents damaged rectangles through `gfx_blit_rect`, and has its own hidden-QEMU
+smoke test. It currently coexists with `desktop` while the client surface
+protocol is designed.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

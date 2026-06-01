@@ -156,6 +156,9 @@ The prototype GUI has useful pieces:
 - The userspace UI layer has surfaces, parent/child composition, dirty marking,
   mouse hit testing, text entry, image controls, and simple events.
 - The desktop compositor can redraw damaged regions and draw a software cursor.
+- `displayd` is now a parallel compositor seed with a dynamically allocated root
+  backbuffer, resolution-derived shell metrics, GUI server registration, and a
+  smoke mode for hidden-QEMU regression coverage.
 
 The parts that should be replaced:
 
@@ -213,6 +216,11 @@ Replace the current fixed desktop with a compositor process, tentatively
 
 The compositor should not own application widgets. It should decorate windows
 and route input.
+
+The first checked-in `displayd` slice already owns a root backbuffer, draws a
+resolution-aware shell scene, receives legacy GUI IPC messages, and presents
+dirty cursor rectangles. The next slice is to add the real client surface ABI
+beside the legacy fixed-widget protocol.
 
 ### GUI Protocol V2
 

@@ -50,18 +50,14 @@ def has_fatal_exception(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run a srvros desktop GUI serial smoke test.")
+    parser = argparse.ArgumentParser(description="Run a srvros displayd serial smoke test.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--keys", default="", help="extra keys to send after desktop starts")
-    parser.add_argument("--key-delay", type=float, default=0,
-        help="seconds to wait between sent keys")
     parser.add_argument("--boot-wait", type=float, default=20)
     parser.add_argument("--shell-wait", type=float, default=2)
-    parser.add_argument("--desktop-wait", type=float, default=5)
-    parser.add_argument("--after-wait", type=float, default=20)
+    parser.add_argument("--displayd-wait", type=float, default=8)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -77,8 +73,8 @@ def main():
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
     output = b""
-    with tempfile.TemporaryDirectory(prefix="srvros-gui-") as temp_dir:
-        disk = os.path.join(temp_dir, "srvros-gui.exfat")
+    with tempfile.TemporaryDirectory(prefix="srvros-displayd-") as temp_dir:
+        disk = os.path.join(temp_dir, "srvros-displayd.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
             args.qemu,
@@ -103,13 +99,8 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", args.shell_wait)
-            sock.sendall(b"desktop --smoke-autostart\n")
-            output += read_for(sock, args.desktop_wait)
-            for key in args.keys.encode("ascii", "ignore"):
-                sock.sendall(bytes([key]))
-                if args.key_delay > 0:
-                    output += read_for(sock, args.key_delay)
-            output += read_for(sock, args.after_wait)
+            sock.sendall(b"displayd --smoke\n")
+            output += read_for(sock, args.displayd_wait)
         finally:
             try:
                 process.terminate()
@@ -121,22 +112,21 @@ def main():
     sys.stdout.write(text)
 
     expected = [
-        "desktop: mapped client window CALCULATOR",
-        "desktop: mapped client window TODO",
-        "desktop: mapped client window TEXT EDIT",
-        "desktop: mapped client window IMAGE EDIT",
+        "displayd: root backbuffer ready",
+        "displayd: smoke ok",
+        "displayd: exited",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
-        print("gui-smoke: fatal exception detected", file=sys.stderr)
+        print("displayd-smoke: fatal exception detected", file=sys.stderr)
         return 2
     if missing:
-        print("gui-smoke: missing markers:", file=sys.stderr)
+        print("displayd-smoke: missing markers:", file=sys.stderr)
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
 
-    print("gui-smoke: ok")
+    print("displayd-smoke: ok")
     return 0
 
 

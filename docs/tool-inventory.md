@@ -112,7 +112,7 @@ is the boot/startup supervisor process used by `/fat/etc/init.sh`.
 Framebuffer/UI experiments and GUI clients:
 
 ```text
-ui desktop calcgui notesgui textedit imgedit
+ui desktop displayd calcgui notesgui textedit imgedit
 ```
 
 ## ABI, POSIX, And Stress Probes

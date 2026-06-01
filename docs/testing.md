@@ -426,6 +426,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   reports leaked bitmap allocations and stale FAT entries on bitmap-free
   clusters.
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
+- `displayd_smoke.py`: hidden-QEMU compositor seed smoke that verifies
+  `/fat/bin/displayd --smoke` registers, draws its root backbuffer, and exits
+  without a fatal exception.
 
 ## DNS Test Domains
 

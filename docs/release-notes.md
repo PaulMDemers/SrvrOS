@@ -32,6 +32,9 @@ server.
   process, and boot-log state with one command.
 - Adds `gfx_blit_rect` and teaches the UI presenter to flush root backbuffer
   dirty rectangles through a bulk graphics syscall instead of many tiny fills.
+- Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically
+  allocated root backbuffer, resolution-aware layout metrics, GUI IPC server
+  registration, hidden-QEMU smoke coverage, and dirty-rectangle cursor refresh.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite
