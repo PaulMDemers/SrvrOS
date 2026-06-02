@@ -22,6 +22,7 @@
 #define DISPLAY_CLOSE_KILL_TICKS 80
 #define TASKBAR_BUTTON_MIN_WIDTH 104
 #define TASKBAR_BUTTON_MAX_WIDTH 176
+#define DISPLAY_SESSION_SHUTDOWN_TICKS 140
 
 struct display_launcher {
     const char *label;
@@ -72,6 +73,8 @@ struct display_state {
     uint64_t next_z;
     uint64_t launch_count;
     uint64_t last_lifecycle_sweep_ticks;
+    int shutdown_requested;
+    uint64_t shutdown_tick;
     uint8_t last_buttons;
     struct display_client clients[DISPLAY_CLIENT_MAX];
 };
@@ -253,6 +256,31 @@ static int launcher_rect(const struct display_metrics *m, uint64_t index,
     }
     if (y != 0) {
         *y = (int64_t)(m->top_h + m->margin + index * (m->button_h + m->gap));
+    }
+    if (width != 0) {
+        *width = m->dock_w - 2 * m->margin;
+    }
+    if (height != 0) {
+        *height = m->button_h;
+    }
+    return 1;
+}
+
+static int exit_rect(const struct display_metrics *m,
+    int64_t *x, int64_t *y, uint64_t *width, uint64_t *height) {
+    uint64_t button_y;
+    if (m == 0 || m->dock_w <= 2 * m->margin) {
+        return 0;
+    }
+    button_y = m->top_h + m->margin + DISPLAY_LAUNCHER_COUNT * (m->button_h + m->gap) + m->gap;
+    if (button_y + m->button_h > m->height) {
+        return 0;
+    }
+    if (x != 0) {
+        *x = (int64_t)m->margin;
+    }
+    if (y != 0) {
+        *y = (int64_t)button_y;
     }
     if (width != 0) {
         *width = m->dock_w - 2 * m->margin;
@@ -475,6 +503,16 @@ static int launcher_at(const struct display_state *state, int64_t x, int64_t y) 
         }
     }
     return -1;
+}
+
+static int exit_hit(const struct display_state *state, int64_t x, int64_t y) {
+    int64_t bx;
+    int64_t by;
+    uint64_t bw;
+    uint64_t bh;
+    return state != 0 &&
+        exit_rect(&state->metrics, &bx, &by, &bw, &bh) &&
+        rect_hit(bx, by, bw, bh, x, y);
 }
 
 static struct display_client *taskbar_client_at(struct display_state *state, int64_t x, int64_t y) {
@@ -968,6 +1006,27 @@ static void close_client(struct ui_element *root, struct display_state *state,
     mark_client_frame_dirty(root, client);
 }
 
+static void request_session_shutdown(struct ui_element *root, struct display_state *state) {
+    uint64_t now;
+    if (root == 0 || state == 0) {
+        return;
+    }
+    now = (uint64_t)srv_ticks();
+    if (!state->shutdown_requested) {
+        state->shutdown_requested = 1;
+        state->shutdown_tick = now;
+        srv_puts("displayd: shutdown requested\n");
+    }
+    focus_client(root, state, 0);
+    state->dragging_surface_id = 0;
+    state->resizing_surface_id = 0;
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (state->clients[i].used) {
+            close_client(root, state, &state->clients[i]);
+        }
+    }
+}
+
 static void sweep_client_lifecycle(struct ui_element *root, struct display_state *state) {
     uint64_t now;
     if (root == 0 || state == 0) {
@@ -1006,6 +1065,33 @@ static void sweep_client_lifecycle(struct ui_element *root, struct display_state
             client->close_tick = now;
         }
     }
+}
+
+static int session_shutdown_complete(struct ui_element *root, struct display_state *state) {
+    uint64_t now;
+    if (root == 0 || state == 0 || !state->shutdown_requested) {
+        return 0;
+    }
+    if (mapped_client_count(state) == 0) {
+        srv_puts("displayd: shutdown complete\n");
+        return 1;
+    }
+    now = (uint64_t)srv_ticks();
+    if (now - state->shutdown_tick > DISPLAY_SESSION_SHUTDOWN_TICKS) {
+        for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+            if (state->clients[i].used && state->clients[i].pid != 0) {
+                srv_puts("displayd: shutdown kill ");
+                log_client_title(&state->clients[i]);
+                srv_puts(" pid=");
+                print_u64(state->clients[i].pid);
+                srv_puts("\n");
+                (void)srv_kill((int64_t)state->clients[i].pid);
+                state->clients[i].close_tick = now;
+            }
+        }
+        state->shutdown_tick = now;
+    }
+    return 0;
 }
 
 static void draw_surface_client(struct ui_element *root, const struct display_client *client) {
@@ -1115,6 +1201,18 @@ static void draw_dock_button(struct ui_element *root, const struct display_metri
     ui_draw_text(root, x + 10, y + (int64_t)((m->button_h - 7) / 2), label, 0xf2f7ff);
 }
 
+static void draw_exit_button(struct ui_element *root, const struct display_metrics *m) {
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    if (!exit_rect(m, &x, &y, &width, &height)) {
+        return;
+    }
+    draw_panel(root, x, y, width, height, 0x70485f, 0xf5b84b);
+    ui_draw_text(root, x + 10, y + (int64_t)((height - 7) / 2), "EXIT", 0xffffff);
+}
+
 static void make_taskbar_label(const struct display_client *client,
     char *out, uint64_t capacity, uint64_t button_width) {
     uint64_t len = 0;
@@ -1194,6 +1292,7 @@ static void draw_scene(struct ui_element *root) {
     for (uint64_t i = 0; i < DISPLAY_LAUNCHER_COUNT; i++) {
         draw_dock_button(root, m, i, launchers[i].label, launchers[i].color);
     }
+    draw_exit_button(root, m);
 
     draw_panel(root, (int64_t)scene_work_x, (int64_t)scene_work_y, card_w, card_h,
         0x15232d, 0x486476);
@@ -1477,7 +1576,7 @@ int main(int argc, char **argv) {
                 send_client_event(focused_client, GUI_MSG_V2_EVENT_KEY_DOWN, 0, 0,
                     focused_client->width, focused_client->height, key, "");
             } else if (key == 'q' || key == 'Q' || key == 27) {
-                break;
+                request_session_shutdown(&root, &state);
             }
         }
 
@@ -1538,6 +1637,8 @@ int main(int argc, char **argv) {
                     if (launcher_index >= 0) {
                         focus_client(&root, &state, 0);
                         launch_app(&root, &state, (uint64_t)launcher_index);
+                    } else if (exit_hit(&state, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                        request_session_shutdown(&root, &state);
                     } else {
                         struct display_client *task_client =
                             taskbar_client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
@@ -1581,7 +1682,11 @@ int main(int argc, char **argv) {
         present_dirty(&root, mouse_x, mouse_y, old_mouse_x, old_mouse_y,
             cursor_dirty, buttons != 0 ? 0xf87171 : 0xffffff);
 
-        if (smoke && ((launcher_smoke &&
+        if (session_shutdown_complete(&root, &state)) {
+            break;
+        }
+
+        if (!state.shutdown_requested && smoke && ((launcher_smoke &&
                 state.launch_count >= DISPLAY_LAUNCHER_COUNT + 1 &&
                 mapped_client_count(&state) >= DISPLAY_LAUNCHER_COUNT + 1) ||
             (uint64_t)srv_ticks() - start_ticks >

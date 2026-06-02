@@ -438,7 +438,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   QMP, and verifies focus, minimize/restore, title-bar drag, compositor
   taskbar restore/focus, bottom-right resize with app surface recreation,
   close, app-side close handling, compositor-side client cleanup, relaunch
-  after cleanup, resize after relaunch, and clean compositor shutdown.
+  after cleanup, resize after relaunch, on-screen Exit, client session
+  shutdown, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
   `/fat/bin/gui --launcher-smoke`, clicks the compositor dock launchers,
   verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/paint`,

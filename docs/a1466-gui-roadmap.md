@@ -257,7 +257,9 @@ hidden-QEMU coverage for duplicate instance placement and dock-launched GUI2
 clients. The bottom taskbar lists running GUI clients and supports
 click-to-focus plus restore from minimized state. Bottom-right resize grips now
 send configure events, and GUI2 clients recreate their kernel-managed backing
-surface and redraw at the requested size.
+surface and redraw at the requested size. The dock includes an on-screen Exit
+control that asks all GUI clients to close and escalates lingering clients
+before returning to the shell.
 Pixel storage is currently kernel-managed through
 `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.

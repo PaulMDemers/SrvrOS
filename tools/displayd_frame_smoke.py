@@ -195,7 +195,10 @@ def main():
             output += read_until(serial, b"displayd: mapped surface window GUI2 DEMO", args.map_wait)
             mouse.drag(920, 444, 980, 480)
             output += read_until(serial, b"displayd: resize GUI2 DEMO 360x216", args.action_wait)
-            output += read_until(serial, b"displayd: smoke ok", args.final_wait)
+            # Exit button sits below the dock launchers at 1280x800.
+            mouse.click(60, 274)
+            output += read_until(serial, b"displayd: shutdown requested", args.action_wait)
+            output += read_until(serial, b"displayd: shutdown complete", args.final_wait)
         finally:
             try:
                 process.terminate()
@@ -221,7 +224,10 @@ def main():
         "gui2demo: close",
         "displayd: remove GUI2 DEMO reason=destroy",
         "displayd: launch GUI2 /fat/bin/gui2demo pid=",
-        "displayd: smoke ok",
+        "displayd: shutdown requested",
+        "displayd: close NOTES",
+        "displayd: shutdown complete",
+        "displayd: exited",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

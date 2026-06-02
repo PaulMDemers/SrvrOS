@@ -91,6 +91,10 @@ server.
   GUI client entries; clicking an entry raises/focuses that window or restores
   it if minimized, with hidden-QEMU frame smoke coverage for taskbar restore
   and focus switching.
+- Adds an on-screen Exit control to `displayd`. Session shutdown now requests
+  close from all GUI clients, waits for cooperative destroy/exit cleanup, and
+  escalates lingering clients before returning to the shell; the frame smoke
+  verifies the full shutdown path.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite
