@@ -21,6 +21,7 @@
 #define XHCI_MAX_PORTS 32
 #define XHCI_MAX_DEVICES 32
 #define XHCI_MAX_HUB_PORTS 15
+#define XHCI_MAX_PROTOCOLS 8
 #define XHCI_RESET_TIMEOUT 10000000ull
 #define XHCI_COMMAND_TIMEOUT 10000000ull
 #define XHCI_TRANSFER_TIMEOUT 20000000ull
@@ -34,6 +35,7 @@
 #define XHCI_USBSTS_HCH 0x00000001u
 #define XHCI_USBSTS_EINT 0x00000008u
 #define XHCI_USBSTS_CNR 0x00000800u
+#define XHCI_EXT_CAP_SUPPORTED_PROTOCOL 0x02
 
 #define XHCI_OP_USBCMD 0x00
 #define XHCI_OP_USBSTS 0x04
@@ -121,6 +123,17 @@ struct xhci_erst_entry {
 
 struct xhci_port_state {
     uint32_t portsc;
+    uint8_t slot_type;
+    uint8_t protocol_index;
+};
+
+struct xhci_protocol {
+    bool present;
+    uint8_t first_port;
+    uint8_t port_count;
+    uint8_t slot_type;
+    uint16_t revision;
+    char name[5];
 };
 
 struct usb_setup_packet {
@@ -147,6 +160,7 @@ struct xhci_device {
     uint8_t parent_slot_id;
     uint8_t hub_port_id;
     uint8_t hub_ports;
+    uint8_t slot_type;
     uint8_t speed;
     uint8_t ep0_max_packet;
     uint8_t device_class;
@@ -245,7 +259,9 @@ struct xhci_state {
     uint64_t device_record_full;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
+    uint64_t protocol_count;
     struct xhci_port_state ports[XHCI_MAX_PORTS];
+    struct xhci_protocol protocols[XHCI_MAX_PROTOCOLS];
     struct xhci_device devices[XHCI_MAX_DEVICES];
 };
 
@@ -353,6 +369,60 @@ static void write_link_trb(struct xhci_trb *ring, uint64_t ring_phys, bool cycle
 
 static uint32_t port_speed(uint32_t portsc) {
     return (portsc >> 10) & 0xfu;
+}
+
+static void parse_supported_protocols(void) {
+    uint64_t offset = ((uint64_t)(xhci.hcc_params1 >> 16) & 0xffffu) * 4;
+    uint64_t limit = XHCI_MMIO_MAP_SIZE - 16;
+    while (offset != 0 && offset < limit) {
+        uint32_t header = mmio_read32(offset);
+        uint8_t cap_id = header & 0xffu;
+        uint8_t next = (header >> 8) & 0xffu;
+        if (cap_id == XHCI_EXT_CAP_SUPPORTED_PROTOCOL && xhci.protocol_count < XHCI_MAX_PROTOCOLS) {
+            uint32_t name = mmio_read32(offset + 4);
+            uint32_t ports = mmio_read32(offset + 8);
+            uint32_t slot = mmio_read32(offset + 12);
+            struct xhci_protocol *protocol = &xhci.protocols[xhci.protocol_count];
+            protocol->present = true;
+            protocol->revision = (uint16_t)(header >> 16);
+            protocol->name[0] = (char)(name & 0xffu);
+            protocol->name[1] = (char)((name >> 8) & 0xffu);
+            protocol->name[2] = (char)((name >> 16) & 0xffu);
+            protocol->name[3] = (char)((name >> 24) & 0xffu);
+            protocol->name[4] = '\0';
+            protocol->first_port = ports & 0xffu;
+            protocol->port_count = (ports >> 8) & 0xffu;
+            protocol->slot_type = slot & 0x1fu;
+            uint64_t protocol_index = xhci.protocol_count + 1;
+            xhci.protocol_count++;
+
+            for (uint64_t port = protocol->first_port;
+                 port < (uint64_t)protocol->first_port + protocol->port_count &&
+                 port != 0 &&
+                 port <= XHCI_MAX_PORTS;
+                 port++) {
+                xhci.ports[port - 1].slot_type = protocol->slot_type;
+                xhci.ports[port - 1].protocol_index = (uint8_t)protocol_index;
+            }
+            console_printf("xhci: protocol %s rev=%x ports=%u-%u slot_type=%u\n",
+                protocol->name,
+                (uint64_t)protocol->revision,
+                (uint64_t)protocol->first_port,
+                (uint64_t)(protocol->first_port + protocol->port_count - 1),
+                (uint64_t)protocol->slot_type);
+        }
+        if (next == 0) {
+            break;
+        }
+        offset += (uint64_t)next * 4;
+    }
+}
+
+static uint8_t root_port_slot_type(uint8_t root_port) {
+    if (root_port == 0 || root_port > XHCI_MAX_PORTS) {
+        return 0;
+    }
+    return xhci.ports[root_port - 1].slot_type;
 }
 
 static uint8_t endpoint_dci(uint8_t endpoint_address) {
@@ -993,7 +1063,12 @@ static void setup_address_input_context(struct xhci_device *device) {
 
 static bool address_device(struct xhci_device *device) {
     uint64_t slot = 0;
-    if (!submit_command(XHCI_TRB_TYPE_ENABLE_SLOT, 0, &slot) || slot == 0 || slot > xhci.max_slots) {
+    uint32_t enable_flags = ((uint32_t)device->slot_type << 16);
+    if (!submit_command(XHCI_TRB_TYPE_ENABLE_SLOT, enable_flags, &slot) || slot == 0 || slot > xhci.max_slots) {
+        console_printf("xhci: enable slot failed port=%u slot_type=%u flags=%x\n",
+            (uint64_t)device->port_id,
+            (uint64_t)device->slot_type,
+            (uint64_t)enable_flags);
         return false;
     }
     device->slot_id = (uint8_t)slot;
@@ -1482,6 +1557,7 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
             .speed = hub_status_speed(status),
             .ep0_max_packet = 64,
             .route_string = child_route_string(hub->route_string, port),
+            .slot_type = root_port_slot_type(hub->port_id),
         };
         xhci.routed_devices++;
         if (!enumerate_device(child)) {
@@ -1606,6 +1682,7 @@ static bool enumerate_port(uint64_t port_index) {
         .speed = (uint8_t)port_speed(portsc),
         .ep0_max_packet = 64,
         .route_string = 0,
+        .slot_type = root_port_slot_type((uint8_t)(port_index + 1)),
     };
     return enumerate_device(device);
 }
@@ -1679,6 +1756,7 @@ void xhci_init(void) {
     xhci.max_slots = xhci.hcs_params1 & 0xff;
     xhci.port_count = (xhci.hcs_params1 >> 24) & 0xff;
     xhci.page_size = op_read32(XHCI_OP_PAGESIZE);
+    parse_supported_protocols();
     xhci.present = true;
     xhci.operational = bringup_command_path();
     if (xhci.operational) {
@@ -1828,14 +1906,15 @@ void xhci_print_status(void) {
         (uint64_t)xhci.page_size,
         (uint64_t)xhci.db_off,
         (uint64_t)xhci.rts_off);
-    console_printf("xhci: hcs1=%x hcs2=%x hcs3=%x hcc1=%x slots=%u ports=%u scratchpads=%u\n",
+    console_printf("xhci: hcs1=%x hcs2=%x hcs3=%x hcc1=%x slots=%u ports=%u scratchpads=%u protocols=%u\n",
         (uint64_t)xhci.hcs_params1,
         (uint64_t)xhci.hcs_params2,
         (uint64_t)xhci.hcs_params3,
         (uint64_t)xhci.hcc_params1,
         (uint64_t)(xhci.hcs_params1 & 0xff),
         (uint64_t)((xhci.hcs_params1 >> 24) & 0xff),
-        (uint64_t)((xhci.hcs_params2 >> 21) & 0x1f));
+        (uint64_t)((xhci.hcs_params2 >> 21) & 0x1f),
+        xhci.protocol_count);
     console_printf("xhci: rings dcbaa=%x cr=%x er=%x erst=%x cmd_events=%u noop=%u enable_slot=%u last_cc=%u last_slot=%u\n",
         xhci.dcbaa_phys,
         xhci.command_ring_phys,
@@ -1867,7 +1946,7 @@ void xhci_print_status(void) {
     }
     for (uint64_t i = 0; i < count; i++) {
         uint32_t portsc = xhci.ports[i].portsc;
-        console_printf("xhci: port%u sc=%x connected=%u enabled=%u reset=%u power=%u speed=%u pls=%u changes=%x\n",
+        console_printf("xhci: port%u sc=%x connected=%u enabled=%u reset=%u power=%u speed=%u pls=%u slot_type=%u proto=%u changes=%x\n",
             i + 1,
             (uint64_t)portsc,
             (uint64_t)(portsc & 1u),
@@ -1876,6 +1955,8 @@ void xhci_print_status(void) {
             (uint64_t)((portsc >> 9) & 1u),
             (uint64_t)((portsc >> 10) & 0xfu),
             (uint64_t)((portsc >> 5) & 0xfu),
+            (uint64_t)xhci.ports[i].slot_type,
+            (uint64_t)xhci.ports[i].protocol_index,
             (uint64_t)((portsc >> 17) & 0x7fu));
     }
     for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
@@ -1883,12 +1964,13 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
-        console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u absolute=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
+        console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x slot_type=%u addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u absolute=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,
             (uint64_t)device->port_id,
             (uint64_t)device->parent_slot_id,
             (uint64_t)device->hub_port_id,
             (uint64_t)device->route_string,
+            (uint64_t)device->slot_type,
             (uint64_t)device->addressed,
             (uint64_t)device->configured,
             (uint64_t)device->device_class,
