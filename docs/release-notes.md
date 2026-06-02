@@ -99,6 +99,11 @@ server.
   `ui` and `desktop` as legacy regression tools, adds a `/fat/share/help/gui.txt`
   topic, and expands the A1466 first-boot checklist with first GUI launch,
   app/window interaction, taskbar restore, and clean Exit validation.
+- Adds `tools/a1466_rehearsal.py` plus `make a1466-rehearsal`, a hidden-QEMU
+  rehearsal for the MacBook Air A1466 USB boot path. It boots the generated USB
+  image through OVMF/q35/AHCI/xHCI, verifies USB keyboard input, runs the
+  first-boot diagnostics, starts the supported GUI smoke path, and writes
+  `build/a1466-rehearsal.log`.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

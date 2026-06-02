@@ -16,6 +16,20 @@ The resulting image is:
 build/srvros-usb.img
 ```
 
+Before writing removable media, rehearse the same UEFI/xHCI/HID boot shape in
+hidden QEMU:
+
+```powershell
+make a1466-rehearsal QEMU=C:\msys64\ucrt64\bin\qemu-system-x86_64.exe
+```
+
+The rehearsal runs `hwdiag`, `dmesg 8192`, `xhci`, `pci`, `block`, then starts
+`gui --smoke-autostart`. It writes the full serial capture to:
+
+```text
+build/a1466-rehearsal.log
+```
+
 Write that image to a USB stick with your preferred raw-image writer. Double
 check the target disk before writing; this image is intended for removable USB
 media.

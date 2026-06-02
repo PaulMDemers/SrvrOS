@@ -1801,6 +1801,10 @@ $(USB_IMAGE): $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS) $(EXFAT_IMAGE) boot/li
 .PHONY: usb-image
 usb-image: $(USB_IMAGE)
 
+.PHONY: a1466-rehearsal
+a1466-rehearsal: $(USB_IMAGE)
+	$(PYTHON) tools/a1466_rehearsal.py --qemu $(QEMU)
+
 .PHONY: run
 run: $(IMAGE)
 	$(QEMU) -M q35 -m 512M -cdrom $(IMAGE) -boot d -serial stdio -no-reboot

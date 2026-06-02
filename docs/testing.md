@@ -35,6 +35,7 @@ python3 tools/udp_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/uefi_usb_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/a1466_rehearsal.py --qemu /ucrt64/bin/qemu-system-x86_64
 make libc-audit
 python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make node-unresolved-audit
@@ -193,6 +194,11 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   and verifies hub detection, routed downstream HID enumeration, typed keyboard
   input, and pointer reports. `--diag-command hwdiag` runs the real-hardware
   diagnostic bundle instead of the shorter `bootinfo` command.
+- `a1466_rehearsal.py`: boots the USB image through the same OVMF/q35/AHCI/xHCI
+  path with a USB keyboard and absolute pointer, injects one QMP keyboard
+  command to verify the USB input path, runs the A1466 first-boot diagnostic
+  command set, launches `gui --smoke-autostart`, and writes the full capture to
+  `build/a1466-rehearsal.log`.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented
