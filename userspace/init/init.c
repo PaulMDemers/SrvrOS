@@ -549,7 +549,7 @@ static int system_main(void) {
     } else {
         long waited = wait_pid((uint64_t)pid, &status);
         log_init_status(waited > 0 ? status : 1);
-        write_text("init: startup complete\n");
+        write_text("\ninit: startup complete\n");
     }
 
     for (;;) {

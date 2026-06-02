@@ -366,7 +366,7 @@ void kmain(void) {
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
-        (void)timer_wait_ticks_bounded(20, 100000000);
+        (void)timer_wait_ticks_bounded(300, 1500000000);
     } else {
         console_write("init: start failed\n");
     }
