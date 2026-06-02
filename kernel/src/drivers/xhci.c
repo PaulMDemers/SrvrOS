@@ -259,6 +259,9 @@ struct xhci_state {
     uint64_t device_record_full;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
+    uint64_t last_command_pointer;
+    uint64_t last_expected_command_pointer;
+    uint64_t command_pointer_mismatches;
     uint64_t protocol_count;
     struct xhci_port_state ports[XHCI_MAX_PORTS];
     struct xhci_protocol protocols[XHCI_MAX_PROTOCOLS];
@@ -369,6 +372,16 @@ static void write_link_trb(struct xhci_trb *ring, uint64_t ring_phys, bool cycle
 
 static uint32_t port_speed(uint32_t portsc) {
     return (portsc >> 10) & 0xfu;
+}
+
+static uint8_t default_ep0_packet_for_speed(uint8_t speed) {
+    if (speed == 2) {
+        return 8;
+    }
+    if (speed == 4) {
+        return 0;
+    }
+    return 64;
 }
 
 static void parse_supported_protocols(void) {
@@ -676,8 +689,24 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         xhci.command_events++;
         xhci.last_completion_code = completion_code;
         xhci.last_slot_id = slot_id;
+        xhci.last_command_pointer = pointer;
+        xhci.last_expected_command_pointer = command_phys;
         if (pointer != command_phys) {
-            continue;
+            xhci.command_pointer_mismatches++;
+            if (completion_code != 1) {
+                console_printf("xhci: command type=%u pointer mismatch ptr=%x expected=%x cc=%u slot=%u\n",
+                    expected_type,
+                    pointer,
+                    command_phys,
+                    completion_code,
+                    slot_id);
+                continue;
+            }
+            console_printf("xhci: command type=%u accepted pointer mismatch ptr=%x expected=%x slot=%u\n",
+                expected_type,
+                pointer,
+                command_phys,
+                slot_id);
         }
         if (slot_out != 0) {
             *slot_out = slot_id;
@@ -692,10 +721,13 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         return true;
     }
 
-    console_printf("xhci: command type=%u timeout events=%u last_cc=%u\n",
+    console_printf("xhci: command type=%u timeout events=%u last_cc=%u last_ptr=%x expected=%x mismatches=%u\n",
         expected_type,
         xhci.command_events,
-        xhci.last_completion_code);
+        xhci.last_completion_code,
+        xhci.last_command_pointer,
+        xhci.last_expected_command_pointer,
+        xhci.command_pointer_mismatches);
     return false;
 }
 
@@ -1054,7 +1086,7 @@ static void setup_address_input_context(struct xhci_device *device) {
     context_write32(device->input_context, 1, 2, slot2);
 
     uint32_t ep0_info = (3u << 1) | (4u << 3);
-    uint32_t ep0_packet = ((uint32_t)device->ep0_max_packet << 16);
+    uint32_t ep0_packet = ((uint32_t)(device->ep0_max_packet == 0 ? 512 : device->ep0_max_packet) << 16);
     context_write32(device->input_context, 2, 1, ep0_info | ep0_packet);
     context_write32(device->input_context, 2, 2, (uint32_t)(device->ep0_ring_phys | 1u));
     context_write32(device->input_context, 2, 3, (uint32_t)(device->ep0_ring_phys >> 32));
@@ -1555,7 +1587,7 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
             .parent_slot_id = hub->slot_id,
             .hub_port_id = port,
             .speed = hub_status_speed(status),
-            .ep0_max_packet = 64,
+            .ep0_max_packet = default_ep0_packet_for_speed(hub_status_speed(status)),
             .route_string = child_route_string(hub->route_string, port),
             .slot_type = root_port_slot_type(hub->port_id),
         };
@@ -1676,11 +1708,12 @@ static bool enumerate_port(uint64_t port_index) {
     if (device == 0) {
         return false;
     }
+    uint8_t speed = (uint8_t)port_speed(portsc);
     *device = (struct xhci_device) {
         .present = true,
         .port_id = (uint8_t)(port_index + 1),
-        .speed = (uint8_t)port_speed(portsc),
-        .ep0_max_packet = 64,
+        .speed = speed,
+        .ep0_max_packet = default_ep0_packet_for_speed(speed),
         .route_string = 0,
         .slot_type = root_port_slot_type((uint8_t)(port_index + 1)),
     };
@@ -1915,7 +1948,7 @@ void xhci_print_status(void) {
         (uint64_t)((xhci.hcs_params1 >> 24) & 0xff),
         (uint64_t)((xhci.hcs_params2 >> 21) & 0x1f),
         xhci.protocol_count);
-    console_printf("xhci: rings dcbaa=%x cr=%x er=%x erst=%x cmd_events=%u noop=%u enable_slot=%u last_cc=%u last_slot=%u\n",
+    console_printf("xhci: rings dcbaa=%x cr=%x er=%x erst=%x cmd_events=%u noop=%u enable_slot=%u last_cc=%u last_slot=%u cmd_ptr=%x expected=%x mismatches=%u\n",
         xhci.dcbaa_phys,
         xhci.command_ring_phys,
         xhci.event_ring_phys,
@@ -1924,7 +1957,10 @@ void xhci_print_status(void) {
         xhci.noop_completions,
         xhci.enable_slot_completions,
         xhci.last_completion_code,
-        xhci.last_slot_id);
+        xhci.last_slot_id,
+        xhci.last_command_pointer,
+        xhci.last_expected_command_pointer,
+        xhci.command_pointer_mismatches);
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
