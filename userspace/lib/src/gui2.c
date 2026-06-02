@@ -254,6 +254,8 @@ int gui2_poll_event(struct gui2_window *window, struct gui2_event *event) {
     } else if (msg.type == GUI_MSG_V2_EVENT_KEY_DOWN) {
         event->type = GUI2_EVENT_KEY_DOWN;
         event->key = (int)msg.value;
+    } else if (msg.type == GUI_MSG_EVENT_CLOSE) {
+        event->type = GUI2_EVENT_CLOSE;
     }
     return event->type == GUI2_EVENT_NONE ? 0 : 1;
 }

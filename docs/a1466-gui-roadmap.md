@@ -244,8 +244,11 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 `GUI_MSG_V2_DAMAGE_SURFACE`, `GUI_MSG_V2_DESTROY_SURFACE`,
 `GUI_MSG_V2_EVENT_CONFIGURE`, `GUI_MSG_V2_EVENT_FOCUS`,
 `GUI_MSG_V2_EVENT_POINTER_MOVE`, `GUI_MSG_V2_EVENT_POINTER_BUTTON`, and
-`GUI_MSG_V2_EVENT_KEY_DOWN` are wired through the existing GUI queue. Pixel
-storage is currently kernel-managed through `gui_surface_create`,
+`GUI_MSG_V2_EVENT_KEY_DOWN` are wired through the existing GUI queue. `displayd`
+also sends the existing close event to v2 apps from compositor-owned frame
+buttons, and owns z-order raise, title-bar dragging, and minimize state for
+surface windows. Pixel storage is currently kernel-managed through
+`gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window
 open/close, dirty presents, event polling, theme/layout helpers, focus-aware

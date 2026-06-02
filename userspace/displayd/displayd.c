@@ -13,6 +13,8 @@
 #define CURSOR_H 16
 #define DISPLAY_CLIENT_MAX 8
 #define WINDOW_TITLE_H 24
+#define WINDOW_BUTTON_SIZE 12
+#define WINDOW_BUTTON_GAP 7
 
 struct display_metrics {
     uint64_t width;
@@ -35,6 +37,8 @@ struct display_client {
     uint64_t width;
     uint64_t height;
     int focused;
+    int minimized;
+    uint64_t z;
     char title[GUI_TEXT_MAX];
 };
 
@@ -44,6 +48,10 @@ struct display_state {
     uint64_t mouse_events;
     uint64_t focused_surface_id;
     uint64_t hovered_surface_id;
+    uint64_t dragging_surface_id;
+    int64_t drag_offset_x;
+    int64_t drag_offset_y;
+    uint64_t next_z;
     uint8_t last_buttons;
     struct display_client clients[DISPLAY_CLIENT_MAX];
 };
@@ -176,6 +184,97 @@ static void draw_panel(struct ui_element *root, int64_t x, int64_t y,
     ui_draw_rect(root, x + (int64_t)width - 1, y, 1, height, border);
 }
 
+static uint64_t client_frame_width(const struct display_client *client) {
+    return client != 0 ? client->width + 2 : 0;
+}
+
+static uint64_t client_frame_height(const struct display_client *client) {
+    if (client == 0) {
+        return 0;
+    }
+    return client->minimized ? WINDOW_TITLE_H + 2 : client->height + WINDOW_TITLE_H + 2;
+}
+
+static int rect_hit(int64_t x, int64_t y, uint64_t width, uint64_t height,
+    int64_t px, int64_t py) {
+    return px >= x && py >= y &&
+        (uint64_t)(px - x) < width &&
+        (uint64_t)(py - y) < height;
+}
+
+static int close_button_rect(const struct display_client *client,
+    int64_t *x, int64_t *y, uint64_t *width, uint64_t *height) {
+    if (client == 0 || client_frame_width(client) < 2 * WINDOW_BUTTON_SIZE + 3 * WINDOW_BUTTON_GAP) {
+        return 0;
+    }
+    if (x != 0) {
+        *x = client->x + WINDOW_BUTTON_GAP;
+    }
+    if (y != 0) {
+        *y = client->y + (WINDOW_TITLE_H - WINDOW_BUTTON_SIZE) / 2;
+    }
+    if (width != 0) {
+        *width = WINDOW_BUTTON_SIZE;
+    }
+    if (height != 0) {
+        *height = WINDOW_BUTTON_SIZE;
+    }
+    return 1;
+}
+
+static int minimize_button_rect(const struct display_client *client,
+    int64_t *x, int64_t *y, uint64_t *width, uint64_t *height) {
+    if (client == 0 || client_frame_width(client) < 2 * WINDOW_BUTTON_SIZE + 3 * WINDOW_BUTTON_GAP) {
+        return 0;
+    }
+    if (x != 0) {
+        *x = client->x + WINDOW_BUTTON_GAP + WINDOW_BUTTON_SIZE + WINDOW_BUTTON_GAP;
+    }
+    if (y != 0) {
+        *y = client->y + (WINDOW_TITLE_H - WINDOW_BUTTON_SIZE) / 2;
+    }
+    if (width != 0) {
+        *width = WINDOW_BUTTON_SIZE;
+    }
+    if (height != 0) {
+        *height = WINDOW_BUTTON_SIZE;
+    }
+    return 1;
+}
+
+static int client_close_hit(const struct display_client *client, int64_t x, int64_t y) {
+    int64_t bx;
+    int64_t by;
+    uint64_t bw;
+    uint64_t bh;
+    return close_button_rect(client, &bx, &by, &bw, &bh) &&
+        rect_hit(bx, by, bw, bh, x, y);
+}
+
+static int client_minimize_hit(const struct display_client *client, int64_t x, int64_t y) {
+    int64_t bx;
+    int64_t by;
+    uint64_t bw;
+    uint64_t bh;
+    return minimize_button_rect(client, &bx, &by, &bw, &bh) &&
+        rect_hit(bx, by, bw, bh, x, y);
+}
+
+static int client_title_hit(const struct display_client *client, int64_t x, int64_t y) {
+    if (client == 0 || !client->used) {
+        return 0;
+    }
+    return rect_hit(client->x, client->y, client_frame_width(client), WINDOW_TITLE_H, x, y);
+}
+
+static int client_frame_hit(const struct display_client *client, int64_t x, int64_t y) {
+    if (client == 0 || !client->used) {
+        return 0;
+    }
+    return rect_hit(client->x, client->y, client_frame_width(client),
+        client_frame_height(client), x, y);
+}
+
 static struct display_client *find_client(struct display_state *state,
     uint64_t pid,
     uint64_t window_id,
@@ -243,8 +342,23 @@ static void mark_client_frame_dirty(struct ui_element *root, const struct displa
     ui_mark_dirty_rect(root,
         client->x,
         client->y,
-        client->width + 2,
-        client->height + WINDOW_TITLE_H + 2);
+        client_frame_width(client),
+        client_frame_height(client));
+}
+
+static void raise_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client) {
+    if (client == 0 || !client->used) {
+        return;
+    }
+    state->next_z++;
+    if (state->next_z == 0) {
+        state->next_z = 1;
+    }
+    if (client->z != state->next_z) {
+        client->z = state->next_z;
+        mark_client_frame_dirty(root, client);
+    }
 }
 
 static void focus_client(struct ui_element *root, struct display_state *state,
@@ -267,6 +381,7 @@ static void focus_client(struct ui_element *root, struct display_state *state,
 
     state->focused_surface_id = next_id;
     if (client != 0) {
+        raise_client(root, state, client);
         client->focused = 1;
         mark_client_frame_dirty(root, client);
         send_client_event(client, GUI_MSG_V2_EVENT_FOCUS, 0, 0,
@@ -276,41 +391,138 @@ static void focus_client(struct ui_element *root, struct display_state *state,
 
 static struct display_client *client_at(struct display_state *state,
     int64_t x, int64_t y, int64_t *local_x, int64_t *local_y) {
-    for (int64_t i = DISPLAY_CLIENT_MAX - 1; i >= 0; i--) {
+    struct display_client *top = 0;
+    uint64_t top_z = 0;
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
         struct display_client *client = &state->clients[i];
-        if (!client->used) {
+        if (!client->used || client->minimized) {
             continue;
         }
         int64_t content_x = client->x + 1;
         int64_t content_y = client->y + WINDOW_TITLE_H + 1;
         if (x >= content_x && y >= content_y &&
             (uint64_t)(x - content_x) < client->width &&
-            (uint64_t)(y - content_y) < client->height) {
-            if (local_x != 0) {
-                *local_x = x - content_x;
-            }
-            if (local_y != 0) {
-                *local_y = y - content_y;
-            }
-            return client;
+            (uint64_t)(y - content_y) < client->height &&
+            (top == 0 || client->z >= top_z)) {
+            top = client;
+            top_z = client->z;
         }
     }
-    return 0;
+    if (top != 0) {
+        if (local_x != 0) {
+            *local_x = x - (top->x + 1);
+        }
+        if (local_y != 0) {
+            *local_y = y - (top->y + WINDOW_TITLE_H + 1);
+        }
+    }
+    return top;
+}
+
+static struct display_client *client_frame_at(struct display_state *state, int64_t x, int64_t y) {
+    struct display_client *top = 0;
+    uint64_t top_z = 0;
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        struct display_client *client = &state->clients[i];
+        if (!client->used) {
+            continue;
+        }
+        if (client_frame_hit(client, x, y) && (top == 0 || client->z >= top_z)) {
+            top = client;
+            top_z = client->z;
+        }
+    }
+    return top;
+}
+
+static int64_t clamp_i64(int64_t value, int64_t low, int64_t high) {
+    if (value < low) {
+        return low;
+    }
+    if (value > high) {
+        return high;
+    }
+    return value;
+}
+
+static void clamp_client_position(const struct ui_element *root, struct display_client *client) {
+    int64_t max_x;
+    int64_t max_y;
+    if (root == 0 || client == 0) {
+        return;
+    }
+    max_x = (int64_t)root->width - (int64_t)min_u64(client_frame_width(client), root->width);
+    max_y = (int64_t)root->height - (int64_t)min_u64(WINDOW_TITLE_H, root->height);
+    client->x = clamp_i64(client->x, 0, max_x);
+    client->y = clamp_i64(client->y, 0, max_y);
+}
+
+static void move_client_to(struct ui_element *root, struct display_client *client,
+    int64_t x, int64_t y) {
+    if (root == 0 || client == 0 || !client->used) {
+        return;
+    }
+    mark_client_frame_dirty(root, client);
+    client->x = x;
+    client->y = y;
+    clamp_client_position(root, client);
+    mark_client_frame_dirty(root, client);
+}
+
+static void toggle_client_minimized(struct ui_element *root, struct display_client *client) {
+    if (root == 0 || client == 0 || !client->used) {
+        return;
+    }
+    mark_client_frame_dirty(root, client);
+    client->minimized = !client->minimized;
+    clamp_client_position(root, client);
+    mark_client_frame_dirty(root, client);
+}
+
+static void close_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client) {
+    if (client == 0 || !client->used) {
+        return;
+    }
+    send_client_event(client, GUI_MSG_EVENT_CLOSE, 0, 0, client->width, client->height, 0, "");
+    if (state->dragging_surface_id == client->surface_id) {
+        state->dragging_surface_id = 0;
+    }
+    mark_client_frame_dirty(root, client);
 }
 
 static void draw_surface_client(struct ui_element *root, const struct display_client *client) {
-    uint64_t frame_w = client->width + 2;
-    uint64_t frame_h = client->height + WINDOW_TITLE_H + 2;
+    uint64_t frame_w = client_frame_width(client);
+    uint64_t frame_h = client_frame_height(client);
     int64_t frame_x = client->x;
     int64_t frame_y = client->y;
     int64_t content_x = frame_x + 1;
     int64_t content_y = frame_y + WINDOW_TITLE_H + 1;
+    int64_t close_x;
+    int64_t close_y;
+    uint64_t close_w;
+    uint64_t close_h;
+    int64_t min_x;
+    int64_t min_y;
+    uint64_t min_w;
+    uint64_t min_h;
 
     draw_panel(root, frame_x, frame_y, frame_w, frame_h, 0x17232d,
         client->focused ? 0xf5b84b : 0x8fd0d4);
     ui_draw_rect(root, frame_x + 1, frame_y + 1, frame_w - 2, WINDOW_TITLE_H - 1, 0x2f6f68);
-    ui_draw_text(root, frame_x + 12, frame_y + 8,
+    if (close_button_rect(client, &close_x, &close_y, &close_w, &close_h)) {
+        ui_draw_rect(root, close_x, close_y, close_w, close_h, 0x8a3f48);
+        ui_draw_text(root, close_x + 3, close_y + 2, "X", 0xffffff);
+    }
+    if (minimize_button_rect(client, &min_x, &min_y, &min_w, &min_h)) {
+        ui_draw_rect(root, min_x, min_y, min_w, min_h, 0xf5b84b);
+        ui_draw_text(root, min_x + 3, min_y + 2, client->minimized ? "+" : "-", 0x111b24);
+    }
+    ui_draw_text(root, frame_x + 44, frame_y + 8,
         client->title[0] != '\0' ? client->title : "SURFACE", 0xffffff);
+    if (client->minimized) {
+        return;
+    }
     ui_draw_rect(root, content_x, content_y, client->width, client->height, 0x0f1720);
 
     if (client->surface_id != 0 && root->surface.pixels != 0 &&
@@ -334,6 +546,31 @@ static void draw_surface_client(struct ui_element *root, const struct display_cl
                     "SURFACE UNAVAILABLE", 0xf87171);
             }
         }
+    }
+}
+
+static void draw_clients(struct ui_element *root, const struct display_state *state) {
+    uint64_t drawn = 0;
+    uint64_t last_z = 0;
+    while (drawn < DISPLAY_CLIENT_MAX) {
+        const struct display_client *next = 0;
+        uint64_t next_z = 0;
+        for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+            const struct display_client *client = &state->clients[i];
+            if (!client->used || client->z <= last_z) {
+                continue;
+            }
+            if (next == 0 || client->z < next_z) {
+                next = client;
+                next_z = client->z;
+            }
+        }
+        if (next == 0) {
+            break;
+        }
+        draw_surface_client(root, next);
+        last_z = next_z;
+        drawn++;
     }
 }
 
@@ -406,11 +643,7 @@ static void draw_scene(struct ui_element *root) {
         (int64_t)(m->height - m->status_h - m->margin + 32),
         "GUI IPC SERVER ONLINE", 0xb9d8df);
 
-    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
-        if (state->clients[i].used) {
-            draw_surface_client(root, &state->clients[i]);
-        }
-    }
+    draw_clients(root, state);
 }
 
 static void draw_cursor(uint64_t x, uint64_t y, uint64_t screen_width,
@@ -470,6 +703,9 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 client = alloc_client(state);
             }
             if (client != 0) {
+                if (client->used) {
+                    mark_client_frame_dirty(root, client);
+                }
                 client->used = 1;
                 client->pid = msg.source_pid;
                 client->window_id = msg.window_id;
@@ -479,12 +715,14 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 client->width = msg.width;
                 client->height = msg.height;
                 client->focused = 0;
+                client->minimized = 0;
+                state->next_z++;
+                if (state->next_z == 0) {
+                    state->next_z = 1;
+                }
+                client->z = state->next_z;
                 copy_text(client->title, msg.text);
-                ui_mark_dirty_rect(root,
-                    client->x,
-                    client->y,
-                    client->width + 2,
-                    client->height + WINDOW_TITLE_H + 2);
+                mark_client_frame_dirty(root, client);
                 srv_puts("displayd: mapped surface window ");
                 srv_puts(client->title);
                 srv_puts(" surface=");
@@ -507,6 +745,9 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 msg.window_id,
                 (uint64_t)msg.value);
             if (client != 0) {
+                if (client->minimized) {
+                    continue;
+                }
                 ui_mark_dirty_rect(root,
                     client->x + 1 + msg.x,
                     client->y + WINDOW_TITLE_H + 1 + msg.y,
@@ -519,11 +760,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 msg.window_id,
                 (uint64_t)msg.value);
             if (client != 0) {
-                ui_mark_dirty_rect(root,
-                    client->x,
-                    client->y,
-                    client->width + 2,
-                    client->height + WINDOW_TITLE_H + 2);
+                mark_client_frame_dirty(root, client);
                 if (state->focused_surface_id == client->surface_id) {
                     focus_client(root, state, 0);
                 }
@@ -651,7 +888,9 @@ int main(int argc, char **argv) {
             uint8_t old_buttons = buttons;
             int64_t local_x = 0;
             int64_t local_y = 0;
-            struct display_client *client;
+            struct display_client *client = 0;
+            struct display_client *frame_client = 0;
+            int was_dragging = state.dragging_surface_id != 0;
             if (gfx.width > CURSOR_W) {
                 mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - CURSOR_W);
             }
@@ -661,21 +900,53 @@ int main(int argc, char **argv) {
             buttons = mouse.buttons;
             cursor_dirty = mouse_x != old_mouse_x || mouse_y != old_mouse_y;
             state.mouse_events++;
-            client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
-            state.hovered_surface_id = client != 0 ? client->surface_id : 0;
-            if (client != 0 && cursor_dirty) {
-                send_client_event(client, GUI_MSG_V2_EVENT_POINTER_MOVE,
-                    local_x, local_y, client->width, client->height, buttons, "");
+
+            if (state.dragging_surface_id != 0) {
+                client = find_client_by_surface(&state, state.dragging_surface_id);
+                if (client == 0 || (buttons & 1) == 0) {
+                    state.dragging_surface_id = 0;
+                } else if (cursor_dirty) {
+                    move_client_to(&root, client,
+                        (int64_t)mouse_x - state.drag_offset_x,
+                        (int64_t)mouse_y - state.drag_offset_y);
+                }
             }
-            if (old_buttons != buttons) {
-                if (client != 0) {
-                    if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
-                        focus_client(&root, &state, client);
-                    }
-                    send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
+
+            if (state.dragging_surface_id == 0) {
+                client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
+                state.hovered_surface_id = client != 0 ? client->surface_id : 0;
+                if (client != 0 && cursor_dirty) {
+                    send_client_event(client, GUI_MSG_V2_EVENT_POINTER_MOVE,
                         local_x, local_y, client->width, client->height, buttons, "");
-                } else if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
-                    focus_client(&root, &state, 0);
+                }
+            }
+
+            if (old_buttons != buttons) {
+                if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
+                    frame_client = client_frame_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
+                    if (frame_client != 0) {
+                        focus_client(&root, &state, frame_client);
+                        if (client_close_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                            close_client(&root, &state, frame_client);
+                        } else if (client_minimize_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                            toggle_client_minimized(&root, frame_client);
+                        } else if (client_title_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                            state.dragging_surface_id = frame_client->surface_id;
+                            state.drag_offset_x = (int64_t)mouse_x - frame_client->x;
+                            state.drag_offset_y = (int64_t)mouse_y - frame_client->y;
+                        } else if (client == frame_client && !frame_client->minimized) {
+                            send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
+                                local_x, local_y, client->width, client->height, buttons, "");
+                        }
+                    } else {
+                        focus_client(&root, &state, 0);
+                    }
+                } else if (!was_dragging) {
+                    client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
+                    if (client != 0) {
+                        send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
+                            local_x, local_y, client->width, client->height, buttons, "");
+                    }
                 }
             }
         }

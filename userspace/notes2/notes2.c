@@ -124,6 +124,7 @@ int main(void) {
     for (;;) {
         struct gui2_event event;
         int changed = 0;
+        int closing = 0;
         struct gui2_control controls[] = {
             { GUI2_CONTROL_TEXTBOX, &entry },
             { GUI2_CONTROL_BUTTON, &add },
@@ -143,6 +144,10 @@ int main(void) {
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;
+            } else if (event.type == GUI2_EVENT_CLOSE) {
+                srv_puts("notes2: close\n");
+                closing = 1;
+                break;
             }
             changed |= gui2_dispatch_event(&context, &event,
                 controls, sizeof(controls) / sizeof(controls[0]));
@@ -166,6 +171,9 @@ int main(void) {
                 srv_puts("notes2: clear\n");
                 changed = 1;
             }
+        }
+        if (closing) {
+            break;
         }
         if (changed) {
             draw_notes(&window, &entry, &add, &clear, items);

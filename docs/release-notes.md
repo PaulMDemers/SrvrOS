@@ -48,6 +48,9 @@ server.
   and textbox cursor support, then adds `/fat/bin/notes2` as the first small
   GUI2 utility app. The displayd smoke now launches and maps it beside the raw
   surface and widget demos.
+- Adds the first active `displayd` window-manager behavior for GUI2 surfaces:
+  compositor-owned close/minimize buttons, title-bar dragging, z-order raise on
+  focus, and app-side close-event handling in the GUI2 sample apps.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

@@ -13,6 +13,7 @@ enum gui2_event_type {
     GUI2_EVENT_POINTER_MOVE,
     GUI2_EVENT_POINTER_BUTTON,
     GUI2_EVENT_KEY_DOWN,
+    GUI2_EVENT_CLOSE,
 };
 
 enum gui2_widget_result {

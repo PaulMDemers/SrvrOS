@@ -615,11 +615,15 @@ presents damaged rectangles through `gfx_blit_rect`, and has its own hidden-QEMU
 smoke test. It now also accepts the first GUI protocol v2 messages for
 client-owned surfaces: apps create kernel-managed pixel surfaces, blit damaged
 rectangles into them, announce a surface window, and the compositor copies the
-surface into its root backbuffer. `displayd` also routes v2 configure, focus,
-pointer, and key events back to those clients so apps can react from their own
-process. The app-side `gui2` library wraps that protocol with window open/close,
-surface present/damage, event polling, theme/layout helpers, shared widget
-dispatch, and early button/textbox widgets.
+surface into its root backbuffer. `displayd` also owns the first compositor-side
+window frame behavior for those surfaces: z-order raise on focus, title-bar
+dragging, close buttons, and minimize buttons that hide the client surface while
+leaving the frame visible. It routes v2 configure, focus, pointer, and key
+events back to clients so apps can react from their own process, and uses the
+existing close event for compositor close requests. The app-side `gui2` library
+wraps that protocol with window open/close, surface present/damage, event
+polling, theme/layout helpers, shared widget dispatch, and early
+button/textbox widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes2`
 is the first small GUI2 utility, with a focused textbox and buttons rendered

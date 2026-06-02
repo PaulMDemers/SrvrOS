@@ -104,6 +104,10 @@ static int handle_event(struct demo_state *state, const struct gui2_event *event
         state->last_key = event->key;
         return 1;
     }
+    if (event->type == GUI2_EVENT_CLOSE) {
+        srv_puts("surfacedemo: close\n");
+        return 2;
+    }
     return 0;
 }
 
@@ -131,12 +135,21 @@ int main(void) {
     for (;;) {
         struct gui2_event event;
         int changed = 0;
+        int closing = 0;
         uint64_t elapsed = (uint64_t)srv_ticks() - start;
         if (elapsed > 140) {
             break;
         }
         while (gui2_poll_event(&window, &event) > 0) {
-            changed |= handle_event(&state, &event);
+            int result = handle_event(&state, &event);
+            if (result == 2) {
+                closing = 1;
+                break;
+            }
+            changed |= result;
+        }
+        if (closing) {
+            break;
         }
         if (changed || (elapsed % 20) == 0) {
             draw_demo(&window, elapsed, &state);

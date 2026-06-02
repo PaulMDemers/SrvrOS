@@ -94,6 +94,7 @@ int main(void) {
     for (;;) {
         struct gui2_event event;
         int changed = 0;
+        int closing = 0;
         uint64_t elapsed = (uint64_t)srv_ticks() - start;
         if (elapsed > 150) {
             break;
@@ -109,6 +110,10 @@ int main(void) {
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;
+            } else if (event.type == GUI2_EVENT_CLOSE) {
+                srv_puts("gui2demo: close\n");
+                closing = 1;
+                break;
             }
             changed |= gui2_textbox_event(&textbox, &event);
             changed |= gui2_button_event(&button, &event);
@@ -117,6 +122,9 @@ int main(void) {
                 srv_puts("gui2demo: click\n");
                 changed = 1;
             }
+        }
+        if (closing) {
+            break;
         }
         if (changed) {
             draw_app(&window, &button, &textbox, event_count);
