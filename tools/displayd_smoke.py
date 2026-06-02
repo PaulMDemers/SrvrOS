@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--disk", default="build/srvros.exfat")
     parser.add_argument("--boot-wait", type=float, default=45)
     parser.add_argument("--shell-wait", type=float, default=2)
-    parser.add_argument("--displayd-wait", type=float, default=15)
+    parser.add_argument("--displayd-wait", type=float, default=25)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 

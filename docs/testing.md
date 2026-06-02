@@ -433,6 +433,10 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   exits without a fatal exception. Manual GUI checks should also cover the
   compositor-owned v2 frame controls: title-bar dragging, focus raise,
   minimize/restore, and close.
+- `displayd_frame_smoke.py`: hidden-QEMU/QMP frame-control smoke that launches
+  `/fat/bin/displayd --frame-smoke-autostart`, injects pointer moves/clicks
+  through QMP, and verifies focus, minimize/restore, title-bar drag, compositor
+  close, app-side close handling, and clean compositor shutdown.
 
 ## DNS Test Domains
 

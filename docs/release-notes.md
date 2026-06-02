@@ -51,6 +51,9 @@ server.
 - Adds the first active `displayd` window-manager behavior for GUI2 surfaces:
   compositor-owned close/minimize buttons, title-bar dragging, z-order raise on
   focus, and app-side close-event handling in the GUI2 sample apps.
+- Adds `tools/displayd_frame_smoke.py`, a hidden-QEMU/QMP regression smoke for
+  the new v2 frame controls: focus, minimize/restore, drag, close, and clean
+  compositor shutdown.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

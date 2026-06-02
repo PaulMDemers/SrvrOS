@@ -127,6 +127,15 @@ static void print_u64(uint64_t value) {
     }
 }
 
+static void print_i64(int64_t value) {
+    if (value < 0) {
+        srv_puts("-");
+        print_u64((uint64_t)(-value));
+        return;
+    }
+    print_u64((uint64_t)value);
+}
+
 static void append_char(char *out, uint64_t capacity, uint64_t *length, char c) {
     if (*length + 1 >= capacity) {
         return;
@@ -384,6 +393,9 @@ static void focus_client(struct ui_element *root, struct display_state *state,
         raise_client(root, state, client);
         client->focused = 1;
         mark_client_frame_dirty(root, client);
+        srv_puts("displayd: focus ");
+        srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+        srv_puts("\n");
         send_client_event(client, GUI_MSG_V2_EVENT_FOCUS, 0, 0,
             client->width, client->height, 1, "");
     }
@@ -467,6 +479,13 @@ static void move_client_to(struct ui_element *root, struct display_client *clien
     client->y = y;
     clamp_client_position(root, client);
     mark_client_frame_dirty(root, client);
+    srv_puts("displayd: drag ");
+    srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+    srv_puts(" x=");
+    print_i64(client->x);
+    srv_puts(" y=");
+    print_i64(client->y);
+    srv_puts("\n");
 }
 
 static void toggle_client_minimized(struct ui_element *root, struct display_client *client) {
@@ -477,6 +496,11 @@ static void toggle_client_minimized(struct ui_element *root, struct display_clie
     client->minimized = !client->minimized;
     clamp_client_position(root, client);
     mark_client_frame_dirty(root, client);
+    srv_puts("displayd: minimize ");
+    srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+    srv_puts(" state=");
+    print_u64(client->minimized ? 1 : 0);
+    srv_puts("\n");
 }
 
 static void close_client(struct ui_element *root, struct display_state *state,
@@ -485,6 +509,9 @@ static void close_client(struct ui_element *root, struct display_state *state,
         return;
     }
     send_client_event(client, GUI_MSG_EVENT_CLOSE, 0, 0, client->width, client->height, 0, "");
+    srv_puts("displayd: close ");
+    srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+    srv_puts("\n");
     if (state->dragging_surface_id == client->surface_id) {
         state->dragging_surface_id = 0;
     }
@@ -789,6 +816,7 @@ int main(int argc, char **argv) {
     uint64_t start_ticks;
     int smoke = 0;
     int smoke_autostart = 0;
+    int frame_smoke = 0;
 
     for (int i = 1; i < argc; i++) {
         if (streq(argv[i], "--smoke")) {
@@ -796,6 +824,10 @@ int main(int argc, char **argv) {
         } else if (streq(argv[i], "--smoke-autostart")) {
             smoke = 1;
             smoke_autostart = 1;
+        } else if (streq(argv[i], "--frame-smoke-autostart")) {
+            smoke = 1;
+            smoke_autostart = 1;
+            frame_smoke = 1;
         }
     }
 
@@ -954,7 +986,8 @@ int main(int argc, char **argv) {
         present_dirty(&root, mouse_x, mouse_y, old_mouse_x, old_mouse_y,
             cursor_dirty, buttons != 0 ? 0xf87171 : 0xffffff);
 
-        if (smoke && (uint64_t)srv_ticks() - start_ticks > (smoke_autostart ? 80 : 20)) {
+        if (smoke && (uint64_t)srv_ticks() - start_ticks >
+            (frame_smoke ? 220 : smoke_autostart ? 80 : 20)) {
             srv_puts("displayd: smoke ok\n");
             break;
         }
