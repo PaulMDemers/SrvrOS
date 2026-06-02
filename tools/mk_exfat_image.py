@@ -103,7 +103,7 @@ def main():
 
     fat_base = FAT_OFFSET * SECTOR_SIZE
     default_names = ["hello", "cat", "webd", "httpget", "udpdns", "udpecho", "netstat", "ifconfig", "route",
-                     "arp", "ping", "host", "netcheck", "netabi", "tcpstress", "sysabi", "spin", "ui", "desktop", "displayd", "surfacedemo", "gui2demo", "calcgui", "notesgui", "notes2", "textedit",
+                     "arp", "ping", "host", "netcheck", "netabi", "tcpstress", "sysabi", "spin", "ui", "desktop", "displayd", "surfacedemo", "gui2demo", "calcgui", "calc2", "notesgui", "notes2", "textedit",
                      "imgedit"]
     app_names = []
     app_data = {}

@@ -64,6 +64,9 @@ server.
 - Adds `tools/displayd_resolution_smoke.py`, which builds temporary
   resolution-specific Limine ISOs and verifies `displayd` at 800x600,
   1280x800, 1440x900, and 1920x1080.
+- Adds `/fat/bin/calc2`, a resizable GUI2 calculator client with an app-owned
+  surface, integer arithmetic controls, configure/resize handling, and dock
+  launcher smoke coverage. The legacy `/fat/bin/calcgui` remains available.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

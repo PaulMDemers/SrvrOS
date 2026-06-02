@@ -198,7 +198,9 @@ def main():
         "displayd: mapped surface window GUI2 DEMO",
         "displayd: launch SURFACE /fat/bin/surfacedemo pid=",
         "displayd: mapped surface window SURFACE DEMO",
-        "displayd: launcher CALC2 unavailable",
+        "displayd: launch CALC2 /fat/bin/calc2 pid=",
+        "displayd: mapped surface window CALC2",
+        "calc2: configure",
         "displayd: smoke ok",
     ]
     missing = [marker for marker in expected if marker not in text]

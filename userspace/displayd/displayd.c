@@ -73,7 +73,7 @@ static const struct display_launcher launchers[] = {
     { "NOTES", "/fat/bin/notes2", 0x2f6f68 },
     { "GUI2", "/fat/bin/gui2demo", 0x335b7a },
     { "SURFACE", "/fat/bin/surfacedemo", 0x60548d },
-    { "CALC2", "", 0x70485f },
+    { "CALC2", "/fat/bin/calc2", 0x70485f },
 };
 
 #define DISPLAY_LAUNCHER_COUNT (sizeof(launchers) / sizeof(launchers[0]))

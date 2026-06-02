@@ -151,8 +151,8 @@ legacy emulation.
 The prototype GUI has useful pieces:
 
 - `desktop` is already a userspace window server process.
-- GUI apps such as `calcgui`, `notesgui`, `textedit`, and `imgedit` are separate
-  ring-3 processes.
+- GUI apps such as `calcgui`, `notesgui`, `notes2`, `calc2`, `textedit`, and
+  `imgedit` are separate ring-3 processes.
 - The userspace UI layer has surfaces, parent/child composition, dirty marking,
   mouse hit testing, text entry, image controls, and simple events.
 - The desktop compositor can redraw damaged regions and draw a software cursor.
@@ -250,11 +250,11 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 also sends the existing close event to v2 apps from compositor-owned frame
 buttons, and owns z-order raise, title-bar dragging, and minimize state for
 surface windows. It also owns dock launchers for `/fat/bin/notes2`,
-`/fat/bin/gui2demo`, and `/fat/bin/surfacedemo`, with hidden-QEMU coverage for
-duplicate instance placement and placeholder launch failures. Bottom-right
-resize grips now send configure events, and GUI2 clients recreate their
-kernel-managed backing surface and redraw at the requested size. Pixel storage
-is currently kernel-managed through
+`/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and `/fat/bin/calc2`, with
+hidden-QEMU coverage for duplicate instance placement and dock-launched GUI2
+clients. Bottom-right resize grips now send configure events, and GUI2 clients
+recreate their kernel-managed backing surface and redraw at the requested size.
+Pixel storage is currently kernel-managed through
 `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window
@@ -262,7 +262,8 @@ open/close, resize, dirty presents, event polling, theme/layout helpers,
 focus-aware widget dispatch, buttons, and textboxes.
 `/fat/bin/surfacedemo` now uses it for a raw animated surface, and
 `/fat/bin/gui2demo` uses it for the first v2 widget sample. `/fat/bin/notes2`
-uses the same toolkit pieces for a small utility app under `displayd`.
+and `/fat/bin/calc2` use the same toolkit pieces for small utility apps under
+`displayd`.
 
 ### Toolkit
 
@@ -359,7 +360,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 
 - Add app-side layout/theme/render library.
 - Port calculator, notes, text editor, and paint/image editor to client-owned
-  surfaces.
+  surfaces. Notes and calculator have first GUI2 ports as `/fat/bin/notes2` and
+  `/fat/bin/calc2`; text editor and paint remain on the legacy GUI path.
 - Add resize handling and per-resolution smoke tests. The first resize path is
   implemented for GUI2 clients on the kernel-managed surface-copy backend, and
   `displayd_resolution_smoke.py` covers 800x600, 1280x800, 1440x900, and

@@ -176,11 +176,12 @@ kernel, and a minimal Unix-like userspace.
   capture, keyboard exit handling, and cursor redraw by refreshing the affected
   screen rectangles.
 - Split `/fat/bin/desktop` into a tiny userspace window server and freestanding
-  `/fat/bin/calcgui` plus `/fat/bin/notesgui` client processes. The desktop
-  launches those ELFs in the background, receives fixed-size GUI IPC messages
-  describing windows/labels/buttons/text updates, renders the widgets, and sends
-  click/close events back to the owning process. GUI queues are protected against
-  preemptive scheduler interleaving.
+  `/fat/bin/calcgui` plus `/fat/bin/notesgui` client processes, then start
+  moving utilities to the GUI2/displayd path with `/fat/bin/notes2` and
+  `/fat/bin/calc2`. The desktop launches those ELFs in the background, receives
+  fixed-size GUI IPC messages describing windows/labels/buttons/text updates,
+  renders the widgets, and sends click/close events back to the owning process.
+  GUI queues are protected against preemptive scheduler interleaving.
 - Add shell redirection, command sequencing, script sourcing, foreground and
   background job tracking, `wait`, `service webd`, and a login mode that runs
   `/fat/etc/init.sh`.
