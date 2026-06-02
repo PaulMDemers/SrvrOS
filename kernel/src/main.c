@@ -362,7 +362,7 @@ void kmain(void) {
     }
     keyboard_print_status();
     xhci_print_input_summary();
-    xhci_probe_input(300);
+    xhci_probe_input(2000);
     keyboard_print_status();
     xhci_print_input_summary();
 

@@ -24,6 +24,9 @@
 #define XHCI_RESET_TIMEOUT 10000000ull
 #define XHCI_COMMAND_TIMEOUT 10000000ull
 #define XHCI_TRANSFER_TIMEOUT 20000000ull
+#define XHCI_INPUT_PROBE_TICKS_PER_SECOND 100ull
+#define XHCI_INPUT_PROBE_TSC_PER_SECOND 3000000000ull
+#define XHCI_INPUT_PROBE_SPIN_LIMIT 4000000ull
 
 #define XHCI_USBCMD_RUN 0x00000001u
 #define XHCI_USBCMD_HCRST 0x00000002u
@@ -248,6 +251,13 @@ struct xhci_state {
 
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
+
+static uint64_t rdtsc(void) {
+    uint32_t low;
+    uint32_t high;
+    __asm__ volatile ("rdtsc" : "=a"(low), "=d"(high));
+    return ((uint64_t)high << 32) | low;
+}
 
 static uint32_t mmio_read32(uint64_t offset) {
     return *(volatile uint32_t *)(xhci.mmio_virt + offset);
@@ -1712,12 +1722,23 @@ uint64_t xhci_hub_count(void) {
 
 void xhci_probe_input(uint64_t wait_ticks) {
     uint64_t start = timer_ticks();
+    uint64_t start_tsc = rdtsc();
+    uint64_t wait_seconds = (wait_ticks + XHCI_INPUT_PROBE_TICKS_PER_SECOND - 1) /
+        XHCI_INPUT_PROBE_TICKS_PER_SECOND;
+    if (wait_seconds == 0) {
+        wait_seconds = 1;
+    }
+    uint64_t tsc_wait = wait_seconds * XHCI_INPUT_PROBE_TSC_PER_SECOND;
     uint64_t spins = 0;
     xhci_input_probe_active = true;
-    console_printf("input-probe: hold/type keys now wait_ticks=%u start_ticks=%u\n",
+    console_printf("input-probe: hold/type keys now wait_ticks=%u seconds=%u start_ticks=%u max_spins=%u\n",
         wait_ticks,
-        start);
-    while (timer_ticks() - start < wait_ticks && spins < wait_ticks * 2000000ull) {
+        wait_seconds,
+        start,
+        XHCI_INPUT_PROBE_SPIN_LIMIT);
+    while (timer_ticks() - start < wait_ticks &&
+           rdtsc() - start_tsc < tsc_wait &&
+           spins < XHCI_INPUT_PROBE_SPIN_LIMIT) {
         if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
             poll_hid_events_once();
         }
