@@ -67,6 +67,9 @@ server.
 - Adds `/fat/bin/calc`, a resizable GUI2 calculator client with an app-owned
   surface, integer arithmetic controls, configure/resize handling, and dock
   launcher smoke coverage, replacing the legacy `/fat/bin/calcgui` packaging.
+- Moves `/fat/bin/textedit` onto GUI2 with an app-owned surface, resize-aware
+  document layout, line entry, save/clear controls, and dock launcher smoke
+  coverage.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

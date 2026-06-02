@@ -71,6 +71,7 @@ struct display_state {
 
 static const struct display_launcher launchers[] = {
     { "NOTES", "/fat/bin/notes", 0x2f6f68 },
+    { "EDIT", "/fat/bin/textedit", 0x3f6c8f },
     { "GUI2", "/fat/bin/gui2demo", 0x335b7a },
     { "SURFACE", "/fat/bin/surfacedemo", 0x60548d },
     { "CALC", "/fat/bin/calc", 0x70485f },

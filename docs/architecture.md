@@ -159,6 +159,14 @@ The generated test image reserves multi-cluster directory tables for the root
 directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
 adding more bundled programs does not silently corrupt directory entries.
 
+The current root namespace keeps the primary exFAT volume mounted at `/fat`,
+with generated applications under `/fat/bin`, writable defaults under
+`/fat/tmp` and `/fat/home`, and service/config data under `/fat/etc`. That is
+intentionally simple while srvros has one primary writable volume. The next
+namespace cleanup should formalize whether additional host/drive-style mounts
+use WSL-like stable names such as `/c/users/paul`, Unix-like mountpoints such as
+`/mnt/sdb1`, or both, with block devices exposed separately through `/dev/*`.
+
 Current filesystem caveats:
 
 - Directory rename is intentionally limited to empty directories.
@@ -630,10 +638,11 @@ open/close, resize, surface present/damage, event polling, theme/layout helpers,
 shared widget dispatch, and early button/textbox widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
-is the first small GUI2 utility, with a focused textbox and buttons rendered
-inside an app-owned surface. `/fat/bin/calc` is the first GUI2 port of a legacy
-desktop utility: a resizable integer calculator with app-owned buttons and
-configure-driven surface recreation.
+is a small GUI2 utility, with a focused textbox and buttons rendered inside an
+app-owned surface. `/fat/bin/calc` is a resizable integer calculator with
+app-owned buttons and configure-driven surface recreation. `/fat/bin/textedit`
+uses the same GUI2 path for resize-aware document display, line entry, save,
+and clear controls.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

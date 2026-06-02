@@ -167,7 +167,7 @@ def main():
             output += read_until(serial, b"displayd: root backbuffer ready", args.ready_wait)
 
             mouse = Mouse(qmp)
-            # Dock coordinates at 1280x800: x=12..148, y=45,81,117,153.
+            # Dock coordinates at 1280x800: x=12..148, y=45,81,117,153,189.
             mouse.click(60, 59)
             output += read_for(serial, args.action_wait)
             mouse.click(60, 59)
@@ -177,6 +177,8 @@ def main():
             mouse.click(60, 131)
             output += read_for(serial, args.action_wait)
             mouse.click(60, 167)
+            output += read_for(serial, args.action_wait)
+            mouse.click(60, 203)
             output += read_for(serial, args.action_wait)
             output += read_until(serial, b"displayd: smoke ok", args.final_wait)
         finally:
@@ -194,6 +196,9 @@ def main():
         "displayd: launch NOTES /fat/bin/notes pid=",
         "displayd: place NOTES x=260 y=330",
         "displayd: place NOTES x=288 y=358",
+        "displayd: launch EDIT /fat/bin/textedit pid=",
+        "displayd: mapped surface window TEXT EDIT",
+        "textedit: configure",
         "displayd: launch GUI2 /fat/bin/gui2demo pid=",
         "displayd: mapped surface window GUI2 DEMO",
         "displayd: launch SURFACE /fat/bin/surfacedemo pid=",
