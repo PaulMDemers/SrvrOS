@@ -10,6 +10,10 @@
 #define SERIAL_IER_RX_AVAILABLE 0x01
 #define SERIAL_LSR_DATA_READY 0x01
 #define SERIAL_LSR_TX_EMPTY 0x20
+#define SERIAL_MCR_NORMAL 0x0b
+#define SERIAL_MCR_LOOPBACK 0x1e
+#define SERIAL_PROBE_BYTE 0xae
+#define SERIAL_TX_SPIN_LIMIT 1000000
 
 static bool serial_ready;
 static char rx_buffer[SERIAL_BUFFER_SIZE];
@@ -46,13 +50,23 @@ static void drain_rx_fifo(void) {
 }
 
 bool serial_init(void) {
+    serial_ready = false;
+    rx_read_index = 0;
+    rx_write_index = 0;
+
     outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x80);
     outb(COM1 + 0, 0x03);
     outb(COM1 + 1, 0x00);
     outb(COM1 + 3, 0x03);
     outb(COM1 + 2, 0xc7);
-    outb(COM1 + 4, 0x0b);
+    outb(COM1 + 4, SERIAL_MCR_LOOPBACK);
+    outb(COM1, SERIAL_PROBE_BYTE);
+    if (inb(COM1) != SERIAL_PROBE_BYTE) {
+        outb(COM1 + 4, 0x00);
+        return false;
+    }
+    outb(COM1 + 4, SERIAL_MCR_NORMAL);
 
     serial_ready = true;
     return true;
@@ -95,6 +109,16 @@ static bool tx_empty(void) {
     return (inb(COM1 + 5) & SERIAL_LSR_TX_EMPTY) != 0;
 }
 
+static bool wait_tx_empty(void) {
+    for (uint64_t spins = 0; spins < SERIAL_TX_SPIN_LIMIT; spins++) {
+        if (tx_empty()) {
+            return true;
+        }
+    }
+    serial_ready = false;
+    return false;
+}
+
 void serial_putc(char c) {
     if (!serial_ready) {
         return;
@@ -102,9 +126,13 @@ void serial_putc(char c) {
 
     if (c == '\n') {
         serial_putc('\r');
+        if (!serial_ready) {
+            return;
+        }
     }
 
-    while (!tx_empty()) {
+    if (!wait_tx_empty()) {
+        return;
     }
     outb(COM1, (uint8_t)c);
 }

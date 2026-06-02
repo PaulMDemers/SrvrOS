@@ -104,6 +104,9 @@ server.
   image through OVMF/q35/AHCI/xHCI, verifies USB keyboard input, runs the
   first-boot diagnostics, starts the supported GUI smoke path, and writes
   `build/a1466-rehearsal.log`.
+- Hardens the COM1 serial driver against missing UARTs. `serial_init` now
+  probes COM1 with loopback before enabling it, and transmit waits are bounded
+  so QEMU launches with `-serial none` cannot wedge the kernel during boot.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite
