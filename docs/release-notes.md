@@ -75,6 +75,14 @@ server.
   launcher smoke coverage.
 - Adds a reusable GUI2 canvas widget and refactors paint to use it for scaled
   pixel drawing and pointer-to-pixel hit testing.
+- Adds `/fat/bin/gui` as the stable GUI entrypoint. It execs
+  `/fat/bin/displayd`, forwards compositor arguments, is shipped in both exFAT
+  and initramfs packaging, appears in shell help, and is covered by dock
+  launcher smoke coverage.
+- Adds `tools/displayd_paint_smoke.py`, a hidden-QEMU/QMP paint regression that
+  launches `/fat/bin/gui`, opens PAINT from the dock, clicks the canvas, clicks
+  Save, and verifies the paint-side save marker without requiring a visible
+  QEMU window.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

@@ -166,9 +166,10 @@ editor clients:
   flags, explicit stdin/stdout/stderr fd overrides, and true in-place process
   image replacement for POSIX `execve`; descriptor close-on-exec flags are
   applied during replacement.
-- GUI experiments: legacy fullscreen desktop/window server, `displayd`
-  compositor, app-owned v2 surface clients through `gui2`, and freestanding
-  calculator, notes, text editor, and BMP paint/image editor clients.
+- GUI experiments: `/fat/bin/gui` as the normal compositor launcher, legacy
+  fullscreen desktop/window server coverage, app-owned v2 surface clients
+  through `gui2`, and freestanding calculator, notes, text editor, and BMP
+  paint/image editor clients.
 - The full shipped command surface is tracked in
   [docs/tool-inventory.md](docs/tool-inventory.md), including shell builtins,
   applet aliases, network tools, GUI clients, demos, and regression probes.

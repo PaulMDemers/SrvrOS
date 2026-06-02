@@ -611,32 +611,34 @@ prematurely.
 
 ## GUI
 
-The GUI layer is experimental, with `displayd` now serving as the normal
-compositor entry point. The older `/fat/bin/desktop` path remains available as
-a regression/compatibility tool for the first fixed-widget GUI IPC model, where
+The GUI layer is experimental, with `/fat/bin/gui` now serving as the normal
+entry point. It execs `/fat/bin/displayd` and forwards arguments so users and
+smokes have a stable GUI launcher while `displayd` remains the compositor
+binary. The older `/fat/bin/desktop` path remains available as a
+regression/compatibility tool for the first fixed-widget GUI IPC model, where
 clients send fixed-size messages for window creation, labels, buttons, text
 updates, and events.
 
-`displayd` is the first replacement-compositor seed. It runs as a separate
-userspace GUI server, allocates its root backbuffer dynamically from the current
-framebuffer dimensions, derives panel/dock/status metrics from the resolution,
-presents damaged rectangles through `gfx_blit_rect`, and has its own hidden-QEMU
-smoke test. It now also accepts the first GUI protocol v2 messages for
-client-owned surfaces: apps create kernel-managed pixel surfaces, blit damaged
-rectangles into them, announce a surface window, and the compositor copies the
-surface into its root backbuffer. `displayd` also owns the first compositor-side
-window frame behavior for those surfaces: z-order raise on focus, title-bar
-dragging, close buttons, and minimize buttons that hide the client surface while
-leaving the frame visible. Its left dock can launch v2 GUI apps as separate
-processes, clamps new windows into the current resolution-aware work area, and
-staggers duplicate app instances so they remain visible. Bottom-right resize
-grips update compositor geometry and send configure events; GUI2 apps recreate
-their current kernel-managed backing surface and redraw at the new size. It
-routes v2 configure, focus, pointer, and key events back to clients so apps can
-react from their own process, and uses the existing close event for compositor
-close requests. The app-side `gui2` library wraps that protocol with window
-open/close, resize, surface present/damage, event polling, theme/layout helpers,
-shared widget dispatch, and early button/textbox/canvas widgets.
+`displayd` runs as a separate userspace GUI server, allocates its root
+backbuffer dynamically from the current framebuffer dimensions, derives
+panel/dock/status metrics from the resolution, presents damaged rectangles
+through `gfx_blit_rect`, and has hidden-QEMU smoke coverage. It now also accepts
+the first GUI protocol v2 messages for client-owned surfaces: apps create
+kernel-managed pixel surfaces, blit damaged rectangles into them, announce a
+surface window, and the compositor copies the surface into its root backbuffer.
+`displayd` also owns compositor-side window frame behavior for those surfaces:
+z-order raise on focus, title-bar dragging, close buttons, and minimize buttons
+that hide the client surface while leaving the frame visible. Its left dock can
+launch v2 GUI apps as separate processes, clamps new windows into the current
+resolution-aware work area, and staggers duplicate app instances so they remain
+visible. Bottom-right resize grips update compositor geometry and send
+configure events; GUI2 apps recreate their current kernel-managed backing
+surface and redraw at the new size. It routes v2 configure, focus, pointer, and
+key events back to clients so apps can react from their own process, and uses
+the existing close event for compositor close requests. The app-side `gui2`
+library wraps that protocol with window open/close, resize, surface
+present/damage, event polling, theme/layout helpers, shared widget dispatch,
+and early button/textbox/canvas widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
 is a small GUI2 utility, with a focused textbox and buttons rendered inside an

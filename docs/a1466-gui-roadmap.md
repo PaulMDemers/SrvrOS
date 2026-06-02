@@ -357,7 +357,7 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
   cursor damage, decorations, and input routing.
 - Add protocol v2 queues/messages.
 - Keep the legacy desktop bridge as a regression/compatibility tool while
-  `displayd` becomes the normal GUI entry point.
+  `/fat/bin/gui` becomes the normal GUI entry point for launching `displayd`.
 
 ### Slice F: Toolkit V2 and Apps
 
@@ -404,7 +404,8 @@ Real-machine milestone:
 
 GUI milestone:
 
-- `displayd` replaces the old fixed desktop as the normal GUI entry point.
+- `/fat/bin/gui` replaces the old fixed desktop as the normal GUI entry point
+  and launches the `displayd` compositor.
 - Apps own drawable surfaces and receive input/configure events.
 - Windows launch, move, resize, minimize, close, and redraw smoothly.
 - The desktop scales cleanly across QEMU test resolutions and the A1466

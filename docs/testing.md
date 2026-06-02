@@ -439,12 +439,15 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   bottom-right resize with app surface recreation, close, app-side close
   handling, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
-  `/fat/bin/displayd --launcher-smoke`, clicks the compositor dock launchers,
+  `/fat/bin/gui --launcher-smoke`, clicks the compositor dock launchers,
   verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/paint`,
   `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and `/fat/bin/calc` launch as
   separate clients,
   checks duplicate Notes windows stagger inside the work area, and exits
   cleanly.
+- `displayd_paint_smoke.py`: hidden-QEMU/QMP paint smoke that starts
+  `/fat/bin/gui`, opens PAINT from the dock, clicks the GUI2 canvas, clicks
+  Save, and verifies `paint: save`.
 - `displayd_resolution_smoke.py`: hidden-QEMU resolution smoke that builds
   temporary Limine ISOs with framebuffer requests for 800x600, 1280x800,
   1440x900, and 1920x1080 by default, then verifies the kernel framebuffer line

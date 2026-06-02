@@ -43,6 +43,14 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def qmp_command(sock, command):
+    sock.sendall(json.dumps(command).encode("ascii") + b"\r\n")
+    data = b""
+    while b"\r\n" not in data:
+        data += sock.recv(4096)
+    return data
+
+
 def connect_qmp(port, timeout):
     deadline = time.time() + timeout
     last_error = None
@@ -59,20 +67,10 @@ def connect_qmp(port, timeout):
     raise RuntimeError(f"qmp connection failed: {last_error}")
 
 
-def qmp_command(sock, command):
-    sock.sendall(json.dumps(command).encode("ascii") + b"\r\n")
-    data = b""
-    while b"\r\n" not in data:
-        data += sock.recv(4096)
-    return data
-
-
 def hmp(sock, command):
     qmp_command(sock, {
         "execute": "human-monitor-command",
-        "arguments": {
-            "command-line": command,
-        },
+        "arguments": {"command-line": command},
     })
 
 
@@ -109,7 +107,7 @@ def has_fatal_exception(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run a srvros displayd dock-launcher smoke test.")
+    parser = argparse.ArgumentParser(description="Run a srvros displayd paint canvas smoke test.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
@@ -117,8 +115,9 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=45)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--ready-wait", type=float, default=6)
+    parser.add_argument("--map-wait", type=float, default=12)
     parser.add_argument("--action-wait", type=float, default=5)
-    parser.add_argument("--final-wait", type=float, default=40)
+    parser.add_argument("--save-wait", type=float, default=15)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -135,8 +134,8 @@ def main():
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
 
     output = b""
-    with tempfile.TemporaryDirectory(prefix="srvros-displayd-launcher-") as temp_dir:
-        disk = os.path.join(temp_dir, "srvros-displayd-launcher.exfat")
+    with tempfile.TemporaryDirectory(prefix="srvros-displayd-paint-") as temp_dir:
+        disk = os.path.join(temp_dir, "srvros-displayd-paint.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
             args.qemu,
@@ -153,7 +152,6 @@ def main():
             "-monitor", "none",
             "-no-reboot",
         ]
-
         process = subprocess.Popen(command, cwd=root, env=env,
             stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
         try:
@@ -163,26 +161,16 @@ def main():
             output += read_until(serial, b"srv> ", args.boot_wait)
             serial.sendall(b"run /fat/bin/sh\n")
             output += read_until(serial, b" $ ", args.shell_wait)
-            serial.sendall(b"gui --launcher-smoke\n")
+            serial.sendall(b"gui\n")
             output += read_until(serial, b"displayd: root backbuffer ready", args.ready_wait)
 
             mouse = Mouse(qmp)
-            # Dock coordinates at 1280x800: x=12..148, y=45,81,117,153,189,225.
-            mouse.click(60, 59)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 59)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 95)
-            output += read_for(serial, args.action_wait)
             mouse.click(60, 131)
+            output += read_until(serial, b"paint: configure", args.map_wait)
+            mouse.click(491, 351)
             output += read_for(serial, args.action_wait)
-            mouse.click(60, 167)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 203)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 239)
-            output += read_for(serial, args.action_wait)
-            output += read_until(serial, b"displayd: smoke ok", args.final_wait)
+            mouse.click(678, 508)
+            output += read_until(serial, b"paint: save", args.save_wait)
         finally:
             try:
                 process.terminate()
@@ -194,37 +182,23 @@ def main():
     sys.stdout.write(text)
 
     expected = [
-        "displayd: root backbuffer ready",
         "gui: starting displayd",
-        "displayd: launch NOTES /fat/bin/notes pid=",
-        "displayd: place NOTES x=260 y=330",
-        "displayd: place NOTES x=288 y=358",
-        "displayd: launch EDIT /fat/bin/textedit pid=",
-        "displayd: mapped surface window TEXT EDIT",
-        "textedit: configure",
+        "displayd: root backbuffer ready",
         "displayd: launch PAINT /fat/bin/paint pid=",
         "displayd: mapped surface window PAINT",
         "paint: configure",
-        "displayd: launch GUI2 /fat/bin/gui2demo pid=",
-        "displayd: mapped surface window GUI2 DEMO",
-        "displayd: launch SURFACE /fat/bin/surfacedemo pid=",
-        "displayd: mapped surface window SURFACE DEMO",
-        "displayd: launch CALC /fat/bin/calc pid=",
-        "displayd: mapped surface window CALC",
-        "calc: configure",
-        "displayd: smoke ok",
+        "paint: save",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):
-        print("displayd-launcher-smoke: fatal exception detected", file=sys.stderr)
+        print("displayd-paint-smoke: fatal exception detected", file=sys.stderr)
         return 2
     if missing:
-        print("displayd-launcher-smoke: missing markers:", file=sys.stderr)
+        print("displayd-paint-smoke: missing markers:", file=sys.stderr)
         for marker in missing:
             print(f"  {marker}", file=sys.stderr)
         return 3
-
-    print("displayd-launcher-smoke: ok")
+    print("displayd-paint-smoke: ok")
     return 0
 
 

@@ -112,8 +112,12 @@ is the boot/startup supervisor process used by `/fat/etc/init.sh`.
 Framebuffer/UI experiments and GUI clients:
 
 ```text
-ui desktop displayd surfacedemo gui2demo calc notes textedit paint
+ui desktop displayd gui surfacedemo gui2demo calc notes textedit paint
 ```
+
+`gui` is the normal GUI entrypoint; it execs `/fat/bin/displayd` and forwards
+arguments. `desktop` remains available for the legacy fixed-widget GUI path and
+regression coverage.
 
 ## ABI, POSIX, And Stress Probes
 
