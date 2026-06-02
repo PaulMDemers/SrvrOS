@@ -253,6 +253,29 @@ const char *pci_config_backend_name(void) {
     return ecam_available ? "ecam" : "legacy-cf8";
 }
 
+void pci_print_usb_controllers(void) {
+    uint64_t found = 0;
+    for (uint64_t i = 0; i < device_count; i++) {
+        const struct pci_device *dev = &devices[i];
+        if (dev->class_code != 0x0c || dev->subclass != 0x03) {
+            continue;
+        }
+        found++;
+        console_printf("pci-usb: bus=%u dev=%u fn=%u vendor=%x device=%x if=%x irq=%u bar0=%x\n",
+            (uint64_t)dev->bus,
+            (uint64_t)dev->device,
+            (uint64_t)dev->function,
+            (uint64_t)dev->vendor_id,
+            (uint64_t)dev->device_id,
+            (uint64_t)dev->prog_if,
+            (uint64_t)dev->interrupt_line,
+            (uint64_t)dev->bar[0]);
+    }
+    if (found == 0) {
+        console_write("pci-usb: none\n");
+    }
+}
+
 uint64_t pci_device_count(void) {
     return device_count;
 }

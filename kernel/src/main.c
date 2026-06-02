@@ -334,6 +334,7 @@ void kmain(void) {
         xhci_hub_count());
     if (!keyboard_ready && xhci_keyboard_count() == 0) {
         console_write("input: no keyboard detected; usb diagnostics follow\n");
+        pci_print_usb_controllers();
         xhci_print_status();
     }
     intel_gfx_init();
@@ -358,6 +359,9 @@ void kmain(void) {
     } else {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());
     }
+    xhci_print_input_summary();
+    xhci_probe_input(300);
+    xhci_print_input_summary();
 
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
@@ -381,5 +385,6 @@ void kmain(void) {
     } else {
         console_write("init: start failed\n");
     }
+    xhci_print_input_summary();
     monitor_run();
 }

@@ -4,6 +4,7 @@
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/scheduler.h>
+#include <srvros/timer.h>
 #include <srvros/vmm.h>
 #include <srvros/xhci.h>
 
@@ -184,6 +185,9 @@ struct xhci_device {
     uint16_t previous_absolute_y;
     uint64_t control_success;
     uint64_t interrupt_success;
+    uint64_t interrupt_errors;
+    uint64_t last_interrupt_completion;
+    uint64_t last_interrupt_remaining;
     uint64_t hid_reports;
     uint64_t mouse_reports;
 };
@@ -243,6 +247,7 @@ struct xhci_state {
 };
 
 static struct xhci_state xhci;
+static volatile bool xhci_input_probe_active;
 
 static uint32_t mmio_read32(uint64_t offset) {
     return *(volatile uint32_t *)(xhci.mmio_virt + offset);
@@ -1316,6 +1321,7 @@ static void poll_hid_events_once(void) {
         uint64_t slot_id = (event.control >> 24) & 0xff;
         uint64_t dci = (event.control >> 16) & 0x1f;
         uint64_t completion = (event.status >> 24) & 0xff;
+        uint64_t remaining = event.status & 0xffffffu;
         xhci.transfer_events++;
         xhci.last_completion_code = completion;
         xhci.last_slot_id = slot_id;
@@ -1327,6 +1333,8 @@ static void poll_hid_events_once(void) {
                 continue;
             }
             device->interrupt_pending = false;
+            device->last_interrupt_completion = completion;
+            device->last_interrupt_remaining = remaining;
             if (completion == 1 || completion == 13) {
                 device->interrupt_success++;
                 if (device->hid_keyboard) {
@@ -1334,6 +1342,8 @@ static void poll_hid_events_once(void) {
                 } else if (device->hid_mouse) {
                     handle_hid_mouse_report(device);
                 }
+            } else {
+                device->interrupt_errors++;
             }
         }
     }
@@ -1342,7 +1352,7 @@ static void poll_hid_events_once(void) {
 static void xhci_poll_worker(void *arg) {
     (void)arg;
     for (;;) {
-        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
+        if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
             poll_hid_events_once();
         }
         for (uint64_t i = 0; i < 10000; i++) {
@@ -1698,6 +1708,78 @@ uint64_t xhci_device_count(void) {
 
 uint64_t xhci_hub_count(void) {
     return xhci.hubs_seen;
+}
+
+void xhci_probe_input(uint64_t wait_ticks) {
+    if (!xhci.operational || (xhci.hid_keyboards == 0 && xhci.hid_mice == 0)) {
+        return;
+    }
+
+    uint64_t start = timer_ticks();
+    uint64_t spins = 0;
+    xhci_input_probe_active = true;
+    console_printf("input-probe: hold/type keys now wait_ticks=%u start_ticks=%u\n",
+        wait_ticks,
+        start);
+    while (timer_ticks() - start < wait_ticks && spins < wait_ticks * 2000000ull) {
+        poll_hid_events_once();
+        for (uint64_t i = 0; i < 5000; i++) {
+            __asm__ volatile ("pause");
+        }
+        spins++;
+    }
+    console_printf("input-probe: done ticks=%u spins=%u keybuf=%u pushed=%u dropped=%u\n",
+        timer_ticks() - start,
+        spins,
+        keyboard_buffered_count(),
+        keyboard_pushed_count(),
+        keyboard_dropped_count());
+    xhci_input_probe_active = false;
+}
+
+void xhci_print_input_summary(void) {
+    if (!xhci.present) {
+        console_write("input-usb: xhci=none\n");
+        return;
+    }
+    console_printf("input-usb: op=%s devices=%u keyboards=%u mice=%u hubs=%u transfers=%u last_cc=%u keybuf=%u pushed=%u dropped=%u\n",
+        xhci.operational ? "yes" : "no",
+        xhci.addressed_devices,
+        xhci.hid_keyboards,
+        xhci.hid_mice,
+        xhci.hubs_seen,
+        xhci.transfer_events,
+        xhci.last_completion_code,
+        keyboard_buffered_count(),
+        keyboard_pushed_count(),
+        keyboard_dropped_count());
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        const struct xhci_device *device = &xhci.devices[i];
+        if (!device->present || (!device->hid_keyboard && !device->hid_mouse)) {
+            continue;
+        }
+        console_printf("input-usb: dev slot=%u keyboard=%u mouse=%u iface=%u dci=%u pkt=%u pending=%u ok=%u err=%u last_cc=%u rem=%u reports=%u prev=%x %x %x %x %x %x %x %x\n",
+            (uint64_t)device->slot_id,
+            (uint64_t)device->hid_keyboard,
+            (uint64_t)device->hid_mouse,
+            (uint64_t)device->interface_number,
+            (uint64_t)device->interrupt_dci,
+            (uint64_t)device->interrupt_max_packet,
+            (uint64_t)device->interrupt_pending,
+            device->interrupt_success,
+            device->interrupt_errors,
+            device->last_interrupt_completion,
+            device->last_interrupt_remaining,
+            device->hid_reports,
+            (uint64_t)device->previous_report[0],
+            (uint64_t)device->previous_report[1],
+            (uint64_t)device->previous_report[2],
+            (uint64_t)device->previous_report[3],
+            (uint64_t)device->previous_report[4],
+            (uint64_t)device->previous_report[5],
+            (uint64_t)device->previous_report[6],
+            (uint64_t)device->previous_report[7]);
+    }
 }
 
 void xhci_print_status(void) {

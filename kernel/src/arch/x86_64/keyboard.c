@@ -16,6 +16,8 @@
 static char buffer[KEYBOARD_BUFFER_SIZE];
 static volatile uint64_t read_index;
 static volatile uint64_t write_index;
+static volatile uint64_t pushed_count;
+static volatile uint64_t dropped_count;
 static bool shift_down;
 static bool ctrl_down;
 static bool extended_scancode;
@@ -46,11 +48,13 @@ static const char scancode_set1_shift[128] = {
 static void push_char(char c) {
     uint64_t next = (write_index + 1) % KEYBOARD_BUFFER_SIZE;
     if (next == read_index) {
+        dropped_count++;
         return;
     }
 
     buffer[write_index] = c;
     write_index = next;
+    pushed_count++;
     scheduler_wake_all(&keyboard_wait_queue);
 }
 
@@ -201,4 +205,19 @@ char keyboard_read_char(void) {
     }
 
     return c;
+}
+
+uint64_t keyboard_buffered_count(void) {
+    if (write_index >= read_index) {
+        return write_index - read_index;
+    }
+    return KEYBOARD_BUFFER_SIZE - read_index + write_index;
+}
+
+uint64_t keyboard_pushed_count(void) {
+    return pushed_count;
+}
+
+uint64_t keyboard_dropped_count(void) {
+    return dropped_count;
 }
