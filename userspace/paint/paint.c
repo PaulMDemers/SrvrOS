@@ -19,14 +19,6 @@ struct paint_button_def {
     int action;
 };
 
-struct canvas_view {
-    int64_t x;
-    int64_t y;
-    uint64_t width;
-    uint64_t height;
-    uint64_t scale;
-};
-
 static const struct paint_button_def button_defs[BUTTON_COUNT] = {
     { "BLK", 0x000000, 0 },
     { "RED", 0xd9534f, 0 },
@@ -130,9 +122,8 @@ static void layout_buttons(struct gui2_window *window, struct gui2_button *butto
     }
 }
 
-static struct canvas_view canvas_layout(const struct gui2_window *window) {
+static void layout_canvas(const struct gui2_window *window, struct gui2_canvas *canvas) {
     const struct gui2_theme *theme = gui2_theme_default();
-    struct canvas_view view;
     uint64_t pad = theme->pad;
     uint64_t button_y = window->height > pad + theme->control_h ?
         window->height - pad - theme->control_h : pad + 260;
@@ -146,50 +137,32 @@ static struct canvas_view canvas_layout(const struct gui2_window *window) {
     if (scale == 0) {
         scale = 1;
     }
-    view.scale = scale;
-    view.width = CANVAS_W * scale;
-    view.height = CANVAS_H * scale;
-    if (view.width > avail_w) {
-        view.width = avail_w;
+    canvas->width = CANVAS_W * scale;
+    canvas->height = CANVAS_H * scale;
+    if (canvas->width > avail_w) {
+        canvas->width = avail_w;
     }
-    if (view.height > avail_h) {
-        view.height = avail_h;
+    if (canvas->height > avail_h) {
+        canvas->height = avail_h;
     }
-    view.x = (int64_t)(pad + (avail_w > view.width ? (avail_w - view.width) / 2 : 0));
-    view.y = (int64_t)top;
-    return view;
-}
-
-static void draw_canvas(struct gui2_window *window, const struct canvas_view *view) {
-    const struct gui2_theme *theme = gui2_theme_default();
-    if (window == 0 || view == 0 || view->width == 0 || view->height == 0) {
-        return;
-    }
-    gui2_panel(window, view->x - 1, view->y - 1,
-        view->width + 2, view->height + 2, theme->field);
-    for (uint64_t y = 0; y < CANVAS_H; y++) {
-        uint64_t py = y * view->height / CANVAS_H;
-        uint64_t py2 = (y + 1) * view->height / CANVAS_H;
-        uint64_t h = py2 > py ? py2 - py : 1;
-        for (uint64_t x = 0; x < CANVAS_W; x++) {
-            uint64_t px = x * view->width / CANVAS_W;
-            uint64_t px2 = (x + 1) * view->width / CANVAS_W;
-            uint64_t w = px2 > px ? px2 - px : 1;
-            gui2_rect(window, view->x + (int64_t)px, view->y + (int64_t)py,
-                w, h, pixels[y * CANVAS_W + x]);
-        }
-    }
+    canvas->x = (int64_t)(pad + (avail_w > canvas->width ? (avail_w - canvas->width) / 2 : 0));
+    canvas->y = (int64_t)top;
+    canvas->pixels = pixels;
+    canvas->pixel_width = CANVAS_W;
+    canvas->pixel_height = CANVAS_H;
+    canvas->background = 0xffffff;
 }
 
 static void draw_paint(struct gui2_window *window,
     struct gui2_button *buttons,
+    struct gui2_canvas *canvas,
     const char *status,
     const char *path,
     uint32_t selected) {
     const struct gui2_theme *theme = gui2_theme_default();
-    struct canvas_view view = canvas_layout(window);
     uint64_t pad = theme->pad;
     layout_buttons(window, buttons);
+    layout_canvas(window, canvas);
     gui2_clear(window, theme->canvas);
     gui2_text(window, (int64_t)pad, (int64_t)pad, "PAINT", theme->text);
     gui2_text(window, (int64_t)(pad + 64), (int64_t)pad, path, theme->text_muted);
@@ -199,32 +172,26 @@ static void draw_paint(struct gui2_window *window,
         (int64_t)pad, 20, 14, selected);
     gui2_rect(window, (int64_t)(window->width > 48 ? window->width - 36 : pad),
         (int64_t)pad, 20, 1, theme->border);
-    draw_canvas(window, &view);
+    gui2_canvas_draw(window, canvas);
     for (uint64_t i = 0; i < BUTTON_COUNT; i++) {
         gui2_button_draw(window, &buttons[i]);
     }
 }
 
-static int canvas_contains(const struct canvas_view *view, int64_t x, int64_t y) {
-    return view != 0 &&
-        x >= view->x &&
-        y >= view->y &&
-        (uint64_t)(x - view->x) < view->width &&
-        (uint64_t)(y - view->y) < view->height;
-}
-
-static int paint_at_event(const struct canvas_view *view,
+static int paint_at_event(const struct gui2_canvas *canvas,
     const struct gui2_event *event,
     uint32_t color) {
-    int64_t cx;
-    int64_t cy;
-    if (!canvas_contains(view, event->x, event->y)) {
+    uint64_t cx = 0;
+    uint64_t cy = 0;
+    if (!gui2_canvas_event_pixel(canvas, event, &cx, &cy)) {
         return 0;
     }
-    cx = (event->x - view->x) * CANVAS_W / (int64_t)view->width;
-    cy = (event->y - view->y) * CANVAS_H / (int64_t)view->height;
-    for (int64_t py = cy - (BRUSH / 2); py < cy + (int64_t)(BRUSH / 2); py++) {
-        for (int64_t px = cx - (BRUSH / 2); px < cx + (int64_t)(BRUSH / 2); px++) {
+    for (int64_t py = (int64_t)cy - (BRUSH / 2);
+        py < (int64_t)cy + (int64_t)(BRUSH / 2);
+        py++) {
+        for (int64_t px = (int64_t)cx - (BRUSH / 2);
+            px < (int64_t)cx + (int64_t)(BRUSH / 2);
+            px++) {
             if (px >= 0 && py >= 0 && px < CANVAS_W && py < CANVAS_H) {
                 pixels[(uint64_t)py * CANVAS_W + (uint64_t)px] = color;
             }
@@ -237,6 +204,7 @@ int main(int argc, char **argv) {
     struct gui2_window window;
     struct gui2_context context;
     struct gui2_button buttons[BUTTON_COUNT];
+    struct gui2_canvas canvas;
     char status[48];
     uint32_t selected = 0x000000;
     const char *path = argc > 1 ? argv[1] : "/fat/paint.bmp";
@@ -254,8 +222,9 @@ int main(int argc, char **argv) {
     for (uint64_t i = 0; i < BUTTON_COUNT; i++) {
         gui2_button_init(&buttons[i], 0, 0, 1, 1, button_defs[i].label);
     }
+    gui2_canvas_init(&canvas, 0, 0, 1, 1, pixels, CANVAS_W, CANVAS_H, 0xffffff);
 
-    draw_paint(&window, buttons, status, path, selected);
+    draw_paint(&window, buttons, &canvas, status, path, selected);
     gui2_window_present_dirty(&window);
 
     start = (uint64_t)srv_ticks();
@@ -263,7 +232,7 @@ int main(int argc, char **argv) {
         struct gui2_event event;
         int changed = 0;
         int closing = 0;
-        struct gui2_control controls[BUTTON_COUNT];
+        struct gui2_control controls[BUTTON_COUNT + 1];
         uint64_t elapsed = (uint64_t)srv_ticks() - start;
         if (elapsed > 320) {
             break;
@@ -272,6 +241,8 @@ int main(int argc, char **argv) {
             controls[i].kind = GUI2_CONTROL_BUTTON;
             controls[i].ptr = &buttons[i];
         }
+        controls[BUTTON_COUNT].kind = GUI2_CONTROL_CANVAS;
+        controls[BUTTON_COUNT].ptr = &canvas;
         while (gui2_poll_event(&window, &event) > 0) {
             if (event.type == GUI2_EVENT_CONFIGURE) {
                 srv_puts("paint: configure ");
@@ -292,14 +263,15 @@ int main(int argc, char **argv) {
             } else if ((event.type == GUI2_EVENT_POINTER_BUTTON ||
                     event.type == GUI2_EVENT_POINTER_MOVE) &&
                 (event.buttons & 1) != 0) {
-                struct canvas_view view = canvas_layout(&window);
-                if (paint_at_event(&view, &event, selected)) {
+                layout_canvas(&window, &canvas);
+                if (paint_at_event(&canvas, &event, selected)) {
                     set_status(status, sizeof(status), "PAINTING");
                     changed = 1;
                 }
             }
 
-            changed |= gui2_dispatch_event(&context, &event, controls, BUTTON_COUNT);
+            changed |= gui2_dispatch_event(&context, &event,
+                controls, sizeof(controls) / sizeof(controls[0]));
             for (uint64_t i = 0; i < BUTTON_COUNT; i++) {
                 if (buttons[i].clicks == 0) {
                     continue;
@@ -325,7 +297,7 @@ int main(int argc, char **argv) {
             break;
         }
         if (changed) {
-            draw_paint(&window, buttons, status, path, selected);
+            draw_paint(&window, buttons, &canvas, status, path, selected);
             gui2_window_present_dirty(&window);
         }
         srv_yield();

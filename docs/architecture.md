@@ -611,9 +611,10 @@ prematurely.
 
 ## GUI
 
-The GUI layer is experimental and deliberately simple. `desktop` acts as a
-fullscreen userspace window server. GUI clients are separate ring-3 processes
-that send fixed-size messages for window creation, labels, buttons, text
+The GUI layer is experimental, with `displayd` now serving as the normal
+compositor entry point. The older `/fat/bin/desktop` path remains available as
+a regression/compatibility tool for the first fixed-widget GUI IPC model, where
+clients send fixed-size messages for window creation, labels, buttons, text
 updates, and events.
 
 `displayd` is the first replacement-compositor seed. It runs as a separate
@@ -635,16 +636,16 @@ routes v2 configure, focus, pointer, and key events back to clients so apps can
 react from their own process, and uses the existing close event for compositor
 close requests. The app-side `gui2` library wraps that protocol with window
 open/close, resize, surface present/damage, event polling, theme/layout helpers,
-shared widget dispatch, and early button/textbox widgets.
+shared widget dispatch, and early button/textbox/canvas widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
 is a small GUI2 utility, with a focused textbox and buttons rendered inside an
 app-owned surface. `/fat/bin/calc` is a resizable integer calculator with
 app-owned buttons and configure-driven surface recreation. `/fat/bin/textedit`
 uses the same GUI2 path for resize-aware document display, line entry, save,
-and clear controls. `/fat/bin/paint` is a GUI2 BMP image editor with an
-app-owned pixel canvas, palette buttons, clear/save controls, and BMP encoding
-through the shared userspace image helper.
+and clear controls. `/fat/bin/paint` is a GUI2 BMP image editor using the
+shared toolkit canvas control for its app-owned pixel buffer, palette buttons,
+clear/save controls, and BMP encoding through the shared userspace image helper.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

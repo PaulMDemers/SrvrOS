@@ -73,6 +73,8 @@ server.
 - Moves `/fat/bin/paint` onto GUI2 as the shipped BMP paint/image editor, with
   an app-owned scaled canvas, palette controls, clear/save actions, and dock
   launcher smoke coverage.
+- Adds a reusable GUI2 canvas widget and refactors paint to use it for scaled
+  pixel drawing and pointer-to-pixel hit testing.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

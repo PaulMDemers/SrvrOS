@@ -155,10 +155,11 @@ The prototype GUI has useful pieces:
   `paint` are separate ring-3 processes.
 - The userspace UI layer has surfaces, parent/child composition, dirty marking,
   mouse hit testing, text entry, image controls, and simple events.
-- The desktop compositor can redraw damaged regions and draw a software cursor.
-- `displayd` is now a parallel compositor seed with a dynamically allocated root
-  backbuffer, resolution-derived shell metrics, GUI server registration, and a
-  smoke mode for hidden-QEMU regression coverage.
+- The legacy desktop compositor can redraw damaged regions and draw a software
+  cursor.
+- `displayd` is now the normal compositor path, with a dynamically allocated
+  root backbuffer, resolution-derived shell metrics, GUI server registration,
+  and hidden-QEMU regression coverage.
 - Kernel-managed GUI surfaces now provide an app-to-compositor pixel path:
   clients can create a surface, blit pixels into it, send v2 create/damage
   messages, and let `displayd` copy the damaged surface into its root buffer.
@@ -260,7 +261,7 @@ Pixel storage is currently kernel-managed through
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window
 open/close, resize, dirty presents, event polling, theme/layout helpers,
-focus-aware widget dispatch, buttons, and textboxes.
+focus-aware widget dispatch, buttons, textboxes, and a pixel canvas control.
 `/fat/bin/surfacedemo` now uses it for a raw animated surface, and
 `/fat/bin/gui2demo` uses it for the first v2 widget sample. `/fat/bin/notes`,
 `/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint` use the same
@@ -275,8 +276,8 @@ client surface:
 - Rows/columns, stack, anchors, spacer, and simple grid layout.
 - Theme metrics in logical pixels: padding, title-independent control height,
   border width, focus rings, colors, and font metrics.
-- Controls: label, button, text entry, multiline text area, image view, checkbox,
-  radio/segmented controls, list, menu, scrollbar, and canvas.
+- Controls: label, button, text entry, pixel canvas, multiline text area, image
+  view, checkbox, radio/segmented controls, list, menu, and scrollbar.
 - Event dispatch with capture/bubble semantics and a returned consumer.
 - Keyboard focus traversal and text input separated from raw key events.
 
@@ -355,7 +356,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Add `displayd` with a root backbuffer, window records, damage tracking,
   cursor damage, decorations, and input routing.
 - Add protocol v2 queues/messages.
-- Keep the legacy desktop bridge while new apps are ported.
+- Keep the legacy desktop bridge as a regression/compatibility tool while
+  `displayd` becomes the normal GUI entry point.
 
 ### Slice F: Toolkit V2 and Apps
 
@@ -363,6 +365,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 - Port calculator, notes, text editor, and paint/image editor to client-owned
   surfaces. Notes, calculator, text editor, and paint now have GUI2 ports as
   `/fat/bin/notes`, `/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint`.
+- Add reusable GUI2 canvas support so paint and future image/canvas apps do not
+  hand-roll scaled pixel drawing or pointer-to-pixel hit testing.
 - Add resize handling and per-resolution smoke tests. The first resize path is
   implemented for GUI2 clients on the kernel-managed surface-copy backend, and
   `displayd_resolution_smoke.py` covers 800x600, 1280x800, 1440x900, and

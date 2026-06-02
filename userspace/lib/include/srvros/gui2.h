@@ -27,6 +27,7 @@ enum gui2_widget_result {
 enum gui2_control_kind {
     GUI2_CONTROL_BUTTON = 1,
     GUI2_CONTROL_TEXTBOX = 2,
+    GUI2_CONTROL_CANVAS = 3,
 };
 
 struct gui2_theme {
@@ -121,6 +122,22 @@ struct gui2_textbox {
     const char *placeholder;
 };
 
+struct gui2_canvas {
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    const uint32_t *pixels;
+    uint64_t pixel_width;
+    uint64_t pixel_height;
+    uint32_t background;
+    int hovered;
+    int pressed;
+    uint64_t clicks;
+    uint64_t pointer_x;
+    uint64_t pointer_y;
+};
+
 struct gui2_control {
     enum gui2_control_kind kind;
     void *ptr;
@@ -170,6 +187,15 @@ void gui2_textbox_set_placeholder(struct gui2_textbox *textbox, const char *plac
 void gui2_textbox_draw(struct gui2_window *window, const struct gui2_textbox *textbox);
 int gui2_textbox_event(struct gui2_textbox *textbox, const struct gui2_event *event);
 int gui2_textbox_contains(const struct gui2_textbox *textbox, int64_t x, int64_t y);
+
+void gui2_canvas_init(struct gui2_canvas *canvas, int64_t x, int64_t y,
+    uint64_t width, uint64_t height, const uint32_t *pixels,
+    uint64_t pixel_width, uint64_t pixel_height, uint32_t background);
+void gui2_canvas_draw(struct gui2_window *window, const struct gui2_canvas *canvas);
+int gui2_canvas_event(struct gui2_canvas *canvas, const struct gui2_event *event);
+int gui2_canvas_contains(const struct gui2_canvas *canvas, int64_t x, int64_t y);
+int gui2_canvas_event_pixel(const struct gui2_canvas *canvas,
+    const struct gui2_event *event, uint64_t *x, uint64_t *y);
 
 void gui2_context_init(struct gui2_context *context);
 int gui2_dispatch_event(struct gui2_context *context, const struct gui2_event *event,

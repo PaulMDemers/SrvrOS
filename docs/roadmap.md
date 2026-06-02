@@ -194,7 +194,8 @@ kernel, and a minimal Unix-like userspace.
   server or QEMU fallback DNS.
 - Add `/fat/bin/textedit` and `/fat/bin/paint`, plus BMP helpers in the
   userspace library. Both apps now run on the GUI2/displayd path with
-  app-owned surfaces.
+  app-owned surfaces, and paint now uses the shared GUI2 canvas control for
+  scaled pixel drawing and pointer-to-pixel hit testing.
 - Add smoke tests for CLI behavior, process lifecycle, nested directories,
   rename/rmdir, DHCP, DNS, web serving, GUI launch, and filesystem stress.
 - Add the first POSIX-compat userspace layer with errno, malloc, file and

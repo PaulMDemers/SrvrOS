@@ -567,6 +567,102 @@ int gui2_textbox_contains(const struct gui2_textbox *textbox, int64_t x, int64_t
         textbox->width, textbox->height, x, y);
 }
 
+void gui2_canvas_init(struct gui2_canvas *canvas, int64_t x, int64_t y,
+    uint64_t width, uint64_t height, const uint32_t *pixels,
+    uint64_t pixel_width, uint64_t pixel_height, uint32_t background) {
+    if (canvas == 0) {
+        return;
+    }
+    memset(canvas, 0, sizeof(*canvas));
+    canvas->x = x;
+    canvas->y = y;
+    canvas->width = width;
+    canvas->height = height;
+    canvas->pixels = pixels;
+    canvas->pixel_width = pixel_width;
+    canvas->pixel_height = pixel_height;
+    canvas->background = background;
+}
+
+void gui2_canvas_draw(struct gui2_window *window, const struct gui2_canvas *canvas) {
+    const struct gui2_theme *theme = gui2_theme_default();
+    if (window == 0 || canvas == 0 || canvas->width == 0 || canvas->height == 0) {
+        return;
+    }
+    gui2_panel(window, canvas->x - 1, canvas->y - 1,
+        canvas->width + 2, canvas->height + 2, theme->field);
+    if (canvas->pixels == 0 || canvas->pixel_width == 0 || canvas->pixel_height == 0) {
+        gui2_rect(window, canvas->x, canvas->y,
+            canvas->width, canvas->height, canvas->background);
+        return;
+    }
+    for (uint64_t y = 0; y < canvas->pixel_height; y++) {
+        uint64_t py = y * canvas->height / canvas->pixel_height;
+        uint64_t py2 = (y + 1) * canvas->height / canvas->pixel_height;
+        uint64_t h = py2 > py ? py2 - py : 1;
+        for (uint64_t x = 0; x < canvas->pixel_width; x++) {
+            uint64_t px = x * canvas->width / canvas->pixel_width;
+            uint64_t px2 = (x + 1) * canvas->width / canvas->pixel_width;
+            uint64_t w = px2 > px ? px2 - px : 1;
+            gui2_rect(window, canvas->x + (int64_t)px, canvas->y + (int64_t)py,
+                w, h, canvas->pixels[y * canvas->pixel_width + x]);
+        }
+    }
+}
+
+int gui2_canvas_contains(const struct gui2_canvas *canvas, int64_t x, int64_t y) {
+    return canvas != 0 && rect_contains(canvas->x, canvas->y,
+        canvas->width, canvas->height, x, y);
+}
+
+int gui2_canvas_event_pixel(const struct gui2_canvas *canvas,
+    const struct gui2_event *event, uint64_t *x, uint64_t *y) {
+    if (canvas == 0 || event == 0 || x == 0 || y == 0 ||
+        canvas->width == 0 || canvas->height == 0 ||
+        canvas->pixel_width == 0 || canvas->pixel_height == 0 ||
+        !gui2_canvas_contains(canvas, event->x, event->y)) {
+        return 0;
+    }
+    *x = (uint64_t)(event->x - canvas->x) * canvas->pixel_width / canvas->width;
+    *y = (uint64_t)(event->y - canvas->y) * canvas->pixel_height / canvas->height;
+    if (*x >= canvas->pixel_width) {
+        *x = canvas->pixel_width - 1;
+    }
+    if (*y >= canvas->pixel_height) {
+        *y = canvas->pixel_height - 1;
+    }
+    return 1;
+}
+
+int gui2_canvas_event(struct gui2_canvas *canvas, const struct gui2_event *event) {
+    uint64_t px = 0;
+    uint64_t py = 0;
+    int hit;
+    if (canvas == 0 || event == 0) {
+        return GUI2_WIDGET_NONE;
+    }
+    hit = gui2_canvas_event_pixel(canvas, event, &px, &py);
+    if (hit) {
+        canvas->pointer_x = px;
+        canvas->pointer_y = py;
+    }
+    if (event->type == GUI2_EVENT_POINTER_MOVE) {
+        int old = canvas->hovered;
+        canvas->hovered = hit;
+        return old != canvas->hovered ? GUI2_WIDGET_DIRTY : GUI2_WIDGET_NONE;
+    }
+    if (event->type == GUI2_EVENT_POINTER_BUTTON && (event->changed_buttons & 1) != 0) {
+        int old_pressed = canvas->pressed;
+        canvas->pressed = hit && (event->buttons & 1) != 0;
+        if (old_pressed && (event->buttons & 1) == 0 && hit) {
+            canvas->clicks++;
+            return GUI2_WIDGET_CLICK;
+        }
+        return old_pressed != canvas->pressed ? GUI2_WIDGET_DIRTY : GUI2_WIDGET_NONE;
+    }
+    return GUI2_WIDGET_NONE;
+}
+
 void gui2_context_init(struct gui2_context *context) {
     if (context != 0) {
         memset(context, 0, sizeof(*context));
@@ -582,6 +678,9 @@ static int control_contains(const struct gui2_control *control, int64_t x, int64
     }
     if (control->kind == GUI2_CONTROL_TEXTBOX) {
         return gui2_textbox_contains((const struct gui2_textbox *)control->ptr, x, y);
+    }
+    if (control->kind == GUI2_CONTROL_CANVAS) {
+        return gui2_canvas_contains((const struct gui2_canvas *)control->ptr, x, y);
     }
     return 0;
 }
@@ -610,6 +709,9 @@ static int control_event(struct gui2_control *control, const struct gui2_event *
     }
     if (control->kind == GUI2_CONTROL_TEXTBOX) {
         return gui2_textbox_event((struct gui2_textbox *)control->ptr, event);
+    }
+    if (control->kind == GUI2_CONTROL_CANVAS) {
+        return gui2_canvas_event((struct gui2_canvas *)control->ptr, event);
     }
     return GUI2_WIDGET_NONE;
 }
