@@ -277,10 +277,12 @@ void kmain(void) {
     vmm_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
-    keyboard_init();
-    bool mouse_ready = mouse_init();
+    bool keyboard_ready = keyboard_init();
+    bool mouse_ready = keyboard_ready ? mouse_init() : false;
     ioapic_init();
-    ioapic_route_isa_irq(1, 33);
+    if (keyboard_ready) {
+        ioapic_route_isa_irq(1, 33);
+    }
     if (ioapic_route_isa_irq(4, 36)) {
         serial_enable_interrupts();
     }

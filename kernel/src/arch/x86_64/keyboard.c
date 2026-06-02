@@ -9,6 +9,9 @@
 #define PS2_DATA 0x60
 #define PS2_STATUS 0x64
 #define KEYBOARD_BUFFER_SIZE 128
+#define PS2_STATUS_OUTPUT_FULL 0x01
+#define PS2_STATUS_ABSENT 0xff
+#define PS2_DRAIN_LIMIT 256
 
 static char buffer[KEYBOARD_BUFFER_SIZE];
 static volatile uint64_t read_index;
@@ -57,12 +60,31 @@ static void push_escape_sequence(const char *sequence) {
     }
 }
 
-void keyboard_init(void) {
-    while ((inb(PS2_STATUS) & 0x01) != 0) {
+bool keyboard_init(void) {
+    uint8_t status = inb(PS2_STATUS);
+    if (status == PS2_STATUS_ABSENT) {
+        console_write("keyboard: ps/2 controller unavailable\n");
+        return false;
+    }
+
+    uint64_t drained = 0;
+    while ((status & PS2_STATUS_OUTPUT_FULL) != 0 && drained < PS2_DRAIN_LIMIT) {
         (void)inb(PS2_DATA);
+        drained++;
+        status = inb(PS2_STATUS);
+        if (status == PS2_STATUS_ABSENT) {
+            console_write("keyboard: ps/2 controller unavailable during drain\n");
+            return false;
+        }
+    }
+
+    if ((status & PS2_STATUS_OUTPUT_FULL) != 0) {
+        console_write("keyboard: ps/2 drain limit reached, skipping controller\n");
+        return false;
     }
 
     console_write("keyboard: ps/2 controller drained\n");
+    return true;
 }
 
 void keyboard_handle_irq(void) {

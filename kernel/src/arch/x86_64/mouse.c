@@ -10,6 +10,7 @@
 #define PS2_STATUS_OUTPUT_FULL 0x01
 #define PS2_STATUS_INPUT_FULL 0x02
 #define PS2_STATUS_MOUSE_OUTPUT 0x20
+#define PS2_STATUS_ABSENT 0xff
 
 #define PS2_CMD_READ_CONFIG 0x20
 #define PS2_CMD_WRITE_CONFIG 0x60
@@ -87,6 +88,11 @@ static bool mouse_write(uint8_t command) {
 
 bool mouse_init(void) {
     uint8_t config = 0;
+
+    if (inb(PS2_STATUS) == PS2_STATUS_ABSENT) {
+        console_write("mouse: ps/2 controller unavailable\n");
+        return false;
+    }
 
     if (!controller_write(PS2_CMD_ENABLE_AUX) ||
         !controller_write(PS2_CMD_READ_CONFIG) ||

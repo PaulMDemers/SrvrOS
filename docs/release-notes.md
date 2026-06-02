@@ -107,6 +107,10 @@ server.
 - Hardens the COM1 serial driver against missing UARTs. `serial_init` now
   probes COM1 with loopback before enabling it, and transmit waits are bounded
   so QEMU launches with `-serial none` cannot wedge the kernel during boot.
+- Hardens PS/2 bring-up for real hardware without a usable 8042 controller.
+  Keyboard init now detects `0xff` status, bounds the controller drain loop,
+  returns availability to the main boot path, and skips PS/2 IRQ/mouse setup
+  when unavailable so USB HID/xHCI input can continue booting.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

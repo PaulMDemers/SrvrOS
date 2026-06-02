@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-void keyboard_init(void);
+bool keyboard_init(void);
 void keyboard_handle_irq(void);
 void keyboard_wake_waiters(void);
 void keyboard_inject_char(char c);
