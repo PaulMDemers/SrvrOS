@@ -152,7 +152,7 @@ The prototype GUI has useful pieces:
 
 - `desktop` is already a userspace window server process.
 - GUI apps such as `notes`, `calc`, `textedit`, and
-  `imgedit` are separate ring-3 processes.
+  `paint` are separate ring-3 processes.
 - The userspace UI layer has surfaces, parent/child composition, dirty marking,
   mouse hit testing, text entry, image controls, and simple events.
 - The desktop compositor can redraw damaged regions and draw a software cursor.
@@ -250,8 +250,8 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 also sends the existing close event to v2 apps from compositor-owned frame
 buttons, and owns z-order raise, title-bar dragging, and minimize state for
 surface windows. It also owns dock launchers for `/fat/bin/notes`,
-`/fat/bin/textedit`, `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and
-`/fat/bin/calc`, with
+`/fat/bin/textedit`, `/fat/bin/paint`, `/fat/bin/gui2demo`,
+`/fat/bin/surfacedemo`, and `/fat/bin/calc`, with
 hidden-QEMU coverage for duplicate instance placement and dock-launched GUI2
 clients. Bottom-right resize grips now send configure events, and GUI2 clients
 recreate their kernel-managed backing surface and redraw at the requested size.
@@ -263,8 +263,8 @@ open/close, resize, dirty presents, event polling, theme/layout helpers,
 focus-aware widget dispatch, buttons, and textboxes.
 `/fat/bin/surfacedemo` now uses it for a raw animated surface, and
 `/fat/bin/gui2demo` uses it for the first v2 widget sample. `/fat/bin/notes`,
-`/fat/bin/calc`, and `/fat/bin/textedit` use the same toolkit pieces for small
-utility apps under `displayd`.
+`/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint` use the same
+toolkit pieces for small utility apps under `displayd`.
 
 ### Toolkit
 
@@ -361,9 +361,8 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 
 - Add app-side layout/theme/render library.
 - Port calculator, notes, text editor, and paint/image editor to client-owned
-  surfaces. Notes, calculator, and text editor now have GUI2 ports as
-  `/fat/bin/notes`, `/fat/bin/calc`, and `/fat/bin/textedit`; paint remains on
-  the legacy GUI path.
+  surfaces. Notes, calculator, text editor, and paint now have GUI2 ports as
+  `/fat/bin/notes`, `/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint`.
 - Add resize handling and per-resolution smoke tests. The first resize path is
   implemented for GUI2 clients on the kernel-managed surface-copy backend, and
   `displayd_resolution_smoke.py` covers 800x600, 1280x800, 1440x900, and

@@ -72,6 +72,7 @@ struct display_state {
 static const struct display_launcher launchers[] = {
     { "NOTES", "/fat/bin/notes", 0x2f6f68 },
     { "EDIT", "/fat/bin/textedit", 0x3f6c8f },
+    { "PAINT", "/fat/bin/paint", 0x84643d },
     { "GUI2", "/fat/bin/gui2demo", 0x335b7a },
     { "SURFACE", "/fat/bin/surfacedemo", 0x60548d },
     { "CALC", "/fat/bin/calc", 0x70485f },
@@ -421,6 +422,19 @@ static struct display_client *find_client_by_surface(struct display_state *state
         }
     }
     return 0;
+}
+
+static uint64_t mapped_client_count(const struct display_state *state) {
+    uint64_t count = 0;
+    if (state == 0) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (state->clients[i].used) {
+            count++;
+        }
+    }
+    return count;
 }
 
 static void send_client_event(const struct display_client *client, uint64_t type,
@@ -1262,8 +1276,11 @@ int main(int argc, char **argv) {
         present_dirty(&root, mouse_x, mouse_y, old_mouse_x, old_mouse_y,
             cursor_dirty, buttons != 0 ? 0xf87171 : 0xffffff);
 
-        if (smoke && (uint64_t)srv_ticks() - start_ticks >
-            (frame_smoke ? 220 : launcher_smoke ? 180 : smoke_autostart ? 80 : 20)) {
+        if (smoke && ((launcher_smoke &&
+                state.launch_count >= DISPLAY_LAUNCHER_COUNT + 1 &&
+                mapped_client_count(&state) >= DISPLAY_LAUNCHER_COUNT + 1) ||
+            (uint64_t)srv_ticks() - start_ticks >
+                (frame_smoke ? 220 : launcher_smoke ? 360 : smoke_autostart ? 80 : 20))) {
             srv_puts("displayd: smoke ok\n");
             break;
         }

@@ -850,7 +850,7 @@ int main(int argc, char **argv) {
         &launch_edit_state, "EDIT", 0x397367, launch_action, "/fat/bin/textedit", 0);
     ui_surface_init(&surface, BUTTON_W, BUTTON_H, BUTTON_W, launch_paint_pixels);
     init_button(&launch_paint, surface, 16, 148, BUTTON_W, BUTTON_H,
-        &launch_paint_state, "PAINT", 0x397367, launch_action, "/fat/bin/imgedit", 0);
+        &launch_paint_state, "PAINT", 0x397367, launch_action, "/fat/bin/paint", 0);
     ui_surface_init(&surface, BUTTON_W, BUTTON_H, BUTTON_W, exit_pixels);
     init_button(&exit_button, surface, 16, 184, BUTTON_W, BUTTON_H,
         &exit_button_state, "EXIT", 0x6f3939, exit_action, &desktop_state, 0);
@@ -885,7 +885,7 @@ int main(int argc, char **argv) {
         launch_calc_app();
         launch_notes_app();
         launch_app("EDIT", "/fat/bin/textedit");
-        launch_app("PAINT", "/fat/bin/imgedit");
+        launch_app("PAINT", "/fat/bin/paint");
     }
 
     while (desktop_state.running) {

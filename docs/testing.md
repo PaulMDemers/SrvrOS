@@ -440,8 +440,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   handling, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
   `/fat/bin/displayd --launcher-smoke`, clicks the compositor dock launchers,
-  verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/gui2demo`,
-  `/fat/bin/surfacedemo`, and `/fat/bin/calc` launch as separate clients,
+  verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/paint`,
+  `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and `/fat/bin/calc` launch as
+  separate clients,
   checks duplicate Notes windows stagger inside the work area, and exits
   cleanly.
 - `displayd_resolution_smoke.py`: hidden-QEMU resolution smoke that builds

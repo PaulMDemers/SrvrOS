@@ -70,6 +70,9 @@ server.
 - Moves `/fat/bin/textedit` onto GUI2 with an app-owned surface, resize-aware
   document layout, line entry, save/clear controls, and dock launcher smoke
   coverage.
+- Moves `/fat/bin/paint` onto GUI2 as the shipped BMP paint/image editor, with
+  an app-owned scaled canvas, palette controls, clear/save actions, and dock
+  launcher smoke coverage.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

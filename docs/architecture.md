@@ -371,7 +371,7 @@ The generated `/fat/bin` command set is tracked in
 - Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
   `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
 - GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `surfacedemo`,
-  `gui2demo`, `calc`, `notes`, `textedit`, `imgedit`, `sysabi`, `spin`,
+  `gui2demo`, `calc`, `notes`, `textedit`, `paint`, `sysabi`, `spin`,
   `fpdemo`, `posixdemo`,
   `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
@@ -642,7 +642,9 @@ is a small GUI2 utility, with a focused textbox and buttons rendered inside an
 app-owned surface. `/fat/bin/calc` is a resizable integer calculator with
 app-owned buttons and configure-driven surface recreation. `/fat/bin/textedit`
 uses the same GUI2 path for resize-aware document display, line entry, save,
-and clear controls.
+and clear controls. `/fat/bin/paint` is a GUI2 BMP image editor with an
+app-owned pixel canvas, palette buttons, clear/save controls, and BMP encoding
+through the shared userspace image helper.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic

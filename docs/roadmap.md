@@ -192,9 +192,9 @@ kernel, and a minimal Unix-like userspace.
 - Add DHCP configuration from userspace, kernel network status reporting, ARP
   resolution for outbound UDP, and DNS A-record resolution through the DHCP DNS
   server or QEMU fallback DNS.
-- Add `/fat/bin/textedit` and `/fat/bin/imgedit`, plus BMP helpers in the
-  userspace library. `textedit` now runs on the GUI2/displayd path; paint/image
-  editing remains the last legacy GUI utility.
+- Add `/fat/bin/textedit` and `/fat/bin/paint`, plus BMP helpers in the
+  userspace library. Both apps now run on the GUI2/displayd path with
+  app-owned surfaces.
 - Add smoke tests for CLI behavior, process lifecycle, nested directories,
   rename/rmdir, DHCP, DNS, web serving, GUI launch, and filesystem stress.
 - Add the first POSIX-compat userspace layer with errno, malloc, file and
