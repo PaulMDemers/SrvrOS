@@ -191,6 +191,29 @@ static void load_initramfs(void) {
     initramfs_init(module->address, module->size);
 }
 
+static void partition_name(char *out, uint64_t out_size, const char *base, uint64_t number) {
+    uint64_t pos = 0;
+    while (base[pos] != '\0' && pos + 1 < out_size) {
+        out[pos] = base[pos];
+        pos++;
+    }
+    if (pos + 1 < out_size) {
+        out[pos++] = 'p';
+    }
+
+    char digits[20];
+    uint64_t digit_count = 0;
+    do {
+        digits[digit_count++] = (char)('0' + (number % 10));
+        number /= 10;
+    } while (number != 0 && digit_count < sizeof(digits));
+
+    while (digit_count > 0 && pos + 1 < out_size) {
+        out[pos++] = digits[--digit_count];
+    }
+    out[pos] = '\0';
+}
+
 static void mount_exfat_volume(void) {
     struct block_device *ahci = block_find("ahci0");
     if (ahci != NULL && exfat_mount_block_device("/fat", ahci)) {
@@ -198,10 +221,15 @@ static void mount_exfat_volume(void) {
     }
     if (ahci != NULL) {
         block_register_gpt_partitions(ahci);
-        uint64_t order[] = {2, 1, 3, 4, 5, 6, 7, 8};
+        uint64_t order[] = {
+            2, 1, 3, 4, 5, 6, 7, 8,
+            9, 10, 11, 12, 13, 14, 15, 16,
+            17, 18, 19, 20, 21, 22, 23, 24,
+            25, 26, 27, 28, 29, 30, 31, 32,
+        };
         for (uint64_t i = 0; i < sizeof(order) / sizeof(order[0]); i++) {
-            char name[] = "ahci0p0";
-            name[6] = (char)('0' + order[i]);
+            char name[16];
+            partition_name(name, sizeof(name), "ahci0", order[i]);
             struct block_device *partition = block_find(name);
             if (partition != NULL && exfat_mount_block_device("/fat", partition)) {
                 return;
@@ -209,18 +237,24 @@ static void mount_exfat_volume(void) {
         }
     }
 
+    console_write("exfat: trying initramfs fallback /srvros.exfat\n");
     const struct vfs_node *node = vfs_lookup("/srvros.exfat");
     const uint8_t *data;
     uint64_t size;
 
     if (node == NULL || !vfs_read_all(node, &data, &size)) {
-        console_write("exfat: demo image not found\n");
+        console_write("exfat: initramfs fallback /srvros.exfat not found\n");
         return;
     }
 
+    console_printf("exfat: fallback image size=%u bytes\n", size);
     struct block_device *device = block_register_memory("initramfs-exfat", data, size, 512);
-    if (device == NULL || !exfat_mount_block_device("/fat", device)) {
-        console_write("exfat: demo block mount failed\n");
+    if (device == NULL) {
+        console_write("exfat: fallback block registration failed\n");
+        return;
+    }
+    if (!exfat_mount_block_device("/fat", device)) {
+        console_write("exfat: fallback block mount failed\n");
     }
 }
 

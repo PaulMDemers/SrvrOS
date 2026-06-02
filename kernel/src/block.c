@@ -5,7 +5,7 @@
 
 #define BLOCK_CACHE_ENTRIES 32
 #define BLOCK_CACHE_MAX_BLOCK_SIZE 4096
-#define BLOCK_MAX_PARTITIONS 8
+#define BLOCK_MAX_PARTITIONS 32
 
 struct memory_block_device {
     const uint8_t *data;
@@ -167,7 +167,11 @@ struct block_device *block_register_memory(const char *name,
     const uint8_t *data,
     uint64_t size,
     uint64_t block_size) {
-    if (name == 0 || data == 0 || size == 0 || block_size == 0 || device_count >= BLOCK_MAX_DEVICES) {
+    if (name == 0 || data == 0 || size == 0 || block_size == 0) {
+        return 0;
+    }
+    if (device_count >= BLOCK_MAX_DEVICES) {
+        console_printf("block: registry full, cannot register memory device %s\n", name);
         return 0;
     }
 
@@ -202,8 +206,11 @@ struct block_device *block_register(const char *name,
     if (name == 0 ||
         block_size == 0 ||
         block_count == 0 ||
-        read == 0 ||
-        device_count >= BLOCK_MAX_DEVICES) {
+        read == 0) {
+        return 0;
+    }
+    if (device_count >= BLOCK_MAX_DEVICES) {
+        console_printf("block: registry full, cannot register %s\n", name);
         return 0;
     }
 
@@ -290,6 +297,9 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
             &partition_devices[slot]);
         if (partition == 0) {
             partition_count--;
+            console_printf("block: partition registration stopped at %s entry=%u\n",
+                device->name,
+                (uint64_t)i + 1);
             break;
         }
         console_printf("block: registered partition %s offset=%u size=%u\n",
@@ -297,6 +307,9 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
             start,
             size);
         registered++;
+    }
+    if (partition_count >= BLOCK_MAX_PARTITIONS) {
+        console_printf("block: partition registry full slots=%u\n", (uint64_t)BLOCK_MAX_PARTITIONS);
     }
 
     return registered;

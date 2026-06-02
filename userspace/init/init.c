@@ -544,7 +544,8 @@ static int system_main(void) {
     }
     if (pid < 0) {
         log_init_status(1);
-        write_text("init: startup failed\n");
+        write_text("init: startup failed: /fat/bin/sh unavailable\n");
+        write_text("init: rescue shell is available from monitor with: run /sh\n");
     } else {
         long waited = wait_pid((uint64_t)pid, &status);
         log_init_status(waited > 0 ? status : 1);

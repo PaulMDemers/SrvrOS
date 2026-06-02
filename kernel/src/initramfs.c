@@ -6,7 +6,7 @@
 #include <stdint.h>
 
 #define TAR_BLOCK_SIZE 512
-#define INITRAMFS_MAX_FILES 64
+#define INITRAMFS_MAX_FILES 256
 
 struct tar_header {
     char name[100];
@@ -109,6 +109,7 @@ static void build_path(char *dst, uint64_t dst_size, const struct tar_header *he
 void initramfs_init(const void *address, uint64_t size) {
     const uint8_t *archive = address;
     uint64_t offset = 0;
+    uint64_t skipped = 0;
 
     file_count = 0;
 
@@ -126,21 +127,27 @@ void initramfs_init(const void *address, uint64_t size) {
         uint64_t file_size = parse_octal(header->size, sizeof(header->size));
         const uint8_t *file_data = archive + offset + TAR_BLOCK_SIZE;
 
-        if ((header->typeflag == '0' || header->typeflag == '\0') &&
-            file_count < INITRAMFS_MAX_FILES) {
-            build_path(paths[file_count], sizeof(paths[file_count]), header);
-            files[file_count] = (struct initramfs_file) {
-                .path = paths[file_count],
-                .data = file_data,
-                .size = file_size,
-            };
-            file_count++;
+        if (header->typeflag == '0' || header->typeflag == '\0') {
+            if (file_count < INITRAMFS_MAX_FILES) {
+                build_path(paths[file_count], sizeof(paths[file_count]), header);
+                files[file_count] = (struct initramfs_file) {
+                    .path = paths[file_count],
+                    .data = file_data,
+                    .size = file_size,
+                };
+                file_count++;
+            } else {
+                skipped++;
+            }
         }
 
         offset += TAR_BLOCK_SIZE + align_up(file_size, TAR_BLOCK_SIZE);
     }
 
     console_printf("initramfs: files=%u size=%u bytes\n", file_count, size);
+    if (skipped != 0) {
+        console_printf("initramfs: skipped=%u max=%u\n", skipped, (uint64_t)INITRAMFS_MAX_FILES);
+    }
 }
 
 uint64_t initramfs_file_count(void) {

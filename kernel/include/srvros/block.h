@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define BLOCK_MAX_DEVICES 8
+#define BLOCK_MAX_DEVICES 32
 
 struct block_device;
 
