@@ -18,6 +18,8 @@
 #define WINDOW_RESIZE_GRIP 16
 #define WINDOW_MIN_WIDTH 160
 #define WINDOW_MIN_HEIGHT 96
+#define DISPLAY_LIFECYCLE_SWEEP_TICKS 8
+#define DISPLAY_CLOSE_KILL_TICKS 80
 
 struct display_launcher {
     const char *label;
@@ -47,6 +49,8 @@ struct display_client {
     uint64_t height;
     int focused;
     int minimized;
+    int closing;
+    uint64_t close_tick;
     uint64_t z;
     char title[GUI_TEXT_MAX];
 };
@@ -65,6 +69,7 @@ struct display_state {
     int64_t resize_offset_y;
     uint64_t next_z;
     uint64_t launch_count;
+    uint64_t last_lifecycle_sweep_ticks;
     uint8_t last_buttons;
     struct display_client clients[DISPLAY_CLIENT_MAX];
 };
@@ -468,6 +473,67 @@ static void mark_client_frame_dirty(struct ui_element *root, const struct displa
         client_frame_height(client));
 }
 
+static int process_state_is_running(const char *state) {
+    if (state == 0 || state[0] == '\0') {
+        return 0;
+    }
+    return !streq(state, "exited");
+}
+
+static int process_is_running(uint64_t pid) {
+    uint64_t index = 0;
+    struct srv_process_info info;
+    if (pid == 0) {
+        return 0;
+    }
+    while ((index = (uint64_t)srv_proc_list(index, &info)) != 0) {
+        if (info.pid == pid) {
+            return process_state_is_running(info.state);
+        }
+    }
+    return 0;
+}
+
+static void log_client_title(const struct display_client *client) {
+    srv_puts(client != 0 && client->title[0] != '\0' ? client->title : "SURFACE");
+}
+
+static void remove_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client, const char *reason, uint64_t status, int has_status) {
+    uint64_t surface_id;
+    if (root == 0 || state == 0 || client == 0 || !client->used) {
+        return;
+    }
+    surface_id = client->surface_id;
+    mark_client_frame_dirty(root, client);
+    if (state->focused_surface_id == surface_id) {
+        state->focused_surface_id = 0;
+    }
+    if (state->hovered_surface_id == surface_id) {
+        state->hovered_surface_id = 0;
+    }
+    if (state->dragging_surface_id == surface_id) {
+        state->dragging_surface_id = 0;
+    }
+    if (state->resizing_surface_id == surface_id) {
+        state->resizing_surface_id = 0;
+    }
+    srv_puts("displayd: remove ");
+    log_client_title(client);
+    srv_puts(" reason=");
+    srv_puts(reason != 0 ? reason : "unknown");
+    srv_puts(" pid=");
+    print_u64(client->pid);
+    if (has_status) {
+        srv_puts(" status=");
+        print_u64(status);
+    }
+    srv_puts("\n");
+    memset(client, 0, sizeof(*client));
+    ui_mark_dirty_rect(root, 0, state->metrics.top_h, state->metrics.width,
+        state->metrics.height - state->metrics.top_h);
+}
+
 static void raise_client(struct ui_element *root, struct display_state *state,
     struct display_client *client) {
     if (client == 0 || !client->used) {
@@ -742,6 +808,11 @@ static void close_client(struct ui_element *root, struct display_state *state,
     if (client == 0 || !client->used) {
         return;
     }
+    if (client->closing) {
+        return;
+    }
+    client->closing = 1;
+    client->close_tick = (uint64_t)srv_ticks();
     send_client_event(client, GUI_MSG_EVENT_CLOSE, 0, 0, client->width, client->height, 0, "");
     srv_puts("displayd: close ");
     srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
@@ -753,6 +824,46 @@ static void close_client(struct ui_element *root, struct display_state *state,
         state->resizing_surface_id = 0;
     }
     mark_client_frame_dirty(root, client);
+}
+
+static void sweep_client_lifecycle(struct ui_element *root, struct display_state *state) {
+    uint64_t now;
+    if (root == 0 || state == 0) {
+        return;
+    }
+    now = (uint64_t)srv_ticks();
+    if (state->last_lifecycle_sweep_ticks != 0 &&
+        now - state->last_lifecycle_sweep_ticks < DISPLAY_LIFECYCLE_SWEEP_TICKS) {
+        return;
+    }
+    state->last_lifecycle_sweep_ticks = now;
+
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        struct display_client *client = &state->clients[i];
+        uint64_t status = 0;
+        long waited;
+        if (!client->used || client->pid == 0) {
+            continue;
+        }
+        waited = srv_wait(client->pid, &status, SRV_WAIT_NOHANG);
+        if (waited == (long)client->pid) {
+            remove_client(root, state, client, "exit", status, 1);
+            continue;
+        }
+        if (waited < 0 && !process_is_running(client->pid)) {
+            remove_client(root, state, client, "gone", 0, 0);
+            continue;
+        }
+        if (client->closing && now - client->close_tick > DISPLAY_CLOSE_KILL_TICKS) {
+            srv_puts("displayd: close timeout ");
+            log_client_title(client);
+            srv_puts(" pid=");
+            print_u64(client->pid);
+            srv_puts("\n");
+            (void)srv_kill((int64_t)client->pid);
+            client->close_tick = now;
+        }
+    }
 }
 
 static void draw_surface_client(struct ui_element *root, const struct display_client *client) {
@@ -992,6 +1103,8 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 client->y = msg.y;
                 client->width = msg.width;
                 client->height = msg.height;
+                client->closing = 0;
+                client->close_tick = 0;
                 if (!was_used) {
                     client->focused = 0;
                     client->minimized = 0;
@@ -1047,14 +1160,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 msg.window_id,
                 (uint64_t)msg.value);
             if (client != 0) {
-                mark_client_frame_dirty(root, client);
-                if (state->focused_surface_id == client->surface_id) {
-                    focus_client(root, state, 0);
-                }
-                if (state->hovered_surface_id == client->surface_id) {
-                    state->hovered_surface_id = 0;
-                }
-                client->used = 0;
+                remove_client(root, state, client, "destroy", 0, 0);
             }
         }
     }
@@ -1170,6 +1276,7 @@ int main(int argc, char **argv) {
         old_mouse_y = mouse_y;
 
         handle_gui_messages(&root, &state);
+        sweep_client_lifecycle(&root, &state);
         focused_client = find_client_by_surface(&state, state.focused_surface_id);
         if (key != 0) {
             if (focused_client != 0) {

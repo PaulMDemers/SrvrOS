@@ -83,6 +83,10 @@ server.
   launches `/fat/bin/gui`, opens PAINT from the dock, clicks the canvas, clicks
   Save, and verifies the paint-side save marker without requiring a visible
   QEMU window.
+- Hardens `displayd` client lifecycle handling with centralized client removal,
+  periodic background-process reaping, close-timeout escalation, stale
+  focus/hover/drag/resize cleanup, and frame smoke coverage for close cleanup,
+  relaunch, and resize after relaunch through `/fat/bin/gui`.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

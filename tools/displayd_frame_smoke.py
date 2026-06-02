@@ -169,7 +169,7 @@ def main():
             output += read_until(serial, b"srv> ", args.boot_wait)
             serial.sendall(b"run /fat/bin/sh\n")
             output += read_until(serial, b" $ ", args.shell_wait)
-            serial.sendall(b"displayd --frame-smoke-autostart\n")
+            serial.sendall(b"gui --frame-smoke-autostart\n")
             output += read_until(serial, b"displayd: mapped surface window NOTES", args.map_wait)
 
             mouse = Mouse(qmp)
@@ -185,6 +185,11 @@ def main():
             output += read_for(serial, args.action_wait)
             # GUI2 demo title frame starts at 620,240. Close button is near x=633,y=246.
             mouse.click(633, 246)
+            output += read_until(serial, b"displayd: remove GUI2 DEMO reason=destroy", args.action_wait)
+            # Relaunch GUI2 Demo from the dock and verify resize still works after cleanup.
+            mouse.click(60, 167)
+            output += read_until(serial, b"displayd: mapped surface window GUI2 DEMO", args.map_wait)
+            mouse.drag(920, 444, 980, 480)
             output += read_for(serial, args.action_wait)
             output += read_until(serial, b"displayd: smoke ok", args.final_wait)
         finally:
@@ -198,6 +203,7 @@ def main():
     sys.stdout.write(text)
 
     expected = [
+        "gui: starting displayd",
         "displayd: mapped surface window SURFACE DEMO",
         "displayd: mapped surface window GUI2 DEMO",
         "displayd: mapped surface window NOTES",
@@ -208,6 +214,8 @@ def main():
         "gui2demo: configure 360x216",
         "displayd: close GUI2 DEMO",
         "gui2demo: close",
+        "displayd: remove GUI2 DEMO reason=destroy",
+        "displayd: launch GUI2 /fat/bin/gui2demo pid=",
         "displayd: smoke ok",
     ]
     missing = [marker for marker in expected if marker not in text]
