@@ -95,6 +95,10 @@ server.
   close from all GUI clients, waits for cooperative destroy/exit cleanup, and
   escalates lingering clients before returning to the shell; the frame smoke
   verifies the full shutdown path.
+- Consolidates the supported GUI launch path around `/fat/bin/gui`, documents
+  `ui` and `desktop` as legacy regression tools, adds a `/fat/share/help/gui.txt`
+  topic, and expands the A1466 first-boot checklist with first GUI launch,
+  app/window interaction, taskbar restore, and clean Exit validation.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

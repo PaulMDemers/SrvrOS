@@ -245,6 +245,14 @@ def main():
             b"Use dhcp to request an address, net to print interface state, dns to resolve\n"
             b"a hostname, and ping/httpget/udpdns/udpecho for basic traffic tests.\n"
             b"Configuration currently favors QEMU user networking with DNS at 10.0.2.3.\n"),
+        ("gui.txt",
+            b"gui\n"
+            b"\n"
+            b"Run gui from the shell, or run /fat/bin/gui from the monitor, to start the\n"
+            b"supported displayd desktop. displayd owns the framebuffer compositor, dock,\n"
+            b"taskbar, window frames, resize/minimize/close controls, and app launchers.\n"
+            b"GUI2 clients include calc, notes, textedit, paint, gui2demo, and surfacedemo.\n"
+            b"ui and desktop remain available as legacy GUI regression tools.\n"),
         ("files.txt",
             b"files\n"
             b"\n"

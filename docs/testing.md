@@ -425,7 +425,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `fsck_corrupt.py`: mutates temporary exFAT image copies to verify `fsck /fat`
   reports leaked bitmap allocations and stale FAT entries on bitmap-free
   clusters.
-- `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
+- `gui_smoke.py`: legacy desktop/UI launch sanity and fatal exception
+  detection.
 - `displayd_smoke.py`: hidden-QEMU compositor seed smoke that verifies
   `/fat/bin/displayd --smoke-autostart` registers, draws its root backbuffer,
   launches `/fat/bin/surfacedemo`, `/fat/bin/gui2demo`, and `/fat/bin/notes`,

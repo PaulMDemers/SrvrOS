@@ -43,6 +43,29 @@ block
 xHCI, block devices, full PCI inventory, memory, scheduler/workqueue, network,
 mounts, `/fat` fsck summary, process list, and a recent boot-log tail.
 
+## First GUI Launch
+
+After `hwdiag` confirms a visible framebuffer and at least one working keyboard,
+start a shell from the monitor and launch the supported GUI path:
+
+```text
+run /fat/bin/sh
+gui
+```
+
+Equivalent direct monitor launch:
+
+```text
+run /fat/bin/gui
+```
+
+Expected console markers include `gui: starting displayd`, a `displayd:
+framebuffer ...` line, and `displayd: root backbuffer ready`. On the desktop,
+use the dock to open CALC, NOTES, EDIT, and PAINT, move or resize at least one
+window, minimize and restore it through the taskbar, then use the on-screen Exit
+button. A clean exit should return to the shell or monitor without an exception
+and print `displayd: shutdown complete` followed by `displayd: exited`.
+
 ## What To Capture
 
 Capture the complete text output from `hwdiag`, plus any exception screen or
@@ -54,6 +77,8 @@ serial log if present. The most important lines for A1466 input bring-up are:
 - USB descriptor `class`, `iface`, `vendor`, and `product`
 - `gpu:` and `display:` lines
 - `block:` lines, especially whether the internal SSD appears
+- `displayd:` framebuffer, root backbuffer, client launch, and shutdown lines
+- A photo or screenshot of the desktop at the native 1440x900 panel resolution
 
 ## Safety Notes
 

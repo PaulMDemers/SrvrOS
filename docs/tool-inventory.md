@@ -109,15 +109,24 @@ is the boot/startup supervisor process used by `/fat/etc/init.sh`.
 
 ## GUI And Interactive Demos
 
-Framebuffer/UI experiments and GUI clients:
+Supported GUI entrypoint, compositor, and GUI2 clients:
 
 ```text
-ui desktop displayd gui surfacedemo gui2demo calc notes textedit paint
+gui displayd surfacedemo gui2demo calc notes textedit paint
 ```
 
 `gui` is the normal GUI entrypoint; it execs `/fat/bin/displayd` and forwards
-arguments. `desktop` remains available for the legacy fixed-widget GUI path and
-regression coverage.
+arguments. `displayd` remains directly launchable for compositor smokes and
+debugging.
+
+Legacy/regression GUI tools:
+
+```text
+ui desktop
+```
+
+`desktop` remains available for the first fixed-widget GUI path and regression
+coverage.
 
 ## ABI, POSIX, And Stress Probes
 

@@ -410,6 +410,8 @@ GUI milestone:
 
 - `/fat/bin/gui` replaces the old fixed desktop as the normal GUI entry point
   and launches the `displayd` compositor.
+- The first real-hardware GUI runbook lives in `docs/a1466-first-boot.md` and
+  validates `/fat/bin/gui`, GUI2 app launch, taskbar restore, and clean Exit.
 - Apps own drawable surfaces and receive input/configure events.
 - Windows launch, move, resize, minimize, close, and redraw smoothly.
 - The desktop scales cleanly across QEMU test resolutions and the A1466

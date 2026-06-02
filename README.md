@@ -15,8 +15,7 @@ Booted kernel monitor with AHCI, exFAT, e1000, and memory-map diagnostics:
 
 ![srvros boot console](docs/assets/screenshots/console-boot-monitor.png)
 
-Userspace desktop/window server with freestanding calculator, notes, and text
-editor clients:
+GUI desktop with freestanding calculator, notes, and text editor clients:
 
 ![srvros desktop with GUI apps](docs/assets/screenshots/desktop-apps.png)
 
@@ -166,10 +165,10 @@ editor clients:
   flags, explicit stdin/stdout/stderr fd overrides, and true in-place process
   image replacement for POSIX `execve`; descriptor close-on-exec flags are
   applied during replacement.
-- GUI experiments: `/fat/bin/gui` as the normal compositor launcher, legacy
-  fullscreen desktop/window server coverage, app-owned v2 surface clients
-  through `gui2`, and freestanding calculator, notes, text editor, and BMP
-  paint/image editor clients.
+- GUI: `/fat/bin/gui` launches the `displayd` compositor, app-owned v2 surface
+  clients use `gui2`, and freestanding calculator, notes, text editor, BMP
+  paint/image editor, and demo clients are packaged. Legacy `ui` and `desktop`
+  remain available for regression coverage.
 - The full shipped command surface is tracked in
   [docs/tool-inventory.md](docs/tool-inventory.md), including shell builtins,
   applet aliases, network tools, GUI clients, demos, and regression probes.
