@@ -225,7 +225,9 @@ The checked-in `displayd` slice owns a root backbuffer, draws a
 resolution-aware shell scene, receives legacy GUI IPC messages, accepts v2
 surface-window and damage messages, composites kernel-managed client surfaces,
 routes configure/focus/pointer/key events back to surface clients, and presents
-dirty cursor rectangles.
+dirty cursor rectangles. Its left dock now launches GUI2 clients as independent
+processes, clamps new windows inside the work area, staggers duplicate app
+instances, and treats unavailable launchers as recoverable UI actions.
 
 ### GUI Protocol V2
 
@@ -247,7 +249,10 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 `GUI_MSG_V2_EVENT_KEY_DOWN` are wired through the existing GUI queue. `displayd`
 also sends the existing close event to v2 apps from compositor-owned frame
 buttons, and owns z-order raise, title-bar dragging, and minimize state for
-surface windows. Pixel storage is currently kernel-managed through
+surface windows. It also owns dock launchers for `/fat/bin/notes2`,
+`/fat/bin/gui2demo`, and `/fat/bin/surfacedemo`, with hidden-QEMU coverage for
+duplicate instance placement and placeholder launch failures. Pixel storage is
+currently kernel-managed through
 `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window

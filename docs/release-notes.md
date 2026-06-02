@@ -54,6 +54,10 @@ server.
 - Adds `tools/displayd_frame_smoke.py`, a hidden-QEMU/QMP regression smoke for
   the new v2 frame controls: focus, minimize/restore, drag, close, and clean
   compositor shutdown.
+- Adds compositor dock launchers to `displayd` for GUI2 apps, including
+  work-area-aware placement, duplicate-window staggering, unavailable-launcher
+  handling, and `tools/displayd_launcher_smoke.py` coverage for launching
+  Notes, GUI2 Demo, and Surface Demo from the dock.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

@@ -16,6 +16,12 @@
 #define WINDOW_BUTTON_SIZE 12
 #define WINDOW_BUTTON_GAP 7
 
+struct display_launcher {
+    const char *label;
+    const char *path;
+    uint32_t color;
+};
+
 struct display_metrics {
     uint64_t width;
     uint64_t height;
@@ -52,9 +58,19 @@ struct display_state {
     int64_t drag_offset_x;
     int64_t drag_offset_y;
     uint64_t next_z;
+    uint64_t launch_count;
     uint8_t last_buttons;
     struct display_client clients[DISPLAY_CLIENT_MAX];
 };
+
+static const struct display_launcher launchers[] = {
+    { "NOTES", "/fat/bin/notes2", 0x2f6f68 },
+    { "GUI2", "/fat/bin/gui2demo", 0x335b7a },
+    { "SURFACE", "/fat/bin/surfacedemo", 0x60548d },
+    { "CALC2", "", 0x70485f },
+};
+
+#define DISPLAY_LAUNCHER_COUNT (sizeof(launchers) / sizeof(launchers[0]))
 
 static uint64_t max_u64(uint64_t a, uint64_t b) {
     return a > b ? a : b;
@@ -193,6 +209,45 @@ static void draw_panel(struct ui_element *root, int64_t x, int64_t y,
     ui_draw_rect(root, x + (int64_t)width - 1, y, 1, height, border);
 }
 
+static int64_t work_x(const struct display_metrics *m) {
+    return (int64_t)(m->dock_w + m->margin);
+}
+
+static int64_t work_y(const struct display_metrics *m) {
+    return (int64_t)(m->top_h + m->margin);
+}
+
+static uint64_t work_width(const struct display_metrics *m) {
+    uint64_t x = (uint64_t)work_x(m);
+    return m->width > x + m->margin ? m->width - x - m->margin : 1;
+}
+
+static uint64_t work_height(const struct display_metrics *m) {
+    uint64_t y = (uint64_t)work_y(m);
+    return m->height > y + m->status_h + m->margin ?
+        m->height - y - m->status_h - m->margin : 1;
+}
+
+static int launcher_rect(const struct display_metrics *m, uint64_t index,
+    int64_t *x, int64_t *y, uint64_t *width, uint64_t *height) {
+    if (m == 0 || index >= DISPLAY_LAUNCHER_COUNT || m->dock_w <= 2 * m->margin) {
+        return 0;
+    }
+    if (x != 0) {
+        *x = (int64_t)m->margin;
+    }
+    if (y != 0) {
+        *y = (int64_t)(m->top_h + m->margin + index * (m->button_h + m->gap));
+    }
+    if (width != 0) {
+        *width = m->dock_w - 2 * m->margin;
+    }
+    if (height != 0) {
+        *height = m->button_h;
+    }
+    return 1;
+}
+
 static uint64_t client_frame_width(const struct display_client *client) {
     return client != 0 ? client->width + 2 : 0;
 }
@@ -282,6 +337,24 @@ static int client_frame_hit(const struct display_client *client, int64_t x, int6
     }
     return rect_hit(client->x, client->y, client_frame_width(client),
         client_frame_height(client), x, y);
+}
+
+static int launcher_at(const struct display_state *state, int64_t x, int64_t y) {
+    const struct display_metrics *m;
+    if (state == 0) {
+        return -1;
+    }
+    m = &state->metrics;
+    for (uint64_t i = 0; i < DISPLAY_LAUNCHER_COUNT; i++) {
+        int64_t bx;
+        int64_t by;
+        uint64_t bw;
+        uint64_t bh;
+        if (launcher_rect(m, i, &bx, &by, &bw, &bh) && rect_hit(bx, by, bw, bh, x, y)) {
+            return (int)i;
+        }
+    }
+    return -1;
 }
 
 static struct display_client *find_client(struct display_state *state,
@@ -460,13 +533,82 @@ static int64_t clamp_i64(int64_t value, int64_t low, int64_t high) {
 static void clamp_client_position(const struct ui_element *root, struct display_client *client) {
     int64_t max_x;
     int64_t max_y;
+    const struct display_state *state;
+    const struct display_metrics *m;
+    int64_t min_x;
+    int64_t min_y;
     if (root == 0 || client == 0) {
         return;
     }
-    max_x = (int64_t)root->width - (int64_t)min_u64(client_frame_width(client), root->width);
-    max_y = (int64_t)root->height - (int64_t)min_u64(WINDOW_TITLE_H, root->height);
-    client->x = clamp_i64(client->x, 0, max_x);
-    client->y = clamp_i64(client->y, 0, max_y);
+    state = (const struct display_state *)root->userdata;
+    m = state != 0 ? &state->metrics : 0;
+    min_x = m != 0 ? work_x(m) : 0;
+    min_y = m != 0 ? work_y(m) : 0;
+    max_x = m != 0 ? min_x + (int64_t)work_width(m) -
+        (int64_t)min_u64(client_frame_width(client), work_width(m)) :
+        (int64_t)root->width - (int64_t)min_u64(client_frame_width(client), root->width);
+    max_y = m != 0 ? min_y + (int64_t)work_height(m) -
+        (int64_t)min_u64(WINDOW_TITLE_H, work_height(m)) :
+        (int64_t)root->height - (int64_t)min_u64(WINDOW_TITLE_H, root->height);
+    client->x = clamp_i64(client->x, min_x, max_x);
+    client->y = clamp_i64(client->y, min_y, max_y);
+}
+
+static void place_new_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client) {
+    uint64_t same_title = 0;
+    if (root == 0 || state == 0 || client == 0) {
+        return;
+    }
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        struct display_client *other = &state->clients[i];
+        if (other != client && other->used && streq(other->title, client->title)) {
+            same_title++;
+        }
+    }
+    if (same_title != 0) {
+        int64_t offset = (int64_t)(same_title * 28);
+        client->x += offset;
+        client->y += offset;
+    }
+    clamp_client_position(root, client);
+    srv_puts("displayd: place ");
+    srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+    srv_puts(" x=");
+    print_i64(client->x);
+    srv_puts(" y=");
+    print_i64(client->y);
+    srv_puts("\n");
+}
+
+static void launch_app(struct ui_element *root, struct display_state *state, uint64_t index) {
+    long pid;
+    const struct display_launcher *launcher;
+    if (root == 0 || state == 0 || index >= DISPLAY_LAUNCHER_COUNT) {
+        return;
+    }
+    launcher = &launchers[index];
+    if (launcher->path == 0 || launcher->path[0] == '\0') {
+        srv_puts("displayd: launcher ");
+        srv_puts(launcher->label);
+        srv_puts(" unavailable\n");
+        return;
+    }
+    pid = srv_spawn_bg(launcher->path);
+    srv_puts("displayd: launch ");
+    srv_puts(launcher->label);
+    srv_puts(" ");
+    srv_puts(launcher->path);
+    srv_puts(" pid=");
+    if (pid < 0) {
+        srv_puts("failed\n");
+    } else {
+        print_u64((uint64_t)pid);
+        srv_puts("\n");
+        state->launch_count++;
+    }
+    ui_mark_dirty_rect(root, 0, state->metrics.top_h, state->metrics.dock_w,
+        state->metrics.height - state->metrics.top_h);
 }
 
 static void move_client_to(struct ui_element *root, struct display_client *client,
@@ -603,9 +745,13 @@ static void draw_clients(struct ui_element *root, const struct display_state *st
 
 static void draw_dock_button(struct ui_element *root, const struct display_metrics *m,
     uint64_t index, const char *label, uint32_t color) {
-    int64_t x = (int64_t)m->margin;
-    int64_t y = (int64_t)(m->top_h + m->margin + index * (m->button_h + m->gap));
-    uint64_t width = m->dock_w - 2 * m->margin;
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    if (!launcher_rect(m, index, &x, &y, &width, &height)) {
+        return;
+    }
     draw_panel(root, x, y, width, m->button_h, color, 0x8fd0d4);
     ui_draw_text(root, x + 10, y + (int64_t)((m->button_h - 7) / 2), label, 0xf2f7ff);
 }
@@ -613,11 +759,10 @@ static void draw_dock_button(struct ui_element *root, const struct display_metri
 static void draw_scene(struct ui_element *root) {
     struct display_state *state = (struct display_state *)root->userdata;
     const struct display_metrics *m = &state->metrics;
-    uint64_t work_x = m->dock_w + m->margin;
-    uint64_t work_y = m->top_h + m->margin;
-    uint64_t work_w = m->width > work_x + m->margin ? m->width - work_x - m->margin : 1;
-    uint64_t work_h = m->height > work_y + m->status_h + m->margin ?
-        m->height - work_y - m->status_h - m->margin : 1;
+    uint64_t scene_work_x = (uint64_t)work_x(m);
+    uint64_t scene_work_y = (uint64_t)work_y(m);
+    uint64_t work_w = work_width(m);
+    uint64_t work_h = work_height(m);
     uint64_t card_w = work_w > 3 * m->gap ? (work_w - 2 * m->gap) / 3 : work_w;
     uint64_t card_h = clamp_u64(work_h / 3, 84, 180);
     char text[48];
@@ -629,44 +774,43 @@ static void draw_scene(struct ui_element *root) {
         (int64_t)((m->top_h - 7) / 2), "Q OR ESC EXITS", 0xb9d8df);
 
     ui_draw_rect(root, 0, m->top_h, m->dock_w, m->height - m->top_h, 0x101a22);
-    draw_dock_button(root, m, 0, "APPS", 0x2f6f68);
-    draw_dock_button(root, m, 1, "FILES", 0x335b7a);
-    draw_dock_button(root, m, 2, "NET", 0x60548d);
-    draw_dock_button(root, m, 3, "TERMINAL", 0x70485f);
+    for (uint64_t i = 0; i < DISPLAY_LAUNCHER_COUNT; i++) {
+        draw_dock_button(root, m, i, launchers[i].label, launchers[i].color);
+    }
 
-    draw_panel(root, (int64_t)work_x, (int64_t)work_y, card_w, card_h,
+    draw_panel(root, (int64_t)scene_work_x, (int64_t)scene_work_y, card_w, card_h,
         0x15232d, 0x486476);
-    ui_draw_text(root, (int64_t)work_x + 14, (int64_t)work_y + 16,
+    ui_draw_text(root, (int64_t)scene_work_x + 14, (int64_t)scene_work_y + 16,
         "COMPOSITOR READY", 0xffffff);
-    ui_draw_text(root, (int64_t)work_x + 14, (int64_t)work_y + 34,
-        "ROOT BACKBUFFER", 0xb9d8df);
+    ui_draw_text(root, (int64_t)scene_work_x + 14, (int64_t)scene_work_y + 34,
+        "DOCK LAUNCHERS", 0xb9d8df);
 
-    draw_panel(root, (int64_t)(work_x + card_w + m->gap), (int64_t)work_y,
+    draw_panel(root, (int64_t)(scene_work_x + card_w + m->gap), (int64_t)scene_work_y,
         card_w, card_h, 0x142620, 0x50786c);
-    ui_draw_text(root, (int64_t)(work_x + card_w + m->gap + 14),
-        (int64_t)work_y + 16, "DISPLAY SCALE", 0xffffff);
+    ui_draw_text(root, (int64_t)(scene_work_x + card_w + m->gap + 14),
+        (int64_t)scene_work_y + 16, "DISPLAY SCALE", 0xffffff);
     text[0] = '\0';
     uint64_t text_len = 0;
     append_text(text, sizeof(text), &text_len, "SIZE ");
     append_u64(text, sizeof(text), &text_len, m->width);
     append_char(text, sizeof(text), &text_len, 'X');
     append_u64(text, sizeof(text), &text_len, m->height);
-    ui_draw_text(root, (int64_t)(work_x + card_w + m->gap + 14),
-        (int64_t)work_y + 34, text, 0xb9d8df);
+    ui_draw_text(root, (int64_t)(scene_work_x + card_w + m->gap + 14),
+        (int64_t)scene_work_y + 34, text, 0xb9d8df);
 
-    draw_panel(root, (int64_t)(work_x + 2 * (card_w + m->gap)), (int64_t)work_y,
+    draw_panel(root, (int64_t)(scene_work_x + 2 * (card_w + m->gap)), (int64_t)scene_work_y,
         card_w, card_h, 0x241c28, 0x7f668f);
-    ui_draw_text(root, (int64_t)(work_x + 2 * (card_w + m->gap) + 14),
-        (int64_t)work_y + 16, "INPUT PIPE", 0xffffff);
-    ui_draw_text(root, (int64_t)(work_x + 2 * (card_w + m->gap) + 14),
-        (int64_t)work_y + 34, "MOUSE AND KEYS", 0xb9d8df);
+    ui_draw_text(root, (int64_t)(scene_work_x + 2 * (card_w + m->gap) + 14),
+        (int64_t)scene_work_y + 16, "INPUT PIPE", 0xffffff);
+    ui_draw_text(root, (int64_t)(scene_work_x + 2 * (card_w + m->gap) + 14),
+        (int64_t)scene_work_y + 34, "MOUSE AND KEYS", 0xb9d8df);
 
-    draw_panel(root, (int64_t)work_x, (int64_t)(m->height - m->status_h - m->margin),
+    draw_panel(root, (int64_t)scene_work_x, (int64_t)(m->height - m->status_h - m->margin),
         work_w, m->status_h, 0x111b24, 0x3f5d6b);
-    ui_draw_text(root, (int64_t)work_x + 14,
+    ui_draw_text(root, (int64_t)scene_work_x + 14,
         (int64_t)(m->height - m->status_h - m->margin + 14),
         "STATUS", 0xffffff);
-    ui_draw_text(root, (int64_t)work_x + 14,
+    ui_draw_text(root, (int64_t)scene_work_x + 14,
         (int64_t)(m->height - m->status_h - m->margin + 32),
         "GUI IPC SERVER ONLINE", 0xb9d8df);
 
@@ -749,6 +893,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 }
                 client->z = state->next_z;
                 copy_text(client->title, msg.text);
+                place_new_client(root, state, client);
                 mark_client_frame_dirty(root, client);
                 srv_puts("displayd: mapped surface window ");
                 srv_puts(client->title);
@@ -817,6 +962,7 @@ int main(int argc, char **argv) {
     int smoke = 0;
     int smoke_autostart = 0;
     int frame_smoke = 0;
+    int launcher_smoke = 0;
 
     for (int i = 1; i < argc; i++) {
         if (streq(argv[i], "--smoke")) {
@@ -828,6 +974,9 @@ int main(int argc, char **argv) {
             smoke = 1;
             smoke_autostart = 1;
             frame_smoke = 1;
+        } else if (streq(argv[i], "--launcher-smoke")) {
+            smoke = 1;
+            launcher_smoke = 1;
         }
     }
 
@@ -955,23 +1104,29 @@ int main(int argc, char **argv) {
 
             if (old_buttons != buttons) {
                 if ((buttons & 1) != 0 && (old_buttons & 1) == 0) {
-                    frame_client = client_frame_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
-                    if (frame_client != 0) {
-                        focus_client(&root, &state, frame_client);
-                        if (client_close_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
-                            close_client(&root, &state, frame_client);
-                        } else if (client_minimize_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
-                            toggle_client_minimized(&root, frame_client);
-                        } else if (client_title_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
-                            state.dragging_surface_id = frame_client->surface_id;
-                            state.drag_offset_x = (int64_t)mouse_x - frame_client->x;
-                            state.drag_offset_y = (int64_t)mouse_y - frame_client->y;
-                        } else if (client == frame_client && !frame_client->minimized) {
-                            send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
-                                local_x, local_y, client->width, client->height, buttons, "");
-                        }
-                    } else {
+                    int launcher_index = launcher_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
+                    if (launcher_index >= 0) {
                         focus_client(&root, &state, 0);
+                        launch_app(&root, &state, (uint64_t)launcher_index);
+                    } else {
+                        frame_client = client_frame_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
+                        if (frame_client != 0) {
+                            focus_client(&root, &state, frame_client);
+                            if (client_close_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                                close_client(&root, &state, frame_client);
+                            } else if (client_minimize_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                                toggle_client_minimized(&root, frame_client);
+                            } else if (client_title_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                                state.dragging_surface_id = frame_client->surface_id;
+                                state.drag_offset_x = (int64_t)mouse_x - frame_client->x;
+                                state.drag_offset_y = (int64_t)mouse_y - frame_client->y;
+                            } else if (client == frame_client && !frame_client->minimized) {
+                                send_client_event(client, GUI_MSG_V2_EVENT_POINTER_BUTTON,
+                                    local_x, local_y, client->width, client->height, buttons, "");
+                            }
+                        } else {
+                            focus_client(&root, &state, 0);
+                        }
                     }
                 } else if (!was_dragging) {
                     client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
@@ -987,7 +1142,7 @@ int main(int argc, char **argv) {
             cursor_dirty, buttons != 0 ? 0xf87171 : 0xffffff);
 
         if (smoke && (uint64_t)srv_ticks() - start_ticks >
-            (frame_smoke ? 220 : smoke_autostart ? 80 : 20)) {
+            (frame_smoke ? 220 : launcher_smoke ? 180 : smoke_autostart ? 80 : 20)) {
             srv_puts("displayd: smoke ok\n");
             break;
         }

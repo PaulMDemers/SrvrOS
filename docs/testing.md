@@ -437,6 +437,12 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `/fat/bin/displayd --frame-smoke-autostart`, injects pointer moves/clicks
   through QMP, and verifies focus, minimize/restore, title-bar drag, compositor
   close, app-side close handling, and clean compositor shutdown.
+- `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
+  `/fat/bin/displayd --launcher-smoke`, clicks the compositor dock launchers,
+  verifies `/fat/bin/notes2`, `/fat/bin/gui2demo`, and `/fat/bin/surfacedemo`
+  launch as separate clients, checks duplicate Notes windows stagger inside the
+  work area, confirms placeholder launchers fail without crashing, and exits
+  cleanly.
 
 ## DNS Test Domains
 
