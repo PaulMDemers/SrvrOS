@@ -325,6 +325,17 @@ void kmain(void) {
     }
     pci_init();
     xhci_init();
+    console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
+        keyboard_ready ? "yes" : "no",
+        mouse_ready ? "yes" : "no",
+        xhci_keyboard_count(),
+        xhci_mouse_count(),
+        xhci_device_count(),
+        xhci_hub_count());
+    if (!keyboard_ready && xhci_keyboard_count() == 0) {
+        console_write("input: no keyboard detected; usb diagnostics follow\n");
+        xhci_print_status();
+    }
     intel_gfx_init();
     ahci_init();
     mount_exfat_volume();

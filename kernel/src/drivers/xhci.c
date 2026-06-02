@@ -18,7 +18,8 @@
 #define XHCI_TRB_COUNT 64
 #define XHCI_EVENT_TRB_COUNT 64
 #define XHCI_MAX_PORTS 32
-#define XHCI_MAX_DEVICES 8
+#define XHCI_MAX_DEVICES 32
+#define XHCI_MAX_HUB_PORTS 15
 #define XHCI_RESET_TIMEOUT 10000000ull
 #define XHCI_COMMAND_TIMEOUT 10000000ull
 #define XHCI_TRANSFER_TIMEOUT 20000000ull
@@ -133,6 +134,7 @@ struct xhci_device {
     bool hid_keyboard;
     bool hid_mouse;
     bool hid_boot_mouse;
+    bool hid_boot_keyboard;
     bool hid_absolute_pointer;
     bool hid_have_absolute;
     bool interrupt_pending;
@@ -233,6 +235,7 @@ struct xhci_state {
     uint64_t routed_devices;
     uint64_t unsupported_devices;
     uint64_t transfer_events;
+    uint64_t device_record_full;
     uint64_t last_completion_code;
     uint64_t last_slot_id;
     struct xhci_port_state ports[XHCI_MAX_PORTS];
@@ -1002,11 +1005,21 @@ static bool parse_hid_input_config(struct xhci_device *device,
     uint16_t length,
     uint8_t *configuration_out) {
     uint64_t offset = 0;
-    bool input_hid = false;
+    uint8_t current_priority = 0;
     uint8_t current_interface = 0;
     uint8_t current_class = 0;
     uint8_t current_subclass = 0;
     uint8_t current_protocol = 0;
+    uint8_t best_priority = 0;
+    uint8_t best_interface = 0;
+    uint8_t best_dci = 0;
+    uint8_t best_interval = 0;
+    uint16_t best_packet = 0;
+    bool best_keyboard = false;
+    bool best_mouse = false;
+    bool best_boot_keyboard = false;
+    bool best_boot_mouse = false;
+    bool best_absolute_pointer = false;
     *configuration_out = device->descriptor_buffer[5];
     device->configuration_value = device->descriptor_buffer[5];
     device->interface_count = device->descriptor_buffer[4];
@@ -1028,6 +1041,9 @@ static bool parse_hid_input_config(struct xhci_device *device,
                 device->first_interface_subclass = current_subclass;
                 device->first_interface_protocol = current_protocol;
             }
+            bool keyboard_hid =
+                current_class == USB_CLASS_HID &&
+                current_protocol == USB_HID_PROTOCOL_KEYBOARD;
             bool boot_hid =
                 current_class == USB_CLASS_HID &&
                 current_subclass == USB_HID_SUBCLASS_BOOT &&
@@ -1037,32 +1053,55 @@ static bool parse_hid_input_config(struct xhci_device *device,
                 current_class == USB_CLASS_HID &&
                 current_subclass == 0 &&
                 current_protocol == 0;
-            input_hid = boot_hid || generic_pointer_candidate;
-            if (boot_hid) {
-                device->interface_number = current_interface;
-                device->hid_keyboard = current_protocol == USB_HID_PROTOCOL_KEYBOARD;
-                device->hid_mouse = current_protocol == USB_HID_PROTOCOL_MOUSE;
-                device->hid_boot_mouse = current_protocol == USB_HID_PROTOCOL_MOUSE;
+            current_priority = 0;
+            if (keyboard_hid) {
+                current_priority = 3;
+            } else if (boot_hid) {
+                current_priority = 2;
             } else if (generic_pointer_candidate) {
-                device->interface_number = current_interface;
-                device->hid_mouse = true;
-                device->hid_absolute_pointer = true;
+                current_priority = 1;
             }
-        } else if (type == USB_DESC_ENDPOINT && size >= 7 && input_hid) {
+        } else if (type == USB_DESC_ENDPOINT && size >= 7 && current_priority != 0) {
             uint8_t address = device->descriptor_buffer[offset + 2];
             uint8_t attributes = device->descriptor_buffer[offset + 3] & 0x03;
-            if ((address & USB_ENDPOINT_IN) != 0 && attributes == USB_ENDPOINT_INTERRUPT) {
-                device->interrupt_dci = endpoint_dci(address);
-                device->interrupt_max_packet =
+            if ((address & USB_ENDPOINT_IN) != 0 &&
+                attributes == USB_ENDPOINT_INTERRUPT &&
+                current_priority > best_priority) {
+                best_priority = current_priority;
+                best_interface = current_interface;
+                best_dci = endpoint_dci(address);
+                best_packet =
                     (uint16_t)device->descriptor_buffer[offset + 4] |
                     ((uint16_t)device->descriptor_buffer[offset + 5] << 8);
-                device->interrupt_interval = device->descriptor_buffer[offset + 6];
-                return true;
+                best_interval = device->descriptor_buffer[offset + 6];
+                best_keyboard = current_class == USB_CLASS_HID &&
+                    current_protocol == USB_HID_PROTOCOL_KEYBOARD;
+                best_mouse = current_class == USB_CLASS_HID &&
+                    current_protocol == USB_HID_PROTOCOL_MOUSE;
+                best_boot_keyboard = best_keyboard &&
+                    current_subclass == USB_HID_SUBCLASS_BOOT;
+                best_boot_mouse = best_mouse &&
+                    current_subclass == USB_HID_SUBCLASS_BOOT;
+                best_absolute_pointer = current_class == USB_CLASS_HID &&
+                    current_subclass == 0 &&
+                    current_protocol == 0;
             }
         }
         offset += size;
     }
-    return false;
+    if (best_priority == 0) {
+        return false;
+    }
+    device->interface_number = best_interface;
+    device->interrupt_dci = best_dci;
+    device->interrupt_max_packet = best_packet;
+    device->interrupt_interval = best_interval;
+    device->hid_keyboard = best_keyboard;
+    device->hid_mouse = best_mouse || best_absolute_pointer;
+    device->hid_boot_keyboard = best_boot_keyboard;
+    device->hid_boot_mouse = best_boot_mouse;
+    device->hid_absolute_pointer = best_absolute_pointer;
+    return true;
 }
 
 static bool configure_interrupt_endpoint(struct xhci_device *device) {
@@ -1315,6 +1354,7 @@ static void xhci_poll_worker(void *arg) {
 
 static struct xhci_device *allocate_device_record(void) {
     if (xhci.addressed_devices >= XHCI_MAX_DEVICES) {
+        xhci.device_record_full++;
         return 0;
     }
     return &xhci.devices[xhci.addressed_devices];
@@ -1348,7 +1388,7 @@ static bool reset_hub_port(struct xhci_device *hub, uint8_t port, uint32_t *stat
         return false;
     }
     xhci.hub_ports_powered++;
-    for (uint64_t i = 0; i < 50000; i++) {
+    for (uint64_t i = 0; i < 250000; i++) {
         __asm__ volatile ("pause");
     }
     if (!hub_get_port_status(hub, port, &status) ||
@@ -1386,8 +1426,8 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
         return false;
     }
     hub->hub_ports = hub->descriptor_buffer[2];
-    if (hub->hub_ports > 8) {
-        hub->hub_ports = 8;
+    if (hub->hub_ports > XHCI_MAX_HUB_PORTS) {
+        hub->hub_ports = XHCI_MAX_HUB_PORTS;
     }
     if (hub->hub_ports == 0) {
         return true;
@@ -1409,6 +1449,9 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
         }
         struct xhci_device *child = allocate_device_record();
         if (child == 0) {
+            console_printf("xhci: device table full while scanning hub slot=%u port=%u\n",
+                (uint64_t)hub->slot_id,
+                (uint64_t)port);
             return false;
         }
         *child = (struct xhci_device) {
@@ -1501,7 +1544,7 @@ static bool enumerate_device(struct xhci_device *device) {
     }
     device->configured = true;
     xhci.configured_devices++;
-    if (device->hid_keyboard || device->hid_boot_mouse) {
+    if (device->hid_boot_keyboard || device->hid_boot_mouse) {
         (void)set_hid_boot_protocol(device);
     }
 
@@ -1641,6 +1684,22 @@ bool xhci_is_present(void) {
     return xhci.present;
 }
 
+uint64_t xhci_keyboard_count(void) {
+    return xhci.hid_keyboards;
+}
+
+uint64_t xhci_mouse_count(void) {
+    return xhci.hid_mice;
+}
+
+uint64_t xhci_device_count(void) {
+    return xhci.addressed_devices;
+}
+
+uint64_t xhci_hub_count(void) {
+    return xhci.hubs_seen;
+}
+
 void xhci_print_status(void) {
     if (!xhci.present) {
         console_write("xhci: no controller detected\n");
@@ -1686,7 +1745,7 @@ void xhci_print_status(void) {
     console_printf("xhci: ports_reset=%u ports_enabled=%u\n",
         xhci.ports_reset,
         xhci.ports_enabled);
-    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u hubs=%u hub_power=%u hub_reset=%u routed=%u unsupported=%u transfer_events=%u\n",
+    console_printf("xhci: usb addressed=%u configured=%u hid_keyboards=%u hid_mice=%u hubs=%u hub_power=%u hub_reset=%u routed=%u unsupported=%u full=%u transfer_events=%u\n",
         xhci.addressed_devices,
         xhci.configured_devices,
         xhci.hid_keyboards,
@@ -1696,6 +1755,7 @@ void xhci_print_status(void) {
         xhci.hub_ports_reset,
         xhci.routed_devices,
         xhci.unsupported_devices,
+        xhci.device_record_full,
         xhci.transfer_events);
     uint64_t count = xhci.port_count;
     if (count > XHCI_MAX_PORTS) {
