@@ -219,10 +219,7 @@ static void launch_notes_app(void) {
     notes_path[11] = 't';
     notes_path[12] = 'e';
     notes_path[13] = 's';
-    notes_path[14] = 'g';
-    notes_path[15] = 'u';
-    notes_path[16] = 'i';
-    notes_path[17] = '\0';
+    notes_path[14] = '\0';
     launch_app(notes_label, notes_path);
 }
 
@@ -844,10 +841,10 @@ int main(int argc, char **argv) {
 
     ui_surface_init(&surface, BUTTON_W, BUTTON_H, BUTTON_W, launch_calc_pixels);
     init_button(&launch_calc, surface, 16, 40, BUTTON_W, BUTTON_H,
-        &launch_calc_state, "CALC", 0x397367, launch_action, "/fat/bin/calcgui", 0);
+        &launch_calc_state, "CALC", 0x397367, launch_action, "/fat/bin/calc", 0);
     ui_surface_init(&surface, BUTTON_W, BUTTON_H, BUTTON_W, launch_notes_pixels);
     init_button(&launch_notes, surface, 16, 76, BUTTON_W, BUTTON_H,
-        &launch_notes_state, "NOTES", 0x397367, launch_action, "/fat/bin/notesgui", 0);
+        &launch_notes_state, "NOTES", 0x397367, launch_action, "/fat/bin/notes", 0);
     ui_surface_init(&surface, BUTTON_W, BUTTON_H, BUTTON_W, launch_edit_pixels);
     init_button(&launch_edit, surface, 16, 112, BUTTON_W, BUTTON_H,
         &launch_edit_state, "EDIT", 0x397367, launch_action, "/fat/bin/textedit", 0);

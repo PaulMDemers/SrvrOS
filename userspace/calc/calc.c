@@ -226,7 +226,7 @@ static void draw_calc(struct gui2_window *window, struct gui2_button *buttons,
     format_display(state, display, sizeof(display));
     layout_buttons(window, buttons);
     gui2_clear(window, theme->canvas);
-    gui2_text(window, (int64_t)pad, (int64_t)pad, "CALC2", theme->text);
+    gui2_text(window, (int64_t)pad, (int64_t)pad, "CALC", theme->text);
     gui2_text(window, (int64_t)(pad + 70), (int64_t)pad,
         state->status[0] != '\0' ? state->status : "READY", theme->text_muted);
     gui2_panel(window, (int64_t)pad, (int64_t)(pad + 26), display_w, 58, theme->field);
@@ -249,10 +249,10 @@ int main(void) {
     };
     uint64_t start;
 
-    srv_puts("calc2: start\n");
-    if (gui2_window_open(&window, WIN, "CALC2",
+    srv_puts("calc: start\n");
+    if (gui2_window_open(&window, WIN, "CALC",
             720, 230, WIDTH, HEIGHT, gui2_theme_default()->canvas) != 0) {
-        srv_puts("calc2: window open failed\n");
+        srv_puts("calc: window open failed\n");
         return 1;
     }
     gui2_context_init(&context);
@@ -278,19 +278,19 @@ int main(void) {
         }
         while (gui2_poll_event(&window, &event) > 0) {
             if (event.type == GUI2_EVENT_CONFIGURE) {
-                srv_puts("calc2: configure ");
+                srv_puts("calc: configure ");
                 print_u64(event.width);
                 srv_puts("x");
                 print_u64(event.height);
                 srv_puts("\n");
                 if (gui2_window_resize(&window, event.width, event.height) != 0) {
-                    srv_puts("calc2: resize failed\n");
+                    srv_puts("calc: resize failed\n");
                 }
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;
             } else if (event.type == GUI2_EVENT_CLOSE) {
-                srv_puts("calc2: close\n");
+                srv_puts("calc: close\n");
                 closing = 1;
                 break;
             }
@@ -299,7 +299,7 @@ int main(void) {
                 if (buttons[i].clicks != 0) {
                     buttons[i].clicks = 0;
                     press_value(&state, button_defs[i].value);
-                    srv_puts("calc2: press ");
+                    srv_puts("calc: press ");
                     srv_puts(button_defs[i].label);
                     srv_puts("\n");
                     changed = 1;
@@ -317,6 +317,6 @@ int main(void) {
     }
 
     gui2_window_close(&window);
-    srv_puts("calc2: exited\n");
+    srv_puts("calc: exited\n");
     return 0;
 }

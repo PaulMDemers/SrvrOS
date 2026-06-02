@@ -117,8 +117,8 @@ def main():
         "surfacedemo: configure",
         "displayd: mapped surface window GUI2 DEMO",
         "gui2demo: configure",
-        "displayd: mapped surface window NOTES2",
-        "notes2: configure",
+        "displayd: mapped surface window NOTES",
+        "notes: configure",
         "displayd: smoke ok",
         "displayd: exited",
     ]

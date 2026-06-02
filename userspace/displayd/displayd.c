@@ -70,10 +70,10 @@ struct display_state {
 };
 
 static const struct display_launcher launchers[] = {
-    { "NOTES", "/fat/bin/notes2", 0x2f6f68 },
+    { "NOTES", "/fat/bin/notes", 0x2f6f68 },
     { "GUI2", "/fat/bin/gui2demo", 0x335b7a },
     { "SURFACE", "/fat/bin/surfacedemo", 0x60548d },
-    { "CALC2", "/fat/bin/calc2", 0x70485f },
+    { "CALC", "/fat/bin/calc", 0x70485f },
 };
 
 #define DISPLAY_LAUNCHER_COUNT (sizeof(launchers) / sizeof(launchers[0]))
@@ -1136,8 +1136,8 @@ int main(int argc, char **argv) {
             print_u64((uint64_t)pid);
             srv_puts("\n");
         }
-        pid = srv_spawn_bg("/fat/bin/notes2");
-        srv_puts("displayd: launched notes2 pid=");
+        pid = srv_spawn_bg("/fat/bin/notes");
+        srv_puts("displayd: launched notes pid=");
         if (pid < 0) {
             srv_puts("failed\n");
         } else {

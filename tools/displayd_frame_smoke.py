@@ -170,10 +170,10 @@ def main():
             serial.sendall(b"run /fat/bin/sh\n")
             output += read_until(serial, b" $ ", args.shell_wait)
             serial.sendall(b"displayd --frame-smoke-autostart\n")
-            output += read_until(serial, b"displayd: mapped surface window NOTES2", args.map_wait)
+            output += read_until(serial, b"displayd: mapped surface window NOTES", args.map_wait)
 
             mouse = Mouse(qmp)
-            # Notes2 title frame starts at 260,330. Minimize button is near x=286,y=336.
+            # Notes title frame starts at 260,330. Minimize button is near x=286,y=336.
             mouse.click(286, 336)
             output += read_for(serial, args.action_wait)
             mouse.click(286, 336)
@@ -200,10 +200,10 @@ def main():
     expected = [
         "displayd: mapped surface window SURFACE DEMO",
         "displayd: mapped surface window GUI2 DEMO",
-        "displayd: mapped surface window NOTES2",
-        "displayd: minimize NOTES2 state=1",
-        "displayd: minimize NOTES2 state=0",
-        "displayd: drag NOTES2",
+        "displayd: mapped surface window NOTES",
+        "displayd: minimize NOTES state=1",
+        "displayd: minimize NOTES state=0",
+        "displayd: drag NOTES",
         "displayd: resize GUI2 DEMO 360x216",
         "gui2demo: configure 360x216",
         "displayd: close GUI2 DEMO",

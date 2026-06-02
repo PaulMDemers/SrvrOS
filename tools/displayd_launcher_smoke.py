@@ -191,16 +191,16 @@ def main():
 
     expected = [
         "displayd: root backbuffer ready",
-        "displayd: launch NOTES /fat/bin/notes2 pid=",
-        "displayd: place NOTES2 x=260 y=330",
-        "displayd: place NOTES2 x=288 y=358",
+        "displayd: launch NOTES /fat/bin/notes pid=",
+        "displayd: place NOTES x=260 y=330",
+        "displayd: place NOTES x=288 y=358",
         "displayd: launch GUI2 /fat/bin/gui2demo pid=",
         "displayd: mapped surface window GUI2 DEMO",
         "displayd: launch SURFACE /fat/bin/surfacedemo pid=",
         "displayd: mapped surface window SURFACE DEMO",
-        "displayd: launch CALC2 /fat/bin/calc2 pid=",
-        "displayd: mapped surface window CALC2",
-        "calc2: configure",
+        "displayd: launch CALC /fat/bin/calc pid=",
+        "displayd: mapped surface window CALC",
+        "calc: configure",
         "displayd: smoke ok",
     ]
     missing = [marker for marker in expected if marker not in text]

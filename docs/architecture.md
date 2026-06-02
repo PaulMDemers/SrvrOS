@@ -363,7 +363,7 @@ The generated `/fat/bin` command set is tracked in
 - Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
   `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
 - GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `surfacedemo`,
-  `gui2demo`, `calcgui`, `calc2`, `notesgui`, `notes2`, `textedit`, `imgedit`, `sysabi`, `spin`,
+  `gui2demo`, `calc`, `notes`, `textedit`, `imgedit`, `sysabi`, `spin`,
   `fpdemo`, `posixdemo`,
   `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
 
@@ -629,9 +629,9 @@ close requests. The app-side `gui2` library wraps that protocol with window
 open/close, resize, surface present/damage, event polling, theme/layout helpers,
 shared widget dispatch, and early button/textbox widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
-`/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes2`
+`/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
 is the first small GUI2 utility, with a focused textbox and buttons rendered
-inside an app-owned surface. `/fat/bin/calc2` is the first GUI2 port of a legacy
+inside an app-owned surface. `/fat/bin/calc` is the first GUI2 port of a legacy
 desktop utility: a resizable integer calculator with app-owned buttons and
 configure-driven surface recreation.
 

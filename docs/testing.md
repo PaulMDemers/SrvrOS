@@ -428,7 +428,7 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `gui_smoke.py`: desktop/UI launch sanity and fatal exception detection.
 - `displayd_smoke.py`: hidden-QEMU compositor seed smoke that verifies
   `/fat/bin/displayd --smoke-autostart` registers, draws its root backbuffer,
-  launches `/fat/bin/surfacedemo`, `/fat/bin/gui2demo`, and `/fat/bin/notes2`,
+  launches `/fat/bin/surfacedemo`, `/fat/bin/gui2demo`, and `/fat/bin/notes`,
   maps all three v2 surface windows, routes configure events to the clients, and
   exits without a fatal exception. Manual GUI checks should also cover the
   compositor-owned v2 frame controls: title-bar dragging, focus raise,
@@ -440,8 +440,8 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   handling, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
   `/fat/bin/displayd --launcher-smoke`, clicks the compositor dock launchers,
-  verifies `/fat/bin/notes2`, `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and
-  `/fat/bin/calc2` launch as separate clients, checks duplicate Notes windows
+  verifies `/fat/bin/notes`, `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and
+  `/fat/bin/calc` launch as separate clients, checks duplicate Notes windows
   stagger inside the work area, and exits cleanly.
 - `displayd_resolution_smoke.py`: hidden-QEMU resolution smoke that builds
   temporary Limine ISOs with framebuffer requests for 800x600, 1280x800,

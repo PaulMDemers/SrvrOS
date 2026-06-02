@@ -45,7 +45,7 @@ server.
   presents, event polling, and first button/textbox widgets. `/fat/bin/gui2demo`
   exercises that path under the displayd smoke.
 - Gives `gui2` a shared theme, row layout helper, focus-aware widget dispatch,
-  and textbox cursor support, then adds `/fat/bin/notes2` as the first small
+  and textbox cursor support, then adds `/fat/bin/notes` as the first small
   GUI2 utility app. The displayd smoke now launches and maps it beside the raw
   surface and widget demos.
 - Adds the first active `displayd` window-manager behavior for GUI2 surfaces:
@@ -60,13 +60,13 @@ server.
   Notes, GUI2 Demo, and Surface Demo from the dock.
 - Adds bottom-right resize grips for `displayd` GUI2 windows. The `gui2`
   library can recreate kernel-managed backing surfaces on configure events, and
-  the GUI2 demo, Notes2, and Surface Demo redraw into their resized surfaces.
+  the GUI2 demo, Notes, and Surface Demo redraw into their resized surfaces.
 - Adds `tools/displayd_resolution_smoke.py`, which builds temporary
   resolution-specific Limine ISOs and verifies `displayd` at 800x600,
   1280x800, 1440x900, and 1920x1080.
-- Adds `/fat/bin/calc2`, a resizable GUI2 calculator client with an app-owned
+- Adds `/fat/bin/calc`, a resizable GUI2 calculator client with an app-owned
   surface, integer arithmetic controls, configure/resize handling, and dock
-  launcher smoke coverage. The legacy `/fat/bin/calcgui` remains available.
+  launcher smoke coverage, replacing the legacy `/fat/bin/calcgui` packaging.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

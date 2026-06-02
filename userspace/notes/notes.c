@@ -67,7 +67,7 @@ static void draw_notes(struct gui2_window *window,
     uint64_t list_height = window->height > 148 ? window->height - 148 : 44;
 
     gui2_clear(window, theme->canvas);
-    gui2_label(window, 14, 12, "NOTES2");
+    gui2_label(window, 14, 12, "NOTES");
     gui2_text(window, 14, 28, window->focused ? "READY" : "BACKGROUND", theme->text_muted);
 
     gui2_layout_begin(&layout, 14, 48, layout_width);
@@ -106,10 +106,10 @@ int main(void) {
     char items[512];
     uint64_t start;
 
-    srv_puts("notes2: start\n");
-    if (gui2_window_open(&window, WIN, "NOTES2",
+    srv_puts("notes: start\n");
+    if (gui2_window_open(&window, WIN, "NOTES",
             260, 330, WIDTH, HEIGHT, gui2_theme_default()->canvas) != 0) {
-        srv_puts("notes2: window open failed\n");
+        srv_puts("notes: window open failed\n");
         return 1;
     }
 
@@ -138,19 +138,19 @@ int main(void) {
         }
         while (gui2_poll_event(&window, &event) > 0) {
             if (event.type == GUI2_EVENT_CONFIGURE) {
-                srv_puts("notes2: configure ");
+                srv_puts("notes: configure ");
                 print_u64(event.width);
                 srv_puts("x");
                 print_u64(event.height);
                 srv_puts("\n");
                 if (gui2_window_resize(&window, event.width, event.height) != 0) {
-                    srv_puts("notes2: resize failed\n");
+                    srv_puts("notes: resize failed\n");
                 }
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;
             } else if (event.type == GUI2_EVENT_CLOSE) {
-                srv_puts("notes2: close\n");
+                srv_puts("notes: close\n");
                 closing = 1;
                 break;
             }
@@ -163,7 +163,7 @@ int main(void) {
                     copy_text(draft, sizeof(draft), "");
                     entry.length = 0;
                     entry.cursor = 0;
-                    srv_puts("notes2: add\n");
+                    srv_puts("notes: add\n");
                 }
                 changed = 1;
             }
@@ -173,7 +173,7 @@ int main(void) {
                 copy_text(draft, sizeof(draft), "");
                 entry.length = 0;
                 entry.cursor = 0;
-                srv_puts("notes2: clear\n");
+                srv_puts("notes: clear\n");
                 changed = 1;
             }
         }
@@ -188,6 +188,6 @@ int main(void) {
     }
 
     gui2_window_close(&window);
-    srv_puts("notes2: exited\n");
+    srv_puts("notes: exited\n");
     return 0;
 }
