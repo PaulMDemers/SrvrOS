@@ -20,6 +20,8 @@
 #define WINDOW_MIN_HEIGHT 96
 #define DISPLAY_LIFECYCLE_SWEEP_TICKS 8
 #define DISPLAY_CLOSE_KILL_TICKS 80
+#define TASKBAR_BUTTON_MIN_WIDTH 104
+#define TASKBAR_BUTTON_MAX_WIDTH 176
 
 struct display_launcher {
     const char *label;
@@ -261,6 +263,92 @@ static int launcher_rect(const struct display_metrics *m, uint64_t index,
     return 1;
 }
 
+static int taskbar_rect(const struct display_metrics *m,
+    int64_t *x, int64_t *y, uint64_t *width, uint64_t *height) {
+    if (m == 0) {
+        return 0;
+    }
+    if (x != 0) {
+        *x = work_x(m);
+    }
+    if (y != 0) {
+        *y = (int64_t)(m->height - m->status_h - m->margin);
+    }
+    if (width != 0) {
+        *width = work_width(m);
+    }
+    if (height != 0) {
+        *height = m->status_h;
+    }
+    return m->height > m->status_h + m->margin;
+}
+
+static uint64_t visible_client_count(const struct display_state *state) {
+    uint64_t count = 0;
+    if (state == 0) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        if (state->clients[i].used) {
+            count++;
+        }
+    }
+    return count;
+}
+
+static int taskbar_button_rect(const struct display_state *state,
+    uint64_t client_index,
+    int64_t *x,
+    int64_t *y,
+    uint64_t *width,
+    uint64_t *height) {
+    const struct display_metrics *m;
+    int64_t bar_x;
+    int64_t bar_y;
+    uint64_t bar_w;
+    uint64_t bar_h;
+    uint64_t count;
+    uint64_t button_w;
+    uint64_t slot = 0;
+    uint64_t label_w;
+    if (state == 0 || client_index >= DISPLAY_CLIENT_MAX || !state->clients[client_index].used) {
+        return 0;
+    }
+    m = &state->metrics;
+    if (!taskbar_rect(m, &bar_x, &bar_y, &bar_w, &bar_h)) {
+        return 0;
+    }
+    label_w = min_u64(180, bar_w / 4);
+    if (bar_w <= label_w + 3 * m->gap || bar_h <= 2 * m->gap) {
+        return 0;
+    }
+    count = max_u64(1, visible_client_count(state));
+    button_w = (bar_w - label_w - 3 * m->gap) / count;
+    button_w = min_u64(TASKBAR_BUTTON_MAX_WIDTH, button_w);
+    if (button_w < TASKBAR_BUTTON_MIN_WIDTH && count <= 4) {
+        button_w = min_u64(TASKBAR_BUTTON_MIN_WIDTH, bar_w - label_w - 3 * m->gap);
+    }
+    for (uint64_t i = 0; i < client_index; i++) {
+        if (state->clients[i].used) {
+            slot++;
+        }
+    }
+    if (x != 0) {
+        *x = bar_x + (int64_t)label_w + (int64_t)(2 * m->gap) +
+            (int64_t)(slot * (button_w + m->gap));
+    }
+    if (y != 0) {
+        *y = bar_y + (int64_t)m->gap;
+    }
+    if (width != 0) {
+        *width = button_w;
+    }
+    if (height != 0) {
+        *height = bar_h > 2 * m->gap ? bar_h - 2 * m->gap : 1;
+    }
+    return slot < count;
+}
+
 static uint64_t client_frame_width(const struct display_client *client) {
     return client != 0 ? client->width + 2 : 0;
 }
@@ -389,6 +477,26 @@ static int launcher_at(const struct display_state *state, int64_t x, int64_t y) 
     return -1;
 }
 
+static struct display_client *taskbar_client_at(struct display_state *state, int64_t x, int64_t y) {
+    if (state == 0) {
+        return 0;
+    }
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        int64_t bx;
+        int64_t by;
+        uint64_t bw;
+        uint64_t bh;
+        if (!state->clients[i].used) {
+            continue;
+        }
+        if (taskbar_button_rect(state, i, &bx, &by, &bw, &bh) &&
+            rect_hit(bx, by, bw, bh, x, y)) {
+            return &state->clients[i];
+        }
+    }
+    return 0;
+}
+
 static struct display_client *find_client(struct display_state *state,
     uint64_t pid,
     uint64_t window_id,
@@ -471,6 +579,18 @@ static void mark_client_frame_dirty(struct ui_element *root, const struct displa
         client->y,
         client_frame_width(client),
         client_frame_height(client));
+}
+
+static void mark_taskbar_dirty(struct ui_element *root, const struct display_state *state) {
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    if (root == 0 || state == 0 ||
+        !taskbar_rect(&state->metrics, &x, &y, &width, &height)) {
+        return;
+    }
+    ui_mark_dirty_rect(root, x, y, width, height);
 }
 
 static int process_state_is_running(const char *state) {
@@ -563,6 +683,7 @@ static void focus_client(struct ui_element *root, struct display_state *state,
     if (old != 0) {
         old->focused = 0;
         mark_client_frame_dirty(root, old);
+        mark_taskbar_dirty(root, state);
         send_client_event(old, GUI_MSG_V2_EVENT_FOCUS, 0, 0,
             old->width, old->height, 0, "");
     }
@@ -572,6 +693,7 @@ static void focus_client(struct ui_element *root, struct display_state *state,
         raise_client(root, state, client);
         client->focused = 1;
         mark_client_frame_dirty(root, client);
+        mark_taskbar_dirty(root, state);
         srv_puts("displayd: focus ");
         srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
         srv_puts("\n");
@@ -796,11 +918,31 @@ static void toggle_client_minimized(struct ui_element *root, struct display_clie
     client->minimized = !client->minimized;
     clamp_client_position(root, client);
     mark_client_frame_dirty(root, client);
+    mark_taskbar_dirty(root, (const struct display_state *)root->userdata);
     srv_puts("displayd: minimize ");
     srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
     srv_puts(" state=");
     print_u64(client->minimized ? 1 : 0);
     srv_puts("\n");
+}
+
+static void activate_taskbar_client(struct ui_element *root, struct display_state *state,
+    struct display_client *client) {
+    if (root == 0 || state == 0 || client == 0 || !client->used) {
+        return;
+    }
+    if (client->minimized) {
+        mark_client_frame_dirty(root, client);
+        client->minimized = 0;
+        clamp_client_position(root, client);
+        mark_client_frame_dirty(root, client);
+        srv_puts("displayd: taskbar restore ");
+    } else {
+        srv_puts("displayd: taskbar focus ");
+    }
+    log_client_title(client);
+    srv_puts("\n");
+    focus_client(root, state, client);
 }
 
 static void close_client(struct ui_element *root, struct display_state *state,
@@ -973,6 +1115,64 @@ static void draw_dock_button(struct ui_element *root, const struct display_metri
     ui_draw_text(root, x + 10, y + (int64_t)((m->button_h - 7) / 2), label, 0xf2f7ff);
 }
 
+static void make_taskbar_label(const struct display_client *client,
+    char *out, uint64_t capacity, uint64_t button_width) {
+    uint64_t len = 0;
+    uint64_t max_chars;
+    const char *title;
+    if (out == 0 || capacity == 0) {
+        return;
+    }
+    max_chars = button_width > 24 ? (button_width - 16) / 8 : 1;
+    max_chars = min_u64(max_chars, capacity - 1);
+    title = client != 0 && client->title[0] != '\0' ? client->title : "SURFACE";
+    if (client != 0 && client->minimized && len < max_chars) {
+        append_char(out, capacity, &len, '+');
+    }
+    for (uint64_t i = 0; title[i] != '\0' && len < max_chars; i++) {
+        append_char(out, capacity, &len, title[i]);
+    }
+    out[len] = '\0';
+}
+
+static void draw_taskbar(struct ui_element *root, const struct display_state *state) {
+    const struct display_metrics *m;
+    int64_t x;
+    int64_t y;
+    uint64_t width;
+    uint64_t height;
+    if (root == 0 || state == 0) {
+        return;
+    }
+    m = &state->metrics;
+    if (!taskbar_rect(m, &x, &y, &width, &height)) {
+        return;
+    }
+    draw_panel(root, x, y, width, height, 0x111b24, 0x3f5d6b);
+    ui_draw_text(root, x + 14, y + 12, "TASKS", 0xffffff);
+    ui_draw_text(root, x + 14, y + 30, "GUI IPC ONLINE", 0xb9d8df);
+    for (uint64_t i = 0; i < DISPLAY_CLIENT_MAX; i++) {
+        const struct display_client *client = &state->clients[i];
+        int64_t bx;
+        int64_t by;
+        uint64_t bw;
+        uint64_t bh;
+        char label[GUI_TEXT_MAX];
+        uint32_t fill;
+        uint32_t border;
+        if (!client->used ||
+            !taskbar_button_rect(state, i, &bx, &by, &bw, &bh)) {
+            continue;
+        }
+        fill = client->focused ? 0x2f6f68 : client->minimized ? 0x18242e : 0x17232d;
+        border = client->focused ? 0xf5b84b : 0x486476;
+        draw_panel(root, bx, by, bw, bh, fill, border);
+        make_taskbar_label(client, label, sizeof(label), bw);
+        ui_draw_text(root, bx + 8, by + (int64_t)((bh > 8 ? bh - 8 : 0) / 2), label,
+            client->minimized ? 0xf5b84b : 0xf2f7ff);
+    }
+}
+
 static void draw_scene(struct ui_element *root) {
     struct display_state *state = (struct display_state *)root->userdata;
     const struct display_metrics *m = &state->metrics;
@@ -1022,14 +1222,7 @@ static void draw_scene(struct ui_element *root) {
     ui_draw_text(root, (int64_t)(scene_work_x + 2 * (card_w + m->gap) + 14),
         (int64_t)scene_work_y + 34, "MOUSE AND KEYS", 0xb9d8df);
 
-    draw_panel(root, (int64_t)scene_work_x, (int64_t)(m->height - m->status_h - m->margin),
-        work_w, m->status_h, 0x111b24, 0x3f5d6b);
-    ui_draw_text(root, (int64_t)scene_work_x + 14,
-        (int64_t)(m->height - m->status_h - m->margin + 14),
-        "STATUS", 0xffffff);
-    ui_draw_text(root, (int64_t)scene_work_x + 14,
-        (int64_t)(m->height - m->status_h - m->margin + 32),
-        "GUI IPC SERVER ONLINE", 0xb9d8df);
+    draw_taskbar(root, state);
 
     draw_clients(root, state);
 }
@@ -1123,6 +1316,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                     clamp_client_position(root, client);
                 }
                 mark_client_frame_dirty(root, client);
+                mark_taskbar_dirty(root, state);
                 srv_puts("displayd: mapped surface window ");
                 srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
                 srv_puts(" surface=");
@@ -1345,8 +1539,12 @@ int main(int argc, char **argv) {
                         focus_client(&root, &state, 0);
                         launch_app(&root, &state, (uint64_t)launcher_index);
                     } else {
-                        frame_client = client_frame_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
-                        if (frame_client != 0) {
+                        struct display_client *task_client =
+                            taskbar_client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y);
+                        if (task_client != 0) {
+                            activate_taskbar_client(&root, &state, task_client);
+                        } else if ((frame_client =
+                                client_frame_at(&state, (int64_t)mouse_x, (int64_t)mouse_y)) != 0) {
                             focus_client(&root, &state, frame_client);
                             if (client_close_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
                                 close_client(&root, &state, frame_client);

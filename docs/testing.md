@@ -436,9 +436,9 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `displayd_frame_smoke.py`: hidden-QEMU/QMP frame-control smoke that launches
   `/fat/bin/gui --frame-smoke-autostart`, injects pointer moves/clicks through
   QMP, and verifies focus, minimize/restore, title-bar drag, compositor
-  bottom-right resize with app surface recreation, close, app-side close
-  handling, compositor-side client cleanup, relaunch after cleanup, resize
-  after relaunch, and clean compositor shutdown.
+  taskbar restore/focus, bottom-right resize with app surface recreation,
+  close, app-side close handling, compositor-side client cleanup, relaunch
+  after cleanup, resize after relaunch, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
   `/fat/bin/gui --launcher-smoke`, clicks the compositor dock launchers,
   verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/paint`,

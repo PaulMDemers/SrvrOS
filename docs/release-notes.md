@@ -87,6 +87,10 @@ server.
   periodic background-process reaping, close-timeout escalation, stale
   focus/hover/drag/resize cleanup, and frame smoke coverage for close cleanup,
   relaunch, and resize after relaunch through `/fat/bin/gui`.
+- Adds a running-window taskbar to `displayd`. The bottom status band now shows
+  GUI client entries; clicking an entry raises/focuses that window or restores
+  it if minimized, with hidden-QEMU frame smoke coverage for taskbar restore
+  and focus switching.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

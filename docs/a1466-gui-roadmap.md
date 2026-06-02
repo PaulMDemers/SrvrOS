@@ -254,8 +254,10 @@ surface windows. It also owns dock launchers for `/fat/bin/notes`,
 `/fat/bin/textedit`, `/fat/bin/paint`, `/fat/bin/gui2demo`,
 `/fat/bin/surfacedemo`, and `/fat/bin/calc`, with
 hidden-QEMU coverage for duplicate instance placement and dock-launched GUI2
-clients. Bottom-right resize grips now send configure events, and GUI2 clients
-recreate their kernel-managed backing surface and redraw at the requested size.
+clients. The bottom taskbar lists running GUI clients and supports
+click-to-focus plus restore from minimized state. Bottom-right resize grips now
+send configure events, and GUI2 clients recreate their kernel-managed backing
+surface and redraw at the requested size.
 Pixel storage is currently kernel-managed through
 `gui_surface_create`,
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.

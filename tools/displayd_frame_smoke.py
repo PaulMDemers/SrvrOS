@@ -175,14 +175,18 @@ def main():
             mouse = Mouse(qmp)
             # Notes title frame starts at 260,330. Minimize button is near x=286,y=336.
             mouse.click(286, 336)
-            output += read_for(serial, args.action_wait)
-            mouse.click(286, 336)
-            output += read_for(serial, args.action_wait)
+            output += read_until(serial, b"displayd: minimize NOTES state=1", args.action_wait)
+            # Notes taskbar entry is the third task button at 1280x800.
+            mouse.click(760, 760)
+            output += read_until(serial, b"displayd: taskbar restore NOTES", args.action_wait)
+            # GUI2 Demo taskbar entry is the second task button.
+            mouse.click(560, 760)
+            output += read_until(serial, b"displayd: taskbar focus GUI2 DEMO", args.action_wait)
             mouse.drag(340, 342, 430, 390)
-            output += read_for(serial, args.action_wait)
+            output += read_until(serial, b"displayd: drag NOTES", args.action_wait)
             # GUI2 demo frame starts at 620,240 and is 302x206. Drag the bottom-right grip.
             mouse.drag(920, 444, 980, 480)
-            output += read_for(serial, args.action_wait)
+            output += read_until(serial, b"displayd: resize GUI2 DEMO 360x216", args.action_wait)
             # GUI2 demo title frame starts at 620,240. Close button is near x=633,y=246.
             mouse.click(633, 246)
             output += read_until(serial, b"displayd: remove GUI2 DEMO reason=destroy", args.action_wait)
@@ -190,7 +194,7 @@ def main():
             mouse.click(60, 167)
             output += read_until(serial, b"displayd: mapped surface window GUI2 DEMO", args.map_wait)
             mouse.drag(920, 444, 980, 480)
-            output += read_for(serial, args.action_wait)
+            output += read_until(serial, b"displayd: resize GUI2 DEMO 360x216", args.action_wait)
             output += read_until(serial, b"displayd: smoke ok", args.final_wait)
         finally:
             try:
@@ -208,7 +212,8 @@ def main():
         "displayd: mapped surface window GUI2 DEMO",
         "displayd: mapped surface window NOTES",
         "displayd: minimize NOTES state=1",
-        "displayd: minimize NOTES state=0",
+        "displayd: taskbar restore NOTES",
+        "displayd: taskbar focus GUI2 DEMO",
         "displayd: drag NOTES",
         "displayd: resize GUI2 DEMO 360x216",
         "gui2demo: configure 360x216",
