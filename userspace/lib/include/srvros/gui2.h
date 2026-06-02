@@ -135,6 +135,7 @@ const struct gui2_theme *gui2_theme_default(void);
 int gui2_window_open(struct gui2_window *window, uint64_t window_id,
     const char *title, int64_t x, int64_t y, uint64_t width,
     uint64_t height, uint32_t background);
+int gui2_window_resize(struct gui2_window *window, uint64_t width, uint64_t height);
 void gui2_window_close(struct gui2_window *window);
 void gui2_window_mark_dirty(struct gui2_window *window, int64_t x, int64_t y,
     uint64_t width, uint64_t height);

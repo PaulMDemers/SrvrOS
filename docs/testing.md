@@ -436,13 +436,18 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 - `displayd_frame_smoke.py`: hidden-QEMU/QMP frame-control smoke that launches
   `/fat/bin/displayd --frame-smoke-autostart`, injects pointer moves/clicks
   through QMP, and verifies focus, minimize/restore, title-bar drag, compositor
-  close, app-side close handling, and clean compositor shutdown.
+  bottom-right resize with app surface recreation, close, app-side close
+  handling, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
   `/fat/bin/displayd --launcher-smoke`, clicks the compositor dock launchers,
   verifies `/fat/bin/notes2`, `/fat/bin/gui2demo`, and `/fat/bin/surfacedemo`
   launch as separate clients, checks duplicate Notes windows stagger inside the
   work area, confirms placeholder launchers fail without crashing, and exits
   cleanly.
+- `displayd_resolution_smoke.py`: hidden-QEMU resolution smoke that builds
+  temporary Limine ISOs with framebuffer requests for 800x600, 1280x800,
+  1440x900, and 1920x1080 by default, then verifies the kernel framebuffer line
+  and `displayd` root backbuffer dimensions at each size.
 
 ## DNS Test Domains
 

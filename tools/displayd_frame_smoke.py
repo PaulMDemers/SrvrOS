@@ -180,6 +180,9 @@ def main():
             output += read_for(serial, args.action_wait)
             mouse.drag(340, 342, 430, 390)
             output += read_for(serial, args.action_wait)
+            # GUI2 demo frame starts at 620,240 and is 302x206. Drag the bottom-right grip.
+            mouse.drag(920, 444, 980, 480)
+            output += read_for(serial, args.action_wait)
             # GUI2 demo title frame starts at 620,240. Close button is near x=633,y=246.
             mouse.click(633, 246)
             output += read_for(serial, args.action_wait)
@@ -201,6 +204,8 @@ def main():
         "displayd: minimize NOTES2 state=1",
         "displayd: minimize NOTES2 state=0",
         "displayd: drag NOTES2",
+        "displayd: resize GUI2 DEMO 360x216",
+        "gui2demo: configure 360x216",
         "displayd: close GUI2 DEMO",
         "gui2demo: close",
         "displayd: smoke ok",

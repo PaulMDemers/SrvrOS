@@ -147,6 +147,65 @@ void gui2_window_close(struct gui2_window *window) {
     memset(window, 0, sizeof(*window));
 }
 
+int gui2_window_resize(struct gui2_window *window, uint64_t width, uint64_t height) {
+    uint32_t *pixels;
+    uint32_t *old_pixels;
+    uint64_t surface_id = 0;
+    uint64_t old_surface_id;
+    uint64_t old_width;
+    uint64_t old_height;
+    if (window == 0 || !window->opened || width == 0 || height == 0 ||
+        width > SIZE_MAX / height ||
+        width * height > SIZE_MAX / sizeof(uint32_t)) {
+        return -1;
+    }
+    if (window->width == width && window->height == height) {
+        return 0;
+    }
+    pixels = (uint32_t *)malloc((size_t)(width * height * sizeof(uint32_t)));
+    if (pixels == 0) {
+        return -1;
+    }
+    if (gui_surface_create(width, height, 0, &surface_id) != 0 || surface_id == 0) {
+        free(pixels);
+        return -1;
+    }
+    old_surface_id = window->surface_id;
+    old_pixels = window->pixels;
+    old_width = window->width;
+    old_height = window->height;
+    window->pixels = pixels;
+    window->surface_id = surface_id;
+    window->width = width;
+    window->height = height;
+    ui_surface_init(&window->surface, width, height, width, window->pixels);
+    ui_element_init(&window->root, 0, 0, width, height, window->surface);
+    window->root.background = window->background;
+    gui2_clear(window, window->background);
+    if (gui_surface_blit(window->surface_id, 0, 0, width, height,
+            window->pixels, width) != 0) {
+        gui_surface_destroy(window->surface_id);
+        free(window->pixels);
+        window->pixels = old_pixels;
+        window->surface_id = old_surface_id;
+        window->width = old_width;
+        window->height = old_height;
+        ui_surface_init(&window->surface, old_width, old_height, old_width, window->pixels);
+        ui_element_init(&window->root, 0, 0, old_width, old_height, window->surface);
+        window->root.background = window->background;
+        return -1;
+    }
+    free(old_pixels);
+    send_window_msg(window, GUI_MSG_V2_CREATE_SURFACE_WINDOW, window->x, window->y,
+        width, height, (int64_t)window->surface_id, "");
+    send_window_msg(window, GUI_MSG_V2_DAMAGE_SURFACE, 0, 0,
+        width, height, (int64_t)window->surface_id, "");
+    if (old_surface_id != 0) {
+        gui_surface_destroy(old_surface_id);
+    }
+    return 0;
+}
+
 void gui2_window_mark_dirty(struct gui2_window *window, int64_t x, int64_t y,
     uint64_t width, uint64_t height) {
     if (window == 0 || width == 0 || height == 0) {
@@ -235,6 +294,10 @@ int gui2_poll_event(struct gui2_window *window, struct gui2_event *event) {
     event->value = msg.value;
     if (msg.type == GUI_MSG_V2_EVENT_CONFIGURE) {
         event->type = GUI2_EVENT_CONFIGURE;
+        if (window != 0) {
+            window->x = msg.x;
+            window->y = msg.y;
+        }
     } else if (msg.type == GUI_MSG_V2_EVENT_FOCUS) {
         event->type = GUI2_EVENT_FOCUS;
         event->focused = msg.value != 0;

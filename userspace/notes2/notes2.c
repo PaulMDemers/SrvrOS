@@ -63,13 +63,15 @@ static void draw_notes(struct gui2_window *window,
     const struct gui2_theme *theme = gui2_theme_default();
     struct gui2_layout layout;
     struct gui2_rect row;
+    uint64_t layout_width = window->width > 28 ? window->width - 28 : 1;
+    uint64_t list_height = window->height > 148 ? window->height - 148 : 44;
 
     gui2_clear(window, theme->canvas);
     gui2_label(window, 14, 12, "NOTES2");
     gui2_text(window, 14, 28, window->focused ? "READY" : "BACKGROUND", theme->text_muted);
 
-    gui2_layout_begin(&layout, 14, 48, WIDTH - 28);
-    row = gui2_layout_next(&layout, 112);
+    gui2_layout_begin(&layout, 14, 48, layout_width);
+    row = gui2_layout_next(&layout, list_height);
     gui2_panel(window, row.x, row.y, row.width, row.height, theme->panel);
     gui2_text(window, row.x + 10, row.y + 10,
         items != 0 && items[0] != '\0' ? items : "NO NOTES YET", theme->text);
@@ -141,6 +143,9 @@ int main(void) {
                 srv_puts("x");
                 print_u64(event.height);
                 srv_puts("\n");
+                if (gui2_window_resize(&window, event.width, event.height) != 0) {
+                    srv_puts("notes2: resize failed\n");
+                }
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;

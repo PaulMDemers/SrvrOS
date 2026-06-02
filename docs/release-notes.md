@@ -58,6 +58,12 @@ server.
   work-area-aware placement, duplicate-window staggering, unavailable-launcher
   handling, and `tools/displayd_launcher_smoke.py` coverage for launching
   Notes, GUI2 Demo, and Surface Demo from the dock.
+- Adds bottom-right resize grips for `displayd` GUI2 windows. The `gui2`
+  library can recreate kernel-managed backing surfaces on configure events, and
+  the GUI2 demo, Notes2, and Surface Demo redraw into their resized surfaces.
+- Adds `tools/displayd_resolution_smoke.py`, which builds temporary
+  resolution-specific Limine ISOs and verifies `displayd` at 800x600,
+  1280x800, 1440x900, and 1920x1080.
 - Advances the Node sqlite bridge: public `node:sqlite` now works on srvros
   through a transitional JavaScript shim, the Express/JWT demo uses and verifies
   that backend, and `node_sqlite.cc`, `node_webstorage.cc`, and bundled SQLite

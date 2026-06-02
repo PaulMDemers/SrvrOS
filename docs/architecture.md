@@ -620,12 +620,14 @@ window frame behavior for those surfaces: z-order raise on focus, title-bar
 dragging, close buttons, and minimize buttons that hide the client surface while
 leaving the frame visible. Its left dock can launch v2 GUI apps as separate
 processes, clamps new windows into the current resolution-aware work area, and
-staggers duplicate app instances so they remain visible. It routes v2 configure,
-focus, pointer, and key events back to clients so apps can react from their own
-process, and uses the existing close event for compositor close requests. The
-app-side `gui2` library wraps that protocol with window open/close, surface
-present/damage, event polling, theme/layout helpers, shared widget dispatch, and
-early button/textbox widgets.
+staggers duplicate app instances so they remain visible. Bottom-right resize
+grips update compositor geometry and send configure events; GUI2 apps recreate
+their current kernel-managed backing surface and redraw at the new size. It
+routes v2 configure, focus, pointer, and key events back to clients so apps can
+react from their own process, and uses the existing close event for compositor
+close requests. The app-side `gui2` library wraps that protocol with window
+open/close, resize, surface present/damage, event polling, theme/layout helpers,
+shared widget dispatch, and early button/textbox widgets.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes2`
 is the first small GUI2 utility, with a focused textbox and buttons rendered

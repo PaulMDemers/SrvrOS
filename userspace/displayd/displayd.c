@@ -15,6 +15,9 @@
 #define WINDOW_TITLE_H 24
 #define WINDOW_BUTTON_SIZE 12
 #define WINDOW_BUTTON_GAP 7
+#define WINDOW_RESIZE_GRIP 16
+#define WINDOW_MIN_WIDTH 160
+#define WINDOW_MIN_HEIGHT 96
 
 struct display_launcher {
     const char *label;
@@ -55,8 +58,11 @@ struct display_state {
     uint64_t focused_surface_id;
     uint64_t hovered_surface_id;
     uint64_t dragging_surface_id;
+    uint64_t resizing_surface_id;
     int64_t drag_offset_x;
     int64_t drag_offset_y;
+    int64_t resize_offset_x;
+    int64_t resize_offset_y;
     uint64_t next_z;
     uint64_t launch_count;
     uint8_t last_buttons;
@@ -329,6 +335,25 @@ static int client_title_hit(const struct display_client *client, int64_t x, int6
         return 0;
     }
     return rect_hit(client->x, client->y, client_frame_width(client), WINDOW_TITLE_H, x, y);
+}
+
+static int client_resize_hit(const struct display_client *client, int64_t x, int64_t y) {
+    uint64_t frame_w;
+    uint64_t frame_h;
+    if (client == 0 || !client->used || client->minimized) {
+        return 0;
+    }
+    frame_w = client_frame_width(client);
+    frame_h = client_frame_height(client);
+    if (frame_w < WINDOW_RESIZE_GRIP || frame_h < WINDOW_RESIZE_GRIP) {
+        return 0;
+    }
+    return rect_hit(client->x + (int64_t)(frame_w - WINDOW_RESIZE_GRIP),
+        client->y + (int64_t)(frame_h - WINDOW_RESIZE_GRIP),
+        WINDOW_RESIZE_GRIP,
+        WINDOW_RESIZE_GRIP,
+        x,
+        y);
 }
 
 static int client_frame_hit(const struct display_client *client, int64_t x, int64_t y) {
@@ -630,6 +655,58 @@ static void move_client_to(struct ui_element *root, struct display_client *clien
     srv_puts("\n");
 }
 
+static void resize_client_to(struct ui_element *root, struct display_state *state,
+    struct display_client *client, uint64_t width, uint64_t height) {
+    const struct display_metrics *m;
+    uint64_t max_width;
+    uint64_t max_height;
+    if (root == 0 || state == 0 || client == 0 || !client->used || client->minimized) {
+        return;
+    }
+    m = &state->metrics;
+    max_width = work_width(m);
+    max_height = work_height(m) > WINDOW_TITLE_H + 2 ?
+        work_height(m) - WINDOW_TITLE_H - 2 : WINDOW_MIN_HEIGHT;
+    if (client->x > work_x(m)) {
+        uint64_t used_x = (uint64_t)(client->x - work_x(m));
+        if (used_x < max_width) {
+            max_width -= used_x;
+        }
+    }
+    if (client->y > work_y(m)) {
+        uint64_t used_y = (uint64_t)(client->y - work_y(m));
+        if (used_y < max_height) {
+            max_height -= used_y;
+        }
+    }
+    max_width = max_u64(WINDOW_MIN_WIDTH, max_width > 2 ? max_width - 2 : max_width);
+    max_height = max_u64(WINDOW_MIN_HEIGHT, max_height);
+    width = clamp_u64(width, WINDOW_MIN_WIDTH, max_width);
+    height = clamp_u64(height, WINDOW_MIN_HEIGHT, max_height);
+    if (client->width == width && client->height == height) {
+        return;
+    }
+    mark_client_frame_dirty(root, client);
+    client->width = width;
+    client->height = height;
+    clamp_client_position(root, client);
+    mark_client_frame_dirty(root, client);
+    srv_puts("displayd: resize ");
+    srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
+    srv_puts(" ");
+    print_u64(client->width);
+    srv_puts("x");
+    print_u64(client->height);
+    srv_puts("\n");
+    send_client_event(client, GUI_MSG_V2_EVENT_CONFIGURE,
+        client->x,
+        client->y,
+        client->width,
+        client->height,
+        0,
+        "");
+}
+
 static void toggle_client_minimized(struct ui_element *root, struct display_client *client) {
     if (root == 0 || client == 0 || !client->used) {
         return;
@@ -656,6 +733,9 @@ static void close_client(struct ui_element *root, struct display_state *state,
     srv_puts("\n");
     if (state->dragging_surface_id == client->surface_id) {
         state->dragging_surface_id = 0;
+    }
+    if (state->resizing_surface_id == client->surface_id) {
+        state->resizing_surface_id = 0;
     }
     mark_client_frame_dirty(root, client);
 }
@@ -693,7 +773,6 @@ static void draw_surface_client(struct ui_element *root, const struct display_cl
         return;
     }
     ui_draw_rect(root, content_x, content_y, client->width, client->height, 0x0f1720);
-
     if (client->surface_id != 0 && root->surface.pixels != 0 &&
         content_x >= 0 && content_y >= 0 &&
         (uint64_t)content_x < root->surface.width &&
@@ -715,6 +794,18 @@ static void draw_surface_client(struct ui_element *root, const struct display_cl
                     "SURFACE UNAVAILABLE", 0xf87171);
             }
         }
+    }
+    if (client->width >= WINDOW_RESIZE_GRIP && client->height >= WINDOW_RESIZE_GRIP) {
+        int64_t grip_x = frame_x + (int64_t)frame_w - WINDOW_RESIZE_GRIP;
+        int64_t grip_y = frame_y + (int64_t)frame_h - WINDOW_RESIZE_GRIP;
+        ui_draw_rect(root, grip_x + WINDOW_RESIZE_GRIP - 2, grip_y + 4, 1, WINDOW_RESIZE_GRIP - 5,
+            0x8fd0d4);
+        ui_draw_rect(root, grip_x + 4, grip_y + WINDOW_RESIZE_GRIP - 2, WINDOW_RESIZE_GRIP - 5, 1,
+            0x8fd0d4);
+        ui_draw_rect(root, grip_x + WINDOW_RESIZE_GRIP - 6, grip_y + 8, 1, WINDOW_RESIZE_GRIP - 9,
+            0x486476);
+        ui_draw_rect(root, grip_x + 8, grip_y + WINDOW_RESIZE_GRIP - 6, WINDOW_RESIZE_GRIP - 9, 1,
+            0x486476);
     }
 }
 
@@ -870,6 +961,7 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 msg.source_pid,
                 msg.window_id,
                 (uint64_t)msg.value);
+            int was_used = client != 0 && client->used;
             if (client == 0) {
                 client = alloc_client(state);
             }
@@ -885,18 +977,26 @@ static void handle_gui_messages(struct ui_element *root, struct display_state *s
                 client->y = msg.y;
                 client->width = msg.width;
                 client->height = msg.height;
-                client->focused = 0;
-                client->minimized = 0;
-                state->next_z++;
-                if (state->next_z == 0) {
-                    state->next_z = 1;
+                if (!was_used) {
+                    client->focused = 0;
+                    client->minimized = 0;
+                    state->next_z++;
+                    if (state->next_z == 0) {
+                        state->next_z = 1;
+                    }
+                    client->z = state->next_z;
                 }
-                client->z = state->next_z;
-                copy_text(client->title, msg.text);
-                place_new_client(root, state, client);
+                if (msg.text[0] != '\0' || client->title[0] == '\0') {
+                    copy_text(client->title, msg.text);
+                }
+                if (!was_used) {
+                    place_new_client(root, state, client);
+                } else {
+                    clamp_client_position(root, client);
+                }
                 mark_client_frame_dirty(root, client);
                 srv_puts("displayd: mapped surface window ");
-                srv_puts(client->title);
+                srv_puts(client->title[0] != '\0' ? client->title : "SURFACE");
                 srv_puts(" surface=");
                 print_u64(client->surface_id);
                 srv_puts(" pid=");
@@ -1071,7 +1171,7 @@ int main(int argc, char **argv) {
             int64_t local_y = 0;
             struct display_client *client = 0;
             struct display_client *frame_client = 0;
-            int was_dragging = state.dragging_surface_id != 0;
+            int was_dragging = state.dragging_surface_id != 0 || state.resizing_surface_id != 0;
             if (gfx.width > CURSOR_W) {
                 mouse_x = clamp_add(mouse_x, mouse.dx, 0, gfx.width - CURSOR_W);
             }
@@ -1093,7 +1193,21 @@ int main(int argc, char **argv) {
                 }
             }
 
-            if (state.dragging_surface_id == 0) {
+            if (state.resizing_surface_id != 0) {
+                client = find_client_by_surface(&state, state.resizing_surface_id);
+                if (client == 0 || (buttons & 1) == 0) {
+                    state.resizing_surface_id = 0;
+                } else if (cursor_dirty) {
+                    int64_t frame_width = (int64_t)mouse_x + state.resize_offset_x - client->x;
+                    int64_t frame_height = (int64_t)mouse_y + state.resize_offset_y - client->y;
+                    uint64_t next_width = frame_width > 2 ? (uint64_t)(frame_width - 2) : 1;
+                    uint64_t next_height = frame_height > WINDOW_TITLE_H + 2 ?
+                        (uint64_t)(frame_height - WINDOW_TITLE_H - 2) : 1;
+                    resize_client_to(&root, &state, client, next_width, next_height);
+                }
+            }
+
+            if (state.dragging_surface_id == 0 && state.resizing_surface_id == 0) {
                 client = client_at(&state, (int64_t)mouse_x, (int64_t)mouse_y, &local_x, &local_y);
                 state.hovered_surface_id = client != 0 ? client->surface_id : 0;
                 if (client != 0 && cursor_dirty) {
@@ -1116,6 +1230,12 @@ int main(int argc, char **argv) {
                                 close_client(&root, &state, frame_client);
                             } else if (client_minimize_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
                                 toggle_client_minimized(&root, frame_client);
+                            } else if (client_resize_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
+                                state.resizing_surface_id = frame_client->surface_id;
+                                state.resize_offset_x = frame_client->x +
+                                    (int64_t)client_frame_width(frame_client) - (int64_t)mouse_x;
+                                state.resize_offset_y = frame_client->y +
+                                    (int64_t)client_frame_height(frame_client) - (int64_t)mouse_y;
                             } else if (client_title_hit(frame_client, (int64_t)mouse_x, (int64_t)mouse_y)) {
                                 state.dragging_surface_id = frame_client->surface_id;
                                 state.drag_offset_x = (int64_t)mouse_x - frame_client->x;

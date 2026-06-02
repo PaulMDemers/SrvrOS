@@ -58,10 +58,20 @@ static void draw_app(struct gui2_window *window, struct gui2_button *button,
     struct gui2_textbox *textbox, uint64_t event_count) {
     char status[64];
     uint64_t length = 0;
+    uint64_t field_width = window->width > 28 ? window->width - 28 : 1;
     status[0] = '\0';
     append_text(status, sizeof(status), &length, "EVENTS ");
     append_u64(status, sizeof(status), &length, event_count);
     append_text(status, sizeof(status), &length, window->focused ? " FOCUS" : " BLUR");
+
+    textbox->x = 14;
+    textbox->y = 72;
+    textbox->width = field_width;
+    textbox->height = 34;
+    button->x = 14;
+    button->y = window->height > 42 ? (int64_t)window->height - 42 : 14;
+    button->width = 92;
+    button->height = 28;
 
     gui2_clear(window, gui2_rgb(0x10, 0x18, 0x22));
     gui2_text(window, 14, 14, "GUI2 DEMO", gui2_rgb(0xff, 0xff, 0xff));
@@ -107,6 +117,9 @@ int main(void) {
                 srv_puts("x");
                 print_u64(event.height);
                 srv_puts("\n");
+                if (gui2_window_resize(&window, event.width, event.height) != 0) {
+                    srv_puts("gui2demo: resize failed\n");
+                }
                 changed = 1;
             } else if (event.type == GUI2_EVENT_FOCUS) {
                 changed = 1;

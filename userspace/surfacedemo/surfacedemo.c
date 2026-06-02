@@ -78,13 +78,17 @@ static void draw_demo(struct gui2_window *window, uint64_t tick, const struct de
     gui2_window_mark_dirty(window, 0, 0, window->width, window->height);
 }
 
-static int handle_event(struct demo_state *state, const struct gui2_event *event) {
+static int handle_event(struct gui2_window *window, struct demo_state *state,
+    const struct gui2_event *event) {
     if (event->type == GUI2_EVENT_CONFIGURE) {
         srv_puts("surfacedemo: configure ");
         print_u64(event->width);
         srv_puts("x");
         print_u64(event->height);
         srv_puts("\n");
+        if (gui2_window_resize(window, event->width, event->height) != 0) {
+            srv_puts("surfacedemo: resize failed\n");
+        }
         return 1;
     }
     if (event->type == GUI2_EVENT_FOCUS) {
@@ -141,7 +145,7 @@ int main(void) {
             break;
         }
         while (gui2_poll_event(&window, &event) > 0) {
-            int result = handle_event(&state, &event);
+            int result = handle_event(&window, &state, &event);
             if (result == 2) {
                 closing = 1;
                 break;
