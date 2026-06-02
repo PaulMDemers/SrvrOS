@@ -1711,10 +1711,6 @@ uint64_t xhci_hub_count(void) {
 }
 
 void xhci_probe_input(uint64_t wait_ticks) {
-    if (!xhci.operational || (xhci.hid_keyboards == 0 && xhci.hid_mice == 0)) {
-        return;
-    }
-
     uint64_t start = timer_ticks();
     uint64_t spins = 0;
     xhci_input_probe_active = true;
@@ -1722,15 +1718,20 @@ void xhci_probe_input(uint64_t wait_ticks) {
         wait_ticks,
         start);
     while (timer_ticks() - start < wait_ticks && spins < wait_ticks * 2000000ull) {
-        poll_hid_events_once();
+        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
+            poll_hid_events_once();
+        }
         for (uint64_t i = 0; i < 5000; i++) {
             __asm__ volatile ("pause");
         }
         spins++;
     }
-    console_printf("input-probe: done ticks=%u spins=%u keybuf=%u pushed=%u dropped=%u\n",
+    console_printf("input-probe: done ticks=%u spins=%u ps2_irq=%u ps2_scancodes=%u ps2_last=%x keybuf=%u pushed=%u dropped=%u\n",
         timer_ticks() - start,
         spins,
+        keyboard_irq_count(),
+        keyboard_scancode_count(),
+        keyboard_last_scancode(),
         keyboard_buffered_count(),
         keyboard_pushed_count(),
         keyboard_dropped_count());

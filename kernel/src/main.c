@@ -332,8 +332,9 @@ void kmain(void) {
         xhci_mouse_count(),
         xhci_device_count(),
         xhci_hub_count());
-    if (!keyboard_ready && xhci_keyboard_count() == 0) {
-        console_write("input: no keyboard detected; usb diagnostics follow\n");
+    keyboard_print_status();
+    if (xhci_device_count() == 0 || (!keyboard_ready && xhci_keyboard_count() == 0)) {
+        console_write("input: no xhci keyboard path; pci/xhci diagnostics follow\n");
         pci_print_usb_controllers();
         xhci_print_status();
     }
@@ -359,8 +360,10 @@ void kmain(void) {
     } else {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());
     }
+    keyboard_print_status();
     xhci_print_input_summary();
     xhci_probe_input(300);
+    keyboard_print_status();
     xhci_print_input_summary();
 
     if (framebuffer_request.response != NULL &&
@@ -385,6 +388,7 @@ void kmain(void) {
     } else {
         console_write("init: start failed\n");
     }
+    keyboard_print_status();
     xhci_print_input_summary();
     monitor_run();
 }

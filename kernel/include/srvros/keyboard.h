@@ -14,5 +14,10 @@ char keyboard_read_char(void);
 uint64_t keyboard_buffered_count(void);
 uint64_t keyboard_pushed_count(void);
 uint64_t keyboard_dropped_count(void);
+uint64_t keyboard_irq_count(void);
+uint64_t keyboard_scancode_count(void);
+uint64_t keyboard_last_scancode(void);
+bool keyboard_data_enabled(void);
+void keyboard_print_status(void);
 
 #endif
