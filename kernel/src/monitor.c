@@ -797,6 +797,45 @@ static void command_ps(void) {
     }
 }
 
+void monitor_run_a1466_capture(void) {
+    console_write("\n");
+    console_write("a1466-capture: begin\n");
+    console_write("a1466-capture: automatic post-boot diagnostics; keyboard input not required\n");
+
+    console_write("== hwdiag ==\n");
+    command_hwdiag();
+
+    console_write("== dmesg 8192 ==\n");
+    bootlog_dump(8192);
+
+    console_write("== spi ==\n");
+    lpss_spi_print_status();
+
+    console_write("== spiregs ==\n");
+    lpss_spi_print_registers();
+
+    console_write("== acpiinput ==\n");
+    acpi_print_input_diagnostics();
+
+    console_write("== pci ==\n");
+    command_pci();
+
+    console_write("== xhci ==\n");
+    xhci_print_status();
+
+    console_write("== block ==\n");
+    block_print_status();
+
+    console_write("== final spi/input summary ==\n");
+    lpss_spi_print_status();
+    lpss_spi_print_registers();
+    keyboard_print_status();
+    xhci_print_input_summary();
+
+    console_write("a1466-capture: end\n");
+    console_write("a1466-capture: persisted in /fat/var/log/boot.log when /fat is writable\n");
+}
+
 static void command_bg(const char *path) {
     if (path == NULL || path[0] == '\0') {
         console_write("usage: bg /path\n");

@@ -30,6 +30,12 @@ run showed no exceptions. The raw Surface Demo app is still a timed demo and
 may exit on its own after a short run; that is not currently treated as a
 crash.
 
+The default `/srvros` Limine entry is currently hardware-bring-up oriented and
+passes `srvros.a1466.capture=1`. That makes the kernel run the A1466 diagnostic
+bundle automatically after boot, before the monitor prompt, so the capture works
+even when the built-in keyboard is unavailable. Use `/srvros no capture` for a
+normal quiet boot without the automatic dump.
+
 Before writing removable media, rehearse the same UEFI/xHCI/HID boot shape in
 hidden QEMU:
 
@@ -70,7 +76,9 @@ framebuffer console verbose while preserving the same serial and boot-log output
 
 ## First Commands
 
-Run these commands at the monitor:
+The default boot entry now runs the important capture commands automatically.
+If an external keyboard is available, these are the equivalent manual commands
+to rerun at the monitor:
 
 ```text
 hwdiag
@@ -89,6 +97,29 @@ mounts, `/fat` fsck summary, process list, and a recent boot-log tail.
 `spi`, `spiregs`, and `acpiinput` are the focused A1466 input bring-up commands:
 they should confirm whether Broadwell LPSS SPI1 is mapped and whether the ACPI
 topcase namespace still resolves to the `SPI1`/`SPIT` method cluster.
+
+Expected automatic markers:
+
+```text
+a1466-capture: begin
+== hwdiag ==
+== dmesg 8192 ==
+== spi ==
+== spiregs ==
+== acpiinput ==
+== pci ==
+== xhci ==
+== block ==
+== final spi/input summary ==
+a1466-capture: end
+```
+
+Because the internal keyboard is not working yet, photograph the final screen
+after `a1466-capture: end` as well as any earlier screen that contains
+`lpss-spi-regs:`. If `/fat` mounted from a writable USB/exFAT block device, the
+same capture is persisted in `/fat/var/log/boot.log`; if `/fat` fell back to
+`initramfs-exfat`, persistence may be skipped and the screen/photo is the
+capture.
 
 ## First GUI Launch
 

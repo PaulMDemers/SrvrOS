@@ -150,7 +150,15 @@ smokes passed, and a live QEMU run did not show exceptions. If the hardware GUI
 is launched, use it mainly as a framebuffer sanity check after collecting input
 diagnostics.
 
-At the first `srv>` prompt, collect:
+The default `/srvros` boot entry now includes `srvros.a1466.capture=1`, so the
+kernel automatically runs the capture below after boot and persists it through
+`/fat/var/log/boot.log` when `/fat` is writable. This avoids depending on the
+built-in keyboard before the SPI topcase path works.
+The capture ends with a compact `== final spi/input summary ==` section so a
+photo of the final screen should still include the most important SPI register
+and input-path state even if the longer `acpiinput` dump has scrolled.
+
+If an external keyboard is available, the equivalent manual capture is:
 
 ```text
 hwdiag

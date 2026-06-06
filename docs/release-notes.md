@@ -33,6 +33,10 @@ server.
 - Adds monitor `hwdiag` and an A1466 first-boot checklist so real-machine runs
   can capture display, ACPI, PCI, xHCI, storage, memory, network, mounts, fsck,
   process, and boot-log state with one command.
+- Adds `srvros.a1466.capture=1` and enables it on the default Limine entry for
+  the current hardware bring-up image, so the kernel automatically prints and
+  persists the A1466 `hwdiag`/SPI/topcase/xHCI/block capture before keyboard
+  input is required. `/srvros no capture` keeps the quiet non-capture boot.
 - Adds `gfx_blit_rect` and teaches the UI presenter to flush root backbuffer
   dirty rectangles through a bulk graphics syscall instead of many tiny fills.
 - Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically

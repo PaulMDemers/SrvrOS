@@ -17,13 +17,18 @@ single-purpose, static-capacity, and easy to inspect.
    embedded in initramfs.
 5. The monitor waits at `srv>` and can launch ring-3 ELF programs from VFS.
 
-The default Limine entry boots with `srvros.log=quiet`. In quiet mode the kernel
-still mirrors all bootstrap output to serial and the in-memory boot log, but the
-framebuffer console is muted after it is initialized and cleared back to a short
-boot-complete banner before the monitor starts. The `/srvros debug` Limine entry
-passes `srvros.log=debug`, which leaves framebuffer bootstrap diagnostics visible
-for real-hardware bring-up. The same full log is available from `dmesg` and is
-persisted to `/fat/var/log/boot.log` after `/fat` mounts.
+The default Limine entry currently boots with `srvros.log=quiet
+srvros.a1466.capture=1` while MacBook Air A1466 hardware bring-up is active. In
+quiet mode the kernel still mirrors all bootstrap output to serial and the
+in-memory boot log, but the framebuffer console is muted after it is initialized
+and cleared back to a short boot-complete banner before the monitor starts. The
+`srvros.a1466.capture=1` option then runs the A1466 SPI/topcase capture
+automatically, before keyboard input is required. The `/srvros no capture` entry
+keeps the quiet boot without the automatic dump. The `/srvros debug` Limine
+entry passes `srvros.log=debug`, which leaves framebuffer bootstrap diagnostics
+visible for real-hardware bring-up. The same full log is available from `dmesg`
+and is persisted to `/fat/var/log/boot.log` after `/fat` mounts and again after
+the automatic capture.
 
 ## Kernel Shape
 

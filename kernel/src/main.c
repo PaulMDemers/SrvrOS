@@ -108,6 +108,13 @@ static bool boot_debug_requested(const char *cmdline) {
         cmdline_has_token(cmdline, "srvros.log=verbose");
 }
 
+static bool boot_a1466_capture_requested(const char *cmdline) {
+    return cmdline_has_token(cmdline, "srvros.a1466.capture") ||
+        cmdline_has_token(cmdline, "srvros.a1466.capture=1") ||
+        cmdline_has_token(cmdline, "srvros.capture=a1466") ||
+        cmdline_has_token(cmdline, "a1466.capture");
+}
+
 static void boot_set_framebuffer_quiet(bool quiet) {
     console_set_framebuffer_muted(quiet);
 }
@@ -349,6 +356,7 @@ void kmain(void) {
     console_write("\n\nsrvros: entering kernel\n");
     const char *cmdline = kernel_cmdline();
     boot_verbose = boot_debug_requested(cmdline);
+    bool a1466_capture = boot_a1466_capture_requested(cmdline);
 
     if (!LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision)) {
         console_write("limine: requested base revision is unsupported\n");
@@ -487,7 +495,16 @@ void kmain(void) {
         boot_set_framebuffer_quiet(false);
         console_clear();
         console_write("srvros: boot complete\n");
-        console_write("diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug\n\n");
+        if (a1466_capture) {
+            console_write("diagnostics: running automatic A1466 capture\n");
+        } else {
+            console_write("diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug\n\n");
+        }
+    }
+    if (a1466_capture) {
+        monitor_run_a1466_capture();
+        persist_bootlog();
+        console_write("\n");
     }
     monitor_run();
 }
