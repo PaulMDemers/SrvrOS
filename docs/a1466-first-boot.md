@@ -16,6 +16,20 @@ The resulting image is:
 build/srvros-usb.img
 ```
 
+Current pre-hardware handoff image:
+
+```text
+build/srvros-usb.img
+```
+
+As of the GUI close-out pass on June 6, 2026, that image includes the
+`displayd`/GUI2 compositor milestone, the framebuffer-console mute fix, app
+exit-status notices, surface-remap cleanup during resize, and launch-capacity
+protection. Hidden-QEMU GUI smokes passed before the handoff, and a live QEMU
+run showed no exceptions. The raw Surface Demo app is still a timed demo and
+may exit on its own after a short run; that is not currently treated as a
+crash.
+
 Before writing removable media, rehearse the same UEFI/xHCI/HID boot shape in
 hidden QEMU:
 
@@ -29,6 +43,14 @@ The rehearsal runs `hwdiag`, `dmesg 8192`, `xhci`, `pci`, `block`, then starts
 ```text
 build/a1466-rehearsal.log
 ```
+
+Current local note: the ISO/exFAT displayd smoke passes, but the GPT USB
+rehearsal can stop in local OVMF immediately after `BdsDxe: starting Boot0001`
+without reaching kernel serial output. The harness now records serial
+disconnects, QMP input failures, and QEMU exit context in
+`build/a1466-rehearsal.log`. Treat that as a QEMU/OVMF USB-rehearsal issue, not
+as evidence that the real A1466 USB image is unbootable; the MacBook hardware
+has already reached the srvros monitor from this image family.
 
 Write that image to a USB stick with your preferred raw-image writer. Double
 check the target disk before writing; this image is intended for removable USB
@@ -56,11 +78,17 @@ dmesg 8192
 xhci
 pci
 block
+spi
+spiregs
+acpiinput
 ```
 
 `hwdiag` is the main capture command. It prints display mode, timer, ACPI, GPU,
 xHCI, block devices, full PCI inventory, memory, scheduler/workqueue, network,
 mounts, `/fat` fsck summary, process list, and a recent boot-log tail.
+`spi`, `spiregs`, and `acpiinput` are the focused A1466 input bring-up commands:
+they should confirm whether Broadwell LPSS SPI1 is mapped and whether the ACPI
+topcase namespace still resolves to the `SPI1`/`SPIT` method cluster.
 
 ## First GUI Launch
 
@@ -114,6 +142,11 @@ serial log if present. The most important lines for A1466 input bring-up are:
 - `block:` lines, especially whether the internal SSD appears
 - `displayd:` framebuffer, root backbuffer, client launch, and shutdown lines
 - A photo or screenshot of the desktop at the native 1440x900 panel resolution
+
+For the next session, the single highest-value capture is the `spiregs` output.
+If it prints real `sscr0`/`sscr1`/`sssr` register values, the next code task is
+the first bounded polling LPSS SPI transaction. If it still reports unavailable
+MMIO, stay on mapping/PCI BAR diagnostics before attempting controller writes.
 
 ## Safety Notes
 

@@ -76,6 +76,9 @@ server.
 - Adds `tools/displayd_frame_smoke.py`, a hidden-QEMU/QMP regression smoke for
   the new v2 frame controls: focus, minimize/restore, drag, close, and clean
   compositor shutdown.
+- Hardens `tools/a1466_rehearsal.py` so QMP/serial disconnects from local
+  OVMF USB boot attempts are logged as missing-marker failures with QEMU exit
+  context instead of surfacing as Python tracebacks.
 - Adds compositor dock launchers to `displayd` for GUI2 apps, including
   work-area-aware placement, duplicate-window staggering, unavailable-launcher
   handling, and `tools/displayd_launcher_smoke.py` coverage for launching

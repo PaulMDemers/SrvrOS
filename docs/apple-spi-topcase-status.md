@@ -141,3 +141,33 @@ lpss-spi-regs:
 
 The most important single question for the next boot is whether
 `lpss-spi-regs` prints real register values.
+
+## Next Hardware Session Handoff
+
+Use the current `build/srvros-usb.img` from the GUI close-out pass. The UI work
+is stable enough to stop being the active blocker: hidden-QEMU `displayd`
+smokes passed, and a live QEMU run did not show exceptions. If the hardware GUI
+is launched, use it mainly as a framebuffer sanity check after collecting input
+diagnostics.
+
+At the first `srv>` prompt, collect:
+
+```text
+hwdiag
+dmesg 8192
+spi
+spiregs
+acpiinput
+pci
+xhci
+block
+```
+
+Decision point:
+
+- If `spiregs` reports stable register values, implement a read-only LPSS SPI
+  controller self-check and then the first bounded polling transaction.
+- If `spiregs` still reports unavailable MMIO, stay on BAR/page alignment,
+  PCI command decode, and virtual mapping diagnostics.
+- If ACPI no longer reports `SPI1`/`SPIT`/`SIEN`/`SIST`/`UIEN`/`UIST`, capture
+  the complete `acpiinput` output before changing the parser.

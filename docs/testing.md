@@ -216,7 +216,9 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
   path with a USB keyboard and absolute pointer, injects one QMP keyboard
   command to verify the USB input path, runs the A1466 first-boot diagnostic
   command set, launches `gui --smoke-autostart`, and writes the full capture to
-  `build/a1466-rehearsal.log`.
+  `build/a1466-rehearsal.log`. The harness treats QMP or serial disconnects as
+  logged missing-marker failures instead of Python tracebacks, and records QEMU
+  exit context for pre-kernel OVMF/USB handoff stalls.
 - `libc_smoke.py`: launches `/fat/bin/libcprobe` and `/fat/bin/nodeprobe` to
   keep the focused libc/POSIX readiness slice fast and visible. It covers
   string helpers (`mempcpy`, `stpncpy`, `strndup`, `strerror_r`), line-oriented

@@ -20,6 +20,8 @@ def read_for(sock, seconds):
             if not chunk:
                 break
             chunks.append(chunk)
+        except OSError:
+            break
         except socket.timeout:
             pass
     return b"".join(chunks)
@@ -49,6 +51,14 @@ def qmp_command(sock, command):
     while b"\r\n" not in data:
         data += sock.recv(4096)
     return data
+
+
+def serial_send(sock, data):
+    try:
+        sock.sendall(data)
+        return True
+    except OSError:
+        return False
 
 
 def connect_qmp(port, timeout):
@@ -96,8 +106,12 @@ def send_qmp_text(sock, text, key_delay):
         key = key_names.get(char, char.lower())
         if len(key) != 1 and key not in key_names.values():
             continue
-        send_qmp_key(sock, key)
+        try:
+            send_qmp_key(sock, key)
+        except OSError:
+            return False
         time.sleep(key_delay)
+    return True
 
 
 def has_fatal_exception(text):
@@ -122,7 +136,8 @@ def default_ovmf_path():
 
 
 def run_monitor_command(sock, command, timeout):
-    sock.sendall(command.encode("ascii") + b"\n")
+    if not serial_send(sock, command.encode("ascii") + b"\n"):
+        return f"\na1466-rehearsal: serial disconnected while sending {command}\n".encode("ascii")
     return read_until(sock, b"srv> ", timeout)
 
 
@@ -177,32 +192,47 @@ def main():
             "-no-reboot",
         ]
 
+        qemu_log_path = os.path.join(temp_dir, "qemu-output.log")
+        qemu_log = open(qemu_log_path, "wb")
         process = subprocess.Popen(command, cwd=root, env=env,
-            stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+            stdout=qemu_log, stderr=subprocess.STDOUT)
         try:
             serial = connect_tcp(serial_port, 20, "serial")
             serial.settimeout(0.3)
             qmp = connect_qmp(qmp_port, 20)
             output += read_until(serial, b"srv> ", args.boot_wait)
 
-            send_qmp_text(qmp, "echo usb-input-ok\n", args.usb_key_delay)
+            qmp_input_ok = send_qmp_text(qmp, "echo usb-input-ok\n", args.usb_key_delay)
             output += read_until(serial, b"srv> ", args.command_wait)
+            if not qmp_input_ok:
+                output += b"\na1466-rehearsal: qmp input injection disconnected\n"
 
             for command_text in ("hwdiag", "dmesg 8192", "xhci", "pci", "block"):
                 output += run_monitor_command(serial, command_text, args.command_wait)
 
             if not args.skip_gui:
-                serial.sendall(b"run /fat/bin/sh\n")
-                output += read_until(serial, b" $ ", args.command_wait)
-                serial.sendall(b"gui --smoke-autostart\n")
-                output += read_until(serial, b"displayd: exited", args.gui_wait)
-                output += read_for(serial, 2)
+                if not serial_send(serial, b"run /fat/bin/sh\n"):
+                    output += b"\na1466-rehearsal: serial disconnected while starting sh\n"
+                else:
+                    output += read_until(serial, b" $ ", args.command_wait)
+                    if not serial_send(serial, b"gui --smoke-autostart\n"):
+                        output += b"\na1466-rehearsal: serial disconnected while starting gui\n"
+                    else:
+                        output += read_until(serial, b"displayd: exited", args.gui_wait)
+                        output += read_for(serial, 2)
         finally:
             try:
                 process.terminate()
                 process.wait(timeout=3)
             except Exception:
                 process.kill()
+                process.wait(timeout=3)
+            qemu_log.close()
+            output += f"\na1466-rehearsal: qemu exit={process.returncode}\n".encode("ascii")
+            with open(qemu_log_path, "rb") as handle:
+                qemu_output = handle.read()
+            if qemu_output:
+                output += b"\n--- qemu output ---\n" + qemu_output
 
     text = output.decode("utf-8", "replace")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
