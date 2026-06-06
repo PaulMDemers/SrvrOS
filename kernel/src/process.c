@@ -64,6 +64,7 @@
 #define PROCESS_STDIO_CLOSED_FD (-2)
 #define PROCESS_MAX_USER_THREADS 8
 #define PROCESS_MAX_FUTEXES 64
+#define PROCESS_EXIT_STATUS_CACHE 128
 
 struct process_context {
     uint64_t rbx;
@@ -269,6 +270,13 @@ struct process_futex {
     struct scheduler_wait_queue wait_queue;
 };
 
+struct process_exit_record {
+    bool used;
+    uint64_t pid;
+    uint64_t status;
+    uint64_t sequence;
+};
+
 void usermode_enter(uint64_t entry,
     uint64_t stack_top,
     uint64_t argc,
@@ -287,8 +295,10 @@ static struct process_pipe pipes[PROCESS_MAX_PIPES];
 static struct process_unix_listener unix_listeners[PROCESS_MAX_UNIX_LISTENERS];
 static struct process_file_lock file_locks[PROCESS_MAX_FILE_LOCKS];
 static struct process_futex futexes[PROCESS_MAX_FUTEXES];
+static struct process_exit_record exit_records[PROCESS_EXIT_STATUS_CACHE];
 static struct process *loading_process;
 static uint64_t next_pid = 1;
+static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
 static struct scheduler_wait_queue pipe_wait_queue;
 static struct scheduler_wait_queue unix_wait_queue;
@@ -324,6 +334,49 @@ static void process_irq_restore(uint64_t flags) {
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+}
+
+static void process_record_exit_status_locked(uint64_t pid, uint64_t status) {
+    struct process_exit_record *oldest = &exit_records[0];
+    for (uint64_t i = 0; i < PROCESS_EXIT_STATUS_CACHE; i++) {
+        struct process_exit_record *record = &exit_records[i];
+        if (record->used && record->pid == pid) {
+            record->status = status;
+            record->sequence = ++next_exit_record_sequence;
+            return;
+        }
+        if (!record->used || record->sequence < oldest->sequence) {
+            oldest = record;
+        }
+    }
+    oldest->used = true;
+    oldest->pid = pid;
+    oldest->status = status;
+    oldest->sequence = ++next_exit_record_sequence;
+}
+
+static void process_record_exit_status(uint64_t pid, uint64_t status) {
+    uint64_t flags = process_irq_save();
+    process_record_exit_status_locked(pid, status);
+    process_irq_restore(flags);
+}
+
+bool process_exit_status(uint64_t pid, uint64_t *status_out) {
+    bool found = false;
+    uint64_t status = 0;
+    uint64_t flags = process_irq_save();
+    for (uint64_t i = 0; i < PROCESS_EXIT_STATUS_CACHE; i++) {
+        if (exit_records[i].used && exit_records[i].pid == pid) {
+            status = exit_records[i].status;
+            found = true;
+            break;
+        }
+    }
+    process_irq_restore(flags);
+    if (found && status_out != NULL) {
+        *status_out = status;
+    }
+    return found;
 }
 static bool process_file_clone_entry(struct process_file *target, const struct process_file *source);
 static void process_file_release_entry(struct process_file *file);
@@ -2128,6 +2181,7 @@ int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
             if (status_out != NULL) {
                 *status_out = status;
             }
+            process_record_exit_status(waited_pid, status);
             release_process(process);
             if (find_reapable_process(0) == NULL) {
                 process_clear_current_signal(SRV_SIGNAL_CHLD);
@@ -5525,6 +5579,7 @@ void process_exit(uint64_t status) {
     if (thread != NULL) {
         __asm__ volatile ("cli" : : : "memory");
         process->exit_status = status;
+        process_record_exit_status(process->pid, status);
         process->exiting = true;
         thread->active = false;
         net_process_wake(process);
@@ -5539,6 +5594,7 @@ void process_exit(uint64_t status) {
 
     __asm__ volatile ("cli" : : : "memory");
     process->exit_status = status;
+    process_record_exit_status(process->pid, status);
     scheduler_kill_user_threads(process, NULL);
     process_futex_cleanup_process(process);
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
@@ -5547,6 +5603,7 @@ void process_exit(uint64_t status) {
     }
     cleanup_process_files(process);
     gui_process_cleanup(process->pid);
+    console_release_framebuffer_mute_owner(process->pid);
     net_process_cleanup(process);
     process->active = false;
     scheduler_clear_user_context();

@@ -8,6 +8,7 @@
 #include <srvros/heap.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
+#include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
 #include <srvros/net.h>
 #include <srvros/pci.h>
@@ -402,7 +403,7 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static void command_pci(void);
@@ -430,7 +431,10 @@ static void command_bootinfo(void) {
     console_printf("timer: ticks=%u\n", timer_ticks());
     console_printf("pci: devices=%u config=%s\n", pci_device_count(), pci_config_backend_name());
     acpi_print_status();
+    acpi_print_input_diagnostics();
     intel_gfx_print_status();
+    lpss_spi_print_status();
+    pci_print_input_bus_candidates();
     xhci_print_status();
     block_print_status();
 }
@@ -907,6 +911,12 @@ static void run_command(char *line) {
         command_pci();
     } else if (streq(command, "gpu")) {
         intel_gfx_print_status();
+    } else if (streq(command, "spi")) {
+        lpss_spi_print_status();
+    } else if (streq(command, "spiregs")) {
+        lpss_spi_print_registers();
+    } else if (streq(command, "acpiinput")) {
+        acpi_print_input_diagnostics();
     } else if (streq(command, "xhci") || streq(command, "usb")) {
         xhci_print_status();
     } else if (streq(command, "net")) {

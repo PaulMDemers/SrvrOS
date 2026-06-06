@@ -11,6 +11,7 @@
 #include <srvros/initramfs.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
+#include <srvros/lpss_spi.h>
 #include <srvros/monitor.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
@@ -32,6 +33,7 @@
 
 extern volatile uint64_t limine_base_revision[];
 extern volatile struct limine_bootloader_info_request bootloader_info_request;
+extern volatile struct limine_executable_cmdline_request executable_cmdline_request;
 extern volatile struct limine_framebuffer_request framebuffer_request;
 extern volatile struct limine_hhdm_request hhdm_request;
 extern volatile struct limine_memmap_request memmap_request;
@@ -42,6 +44,80 @@ void lapic_timer_init(uint8_t vector, uint32_t initial_count);
 bool ioapic_init(void);
 bool ioapic_route_isa_irq(uint8_t irq, uint8_t vector);
 bool ioapic_route_pci_irq(uint8_t irq, uint8_t vector);
+
+static bool boot_verbose;
+
+static bool char_is_separator(char c) {
+    return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\r';
+}
+
+static bool cmdline_has_token(const char *cmdline, const char *token) {
+    if (cmdline == NULL || token == NULL || token[0] == '\0') {
+        return false;
+    }
+
+    uint64_t token_len = 0;
+    while (token[token_len] != '\0') {
+        token_len++;
+    }
+
+    const char *p = cmdline;
+    while (*p != '\0') {
+        while (*p == ' ' || *p == '\t' || *p == '\n' || *p == '\r') {
+            p++;
+        }
+
+        const char *start = p;
+        uint64_t len = 0;
+        while (!char_is_separator(p[len])) {
+            len++;
+        }
+
+        if (len == token_len) {
+            bool match = true;
+            for (uint64_t i = 0; i < len; i++) {
+                if (start[i] != token[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) {
+                return true;
+            }
+        }
+
+        p += len;
+    }
+    return false;
+}
+
+static const char *kernel_cmdline(void) {
+    if (executable_cmdline_request.response == NULL) {
+        return "";
+    }
+    const char *cmdline = executable_cmdline_request.response->cmdline;
+    return cmdline != NULL ? cmdline : "";
+}
+
+static bool boot_debug_requested(const char *cmdline) {
+    return cmdline_has_token(cmdline, "debug") ||
+        cmdline_has_token(cmdline, "srvros.debug") ||
+        cmdline_has_token(cmdline, "srvros.debug=1") ||
+        cmdline_has_token(cmdline, "srvros.log=debug") ||
+        cmdline_has_token(cmdline, "srvros.log=trace") ||
+        cmdline_has_token(cmdline, "srvros.log=verbose");
+}
+
+static void boot_set_framebuffer_quiet(bool quiet) {
+    console_set_framebuffer_muted(quiet);
+}
+
+static void boot_status(const char *message) {
+    bool muted = console_framebuffer_muted();
+    console_set_framebuffer_muted(false);
+    console_write(message);
+    console_set_framebuffer_muted(muted);
+}
 
 static const char *memmap_type_name(uint64_t type) {
     switch (type) {
@@ -271,6 +347,8 @@ static void persist_bootlog(void) {
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
+    const char *cmdline = kernel_cmdline();
+    boot_verbose = boot_debug_requested(cmdline);
 
     if (!LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision)) {
         console_write("limine: requested base revision is unsupported\n");
@@ -280,6 +358,14 @@ void kmain(void) {
     if (framebuffer_request.response != NULL &&
         framebuffer_request.response->framebuffer_count > 0) {
         console_init(framebuffer_request.response->framebuffers[0]);
+        boot_set_framebuffer_quiet(!boot_verbose);
+        if (!boot_verbose) {
+            boot_status("srvros: booting (quiet mode)\n");
+        }
+    }
+
+    if (cmdline[0] != '\0') {
+        console_printf("cmdline: %s\n", cmdline);
     }
 
     if (bootloader_info_request.response != NULL) {
@@ -324,6 +410,7 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
+    lpss_spi_init();
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -334,7 +421,11 @@ void kmain(void) {
         xhci_hub_count());
     keyboard_print_status();
     if (xhci_device_count() == 0 || (!keyboard_ready && xhci_keyboard_count() == 0)) {
-        console_write("input: no xhci keyboard path; pci/xhci diagnostics follow\n");
+        console_write("input: no ps2/usb keyboard path; pci input/xhci diagnostics follow\n");
+        console_write("input: lpss spi/topcase diagnostics follow\n");
+        lpss_spi_print_status();
+        acpi_print_input_diagnostics();
+        pci_print_input_bus_candidates();
         pci_print_usb_controllers();
         xhci_print_status();
     }
@@ -378,7 +469,9 @@ void kmain(void) {
         console_write("framebuffer: unavailable\n");
     }
 
-    print_memmap();
+    if (boot_verbose) {
+        print_memmap();
+    }
 
     console_write("srvros: kernel bootstrap complete\n");
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
@@ -390,5 +483,11 @@ void kmain(void) {
     }
     keyboard_print_status();
     xhci_print_input_summary();
+    if (!boot_verbose) {
+        boot_set_framebuffer_quiet(false);
+        console_clear();
+        console_write("srvros: boot complete\n");
+        console_write("diagnostics: use dmesg, bootinfo, or reboot with srvros.log=debug\n\n");
+    }
     monitor_run();
 }

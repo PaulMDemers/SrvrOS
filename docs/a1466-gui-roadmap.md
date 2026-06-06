@@ -27,9 +27,11 @@ Expected baseline:
 - Storage: PCIe-based flash storage. The 13-inch model is documented as PCIe
   2.0 four-lane storage; in practice this family is often exposed as an Apple
   PCIe/AHCI SSD, but swapped SSDs may require NVMe.
-- Input: built-in keyboard and trackpad are not safe to assume as legacy PS/2.
-  Linux hardware reports for this generation show an Apple internal
-  keyboard/trackpad on USB, so xHCI plus USB HID is the practical target.
+- Input: built-in keyboard and trackpad are not legacy PS/2 on the tested
+  MacBookAir7,2. macOS reports the topcase as `Apple Internal Keyboard /
+  Trackpad` on `AppleHSSPI`/SPI with `AppleEmbeddedKeyboard` and multitouch HID
+  children. External USB keyboards remain the short-term console fallback while
+  the SPI/HSSPI path comes up.
 - Ports: two USB 3 ports, Thunderbolt 2, SDXC slot, audio, Wi-Fi/Bluetooth.
 - Networking: internal Wi-Fi is Broadcom 802.11ac and is not a near-term target.
   Early real-machine networking should use a USB Ethernet adapter after USB is
@@ -41,7 +43,7 @@ Sources used for the initial profile:
   https://support.apple.com/en-kz/111956
 - EveryMac Early 2015/Mid 2017 comparison:
   https://everymac.com/systems/apple/macbook-air/macbook-air-faq/differences-between-macbook-air-early-2015-models.html
-- Linux install report showing Apple internal keyboard/trackpad under USB:
+- Linux install report showing a USB-looking topcase path on similar hardware:
   https://atodorov.org/blog/2015/04/26/installing-red-hat-enterprise-linux-7-on-macbook-air-2015/
 
 ## Current Boot State
@@ -119,16 +121,47 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
   status also reports descriptor class/vendor/product details, parent hub port,
   route strings, and whether a pointer is absolute, which should make the first
   A1466 USB input boot log much more actionable.
-- Validate the same USB keyboard report path on the A1466 internal keyboard.
-- Validate the same USB mouse report path on the A1466 internal trackpad.
-- Validate the generic absolute pointer path on the A1466 internal trackpad.
-- Validate the hub-routed input path against the A1466 internal USB topology.
+- Validate external USB keyboard/mouse input on the A1466 USB-A ports.
+- Continue xHCI bring-up for the internal Broadcom USB hub, Bluetooth, card
+  reader, and any external USB input devices.
 - Add broader USB hub enumeration beyond one USB2 hub layer.
 - Add a real HID report-descriptor parser for non-boot trackpad features.
 
-This is the main real-machine usability blocker. Without it, the MacBook may
-boot visually but be hard or impossible to control without firmware-provided
-legacy emulation.
+This is still important for usable real-hardware testing, but the built-in
+keyboard and trackpad are now tracked separately as SPI/HSSPI devices.
+
+### 5a. Bring Up Apple SPI/HSSPI Topcase Input
+
+Detailed current status is tracked in
+[`docs/apple-spi-topcase-status.md`](apple-spi-topcase-status.md).
+
+- Discover and print PCI input-bus candidates early in boot. On the tested
+  MacBookAir7,2, macOS names the relevant devices `SDMA`/`SPI1`, with PCI
+  `8086:9ce0` for the LPSS DMA side and `8086:9cba` for the LPSS SPI side.
+- Add an `lpss-spi` diagnostic driver that finds the Broadwell SPI1 and LPSS
+  DMA PCI functions, reports command/BAR/IRQ state, and maps/samples the SPI
+  MMIO page only when firmware already left PCI memory decode enabled.
+- Remember DSDT through FADT/FACP and add a focused `acpi-input` AML scan for
+  `SPI1`, `SDMA`, `HSSP`, and topcase-like device markers so real hardware can
+  identify the namespace/resource area before a full AML interpreter exists.
+- Decode enough AML structure around those markers to print the enclosing
+  `Device`, nearby `Name` objects, child devices, and methods. This keeps the
+  hardware capture focused on `SPI1`, `SPIT`/`APPLESPITOPCASE`, and methods like
+  `SIEN`/`SIST`/`UIEN`/`UIST` without needing a full AML interpreter yet.
+- Add an Intel LPSS SPI transport driver: map BARs, enable PCI memory and bus
+  mastering, reset/configure the controller, and support a simple polling path
+  before adding interrupts/DMA.
+- Parse enough ACPI namespace/resource data to bind the Apple topcase child
+  (`apple-spi-topcase`) to the SPI controller and discover its IRQ/GPIO/CS
+  resources without hard-coding the whole machine.
+- Implement the Apple HSSPI framing/control protocol used by
+  `AppleHSSPIController`, `AppleHSSPIDevice`, and `AppleHSSPIHIDDriver`.
+- Feed the keyboard boot HID report into the existing keyboard injection path.
+  macOS reports product `0x0291`, vendor `0x05ac`, protocol version `17`,
+  keyboard interface 1, boot protocol 1, and a 10-byte max input packet.
+- Feed the trackpad boot/multitouch reports into the mouse input path. Start
+  with a coarse pointer/click mode, then layer in multitouch gestures after the
+  console is stable.
 
 ### 6. Storage on the Internal SSD
 
@@ -251,10 +284,12 @@ Current v2 status: `GUI_MSG_V2_CREATE_SURFACE_WINDOW`,
 also sends the existing close event to v2 apps from compositor-owned frame
 buttons, and owns z-order raise, title-bar dragging, and minimize state for
 surface windows. It also owns dock launchers for `/fat/bin/notes`,
-`/fat/bin/textedit`, `/fat/bin/paint`, `/fat/bin/gui2demo`,
-`/fat/bin/surfacedemo`, and `/fat/bin/calc`, with
+`/fat/bin/fileman`, `/fat/bin/textedit`, `/fat/bin/paint`,
+`/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and `/fat/bin/calc`, with
 hidden-QEMU coverage for duplicate instance placement and dock-launched GUI2
-clients. The bottom taskbar lists running GUI clients and supports
+clients. The launcher smoke path now asks `displayd` to launch each dock app
+deterministically so the test covers the window lifecycle without relying on
+host/QEMU relative mouse synthesis. The bottom taskbar lists running GUI clients and supports
 click-to-focus plus restore from minimized state. Bottom-right resize grips now
 send configure events, and GUI2 clients recreate their kernel-managed backing
 surface and redraw at the requested size. The dock includes an on-screen Exit
@@ -265,11 +300,13 @@ Pixel storage is currently kernel-managed through
 `gui_surface_blit`, `gui_surface_copy`, and `gui_surface_destroy` wrappers.
 `gui2` is the first app-side helper library for that path, wrapping window
 open/close, resize, dirty presents, event polling, theme/layout helpers,
-focus-aware widget dispatch, buttons, textboxes, and a pixel canvas control.
+  shared app header/status chrome, focus-aware widget dispatch, Tab traversal
+  across keyboard-focusable controls, buttons, textboxes, multiline text areas,
+  sortable list/table controls, confirmation dialogs, and a pixel canvas control.
 `/fat/bin/surfacedemo` now uses it for a raw animated surface, and
 `/fat/bin/gui2demo` uses it for the first v2 widget sample. `/fat/bin/notes`,
-`/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint` use the same
-toolkit pieces for small utility apps under `displayd`.
+`/fat/bin/calc`, `/fat/bin/textedit`, `/fat/bin/fileman`, and `/fat/bin/paint`
+use the same toolkit pieces for small utility apps under `displayd`.
 
 ### Toolkit
 
@@ -365,12 +402,52 @@ For the A1466 internal panel, a 1440x900 mode should look like a comfortable
 
 ### Slice F: Toolkit V2 and Apps
 
+The application polish plan is tracked in
+[`docs/gui-applications-plan.md`](gui-applications-plan.md).
+
 - Add app-side layout/theme/render library.
 - Port calculator, notes, text editor, and paint/image editor to client-owned
   surfaces. Notes, calculator, text editor, and paint now have GUI2 ports as
   `/fat/bin/notes`, `/fat/bin/calc`, `/fat/bin/textedit`, and `/fat/bin/paint`.
+- Add a first GUI2 File Manager as `/fat/bin/fileman`; it browses `/` and
+  `/fat`, opens directories, and launches Text Edit for regular files.
+- Add a shared multiline text area control and use it in Text Edit, Notes, and
+  File Manager until richer list/editor controls land.
+- Add a shared list control and migrate File Manager to it, with New, Rename,
+  Delete, Refresh, Up, and Open actions backed by the existing VFS syscalls.
+- Add shared header/status/button-row helpers and apply them across Notes, Text
+  Edit, File Manager, Calculator, and Paint.
+- Extend File Manager with Copy, Move, and BMP open-with-Paint dispatch, plus a
+  hidden-QEMU self-test for mkdir/write/copy/move/delete cleanup.
+- Extend the shared list control with table headers/sort events and add a
+  reusable confirmation dialog; File Manager now uses those for sortable
+  Name/Size browsing and confirm-before-delete.
+- Add list/table scrollbars plus page/top/bottom keyboard navigation, and
+  extend File Manager copy/move/delete to handle directory trees with bounded
+  recursive filesystem walks and file/directory count status.
+- Move File Manager recursive copy/fallback-move/delete onto a cooperative
+  operation runner so the app can redraw progress between filesystem steps and
+  between large-file copy chunks.
+- Add shared progress-dialog support and use it for cancellable File Manager
+  copy/fallback-move/delete operations.
+- Upgrade Notes into a two-pane persistent note manager backed by individual
+  files under `/fat/home/notes`, with rename/delete/save/reload controls,
+  dirty-state feedback, discard-change prompts for destructive/navigation
+  actions, and hidden-QEMU self-test coverage.
+- Polish Text Edit with document path/status chrome, line/column/byte counts,
+  dirty-state prompts for reload/clear/close, basic control-key shortcuts, and
+  hidden-QEMU self-test coverage for save/load/rewrite behavior.
+- Add a shared GUI2 file open/save dialog with directory browsing, parent
+  navigation, filename entry, Open/Save/Cancel actions, and Text Edit plus
+  Paint Open/Save As integration.
+- Add toolkit-level Tab and Shift-Tab focus traversal across GUI2 lists, text
+  fields, text areas, and buttons. PS/2 and USB HID keyboards emit the standard
+  `ESC [ Z` backtab sequence, and `displayd` translates it into a shared GUI
+  backtab key before forwarding the event to clients.
 - Add reusable GUI2 canvas support so paint and future image/canvas apps do not
   hand-roll scaled pixel drawing or pointer-to-pixel hit testing.
+- Extend the GUI2 canvas with viewport mapping and wire Paint to it for zoom,
+  pan, fit, and visible image/view dimensions.
 - Add resize handling and per-resolution smoke tests. The first resize path is
   implemented for GUI2 clients on the kernel-managed surface-copy backend, and
   `displayd_resolution_smoke.py` covers 800x600, 1280x800, 1440x900, and

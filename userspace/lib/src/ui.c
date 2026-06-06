@@ -524,9 +524,21 @@ static uint8_t glyph_row(char c, uint64_t row) {
         static const uint8_t colon[7] = { 0, 0x0c, 0x0c, 0, 0x0c, 0x0c, 0 };
         return colon[row];
     }
+    if (c == ',') {
+        static const uint8_t comma[7] = { 0, 0, 0, 0, 0x0c, 0x04, 0x08 };
+        return comma[row];
+    }
+    if (c == ';') {
+        static const uint8_t semicolon[7] = { 0, 0x0c, 0x0c, 0, 0x0c, 0x04, 0x08 };
+        return semicolon[row];
+    }
     if (c == '-') {
         static const uint8_t dash[7] = { 0, 0, 0, 0x1f, 0, 0, 0 };
         return dash[row];
+    }
+    if (c == '_') {
+        static const uint8_t underscore[7] = { 0, 0, 0, 0, 0, 0, 0x1f };
+        return underscore[row];
     }
     if (c == '+') {
         static const uint8_t plus[7] = { 0, 0x04, 0x04, 0x1f, 0x04, 0x04, 0 };
@@ -535,6 +547,62 @@ static uint8_t glyph_row(char c, uint64_t row) {
     if (c == '=') {
         static const uint8_t equals[7] = { 0, 0, 0x1f, 0, 0x1f, 0, 0 };
         return equals[row];
+    }
+    if (c == '/') {
+        static const uint8_t slash[7] = { 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10 };
+        return slash[row];
+    }
+    if (c == '\\') {
+        static const uint8_t backslash[7] = { 0x10, 0x10, 0x08, 0x04, 0x02, 0x01, 0x01 };
+        return backslash[row];
+    }
+    if (c == '[') {
+        static const uint8_t open_bracket[7] = { 0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e };
+        return open_bracket[row];
+    }
+    if (c == ']') {
+        static const uint8_t close_bracket[7] = { 0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e };
+        return close_bracket[row];
+    }
+    if (c == '(') {
+        static const uint8_t open_paren[7] = { 0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02 };
+        return open_paren[row];
+    }
+    if (c == ')') {
+        static const uint8_t close_paren[7] = { 0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08 };
+        return close_paren[row];
+    }
+    if (c == '<') {
+        static const uint8_t less_than[7] = { 0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02 };
+        return less_than[row];
+    }
+    if (c == '>') {
+        static const uint8_t greater_than[7] = { 0x08, 0x04, 0x02, 0x01, 0x02, 0x04, 0x08 };
+        return greater_than[row];
+    }
+    if (c == '*') {
+        static const uint8_t star[7] = { 0, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0 };
+        return star[row];
+    }
+    if (c == '!') {
+        static const uint8_t bang[7] = { 0x04, 0x04, 0x04, 0x04, 0x04, 0, 0x04 };
+        return bang[row];
+    }
+    if (c == '?') {
+        static const uint8_t question[7] = { 0x0e, 0x11, 0x01, 0x02, 0x04, 0, 0x04 };
+        return question[row];
+    }
+    if (c == '\'') {
+        static const uint8_t apostrophe[7] = { 0x04, 0x04, 0x08, 0, 0, 0, 0 };
+        return apostrophe[row];
+    }
+    if (c == '"') {
+        static const uint8_t quote[7] = { 0x0a, 0x0a, 0x0a, 0, 0, 0, 0 };
+        return quote[row];
+    }
+    if (c == '`') {
+        static const uint8_t backtick[7] = { 0x08, 0x04, 0x02, 0, 0, 0, 0 };
+        return backtick[row];
     }
     return unknown[row];
 }

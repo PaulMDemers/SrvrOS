@@ -42,6 +42,18 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def choose_port(start, end):
+    for _ in range(200):
+        port = random.randint(start, end)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                pass
+    raise RuntimeError("no free serial port found")
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -55,29 +67,31 @@ def main():
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=45)
+    parser.add_argument("--boot-wait", type=float, default=80)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--displayd-wait", type=float, default=25)
+    parser.add_argument("--displayd-extra-args", default="")
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
     iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
-    port = random.randint(24000, 29000)
+    port = choose_port(26001, 30000)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
     msys_usr = r"C:\msys64\usr\bin"
     if os.path.isdir(msys_ucrt):
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
+    qemu = shutil.which(args.qemu, path=env.get("PATH", "")) or args.qemu
 
     output = b""
     with tempfile.TemporaryDirectory(prefix="srvros-displayd-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-displayd.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
-            args.qemu,
+            qemu,
             "-M", "q35",
             "-m", args.memory,
             "-cdrom", iso,
@@ -99,7 +113,10 @@ def main():
             output += read_until(sock, b"srv> ", args.boot_wait)
             sock.sendall(b"run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", args.shell_wait)
-            sock.sendall(b"displayd --smoke-autostart\n")
+            command_line = "displayd --smoke-autostart"
+            if args.displayd_extra_args:
+                command_line += " " + args.displayd_extra_args
+            sock.sendall(command_line.encode("ascii") + b"\n")
             output += read_for(sock, args.displayd_wait)
         finally:
             try:

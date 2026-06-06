@@ -1536,6 +1536,19 @@ static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_reques
     return 0;
 }
 
+static int64_t syscall_gfx_console_mute(uint64_t muted) {
+    struct process *process = process_current();
+    if (process == NULL) {
+        return -1;
+    }
+    console_set_framebuffer_muted_owner(process_pid(process), muted != 0);
+    return 0;
+}
+
+static int64_t syscall_gfx_console_muted(void) {
+    return console_framebuffer_muted() ? 1 : 0;
+}
+
 static int64_t syscall_gui_surface_create(struct srv_gui_surface_create *user_request) {
     struct srv_gui_surface_create request;
     struct process *process = process_current();
@@ -1850,6 +1863,16 @@ static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) 
         return -1;
     }
     return result;
+}
+
+static int64_t syscall_proc_exit_status(uint64_t pid, uint64_t *status_out) {
+    uint64_t status = 0;
+    if (pid == 0 || status_out == NULL ||
+        !user_buffer_ok(status_out, sizeof(*status_out), true) ||
+        !process_exit_status(pid, &status)) {
+        return -1;
+    }
+    return copy_to_user(status_out, &status, sizeof(status)) ? 0 : -1;
 }
 
 static int64_t syscall_net_listen(uint16_t port) {
@@ -2410,6 +2433,9 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_WAIT:
         frame->rax = (uint64_t)syscall_wait(frame->rdi, (uint64_t *)frame->rsi, frame->rdx);
         return;
+    case SYS_PROC_EXIT_STATUS:
+        frame->rax = (uint64_t)syscall_proc_exit_status(frame->rdi, (uint64_t *)frame->rsi);
+        return;
     case SYS_MKDIR:
         frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi);
         return;
@@ -2568,6 +2594,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GFX_BLIT_RECT:
         frame->rax = (uint64_t)syscall_gfx_blit_rect((const struct srv_gfx_blit_rect *)frame->rdi);
+        return;
+    case SYS_GFX_CONSOLE_MUTE:
+        frame->rax = (uint64_t)syscall_gfx_console_mute(frame->rdi);
+        return;
+    case SYS_GFX_CONSOLE_MUTED:
+        frame->rax = (uint64_t)syscall_gfx_console_muted();
         return;
     case SYS_GUI_SURFACE_CREATE:
         frame->rax = (uint64_t)syscall_gui_surface_create((struct srv_gui_surface_create *)frame->rdi);

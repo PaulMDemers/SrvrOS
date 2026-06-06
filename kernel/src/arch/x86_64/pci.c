@@ -122,6 +122,19 @@ const char *pci_class_name(uint8_t class_code, uint8_t subclass) {
             return "usb";
         }
         return "serial bus";
+    case 0x07:
+        if (subclass == 0x00) {
+            return "serial";
+        }
+        if (subclass == 0x80) {
+            return "communication";
+        }
+        return "comm";
+    case 0x08:
+        if (subclass == 0x01) {
+            return "dma";
+        }
+        return "system";
     default:
         return "device";
     }
@@ -273,6 +286,62 @@ void pci_print_usb_controllers(void) {
     }
     if (found == 0) {
         console_write("pci-usb: none\n");
+    }
+}
+
+static bool is_known_apple_input_candidate(const struct pci_device *dev) {
+    if (dev->vendor_id != 0x8086) {
+        return false;
+    }
+
+    switch (dev->device_id) {
+    case 0x9cba: /* Broadwell-LP LPSS SPI, named SPI1 by macOS on A1466. */
+    case 0x9ce0: /* Broadwell-LP LPSS DMA, paired with AppleIntelLpssGspi. */
+        return true;
+    default:
+        return false;
+    }
+}
+
+static bool is_input_bus_candidate(const struct pci_device *dev) {
+    if (dev->class_code == 0x0c) {
+        return true;
+    }
+    if (dev->class_code == 0x07 && dev->subclass == 0x80) {
+        return true;
+    }
+    if (dev->class_code == 0x08 && dev->subclass == 0x01) {
+        return true;
+    }
+    return is_known_apple_input_candidate(dev);
+}
+
+void pci_print_input_bus_candidates(void) {
+    uint64_t found = 0;
+    for (uint64_t i = 0; i < device_count; i++) {
+        const struct pci_device *dev = &devices[i];
+        if (!is_input_bus_candidate(dev)) {
+            continue;
+        }
+
+        found++;
+        console_printf("pci-input: bus=%u dev=%u fn=%u vendor=%x device=%x class=%x subclass=%x if=%x %s irq=%u pin=%u bar0=%x bar1=%x\n",
+            (uint64_t)dev->bus,
+            (uint64_t)dev->device,
+            (uint64_t)dev->function,
+            (uint64_t)dev->vendor_id,
+            (uint64_t)dev->device_id,
+            (uint64_t)dev->class_code,
+            (uint64_t)dev->subclass,
+            (uint64_t)dev->prog_if,
+            pci_class_name(dev->class_code, dev->subclass),
+            (uint64_t)dev->interrupt_line,
+            (uint64_t)dev->interrupt_pin,
+            (uint64_t)dev->bar[0],
+            (uint64_t)dev->bar[1]);
+    }
+    if (found == 0) {
+        console_write("pci-input: none\n");
     }
 }
 

@@ -17,6 +17,14 @@ single-purpose, static-capacity, and easy to inspect.
    embedded in initramfs.
 5. The monitor waits at `srv>` and can launch ring-3 ELF programs from VFS.
 
+The default Limine entry boots with `srvros.log=quiet`. In quiet mode the kernel
+still mirrors all bootstrap output to serial and the in-memory boot log, but the
+framebuffer console is muted after it is initialized and cleared back to a short
+boot-complete banner before the monitor starts. The `/srvros debug` Limine entry
+passes `srvros.log=debug`, which leaves framebuffer bootstrap diagnostics visible
+for real-hardware bring-up. The same full log is available from `dmesg` and is
+persisted to `/fat/var/log/boot.log` after `/fat` mounts.
+
 ## Kernel Shape
 
 The kernel is freestanding C with small x86_64 assembly entry points for
@@ -201,6 +209,10 @@ All console output is mirrored into a fixed-size boot-log ring. The monitor
 kernel writes `/fat/var/log/boot.log` after `/fat` mounts. Fatal exceptions clear
 the framebuffer to a panic page, print register/mapping context, and include the
 recent boot log so real-machine failures are readable without serial.
+
+Quiet framebuffer boot does not reduce diagnostic coverage: serial output and
+the boot-log ring remain verbose. Use the `/srvros debug` boot entry when a
+photo of early framebuffer diagnostics is more useful than a clean prompt.
 
 The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
 Intel graphics discovery, xHCI capability registers, and block devices. The
@@ -401,10 +413,11 @@ input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
 aliases, functions, PATH commands, and filesystem paths.
 
 The generated exFAT image also ships `/fat/share/help/*.txt` topic files for
-the shell, services, networking, files, web serving, CLI conventions, profiles,
-and the pager. The `help` builtin prints a compact summary, `help -l` lists
-topics, `help <topic>` and `man <topic>` read those files directly from the
-mounted filesystem, and `apropos <word>` searches topic names and content.
+the shell, builtins, bundled commands, syntax, expansion, redirection,
+services, networking, files, web serving, CLI conventions, profiles, and the
+pager. The `help` builtin prints a compact summary, `help -l` lists topics,
+`help <topic>` and `man <topic>` read those files directly from the mounted
+filesystem, and `apropos <word>` searches topic names and content.
 `/fat/bin/more` provides a small page-at-a-time reader with `--plain` for
 non-interactive scripts. The image also includes `/fat/share/examples`,
 `/fat/tmp`, and `/fat/home` so scripts have predictable defaults on first boot.
@@ -640,18 +653,31 @@ react from their own process, and uses the existing close event for compositor
 close requests. The dock also has an on-screen Exit control that requests close
 from every mapped client, reaps cooperative exits, and escalates lingering
 clients before returning to the shell. The app-side `gui2` library wraps that
-protocol with window open/close, resize, surface present/damage, event polling,
-theme/layout helpers, shared widget dispatch, and early button/textbox/canvas
-widgets.
+  protocol with window open/close, resize, surface present/damage, event polling,
+  theme/layout helpers, shared widget dispatch, and early button/textbox/canvas
+widgets. It also provides reusable confirm/progress dialogs and a shared file
+open/save dialog with directory browsing, parent navigation, filename entry,
+ Open/Save/Cancel actions, and shared Tab focus traversal for lists, text fields,
+ text areas, and buttons.
 `/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
 `/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
-is a small GUI2 utility, with a focused textbox and buttons rendered inside an
-app-owned surface. `/fat/bin/calc` is a resizable integer calculator with
-app-owned buttons and configure-driven surface recreation. `/fat/bin/textedit`
-uses the same GUI2 path for resize-aware document display, line entry, save,
-and clear controls. `/fat/bin/paint` is a GUI2 BMP image editor using the
-shared toolkit canvas control for its app-owned pixel buffer, palette buttons,
-clear/save controls, and BMP encoding through the shared userspace image helper.
+is a two-pane GUI2 note manager backed by individual files under
+`/fat/home/notes`, with a note list, multiline editor, title field,
+rename/delete/save/reload controls, dirty-state feedback, and discard-change
+prompts plus find-next within the selected note body. `/fat/bin/calc` is a
+resizable integer calculator with app-owned
+buttons and configure-driven surface recreation. `/fat/bin/textedit` uses the
+same GUI2 path for resize-aware document display, line entry, save/reload/clear
+controls, document path/status chrome, line/column/byte status, dirty-state
+prompts, basic control-key shortcuts, shared Open/Save As file dialogs, and
+case-insensitive find-next over the current document.
+`/fat/bin/paint` is a GUI2 BMP image editor using the shared toolkit canvas
+control for its app-owned pixel buffer, palette buttons, clear/save controls,
+shared Open/Save As dialogs, and BMP decoding/encoding through the shared
+userspace image helper. The GUI2 canvas supports a source viewport, and Paint
+uses it for zoom, pan, fit, pointer-to-image-coordinate mapping, and visible
+image/view dimensions. The current paint canvas is fixed at 160x120 pixels, so
+the first BMP open path accepts exact 160x120 images.
 
 The userspace UI library provides buffered elements, parent/child composition,
 dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic
@@ -663,7 +689,8 @@ The next GUI architecture replaces the fixed-pixel desktop with a display
 server/compositor model. Apps should own drawable surfaces, the compositor
 should own z-order/decorations/input routing, and rendering should be driven by
 damage rectangles plus resolution-aware logical units. The design and hardware
-bring-up plan are tracked in `docs/a1466-gui-roadmap.md`.
+bring-up plan are tracked in `docs/a1466-gui-roadmap.md`. The application
+polish track is broken out in `docs/gui-applications-plan.md`.
 
 The graphics ABI now carries accelerator metadata beside the framebuffer
 geometry. Intel integrated graphics discovery is initialized during boot and is

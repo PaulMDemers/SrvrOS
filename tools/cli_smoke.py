@@ -92,6 +92,9 @@ def main():
         "help service\n"
         "help -l\n"
         "help cli\n"
+        "help commands\n"
+        "help syntax\n"
+        "help redirection\n"
         "man shell\n"
         "man profile\n"
         "apropos server\n"
@@ -612,13 +615,16 @@ def main():
     sys.stdout.write(text)
 
     expected = [
-        "srvsh: interactive shell",
+        "srvsh ready. Type 'help' or 'help -l'.",
         "shell-ok",
         "sh",
         "srvsh shell",
         "service set <name> <key> <value>",
         "topics:",
         "cli daily driver",
+        "bundled commands",
+        "shell syntax",
+        "redirection and pipelines",
         "profile",
         "webd",
         "more [-n lines] [file ...]",

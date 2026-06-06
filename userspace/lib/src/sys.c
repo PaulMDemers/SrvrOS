@@ -362,6 +362,10 @@ long srv_proc_list(uint64_t index, struct srv_process_info *info) {
     return srv_syscall2(SYS_PROC_LIST, (long)index, (long)info);
 }
 
+long srv_proc_exit_status(uint64_t pid, uint64_t *status_out) {
+    return srv_syscall2(SYS_PROC_EXIT_STATUS, (long)pid, (long)status_out);
+}
+
 long srv_kill(int64_t pid) {
     return srv_syscall2(SYS_KILL, (long)pid, SRV_SIGNAL_TERM);
 }

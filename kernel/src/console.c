@@ -26,6 +26,8 @@ static uint64_t rows;
 static uint64_t cursor_x;
 static uint64_t cursor_y;
 static bool framebuffer_console_ready;
+static bool framebuffer_console_muted;
+static uint64_t framebuffer_console_mute_owner;
 static enum ansi_state ansi_state;
 static uint64_t ansi_params[ANSI_PARAM_MAX];
 static uint64_t ansi_param_count;
@@ -437,6 +439,35 @@ void console_clear(void) {
     draw_cursor(true);
 }
 
+void console_set_framebuffer_muted(bool muted) {
+    framebuffer_console_muted = muted;
+    framebuffer_console_mute_owner = 0;
+}
+
+void console_set_framebuffer_muted_owner(uint64_t owner_pid, bool muted) {
+    if (muted) {
+        framebuffer_console_muted = true;
+        framebuffer_console_mute_owner = owner_pid;
+        return;
+    }
+    if (framebuffer_console_mute_owner == 0 ||
+        framebuffer_console_mute_owner == owner_pid) {
+        framebuffer_console_muted = false;
+        framebuffer_console_mute_owner = 0;
+    }
+}
+
+void console_release_framebuffer_mute_owner(uint64_t owner_pid) {
+    if (owner_pid != 0 && framebuffer_console_mute_owner == owner_pid) {
+        framebuffer_console_muted = false;
+        framebuffer_console_mute_owner = 0;
+    }
+}
+
+bool console_framebuffer_muted(void) {
+    return framebuffer_console_muted;
+}
+
 void console_get_size(uint64_t *columns_out, uint64_t *rows_out) {
     if (columns_out != NULL) {
         *columns_out = framebuffer_console_ready ? columns : 0;
@@ -460,6 +491,8 @@ void console_set_cursor(uint64_t x, uint64_t y) {
 void console_init(struct limine_framebuffer *framebuffer) {
     fb = framebuffer;
     framebuffer_console_ready = false;
+    framebuffer_console_muted = false;
+    framebuffer_console_mute_owner = 0;
 
     if (fb == NULL || fb->bpp != 32 || fb->memory_model != LIMINE_FRAMEBUFFER_RGB) {
         return;
@@ -479,7 +512,9 @@ void console_init(struct limine_framebuffer *framebuffer) {
 void console_putc(char c) {
     bootlog_putc(c);
     serial_putc(c);
-    framebuffer_putc(c);
+    if (!framebuffer_console_muted) {
+        framebuffer_putc(c);
+    }
 }
 
 void console_write(const char *s) {

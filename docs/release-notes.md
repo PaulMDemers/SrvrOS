@@ -9,6 +9,9 @@ server.
 ### Highlights
 
 - Boots a higher-half x86_64 kernel through Limine.
+- Defaults to quiet framebuffer boot while retaining full serial, `dmesg`, and
+  `/fat/var/log/boot.log` diagnostics; the `/srvros debug` Limine entry keeps
+  framebuffer bootstrap logging visible for hardware bring-up.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
 - Adds runtime ELF TLS support: the linker emits `PT_TLS`, the kernel maps the
   main-thread and per-user-thread TLS blocks, the scheduler preserves `FS.base`,
@@ -35,6 +38,21 @@ server.
 - Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically
   allocated root backbuffer, resolution-aware layout metrics, GUI IPC server
   registration, hidden-QEMU smoke coverage, and dirty-rectangle cursor refresh.
+- Lets `displayd` claim framebuffer ownership while the compositor is running:
+  console text continues to serial and the boot log, but is muted from the
+  visible framebuffer after the initial full backbuffer present to avoid GUI
+  corruption from background diagnostics. The kernel now releases that
+  framebuffer-console ownership automatically if the compositor process exits.
+- Adds visible `displayd` app-exit notices for unexpected GUI client exits and
+  an opt-in `--damage-debug` overlay that outlines compositor dirty rectangles
+  and cursor refresh regions during manual GUI investigation.
+- Adds `/fat/bin/guifail`, a diagnostic GUI client used by hidden-QEMU smokes to
+  exercise unexpected app-exit notices and framebuffer-console mute ownership
+  release after an early compositor exit.
+- Polishes the `displayd` presentation path with a shared neutral/teal/amber
+  chrome palette, clearer active/inactive window frames, refined dock/taskbar
+  states, a cleaner card-free workspace backdrop, regenerated release
+  screenshots, and a screenshot assertion that guards the desktop presentation.
 - Adds kernel-managed GUI surfaces plus v2 surface-window/damage messages.
   `/fat/bin/surfacedemo` creates a drawable surface, blits pixels into it, and
   `displayd` composites it through the new app-owned-surface path.
@@ -48,6 +66,10 @@ server.
   and textbox cursor support, then adds `/fat/bin/notes` as the first small
   GUI2 utility app. The displayd smoke now launches and maps it beside the raw
   surface and widget demos.
+- Adds toolkit-level Tab focus traversal for GUI2 lists, text fields, multiline
+  editors, and buttons so dialogs and utility apps share keyboard navigation.
+- Adds visible Find fields and Ctrl-G find-next behavior to Text Edit and Notes,
+  backed by a shared GUI2 textarea cursor setter that scrolls matches into view.
 - Adds the first active `displayd` window-manager behavior for GUI2 surfaces:
   compositor-owned close/minimize buttons, title-bar dragging, z-order raise on
   focus, and app-side close-event handling in the GUI2 sample apps.
@@ -64,6 +86,18 @@ server.
 - Adds `tools/displayd_resolution_smoke.py`, which builds temporary
   resolution-specific Limine ISOs and verifies `displayd` at 800x600,
   1280x800, 1440x900, and 1920x1080.
+- Adds a small process exit-status cache and user syscall so compositor-owned
+  lifecycle cleanup can report real app exit statuses even after the normal
+  wait/reap path has already consumed the process table entry.
+- Adds `tools/displayd_soak_smoke.py` and `/fat/bin/displayd --soak-smoke` to
+  churn GUI2 window launches, movement, resizing, minimize/restore, close, and
+  cleanup paths without relying on QMP pointer timing.
+- Tightens `displayd` surface remapping during app resize so stale damage or
+  destroy messages from an old app surface cannot dirty or remove the current
+  window surface.
+- Adds a `displayd` launch-capacity guard and stale pending-launch cleanup so
+  rapid dock clicks report a full workspace instead of spawning clients that
+  cannot map a window.
 - Adds `/fat/bin/calc`, a resizable GUI2 calculator client with an app-owned
   surface, integer arithmetic controls, configure/resize handling, and dock
   launcher smoke coverage, replacing the legacy `/fat/bin/calcgui` packaging.
@@ -73,6 +107,14 @@ server.
 - Moves `/fat/bin/paint` onto GUI2 as the shipped BMP paint/image editor, with
   an app-owned scaled canvas, palette controls, clear/save actions, and dock
   launcher smoke coverage.
+- Expands `/fat/bin/fileman` toward a daily File Manager: GUI2 list columns,
+  recursive copy/move/delete with confirm/progress dialogs, and open-with
+  routing that launches Text Edit for text-like files, Paint for BMPs, and
+  reports unsupported file types. A hidden-QEMU/QMP open-with smoke now verifies
+  the Text Edit, Paint, and unsupported-type paths through the compositor.
+- Keeps the shipped GUI utility windows open until an explicit compositor close
+  event, removing the old smoke-era auto-exit timers from Calc, Notes, Text
+  Edit, Paint, and File Manager.
 - Adds a reusable GUI2 canvas widget and refactors paint to use it for scaled
   pixel drawing and pointer-to-pixel hit testing.
 - Adds `/fat/bin/gui` as the stable GUI entrypoint. It execs
@@ -138,6 +180,23 @@ server.
   reads, sync reads, async iteration, and stat-backed `Dirent` checks. The same
   path fills `readdirSync({ withFileTypes: true })` when the native srvros
   binding returns plain names.
+- Upgrades `/fat/bin/notes` into a two-pane GUI2 note manager backed by
+  individual files under `/fat/home/notes`, with rename/delete/save/reload
+  controls, dirty-state feedback, discard-change prompts, and a hidden-QEMU
+  self-test that verifies create/list/rename/delete behavior plus exFAT image
+  integrity.
+- Polishes `/fat/bin/textedit` with document path/status chrome,
+  line/column/byte status, dirty-state prompts for reload/clear/close,
+  Ctrl-S/Ctrl-R/Ctrl-L/Ctrl-Q shortcuts, and a hidden-QEMU self-test covering
+  save/load/rewrite behavior plus exFAT image integrity.
+- Adds a shared GUI2 file open/save dialog with directory browsing, parent
+  navigation, filename entry, and Open/Save/Cancel actions. Text Edit now uses
+  it for Open and Save As while preserving dirty-document prompts, and Paint
+  uses it for exact-canvas BMP Open and Save As flows. A new Paint self-test
+  smoke verifies BMP encode/save/reload/decode round-tripping under hidden QEMU.
+- Extends the shared GUI2 canvas with viewport mapping and upgrades Paint with
+  zoom out, zoom in, fit, pan controls, keyboard panning, and status-line image
+  plus viewport dimensions.
 - Adds srvros JS fallbacks for recursive `mkdir()`/`mkdirSync()` and
   polling-backed `fs.watchFile()`/`fs.unwatchFile()`, `fs.watch()`, and
   `fs.promises.watch()`. The Node app suite now bundles and verifies real
@@ -389,6 +448,9 @@ server.
   tab completion for help topics and service names/actions, generated
   `/fat/share/examples`, login `/fat/etc/profile.d/*.sh` snippets, and default
   `/fat/tmp` plus `/fat/home` directories in the generated exFAT image.
+- Makes interactive `srvsh` startup presentation quiet by default and moves the
+  former command/syntax wall into structured `/fat/share/help` topics:
+  `builtins`, `commands`, `syntax`, `expansion`, and `redirection`.
 - Normalizes `-h`/`--help` usage output across the core CLI, service, and
   network utility set.
 - Normalizes `--` option termination across the common file/text utilities used

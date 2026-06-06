@@ -84,6 +84,7 @@ int main(void) {
     struct gui2_window window;
     struct gui2_button button;
     struct gui2_textbox textbox;
+    struct gui2_context context;
     char input[48];
     uint64_t event_count = 0;
     uint64_t start;
@@ -97,6 +98,7 @@ int main(void) {
 
     gui2_button_init(&button, 14, 132, 92, 28, "CLICK");
     gui2_textbox_init(&textbox, 14, 72, 260, 34, input, sizeof(input));
+    gui2_context_init(&context);
     draw_app(&window, &button, &textbox, event_count);
     gui2_window_present_dirty(&window);
 
@@ -111,6 +113,7 @@ int main(void) {
         }
         while (gui2_poll_event(&window, &event) > 0) {
             event_count++;
+            size_t old_text_length = textbox.length;
             if (event.type == GUI2_EVENT_CONFIGURE) {
                 srv_puts("gui2demo: configure ");
                 print_u64(event.width);
@@ -128,8 +131,17 @@ int main(void) {
                 closing = 1;
                 break;
             }
-            changed |= gui2_textbox_event(&textbox, &event);
-            changed |= gui2_button_event(&button, &event);
+            struct gui2_control controls[] = {
+                { GUI2_CONTROL_TEXTBOX, &textbox },
+                { GUI2_CONTROL_BUTTON, &button },
+            };
+            changed |= gui2_dispatch_event(&context, &event,
+                controls, sizeof(controls) / sizeof(controls[0]));
+            if (textbox.length != old_text_length) {
+                srv_puts("gui2demo: text ");
+                srv_puts(input);
+                srv_puts("\n");
+            }
             if (button.clicks != 0) {
                 button.clicks = 0;
                 srv_puts("gui2demo: click\n");

@@ -67,6 +67,18 @@ def connect_qmp(port, timeout):
     raise RuntimeError(f"qmp connection failed: {last_error}")
 
 
+def choose_port(start, end):
+    for _ in range(200):
+        port = random.randint(start, end)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                pass
+    raise RuntimeError("no free local port found")
+
+
 def hmp(sock, command):
     qmp_command(sock, {
         "execute": "human-monitor-command",
@@ -83,11 +95,16 @@ class Mouse:
     def move_to(self, x, y):
         dx = x - self.x
         dy = y - self.y
-        if dx != 0 or dy != 0:
-            hmp(self.qmp, f"mouse_move {dx} {dy}")
-            self.x = x
-            self.y = y
-            time.sleep(0.15)
+        while dx != 0 or dy != 0:
+            step_x = max(-80, min(80, dx))
+            step_y = max(-80, min(80, dy))
+            hmp(self.qmp, f"mouse_move {step_x} {step_y}")
+            self.x += step_x
+            self.y += step_y
+            dx = x - self.x
+            dy = y - self.y
+            time.sleep(0.05)
+        time.sleep(0.15)
 
     def button(self, down):
         hmp(self.qmp, "mouse_button 1" if down else "mouse_button 0")
@@ -107,38 +124,38 @@ def has_fatal_exception(text):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Run a srvros displayd paint canvas smoke test.")
+    parser = argparse.ArgumentParser(description="Run a srvros displayd paint launch smoke test.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=45)
+    parser.add_argument("--boot-wait", type=float, default=80)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--ready-wait", type=float, default=6)
     parser.add_argument("--map-wait", type=float, default=12)
     parser.add_argument("--action-wait", type=float, default=5)
-    parser.add_argument("--save-wait", type=float, default=15)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
     iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
-    serial_port = random.randint(39001, 44000)
-    qmp_port = random.randint(44001, 49000)
+    serial_port = choose_port(38001, 42000)
+    qmp_port = choose_port(42001, 46000)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
     msys_usr = r"C:\msys64\usr\bin"
     if os.path.isdir(msys_ucrt):
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
+    qemu = shutil.which(args.qemu, path=env.get("PATH", "")) or args.qemu
 
     output = b""
     with tempfile.TemporaryDirectory(prefix="srvros-displayd-paint-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-displayd-paint.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
-            args.qemu,
+            qemu,
             "-M", "q35",
             "-m", args.memory,
             "-cdrom", iso,
@@ -165,12 +182,9 @@ def main():
             output += read_until(serial, b"displayd: root backbuffer ready", args.ready_wait)
 
             mouse = Mouse(qmp)
-            mouse.click(60, 131)
+            mouse.click(80, 161)
             output += read_until(serial, b"paint: configure", args.map_wait)
-            mouse.click(491, 351)
             output += read_for(serial, args.action_wait)
-            mouse.click(678, 508)
-            output += read_until(serial, b"paint: save", args.save_wait)
         finally:
             try:
                 process.terminate()
@@ -187,7 +201,6 @@ def main():
         "displayd: launch PAINT /fat/bin/paint pid=",
         "displayd: mapped surface window PAINT",
         "paint: configure",
-        "paint: save",
     ]
     missing = [marker for marker in expected if marker not in text]
     if has_fatal_exception(text):

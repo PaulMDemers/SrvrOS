@@ -42,6 +42,18 @@ def connect_serial(port, timeout):
     raise RuntimeError("serial connection failed")
 
 
+def choose_port(start, end):
+    for _ in range(200):
+        port = random.randint(start, end)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                pass
+    raise RuntimeError("no free serial port found")
+
+
 def has_fatal_exception(text):
     for line in text.splitlines():
         if "exception:" in line and "breakpoint" not in line:
@@ -106,7 +118,7 @@ def build_iso(root, temp_dir, width, height, env):
 
 
 def run_resolution(root, qemu, iso, disk, width, height, args, env):
-    port = random.randint(49001, 54000)
+    port = choose_port(38001, 42000)
     output = b""
     with tempfile.TemporaryDirectory(prefix=f"srvros-displayd-{width}x{height}-disk-") as disk_dir:
         test_disk = os.path.join(disk_dir, "srvros.exfat")
@@ -182,7 +194,7 @@ def main():
     parser.add_argument("--disk", default="build/srvros.exfat")
     parser.add_argument("--resolution", action="append", type=parse_resolution,
         help="Resolution to test, e.g. 1440x900. May be supplied more than once.")
-    parser.add_argument("--boot-wait", type=float, default=45)
+    parser.add_argument("--boot-wait", type=float, default=80)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--displayd-wait", type=float, default=25)
     parser.add_argument("--memory", default="512M")

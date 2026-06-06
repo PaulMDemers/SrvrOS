@@ -41,6 +41,11 @@ media.
 3. Choose the EFI boot entry for the USB device.
 4. Wait for the `srv>` monitor prompt.
 
+The normal `/srvros` entry uses quiet framebuffer boot so the screen should end
+at a short boot-complete banner and the monitor prompt. If early hardware text
+is needed on the panel, choose `/srvros debug` from Limine instead; it keeps the
+framebuffer console verbose while preserving the same serial and boot-log output.
+
 ## First Commands
 
 Run these commands at the monitor:
@@ -87,6 +92,22 @@ serial log if present. The most important lines for A1466 input bring-up are:
 
 - `xhci: usb addressed=... configured=... hid_keyboards=... hid_mice=...`
 - `xhci: device slot=... parent=... hub_port=... route=...`
+- `pci-input: ... vendor=8086 device=9cba ... communication ...` for the
+  MacBookAir7,2 SPI controller
+- `pci-input: ... vendor=8086 device=9ce0 ... dma ...` for the paired LPSS DMA
+  controller
+- `lpss-spi: spi1 ... id=9cba8086 ... cmd=... bar0=... mmio=... mapped=...`
+- `lpss-spi: dma ... id=9ce08086 ...`
+- `acpi-input: ... key=SPI1` / `key=SDMA` / `key=HSSP` lines, which point to
+  the AML area that describes the Apple SPI topcase path
+- `acpi-input-device: name=...` and `acpi-input-member: ...` lines near
+  `SPI1`/`SPIT`/`APPLESPITOPCASE`; these identify the enclosing AML device and
+  nearby methods/resources we need for topcase binding
+- `acpi-input-topcase: ... topcase=spit ...` for a compact summary of the
+  `SPI1` controller, `SPIT` topcase child, `APPLE-SPI-TOPCASE` HID marker, and
+  `SIEN`/`SIST`/`UIEN`/`UIST` method offsets
+- `lpss-spi-regs: ...` lines, which report the PXA/LPSS status/control
+  registers without consuming SPI FIFO data
 - `keyboard=1`, `mouse=1`, and `absolute=1` fields
 - USB descriptor `class`, `iface`, `vendor`, and `product`
 - `gpu:` and `display:` lines
@@ -105,6 +126,25 @@ first validation.
 
 - `hid_keyboards=1` and `hid_mice=1`: input is good enough for the next GUI and
   real-hardware testing steps.
+- `pci-input` shows `8086:9cba` but no PS/2 or USB keyboard: the built-in
+  topcase is visible as Apple SPI/HSSPI, but the SPI transport driver is not
+  implemented yet. Use an external USB keyboard for near-term console testing.
+- `lpss-spi: spi1 ... mapped=0`: firmware did not leave PCI memory decode
+  enabled, so the next driver step must enable the SPI controller's MMIO window
+  before sampling registers.
+- `lpss-spi: spi1 ... mapped=1`: the SPI controller MMIO is mapped and the next
+  step is ACPI topcase resource binding plus HSSPI protocol bring-up.
+- `lpss-spi: ... mapped=0` with `memory=1` and an MMIO address ending in a
+  nonzero page offset usually means the BAR must be page-aligned before mapping.
+  The register dump should work once the mapped physical base is page-aligned
+  while the virtual register base keeps the BAR offset.
+- `acpi-input` prints `SPI1`/`SDMA`/`HSSP` plus `acpi-input-device` and
+  `acpi-input-member` lines: capture those lines closely. They should expose
+  the `SPI1` controller, `SPIT`/Apple topcase child, and ACPI methods such as
+  `SIEN`/`SIST` that the SPI/HSSPI input driver must honor.
+- `lpss-spi-regs: enabled=... busy=... tx_not_full=... rx_not_empty=...`:
+  capture these before we try active SPI transfers. A non-busy controller with
+  mapped MMIO is the ideal starting point for a polling transport.
 - `hubs=1` with routed HID devices: the internal input path is likely behind a
   hub and the one-layer hub path is doing its job.
 - `mouse=1 absolute=1`: the pointer is using the generic absolute HID path,

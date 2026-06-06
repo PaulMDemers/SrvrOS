@@ -42,5 +42,6 @@ const struct acpi_table_info *acpi_table_at(uint64_t index);
 uint64_t acpi_mcfg_allocation_count(void);
 const struct acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t index);
 void acpi_print_status(void);
+void acpi_print_input_diagnostics(void);
 
 #endif

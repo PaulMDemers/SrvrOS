@@ -201,9 +201,10 @@ static void layout_buttons(struct gui2_window *window, struct gui2_button *butto
     uint64_t pad = theme->pad;
     uint64_t gap = theme->gap;
     uint64_t display_h = 58;
-    uint64_t top = pad + 18 + gap + display_h + gap;
+    uint64_t top = theme->toolbar_h + pad + display_h + gap;
     uint64_t usable_w = window->width > 2 * pad ? window->width - 2 * pad : 1;
-    uint64_t usable_h = window->height > top + pad ? window->height - top - pad : 1;
+    uint64_t usable_h = window->height > top + theme->status_h + pad ?
+        window->height - top - theme->status_h - pad : 1;
     uint64_t button_w = usable_w > 4 * gap ? (usable_w - 4 * gap) / 5 : 1;
     uint64_t button_h = usable_h > 4 * gap ? (usable_h - 4 * gap) / 5 : 1;
     button_h = button_h < 24 ? 24 : button_h;
@@ -226,14 +227,15 @@ static void draw_calc(struct gui2_window *window, struct gui2_button *buttons,
     format_display(state, display, sizeof(display));
     layout_buttons(window, buttons);
     gui2_clear(window, theme->canvas);
-    gui2_text(window, (int64_t)pad, (int64_t)pad, "CALC", theme->text);
-    gui2_text(window, (int64_t)(pad + 70), (int64_t)pad,
-        state->status[0] != '\0' ? state->status : "READY", theme->text_muted);
-    gui2_panel(window, (int64_t)pad, (int64_t)(pad + 26), display_w, 58, theme->field);
-    gui2_text(window, (int64_t)(pad + 12), (int64_t)(pad + 48), display, theme->text);
+    gui2_app_header(window, "CALC", "INTEGER MODE");
+    gui2_panel(window, (int64_t)pad, (int64_t)(theme->toolbar_h + pad),
+        display_w, 58, theme->field);
+    gui2_text(window, (int64_t)(pad + 12), (int64_t)(theme->toolbar_h + pad + 22),
+        display, theme->text);
     for (uint64_t i = 0; i < BUTTON_COUNT; i++) {
         gui2_button_draw(window, &buttons[i]);
     }
+    gui2_status_bar(window, state->status[0] != '\0' ? state->status : "READY", "");
 }
 
 int main(void) {
@@ -247,8 +249,6 @@ int main(void) {
         .entering = 0,
         .status = "READY",
     };
-    uint64_t start;
-
     srv_puts("calc: start\n");
     if (gui2_window_open(&window, WIN, "CALC",
             720, 230, WIDTH, HEIGHT, gui2_theme_default()->canvas) != 0) {
@@ -262,16 +262,11 @@ int main(void) {
     draw_calc(&window, buttons, &state);
     gui2_window_present_dirty(&window);
 
-    start = (uint64_t)srv_ticks();
     for (;;) {
         struct gui2_event event;
         int changed = 0;
         int closing = 0;
         struct gui2_control controls[BUTTON_COUNT];
-        uint64_t elapsed = (uint64_t)srv_ticks() - start;
-        if (elapsed > 260) {
-            break;
-        }
         for (uint64_t i = 0; i < BUTTON_COUNT; i++) {
             controls[i].kind = GUI2_CONTROL_BUTTON;
             controls[i].ptr = &buttons[i];

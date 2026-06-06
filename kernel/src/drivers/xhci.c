@@ -1342,6 +1342,12 @@ static void handle_hid_report(struct xhci_device *device) {
         if (usage == 0 || usage_was_down(device->previous_report, usage)) {
             continue;
         }
+        if (usage == 0x2b && shift) {
+            keyboard_inject_char(27);
+            keyboard_inject_char('[');
+            keyboard_inject_char('Z');
+            continue;
+        }
         char c = shift ? hid_usage_shift[usage] : hid_usage[usage];
         if (c != 0) {
             keyboard_inject_char(c);

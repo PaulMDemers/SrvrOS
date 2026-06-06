@@ -229,6 +229,10 @@ void keyboard_handle_irq(void) {
     if (released) {
         return;
     }
+    if (key == 0x0f && shift_down) {
+        push_escape_sequence("\x1b[Z");
+        return;
+    }
 
     char c = key < sizeof(scancode_set1) ?
         (shift_down ? scancode_set1_shift[key] : scancode_set1[key]) :

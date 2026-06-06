@@ -197,6 +197,18 @@ def main():
             b"export PAGER=more\n"
             b"export PROFILE_D=ready\n"),
     ]
+    displayd_files = [
+        ("apps.conf",
+            b"# id|label|title|category|path|icon|color|width|height|flags|order\n"
+            b"# flags: none, hidden, disabled, or a numeric bitmask where hidden=1 disabled=2\n"
+            b"notes|NOTES|NOTES|Productivity|/fat/bin/notes|N|0x2f6f68|720|430|none|10\n"
+            b"fileman|FILES|FILE MANAGER|System|/fat/bin/fileman|F|0x5a7b8c|720|430|none|20\n"
+            b"textedit|EDIT|TEXT EDIT|Productivity|/fat/bin/textedit|E|0x3f6c8f|620|430|none|30\n"
+            b"paint|PAINT|PAINT|Creative|/fat/bin/paint|P|0x84643d|720|520|none|40\n"
+            b"gui2demo|GUI2|GUI2 DEMO|Demos|/fat/bin/gui2demo|G2|0x335b7a|300|180|none|50\n"
+            b"surfacedemo|SURFACE|SURFACE DEMO|Demos|/fat/bin/surfacedemo|S|0x60548d|240|140|none|60\n"
+            b"calc|CALC|CALCULATOR|Utilities|/fat/bin/calc|C|0x70485f|280|220|none|70\n"),
+    ]
     service_files = [
         ("webd.svc",
             b"# srvros web server service\n"
@@ -220,6 +232,57 @@ def main():
             b"Command search uses PATH, defaulting to /fat/bin, /, and /fat.\n"
             b"Use pipelines, redirection, command substitution, globs, and background jobs.\n"
             b"Discovery commands: help -l, help <topic>, man <topic>, and apropos <word>.\n"),
+        ("builtins.txt",
+            b"shell builtins\n"
+            b"\n"
+            b"help man apropos exit exec return shift set source . path cd pwd clear\n"
+            b"echo env export unset alias history type which command test [ break\n"
+            b"continue jobs wait fg bg kill service dhcp net dns rmdir read :\n"
+            b"\n"
+            b"Use help shell for the shell overview and help syntax for control flow.\n"),
+        ("commands.txt",
+            b"bundled commands\n"
+            b"\n"
+            b"ls cat more write cp rm mkdir mv tap wc grep head tail tee find du df\n"
+            b"sort uniq cut xargs seq realpath id whoami readlink cmp yes install diff\n"
+            b"tar gzip gunzip minizip miniunz patch make byacc sed expr printf tr dd ed\n"
+            b"ln sync test [ cksum sum comm paste join split od hexdump strings file tty\n"
+            b"stty time timeout nohup nice stat chmod ps kill which env pwd true false\n"
+            b"sleep date touch mktemp basename dirname uname hostname uptime hello svscan\n"
+            b"webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck\n"
+            b"netabi tcpstress sysabi spin fpdemo desktop displayd gui surfacedemo\n"
+            b"gui2demo calc notes textedit paint posixdemo threadstress ttydemo jsondemo\n"
+            b"inidemo linedemo sqlitedemo zlibdemo lua uvdemo libuvdemo\n"),
+        ("syntax.txt",
+            b"shell syntax\n"
+            b"\n"
+            b"command [args]\n"
+            b"{ commands; }\n"
+            b"name() { commands; }\n"
+            b"if command; then commands; else commands; fi\n"
+            b"for name in words; do commands; done\n"
+            b"while command; do commands; done\n"
+            b"case word in pattern) commands ;; esac\n"
+            b"Separate commands with ;, chain with && or ||, append & for background.\n"),
+        ("expansion.txt",
+            b"shell expansion\n"
+            b"\n"
+            b"$VAR ${VAR} $? $$ $! $0 $1 $# $@\n"
+            b"$(command) for command substitution\n"
+            b"$((expr)) for arithmetic expansion\n"
+            b"NAME=value command for command-local environment values\n"
+            b"Unquoted * and ? perform pathname glob expansion.\n"),
+        ("redirection.txt",
+            b"redirection and pipelines\n"
+            b"\n"
+            b"command < file\n"
+            b"command > file\n"
+            b"command >> file\n"
+            b"command 2> file\n"
+            b"command 2>> file\n"
+            b"command 2>&1\n"
+            b"command | command [...]\n"
+            b"Use tap to split a stream to stdout and a secondary output.\n"),
         ("service.txt",
             b"srvros services\n"
             b"\n"
@@ -251,7 +314,8 @@ def main():
             b"Run gui from the shell, or run /fat/bin/gui from the monitor, to start the\n"
             b"supported displayd desktop. displayd owns the framebuffer compositor, dock,\n"
             b"taskbar, window frames, resize/minimize/close controls, and app launchers.\n"
-            b"GUI2 clients include calc, notes, textedit, paint, gui2demo, and surfacedemo.\n"
+            b"GUI2 clients include calc, notes, fileman, textedit, paint, gui2demo, and surfacedemo.\n"
+            b"Launcher metadata lives in /fat/etc/displayd/apps.conf.\n"
             b"ui and desktop remain available as legacy GUI regression tools.\n"),
         ("files.txt",
             b"files\n"
@@ -415,6 +479,7 @@ def main():
     etc_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     services_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     profile_d_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
+    displayd_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     var_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     run_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
     log_dir_cluster = allocate_clusters(SMALL_DIRECTORY_SIZE)
@@ -431,6 +496,9 @@ def main():
     profile_d_entries_data = []
     for name, data in profile_d_files:
         profile_d_entries_data.append((name, allocate_clusters(len(data)), data))
+    displayd_entries_data = []
+    for name, data in displayd_files:
+        displayd_entries_data.append((name, allocate_clusters(len(data)), data))
     service_entries_data = []
     for name, data in service_files:
         service_entries_data.append((name, allocate_clusters(len(data)), data))
@@ -569,6 +637,8 @@ def main():
     etc_offset = append_directory_entry(etc_entries, etc_offset, services_entry_set, "etc")
     profile_d_entry_set = file_entry("profile.d", profile_d_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
     etc_offset = append_directory_entry(etc_entries, etc_offset, profile_d_entry_set, "etc")
+    displayd_entry_set = file_entry("displayd", displayd_dir_cluster, b"", attributes=0x10, data_length=SMALL_DIRECTORY_SIZE)
+    etc_offset = append_directory_entry(etc_entries, etc_offset, displayd_entry_set, "etc")
     for name, cluster, data in etc_entries_data:
         entry_set = file_entry(name, cluster, data)
         etc_offset = append_directory_entry(etc_entries, etc_offset, entry_set, "etc")
@@ -583,6 +653,17 @@ def main():
     for name, cluster, data in profile_d_entries_data:
         entry_set = file_entry(name, cluster, data)
         profile_d_offset = append_directory_entry(profile_d_entries, profile_d_offset, entry_set, "etc/profile.d")
+        for i in range(0, len(data), CLUSTER_SIZE):
+            chunk_cluster = cluster + (i // CLUSTER_SIZE)
+            file_data = bytearray(CLUSTER_SIZE)
+            file_data[:min(CLUSTER_SIZE, len(data) - i)] = data[i:i + CLUSTER_SIZE]
+            image[cluster_offset(chunk_cluster):cluster_offset(chunk_cluster) + CLUSTER_SIZE] = file_data
+
+    displayd_entries = bytearray(SMALL_DIRECTORY_SIZE)
+    displayd_offset = 0
+    for name, cluster, data in displayd_entries_data:
+        entry_set = file_entry(name, cluster, data)
+        displayd_offset = append_directory_entry(displayd_entries, displayd_offset, entry_set, "etc/displayd")
         for i in range(0, len(data), CLUSTER_SIZE):
             chunk_cluster = cluster + (i // CLUSTER_SIZE)
             file_data = bytearray(CLUSTER_SIZE)
@@ -666,6 +747,7 @@ def main():
     image[cluster_offset(etc_dir_cluster):cluster_offset(etc_dir_cluster) + SMALL_DIRECTORY_SIZE] = etc_entries
     image[cluster_offset(services_dir_cluster):cluster_offset(services_dir_cluster) + SMALL_DIRECTORY_SIZE] = services_entries
     image[cluster_offset(profile_d_dir_cluster):cluster_offset(profile_d_dir_cluster) + SMALL_DIRECTORY_SIZE] = profile_d_entries
+    image[cluster_offset(displayd_dir_cluster):cluster_offset(displayd_dir_cluster) + SMALL_DIRECTORY_SIZE] = displayd_entries
     image[cluster_offset(var_dir_cluster):cluster_offset(var_dir_cluster) + SMALL_DIRECTORY_SIZE] = var_entries
     image[cluster_offset(log_dir_cluster):cluster_offset(log_dir_cluster) + SMALL_DIRECTORY_SIZE] = log_entries
     image[cluster_offset(run_dir_cluster):cluster_offset(run_dir_cluster) + SMALL_DIRECTORY_SIZE] = run_entries

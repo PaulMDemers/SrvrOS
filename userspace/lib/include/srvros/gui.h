@@ -5,6 +5,8 @@
 
 #define GUI_TEXT_MAX 192
 
+#define GUI_KEY_BACKTAB 0x1001
+
 enum gui_message_type {
     GUI_MSG_NONE = 0,
     GUI_MSG_CREATE_WINDOW = 1,

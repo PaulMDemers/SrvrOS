@@ -112,7 +112,7 @@ is the boot/startup supervisor process used by `/fat/etc/init.sh`.
 Supported GUI entrypoint, compositor, and GUI2 clients:
 
 ```text
-gui displayd surfacedemo gui2demo calc notes textedit paint
+gui displayd surfacedemo gui2demo calc notes textedit fileman paint
 ```
 
 `gui` is the normal GUI entrypoint; it execs `/fat/bin/displayd` and forwards

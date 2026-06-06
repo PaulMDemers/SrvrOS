@@ -29,6 +29,7 @@ const struct pci_device *pci_find_by_class(uint8_t class_code, uint8_t subclass)
 const char *pci_class_name(uint8_t class_code, uint8_t subclass);
 const char *pci_config_backend_name(void);
 void pci_print_usb_controllers(void);
+void pci_print_input_bus_candidates(void);
 uint32_t pci_read_config32(const struct pci_device *device, uint8_t offset);
 void pci_write_config32(const struct pci_device *device, uint8_t offset, uint32_t value);
 uint16_t pci_read_config16(const struct pci_device *device, uint8_t offset);

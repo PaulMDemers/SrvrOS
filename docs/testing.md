@@ -59,6 +59,24 @@ Optional GUI smoke:
 
 ```sh
 python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_frame_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_launcher_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_keyboard_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_desktop_keyboard_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_textedit_dialog_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_paint_dialog_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_paint_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_resolution_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_app_exit_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_console_owner_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_soak_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/notes_selftest_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/textedit_selftest_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/paint_selftest_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/fileman_selftest_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/displayd_fileman_open_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
+python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
 ```
 
 ## What The Harnesses Cover
@@ -437,30 +455,108 @@ python3 tools/gui_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
   `/fat/bin/displayd --smoke-autostart` registers, draws its root backbuffer,
   launches `/fat/bin/surfacedemo`, `/fat/bin/gui2demo`, and `/fat/bin/notes`,
   maps all three v2 surface windows, routes configure events to the clients, and
-  exits without a fatal exception. Manual GUI checks should also cover the
-  compositor-owned v2 frame controls: title-bar dragging, focus raise,
-  minimize/restore, and close.
+  exits without a fatal exception. The smoke consumes serial output, so it still
+  sees compositor markers while `displayd` mutes framebuffer console text during
+  the visible GUI session. Its boot timeout and port selection now match the
+  longer hardware-input probe path used during A1466 bring-up. Manual GUI checks
+  should also cover the compositor-owned v2 frame controls: title-bar dragging,
+  focus raise, minimize/restore, and close. For repaint investigations, launch
+  `gui --damage-debug`; the compositor draws dirty-rectangle and cursor-refresh
+  outlines directly over the presented framebuffer while leaving normal runs
+  clean.
+- `displayd_app_exit_smoke.py`: launches `/fat/bin/displayd --app-exit-smoke`,
+  which starts the diagnostic `/fat/bin/guifail --exit` GUI client and verifies
+  the compositor logs the client's real exit status in a visible notice instead
+  of crashing or leaving stale window state behind.
+- `displayd_console_owner_smoke.py`: launches
+  `/fat/bin/displayd --owner-crash-smoke`, which exits immediately after
+  claiming framebuffer-console ownership, then runs `/fat/bin/guifail
+  --console-muted` to verify process exit released the framebuffer-console mute.
+- `displayd_soak_smoke.py`: launches `/fat/bin/displayd --soak-smoke`, which
+  repeatedly opens GUI2 clients and drives compositor-owned move, resize,
+  minimize, taskbar restore, close, and lifecycle cleanup paths without QMP
+  pointer timing.
 - `displayd_frame_smoke.py`: hidden-QEMU/QMP frame-control smoke that launches
   `/fat/bin/gui --frame-smoke-autostart`, injects pointer moves/clicks through
   QMP, and verifies focus, minimize/restore, title-bar drag, compositor
   taskbar restore/focus, bottom-right resize with app surface recreation,
   close, app-side close handling, compositor-side client cleanup, relaunch
-  after cleanup, resize after relaunch, on-screen Exit, client session
+  after cleanup, a second resize after relaunch, on-screen Exit, client session
   shutdown, and clean compositor shutdown.
 - `displayd_launcher_smoke.py`: hidden-QEMU/QMP dock-launcher smoke that runs
-  `/fat/bin/gui --launcher-smoke`, clicks the compositor dock launchers,
-  verifies `/fat/bin/notes`, `/fat/bin/textedit`, `/fat/bin/paint`,
+  `/fat/bin/gui --launcher-smoke`, deterministically launches every compositor
+  dock app, verifies `/fat/bin/notes`, `/fat/bin/fileman`,
+  `/fat/bin/textedit`, `/fat/bin/paint`,
   `/fat/bin/gui2demo`, `/fat/bin/surfacedemo`, and `/fat/bin/calc` launch as
   separate clients,
   checks duplicate Notes windows stagger inside the work area, and exits
-  cleanly.
+  cleanly. The displayd/QMP smokes probe free local ports before launching QEMU
+  to avoid transient Windows port collisions.
+- `displayd_keyboard_smoke.py`: hidden-QEMU/QMP keyboard-navigation smoke that
+  launches `/fat/bin/gui --frame-smoke-autostart`, focuses GUI2 Demo, sends
+  Tab, Shift-Tab, printable keys, and Enter through QMP, and verifies shared
+  GUI2 forward/reverse focus traversal plus focused button activation.
+- `displayd_desktop_keyboard_smoke.py`: hidden-QEMU/QMP compositor keyboard
+  smoke that launches `/fat/bin/gui --frame-smoke-autostart`, uses Shift-Tab to
+  restore/focus a minimized taskbar client, uses Tab/Enter to launch GUI2 from
+  the dock, and activates the visible Exit control from keyboard focus.
 - `displayd_paint_smoke.py`: hidden-QEMU/QMP paint smoke that starts
-  `/fat/bin/gui`, opens PAINT from the dock, clicks the GUI2 canvas, clicks
-  Save, and verifies `paint: save`.
+  `/fat/bin/gui`, opens PAINT from the dock, verifies the compositor maps it,
+  and checks `paint: configure`.
+- `displayd_textedit_dialog_smoke.py`: hidden-QEMU/QMP shared file-dialog smoke
+  that prepares files under `/fat/home`, starts
+  `/fat/bin/gui --textedit-dialog-smoke`, lets `displayd` launch Text Edit with
+  a known path, injects pointer and keyboard input through QMP, exercises Text
+  Edit Save As and Open through the shared modal file dialog, closes the window,
+  exits the compositor, and verifies the saved file content from the shell.
+- `displayd_paint_dialog_smoke.py`: hidden-QEMU/QMP shared BMP file-dialog smoke
+  that prepares `/fat/home`, starts `/fat/bin/gui --paint-dialog-smoke`, lets
+  `displayd` launch Paint with a known BMP path, draws on the canvas through
+  QMP, exercises Save As and Open through the shared modal file dialog, closes
+  the window, exits the compositor, and verifies the saved BMP exists.
+- `displayd_fileman_open_smoke.py`: hidden-QEMU/QMP File Manager open-with
+  smoke that prepares an isolated `/fat/home/open-smoke` fixture directory,
+  starts `/fat/bin/gui --fileman-open-smoke`, opens a text file through Text
+  Edit, opens a BMP-named file through Paint, verifies unsupported file
+  reporting, closes File Manager, and exits the compositor. The BMP leg verifies
+  File Manager routing and Paint launch/mapping; valid BMP load/save
+  round-tripping is covered by `displayd_paint_dialog_smoke.py` and
+  `paint_selftest_smoke.py`.
+- `paint_selftest_smoke.py`: hidden-QEMU Paint regression that runs
+  `/fat/bin/paint --selftest`, verifies BMP encode/save/reload/decode pixel
+  round-tripping under `/fat/home`, verifies GUI2 canvas viewport hit mapping,
+  checks Paint zoom/pan/fit/status math, and checks the resulting exFAT image.
 - `displayd_resolution_smoke.py`: hidden-QEMU resolution smoke that builds
   temporary Limine ISOs with framebuffer requests for 800x600, 1280x800,
   1440x900, and 1920x1080 by default, then verifies the kernel framebuffer line
   and `displayd` root backbuffer dimensions at each size.
+- `presentation_screens.py`: hidden-QEMU presentation capture that boots the
+  normal ISO/exFAT pair, captures the monitor console, shell prompt, empty
+  `displayd` desktop, each dock app after launch, and an all-apps-open view.
+  It writes PNGs and `contact-sheet.png` under `build/presentation-screens` and
+  asserts that the empty desktop no longer contains the old diagnostic-card
+  workspace treatment.
+  The default Limine entry uses quiet framebuffer boot, so the monitor screenshot
+  shows the clean boot-complete banner while serial and `dmesg` retain the full
+  diagnostic stream. The Makefile shortcut is `make presentation-screens`.
+- `notes_selftest_smoke.py`: hidden-QEMU notes regression that runs
+    `/fat/bin/notes --selftest`, verifies create/list/rename/delete behavior for
+    individual note files under `/fat/home/notes`, verifies case-insensitive
+    find-next cursor movement, and checks the resulting exFAT image.
+- `textedit_selftest_smoke.py`: hidden-QEMU Text Edit regression that runs
+    `/fat/bin/textedit --selftest`, verifies save/load/rewrite cleanup behavior
+    under `/fat/home`, verifies case-insensitive find-next cursor movement, and
+    checks the resulting exFAT image. Text Edit's shared Open and Save As dialog
+    path is covered end to end by `displayd_textedit_dialog_smoke.py`.
+- `fileman_selftest_smoke.py`: hidden-QEMU File Manager regression that runs
+    `/fat/bin/fileman --selftest`, verifies sorting, copy/move/delete, async
+    recursive operations, fsck cleanliness, and open-with routing for text,
+    BMP, and unsupported file types.
+- Manual GUI checks should exercise Tab focus traversal through File Manager,
+  Text Edit, Notes, Paint toolbar controls, and shared dialog controls.
+  Shift-Tab is now translated through `displayd`; include reverse traversal in
+  those checks. Also click an empty desktop area, then use Tab/Shift-Tab and
+  Enter/Space to launch dock apps, restore taskbar entries, and activate Exit.
 
 ## DNS Test Domains
 

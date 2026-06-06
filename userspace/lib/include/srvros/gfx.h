@@ -37,5 +37,7 @@ int putpixel(uint64_t x, uint64_t y, uint32_t rgb);
 int fillrect(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t rgb);
 int blitrect(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     const uint32_t *rgb_pixels, uint64_t stride);
+int gfx_console_mute(int muted);
+int gfx_console_muted(void);
 
 #endif

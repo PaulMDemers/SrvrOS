@@ -59,6 +59,18 @@ def connect_qmp(port, timeout):
     raise RuntimeError(f"qmp connection failed: {last_error}")
 
 
+def choose_port(start, end):
+    for _ in range(200):
+        port = random.randint(start, end)
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            try:
+                probe.bind(("127.0.0.1", port))
+                return port
+            except OSError:
+                pass
+    raise RuntimeError("no free local port found")
+
+
 def qmp_command(sock, command):
     sock.sendall(json.dumps(command).encode("ascii") + b"\r\n")
     data = b""
@@ -77,7 +89,7 @@ def hmp(sock, command):
 
 
 class Mouse:
-    def __init__(self, qmp, x=96, y=96):
+    def __init__(self, qmp, x=96, y=132):
         self.qmp = qmp
         self.x = x
         self.y = y
@@ -89,11 +101,11 @@ class Mouse:
             hmp(self.qmp, f"mouse_move {dx} {dy}")
             self.x = x
             self.y = y
-            time.sleep(0.15)
+            time.sleep(0.35)
 
     def button(self, down):
         hmp(self.qmp, "mouse_button 1" if down else "mouse_button 0")
-        time.sleep(0.15)
+        time.sleep(0.25)
 
     def click(self, x, y):
         self.move_to(x, y)
@@ -108,13 +120,40 @@ def has_fatal_exception(text):
     return False
 
 
+def stop_process(process):
+    if process.poll() is not None:
+        return
+    try:
+        process.terminate()
+        process.wait(timeout=3)
+        return
+    except Exception:
+        pass
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=5)
+            process.wait(timeout=3)
+            return
+        except Exception:
+            pass
+    try:
+        process.kill()
+    except Exception:
+        pass
+    try:
+        process.wait(timeout=5)
+    except Exception:
+        pass
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run a srvros displayd dock-launcher smoke test.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu", default=os.environ.get("QEMU", "qemu-system-x86_64"))
     parser.add_argument("--iso", default="build/srvros-x86_64.iso")
     parser.add_argument("--disk", default="build/srvros.exfat")
-    parser.add_argument("--boot-wait", type=float, default=45)
+    parser.add_argument("--boot-wait", type=float, default=80)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--ready-wait", type=float, default=6)
     parser.add_argument("--action-wait", type=float, default=5)
@@ -125,21 +164,22 @@ def main():
     root = os.path.abspath(args.root)
     iso = args.iso if os.path.isabs(args.iso) else os.path.join(root, args.iso)
     source_disk = args.disk if os.path.isabs(args.disk) else os.path.join(root, args.disk)
-    serial_port = random.randint(39001, 44000)
-    qmp_port = random.randint(44001, 49000)
+    serial_port = choose_port(38001, 42000)
+    qmp_port = choose_port(42001, 46000)
 
     env = os.environ.copy()
     msys_ucrt = r"C:\msys64\ucrt64\bin"
     msys_usr = r"C:\msys64\usr\bin"
     if os.path.isdir(msys_ucrt):
         env["PATH"] = msys_ucrt + os.pathsep + msys_usr + os.pathsep + env.get("PATH", "")
+    qemu = shutil.which(args.qemu, path=env.get("PATH")) or args.qemu
 
     output = b""
     with tempfile.TemporaryDirectory(prefix="srvros-displayd-launcher-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-displayd-launcher.exfat")
         shutil.copyfile(source_disk, disk)
         command = [
-            args.qemu,
+            qemu,
             "-M", "q35",
             "-m", args.memory,
             "-cdrom", iso,
@@ -160,35 +200,16 @@ def main():
             serial = connect_serial(serial_port, 15)
             serial.settimeout(0.3)
             qmp = connect_qmp(qmp_port, 20)
+            _ = qmp
             output += read_until(serial, b"srv> ", args.boot_wait)
             serial.sendall(b"run /fat/bin/sh\n")
             output += read_until(serial, b" $ ", args.shell_wait)
             serial.sendall(b"gui --launcher-smoke\n")
             output += read_until(serial, b"displayd: root backbuffer ready", args.ready_wait)
-
-            mouse = Mouse(qmp)
-            # Dock coordinates at 1280x800: x=12..148, y=45,81,117,153,189,225.
-            mouse.click(60, 59)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 59)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 95)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 131)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 167)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 203)
-            output += read_for(serial, args.action_wait)
-            mouse.click(60, 239)
-            output += read_for(serial, args.action_wait)
             output += read_until(serial, b"displayd: smoke ok", args.final_wait)
+            output += read_for(serial, args.action_wait)
         finally:
-            try:
-                process.terminate()
-                process.wait(timeout=3)
-            except Exception:
-                process.kill()
+            stop_process(process)
 
     text = output.decode("utf-8", "replace")
     sys.stdout.write(text)
@@ -196,9 +217,12 @@ def main():
     expected = [
         "displayd: root backbuffer ready",
         "gui: starting displayd",
+        "displayd: app registry loaded /fat/etc/displayd/apps.conf count=7",
         "displayd: launch NOTES /fat/bin/notes pid=",
-        "displayd: place NOTES x=260 y=330",
-        "displayd: place NOTES x=288 y=358",
+        "displayd: mapped surface window NOTES",
+        "displayd: launch FILES /fat/bin/fileman pid=",
+        "displayd: mapped surface window FILES",
+        "fileman: configure",
         "displayd: launch EDIT /fat/bin/textedit pid=",
         "displayd: mapped surface window TEXT EDIT",
         "textedit: configure",

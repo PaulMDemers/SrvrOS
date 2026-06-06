@@ -31,3 +31,11 @@ int blitrect(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
     };
     return (int)srv_syscall1(SYS_GFX_BLIT_RECT, (long)&request);
 }
+
+int gfx_console_mute(int muted) {
+    return (int)srv_syscall1(SYS_GFX_CONSOLE_MUTE, muted ? 1 : 0);
+}
+
+int gfx_console_muted(void) {
+    return (int)srv_syscall0(SYS_GFX_CONSOLE_MUTED);
+}
