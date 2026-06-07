@@ -33,7 +33,7 @@ crash.
 The default `/srvros` Limine entry is currently hardware-bring-up oriented and
 passes `srvros.a1466.capture=1`. That makes the kernel run the A1466 diagnostic
 bundle automatically after boot, before the monitor prompt, so the capture works
-even when the built-in keyboard is unavailable. Use `/srvros no capture` for a
+even when the built-in keyboard is unavailable. Use `/srvrosnocapture` for a
 normal quiet boot without the automatic dump.
 
 Before writing removable media, rehearse the same UEFI/xHCI/HID boot shape in
@@ -71,7 +71,7 @@ media.
 
 The normal `/srvros` entry uses quiet framebuffer boot so the screen should end
 at a short boot-complete banner and the monitor prompt. If early hardware text
-is needed on the panel, choose `/srvros debug` from Limine instead; it keeps the
+is needed on the panel, choose `/srvrosdebug` from Limine instead; it keeps the
 framebuffer console verbose while preserving the same serial and boot-log output.
 
 ## First Commands

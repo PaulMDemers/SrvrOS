@@ -10,7 +10,7 @@ server.
 
 - Boots a higher-half x86_64 kernel through Limine.
 - Defaults to quiet framebuffer boot while retaining full serial, `dmesg`, and
-  `/fat/var/log/boot.log` diagnostics; the `/srvros debug` Limine entry keeps
+  `/fat/var/log/boot.log` diagnostics; the `/srvrosdebug` Limine entry keeps
   framebuffer bootstrap logging visible for hardware bring-up.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
 - Adds runtime ELF TLS support: the linker emits `PT_TLS`, the kernel maps the
@@ -36,7 +36,7 @@ server.
 - Adds `srvros.a1466.capture=1` and enables it on the default Limine entry for
   the current hardware bring-up image, so the kernel automatically prints and
   persists the A1466 `hwdiag`/SPI/topcase/xHCI/block capture before keyboard
-  input is required. `/srvros no capture` keeps the quiet non-capture boot.
+  input is required. `/srvrosnocapture` keeps the quiet non-capture boot.
 - Adds `gfx_blit_rect` and teaches the UI presenter to flush root backbuffer
   dirty rectangles through a bulk graphics syscall instead of many tiny fills.
 - Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically

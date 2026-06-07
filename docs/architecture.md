@@ -23,8 +23,8 @@ quiet mode the kernel still mirrors all bootstrap output to serial and the
 in-memory boot log, but the framebuffer console is muted after it is initialized
 and cleared back to a short boot-complete banner before the monitor starts. The
 `srvros.a1466.capture=1` option then runs the A1466 SPI/topcase capture
-automatically, before keyboard input is required. The `/srvros no capture` entry
-keeps the quiet boot without the automatic dump. The `/srvros debug` Limine
+automatically, before keyboard input is required. The `/srvrosnocapture` entry
+keeps the quiet boot without the automatic dump. The `/srvrosdebug` Limine
 entry passes `srvros.log=debug`, which leaves framebuffer bootstrap diagnostics
 visible for real-hardware bring-up. The same full log is available from `dmesg`
 and is persisted to `/fat/var/log/boot.log` after `/fat` mounts and again after
@@ -216,7 +216,7 @@ the framebuffer to a panic page, print register/mapping context, and include the
 recent boot log so real-machine failures are readable without serial.
 
 Quiet framebuffer boot does not reduce diagnostic coverage: serial output and
-the boot-log ring remain verbose. Use the `/srvros debug` boot entry when a
+the boot-log ring remain verbose. Use the `/srvrosdebug` boot entry when a
 photo of early framebuffer diagnostics is more useful than a clean prompt.
 
 The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
