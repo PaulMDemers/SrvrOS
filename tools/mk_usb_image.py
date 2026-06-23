@@ -147,8 +147,8 @@ class Fat32Builder:
             0,
             0,
             0,
-            0,
             (cluster >> 16) & 0xffff,
+            0,
             0,
             cluster & 0xffff,
             size)
@@ -270,7 +270,19 @@ def fat32_dir_entries(image, fat, cluster):
     return entries
 
 
-def validate_fat32_image(image, fat):
+def fat32_file_data(image, fat, start_cluster, size):
+    data = bytearray()
+    cluster = start_cluster
+    seen = set()
+    while cluster < 0x0ffffff8 and cluster not in seen:
+        seen.add(cluster)
+        offset = fat.cluster_offset(cluster)
+        data.extend(image[offset:offset + fat.sectors_per_cluster * SECTOR])
+        cluster = fat.fat[cluster] & 0x0fffffff
+    return bytes(data[:size])
+
+
+def validate_fat32_image(image, fat, expected_config=None):
     checks = [
         ("EFI", 0x10),
         ("BOOT", 0x10),
@@ -296,6 +308,10 @@ def validate_fat32_image(image, fat):
             cluster = entry["cluster"]
         if (entry["attr"] & expected_attr) != expected_attr:
             raise RuntimeError(f"FAT32 image path {path!r} has attribute 0x{entry['attr']:02x}")
+        if expected_config is not None and path.endswith("LIMINE.CONF"):
+            data = fat32_file_data(image, fat, entry["cluster"], entry["size"])
+            if data != expected_config:
+                raise RuntimeError(f"FAT32 image path {path!r} does not contain the expected Limine config")
 
 
 def gpt_entry(part_type, unique_id, first_lba, last_lba, name):
@@ -362,7 +378,7 @@ def build_image(args):
     fat.add_file(limine_dir, "limine.conf", config)
     fat.add_file(root_limine_dir, "limine.conf", config)
     esp = fat.build()
-    validate_fat32_image(esp, fat)
+    validate_fat32_image(esp, fat, expected_config=config)
 
     entries_count = 128
     entries = bytearray(entries_count * 128)

@@ -16,6 +16,10 @@ server.
   `/limine.conf`, `/boot/limine.conf`, `/boot/limine/limine.conf`, and
   `/limine/limine.conf` to avoid removable-UEFI config search ambiguity on
   hardware.
+- Fixes the FAT32 USB image writer's high-cluster directory entry field order,
+  which could make files allocated after the large initramfs read from the wrong
+  cluster. USB image validation now reads every mirrored `limine.conf` back and
+  compares it to the source config.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
 - Adds runtime ELF TLS support: the linker emits `PT_TLS`, the kernel maps the
   main-thread and per-user-thread TLS blocks, the scheduler preserves `FS.base`,

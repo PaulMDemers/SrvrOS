@@ -56,13 +56,11 @@ The rehearsal runs `hwdiag`, `dmesg 8192`, `xhci`, `pci`, `block`, then starts
 build/a1466-rehearsal.log
 ```
 
-Current local note: the ISO/exFAT displayd smoke passes, but the GPT USB
-rehearsal can stop in local OVMF immediately after `BdsDxe: starting Boot0001`
-without reaching kernel serial output. The harness now records serial
-disconnects, QMP input failures, and QEMU exit context in
-`build/a1466-rehearsal.log`. Treat that as a QEMU/OVMF USB-rehearsal issue, not
-as evidence that the real A1466 USB image is unbootable; the MacBook hardware
-has already reached the srvros monitor from this image family.
+Current local note: the ISO/exFAT displayd smoke passes, and the GPT USB
+rehearsal now boots through Limine, reaches the kernel, mounts `/fat`, and gets
+to the monitor prompt under QEMU/OVMF. The harness records serial disconnects,
+QMP input failures, and QEMU exit context in `build/a1466-rehearsal.log` if that
+regresses.
 
 Write that image to a USB stick with your preferred raw-image writer. Double
 check the target disk before writing; this image is intended for removable USB
@@ -79,6 +77,12 @@ The normal `/srvros` entry uses quiet framebuffer boot so the screen should end
 at a short boot-complete banner and the monitor prompt. If early hardware text
 is needed on the panel, choose `/srvrosdebug` from Limine instead; it keeps the
 framebuffer console verbose while preserving the same serial and boot-log output.
+
+If Limine opens but reports `config file contains no valid entries`, rebuild the
+USB image before reflashing. An older FAT32 image writer bug stored the high
+word of large-cluster directory entries in the wrong field, so `limine.conf`
+could appear to exist while actually reading bytes from the initramfs. The USB
+builder now validates the contents of every mirrored `limine.conf` path.
 
 ## First Commands
 
