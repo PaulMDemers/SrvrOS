@@ -84,41 +84,44 @@ lpss-spi: spi1 present ... device=9cba ... command=6 memory=1 busmaster=1
 lpss-spi: bar0=... bar64=1 mmio_phys=... mapped_phys=... mmio_virt=... mapped=1
 ```
 
-The same capture also showed bogus-looking LPSS private register values because
-the driver was sampling the iDMA window at `0x800` as if it were the private
-register block. The current image fixes that by:
+The latest capture proved the prior `0x200` private-register assumption was
+wrong for this A1466. The PXA registers at `0x000` are real, but the LPSS
+capability/remap window read back as `0xffffffff`, which matches the wrong
+generation layout rather than a ready Broadwell controller.
 
-- keeping the page-aligned MMIO mapping fix,
-- using LPSS device registers at `0x000`, private registers at `0x200`, and
-  iDMA at `0x800`,
-- sampling pre/post PXA and LPSS private registers,
-- applying the Linux-style LPSS reset/remap setup when the capabilities register
-  looks valid, and
-- printing `prepared=...`, `skipped_invalid_caps=...`, capability type, iDMA
-  presence, and remap registers in the automatic capture.
+The current image treats PCI `8086:9cba` as the older LPT/Broadwell LPSS SPI
+layout:
+
+- PXA SPI device registers at `0x000`,
+- LPSS private registers at `0x800`,
+- profile-specific private offsets for `general=0x08`, `ssp=0x0c`, and
+  chip-select control at `0x18`,
+- no capability-register gate for this profile, and
+- compact raw private-register output at offsets `raw00` through `raw1c`.
 
 Expected next hardware signal:
 
 ```text
 lpss-spi: ... mapped_phys=... mmio_virt=... mapped=1
-lpss-spi: prepared=... skipped_invalid_caps=...
+lpss-spi: profile=lpt private_base=800 prepared=...
 lpss-spi-regs-pre: sscr0=... sscr1=... sssr=...
-lpss-spi-priv-pre: clock=... reset=... active_ltr=... idle_ltr=... ssp=... remap_lo=... remap_hi=... caps=... type=... idma=...
+lpss-spi-priv-pre: profile=lpt base=800 raw00=... raw04=... raw08=... raw0c=... raw10=... raw14=... raw18=... raw1c=...
 lpss-spi-regs: sscr0=... sscr1=... sssr=...
 lpss-spi-regs: enabled=... busy=... tx_not_full=... rx_not_empty=...
-lpss-spi-priv: clock=... reset=... active_ltr=... idle_ltr=... ssp=... remap_lo=... remap_hi=... caps=... type=... idma=...
+lpss-spi-priv: profile=lpt base=800 raw00=... raw04=... raw08=... raw0c=... raw10=... raw14=... raw18=... raw1c=...
 ```
 
-If `prepared=1` appears and the status register reads cleanly, the next step is
-a small polling SPI transport. If `skipped_invalid_caps=1` appears, stay on LPSS
-private-register offsets, clock/reset state, and PCI power/resource diagnostics
-before attempting topcase transactions.
+If `profile=lpt private_base=800` prints non-`ffffffff` raw private values and
+the status register reads cleanly, the next step is a small polling SPI
+transport. If the raw private values still read as all `ffffffff`, stay on BAR
+layout, power/resource state, and PCI/ACPI mapping diagnostics before attempting
+topcase transactions.
 
 ## What Is Not Implemented Yet
 
 - No active SPI transfers.
-- No full LPSS SPI transfer configuration sequence beyond the early reset/remap
-  preparation used for diagnostics.
+- No full LPSS SPI transfer configuration sequence beyond the early
+  profile-specific setup used for diagnostics.
 - No ACPI method execution for `SIEN`, `SIST`, `UIEN`, or `UIST`.
 - No topcase resource parser for `_CRS` beyond structural diagnostics.
 - No Apple HSSPI packet framing.
@@ -128,8 +131,8 @@ before attempting topcase transactions.
 
 ## Next Driver Plan
 
-1. Confirm whether the new capture reports `prepared=1` or
-   `skipped_invalid_caps=1` on the A1466.
+1. Confirm whether the new capture reports `profile=lpt private_base=800` and
+   non-`ffffffff` raw private registers on the A1466.
 2. Add a tiny LPSS SPI register model in `lpss_spi.c`: controller-id status,
    FIFO status, timeout status, and a safe idle check.
 3. Add a non-invasive self-check command that verifies MMIO stability by reading

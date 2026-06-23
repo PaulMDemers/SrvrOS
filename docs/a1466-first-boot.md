@@ -177,10 +177,10 @@ serial log if present. The most important lines for A1466 input bring-up are:
   `SIEN`/`SIST`/`UIEN`/`UIST` method offsets
 - `lpss-spi-regs: ...` lines, which report the PXA/LPSS status/control
   registers without consuming SPI FIFO data
-- `lpss-spi: prepared=... skipped_invalid_caps=...`, plus
+- `lpss-spi: profile=lpt private_base=800 prepared=...`, plus
   `lpss-spi-regs-pre:`, `lpss-spi-priv-pre:`, and `lpss-spi-priv:` lines. These
-  show whether the LPSS private register block at `0x200` is readable and
-  whether the reset/remap preparation ran.
+  show whether the Broadwell/LPT LPSS private register block at `0x800` is
+  readable and whether the profile setup ran.
 - `keyboard=1`, `mouse=1`, and `absolute=1` fields
 - USB descriptor `class`, `iface`, `vendor`, and `product`
 - `gpu:` and `display:` lines
@@ -189,11 +189,12 @@ serial log if present. The most important lines for A1466 input bring-up are:
 - A photo or screenshot of the desktop at the native 1440x900 panel resolution
 
 For the next session, the single highest-value capture is the final
-`lpss-spi`/`lpss-spi-regs` block. If it prints `prepared=1` and stable
-`sscr0`/`sscr1`/`sssr` values, the next code task is the first bounded polling
-LPSS SPI transaction. If it prints `skipped_invalid_caps=1`, stay on
-private-register offsets, clock/reset state, and PCI power/resource diagnostics
-before attempting topcase transactions.
+`lpss-spi`/`lpss-spi-regs` block. If it prints `profile=lpt private_base=800`,
+non-`ffffffff` raw private values, and stable `sscr0`/`sscr1`/`sssr` values, the
+next code task is the first bounded polling LPSS SPI transaction. If the raw
+private values still read as all `ffffffff`, stay on BAR layout, clock/reset
+state, and PCI power/resource diagnostics before attempting topcase
+transactions.
 
 ## Safety Notes
 
@@ -225,10 +226,11 @@ first validation.
 - `lpss-spi-regs: enabled=... busy=... tx_not_full=... rx_not_empty=...`:
   capture these before we try active SPI transfers. A non-busy controller with
   mapped MMIO is the ideal starting point for a polling transport.
-- `lpss-spi: prepared=1`: LPSS private capability/remap registers looked valid
-  and the diagnostic reset/remap preparation ran.
-- `lpss-spi: skipped_invalid_caps=1`: the private capability register still
-  looked invalid; do not move to SPI transactions yet.
+- `lpss-spi: profile=lpt private_base=800`: the Broadwell/LPT profile is active
+  for the A1466 `8086:9cba` controller.
+- `lpss-spi: prepared=1`: the profile-specific LPSS setup bits were applied.
+- `lpss-spi-priv: ... raw00=ffffffff ... raw1c=ffffffff`: the private window is
+  still not readable; do not move to SPI transactions yet.
 - `hubs=1` with routed HID devices: the internal input path is likely behind a
   hub and the one-layer hub path is doing its job.
 - `mouse=1 absolute=1`: the pointer is using the generic absolute HID path,
