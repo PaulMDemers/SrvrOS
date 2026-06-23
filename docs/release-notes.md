@@ -45,6 +45,10 @@ server.
   the current hardware bring-up image, so the kernel automatically prints and
   persists the A1466 `hwdiag`/SPI/topcase/xHCI/block capture before keyboard
   input is required. `/srvrosnocapture` keeps the quiet non-capture boot.
+- Corrects LPSS SPI private-register diagnostics to use the Intel LPSS private
+  block at `0x200` instead of the iDMA window at `0x800`, and adds pre/post
+  register capture plus early reset/remap preparation for the A1466 SPI topcase
+  bring-up path.
 - Adds `gfx_blit_rect` and teaches the UI presenter to flush root backbuffer
   dirty rectangles through a bulk graphics syscall instead of many tiny fills.
 - Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically

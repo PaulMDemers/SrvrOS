@@ -67,39 +67,58 @@ Implemented pieces:
   registers. The diagnostic deliberately does not read `SSDR`, because reading
   the data register can consume receive FIFO state.
 
-## Latest Untested Change
+## Latest Hardware Signal
 
-The latest hardware capture showed:
+The latest A1466 photo shows that the controller now reaches `mapped=1`; the
+USB/Limine boot path is no longer the blocker. The built-in keyboard still does
+not appear as USB HID:
 
 ```text
-lpss-spi-regs: unavailable; mmio not mapped
+input-usb: op=yes devices=0 keyboards=0 mice=0 hubs=0 ...
 ```
 
-while the PCI command register showed memory decoding enabled. The LPSS SPI BAR
-reported an address with a nonzero page offset. The driver previously tried to
-map that unaligned physical address directly. The current image fixes that by:
+and the SPI path is the active lead:
 
-- page-aligning the physical mapping base,
-- preserving the BAR offset in `mmio_virt`,
-- mapping two pages to keep offset-plus-register reads inside the mapped
-  window.
+```text
+lpss-spi: spi1 present ... device=9cba ... command=6 memory=1 busmaster=1
+lpss-spi: bar0=... bar64=1 mmio_phys=... mapped_phys=... mmio_virt=... mapped=1
+```
+
+The same capture also showed bogus-looking LPSS private register values because
+the driver was sampling the iDMA window at `0x800` as if it were the private
+register block. The current image fixes that by:
+
+- keeping the page-aligned MMIO mapping fix,
+- using LPSS device registers at `0x000`, private registers at `0x200`, and
+  iDMA at `0x800`,
+- sampling pre/post PXA and LPSS private registers,
+- applying the Linux-style LPSS reset/remap setup when the capabilities register
+  looks valid, and
+- printing `prepared=...`, `skipped_invalid_caps=...`, capability type, iDMA
+  presence, and remap registers in the automatic capture.
 
 Expected next hardware signal:
 
 ```text
 lpss-spi: ... mapped_phys=... mmio_virt=... mapped=1
+lpss-spi: prepared=... skipped_invalid_caps=...
+lpss-spi-regs-pre: sscr0=... sscr1=... sssr=...
+lpss-spi-priv-pre: clock=... reset=... active_ltr=... idle_ltr=... ssp=... remap_lo=... remap_hi=... caps=... type=... idma=...
 lpss-spi-regs: sscr0=... sscr1=... sssr=...
 lpss-spi-regs: enabled=... busy=... tx_not_full=... rx_not_empty=...
+lpss-spi-priv: clock=... reset=... active_ltr=... idle_ltr=... ssp=... remap_lo=... remap_hi=... caps=... type=... idma=...
 ```
 
-If `mapped=1` appears and the status register reads cleanly, the next step is a
-small polling SPI transport. If `mapped=0` remains, debug the virtual mapping
-path before touching the controller.
+If `prepared=1` appears and the status register reads cleanly, the next step is
+a small polling SPI transport. If `skipped_invalid_caps=1` appears, stay on LPSS
+private-register offsets, clock/reset state, and PCI power/resource diagnostics
+before attempting topcase transactions.
 
 ## What Is Not Implemented Yet
 
 - No active SPI transfers.
-- No LPSS SPI reset/configuration sequence.
+- No full LPSS SPI transfer configuration sequence beyond the early reset/remap
+  preparation used for diagnostics.
 - No ACPI method execution for `SIEN`, `SIST`, `UIEN`, or `UIST`.
 - No topcase resource parser for `_CRS` beyond structural diagnostics.
 - No Apple HSSPI packet framing.
@@ -109,10 +128,10 @@ path before touching the controller.
 
 ## Next Driver Plan
 
-1. Confirm `mapped=1` and capture read-only LPSS/PXA register values on the
-   A1466.
-2. Add a tiny LPSS SPI register model in `lpss_spi.c`: named bitfields,
-   controller-id status, FIFO status, timeout status, and a safe idle check.
+1. Confirm whether the new capture reports `prepared=1` or
+   `skipped_invalid_caps=1` on the A1466.
+2. Add a tiny LPSS SPI register model in `lpss_spi.c`: controller-id status,
+   FIFO status, timeout status, and a safe idle check.
 3. Add a non-invasive self-check command that verifies MMIO stability by reading
    the same status registers twice and confirming reserved/steady fields do not
    behave like unmapped memory.

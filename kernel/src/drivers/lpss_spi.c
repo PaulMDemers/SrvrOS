@@ -26,12 +26,21 @@
 #define PXA_SSTO 0x28
 #define PXA_SSPSP 0x2c
 
-#define LPSS_PRIV_BASE 0x800
+#define LPSS_PRIV_BASE 0x200
+#define LPSS_PRIV_CLOCK 0x00
 #define LPSS_PRIV_RESETS 0x04
-#define LPSS_PRIV_GENERAL 0x08
-#define LPSS_PRIV_SSP 0x0c
-#define LPSS_PRIV_CS_CONTROL 0x18
-#define LPSS_PRIV_CLOCK_GATE 0x38
+#define LPSS_PRIV_RESETS_FUNC 0x3
+#define LPSS_PRIV_RESETS_IDMA (1u << 2)
+#define LPSS_PRIV_ACTIVELTR 0x10
+#define LPSS_PRIV_IDLELTR 0x14
+#define LPSS_PRIV_SSP_REG 0x20
+#define LPSS_PRIV_SSP_REG_DIS_DMA_FIN (1u << 0)
+#define LPSS_PRIV_REMAP_ADDR 0x40
+#define LPSS_PRIV_CAPS 0xfc
+#define LPSS_PRIV_CAPS_NO_IDMA (1u << 8)
+#define LPSS_PRIV_CAPS_TYPE_SHIFT 4
+#define LPSS_PRIV_CAPS_TYPE_MASK (0x3u << LPSS_PRIV_CAPS_TYPE_SHIFT)
+#define LPSS_PRIV_CAPS_TYPE_SPI 2u
 
 #define PXA_SSCR0_SSE (1u << 7)
 #define PXA_SSSR_TNF (1u << 2)
@@ -49,11 +58,16 @@ struct lpss_spi_device {
     uint32_t bar1;
     uint32_t mmio_sample[4];
     uint32_t regs[6];
-    uint32_t priv_regs[5];
+    uint32_t pre_regs[6];
+    uint32_t pre_priv_regs[8];
+    uint32_t priv_regs[8];
     bool bar_is_64;
     bool mapped;
     bool mmio_sample_valid;
     bool regs_valid;
+    bool pre_regs_valid;
+    bool prepared;
+    bool prepare_skipped_invalid_caps;
 };
 
 static struct lpss_spi_device lpss_spi;
@@ -133,23 +147,80 @@ static uint32_t lpss_mmio_read32(uint32_t offset) {
     return *reg;
 }
 
+static void lpss_mmio_write32(uint32_t offset, uint32_t value) {
+    volatile uint32_t *reg = (volatile uint32_t *)(lpss_spi.mmio_virtual + offset);
+    *reg = value;
+}
+
+static void sample_register_bank(uint32_t regs[6], uint32_t priv_regs[8]) {
+    regs[0] = lpss_mmio_read32(PXA_SSCR0);
+    regs[1] = lpss_mmio_read32(PXA_SSCR1);
+    regs[2] = lpss_mmio_read32(PXA_SSSR);
+    regs[3] = lpss_mmio_read32(PXA_SSITR);
+    regs[4] = lpss_mmio_read32(PXA_SSTO);
+    regs[5] = lpss_mmio_read32(PXA_SSPSP);
+
+    priv_regs[0] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_CLOCK);
+    priv_regs[1] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS);
+    priv_regs[2] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_ACTIVELTR);
+    priv_regs[3] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_IDLELTR);
+    priv_regs[4] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_SSP_REG);
+    priv_regs[5] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_REMAP_ADDR);
+    priv_regs[6] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_REMAP_ADDR + 4);
+    priv_regs[7] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_CAPS);
+}
+
 static void sample_named_registers(void) {
     if (!lpss_spi.mapped) {
         return;
     }
 
-    lpss_spi.regs[0] = lpss_mmio_read32(PXA_SSCR0);
-    lpss_spi.regs[1] = lpss_mmio_read32(PXA_SSCR1);
-    lpss_spi.regs[2] = lpss_mmio_read32(PXA_SSSR);
-    lpss_spi.regs[3] = lpss_mmio_read32(PXA_SSITR);
-    lpss_spi.regs[4] = lpss_mmio_read32(PXA_SSTO);
-    lpss_spi.regs[5] = lpss_mmio_read32(PXA_SSPSP);
-    lpss_spi.priv_regs[0] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS);
-    lpss_spi.priv_regs[1] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_GENERAL);
-    lpss_spi.priv_regs[2] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_SSP);
-    lpss_spi.priv_regs[3] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_CS_CONTROL);
-    lpss_spi.priv_regs[4] = lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_CLOCK_GATE);
+    sample_register_bank(lpss_spi.regs, lpss_spi.priv_regs);
     lpss_spi.regs_valid = true;
+}
+
+static uint32_t lpss_caps_type(uint32_t caps) {
+    return (caps & LPSS_PRIV_CAPS_TYPE_MASK) >> LPSS_PRIV_CAPS_TYPE_SHIFT;
+}
+
+static bool lpss_caps_has_idma(uint32_t caps) {
+    return (caps & LPSS_PRIV_CAPS_NO_IDMA) == 0;
+}
+
+static void lpss_spi_prepare_controller(void) {
+    if (!lpss_spi.mapped) {
+        return;
+    }
+
+    sample_register_bank(lpss_spi.pre_regs, lpss_spi.pre_priv_regs);
+    lpss_spi.pre_regs_valid = true;
+
+    uint32_t caps = lpss_spi.pre_priv_regs[7];
+    if (caps == 0xffffffffu || caps == 0u) {
+        lpss_spi.prepare_skipped_invalid_caps = true;
+        sample_named_registers();
+        return;
+    }
+
+    lpss_mmio_write32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS, 0);
+    (void)lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS);
+    lpss_mmio_write32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS,
+        LPSS_PRIV_RESETS_FUNC | LPSS_PRIV_RESETS_IDMA);
+    (void)lpss_mmio_read32(LPSS_PRIV_BASE + LPSS_PRIV_RESETS);
+
+    lpss_mmio_write32(LPSS_PRIV_BASE + LPSS_PRIV_REMAP_ADDR,
+        (uint32_t)lpss_spi.mmio_physical);
+    lpss_mmio_write32(LPSS_PRIV_BASE + LPSS_PRIV_REMAP_ADDR + 4,
+        (uint32_t)(lpss_spi.mmio_physical >> 32));
+
+    if (lpss_caps_type(caps) == LPSS_PRIV_CAPS_TYPE_SPI &&
+        lpss_caps_has_idma(caps)) {
+        lpss_mmio_write32(LPSS_PRIV_BASE + LPSS_PRIV_SSP_REG,
+            LPSS_PRIV_SSP_REG_DIS_DMA_FIN);
+    }
+
+    lpss_spi.prepared = true;
+    sample_named_registers();
 }
 
 bool lpss_spi_init(void) {
@@ -167,7 +238,7 @@ bool lpss_spi_init(void) {
     if (decode_mmio_bar(lpss_spi.spi, &lpss_spi.mmio_physical, &lpss_spi.bar_is_64)) {
         if (map_spi_mmio()) {
             sample_mmio();
-            sample_named_registers();
+            lpss_spi_prepare_controller();
         }
     }
 
@@ -239,6 +310,9 @@ void lpss_spi_print_status(void) {
             (uint64_t)lpss_spi.mmio_sample[2],
             (uint64_t)lpss_spi.mmio_sample[3]);
     }
+    console_printf("lpss-spi: prepared=%u skipped_invalid_caps=%u\n",
+        lpss_spi.prepared ? 1ull : 0ull,
+        lpss_spi.prepare_skipped_invalid_caps ? 1ull : 0ull);
     lpss_spi_print_registers();
     if (lpss_spi.dma != 0) {
         console_printf("lpss-spi: dma present vendor=%x device=%x bus=%u dev=%u fn=%u class=%x:%x:%x irq=%u\n",
@@ -264,6 +338,27 @@ void lpss_spi_print_registers(void) {
         return;
     }
 
+    sample_named_registers();
+    if (lpss_spi.pre_regs_valid) {
+        console_printf("lpss-spi-regs-pre: sscr0=%x sscr1=%x sssr=%x ssitr=%x ssto=%x sspsp=%x\n",
+            (uint64_t)lpss_spi.pre_regs[0],
+            (uint64_t)lpss_spi.pre_regs[1],
+            (uint64_t)lpss_spi.pre_regs[2],
+            (uint64_t)lpss_spi.pre_regs[3],
+            (uint64_t)lpss_spi.pre_regs[4],
+            (uint64_t)lpss_spi.pre_regs[5]);
+        console_printf("lpss-spi-priv-pre: clock=%x reset=%x active_ltr=%x idle_ltr=%x ssp=%x remap_lo=%x remap_hi=%x caps=%x type=%u idma=%u\n",
+            (uint64_t)lpss_spi.pre_priv_regs[0],
+            (uint64_t)lpss_spi.pre_priv_regs[1],
+            (uint64_t)lpss_spi.pre_priv_regs[2],
+            (uint64_t)lpss_spi.pre_priv_regs[3],
+            (uint64_t)lpss_spi.pre_priv_regs[4],
+            (uint64_t)lpss_spi.pre_priv_regs[5],
+            (uint64_t)lpss_spi.pre_priv_regs[6],
+            (uint64_t)lpss_spi.pre_priv_regs[7],
+            (uint64_t)lpss_caps_type(lpss_spi.pre_priv_regs[7]),
+            lpss_caps_has_idma(lpss_spi.pre_priv_regs[7]) ? 1ull : 0ull);
+    }
     console_printf("lpss-spi-regs: sscr0=%x sscr1=%x sssr=%x ssitr=%x ssto=%x sspsp=%x\n",
         (uint64_t)lpss_spi.regs[0],
         (uint64_t)lpss_spi.regs[1],
@@ -276,10 +371,15 @@ void lpss_spi_print_registers(void) {
         (lpss_spi.regs[2] & PXA_SSSR_BSY) != 0 ? 1ull : 0ull,
         (lpss_spi.regs[2] & PXA_SSSR_TNF) != 0 ? 1ull : 0ull,
         (lpss_spi.regs[2] & PXA_SSSR_RNE) != 0 ? 1ull : 0ull);
-    console_printf("lpss-spi-regs: lpss reset=%x general=%x ssp=%x cs=%x clock_gate=%x\n",
+    console_printf("lpss-spi-priv: clock=%x reset=%x active_ltr=%x idle_ltr=%x ssp=%x remap_lo=%x remap_hi=%x caps=%x type=%u idma=%u\n",
         (uint64_t)lpss_spi.priv_regs[0],
         (uint64_t)lpss_spi.priv_regs[1],
         (uint64_t)lpss_spi.priv_regs[2],
         (uint64_t)lpss_spi.priv_regs[3],
-        (uint64_t)lpss_spi.priv_regs[4]);
+        (uint64_t)lpss_spi.priv_regs[4],
+        (uint64_t)lpss_spi.priv_regs[5],
+        (uint64_t)lpss_spi.priv_regs[6],
+        (uint64_t)lpss_spi.priv_regs[7],
+        (uint64_t)lpss_caps_type(lpss_spi.priv_regs[7]),
+        lpss_caps_has_idma(lpss_spi.priv_regs[7]) ? 1ull : 0ull);
 }
