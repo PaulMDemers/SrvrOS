@@ -12,6 +12,10 @@ server.
 - Defaults to quiet framebuffer boot while retaining full serial, `dmesg`, and
   `/fat/var/log/boot.log` diagnostics; the `/srvrosdebug` Limine entry keeps
   framebuffer bootstrap logging visible for hardware bring-up.
+- Mirrors the GPT USB image's Limine config across `/EFI/BOOT/limine.conf`,
+  `/limine.conf`, `/boot/limine.conf`, `/boot/limine/limine.conf`, and
+  `/limine/limine.conf` to avoid removable-UEFI config search ambiguity on
+  hardware.
 - Runs freestanding ring-3 ELF programs from initramfs and `/fat`.
 - Adds runtime ELF TLS support: the linker emits `PT_TLS`, the kernel maps the
   main-thread and per-user-thread TLS blocks, the scheduler preserves `FS.base`,

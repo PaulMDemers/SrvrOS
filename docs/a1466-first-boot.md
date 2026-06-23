@@ -16,6 +16,12 @@ The resulting image is:
 build/srvros-usb.img
 ```
 
+The USB builder mirrors the same Limine config into every standard removable
+UEFI search location used by the image: `/EFI/BOOT/limine.conf`,
+`/limine.conf`, `/boot/limine.conf`, `/boot/limine/limine.conf`, and
+`/limine/limine.conf`. This keeps the MacBook firmware path from depending on a
+single loader-relative config location.
+
 Current pre-hardware handoff image:
 
 ```text

@@ -71,6 +71,9 @@ FAT32 EFI System Partition and the same kernel/initramfs payload.
 - `make usb-image` creates `build/srvros-usb.img`, a GPT disk image.
 - Partition 1: FAT32 ESP with `EFI/BOOT/BOOTX64.EFI`, Limine config, kernel,
   and initramfs.
+- The ESP mirrors `limine.conf` at `/EFI/BOOT/limine.conf`, `/limine.conf`,
+  `/boot/limine.conf`, `/boot/limine/limine.conf`, and `/limine/limine.conf`
+  so removable UEFI boot does not depend on one Limine search path.
 - Partition 2: exFAT srvros data volume, matching the QEMU AHCI image
   layout.
 - Document writing the image with platform-specific commands and a clear

@@ -276,9 +276,13 @@ def validate_fat32_image(image, fat):
         ("BOOT", 0x10),
         ("STARTUP.NSH", 0x20),
         ("EFI/BOOT/BOOTX64.EFI", 0x20),
+        ("EFI/BOOT/LIMINE.CONF", 0x20),
         ("BOOT/SRVROS.ELF", 0x20),
         ("BOOT/INITRAMFS.TAR", 0x20),
+        ("BOOT/LIMINE.CONF", 0x20),
         ("BOOT/LIMINE/LIMINE.CONF", 0x20),
+        ("LIMINE/LIMINE.CONF", 0x20),
+        ("LIMINE.CONF", 0x20),
     ]
     for path, expected_attr in checks:
         cluster = fat.root_cluster
@@ -344,6 +348,7 @@ def build_image(args):
     boot = fat.add_dir(efi, "BOOT")
     boot_dir = fat.add_dir(fat.root_cluster, "BOOT")
     limine_dir = fat.add_dir(boot_dir, "LIMINE")
+    root_limine_dir = fat.add_dir(fat.root_cluster, "LIMINE")
     fat.add_file(boot, "BOOTX64.EFI", open(args.bootx64, "rb").read())
     if args.bootia32:
         fat.add_file(boot, "BOOTIA32.EFI", open(args.bootia32, "rb").read())
@@ -351,7 +356,11 @@ def build_image(args):
     fat.add_file(boot_dir, "SRVROS.ELF", open(args.kernel, "rb").read())
     fat.add_file(boot_dir, "initramfs.tar", open(args.initramfs, "rb").read())
     config = open(args.config, "rb").read()
+    fat.add_file(boot, "limine.conf", config)
+    fat.add_file(fat.root_cluster, "limine.conf", config)
+    fat.add_file(boot_dir, "limine.conf", config)
     fat.add_file(limine_dir, "limine.conf", config)
+    fat.add_file(root_limine_dir, "limine.conf", config)
     esp = fat.build()
     validate_fat32_image(esp, fat)
 
