@@ -141,6 +141,8 @@ CXX := $(ZIG) c++
 AR := $(ZIG) ar
 LD := $(ZIG) ld.lld
 QEMU := qemu-system-x86_64
+QEMU_A1466 := build/tooling/qemu-a1466-src/build/qemu-system-x86_64.exe
+A1466_SSDT := build/a1466-input.aml
 PYTHON ?= python
 
 CFLAGS := \
@@ -1826,6 +1828,17 @@ usb-image: $(USB_IMAGE)
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
 	$(PYTHON) tools/a1466_rehearsal.py --qemu $(QEMU)
+
+.PHONY: qemu-a1466
+qemu-a1466:
+	$(PYTHON) tools/build_qemu_a1466.py
+
+$(A1466_SSDT): ports/qemu-a1466/acpi/a1466-input.asl tools/build_a1466_ssdt.py
+	$(PYTHON) tools/build_a1466_ssdt.py --output $@
+
+.PHONY: a1466-emulator-smoke
+a1466-emulator-smoke: qemu-a1466 $(A1466_SSDT) $(USB_IMAGE)
+	$(PYTHON) tools/a1466_emulator_smoke.py --qemu $(QEMU_A1466) --ssdt $(A1466_SSDT)
 
 .PHONY: presentation-screens
 presentation-screens: $(IMAGE) $(EXFAT_IMAGE)

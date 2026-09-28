@@ -418,7 +418,7 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
-    lpss_spi_init();
+    bool lpss_spi_ready = lpss_spi_init();
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -454,6 +454,9 @@ void kmain(void) {
     }
     test_vmm();
     arch_enable_interrupts();
+    if (lpss_spi_ready && !lpss_spi_start_worker()) {
+        console_write("lpss-spi: polling worker not started\n");
+    }
     if (timer_wait_ticks_bounded(5, 100000000)) {
         console_printf("timer: observed ticks=%u\n", timer_ticks());
     } else {

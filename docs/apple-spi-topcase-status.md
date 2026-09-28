@@ -66,6 +66,21 @@ Implemented pieces:
   `SSCR0`, `SSCR1`, `SSSR`, `SSITR`, `SSTO`, `SSPSP`, and selected LPSS private
   registers. The diagnostic deliberately does not read `SSDR`, because reading
   the data register can consume receive FIFO state.
+- A pinned QEMU 10.2.0 A1466 rehearsal model under `ports/qemu-a1466` with the
+  `8086:9cba` SPI1 and `8086:9ce0` DMA identities, 64-bit BARs, PXA registers,
+  the LPT private block at `0x800`, and an injected `SPI1`/`SPIT` SSDT.
+- `make a1466-emulator-smoke`, which boots without an xHCI keyboard and verifies
+  controller discovery, private-register setup, ACPI topcase markers, and a
+  complete keyboard input path. The test disables i8042 and USB, injects keys
+  over QMP, and requires `echo spi-input-ok` plus nonzero SPI keyboard counters.
+- A bounded polling worker that only starts a 256-byte transaction when `SSSR`
+  advertises receive data, clocks bytes through `SSDR`, and restores the
+  controller and software chip-select state after each operation.
+- Apple packet/message validation for read packets, keyboard messages, lengths,
+  offsets, and both CRC16 layers. Invalid or timed-out input is counted and
+  dropped.
+- Shared HID boot-report translation used by both xHCI and Apple SPI, including
+  modifiers, editing keys, arrows, and shell control keys.
 
 ## Latest Hardware Signal
 
@@ -111,44 +126,44 @@ lpss-spi-regs: enabled=... busy=... tx_not_full=... rx_not_empty=...
 lpss-spi-priv: profile=lpt base=800 raw00=... raw04=... raw08=... raw0c=... raw10=... raw14=... raw18=... raw1c=...
 ```
 
-If `profile=lpt private_base=800` prints non-`ffffffff` raw private values and
-the status register reads cleanly, the next step is a small polling SPI
-transport. If the raw private values still read as all `ffffffff`, stay on BAR
-layout, power/resource state, and PCI/ACPI mapping diagnostics before attempting
-topcase transactions.
+The latest hardware capture already meets the mapped/private-register
+prerequisite. The current image therefore starts the bounded polling worker;
+the next physical result to inspect is whether `packets` or any error counter
+changes while keys are pressed. If the raw private values regress to all
+`ffffffff`, return to BAR layout, power/resource state, and PCI/ACPI mapping
+before interpreting transfer counters.
 
 ## What Is Not Implemented Yet
 
-- No active SPI transfers.
-- No full LPSS SPI transfer configuration sequence beyond the early
-  profile-specific setup used for diagnostics.
+- The physical A1466 has not yet completed a polling transaction; the current
+  transfer and packet path is proven against the focused QEMU model.
 - No ACPI method execution for `SIEN`, `SIST`, `UIEN`, or `UIST`.
 - No topcase resource parser for `_CRS` beyond structural diagnostics.
-- No Apple HSSPI packet framing.
-- No keyboard report injection from the topcase.
+- No topcase command/write protocol or fragmented packet reassembly.
 - No trackpad report parser or pointer injection from the topcase.
 - No interrupt or DMA path for the SPI controller.
 
 ## Next Driver Plan
 
-1. Confirm whether the new capture reports `profile=lpt private_base=800` and
-   non-`ffffffff` raw private registers on the A1466.
-2. Add a tiny LPSS SPI register model in `lpss_spi.c`: controller-id status,
-   FIFO status, timeout status, and a safe idle check.
-3. Add a non-invasive self-check command that verifies MMIO stability by reading
-   the same status registers twice and confirming reserved/steady fields do not
-   behave like unmapped memory.
-4. Parse enough `_CRS` structure around `SPI1` and `SPIT` to extract:
+1. Boot the current image on the A1466 and inspect the post-boot `spi` counters
+   while pressing keys. Confirm whether `SSSR_RNE` ever signals pending data and
+   whether bounded reads complete without transfer errors.
+2. Compare physical register transitions with the QEMU polling transaction and
+   correct clock, chip-select, or FIFO sequencing from hardware evidence.
+3. Parse enough `_CRS` structure around `SPI1` and `SPIT` to extract:
    SPI chip select, IRQ/GPE/GPIO hints, and the method/resource names that need
    to be mirrored.
-5. Implement the first polling transfer function with the controller disabled,
-   configured, and re-enabled only inside a bounded operation.
-6. Implement a read/status transaction that can identify the Apple topcase
-   endpoint without requiring interrupts.
-7. Add HSSPI packet framing and feed keyboard boot reports into the existing
-   keyboard event path.
-8. Once keyboard input is reliable, add trackpad pointer mode, then revisit
-   interrupts/DMA for responsiveness.
+4. Execute the required ACPI power/enable sequence and identify how the topcase
+   initially signals or queues its keyboard report.
+5. Once physical keyboard input is reliable, add trackpad pointer mode and then
+   replace polling with GPE/IRQ delivery.
+6. Revisit DMA after the interrupt path is stable and measurements show it is
+   useful for responsiveness.
+
+The emulator is a development accelerator, not evidence that unknown hardware
+behavior is correct. New register defaults and protocol assumptions should be
+derived from Linux/Apple prior art or a physical capture before being encoded
+as the emulator's expected behavior.
 
 ## Hardware Capture Checklist
 
@@ -159,10 +174,11 @@ acpi-input-topcase:
 lpss-spi: spi1 ...
 lpss-spi: bar0=... mapped_phys=... mmio_virt=... mapped=...
 lpss-spi-regs:
+lpss-spi: worker=... polls=... packets=... keyboard_reports=... transfer_errors=...
 ```
 
-The most important single question for the next boot is whether
-`lpss-spi-regs` prints real register values.
+The most important question for the next boot is whether `packets` or the
+bounded-transfer error counters change when the built-in keyboard is used.
 
 ## Next Hardware Session Handoff
 

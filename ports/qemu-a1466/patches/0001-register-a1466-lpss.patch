@@ -1,0 +1,41 @@
+diff --git a/hw/misc/Kconfig b/hw/misc/Kconfig
+index fccd735..dcd7d68 100644
+--- a/hw/misc/Kconfig
++++ b/hw/misc/Kconfig
+@@ -30,6 +30,11 @@ config EDU
+     default y if TEST_DEVICES
+     depends on PCI && MSI_NONBROKEN
+ 
++config A1466_LPSS
++    bool
++    default y if PCI_DEVICES
++    depends on PCI
++
+ config I2C_ECHO
+     bool
+     default y if TEST_DEVICES
+diff --git a/hw/misc/meson.build b/hw/misc/meson.build
+index b1d8d8e..2bafca0 100644
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
+@@ -1,5 +1,6 @@
+ system_ss.add(when: 'CONFIG_APPLESMC', if_true: files('applesmc.c'))
+ system_ss.add(when: 'CONFIG_EDU', if_true: files('edu.c'))
++system_ss.add(when: 'CONFIG_A1466_LPSS', if_true: files('a1466-lpss.c'))
+ system_ss.add(when: 'CONFIG_FW_CFG_DMA', if_true: files('vmcoreinfo.c'))
+ system_ss.add(when: 'CONFIG_ISA_DEBUG', if_true: files('debugexit.c'))
+ system_ss.add(when: 'CONFIG_ISA_TESTDEV', if_true: files('pc-testdev.c'))
+diff --git a/scripts/symlink-install-tree.py b/scripts/symlink-install-tree.py
+index 8ce36f7..5519f78 100755
+--- a/scripts/symlink-install-tree.py
++++ b/scripts/symlink-install-tree.py
+@@ -7,6 +7,9 @@ import shlex
+ import subprocess
+ import sys
+ 
++if os.environ.get('QEMU_BUNDLE_NO_SYMLINKS') == '1':
++    sys.exit(0)
++
+ def destdir_join(d1: str, d2: str) -> str:
+     if not d1:
+         return d2

@@ -50,6 +50,14 @@ server.
   `0x800`, avoids the later-generation capability/remap assumption, prints raw
   private-register windows, and applies the small profile setup needed before
   polling topcase transactions.
+- Adds a pinned QEMU 10.2.0 A1466 LPSS rehearsal package with emulated
+  `8086:9cba` SPI1 and `8086:9ce0` DMA devices, PXA/LPT register windows, an
+  A1466-style `SPI1`/`SPIT` SSDT, reproducible UCRT64 build tooling, and
+  `make a1466-emulator-smoke` coverage for PCI, MMIO, and ACPI discovery.
+- Extends the A1466 rehearsal into a functional Apple SPI keyboard path: QEMU
+  queues CRC-valid 256-byte topcase packets, SrvrOS performs bounded polling
+  transfers and strict packet validation, and the smoke disables PS/2/USB while
+  typing and executing a monitor command entirely through LPSS SPI.
 - Adds `gfx_blit_rect` and teaches the UI presenter to flush root backbuffer
   dirty rectangles through a bulk graphics syscall instead of many tiny fills.
 - Adds `/fat/bin/displayd`, a smoke-testable compositor seed with a dynamically

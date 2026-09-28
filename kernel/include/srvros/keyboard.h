@@ -8,6 +8,7 @@ bool keyboard_init(void);
 void keyboard_handle_irq(void);
 void keyboard_wake_waiters(void);
 void keyboard_inject_char(char c);
+void keyboard_inject_hid_report(const uint8_t report[8], uint8_t previous_report[8]);
 bool keyboard_try_read_char(char *out);
 bool keyboard_scan_char(char *out);
 char keyboard_read_char(void);

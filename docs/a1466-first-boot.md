@@ -62,6 +62,19 @@ to the monitor prompt under QEMU/OVMF. The harness records serial disconnects,
 QMP input failures, and QEMU exit context in `build/a1466-rehearsal.log` if that
 regresses.
 
+For the LPSS SPI/topcase driver specifically, use the focused A1466 device
+model:
+
+```powershell
+make a1466-emulator-smoke
+```
+
+This builds a pinned QEMU 10.2.0 extension, attaches emulated Broadwell LPSS
+SPI1/DMA devices at the hardware BDFs, injects an A1466-style `SPI1`/`SPIT`
+SSDT, and verifies the current register/profile setup. It does not replace the
+real-machine boot: timing, GPIO/GPE routing, and Apple packet behavior still
+require hardware confirmation.
+
 Write that image to a USB stick with your preferred raw-image writer. Double
 check the target disk before writing; this image is intended for removable USB
 media.

@@ -6,6 +6,8 @@
 
 bool lpss_spi_init(void);
 bool lpss_spi_available(void);
+bool lpss_spi_start_worker(void);
+bool lpss_spi_poll_once(void);
 void lpss_spi_print_status(void);
 void lpss_spi_print_registers(void);
 

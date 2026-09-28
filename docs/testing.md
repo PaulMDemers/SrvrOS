@@ -36,6 +36,7 @@ python3 tools/netabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/sysabi_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/uefi_usb_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 python3 tools/a1466_rehearsal.py --qemu /ucrt64/bin/qemu-system-x86_64
+make a1466-emulator-smoke
 make libc-audit
 python3 tools/libc_smoke.py --qemu /ucrt64/bin/qemu-system-x86_64
 make node-unresolved-audit
@@ -80,6 +81,13 @@ python3 tools/presentation_screens.py --qemu /ucrt64/bin/qemu-system-x86_64
 ```
 
 ## What The Harnesses Cover
+
+- `a1466_emulator_smoke.py`: boots the USB image against the pinned custom QEMU
+  A1466 LPSS model with i8042 and USB disabled; verifies the `8086:9cba` SPI1
+  and `8086:9ce0` DMA identities, 64-bit BAR mapping, Broadwell private
+  registers, and injected `SPI1`/`SPIT` ACPI markers; then types
+  `echo spi-input-ok` over QMP and requires nonzero, error-free Apple SPI
+  keyboard-report processing.
 
 - `cli_smoke.py`: shell startup, PATH lookup, env/export/which, `$VAR` and `$?`
   expansion, POSIX-style parameter defaults/assignment/alternates/length/trims,

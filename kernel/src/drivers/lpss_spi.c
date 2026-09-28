@@ -1,6 +1,8 @@
 #include <srvros/console.h>
+#include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
 #include <srvros/pci.h>
+#include <srvros/scheduler.h>
 #include <srvros/vmm.h>
 
 #include <stdbool.h>
@@ -23,6 +25,7 @@
 #define PXA_SSCR1 0x04
 #define PXA_SSSR 0x08
 #define PXA_SSITR 0x0c
+#define PXA_SSDR 0x10
 #define PXA_SSTO 0x28
 #define PXA_SSPSP 0x2c
 
@@ -33,9 +36,18 @@
 #define LPSS_PRIV_CS_CONTROL_CS_HIGH (1u << 1)
 #define LPSS_PRIV_GENERAL_RXTO_HOLDOFF_DISABLE (1u << 24)
 #define PXA_SSCR0_SSE (1u << 7)
+#define PXA_SSCR0_DSS_8BIT 7u
+#define PXA_SSCR0_SCR(value) ((value) << 8)
 #define PXA_SSSR_TNF (1u << 2)
 #define PXA_SSSR_RNE (1u << 3)
 #define PXA_SSSR_BSY (1u << 4)
+
+#define APPLE_SPI_PACKET_SIZE 256
+#define APPLE_SPI_PACKET_DATA_SIZE 246
+#define APPLE_SPI_READ_PACKET 0x20
+#define APPLE_SPI_DEVICE_KEYBOARD 0x01
+#define APPLE_SPI_MESSAGE_KEYBOARD 0x0110
+#define APPLE_SPI_WAIT_LIMIT 100000
 
 struct lpss_spi_profile {
     const char *name;
@@ -84,6 +96,15 @@ struct lpss_spi_device {
     bool prepared;
     bool prepare_skipped_no_profile;
     bool prepare_skipped_unmapped;
+    bool worker_started;
+    uint8_t previous_keyboard_report[8];
+    uint64_t polls;
+    uint64_t packets;
+    uint64_t keyboard_reports;
+    uint64_t transfer_errors;
+    uint64_t packet_errors;
+    uint64_t packet_crc_errors;
+    uint64_t message_crc_errors;
 };
 
 static struct lpss_spi_device lpss_spi;
@@ -246,6 +267,157 @@ static void lpss_spi_prepare_controller(void) {
     sample_named_registers();
 }
 
+static uint16_t read_le16(const uint8_t *value) {
+    return (uint16_t)value[0] | ((uint16_t)value[1] << 8);
+}
+
+static uint16_t apple_crc16(const uint8_t *data, uint64_t length) {
+    uint16_t crc = 0;
+    for (uint64_t i = 0; i < length; i++) {
+        crc ^= data[i];
+        for (uint8_t bit = 0; bit < 8; bit++) {
+            crc = (crc & 1) != 0 ? (uint16_t)((crc >> 1) ^ 0xa001u) : (uint16_t)(crc >> 1);
+        }
+    }
+    return crc;
+}
+
+static bool wait_status(uint32_t mask) {
+    for (uint64_t i = 0; i < APPLE_SPI_WAIT_LIMIT; i++) {
+        if ((lpss_mmio_read32(PXA_SSSR) & mask) == mask) {
+            return true;
+        }
+        __asm__ volatile ("pause");
+    }
+    return false;
+}
+
+static void set_chip_select(bool selected) {
+    const struct lpss_spi_profile *profile = lpss_spi.profile;
+    if (profile == 0 || !profile->has_cs_control) {
+        return;
+    }
+    uint32_t control = lpss_spi_read_private(profile->cs_control_offset);
+    control |= LPSS_PRIV_CS_CONTROL_SW_MODE;
+    if (selected) {
+        control &= ~LPSS_PRIV_CS_CONTROL_CS_HIGH;
+    } else {
+        control |= LPSS_PRIV_CS_CONTROL_CS_HIGH;
+    }
+    lpss_spi_write_private(profile->cs_control_offset, control);
+}
+
+static bool read_packet(uint8_t packet[APPLE_SPI_PACKET_SIZE]) {
+    uint32_t original_sscr0 = lpss_mmio_read32(PXA_SSCR0);
+    lpss_mmio_write32(PXA_SSCR0, original_sscr0 & ~PXA_SSCR0_SSE);
+    lpss_mmio_write32(PXA_SSCR1, 0);
+    lpss_mmio_write32(PXA_SSCR0,
+        PXA_SSCR0_DSS_8BIT | PXA_SSCR0_SCR(4) | PXA_SSCR0_SSE);
+    set_chip_select(true);
+
+    bool ok = true;
+    for (uint64_t i = 0; i < APPLE_SPI_PACKET_SIZE; i++) {
+        if (!wait_status(PXA_SSSR_TNF)) {
+            ok = false;
+            break;
+        }
+        lpss_mmio_write32(PXA_SSDR, 0);
+        if (!wait_status(PXA_SSSR_RNE)) {
+            ok = false;
+            break;
+        }
+        packet[i] = (uint8_t)lpss_mmio_read32(PXA_SSDR);
+    }
+
+    set_chip_select(false);
+    lpss_mmio_write32(PXA_SSCR0, original_sscr0 & ~PXA_SSCR0_SSE);
+    lpss_mmio_write32(PXA_SSCR0, original_sscr0);
+    return ok;
+}
+
+static bool parse_keyboard_packet(const uint8_t packet[APPLE_SPI_PACKET_SIZE]) {
+    if (apple_crc16(packet, APPLE_SPI_PACKET_SIZE) != 0) {
+        lpss_spi.packet_crc_errors++;
+        return false;
+    }
+    if (packet[0] != APPLE_SPI_READ_PACKET ||
+        packet[1] != APPLE_SPI_DEVICE_KEYBOARD ||
+        read_le16(&packet[2]) != 0 || read_le16(&packet[4]) != 0) {
+        lpss_spi.packet_errors++;
+        return false;
+    }
+
+    uint16_t packet_length = read_le16(&packet[6]);
+    if (packet_length < 20 || packet_length > APPLE_SPI_PACKET_DATA_SIZE) {
+        lpss_spi.packet_errors++;
+        return false;
+    }
+    const uint8_t *message = &packet[8];
+    if (read_le16(message) != APPLE_SPI_MESSAGE_KEYBOARD || message[2] != 0) {
+        lpss_spi.packet_errors++;
+        return false;
+    }
+    uint16_t message_length = read_le16(&message[6]);
+    if (message_length < 12 || (uint32_t)message_length + 8u > packet_length) {
+        lpss_spi.packet_errors++;
+        return false;
+    }
+    const uint8_t *keyboard = &message[8];
+    if (apple_crc16(keyboard, message_length) != 0) {
+        lpss_spi.message_crc_errors++;
+        return false;
+    }
+
+    uint8_t report[8] = { 0 };
+    report[0] = keyboard[1];
+    for (uint64_t i = 0; i < 6; i++) {
+        report[i + 2] = keyboard[i + 3];
+    }
+    keyboard_inject_hid_report(report, lpss_spi.previous_keyboard_report);
+    lpss_spi.keyboard_reports++;
+    return true;
+}
+
+bool lpss_spi_poll_once(void) {
+    if (!lpss_spi.mapped || !lpss_spi.prepared) {
+        return false;
+    }
+    lpss_spi.polls++;
+    if ((lpss_mmio_read32(PXA_SSSR) & PXA_SSSR_RNE) == 0) {
+        return false;
+    }
+
+    uint8_t packet[APPLE_SPI_PACKET_SIZE];
+    if (!read_packet(packet)) {
+        lpss_spi.transfer_errors++;
+        return false;
+    }
+    lpss_spi.packets++;
+    return parse_keyboard_packet(packet);
+}
+
+static void lpss_spi_worker(void *arg) {
+    (void)arg;
+    for (;;) {
+        (void)lpss_spi_poll_once();
+        scheduler_yield();
+    }
+}
+
+bool lpss_spi_start_worker(void) {
+    if (!lpss_spi.mapped || !lpss_spi.prepared) {
+        return false;
+    }
+    if (lpss_spi.worker_started) {
+        return true;
+    }
+    lpss_spi.worker_started = scheduler_spawn("lpss-spi", lpss_spi_worker, 0);
+    if (lpss_spi.worker_started) {
+        console_write("lpss-spi: polling Apple topcase worker started\n");
+    }
+    return lpss_spi.worker_started;
+}
+
 bool lpss_spi_init(void) {
     lpss_spi = (struct lpss_spi_device) { 0 };
     lpss_spi.spi = find_intel_device(BROADWELL_LPSS_SPI1_DEVICE_ID);
@@ -342,6 +514,15 @@ void lpss_spi_print_status(void) {
         lpss_spi.prepared ? 1ull : 0ull,
         lpss_spi.prepare_skipped_no_profile ? 1ull : 0ull,
         lpss_spi.prepare_skipped_unmapped ? 1ull : 0ull);
+    console_printf("lpss-spi: worker=%u polls=%u packets=%u keyboard_reports=%u transfer_errors=%u packet_errors=%u packet_crc_errors=%u message_crc_errors=%u\n",
+        lpss_spi.worker_started ? 1ull : 0ull,
+        lpss_spi.polls,
+        lpss_spi.packets,
+        lpss_spi.keyboard_reports,
+        lpss_spi.transfer_errors,
+        lpss_spi.packet_errors,
+        lpss_spi.packet_crc_errors,
+        lpss_spi.message_crc_errors);
     lpss_spi_print_registers();
     if (lpss_spi.dma != 0) {
         console_printf("lpss-spi: dma present vendor=%x device=%x bus=%u dev=%u fn=%u class=%x:%x:%x irq=%u\n",
