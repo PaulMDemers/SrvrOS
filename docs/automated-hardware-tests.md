@@ -195,6 +195,12 @@ work to proceed. The earlier intermittent USB transport fault remains
 unexplained; retain the precise CSW/controller diagnostics and indefinite
 failure halt. Physical keyboard latency and power-loss recovery were not tested.
 
+The subsequent USB batching release `d8573b99c2e9c522` also passed five physical
+rounds (`9210faa6793e746d`), all 75 output checks and clean offline checking with
+zero VolumeFlags and no repair. Mean shell workload time fell from 68.720 to
+8.048 seconds. See the [batching hardware results](usb-batching-2026-10-17.md#validated-laptop-result)
+for the measurements, limitations and preserved build.
+
 Each cycle needs a new request, even for the same kernel:
 
 ```sh

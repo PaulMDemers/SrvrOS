@@ -67,7 +67,7 @@ multi-batch requests, exact untouched bytes, command counts, cache hits splittin
 read batches, eviction, failed-read publication, partial failed writes, partition
 coherence, range rejection, and retained I/O service windows. The full build and
 all 21 host test groups passed; focused tests were rerun after the additional
-failure/service assertions. Physical validation of this candidate is pending.
+failure/service assertions. Physical validation subsequently passed as recorded below.
 
 The full five-round QEMU automatic cycle passed: all five reports and all 75
 output files independently verified, a clean filesystem, and return through the
@@ -79,6 +79,31 @@ within the existing deadline while keyboard input continued; the read-only disk
 image remained unchanged. Logs use `build/review/batched-usb-{build,cycle,integration,timeout}.log`,
 with retained serial evidence in `build/review/batched-usb-evidence/` and payload
 hashes in `build/review/batched-usb-payload.json`.
+
+## Validated laptop result
+
+On 2026-10-17, batch `9210faa6793e746d` / release `d8573b99c2e9c522`
+(source `adb9e5c`) completed all five rounds and returned to Ubuntu. Collection
+validated all five reports and completion CRCs plus all 75 expected output files.
+Offline `fsck.exfat -n` reported clean (85 directories, 412 files), with main
+VolumeFlags zero before and after checking. No repair was needed; the flash
+drive was remounted successfully.
+
+The five shell workloads took 9.004, 8.012, 7.384, 7.493 and 8.348 seconds.
+Their mean was 8.048 seconds, compared with 68.720 seconds in the preceding
+five-round batch `ade82408bfb8320f`: about 8.5 times faster for this workload.
+The filesystem contained additional test directories in the newer run, so this
+is a sequential hardware comparison, not a controlled benchmark on identical
+disk contents. Rendering remained 4,917–5,250 microseconds per 1,000 lines.
+Maximum input-service poll gaps were 9,413–12,949 microseconds; these counters
+do not establish physical key-to-display latency, which remains NOT_TESTED.
+
+Reports, completion markers, verified file hashes, offline results and timing
+comparison are in `build/hardware-tests/9210faa6793e746d/` and its round folders.
+The installed release has an independent hash-verified backup at
+`~/.local/share/srvros/known-good/d8573b99c2e9c522`. The interactive rollback
+entry remains `385b670049974e1c`. This validates batching on the laptop; the
+earlier intermittent transport failure did not recur, but remains unexplained.
 
 ## Next synchronization step
 
