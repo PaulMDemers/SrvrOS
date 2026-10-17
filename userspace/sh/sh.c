@@ -1436,8 +1436,10 @@ static void expand_globs(const char *args, const char *cwd, char *out, size_t ca
     const char *cursor = args;
     out[0] = '\0';
     while (*cursor != '\0') {
-        char token[CLI_PATH_MAX];
-        char raw_token[CLI_PATH_MAX];
+        /* Quoted arguments (including sh -c scripts) are not pathnames. Keep
+         * the full expanded argument instead of silently cutting at 159. */
+        char token[ARG_EXPANDED_MAX];
+        char raw_token[ARG_EXPANDED_MAX];
         size_t token_length = 0;
         size_t raw_length = 0;
         int quoted = 0;

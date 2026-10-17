@@ -4,6 +4,7 @@
 #include <srvros/fpu.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/scheduler.h>
 #include <srvros/vmm.h>
 
 #include "descriptor_tables.h"
@@ -33,6 +34,7 @@ extern void isr128(void);
 extern void irq0_legacy_stub(void);
 extern void irq1_legacy_stub(void);
 void syscall_dispatch(struct isr_frame *frame);
+bool syscall_io_safe(const struct isr_frame *frame);
 
 static struct idt_entry idt[IDT_ENTRY_COUNT];
 
@@ -161,17 +163,32 @@ void idt_init(void) {
 }
 
 static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
+    scheduler_io_set_user_safe(false);
     /* I/O service windows defer owner cancellation until the surrounding
      * syscall has released its cache/filesystem state. Do not rely on a
      * later timer tick: fast userspace can immediately issue another call
      * (including exit) while every tick lands inside an owned I/O scope. */
     if ((frame->cs & 3) == 3 && process_should_exit_current()) {
+        scheduler_io_wait();
         process_exit(process_current_kill_status());
     }
+    bool safe=(frame->cs & 3)==3 && syscall_io_safe(frame);
+    if (!safe) scheduler_io_wait();
+    if ((frame->cs & 3)==3 && process_should_exit_current()) {
+        scheduler_io_wait();
+        process_exit(process_current_kill_status());
+    }
+    scheduler_io_set_user_safe(safe);
     syscall_dispatch(frame);
+#ifndef SRVROS_SYSCALL_CANCEL_HOST_TEST
+    __asm__ volatile ("cli" : : : "memory");
+#endif
+    scheduler_io_set_user_safe(false);
     if ((frame->cs & 3) == 3 && process_should_exit_current()) {
+        scheduler_io_wait();
         process_exit(process_current_kill_status());
     }
+    if ((frame->cs & 3)==3) scheduler_user_enter();
 }
 
 void isr_dispatch(struct isr_frame *frame) {

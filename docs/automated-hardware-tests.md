@@ -4,7 +4,9 @@ New preparations use v3 (`ram-usb-v8-autotest-…`). In addition to the v2
 [USB file workload](usb-file-workload-2026-10-17.md), they run the real userspace
 shell and `ed` in a fresh `srvros-tests/<run>.shell` directory. They edit/save,
 remount/reopen, restore a workspace profile and history, write a 512 KiB file,
-and print 500 lines. The collector checks nine retained output files, including
+and print 500 lines. The current input/filesystem milestone runs that writer in
+the background while updating settings and printing, then waits and flushes.
+The collector still checks the exact contents of both files. The collector checks nine retained output files, including
 exact document/history/settings bytes and a history-recall transcript. Existing
 workspace documents and settings are untouched. Older v1/v2 reports remain
 collectable and their installed profiles remain launchable with matching requests.

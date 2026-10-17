@@ -1658,6 +1658,10 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
         device->interrupt_success++;
         if (device->hid_keyboard && device->interrupt_max_packet - remaining >= 8) handle_hid_report(device);
         else if (device->hid_mouse) handle_hid_mouse_report(device);
+        /* Keep the endpoint supplied even when disk I/O or another runnable
+         * application delays the next worker turn. The report was consumed
+         * above; only now may submission clear/reuse its DMA buffer. */
+        submit_interrupt_poll(device);
     } else device->interrupt_errors++;
 }
 

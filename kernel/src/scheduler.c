@@ -40,6 +40,7 @@ struct thread {
     scheduler_wait_condition_fn io_eligible;
     void *arg;
     void *user_context;
+    bool io_user_safe;
     void *user_thread_context;
     struct fpu_state *user_fpu;
     uint64_t user_fs_base;
@@ -64,6 +65,7 @@ static bool initialized;
 static bool switching;
 static bool io_services_enabled;
 static uint64_t io_owner, io_depth;
+static struct scheduler_wait_queue io_waiters;
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static volatile uint64_t demo_counter;
@@ -106,16 +108,24 @@ static uint64_t thread_address_space(const struct thread *thread) {
 }
 
 static uint64_t read_fs_base(void) {
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    return 0;
+#else
     uint32_t low;
     uint32_t high;
     __asm__ volatile ("rdmsr" : "=a"(low), "=d"(high) : "c"(0xC0000100u));
     return ((uint64_t)high << 32) | low;
+#endif
 }
 
 static void write_fs_base(uint64_t value) {
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    (void)value;
+#else
     uint32_t low = (uint32_t)value;
     uint32_t high = (uint32_t)(value >> 32);
     __asm__ volatile ("wrmsr" : : "c"(0xC0000100u), "a"(low), "d"(high) : "memory");
+#endif
 }
 
 static struct fpu_state *thread_user_fpu(struct thread *thread) {
@@ -128,6 +138,8 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
 static bool io_thread_allowed(uint64_t index) {
     struct thread *thread = &threads[index];
     return io_depth == 0 || index == io_owner ||
+        (thread->user_context != NULL && thread->io_user_safe &&
+         thread->user_context != threads[io_owner].user_context) ||
         (thread->user_context == NULL && thread->io_eligible != NULL &&
          thread->io_eligible(thread->arg));
 }
@@ -148,7 +160,32 @@ bool scheduler_io_begin(void) {
 }
 
 void scheduler_io_end(void) {
-    if (io_depth != 0 && io_owner == current_thread) io_depth--;
+    if (io_depth != 0 && io_owner == current_thread && --io_depth == 0)
+        scheduler_wake_all(&io_waiters);
+}
+
+void scheduler_io_set_user_safe(bool safe) {
+    uint64_t flags=irq_save();
+    if (initialized) threads[current_thread].io_user_safe=safe;
+    irq_restore(flags);
+}
+
+void scheduler_user_enter(void) { scheduler_io_set_user_safe(true); }
+
+static bool io_available(void *arg) {
+    (void)arg;
+    return io_depth == 0 || io_owner == current_thread;
+}
+
+/* Gate before inspecting/mutating filesystem, descriptor or process state.
+ * Waiting preserves the syscall's arguments and does not turn contention into
+ * an I/O error. Nested owner operations retain their existing scope. */
+void scheduler_io_wait(void) {
+    uint64_t flags=irq_save();
+    while (!io_available(NULL)) {
+        if (!scheduler_wait(&io_waiters,io_available,NULL)) scheduler_yield();
+    }
+    irq_restore(flags);
 }
 
 bool scheduler_io_yield(void) {
@@ -468,7 +505,7 @@ void scheduler_preempt_tick(void) {
 
     wake_expired_waits();
 
-    if (!(io_depth != 0 && io_owner == current_thread) && process_should_exit_current()) {
+    if (io_depth == 0 && process_should_exit_current()) {
         process_exit(process_current_kill_status());
     }
 
@@ -491,6 +528,7 @@ void scheduler_set_user_context_fpu(void *process,
 
     struct thread *thread = &threads[current_thread];
     thread->user_context = process;
+    thread->io_user_safe = false;
     thread->address_space = address_space;
     thread->kernel_stack_top = kernel_stack_top;
     thread->user_fpu = user_fpu;
@@ -516,6 +554,7 @@ void scheduler_clear_user_context(void) {
 
     struct thread *thread = &threads[current_thread];
     thread->user_context = NULL;
+    thread->io_user_safe = false;
     thread->user_thread_context = NULL;
     thread->user_fpu = NULL;
     thread->user_fs_base = 0;

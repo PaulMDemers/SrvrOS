@@ -62,8 +62,10 @@ static const char driver[] =
     "echo \"$WORKSPACE_CHECK\" > settings.txt\n"
     "ed -s document.txt < edit.in\n"
     "sh --workspace \"$HOME\" < session.in\n"
-    "dd if=/dev/zero of=load.bin bs=4096 count=128\n"
+    "dd if=/dev/zero of=load.bin bs=4096 count=128 &\n"
+    "echo \"$WORKSPACE_CHECK\" > settings.txt\n"
     "seq 1 500\n"
+    "wait\n"
     "sync\n"
     "echo shell-first-pass > first.done\n";
 static const char verify[] =

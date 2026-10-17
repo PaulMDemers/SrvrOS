@@ -2011,6 +2011,14 @@ build/tests/syscall-cancel-host$(HOST_EXE): tools/test_syscall_cancel.c kernel/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-syscall-cancel
 
+.PHONY: test-syscall-io
+test-syscall-io: build/tests/syscall-io-host$(HOST_EXE)
+	$<
+build/tests/syscall-io-host$(HOST_EXE): tools/test_syscall_io.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-io
+
 .PHONY: storage-service-smoke
 storage-service-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/storage_service_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)

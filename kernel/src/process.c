@@ -2986,6 +2986,24 @@ bool process_set_stdout_redirect(struct process *process, const char *path, bool
     return true;
 }
 
+bool process_fd_is_console(struct process *process, uint64_t fd, bool input) {
+    if (!process) return false;
+    if (fd>=3) {
+        struct process_file *file=process_file_at(process,fd);
+        if (!file || file->type!=PROCESS_FILE_STDIO) return false;
+        fd=file->handle;
+    }
+    if (input ? fd!=0 : (fd!=1 && fd!=2)) return false;
+    bool redirected=input ? process->stdin_redirect :
+        fd==1 ? process->stdout_redirect : process->stderr_redirect;
+    if (!redirected) return true;
+    int64_t target=input ? process->stdin_fd : fd==1 ? process->stdout_fd : process->stderr_fd;
+    if (target<3) return false;
+    struct process_file *file=process_file_at(process,(uint64_t)target);
+    return file && file->type==PROCESS_FILE_STDIO &&
+        (input ? file->handle==0 : (file->handle==1 || file->handle==2));
+}
+
 int64_t process_stdin_read(struct process *process, uint8_t *buffer, uint64_t length) {
     if (process == NULL || !process->stdin_redirect) {
         return -2;

@@ -138,6 +138,8 @@ int64_t process_input_write(struct process *process, const uint8_t *buffer, uint
 int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 void process_refresh_mappings(struct process *process);
 struct process_file *process_file_at(struct process *process, uint64_t fd);
+/* Side-effect-free classification; redirected files/pipes are never console I/O. */
+bool process_fd_is_console(struct process *process, uint64_t fd, bool input);
 int64_t process_file_alloc(struct process *process,
     const struct vfs_node *node,
     const uint8_t *data,

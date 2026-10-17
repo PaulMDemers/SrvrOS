@@ -346,6 +346,19 @@ static void test_storage(void) {
     poll_hid_events_once();
     assert(injected==1 && kbd->hid_reports==1 && !kbd->interrupt_pending);
     assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_completion==1);
+    /* A successful HID completion rearms immediately, including when consumed
+     * by a bulk waiter. Old TRB events cannot consume the replacement request. */
+    struct xhci_trb hid_ring[64]={0};
+    kbd->interrupt_ready=true;kbd->interrupt_pending=true;kbd->interrupt_trb=0xa000;
+    kbd->interrupt_ring=hid_ring;kbd->interrupt_ring_phys=0xb000;kbd->interrupt_cycle=true;
+    report[0]=2; /* A distinct modifier report, not the duplicate suppression path. */
+    dispatch_transfer_event(&events[1]);
+    assert(kbd->interrupt_pending && kbd->interrupt_trb==0xb000 && kbd->hid_reports==2);
+    dispatch_transfer_event(&events[1]);assert(kbd->hid_reports==2);
+    report[2]=4;
+    struct xhci_trb next_key=events[1];next_key.parameter_low=0xb000;
+    dispatch_transfer_event(&next_key);
+    assert(kbd->interrupt_pending && kbd->interrupt_trb==0xb010 && kbd->hid_reports==3);
     /* Bounded stalled transfer: reject all later submissions, preserving DMA. */
     struct xhci_trb ring[64]={0}; uint8_t bounce[4096], caller[512];
     disk->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=ring,.ring_phys=0x9000,.cycle=true};

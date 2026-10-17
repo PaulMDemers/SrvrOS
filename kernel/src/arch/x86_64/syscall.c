@@ -2248,6 +2248,25 @@ static int64_t syscall_sync(void) {
     return result;
 }
 
+/* Only paths with no filesystem/shared-file/process-lifetime mutations may
+ * overlap owned I/O. Default-deny also covers future syscalls. Do not admit
+ * poll by inspecting a mutable userspace fd array before the actual copy. */
+bool syscall_io_safe(const struct isr_frame *frame) {
+    switch (frame->rax) {
+    case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true);
+    case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false);
+    case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
+    case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
+    case SYS_TTY_GETATTR: case SYS_TTY_SETATTR: case SYS_IOCTL:
+    /* stdio unlock wakes process-local waiters. It neither allocates futex
+     * entries nor releases process/file resources; scheduler eligibility
+     * still prevents a woken unsafe continuation from entering owned I/O. */
+    case SYS_FUTEX_WAKE:
+        return true;
+    default: return false;
+    }
+}
+
 void syscall_dispatch(struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_WRITE:

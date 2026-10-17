@@ -462,6 +462,7 @@ static void command_latency(const char *args) {
     for (unsigned i = 0; i < LATENCY_SITE_COUNT; i++) print_latency_sample(names[i], &snapshot.critical[i]);
     print_latency_sample("timer-gap", &snapshot.tick_gap);
     print_latency_sample("usb-poll-gap", &snapshot.input_poll_gap);
+    keyboard_print_status();
 }
 
 static void render_stress(void) {

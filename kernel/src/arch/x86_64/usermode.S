@@ -9,6 +9,7 @@ usermode_enter:
     movq %rcx, 24(%rsp)
     movq %r8, 32(%rsp)
     movq %r9, 40(%rsp)
+    call scheduler_user_enter
     call fpu_enter_user
     movq 0(%rsp), %rdi
     movq 8(%rsp), %rsi

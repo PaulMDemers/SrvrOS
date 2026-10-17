@@ -8,7 +8,9 @@ The [USB file workload milestone](usb-file-workload-2026-10-17.md) records the
 source checkpoint, clean-build correction and expanded automatic hardware test.
 The [USB batching and responsiveness update](usb-batching-2026-10-17.md) follows
 the successful five-round laptop checkpoint with bounded transfers and measured
-shell stalls; finer filesystem synchronization remains necessary.
+shell stalls. The [input during filesystem work milestone](input-filesystem-milestone-2026-10-17.md)
+adds conservative syscall admission, console progress during owned I/O, and
+contention/cancellation checks; per-file parallel filesystem mutations remain deferred.
 The milestone list below records earlier development; use the new plan for
 mixed-case text, rendering performance, timing and hardware work.
 
