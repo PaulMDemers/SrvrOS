@@ -175,6 +175,26 @@ consumed-request halt, and the forced write-failure halt with controller details
 visible. Evidence uses `build/review/csw-diagnostics-*`. This candidate improves
 diagnosis only; it does not claim to fix the physical USB fault.
 
+On 2026-10-17, batch `ade82408bfb8320f` / release `bf8a6d244459c66b`
+(source `9652f97`) met the agreed physical acceptance bar. All five rounds
+returned complete PASS reports with valid completion CRCs, and Ubuntu verified
+all 75 expected storage/shell output files after the reboot. The machine
+returned to Ubuntu through the automatic success path. The shell workloads
+took 66.77–70.69 seconds per round; the 1,000-line render workloads took
+4,906–5,259 microseconds. Offline `fsck.exfat -n` reported a clean filesystem
+(60 directories, 282 files), with main VolumeFlags zero both before and after
+checking. No repair was performed. Ubuntu removed the mount directory during
+unmount; it was recreated and the USB volume remounted successfully.
+
+Collected evidence and `milestone-result.json` are under
+`build/hardware-tests/ade82408bfb8320f/`, with individual round results in their
+respective run directories. A hash-verified independent copy of the installed
+release is at `~/.local/share/srvros/known-good/bf8a6d244459c66b`.
+This closes the current storage confidence milestone and allows responsiveness
+work to proceed. The earlier intermittent USB transport fault remains
+unexplained; retain the precise CSW/controller diagnostics and indefinite
+failure halt. Physical keyboard latency and power-loss recovery were not tested.
+
 Each cycle needs a new request, even for the same kernel:
 
 ```sh
@@ -206,7 +226,7 @@ underlying USB transport become writable; other partition aliases remain
 read-only. AHCI stays disabled by `srvros.storage=ram`.
 
 A consumed request cannot run again: manually choosing the same profile later
-stops at the monitor. A missing completion marker is never treated as success.
+halts on the diagnostic screen. A missing completion marker is never treated as success.
 Request consumption is flushed first, so a failed run may leave `STARTED` without
 a completed report. Prepare a new run after investigating the failure.
 
@@ -226,9 +246,10 @@ QEMU independently checks the automatic reset and GRUB return sequence.
 - QEMU booted the generated profile through GRUB, consumed the one-shot
   selection, ran tests, persisted and validated the USB probe and report CRC,
   reset through ACPI and reached the default-entry sentinel.
-- Replaying a consumed request stopped at the monitor without modifying the USB
-  disk. A read-only backing disk rejected request consumption, skipped tests and
-  returned through the default entry without modifying the disk.
+- Replaying a consumed request halted without modifying the USB disk. A
+  read-only backing disk rejected request consumption, skipped tests and halted
+  without modifying the disk. Both failure cases stayed halted beyond the old
+  15-second window; only successful runs returned through the default entry.
 
 Reproduce with `tools/host-env.sh make hardware-test-smoke`. The harness uses
 disposable images, not host block devices. Evidence is in
