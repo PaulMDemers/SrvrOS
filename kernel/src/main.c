@@ -1,4 +1,5 @@
 #include <srvros/acpi.h>
+#include <srvros/autotest.h>
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
@@ -426,6 +427,7 @@ void kmain(void) {
     } else {
         console_write("lpss-spi: disabled (experimental transport)\n");
     }
+    xhci_set_storage_writable(cmdline_has_token(cmdline, "srvros.usb-storage=rw"));
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -501,11 +503,13 @@ void kmain(void) {
     }
 
     console_write("srvros: kernel bootstrap complete\n");
+    bool init_ready = false;
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
         uint64_t init_start = timer_monotonic_us();
         bool ready = timer_running && process_wait_startup((uint64_t)init_pid, 300);
+        init_ready = ready;
         console_printf("init: readiness=%s elapsed_us=%u\n", ready ? "ready" : (timer_running ? "timeout-or-exit" : "clock-unavailable"),
             timer_monotonic_us() - init_start);
     } else {
@@ -532,5 +536,6 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    autotest_run(cmdline, init_ready && timer_running);
     monitor_run();
 }

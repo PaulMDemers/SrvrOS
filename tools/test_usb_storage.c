@@ -1,0 +1,97 @@
+#include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+static unsigned depth;
+static bool irq_enabled, foreign, boot;
+static uint64_t usb_test_irq_save(void) { bool f=irq_enabled; irq_enabled=false; return f; }
+static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
+#define SRVROS_USB_STORAGE_HOST_TEST
+#include "../kernel/src/drivers/usb_storage.c"
+static struct block_device block;
+static struct usb_storage storage;
+static uint8_t disk[8192], cdb[16];
+static uint32_t tag, length;
+static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
+static bool empty;
+void console_printf(const char *f,...) {(void)f;}
+bool scheduler_io_begin(void) { if(foreign || boot) return false; depth++; return true; }
+bool scheduler_io_active(void) { return depth || foreign; }
+void scheduler_io_end(void) { assert(depth); depth--; }
+struct block_device *block_parent(struct block_device *d) { return d; }
+bool block_enable_partition_writes(struct block_device *d) { return d->write != NULL; }
+struct block_device *block_find(const char *name) { (void)name; return NULL; }
+struct block_device *block_register(const char *name,uint64_t size,uint64_t count,block_read_fn r,block_write_fn w,void *p) {
+    block=(struct block_device){.used=true,.name=name,.block_size=size,.block_count=count,.read=r,.write=w,.private_data=p}; return &block;
+}
+uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&block); return 0; }
+static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
+    assert(ctx==&storage); calls++; *actual=n;
+    if(fault==1) return false;
+    if(phase==0) {
+        assert(!in && n==31 && le32(data)==0x43425355);
+        uint8_t *b=data; tag=le32(b+4); length=le32(b+8);
+        assert(b[13]==0 && b[14]>0 && b[14]<=16);
+        memcpy(cdb,b+15,16); phase=length?1:2;
+        if(fault==2) *actual=30;
+        return true;
+    }
+    if(phase==1) {
+        assert(n==length);
+        if(cdb[0]==0x12) { assert(in); memset(data,0,n); }
+        else if(cdb[0]==3) { assert(in); memset(data,0,n); ((uint8_t *)data)[0]=0x70; ((uint8_t *)data)[2]=empty?2:6; senses++; }
+        else if(cdb[0]==0x25) { assert(in); put_be32(data,15); put_be32((uint8_t *)data+4,512); }
+        else {
+            assert((cdb[0]==0x28 && in)||(cdb[0]==0x2a && !in));
+            uint32_t off=be32(cdb+2)*512; assert(off+n<=sizeof(disk));
+            if(in) memcpy(data,disk+off,n); else { memcpy(disk+off,data,n); writes++; }
+        }
+        phase=2; if(fault==3) *actual=n-1; return true;
+    }
+    assert(in && n==13); memset(data,0,n);
+    put_le32(data,fault==4?0:0x53425355); put_le32((uint8_t *)data+4,tag+(fault==5));
+    if(fault==6) put_le32((uint8_t *)data+8,length+1);
+    if(fault==7) ((uint8_t *)data)[12]=2;
+    if(fault==8) *actual=12;
+    if(fault==9) put_le32((uint8_t *)data+8,1);
+    if(cdb[0]==0 && tur_failures) { tur_failures--; ((uint8_t *)data)[12]=1; }
+    if(cdb[0]==0x35) syncs++;
+    phase=0; return true;
+}
+static void reset(void) {
+    memset(&storage,0,sizeof(storage)); memset(&block,0,sizeof(block));
+    memset(disk,0x69,sizeof(disk)); phase=calls=writes=syncs=senses=tur_failures=fault=depth=0;
+    empty=foreign=false; irq_enabled=true;
+}
+int main(void) {
+    reset(); tur_failures=2; assert(usb_storage_attach(&storage,&storage,bulk,false));
+    assert(senses==2 && block.block_count==16 && block.block_size==512 && !block.write && !block.flush);
+    uint8_t buf[1024]; assert(block.read(&block,510,buf,1024));
+    for(unsigned i=0;i<sizeof(buf);i++) assert(buf[i]==0x69);
+    assert(irq_enabled && depth==0);
+    boot=true; assert(block.read(&block,0,buf,512)); assert(!depth); boot=false;
+    assert(usb_storage_is_device(&block) && !usb_storage_is_device(NULL));
+    assert(usb_storage_enable_volume_writes(&block) && block.write && block.flush);
+    struct block_device unrelated={0}; assert(!usb_storage_enable_volume_writes(&unrelated));
+    reset(); assert(usb_storage_attach(&storage,&storage,bulk,true));
+    memset(buf,0xab,sizeof(buf)); assert(block.write(&block,510,buf,sizeof(buf)));
+    assert(writes==3 && disk[509]==0x69 && disk[1534]==0x69);
+    for(unsigned i=510;i<1534;i++) assert(disk[i]==0xab);
+    assert(block.flush(&block) && syncs==1);
+    unsigned before=calls;
+    assert(!block.read(&block,UINT64_MAX,buf,1)); assert(!block.write(&block,8191,buf,2));
+    foreign=true; assert(!block.read(&block,0,buf,1)); foreign=false;
+    storage.busy=true; assert(!block.read(&block,0,buf,1)); storage.busy=false;
+    assert(calls==before && depth==0 && irq_enabled);
+    reset(); empty=true; tur_failures=1;
+    assert(!usb_storage_attach(&storage,&storage,bulk,false) && !block.used && !storage.failed && senses==1);
+    for(unsigned f=1;f<=9;f++) {
+        reset(); assert(usb_storage_attach(&storage,&storage,bulk,true)); fault=f;
+        assert(!block.read(&block,0,buf,512) && storage.failed);
+        before=calls;
+        assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
+        assert(calls==before && !depth && irq_enabled);
+    }
+    puts("usb-storage-host: PASS (BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
+}

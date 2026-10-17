@@ -22,6 +22,7 @@ CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
+AUTOTEST_RE = re.compile(r"ram-usb-v5-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -35,7 +36,12 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 
 def limine_config(release, version=CONFIG_VERSION):
-    if version == CONFIG_VERSION:
+    autotest = AUTOTEST_RE.fullmatch(version)
+    if autotest:
+        volume, run = autotest.groups()
+        cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
+                   f"srvros.autotest-run={run} srvros.autotest-release={release}")
+    elif version == CONFIG_VERSION:
         cmdline = "srvros.storage=ram"
     elif version == DIAGNOSTIC_VERSION:
         cmdline = "srvros.log=debug srvros.storage=ram srvros.inputdiag=1 srvros.inputprobe=1"
@@ -70,7 +76,7 @@ def verify(directory):
     version = manifest.get("config_version")
     if version is None:
         version = next((v for v in CONFIG_VERSIONS if release_id(payload, v) == manifest["release"]), None)
-    if version not in CONFIG_VERSIONS:
+    if version not in CONFIG_VERSIONS and not (isinstance(version, str) and AUTOTEST_RE.fullmatch(version)):
         raise ValueError("Unknown boot configuration version")
     release = release_id(payload, version)
     if manifest["release"] != release or any(
@@ -80,8 +86,12 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None):
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
+    if autotest_volume is not None or run_id is not None:
+        version = f"ram-usb-v5-autotest-{autotest_volume}-{run_id}"
+        if diagnostic or not AUTOTEST_RE.fullmatch(version):
+            raise ValueError("Invalid or conflicting automated-test profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
         "srvros.elf": ROOT / "build/kernel/srvros.elf",
@@ -115,6 +125,7 @@ def stage(diagnostic=False):
     (STAGE / "latest").write_text(release + "\n")
     print(f"Staged {release}: {destination}")
     print("Install with: sudo python3 tools/hardware_boot.py install")
+    return release
 
 
 def grub_config(uuid, current, previous=None):
@@ -167,10 +178,10 @@ def atomic_write(path, data, mode):
             temp.unlink(missing_ok=True)
 
 
-def install():
+def install(release=None):
     if os.geteuid() != 0:
         raise RuntimeError("Installation needs root: sudo python3 tools/hardware_boot.py install")
-    release = (STAGE / "latest").read_text().strip()
+    release = release or (STAGE / "latest").read_text().strip()
     if not RELEASE_RE.fullmatch(release):
         raise ValueError("Invalid staged release")
     source = STAGE / release
@@ -239,21 +250,28 @@ def install():
         shutil.rmtree(BASE / obsolete)
     print(f"Installed {release}. Ubuntu's default and EFI boot order are unchanged.")
     print("Select SrvrOS in the five-second GRUB menu, or: sudo grub-reboot srvros-current")
-    print("No reboot has been requested. Guest filesystem/log changes are held in RAM.")
+    print("No reboot has been requested.")
+    if AUTOTEST_RE.fullmatch(verify(source).get("config_version", "")):
+        print("Automated test profile: matching USB request enables log writes and guest reboot.")
+    else:
+        print("Guest root filesystem/log changes are held in RAM.")
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("stage", "install"))
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
+    parser.add_argument("--release", help="install this exact staged release")
     args = parser.parse_args()
+    if args.release and args.action != "install":
+        parser.error("--release applies only to install")
     if args.diagnostic and args.action != "stage":
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
             stage(args.diagnostic)
         else:
-            install()
+            install(args.release)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"hardware-boot: {error}\n")
 

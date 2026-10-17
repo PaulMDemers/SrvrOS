@@ -1868,7 +1868,7 @@ test-xhci: build/tests/xhci-host$(HOST_EXE)
 
 build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
@@ -1949,7 +1949,7 @@ test-console: build/tests/console-host$(HOST_EXE)
 
 build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-keyboard test-clock
 test-keyboard: build/tests/keyboard-host$(HOST_EXE)
@@ -1958,10 +1958,10 @@ test-clock: build/tests/clock-host$(HOST_EXE)
 	$<
 build/tests/keyboard-host$(HOST_EXE): tools/test_keyboard.c kernel/src/arch/x86_64/keyboard.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clock.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-storage
 test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
@@ -1969,10 +1969,10 @@ test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
 	build/tests/ahci-host$(HOST_EXE)
 build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 
 .PHONY: test-core
 test-core: test-console test-keyboard test-clock test-storage test-xhci
@@ -2000,7 +2000,7 @@ test-io-scheduler: build/tests/io-scheduler-host$(HOST_EXE)
 	$<
 build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/scheduler.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-io-scheduler
 
 .PHONY: test-syscall-cancel
@@ -2008,7 +2008,7 @@ test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
 	$<
 build/tests/syscall-cancel-host$(HOST_EXE): tools/test_syscall_cancel.c kernel/src/arch/x86_64/idt.c kernel/src/arch/x86_64/isr_frame.h kernel/src/arch/x86_64/descriptor_tables.h kernel/src/arch/x86_64/irq.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-syscall-cancel
 
 .PHONY: storage-service-smoke
@@ -2028,7 +2028,43 @@ test-pmm: build/tests/pmm-host$(HOST_EXE)
 	$<
 build/tests/pmm-host$(HOST_EXE): tools/test_pmm.c kernel/src/memory/pmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-pmm
 interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/interrupt_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
+
+.PHONY: test-usb-storage usb-storage-smoke
+test-usb-storage: build/tests/usb-storage-host$(HOST_EXE)
+	$<
+build/tests/usb-storage-host$(HOST_EXE): tools/test_usb_storage.c kernel/src/drivers/usb_storage.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+test-core: test-usb-storage
+usb-storage-smoke: $(IMAGE) test-core
+	$(PYTHON) tools/usb_storage_smoke.py --qemu $(QEMU)
+
+.PHONY: test-autotest hardware-test-smoke
+test-autotest: build/tests/autotest-host$(HOST_EXE)
+	$<
+build/tests/autotest-host$(HOST_EXE): tools/test_autotest.c kernel/src/autotest.c kernel/src/arch/x86_64/reboot.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-autotest
+hardware-test-smoke: $(IMAGE) test-core
+	$(PYTHON) -m unittest discover -s tools -p 'test_hardware*.py'
+	$(PYTHON) tools/hardware_test_smoke.py --qemu $(QEMU)
+
+.PHONY: test-exfat-entries
+test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
+	$<
+build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src/fs/exfat.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-exfat-entries
+
+.PHONY: test-exfat-hardening
+build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
+test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/exfat_hardening_test.py

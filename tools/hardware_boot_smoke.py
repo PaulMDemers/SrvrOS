@@ -16,7 +16,7 @@ from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
 from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
 
-def make_disk(path, loader, source, release):
+def make_disk(path, loader, source, release, extra_files=None):
     # Same paths and filesystem UUID search as the host entry; only the UUID differs.
     size = 384 * 1024 * 1024
     first, sectors = 2048, size // 512
@@ -32,6 +32,8 @@ def make_disk(path, loader, source, release):
     for name in boot.FILES:
         parent = loader_dir if name.startswith("loader/") else payload
         fat.add_file(parent, Path(name).name, (source / name).read_bytes())
+    for name, data in (extra_files or {}).items():
+        fat.add_file(fat.root_cluster, name, data)
     entries = bytearray(128 * 128)
     entries[:128] = gpt_entry(ESP_TYPE, uuid.uuid4(), first, last, "SrvrOS test ESP")
     crc, guid = binascii.crc32(entries) & 0xffffffff, uuid.uuid4()

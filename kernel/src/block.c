@@ -252,6 +252,25 @@ struct block_device *block_register(const char *name,
     return &devices[index];
 }
 
+struct block_device *block_device_at(uint64_t index) {
+    return index < device_count ? &devices[index] : NULL;
+}
+
+struct block_device *block_parent(struct block_device *device) {
+    if (device && device->read == partition_read) {
+        struct partition_block_device *partition = device->private_data;
+        return partition->parent;
+    }
+    return device;
+}
+
+bool block_enable_partition_writes(struct block_device *device) {
+    struct block_device *parent = block_parent(device);
+    if (!parent || !parent->write) return false;
+    if (device != parent) device->write = partition_write;
+    return true;
+}
+
 struct block_device *block_find(const char *name) {
     if (name == 0) {
         return 0;
@@ -338,6 +357,42 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
     }
 
     return registered;
+}
+
+/* Primary MBR partitions only. Reject ambiguous/overlapping maps as a unit;
+ * protective GPT, extended containers and hybrid maps are not writable aliases. */
+uint64_t block_register_mbr_partitions(struct block_device *device) {
+    if (!device || !device->used || device->block_size < 512 || device->read == partition_read) return 0;
+    uint8_t mbr[512];
+    if (!block_read(device,0,mbr,512) || mbr[510]!=0x55 || mbr[511]!=0xaa) return 0;
+    uint64_t first[4]={0}, count[4]={0};
+    for (unsigned i=0;i<4;i++) {
+        const uint8_t *p=mbr+446+i*16;
+        if(p[4]==0xee) return 0; /* Do not expose a protective/hybrid MBR. */
+        if(!p[4]) continue;
+        if(p[0]!=0 && p[0]!=0x80) return 0;
+        first[i]=read_le32(p+8); count[i]=read_le32(p+12);
+        if(!first[i] || !count[i] || first[i]>=device->block_count || count[i]>device->block_count-first[i]) return 0;
+        for(unsigned j=0;j<i;j++)
+            if(count[j] && first[i]<first[j]+count[j] && first[j]<first[i]+count[i]) return 0;
+    }
+    uint64_t added=0;
+    for(unsigned i=0;i<4 && partition_count<BLOCK_MAX_PARTITIONS;i++) {
+        uint8_t type=mbr[446+i*16+4];
+        if(!count[i] || type==5 || type==0xf || type==0x85) continue;
+        uint64_t slot=partition_count;
+        make_partition_name(partition_names[slot],sizeof(partition_names[slot]),device->name,i+1);
+        if(block_find(partition_names[slot])) continue;
+        partition_devices[slot]=(struct partition_block_device){.parent=device,
+            .offset=first[i]*device->block_size,.size=count[i]*device->block_size};
+        struct block_device *p=block_register(partition_names[slot],device->block_size,count[i],
+            partition_read,device->write?partition_write:NULL,&partition_devices[slot]);
+        if(!p) break;
+        partition_count++; added++;
+        console_printf("block: registered MBR partition %s offset=%u size=%u\n",p->name,
+            partition_devices[slot].offset,partition_devices[slot].size);
+    }
+    return added;
 }
 
 static bool block_range_valid(struct block_device *device, uint64_t offset, uint64_t length) {

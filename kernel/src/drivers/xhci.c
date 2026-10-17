@@ -8,6 +8,7 @@
 #include <srvros/timer.h>
 #include <srvros/vmm.h>
 #include <srvros/xhci.h>
+#include <srvros/usb_storage.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -162,6 +163,14 @@ struct usb_setup_packet {
     uint16_t length;
 } __attribute__((packed));
 
+struct xhci_bulk_endpoint {
+    uint8_t dci, burst;
+    uint16_t packet;
+    uint64_t ring_phys, enqueue;
+    struct xhci_trb *ring;
+    bool cycle;
+};
+
 struct xhci_device {
     bool present;
     bool addressed;
@@ -218,6 +227,14 @@ struct xhci_device {
     uint64_t interrupt_enqueue;
     bool ep0_cycle;
     bool interrupt_cycle;
+    uint64_t interrupt_trb;
+    struct xhci_bulk_endpoint bulk_ep[2]; /* OUT, IN */
+    uint64_t bulk_buffer_phys, bulk_trb;
+    uint8_t *bulk_buffer;
+    uint8_t bulk_dci, bulk_completion;
+    uint32_t bulk_remaining;
+    bool bulk_pending, bulk_done, bulk_failed;
+    struct usb_storage storage;
     uint8_t previous_report[8];
     struct keyboard_hid_state keyboard_state;
     uint16_t previous_absolute_x;
@@ -296,6 +313,24 @@ struct xhci_state {
 
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
+
+static bool storage_writable;
+void xhci_set_storage_writable(bool writable) { storage_writable = writable; }
+static void dispatch_transfer_event(const struct xhci_trb *event);
+static uint64_t event_irq_save(void) {
+#ifdef SRVROS_XHCI_TEST_MMIO
+    return 0;
+#else
+    uint64_t flags; __asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory"); return flags;
+#endif
+}
+static void event_irq_restore(uint64_t flags) {
+#ifdef SRVROS_XHCI_TEST_MMIO
+    (void)flags;
+#else
+    if(flags & (1ull<<9)) __asm__ volatile("sti":::"memory");
+#endif
+}
 
 static uint64_t rdtsc(void) {
     uint32_t low;
@@ -882,6 +917,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
 
         uint64_t type = (event.control >> 10) & 0x3f;
         if (type != XHCI_TRB_TYPE_COMMAND_COMPLETION) {
+            dispatch_transfer_event(&event);
             continue;
         }
 
@@ -1018,6 +1054,7 @@ static bool wait_transfer_completion(uint8_t slot_id,
         xhci.last_completion_code = completion;
         xhci.last_slot_id = event_slot;
         if (event_slot != slot_id || event_dci != dci) {
+            dispatch_transfer_event(&event);
             continue;
         }
         if (expected_trb != 0 && pointer != expected_trb) {
@@ -1581,58 +1618,53 @@ static void submit_interrupt_poll(struct xhci_device *device) {
         .status = (uint32_t)length,
         .control = (XHCI_TRB_TYPE_NORMAL << 10) | XHCI_TRB_IOC | XHCI_TRB_ISP,
     };
-    (void)ring_push(device->interrupt_ring,
+    device->interrupt_trb = ring_push(device->interrupt_ring,
         device->interrupt_ring_phys,
         &device->interrupt_enqueue,
         &device->interrupt_cycle,
         &trb);
-    db_write32(device->slot_id, device->interrupt_dci);
     device->interrupt_pending = true;
+    db_write32(device->slot_id, device->interrupt_dci);
+}
+
+/* Every event-ring consumer routes unrelated transfers here. All callers
+ * hold IRQs disabled, including the keyboard service running during disk I/O. */
+static void dispatch_transfer_event(const struct xhci_trb *event) {
+    if (((event->control >> 10) & 0x3f) != XHCI_TRB_TYPE_TRANSFER_EVENT) return;
+    uint8_t slot = event->control >> 24, dci = (event->control >> 16) & 31;
+    uint8_t completion = event->status >> 24;
+    uint32_t remaining = event->status & 0xffffff;
+    uint64_t pointer = event->parameter_low | ((uint64_t)event->parameter_high << 32);
+    xhci.transfer_events++;
+    xhci.last_completion_code = completion;
+    xhci.last_slot_id = slot;
+    struct xhci_device *device = device_by_slot(slot);
+    if (!device) return;
+    if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
+        device->bulk_completion = completion;
+        device->bulk_remaining = remaining;
+        device->bulk_done = true;
+        device->bulk_pending = false;
+        return;
+    }
+    if (!device->interrupt_pending || dci != device->interrupt_dci || pointer != device->interrupt_trb) return;
+    device->interrupt_pending = false;
+    device->last_interrupt_completion = completion;
+    device->last_interrupt_remaining = remaining;
+    if ((completion == 1 || completion == 13) && remaining <= device->interrupt_max_packet) {
+        device->interrupt_success++;
+        if (device->hid_keyboard && device->interrupt_max_packet - remaining >= 8) handle_hid_report(device);
+        else if (device->hid_mouse) handle_hid_mouse_report(device);
+    } else device->interrupt_errors++;
 }
 
 static void poll_hid_events_once(void) {
-    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
-        submit_interrupt_poll(&xhci.devices[i]);
-    }
-
-    for (;;) {
-        struct xhci_trb event;
-        if (!poll_event(&event)) {
-            return;
-        }
-        uint64_t type = (event.control >> 10) & 0x3f;
-        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) {
-            continue;
-        }
-        uint64_t slot_id = (event.control >> 24) & 0xff;
-        uint64_t dci = (event.control >> 16) & 0x1f;
-        uint64_t completion = (event.status >> 24) & 0xff;
-        uint64_t remaining = event.status & 0xffffffu;
-        xhci.transfer_events++;
-        xhci.last_completion_code = completion;
-        xhci.last_slot_id = slot_id;
-        for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
-            struct xhci_device *device = &xhci.devices[i];
-            if ((!device->hid_keyboard && !device->hid_mouse) ||
-                device->slot_id != slot_id ||
-                device->interrupt_dci != dci) {
-                continue;
-            }
-            device->interrupt_pending = false;
-            device->last_interrupt_completion = completion;
-            device->last_interrupt_remaining = remaining;
-            if (completion == 1 || completion == 13) {
-                device->interrupt_success++;
-                if (device->hid_keyboard) {
-                    handle_hid_report(device);
-                } else if (device->hid_mouse) {
-                    handle_hid_mouse_report(device);
-                }
-            } else {
-                device->interrupt_errors++;
-            }
-        }
-    }
+    uint64_t flags = event_irq_save();
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) submit_interrupt_poll(&xhci.devices[i]);
+    struct xhci_trb event;
+    /* Bound work even if a malfunctioning device floods events. */
+    for (unsigned i=0; i<XHCI_EVENT_TRB_COUNT && poll_event(&event); i++) dispatch_transfer_event(&event);
+    event_irq_restore(flags);
 }
 
 static bool xhci_io_service_ready(void *arg) {
@@ -1785,6 +1817,123 @@ static bool enumerate_hub(struct xhci_device *hub, uint8_t configuration) {
     return true;
 }
 
+/* Select one complete alternate-zero SCSI/BOT interface. Require both bulk
+ * endpoints and, at SuperSpeed, their immediately following companions. */
+static bool parse_storage_config(struct xhci_device *device, uint16_t length) {
+    const uint8_t *b=device->descriptor_buffer;
+    if(length<9 || b[0]!=9 || b[1]!=2 || (b[2]|(uint16_t)b[3]<<8)!=length || !b[5]) return false;
+    bool selected=false;
+    unsigned found=0;
+    struct xhci_bulk_endpoint ep[2]={0};
+    for(unsigned off=9;off<length;) {
+        unsigned n=b[off], type=off+1<length?b[off+1]:0;
+        if(n<2 || n>length-off) return false;
+        if(type==4) {
+            if(selected) break;
+            if(n<9) return false;
+            selected=b[off+3]==0 && b[off+4]==2 && b[off+5]==8 && b[off+6]==6 && b[off+7]==0x50;
+            if(selected) device->interface_number=b[off+2];
+        } else if(selected && type==5) {
+            if(n<7 || (b[off+3]&3)!=2 || (b[off+2]&0x70) || !(b[off+2]&15)) return false;
+            unsigned in=b[off+2]>>7;
+            if(ep[in].dci) return false;
+            ep[in].dci=endpoint_dci(b[off+2]);
+            ep[in].packet=b[off+4]|(uint16_t)b[off+5]<<8;
+            if(device->speed==2 || !ep[in].packet ||
+                (device->speed==1 && ep[in].packet!=8 && ep[in].packet!=16 && ep[in].packet!=32 && ep[in].packet!=64) ||
+                (device->speed==3 && ep[in].packet!=512) || (device->speed>=4 && ep[in].packet!=1024)) return false;
+            if(device->speed>=4) {
+                unsigned c=off+n;
+                if(c+6>length || b[c]!=6 || b[c+1]!=0x30 || b[c+2]>15 || b[c+3] || b[c+4] || b[c+5]) return false;
+                ep[in].burst=b[c+2];
+            }
+            found++;
+        }
+        off+=n;
+    }
+    if(found!=2) return false;
+    device->bulk_ep[0]=ep[0]; device->bulk_ep[1]=ep[1];
+    device->configuration_value=b[5];
+    return true;
+}
+static void setup_bulk_input_context(struct xhci_device *d) {
+    zero_bytes(d->input_context,PMM_FRAME_SIZE);
+    uint8_t max=d->bulk_ep[0].dci>d->bulk_ep[1].dci?d->bulk_ep[0].dci:d->bulk_ep[1].dci;
+    context_write32(d->input_context,0,1,1u|(1u<<d->bulk_ep[0].dci)|(1u<<d->bulk_ep[1].dci));
+    uint32_t slot0=context_read32(d->output_context,0,0);
+    context_write32(d->input_context,1,0,(slot0&~(31u<<27))|((uint32_t)max<<27));
+    for(unsigned i=1;i<3;i++) context_write32(d->input_context,1,i,context_read32(d->output_context,0,i));
+    for(unsigned in=0;in<2;in++) {
+        struct xhci_bulk_endpoint *ep=&d->bulk_ep[in];
+        uint64_t idx=ep->dci+1;
+        context_write32(d->input_context,idx,1,(3u<<1)|((in?6u:2u)<<3)|((uint32_t)ep->burst<<8)|((uint32_t)ep->packet<<16));
+        context_write32(d->input_context,idx,2,(uint32_t)(ep->ring_phys|1));
+        context_write32(d->input_context,idx,3,(uint32_t)(ep->ring_phys>>32));
+        context_write32(d->input_context,idx,4,4096); /* Average TRB length; no ESIT. */
+    }
+}
+static bool configure_bulk_endpoints(struct xhci_device *d) {
+    void *virt;
+    for(unsigned in=0;in<2;in++) {
+        struct xhci_bulk_endpoint *ep=&d->bulk_ep[in];
+        if(!alloc_frame_zero(&ep->ring_phys,&virt)) return false;
+        ep->ring=virt; ep->cycle=true;
+        write_link_trb(ep->ring,ep->ring_phys,true);
+    }
+    if(!alloc_frame_zero(&d->bulk_buffer_phys,&virt)) return false;
+    d->bulk_buffer=virt;
+    setup_bulk_input_context(d);
+    struct xhci_trb cmd={.parameter_low=(uint32_t)d->input_context_phys,
+        .parameter_high=(uint32_t)(d->input_context_phys>>32),
+        .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)d->slot_id<<24)};
+    return submit_command_trb(&cmd,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0);
+}
+static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t length,uint32_t *actual) {
+    struct xhci_device *d=context;
+    if(d->bulk_failed || d->bulk_pending || !length || length>PMM_FRAME_SIZE) return false;
+    struct xhci_bulk_endpoint *ep=&d->bulk_ep[in?1:0];
+    if(!in) copy_bytes(d->bulk_buffer,buffer,length);
+    struct xhci_trb trb={.parameter_low=(uint32_t)d->bulk_buffer_phys,
+        .parameter_high=(uint32_t)(d->bulk_buffer_phys>>32),.status=length,
+        .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
+    d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
+    d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
+    db_write32(d->slot_id,ep->dci);
+    uint64_t start=timer_monotonic_us(), last=start;
+    for(uint64_t spins=0;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
+        struct xhci_trb event;
+        if(poll_event(&event)) dispatch_transfer_event(&event);
+        if(d->bulk_done) {
+            if((d->bulk_completion!=1 && d->bulk_completion!=13) || d->bulk_remaining>length) break;
+            *actual=length-d->bulk_remaining;
+            if(in) copy_bytes(buffer,d->bulk_buffer,*actual);
+            return true;
+        }
+        if((spins&255)==0) {
+            uint64_t now=timer_monotonic_us();
+            if(now-start>=2000000) break;
+            if(now-last>=1000 && scheduler_io_active()) { scheduler_io_yield(); last=now; }
+        }
+        __asm__ volatile("pause");
+    }
+    /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
+    d->bulk_failed=true; d->stage="storage-quarantined";
+    console_printf("xhci: bulk failed slot=%u dci=%u cc=%u done=%u\n",(uint64_t)d->slot_id,
+        (uint64_t)ep->dci,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_done);
+    return false;
+}
+static bool enumerate_storage(struct xhci_device *d) {
+    d->stage="bulk-endpoints";
+    if(!set_configuration(d,d->configuration_value) || !configure_bulk_endpoints(d)) return false;
+    d->configured=true; xhci.configured_devices++;
+    d->stage="storage-probe";
+    bool ready=usb_storage_attach(&d->storage,d,storage_bulk_transfer,storage_writable);
+    d->stage=ready?"storage-ready":(d->bulk_failed?"storage-quarantined":"storage-no-media-or-unsupported");
+    console_printf("xhci: storage slot=%u vendor=%x product=%x stage=%s\n",(uint64_t)d->slot_id,
+        (uint64_t)d->vendor_id,(uint64_t)d->product_id,d->stage);
+    return true;
+}
+
 static bool enumerate_device(struct xhci_device *device) {
     if (device == 0) {
         return false;
@@ -1820,9 +1969,7 @@ static bool enumerate_device(struct xhci_device *device) {
     uint16_t total_length =
         (uint16_t)device->descriptor_buffer[2] |
         ((uint16_t)device->descriptor_buffer[3] << 8);
-    if (total_length > PMM_FRAME_SIZE) {
-        total_length = PMM_FRAME_SIZE;
-    }
+    if (total_length < 9 || total_length > PMM_FRAME_SIZE) return false;
     if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, total_length)) {
         console_printf("xhci: slot=%u config descriptor failed\n", (uint64_t)device->slot_id);
         return false;
@@ -1831,6 +1978,7 @@ static bool enumerate_device(struct xhci_device *device) {
     device->stage = "select-interface";
     uint8_t configuration = 0;
     if (!parse_hid_input_config(device, total_length, &configuration)) {
+        if (parse_storage_config(device, total_length)) return enumerate_storage(device);
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
@@ -2210,6 +2358,15 @@ void xhci_print_status(void) {
         const struct xhci_device *device = &xhci.devices[i];
         if (!device->present) {
             continue;
+        }
+        if (device->bulk_ep[0].dci) {
+            const struct usb_storage *s=&device->storage;
+            console_printf("xhci: storage slot=%u stage=%s disk=%s out=%u in=%u packet=%u/%u burst=%u/%u commands=%u errors=%u offline=%u\n",
+                (uint64_t)device->slot_id,device->stage,s->block?s->name:"none",
+                (uint64_t)device->bulk_ep[0].dci,(uint64_t)device->bulk_ep[1].dci,
+                (uint64_t)device->bulk_ep[0].packet,(uint64_t)device->bulk_ep[1].packet,
+                (uint64_t)device->bulk_ep[0].burst,(uint64_t)device->bulk_ep[1].burst,
+                s->commands,s->errors,(uint64_t)(s->failed || device->bulk_failed));
         }
         console_printf("xhci: device slot=%u port=%u parent=%u hub_port=%u route=%x slot_type=%u addressed=%u configured=%u class=%x/%x/%x iface=%x/%x/%x vendor=%x product=%x keyboard=%u mouse=%u absolute=%u dci=%u control=%u intr=%u reports=%u mouse_reports=%u\n",
             (uint64_t)device->slot_id,

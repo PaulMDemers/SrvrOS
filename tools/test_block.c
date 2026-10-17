@@ -46,7 +46,37 @@ static bool fake_write(struct block_device *d, uint64_t off, const void *buf, ui
     (void)d; assert(off+len<=sizeof(medium)); if(fail_write) return false; memcpy(medium+off,buf,len); return true;
 }
 static bool fake_flush(struct block_device *d) { (void)d; flushes++; return !fail_flush; }
+static void mbr_entry(unsigned slot, uint8_t type, uint32_t start, uint32_t count) {
+    uint8_t *p=medium+446+slot*16; p[4]=type;
+    for(unsigned i=0;i<4;i++) { p[8+i]=start>>(8*i); p[12+i]=count>>(8*i); }
+}
+static struct block_device *mbr_disk(void) {
+    block_init(); return block_register("usb0",512,8,fake_read,NULL,NULL);
+}
+static void test_mbr(void) {
+    memset(medium,0,sizeof(medium)); medium[510]=0x55; medium[511]=0xaa;
+    mbr_entry(0,7,1,4);
+    struct block_device *d=mbr_disk();
+    assert(block_register_mbr_partitions(d)==1);
+    struct block_device *p=block_find("usb0p1"); assert(p && !p->write && p->block_count==4);
+    uint8_t byte=0; medium[512]=0x91;
+    assert(block_read(p,0,&byte,1) && byte==0x91);
+    assert(block_register_mbr_partitions(d)==0 && partition_count==1);
+    assert(block_register_mbr_partitions(p)==0);
+    assert(block_device_at(0)==d && block_parent(p)==d && !block_device_at(BLOCK_MAX_DEVICES));
+    assert(!block_enable_partition_writes(p));
+    d->write=fake_write; assert(block_enable_partition_writes(p) && p->write==partition_write);
+    byte=0x72; assert(block_write(p,0,&byte,1) && medium[512]==0x72);
+    mbr_entry(1,7,4,2); assert(block_register_mbr_partitions(mbr_disk())==0); /* overlap */
+    mbr_entry(1,0,0,0); mbr_entry(0,7,7,2); assert(block_register_mbr_partitions(mbr_disk())==0);
+    mbr_entry(0,7,1,UINT32_MAX); assert(block_register_mbr_partitions(mbr_disk())==0);
+    mbr_entry(0,7,0,4); assert(block_register_mbr_partitions(mbr_disk())==0);
+    mbr_entry(0,0xee,1,4); assert(block_register_mbr_partitions(mbr_disk())==0);
+    mbr_entry(0,5,1,4); assert(block_register_mbr_partitions(mbr_disk())==0);
+    mbr_entry(0,7,1,4); medium[510]=0; assert(block_register_mbr_partitions(mbr_disk())==0);
+}
 int main(void) {
+    test_mbr();
     block_init(); memset(medium,'a',sizeof(medium));
     struct block_device *d=block_register("disk",512,8,fake_read,fake_write,NULL);
     assert(d); assert(!block_register("overflow",512,UINT64_MAX,fake_read,fake_write,NULL));
@@ -92,5 +122,5 @@ int main(void) {
     clock_ready=false; service_blocks=0;
     for (unsigned i=0; i<256; i++) assert(block_write(d,0,&c,1));
     assert(service_yields==2 && !irq_enabled && io_depth==0);
-    puts("block-host: PASS (cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, bounds, flush errors)");
+    puts("block-host: PASS (cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, MBR bounds/overlap/protection, flush errors)");
 }

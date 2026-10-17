@@ -1,0 +1,121 @@
+/* Execute the real filesystem and VFS on disposable host image files. */
+#define _POSIX_C_SOURCE 200809L
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <srvros/block.h>
+#include <srvros/exfat.h>
+#include <srvros/vfs.h>
+static int fd;
+static unsigned writes, flushes, fail_at, crash_at, fail_flush_at;
+static bool failed, foreign;
+static unsigned io_depth;
+bool scheduler_io_begin(void) { if(foreign) return false; io_depth++; return true; }
+void scheduler_io_end(void) { assert(io_depth); io_depth--; }
+bool scheduler_io_active(void) { return foreign || io_depth != 0; }
+void *kmalloc(uint64_t n) { return malloc(n); }
+void *kcalloc(uint64_t n, uint64_t size) { return calloc(n,size); }
+void kfree(void *p) { free(p); }
+uint64_t timer_ticks(void) { return 100; }
+void console_write(const char *s) { (void)s; }
+void console_printf(const char *fmt, ...) { (void)fmt; }
+uint64_t block_device_size(const struct block_device *d) { return d->block_size*d->block_count; }
+struct block_device *block_parent(struct block_device *d) { return d; }
+bool block_read(struct block_device *d, uint64_t o, void *p, uint64_t n) {
+    return o+n <= block_device_size(d) && pread(fd,p,n,o)==(ssize_t)n;
+}
+bool block_write(struct block_device *d, uint64_t o, const void *p, uint64_t n) {
+    if (failed || ++writes == fail_at) { failed=true; return false; }
+    assert(o+n <= block_device_size(d));
+    if(pwrite(fd,p,n,o)!=(ssize_t)n) return false;
+    if(writes==crash_at) { fsync(fd); _exit(77); }
+    return true;
+}
+static bool flush(struct block_device *d) { (void)d; flushes++; if(flushes==fail_flush_at) failed=true; return !failed && fsync(fd)==0; }
+static void equal(const char *path, const uint8_t *expected, uint64_t n) {
+    const struct vfs_node *node=vfs_lookup(path); const uint8_t *data; uint64_t size;
+    assert(node && vfs_read_all(node,&data,&size));
+    assert(size==n && (!n || !memcmp(data,expected,n))); vfs_release_data(node,data);
+}
+int main(int argc, char **argv) {
+    assert(argc>=3); fd=open(argv[1],O_RDWR); assert(fd>=0);
+    struct stat st; assert(fstat(fd,&st)==0 && S_ISREG(st.st_mode));
+    struct block_device d={.name="fixture",.block_size=512,.block_count=st.st_size/512,
+        .read=block_read,.write=block_write,.flush=flush};
+    if(!strcmp(argv[2],"noflush")) d.flush=NULL;
+    if(!strcmp(argv[2],"foreign")) foreign=true;
+    if(argc>3) fail_at=strtoul(argv[3],0,10);
+    if(argc>4) crash_at=strtoul(argv[4],0,10);
+    if(argc>5) fail_flush_at=strtoul(argv[5],0,10);
+    assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"ops")) {
+        uint8_t data[270000]; for(unsigned i=0;i<sizeof(data);i++) data[i]=(uint8_t)(i*17+3);
+        assert(exfat_create_directory("/vol/Directory"));
+        assert(exfat_write_file("/vol/Directory/MixedCase.txt",data,17));
+        equal("/vol/Directory/MixedCase.txt",data,17);
+        assert(exfat_write_file("/vol/Directory/MixedCase.txt",data,sizeof(data)));
+        assert(exfat_write_file("/vol/Directory/MixedCase.txt",data,9));
+        equal("/vol/Directory/MixedCase.txt",data,9);
+        assert(exfat_write_file("/vol/empty",NULL,0));
+        assert(exfat_write_file("/vol/truncated",data,100));
+        assert(exfat_write_file("/vol/truncated",NULL,0));
+        assert(exfat_rename("/vol/Directory/MixedCase.txt","/vol/A-much-longer-renamed-file.txt"));
+        equal("/vol/A-much-longer-renamed-file.txt",data,9);
+        assert(exfat_delete_directory("/vol/Directory"));
+        assert(exfat_create_directory("/vol/Before"));
+        assert(exfat_rename("/vol/Before","/vol/After"));
+        assert(exfat_delete_directory("/vol/After"));
+        assert(exfat_write_file("/vol/deleted",data,20000));
+        assert(exfat_delete_file("/vol/deleted"));
+        assert(!exfat_write_file("/vol/EMPTY",data,1));
+        assert(!exfat_write_file("/vol/bad:name",data,1));
+        assert(exfat_create_directory("/vol/Many"));
+        for(unsigned i=0;i<70;i++) {
+            char path[80]; snprintf(path,sizeof(path),"/vol/Many/file-%03u-with-a-long-name.txt",i);
+            assert(exfat_write_file(path,data,17));
+        }
+        assert(exfat_unmount("/vol")); assert(exfat_mount_block_device("/vol",&d));
+        equal("/vol/Many/file-069-with-a-long-name.txt",data,17);
+        for(unsigned i=0;i<70;i++) {
+            char path[80]; snprintf(path,sizeof(path),"/vol/root-%03u-with-a-long-name.txt",i);
+            assert(exfat_write_file(path,data,17));
+        }
+        assert(exfat_unmount("/vol")); assert(exfat_mount_block_device("/vol",&d));
+        equal("/vol/root-069-with-a-long-name.txt",data,17);
+    } else if(!strcmp(argv[2],"fragmented")) {
+        struct exfat_fsinfo info; assert(exfat_statfs("/vol",&info));
+        uint8_t *data=malloc(info.block_size*24); assert(data); memset(data,0x5a,info.block_size*24);
+        for(unsigned i=0;i<32;i++) { char path[40]; snprintf(path,sizeof(path),"/vol/gap-%02u",i); assert(exfat_write_file(path,data,info.block_size)); }
+        assert(exfat_statfs("/vol",&info)); assert(info.blocks_free>64);
+        uint64_t size=(info.blocks_free-16)*info.block_size;
+        uint8_t *filler=calloc(1,size); assert(filler);
+        assert(exfat_write_file("/vol/filler",filler,size)); free(filler);
+        for(unsigned i=0;i<32;i+=2) { char path[40]; snprintf(path,sizeof(path),"/vol/gap-%02u",i); assert(exfat_delete_file(path)); }
+        assert(exfat_write_file("/vol/fragmented",data,info.block_size*24));
+        equal("/vol/fragmented",data,info.block_size*24); free(data);
+    } else if(!strcmp(argv[2],"seed")) {
+        assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"original",8));
+        assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
+    } else if(!strcmp(argv[2],"overwrite") || !strcmp(argv[2],"create") || !strcmp(argv[2],"delete") || !strcmp(argv[2],"rename")) {
+        bool ok;
+        if(!strcmp(argv[2],"create")) ok=exfat_write_file("/vol/new.txt",(const uint8_t *)"new-file-data",13);
+        else if(!strcmp(argv[2],"delete")) ok=exfat_delete_file("/vol/keep.txt");
+        else if(!strcmp(argv[2],"rename")) ok=exfat_rename("/vol/keep.txt","/vol/renamed-with-a-longer-name.txt");
+        else ok=exfat_write_file("/vol/keep.txt",(const uint8_t *)"replacement-data",16);
+        printf("operation=%s writes=%u flushes=%u\n",ok?"PASS":"FAIL",writes,flushes);
+        if(failed) { unsigned before=writes; assert(!exfat_write_file("/vol/after-failure",(const uint8_t *)"x",1)); assert(before==writes); }
+    } else if(!strcmp(argv[2],"readonly") || !strcmp(argv[2],"noflush") || !strcmp(argv[2],"foreign")) {
+        unsigned before=writes;
+        assert(!exfat_write_file("/vol/refused",(const uint8_t *)"x",1));
+        assert(before==writes);
+    } else { return 2; }
+    assert(fsync(fd)==0); close(fd);
+    printf("driver: complete writes=%u flushes=%u\n",writes,flushes);
+    return 0;
+}

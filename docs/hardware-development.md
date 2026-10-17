@@ -59,8 +59,10 @@ interrupt delivery disabled, uses DMA ordering barriers, requests short-packet
 events, and does not poll endpoints whose setup failed. These fix identified
 code defects; the cause of the physical failure is not yet established.
 Ownership/reset waits remain bounded iteration budgets, not calibrated wall-clock
-timeouts. SuperSpeed companion parsing and full composite keyboard/trackpad
-support remain separate work.
+timeouts. SuperSpeed companion parsing is now implemented for bulk storage;
+periodic endpoint companions and full composite keyboard/trackpad support remain
+separate work. See [USB storage and automated-test groundwork](usb-storage-2026-10-17.md)
+for the read-only flash-drive candidate and its validation procedure.
 
 ## Capture evidence from Ubuntu
 
@@ -212,3 +214,10 @@ probe. `python3 tools/hardware_boot.py stage --diagnostic` stages verbose boot,
 the USB snapshot and the probe. Read the
 [console implementation/test report](console-optimization-2026-10-16.md) before
 testing this candidate; it adds `renderbench` and `renderstat` monitor commands.
+
+## Automatic USB-backed tests
+
+After confirming the physical USB mount, use the
+[automatic hardware test cycle](automated-hardware-tests.md) to prepare a
+single-use request, boot a specific build, save and flush results to exFAT,
+request a reset back to Ubuntu and validate the persisted report.

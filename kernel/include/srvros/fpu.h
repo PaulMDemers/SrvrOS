@@ -26,7 +26,7 @@ void fpu_switch_kernel_state(struct fpu_state *old_state,
  * interrupted instruction is not a C call boundary. fpu.c must remain no-SSE. */
 void fpu_trap_enter(uint64_t cs, uint8_t *kernel_trap_area);
 void fpu_trap_exit(uint64_t cs, const uint8_t *kernel_trap_area);
-void fpu_selftest(void);
+bool fpu_selftest(void);
 bool fpu_selftest_trap(uint64_t cookie);
 void fpu_enter_user(void);
 

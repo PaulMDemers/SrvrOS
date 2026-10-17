@@ -143,6 +143,30 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(self.snippet.read_text(), "custom config\n")
         self.assertFalse(self.base.exists())
 
+    def test_autotest_profile_roundtrip_and_exact_install(self):
+        version = 'ram-usb-v5-autotest-37d8c5d0-0123456789abcdef'
+        release = self.payload('auto', version)
+        path = self.stage / release / 'manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['config_version'] = version
+        path.write_text(json.dumps(manifest))
+        self.payload('different latest')
+        boot.install(release)
+        self.assertEqual(json.loads((self.base / 'state.json').read_text())['current'], release)
+        cfg = (self.base / release / 'limine.conf').read_text()
+        self.assertIn('srvros.autotest-volume=37d8c5d0', cfg)
+        self.assertIn('srvros.autotest-run=0123456789abcdef', cfg)
+        self.assertIn('srvros.autotest-release='+release, cfg)
+        self.assertNotIn('srvros.usb-storage=rw', cfg)
+
+    def test_unrecognized_profile_rejected(self):
+        version = 'ram-usb-v5-autotest-37d8c5d0-0123456789abcdeg'
+        release = self.payload('bad', version)
+        path = self.stage / release / 'manifest.json'
+        manifest = json.loads(path.read_text()); manifest['config_version'] = version
+        path.write_text(json.dumps(manifest))
+        with self.assertRaises(ValueError): boot.install(release)
+
 
 if __name__ == "__main__":
     unittest.main()

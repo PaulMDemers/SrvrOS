@@ -293,11 +293,75 @@ static void test_root_ports(void) {
     assert(strcmp(xhci.ports[0].reset_result, "link-ready") == 0);
 }
 
+static unsigned injected;
+void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
+    (void)state; assert(report[2]==4); injected++;
+}
+void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
+static uint64_t test_time;
+uint64_t timer_monotonic_us(void) { test_time+=1000; return test_time; }
+bool scheduler_io_active(void) { return false; }
+bool scheduler_io_yield(void) { return false; }
+static void test_storage(void) {
+    reset_test();
+    uint8_t descriptor[44], input[4096], output[4096]={0};
+    FILE *file=fopen("tools/fixtures/phison-13fe-6700-config.bin","rb"); assert(file);
+    assert(fread(descriptor,1,sizeof(descriptor),file)==sizeof(descriptor)); fclose(file);
+    struct xhci_device d={.speed=4,.descriptor_buffer=descriptor,.input_context=input,.output_context=output};
+    assert(parse_storage_config(&d,sizeof(descriptor)));
+    assert(d.bulk_ep[0].dci==4 && d.bulk_ep[1].dci==3 && d.configuration_value==1);
+    for(unsigned i=0;i<2;i++) assert(d.bulk_ep[i].packet==1024 && d.bulk_ep[i].burst==3);
+    for(unsigned size64=0;size64<2;size64++) {
+        xhci.hcc_params1=size64?1u<<2:0;
+        d.bulk_ep[0].ring_phys=0x12000; d.bulk_ep[1].ring_phys=0x13000;
+        context_write32(output,0,2,0x0304); setup_bulk_input_context(&d);
+        assert(context_read32(input,0,1)==25);
+        assert(context_read32(input,1,0)>>27==4 && context_read32(input,1,2)==0x0304);
+        assert(context_read32(input,5,1)==((1024u<<16)|(3u<<8)|(2u<<3)|6));
+        assert(context_read32(input,4,1)==((1024u<<16)|(3u<<8)|(6u<<3)|6));
+        assert(context_read32(input,5,2)==0x12001 && context_read32(input,4,2)==0x13001);
+        assert(context_read32(input,5,4)==4096);
+    }
+    for(unsigned i=0;i<sizeof(descriptor);i++) assert(!parse_storage_config(&d,i));
+    descriptor[27]=16; assert(!parse_storage_config(&d,44)); descriptor[27]=3; /* burst */
+    descriptor[28]=1; assert(!parse_storage_config(&d,44)); descriptor[28]=0; /* streams */
+    descriptor[33]=0x81; assert(!parse_storage_config(&d,44)); descriptor[33]=2; /* duplicate IN */
+    descriptor[25]=5; assert(!parse_storage_config(&d,44)); descriptor[25]=6;
+    descriptor[12]=1; assert(!parse_storage_config(&d,44)); descriptor[12]=0; /* alternate */
+    d.speed=2; assert(!parse_storage_config(&d,44));
+
+    /* A HID service consumes events while a bulk caller has yielded. Wrong
+     * pointers are ignored, exact matches are retained for their waiter. */
+    reset_test(); injected=0;
+    struct xhci_trb events[64]={0}; xhci.event_ring=events; xhci.event_cycle=true;
+    xhci.event_ring_phys=0x1000; xhci.rt_base=0x2000;
+    struct xhci_device *disk=&xhci.devices[0], *kbd=&xhci.devices[1];
+    *disk=(struct xhci_device){.present=true,.slot_id=1,.bulk_pending=true,.bulk_trb=0x9000,.bulk_dci=3};
+    uint8_t report[64]={0,0,4};
+    *kbd=(struct xhci_device){.present=true,.slot_id=2,.hid_keyboard=true,.interrupt_pending=true,
+        .interrupt_trb=0xa000,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=report};
+    events[0]=(struct xhci_trb){.parameter_low=0x9990,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    events[1]=(struct xhci_trb){.parameter_low=0xa000,.status=(13u<<24)|56,.control=(32u<<10)|(2u<<24)|(5u<<16)|1};
+    events[2]=(struct xhci_trb){.parameter_low=0x9000,.status=1u<<24,.control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    poll_hid_events_once();
+    assert(injected==1 && kbd->hid_reports==1 && !kbd->interrupt_pending);
+    assert(disk->bulk_done && !disk->bulk_pending && disk->bulk_completion==1);
+    /* Bounded stalled transfer: reject all later submissions, preserving DMA. */
+    struct xhci_trb ring[64]={0}; uint8_t bounce[4096], caller[512];
+    disk->bulk_ep[1]=(struct xhci_bulk_endpoint){.dci=3,.ring=ring,.ring_phys=0x9000,.cycle=true};
+    disk->bulk_buffer=bounce; disk->bulk_buffer_phys=0x10000;
+    uint32_t actual=0;
+    assert(!storage_bulk_transfer(disk,true,caller,512,&actual));
+    assert(disk->bulk_failed && disk->bulk_pending && disk->bulk_ep[1].enqueue==1);
+    assert(!storage_bulk_transfer(disk,true,caller,512,&actual) && disk->bulk_ep[1].enqueue==1);
+}
+
 int main(int argc, char **argv) {
     assert(argc == 2);
+    test_storage();
     test_root_ports();
     test_scratchpads();
     test_handoff();
     test_keyboard_context(argv[1]);
-    puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, endpoint context, short packets)");
+    puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, BOT descriptors/contexts, HID/bulk demultiplexing, quarantine, short packets)");
 }

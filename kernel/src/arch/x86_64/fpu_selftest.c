@@ -29,10 +29,10 @@ bool fpu_selftest_trap(uint64_t cookie) {
     return true;
 }
 
-void fpu_selftest(void) {
+bool fpu_selftest(void) {
     if (!fpu_available() || timer_ticks() == 0 || active) {
         console_write("fpustress: unavailable (requires FPU and running timer)\n");
-        return;
+        return false;
     }
     uint8_t expected[512] __attribute__((aligned(16)));
     uint8_t actual[512] __attribute__((aligned(16)));
@@ -49,4 +49,5 @@ void fpu_selftest(void) {
         failures == 0 && traps == 256 ? "PASS" : "FAIL",
         (uint64_t)traps, (uint64_t)failures, timer_ticks() - ticks,
         scheduler_preemptions() - switches);
+    return failures == 0 && traps == 256 && timer_ticks() > ticks;
 }

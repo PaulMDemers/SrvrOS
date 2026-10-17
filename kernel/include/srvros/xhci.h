@@ -4,6 +4,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+void xhci_set_storage_writable(bool writable);
 void xhci_init(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);
