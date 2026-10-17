@@ -6,8 +6,12 @@ preemptive scheduling, mounts an exFAT filesystem from AHCI or initramfs-backed
 block devices, and can run a userspace web server on a small in-kernel TCP/IP
 stack.
 
-This is an early research OS, but it is already useful as a compact playground
-for kernel, filesystem, networking, shell, and GUI experiments.
+The primary hardware target is a useful desktop on the MacBookAir7,2, while
+retaining headless operation and server workloads. This remains an early research
+OS. The [MacBook Air desktop plan](docs/desktop-plan-2026-10-17.md) defines the
+replacement UI architecture and its quiet, refined visual direction; the
+[interactive design study](docs/design/desktop-study.html) is a browser prototype,
+not an implemented native desktop.
 
 ## Screenshots
 
@@ -15,7 +19,8 @@ Booted kernel monitor with AHCI, exFAT, e1000, and memory-map diagnostics:
 
 ![srvros boot console](docs/assets/screenshots/console-boot-monitor.png)
 
-GUI desktop with freestanding calculator, notes, and text editor clients:
+Historical GUI prototype with calculator, notes, and text editor clients
+(scheduled for replacement under the desktop plan):
 
 ![srvros desktop with GUI apps](docs/assets/screenshots/desktop-apps.png)
 

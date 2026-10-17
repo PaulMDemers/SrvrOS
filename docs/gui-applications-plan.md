@@ -1,5 +1,9 @@
 # GUI Applications and Polish Plan
 
+> Historical plan: superseded by the [MacBook Air desktop plan](desktop-plan-2026-10-17.md).
+> The new desktop replaces the old visual/toolkit direction. The actual target
+> keyboard and trackpad use USB; earlier SPI assumptions are not applicable.
+
 This plan focuses on turning the current GUI from a successful prototype into a
 small, coherent desktop with useful applications. It intentionally ignores the
 old fixed-widget desktop path except as a regression target.

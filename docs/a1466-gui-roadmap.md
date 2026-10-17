@@ -1,5 +1,9 @@
 # MacBook Air A1466 Bring-Up and GUI Roadmap
 
+> Historical plan: superseded by the [MacBook Air desktop plan](desktop-plan-2026-10-17.md).
+> The new desktop replaces the old visual/toolkit direction. The actual target
+> keyboard and trackpad use USB; earlier SPI assumptions are not applicable.
+
 This milestone has two related goals:
 
 1. Boot srvros on a real Apple MacBook Air A1466, especially the 13-inch i7

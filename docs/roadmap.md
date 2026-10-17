@@ -1,9 +1,12 @@
 # srvros Roadmap
 
-Current priorities and completion criteria are in the
-[architecture review and optimization plan](optimization-review-2026-10-16.md).
+Current product direction and desktop completion criteria are in the
+[MacBook Air desktop plan](desktop-plan-2026-10-17.md). Desktop work is now active;
+server capabilities and headless boot remain supported. Earlier foundation work
+is recorded in the [architecture review and optimization plan](optimization-review-2026-10-16.md).
 The [first implementation batch](console-optimization-2026-10-16.md) covers
-console/input, timing and storage error handling; GUI work is deferred.
+console/input, timing and storage error handling; GUI work was deferred during
+that batch.
 The [USB file workload milestone](usb-file-workload-2026-10-17.md) records the
 source checkpoint, clean-build correction and expanded automatic hardware test.
 The [USB batching and responsiveness update](usb-batching-2026-10-17.md) follows
