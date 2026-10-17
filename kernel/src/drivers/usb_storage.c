@@ -20,6 +20,13 @@ static void put_be32(uint8_t *p, uint32_t n) {
 static void copy(void *out, const void *in, uint32_t n) {
     for (uint32_t i=0;i<n;i++) ((uint8_t *)out)[i]=((const uint8_t *)in)[i];
 }
+static void record_error(struct usb_storage *s, uint8_t opcode, uint8_t phase,
+    const char *reason, uint32_t tag, uint32_t actual, const uint8_t csw[13]) {
+    s->error_command=s->commands; s->error_opcode=opcode; s->error_phase=phase;
+    s->error_reason=reason; s->error_expected_tag=tag; s->error_actual=actual;
+    s->error_signature=le32(csw); s->error_tag=le32(csw+4);
+    s->error_residue=le32(csw+8); s->error_csw_status=csw[12];
+}
 /* 0 success, 1 SCSI command failure (REQUEST SENSE allowed), -1 transport
  * failure. Validate the wrapper before trusting any returned data. */
 static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
@@ -31,25 +38,37 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
     s->commands++;
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
-    if (!s->bulk(s->context,false,cbw,sizeof(cbw),&actual) || actual!=sizeof(cbw)) goto bad;
+    const char *reason = "cbw-transfer";
+    if (!s->bulk(s->context,false,cbw,sizeof(cbw),&actual)) goto bad;
+    reason="cbw-length";
+    if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
-    if (length && (!s->bulk(s->context,in,data,length,&transferred) || transferred>length)) goto bad;
+    reason="data-transfer";
+    if (length && !s->bulk(s->context,in,data,length,&transferred)) goto bad;
+    reason="data-overrun";
+    if (transferred>length) goto bad;
     phase = 3;
-    if (!s->bulk(s->context,true,csw,sizeof(csw),&actual) || actual!=sizeof(csw) ||
-        le32(csw)!=0x53425355 || le32(csw+4)!=tag || le32(csw+8)>length || csw[12]>1) goto bad;
+    actual=0; reason="csw-transfer";
+    if (!s->bulk(s->context,true,csw,sizeof(csw),&actual)) goto bad;
+    reason="csw-length"; if (actual!=sizeof(csw)) goto bad;
+    reason="csw-signature"; if (le32(csw)!=0x53425355) goto bad;
+    reason="csw-tag"; if (le32(csw+4)!=tag) goto bad;
+    reason="csw-residue"; if (le32(csw+8)>length) goto bad;
+    reason="csw-status"; if (csw[12]>1) goto bad;
     if (csw[12]==1) {
-        s->errors++; s->error_command=s->commands;
-        s->error_opcode=cdb[0]; s->error_phase=phase; s->error_status=1;
+        s->errors++; record_error(s,cdb[0],phase,"scsi-command",tag,actual,csw);
+        s->error_status=1;
         return 1;
     }
     /* All implemented successful commands require their full requested data. */
     phase = 4;
+    reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
     return 0;
 bad:
     s->failed=true; s->errors++;
-    s->error_command=s->commands; s->error_opcode=cdb[0];
-    s->error_phase=phase; s->error_status=255; /* No trustworthy command status. */
+    record_error(s,cdb[0],phase,reason,tag,(phase==2 || phase==4)?transferred:actual,csw);
+    s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
     return -1;
 }
@@ -127,6 +146,11 @@ void usb_storage_print_status(struct block_device *device) {
     console_printf("usb-storage: last-error-command=%u opcode=%u phase=%s status=%u\n",
         s->error_command, (uint64_t)s->error_opcode,
         s->error_phase < 5 ? phases[s->error_phase] : "unknown", (uint64_t)s->error_status);
+    console_printf("usb-storage: reason=%s actual=%u expected-tag=%u\n",
+        s->error_reason?s->error_reason:"none",(uint64_t)s->error_actual,(uint64_t)s->error_expected_tag);
+    console_printf("usb-storage: raw-csw signature=%x tag=%u residue=%u status=%u\n",
+        (uint64_t)s->error_signature,(uint64_t)s->error_tag,(uint64_t)s->error_residue,(uint64_t)s->error_csw_status);
+    if (s->diagnose) s->diagnose(s->context);
 }
 
 bool usb_storage_enable_volume_writes(struct block_device *device) {

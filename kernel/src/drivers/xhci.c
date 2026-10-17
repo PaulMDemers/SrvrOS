@@ -234,6 +234,9 @@ struct xhci_device {
     uint8_t bulk_dci, bulk_completion;
     uint32_t bulk_remaining;
     bool bulk_pending, bulk_done, bulk_failed;
+    const char *bulk_reason;
+    uint64_t bulk_elapsed_us, bulk_spins;
+    uint32_t bulk_length;
     struct usb_storage storage;
     uint8_t previous_report[8];
     struct keyboard_hid_state keyboard_state;
@@ -1892,6 +1895,8 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
     struct xhci_device *d=context;
     if(d->bulk_failed || d->bulk_pending || !length || length>PMM_FRAME_SIZE) return false;
     struct xhci_bulk_endpoint *ep=&d->bulk_ep[in?1:0];
+    d->bulk_reason="pending"; d->bulk_length=length; d->bulk_elapsed_us=0; d->bulk_spins=0;
+    d->bulk_completion=0; d->bulk_remaining=0;
     if(!in) copy_bytes(d->bulk_buffer,buffer,length);
     struct xhci_trb trb={.parameter_low=(uint32_t)d->bulk_buffer_phys,
         .parameter_high=(uint32_t)(d->bulk_buffer_phys>>32),.status=length,
@@ -1900,33 +1905,47 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
     d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
     db_write32(d->slot_id,ep->dci);
     uint64_t start=timer_monotonic_us(), last=start;
-    for(uint64_t spins=0;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
+    uint64_t spins=0;
+    for(;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
         struct xhci_trb event;
         if(poll_event(&event)) dispatch_transfer_event(&event);
         if(d->bulk_done) {
-            if((d->bulk_completion!=1 && d->bulk_completion!=13) || d->bulk_remaining>length) break;
+            if(d->bulk_completion!=1 && d->bulk_completion!=13) { d->bulk_reason="completion-code"; break; }
+            if(d->bulk_remaining>length) { d->bulk_reason="invalid-residue"; break; }
+            d->bulk_reason="completed";
             *actual=length-d->bulk_remaining;
             if(in) copy_bytes(buffer,d->bulk_buffer,*actual);
             return true;
         }
         if((spins&255)==0) {
             uint64_t now=timer_monotonic_us();
-            if(now-start>=2000000) break;
+            if(now-start>=2000000) { d->bulk_reason="deadline"; break; }
             if(now-last>=1000 && scheduler_io_active()) { scheduler_io_yield(); last=now; }
         }
         __asm__ volatile("pause");
     }
     /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
+    if(spins==XHCI_TRANSFER_TIMEOUT) d->bulk_reason="spin-budget";
+    d->bulk_elapsed_us=timer_monotonic_us()-start; d->bulk_spins=spins;
     d->bulk_failed=true; d->stage="storage-quarantined";
     console_printf("xhci: bulk failed slot=%u dci=%u cc=%u done=%u\n",(uint64_t)d->slot_id,
         (uint64_t)ep->dci,(uint64_t)d->bulk_completion,(uint64_t)d->bulk_done);
     return false;
+}
+static void storage_bulk_diagnostics(void *context) {
+    struct xhci_device *d=context;
+    console_printf("xhci-storage: reason=%s slot=%u dci=%u cc=%u done=%u pending=%u\n",
+        d->bulk_reason?d->bulk_reason:"none",(uint64_t)d->slot_id,(uint64_t)d->bulk_dci,
+        (uint64_t)d->bulk_completion,(uint64_t)d->bulk_done,(uint64_t)d->bulk_pending);
+    console_printf("xhci-storage: requested=%u remaining=%u failure-us=%u spins=%u\n",
+        (uint64_t)d->bulk_length,(uint64_t)d->bulk_remaining,d->bulk_elapsed_us,d->bulk_spins);
 }
 static bool enumerate_storage(struct xhci_device *d) {
     d->stage="bulk-endpoints";
     if(!set_configuration(d,d->configuration_value) || !configure_bulk_endpoints(d)) return false;
     d->configured=true; xhci.configured_devices++;
     d->stage="storage-probe";
+    d->storage.diagnose=storage_bulk_diagnostics;
     bool ready=usb_storage_attach(&d->storage,d,storage_bulk_transfer,storage_writable);
     d->stage=ready?"storage-ready":(d->bulk_failed?"storage-quarantined":"storage-no-media-or-unsupported");
     console_printf("xhci: storage slot=%u vendor=%x product=%x stage=%s\n",(uint64_t)d->slot_id,

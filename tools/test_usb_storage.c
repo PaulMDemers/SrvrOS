@@ -15,6 +15,8 @@ static uint8_t disk[8192], cdb[16];
 static uint32_t tag, length;
 static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
 static bool empty;
+static unsigned diagnosed;
+static void diagnose(void *ctx) { assert(ctx==&storage);diagnosed++; }
 void console_printf(const char *f,...) {(void)f;}
 bool scheduler_io_begin(void) { if(foreign || boot) return false; depth++; return true; }
 bool scheduler_io_active(void) { return depth || foreign; }
@@ -30,6 +32,8 @@ uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&bloc
 static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
     assert(ctx==&storage); calls++; *actual=n;
     if(fault==1) return false;
+    if((fault==10 && phase==2) || (fault==11 && phase==1)) { *actual=0;return false; }
+    if(fault==12 && phase==2) { *actual=0;phase=0;return true; }
     if(phase==0) {
         assert(!in && n==31 && le32(data)==0x43425355);
         uint8_t *b=data; tag=le32(b+4); length=le32(b+8);
@@ -94,12 +98,21 @@ int main(void) {
     assert(calls==before && depth==0 && irq_enabled);
     reset(); empty=true; tur_failures=1;
     assert(!usb_storage_attach(&storage,&storage,bulk,false) && !block.used && !storage.failed && senses==1);
-    for(unsigned f=1;f<=9;f++) {
+    const char *reasons[]={"", "cbw-transfer", "cbw-length", "data-length", "csw-signature",
+        "csw-tag", "csw-residue", "csw-status", "csw-length", "data-length",
+        "csw-transfer", "data-transfer", "csw-length"};
+    for(unsigned f=1;f<=12;f++) {
         reset(); assert(usb_storage_attach(&storage,&storage,bulk,true)); fault=f;
         assert(!block.read(&block,0,buf,512) && storage.failed);
         assert(storage.error_command==storage.commands && storage.error_opcode==0x28 && storage.error_status==255);
-        assert(storage.error_phase==(f<=2?1:(f==3||f==9)?4:3));
+        assert(storage.error_phase==(f<=2?1:(f==3||f==9)?4:f==11?2:3));
+        assert(!strcmp(storage.error_reason,reasons[f]) && storage.error_expected_tag==storage.tag);
+        if(f==5) assert(storage.error_tag==storage.tag+1);
+        if(f==8) assert(storage.error_actual==12);
+        if(f==12) assert(storage.error_actual==0);
         before=calls;
+        storage.diagnose=diagnose;diagnosed=0;usb_storage_print_status(&block);
+        assert(diagnosed==1 && calls==before);
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);
     }

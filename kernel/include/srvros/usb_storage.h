@@ -13,6 +13,11 @@ struct usb_storage {
     /* Retain the most recent failure even after later successful commands. */
     uint64_t error_command;
     uint8_t error_opcode, error_phase, error_status;
+    const char *error_reason;
+    uint32_t error_expected_tag, error_actual, error_signature, error_tag, error_residue;
+    uint8_t error_csw_status;
+    /* Read-only controller diagnostics, called only when displaying a failure. */
+    void (*diagnose)(void *);
     bool failed, busy, services;
     char name[12];
     uint8_t data[4096];

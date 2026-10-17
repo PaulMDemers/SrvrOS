@@ -353,7 +353,16 @@ static void test_storage(void) {
     uint32_t actual=0;
     assert(!storage_bulk_transfer(disk,true,caller,512,&actual));
     assert(disk->bulk_failed && disk->bulk_pending && disk->bulk_ep[1].enqueue==1);
+    assert(!strcmp(disk->bulk_reason,"deadline") && !disk->bulk_done && !disk->bulk_completion);
+    assert(disk->bulk_length==512 && disk->bulk_elapsed_us>=2000000 && disk->bulk_spins>0);
     assert(!storage_bulk_transfer(disk,true,caller,512,&actual) && disk->bulk_ep[1].enqueue==1);
+    /* Fresh simulated controller: distinguish a received error event from a timeout. */
+    disk->bulk_failed=disk->bulk_pending=false;disk->bulk_ep[1].enqueue=0;
+    events[3]=(struct xhci_trb){.parameter_low=0x9000,.status=6u<<24,
+        .control=(32u<<10)|(1u<<24)|(3u<<16)|1};
+    assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
+    assert(!strcmp(disk->bulk_reason,"completion-code") && disk->bulk_completion==6 && disk->bulk_done);
+    assert(disk->bulk_length==13 && disk->bulk_spins==0);
 }
 
 int main(int argc, char **argv) {

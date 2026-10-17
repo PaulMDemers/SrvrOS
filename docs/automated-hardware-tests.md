@@ -142,6 +142,39 @@ the removed timeout, and never reached the host boot entry. Logs and retained
 serial evidence use `build/review/halt-*`. This validates the failure-display
 behavior; it does not resolve the laptop's underlying storage failure.
 
+The next physical batch, `6d31782678439e1b` / `4b4c8c1f31187cca`, produced a
+validated first-round report and all 15 expected files; its shell workload took
+89,051,066 microseconds. Round two (`6d31782678439e1a`) halted during storage
+testing. Its shell test was skipped, and no complete report survived. The photo
+records command 281450, opcode 42 (WRITE(10)), failure phase `csw`, one error,
+and a quarantined device. The printed status 255 is our internal sentinel for
+an untrusted completion, not a status returned by the flash drive. Report saving
+then failed because the volume's write path was blocked. No later rounds ran.
+
+This locates the fault in receipt/validation of a USB command-status wrapper,
+but does not distinguish a timeout, an xHCI error, a short response, or invalid
+wrapper contents. The prior diagnostic collapsed these into the same phase.
+The next candidate preserves the precise failure reason, byte count, expected
+and received tags, raw CSW fields, and the controller's completion code, pending
+state and elapsed failure time. Timeout diagnostics now clear stale completion
+values before submitting a transfer. Transfer deadlines, validation rules,
+quarantine and no-write-retry behavior remain unchanged.
+
+The physical evidence, photo, first-round results and sparse filesystem snapshot
+are under `build/hardware-tests/6d31782678439e1b/`. Offline checking found no
+structural errors (35 directories, 152 files); main VolumeFlags were dirty (2).
+After preserving the snapshot, a clean `fsck.exfat -p` cleared the flag, verified
+before remount. This is an incomplete batch, not a milestone pass.
+
+The detailed-CSW candidate passed all 21 host test groups, with injected
+transport failures, short/zero-length wrappers, signature/tag/residue/status
+errors and controller timeout/error-event checks. The final byte-count
+adjustment was rebuilt and passed the USB storage host tests. The resulting
+payload passed a complete QEMU automatic cycle, independent file/CRC checks,
+consumed-request halt, and the forced write-failure halt with controller details
+visible. Evidence uses `build/review/csw-diagnostics-*`. This candidate improves
+diagnosis only; it does not claim to fix the physical USB fault.
+
 Each cycle needs a new request, even for the same kernel:
 
 ```sh
