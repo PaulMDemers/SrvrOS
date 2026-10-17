@@ -1,5 +1,8 @@
 # Input during filesystem work
 
+**Accepted on the laptop:** five physical rounds passed in batch
+`f6fbf5b8a58435bc`, source `adac284`. See the final acceptance record below.
+
 The USB batching checkpoint passed five physical rounds with a mean shell
 workload time of 8.048 seconds. It reduced throughput overhead but still left
 the shell unable to echo during a long filesystem mutation. This increment
@@ -130,7 +133,7 @@ tests do not generate a physical keypress or measure the laptop display.
 - The stalled USB read test passed bounded quarantine and keyboard progress,
   retaining the unchanged disk. Evidence: `build/review/io-admission-usb-timeout.log`.
 
-## Physical acceptance pending
+## Physical acceptance criteria (now met)
 
 Launch a fresh five-round run using the exact locally tested payload hashes in
 `build/review/capacity-tested-payload.json`. Accept it only after Ubuntu
@@ -254,11 +257,48 @@ tools/host-env.sh python3 tools/hardware_snapshot_smoke.py \
 ```
 
 The snapshot tool uses a private sparse copy and checks all prior files against
-its initial inventory. Physical acceptance still requires a fresh laptop run;
-capacities remain bounded rather than implying unlimited file counts.
+its initial inventory. Physical acceptance was subsequently completed as recorded below.
+Capacities remain bounded rather than implying unlimited file counts.
 
 The final fresh-volume five-round GRUB cycle also passed all reports/CRCs and
 75 files, default boot return, consumed-request refusal and indefinite failure
 halts. Its independent filesystem checks were clean. Evidence:
 `build/review/capacity-five-round-cycle.log` and `capacity-autotest-*`.
 The exact tested payload hashes are in `capacity-tested-payload.json`.
+
+## Final physical acceptance
+
+The laptop completed batch **`f6fbf5b8a58435bc`** using source
+**`adac2842d31dd52b451fe023b2e71c7861d064f2`**, automated-test release
+**`34f7b56c7a71567d`**, and returned to Ubuntu. The collector validated all five
+PASS reports and CRCs, each probe, and all **75 expected output files**. The
+completed volume's snapshot also matched every one of the **463 pre-existing
+non-sidecar files** against the failure snapshot.
+
+An offline, read-only `fsck.exfat -n` reported **clean: 123 directories and 594
+files**, with main VolumeFlags already **0**, and **no repair**. A verified sparse
+snapshot, collected reports, file hashes, boot identity and acceptance summary
+are retained under `build/hardware-tests/f6fbf5b8a58435bc/`. All five round folders
+contain their individual reports and file manifests.
+
+The concurrent shell workloads took **10.850–12.546 seconds**, mean **11.728
+seconds**. The 1000-line rendering benchmark took **3.544–4.166 ms**, with one
+framebuffer presentation and no framebuffer reads. Maximum observed input poll
+gaps were **16.167–20.000 ms**. These polling counters do not measure physical
+key-to-display latency, which remains explicitly NOT_TESTED by the unattended
+suite. Earlier manual keyboard success and emulator input stress remain the
+separate input evidence.
+
+Reusable workspace release **`5649bf9fc0f62ec6`** uses the identical kernel,
+initramfs and loader hashes from this accepted batch. Its profile mounts the
+UUID-selected workspace on normal deliberate SrvrOS boots; the automatic test
+requests are consumed. Ubuntu remains the default, with interactive release
+**`385b670049974e1c`** retained as the previous GRUB choice. Installation of the
+workspace profile does not constitute another physical boot test.
+
+Independent verified backups of both the accepted automatic release and its
+reusable workspace profile are under
+`/home/paul/.local/share/srvros/known-good/`, alongside earlier checkpoints.
+This closes the practical input/filesystem milestone. Physical latency
+measurement, hot-unplug, broader power-loss recovery, unbounded file counts and
+parallel filesystem mutation remain future work; GUI work stays deferred.

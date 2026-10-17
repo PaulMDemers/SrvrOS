@@ -10,7 +10,10 @@ The [USB batching and responsiveness update](usb-batching-2026-10-17.md) follows
 the successful five-round laptop checkpoint with bounded transfers and measured
 shell stalls. The [input during filesystem work milestone](input-filesystem-milestone-2026-10-17.md)
 adds conservative syscall admission, console progress during owned I/O, and
-contention/cancellation checks; per-file parallel filesystem mutations remain deferred.
+contention/cancellation checks. It passed five physical rounds with all 75
+outputs verified and a clean offline filesystem check; the reusable USB
+workspace profile now uses those accepted binaries. Per-file parallel filesystem
+mutations remain deferred.
 The milestone list below records earlier development; use the new plan for
 mixed-case text, rendering performance, timing and hardware work.
 
