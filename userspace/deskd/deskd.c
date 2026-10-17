@@ -1,0 +1,271 @@
+#include "scene.h"
+#include <srvros/desktop.h>
+#include <srvros/conio.h>
+#include <srvros/gfx.h>
+#include <srvros/gui.h>
+#include <srvros/mouse.h>
+#include <srvros/sys.h>
+#include <stdio.h>
+#include <string.h>
+
+struct client {
+    uint64_t pid,generation,progress;
+    int configure,awaiting,closing;
+    struct desk_packet release;
+};
+struct session {
+    struct desktop_scene scene;
+    struct desk_damage damage;
+    struct client clients[DESKD_WINDOWS];
+    uint64_t children[DESKD_WINDOWS];
+    int trace;
+};
+static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
+static void damage_window(struct session *s,int i) {
+    struct desk_rect r=s->scene.windows[i].frame; r.w+=6; r.h+=8;
+    desk_damage_add(&s->damage,r);
+}
+static void focus(struct session *s,int i) {
+    if (s->scene.focus>=0) damage_window(s,s->scene.focus);
+    s->scene.focus=i;
+    if (i>=0) damage_window(s,i);
+}
+static void forget(struct session *s,int i) {
+    struct desktop_window *w=&s->scene.windows[i];
+    damage_window(s,i);
+    if (s->trace) printf("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
+    desk_pixels_free((uint32_t *)w->pixels,w->width,w->height);
+    memset(w,0,sizeof(*w)); memset(&s->clients[i],0,sizeof(s->clients[i]));
+    if (s->scene.focus==i) {
+        focus(s,-1);
+        for (int j=0;j<DESKD_WINDOWS;j++) if (s->clients[j].pid) focus(s,j);
+    }
+}
+static void configure(struct session *s,int i,int width,int height) {
+    struct client *c=&s->clients[i];
+    struct desktop_window *w=&s->scene.windows[i];
+    damage_window(s,i);
+    w->frame.w=width+2; w->frame.h=height+45;
+    c->generation++; c->configure=1; c->awaiting=1; c->progress=srv_ticks();
+    damage_window(s,i);
+}
+static void spawn_client(struct session *s) {
+    for (int i=0;i<DESKD_WINDOWS;i++) if (!s->children[i]) {
+        long pid=spawn_bg("/fat/bin/deskclient");
+        if (pid>0) s->children[i]=(uint64_t)pid;
+        else srv_puts("deskd: launch failed\n");
+        return;
+    }
+}
+static int known_child(struct session *s,uint64_t pid) {
+    for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]==pid) return 1;
+    return 0;
+}
+static void close_client(struct session *s,int i) {
+    if (!s->clients[i].closing) {
+        s->clients[i].closing=1;
+        s->clients[i].progress=srv_ticks();
+    }
+}
+static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
+    int i;
+    for (i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid) break;
+    /* This milestone deliberately accepts only the study processes it owns. */
+    if (i==DESKD_WINDOWS) {
+        if (p->type!=DESK_OPEN || !known_child(s,pid)) return;
+        for (i=0;i<DESKD_WINDOWS;i++) if (!s->clients[i].pid) break;
+        if (i==DESKD_WINDOWS) return;
+        struct desktop_window *w=&s->scene.windows[i];
+        s->clients[i].pid=pid;
+        w->visible=1;
+        w->frame.x=32+40*i; w->frame.y=64+36*i;
+        memcpy(w->title,p->text,sizeof(w->title)); w->title[sizeof(w->title)-1]=0;
+        configure(s,i,clamp(p->width,280,s->damage.width-w->frame.x-8<DESK_MAX_WIDTH?
+            s->damage.width-w->frame.x-8:DESK_MAX_WIDTH),
+            clamp(p->height,240,s->damage.height-w->frame.y-85<DESK_MAX_HEIGHT?
+            s->damage.height-w->frame.y-85:DESK_MAX_HEIGHT));
+        focus(s,i);
+        printf("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
+        return;
+    }
+    struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
+    if (p->type==DESK_CLOSE) { forget(s,i); return; }
+    if (p->type!=DESK_COMMIT) return;
+    /* A conforming client has at most one unreleased commit. */
+    if (c->release.type) { close_client(s,i); return; }
+    c->release=*p; c->release.type=DESK_RELEASE; c->progress=srv_ticks();
+    if (p->generation!=c->generation || p->width!=(uint32_t)(w->frame.w-2) ||
+        p->height!=(uint32_t)(w->frame.h-45) || c->closing) {
+        printf("deskd: stale commit released pid=%llu\n",(unsigned long long)pid); return;
+    }
+    /* Copy into a new private cache. A client may exit during the syscall's
+     * row copies; a failed partial copy must never replace the displayed one. */
+    uint32_t *next=desk_pixels_alloc(p->width,p->height);
+    if (!next || gui_surface_copy(p->surface,0,0,p->width,p->height,next,p->width)!=0) {
+        desk_pixels_free(next,p->width,p->height); close_client(s,i); return;
+    }
+    desk_pixels_free((uint32_t *)w->pixels,w->width,w->height);
+    w->pixels=next; w->width=p->width; w->height=p->height;
+    c->awaiting=0;
+    damage_window(s,i);
+    if (s->trace) printf("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
+        (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
+}
+static void service(struct session *s) {
+    for (int i=0;i<DESKD_WINDOWS;i++) {
+        struct client *c=&s->clients[i];
+        if (!c->pid) continue;
+        if (!desk_process_alive(c->pid)) { forget(s,i); continue; }
+        if ((c->release.type || c->configure || c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
+            srv_kill((int64_t)c->pid); forget(s,i); continue;
+        }
+        if (c->release.type) {
+            if (desk_send(c->pid,&c->release)!=0) continue;
+            c->release.type=0; c->progress=srv_ticks();
+        }
+        if (c->closing) {
+            struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
+        } else if (c->configure) {
+            struct desk_packet p=desk_packet_new(DESK_CONFIGURE);
+            p.generation=c->generation;
+            p.width=s->scene.windows[i].frame.w-2; p.height=s->scene.windows[i].frame.h-45;
+            if (desk_send(c->pid,&p)==0) c->configure=0;
+        }
+    }
+    for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
+        uint64_t status;
+        long waited=srv_wait(s->children[i],&status,SRV_WAIT_NOHANG);
+        /* Background children can be reaped by another system waiter. A
+         * negative wait result alone isn't proof of death (e.g. interruption). */
+        if (waited==(long)s->children[i] || (waited<0 && !desk_process_alive(s->children[i])))
+            s->children[i]=0;
+    }
+}
+static int hit(struct session *s,int x,int y) {
+    int first=s->scene.focus;
+    for (int pass=0;pass<DESKD_WINDOWS;pass++) {
+        int i=pass==0?first:1-first;
+        if (i<0 || i>=DESKD_WINDOWS || !s->scene.windows[i].visible) continue;
+        struct desk_rect w=s->scene.windows[i].frame;
+        if (x>=w.x && y>=w.y && x<w.x+w.w && y<w.y+w.h) return i;
+    }
+    return -1;
+}
+int main(int argc,char **argv) {
+    if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    int smoke=argc==2 && strcmp(argv[1],"--smoke")==0;
+    int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
+    struct gfx_info info={0};
+    if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
+    uint32_t *pixels=desk_pixels_alloc(info.width,info.height);
+    struct desk_canvas canvas;
+    if (!pixels || desk_canvas_init(&canvas,pixels,info.width,info.height,info.width)!=0) return 1;
+    if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
+    if (gfx_console_mute(1)!=0) return 1;
+    struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+        .trace=lifecycle || (argc==2 && strcmp(argv[1],"--trace")==0)};
+    desk_damage_init(&s.damage,info.width,info.height);
+    desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
+    spawn_client(&s);
+    uint64_t start=srv_ticks(),frames=0,bytes=0;
+    int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0;
+    uint64_t key_pid=0,key_since=0;
+    uint8_t buttons=0;
+    srv_puts("deskd: ready; independent clients, sealed surfaces\n");
+    while (!quit) {
+        for (int n=0;n<32;n++) {
+            struct desk_packet p; uint64_t pid;
+            int r=desk_receive(&pid,&p);
+            if (r<=0) break;
+            if (r==1) incoming(&s,pid,&p);
+        }
+        service(&s);
+        if (lifecycle) {
+            if (phase==0 && s.scene.windows[0].pixels && (uint64_t)srv_ticks()-start>=100) {
+                srv_puts("deskd: lifecycle killing client\n");
+                srv_kill(s.clients[0].pid); phase=1;
+            } else if (phase==1 && !s.children[0] && !s.clients[0].pid) {
+                srv_puts("deskd: lifecycle replacing client\n"); spawn_client(&s); phase=2;
+            } else if (phase==2 && s.scene.windows[0].pixels && (uint64_t)srv_ticks()-start>=200) {
+                srv_puts("deskd: lifecycle abrupt server exit\n");
+                srv_exit(0); /* Deliberately exercise kernel cleanup, not the normal exit path. */
+            }
+            if ((uint64_t)srv_ticks()-start>600) { failed=1; break; }
+        }
+        for (int n=0;n<32;n++) {
+            int key=pending_key?pending_key:kbhit();
+            if (key<=0) break;
+            if (!pending_key) {
+                if (key==27) { quit=1; break; }
+                if (key==14) { spawn_client(&s); continue; }
+                if (key==9) {
+                    int other=1-s.scene.focus;
+                    if (other>=0 && other<DESKD_WINDOWS && s.clients[other].pid) focus(&s,other);
+                    continue;
+                }
+                key_pid=s.scene.focus>=0?s.clients[s.scene.focus].pid:0;
+                key_since=srv_ticks();
+            }
+            if (!key_pid || !desk_process_alive(key_pid)) { pending_key=0; continue; }
+            struct desk_packet p=desk_packet_new(DESK_TEXT); p.value=key;
+            if (desk_send(key_pid,&p)!=0) {
+                pending_key=key;
+                if ((uint64_t)srv_ticks()-key_since>500) { srv_kill(key_pid); pending_key=0; }
+                break;
+            }
+            pending_key=0;
+        }
+        struct mouse_event e;
+        for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
+            int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
+            int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
+            if (s.trace) printf("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
+            if ((e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)) {
+                int i=hit(&s,x,y);
+                if (i>=0) {
+                    focus(&s,i); struct desk_rect w=s.scene.windows[i].frame;
+                    if (x>=w.x+w.w-40 && y<w.y+43) close_client(&s,i);
+                    else if (x>=w.x+w.w-24 && y>=w.y+w.h-24) resize=i;
+                    else if (y<w.y+43) { drag=i; grabx=x-w.x; graby=y-w.y; }
+                }
+            }
+            if (!(e.buttons&MOUSE_LEFT)) drag=resize=-1;
+            if (drag>=0 && s.clients[drag].pid) {
+                struct desktop_window *w=&s.scene.windows[drag]; damage_window(&s,drag);
+                w->frame.x=clamp(x-grabx,0,canvas.width-w->frame.w-6);
+                w->frame.y=clamp(y-graby,44,canvas.height-w->frame.h-36); damage_window(&s,drag);
+            }
+            if (resize>=0 && s.clients[resize].pid) {
+                struct desk_rect w=s.scene.windows[resize].frame;
+                int width=clamp(x-w.x-1,280,clamp(canvas.width-w.x-8,280,DESK_MAX_WIDTH));
+                int height=clamp(y-w.y-44,240,clamp(canvas.height-w.y-85,240,DESK_MAX_HEIGHT));
+                if (w.w!=width+2 || w.h!=height+45) configure(&s,resize,width,height);
+            }
+            buttons=e.buttons;
+            desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});
+        }
+        for (unsigned n=0;n<s.damage.count;n++) {
+            struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
+            if (blitrect(r.x,r.y,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride)!=0) failed=1;
+            bytes+=(uint64_t)r.w*r.h*4;
+        }
+        if (s.damage.count) frames++;
+        s.damage.count=0;
+        if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
+        srv_sleep_ticks(1);
+    }
+    /* Bound shutdown even when a client stopped reading. Only kill children
+     * launched by this session; all queues/surfaces also have kernel cleanup. */
+    for (int i=0;i<DESKD_WINDOWS;i++) if (s.clients[i].pid) close_client(&s,i);
+    uint64_t until=(uint64_t)srv_ticks()+30;
+    while ((uint64_t)srv_ticks()<until) { service(&s); srv_sleep_ticks(1); }
+    for (int i=0;i<DESKD_WINDOWS;i++) {
+        if (s.children[i]) { uint64_t status; srv_kill(s.children[i]); srv_wait(s.children[i],&status,0); }
+        if (s.clients[i].pid) forget(&s,i);
+    }
+    desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);
+    printf("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
+        (unsigned long long)frames,(unsigned long long)bytes);
+    return failed?1:0;
+}

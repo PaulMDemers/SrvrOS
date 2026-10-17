@@ -13,6 +13,11 @@ replacement UI architecture and its quiet, refined visual direction; the
 [interactive design study](docs/design/desktop-study.html) is a browser prototype,
 not an implemented native desktop.
 
+The [native compositor checkpoint](docs/desktop-compositor-2026-10-17.md) now runs
+separate test applications with window movement, resize, focus and crash recovery.
+It remains an optional development session; built-in trackpad capture is opt-in
+and awaiting physical validation.
+
 ## Screenshots
 
 Booted kernel monitor with AHCI, exFAT, e1000, and memory-map diagnostics:

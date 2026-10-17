@@ -1,5 +1,9 @@
 # Native desktop foundation: first implementation
 
+Follow-up: the [separate compositor/client implementation](desktop-compositor-2026-10-17.md)
+now implements the next surface-ownership slice and an opt-in trackpad capture
+transport. This document records the earlier renderer/decoder checkpoint.
+
 This is the first implementation slice of the
 [MacBook Air desktop plan](desktop-plan-2026-10-17.md), not completion of D1 or
 the new desktop. It introduces a reusable renderer and an opt-in native study

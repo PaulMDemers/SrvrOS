@@ -9,6 +9,7 @@
 #include <srvros/vmm.h>
 #include <srvros/xhci.h>
 #include <srvros/usb_storage.h>
+#include <srvros/apple_trackpad.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -171,6 +172,20 @@ struct xhci_bulk_endpoint {
     bool cycle;
 };
 
+/* Independent endpoint on the same physical USB slot as the keyboard.
+ * Capture only until real reports validate the transport and contact model. */
+struct xhci_trackpad_endpoint {
+    bool candidate,ready,pending,cycle;
+    uint8_t dci,interval;
+    uint16_t packet;
+    uint64_t ring_phys,buffer_phys,enqueue,trb;
+    struct xhci_trb *ring;
+    uint8_t *buffer;
+    uint64_t reports,contact_reports,button_reports,malformed,errors;
+    uint32_t last_length,last_completion;
+    struct apple_trackpad_frame frame;
+};
+
 struct xhci_device {
     bool present;
     bool addressed;
@@ -228,6 +243,7 @@ struct xhci_device {
     bool ep0_cycle;
     bool interrupt_cycle;
     uint64_t interrupt_trb;
+    struct xhci_trackpad_endpoint trackpad;
     struct xhci_bulk_endpoint bulk_ep[2]; /* OUT, IN */
     uint64_t bulk_buffer_phys, bulk_trb;
     uint8_t *bulk_buffer;
@@ -319,6 +335,8 @@ static volatile bool xhci_input_probe_active;
 
 static bool storage_writable;
 void xhci_set_storage_writable(bool writable) { storage_writable = writable; }
+static bool trackpad_capture;
+void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -1365,6 +1383,31 @@ static bool address_device(struct xhci_device *device) {
     return true;
 }
 
+static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
+    if (!trackpad_capture || device->vendor_id!=0x05ac || device->product_id!=0x0291 ||
+        device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
+    bool interface=false,found=false;
+    uint8_t interval=0;
+    for (uint16_t offset=0;offset<length;) {
+        const uint8_t *p=device->descriptor_buffer+offset;
+        if (length-offset<2 || p[0]<2 || p[0]>length-offset) return false;
+        if (p[1]==USB_DESC_INTERFACE) {
+            if (p[0]<9) return false;
+            interface=p[2]==2 && p[3]==0 && p[4]==1 && p[5]==USB_CLASS_HID &&
+                p[6]==USB_HID_SUBCLASS_BOOT && p[7]==USB_HID_PROTOCOL_MOUSE;
+        } else if (p[1]==USB_DESC_ENDPOINT && interface) {
+            if (p[0]<7 || found || p[2]!=0x83 || (p[3]&3)!=USB_ENDPOINT_INTERRUPT ||
+                p[4]!=64 || p[5]!=0 || !p[6]) return false;
+            found=true; interval=p[6];
+        }
+        offset+=p[0];
+    }
+    if (!found) return false;
+    device->trackpad.candidate=true;
+    device->trackpad.dci=7; device->trackpad.packet=64; device->trackpad.interval=interval;
+    return true;
+}
+
 static bool parse_hid_input_config(struct xhci_device *device,
     uint16_t length,
     uint8_t *configuration_out) {
@@ -1530,6 +1573,58 @@ static bool configure_interrupt_endpoint(struct xhci_device *device) {
     return submit_command_trb(&command, XHCI_TRB_TYPE_CONFIGURE_ENDPOINT, 0);
 }
 
+static void setup_trackpad_input_context(struct xhci_device *device) {
+    struct xhci_trackpad_endpoint *t=&device->trackpad;
+    zero_bytes(device->input_context,PMM_FRAME_SIZE);
+    /* Add only the new endpoint. Never drop/reconfigure the live keyboard. */
+    context_write32(device->input_context,0,1,1u | (1u<<t->dci));
+    uint32_t slot0=context_read32(device->output_context,0,0);
+    uint32_t entries=(slot0>>27)&31;
+    if (entries<t->dci) entries=t->dci;
+    context_write32(device->input_context,1,0,(slot0&~(31u<<27))|(entries<<27));
+    context_write32(device->input_context,1,1,context_read32(device->output_context,0,1));
+    context_write32(device->input_context,1,2,context_read32(device->output_context,0,2));
+    uint64_t ep=t->dci+1;
+    context_write32(device->input_context,ep,0,(uint32_t)interrupt_interval_exponent(device->speed,t->interval)<<16);
+    context_write32(device->input_context,ep,1,(3u<<1)|(7u<<3)|((uint32_t)t->packet<<16));
+    context_write32(device->input_context,ep,2,(uint32_t)(t->ring_phys|1u));
+    context_write32(device->input_context,ep,3,(uint32_t)(t->ring_phys>>32));
+    /* USB packet/ESIT is 64 bytes; a report spans multiple transactions. */
+    context_write32(device->input_context,ep,4,APPLE_TRACKPAD_REPORT_MAX|((uint32_t)t->packet<<16));
+}
+
+static bool configure_trackpad_endpoint(struct xhci_device *device) {
+    struct xhci_trackpad_endpoint *t=&device->trackpad;
+    void *virt;
+    if (!alloc_frame_zero(&t->ring_phys,&virt)) return false;
+    t->ring=virt; t->cycle=true;
+    write_link_trb(t->ring,t->ring_phys,true);
+    if (!alloc_frame_zero(&t->buffer_phys,&virt)) {
+        pmm_free_frame(t->ring_phys); t->ring_phys=0; t->ring=0; return false;
+    }
+    t->buffer=virt;
+    setup_trackpad_input_context(device);
+    struct xhci_trb command={.parameter_low=(uint32_t)device->input_context_phys,
+        .parameter_high=(uint32_t)(device->input_context_phys>>32),
+        .control=(XHCI_TRB_TYPE_CONFIGURE_ENDPOINT<<10)|((uint32_t)device->slot_id<<24)};
+    /* Keep DMA allocated on an ambiguous command timeout: the controller may
+     * still own it. No doorbell is issued unless configuration succeeded. */
+    t->ready=submit_command_trb(&command,XHCI_TRB_TYPE_CONFIGURE_ENDPOINT,0);
+    return t->ready;
+}
+
+static void submit_trackpad_poll(struct xhci_device *device) {
+    struct xhci_trackpad_endpoint *t=&device->trackpad;
+    if (!t->ready || t->pending) return;
+    zero_bytes(t->buffer,APPLE_TRACKPAD_REPORT_MAX);
+    struct xhci_trb trb={.parameter_low=(uint32_t)t->buffer_phys,
+        .parameter_high=(uint32_t)(t->buffer_phys>>32),.status=APPLE_TRACKPAD_REPORT_MAX,
+        .control=(XHCI_TRB_TYPE_NORMAL<<10)|XHCI_TRB_IOC|XHCI_TRB_ISP};
+    t->trb=ring_push(t->ring,t->ring_phys,&t->enqueue,&t->cycle,&trb);
+    t->pending=true;
+    db_write32(device->slot_id,t->dci);
+}
+
 static bool evaluate_hub_context(struct xhci_device *hub) {
     zero_bytes(hub->input_context, PMM_FRAME_SIZE);
     context_write32(hub->input_context, 0, 1, 1u << 0);
@@ -1643,6 +1738,23 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    struct xhci_trackpad_endpoint *t=&device->trackpad;
+    if (t->pending && dci==t->dci && pointer==t->trb) {
+        t->pending=false; t->last_completion=completion;
+        if ((completion!=1 && completion!=13) || remaining>APPLE_TRACKPAD_REPORT_MAX) {
+            t->errors++; t->ready=false; return;
+        }
+        t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
+        int decoded=apple_trackpad_decode(t->buffer,t->last_length,&t->frame);
+        if (decoded<0) t->malformed++;
+        if (decoded>0) {
+            t->reports++;
+            if (t->frame.count) t->contact_reports++;
+            if (t->frame.button) t->button_reports++;
+        }
+        submit_trackpad_poll(device);
+        return;
+    }
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
         device->bulk_completion = completion;
         device->bulk_remaining = remaining;
@@ -1667,7 +1779,10 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
 
 static void poll_hid_events_once(void) {
     uint64_t flags = event_irq_save();
-    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) submit_interrupt_poll(&xhci.devices[i]);
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        submit_interrupt_poll(&xhci.devices[i]);
+        submit_trackpad_poll(&xhci.devices[i]);
+    }
     struct xhci_trb event;
     /* Bound work even if a malfunctioning device floods events. */
     for (unsigned i=0; i<XHCI_EVENT_TRB_COUNT && poll_event(&event); i++) dispatch_transfer_event(&event);
@@ -2031,6 +2146,7 @@ static bool enumerate_device(struct xhci_device *device) {
             hub_like ? " hub" : "");
         return true;
     }
+    if (device->hid_keyboard) parse_trackpad_config(device,total_length);
     device->stage = "set-config";
     if (!set_configuration(device, configuration)) {
         return false;
@@ -2051,6 +2167,11 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
     device->interrupt_ready = true;
+    if (device->trackpad.candidate) {
+        bool ready=configure_trackpad_endpoint(device);
+        console_printf("xhci: trackpad capture slot=%u dci=7 ready=%s request=%u (no pointer injection)\n",
+            (uint64_t)device->slot_id,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX);
+    }
     device->stage = "ready";
     if (device->hid_keyboard) {
         xhci.hid_keyboards++;
@@ -2257,6 +2378,19 @@ void xhci_probe_input(uint64_t wait_ticks) {
     xhci_input_probe_active = false;
 }
 
+static void print_trackpad_capture(const struct xhci_device *device) {
+    const struct xhci_trackpad_endpoint *t=&device->trackpad;
+    if (!device->present || !t->candidate) return;
+    console_printf("trackpad-capture: slot=%u ready=%u pending=%u dci=%u packet=%u request=%u last=%u cc=%u\n",
+        (uint64_t)device->slot_id,(uint64_t)t->ready,(uint64_t)t->pending,(uint64_t)t->dci,
+        (uint64_t)t->packet,(uint64_t)APPLE_TRACKPAD_REPORT_MAX,(uint64_t)t->last_length,(uint64_t)t->last_completion);
+    console_printf("trackpad-capture: reports=%u contact_reports=%u button_reports=%u malformed=%u errors=%u\n",
+        t->reports,t->contact_reports,t->button_reports,t->malformed,t->errors);
+    console_printf("trackpad-capture: current contacts=%u button=%u x=%d y=%d origin=%u\n",
+        (uint64_t)t->frame.count,(uint64_t)t->frame.button,(int64_t)t->frame.contacts[0].x,
+        (int64_t)t->frame.contacts[0].y,(uint64_t)t->frame.contacts[0].origin);
+}
+
 void xhci_print_input_summary(void) {
     if (!xhci.present) {
         console_write("input-usb: xhci=none\n");
@@ -2275,6 +2409,7 @@ void xhci_print_input_summary(void) {
         keyboard_dropped_count());
     for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
         const struct xhci_device *device = &xhci.devices[i];
+        print_trackpad_capture(device);
         if (!device->present || (!device->hid_keyboard && !device->hid_mouse)) {
             continue;
         }
@@ -2421,6 +2556,7 @@ void xhci_print_status(void) {
             device->interrupt_success,
             device->hid_reports,
             device->mouse_reports);
+        print_trackpad_capture(device);
     }
 }
 

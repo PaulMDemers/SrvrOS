@@ -414,6 +414,73 @@ static void test_storage(void) {
     test_time_step=1000;
 }
 
+static void test_trackpad(const char *fixture) {
+    reset_test();
+    uint8_t descriptor[84];
+    FILE *file=fopen(fixture,"rb"); assert(file);
+    assert(fread(descriptor,1,sizeof(descriptor),file)==84); fclose(file);
+    uint8_t input[4096]={0},output[4096]={0},keyboard[64]={0,0,4};
+    uint8_t buffer[APPLE_TRACKPAD_REPORT_MAX];
+    struct xhci_trb ring[64]={0};
+    struct xhci_device *d=&xhci.devices[0];
+    *d=(struct xhci_device){.present=true,.slot_id=1,.vendor_id=0x05ac,.product_id=0x0291,.speed=1,
+        .descriptor_buffer=descriptor,.input_context=input,.output_context=output,
+        .hid_keyboard=true,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=keyboard,
+        .interrupt_pending=true,.interrupt_trb=0xa000};
+    xhci_set_trackpad_capture(false); assert(!parse_trackpad_config(d,84));
+    xhci_set_trackpad_capture(true);
+    for (unsigned n=0;n<84;n++) assert(!parse_trackpad_config(d,n));
+    d->product_id=0x0292; assert(!parse_trackpad_config(d,84)); d->product_id=0x0291;
+    descriptor[62]=1; assert(!parse_trackpad_config(d,84)); descriptor[62]=0; /* alternate */
+    descriptor[79]=0x82; assert(!parse_trackpad_config(d,84)); descriptor[79]=0x83;
+    assert(parse_trackpad_config(d,84));
+    assert(d->trackpad.candidate && d->trackpad.dci==7 && d->trackpad.interval==1);
+    struct xhci_trackpad_endpoint *t=&d->trackpad;
+    t->ring_phys=0xb000; t->ring=ring; t->buffer=buffer; t->buffer_phys=0xc000; t->cycle=true;
+    for (unsigned wide=0;wide<2;wide++) {
+        xhci.hcc_params1=wide?1u<<2:0;
+        context_write32(output,0,0,5u<<27); context_write32(output,0,2,0x203);
+        setup_trackpad_input_context(d);
+        assert(context_read32(input,0,1)==(1u|(1u<<7)));
+        assert(context_read32(input,1,0)>>27==7 && context_read32(input,1,2)==0x203);
+        assert(context_read32(input,6,1)==0); /* Keyboard context untouched. */
+        assert(context_read32(input,8,0)==3u<<16);
+        assert(context_read32(input,8,1)>>16==64);
+        assert(context_read32(input,8,4)==(APPLE_TRACKPAD_REPORT_MAX|(64u<<16)));
+        assert(context_read32(input,8,2)==0xb001);
+        context_write32(output,0,0,9u<<27); setup_trackpad_input_context(d);
+        assert(context_read32(input,1,0)>>27==9); /* Preserve larger slot entries. */
+    }
+    submit_trackpad_poll(d); assert(!t->pending);
+    t->ready=true; submit_trackpad_poll(d);
+    assert(t->pending && t->trb==0xb000 && ring[0].status==APPLE_TRACKPAD_REPORT_MAX);
+    assert((ring[0].control&(XHCI_TRB_IOC|XHCI_TRB_ISP))==(XHCI_TRB_IOC|XHCI_TRB_ISP));
+    buffer[23]=1; buffer[38]=4; buffer[40]=123; buffer[42]=45; buffer[54]=10;
+    struct xhci_trb e={.parameter_low=0xb000,.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66),
+        .control=(32u<<10)|(1u<<24)|(7u<<16)};
+    d->bulk_pending=true; d->bulk_dci=3; d->bulk_trb=0xd000;
+    dispatch_transfer_event(&e);
+    assert(t->reports==1 && t->contact_reports==1 && t->button_reports==1);
+    assert(t->frame.count==1 && t->frame.contacts[0].x==123 && t->last_length==66);
+    assert(t->pending && t->trb==0xb010 && d->interrupt_pending && d->bulk_pending);
+    dispatch_transfer_event(&e); assert(t->reports==1); /* Old pointer ignored. */
+    e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(5u<<16);
+    dispatch_transfer_event(&e); assert(t->reports==1 && t->pending); /* Wrong DCI ignored. */
+    e.parameter_low=0xa000; e.status=(13u<<24)|56;
+    unsigned before=injected; dispatch_transfer_event(&e);
+    assert(injected==before+1 && !d->interrupt_pending && t->pending && d->bulk_pending);
+    e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(7u<<16);
+    e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38); dispatch_transfer_event(&e);
+    assert(t->reports==2 && t->frame.count==0 && !t->frame.button); /* Lift frame. */
+    e.parameter_low=0xb020; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-65);
+    dispatch_transfer_event(&e); assert(t->malformed==1 && t->reports==2 && t->pending);
+    e.parameter_low=0xb030; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
+    dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
+    submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
+    xhci_set_trackpad_capture(false);
+    puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 2);
     test_storage();
@@ -421,5 +488,6 @@ int main(int argc, char **argv) {
     test_scratchpads();
     test_handoff();
     test_keyboard_context(argv[1]);
+    test_trackpad(argv[1]);
     puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, BOT descriptors/contexts, HID/bulk demultiplexing, quarantine, short packets)");
 }

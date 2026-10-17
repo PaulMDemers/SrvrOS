@@ -1,6 +1,7 @@
 #include <srvros/gui.h>
 #include <srvros/heap.h>
 #include <srvros/process.h>
+#include <srvros/desktop_protocol.h>
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -30,6 +31,8 @@ struct gui_surface {
     uint64_t width;
     uint64_t height;
     uint32_t *pixels;
+    bool stream, sealed;
+    uint64_t serial, generation;
 };
 
 static struct gui_surface surfaces[GUI_MAX_SURFACES];
@@ -148,19 +151,53 @@ int64_t gui_send(const struct gui_message *message) {
         return -1;
     }
 
+    flags = irq_save();
     uint64_t source_pid = process_pid(process);
     uint64_t target_pid = source_pid == server_pid ? message->target_pid : server_pid;
     if (target_pid == 0) {
+        irq_restore(flags);
         return -1;
+    }
+
+    struct gui_surface *transition = NULL;
+    struct desk_packet packet = {0};
+    bool publishing = false;
+    if (message->type == DESK_TRANSPORT_MESSAGE) {
+        for (size_t i=0;i<sizeof(packet);i++) ((uint8_t *)&packet)[i]=(uint8_t)message->text[i];
+        if (packet.version != DESK_PROTOCOL_VERSION || packet.size != sizeof(packet) ||
+            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_FOCUS)
+            goto rejected;
+        bool from_server = source_pid == server_pid;
+        if ((!from_server && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE) ||
+            (from_server && (packet.type == DESK_OPEN || packet.type == DESK_COMMIT))) goto rejected;
+        if (packet.type == DESK_COMMIT || packet.type == DESK_RELEASE) {
+            transition = surface_for_id(packet.surface);
+            if (!transition || !transition->pixels || !transition->stream) goto rejected;
+            publishing = packet.type == DESK_COMMIT;
+            if (publishing) {
+                if (transition->owner_pid != source_pid || transition->sealed ||
+                    !packet.serial || packet.serial <= transition->serial || !packet.generation ||
+                    packet.width != transition->width || packet.height != transition->height) goto rejected;
+            } else if (transition->owner_pid != target_pid || !transition->sealed ||
+                packet.serial != transition->serial || packet.generation != transition->generation) goto rejected;
+        }
     }
 
     struct gui_message copy = *message;
     copy.source_pid = source_pid;
     copy.target_pid = target_pid;
-    flags = irq_save();
     result = push_message(target_pid, &copy);
+    /* Queue insertion and ownership transition are one transaction. A full
+     * queue leaves the sender's buffer/release retryable, never stranded. */
+    if (result == 0 && transition) {
+        transition->sealed = publishing;
+        if (publishing) { transition->serial=packet.serial; transition->generation=packet.generation; }
+    }
     irq_restore(flags);
     return result;
+rejected:
+    irq_restore(flags);
+    return -1;
 }
 
 int64_t gui_recv(struct gui_message *message) {
@@ -186,8 +223,7 @@ int64_t gui_recv(struct gui_message *message) {
 }
 
 int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags) {
-    (void)flags;
-    if (owner_pid == 0 || width == 0 || height == 0 ||
+    if ((flags & ~(uint64_t)DESK_SURFACE_STREAM) || owner_pid == 0 || width == 0 || height == 0 ||
         width > GUI_SURFACE_MAX_PIXELS || height > GUI_SURFACE_MAX_PIXELS ||
         width > UINT64_MAX / height || width * height > GUI_SURFACE_MAX_PIXELS ||
         width * height > SIZE_MAX / sizeof(uint32_t)) {
@@ -215,6 +251,9 @@ int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, 
     slot->width = width;
     slot->height = height;
     slot->pixels = NULL;
+    slot->stream = (flags & DESK_SURFACE_STREAM) != 0;
+    slot->sealed = false;
+    slot->serial = slot->generation = 0;
     uint64_t id = slot->id;
     irq_restore(flags_saved);
 
@@ -243,7 +282,7 @@ int64_t gui_surface_destroy(uint64_t pid, uint64_t surface_id) {
     uint32_t *pixels = NULL;
     uint64_t flags_saved = irq_save();
     struct gui_surface *surface = surface_for_id(surface_id);
-    if (!surface_access_allowed(surface, pid)) {
+    if (!surface_access_allowed(surface, pid) || surface->sealed) {
         irq_restore(flags_saved);
         return -1;
     }
@@ -274,7 +313,7 @@ int64_t gui_surface_blit(uint64_t pid,
     }
     uint64_t flags_saved = irq_save();
     struct gui_surface *surface = surface_for_id(surface_id);
-    if (!surface_access_allowed(surface, pid) ||
+    if (!surface_access_allowed(surface, pid) || surface->sealed ||
         validate_surface_rect(surface, x, y, width, height, stride) != 0 ||
         surface->pixels == NULL) {
         irq_restore(flags_saved);
@@ -335,6 +374,9 @@ void gui_process_cleanup(uint64_t pid) {
     }
     if (server_pid == pid) {
         server_pid = 0;
+        /* The server's receive queue is gone. Owners can reclaim outstanding
+         * buffers after detecting its death; no old server can acknowledge. */
+        for (uint64_t i=0;i<GUI_MAX_SURFACES;i++) surfaces[i].sealed=false;
     }
     for (uint64_t i = 0; i < GUI_MAX_SURFACES; i++) {
         if (surfaces[i].used && surfaces[i].owner_pid == pid) {

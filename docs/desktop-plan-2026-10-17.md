@@ -124,8 +124,11 @@ These are ordered milestones, not promises of completed support or dates.
 
 Implementation progress: the [first native foundation slice](desktop-foundation-2026-10-17.md)
 adds the renderer, an optional native study, exclusive GUI registration and a
-tested trackpad packet decoder. D1's separate compositor/client contract and D2's
-physical trackpad integration remain open.
+tested trackpad packet decoder. The [compositor/client slice](desktop-compositor-2026-10-17.md)
+adds versioned surface ownership, separate applications, resize/focus and crash
+recovery, plus opt-in trackpad endpoint capture. D1's complete input contract,
+event-driven waits and timing gates, and D2's physical trackpad validation and
+gesture policy remain open.
 
 ### D0 — Product and design contract (this change)
 
