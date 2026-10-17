@@ -183,3 +183,51 @@ measurement, not an estimate for the laptop. New validation logs use the
 All 481 CLI smoke commands also passed with output batching. That run started
 before the additional serial RX correction; the final-payload host, workspace
 and automatic-cycle runs cover the subsequent RX change.
+
+## Laptop shell passes; completion record remains unconfirmed
+
+Physical run `6b05ae97970be98d`, release `f116e2f69b64bd92` (source
+`afa5661`), returned to Ubuntu automatically, as confirmed by the user.
+The saved report contains PASS for every automated check, including the shell
+workspace in 86,196,252 microseconds, below the unchanged deadline. Rendering
+1,000 lines took 4,123 microseconds. Physical keypress and key latency remain
+NOT_TESTED. Ubuntu independently verified all nine expected shell files and
+all six storage files, including the final shell verification marker and
+history proof.
+
+The separate CRC completion file is absent, including in a raw directory scan.
+The request is STARTED, so the collector correctly rejects this run. A full
+report containing `status=PASS` alone does not certify persistence or completion.
+The automatic runner previously rebooted immediately even after report saving
+failed; automatic return is therefore not evidence that finalization succeeded.
+
+Ubuntu reported a dirty volume. Offline `fsck.exfat -n` found no structural
+errors (19 directories, 82 files), but left the dirty bit set. After preserving
+a sparse copy of the allocated filesystem contents, `fsck.exfat -p` completed
+successfully and the main boot VolumeFlags were verified clear before remount.
+Evidence and independent file hashes are in
+`build/hardware-tests/6b05ae97970be98d/`. The original snapshot retains the dirty
+flag. The saved ancillary `.srvros/meta` omits the new report; failure during
+its update or transaction finalization is a possibility, not an established
+root cause.
+
+A disposable copy with the dirty flag repaired and the same test request reset
+completed under QEMU: the report checksum and completion marker matched, and
+the guest requested a reboot. This diagnostic replay used the raw volume rather
+than the physical partition/USB transport and does not certify the laptop run.
+Logs are `build/review/volume-repro-*`.
+
+The next candidate distinguishes report-write, report-flush, completion-write,
+and completion-flush failures. On save failure it prints filesystem writability
+and USB command/error/quarantine state, including the last failed command's
+opcode and transport phase. It keeps that screen visible for 15 seconds before
+the automatic return (the existing open-file guard still prevents reboot).
+This is diagnostic instrumentation, not a claimed fix. It performs no retry
+on a possibly failed write and leaves the completion/CRC requirements intact.
+
+The diagnostic candidate passed the build and host regressions, including all
+four finalization failure injections, the open-file reboot guard, and retained
+USB error details. The complete QEMU automatic cycle also passed: valid saved
+CRC/report and workspace files, filesystem checks, reset to the default entry,
+consumed-request replay, and read-only failure. Logs use the
+`build/review/save-diagnostics-*` prefix. Physical validation remains pending.

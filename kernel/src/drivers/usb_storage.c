@@ -30,16 +30,26 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     put_le32(cbw,0x43425355); put_le32(cbw+4,tag); put_le32(cbw+8,length);
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
     s->commands++;
+    uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     if (!s->bulk(s->context,false,cbw,sizeof(cbw),&actual) || actual!=sizeof(cbw)) goto bad;
+    phase = 2;
     if (length && (!s->bulk(s->context,in,data,length,&transferred) || transferred>length)) goto bad;
+    phase = 3;
     if (!s->bulk(s->context,true,csw,sizeof(csw),&actual) || actual!=sizeof(csw) ||
         le32(csw)!=0x53425355 || le32(csw+4)!=tag || le32(csw+8)>length || csw[12]>1) goto bad;
-    if (csw[12]==1) { s->errors++; return 1; }
+    if (csw[12]==1) {
+        s->errors++; s->error_command=s->commands;
+        s->error_opcode=cdb[0]; s->error_phase=phase; s->error_status=1;
+        return 1;
+    }
     /* All implemented successful commands require their full requested data. */
+    phase = 4;
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
     return 0;
 bad:
     s->failed=true; s->errors++;
+    s->error_command=s->commands; s->error_opcode=cdb[0];
+    s->error_phase=phase; s->error_status=255; /* No trustworthy command status. */
     console_printf("usb-storage: transport failed; device quarantined commands=%u\n",s->commands);
     return -1;
 }
@@ -106,6 +116,17 @@ static bool flush(struct block_device *d) {
 bool usb_storage_is_device(struct block_device *device) {
     struct block_device *parent = block_parent(device);
     return parent && parent->read == read_blocks;
+}
+
+void usb_storage_print_status(struct block_device *device) {
+    if (!usb_storage_is_device(device)) return;
+    struct usb_storage *s = block_parent(device)->private_data;
+    static const char *phases[] = {"none", "cbw", "data", "csw", "length"};
+    console_printf("usb-storage: commands=%u errors=%u quarantined=%u busy=%u\n",
+        s->commands, s->errors, (uint64_t)s->failed, (uint64_t)s->busy);
+    console_printf("usb-storage: last-error-command=%u opcode=%u phase=%s status=%u\n",
+        s->error_command, (uint64_t)s->error_opcode,
+        s->error_phase < 5 ? phases[s->error_phase] : "unknown", (uint64_t)s->error_status);
 }
 
 bool usb_storage_enable_volume_writes(struct block_device *device) {

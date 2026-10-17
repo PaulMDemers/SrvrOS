@@ -68,6 +68,8 @@ static void reset(void) {
 int main(void) {
     reset(); tur_failures=2; assert(usb_storage_attach(&storage,&storage,bulk,false));
     assert(senses==2 && block.block_count==16 && block.block_size==512 && !block.write && !block.flush);
+    assert(storage.errors==2 && storage.error_command==4 && storage.error_opcode==0);
+    assert(storage.error_phase==3 && storage.error_status==1 && !storage.failed);
     uint8_t buf[1024]; assert(block.read(&block,510,buf,1024));
     for(unsigned i=0;i<sizeof(buf);i++) assert(buf[i]==0x69);
     assert(irq_enabled && depth==0);
@@ -95,6 +97,8 @@ int main(void) {
     for(unsigned f=1;f<=9;f++) {
         reset(); assert(usb_storage_attach(&storage,&storage,bulk,true)); fault=f;
         assert(!block.read(&block,0,buf,512) && storage.failed);
+        assert(storage.error_command==storage.commands && storage.error_opcode==0x28 && storage.error_status==255);
+        assert(storage.error_phase==(f<=2?1:(f==3||f==9)?4:3));
         before=calls;
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);

@@ -10,11 +10,15 @@ struct usb_storage {
     struct block_device *block;
     uint32_t tag, sector_size;
     uint64_t sectors, commands, errors;
+    /* Retain the most recent failure even after later successful commands. */
+    uint64_t error_command;
+    uint8_t error_opcode, error_phase, error_status;
     bool failed, busy, services;
     char name[12];
     uint8_t data[4096];
 };
 bool usb_storage_is_device(struct block_device *device);
+void usb_storage_print_status(struct block_device *device);
 bool usb_storage_enable_volume_writes(struct block_device *device);
 bool usb_storage_disable_volume_writes(struct block_device *device);
 bool usb_storage_attach(struct usb_storage *, void *, usb_bulk_fn, bool writable);

@@ -255,7 +255,11 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     field("status", ok ? "PASS" : "FAIL");
     console_write_n(report, report_size);
     make_path(path, run, ".txt");
-    bool saved = !report_overflow && exfat_write_file(path, (const uint8_t *)report, report_size) && flush_volume(device);
+    const char *save_failure = NULL;
+    if (report_overflow) save_failure = "report-overflow";
+    else if (!exfat_write_file(path, (const uint8_t *)report, report_size)) save_failure = "report-write";
+    else if (!flush_volume(device)) save_failure = "report-flush";
+    bool saved = save_failure == NULL;
     if (saved) {
         uint32_t crc = crc32((const uint8_t *)report, report_size);
         char checksum[9];
@@ -267,12 +271,26 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         append(request, &length, " ");
         append(request, &length, checksum);
         append(request, &length, "\n");
-        saved = exfat_write_file(done_path, (const uint8_t *)request, length) && flush_volume(device);
+        if (!exfat_write_file(done_path, (const uint8_t *)request, length)) save_failure = "completion-write";
+        else if (!flush_volume(device)) save_failure = "completion-flush";
+        saved = save_failure == NULL;
     }
     console_printf("autotest: %s report=%s run=%s\n", ok ? "PASS" : "FAIL", saved ? "flushed" : "SAVE_FAILED", run);
+    if (!saved) {
+        /* Do not attempt more writes to a possibly quarantined volume. Keep
+         * the failure visible for a photograph before the automatic return. */
+        usb_storage_print_status(device);
+        console_printf("autotest: SAVE_FAILED stage=%s exfat-writable=%s\n",
+            save_failure, exfat_is_writable("/testlog") ? "yes" : "no");
+    }
     if (process_has_open_vfs_prefix("/testlog")) {
         console_write("autotest: files remain open; staying at monitor\n");
         return;
+    }
+    if (!saved) {
+        console_write("autotest: photograph this screen; returning to Ubuntu in 15 seconds\n");
+        console_sync();
+        timer_delay_us(15000000);
     }
     return_to_host();
 }
