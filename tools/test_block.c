@@ -9,9 +9,10 @@ static uint64_t block_test_irq_save(void) { bool old=irq_enabled; irq_enabled=fa
 static void block_test_irq_restore(uint64_t flags) { irq_enabled=flags != 0; }
 #define SRVROS_BLOCK_HOST_TEST
 #include "../kernel/src/block.c"
-static uint8_t medium[4096];
-static bool fail_write, fail_flush;
-static unsigned reads, flushes;
+static uint8_t medium[65536];
+static bool fail_read, fail_write, fail_flush;
+static unsigned reads, writes, flushes;
+static bool partial_failure;
 void console_printf(const char *fmt, ...) { (void)fmt; }
 bool scheduler_io_begin(void) { if(foreign_service) return false; io_depth++; return true; }
 bool scheduler_io_active(void) { return io_depth != 0 || foreign_service; }
@@ -33,6 +34,7 @@ bool scheduler_io_yield(void) {
 }
 static bool fake_read(struct block_device *d, uint64_t off, void *buf, uint64_t len) {
     assert(off+len<=sizeof(medium)); reads++; memcpy(buf,medium+off,len);
+    if (fail_read) return false;
     /* Reproduce a supervisor read at the driver's IRQ-restore boundary. With
      * only driver serialization it reuses the unpublished victim and replaces
      * this read's data. Block-level ownership must close that gap. */
@@ -43,7 +45,12 @@ static bool fake_read(struct block_device *d, uint64_t off, void *buf, uint64_t 
     return true;
 }
 static bool fake_write(struct block_device *d, uint64_t off, const void *buf, uint64_t len) {
-    (void)d; assert(off+len<=sizeof(medium)); if(fail_write) return false; memcpy(medium+off,buf,len); return true;
+    (void)d; assert(off+len<=sizeof(medium)); writes++;
+    if(fail_write) {
+        if(partial_failure) memcpy(medium+off,buf,len/2);
+        return false;
+    }
+    memcpy(medium+off,buf,len); return true;
 }
 static bool fake_flush(struct block_device *d) { (void)d; flushes++; return !fail_flush; }
 static void mbr_entry(unsigned slot, uint8_t type, uint32_t start, uint32_t count) {
@@ -75,7 +82,63 @@ static void test_mbr(void) {
     mbr_entry(0,5,1,4); assert(block_register_mbr_partitions(mbr_disk())==0);
     mbr_entry(0,7,1,4); medium[510]=0; assert(block_register_mbr_partitions(mbr_disk())==0);
 }
+static void test_batches(void) {
+    static uint8_t input[sizeof(medium)], output[sizeof(medium)], expected[sizeof(medium)];
+    const unsigned offsets[]={0,1,510,512,4095,4096};
+    const unsigned lengths[]={0,1,511,512,513,4095,4096,4097,32768};
+    for (unsigned a=0;a<sizeof(offsets)/sizeof(*offsets);a++) {
+        for (unsigned b=0;b<sizeof(lengths)/sizeof(*lengths);b++) {
+            block_init(); memset(medium,0x69,sizeof(medium));
+            struct block_device *d=block_register("batch",512,sizeof(medium)/512,fake_read,fake_write,NULL);
+            d->max_transfer_bytes=4096;
+            unsigned off=offsets[a], n=lengths[b];
+            memcpy(expected,medium,sizeof(medium));
+            for(unsigned i=0;i<n;i++) input[i]=(uint8_t)(i*37+11);
+            memcpy(expected+off,input,n);
+            assert(block_write(d,off,input,n) && !memcmp(medium,expected,sizeof(medium)));
+            assert(block_read(d,off,output,n) && !memcmp(output,input,n));
+        }
+    }
+    block_init(); reads=writes=0; memset(medium,0x69,sizeof(medium));
+    struct block_device *d=block_register("batch",512,sizeof(medium)/512,fake_read,fake_write,NULL);
+    d->max_transfer_bytes=4096;
+    assert(block_write(d,0,input,8192) && reads==0 && writes==2);
+    assert(block_read(d,0,output,8192) && reads==0 && !memcmp(input,output,8192));
+    cache_invalidate_range(d,0,16);
+    assert(block_read(d,0,output,8192) && reads==2 && !memcmp(input,output,8192));
+    cache_invalidate_range(d,0,16); fail_read=true; reads=0;
+    assert(!block_read(d,0,output,8192) && reads==1);
+    fail_read=false;
+    assert(block_read(d,0,output,4096) && reads==2); /* Failure published no cache entries. */
+    /* A cached middle sector splits a miss run without rereading that sector. */
+    cache_invalidate_range(d,0,16); reads=0;
+    assert(block_read(d,1024,output,512) && reads==1);
+    assert(block_read(d,0,output,4096) && reads==3 && !memcmp(input,output,4096));
+    /* All sectors potentially touched by a failed write must be reloaded. */
+    memset(input,0xab,4096); fail_write=partial_failure=true;
+    unsigned before=writes;
+    assert(!block_write(d,0,input,8192) && writes==before+1);
+    fail_write=partial_failure=false; reads=0;
+    assert(block_read(d,0,output,4096) && reads==1 && !memcmp(output,medium,4096));
+    for(unsigned i=0;i<2048;i++) assert(output[i]==0xab);
+    /* Partition aliases share the parent's batching and invalidation. */
+    struct partition_block_device part={.parent=d,.offset=512,.size=8192};
+    struct block_device *p=block_register("part",512,16,partition_read,partition_write,&part);
+    reads=writes=0;
+    assert(block_write(p,0,input,4096) && reads==0 && writes==1);
+    assert(block_read(d,512,output,4096) && reads==0 && !memcmp(input,output,4096));
+    assert(block_read(p,0,output,4096) && reads==0 && !memcmp(input,output,4096));
+    assert(!block_write(p,8191,input,2) && writes==1);
+    assert(!block_read(p,8191,output,2) && reads==0);
+    /* Batching must retain service opportunities through long cache operations. */
+    service_blocks=0; last_service_us=0; clock_us=1000;
+    unsigned yields_before=service_yields;
+    assert(block_read(d,0,output,32768));
+    assert(service_yields>yields_before && io_depth==0);
+    clock_us=0;
+}
 int main(void) {
+    test_batches(); service_yields=0;
     test_mbr();
     block_init(); memset(medium,'a',sizeof(medium));
     struct block_device *d=block_register("disk",512,8,fake_read,fake_write,NULL);
@@ -122,5 +185,5 @@ int main(void) {
     clock_ready=false; service_blocks=0;
     for (unsigned i=0; i<256; i++) assert(block_write(d,0,&c,1));
     assert(service_yields==2 && !irq_enabled && io_depth==0);
-    puts("block-host: PASS (cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, MBR bounds/overlap/protection, flush errors)");
+    puts("block-host: PASS (bounded batching, failed batch invalidation/publication, unaligned I/O, cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, MBR bounds/overlap/protection, flush errors)");
 }

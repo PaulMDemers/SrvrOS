@@ -20,7 +20,10 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     parser.add_argument('--ovmf',default=usb.default_ovmf_path())
+    parser.add_argument('--write-rounds',type=int,default=3,
+        help='Independent active-write echo samples (default: 3)')
     args=parser.parse_args()
+    if not 1<=args.write_rounds<=10: parser.error('--write-rounds must be between 1 and 10')
     root=Path(__file__).resolve().parents[1]; logs=root/'build/review'
     logs.mkdir(parents=True,exist_ok=True)
     serial=logs/'workspace-latency-serial.log';serial.unlink(missing_ok=True)
@@ -73,14 +76,16 @@ def main():
                     measurements['idle_ms']=[echo_sample() for _ in range(10)]
                     # Slow only the disposable USB disk to expose service/ownership stalls.
                     call(qmp,{'execute':'block_set_io_throttle','arguments':{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':200}})
-                    offset=len(read())
-                    usb.send_qmp_text(qmp,"sh -c 'dd if=/dev/zero of=load.bin bs=4096 count=128; echo disk-finished' &\n",0.025)
-                    wait_for(serial,lambda s:'/fat/bin/dd entry=' in s[offset:],process,30)
-                    assert '\ndisk-finished\n' not in read()[offset:]
-                    measurements['during_usb_write_ms']=[echo_sample()]
-                    wait_for(serial,lambda s:'\ndisk-finished\n' in s[offset:],process,90)
+                    measurements['during_usb_write_ms']=[]
+                    for _ in range(args.write_rounds):
+                        offset=len(read())
+                        usb.send_qmp_text(qmp,"sh -c 'dd if=/dev/zero of=load.bin bs=4096 count=128; echo disk-finished' &\n",0.025)
+                        wait_for(serial,lambda s:'/fat/bin/dd entry=' in s[offset:],process,30)
+                        assert '\ndisk-finished\n' not in read()[offset:]
+                        measurements['during_usb_write_ms'].append(echo_sample())
+                        wait_for(serial,lambda s:'\ndisk-finished\n' in s[offset:],process,90)
+                        cmd('echo disk-keys-retained','\ndisk-keys-retained\n')
                     call(qmp,{'execute':'block_set_io_throttle','arguments':{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':0}})
-                    cmd('echo disk-keys-retained','\ndisk-keys-retained\n')
                     offset=len(read())
                     usb.send_qmp_text(qmp,"sh -c 'seq 1 20000; echo output-finished' &\n",0.025)
                     wait_for(serial,lambda s:'\n100\n' in s[offset:],process,30)

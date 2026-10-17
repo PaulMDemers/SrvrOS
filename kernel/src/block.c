@@ -470,6 +470,34 @@ static void service_checkpoint(void) {
     }
 }
 
+static uint64_t batch_bytes(struct block_device *device, uint64_t remaining) {
+    uint64_t limit=device->max_transfer_bytes;
+    if (limit>BLOCK_CACHE_MAX_BLOCK_SIZE) limit=BLOCK_CACHE_MAX_BLOCK_SIZE;
+    if (limit>remaining) limit=remaining;
+    return limit-limit%device->block_size;
+}
+
+/* Publish only completed I/O. Ownership excludes other cache users even when
+ * the driver yields to keyboard/console services while DMA is in flight. */
+static void cache_publish(struct block_device *device, uint64_t first,
+    const uint8_t *data, uint64_t bytes) {
+    for (uint64_t done=0; done<bytes; done+=device->block_size, first++) {
+        struct block_cache_entry *entry=cache_lookup(device,first);
+        if (!entry) entry=cache_pick_victim();
+        copy_memory(entry->data,data+done,device->block_size);
+        entry->device=device; entry->block_index=first;
+        entry->last_used=++cache_clock; entry->valid=true;
+        service_checkpoint();
+    }
+}
+
+static void cache_invalidate_range(struct block_device *device, uint64_t first, uint64_t count) {
+    for (unsigned i=0;i<BLOCK_CACHE_ENTRIES;i++) {
+        if (cache[i].valid && cache[i].device==device &&
+            cache[i].block_index>=first && cache[i].block_index-first<count) cache[i].valid=false;
+    }
+}
+
 static bool read_locked(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
     if (device == 0 || !device->used || device->read == 0 || buffer == 0) {
         return false;
@@ -490,6 +518,18 @@ static bool read_locked(struct block_device *device, uint64_t offset, void *buff
         uint64_t absolute = offset + copied;
         uint64_t block_index = absolute / device->block_size;
         uint64_t block_offset = absolute % device->block_size;
+        uint64_t batch = block_offset ? 0 : batch_bytes(device,length-copied);
+        if (batch && !cache_lookup(device,block_index)) {
+            /* Stop before a cached sector; never replace a hit with disk I/O. */
+            uint64_t bytes=device->block_size;
+            while (bytes<batch && !cache_lookup(device,block_index+bytes/device->block_size))
+                bytes+=device->block_size;
+            cache_misses+=bytes/device->block_size;
+            if (!device->read(device,absolute,out+copied,bytes)) return false;
+            cache_publish(device,block_index,out+copied,bytes);
+            copied+=bytes;
+            continue;
+        }
         uint64_t chunk = device->block_size - block_offset;
         if (chunk > length - copied) {
             chunk = length - copied;
@@ -527,6 +567,17 @@ static bool write_locked(struct block_device *device, uint64_t offset, const voi
         uint64_t absolute = offset + copied;
         uint64_t block_index = absolute / device->block_size;
         uint64_t block_offset = absolute % device->block_size;
+        uint64_t batch = block_offset ? 0 : batch_bytes(device,length-copied);
+        if (batch) {
+            /* Full sectors need no read-before-write. A failed multi-sector
+             * write may have changed any prefix: invalidate the entire range. */
+            cache_invalidate_range(device,block_index,batch/device->block_size);
+            if (!device->write(device,absolute,in+copied,batch)) return false;
+            cache_write_throughs+=batch/device->block_size;
+            cache_publish(device,block_index,in+copied,batch);
+            copied+=batch;
+            continue;
+        }
         uint64_t chunk = device->block_size - block_offset;
         if (chunk > length - copied) {
             chunk = length - copied;

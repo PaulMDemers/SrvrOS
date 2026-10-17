@@ -15,6 +15,7 @@ static uint8_t disk[8192], cdb[16];
 static uint32_t tag, length;
 static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
 static bool empty;
+static uint32_t sector_bytes=512;
 static unsigned diagnosed;
 static void diagnose(void *ctx) { assert(ctx==&storage);diagnosed++; }
 void console_printf(const char *f,...) {(void)f;}
@@ -46,10 +47,12 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
         assert(n==length);
         if(cdb[0]==0x12) { assert(in); memset(data,0,n); }
         else if(cdb[0]==3) { assert(in); memset(data,0,n); ((uint8_t *)data)[0]=0x70; ((uint8_t *)data)[2]=empty?2:6; senses++; }
-        else if(cdb[0]==0x25) { assert(in); put_be32(data,15); put_be32((uint8_t *)data+4,512); }
+        else if(cdb[0]==0x25) { assert(in); put_be32(data,sizeof(disk)/sector_bytes-1); put_be32((uint8_t *)data+4,sector_bytes); }
         else {
             assert((cdb[0]==0x28 && in)||(cdb[0]==0x2a && !in));
-            uint32_t off=be32(cdb+2)*512; assert(off+n<=sizeof(disk));
+            uint32_t count=((uint32_t)cdb[7]<<8)|cdb[8];
+            assert(count && n==count*sector_bytes && n<=4096);
+            uint32_t off=be32(cdb+2)*sector_bytes; assert(off+n<=sizeof(disk));
             if(in) memcpy(data,disk+off,n); else { memcpy(disk+off,data,n); writes++; }
         }
         phase=2; if(fault==3) *actual=n-1; return true;
@@ -68,8 +71,44 @@ static void reset(void) {
     memset(&storage,0,sizeof(storage)); memset(&block,0,sizeof(block));
     memset(disk,0x69,sizeof(disk)); phase=calls=writes=syncs=senses=tur_failures=fault=depth=0;
     empty=foreign=false; irq_enabled=true;
+    sector_bytes=512;
+}
+static void test_batches(void) {
+    static uint8_t expected[sizeof(disk)], input[sizeof(disk)], output[sizeof(disk)];
+    const unsigned offsets[]={0,1,510,512,4095,4096,8191};
+    const unsigned lengths[]={0,1,2,511,512,513,4095,4096,4097,8192};
+    for (unsigned sector=512;sector<=4096;sector*=2) {
+        for (unsigned a=0;a<sizeof(offsets)/sizeof(*offsets);a++) {
+            for (unsigned b=0;b<sizeof(lengths)/sizeof(*lengths);b++) {
+                unsigned off=offsets[a], n=lengths[b];
+                if (n>sizeof(disk)-off) continue;
+                reset(); sector_bytes=sector;
+                assert(usb_storage_attach(&storage,&storage,bulk,true));
+                assert(block.max_transfer_bytes==4096);
+                memset(expected,0x69,sizeof(expected));
+                for (unsigned i=0;i<n;i++) input[i]=(uint8_t)(i*37+11);
+                memcpy(expected+off,input,n);
+                assert(block.write(&block,off,input,n));
+                assert(!memcmp(disk,expected,sizeof(disk)));
+                memset(output,0,sizeof(output));
+                assert(block.read(&block,off,output,n) && !memcmp(output,input,n));
+                assert(irq_enabled && !depth && !storage.busy);
+            }
+        }
+    }
+    reset(); assert(usb_storage_attach(&storage,&storage,bulk,true));
+    unsigned before=calls;
+    assert(block.write(&block,0,input,sizeof(input)));
+    assert(writes==2 && calls-before==6); /* Two commands, no prereads. */
+    before=calls;
+    assert(block.read(&block,0,output,sizeof(output)) && !memcmp(input,output,sizeof(input)));
+    assert(calls-before==6);
+    fault=5; before=calls;
+    assert(!block.write(&block,0,input,sizeof(input)) && storage.failed);
+    assert(calls-before==3); /* Ambiguous first batch: no second batch/retry. */
 }
 int main(void) {
+    test_batches();
     reset(); tur_failures=2; assert(usb_storage_attach(&storage,&storage,bulk,false));
     assert(senses==2 && block.block_count==16 && block.block_size==512 && !block.write && !block.flush);
     assert(storage.errors==2 && storage.error_command==4 && storage.error_opcode==0);
@@ -116,5 +155,5 @@ int main(void) {
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);
     }
-    puts("usb-storage-host: PASS (BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
+    puts("usb-storage-host: PASS (4 KiB batches, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
 }

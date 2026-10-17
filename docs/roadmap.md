@@ -6,6 +6,9 @@ The [first implementation batch](console-optimization-2026-10-16.md) covers
 console/input, timing and storage error handling; GUI work is deferred.
 The [USB file workload milestone](usb-file-workload-2026-10-17.md) records the
 source checkpoint, clean-build correction and expanded automatic hardware test.
+The [USB batching and responsiveness update](usb-batching-2026-10-17.md) follows
+the successful five-round laptop checkpoint with bounded transfers and measured
+shell stalls; finer filesystem synchronization remains necessary.
 The milestone list below records earlier development; use the new plan for
 mixed-case text, rendering performance, timing and hardware work.
 

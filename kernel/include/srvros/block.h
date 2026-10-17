@@ -24,6 +24,9 @@ struct block_device {
     const char *name;
     uint64_t block_size;
     uint64_t block_count;
+    /* Opt-in aligned I/O batching; zero retains single-block cache transfers.
+     * The cache caps this at 4 KiB and preserves synchronous write-through. */
+    uint32_t max_transfer_bytes;
     block_read_fn read;
     block_write_fn write;
     block_flush_fn flush; /* NULL on writable media means durability unsupported. */

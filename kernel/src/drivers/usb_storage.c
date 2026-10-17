@@ -96,10 +96,12 @@ static bool begin(struct usb_storage *s, uint64_t *flags) {
 static void end(struct usb_storage *s, uint64_t flags) {
     s->busy=false; if(s->services) scheduler_io_end(); restore_irq(flags);
 }
-static bool sector(struct usb_storage *s, uint32_t lba, bool write) {
-    uint8_t cdb[10]={write?0x2a:0x28,0,0,0,0,0,0,0,1,0};
+static bool sectors(struct usb_storage *s, uint32_t lba, uint32_t count, bool write) {
+    uint8_t cdb[10]={write?0x2a:0x28,0,0,0,0,0,0,0,0,0};
+    if (!count || count>sizeof(s->data)/s->sector_size) return false;
     put_be32(cdb+2,lba);
-    return command(s,cdb,10,!write,s->data,s->sector_size)==0;
+    cdb[7]=(uint8_t)(count>>8); cdb[8]=(uint8_t)count;
+    return command(s,cdb,10,!write,s->data,count*s->sector_size)==0;
 }
 static bool transfer(struct block_device *d, uint64_t offset, void *buffer, uint64_t length, bool write) {
     struct usb_storage *s=d->private_data;
@@ -108,12 +110,17 @@ static bool transfer(struct block_device *d, uint64_t offset, void *buffer, uint
     bool ok=true;
     while(length) {
         uint32_t within=offset%s->sector_size, n=s->sector_size-within;
+        if (!within && length>=s->sector_size) {
+            n=length>sizeof(s->data)?sizeof(s->data):(uint32_t)length;
+            n-=n%s->sector_size;
+        }
         if(n>length) n=(uint32_t)length;
         uint32_t lba=(uint32_t)(offset/s->sector_size);
-        if ((!write || within || n<s->sector_size) && !sector(s,lba,false)) { ok=false; break; }
+        uint32_t count=(within+n+s->sector_size-1)/s->sector_size;
+        if ((!write || within || n<s->sector_size) && !sectors(s,lba,count,false)) { ok=false; break; }
         if(write) {
             copy(s->data+within,buffer,n);
-            if(!sector(s,lba,true)) { ok=false; break; }
+            if(!sectors(s,lba,count,true)) { ok=false; break; }
         } else copy(buffer,s->data+within,n);
         buffer=(uint8_t *)buffer+n; offset+=n; length-=n;
     }
@@ -211,6 +218,7 @@ bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,boo
     }
     s->block=block_register(s->name,bytes,s->sectors,read_blocks,writable?write_blocks:0,s);
     if(!s->block) return false;
+    s->block->max_transfer_bytes=sizeof(s->data);
     if(writable) s->block->flush=flush;
     console_printf("usb-storage: %s blocks=%u sector=%u mode=%s\n",s->name,s->sectors,(uint64_t)bytes,writable?"rw":"read-only");
     block_register_mbr_partitions(s->block);
