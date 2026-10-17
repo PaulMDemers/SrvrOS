@@ -123,3 +123,63 @@ QEMU runs subsequently passed against that final payload.
 Evidence is in `build/review/workspace-shell-*`, `workspace-latency.json`, and the
 `autotest-*` report/serial files. Physical validation of this revision is pending;
 the previous workspace persistence release remains available for rollback.
+
+## Laptop timeout and redirected-output correction
+
+Physical run `d68f1e4b34d95ab3`, release `dbc08f2aca95a03c`, reported FAIL.
+The existing storage tests passed, but the second shell phase exceeded its
+120-second deadline (235,049,773 microseconds across the complete shell workload).
+The open-file guard correctly kept the machine at the monitor instead of
+rebooting with live handles. The photo shows a process exiting afterward; this
+was not a successful automatic return.
+
+Ubuntu collected the CRC-validated failure report and preserved a complete copy
+of the partial shell directory in `build/hardware-tests/d68f1e4b34d95ab3/`.
+The document, reopened document, settings, profile, complete four-line history,
+first-phase marker and 512 KiB payload all matched. The transcript reached
+`exit`; the final verification marker and history-proof file were absent.
+Offline `fsck.exfat -n` reported clean, with 14 directories and 57 files.
+
+The redirected-output path called `process_file_flush` after every write syscall.
+Unlike ordinary file-descriptor writes, even a single echoed character caused
+an exFAT replacement-file transaction. The recorded interactive history session
+therefore repeatedly rewrote its growing USB transcript. This is a concrete
+source of avoidable I/O consistent with the laptop timeout.
+
+Redirected stdin/stdout/stderr file writes now use the existing buffered file
+path. Process exit flushes redirected write handles before publishing its status,
+including handles still shared with a waiting parent, and reports flush/close
+failure as exit status 1 when the requested status was 0. Existing nonzero exit
+statuses are retained. Explicit `fsync` resolves redirected descriptors 0–2;
+`sync` and final close also retain their existing flush behavior. Pipes continue
+to deliver immediately and console output is unchanged. The 120-second test
+deadline is unchanged.
+
+An independently opened file can see the last flushed contents while its producer
+is still running: use `fsync`, `sync` or process completion before readback.
+This does not add coherent live readers or change the existing 16 MiB write-buffer
+limit. It also does not remove the filesystem mutation ownership restriction
+identified by the slow-disk latency test.
+
+The new host regression exercises the actual process I/O code: 1,000 one-byte
+redirected writes produce no filesystem transaction until flush/exit, then one
+exact write. It covers a parent-held duplicate, explicit flush, stderr aliasing,
+writable stdin, immediate pipe delivery, and injected save failures. Physical
+confirmation of the correction requires a fresh one-shot run.
+
+The workspace regression also caught a separate serial RX race: `ed -s` was
+received as `ed- s`. Polling could read a UART byte, be interrupted by the RX
+handler publishing the next byte, then publish the original byte afterward.
+Polled FIFO draining and ring consumption now share an interrupt-masked section;
+the host test checks FIFO order and preservation of the caller's interrupt state.
+This concerns serial input, not USB keyboard report decoding. The failing
+transcript is preserved as `build/review/output-batching-serial-race.log`.
+
+The corrected payload passed all 21 host test groups, the workspace persistence
+smoke test and the complete QEMU automatic boot/test/return cycle. The shell
+workload in that QEMU run took 20,534,682 microseconds; this is an emulator
+measurement, not an estimate for the laptop. New validation logs use the
+`build/review/output-batching-*` prefix.
+All 481 CLI smoke commands also passed with output batching. That run started
+before the additional serial RX correction; the final-payload host, workspace
+and automatic-cycle runs cover the subsequent RX change.

@@ -326,15 +326,23 @@ static bool process_apply_stdio_fds(struct process *process,
     int64_t stderr_fd);
 
 static uint64_t process_irq_save(void) {
+#ifdef SRVROS_PROCESS_HOST_TEST
+    return 0;
+#else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     return flags;
+#endif
 }
 
 static void process_irq_restore(uint64_t flags) {
+#ifdef SRVROS_PROCESS_HOST_TEST
+    (void)flags;
+#else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#endif
 }
 
 static void process_record_exit_status_locked(uint64_t pid, uint64_t status) {
@@ -1029,17 +1037,35 @@ void process_refresh_mappings(struct process *process) {
     }
 }
 
-static void cleanup_process_files(struct process *process) {
+static bool cleanup_process_files(struct process *process) {
     if (process == NULL) {
-        return;
+        return true;
     }
-
+    bool ok = true;
     for (uint64_t i = 0; i < PROCESS_MAX_OPEN_FILES; i++) {
         if (!process->files[i].used) {
             continue;
         }
-        (void)process_file_close(process, i + 3);
+        if (process_file_close(process, i + 3) < 0) ok = false;
     }
+    return ok;
+}
+
+static uint64_t finish_process_files(struct process *process, uint64_t status) {
+    /* Redirections can share their write handle with the waiting parent.
+     * Publish them before reporting exit, even when this is not the last close.
+     * Per-character stdout writes must not each rewrite an exFAT file. */
+    bool ok = true;
+    int64_t fds[] = {process->stdin_redirect ? process->stdin_fd : -1,
+        process->stdout_redirect ? process->stdout_fd : -1,
+        process->stderr_redirect ? process->stderr_fd : -1};
+    for (unsigned i = 0; i < 3; i++) {
+        struct process_file *file = fds[i] >= 3 ? process_file_at(process, (uint64_t)fds[i]) : NULL;
+        if (file && file->type == PROCESS_FILE_VFS_WRITE &&
+            process_file_flush(process, (uint64_t)fds[i]) < 0) ok = false;
+    }
+    if (!cleanup_process_files(process)) ok = false;
+    return status != 0 || ok ? status : 1;
 }
 
 static bool file_is_exec_stdio_redirect(struct process *process, uint64_t fd) {
@@ -3003,11 +3029,7 @@ int64_t process_input_write(struct process *process, const uint8_t *buffer, uint
         return process_file_pipe_write(process, (uint64_t)process->stdin_fd, buffer, length);
     }
     if (file->type == PROCESS_FILE_VFS_WRITE) {
-        int64_t written = process_file_write(process, (uint64_t)process->stdin_fd, buffer, length);
-        if (written < 0) {
-            return written;
-        }
-        return process_file_flush(process, (uint64_t)process->stdin_fd) < 0 ? -1 : written;
+        return process_file_write(process, (uint64_t)process->stdin_fd, buffer, length);
     }
     return -1;
 }
@@ -3043,9 +3065,6 @@ int64_t process_output_write(struct process *process, uint64_t fd, const uint8_t
         process_file_write(process, (uint64_t)target_fd, buffer, length);
     if (written < 0) {
         return written;
-    }
-    if (file->type == PROCESS_FILE_VFS_WRITE && process_file_flush(process, (uint64_t)target_fd) < 0) {
-        return -1;
     }
     process->stdout_written = true;
     return written;
@@ -3732,6 +3751,14 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
     if (process == NULL) {
         write = write_file_at(fd);
     } else {
+        if (fd < 3) {
+            bool redirected = fd == 0 ? process->stdin_redirect :
+                fd == 1 ? process->stdout_redirect : process->stderr_redirect;
+            int64_t target = fd == 0 ? process->stdin_fd :
+                fd == 1 ? process->stdout_fd : process->stderr_fd;
+            if (!redirected || target < 3) return -1;
+            fd = (uint64_t)target;
+        }
         struct process_file *file = process_file_at(process, fd);
         if (file == NULL) {
             return -1;
@@ -5620,15 +5647,14 @@ void process_exit(uint64_t status) {
     }
 
     __asm__ volatile ("cli" : : : "memory");
-    process->exit_status = status;
-    process_record_exit_status(process->pid, status);
     scheduler_kill_user_threads(process, NULL);
     process_futex_cleanup_process(process);
     for (uint64_t i = 0; i < PROCESS_MAX_USER_THREADS; i++) {
         process->user_threads[i].used = false;
         process->user_threads[i].active = false;
     }
-    cleanup_process_files(process);
+    process->exit_status = finish_process_files(process, status);
+    process_record_exit_status(process->pid, process->exit_status);
     gui_process_cleanup(process->pid);
     console_release_framebuffer_mute_owner(process->pid);
     net_process_cleanup(process);

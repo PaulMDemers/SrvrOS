@@ -22,6 +22,8 @@ static bool serial_ready;
 static char rx_buffer[SERIAL_BUFFER_SIZE];
 static volatile uint64_t rx_read_index;
 static volatile uint64_t rx_write_index;
+static uint64_t serial_irq_save(void);
+static void serial_irq_restore(uint64_t flags);
 
 static bool rx_data_ready(void) {
     return (inb(COM1 + 5) & SERIAL_LSR_DATA_READY) != 0;
@@ -98,13 +100,19 @@ bool serial_try_read_char(char *out) {
         return false;
     }
 
+    /* Polling and the RX interrupt share the UART and ring. An interrupt
+     * between reading a UART byte and enqueuing it can otherwise reverse
+     * that byte with the next one handled by the interrupt. */
+    uint64_t flags = serial_irq_save();
     drain_rx_fifo();
     if (rx_read_index == rx_write_index) {
+        serial_irq_restore(flags);
         return false;
     }
 
     *out = rx_buffer[rx_read_index];
     rx_read_index = (rx_read_index + 1) % SERIAL_BUFFER_SIZE;
+    serial_irq_restore(flags);
     return true;
 }
 

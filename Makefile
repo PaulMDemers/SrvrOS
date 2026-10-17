@@ -2097,6 +2097,14 @@ build/tests/ed-host$(HOST_EXE): userspace/ed/ed.c
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 test-core: test-workspace-io
 
+.PHONY: test-process-output
+test-process-output: build/tests/process-output-host$(HOST_EXE)
+	$<
+build/tests/process-output-host$(HOST_EXE): tools/test_process_output.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-process-output
+
 .PHONY: workspace-latency-smoke
 workspace-latency-smoke: $(IMAGE) test-core
 	$(PYTHON) tools/workspace_latency_smoke.py
