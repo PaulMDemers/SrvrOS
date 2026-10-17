@@ -451,6 +451,8 @@ def main():
         "echo unset-${FOO}\n"
         "cd /fat\n"
         "pwd\n"
+        "echo 'echo inherited-script-ok' > child-cwd.sh\n"
+        "sh child-cwd.sh\n"
         "cat status.txt\n"
         "cat ./status.txt\n"
         "cat www/../status.txt\n"
@@ -632,6 +634,7 @@ def main():
     sys.stdout.write(text)
 
     expected = [
+        "\r\ninherited-script-ok\r\n",
         "srvsh ready. Type 'help' or 'help -l'.",
         "shell-ok",
         "sh",
@@ -960,6 +963,7 @@ def main():
     ]
     missing = [marker for marker in expected if marker not in text]
     forbidden = [
+        "source: cannot open child-cwd.sh",
         "cat: open failed: status.txt",
         "cat: open failed: ./status.txt",
         "cat: open failed: www/../status.txt",

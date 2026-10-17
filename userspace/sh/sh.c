@@ -6843,6 +6843,18 @@ int main(int argc, char **argv) {
             (uint64_t)DEFAULT_HISTORY_SIZE);
         setenv("HISTSIZE", default_history_size, 1);
     }
+    /* PWD is this OS's userspace working-directory handoff to child processes. */
+    const char *inherited_pwd = getenv("PWD");
+    if (inherited_pwd != 0 && inherited_pwd[0] == '/' &&
+        strlen(inherited_pwd) < sizeof(cwd)) {
+        char candidate[CLI_PATH_MAX];
+        struct srv_stat info;
+        cli_normalize_path(candidate, sizeof(candidate), "/", inherited_pwd);
+        if (cli_streq(candidate, "/") ||
+            (srv_stat(candidate, &info) >= 0 && info.type == 1)) {
+            cli_copy(cwd, sizeof(cwd), candidate);
+        }
+    }
     shell_pid = (uint64_t)srv_getpid();
     setenv("PWD", cwd, 1);
     setenv("OLDPWD", cwd, 1);
