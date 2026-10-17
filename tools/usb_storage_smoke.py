@@ -15,14 +15,14 @@ import uefi_usb_smoke as usb
 from hardware_boot_smoke import wait_for
 
 
-def make_iso(root, temp, writable):
+def make_iso(root, temp, writable, extra_cmdline=""):
     tree = temp / ('rw-root' if writable else 'ro-root')
     shutil.copytree(root / 'build/iso_root', tree)
     (tree / 'boot/limine/limine.conf').write_text(
         'timeout: 0\nserial: yes\n/srvros\n    protocol: limine\n'
         '    path: boot():/boot/srvros.elf\n'
         '    cmdline: srvros.log=debug srvros.storage=ram' +
-        (' srvros.usb-storage=rw' if writable else '') + '\n'
+        (' srvros.usb-storage=rw' if writable else '') + extra_cmdline + '\n'
         '    module_path: boot():/boot/initramfs.tar\n    module_string: initramfs\n')
     iso = temp / ('rw.iso' if writable else 'ro.iso')
     subprocess.run(['xorriso', '-as', 'mkisofs', '-R', '-r', '-J',

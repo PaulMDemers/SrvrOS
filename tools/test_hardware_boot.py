@@ -159,6 +159,25 @@ class InstallTests(unittest.TestCase):
         self.assertIn('srvros.autotest-release='+release, cfg)
         self.assertNotIn('srvros.usb-storage=rw', cfg)
 
+    def test_workspace_profile_roundtrip_and_install(self):
+        version = 'ram-usb-v7-workspace-37d8c5d0'
+        release = self.payload('workspace', version)
+        path = self.stage / release / 'manifest.json'
+        manifest = json.loads(path.read_text())
+        manifest['config_version'] = version
+        path.write_text(json.dumps(manifest))
+        boot.install(release)
+        cfg = (self.base / release / 'limine.conf').read_text()
+        self.assertIn('srvros.storage=ram srvros.workspace-volume=37d8c5d0', cfg)
+        self.assertNotIn('srvros.usb-storage=rw', cfg)
+        self.assertNotIn('srvros.autotest', cfg)
+
+    def test_workspace_profile_conflicts_refused(self):
+        for options in ({'diagnostic':True}, {'autotest_volume':'37d8c5d0'},
+                        {'run_id':'0123456789abcdef'}):
+            with self.assertRaises(ValueError): boot.stage(workspace_volume='37d8c5d0', **options)
+        with self.assertRaises(ValueError): boot.stage(workspace_volume='bad')
+
     def test_unrecognized_profile_rejected(self):
         version = 'ram-usb-v5-autotest-37d8c5d0-0123456789abcdeg'
         release = self.payload('bad', version)

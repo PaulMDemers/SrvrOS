@@ -9,7 +9,7 @@ static uint64_t usb_test_irq_save(void) { bool f=irq_enabled; irq_enabled=false;
 static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
 #define SRVROS_USB_STORAGE_HOST_TEST
 #include "../kernel/src/drivers/usb_storage.c"
-static struct block_device block;
+static struct block_device block, alias, other;
 static struct usb_storage storage;
 static uint8_t disk[8192], cdb[16];
 static uint32_t tag, length;
@@ -19,7 +19,8 @@ void console_printf(const char *f,...) {(void)f;}
 bool scheduler_io_begin(void) { if(foreign || boot) return false; depth++; return true; }
 bool scheduler_io_active(void) { return depth || foreign; }
 void scheduler_io_end(void) { assert(depth); depth--; }
-struct block_device *block_parent(struct block_device *d) { return d; }
+struct block_device *block_parent(struct block_device *d) { return d == &alias ? &block : d; }
+struct block_device *block_device_at(uint64_t i) { return i == 0 ? &block : i == 1 ? &alias : i == 2 ? &other : NULL; }
 bool block_enable_partition_writes(struct block_device *d) { return d->write != NULL; }
 struct block_device *block_find(const char *name) { (void)name; return NULL; }
 struct block_device *block_register(const char *name,uint64_t size,uint64_t count,block_read_fn r,block_write_fn w,void *p) {
@@ -73,6 +74,11 @@ int main(void) {
     boot=true; assert(block.read(&block,0,buf,512)); assert(!depth); boot=false;
     assert(usb_storage_is_device(&block) && !usb_storage_is_device(NULL));
     assert(usb_storage_enable_volume_writes(&block) && block.write && block.flush);
+    alias.write=other.write=block.write;
+    storage.busy=true; assert(!usb_storage_disable_volume_writes(&block) && block.write && alias.write);
+    storage.busy=false; assert(usb_storage_disable_volume_writes(&block) && !block.write && !block.flush);
+    assert(!alias.write && other.write);
+    assert(usb_storage_enable_volume_writes(&block));
     struct block_device unrelated={0}; assert(!usb_storage_enable_volume_writes(&unrelated));
     reset(); assert(usb_storage_attach(&storage,&storage,bulk,true));
     memset(buf,0xab,sizeof(buf)); assert(block.write(&block,510,buf,sizeof(buf)));

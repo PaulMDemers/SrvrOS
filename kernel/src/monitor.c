@@ -1,4 +1,5 @@
 #include <srvros/ahci.h>
+#include <srvros/arch.h>
 #include <srvros/latency.h>
 #include <srvros/fpu.h>
 #include <srvros/acpi.h>
@@ -21,6 +22,7 @@
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
 #include <srvros/workqueue.h>
+#include <srvros/workspace.h>
 #include <srvros/xhci.h>
 
 #include <stdbool.h>
@@ -497,7 +499,9 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("workspace: status | mount <UUID> | sync | unmount\n");
+    console_write("reboot: flush storage and return through the normal boot entry\n");
 }
 
 static void command_pci(void);
@@ -838,6 +842,10 @@ static void command_unmount(const char *mountpoint) {
         return;
     }
 
+    if (streq(mountpoint, "/work") && workspace_active()) {
+        workspace_unmount();
+        return;
+    }
     if (process_has_open_vfs_prefix(mountpoint)) {
         console_printf("unmount: busy: %s\n", mountpoint);
         return;
@@ -847,6 +855,18 @@ static void command_unmount(const char *mountpoint) {
         console_printf("unmount: not mounted: %s\n", mountpoint);
         return;
     }
+}
+
+static void command_workspace(char *args) {
+    char *cursor = args;
+    char *action = args ? next_token(&cursor) : NULL;
+    char *uuid = action ? next_token(&cursor) : NULL;
+    if (!action || (streq(action, "status") && !uuid)) workspace_status();
+    else if (streq(action, "mount") && uuid && !next_token(&cursor)) workspace_mount(uuid);
+    else if (streq(action, "sync") && !uuid) {
+        if (!workspace_sync()) console_write("workspace: sync failed\n");
+    } else if (streq(action, "unmount") && !uuid) workspace_unmount();
+    else console_write("usage: workspace [status|mount UUID|sync|unmount]\n");
 }
 
 static void command_net(const char *args) {
@@ -1039,6 +1059,16 @@ static void run_command(char *line) {
         command_mount(args);
     } else if (streq(command, "unmount")) {
         command_unmount(args);
+    } else if (streq(command, "workspace")) {
+        command_workspace(args);
+    } else if (streq(command, "reboot")) {
+        if (workspace_active() && !workspace_unmount()) {
+            console_write("reboot: workspace could not be unmounted\n");
+        } else if (process_file_sync_all() < 0 || !block_flush_all()) {
+            console_write("reboot: storage flush failed\n");
+        } else {
+            arch_reboot();
+        }
     } else if (streq(command, "fsck")) {
         exfat_check_print(args);
     } else if (streq(command, "pci")) {

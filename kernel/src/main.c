@@ -1,5 +1,6 @@
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
+#include <srvros/workspace.h>
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
@@ -536,6 +537,7 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    workspace_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
     monitor_run();
 }

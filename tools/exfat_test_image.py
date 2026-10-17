@@ -82,6 +82,11 @@ class ExfatFixture:
         return entry
 
     def add_request(self, run, version=1):
+        self.add_directory_file('srvros-tests', f'{run}.req',
+                                f'SRVROS-AUTOTEST-V{version} {run}\n'.encode())
+
+    def add_directory_file(self, directory_name, filename, payload):
+        if len(payload) > self.cluster: raise ValueError('Fixture payload too large')
         root = self.chain(self.root)
         bitmap_cluster = None
         end = 0
@@ -100,13 +105,12 @@ class ExfatFixture:
             struct.pack_into('<I', self.data, self.fat+cluster*4, 0xffffffff)
             off = self.offset(cluster)
             self.data[off:off+self.cluster] = b'\0'*self.cluster
-        payload = f'SRVROS-AUTOTEST-V{version} {run}\n'.encode()
         off = self.offset(request_cluster)
         self.data[off:off+len(payload)] = payload
-        entry = self.checked_entry(f'{run}.req', request_cluster, payload)
+        entry = self.checked_entry(filename, request_cluster, payload)
         off = self.offset(directory_cluster)
         self.data[off:off+len(entry)] = entry
-        entry = self.checked_entry('srvros-tests', directory_cluster, b'', 0x10, self.cluster)
+        entry = self.checked_entry(directory_name, directory_cluster, b'', 0x10, self.cluster)
         # Generated root chain is contiguous; ensure this entry doesn't straddle
         # a cluster boundary and the next zero entry remains inside the root.
         if end % self.cluster + len(entry) + 32 > self.cluster: raise ValueError('Root slot straddles cluster')

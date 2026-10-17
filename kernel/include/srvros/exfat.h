@@ -29,6 +29,7 @@ struct exfat_fsinfo {
 bool exfat_mount_image(const char *mountpoint, const uint8_t *image, uint64_t image_size);
 bool exfat_mount_block_device(const char *mountpoint, struct block_device *device);
 bool exfat_unmount(const char *mountpoint);
+bool exfat_is_writable(const char *mountpoint);
 bool exfat_write_file(const char *path, const uint8_t *data, uint64_t size);
 bool exfat_delete_file(const char *path);
 bool exfat_create_directory(const char *path);

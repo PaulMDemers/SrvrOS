@@ -118,6 +118,23 @@ bool usb_storage_enable_volume_writes(struct block_device *device) {
     return block_enable_partition_writes(device);
 }
 
+bool usb_storage_disable_volume_writes(struct block_device *device) {
+    if (!usb_storage_is_device(device)) return false;
+    struct block_device *parent = block_parent(device);
+    struct usb_storage *storage = parent->private_data;
+    uint64_t flags = save_irq();
+    if (storage->busy) { restore_irq(flags); return false; }
+    /* Revoke every alias, including the raw disk, before returning to the monitor. */
+    for (uint64_t i = 0; i < BLOCK_MAX_DEVICES; i++) {
+        struct block_device *alias = block_device_at(i);
+        if (alias && block_parent(alias) == parent) alias->write = NULL;
+    }
+    parent->write = NULL;
+    parent->flush = NULL;
+    restore_irq(flags);
+    return true;
+}
+
 bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,bool writable) {
     s->context=context; s->bulk=bulk;
     uint8_t inquiry[6]={0x12,0,0,0,36,0};

@@ -2068,3 +2068,19 @@ build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exf
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@
 test-exfat-hardening: build/tests/exfat-driver$(HOST_EXE)
 	$(PYTHON) tools/exfat_hardening_test.py
+
+.PHONY: test-workspace
+test-workspace: build/tests/workspace-host$(HOST_EXE) build/tests/sync-command-host$(HOST_EXE)
+	build/tests/workspace-host$(HOST_EXE)
+	build/tests/sync-command-host$(HOST_EXE)
+build/tests/workspace-host$(HOST_EXE): tools/test_workspace.c kernel/src/workspace.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+build/tests/sync-command-host$(HOST_EXE): tools/test_sync_command.c userspace/posixutils/posixutils.c $(USER_SYSROOT_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -D_DEFAULT_SOURCE -D_POSIX_C_SOURCE=200809L -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+test-core: test-workspace
+
+.PHONY: workspace-smoke
+workspace-smoke: $(IMAGE) test-core
+	$(PYTHON) tools/workspace_smoke.py

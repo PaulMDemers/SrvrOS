@@ -326,3 +326,17 @@ The immediate implementation slice is **shared mixed-case glyphs plus measured,
 batched console scrolling**. That directly addresses both reported problems;
 timing/latency work supports it, and the wider subsystem plan preserves a clear
 path beyond the first performance improvements.
+
+## Progress update: 2026-10-17
+
+The physical laptop now has a validated mixed-case console, faster rendering,
+built-in keyboard input, and USB exFAT file writes with independent Ubuntu
+readback and clean offline checks. The expanded automatic suite's hardware
+result is recorded in [USB file workload](usb-file-workload-2026-10-17.md).
+
+The next candidate adds an [opt-in persistent USB workspace](persistent-workspace-2026-10-17.md)
+for shell documents/scripts, explicit flush/unmount and controlled reboot. Its
+QEMU validation includes persistence across boots and failed-write refusal;
+physical workspace testing remains pending. `/fat` stays in RAM. GUI work stays
+deferred; physical networking and laptop power management remain separate future
+milestones, not implied by the storage results.

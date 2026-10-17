@@ -157,7 +157,10 @@ static int sync_main(int argc, char **argv) {
         usage("sync");
         return 1;
     }
-    sync();
+    if (srv_sync() < 0) {
+        fputs("sync: file or device flush failed\n", stderr);
+        return 1;
+    }
     return 0;
 }
 

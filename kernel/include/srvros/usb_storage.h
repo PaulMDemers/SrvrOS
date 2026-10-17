@@ -16,5 +16,6 @@ struct usb_storage {
 };
 bool usb_storage_is_device(struct block_device *device);
 bool usb_storage_enable_volume_writes(struct block_device *device);
+bool usb_storage_disable_volume_writes(struct block_device *device);
 bool usb_storage_attach(struct usb_storage *, void *, usb_bulk_fn, bool writable);
 #endif

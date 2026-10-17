@@ -2651,6 +2651,19 @@ void exfat_check_print(const char *mountpoint) {
         ok ? "ok" : "failed");
 }
 
+bool exfat_is_writable(const char *mountpoint) {
+    if (!mountpoint) return false;
+    for (uint64_t i = 0; i < EXFAT_MAX_VOLUMES; i++) {
+        struct exfat_mount *mount = &mounts[i];
+        if (mount->used && streq(mount->mountpoint, mountpoint)) {
+            struct block_device *parent = block_parent(mount->volume.device);
+            return !mount->volume.write_blocked && mount->volume.device &&
+                mount->volume.device->write && parent && parent->flush;
+        }
+    }
+    return false;
+}
+
 bool exfat_unmount(const char *mountpoint) {
     if (!valid_mountpoint(mountpoint)) {
         return false;

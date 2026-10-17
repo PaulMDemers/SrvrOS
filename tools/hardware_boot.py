@@ -23,6 +23,7 @@ DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[56]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
+WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 
 
 def digest(path):
@@ -37,10 +38,13 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 def limine_config(release, version=CONFIG_VERSION):
     autotest = AUTOTEST_RE.fullmatch(version)
+    workspace = WORKSPACE_RE.fullmatch(version)
     if autotest:
         volume, run = autotest.groups()
         cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
                    f"srvros.autotest-run={run} srvros.autotest-release={release}")
+    elif workspace:
+        cmdline = f"srvros.storage=ram srvros.workspace-volume={workspace[1]}"
     elif version == CONFIG_VERSION:
         cmdline = "srvros.storage=ram"
     elif version == DIAGNOSTIC_VERSION:
@@ -76,7 +80,8 @@ def verify(directory):
     version = manifest.get("config_version")
     if version is None:
         version = next((v for v in CONFIG_VERSIONS if release_id(payload, v) == manifest["release"]), None)
-    if version not in CONFIG_VERSIONS and not (isinstance(version, str) and AUTOTEST_RE.fullmatch(version)):
+    if version not in CONFIG_VERSIONS and not (isinstance(version, str) and
+            (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     release = release_id(payload, version)
     if manifest["release"] != release or any(
@@ -86,8 +91,12 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None):
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
+    if workspace_volume is not None:
+        version = f"ram-usb-v7-workspace-{workspace_volume}"
+        if diagnostic or autotest_volume is not None or run_id is not None or not WORKSPACE_RE.fullmatch(version):
+            raise ValueError("Invalid or conflicting workspace profile")
     if autotest_volume is not None or run_id is not None:
         version = f"ram-usb-v6-autotest-{autotest_volume}-{run_id}"
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
@@ -253,6 +262,8 @@ def install(release=None):
     print("No reboot has been requested.")
     if AUTOTEST_RE.fullmatch(verify(source).get("config_version", "")):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
+    elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
+        print("Workspace profile: prepared UUID-selected USB volume mounted at /work; boot filesystem stays in RAM.")
     else:
         print("Guest root filesystem/log changes are held in RAM.")
 

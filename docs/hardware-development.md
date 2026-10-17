@@ -221,3 +221,10 @@ After confirming the physical USB mount, use the
 [automatic hardware test cycle](automated-hardware-tests.md) to prepare a
 single-use request, boot a specific build, save and flush results to exFAT,
 request a reset back to Ubuntu and validate the persisted report.
+
+## Persistent documents and scripts
+
+The [opt-in USB workspace](persistent-workspace-2026-10-17.md) selects a prepared
+exFAT volume by UUID and mounts it at `/work`, with explicit flush/unmount and a
+monitor reboot command. The boot filesystem stays in RAM. Use that guide for
+preparation, the shell workflow, validation, and current filesystem limits.
