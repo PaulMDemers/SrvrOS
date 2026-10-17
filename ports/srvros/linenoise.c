@@ -526,63 +526,6 @@ static int consume_escape(char *buffer,
     return 0;
 }
 
-static int consume_bracket_code(char *buffer,
-    size_t capacity,
-    size_t *length,
-    size_t *position,
-    size_t *history_index,
-    char *draft,
-    int *draft_saved,
-    int code) {
-    if (code == 'A') {
-        history_prev(buffer, capacity, length, position, history_index, draft, draft_saved);
-        return 1;
-    }
-    if (code == 'B') {
-        history_next(buffer, capacity, length, position, history_index, draft, draft_saved);
-        return 1;
-    }
-    if (code == 'C') {
-        if (*position < *length) {
-            (*position)++;
-        }
-        return 1;
-    }
-    if (code == 'D') {
-        if (*position > 0) {
-            (*position)--;
-        }
-        return 1;
-    }
-    return 0;
-}
-
-static int consume_bracket_escape(char *buffer,
-    size_t capacity,
-    size_t *length,
-    size_t *position,
-    size_t *history_index,
-    char *draft,
-    int *draft_saved,
-    int *pending_byte) {
-    int code = read_byte_scan_with_pending(pending_byte);
-    if (code < 0) {
-        return 0;
-    }
-    if (consume_bracket_code(buffer,
-            capacity,
-            length,
-            position,
-            history_index,
-            draft,
-            draft_saved,
-            code)) {
-        return 1;
-    }
-    push_pending_byte(pending_byte, code);
-    return -1;
-}
-
 char *linenoise(const char *prompt) {
     char buffer[LINENOISE_MAX_LINE];
     char draft[LINENOISE_MAX_LINE];
@@ -595,7 +538,6 @@ char *linenoise(const char *prompt) {
     size_t history_index = history_len;
     int draft_saved = 0;
     int pending_byte = -1;
-    int awaiting_bracket_code = 0;
     buffer[0] = '\0';
     draft[0] = '\0';
     kill[0] = '\0';
@@ -713,51 +655,6 @@ char *linenoise(const char *prompt) {
                 kill,
                 sizeof(kill),
                 &pending_byte);
-        } else if (awaiting_bracket_code) {
-            awaiting_bracket_code = 0;
-            if (consume_bracket_code(buffer,
-                    sizeof(buffer),
-                    &length,
-                    &position,
-                    &history_index,
-                    draft,
-                    &draft_saved,
-                    c)) {
-                refresh_line(prompt, buffer, length, position, &rendered_length);
-                continue;
-            }
-            push_pending_byte(&pending_byte, c);
-            if (position == length) {
-                insert_at(buffer, sizeof(buffer), &length, &position, '[');
-                ln_write_len(buffer + length - 1, 1);
-                rendered_length++;
-                continue;
-            }
-            insert_at(buffer, sizeof(buffer), &length, &position, '[');
-        } else if (c == '[') {
-            int handled = consume_bracket_escape(buffer,
-                    sizeof(buffer),
-                    &length,
-                    &position,
-                    &history_index,
-                    draft,
-                    &draft_saved,
-                    &pending_byte);
-            if (handled == 1) {
-                refresh_line(prompt, buffer, length, position, &rendered_length);
-                continue;
-            }
-            if (handled == 0) {
-                awaiting_bracket_code = 1;
-                continue;
-            }
-            if (position == length) {
-                insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
-                ln_write_len(buffer + length - 1, 1);
-                rendered_length++;
-                continue;
-            }
-            insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
         } else if (c >= 32 && c < 127 && position == length) {
             insert_at(buffer, sizeof(buffer), &length, &position, (char)c);
             ln_write_len(buffer + length - 1, 1);

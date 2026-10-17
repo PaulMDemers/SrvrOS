@@ -1,5 +1,15 @@
 # QEMU A1466 Input Rehearsal Model
 
+> **Superseded hardware assumptions — 2026-10-16:** Linux on the target
+> MacBookAir7,2 identifies `8086:9cba` at `00:16.0` as MEI, and `8086:9ce6`
+> at `00:15.4` as GSPI. The working internal keyboard is USB `05ac:0291`
+> on root port 5; the ACPI SPI topcase child exists but is unbound. The historical driver
+> and custom emulator used the incorrect `9cba` identity. The kernel now gates
+> experimental SPI and matches GSPI `9ce6`; the emulator still needs correction.
+> Its agreement with the old driver does not validate physical hardware.
+> See the [current review](../../docs/project-review-2026-10-16.md). The notes below preserve the earlier
+> investigation and should not override this newer evidence.
+
 This package adds a focused Apple MacBook Air A1466 input personality to QEMU
 10.2.0. It is not a complete MacBook machine model. It emulates the hardware
 surface needed to develop and regression-test the SrvrOS Broadwell LPSS

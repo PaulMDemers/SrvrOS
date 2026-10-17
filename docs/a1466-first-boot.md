@@ -1,5 +1,15 @@
 # MacBook Air A1466 First Boot Checklist
 
+> **Superseded hardware assumptions — 2026-10-16:** Linux on the target
+> MacBookAir7,2 identifies `8086:9cba` at `00:16.0` as MEI, and `8086:9ce6`
+> at `00:15.4` as GSPI. The working internal keyboard is USB `05ac:0291`
+> on root port 5; the ACPI SPI topcase child exists but is unbound. The historical driver
+> and custom emulator used the incorrect `9cba` identity. The kernel now gates
+> experimental SPI and matches GSPI `9ce6`; the emulator still needs correction.
+> Its agreement with the old driver does not validate physical hardware.
+> See the [current review](project-review-2026-10-16.md). The notes below preserve the earlier
+> investigation and should not override this newer evidence.
+
 This checklist is for the Apple MacBook Air A1466 target. It assumes the USB
 input path is expected to work through xHCI, possibly behind a USB2 hub, and
 that the internal trackpad may appear as a generic absolute HID pointer.

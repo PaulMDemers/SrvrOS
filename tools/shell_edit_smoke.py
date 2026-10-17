@@ -123,6 +123,8 @@ def main():
                 b" wrong",
                 bytes([1]) + b"echo" + bytes([5]) + b"-ok\n",
                 b"echo discard-this" + bytes([21]) + b"echo ctrl-u-ok\n",
+                b"echo literal-[A]-[B]-[C]-[D]\n",
+                b"echo literal-[\n",
                 b"echo hist-ok\n",
                 bytes([27]) + b"[A\n",
                 b"echo draft" + bytes([27]) + b"[A" + bytes([27]) + b"[B\n",
@@ -161,6 +163,8 @@ def main():
     sys.stdout.write(text)
 
     expected = [
+        "literal-[A]-[B]-[C]-[D]\r\n",
+        "literal-[\r\n",
         "completion-ok",
         "prefix-alpha",
         "abc",

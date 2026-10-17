@@ -295,7 +295,7 @@ static bool is_known_apple_input_candidate(const struct pci_device *dev) {
     }
 
     switch (dev->device_id) {
-    case 0x9cba: /* Broadwell-LP LPSS SPI, named SPI1 by macOS on A1466. */
+    case 0x9ce6: /* Broadwell-LP GSPI; 0x9cba is the MEI controller. */
     case 0x9ce0: /* Broadwell-LP LPSS DMA, paired with AppleIntelLpssGspi. */
         return true;
     default:

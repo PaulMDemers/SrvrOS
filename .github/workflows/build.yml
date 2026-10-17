@@ -1,0 +1,32 @@
+name: Linux build and QEMU baseline
+on: [push, pull_request, workflow_dispatch]
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install host tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential python3 xorriso qemu-system-x86 ovmf
+      - name: Check prerequisites
+        run: make check-host
+      - name: Build BIOS and UEFI images
+        run: |
+          mkdir -p build/review
+          set -o pipefail
+          make -j2 all usb-image 2>&1 | tee build/review/build.log
+      - name: Baseline smoke tests
+        run: |
+          set -o pipefail
+          make smoke 2>&1 | tee build/review/smoke.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: baseline-logs
+          path: build/review/*.log

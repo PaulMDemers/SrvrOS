@@ -13,7 +13,8 @@
 #define PCI_COMMAND_BUS_MASTER 0x0004
 
 #define INTEL_VENDOR_ID 0x8086
-#define BROADWELL_LPSS_SPI1_DEVICE_ID 0x9cba
+/* 0x9cba is MEI, not SPI. Linux identifies this GSPI controller at 00:15.4. */
+#define BROADWELL_LPSS_SPI1_DEVICE_ID 0x9ce6
 #define BROADWELL_LPSS_DMA_DEVICE_ID 0x9ce0
 
 #define LPSS_SPI_MMIO_VIRTUAL 0xffffc001f4000000ull
@@ -423,6 +424,11 @@ bool lpss_spi_init(void) {
     lpss_spi.spi = find_intel_device(BROADWELL_LPSS_SPI1_DEVICE_ID);
     lpss_spi.dma = find_intel_device(BROADWELL_LPSS_DMA_DEVICE_ID);
     lpss_spi.profile = &lpss_profile_broadwell_lpt;
+    if (lpss_spi.spi != 0 &&
+        (lpss_spi.spi->class_code != 0x0c || lpss_spi.spi->subclass != 0x80)) {
+        console_write("lpss-spi: refusing controller with unexpected PCI class\n");
+        lpss_spi.spi = 0;
+    }
     if (lpss_spi.spi == 0) {
         console_write("lpss-spi: no Broadwell SPI1 controller\n");
         return false;

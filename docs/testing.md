@@ -9,12 +9,18 @@ disks outside the repository build outputs and temporary test directories.
 
 ## Build
 
-From MSYS2 UCRT64:
+From Linux or MSYS2 UCRT64 (see [development setup](development.md)):
 
 ```sh
-cd /c/Users/Paul/Desktop/srvros
-make -j4
+make check-host
+make -j2 all usb-image
+make smoke
 ```
+
+With the locally unpacked Ubuntu tools, prefix these commands with
+`tools/host-env.sh`. The selected baseline is narrower than the full release
+suite below. The custom SPI model has a known hardware identity error; see
+[the project review](project-review-2026-10-16.md).
 
 ## Release Verification
 

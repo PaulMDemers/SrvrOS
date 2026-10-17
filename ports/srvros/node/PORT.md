@@ -1,5 +1,12 @@
 # Node.js Port Manifest
 
+> **Checkout recovery — 2026-10-16:** The incoming gitlink referenced an
+> unpublished/unavailable Node port commit. The checkout now uses clean
+> upstream v24.16.0. The runtime milestones below are historical and have
+> not been reproduced from this restored checkout. Recover the previous
+> development machine's Node Git history before resuming the runtime port;
+> see [recovery details](../../../docs/development.md#node-port-recovery).
+
 ## Upstream
 
 - Project: Node.js

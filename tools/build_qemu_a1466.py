@@ -66,7 +66,8 @@ def main():
     package = root / "ports" / "qemu-a1466"
     source = root / "build" / "tooling" / "qemu-a1466-src"
     build = source / "build"
-    binary = build / "qemu-system-x86_64.exe"
+    binary_name = "qemu-system-x86_64" + (".exe" if os.name == "nt" else "")
+    binary = build / binary_name
     overlay = package / "src" / "a1466-lpss.c"
     patch = package / "patches" / "0001-register-a1466-lpss.patch"
 
@@ -88,18 +89,20 @@ def main():
     env = os.environ.copy()
     ucrt_bin = r"C:\msys64\ucrt64\bin"
     msys_bin = r"C:\msys64\usr\bin"
-    env["PATH"] = os.pathsep.join(
-        path for path in (ucrt_bin, msys_bin, env.get("PATH", "")) if path)
-    env["MSYSTEM"] = "UCRT64"
-    env["QEMU_BUNDLE_NO_SYMLINKS"] = "1"
+    if os.name == "nt":
+        env["PATH"] = os.pathsep.join(
+            path for path in (ucrt_bin, msys_bin, env.get("PATH", "")) if path)
+        env["MSYSTEM"] = "UCRT64"
+        env["QEMU_BUNDLE_NO_SYMLINKS"] = "1"
 
     if args.configure or not (build / "build.ninja").exists():
         bash = find_bash(args.bash)
-        source_msys = output(
+        source_msys = (output(
             [bash, "-lc", f"cygpath -u {shlex.quote(str(source))}"], env=env)
+            if os.name == "nt" else str(source))
         prefix = (root / "build" / "tooling" / "qemu-a1466-install").as_posix()
         configure = (
-            "export PATH=/ucrt64/bin:/usr/bin:$PATH; "
+            ("export PATH=/ucrt64/bin:/usr/bin:$PATH; " if os.name == "nt" else "") +
             f"cd {shlex.quote(source_msys)}; "
             f"./configure --prefix={shlex.quote(prefix)} "
             "--target-list=x86_64-softmmu --disable-docs --disable-werror"
@@ -108,9 +111,9 @@ def main():
 
     ninja = shutil.which("ninja", path=env["PATH"])
     if not ninja:
-        raise RuntimeError("ninja was not found in the MSYS2 UCRT64 environment")
+        raise RuntimeError("ninja was not found in PATH")
     run([ninja, "-C", str(build), f"-j{args.jobs}",
-         "qemu-system-x86_64.exe"], env=env)
+         binary_name], env=env)
 
     device_help = output([str(binary), "-device", "help"], env=env)
     for device in ("a1466-lpss-spi", "a1466-lpss-dma"):

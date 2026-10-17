@@ -189,17 +189,28 @@ userspace/            Freestanding ring-3 apps and support library
 
 ## Tooling
 
-Builds are driven from MSYS2 UCRT64 on Windows. The Makefile expects UCRT64
-`make`, `git`, `curl`, `unzip`, `xorriso`, Python 3, and QEMU. It downloads a
-self-contained Zig toolchain into `build/tooling/zig` and uses Zig cc plus LLD
-for freestanding C/assembly builds.
+The base OS builds on x86_64 Linux and MSYS2 UCRT64. The Makefile downloads
+checksum-verified Zig 0.15.2 and pinned Limine sources into `build/`.
+See [development setup](docs/development.md) for host packages, optional local
+tools, and the Node submodule recovery note.
 
-From an MSYS2 UCRT64 shell:
+From the repository root, with host tools installed:
 
 ```sh
-cd /c/Users/Paul/Desktop/srvros
-make -j4
+git submodule update --init --recursive
+make check-host
+make -j2 all usb-image
+make smoke
 ```
+
+On this laptop, locally unpacked Ubuntu tools are available through
+`tools/host-env.sh`; prefix Make or Python commands with that wrapper.
+
+Read the [project review](docs/project-review-2026-10-16.md) and
+[hardware notes](docs/hardware-development.md) before physical boot testing.
+The MacBookAir7,2 now boots with working built-in USB keyboard input; the earlier
+incorrect SPI binding was corrected and that experimental driver is disabled
+by default.
 
 The main artifacts are:
 
@@ -445,6 +456,7 @@ See [docs/testing.md](docs/testing.md) for the full release verification pass.
 - [Porting](docs/ports.md)
 - [Executable Format](docs/executable-format.md)
 - [Roadmap](docs/roadmap.md)
+- [Architecture review and optimization plan](docs/optimization-review-2026-10-16.md)
 - [Release notes](docs/release-notes.md)
 
 ## License
@@ -459,3 +471,8 @@ milestone behavior over crash-proof journaling, and device support is centered o
 QEMU's common x86_64 devices. It is, however, a working base for continuing
 toward a self-hosted shell, richer storage support, stronger networking, and a
 more capable userspace.
+
+## Physical laptop development
+
+See [hardware development](docs/hardware-development.md) for the tested GRUB →
+Limine boot workflow, RAM-backed test filesystem, and Linux hardware capture.

@@ -27,7 +27,13 @@ def read_for(sock, seconds):
 def read_until(sock, marker, seconds):
     data = b""
     deadline = time.time() + seconds
-    while marker not in data and time.time() < deadline:
+    while time.time() < deadline:
+        # Help pages include example prompts. Only a prompt at the end of
+        # the received output means it is safe to send the next command.
+        ready = (data.endswith(marker) if marker in (b" $ ", b"srv> ")
+                 else marker in data)
+        if ready:
+            break
         data += read_for(sock, 0.5)
     return data
 
@@ -68,8 +74,11 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=20)
     parser.add_argument("--shell-wait", type=float, default=2)
     parser.add_argument("--after-wait", type=float, default=2)
-    parser.add_argument("--line-wait", type=float, default=1.0)
-    parser.add_argument("--send-delay", type=float, default=0.001)
+    parser.add_argument("--line-wait", type=float, default=30,
+        help="Maximum wait for an ordinary command to return to the prompt.")
+    parser.add_argument("--probe-wait", type=float, default=300,
+        help="Maximum wait for the long POSIX signal/thread probe.")
+    parser.add_argument("--send-delay", type=float, default=0.003)
     parser.add_argument("--memory", default="512M")
     args = parser.parse_args()
 
@@ -593,12 +602,20 @@ def main():
             send_serial(sock, "run /fat/bin/sh\n", args.send_delay)
             output += read_until(sock, b" $ ", args.shell_wait)
             lines = script.splitlines(True)
-            for line in lines:
+            for index, line in enumerate(lines, 1):
+                if index == 1 or index % 50 == 0 or line.strip() == "posixdemo":
+                    print(f"cli-smoke: command {index}/{len(lines)}: {line.strip()}",
+                          file=sys.stderr, flush=True)
                 send_serial(sock, line, args.send_delay)
                 if line == "\x04":
                     output += read_until(sock, b"srv> ", max(args.line_wait, 2.0))
+                elif line.strip() == "posixdemo":
+                    output += read_until(sock, b" $ ", args.probe_wait)
+                elif line.strip() == "read READVAR":
+                    # This command needs the following input line to finish.
+                    output += read_for(sock, 1)
                 elif line.strip() == "exit":
-                    output += read_for(sock, args.line_wait)
+                    output += read_for(sock, 1)
                 else:
                     output += read_until(sock, b" $ ", max(args.line_wait, 2.0))
             send_serial(sock, "fsck /fat\n", args.send_delay)

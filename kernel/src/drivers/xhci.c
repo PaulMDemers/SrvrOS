@@ -35,7 +35,13 @@
 #define XHCI_USBSTS_HCH 0x00000001u
 #define XHCI_USBSTS_EINT 0x00000008u
 #define XHCI_USBSTS_CNR 0x00000800u
+#define XHCI_EXT_CAP_LEGACY 0x01
 #define XHCI_EXT_CAP_SUPPORTED_PROTOCOL 0x02
+#define XHCI_LEGACY_BIOS_OWNED (1u << 16)
+#define XHCI_LEGACY_OS_OWNED (1u << 24)
+/* USBLEGCTLSTS: preserve reserved/RO bits; clear enables and W1C events. */
+#define XHCI_LEGACY_PRESERVE ((7u << 1) | (0xffu << 5) | (7u << 17))
+#define XHCI_LEGACY_EVENTS (7u << 29)
 
 #define XHCI_OP_USBCMD 0x00
 #define XHCI_OP_USBSTS 0x04
@@ -50,6 +56,12 @@
 #define XHCI_PORTSC_PR 0x00000010u
 #define XHCI_PORTSC_PP 0x00000200u
 #define XHCI_PORTSC_CHANGE_MASK 0x00fe0000u
+#define XHCI_PORTSC_CSC (1u << 17)
+#define XHCI_PORTSC_PRC (1u << 21)
+/* PORTSC neutral writes preserve RO/RWS fields, never PED (RW1C), reset
+ * strobes, or change acknowledgements. PLS writes need LWS, which stays clear. */
+#define XHCI_PORTSC_RO ((1u << 0) | (1u << 3) | (0xfu << 10) | (1u << 30))
+#define XHCI_PORTSC_RWS ((0xfu << 5) | (1u << 9) | (3u << 14) | (7u << 25))
 
 #define XHCI_INTR0 0x20
 #define XHCI_INTR_IMAN 0x00
@@ -72,6 +84,7 @@
 #define XHCI_TRB_TYPE_COMMAND_COMPLETION 33
 
 #define XHCI_TRB_IOC (1u << 5)
+#define XHCI_TRB_ISP (1u << 2)
 #define XHCI_TRB_IDT (1u << 6)
 #define XHCI_SETUP_TRT_IN (3u << 16)
 #define XHCI_SETUP_TRT_NONE (0u << 16)
@@ -123,6 +136,10 @@ struct xhci_erst_entry {
 
 struct xhci_port_state {
     uint32_t portsc;
+    uint32_t initial_portsc;
+    uint32_t reset_portsc;
+    const char *reset_result;
+    uint8_t reset_attempts;
     uint8_t slot_type;
     uint8_t protocol_index;
 };
@@ -155,6 +172,7 @@ struct xhci_device {
     bool hid_absolute_pointer;
     bool hid_have_absolute;
     bool interrupt_pending;
+    bool interrupt_ready;
     uint8_t slot_id;
     uint8_t port_id;
     uint8_t parent_slot_id;
@@ -180,6 +198,8 @@ struct xhci_device {
     uint16_t product_id;
     uint16_t device_bcd;
     uint16_t interrupt_max_packet;
+    uint8_t interrupt_max_burst;
+    const char *stage;
     uint32_t route_string;
     uint64_t input_context_phys;
     uint64_t output_context_phys;
@@ -212,6 +232,10 @@ struct xhci_device {
 struct xhci_state {
     bool present;
     bool operational;
+    const char *stage;
+    const char *handoff;
+    uint16_t scratchpad_count;
+    uint16_t scratchpads_allocated;
     const struct pci_device *pci;
     uint64_t mmio_phys;
     uint64_t mmio_virt;
@@ -279,11 +303,19 @@ static uint64_t rdtsc(void) {
 }
 
 static uint32_t mmio_read32(uint64_t offset) {
+    #ifdef SRVROS_XHCI_TEST_MMIO
+    return xhci_test_read32(offset);
+#else
     return *(volatile uint32_t *)(xhci.mmio_virt + offset);
+#endif
 }
 
 static void mmio_write32(uint64_t offset, uint32_t value) {
+#ifdef SRVROS_XHCI_TEST_MMIO
+    xhci_test_write32(offset, value);
+#else
     *(volatile uint32_t *)(xhci.mmio_virt + offset) = value;
+#endif
 }
 
 static void mmio_write64(uint64_t offset, uint64_t value) {
@@ -316,6 +348,7 @@ static void rt_write64(uint64_t offset, uint64_t value) {
 }
 
 static void db_write32(uint64_t index, uint32_t value) {
+    __atomic_thread_fence(__ATOMIC_RELEASE);
     mmio_write32(xhci.db_base + index * 4, value);
 }
 
@@ -431,6 +464,47 @@ static void parse_supported_protocols(void) {
     }
 }
 
+/* No reset or runtime register writes while firmware still owns the controller.
+ * The polling budget is bounded, like the existing reset wait; it is not a
+ * calibrated wall clock. A timeout leaves the controller untouched. */
+static bool claim_firmware_ownership(void) {
+    uint64_t offset = ((uint64_t)(xhci.hcc_params1 >> 16) & 0xffffu) * 4;
+    xhci.handoff = "no-legacy-cap";
+    while (offset != 0) {
+        if (offset > XHCI_MMIO_MAP_SIZE - 8) {
+            xhci.handoff = "invalid-cap";
+            return false;
+        }
+        uint32_t header = mmio_read32(offset);
+        if (header == 0xffffffffu) {
+            xhci.handoff = "unreadable";
+            return false;
+        }
+        if ((header & 0xffu) == XHCI_EXT_CAP_LEGACY) {
+            mmio_write32(offset, header | XHCI_LEGACY_OS_OWNED);
+            uint64_t attempts = XHCI_RESET_TIMEOUT;
+            while ((mmio_read32(offset) & XHCI_LEGACY_BIOS_OWNED) != 0 && attempts-- != 0) {
+                __asm__ volatile ("pause");
+            }
+            if ((mmio_read32(offset) & XHCI_LEGACY_BIOS_OWNED) != 0) {
+                xhci.handoff = "BIOS-timeout";
+                console_write("xhci: firmware ownership timeout; aborting initialization\n");
+                return false;
+            }
+            uint32_t control = mmio_read32(offset + 4);
+            mmio_write32(offset + 4, (control & XHCI_LEGACY_PRESERVE) | XHCI_LEGACY_EVENTS);
+            xhci.handoff = "OS-owned";
+        }
+        uint8_t next = (header >> 8) & 0xffu;
+        if (next == 0) {
+            break;
+        }
+        offset += (uint64_t)next * 4;
+    }
+    console_printf("xhci: firmware handoff=%s\n", xhci.handoff);
+    return true;
+}
+
 static uint8_t root_port_slot_type(uint8_t root_port) {
     if (root_port == 0 || root_port > XHCI_MAX_PORTS) {
         return 0;
@@ -496,7 +570,7 @@ static bool wait_status_set(uint32_t mask, bool set, uint64_t attempts) {
 
 static bool halt_controller(void) {
     uint32_t command = op_read32(XHCI_OP_USBCMD);
-    command &= ~XHCI_USBCMD_RUN;
+    command &= ~(XHCI_USBCMD_RUN | XHCI_USBCMD_INTE);
     op_write32(XHCI_OP_USBCMD, command);
     return wait_status_set(XHCI_USBSTS_HCH, true, XHCI_RESET_TIMEOUT);
 }
@@ -539,48 +613,132 @@ static uint64_t port_offset(uint64_t index) {
     return XHCI_OP_PORTS + index * 0x10;
 }
 
-static bool reset_port(uint64_t index) {
-    uint64_t offset = port_offset(index);
-    uint32_t portsc = op_read32(offset);
-    if ((portsc & XHCI_PORTSC_CCS) == 0) {
-        return false;
-    }
-
-    uint32_t write_value = (portsc & XHCI_PORTSC_PP) | XHCI_PORTSC_PR;
-    op_write32(offset, write_value);
+/* MFINDEX advances in 125 us units while the controller runs. Unlike the
+ * uncalibrated LAPIC tick, it supplies the USB reset recovery interval here. */
+static bool wait_microframes(uint32_t count) {
+    uint32_t start = mmio_read32(xhci.rt_base) & 0x3fffu;
     for (uint64_t i = 0; i < XHCI_RESET_TIMEOUT; i++) {
-        portsc = op_read32(offset);
-        if ((portsc & XHCI_PORTSC_PR) == 0) {
-            break;
+        uint32_t now = mmio_read32(xhci.rt_base) & 0x3fffu;
+        if (((now - start) & 0x3fffu) >= count) {
+            return true;
         }
+        __asm__ volatile ("pause");
     }
-
-    portsc = op_read32(offset);
-    if ((portsc & XHCI_PORTSC_CHANGE_MASK) != 0) {
-        op_write32(offset, (portsc & XHCI_PORTSC_PP) | (portsc & XHCI_PORTSC_CHANGE_MASK));
-        portsc = op_read32(offset);
-    }
-    xhci.ports[index].portsc = portsc;
-    xhci.ports_reset++;
-    if ((portsc & XHCI_PORTSC_PED) != 0) {
-        xhci.ports_enabled++;
-        return true;
-    }
+    console_write("xhci: microframe wait timed out\n");
     return false;
 }
 
-static void reset_connected_ports(void) {
-    uint64_t count = xhci.port_count;
-    if (count > XHCI_MAX_PORTS) {
-        count = XHCI_MAX_PORTS;
+static uint32_t portsc_neutral(uint32_t state) {
+    return state & (XHCI_PORTSC_RO | XHCI_PORTSC_RWS);
+}
+
+static bool reset_port(uint64_t index) {
+    struct xhci_port_state *port = &xhci.ports[index];
+    uint64_t offset = port_offset(index);
+    uint32_t state = op_read32(offset);
+    port->reset_result = "disconnected";
+    if ((state & XHCI_PORTSC_CCS) == 0) {
+        port->portsc = state;
+        return false;
     }
+
+    /* A stale PRC must not satisfy the new reset. Flush its acknowledgement
+     * before requesting reset; PR=0 alone does not establish completion. */
+    op_write32(offset, portsc_neutral(state) | (state & XHCI_PORTSC_CHANGE_MASK));
+    state = op_read32(offset);
+    op_write32(offset, portsc_neutral(state) | XHCI_PORTSC_PR);
+    port->reset_attempts++;
+    xhci.ports_reset++;
+    port->reset_result = "reset-timeout";
+    for (uint32_t elapsed = 0; elapsed <= 500; elapsed++) {
+        state = op_read32(offset);
+        if ((state & XHCI_PORTSC_CCS) == 0) {
+            port->reset_result = "disconnected";
+            break;
+        }
+        if ((state & XHCI_PORTSC_PRC) != 0 && (state & XHCI_PORTSC_PR) == 0) {
+            port->reset_result = (state & XHCI_PORTSC_PED) ? "ready" : "reset-disabled";
+            break;
+        }
+        if (elapsed == 500) break;
+        if (!wait_microframes(8)) { /* 1 ms, bounded even if MFINDEX stalls. */
+            port->reset_result = "clock-stalled";
+            break;
+        }
+    }
+    port->reset_portsc = state; /* Keep completion/change bits for diagnostics. */
+    op_write32(offset, portsc_neutral(state) | (state & XHCI_PORTSC_CHANGE_MASK));
+    bool complete = (state & (XHCI_PORTSC_CCS | XHCI_PORTSC_PED | XHCI_PORTSC_PRC | XHCI_PORTSC_PR)) ==
+        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED | XHCI_PORTSC_PRC);
+    if (complete && !wait_microframes(80)) { /* USB reset recovery: 10 ms. */
+        port->reset_result = "clock-stalled";
+        complete = false;
+    }
+    port->portsc = op_read32(offset);
+    if ((port->portsc & (XHCI_PORTSC_CCS | XHCI_PORTSC_PED)) !=
+        (XHCI_PORTSC_CCS | XHCI_PORTSC_PED)) {
+        if (complete) port->reset_result = "lost-after-reset";
+        complete = false;
+    }
+    if (complete) {
+        xhci.ports_enabled++;
+    } else {
+        /* Enumeration must not use an old/stale enabled state after failure. */
+        port->portsc &= ~XHCI_PORTSC_PED;
+    }
+    return complete;
+}
+
+static void reset_connected_ports(void) {
+    uint64_t count = xhci.port_count < XHCI_MAX_PORTS ? xhci.port_count : XHCI_MAX_PORTS;
+    uint8_t stable[XHCI_MAX_PORTS] = {0};
+    bool handled[XHCI_MAX_PORTS] = {false};
     for (uint64_t i = 0; i < count; i++) {
-        uint32_t portsc = op_read32(port_offset(i));
-        if ((portsc & XHCI_PORTSC_CCS) != 0 && (portsc & XHCI_PORTSC_PED) == 0) {
-            reset_port(i);
-        } else {
-            xhci.ports[i].portsc = portsc;
-            if ((portsc & XHCI_PORTSC_PED) != 0) {
+        struct xhci_port_state *port = &xhci.ports[i];
+        uint32_t state = op_read32(port_offset(i));
+        port->initial_portsc = port->portsc = state;
+        port->reset_result = "no-connect";
+        /* Power root ports before waiting for devices to become visible. */
+        op_write32(port_offset(i), portsc_neutral(state) | XHCI_PORTSC_PP |
+            (state & XHCI_PORTSC_CSC));
+    }
+    /* HCRST may reconnect USB2 devices asynchronously. Observe for a full
+     * second, requiring 100 ms of stable connection before reset. This is
+     * boot discovery only; runtime hotplug is not implemented. */
+    for (uint32_t sample = 0; sample < 100; sample++) {
+        if (!wait_microframes(80)) {
+            for (uint64_t i = 0; i < count; i++) {
+                if (!handled[i]) {
+                    xhci.ports[i].reset_result = "clock-stalled";
+                    xhci.ports[i].portsc &= ~XHCI_PORTSC_PED;
+                }
+            }
+            break;
+        }
+        for (uint64_t i = 0; i < count; i++) {
+            if (handled[i]) continue;
+            struct xhci_port_state *port = &xhci.ports[i];
+            uint32_t state = op_read32(port_offset(i));
+            port->portsc = state & ~XHCI_PORTSC_PED;
+            if ((state & XHCI_PORTSC_CSC) != 0) {
+                stable[i] = 0;
+                op_write32(port_offset(i), portsc_neutral(state) | XHCI_PORTSC_CSC);
+            }
+            if ((state & XHCI_PORTSC_CCS) == 0) {
+                stable[i] = 0;
+                port->reset_result = "no-connect";
+                continue;
+            }
+            port->reset_result = "debouncing";
+            if (stable[i]++ < 10) continue;
+            handled[i] = true;
+            /* USB2 needs a fresh default address even if firmware enabled it.
+             * USB3 ports can already be enabled by link training. */
+            if (port_speed(state) <= 3 || (state & XHCI_PORTSC_PED) == 0) {
+                reset_port(i);
+            } else {
+                port->portsc = state;
+                port->reset_result = "link-ready";
                 xhci.ports_enabled++;
             }
         }
@@ -599,12 +757,53 @@ static bool alloc_frame_zero(uint64_t *phys_out, void **virt_out) {
     return true;
 }
 
+static uint16_t required_scratchpads(uint32_t hcs2) {
+    return (uint16_t)((((hcs2 >> 21) & 0x1fu) << 5) | ((hcs2 >> 27) & 0x1fu));
+}
+
+static bool allocate_scratchpads(void) {
+    xhci.scratchpad_count = required_scratchpads(xhci.hcs_params2);
+    if ((xhci.page_size & 1u) == 0) {
+        console_write("xhci: controller does not support 4 KiB pages\n");
+        return false;
+    }
+    if (xhci.scratchpad_count == 0) {
+        return true;
+    }
+    uint64_t pages = ((uint64_t)xhci.scratchpad_count * sizeof(uint64_t) + PMM_FRAME_SIZE - 1) / PMM_FRAME_SIZE;
+    uint64_t array_phys = pmm_alloc_frames_tagged(pages, PMM_FRAME_DMA);
+    if (array_phys == 0) {
+        return false;
+    }
+    uint64_t *array = pmm_phys_to_virt(array_phys);
+    zero_bytes(array, pages * PMM_FRAME_SIZE);
+    for (uint16_t i = 0; i < xhci.scratchpad_count; i++) {
+        void *buffer;
+        if (!alloc_frame_zero(&array[i], &buffer)) {
+            for (uint16_t j = 0; j < i; j++) {
+                pmm_free_frame(array[j]);
+            }
+            pmm_free_frame_range(array_phys, pages);
+            xhci.scratchpads_allocated = 0;
+            return false;
+        }
+        xhci.scratchpads_allocated++;
+    }
+    xhci.dcbaa[0] = array_phys;
+    console_printf("xhci: scratchpads allocated=%u array=%x\n",
+        (uint64_t)xhci.scratchpads_allocated, array_phys);
+    return true;
+}
+
 static bool allocate_runtime_structures(void) {
     void *virt = 0;
     if (!alloc_frame_zero(&xhci.dcbaa_phys, &virt)) {
         return false;
     }
     xhci.dcbaa = virt;
+    if (!allocate_scratchpads()) {
+        return false;
+    }
 
     if (!alloc_frame_zero(&xhci.command_ring_phys, &virt)) {
         return false;
@@ -639,7 +838,7 @@ static void program_rings(void) {
     op_write64(XHCI_OP_CRCR, xhci.command_ring_phys | 1u);
 
     uint64_t interrupter = XHCI_INTR0;
-    rt_write32(interrupter + XHCI_INTR_IMAN, 0x3);
+    rt_write32(interrupter + XHCI_INTR_IMAN, 0x1); /* Polling; IE stays clear. */
     rt_write32(interrupter + XHCI_INTR_IMOD, 0);
     rt_write32(interrupter + XHCI_INTR_ERSTSZ, 1);
     rt_write64(interrupter + XHCI_INTR_ERSTBA, xhci.erst_phys);
@@ -649,17 +848,18 @@ static void program_rings(void) {
 
 static bool start_controller(void) {
     op_write32(XHCI_OP_USBSTS, XHCI_USBSTS_EINT);
-    op_write32(XHCI_OP_USBCMD, op_read32(XHCI_OP_USBCMD) | XHCI_USBCMD_RUN | XHCI_USBCMD_INTE);
+    op_write32(XHCI_OP_USBCMD, (op_read32(XHCI_OP_USBCMD) & ~XHCI_USBCMD_INTE) | XHCI_USBCMD_RUN);
     return wait_status_set(XHCI_USBSTS_HCH, false, XHCI_RESET_TIMEOUT);
 }
 
 static bool poll_event(struct xhci_trb *event_out) {
     struct xhci_trb *event = &xhci.event_ring[xhci.event_dequeue];
-    bool cycle = (event->control & 1u) != 0;
+    bool cycle = (((volatile struct xhci_trb *)event)->control & 1u) != 0;
     if (cycle != xhci.event_cycle) {
         return false;
     }
 
+    __atomic_thread_fence(__ATOMIC_ACQUIRE);
     copy_trb(event_out, event);
     xhci.event_dequeue++;
     if (xhci.event_dequeue >= XHCI_EVENT_TRB_COUNT) {
@@ -1216,7 +1416,8 @@ static bool parse_hid_input_config(struct xhci_device *device,
     }
     device->interface_number = best_interface;
     device->interrupt_dci = best_dci;
-    device->interrupt_max_packet = best_packet;
+    device->interrupt_max_packet = best_packet & 0x7ffu;
+    device->interrupt_max_burst = device->speed == 3 ? (best_packet >> 11) & 3u : 0;
     device->interrupt_interval = best_interval;
     device->hid_keyboard = best_keyboard;
     device->hid_mouse = best_mouse || best_absolute_pointer;
@@ -1224,6 +1425,42 @@ static bool parse_hid_input_config(struct xhci_device *device,
     device->hid_boot_mouse = best_boot_mouse;
     device->hid_absolute_pointer = best_absolute_pointer;
     return true;
+}
+
+static uint8_t interrupt_interval_exponent(uint8_t speed, uint8_t interval) {
+    if (speed >= 3) {
+        if (interval < 1) interval = 1;
+        if (interval > 16) interval = 16;
+        return interval - 1;
+    }
+    /* Full/low-speed interrupt bInterval is in frames, xHCI in 2^n microframes. */
+    uint16_t microframes = (uint16_t)(interval != 0 ? interval : 1) * 8;
+    uint8_t exponent = 0;
+    while (microframes > 1) {
+        microframes >>= 1;
+        exponent++;
+    }
+    return exponent > 10 ? 10 : exponent;
+}
+
+static void setup_interrupt_input_context(struct xhci_device *device) {
+    zero_bytes(device->input_context, PMM_FRAME_SIZE);
+    context_write32(device->input_context, 0, 1, (1u << 0) | (1u << device->interrupt_dci));
+    uint32_t slot0 = context_read32(device->output_context, 0, 0);
+    slot0 = (slot0 & ~(0x1fu << 27)) | ((uint32_t)device->interrupt_dci << 27);
+    context_write32(device->input_context, 1, 0, slot0);
+    context_write32(device->input_context, 1, 1, context_read32(device->output_context, 0, 1));
+    context_write32(device->input_context, 1, 2, context_read32(device->output_context, 0, 2));
+    uint64_t ep = (uint64_t)device->interrupt_dci + 1;
+    uint32_t interval = interrupt_interval_exponent(device->speed, device->interrupt_interval);
+    uint32_t payload = (uint32_t)device->interrupt_max_packet * (device->interrupt_max_burst + 1u);
+    context_write32(device->input_context, ep, 0, interval << 16);
+    context_write32(device->input_context, ep, 1, (3u << 1) | (7u << 3) |
+        ((uint32_t)device->interrupt_max_burst << 8) | ((uint32_t)device->interrupt_max_packet << 16));
+    context_write32(device->input_context, ep, 2, (uint32_t)(device->interrupt_ring_phys | 1u));
+    context_write32(device->input_context, ep, 3, (uint32_t)(device->interrupt_ring_phys >> 32));
+    /* Average TRB Length and Max ESIT Payload are both required for periodic endpoints. */
+    context_write32(device->input_context, ep, 4, payload | (payload << 16));
 }
 
 static bool configure_interrupt_endpoint(struct xhci_device *device) {
@@ -1240,23 +1477,7 @@ static bool configure_interrupt_endpoint(struct xhci_device *device) {
     }
     device->interrupt_buffer = virt;
 
-    zero_bytes(device->input_context, PMM_FRAME_SIZE);
-    uint32_t add_flags = (1u << 0) | (1u << device->interrupt_dci);
-    context_write32(device->input_context, 0, 1, add_flags);
-    uint32_t slot0 = context_read32(device->output_context, 0, 0);
-    slot0 &= ~(0x1fu << 27);
-    slot0 |= ((uint32_t)device->interrupt_dci << 27);
-    context_write32(device->input_context, 1, 0, slot0);
-    context_write32(device->input_context, 1, 1, context_read32(device->output_context, 0, 1));
-
-    uint64_t endpoint_context = (uint64_t)device->interrupt_dci + 1;
-    uint32_t ep_info = ((uint32_t)device->interrupt_interval << 16);
-    uint32_t ep_type_packet = (3u << 1) | (7u << 3) | ((uint32_t)device->interrupt_max_packet << 16);
-    context_write32(device->input_context, endpoint_context, 0, ep_info);
-    context_write32(device->input_context, endpoint_context, 1, ep_type_packet);
-    context_write32(device->input_context, endpoint_context, 2, (uint32_t)(device->interrupt_ring_phys | 1u));
-    context_write32(device->input_context, endpoint_context, 3, (uint32_t)(device->interrupt_ring_phys >> 32));
-    context_write32(device->input_context, endpoint_context, 4, device->interrupt_max_packet);
+    setup_interrupt_input_context(device);
 
     struct xhci_trb command = {
         .parameter_low = (uint32_t)device->input_context_phys,
@@ -1342,7 +1563,7 @@ static void handle_hid_mouse_report(struct xhci_device *device) {
 }
 
 static void submit_interrupt_poll(struct xhci_device *device) {
-    if (device->interrupt_pending || (!device->hid_keyboard && !device->hid_mouse)) {
+    if (!device->interrupt_ready || device->interrupt_pending || (!device->hid_keyboard && !device->hid_mouse)) {
         return;
     }
 
@@ -1355,7 +1576,7 @@ static void submit_interrupt_poll(struct xhci_device *device) {
         .parameter_low = (uint32_t)device->interrupt_buffer_phys,
         .parameter_high = (uint32_t)(device->interrupt_buffer_phys >> 32),
         .status = (uint32_t)length,
-        .control = (XHCI_TRB_TYPE_NORMAL << 10) | XHCI_TRB_IOC,
+        .control = (XHCI_TRB_TYPE_NORMAL << 10) | XHCI_TRB_IOC | XHCI_TRB_ISP,
     };
     (void)ring_push(device->interrupt_ring,
         device->interrupt_ring_phys,
@@ -1555,6 +1776,7 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    device->stage = "address";
     if (!allocate_device_runtime(device) || !address_device(device)) {
         console_printf("xhci: enumerate port%u route=%x address failed\n",
             (uint64_t)device->port_id,
@@ -1562,6 +1784,7 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    device->stage = "device-descriptor";
     if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 18)) {
         console_printf("xhci: slot=%u device descriptor failed\n", (uint64_t)device->slot_id);
         return false;
@@ -1571,6 +1794,7 @@ static bool enumerate_device(struct xhci_device *device) {
         device->ep0_max_packet = device->descriptor_buffer[7];
     }
 
+    device->stage = "config-descriptor";
     if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, 9)) {
         console_printf("xhci: slot=%u config header failed\n", (uint64_t)device->slot_id);
         return false;
@@ -1586,6 +1810,7 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    device->stage = "select-interface";
     uint8_t configuration = 0;
     if (!parse_hid_input_config(device, total_length, &configuration)) {
         bool hub_like =
@@ -1612,19 +1837,27 @@ static bool enumerate_device(struct xhci_device *device) {
             hub_like ? " hub" : "");
         return true;
     }
+    device->stage = "set-config";
     if (!set_configuration(device, configuration)) {
         return false;
     }
     device->configured = true;
     xhci.configured_devices++;
     if (device->hid_boot_keyboard || device->hid_boot_mouse) {
-        (void)set_hid_boot_protocol(device);
+        device->stage = "boot-protocol";
+        if (!set_hid_boot_protocol(device)) {
+            console_printf("xhci: slot=%u boot protocol rejected\n", (uint64_t)device->slot_id);
+            return false;
+        }
     }
 
+    device->stage = "interrupt-endpoint";
     if (!configure_interrupt_endpoint(device)) {
         console_printf("xhci: slot=%u interrupt endpoint config failed\n", (uint64_t)device->slot_id);
         return false;
     }
+    device->interrupt_ready = true;
+    device->stage = "ready";
     if (device->hid_keyboard) {
         xhci.hid_keyboards++;
     } else if (device->hid_mouse) {
@@ -1681,19 +1914,31 @@ static void enumerate_connected_ports(void) {
 }
 
 static bool bringup_command_path(void) {
+    xhci.stage = "firmware-handoff";
+    if (!claim_firmware_ownership()) {
+        return false;
+    }
+    xhci.stage = "controller-ready";
+    if (!wait_status_set(XHCI_USBSTS_CNR, false, XHCI_RESET_TIMEOUT)) {
+        return false;
+    }
+    xhci.stage = "reset";
     if (!reset_controller()) {
         return false;
     }
+    xhci.stage = "dma-allocation";
     if (!allocate_runtime_structures()) {
         console_write("xhci: DMA allocation failed\n");
         return false;
     }
+    xhci.stage = "start";
     program_rings();
     if (!start_controller()) {
         console_write("xhci: run timeout\n");
         return false;
     }
 
+    xhci.stage = "command-test";
     if (submit_command(XHCI_TRB_TYPE_NOOP, 0, 0)) {
         xhci.noop_completions++;
     } else {
@@ -1703,7 +1948,7 @@ static bool bringup_command_path(void) {
 }
 
 void xhci_init(void) {
-    xhci = (struct xhci_state) { 0 };
+    xhci = (struct xhci_state) { .stage = "find-controller", .handoff = "not-attempted" };
     xhci.pci = find_xhci_controller();
     if (xhci.pci == 0) {
         console_write("xhci: no controller\n");
@@ -1714,6 +1959,7 @@ void xhci_init(void) {
     command |= 0x0006;
     pci_write_config16(xhci.pci, 0x04, command);
 
+    xhci.stage = "map-mmio";
     xhci.mmio_phys = bar_mmio_base(xhci.pci);
     if (xhci.mmio_phys == 0 || !map_mmio(xhci.mmio_phys)) {
         console_printf("xhci: mmio map failed bar0=%x\n", xhci.mmio_phys);
@@ -1738,8 +1984,10 @@ void xhci_init(void) {
     xhci.present = true;
     xhci.operational = bringup_command_path();
     if (xhci.operational) {
+        xhci.stage = "enumeration";
         reset_connected_ports();
         enumerate_connected_ports();
+        xhci.stage = "enumeration-complete";
     }
     read_ports();
 
@@ -1891,7 +2139,7 @@ void xhci_print_status(void) {
         (uint64_t)xhci.hcc_params1,
         (uint64_t)(xhci.hcs_params1 & 0xff),
         (uint64_t)((xhci.hcs_params1 >> 24) & 0xff),
-        (uint64_t)((xhci.hcs_params2 >> 21) & 0x1f),
+        (uint64_t)required_scratchpads(xhci.hcs_params2),
         xhci.protocol_count);
     console_printf("xhci: rings dcbaa=%x cr=%x er=%x erst=%x cmd_events=%u noop=%u enable_slot=%u last_cc=%u last_slot=%u cmd_ptr=%x expected=%x mismatches=%u\n",
         xhci.dcbaa_phys,
@@ -1971,4 +2219,42 @@ void xhci_print_status(void) {
             device->hid_reports,
             device->mouse_reports);
     }
+}
+
+void xhci_print_boot_diagnostic(void) {
+    console_write("USB INPUT DIAGNOSTIC - photograph this screen if keys do not work\n");
+    console_printf("stage=%s handoff=%s operational=%s\n",
+        xhci.stage != 0 ? xhci.stage : "none",
+        xhci.handoff != 0 ? xhci.handoff : "none", xhci.operational ? "yes" : "no");
+    if (!xhci.present) {
+        return;
+    }
+    console_printf("scratch=%u/%u noop=%u addressed=%u keyboards=%u last_cc=%u\n",
+        (uint64_t)xhci.scratchpads_allocated, (uint64_t)required_scratchpads(xhci.hcs_params2),
+        xhci.noop_completions, xhci.addressed_devices, xhci.hid_keyboards, xhci.last_completion_code);
+    uint64_t count = xhci.port_count < XHCI_MAX_PORTS ? xhci.port_count : XHCI_MAX_PORTS;
+    for (uint64_t i = 0; i < count; i++) {
+        uint32_t state = op_read32(port_offset(i));
+        if ((state & XHCI_PORTSC_CCS) != 0 || i == 4) {
+            const struct xhci_port_state *p = &xhci.ports[i];
+            console_printf("port %u: c=%u e=%u speed=%u reset=%s attempts=%u\n",
+                i + 1, (uint64_t)(state & XHCI_PORTSC_CCS),
+                (uint64_t)((state & XHCI_PORTSC_PED) != 0), (uint64_t)port_speed(state),
+                p->reset_result != 0 ? p->reset_result : "not-run", (uint64_t)p->reset_attempts);
+            console_printf("  initial=%x reset-end=%x now=%x\n",
+                (uint64_t)p->initial_portsc, (uint64_t)p->reset_portsc, (uint64_t)state);
+        }
+    }
+    for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+        const struct xhci_device *d = &xhci.devices[i];
+        if (!d->present) continue;
+        console_printf("device port=%u slot=%u id=%x:%x\n", (uint64_t)d->port_id,
+            (uint64_t)d->slot_id, (uint64_t)d->vendor_id, (uint64_t)d->product_id);
+        console_printf("  stage=%s iface=%u dci=%u packet=%u\n",
+            d->stage != 0 ? d->stage : "none", (uint64_t)d->interface_number,
+            (uint64_t)d->interrupt_dci, (uint64_t)d->interrupt_max_packet);
+        console_printf("  polls=%u reports=%u errors=%u\n",
+            d->interrupt_success, d->hid_reports, d->interrupt_errors);
+    }
+    console_write("Expected internal keyboard: 05ac:0291, port 5, iface 1, dci 5.\n");
 }

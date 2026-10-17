@@ -131,19 +131,28 @@ SECOND_EXFAT_IMAGE := build/srvros-secondary.exfat
 
 LIMINE_DIR := build/limine-binary
 LIMINE_PROTOCOL_DIR := build/limine-protocol
-LIMINE_TOOL := $(LIMINE_DIR)/limine.exe
+# Pin both halves of the boot interface; do not silently follow moving branches.
+LIMINE_COMMIT := 5be26a73d7b7b4d4477d18be94e1d16e615adf56
+LIMINE_PROTOCOL_COMMIT := 3a0526b700e356f0eac1b71a77697b3fd1c707a3
+HOST_EXE :=
+ifneq ($(filter Windows_NT,$(OS)),)
+HOST_EXE := .exe
+endif
+LIMINE_TOOL := $(LIMINE_DIR)/limine$(HOST_EXE)
 
 ZIG_VERSION := 0.15.2
 ZIG_DIR := build/tooling/zig
-ZIG := $(ZIG_DIR)/zig.exe
+ZIG := $(ZIG_DIR)/zig$(HOST_EXE)
 CC := $(ZIG) cc
 CXX := $(ZIG) c++
 AR := $(ZIG) ar
 LD := $(ZIG) ld.lld
 QEMU := qemu-system-x86_64
-QEMU_A1466 := build/tooling/qemu-a1466-src/build/qemu-system-x86_64.exe
+SMOKE_BOOT_WAIT ?= 180
+QEMU_A1466 := build/tooling/qemu-a1466-src/build/qemu-system-x86_64$(HOST_EXE)
 A1466_SSDT := build/a1466-input.aml
-PYTHON ?= python
+PYTHON ?= python3
+HOST_CC ?= cc
 
 CFLAGS := \
 	-target x86_64-freestanding-none \
@@ -987,24 +996,40 @@ LUA_CORE_DEP := $(LUA_CORE_C:%.c=%.c.d)
 .PHONY: all
 all: $(IMAGE)
 
+.PHONY: check-host smoke
+check-host:
+	$(PYTHON) tools/check_host.py
+
+# Sequential: each harness uses a disposable disk and its own QEMU instance.
+smoke: $(IMAGE) $(USB_IMAGE) test-xhci
+	$(PYTHON) -m unittest discover -s tools -p test_cli_harness.py
+	$(PYTHON) tools/sysabi_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
+	$(PYTHON) tools/cli_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
+	$(PYTHON) tools/shell_edit_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT) --send-delay 0.003
+	$(PYTHON) tools/uefi_usb_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT) --usb-type-text "echo usb-input-ok" --usb-type-expect "usb-input-ok"
+	$(PYTHON) tools/displayd_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
+
 $(LIMINE_DIR)/.ready:
 	mkdir -p build
 	rm -rf $(LIMINE_DIR)
 	git clone --depth=1 --branch=v11.x-binary https://github.com/limine-bootloader/limine.git $(LIMINE_DIR)
+	git -C $(LIMINE_DIR) fetch --depth=1 origin $(LIMINE_COMMIT)
+	git -C $(LIMINE_DIR) checkout --detach $(LIMINE_COMMIT)
+ifeq ($(HOST_EXE),)
+	$(MAKE) -C $(LIMINE_DIR) CC=$(HOST_CC)
+endif
 	touch $@
 
 $(LIMINE_PROTOCOL_DIR)/.ready:
 	mkdir -p build
 	rm -rf $(LIMINE_PROTOCOL_DIR)
 	git clone --depth=1 https://github.com/limine-bootloader/limine-protocol.git $(LIMINE_PROTOCOL_DIR)
+	git -C $(LIMINE_PROTOCOL_DIR) fetch --depth=1 origin $(LIMINE_PROTOCOL_COMMIT)
+	git -C $(LIMINE_PROTOCOL_DIR) checkout --detach $(LIMINE_PROTOCOL_COMMIT)
 	touch $@
 
 $(ZIG):
-	mkdir -p build/tooling
-	curl -L https://ziglang.org/download/$(ZIG_VERSION)/zig-x86_64-windows-$(ZIG_VERSION).zip -o build/tooling/zig.zip
-	rm -rf build/tooling/zig-x86_64-windows-$(ZIG_VERSION) $(ZIG_DIR)
-	unzip -q build/tooling/zig.zip -d build/tooling
-	mv build/tooling/zig-x86_64-windows-$(ZIG_VERSION) $(ZIG_DIR)
+	$(PYTHON) tools/bootstrap_zig.py --version $(ZIG_VERSION) --output $(ZIG_DIR)
 
 $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 	mkdir -p $(dir $@)
@@ -1621,8 +1646,10 @@ $(LUA_PREPARED): tools/prepare_lua_port.py $(shell find ports/upstream/lua -maxd
 	mkdir -p $(LUA_SRVROS_DIR)
 	$(PYTHON) tools/prepare_lua_port.py ports/upstream/lua $(LUA_SRVROS_DIR)
 
-$(LUA_CORE_C): $(LUA_PREPARED)
-	@true
+# The stamp is written after the generated sources. It must not make each
+# source look perpetually out of date. Objects still depend on it normally.
+$(LUA_CORE_C): | $(LUA_PREPARED)
+	@test -f $@ || { echo "Missing $@; remove $(LUA_PREPARED) and rerun make to regenerate Lua." >&2; exit 1; }
 
 $(LUA_SRVROS_DIR)/%.c.o: $(LUA_SRVROS_DIR)/%.c $(ZIG) $(LUA_PREPARED)
 	mkdir -p $(dir $@)
@@ -1824,6 +1851,22 @@ $(USB_IMAGE): $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS) $(EXFAT_IMAGE) boot/li
 
 .PHONY: usb-image
 usb-image: $(USB_IMAGE)
+
+.PHONY: hardware-stage hardware-smoke
+hardware-stage: $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS)
+	$(PYTHON) tools/hardware_boot.py stage
+
+hardware-smoke: hardware-stage test-xhci
+	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
+	$(PYTHON) tools/hardware_boot_smoke.py
+
+.PHONY: test-xhci
+test-xhci: build/tests/xhci-host$(HOST_EXE)
+	$< tools/fixtures/apple-05ac-0291-config.bin
+
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)

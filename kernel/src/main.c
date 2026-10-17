@@ -418,7 +418,13 @@ void kmain(void) {
         ioapic_route_isa_irq(12, 44);
     }
     pci_init();
-    bool lpss_spi_ready = lpss_spi_init();
+    /* SPI transport is experimental; this laptop's active input is USB. */
+    bool lpss_spi_ready = false;
+    if (cmdline_has_token(cmdline, "srvros.spi=experimental")) {
+        lpss_spi_ready = lpss_spi_init();
+    } else {
+        console_write("lpss-spi: disabled (experimental transport)\n");
+    }
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -438,7 +444,11 @@ void kmain(void) {
         xhci_print_status();
     }
     intel_gfx_init();
-    ahci_init();
+    if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
+        console_write("storage: RAM-only mode; AHCI disabled\n");
+    } else {
+        ahci_init();
+    }
     mount_exfat_volume();
     persist_bootlog();
     e1000_init();
@@ -508,6 +518,10 @@ void kmain(void) {
         monitor_run_a1466_capture();
         persist_bootlog();
         console_write("\n");
+    }
+    if (cmdline_has_token(cmdline, "srvros.inputdiag=1")) {
+        console_clear();
+        xhci_print_boot_diagnostic();
     }
     monitor_run();
 }

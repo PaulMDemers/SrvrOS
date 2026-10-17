@@ -97,6 +97,9 @@ def default_ovmf_path():
         os.environ.get("OVMF_CODE"),
         r"C:\msys64\ucrt64\share\qemu\edk2-x86_64-code.fd",
         "/ucrt64/share/qemu/edk2-x86_64-code.fd",
+        "/usr/share/OVMF/OVMF_CODE_4M.fd",
+        "/usr/share/OVMF/OVMF_CODE.fd",
+        "/usr/share/edk2/x64/OVMF_CODE.fd",
     ]
     for candidate in candidates:
         if candidate and os.path.isfile(candidate):
@@ -109,6 +112,7 @@ def default_qemu_data_path():
         os.environ.get("QEMU_DATA_DIR"),
         r"C:\msys64\ucrt64\share\qemu",
         "/ucrt64/share/qemu",
+        "/usr/share/qemu",
     ]
     for candidate in candidates:
         if candidate and os.path.isdir(candidate):
@@ -126,7 +130,8 @@ def main():
         description="Verify SrvrOS LPSS discovery against the A1466 QEMU model.")
     parser.add_argument("--root", default=os.getcwd())
     parser.add_argument("--qemu",
-        default="build/tooling/qemu-a1466-src/build/qemu-system-x86_64.exe")
+        default="build/tooling/qemu-a1466-src/build/qemu-system-x86_64" +
+        (".exe" if os.name == "nt" else ""))
     parser.add_argument("--image", default="build/srvros-usb.img")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     parser.add_argument("--qemu-data", default=default_qemu_data_path())

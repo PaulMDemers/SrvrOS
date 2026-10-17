@@ -1,5 +1,10 @@
 # srvros Roadmap
 
+Current priorities and completion criteria are in the
+[architecture review and optimization plan](optimization-review-2026-10-16.md).
+The milestone list below records earlier development; use the new plan for
+mixed-case text, rendering performance, timing and hardware work.
+
 srvros is starting as a small x86_64 OS with a Limine boot path, a higher-half
 kernel, and a minimal Unix-like userspace.
 

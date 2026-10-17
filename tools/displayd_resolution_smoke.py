@@ -111,7 +111,7 @@ def build_iso(root, temp_dir, width, height, env):
         iso_root_arg,
         "-o", iso_arg,
     ], cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
-    limine = os.path.join(root, "build", "limine-binary", "limine.exe")
+    limine = os.path.join(root, "build", "limine-binary", "limine.exe" if os.name == "nt" else "limine")
     subprocess.check_call([limine, "bios-install", iso],
         cwd=root, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     return iso
