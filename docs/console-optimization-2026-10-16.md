@@ -185,7 +185,7 @@ the run; the final report includes captured text, timer ticks and dropped-key
 count. Escape cancels it. Serial mirroring is suppressed for the workload, as in
 the default `renderbench`; the separate userspace `yes`/Ctrl-C smoke exercises
 output with serial mirroring enabled. See [testing](testing.md) for reproduction
-and measurement limits. This follow-up candidate still needs physical testing.
+and measurement limits. Physical input validation is recorded below.
 
 Candidate **`70ddde650d0fc3f8`** passed nine host test groups, eight installer
 tests, the QEMU syscall ABI smoke, and the shell-editing smoke with zero
@@ -205,8 +205,17 @@ completed in 39,314 µs with two presentations and zero framebuffer reads.
 Evidence: `build/review/latency-host-tests.log`, `latency-installer-tests.log`,
 `latency-grub-smoke.log`, `hardware-grub-serial.log`, `console-latency.png`,
 `latency-sysabi.log`, and `latency-shell-edit.log`. The full 479-command CLI suite
-was not repeated for this follow-up. The currently installed, hardware-tested
-release remains `3cd2e11a98996ccb`; the new candidate is staged only.
+was not repeated for this follow-up.
+
+On 2026-10-16, the user booted release `70ddde650d0fc3f8` on the MacBookAir7,2
+and reported that the sustained-output test captured all typed text without
+problems. The camera did not save the photograph, so no physical latency or
+drop-counter values are recorded. This confirms successful input under the tested
+load by user observation; Escape and Ctrl-C remain QEMU-validated only for this
+batch. Installed state confirms `70ddde650d0fc3f8` as current and
+`3cd2e11a98996ccb` as previous. The new release was hash-verified and copied to
+`/home/paul/.local/share/srvros/known-good/70ddde650d0fc3f8` independently of the
+installer's current/previous rotation.
 
 ## Repeating the laptop test
 

@@ -7,9 +7,12 @@ and makes the workqueue FIFO with a yield between callbacks. It adds opt-in
 `latency` counters and a three-second `renderstress` typing/scrolling test.
 QEMU retained all seven test characters with zero keyboard drops under sustained
 output; Escape cancellation and USB Ctrl-C during userspace output also passed.
-Host, installer, syscall ABI and shell-editing checks passed. This candidate is
-staged for physical testing; see the [report](console-optimization-2026-10-16.md)
-for measurements and limits. Storage polling remains synchronous.
+Host, installer, syscall ABI and shell-editing checks passed. The user also
+confirmed that all typed text was captured during sustained scrolling on the
+MacBookAir7,2. The photo was not saved, so physical latency counters are not
+available. The installed release has a verified independent backup; see the
+[report](console-optimization-2026-10-16.md) for evidence and limits. Storage
+polling remains synchronous.
 
 ## 2026-10-16 console and kernel candidate
 
