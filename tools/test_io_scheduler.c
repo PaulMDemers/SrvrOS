@@ -7,6 +7,9 @@ uint64_t vmm_current_address_space(void) { return actual_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
 static bool ready(void *arg) { return arg != NULL; }
 int main(void) {
+    _Alignas(16) uint8_t stack[64];
+    uint64_t rsp=initial_thread_stack((uint64_t)stack+sizeof(stack));
+    assert((rsp&15)==8 && rsp==(uint64_t)stack+56 && *(uint64_t *)rsp==0);
     assert(!scheduler_io_begin());
     initialized = true;
     assert(!scheduler_io_begin()); /* Early boot must not enable IRQs. */

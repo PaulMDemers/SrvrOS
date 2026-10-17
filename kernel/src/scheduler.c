@@ -200,6 +200,14 @@ void scheduler_init(void) {
     console_write("scheduler: timer-preemptive kernel threads ready\n");
 }
 
+/* Context switch jumps into the C trampoline rather than calling it. Provide
+ * the return-address slot required by SysV AMD64: RSP is 8 mod 16 at entry. */
+static uint64_t initial_thread_stack(uint64_t top) {
+    uint64_t rsp=(top & ~0xfull)-8;
+    *(uint64_t *)rsp=0; /* The trampoline must never return. */
+    return rsp;
+}
+
 static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
     scheduler_wait_condition_fn io_eligible) {
     if (!initialized || entry == NULL) {
@@ -238,7 +246,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
                 .stack = stack,
                 .stack_physical = stack_physical,
                 .context = {
-                    .rsp = stack_top,
+                    .rsp = initial_thread_stack(stack_top),
                     .rip = (uint64_t)scheduler_trampoline,
                 },
                 .switches = 0,
