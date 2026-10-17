@@ -2,8 +2,8 @@
 
 The next milestone is readable mixed-case text and responsive output on the
 MacBookAir7,2. Keep the working USB keyboard and boot path as the baseline, then
-improve the console, graphics pipeline and timing before adding more hardware
-features. Several costs are structural and can be removed within the existing
+improve the console and timing before adding more hardware features. GUI work
+is deferred at the user's request. Several costs are structural and can be removed within the existing
 software renderer.
 
 This review covers the major kernel, userspace, graphics, storage, networking,
@@ -13,14 +13,18 @@ focused probes, not an exhaustive correctness or security audit of every file.
 Hardware timings still need to be captured in SrvrOS; Ubuntu and QEMU timings
 cannot establish the laptop framebuffer's performance.
 
+Implementation status and test instructions are in the
+[non-GUI implementation report](console-optimization-2026-10-16.md). Findings
+below describe the pre-implementation baseline.
+
 ## Baseline and evidence
 
 Release `c02ec72ad1c8f3d4` boots on the laptop and accepts built-in keyboard
 input. The physical `xhci` photograph confirms Apple `05ac:0291`, interface 1,
 DCI 5, with 27 successful interrupt completions and 27 HID reports. Preserve that
-release while changing rendering. Current source changes remain uncommitted on
-`codex/linux-development-baseline`; the working tree, rather than HEAD alone,
-contains this hardware support.
+release while changing rendering. That source is now committed as `b79c559` on
+`codex/linux-development-baseline`; an independent copy of the known-good boot
+payload is retained outside installer rotation.
 
 The project has useful foundations: separate process address spaces, user-buffer
 validation, scheduler wait queues, a shell/libc layer, writable exFAT, networking,

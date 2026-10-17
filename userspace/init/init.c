@@ -1,19 +1,7 @@
+#include <srvros/syscall_numbers.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define SYS_WRITE 1
-#define SYS_EXIT 2
-#define SYS_OPEN 3
-#define SYS_READ 4
-#define SYS_CLOSE 5
-#define SYS_LIST 6
-#define SYS_SPAWN 7
-#define SYS_FS_WRITE 10
-#define SYS_SPAWN_ARGS 24
-#define SYS_OPEN_MODE 33
-#define SYS_WAIT 34
-#define SYS_SLEEP_TICKS 43
-#define SYS_SPAWN_BG_ARGS_FDS 49
 #define SRV_OPEN_WRITE 0x02
 #define SRV_OPEN_CREATE 0x04
 #define SRV_OPEN_APPEND 0x10
@@ -552,6 +540,7 @@ static int system_main(void) {
         write_text("\ninit: startup complete\n");
     }
 
+    (void)syscall0(SYS_PROC_READY);
     for (;;) {
         uint64_t child_status = 0;
         while (wait_nohang(&child_status) > 0) {

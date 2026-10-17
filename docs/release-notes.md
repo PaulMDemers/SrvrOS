@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2026-10-16 console and kernel candidate
+
+The [non-GUI implementation report](console-optimization-2026-10-16.md) records
+scope, measurements, validation and remaining work. This candidate adds distinct
+lowercase console glyphs, batched RAM-based scrolling, Caps Lock and USB repeat,
+a calibrated timer, init readiness, AHCI timeout/flush handling and block-cache
+failure fixes. Normal laptop staging is quiet, with an opt-in diagnostic mode.
+Physical keyboard support remains based on the laptop-confirmed USB release;
+this candidate still needs its own laptop performance/behavior check.
+
 ## Initial Repository Milestone
 
 This milestone captures srvros as a bootable x86_64 research OS with a working

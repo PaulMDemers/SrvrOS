@@ -2,6 +2,7 @@
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
 import binascii
+import re
 from pathlib import Path
 import socket
 import struct
@@ -12,7 +13,7 @@ import uuid
 
 import hardware_boot as boot
 from mk_usb_image import Fat32Builder, ESP_TYPE, gpt_entry, gpt_header
-from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, has_fatal_exception
+from uefi_usb_smoke import default_ovmf_path, qmp_command, send_qmp_text, send_qmp_key, has_fatal_exception
 
 
 def make_disk(path, loader, source, release):
@@ -66,6 +67,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--console-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
     release = (boot.STAGE / "latest").read_text().strip()
@@ -112,6 +114,35 @@ def main():
                     qmp_command(qmp, {"execute": "qmp_capabilities"})
                     send_qmp_text(qmp, "echo grub-usb-ok\n", 0.08)
                     text = wait_for(serial, lambda s: "\ngrub-usb-ok\n" in s, process, 20)
+                    if args.console_check:
+                        if "calibrated=yes target=100Hz" not in text or "init: readiness=ready" not in text:
+                            raise RuntimeError("Timer calibration or init readiness missing")
+                        send_qmp_text(qmp, "echo aAzZ []{}~!\n", 0.08)
+                        text = wait_for(serial, lambda s: "\naAzZ []{}~!\n" in s, process, 20)
+                        send_qmp_text(qmp, "echo ", 0.08)
+                        send_qmp_key(qmp, "caps_lock")
+                        time.sleep(0.1)
+                        send_qmp_text(qmp, "aA", 0.08)
+                        send_qmp_key(qmp, "caps_lock")
+                        time.sleep(0.1)
+                        send_qmp_text(qmp, "\n", 0.08)
+                        text = wait_for(serial, lambda s: "\nAa\n" in s, process, 20)
+                        send_qmp_text(qmp, "echo ", 0.08)
+                        for down in (True, False):
+                            qmp_command(qmp, {"execute": "input-send-event", "arguments": {
+                                "events": [{"type": "key", "data": {"down": down,
+                                    "key": {"type": "qcode", "data": "a"}}}]}})
+                            time.sleep(0.7 if down else 0.1)
+                        send_qmp_text(qmp, "\n", 0.08)
+                        text = wait_for(serial, lambda s: re.search(r"\na{2,}\n", s) is not None,
+                                        process, 20)
+                        send_qmp_text(qmp, "renderbench\n", 0.08)
+                        text = wait_for(serial, lambda s: "serial=off complete=yes" in s and
+                                        s.endswith("srv> "), process, 45)
+                        time.sleep(0.2)  # Allow the deferred prompt to reach the framebuffer.
+                        qmp_command(qmp, {"execute": "screendump", "arguments": {
+                            "filename": str(logs / "console-performance.ppm")}})
+
                 if has_fatal_exception(text):
                     raise RuntimeError("Fatal kernel exception in chainload test")
             finally:
@@ -121,7 +152,7 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
-    print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input")
+    print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
     print(f"Serial log: {serial}")
 
 

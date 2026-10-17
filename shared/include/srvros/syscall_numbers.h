@@ -119,6 +119,8 @@
 #define SYS_GFX_CONSOLE_MUTE 114
 #define SYS_GFX_CONSOLE_MUTED 115
 #define SYS_PROC_EXIT_STATUS 116
+/* Report completion of this process's startup (used by system init). */
+#define SYS_PROC_READY 117
 
 #define SRV_ABI_VERSION 1
 

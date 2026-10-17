@@ -25,10 +25,13 @@ GUI desktop with freestanding calculator, notes, and text editor clients:
 - Higher-half freestanding C kernel with GDT, IDT, TSS, exception handling, and
   serial plus framebuffer console output, including a small framebuffer-side
   ANSI CSI subset for cursor movement and clear-screen/clear-line sequences.
+  The console has distinct lowercase glyphs, RAM-based scrolling and batched
+  presentation; `renderbench` measures output throughput.
 - Physical frame allocator, kernel heap, virtual memory manager, per-process
   page tables, and user pointer validation.
-- Local APIC timer, IOAPIC routing, PS/2 keyboard, PS/2 mouse, and IRQ-backed
-  COM1 serial input.
+- ACPI PM reference clock with calibrated Local APIC timer, IOAPIC routing,
+  PS/2 keyboard/mouse, xHCI USB keyboard input with Caps Lock and key repeat,
+  and IRQ-backed COM1 serial input.
 - FPU/SSE/SSE2 enablement with per-process and per-scheduler-thread
   `fxsave64`/`fxrstor64` state preservation across traps, syscalls,
   preemption, and kernel/user transitions.
@@ -37,7 +40,8 @@ GUI desktop with freestanding calculator, notes, and text editor clients:
   foreground/background tasks, `ps`, `kill`, and `wait`.
 - USTAR initramfs and VFS layer.
 - Generic block-device registry, memory block devices, AHCI SATA read/write
-  support, and a small write-through block cache.
+  support with bounded command waits/device-cache flushes, and a small
+  write-through block cache with failed-write invalidation.
 - exFAT mounting, recursive directory traversal, file reads, file create/write
   with fragmented FAT-chain fallback, append, delete, rename, directory create,
   empty directory removal, runtime mount/unmount, and `fsck`-style consistency

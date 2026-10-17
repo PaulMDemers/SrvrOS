@@ -218,6 +218,7 @@ struct xhci_device {
     bool ep0_cycle;
     bool interrupt_cycle;
     uint8_t previous_report[8];
+    struct keyboard_hid_state keyboard_state;
     uint16_t previous_absolute_x;
     uint16_t previous_absolute_y;
     uint64_t control_success;
@@ -1513,7 +1514,8 @@ static void handle_hid_report(struct xhci_device *device) {
     if (bytes_equal(report, device->previous_report, 8)) {
         return;
     }
-    keyboard_inject_hid_report(report, device->previous_report);
+    keyboard_inject_hid_report(report, &device->keyboard_state);
+    copy_bytes(device->previous_report, report, 8);
     device->hid_reports++;
 }
 
@@ -1637,6 +1639,15 @@ static void xhci_poll_worker(void *arg) {
     for (;;) {
         if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
             poll_hid_events_once();
+            uint64_t now = timer_monotonic_us();
+            for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
+                struct xhci_device *d = &xhci.devices[i];
+                if (d->present && d->interrupt_ready && d->hid_keyboard) {
+                    uint32_t portsc = op_read32(XHCI_OP_PORTS + (d->port_id - 1) * 0x10);
+                    if (portsc & XHCI_PORTSC_CCS) keyboard_repeat_hid(&d->keyboard_state, now);
+                    else d->keyboard_state.repeat_usage = 0;
+                }
+            }
         }
         for (uint64_t i = 0; i < 10000; i++) {
             __asm__ volatile ("pause");

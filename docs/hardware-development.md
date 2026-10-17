@@ -204,3 +204,11 @@ sudo update-grub
 
 A subsequent install reenables the snippet. The installer does not replace
 Ubuntu's EFI files or run `grub-install`/`efibootmgr`.
+
+## Console performance candidate
+
+Normal `make hardware-stage` now uses quiet boot and skips the deliberate input
+probe. `python3 tools/hardware_boot.py stage --diagnostic` stages verbose boot,
+the USB snapshot and the probe. Read the
+[console implementation/test report](console-optimization-2026-10-16.md) before
+testing this candidate; it adds `renderbench` and `renderstat` monitor commands.

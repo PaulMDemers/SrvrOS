@@ -18,8 +18,9 @@ SNIPPET = Path("/etc/grub.d/42_srvros")
 GRUB_CFG = Path("/boot/grub/grub.cfg")
 MARKER = "# Managed by SrvrOS tools/hardware_boot.py"
 FILES = ("loader/BOOTX64.EFI", "srvros.elf", "initramfs.tar", "limine.conf", "loader/limine.conf")
-CONFIG_VERSION = "ram-usb-v3-inputdiag"
-CONFIG_VERSIONS = ("ram-usb-v2", CONFIG_VERSION)
+CONFIG_VERSION = "ram-usb-v4-console"
+DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
+CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 
 
@@ -34,14 +35,21 @@ def release_id(hashes, version=CONFIG_VERSION):
 
 
 def limine_config(release, version=CONFIG_VERSION):
-    diagnostic = " srvros.inputdiag=1" if version == CONFIG_VERSION else ""
+    if version == CONFIG_VERSION:
+        cmdline = "srvros.storage=ram"
+    elif version == DIAGNOSTIC_VERSION:
+        cmdline = "srvros.log=debug srvros.storage=ram srvros.inputdiag=1 srvros.inputprobe=1"
+    else:
+        cmdline = "srvros.log=debug srvros.storage=ram"
+        if version == "ram-usb-v3-inputdiag":
+            cmdline += " srvros.inputdiag=1"
     return f"""timeout: 0
 serial: yes
 
 /SrvrOS hardware test {release}
     protocol: limine
     path: boot():/EFI/srvros/{release}/srvros.elf
-    cmdline: srvros.log=debug srvros.storage=ram{diagnostic}
+    cmdline: {cmdline}
     module_path: boot():/EFI/srvros/{release}/initramfs.tar
     module_string: initramfs
 """
@@ -72,7 +80,8 @@ def verify(directory):
     return manifest
 
 
-def stage():
+def stage(diagnostic=False):
+    version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
         "srvros.elf": ROOT / "build/kernel/srvros.elf",
@@ -85,15 +94,15 @@ def stage():
         for name, source in sources.items():
             shutil.copyfile(source, target / name)
         hashes = {name: digest(target / name) for name in sources}
-        release = release_id(hashes)
-        (target / "limine.conf").write_text(limine_config(release))
+        release = release_id(hashes, version)
+        (target / "limine.conf").write_text(limine_config(release, version))
         # GRUB splits the EFI file path into directory and filename nodes.
         # Limine 11 reads only the first node, so it searches one level up.
         # Keep both locations for GRUB and firmware with a single path node.
         shutil.copyfile(target / "limine.conf", target / "loader/limine.conf")
         hashes["limine.conf"] = digest(target / "limine.conf")
         hashes["loader/limine.conf"] = hashes["limine.conf"]
-        manifest = {"release": release, "sha256": hashes, "config_version": CONFIG_VERSION,
+        manifest = {"release": release, "sha256": hashes, "config_version": version,
                     "git_head": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                     "git_dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT))}
         (target / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -236,9 +245,15 @@ def install():
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("stage", "install"))
+    parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     args = parser.parse_args()
+    if args.diagnostic and args.action != "stage":
+        parser.error("--diagnostic applies only to stage")
     try:
-        {"stage": stage, "install": install}[args.action]()
+        if args.action == "stage":
+            stage(args.diagnostic)
+        else:
+            install()
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"hardware-boot: {error}\n")
 

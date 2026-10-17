@@ -180,6 +180,7 @@ void isr_dispatch(struct isr_frame *frame) {
 
     struct process *process = process_current();
     if (frame->vector != 3) {
+        console_emergency();
         console_clear();
         console_write("srvros panic\n");
     }

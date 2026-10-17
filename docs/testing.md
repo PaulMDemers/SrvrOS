@@ -1,6 +1,6 @@
 # Testing srvros
 
-srvros tests are QEMU boot smoke tests. Each harness starts a fresh QEMU
+srvros has host tests for console/input/clock/storage logic and QEMU boot smoke tests. Each harness starts a fresh QEMU
 instance, connects to the serial console, drives monitor or shell commands, and
 fails if expected markers are missing or a fatal kernel exception appears.
 The QEMU-based harnesses run with bounded guest memory, user-mode networking,
@@ -21,6 +21,21 @@ With the locally unpacked Ubuntu tools, prefix these commands with
 `tools/host-env.sh`. The selected baseline is narrower than the full release
 suite below. The custom SPI model has a known hardware identity error; see
 [the project review](project-review-2026-10-16.md).
+
+## Console and kernel regression checks
+
+```sh
+make test-core
+python3 -m unittest discover -s tools -p test_hardware_boot.py -v
+tools/host-env.sh make hardware-smoke
+python3 tools/console_benchmark.py --baseline b79c559
+```
+
+`test-core` covers the actual console, keyboard decoder, ACPI timer, block cache,
+AHCI command path and xHCI enumeration helpers. Hardware smoke additionally
+checks calibrated timing/init readiness, mixed-case USB typing, Caps Lock, held
+key repeat and `renderbench`, and saves a framebuffer screenshot. See the
+[implementation report](console-optimization-2026-10-16.md) for scope and results.
 
 ## Release Verification
 

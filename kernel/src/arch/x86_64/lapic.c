@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/vmm.h>
+#include <srvros/timer.h>
 
 #include "lapic.h"
 
@@ -12,6 +13,8 @@
 #define LAPIC_SPURIOUS_OFFSET 0x0f0
 #define LAPIC_LVT_TIMER_OFFSET 0x320
 #define LAPIC_TIMER_INITIAL_COUNT_OFFSET 0x380
+#define LAPIC_TIMER_CURRENT_COUNT_OFFSET 0x390
+#define LAPIC_TIMER_MASKED (1u << 16)
 #define LAPIC_TIMER_DIVIDE_OFFSET 0x3e0
 #define LAPIC_VIRTUAL_BASE 0xffffc000fee00000ull
 #define LAPIC_TIMER_PERIODIC (1u << 17)
@@ -53,13 +56,27 @@ void lapic_timer_init(uint8_t vector, uint32_t initial_count) {
         return;
     }
 
-    lapic[LAPIC_TIMER_DIVIDE_OFFSET / sizeof(uint32_t)] = 0x3;
+    lapic[LAPIC_TIMER_DIVIDE_OFFSET / sizeof(uint32_t)] = 0x3; /* Divide by 16. */
+    bool calibrated = false;
+    if (timer_reference_ready()) {
+        lapic[LAPIC_LVT_TIMER_OFFSET / sizeof(uint32_t)] = LAPIC_TIMER_MASKED | vector;
+        lapic[LAPIC_TIMER_INITIAL_COUNT_OFFSET / sizeof(uint32_t)] = 0xffffffffu;
+        uint64_t start = timer_monotonic_us();
+        uint32_t before = lapic[LAPIC_TIMER_CURRENT_COUNT_OFFSET / sizeof(uint32_t)];
+        if (timer_delay_us(50000)) {
+            uint32_t after = lapic[LAPIC_TIMER_CURRENT_COUNT_OFFSET / sizeof(uint32_t)];
+            uint64_t elapsed = timer_monotonic_us() - start;
+            uint64_t per_tick = elapsed ? (uint64_t)(before - after) * 10000 / elapsed : 0;
+            if (before > after && after != 0 && per_tick > 0 && per_tick <= UINT32_MAX) {
+                initial_count = (uint32_t)per_tick;
+                calibrated = true;
+            }
+        }
+    }
     lapic[LAPIC_LVT_TIMER_OFFSET / sizeof(uint32_t)] = LAPIC_TIMER_PERIODIC | vector;
     lapic[LAPIC_TIMER_INITIAL_COUNT_OFFSET / sizeof(uint32_t)] = initial_count;
-
-    console_printf("lapic: timer vector=%u initial_count=%u\n",
-        (uint64_t)vector,
-        (uint64_t)initial_count);
+    console_printf("lapic: timer vector=%u initial_count=%u calibrated=%s target=100Hz\n",
+        (uint64_t)vector, (uint64_t)initial_count, calibrated ? "yes" : "no");
 }
 
 void lapic_send_eoi(void) {

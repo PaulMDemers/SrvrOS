@@ -4,6 +4,7 @@
 #include <srvros/pci.h>
 #include <srvros/pmm.h>
 #include <srvros/vmm.h>
+#include <srvros/timer.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -31,6 +32,12 @@
 #define ATA_CMD_IDENTIFY 0xec
 #define ATA_CMD_READ_DMA_EXT 0x25
 #define ATA_CMD_WRITE_DMA_EXT 0x35
+#define ATA_CMD_FLUSH_CACHE 0xe7
+#define ATA_CMD_FLUSH_CACHE_EXT 0xea
+#define AHCI_COMMAND_TIMEOUT_US 2000000ull
+#ifndef AHCI_POLL_LIMIT
+#define AHCI_POLL_LIMIT 100000000ull
+#endif
 
 struct hba_port {
     uint32_t clb;
@@ -96,7 +103,9 @@ struct hba_command_table {
 
 struct ahci_disk {
     bool used;
-    struct hba_port *port;
+    bool failed;
+    uint8_t flush_command;
+    volatile struct hba_port *port;
     uint8_t port_index;
     char name[8];
     uint64_t sectors;
@@ -140,34 +149,44 @@ static uint64_t read_identify_lba_count(const uint8_t *identify) {
 }
 
 static uint64_t irq_save(void) {
+#ifdef SRVROS_AHCI_HOST_TEST
+    return 0;
+#else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     return flags;
+#endif
 }
 
 static void irq_restore(uint64_t flags) {
+#ifdef SRVROS_AHCI_HOST_TEST
+    (void)flags;
+#else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#endif
 }
 
-static void stop_port(struct hba_port *port) {
+static bool stop_port(volatile struct hba_port *port) {
     port->cmd &= ~HBA_PORT_CMD_ST;
     for (uint64_t limit = 1000000; (port->cmd & HBA_PORT_CMD_CR) != 0 && limit > 0; limit--) {
         __asm__ volatile ("pause");
     }
+    if (port->cmd & HBA_PORT_CMD_CR) return false;
     port->cmd &= ~HBA_PORT_CMD_FRE;
     for (uint64_t limit = 1000000; (port->cmd & HBA_PORT_CMD_FR) != 0 && limit > 0; limit--) {
         __asm__ volatile ("pause");
     }
+    return (port->cmd & HBA_PORT_CMD_FR) == 0;
 }
 
-static void start_port(struct hba_port *port) {
+static void start_port(volatile struct hba_port *port) {
     port->cmd |= HBA_PORT_CMD_FRE;
     port->cmd |= HBA_PORT_CMD_ST;
 }
 
-static bool port_present(struct hba_port *port) {
+static bool port_present(volatile struct hba_port *port) {
     uint32_t det = port->ssts & 0xf;
     uint32_t ipm = (port->ssts >> 8) & 0xf;
     return det == 3 && ipm == 1 && port->sig == SATA_SIG_ATA;
@@ -219,6 +238,7 @@ static bool ensure_mmio_mapping(void) {
 }
 
 static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba, uint16_t sectors, bool write) {
+    if (disk == NULL || disk->failed) return false;
     uint64_t flags = irq_save();
     uint64_t previous_address_space = vmm_current_address_space();
     uint64_t kernel_address_space = vmm_kernel_address_space();
@@ -232,22 +252,23 @@ static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba,
         goto out;
     }
 
-    struct hba_port *port = disk->port;
+    volatile struct hba_port *port = disk->port;
     struct hba_command_header *header = &disk->command_list[0];
     struct hba_command_table *table = disk->command_table;
-    uint32_t byte_count = sectors == 0 ? AHCI_SECTOR_SIZE : (uint32_t)sectors * AHCI_SECTOR_SIZE;
+    uint32_t byte_count = command == ATA_CMD_IDENTIFY ? AHCI_SECTOR_SIZE :
+        (uint32_t)sectors * AHCI_SECTOR_SIZE;
 
     zero_memory(header, sizeof(*header));
     zero_memory(table, sizeof(*table));
 
     header->flags = 5 | (write ? (1u << 6) : 0);
-    header->prdt_length = 1;
+    header->prdt_length = byte_count ? 1 : 0;
     header->ctba = (uint32_t)(disk->command_table_phys & 0xffffffffu);
     header->ctbau = (uint32_t)(disk->command_table_phys >> 32);
 
     table->prdt[0].dba = (uint32_t)(disk->io_buffer_phys & 0xffffffffu);
     table->prdt[0].dbau = (uint32_t)(disk->io_buffer_phys >> 32);
-    table->prdt[0].dbc_i = (byte_count - 1) | (1u << 31);
+    table->prdt[0].dbc_i = byte_count ? (byte_count - 1) | (1u << 31) : 0;
 
     uint8_t *fis = table->cfis;
     fis[0] = FIS_TYPE_REG_H2D;
@@ -264,23 +285,37 @@ static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba,
     fis[13] = (uint8_t)(sectors >> 8);
 
     port->is = 0xffffffffu;
-    uint64_t tfd_limit = 1000000;
-    while ((port->tfd & 0x88) != 0 && tfd_limit-- > 0) {
+#ifdef SRVROS_AHCI_HOST_TEST
+    port->is = 0; /* Model the register's write-one-to-clear behavior. */
+#endif
+    uint64_t start = timer_monotonic_us();
+    uint64_t spins = 0;
+    while ((port->tfd & 0x88) != 0) {
+        if (++spins >= AHCI_POLL_LIMIT || timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US)
+            goto failed;
         __asm__ volatile ("pause");
     }
-    if ((port->tfd & 0x88) != 0) {
-        goto out;
-    }
 
+    /* Publish DMA descriptors before ringing the command doorbell. */
+    __asm__ volatile ("mfence" : : : "memory");
     port->ci = 1;
+    start = timer_monotonic_us();
+    spins = 0;
     while ((port->ci & 1) != 0) {
-        if ((port->is & HBA_PORT_IS_TFES) != 0) {
-            goto out;
-        }
+        if ((port->is & HBA_PORT_IS_TFES) != 0 || ++spins >= AHCI_POLL_LIMIT ||
+            timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US) goto failed;
         __asm__ volatile ("pause");
     }
-
-    success = (port->is & HBA_PORT_IS_TFES) == 0;
+    __asm__ volatile ("mfence" : : : "memory");
+    if (port->is & HBA_PORT_IS_TFES) goto failed;
+    success = true;
+    goto out;
+failed:
+    /* Keep DMA storage pinned and never reuse it after uncertain completion.
+     * Recovery/reset is deliberately a separate operation. */
+    disk->failed = true;
+    console_printf("ahci: port=%u command=%x failed; disk offline\n",
+        (uint64_t)disk->port_index, (uint64_t)command);
 
 out:
     if (switched_address_space) {
@@ -296,7 +331,8 @@ static bool ahci_read(struct block_device *device, uint64_t offset, void *buffer
     }
 
     struct ahci_disk *disk = device->private_data;
-    if (disk == 0 || (offset + length) > disk->sectors * AHCI_SECTOR_SIZE) {
+    if (disk == 0 || disk->failed || offset > disk->sectors * AHCI_SECTOR_SIZE ||
+        length > disk->sectors * AHCI_SECTOR_SIZE - offset) {
         return false;
     }
 
@@ -329,7 +365,8 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
     }
 
     struct ahci_disk *disk = device->private_data;
-    if (disk == 0 || (offset + length) > disk->sectors * AHCI_SECTOR_SIZE) {
+    if (disk == 0 || disk->failed || offset > disk->sectors * AHCI_SECTOR_SIZE ||
+        length > disk->sectors * AHCI_SECTOR_SIZE - offset) {
         return false;
     }
 
@@ -363,6 +400,20 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
     return true;
 }
 
+static bool ahci_flush(struct block_device *device) {
+    struct ahci_disk *disk = device->private_data;
+    return disk != NULL && disk->flush_command != 0 &&
+        issue_command(disk, disk->flush_command, 0, 0, false);
+}
+
+static uint8_t identify_flush_command(const uint8_t *identify) {
+    uint16_t supported = read_u16(identify + 83 * 2);
+    if ((supported & 0xc000) != 0x4000) return 0;
+    if (supported & (1u << 13)) return ATA_CMD_FLUSH_CACHE_EXT;
+    if (supported & (1u << 12)) return ATA_CMD_FLUSH_CACHE;
+    return 0;
+}
+
 static void make_disk_name(char *name, uint64_t index) {
     name[0] = 'a';
     name[1] = 'h';
@@ -372,17 +423,19 @@ static void make_disk_name(char *name, uint64_t index) {
     name[5] = '\0';
 }
 
-static bool init_port(uint8_t port_index, struct hba_port *port) {
+static bool init_port(uint8_t port_index, volatile struct hba_port *port) {
     if (disk_count >= AHCI_MAX_PORTS || !port_present(port)) {
         return false;
     }
 
     struct ahci_disk *disk = &disks[disk_count];
+    disk->failed = false;
+    disk->flush_command = 0;
     disk->port = port;
     disk->port_index = port_index;
     make_disk_name(disk->name, disk_count);
 
-    stop_port(port);
+    if (!stop_port(port)) return false;
     if (!allocate_port_memory(disk)) {
         return false;
     }
@@ -402,14 +455,16 @@ static bool init_port(uint8_t port_index, struct hba_port *port) {
     }
 
     disk->sectors = read_identify_lba_count(disk->io_buffer);
-    if (disk->sectors == 0) {
+    disk->flush_command = identify_flush_command(disk->io_buffer);
+    if (disk->sectors == 0 || disk->sectors > UINT64_MAX / AHCI_SECTOR_SIZE) {
         console_printf("ahci: port=%u no capacity\n", (uint64_t)port_index);
         return false;
     }
 
-    if (block_register(disk->name, AHCI_SECTOR_SIZE, disk->sectors, ahci_read, ahci_write, disk) == 0) {
-        return false;
-    }
+    struct block_device *device = block_register(disk->name, AHCI_SECTOR_SIZE,
+        disk->sectors, ahci_read, ahci_write, disk);
+    if (device == NULL) return false;
+    device->flush = ahci_flush;
 
     disk->used = true;
     disk_count++;
@@ -458,7 +513,7 @@ bool ahci_init(void) {
 
     for (uint8_t port = 0; port < 32 && disk_count < AHCI_MAX_PORTS; port++) {
         if ((ports & (1u << port)) != 0) {
-            (void)init_port(port, (struct hba_port *)&hba->ports[port]);
+            (void)init_port(port, &hba->ports[port]);
         }
     }
 

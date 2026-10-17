@@ -402,8 +402,43 @@ static void read_line(const char *prompt, char *line, size_t capacity) {
     }
 }
 
+static void print_render_stats(void) {
+    struct console_stats stats;
+    console_get_stats(&stats);
+    console_printf("render: bytes=%u scrolls=%u presents=%u cells=%u fb_write_bytes=%u fb_read_bytes=0\n",
+        stats.bytes_received, stats.scrolls, stats.presents, stats.cells_painted,
+        stats.framebuffer_bytes_written);
+}
+
+static void render_benchmark(bool serial) {
+    if (!timer_reference_ready()) {
+        console_write("renderbench: calibrated reference unavailable\n");
+        return;
+    }
+    if (!console_sync()) { console_write("renderbench: presenter busy\n"); return; }
+    uint64_t width = 0, height = 0, pitch = 0;
+    (void)console_framebuffer_info(&width, &height, &pitch);
+    bool saved_serial = console_set_serial_output(serial);
+    struct console_stats before, after;
+    console_get_stats(&before);
+    uint64_t start = timer_monotonic_us();
+    static const char line[] =
+        "AaZz 0123456789 []{} !@#$%^&*() The quick brown fox jumps over the lazy dog. 123\n";
+    _Static_assert(sizeof(line) == 82, "benchmark must contain 80 columns plus newline");
+    for (unsigned i = 0; i < 1000; i++) console_write_n(line, sizeof(line) - 1);
+    bool drained = console_sync();
+    uint64_t elapsed = timer_monotonic_us() - start;
+    console_get_stats(&after);
+    console_set_serial_output(saved_serial);
+    console_printf("renderbench: lines=1000 columns=80 serial=%s complete=%s us=%u\n",
+        serial ? "on" : "off", drained ? "yes" : "no", elapsed);
+    console_printf("renderbench: mode=%ux%u pitch=%u scrolls=%u presents=%u fb_write_bytes=%u fb_read_bytes=0\n",
+        width, height, pitch, after.scrolls - before.scrolls, after.presents - before.presents,
+        after.framebuffer_bytes_written - before.framebuffer_bytes_written);
+}
+
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static void command_pci(void);
@@ -956,6 +991,10 @@ static void run_command(char *line) {
         lpss_spi_print_registers();
     } else if (streq(command, "acpiinput")) {
         acpi_print_input_diagnostics();
+    } else if (streq(command, "renderstat")) {
+        print_render_stats();
+    } else if (streq(command, "renderbench")) {
+        render_benchmark(streq(args, "serial"));
     } else if (streq(command, "xhci") || streq(command, "usb")) {
         xhci_print_status();
     } else if (streq(command, "net")) {

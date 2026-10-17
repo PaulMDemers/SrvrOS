@@ -66,12 +66,12 @@ def qmp_command(sock, command):
     return data
 
 
-def send_qmp_key(sock, key):
+def send_qmp_key(sock, key, shift=False):
     for down in (True, False):
         qmp_command(sock, {
             "execute": "input-send-event",
             "arguments": {
-                "events": [{
+                "events": ([{"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": "shift"}}}] if shift else []) + [{
                     "type": "key",
                     "data": {
                         "down": down,
@@ -99,11 +99,15 @@ def send_qmp_text(sock, text, key_delay):
         ";": "semicolon",
         ",": "comma",
     }
+    key_names.update({"[": "bracket_left", "]": "bracket_right", "`": "grave_accent"})
+    shifted = dict(zip('!@#$%^&*()_+{}|:"<>?~', "1234567890-=[]\\;',./`"))
     for char in text:
-        key = key_names.get(char, char.lower())
+        shift = char.isupper() or char in shifted
+        plain = shifted.get(char, char.lower())
+        key = key_names.get(plain, plain)
         if len(key) != 1 and key not in key_names.values():
-            continue
-        send_qmp_key(sock, key)
+            raise ValueError(f"Unsupported QMP character {char!r}")
+        send_qmp_key(sock, key, shift)
         time.sleep(key_delay)
 
 

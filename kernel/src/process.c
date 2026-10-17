@@ -181,6 +181,7 @@ struct process {
     bool exiting;
     bool reapable;
     bool quiet;
+    bool startup_ready;
     uint64_t kill_signal;
     uint64_t signal_catch_mask;
     uint64_t signal_ignore_mask;
@@ -2890,6 +2891,34 @@ static void process_futex_cleanup_process(struct process *process) {
     process_irq_restore(flags);
 }
 
+void process_mark_ready(void) {
+    struct process *process = process_current();
+    if (process == NULL) return;
+    process->startup_ready = true;
+    scheduler_wake_all(&process_wait_queue);
+}
+
+static bool startup_finished(void *arg) {
+    uint64_t pid = *(uint64_t *)arg;
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && processes[i].pid == pid)
+            return processes[i].startup_ready || !processes[i].active;
+    }
+    return true;
+}
+
+bool process_wait_startup(uint64_t pid, uint64_t timeout_ticks) {
+    uint64_t deadline = timer_ticks() + timeout_ticks;
+    while (!startup_finished(&pid) && timer_ticks() < deadline) {
+        if (!scheduler_wait_timeout(&process_wait_queue, startup_finished, &pid, deadline))
+            scheduler_yield();
+    }
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        if (processes[i].allocated && processes[i].pid == pid) return processes[i].startup_ready;
+    }
+    return false;
+}
+
 uint64_t process_pid(const struct process *process) {
     return process != NULL ? process->pid : 0;
 }
@@ -3730,10 +3759,8 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
     }
 
     bool ok = exfat_write_file(write->path, write->data, write->size);
-    if (!ok && vfs_lookup(write->path) != NULL) {
-        ok = exfat_delete_file(write->path) &&
-            exfat_write_file(write->path, write->data, write->size);
-    }
+    /* An I/O failure must not trigger deletion of the existing file. The
+     * filesystem overwrite path already handles growth and truncation. */
     if (!ok) {
         write->failed = true;
         return -1;

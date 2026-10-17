@@ -125,6 +125,8 @@ bool process_should_exit_current(void);
 uint64_t process_current_kill_status(void);
 bool process_has_open_vfs_prefix(const char *prefix);
 struct process *process_current(void);
+void process_mark_ready(void);
+bool process_wait_startup(uint64_t pid, uint64_t timeout_ticks);
 uint64_t process_pid(const struct process *process);
 uint64_t process_parent_pid(const struct process *process);
 const char *process_name(const struct process *process);

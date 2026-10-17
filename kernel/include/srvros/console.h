@@ -22,6 +22,20 @@ struct console_display_info {
     uint16_t reserved;
 };
 
+struct console_stats {
+    uint64_t bytes_received;
+    uint64_t scrolls;
+    uint64_t presents;
+    uint64_t cells_painted;
+    uint64_t framebuffer_bytes_written;
+};
+void console_write_n(const char *s, size_t length);
+void console_flush(void);
+void console_emergency(void);
+bool console_sync(void);
+void console_enable_deferred(void);
+void console_get_stats(struct console_stats *out);
+bool console_set_serial_output(bool enabled);
 void console_init(struct limine_framebuffer *framebuffer);
 void console_clear(void);
 void console_set_framebuffer_muted(bool muted);

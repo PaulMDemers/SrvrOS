@@ -324,6 +324,24 @@ static int64_t syscall_random(void *buffer, uint64_t length, uint64_t flags) {
     return (int64_t)length;
 }
 
+/* Copy while the caller's mappings are stable, then allow interrupts while
+ * consuming only the owned chunk. Revalidate each subsequent user range. */
+static int64_t console_write_user(const char *buffer, uint64_t length) {
+    uint64_t written = 0;
+    while (written < length) {
+        char chunk[256];
+        uint64_t count = length - written;
+        if (count > sizeof(chunk)) count = sizeof(chunk);
+        if (!copy_from_user(chunk, buffer + written, count)) return written ? (int64_t)written : -1;
+        __asm__ volatile ("sti" : : : "memory");
+        console_write_n(chunk, count);
+        __asm__ volatile ("cli" : : : "memory");
+        written += count;
+        if (process_should_exit_current()) break;
+    }
+    return (int64_t)written;
+}
+
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
     if (!user_buffer_ok(buffer, length, false)) {
         return -1;
@@ -344,10 +362,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
             if (redirected != -2) {
                 return redirected;
             }
-            for (uint64_t i = 0; i < length; i++) {
-                console_putc(buffer[i]);
-            }
-            return (int64_t)length;
+            return console_write_user(buffer, length);
         }
         if (file->type == PROCESS_FILE_VFS_WRITE) {
             return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
@@ -366,10 +381,7 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
         return redirected;
     }
 
-    for (uint64_t i = 0; i < length; i++) {
-        console_putc(buffer[i]);
-    }
-    return (int64_t)length;
+    return console_write_user(buffer, length);
 }
 
 static char tty_filter_input(char c) {
@@ -1363,7 +1375,8 @@ static int64_t syscall_ftruncate(uint64_t fd, uint64_t length) {
 }
 
 static int64_t syscall_fsync(uint64_t fd) {
-    return process_file_flush(process_current(), fd);
+    if (process_file_flush(process_current(), fd) < 0) return -1;
+    return block_flush_all() ? 0 : -1;
 }
 
 static int64_t syscall_console_info(struct syscall_console_info *info) {
@@ -2497,6 +2510,10 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_MEMINFO:
         frame->rax = (uint64_t)syscall_meminfo((struct srv_meminfo *)frame->rdi);
+        return;
+    case SYS_PROC_READY:
+        process_mark_ready();
+        frame->rax = 0;
         return;
     case SYS_RANDOM:
         frame->rax = (uint64_t)syscall_random((void *)frame->rdi, frame->rsi, frame->rdx);

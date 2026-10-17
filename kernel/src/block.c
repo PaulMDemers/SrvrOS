@@ -206,6 +206,7 @@ struct block_device *block_register(const char *name,
     if (name == 0 ||
         block_size == 0 ||
         block_count == 0 ||
+        block_count > UINT64_MAX / block_size ||
         read == 0) {
         return 0;
     }
@@ -321,7 +322,9 @@ static bool block_range_valid(struct block_device *device, uint64_t offset, uint
 }
 
 static bool cache_supported(struct block_device *device) {
-    return device->block_size > 0 && device->block_size <= BLOCK_CACHE_MAX_BLOCK_SIZE;
+    /* Partition aliases use the parent cache so either name sees each write. */
+    return device->read != partition_read && device->block_size > 0 &&
+        device->block_size <= BLOCK_CACHE_MAX_BLOCK_SIZE;
 }
 
 static struct block_cache_entry *cache_lookup(struct block_device *device, uint64_t block_index) {
@@ -438,6 +441,8 @@ bool block_write(struct block_device *device, uint64_t offset, const void *buffe
 
         uint64_t block_start = block_index * device->block_size;
         if (!device->write(device, block_start, entry->data, device->block_size)) {
+            /* The write may have partially reached media. Reload on next read. */
+            entry->valid = false;
             return false;
         }
         cache_write_throughs++;
@@ -448,7 +453,13 @@ bool block_write(struct block_device *device, uint64_t offset, const void *buffe
 }
 
 bool block_flush_all(void) {
-    return true;
+    bool success = true;
+    for (uint64_t i = 0; i < device_count; i++) {
+        struct block_device *device = &devices[i];
+        if (!device->used || device->write == NULL || device->read == partition_read) continue;
+        if (device->flush == NULL || !device->flush(device)) success = false;
+    }
+    return success;
 }
 
 uint64_t block_device_size(const struct block_device *device) {

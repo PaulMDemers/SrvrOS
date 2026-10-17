@@ -1,6 +1,9 @@
 #include <srvros/console.h>
 #include <srvros/bootlog.h>
 #include <srvros/serial.h>
+#include <srvros/font5x7.h>
+#include <srvros/workqueue.h>
+#include <srvros/scheduler.h>
 
 #include <limine.h>
 #include <stdarg.h>
@@ -34,82 +37,45 @@ static uint64_t ansi_param_count;
 static bool ansi_param_active;
 static bool ansi_private;
 
-static const uint8_t glyph_space[GLYPH_HEIGHT] = { 0, 0, 0, 0, 0, 0, 0 };
-static const uint8_t glyph_unknown[GLYPH_HEIGHT] = { 0x1e, 0x01, 0x01, 0x0e, 0x04, 0x00, 0x04 };
+/* Fixed storage also works before the allocator and in the panic path.
+ * The text viewport is capped at 4096 x 4096; framebuffer clearing/blits retain
+ * their full size. No heap allocation or framebuffer read is used by text. */
+#define MAX_COLUMNS 512
+#define MAX_ROWS 256
+#define WRITE_BATCH 64
+static unsigned char cells[MAX_ROWS][MAX_COLUMNS];
+static uint16_t dirty_left[MAX_ROWS], dirty_right[MAX_ROWS];
+static uint32_t glyph_cache[SRV_FONT_COUNT][CELL_HEIGHT][CELL_WIDTH];
+static uint32_t scanline[MAX_COLUMNS * CELL_WIDTH];
+static bool presenting;
+static bool deferred_output;
+static bool serial_output = true;
+static uint64_t previous_cursor_x, previous_cursor_y;
+static struct console_stats stats;
 
-struct glyph_entry {
-    char ch;
-    uint8_t rows[GLYPH_HEIGHT];
-};
+static uint64_t console_irq_save(void) {
+#ifdef SRVROS_CONSOLE_HOST_TEST
+    return 0;
+#else
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+#endif
+}
 
-static const struct glyph_entry glyphs[] = {
-    { '0', { 0x0e, 0x11, 0x13, 0x15, 0x19, 0x11, 0x0e } },
-    { '1', { 0x04, 0x0c, 0x04, 0x04, 0x04, 0x04, 0x0e } },
-    { '2', { 0x0e, 0x11, 0x01, 0x02, 0x04, 0x08, 0x1f } },
-    { '3', { 0x1e, 0x01, 0x01, 0x0e, 0x01, 0x01, 0x1e } },
-    { '4', { 0x02, 0x06, 0x0a, 0x12, 0x1f, 0x02, 0x02 } },
-    { '5', { 0x1f, 0x10, 0x10, 0x1e, 0x01, 0x01, 0x1e } },
-    { '6', { 0x0e, 0x10, 0x10, 0x1e, 0x11, 0x11, 0x0e } },
-    { '7', { 0x1f, 0x01, 0x02, 0x04, 0x08, 0x08, 0x08 } },
-    { '8', { 0x0e, 0x11, 0x11, 0x0e, 0x11, 0x11, 0x0e } },
-    { '9', { 0x0e, 0x11, 0x11, 0x0f, 0x01, 0x01, 0x0e } },
-    { 'A', { 0x0e, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11 } },
-    { 'B', { 0x1e, 0x11, 0x11, 0x1e, 0x11, 0x11, 0x1e } },
-    { 'C', { 0x0e, 0x11, 0x10, 0x10, 0x10, 0x11, 0x0e } },
-    { 'D', { 0x1e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1e } },
-    { 'E', { 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x1f } },
-    { 'F', { 0x1f, 0x10, 0x10, 0x1e, 0x10, 0x10, 0x10 } },
-    { 'G', { 0x0e, 0x11, 0x10, 0x17, 0x11, 0x11, 0x0f } },
-    { 'H', { 0x11, 0x11, 0x11, 0x1f, 0x11, 0x11, 0x11 } },
-    { 'I', { 0x0e, 0x04, 0x04, 0x04, 0x04, 0x04, 0x0e } },
-    { 'J', { 0x07, 0x02, 0x02, 0x02, 0x12, 0x12, 0x0c } },
-    { 'K', { 0x11, 0x12, 0x14, 0x18, 0x14, 0x12, 0x11 } },
-    { 'L', { 0x10, 0x10, 0x10, 0x10, 0x10, 0x10, 0x1f } },
-    { 'M', { 0x11, 0x1b, 0x15, 0x15, 0x11, 0x11, 0x11 } },
-    { 'N', { 0x11, 0x19, 0x15, 0x13, 0x11, 0x11, 0x11 } },
-    { 'O', { 0x0e, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e } },
-    { 'P', { 0x1e, 0x11, 0x11, 0x1e, 0x10, 0x10, 0x10 } },
-    { 'Q', { 0x0e, 0x11, 0x11, 0x11, 0x15, 0x12, 0x0d } },
-    { 'R', { 0x1e, 0x11, 0x11, 0x1e, 0x14, 0x12, 0x11 } },
-    { 'S', { 0x0f, 0x10, 0x10, 0x0e, 0x01, 0x01, 0x1e } },
-    { 'T', { 0x1f, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 } },
-    { 'U', { 0x11, 0x11, 0x11, 0x11, 0x11, 0x11, 0x0e } },
-    { 'V', { 0x11, 0x11, 0x11, 0x11, 0x0a, 0x0a, 0x04 } },
-    { 'W', { 0x11, 0x11, 0x11, 0x15, 0x15, 0x1b, 0x11 } },
-    { 'X', { 0x11, 0x11, 0x0a, 0x04, 0x0a, 0x11, 0x11 } },
-    { 'Y', { 0x11, 0x11, 0x0a, 0x04, 0x04, 0x04, 0x04 } },
-    { 'Z', { 0x1f, 0x01, 0x02, 0x04, 0x08, 0x10, 0x1f } },
-    { '.', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c, 0x0c } },
-    { ',', { 0x00, 0x00, 0x00, 0x00, 0x0c, 0x04, 0x08 } },
-    { ':', { 0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x0c, 0x00 } },
-    { ';', { 0x00, 0x0c, 0x0c, 0x00, 0x0c, 0x04, 0x08 } },
-    { '-', { 0x00, 0x00, 0x00, 0x1f, 0x00, 0x00, 0x00 } },
-    { '_', { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1f } },
-    { '=', { 0x00, 0x00, 0x1f, 0x00, 0x1f, 0x00, 0x00 } },
-    { '+', { 0x00, 0x04, 0x04, 0x1f, 0x04, 0x04, 0x00 } },
-    { '/', { 0x01, 0x01, 0x02, 0x04, 0x08, 0x10, 0x10 } },
-    { '\\', { 0x10, 0x10, 0x08, 0x04, 0x02, 0x01, 0x01 } },
-    { '[', { 0x0e, 0x08, 0x08, 0x08, 0x08, 0x08, 0x0e } },
-    { ']', { 0x0e, 0x02, 0x02, 0x02, 0x02, 0x02, 0x0e } },
-    { '(', { 0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02 } },
-    { ')', { 0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08 } },
-    { '<', { 0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02 } },
-    { '>', { 0x08, 0x04, 0x02, 0x01, 0x02, 0x04, 0x08 } },
-    { '*', { 0x00, 0x15, 0x0e, 0x1f, 0x0e, 0x15, 0x00 } },
-    { '!', { 0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x04 } },
-    { '?', { 0x0e, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04 } },
-    { '\'', { 0x04, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00 } },
-    { '"', { 0x0a, 0x0a, 0x0a, 0x00, 0x00, 0x00, 0x00 } },
-    { '`', { 0x08, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00 } },
-    { '|', { 0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04 } },
-    { '#', { 0x0a, 0x1f, 0x0a, 0x0a, 0x1f, 0x0a, 0x00 } },
-    { '$', { 0x04, 0x0f, 0x14, 0x0e, 0x05, 0x1e, 0x04 } },
-    { '%', { 0x18, 0x19, 0x02, 0x04, 0x08, 0x13, 0x03 } },
-    { '&', { 0x0c, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0d } },
-    { '@', { 0x0e, 0x11, 0x17, 0x15, 0x17, 0x10, 0x0f } },
-    { '^', { 0x04, 0x0a, 0x11, 0x00, 0x00, 0x00, 0x00 } },
-    { '~', { 0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00 } },
-};
+static void console_irq_restore(uint64_t flags) {
+#ifdef SRVROS_CONSOLE_HOST_TEST
+    (void)flags;
+#else
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
+}
+
+static void dirty_range(uint64_t row, uint64_t left, uint64_t right) {
+    if (row >= rows || left >= right) return;
+    if (left < dirty_left[row]) dirty_left[row] = (uint16_t)left;
+    if (right > dirty_right[row]) dirty_right[row] = (uint16_t)right;
+}
 
 static uint32_t color(uint8_t r, uint8_t g, uint8_t b) {
     return ((uint32_t)r << fb->red_mask_shift) |
@@ -142,106 +108,174 @@ static void put_pixel(uint64_t x, uint64_t y, uint32_t value) {
     pixels[y * (fb->pitch / 4) + x] = value;
 }
 
+/* Public pixel APIs still draw directly; console presentation uses contiguous
+ * device-memory writes. Never use device memory as the scroll source. */
 static void fill_rect(uint64_t x, uint64_t y, uint64_t width, uint64_t height, uint32_t value) {
-    for (uint64_t py = y; py < y + height && py < fb->height; py++) {
-        for (uint64_t px = x; px < x + width && px < fb->width; px++) {
-            put_pixel(px, py, value);
-        }
+    if (fb == NULL || x >= fb->width || y >= fb->height) return;
+    if (width > fb->width - x) width = fb->width - x;
+    if (height > fb->height - y) height = fb->height - y;
+    volatile uint32_t *pixels = fb->address;
+    for (uint64_t py = y; py < y + height; py++) {
+        volatile uint32_t *line = pixels + py * (fb->pitch / 4) + x;
+        for (uint64_t px = 0; px < width; px++) line[px] = value;
     }
-}
-
-static const uint8_t *glyph_for(char c) {
-    if (c >= 'a' && c <= 'z') {
-        c = (char)(c - 'a' + 'A');
-    }
-
-    if (c == ' ') {
-        return glyph_space;
-    }
-
-    for (size_t i = 0; i < sizeof(glyphs) / sizeof(glyphs[0]); i++) {
-        if (glyphs[i].ch == c) {
-            return glyphs[i].rows;
-        }
-    }
-
-    return glyph_unknown;
-}
-
-static void draw_cursor(bool visible) {
-    if (!framebuffer_console_ready) {
-        return;
-    }
-
-    uint64_t x = cursor_x * CELL_WIDTH;
-    uint64_t y = cursor_y * CELL_HEIGHT + CELL_HEIGHT - 2;
-    fill_rect(x, y, CELL_WIDTH - 1, 2, visible ? accent_color() : bg_color());
 }
 
 static void draw_glyph(char c, uint64_t cell_x, uint64_t cell_y) {
-    const uint8_t *glyph = glyph_for(c);
-    uint64_t x = cell_x * CELL_WIDTH;
-    uint64_t y = cell_y * CELL_HEIGHT;
-
-    fill_rect(x, y, CELL_WIDTH, CELL_HEIGHT, bg_color());
-
-    for (uint64_t row = 0; row < GLYPH_HEIGHT; row++) {
-        uint8_t bits = glyph[row];
-        for (uint64_t col = 0; col < GLYPH_WIDTH; col++) {
-            if ((bits & (1u << (GLYPH_WIDTH - 1 - col))) != 0) {
-                uint64_t px = x + col + 1;
-                uint64_t py = y + row * 2 + 1;
-                put_pixel(px, py, fg_color());
-                put_pixel(px, py + 1, fg_color());
-            }
-        }
+    unsigned char ch = (unsigned char)c;
+    if (ch < SRV_FONT_FIRST || ch >= SRV_FONT_FIRST + SRV_FONT_COUNT) ch = '?';
+    if (cells[cell_y][cell_x] != ch) {
+        cells[cell_y][cell_x] = ch;
+        dirty_range(cell_y, cell_x, cell_x + 1);
     }
 }
 
-static void clear_last_row(void) {
-    fill_rect(0, (rows - 1) * CELL_HEIGHT, columns * CELL_WIDTH, CELL_HEIGHT, bg_color());
-}
-
-static void clear_row_range(uint64_t row, uint64_t start_column, uint64_t end_column) {
-    if (row >= rows || start_column >= columns || end_column <= start_column) {
-        return;
-    }
-    if (end_column > columns) {
-        end_column = columns;
-    }
-    fill_rect(start_column * CELL_WIDTH,
-        row * CELL_HEIGHT,
-        (end_column - start_column) * CELL_WIDTH,
-        CELL_HEIGHT,
-        bg_color());
+static void clear_row_range(uint64_t row, uint64_t start, uint64_t end) {
+    if (row >= rows || start >= columns || end <= start) return;
+    if (end > columns) end = columns;
+    for (uint64_t col = start; col < end; col++) cells[row][col] = ' ';
+    dirty_range(row, start, end);
 }
 
 static void clear_from_cursor(void) {
     clear_row_range(cursor_y, cursor_x, columns);
-    for (uint64_t row = cursor_y + 1; row < rows; row++) {
-        clear_row_range(row, 0, columns);
-    }
+    for (uint64_t row = cursor_y + 1; row < rows; row++) clear_row_range(row, 0, columns);
 }
 
 static void clear_to_cursor(void) {
-    for (uint64_t row = 0; row < cursor_y; row++) {
-        clear_row_range(row, 0, columns);
-    }
+    for (uint64_t row = 0; row < cursor_y; row++) clear_row_range(row, 0, columns);
     clear_row_range(cursor_y, 0, cursor_x + 1);
 }
 
 static void scroll_one_row(void) {
-    volatile uint32_t *pixels = fb->address;
-    uint64_t stride = fb->pitch / 4;
-    uint64_t scroll_height = (rows - 1) * CELL_HEIGHT;
-
-    for (uint64_t y = 0; y < scroll_height; y++) {
-        for (uint64_t x = 0; x < columns * CELL_WIDTH; x++) {
-            pixels[y * stride + x] = pixels[(y + CELL_HEIGHT) * stride + x];
-        }
+    for (uint64_t row = 0; row + 1 < rows; row++) {
+        for (uint64_t col = 0; col < columns; col++) cells[row][col] = cells[row + 1][col];
+        dirty_range(row, 0, columns);
     }
+    clear_row_range(rows - 1, 0, columns);
+    stats.scrolls++;
+}
 
-    clear_last_row();
+void console_flush(void) {
+    uint64_t flags = console_irq_save();
+    if (!framebuffer_console_ready || framebuffer_console_muted || presenting) {
+        console_irq_restore(flags);
+        return;
+    }
+    presenting = true;
+    dirty_range(previous_cursor_y, previous_cursor_x, previous_cursor_x + 1);
+    dirty_range(cursor_y, cursor_x, cursor_x + 1);
+    stats.presents++;
+    console_irq_restore(flags);
+    /* Snapshot one text row under a short critical section. IRQs/other writers
+     * may update the model during rasterization; their damage stays queued.
+     * Reentrant writers never wait for the presenter or reuse its scanline. */
+    for (uint64_t row = 0; row < rows; row++) {
+        unsigned char chars[MAX_COLUMNS];
+        flags = console_irq_save();
+        uint64_t left = dirty_left[row], right = dirty_right[row];
+        dirty_left[row] = (uint16_t)columns;
+        dirty_right[row] = 0;
+        for (uint64_t col = left; col < right; col++) chars[col] = cells[row][col];
+        console_irq_restore(flags);
+        if (left >= right) continue;
+        for (uint64_t py = 0; py < CELL_HEIGHT; py++) {
+            for (uint64_t col = left; col < right; col++) {
+                const uint32_t *tile = glyph_cache[chars[col] - SRV_FONT_FIRST][py];
+                for (uint64_t px = 0; px < CELL_WIDTH; px++) scanline[col * CELL_WIDTH + px] = tile[px];
+            }
+            volatile uint32_t *dst = (volatile uint32_t *)fb->address +
+                (row * CELL_HEIGHT + py) * (fb->pitch / 4) + left * CELL_WIDTH;
+            const uint32_t *src = scanline + left * CELL_WIDTH;
+            uint64_t length = (right - left) * CELL_WIDTH;
+            /* A graphics owner may claim the display while rasterizing. Check
+             * under the same short critical section as each scanline store so
+             * an interrupted console cannot paint over its new framebuffer. */
+            flags = console_irq_save();
+            if (framebuffer_console_muted) {
+                presenting = false;
+                console_irq_restore(flags);
+                return;
+            }
+            for (uint64_t i = 0; i < length; i++) dst[i] = src[i];
+            console_irq_restore(flags);
+        }
+        stats.framebuffer_bytes_written += (right - left) * CELL_WIDTH * CELL_HEIGHT * 4;
+        stats.cells_painted += right - left;
+    }
+    flags = console_irq_save();
+    previous_cursor_x = cursor_x;
+    previous_cursor_y = cursor_y;
+    if (!framebuffer_console_muted) {
+        fill_rect(cursor_x * CELL_WIDTH, cursor_y * CELL_HEIGHT + CELL_HEIGHT - 1,
+            CELL_WIDTH - 1, 1, accent_color());
+        stats.framebuffer_bytes_written += (CELL_WIDTH - 1) * 4;
+    }
+    presenting = false;
+    console_irq_restore(flags);
+}
+
+static bool console_damage_pending(void) {
+    for (uint64_t row = 0; row < rows; row++) {
+        if (dirty_left[row] < dirty_right[row]) return true;
+    }
+    return false;
+}
+
+static void console_present_work(void *arg) {
+    (void)arg;
+    if (framebuffer_console_muted) return;
+    console_flush();
+    uint64_t flags = console_irq_save();
+    /* A preempting writer can dirty a row already presented. Queue another
+     * bounded pass so the final update cannot remain stranded. */
+    if (console_damage_pending()) (void)workqueue_schedule(console_present_work, NULL);
+    console_irq_restore(flags);
+}
+
+void console_enable_deferred(void) { deferred_output = true; }
+
+/* Only for a terminal fault: the interrupted presenter will never resume. */
+void console_emergency(void) {
+    deferred_output = false;
+    presenting = false;
+    framebuffer_console_muted = false;
+    serial_output = true;
+}
+
+/* Normal thread context, interrupts enabled. Wait for any preempted presenter,
+ * then drain its remaining damage before reporting a completed benchmark. */
+bool console_sync(void) {
+    if (framebuffer_console_muted) return false;
+    for (unsigned attempt = 0; attempt < 1000; attempt++) {
+        console_flush();
+        uint64_t flags = console_irq_save();
+        bool done = !presenting && !console_damage_pending();
+        console_irq_restore(flags);
+        if (done) return true;
+        scheduler_yield();
+    }
+    return false;
+}
+
+static void console_request_present(void) {
+    if (deferred_output && workqueue_schedule(console_present_work, NULL)) return;
+    console_flush();
+}
+
+void console_get_stats(struct console_stats *out) {
+    if (out == NULL) return;
+    uint64_t flags = console_irq_save();
+    *out = stats;
+    console_irq_restore(flags);
+}
+
+bool console_set_serial_output(bool enabled) {
+    uint64_t flags = console_irq_save();
+    bool previous = serial_output;
+    serial_output = enabled;
+    console_irq_restore(flags);
+    return previous;
 }
 
 static void newline(void) {
@@ -296,7 +330,6 @@ static void ansi_execute(char command) {
         ansi_finish_param();
     }
 
-    draw_cursor(false);
     if (command == 'H' || command == 'f') {
         uint64_t row = ansi_param(0, 1);
         uint64_t column = ansi_param(1, 1);
@@ -317,7 +350,7 @@ static void ansi_execute(char command) {
     } else if (command == 'J') {
         uint64_t mode = ansi_param(0, 0);
         if (mode == 2) {
-            fill_rect(0, 0, fb->width, fb->height, bg_color());
+            for (uint64_t row = 0; row < rows; row++) clear_row_range(row, 0, columns);
             move_cursor(0, 0);
         } else if (mode == 1) {
             clear_to_cursor();
@@ -334,7 +367,6 @@ static void ansi_execute(char command) {
             clear_row_range(cursor_y, cursor_x, columns);
         }
     }
-    draw_cursor(true);
     ansi_reset();
 }
 
@@ -390,7 +422,6 @@ static void framebuffer_putc_raw(char c) {
         return;
     }
 
-    draw_cursor(false);
 
     if (c == '\n') {
         newline();
@@ -416,7 +447,6 @@ static void framebuffer_putc_raw(char c) {
         }
     }
 
-    draw_cursor(true);
 }
 
 static void framebuffer_putc(char c) {
@@ -432,11 +462,16 @@ void console_clear(void) {
         return;
     }
 
-    fill_rect(0, 0, fb->width, fb->height, bg_color());
-    cursor_x = 0;
-    cursor_y = 0;
+    uint64_t flags = console_irq_save();
+    for (uint64_t row = 0; row < rows; row++) clear_row_range(row, 0, columns);
+    cursor_x = cursor_y = 0;
     ansi_reset();
-    draw_cursor(true);
+    console_irq_restore(flags);
+    if (framebuffer_console_muted) return;
+    /* Clear unused margins once, not on every text update. */
+    fill_rect(columns * CELL_WIDTH, 0, fb->width - columns * CELL_WIDTH, fb->height, bg_color());
+    fill_rect(0, rows * CELL_HEIGHT, fb->width, fb->height - rows * CELL_HEIGHT, bg_color());
+    console_flush();
 }
 
 void console_set_framebuffer_muted(bool muted) {
@@ -482,10 +517,11 @@ void console_set_cursor(uint64_t x, uint64_t y) {
         return;
     }
 
-    draw_cursor(false);
+    uint64_t flags = console_irq_save();
     move_cursor(x, y);
     ansi_reset();
-    draw_cursor(true);
+    console_irq_restore(flags);
+    console_flush();
 }
 
 void console_init(struct limine_framebuffer *framebuffer) {
@@ -494,105 +530,138 @@ void console_init(struct limine_framebuffer *framebuffer) {
     framebuffer_console_muted = false;
     framebuffer_console_mute_owner = 0;
 
-    if (fb == NULL || fb->bpp != 32 || fb->memory_model != LIMINE_FRAMEBUFFER_RGB) {
+    if (fb == NULL || fb->address == NULL || fb->bpp != 32 ||
+        fb->memory_model != LIMINE_FRAMEBUFFER_RGB || fb->width > UINT64_MAX / 4 ||
+        fb->pitch < fb->width * 4 || fb->pitch % 4 != 0 ||
+        fb->height > UINT64_MAX / (fb->pitch ? fb->pitch : 1) ||
+        fb->red_mask_size != 8 || fb->green_mask_size != 8 || fb->blue_mask_size != 8 ||
+        fb->red_mask_shift > 24 || fb->green_mask_shift > 24 || fb->blue_mask_shift > 24) {
+        fb = NULL;
         return;
     }
 
     columns = fb->width / CELL_WIDTH;
     rows = fb->height / CELL_HEIGHT;
+    if (columns > MAX_COLUMNS) columns = MAX_COLUMNS;
+    if (rows > MAX_ROWS) rows = MAX_ROWS;
     if (columns == 0 || rows == 0) {
         return;
     }
 
+    for (uint64_t g = 0; g < SRV_FONT_COUNT; g++) {
+        for (uint64_t y = 0; y < CELL_HEIGHT; y++) {
+            for (uint64_t x = 0; x < CELL_WIDTH; x++) {
+                bool ink = y > 0 && y < 15 && x > 0 && x <= GLYPH_WIDTH &&
+                    (srv_font5x7[g][(y - 1) / 2] & (1u << (GLYPH_WIDTH - x)));
+                glyph_cache[g][y][x] = ink ? fg_color() : bg_color();
+            }
+        }
+    }
+    for (uint64_t row = 0; row < rows; row++) {
+        dirty_left[row] = (uint16_t)columns;
+        dirty_right[row] = 0;
+    }
+    presenting = false;
+    deferred_output = false;
+    previous_cursor_x = previous_cursor_y = 0;
+    stats = (struct console_stats){0};
     framebuffer_console_ready = true;
     ansi_reset();
     console_clear();
 }
 
-void console_putc(char c) {
-    bootlog_putc(c);
-    serial_putc(c);
-    if (!framebuffer_console_muted) {
-        framebuffer_putc(c);
+void console_write_n(const char *s, size_t length) {
+    while (length != 0) {
+        size_t count = length < WRITE_BATCH ? length : WRITE_BATCH;
+        uint64_t flags = console_irq_save();
+        bool visible = !framebuffer_console_muted;
+        for (size_t i = 0; i < count; i++) {
+            bootlog_putc(s[i]);
+            if (serial_output) serial_putc(s[i]);
+            if (visible) framebuffer_putc(s[i]);
+        }
+        stats.bytes_received += count;
+        console_irq_restore(flags);
+        if (visible) console_request_present();
+        s += count;
+        length -= count;
     }
 }
 
+void console_putc(char c) { console_write_n(&c, 1); }
+
 void console_write(const char *s) {
-    while (*s != '\0') {
-        console_putc(*s++);
-    }
+    size_t length = 0;
+    while (s[length] != '\0') length++;
+    console_write_n(s, length);
 }
 
 void console_write_hex64(uint64_t value) {
     static const char digits[] = "0123456789abcdef";
+    char text[18] = {'0', 'x'};
+    for (unsigned i = 0; i < 16; i++) text[i + 2] = digits[(value >> ((15 - i) * 4)) & 15];
+    console_write_n(text, sizeof(text));
+}
 
-    console_write("0x");
-    for (int shift = 60; shift >= 0; shift -= 4) {
-        console_putc(digits[(value >> shift) & 0xf]);
+static size_t decimal_text(uint64_t value, char text[20]) {
+    size_t count = 0;
+    do { text[count++] = (char)('0' + value % 10); value /= 10; } while (value);
+    for (size_t i = 0; i < count / 2; i++) {
+        char c = text[i]; text[i] = text[count - 1 - i]; text[count - 1 - i] = c;
     }
+    return count;
 }
 
 void console_write_dec(uint64_t value) {
-    char buf[21];
-    size_t i = sizeof(buf);
-
-    buf[--i] = '\0';
-    if (value == 0) {
-        console_putc('0');
-        return;
-    }
-
-    while (value > 0 && i > 0) {
-        buf[--i] = (char)('0' + (value % 10));
-        value /= 10;
-    }
-
-    console_write(&buf[i]);
+    char text[20];
+    size_t count = decimal_text(value, text);
+    console_write_n(text, count);
 }
 
-static void console_vprintf(const char *fmt, va_list args) {
-    for (const char *p = fmt; *p != '\0'; p++) {
-        if (*p != '%') {
-            console_putc(*p);
-            continue;
-        }
-
-        p++;
-        if (*p == '\0') {
-            break;
-        }
-
-        switch (*p) {
-        case '%':
-            console_putc('%');
-            break;
-        case 'c':
-            console_putc((char)va_arg(args, int));
-            break;
-        case 's': {
-            const char *s = va_arg(args, const char *);
-            console_write(s != NULL ? s : "(null)");
-            break;
-        }
-        case 'u':
-            console_write_dec(va_arg(args, uint64_t));
-            break;
-        case 'x':
-            console_write_hex64(va_arg(args, uint64_t));
-            break;
-        default:
-            console_putc('%');
-            console_putc(*p);
-            break;
-        }
+struct format_buffer { char data[WRITE_BATCH]; size_t used; };
+static void format_emit(struct format_buffer *buffer, char c) {
+    buffer->data[buffer->used++] = c;
+    if (buffer->used == sizeof(buffer->data)) {
+        console_write_n(buffer->data, buffer->used);
+        buffer->used = 0;
     }
 }
 
 void console_printf(const char *fmt, ...) {
+    struct format_buffer buffer = { .used = 0 };
     va_list args;
     va_start(args, fmt);
-    console_vprintf(fmt, args);
+    for (const char *p = fmt; *p; p++) {
+        if (*p != '%') { format_emit(&buffer, *p); continue; }
+        p++;
+        if (*p == '\0') break;
+        switch (*p) {
+        case '%': format_emit(&buffer, '%'); break;
+        case 'c': format_emit(&buffer, (char)va_arg(args, int)); break;
+        case 's': {
+            const char *text = va_arg(args, const char *);
+            if (text == NULL) text = "(null)";
+            while (*text) format_emit(&buffer, *text++);
+            break;
+        }
+        case 'u': {
+            char text[20];
+            size_t count = decimal_text(va_arg(args, uint64_t), text);
+            for (size_t i = 0; i < count; i++) format_emit(&buffer, text[i]);
+            break;
+        }
+        case 'x': {
+            uint64_t value = va_arg(args, uint64_t);
+            const char *digits = "0123456789abcdef";
+            format_emit(&buffer, '0'); format_emit(&buffer, 'x');
+            for (int shift = 60; shift >= 0; shift -= 4) format_emit(&buffer, digits[(value >> shift) & 15]);
+            break;
+        }
+        default: format_emit(&buffer, '%'); format_emit(&buffer, *p); break;
+        }
+    }
     va_end(args);
+    if (buffer.used) console_write_n(buffer.data, buffer.used);
 }
 
 bool console_framebuffer_info(uint64_t *width_out, uint64_t *height_out, uint64_t *pitch_out) {

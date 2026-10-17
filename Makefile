@@ -1001,7 +1001,7 @@ check-host:
 	$(PYTHON) tools/check_host.py
 
 # Sequential: each harness uses a disposable disk and its own QEMU instance.
-smoke: $(IMAGE) $(USB_IMAGE) test-xhci
+smoke: $(IMAGE) $(USB_IMAGE) test-core
 	$(PYTHON) -m unittest discover -s tools -p test_cli_harness.py
 	$(PYTHON) tools/sysabi_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
 	$(PYTHON) tools/cli_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
@@ -1035,7 +1035,9 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) $(KERNEL_OBJ) -o $@
 
-build/kernel/src/arch/x86_64/fpu.c.o: kernel/src/arch/x86_64/fpu.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+# These paths execute before CR4.OSFXSR is enabled. Even integer-only C may
+# otherwise acquire compiler-generated SSE loads/copies at -O2.
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -1856,9 +1858,9 @@ usb-image: $(USB_IMAGE)
 hardware-stage: $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS)
 	$(PYTHON) tools/hardware_boot.py stage
 
-hardware-smoke: hardware-stage test-xhci
+hardware-smoke: hardware-stage test-core
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
-	$(PYTHON) tools/hardware_boot_smoke.py
+	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check
 
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
@@ -1940,3 +1942,37 @@ distclean:
 	rm -rf build
 
 -include $(KERNEL_DEP) $(USER_INIT_DEP) $(USER_HELLO_DEP) $(USER_CAT_DEP) $(USER_MORE_DEP) $(USER_SH_DEP) $(USER_LS_DEP) $(USER_ECHO_DEP) $(USER_WRITE_DEP) $(USER_WC_DEP) $(USER_CLEAR_DEP) $(USER_PS_DEP) $(USER_KILL_DEP) $(USER_WHICH_DEP) $(USER_ENV_DEP) $(USER_PWD_DEP) $(USER_TRUE_DEP) $(USER_FALSE_DEP) $(USER_SLEEP_DEP) $(USER_DATE_DEP) $(USER_TOUCH_DEP) $(USER_MKTEMP_DEP) $(USER_BASENAME_DEP) $(USER_DIRNAME_DEP) $(USER_GREP_DEP) $(USER_HEAD_DEP) $(USER_TAIL_DEP) $(USER_TEE_DEP) $(USER_UNAME_DEP) $(USER_HOSTNAME_DEP) $(USER_UPTIME_DEP) $(USER_FIND_DEP) $(USER_DU_DEP) $(USER_DF_DEP) $(USER_SORT_DEP) $(USER_UNIQ_DEP) $(USER_CUT_DEP) $(USER_XARGS_DEP) $(USER_SEQ_DEP) $(USER_REALPATH_DEP) $(USER_ID_DEP) $(USER_WHOAMI_DEP) $(USER_READLINK_DEP) $(USER_CMP_DEP) $(USER_YES_DEP) $(USER_INSTALL_DEP) $(USER_DIFF_DEP) $(USER_TAR_DEP) $(USER_GZIP_DEP) $(USER_PATCH_DEP) $(USER_MAKE_DEP) $(USER_SED_DEP) $(USER_EXPR_DEP) $(USER_PRINTF_DEP) $(USER_TR_DEP) $(USER_DD_DEP) $(USER_ED_DEP) $(USER_POSIXUTILS_DEP) $(USER_STAT_DEP) $(USER_CHMOD_DEP) $(USER_CP_DEP) $(USER_RM_DEP) $(USER_MKDIR_DEP) $(USER_MV_DEP) $(USER_TAP_DEP) $(USER_SVSCAN_DEP) $(USER_WEBD_DEP) $(USER_HTTPGET_DEP) $(USER_UDPDNS_DEP) $(USER_UDPECHO_DEP) $(USER_NETSTAT_DEP) $(USER_IFCONFIG_DEP) $(USER_ROUTE_DEP) $(USER_ARP_DEP) $(USER_PING_DEP) $(USER_HOST_DEP) $(USER_NETCHECK_DEP) $(USER_NETABI_DEP) $(USER_TCPSTRESS_DEP) $(USER_TCPPROBE_DEP) $(USER_SYSABI_DEP) $(USER_SPIN_DEP) $(USER_FPDEMO_DEP) $(USER_UI_DEP) $(USER_DESKTOP_DEP) $(USER_DISPLAYD_DEP) $(USER_GUI_DEP) $(USER_SURFACEDEMO_DEP) $(USER_GUI2DEMO_DEP) $(USER_GUIFAIL_DEP) $(USER_CALC_DEP) $(USER_NOTES_DEP) $(USER_TEXTEDIT_DEP) $(USER_PAINT_DEP) $(USER_POSIXDEMO_DEP) $(USER_THREADSTRESS_DEP) $(USER_EXECDEMO_DEP) $(USER_FDPROBE_DEP) $(USER_LOCKPROBE_DEP) $(USER_TTYDEMO_DEP) $(USER_JSONDEMO_DEP) $(USER_INIDEMO_DEP) $(USER_LINEDEMO_DEP) $(USER_SQLITEDEMO_DEP) $(USER_ZLIBDEMO_DEP) $(USER_LUA_DEP) $(USER_UVDEMO_DEP) $(USER_LIBUVDEMO_DEP) $(USER_NODEPROBE_DEP) $(USER_LIBCPROBE_DEP) $(USER_TLSPROBE_DEP) $(USER_CXXPROBE_DEP) $(USER_CXXSTLPROBE_DEP) $(USER_LIB_DEP) $(ZLIB_DEP) $(MINIZIP_DEP) $(MINIUNZ_DEP) $(CJSON_DEP) $(INI_DEP) $(LINENOISE_DEP) $(UV_SRVROS_DEP) $(UV_UPSTREAM_CORE_DEP) $(SQLITE_DEP) $(BYACC_DEP) $(LUA_CORE_DEP)
+
+.PHONY: test-console
+test-console: build/tests/console-host$(HOST_EXE)
+	$<
+
+build/tests/console-host$(HOST_EXE): tools/test_console.c kernel/src/console.c shared/include/srvros/font5x7.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-keyboard test-clock
+test-keyboard: build/tests/keyboard-host$(HOST_EXE)
+	$<
+test-clock: build/tests/clock-host$(HOST_EXE)
+	$<
+build/tests/keyboard-host$(HOST_EXE): tools/test_keyboard.c kernel/src/arch/x86_64/keyboard.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/clock-host$(HOST_EXE): tools/test_clock.c kernel/src/arch/x86_64/clock.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-storage
+test-storage: build/tests/block-host$(HOST_EXE) build/tests/ahci-host$(HOST_EXE)
+	build/tests/block-host$(HOST_EXE)
+	build/tests/ahci-host$(HOST_EXE)
+build/tests/block-host$(HOST_EXE): tools/test_block.c kernel/src/block.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-core
+test-core: test-console test-keyboard test-clock test-storage test-xhci

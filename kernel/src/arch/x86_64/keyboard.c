@@ -3,6 +3,7 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/serial.h>
+#include <srvros/timer.h>
 
 #include "io.h"
 
@@ -33,6 +34,8 @@ static volatile uint64_t scancode_count;
 static volatile uint8_t last_scancode;
 static bool data_enabled;
 static bool shift_down;
+static uint8_t shift_keys;
+static bool caps_lock, caps_key_down;
 static bool ctrl_down;
 static bool extended_scancode;
 static struct scheduler_wait_queue keyboard_wait_queue;
@@ -93,10 +96,29 @@ static const char hid_usage_shift[256] = {
     [0x37] = '>', [0x38] = '?',
 };
 
+static uint64_t keyboard_irq_save(void) {
+#ifdef SRVROS_KEYBOARD_HOST_TEST
+    return 0;
+#else
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+#endif
+}
+static void keyboard_irq_restore(uint64_t flags) {
+#ifdef SRVROS_KEYBOARD_HOST_TEST
+    (void)flags;
+#else
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
+}
+
 static void push_char(char c) {
+    uint64_t flags = keyboard_irq_save();
     uint64_t next = (write_index + 1) % KEYBOARD_BUFFER_SIZE;
     if (next == read_index) {
         dropped_count++;
+        keyboard_irq_restore(flags);
         return;
     }
 
@@ -104,6 +126,7 @@ static void push_char(char c) {
     write_index = next;
     pushed_count++;
     scheduler_wake_all(&keyboard_wait_queue);
+    keyboard_irq_restore(flags);
 }
 
 static void push_escape_sequence(const char *sequence) {
@@ -252,7 +275,9 @@ void keyboard_handle_irq(void) {
     }
 
     if (key == 42 || key == 54) {
-        shift_down = !released;
+        uint8_t mask = key == 42 ? 1 : 2;
+        if (released) shift_keys &= (uint8_t)~mask; else shift_keys |= mask;
+        shift_down = shift_keys != 0;
         return;
     }
     if (key == 29) {
@@ -260,6 +285,11 @@ void keyboard_handle_irq(void) {
         return;
     }
 
+    if (key == 58) {
+        if (!released && !caps_key_down) caps_lock = !caps_lock;
+        caps_key_down = !released;
+        return;
+    }
     if (released) {
         return;
     }
@@ -271,6 +301,7 @@ void keyboard_handle_irq(void) {
     char c = key < sizeof(scancode_set1) ?
         (shift_down ? scancode_set1_shift[key] : scancode_set1[key]) :
         0;
+    if (caps_lock && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z'))) c ^= 0x20;
     if (ctrl_down && (key == 46 || key == 32 || key == 44)) {
         c = key == 46 ? 3 : (key == 32 ? 4 : 26);
     }
@@ -308,61 +339,66 @@ static void inject_escape_sequence(const char *sequence) {
     }
 }
 
-void keyboard_inject_hid_report(const uint8_t report[8], uint8_t previous_report[8]) {
-    if (report == 0 || previous_report == 0) {
-        return;
+static bool emit_hid_usage(uint8_t usage, uint8_t modifiers, bool caps) {
+    bool shift = (modifiers & 0x22) != 0;
+    bool ctrl = (modifiers & 0x11) != 0;
+    switch (usage) {
+        case 0x2b: if (shift) { inject_escape_sequence("\x1b[Z"); return true; } break;
+        case 0x4a: inject_escape_sequence("\x1b[H"); return true;
+        case 0x4c: inject_escape_sequence("\x1b[3~"); return true;
+        case 0x4d: inject_escape_sequence("\x1b[F"); return true;
+        case 0x4f: inject_escape_sequence("\x1b[C"); return true;
+        case 0x50: inject_escape_sequence("\x1b[D"); return true;
+        case 0x51: inject_escape_sequence("\x1b[B"); return true;
+        case 0x52: inject_escape_sequence("\x1b[A"); return true;
     }
+    char c = shift ? hid_usage_shift[usage] : hid_usage[usage];
+    if (usage >= 0x04 && usage <= 0x1d) {
+        if (caps) c ^= 0x20;
+        if (ctrl) c = (char)(usage - 0x04 + 1);
+    }
+    if (c == 3 && process_interrupt_foreground(SRV_SIGNAL_INT)) {
+        keyboard_wake_waiters();
+    } else if (c != 0) {
+        keyboard_inject_char(c);
+    }
+    return c != 0;
+}
 
-    bool shift = (report[0] & 0x22) != 0;
-    bool ctrl = (report[0] & 0x11) != 0;
+void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
+    if (report == 0 || state == 0) return;
+    /* ErrorRollOver/POSTFail/ErrorUndefined are not key releases. Stop repeat
+     * until a valid report establishes the held keys again. */
+    for (uint64_t i = 2; i < 8; i++) {
+        if (report[i] >= 1 && report[i] <= 3) { state->repeat_usage = 0; return; }
+    }
+    for (uint64_t i = 2; i < 8; i++) {
+        if (report[i] == 0x39 && !hid_usage_was_down(state->previous_report, 0x39)) {
+            state->caps_lock = !state->caps_lock;
+            break;
+        }
+    }
     for (uint64_t i = 2; i < 8; i++) {
         uint8_t usage = report[i];
-        if (usage == 0 || hid_usage_was_down(previous_report, usage)) {
-            continue;
-        }
-
-        switch (usage) {
-            case 0x2b:
-                if (shift) {
-                    inject_escape_sequence("\x1b[Z");
-                    continue;
-                }
-                break;
-            case 0x4a:
-                inject_escape_sequence("\x1b[H");
-                continue;
-            case 0x4c:
-                inject_escape_sequence("\x1b[3~");
-                continue;
-            case 0x4d:
-                inject_escape_sequence("\x1b[F");
-                continue;
-            case 0x4f:
-                inject_escape_sequence("\x1b[C");
-                continue;
-            case 0x50:
-                inject_escape_sequence("\x1b[D");
-                continue;
-            case 0x51:
-                inject_escape_sequence("\x1b[B");
-                continue;
-            case 0x52:
-                inject_escape_sequence("\x1b[A");
-                continue;
-        }
-
-        char c = shift ? hid_usage_shift[usage] : hid_usage[usage];
-        if (ctrl && (usage == 0x06 || usage == 0x07 || usage == 0x1d)) {
-            c = usage == 0x06 ? 3 : (usage == 0x07 ? 4 : 26);
-        }
-        if (c != 0) {
-            keyboard_inject_char(c);
+        if (usage == 0 || usage == 0x39 || hid_usage_was_down(state->previous_report, usage)) continue;
+        bool duplicate = false;
+        for (uint64_t j = 2; j < i; j++) duplicate |= report[j] == usage;
+        if (duplicate) continue;
+        if (emit_hid_usage(usage, report[0], state->caps_lock)) {
+            state->repeat_usage = usage;
+            state->repeat_due_us = timer_monotonic_us() + 500000;
         }
     }
+    if (!hid_usage_was_down(report, state->repeat_usage)) state->repeat_usage = 0;
+    for (uint64_t i = 0; i < 8; i++) state->previous_report[i] = report[i];
+}
 
-    for (uint64_t i = 0; i < 8; i++) {
-        previous_report[i] = report[i];
-    }
+void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us) {
+    if (state == 0 || state->repeat_usage == 0 || now_us < state->repeat_due_us) return;
+    /* Avoid catch-up bursts after the CPU was occupied, and repeated signals. */
+    state->repeat_due_us = now_us + 33333;
+    if ((state->previous_report[0] & 0x11) == 0)
+        (void)emit_hid_usage(state->repeat_usage, state->previous_report[0], state->caps_lock);
 }
 
 bool keyboard_try_read_char(char *out) {

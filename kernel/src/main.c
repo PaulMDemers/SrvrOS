@@ -403,6 +403,7 @@ void kmain(void) {
         console_write("scheduler: demo worker failed\n");
     }
     vmm_init();
+    timer_reference_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
     bool keyboard_ready = keyboard_init();
@@ -464,17 +465,21 @@ void kmain(void) {
     }
     test_vmm();
     arch_enable_interrupts();
+    console_enable_deferred();
     if (lpss_spi_ready && !lpss_spi_start_worker()) {
         console_write("lpss-spi: polling worker not started\n");
     }
-    if (timer_wait_ticks_bounded(5, 100000000)) {
+    bool timer_running = timer_wait_ticks_bounded(5, 100000000);
+    if (timer_running) {
         console_printf("timer: observed ticks=%u\n", timer_ticks());
     } else {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());
     }
     keyboard_print_status();
     xhci_print_input_summary();
-    xhci_probe_input(2000);
+    if (cmdline_has_token(cmdline, "srvros.inputprobe=1")) {
+        xhci_probe_input(2000);
+    }
     keyboard_print_status();
     xhci_print_input_summary();
 
@@ -498,7 +503,10 @@ void kmain(void) {
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
-        (void)timer_wait_ticks_bounded(300, 1500000000);
+        uint64_t init_start = timer_monotonic_us();
+        bool ready = timer_running && process_wait_startup((uint64_t)init_pid, 300);
+        console_printf("init: readiness=%s elapsed_us=%u\n", ready ? "ready" : (timer_running ? "timeout-or-exit" : "clock-unavailable"),
+            timer_monotonic_us() - init_start);
     } else {
         console_write("init: start failed\n");
     }

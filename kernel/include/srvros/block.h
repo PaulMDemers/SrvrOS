@@ -17,6 +17,8 @@ typedef bool (*block_write_fn)(struct block_device *device,
     const void *buffer,
     uint64_t length);
 
+typedef bool (*block_flush_fn)(struct block_device *device);
+
 struct block_device {
     bool used;
     const char *name;
@@ -24,6 +26,7 @@ struct block_device {
     uint64_t block_count;
     block_read_fn read;
     block_write_fn write;
+    block_flush_fn flush; /* NULL on writable media means durability unsupported. */
     void *private_data;
 };
 

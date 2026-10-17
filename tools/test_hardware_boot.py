@@ -100,14 +100,22 @@ class InstallTests(unittest.TestCase):
         self.assertTrue(self.snippet.is_file())
 
     def test_upgrade_retains_old_configuration_release(self):
-        old = self.payload("old", "ram-usb-v2")
+        old = self.payload("old", "ram-usb-v3-inputdiag")
         boot.install()
         current = self.payload("new")
         boot.install()
         state = json.loads((self.base / "state.json").read_text())
         self.assertEqual((state["current"], state["previous"]), (current, old))
-        self.assertNotIn("srvros.inputdiag", (self.base / old / "limine.conf").read_text())
-        self.assertIn("srvros.inputdiag=1", (self.base / current / "limine.conf").read_text())
+        self.assertIn("srvros.inputdiag", (self.base / old / "limine.conf").read_text())
+        self.assertNotIn("srvros.inputdiag", (self.base / current / "limine.conf").read_text())
+        self.assertNotIn("srvros.log=debug", (self.base / current / "limine.conf").read_text())
+
+    def test_all_configuration_versions_verify(self):
+        for version in boot.CONFIG_VERSIONS:
+            release = self.payload(version, version)
+            boot.verify(self.stage / release)
+        debug = boot.limine_config("0" * 16, boot.DIAGNOSTIC_VERSION)
+        self.assertIn("srvros.inputprobe=1", debug)
 
     def test_hash_corruption_rejected_before_install(self):
         release = self.payload("one")

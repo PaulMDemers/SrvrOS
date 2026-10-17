@@ -8,7 +8,14 @@ bool keyboard_init(void);
 void keyboard_handle_irq(void);
 void keyboard_wake_waiters(void);
 void keyboard_inject_char(char c);
-void keyboard_inject_hid_report(const uint8_t report[8], uint8_t previous_report[8]);
+struct keyboard_hid_state {
+    uint8_t previous_report[8];
+    bool caps_lock;
+    uint8_t repeat_usage;
+    uint64_t repeat_due_us;
+};
+void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state);
+void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us);
 bool keyboard_try_read_char(char *out);
 bool keyboard_scan_char(char *out);
 char keyboard_read_char(void);

@@ -98,7 +98,7 @@ struct lpss_spi_device {
     bool prepare_skipped_no_profile;
     bool prepare_skipped_unmapped;
     bool worker_started;
-    uint8_t previous_keyboard_report[8];
+    struct keyboard_hid_state keyboard_state;
     uint64_t polls;
     uint64_t packets;
     uint64_t keyboard_reports;
@@ -374,7 +374,7 @@ static bool parse_keyboard_packet(const uint8_t packet[APPLE_SPI_PACKET_SIZE]) {
     for (uint64_t i = 0; i < 6; i++) {
         report[i + 2] = keyboard[i + 3];
     }
-    keyboard_inject_hid_report(report, lpss_spi.previous_keyboard_report);
+    keyboard_inject_hid_report(report, &lpss_spi.keyboard_state);
     lpss_spi.keyboard_reports++;
     return true;
 }
