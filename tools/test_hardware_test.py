@@ -9,6 +9,7 @@ from unittest.mock import patch
 import hardware_boot as boot
 import hardware_test as test
 import hardware_workload
+import hardware_shell_workload
 
 
 
@@ -50,7 +51,7 @@ class HostTests(unittest.TestCase):
                 self.assertEqual(test.prepare('37D8-C5D0'),run)
                 metadata=test.load_run('latest')
                 self.assertEqual(metadata['suite'],test.SUITE)
-                self.assertEqual((mount/'srvros-tests'/f'{run}.req').read_text(),f'SRVROS-AUTOTEST-V2 {run}\n')
+                self.assertEqual((mount/'srvros-tests'/f'{run}.req').read_text(),f'SRVROS-AUTOTEST-V3 {run}\n')
 
     def test_launch_orders_install_selection_and_reboot_and_cleans_up_failure(self):
         run = '0123456789abcdef'
@@ -58,12 +59,12 @@ class HostTests(unittest.TestCase):
         metadata = {'run': run, 'release': release, 'volume': '37d8c5d0',
                     'suite': test.SUITE,
                     'boot_manifest': {'sha256': {'srvros.elf': 'test'}}}
-        manifest = {'config_version': f'ram-usb-v6-autotest-37d8c5d0-{run}',
+        manifest = {'config_version': f'ram-usb-v8-autotest-37d8c5d0-{run}',
                     'sha256': metadata['boot_manifest']['sha256']}
         with tempfile.TemporaryDirectory() as tmp:
             mount = Path(tmp)
             folder = mount/'srvros-tests'; folder.mkdir()
-            (folder/f'{run}.req').write_text(f'SRVROS-AUTOTEST-V2 {run}\n')
+            (folder/f'{run}.req').write_text(f'SRVROS-AUTOTEST-V3 {run}\n')
             for failure in (None, 'install', 'reboot', 'default'):
                 calls = []
                 def execute(command, **kwargs):
@@ -104,12 +105,61 @@ class HostTests(unittest.TestCase):
                        'render', 'usb_keyboard_enumeration', 'usb_write_flush_read')})
         fields.update(physical_keypress='NOT_TESTED', status=status)
         if expanded:
-            metadata['suite'] = test.SUITE
-            fields['format'] = test.SUITE
+            metadata['suite'] = 'srvros-autotest-v2'
+            fields['format'] = 'srvros-autotest-v2'
             fields['usb_file_operations'] = status
         data = ''.join(f'{key}={value}\n' for key, value in fields.items()).encode()
         done = f"COMPLETE {metadata['run']} {binascii.crc32(data):08x}\n".encode()
         return metadata, data, done
+
+    def test_shell_report_requires_status_and_measurements(self):
+        metadata,data,done=self.report(expanded=True)
+        metadata['suite']=test.SUITE
+        data=data.replace(b'srvros-autotest-v2',test.SUITE.encode())
+        data += b'usb_shell_workspace=PASS\nshell_elapsed_us=42\nshell_input_poll_count=3\nshell_input_poll_max_us=5\nshell_tick_max_us=10\nphysical_key_latency=NOT_TESTED\n'
+        def completion(payload): return f"COMPLETE {metadata['run']} {binascii.crc32(payload):08x}\n".encode()
+        self.assertEqual(test.validate_result(metadata,data,completion(data))['status'],'PASS')
+        for broken in (data.replace(b'usb_shell_workspace=PASS\n',b''),
+                       data.replace(b'shell_input_poll_count=3',b'shell_input_poll_count=0'),
+                       data.replace(b'shell_elapsed_us=42',b'shell_elapsed_us=-1'),
+                       data.replace(b'physical_key_latency=NOT_TESTED',b'physical_key_latency=PASS'),
+                       data.replace(b'srvros-autotest-v3',b'srvros-autotest-v2')):
+            with self.assertRaises(ValueError): test.validate_result(metadata,broken,completion(broken))
+
+    def test_collect_shell_workload(self):
+        metadata,data,_=self.report(expanded=True)
+        metadata['suite']=test.SUITE
+        data=data.replace(b'srvros-autotest-v2',test.SUITE.encode())
+        data += b'usb_shell_workspace=PASS\nshell_elapsed_us=42\nshell_input_poll_count=3\nshell_input_poll_max_us=5\nshell_tick_max_us=10\nphysical_key_latency=NOT_TESTED\n'
+        done=f"COMPLETE {metadata['run']} {binascii.crc32(data):08x}\n".encode()
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';folder=mount/'srvros-tests';folder.mkdir(parents=True)
+            results=root/'runs';run=results/metadata['run'];run.mkdir(parents=True)
+            (run/'manifest.json').write_text(json.dumps(metadata))
+            for suffix,payload in (('.txt',data),('.done',done),('.probe',test.PROBE_BYTES)):
+                (folder/(metadata['run']+suffix)).write_bytes(payload)
+            tree=folder/(metadata['run']+'.files')
+            for name in hardware_workload.DIRECTORIES: (tree/name).mkdir(parents=True,exist_ok=True)
+            for name,payload in hardware_workload.expected_files().items(): (tree/name).write_bytes(payload)
+            shell=folder/(metadata['run']+'.shell');shell.mkdir()
+            for name,payload in hardware_shell_workload.EXPECTED.items(): (shell/name).write_bytes(payload)
+            (shell/'history-proof.txt').write_bytes(b'1 echo workspace-history-sentinel\n')
+            with patch.object(test,'RUNS',results),patch.object(test,'volume_mount',return_value=mount):
+                self.assertTrue(test.collect(metadata['run']))
+                self.assertEqual(len(json.loads((run/'shell-files.json').read_text())),9)
+                (shell/'.history').write_bytes(b'corrupt')
+                with self.assertRaises(ValueError): test.collect(metadata['run'])
+
+    def test_shell_files_require_exact_contents(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)
+            for name,data in hardware_shell_workload.EXPECTED.items(): (root/name).write_bytes(data)
+            (root/'history-proof.txt').write_bytes(b'1  echo workspace-history-sentinel\n')
+            self.assertEqual(len(hardware_shell_workload.verify_mounted(root)),9)
+            (root/'document.txt').write_bytes(b'wrong')
+            with self.assertRaises(ValueError): hardware_shell_workload.verify_mounted(root)
+            (root/'document.txt').unlink();(root/'document.txt').symlink_to(root/'reopened.txt')
+            with self.assertRaises(ValueError): hardware_shell_workload.verify_mounted(root)
 
     def test_complete_report_and_failure(self):
         for status in ('PASS', 'FAIL'):

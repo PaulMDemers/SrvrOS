@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import hardware_boot as boot
 import hardware_test as test
+import hardware_shell_workload
 from hardware_workload import verify_tree
 import inspect_hardware_test as recovery
 import repair_hardware_test as repair
@@ -43,13 +44,13 @@ def main():
         subprocess.run(['/usr/sbin/mkfs.exfat', '-c', '128K', str(volume_image)], check=True)
         fixture = ExfatFixture(volume_image.read_bytes())
         volume = f'{fixture.u32(100):08x}'
-        fixture.add_request(RUN, version=2)
+        fixture.add_request(RUN, version=3)
         volume_image.write_bytes(fixture.data)
         print(check_clean_image(volume_image), end='', flush=True)
         with patch.object(boot, 'STAGE', temp / 'stage'), contextlib.redirect_stdout(io.StringIO()):
             release = boot.stage(autotest_volume=volume, run_id=RUN)
         source = temp / 'stage' / release
-        assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V2 {RUN}\n'.encode()
+        assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V3 {RUN}\n'.encode()
         disk = temp / 'scratch.img'
         mbr = bytearray(512)
         mbr[450] = 7
@@ -149,6 +150,9 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         verified = verify_tree(lambda name, size: result.read(base + '/' + name), listing)
         assert len(verified) == 6
         print('hardware-test-smoke: persisted file-operation tree PASS', flush=True)
+        shell_base = f'srvros-tests/{RUN}.shell'
+        hardware_shell_workload.verify(lambda name: result.read(shell_base+'/'+name))
+        print('hardware-test-smoke: persisted shell/editor/history/settings PASS',flush=True)
         with volume_image.open('rb') as stream:
             recovered = recovery.inspect(stream, metadata)
         assert recovered['recovered_payload_checksum_valid']

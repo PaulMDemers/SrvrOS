@@ -341,3 +341,11 @@ physical workspace run `2f1a6035` subsequently passed exact Ubuntu readback and
 a clean offline filesystem check on release `385b670049974e1c`. `/fat` stays in RAM. GUI work stays
 deferred; physical networking and laptop power management remain separate future
 milestones, not implied by the storage results.
+
+The next increment adds a [persistent shell environment and unattended editor
+tests](persistent-shell-2026-10-17.md): one-command workspace startup, saved
+history/settings, checked editor saves, and independent host verification of
+real shell workloads. QEMU key-echo measurements also expose application stalls
+during slow filesystem writes, despite continued keyboard service. Finer
+filesystem synchronization is the next responsiveness target; this increment's
+physical validation is still pending.

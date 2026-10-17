@@ -41,8 +41,15 @@ At the monitor:
 
 ```text
 workspace
-run /fat/bin/sh
+workspace shell
 ```
+
+The shell starts in `/work/srvros-work`, sets `HOME` and `HISTFILE`, and reads
+`.profile`. Preparation creates a starter profile only if absent. Interactive
+history is saved and flushed on `exit` or Ctrl-D; `history -w` followed by `sync`
+saves it earlier. This batches history writes instead of writing after every
+command. Forced termination can lose unsaved history. Profile scripts execute
+only when explicitly opening this environment, not during a normal boot.
 
 In the shell:
 
@@ -158,3 +165,6 @@ and an independent backup was saved at
 `~/.local/share/srvros/known-good/385b670049974e1c`. This result covers the small
 shell workspace workflow; it does not establish hotplug or sudden-power-loss
 recovery guarantees.
+
+For the next iteration (persistent settings/history, editor errors, unattended shell tests
+and load measurements), see [persistent shell](persistent-shell-2026-10-17.md).

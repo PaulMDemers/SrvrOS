@@ -13,12 +13,13 @@ import subprocess
 
 import hardware_boot as boot
 import hardware_workload
+import hardware_shell_workload
 
 RUNS = boot.ROOT / 'build/hardware-tests'
 UUID_RE = re.compile(r'[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}')
 RUN_RE = re.compile(r'[0-9a-f]{16}')
 PROBE_BYTES = b'SrvrOS USB log probe: AaZz 0123456789\n'
-SUITE = 'srvros-autotest-v2'
+SUITE = 'srvros-autotest-v3'
 
 
 def volume_id(value):
@@ -78,7 +79,7 @@ def prepare(uuid):
                 'release': release, 'created_utc': datetime.now(timezone.utc).isoformat(),
                 'boot_manifest': manifest}
     sync_file(directory / 'manifest.json', (json.dumps(metadata, indent=2) + '\n').encode(), exclusive=True)
-    sync_file(folder / f'{run}.req', f'SRVROS-AUTOTEST-V2 {run}\n'.encode(), exclusive=True)
+    sync_file(folder / f'{run}.req', f'SRVROS-AUTOTEST-V3 {run}\n'.encode(), exclusive=True)
     # Commit the directory entry as well as the request contents before reboot.
     os.sync()
     RUNS.mkdir(parents=True, exist_ok=True)
@@ -122,13 +123,16 @@ def launch(run):
     metadata = load_run(run)
     release = metadata['release']
     manifest = boot.verify(boot.STAGE / release)
-    expanded = metadata.get('suite') == SUITE
-    expected = f"ram-usb-v{6 if expanded else 5}-autotest-{metadata['volume']}-{metadata['run']}"
+    suite = metadata.get('suite', 'srvros-autotest-v1')
+    versions = {'srvros-autotest-v1':(5,1), 'srvros-autotest-v2':(6,2), SUITE:(8,3)}
+    if suite not in versions: raise ValueError('Unknown suite')
+    profile_version, request_version = versions[suite]
+    expected = f"ram-usb-v{profile_version}-autotest-{metadata['volume']}-{metadata['run']}"
     if manifest['config_version'] != expected or manifest['sha256'] != metadata['boot_manifest']['sha256']:
         raise RuntimeError('Staged payload does not match this test request')
     mount = volume_mount(metadata['volume'])
     request = mount / 'srvros-tests' / f"{metadata['run']}.req"
-    if request.read_bytes() != f"SRVROS-AUTOTEST-V{2 if expanded else 1} {metadata['run']}\n".encode():
+    if request.read_bytes() != f"SRVROS-AUTOTEST-V{request_version} {metadata['run']}\n".encode():
         raise RuntimeError('Request is missing or already consumed; prepare a new run')
     subprocess.run(['sudo', '-v'], check=True)
     defaults = Path('/etc/default/grub').read_text()
@@ -163,14 +167,22 @@ def validate_result(metadata, data, completion):
             raise ValueError('Duplicate result field')
         fields[key] = value
     suite = metadata.get('suite', 'srvros-autotest-v1')
-    if suite not in ('srvros-autotest-v1', SUITE): raise ValueError('Unknown test suite')
+    if suite not in ('srvros-autotest-v1', 'srvros-autotest-v2', SUITE): raise ValueError('Unknown test suite')
     for key, expected in {'format': suite, 'run': run,
                           'release': metadata['release'], 'volume': metadata['volume']}.items():
         if fields.get(key) != expected:
             raise ValueError(f'Result identity mismatch: {key}')
     checks = ('boot_ready', 'timer', 'memory', 'fpu_traps', 'render',
               'usb_keyboard_enumeration', 'usb_write_flush_read')
-    if suite == SUITE: checks += ('usb_file_operations',)
+    if suite != 'srvros-autotest-v1': checks += ('usb_file_operations',)
+    if suite == SUITE:
+        checks += ('usb_shell_workspace',)
+        if fields.get('physical_key_latency') != 'NOT_TESTED': raise ValueError('Invalid key latency claim')
+        for key in ('shell_elapsed_us','shell_input_poll_count','shell_input_poll_max_us','shell_tick_max_us'):
+            value=fields.get(key, '')
+            if not value.isascii() or not value.isdecimal() or len(value)>20: raise ValueError('Invalid shell measurement')
+        if fields.get('usb_shell_workspace') == 'PASS' and (int(fields['shell_elapsed_us']) == 0 or int(fields['shell_input_poll_count']) == 0):
+            raise ValueError('Missing shell measurement samples')
     if any(fields.get(key) not in ('PASS', 'FAIL') for key in checks):
         raise ValueError('Missing or invalid test status')
     status = 'PASS' if all(fields[key] == 'PASS' for key in checks) else 'FAIL'
@@ -206,12 +218,17 @@ def collect(run):
     workload = None
     if fields.get('usb_file_operations') == 'PASS':
         workload = hardware_workload.verify_mounted(folder / f'{prefix}.files')
+    shell_workload = None
+    if fields.get('usb_shell_workspace') == 'PASS':
+        shell_workload = hardware_shell_workload.verify_mounted(folder / f'{prefix}.shell')
     directory = RUNS / prefix
     sync_file(directory / 'report.txt', data)
     sync_file(directory / 'completion.txt', completion)
     sync_file(directory / 'result.json', (json.dumps(fields, indent=2) + '\n').encode())
     if workload is not None:
         sync_file(directory / 'storage-files.json', (json.dumps(workload, indent=2) + '\n').encode())
+    if shell_workload is not None:
+        sync_file(directory / 'shell-files.json', (json.dumps(shell_workload,indent=2)+'\n').encode())
     print(data.decode('ascii'), end='')
     print(f'Validated report copied to {directory}')
     return fields['status'] == 'PASS'

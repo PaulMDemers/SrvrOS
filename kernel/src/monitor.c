@@ -500,7 +500,7 @@ static void render_stress(void) {
 
 static void print_help(void) {
     console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
-    console_write("workspace: status | mount <UUID> | sync | unmount\n");
+    console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
 }
 
@@ -863,10 +863,15 @@ static void command_workspace(char *args) {
     char *uuid = action ? next_token(&cursor) : NULL;
     if (!action || (streq(action, "status") && !uuid)) workspace_status();
     else if (streq(action, "mount") && uuid && !next_token(&cursor)) workspace_mount(uuid);
+    else if (streq(action, "shell") && !uuid) {
+        if (!workspace_active() || !exfat_is_writable("/work"))
+            console_write("workspace: mount a writable workspace first\n");
+        else process_run_elf_args("/fat/bin/sh", "--workspace /work/srvros-work");
+    }
     else if (streq(action, "sync") && !uuid) {
         if (!workspace_sync()) console_write("workspace: sync failed\n");
     } else if (streq(action, "unmount") && !uuid) workspace_unmount();
-    else console_write("usage: workspace [status|mount UUID|sync|unmount]\n");
+    else console_write("usage: workspace [status|mount UUID|shell|sync|unmount]\n");
 }
 
 static void command_net(const char *args) {

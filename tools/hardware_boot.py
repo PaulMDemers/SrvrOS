@@ -22,7 +22,7 @@ CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
-AUTOTEST_RE = re.compile(r"ram-usb-v[56]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
+AUTOTEST_RE = re.compile(r"ram-usb-v[568]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 
 
@@ -98,7 +98,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or not WORKSPACE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting workspace profile")
     if autotest_volume is not None or run_id is not None:
-        version = f"ram-usb-v6-autotest-{autotest_volume}-{run_id}"
+        version = f"ram-usb-v8-autotest-{autotest_volume}-{run_id}"
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     sources = {

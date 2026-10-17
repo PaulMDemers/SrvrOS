@@ -86,6 +86,7 @@ def main():
                         if mode in ('default','missing'):
                             assert 'workspace: ready' not in output
                             cmd('workspace status','workspace: not mounted')
+                            cmd('workspace shell','mount a writable workspace first')
                             cmd('mount usb0p1 /probe','mounted')
                             cmd('write /probe/denied.txt denied','write: failed')
                             cmd('unmount /probe','unmounted')
@@ -98,17 +99,38 @@ def main():
                                 cmd('workspace status','state=write-failed')
                                 cmd('reboot','reboot: workspace could not be unmounted')
                                 return
-                            cmd('run /fat/bin/sh',shell=True)
-                            cmd('cd /work/srvros-work',shell=True)
+                            if mode=='write':
+                                cmd('run /fat/bin/sh --workspace relative','invalid workspace directory')
+                                cmd('run /fat/bin/sh --workspace /absent','workspace directory unavailable')
+                                cmd('write /work/srvros-work/.profile false','write:')
+                                cmd('workspace shell','workspace profile failed')
+                                cmd('write /work/srvros-work/.profile WORKSPACE_LABEL=persistent-settings','write:')
+                            cmd('workspace shell',shell=True)
+                            cmd('pwd','\n/work/srvros-work\n',shell=True)
+                            cmd('echo $WORKSPACE_LABEL','\npersistent-settings\n',shell=True)
+                            cmd('echo $HISTFILE','\n/work/srvros-work/.history\n',shell=True)
+                            if mode=='persisted':
+                                cmd('history','echo MixedCase-document > notes.txt',shell=True)
                             if mode=='write':
                                 cmd('echo MixedCase-document > notes.txt',shell=True)
                                 cmd('echo second-line >> notes.txt',shell=True)
                                 cmd("echo 'echo persistent-script-ok' > saved.sh",shell=True)
-                            cmd('cat notes.txt','MixedCase-document\nsecond-line\n',shell=True)
+                                cmd("echo '1s/MixedCase/Edited/' > edit.in",shell=True)
+                                cmd('echo w >> edit.in',shell=True)
+                                cmd('echo q >> edit.in',shell=True)
+                                cmd('ed -s notes.txt < edit.in',shell=True)
+                                cmd('test ! -e .history && echo history-deferred-ok','\nhistory-deferred-ok\n',shell=True)
+                            cmd("echo '1,$p' > view.in",shell=True)
+                            cmd('echo q >> view.in',shell=True)
+                            cmd('ed -s notes.txt < view.in','Edited-document\nsecond-line\n',shell=True)
+                            cmd('cat notes.txt','Edited-document\nsecond-line\n',shell=True)
                             cmd('sh saved.sh','\npersistent-script-ok\n',shell=True)
-                            cmd("sh -c 'cat notes.txt'",'MixedCase-document\nsecond-line\n',shell=True)
+                            cmd("sh -c 'cat notes.txt'",'Edited-document\nsecond-line\n',shell=True)
                             cmd('sync && echo workspace-sync-ok','\nworkspace-sync-ok\n',shell=True)
-                            cmd('exit')
+                            if mode=='persisted':
+                                send_serial(sock,'\x04',0.003); receive(required='srv> ')
+                            else:
+                                cmd('exit')
                             cmd('workspace sync','workspace: flushed')
                             cmd('unmount /work','workspace: unmounted; USB writes disabled')
                             cmd('mount usb0p1 /probe','mounted')
@@ -135,7 +157,8 @@ def main():
         for mode in ('write','persisted'):
             run(mode,mode)
             result=inspect()
-            assert result.read('srvros-work/notes.txt')==b'MixedCase-document\nsecond-line\n'
+            assert result.read('srvros-work/notes.txt')==b'Edited-document\nsecond-line\n'
+            assert b'echo MixedCase-document > notes.txt\n' in result.read('srvros-work/.history')
             assert result.read('srvros-work/saved.sh')==b'echo persistent-script-ok\n'
             assert 'denied.txt' not in {n for n,e in result.entries(result.chain(result.root))}
         reset_disk(fixture.data);before=digest();run('write-failure','failure');assert digest()==before

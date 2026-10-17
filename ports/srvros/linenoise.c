@@ -148,11 +148,12 @@ int linenoiseHistorySave(const char *filename) {
         return -1;
     }
     for (size_t i = 0; i < history_len; i++) {
-        fputs(history[i], file);
-        fputc('\n', file);
+        if (fputs(history[i], file) < 0 || fputc('\n', file) == EOF) {
+            fclose(file);
+            return -1;
+        }
     }
-    fclose(file);
-    return 0;
+    return fclose(file) == 0 ? 0 : -1;
 }
 
 int linenoiseHistoryLoad(const char *filename) {
@@ -168,8 +169,9 @@ int linenoiseHistoryLoad(const char *filename) {
         }
         linenoiseHistoryAdd(line);
     }
-    fclose(file);
-    return 0;
+    int failed = ferror(file);
+    if (fclose(file) != 0) failed = 1;
+    return failed ? -1 : 0;
 }
 
 static void refresh_line(const char *prompt,

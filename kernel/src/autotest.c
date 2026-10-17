@@ -1,6 +1,8 @@
 /* Explicit, single-use USB test requests. Normal boots never enable writes. */
 #include <srvros/autotest.h>
 #include <srvros/autotest_storage.h>
+#include <srvros/autotest_shell.h>
+#include <srvros/process.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
 #include <srvros/console.h>
@@ -181,7 +183,7 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     }
     char path[80], request[64];
     unsigned length = 0;
-    append(request, &length, "SRVROS-AUTOTEST-V2 ");
+    append(request, &length, "SRVROS-AUTOTEST-V3 ");
     append(request, &length, run);
     append(request, &length, "\n");
     make_path(path, run, ".req");
@@ -206,7 +208,7 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     }
     report_size = 0;
     report_overflow = false;
-    field("format", "srvros-autotest-v2");
+    field("format", "srvros-autotest-v3");
     field("run", run);
     field("release", release);
     field("volume", uuid);
@@ -241,6 +243,15 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     bool files = storage && autotest_storage_run(device, run);
     field("usb_file_operations", files ? "PASS" : "FAIL");
     ok = ok && files;
+    struct autotest_shell_stats shell_stats = {0};
+    bool shell = files && autotest_shell_run(device, run, &shell_stats);
+    field("usb_shell_workspace", shell ? "PASS" : "FAIL");
+    number("shell_elapsed_us", shell_stats.elapsed_us);
+    number("shell_input_poll_count", shell_stats.input_poll_count);
+    number("shell_input_poll_max_us", shell_stats.input_poll_max_us);
+    number("shell_tick_max_us", shell_stats.tick_max_us);
+    field("physical_key_latency", "NOT_TESTED");
+    ok = ok && shell;
     field("status", ok ? "PASS" : "FAIL");
     console_write_n(report, report_size);
     make_path(path, run, ".txt");
@@ -259,5 +270,9 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         saved = exfat_write_file(done_path, (const uint8_t *)request, length) && flush_volume(device);
     }
     console_printf("autotest: %s report=%s run=%s\n", ok ? "PASS" : "FAIL", saved ? "flushed" : "SAVE_FAILED", run);
+    if (process_has_open_vfs_prefix("/testlog")) {
+        console_write("autotest: files remain open; staying at monitor\n");
+        return;
+    }
     return_to_host();
 }

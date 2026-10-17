@@ -32,10 +32,10 @@ class WorkspaceTests(unittest.TestCase):
         self.stage.assert_called_once_with(workspace_volume='37d8c5d0')
         folder = self.mount/'srvros-work'
         self.assertEqual((folder/'.workspace').read_bytes(), b'SRVROS-WORKSPACE-V1 37d8c5d0\n')
-        for name in ('README.txt','welcome.sh','notes.txt'):
+        for name in ('README.txt','welcome.sh','notes.txt','.profile'):
             (folder/name).write_text('user content')
         workspace.prepare('37D8-C5D0')
-        for name in ('README.txt','welcome.sh','notes.txt'):
+        for name in ('README.txt','welcome.sh','notes.txt','.profile'):
             self.assertEqual((folder/name).read_text(), 'user content')
 
     def test_wrong_marker_refuses_before_stage(self):

@@ -108,7 +108,7 @@ bool workspace_mount(const char *uuid) {
     active = device; failed = false;
     for (unsigned i = 0; i < 9; i++) active_uuid[i] = compact[i];
     console_write("workspace: ready at /work/srvros-work\n");
-    console_write("workspace: run /fat/bin/sh, then cd /work/srvros-work\n");
+    console_write("workspace: type 'workspace shell' to open your saved environment\n");
     ok = true;
 out:
     end(&scope); return ok;

@@ -2084,3 +2084,19 @@ test-core: test-workspace
 .PHONY: workspace-smoke
 workspace-smoke: $(IMAGE) test-core
 	$(PYTHON) tools/workspace_smoke.py
+
+.PHONY: test-workspace-io
+test-workspace-io: build/tests/history-io-host$(HOST_EXE) build/tests/ed-host$(HOST_EXE)
+	build/tests/history-io-host$(HOST_EXE)
+	$(PYTHON) tools/test_ed_io.py
+build/tests/history-io-host$(HOST_EXE): tools/test_history_io.c ports/srvros/linenoise.c ports/upstream/linenoise/linenoise.h $(USER_SYSROOT_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I ports/upstream/linenoise -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
+build/tests/ed-host$(HOST_EXE): userspace/ed/ed.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+test-core: test-workspace-io
+
+.PHONY: workspace-latency-smoke
+workspace-latency-smoke: $(IMAGE) test-core
+	$(PYTHON) tools/workspace_latency_smoke.py

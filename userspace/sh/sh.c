@@ -30,6 +30,7 @@ static char path_entries[PATH_MAX_ENTRIES][CLI_PATH_MAX] = {
 };
 static size_t path_count = 3;
 static uint64_t last_status = 0;
+static int workspace_interactive, history_dirty;
 static uint64_t shell_pid = 0;
 static uint64_t substitution_counter = 0;
 static int shell_argc = 1;
@@ -1909,25 +1910,39 @@ static void configure_history(void) {
     linenoiseHistorySetMaxLen(history_size_from_env());
 }
 
-static void save_history(void);
+static int save_history(void);
 
 static void save_history_line(const char *line) {
     if (line == 0 || line[0] == '\0') {
         return;
     }
     linenoiseHistoryAdd(line);
-    save_history();
+    history_dirty = 1;
+    if (!workspace_interactive) save_history();
 }
 
 static int load_history_file(const char *file) {
     return file != 0 && file[0] != '\0' ? linenoiseHistoryLoad(file) : 0;
 }
 
-static void save_history(void) {
+static int save_history(void) {
     const char *file = history_file_from_env();
-    if (file[0] != '\0') {
-        linenoiseHistorySave(file);
+    if (file[0] != '\0' && linenoiseHistorySave(file) != 0) {
+        cli_puts("history: save failed\n");
+        return 1;
     }
+    history_dirty = 0;
+    return 0;
+}
+
+static int finish_workspace_history(int status) {
+    if (workspace_interactive && history_dirty) {
+        if (save_history() != 0 || srv_sync() < 0) {
+            cli_puts("workspace: history save/flush failed\n");
+            return status ? status : 1;
+        }
+    }
+    return status;
 }
 
 static uint64_t history_command(const char *args) {
@@ -1950,8 +1965,7 @@ static uint64_t history_command(const char *args) {
         }
         linenoiseHistoryClear();
         configure_history();
-        save_history();
-        return 0;
+        return save_history();
     }
     if (argc > 0 && (cli_streq(argv[0], "-r") || cli_streq(argv[0], "-w"))) {
         const char *file = argc > 1 ? argv[1] : history_file_from_env();
@@ -5485,7 +5499,7 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return apropos_command(args);
     }
     if (cli_streq(command, "exit")) {
-        srv_exit(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status);
+        srv_exit(finish_workspace_history(args[0] != '\0' ? (int)parse_u64(args) : (int)last_status));
     }
     if (cli_streq(command, "exec")) {
         if (background) {
@@ -6788,6 +6802,7 @@ static uint64_t run_line(char *line, char *cwd) {
 int main(int argc, char **argv) {
     char cwd[CLI_PATH_MAX] = "/";
     int login = 0;
+    const char *workspace = 0;
     const char *command_text = 0;
     const char *script_path = 0;
     int positional_start = 0;
@@ -6795,6 +6810,13 @@ int main(int argc, char **argv) {
     uint64_t status = 0;
 
     for (int i = 1; i < argc; i++) {
+        if (cli_streq(argv[i], "--workspace")) {
+            if (workspace || i + 1 >= argc) {
+                cli_puts("sh: --workspace requires one directory\n"); return 2;
+            }
+            workspace = argv[++i];
+            continue;
+        }
         if (cli_streq(argv[i], "--login")) {
             login = 1;
             continue;
@@ -6864,6 +6886,25 @@ int main(int argc, char **argv) {
         status = run_optional_script_directory("/fat/etc/profile.d", cwd);
         last_status = status;
     }
+    if (workspace) {
+        struct srv_stat info;
+        char history_path[CLI_PATH_MAX], profile_path[CLI_PATH_MAX];
+        if (workspace[0] != '/' || strlen(workspace) + sizeof("/.history") > sizeof(cwd)) {
+            cli_puts("sh: invalid workspace directory\n"); return 2;
+        }
+        cli_normalize_path(cwd, sizeof(cwd), "/", workspace);
+        if (srv_stat(cwd, &info) < 0 || info.type != 1) {
+            cli_puts("sh: workspace directory unavailable\n"); return 1;
+        }
+        cli_join_path(history_path, sizeof(history_path), cwd, ".history");
+        cli_join_path(profile_path, sizeof(profile_path), cwd, ".profile");
+        setenv("HOME", cwd, 1);
+        setenv("PWD", cwd, 1);
+        setenv("HISTFILE", history_path, 1);
+        status = run_optional_script(profile_path, cwd);
+        if (status) { cli_puts("sh: workspace profile failed\n"); return (int)status; }
+        workspace_interactive = command_text == 0 && script_path == 0;
+    }
     if (command_text != 0) {
         char command[EXPANDED_LINE_MAX];
         if (text_contains_heredoc(command_text)) {
@@ -6893,7 +6934,12 @@ int main(int argc, char **argv) {
 
     cli_puts("srvsh ready. Type 'help' or 'help -l'.\n");
     configure_history();
-    load_history_file(history_file_from_env());
+    if (load_history_file(history_file_from_env()) != 0 && workspace_interactive) {
+        struct srv_stat info;
+        if (srv_stat(history_file_from_env(), &info) >= 0) {
+            cli_puts("history: existing workspace history could not be read\n"); return 1;
+        }
+    }
     linenoiseSetCompletionCallback(shell_completion_callback);
     for (;;) {
         char prompt[LINE_MAX];
@@ -6908,5 +6954,5 @@ int main(int argc, char **argv) {
         run_line(line, cwd);
         linenoiseFree(line);
     }
-    return 0;
+    return finish_workspace_history(0);
 }

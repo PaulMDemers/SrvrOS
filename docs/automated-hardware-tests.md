@@ -1,9 +1,19 @@
 # USB-backed hardware test cycle
 
-New preparations now use the expanded v2
-[USB file workload](usb-file-workload-2026-10-17.md), including multi-cluster
-files, rename/delete, remount/readback and independent host verification of the
-retained directory tree. Older v1 reports remain collectable.
+New preparations use v3 (`ram-usb-v8-autotest-…`). In addition to the v2
+[USB file workload](usb-file-workload-2026-10-17.md), they run the real userspace
+shell and `ed` in a fresh `srvros-tests/<run>.shell` directory. They edit/save,
+remount/reopen, restore a workspace profile and history, write a 512 KiB file,
+and print 500 lines. The collector checks nine retained output files, including
+exact document/history/settings bytes and a history-recall transcript. Existing
+workspace documents and settings are untouched. Older v1/v2 reports remain
+collectable and their installed profiles remain launchable with matching requests.
+
+The report includes `usb_shell_workspace`, total shell workload time, input-poll
+sample count/maximum gap, and maximum timer-tick gap. `physical_key_latency` is
+explicitly `NOT_TESTED`: input-poll timing is not end-to-end keyboard latency.
+See the [persistent shell report](persistent-shell-2026-10-17.md) for measured
+QEMU key echo under load.
 
 The first physical run exposed an exFAT metadata interoperability bug. See the
 [correction and recovery notes](exfat-interop-2026-10-17.md) before reusing the
@@ -87,7 +97,8 @@ presentation count and framebuffer bytes written are recorded. These are smoke
 checks, not the complete userspace suite or a performance threshold. Physical
 key presses are explicitly recorded as `NOT_TESTED`.
 
-Normal profiles keep USB storage read-only. The automatic profile enables writes
+Normal console profiles keep USB storage read-only. Workspace profiles opt in
+through their separate UUID/marker check. The automatic profile enables writes
 after finding its matching volume and fresh request. The selected partition and
 underlying USB transport become writable; other partition aliases remain
 read-only. AHCI stays disabled by `srvros.storage=ram`.

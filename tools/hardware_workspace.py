@@ -9,13 +9,15 @@ import hardware_test as host
 
 README = b'''SrvrOS persistent USB workspace
 
-At the monitor: run /fat/bin/sh
-In the shell: cd /work/srvros-work
+At the monitor: workspace shell
+History is saved on shell exit; use history -w and sync to save it earlier.
+Settings are read from .profile in this directory.
 Try: sh welcome.sh
 Save documents/scripts here. /fat remains in RAM.
 Before removing the drive: sync, exit, then workspace unmount at the monitor.
 The whole USB volume is visible at /work; other files there are writable too.
 '''
+PROFILE = b'# Workspace shell settings; loaded only by explicit workspace startup.\nHISTSIZE=128\n'
 WELCOME = b'echo "Hello from the persistent USB workspace"\n'
 
 
@@ -33,7 +35,7 @@ def prepare(uuid):
     release = boot.stage(workspace_volume=volume)
     folder.mkdir(exist_ok=True)
     if not marker.exists(): host.sync_file(marker, expected, exclusive=True)
-    for name, data in (('README.txt',README),('welcome.sh',WELCOME)):
+    for name, data in (('README.txt',README),('welcome.sh',WELCOME),('.profile',PROFILE)):
         path = folder/name
         if path.is_symlink(): raise ValueError('Symlink in workspace preparation path')
         if not path.exists(): host.sync_file(path,data,exclusive=True)

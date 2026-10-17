@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <regex.h>
 #include <string.h>
@@ -112,7 +113,7 @@ static int delete_range(struct line_buffer *buffer, size_t first, size_t last) {
 static int load_file(struct line_buffer *buffer, const char *path) {
     FILE *file = fopen(path, "r");
     if (file == 0) {
-        return -1;
+        return errno == ENOENT ? -2 : -1;
     }
     free_lines(buffer);
     char input[512];
@@ -122,7 +123,8 @@ static int load_file(struct line_buffer *buffer, const char *path) {
             return -1;
         }
     }
-    fclose(file);
+    int failed = ferror(file);
+    if (fclose(file) != 0 || failed) return -1;
     buffer->modified = 0;
     buffer->current = buffer->count;
     return 0;
@@ -136,7 +138,11 @@ static int write_file(struct line_buffer *buffer, const char *path) {
     }
     size_t bytes = 0;
     for (size_t i = 0; i < buffer->count; i++) {
-        fputs(buffer->lines[i], file);
+        if (fputs(buffer->lines[i], file) < 0) {
+            fclose(file);
+            puts("?");
+            return -1;
+        }
         bytes += strlen(buffer->lines[i]);
     }
     if (fclose(file) != 0) {
@@ -535,6 +541,7 @@ int main(int argc, char **argv) {
     struct line_buffer buffer = {0};
     char command[512];
     int argi = 1;
+    int status = 0;
 
     if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         usage();
@@ -547,7 +554,12 @@ int main(int argc, char **argv) {
     if (argc > argi) {
         strncpy(filename, argv[argi], sizeof(filename) - 1);
         filename[sizeof(filename) - 1] = '\0';
-        (void)load_file(&buffer, filename);
+        int loaded = load_file(&buffer, filename);
+        if (loaded < 0 && loaded != -2) {
+            puts("?");
+            free_lines(&buffer);
+            return 1;
+        }
     }
 
     while (fgets(command, sizeof(command), stdin) != 0) {
@@ -555,10 +567,11 @@ int main(int argc, char **argv) {
             fflush(stdout);
         }
         int result = run_command(&buffer, command);
+        if (result < 0) status = 1;
         if (result > 0) {
             break;
         }
     }
     free_lines(&buffer);
-    return 0;
+    return ferror(stdin) ? 1 : status;
 }
