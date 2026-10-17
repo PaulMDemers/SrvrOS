@@ -35,15 +35,23 @@ struct gui_surface {
 static struct gui_surface surfaces[GUI_MAX_SURFACES];
 
 static uint64_t irq_save(void) {
+#ifdef SRVROS_GUI_HOST_TEST
+    return 0;
+#else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     return flags;
+#endif
 }
 
 static void irq_restore(uint64_t flags) {
+#ifdef SRVROS_GUI_HOST_TEST
+    (void)flags;
+#else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#endif
 }
 
 static struct gui_queue *queue_for_pid(uint64_t pid, bool create) {
@@ -120,8 +128,14 @@ int64_t gui_register_server(void) {
     }
 
     flags = irq_save();
-    server_pid = process_pid(process);
-    result = queue_for_pid(server_pid, true) != NULL ? 0 : -1;
+    uint64_t pid = process_pid(process);
+    /* Do not let a second compositor steal access to every client's surfaces.
+     * Publish ownership only after its receive queue has been allocated. */
+    result = -1;
+    if ((server_pid == 0 || server_pid == pid) && queue_for_pid(pid, true) != NULL) {
+        server_pid = pid;
+        result = 0;
+    }
     irq_restore(flags);
     return result;
 }

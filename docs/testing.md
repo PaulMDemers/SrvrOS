@@ -24,6 +24,12 @@ suite below. The custom SPI model has a known hardware identity error; see
 
 ## Console and kernel regression checks
 
+The new desktop foundation has an opt-in native study and separate regression
+checks; see [desktop foundation verification](desktop-foundation-2026-10-17.md).
+Run `make test-desktop` for renderer, GUI ownership and trackpad decoder tests,
+then `tools/host-env.sh python3 tools/desktop_foundation_smoke.py` after building
+for the native QEMU interaction check. This does not test the physical trackpad.
+
 ```sh
 make test-core
 python3 -m unittest discover -s tools -p test_hardware_boot.py -v

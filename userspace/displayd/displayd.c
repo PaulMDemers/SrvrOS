@@ -2964,7 +2964,6 @@ int main(int argc, char **argv) {
         }
     }
 
-    clrscr();
     srv_puts("displayd: start\n");
     if (gfx_info(&gfx) != 0 || gfx.width == 0 || gfx.height == 0) {
         gfx.width = 640;
@@ -2993,8 +2992,11 @@ int main(int argc, char **argv) {
 
     if (gui_register_server() != 0) {
         srv_puts("displayd: gui server registration failed\n");
+        free(pixels);
+        return 1;
     }
 
+    clrscr();
     ui_surface_init(&root_surface, gfx.width, gfx.height, gfx.width, pixels);
     ui_element_init(&root, 0, 0, gfx.width, gfx.height, root_surface);
     root.background = 0x0b1118;

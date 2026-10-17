@@ -122,6 +122,11 @@ only if measurements justify its complexity.
 
 These are ordered milestones, not promises of completed support or dates.
 
+Implementation progress: the [first native foundation slice](desktop-foundation-2026-10-17.md)
+adds the renderer, an optional native study, exclusive GUI registration and a
+tested trackpad packet decoder. D1's separate compositor/client contract and D2's
+physical trackpad integration remain open.
+
 ### D0 — Product and design contract (this change)
 
 Record the hardware evidence, replacement boundaries, design tokens, core app
