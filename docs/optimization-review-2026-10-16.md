@@ -347,5 +347,9 @@ tests](persistent-shell-2026-10-17.md): one-command workspace startup, saved
 history/settings, checked editor saves, and independent host verification of
 real shell workloads. QEMU key-echo measurements also expose application stalls
 during slow filesystem writes, despite continued keyboard service. Finer
-filesystem synchronization is the next responsiveness target; this increment's
-physical validation is still pending.
+filesystem synchronization is the next responsiveness target. Physical run
+`44d3dc2b833f0453` subsequently passed the complete automatic cycle, CRC-validated
+report, all 15 expected files, and a clean offline filesystem check. The shell
+workload completed in 90.4 seconds. An earlier missing completion marker remains
+unexplained; the successful revision adds failure diagnostics, so repeated
+hardware cycles are still needed to assess finalization reliability.

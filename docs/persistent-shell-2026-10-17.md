@@ -231,3 +231,30 @@ USB error details. The complete QEMU automatic cycle also passed: valid saved
 CRC/report and workspace files, filesystem checks, reset to the default entry,
 consumed-request replay, and read-only failure. Logs use the
 `build/review/save-diagnostics-*` prefix. Physical validation remains pending.
+
+## Validated laptop cycle with finalization diagnostics
+
+Run `44d3dc2b833f0453`, release `cea511eb6828dd7e` (source `3aeee1c`),
+completed on the MacBookAir7,2 and returned to Ubuntu automatically. The user
+observed no error screen. Ubuntu validated the complete report and its separate
+CRC completion marker, the mixed-case probe, all six storage files, and all
+nine shell/editor/history/settings files. Every automated check reported PASS.
+The shell workload completed in 90,380,335 microseconds; 1,000 rendered lines
+took 4,943 microseconds with one present and 5,160,988 framebuffer bytes written.
+These are different workloads; the render result is not a shell responsiveness
+measurement. Physical keypress and physical key latency remain NOT_TESTED.
+
+An offline read-only filesystem check reported clean (24 directories, 108
+files), and the main VolumeFlags were zero before remount. No repair was needed.
+The Ubuntu boot ID changed, the default remains Ubuntu, and no one-shot entry
+is pending. Report, completion marker, exact file hashes, file snapshots,
+kernel log and offline check are preserved under
+`build/hardware-tests/44d3dc2b833f0453/`.
+
+The validated automatic-test payload has an independent hash-verified backup at
+`~/.local/share/srvros/known-good/cea511eb6828dd7e`; installed rollback remains
+`385b670049974e1c`. This is one successful physical cycle. The preceding missing
+completion marker has not been explained or proven fixed: this revision added
+diagnostics rather than changing the write protocol. Repeat hardware cycles
+should establish whether that failure recurs before treating finalization as
+reliable. Coarse filesystem scheduling remains the next responsiveness issue.
