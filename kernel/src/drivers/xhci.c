@@ -1635,6 +1635,11 @@ static void poll_hid_events_once(void) {
     }
 }
 
+static bool xhci_io_service_ready(void *arg) {
+    (void)arg;
+    return xhci.operational && !xhci_input_probe_active;
+}
+
 static void xhci_poll_worker(void *arg) {
     (void)arg;
     for (;;) {
@@ -1920,7 +1925,7 @@ static void enumerate_connected_ports(void) {
         (void)enumerate_port(i);
     }
     if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0) {
-        if (!scheduler_spawn("xhci-hid", xhci_poll_worker, 0)) {
+        if (!scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready)) {
             console_write("xhci: hid poll worker failed\n");
         }
     }

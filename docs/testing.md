@@ -29,11 +29,17 @@ make test-core
 python3 -m unittest discover -s tools -p test_hardware_boot.py -v
 tools/host-env.sh make hardware-smoke
 python3 tools/console_benchmark.py --baseline b79c559
+tools/host-env.sh make storage-service-smoke
 ```
 
 `test-core` covers the actual console, keyboard decoder, ACPI timer, block cache,
 AHCI command path, xHCI enumeration helpers, FIFO workqueue, serial IRQ windows,
-and latency counter nesting/reset/thresholds. Hardware smoke additionally
+latency counter nesting/reset/thresholds, storage-service scheduler policy,
+cache-publication races and safe syscall-boundary cancellation.
+AHCI tests simulate busy/completion waits, reentrant and cross-disk attempts,
+partial-sector ownership, fast completion, stalled clocks and failure cleanup.
+The scheduler tests check boot gating, nesting, temporary-address-space rejection
+and exclusion of ordinary/user-context threads. Hardware smoke additionally
 checks calibrated timing/init readiness, mixed-case USB typing, Caps Lock, held
 key repeat and `renderbench`, and saves a framebuffer screenshot. Its
 `--responsiveness-check` types mixed-case text during three seconds of sustained
@@ -56,6 +62,31 @@ not sum them. Timer and USB poll gaps include scheduling and emulator delays;
 they are not direct interrupt-disabled duration or key-to-visible latency.
 Counters include reference-read overhead. A zero sample count means unexercised,
 not zero latency (AHCI is disabled in the normal laptop boot configuration).
+
+`storage-service-smoke` copies `build/srvros.exfat` to a temporary directory and
+boots it through OVMF with an emulated USB keyboard. QMP throttles writes to
+40 IOPS while the test types a complete shell command, then sends Ctrl-C during
+another write. It compares copied files, checks the filesystem and captures AHCI
+service-window/latency counters. It then repeatedly checks the filesystem,
+launches the shell and compares its on-disk executable with the initramfs copy
+to cover cache publication under background supervisor activity. Finally, on the
+disposable copy only, a 64-byte/second write limit forces a timeout; the test requires disk quarantine,
+retained keyboard input and shell recovery. A subsequent `sync` must fail
+(including inability to load the command from the offline disk). This does not
+test crash-atomic metadata recovery or physical drive durability. Artifacts are
+`build/review/storage-service-serial.log`, `storage-service-qemu.log` and
+`storage-service.ppm`. Failures preserve the disposable image as
+`storage-service-failed.exfat`. Pass `--dump-memory` directly to
+`tools/storage_service_smoke.py` to retain a 512 MiB guest RAM dump on a wait
+failure as well. These diagnostic files contain only this test VM's data. To
+repeat only the cache/executable-load regression, run:
+
+```sh
+tools/host-env.sh python3 tools/storage_service_smoke.py --relaunch-only 12
+```
+
+Each run replaces the standard serial log; save it first when retaining multiple
+runs for comparison.
 
 ## Release Verification
 

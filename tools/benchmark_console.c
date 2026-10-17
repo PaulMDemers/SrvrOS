@@ -14,7 +14,8 @@
 void serial_putc(char c) { (void)c; }
 void bootlog_putc(char c) { (void)c; }
 static workqueue_fn pending;
-bool workqueue_schedule(workqueue_fn fn, void *arg) { (void)arg; pending=fn; return true; }
+bool workqueue_schedule_io_safe(workqueue_fn fn, void *arg) { (void)arg; pending=fn; return true; }
+bool workqueue_schedule(workqueue_fn fn, void *arg) { return workqueue_schedule_io_safe(fn, arg); }
 void scheduler_yield(void) {}
 static uint64_t nanos(void) {
     struct timespec t; clock_gettime(CLOCK_MONOTONIC,&t);

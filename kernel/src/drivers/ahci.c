@@ -6,6 +6,7 @@
 #include <srvros/pmm.h>
 #include <srvros/vmm.h>
 #include <srvros/timer.h>
+#include <srvros/scheduler.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -36,6 +37,9 @@
 #define ATA_CMD_FLUSH_CACHE 0xe7
 #define ATA_CMD_FLUSH_CACHE_EXT 0xea
 #define AHCI_COMMAND_TIMEOUT_US 2000000ull
+#ifndef AHCI_SERVICE_LIMIT
+#define AHCI_SERVICE_LIMIT 4096
+#endif
 #ifndef AHCI_POLL_LIMIT
 #define AHCI_POLL_LIMIT 100000000ull
 #endif
@@ -105,6 +109,7 @@ struct hba_command_table {
 struct ahci_disk {
     bool used;
     bool failed;
+    bool busy;
     uint8_t flush_command;
     volatile struct hba_port *port;
     uint8_t port_index;
@@ -123,6 +128,9 @@ static volatile struct hba_memory *hba;
 static uint64_t hba_physical;
 static struct ahci_disk disks[AHCI_MAX_PORTS];
 static uint64_t disk_count;
+static uint64_t commands_issued, service_windows, busy_rejects, failed_commands;
+static uint64_t last_service_us;
+struct ahci_request { uint64_t flags; bool services; };
 
 static void zero_memory(void *address, uint64_t size) {
     uint8_t *bytes = address;
@@ -155,7 +163,6 @@ static uint64_t irq_save(void) {
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
-    latency_enter(LATENCY_AHCI);
     return flags;
 #endif
 }
@@ -164,7 +171,6 @@ static void irq_restore(uint64_t flags) {
 #ifdef SRVROS_AHCI_HOST_TEST
     (void)flags;
 #else
-    latency_leave(LATENCY_AHCI);
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
@@ -240,9 +246,47 @@ static bool ensure_mmio_mapping(void) {
     return true;
 }
 
-static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba, uint16_t sectors, bool write) {
-    if (disk == NULL || disk->failed) return false;
-    uint64_t flags = irq_save();
+static bool begin_request(struct ahci_disk *disk, struct ahci_request *request) {
+    request->flags = irq_save();
+    if (disk == NULL || disk->failed || disk->busy) {
+        if (disk != NULL && disk->busy) busy_rejects++;
+        irq_restore(request->flags);
+        return false;
+    }
+    request->services = scheduler_io_begin();
+    /* A service callback may not start storage work on another disk either. */
+    if (!request->services && scheduler_io_active()) {
+        busy_rejects++;
+        irq_restore(request->flags);
+        return false;
+    }
+    disk->busy = true;
+    return true;
+}
+
+static void end_request(struct ahci_disk *disk, const struct ahci_request *request) {
+    disk->busy = false;
+    if (request->services) scheduler_io_end();
+    irq_restore(request->flags);
+}
+
+static bool service_wait(const struct ahci_request *request, uint64_t caller_space) {
+    if (!request->services) return false;
+    /* Never context-switch with a temporary CR3: the scheduler records the
+     * caller's normal address space, and restores that space when it resumes. */
+    latency_leave(LATENCY_AHCI);
+    vmm_switch_address_space(caller_space);
+    bool yielded = scheduler_io_yield();
+    if (yielded) service_windows++;
+    vmm_switch_address_space(vmm_kernel_address_space());
+    last_service_us = timer_monotonic_us();
+    latency_enter(LATENCY_AHCI);
+    return yielded;
+}
+
+static bool issue_command_locked(struct ahci_disk *disk, uint8_t command, uint64_t lba,
+    uint16_t sectors, bool write, const struct ahci_request *request) {
+    latency_enter(LATENCY_AHCI);
     uint64_t previous_address_space = vmm_current_address_space();
     uint64_t kernel_address_space = vmm_kernel_address_space();
     bool switched_address_space = previous_address_space != kernel_address_space;
@@ -293,30 +337,53 @@ static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba,
 #endif
     uint64_t start = timer_monotonic_us();
     uint64_t spins = 0;
+    uint64_t windows = 0, window_progress_us = start;
     while ((port->tfd & 0x88) != 0) {
         if (++spins >= AHCI_POLL_LIMIT || timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US)
             goto failed;
+        /* Bound consecutive service turns without clock progress, without
+         * shortening the normal deadline when a healthy clock advances. */
+        if ((spins & 63) == 0 && service_wait(request, previous_address_space)) {
+            if (last_service_us != window_progress_us) {
+                window_progress_us = last_service_us;
+                windows = 0;
+            } else if (++windows >= AHCI_SERVICE_LIMIT) goto failed;
+        }
         __asm__ volatile ("pause");
     }
 
     /* Publish DMA descriptors before ringing the command doorbell. */
     __asm__ volatile ("mfence" : : : "memory");
     port->ci = 1;
+    commands_issued++;
     start = timer_monotonic_us();
     spins = 0;
     while ((port->ci & 1) != 0) {
         if ((port->is & HBA_PORT_IS_TFES) != 0 || ++spins >= AHCI_POLL_LIMIT ||
             timer_monotonic_us() - start >= AHCI_COMMAND_TIMEOUT_US) goto failed;
+        /* Bound consecutive service turns without clock progress, without
+         * shortening the normal deadline when a healthy clock advances. */
+        if ((spins & 63) == 0 && service_wait(request, previous_address_space)) {
+            if (last_service_us != window_progress_us) {
+                window_progress_us = last_service_us;
+                windows = 0;
+            } else if (++windows >= AHCI_SERVICE_LIMIT) goto failed;
+        }
         __asm__ volatile ("pause");
     }
     __asm__ volatile ("mfence" : : : "memory");
     if (port->is & HBA_PORT_IS_TFES) goto failed;
+    /* A chain of fast commands must also admit services. This bound spans
+     * requests; the command-count fallback works without a reference clock. */
+    if (request->services && (timer_monotonic_us() - last_service_us >= 1000 ||
+        (commands_issued & 31) == 0)) service_wait(request, previous_address_space);
     success = true;
     goto out;
 failed:
     /* Keep DMA storage pinned and never reuse it after uncertain completion.
      * Recovery/reset is deliberately a separate operation. */
     disk->failed = true;
+    failed_commands++;
     console_printf("ahci: port=%u command=%x failed; disk offline\n",
         (uint64_t)disk->port_index, (uint64_t)command);
 
@@ -324,8 +391,16 @@ out:
     if (switched_address_space) {
         vmm_switch_address_space(previous_address_space);
     }
-    irq_restore(flags);
+    latency_leave(LATENCY_AHCI);
     return success;
+}
+
+static bool issue_command(struct ahci_disk *disk, uint8_t command, uint64_t lba, uint16_t sectors, bool write) {
+    struct ahci_request request;
+    if (!begin_request(disk, &request)) return false;
+    bool ok = issue_command_locked(disk, command, lba, sectors, write, &request);
+    end_request(disk, &request);
+    return ok;
 }
 
 static bool ahci_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
@@ -340,13 +415,16 @@ static bool ahci_read(struct block_device *device, uint64_t offset, void *buffer
     }
 
     uint8_t *out = buffer;
+    struct ahci_request request;
+    if (!begin_request(disk, &request)) return false;
+    bool success = false;
     uint64_t copied = 0;
     while (copied < length) {
         uint64_t absolute = offset + copied;
         uint64_t lba = absolute / AHCI_SECTOR_SIZE;
         uint64_t sector_offset = absolute % AHCI_SECTOR_SIZE;
-        if (!issue_command(disk, ATA_CMD_READ_DMA_EXT, lba, 1, false)) {
-            return false;
+        if (!issue_command_locked(disk, ATA_CMD_READ_DMA_EXT, lba, 1, false, &request)) {
+            goto out;
         }
 
         uint64_t chunk = AHCI_SECTOR_SIZE - sector_offset;
@@ -359,7 +437,10 @@ static bool ahci_read(struct block_device *device, uint64_t offset, void *buffer
         copied += chunk;
     }
 
-    return true;
+    success = true;
+out:
+    end_request(disk, &request);
+    return success;
 }
 
 static bool ahci_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length) {
@@ -374,6 +455,9 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
     }
 
     const uint8_t *in = buffer;
+    struct ahci_request request;
+    if (!begin_request(disk, &request)) return false;
+    bool success = false;
     uint64_t copied = 0;
     while (copied < length) {
         uint64_t absolute = offset + copied;
@@ -385,8 +469,8 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
         }
 
         if (chunk != AHCI_SECTOR_SIZE) {
-            if (!issue_command(disk, ATA_CMD_READ_DMA_EXT, lba, 1, false)) {
-                return false;
+            if (!issue_command_locked(disk, ATA_CMD_READ_DMA_EXT, lba, 1, false, &request)) {
+                goto out;
             }
         }
 
@@ -394,13 +478,16 @@ static bool ahci_write(struct block_device *device, uint64_t offset, const void 
             disk->io_buffer[sector_offset + i] = in[copied + i];
         }
 
-        if (!issue_command(disk, ATA_CMD_WRITE_DMA_EXT, lba, 1, true)) {
-            return false;
+        if (!issue_command_locked(disk, ATA_CMD_WRITE_DMA_EXT, lba, 1, true, &request)) {
+            goto out;
         }
         copied += chunk;
     }
 
-    return true;
+    success = true;
+out:
+    end_request(disk, &request);
+    return success;
 }
 
 static bool ahci_flush(struct block_device *device) {
@@ -525,4 +612,13 @@ bool ahci_init(void) {
         return false;
     }
     return true;
+}
+
+void ahci_print_status(void) {
+    uint64_t flags = irq_save();
+    uint64_t commands = commands_issued, windows = service_windows;
+    uint64_t rejected = busy_rejects, failures = failed_commands;
+    irq_restore(flags);
+    console_printf("ahci: commands=%u service_windows=%u busy_rejects=%u failures=%u\n",
+        commands, windows, rejected, failures);
 }

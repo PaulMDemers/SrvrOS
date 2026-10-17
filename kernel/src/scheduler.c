@@ -37,6 +37,7 @@ struct thread {
     enum thread_state state;
     const char *name;
     scheduler_thread_fn entry;
+    scheduler_wait_condition_fn io_eligible;
     void *arg;
     void *user_context;
     void *user_thread_context;
@@ -61,20 +62,30 @@ static struct thread threads[SCHEDULER_MAX_THREADS];
 static uint64_t current_thread;
 static bool initialized;
 static bool switching;
+static bool io_services_enabled;
+static uint64_t io_owner, io_depth;
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static volatile uint64_t demo_counter;
 
 static uint64_t irq_save(void) {
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    return 0;
+#else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     return flags;
+#endif
 }
 
 static void irq_restore(uint64_t flags) {
+#ifdef SRVROS_SCHEDULER_HOST_TEST
+    (void)flags;
+#else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#endif
 }
 
 static uint64_t thread_kernel_stack_top(const struct thread *thread) {
@@ -114,9 +125,48 @@ static struct fpu_state *thread_user_fpu(struct thread *thread) {
     return thread->user_fpu;
 }
 
+static bool io_thread_allowed(uint64_t index) {
+    struct thread *thread = &threads[index];
+    return io_depth == 0 || index == io_owner ||
+        (thread->user_context == NULL && thread->io_eligible != NULL &&
+         thread->io_eligible(thread->arg));
+}
+
+void scheduler_enable_io_services(void) {
+    uint64_t flags = irq_save();
+    io_services_enabled = initialized;
+    irq_restore(flags);
+}
+
+bool scheduler_io_active(void) { return io_depth != 0; }
+
+bool scheduler_io_begin(void) {
+    if (!initialized || !io_services_enabled || switching) return false;
+    if (io_depth != 0 && io_owner != current_thread) return false;
+    if (io_depth++ == 0) io_owner = current_thread;
+    return true;
+}
+
+void scheduler_io_end(void) {
+    if (io_depth != 0 && io_owner == current_thread) io_depth--;
+}
+
+bool scheduler_io_yield(void) {
+    if (io_depth == 0 || io_owner != current_thread ||
+        vmm_current_address_space() != thread_address_space(&threads[current_thread])) return false;
+    /* The caller restored its scheduler-recorded address space before entry.
+     * Service IRQs even when there is no other eligible runnable thread. */
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+    __asm__ volatile ("sti; nop" : : : "memory");
+    scheduler_yield();
+    __asm__ volatile ("cli" : : : "memory");
+#endif
+    return true;
+}
+
 static bool has_ready_thread_except(uint64_t skipped_index) {
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if (i != skipped_index &&
+        if (i != skipped_index && io_thread_allowed(i) &&
             (threads[i].state == THREAD_READY || threads[i].state == THREAD_RUNNING)) {
             return true;
         }
@@ -150,7 +200,8 @@ void scheduler_init(void) {
     console_write("scheduler: timer-preemptive kernel threads ready\n");
 }
 
-bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
+static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
+    scheduler_wait_condition_fn io_eligible) {
     if (!initialized || entry == NULL) {
         return false;
     }
@@ -176,6 +227,7 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
                 .state = THREAD_READY,
                 .name = name,
                 .entry = entry,
+                .io_eligible = io_eligible,
                 .arg = arg,
                 .user_context = NULL,
                 .user_thread_context = NULL,
@@ -199,6 +251,16 @@ bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
     return false;
 }
 
+bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
+    return spawn_thread(name, entry, arg, NULL);
+}
+
+bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
+    void *arg, scheduler_wait_condition_fn eligible) {
+    if (eligible == NULL) return false;
+    return spawn_thread(name, entry, arg, eligible);
+}
+
 void scheduler_yield(void) {
     uint64_t flags = irq_save();
     if (!initialized || switching) {
@@ -214,7 +276,7 @@ void scheduler_yield(void) {
         if (candidate != old_index && threads[candidate].state == THREAD_RUNNING) {
             threads[candidate].state = THREAD_READY;
         }
-        if (threads[candidate].state == THREAD_READY) {
+        if (threads[candidate].state == THREAD_READY && io_thread_allowed(candidate)) {
             next_index = candidate;
             break;
         }
@@ -398,7 +460,7 @@ void scheduler_preempt_tick(void) {
 
     wake_expired_waits();
 
-    if (process_should_exit_current()) {
+    if (!(io_depth != 0 && io_owner == current_thread) && process_should_exit_current()) {
         process_exit(process_current_kill_status());
     }
 

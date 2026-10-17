@@ -240,7 +240,7 @@ static void console_present_work(void *arg) {
     uint64_t flags = console_irq_save();
     /* A preempting writer can dirty a row already presented. Queue another
      * bounded pass so the final update cannot remain stranded. */
-    if (console_damage_pending()) (void)workqueue_schedule(console_present_work, NULL);
+    if (console_damage_pending()) (void)workqueue_schedule_io_safe(console_present_work, NULL);
     console_irq_restore(flags);
 }
 
@@ -270,7 +270,7 @@ bool console_sync(void) {
 }
 
 static void console_request_present(void) {
-    if (deferred_output && workqueue_schedule(console_present_work, NULL)) return;
+    if (deferred_output && workqueue_schedule_io_safe(console_present_work, NULL)) return;
     console_flush();
 }
 

@@ -15,6 +15,17 @@ struct scheduler_wait_queue {
 
 void scheduler_init(void);
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg);
+/* Service callbacks must not access storage, VFS or user mappings, or wait for
+ * ordinary application threads. Eligibility is queried with IRQs masked. */
+bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
+    void *arg, scheduler_wait_condition_fn eligible);
+void scheduler_enable_io_services(void);
+/* Begin/end/yield require IRQs masked. Only the owner and eligible service
+ * threads can run until end; owner cancellation is deferred over this scope. */
+bool scheduler_io_begin(void);
+bool scheduler_io_active(void);
+void scheduler_io_end(void);
+bool scheduler_io_yield(void);
 void scheduler_yield(void);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);

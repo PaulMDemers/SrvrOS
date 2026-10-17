@@ -4,5 +4,6 @@
 #include <stdbool.h>
 
 bool ahci_init(void);
+void ahci_print_status(void);
 
 #endif

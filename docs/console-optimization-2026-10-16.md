@@ -217,6 +217,106 @@ batch. Installed state confirms `70ddde650d0fc3f8` as current and
 `/home/paul/.local/share/srvros/known-good/70ddde650d0fc3f8` independently of the
 installer's current/previous rotation.
 
+## Follow-up: service threads during storage waits
+
+Runtime AHCI requests now retain exclusive ownership of their command and DMA
+buffers across data copies and partial-sector read/modify/write pairs. Reentrant
+access is rejected. During a pending command, the driver can open a service
+window after 64 polls; completed command sequences also offer a window after
+1 ms since the previous window or every 32 commands. These are opportunities to
+run services, not a hard latency bound. Early boot keeps the original polling
+path until the scheduler and timer are running.
+
+The command retains its two-second reference deadline and independent poll
+limit. It also limits consecutive pending-command service turns without clock
+progress to 4,096, preventing a stopped reference from multiplying the old
+spin bound into millions of context switches. The fallback bounds work, not
+wall time on an arbitrarily stalled CPU.
+
+The scheduler restricts these windows to the I/O owner and explicitly eligible
+kernel services: xHCI HID polling and console workqueue callbacks marked safe
+for I/O waits. Ordinary applications, network workers and unmarked callbacks
+remain paused. This preserves the filesystem/cache serialization that previously
+depended on masked interrupts; it does not make exFAT or VFS concurrently safe.
+Service callbacks must not touch storage, VFS or user mappings, or wait for
+ordinary tasks. Duplicate work requests conservatively lose service eligibility
+if either request is unmarked.
+
+The block layer now owns a nested scope around cache lookup, device access,
+cache publication and the final caller copy. Testing exposed why driver-only
+ownership was insufficient: the background `svscan` process could reuse a cache
+victim after the driver's interrupt restore but before the caller published its
+tag. After `fsck`, a shell launch loaded an entire 512-byte sector of `0xff`
+into executable memory, although the executable on disk was unchanged. The
+host regression deliberately reproduces that corruption through the unprotected
+helper and verifies that the public block API prevents it. Service threads are
+rejected before even a cache hit can access shared data.
+
+The driver restores the caller's address space before yielding. The scheduler
+also checks it against the owning thread's recorded address space and declines
+the window on a mismatch. It returns with interrupts masked, then the driver
+restores its temporary kernel mappings. Cancellation of the I/O owner is
+deferred while the request is owned, so Ctrl-C cannot strand the command buffer
+or leave the scheduler restricted. Pending termination is checked before and
+after each userspace syscall, so a program cannot outrun cancellation by issuing
+short calls while every timer tick falls inside a protected I/O operation. The
+original caller interrupt state is restored on exit. Command timeout/error quarantine and pinned DMA memory remain
+in effect; disk reset/recovery is still unimplemented.
+
+AHCI latency samples now cover individual masked command segments and exclude
+service windows. They do not cover every filesystem operation or the whole
+request. `block` additionally prints command, service-window, busy-rejection and
+failure counters. A successful window means interrupts were admitted; it does
+not promise that a particular service thread ran on every opportunity.
+
+The normal laptop boot entry remains RAM-backed, with AHCI disabled. This change
+is validated using disposable QEMU disks and does not require another laptop
+reboot to exercise storage. General application scheduling during disk I/O,
+filesystem locking, persistent-storage crash recovery, and physical disk
+bring-up remain separate work.
+
+Candidate **`63d0bd952feb6b1d`** passes all 11 host test groups, eight
+installer tests, the GRUB/OVMF console and responsiveness smoke, and the syscall
+ABI smoke. The disposable AHCI stress test passes 40-IOPS writes with USB command
+entry, safe Ctrl-C cancellation (status 130), copy comparison, clean `fsck`
+(317 files, zero leaks/FAT errors/filesystem errors), three shell relaunches with
+executable comparison, and an intentional command timeout. After the timeout,
+keyboard input was retained, the shell regained control, and the disk stayed
+quarantined with exactly one failed command. The final `--relaunch-only 12` regression also passed 12 complete
+`fsck`/shell/executable-comparison/exit cycles with the background supervisor
+running.
+
+Before intentional failure, the stress run recorded 29,039 commands and 15,977
+service windows with zero busy rejections or failures. Final counters after
+relaunches and timeout were 64,659 commands, 26,127 windows and one failure.
+The largest instrumented AHCI segment was 16,656 µs; whole-window maximum timer
+and USB-poll gaps were 636,916 µs and 645,310 µs across approximately 58 seconds.
+Other QEMU regressions ran concurrently on the host. These are single-run
+emulator observations, not physical latency bounds or speedup measurements;
+masked filesystem work outside the driver still needs investigation.
+
+The final source refactoring for the cancellation host test changed debugging
+metadata only: the integration-test build `3b3f0aafcc43fcaf` and final candidate
+have identical kernel loadable segments and initramfs hashes. GRUB and syscall
+ABI checks ran on the final staged candidate. The full 479-command CLI suite
+also passed, including the POSIX signal/thread/socket probe and a final clean
+filesystem check: 384 files, 66,663 clusters, zero leaks, FAT mismatches or errors.
+
+Evidence: `build/review/storage-final-build.log`, `storage-cache-installer.log`,
+`storage-final-grub.log`, `storage-final-sysabi.log`,
+`storage-boundary-smoke.log`, `storage-final-service-serial.log`,
+`storage-runtime-equivalence.json`, `storage-final-relaunch.log` and
+`storage-boundary-cli.log`.
+Earlier candidates are superseded; their initial passes missed the intermittent
+cache race. Forensic evidence is retained in `storage-service-fault-serial.log`,
+`storage-relaunch-first-fault.log`, `storage-cache-forensics.json`, and compressed
+guest RAM dumps. The failed disk's executable matched the source byte for byte,
+while a loaded executable sector contained only `0xff`.
+
+The installed release remains `70ddde650d0fc3f8`, previous is
+`3cd2e11a98996ccb`, and the independent known-good backup was hash-verified again.
+The new candidate is staged locally and has not been installed on the laptop.
+
 ## Repeating the laptop test
 
 From the repository in Ubuntu, install the staged candidate, then request a
@@ -255,13 +355,18 @@ Both configurations preserve verification of older v2/v3 releases.
 
 ## Remaining non-GUI work
 
-1. Extend the confirmed laptop throughput result with sustained-output and
-   interactive-latency measurements; record framebuffer cache attributes.
+1. Capture quantitative laptop input latency under sustained output (functional
+   input under this load is user-confirmed); record framebuffer cache attributes.
    Check PAT/MTRR and mapping aliases before changing write-combining policy.
 2. Extend deadline/idle-wait conversion beyond LAPIC/AHCI, measure maximum
    interrupt-disabled intervals, and reduce allocator/network/storage critical
-   sections using explicit ownership. AHCI command polling is still synchronous
-   with interrupts masked; the new timeout bounds failure, not normal latency.
+   sections using explicit ownership. AHCI now admits keyboard/console services
+   during waits, but ordinary application scheduling still requires explicit
+   filesystem/cache locking and buffer-lifetime rules. Non-I/O filesystem work
+   can still keep interrupts masked for long periods. Audit kernel-mode trap
+   preservation of compiler-generated SSE state before widening preemption:
+   current FPU trap helpers save/restore only userspace transitions. This is a
+   separate code-review finding, not the cause proven by the cache regression.
 3. Add deeper exFAT fault/power-loss recovery tests before enabling persistent
    hardware storage. Reboot tests currently use RAM storage deliberately.
 4. Implement the Apple trackpad's separate USB interface, followed by physical

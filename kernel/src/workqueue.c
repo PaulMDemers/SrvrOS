@@ -9,6 +9,7 @@
 #define WORKQUEUE_MAX_ITEMS 16
 
 struct work_item {
+    bool io_safe;
     workqueue_fn fn;
     void *arg;
 };
@@ -18,6 +19,7 @@ static struct scheduler_wait_queue wait_queue;
 static uint64_t queue_head, queue_count;
 static bool initialized;
 static bool worker_started;
+static bool callback_active, callback_io_safe;
 static uint64_t scheduled_count;
 static uint64_t coalesced_count;
 static uint64_t dropped_count;
@@ -52,6 +54,8 @@ static bool work_pending(void *arg) {
 static bool take_work(workqueue_fn *fn_out, void **arg_out) {
     uint64_t flags = irq_save();
     if (queue_count == 0) { irq_restore(flags); return false; }
+    callback_active = true;
+    callback_io_safe = items[queue_head].io_safe;
     *fn_out = items[queue_head].fn;
     *arg_out = items[queue_head].arg;
     items[queue_head] = (struct work_item){0};
@@ -70,6 +74,9 @@ static void workqueue_worker(void *arg) {
         if (take_work(&fn, &work_arg)) {
             run_count++;
             fn(work_arg);
+            uint64_t flags = irq_save();
+            callback_active = false;
+            irq_restore(flags);
             /* A callback that requeues itself must also give other threads a turn. */
             scheduler_yield();
             continue;
@@ -81,19 +88,26 @@ static void workqueue_worker(void *arg) {
     }
 }
 
+static bool workqueue_io_service_ready(void *arg) {
+    (void)arg;
+    /* Never run an ordinary callback inside an owner's storage operation. */
+    return callback_active ? callback_io_safe :
+        (queue_count != 0 && items[queue_head].io_safe);
+}
+
 void workqueue_init(void) {
     if (initialized) {
         return;
     }
 
     initialized = true;
-    worker_started = scheduler_spawn("workqueue", workqueue_worker, NULL);
+    worker_started = scheduler_spawn_io_service("workqueue", workqueue_worker, NULL, workqueue_io_service_ready);
     console_printf("workqueue: %s slots=%u\n",
         worker_started ? "ready" : "failed",
         (uint64_t)WORKQUEUE_MAX_ITEMS);
 }
 
-bool workqueue_schedule(workqueue_fn fn, void *arg) {
+static bool schedule_work(workqueue_fn fn, void *arg, bool io_safe) {
     if (!initialized || !worker_started || fn == NULL) {
         return false;
     }
@@ -102,6 +116,7 @@ bool workqueue_schedule(workqueue_fn fn, void *arg) {
     for (uint64_t i = 0; i < queue_count; i++) {
         struct work_item *item = &items[(queue_head + i) % WORKQUEUE_MAX_ITEMS];
         if (item->fn == fn && item->arg == arg) {
+            item->io_safe = item->io_safe && io_safe;
             coalesced_count++;
             irq_restore(flags);
             return true;
@@ -110,7 +125,7 @@ bool workqueue_schedule(workqueue_fn fn, void *arg) {
 
     if (queue_count < WORKQUEUE_MAX_ITEMS) {
         uint64_t tail = (queue_head + queue_count) % WORKQUEUE_MAX_ITEMS;
-        items[tail] = (struct work_item){.fn = fn, .arg = arg};
+        items[tail] = (struct work_item){.fn = fn, .arg = arg, .io_safe = io_safe};
         queue_count++;
         scheduled_count++;
         irq_restore(flags);
@@ -122,6 +137,9 @@ bool workqueue_schedule(workqueue_fn fn, void *arg) {
     irq_restore(flags);
     return false;
 }
+
+bool workqueue_schedule(workqueue_fn fn, void *arg) { return schedule_work(fn, arg, false); }
+bool workqueue_schedule_io_safe(workqueue_fn fn, void *arg) { return schedule_work(fn, arg, true); }
 
 void workqueue_print_status(void) {
     uint64_t flags = irq_save();

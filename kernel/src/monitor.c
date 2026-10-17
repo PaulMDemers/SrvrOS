@@ -1,3 +1,4 @@
+#include <srvros/ahci.h>
 #include <srvros/latency.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
@@ -1032,6 +1033,7 @@ static void run_command(char *line) {
         workqueue_print_status();
     } else if (streq(command, "block")) {
         block_print_status();
+        ahci_print_status();
     } else if (streq(command, "mount")) {
         command_mount(args);
     } else if (streq(command, "unmount")) {

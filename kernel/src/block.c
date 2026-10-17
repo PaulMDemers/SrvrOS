@@ -1,5 +1,6 @@
 #include <srvros/block.h>
 #include <srvros/console.h>
+#include <srvros/scheduler.h>
 
 #include <stddef.h>
 
@@ -37,6 +38,24 @@ static uint64_t cache_clock;
 static uint64_t cache_hits;
 static uint64_t cache_misses;
 static uint64_t cache_write_throughs;
+
+static uint64_t irq_save(void) {
+#ifdef SRVROS_BLOCK_HOST_TEST
+    return block_test_irq_save();
+#else
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+#endif
+}
+
+static void irq_restore(uint64_t flags) {
+#ifdef SRVROS_BLOCK_HOST_TEST
+    block_test_irq_restore(flags);
+#else
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
+}
 
 static bool streq(const char *a, const char *b) {
     while (*a != '\0' && *b != '\0') {
@@ -372,7 +391,7 @@ static struct block_cache_entry *cache_get(struct block_device *device, uint64_t
     return entry;
 }
 
-bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
+static bool read_locked(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
     if (device == 0 || !device->used || device->read == 0 || buffer == 0) {
         return false;
     }
@@ -408,7 +427,7 @@ bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint
     return true;
 }
 
-bool block_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length) {
+static bool write_locked(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length) {
     if (device == 0 || !device->used || device->write == 0 || buffer == 0) {
         return false;
     }
@@ -450,6 +469,30 @@ bool block_write(struct block_device *device, uint64_t offset, const void *buffe
     }
 
     return true;
+}
+
+/* A cache victim remains private until its data, tag and caller copy are all
+ * complete. Driver-level ownership alone leaves a preemption gap at return.
+ * Nested partition/driver calls inherit this scope. Drivers may still admit
+ * keyboard/console service threads, which must not enter the block cache. */
+bool block_read(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
+    uint64_t flags = irq_save();
+    bool services = scheduler_io_begin();
+    bool ok = false;
+    if (services || !scheduler_io_active()) ok = read_locked(device, offset, buffer, length);
+    if (services) scheduler_io_end();
+    irq_restore(flags);
+    return ok;
+}
+
+bool block_write(struct block_device *device, uint64_t offset, const void *buffer, uint64_t length) {
+    uint64_t flags = irq_save();
+    bool services = scheduler_io_begin();
+    bool ok = false;
+    if (services || !scheduler_io_active()) ok = write_locked(device, offset, buffer, length);
+    if (services) scheduler_io_end();
+    irq_restore(flags);
+    return ok;
 }
 
 bool block_flush_all(void) {

@@ -159,6 +159,20 @@ void idt_init(void) {
     idt_load(&idtr);
 }
 
+static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
+    /* I/O service windows defer owner cancellation until the surrounding
+     * syscall has released its cache/filesystem state. Do not rely on a
+     * later timer tick: fast userspace can immediately issue another call
+     * (including exit) while every tick lands inside an owned I/O scope. */
+    if ((frame->cs & 3) == 3 && process_should_exit_current()) {
+        process_exit(process_current_kill_status());
+    }
+    syscall_dispatch(frame);
+    if ((frame->cs & 3) == 3 && process_should_exit_current()) {
+        process_exit(process_current_kill_status());
+    }
+}
+
 void isr_dispatch(struct isr_frame *frame) {
     if (frame->vector == 255) {
         return;
@@ -170,7 +184,7 @@ void isr_dispatch(struct isr_frame *frame) {
     }
 
     if (frame->vector == 0x80) {
-        syscall_dispatch(frame);
+        dispatch_syscall_with_cancellation(frame);
         return;
     }
 

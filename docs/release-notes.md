@@ -1,5 +1,29 @@
 # Release Notes
 
+## 2026-10-16 storage service windows
+
+Release `63d0bd952feb6b1d` lets the USB keyboard and eligible console work run
+during runtime AHCI waits. A request owns its DMA buffer through copies and
+partial-sector updates; ordinary applications and unsafe work callbacks remain
+paused to preserve filesystem/cache serialization. The scheduler checks the
+caller's address space and defers owner cancellation until ownership is released.
+Syscall boundaries then honor pending termination, without depending on a later
+timer interrupt in userspace. Deadlines, poll limits, a new service-turn limit
+and failed-disk quarantine bound error paths. Block-cache ownership now extends through cache publication and
+caller copies, fixing an intermittent executable-load corruption when the
+background supervisor reused a cache victim. `block` reports command,
+service-window and failure counters.
+
+Validation passed: 11 host groups, eight installer tests, the full 479-command
+CLI regression, GRUB/USB responsiveness, syscall ABI, throttled-disk stress,
+forced timeout/quarantine and 12 repeated filesystem-check/executable-load cycles.
+The candidate is staged locally; the installed hardware-tested release is unchanged.
+
+The laptop entry remains RAM-backed with AHCI disabled. General concurrent
+filesystem operations, physical disk writes and crash recovery are still future
+work. See the [implementation report](console-optimization-2026-10-16.md) and
+[disposable-disk test](testing.md) for the contracts and validation procedure.
+
 ## 2026-10-16 responsiveness candidate
 
 Release `70ddde650d0fc3f8` moves serial waits outside console critical sections

@@ -471,6 +471,7 @@ void kmain(void) {
     }
     bool timer_running = timer_wait_ticks_bounded(5, 100000000);
     if (timer_running) {
+        scheduler_enable_io_services();
         console_printf("timer: observed ticks=%u\n", timer_ticks());
     } else {
         console_printf("timer: no ticks observed yet ticks=%u\n", timer_ticks());

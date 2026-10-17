@@ -19,7 +19,7 @@ static workqueue_fn queued;
 static bool queue_full;
 void bootlog_putc(char c) { (void)c; }
 void serial_putc(char c) { assert(test_irqs == expected_serial_irqs); assert(serial_count < sizeof(serial_log)); serial_log[serial_count++] = c; }
-bool workqueue_schedule(workqueue_fn fn, void *arg) {
+bool workqueue_schedule_io_safe(workqueue_fn fn, void *arg) {
     assert(arg == NULL);
     if (queue_full) return false;
     queued = fn;

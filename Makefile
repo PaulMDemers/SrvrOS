@@ -1994,3 +1994,23 @@ build/tests/serial-host$(HOST_EXE): tools/test_serial.c kernel/src/arch/x86_64/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-latency test-workqueue test-serial
+
+.PHONY: test-io-scheduler
+test-io-scheduler: build/tests/io-scheduler-host$(HOST_EXE)
+	$<
+build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/scheduler.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-io-scheduler
+
+.PHONY: test-syscall-cancel
+test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
+	$<
+build/tests/syscall-cancel-host$(HOST_EXE): tools/test_syscall_cancel.c kernel/src/arch/x86_64/idt.c kernel/src/arch/x86_64/isr_frame.h kernel/src/arch/x86_64/descriptor_tables.h kernel/src/arch/x86_64/irq.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-cancel
+
+.PHONY: storage-service-smoke
+storage-service-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
+	$(PYTHON) tools/storage_service_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
