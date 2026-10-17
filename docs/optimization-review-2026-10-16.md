@@ -337,6 +337,7 @@ result is recorded in [USB file workload](usb-file-workload-2026-10-17.md).
 The next candidate adds an [opt-in persistent USB workspace](persistent-workspace-2026-10-17.md)
 for shell documents/scripts, explicit flush/unmount and controlled reboot. Its
 QEMU validation includes persistence across boots and failed-write refusal;
-physical workspace testing remains pending. `/fat` stays in RAM. GUI work stays
+physical workspace run `2f1a6035` subsequently passed exact Ubuntu readback and
+a clean offline filesystem check on release `385b670049974e1c`. `/fat` stays in RAM. GUI work stays
 deferred; physical networking and laptop power management remain separate future
 milestones, not implied by the storage results.

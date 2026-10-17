@@ -124,9 +124,8 @@ preparation preserving user files, profile conflicts, and the actual shell sync
 command's failure status. The existing automatic hardware-test QEMU cycle is also
 rerun to check that workspace support leaves those profiles working.
 
-Evidence is stored under `build/review/workspace-*`. Physical validation of this
-workspace profile is pending; the prior USB workload and reset path have already
-passed on the MacBook Air. The verified prior releases `9fe5cf4d5d8fa841` and
+Evidence is stored under `build/review/workspace-*`. Physical workspace
+persistence is now validated on the MacBook Air; see the hardware result below. The verified prior releases `9fe5cf4d5d8fa841` and
 `dfd1690ca43b2ec0` are retained independently under
 `~/.local/share/srvros/known-good/`, alongside the normal console rollback build.
 
@@ -135,3 +134,27 @@ The development validation completed successfully: `all test-core` (18 C groups)
 and the 481-command CLI suite. The final CLI filesystem check reported zero
 leaks, FAT mismatches or errors. The automatic hardware-test regression also
 passed its successful cycle, consumed-request replay and write-failure scenarios.
+
+## Physical workspace result: 2026-10-17
+
+Run `2f1a6035` passed on the MacBookAir7,2 using release `385b670049974e1c`
+(source `1f2a405`, kernel SHA-256
+`2b3ce4c1be4b3be83e6dc7b7ce6f88b2b112a49c108c6a67e623efc1e8965aef`).
+The prepared `laptop-test.sh` writes and appends a mixed-case document, creates
+and executes a relative child script, flushes, then writes and flushes a completion
+marker. Ubuntu verified the exact contents of all three generated files after
+return: the 45-byte document, 37-byte script and 34-byte completion marker.
+
+With the USB unmounted, independent `fsck.exfat -n` reported clean: nine
+directories and 32 files, with no errors and no repair. The drive was remounted
+at `/run/media/paul/37D8-C5D0` and the contents checked again. Ubuntu's boot ID
+changed, GRUB's one-shot selection was consumed, and Ubuntu remains the default.
+These observations establish persistence across the boot cycle; the exact reset
+method was not independently recorded by this test.
+
+Evidence and copied test files are in `build/workspace/runs/2f1a6035/`, including
+`result.json` and `offline-check.log`. The installed payload hashes were verified
+and an independent backup was saved at
+`~/.local/share/srvros/known-good/385b670049974e1c`. This result covers the small
+shell workspace workflow; it does not establish hotplug or sudden-power-loss
+recovery guarantees.
