@@ -22,7 +22,7 @@ CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
-AUTOTEST_RE = re.compile(r"ram-usb-v5-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
+AUTOTEST_RE = re.compile(r"ram-usb-v[56]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -89,7 +89,7 @@ def verify(directory):
 def stage(diagnostic=False, autotest_volume=None, run_id=None):
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
     if autotest_volume is not None or run_id is not None:
-        version = f"ram-usb-v5-autotest-{autotest_volume}-{run_id}"
+        version = f"ram-usb-v6-autotest-{autotest_volume}-{run_id}"
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     sources = {

@@ -8,6 +8,7 @@ import unittest
 from unittest.mock import patch
 import hardware_boot as boot
 import hardware_test as test
+import hardware_workload
 
 
 
@@ -36,17 +37,33 @@ class HostTests(unittest.TestCase):
                      (defaults, config.replace('"0"', '"1"'))):
             with self.assertRaises(RuntimeError): test.check_ubuntu_default(d, c)
 
+    def test_prepare_expanded_request(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp); mount=root/'usb'; mount.mkdir()
+            run='0123456789abcdef'; release='abcdef0123456789'
+            with patch.object(test, 'RUNS', root/'runs'), \
+                 patch.object(test, 'volume_mount', return_value=mount), \
+                 patch.object(test.secrets, 'token_hex', return_value=run), \
+                 patch.object(boot, 'stage', return_value=release), \
+                 patch.object(boot, 'verify', return_value={'release':release}), \
+                 patch.object(test.os, 'sync'):
+                self.assertEqual(test.prepare('37D8-C5D0'),run)
+                metadata=test.load_run('latest')
+                self.assertEqual(metadata['suite'],test.SUITE)
+                self.assertEqual((mount/'srvros-tests'/f'{run}.req').read_text(),f'SRVROS-AUTOTEST-V2 {run}\n')
+
     def test_launch_orders_install_selection_and_reboot_and_cleans_up_failure(self):
         run = '0123456789abcdef'
         release = 'abcdef0123456789'
         metadata = {'run': run, 'release': release, 'volume': '37d8c5d0',
+                    'suite': test.SUITE,
                     'boot_manifest': {'sha256': {'srvros.elf': 'test'}}}
-        manifest = {'config_version': f'ram-usb-v5-autotest-37d8c5d0-{run}',
+        manifest = {'config_version': f'ram-usb-v6-autotest-37d8c5d0-{run}',
                     'sha256': metadata['boot_manifest']['sha256']}
         with tempfile.TemporaryDirectory() as tmp:
             mount = Path(tmp)
             folder = mount/'srvros-tests'; folder.mkdir()
-            (folder/f'{run}.req').write_text(f'SRVROS-AUTOTEST-V1 {run}\n')
+            (folder/f'{run}.req').write_text(f'SRVROS-AUTOTEST-V2 {run}\n')
             for failure in (None, 'install', 'reboot', 'default'):
                 calls = []
                 def execute(command, **kwargs):
@@ -80,12 +97,16 @@ class HostTests(unittest.TestCase):
                     self.assertIn(release, calls[install])
                     self.assertEqual(any('grub-editenv' in c for c in calls), failure == 'reboot')
 
-    def report(self, status='PASS'):
+    def report(self, status='PASS', expanded=False):
         metadata = {'run': '0123456789abcdef', 'release': 'abcdef0123456789', 'volume': '37d8c5d0'}
         fields = dict(format='srvros-autotest-v1', **metadata)
         fields.update({key: status for key in ('boot_ready', 'timer', 'memory', 'fpu_traps',
                        'render', 'usb_keyboard_enumeration', 'usb_write_flush_read')})
         fields.update(physical_keypress='NOT_TESTED', status=status)
+        if expanded:
+            metadata['suite'] = test.SUITE
+            fields['format'] = test.SUITE
+            fields['usb_file_operations'] = status
         data = ''.join(f'{key}={value}\n' for key, value in fields.items()).encode()
         done = f"COMPLETE {metadata['run']} {binascii.crc32(data):08x}\n".encode()
         return metadata, data, done
@@ -94,6 +115,41 @@ class HostTests(unittest.TestCase):
         for status in ('PASS', 'FAIL'):
             metadata, data, done = self.report(status)
             self.assertEqual(test.validate_result(metadata, data, done)['status'], status)
+
+    def test_expanded_report_cannot_downgrade_or_omit_storage(self):
+        metadata, data, done = self.report(expanded=True)
+        self.assertEqual(test.validate_result(metadata, data, done)['usb_file_operations'], 'PASS')
+        for bad in (data.replace(b'usb_file_operations=PASS\n', b''),
+                    data.replace(b'usb_file_operations=PASS', b'usb_file_operations=FAIL'),
+                    data.replace(b'srvros-autotest-v2', b'srvros-autotest-v1')):
+            marker = f"COMPLETE {metadata['run']} {binascii.crc32(bad):08x}\n".encode()
+            with self.assertRaises(ValueError): test.validate_result(metadata, bad, marker)
+
+    def test_collect_expanded_files_and_reject_corruption(self):
+        metadata, data, done = self.report(expanded=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp); results = root/'runs'; mount = root/'usb'
+            run = results/metadata['run']; run.mkdir(parents=True)
+            (run/'manifest.json').write_text(json.dumps(metadata))
+            folder = mount/'srvros-tests'; folder.mkdir(parents=True)
+            for suffix, payload in (('.txt',data),('.done',done),('.probe',test.PROBE_BYTES)):
+                (folder/(metadata['run']+suffix)).write_bytes(payload)
+            tree = folder/(metadata['run']+'.files')
+            with patch.object(test, 'RUNS', results), patch.object(test, 'volume_mount', return_value=mount):
+                with self.assertRaises(ValueError): test.collect(metadata['run'])
+                for name in hardware_workload.DIRECTORIES: (tree/name).mkdir(parents=True,exist_ok=True)
+                for name, payload in hardware_workload.expected_files().items(): (tree/name).write_bytes(payload)
+                self.assertTrue(test.collect(metadata['run']))
+                self.assertEqual(len(json.loads((run/'storage-files.json').read_text())),6)
+                path=tree/'nested/deep/large.bin'
+                original=path.read_bytes(); path.write_bytes(b'X'+original[1:])
+                with self.assertRaisesRegex(ValueError,'contents mismatch'): test.collect(metadata['run'])
+                path.write_bytes(original)
+                (tree/'deleted.txt').write_bytes(b'should have been deleted')
+                with self.assertRaisesRegex(ValueError,'directory mismatch'): test.collect(metadata['run'])
+                (tree/'deleted.txt').unlink()
+                (tree/'empty.txt').unlink(); (tree/'empty.txt').symlink_to(tree/'truncated.txt')
+                with self.assertRaisesRegex(ValueError,'Symlink'): test.collect(metadata['run'])
 
     def test_corrupt_stale_incomplete_results(self):
         metadata, data, done = self.report()

@@ -12,11 +12,13 @@ import shlex
 import subprocess
 
 import hardware_boot as boot
+import hardware_workload
 
 RUNS = boot.ROOT / 'build/hardware-tests'
 UUID_RE = re.compile(r'[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}')
 RUN_RE = re.compile(r'[0-9a-f]{16}')
 PROBE_BYTES = b'SrvrOS USB log probe: AaZz 0123456789\n'
+SUITE = 'srvros-autotest-v2'
 
 
 def volume_id(value):
@@ -72,10 +74,11 @@ def prepare(uuid):
     directory = RUNS / run
     directory.mkdir(parents=True)
     metadata = {'format': 'srvros-host-test-v1', 'run': run, 'volume': volume,
+                'suite': SUITE,
                 'release': release, 'created_utc': datetime.now(timezone.utc).isoformat(),
                 'boot_manifest': manifest}
     sync_file(directory / 'manifest.json', (json.dumps(metadata, indent=2) + '\n').encode(), exclusive=True)
-    sync_file(folder / f'{run}.req', f'SRVROS-AUTOTEST-V1 {run}\n'.encode(), exclusive=True)
+    sync_file(folder / f'{run}.req', f'SRVROS-AUTOTEST-V2 {run}\n'.encode(), exclusive=True)
     # Commit the directory entry as well as the request contents before reboot.
     os.sync()
     RUNS.mkdir(parents=True, exist_ok=True)
@@ -119,12 +122,13 @@ def launch(run):
     metadata = load_run(run)
     release = metadata['release']
     manifest = boot.verify(boot.STAGE / release)
-    expected = f"ram-usb-v5-autotest-{metadata['volume']}-{metadata['run']}"
+    expanded = metadata.get('suite') == SUITE
+    expected = f"ram-usb-v{6 if expanded else 5}-autotest-{metadata['volume']}-{metadata['run']}"
     if manifest['config_version'] != expected or manifest['sha256'] != metadata['boot_manifest']['sha256']:
         raise RuntimeError('Staged payload does not match this test request')
     mount = volume_mount(metadata['volume'])
     request = mount / 'srvros-tests' / f"{metadata['run']}.req"
-    if request.read_bytes() != f"SRVROS-AUTOTEST-V1 {metadata['run']}\n".encode():
+    if request.read_bytes() != f"SRVROS-AUTOTEST-V{2 if expanded else 1} {metadata['run']}\n".encode():
         raise RuntimeError('Request is missing or already consumed; prepare a new run')
     subprocess.run(['sudo', '-v'], check=True)
     defaults = Path('/etc/default/grub').read_text()
@@ -158,12 +162,15 @@ def validate_result(metadata, data, completion):
         if key in fields:
             raise ValueError('Duplicate result field')
         fields[key] = value
-    for key, expected in {'format': 'srvros-autotest-v1', 'run': run,
+    suite = metadata.get('suite', 'srvros-autotest-v1')
+    if suite not in ('srvros-autotest-v1', SUITE): raise ValueError('Unknown test suite')
+    for key, expected in {'format': suite, 'run': run,
                           'release': metadata['release'], 'volume': metadata['volume']}.items():
         if fields.get(key) != expected:
             raise ValueError(f'Result identity mismatch: {key}')
     checks = ('boot_ready', 'timer', 'memory', 'fpu_traps', 'render',
               'usb_keyboard_enumeration', 'usb_write_flush_read')
+    if suite == SUITE: checks += ('usb_file_operations',)
     if any(fields.get(key) not in ('PASS', 'FAIL') for key in checks):
         raise ValueError('Missing or invalid test status')
     status = 'PASS' if all(fields[key] == 'PASS' for key in checks) else 'FAIL'
@@ -196,10 +203,15 @@ def collect(run):
         probe = folder / f'{prefix}.probe'
         if probe.stat().st_size != len(PROBE_BYTES) or probe.read_bytes() != PROBE_BYTES:
             raise ValueError('USB probe did not survive the reboot intact')
+    workload = None
+    if fields.get('usb_file_operations') == 'PASS':
+        workload = hardware_workload.verify_mounted(folder / f'{prefix}.files')
     directory = RUNS / prefix
     sync_file(directory / 'report.txt', data)
     sync_file(directory / 'completion.txt', completion)
     sync_file(directory / 'result.json', (json.dumps(fields, indent=2) + '\n').encode())
+    if workload is not None:
+        sync_file(directory / 'storage-files.json', (json.dumps(workload, indent=2) + '\n').encode())
     print(data.decode('ascii'), end='')
     print(f'Validated report copied to {directory}')
     return fields['status'] == 'PASS'

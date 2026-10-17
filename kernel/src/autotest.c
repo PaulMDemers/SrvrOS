@@ -1,5 +1,6 @@
 /* Explicit, single-use USB test requests. Normal boots never enable writes. */
 #include <srvros/autotest.h>
+#include <srvros/autotest_storage.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
 #include <srvros/console.h>
@@ -180,7 +181,7 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     }
     char path[80], request[64];
     unsigned length = 0;
-    append(request, &length, "SRVROS-AUTOTEST-V1 ");
+    append(request, &length, "SRVROS-AUTOTEST-V2 ");
     append(request, &length, run);
     append(request, &length, "\n");
     make_path(path, run, ".req");
@@ -205,7 +206,7 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     }
     report_size = 0;
     report_overflow = false;
-    field("format", "srvros-autotest-v1");
+    field("format", "srvros-autotest-v2");
     field("run", run);
     field("release", release);
     field("volume", uuid);
@@ -237,6 +238,9 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         flush_volume(device) && file_equals(path, probe, sizeof(probe) - 1);
     field("usb_write_flush_read", storage ? "PASS" : "FAIL");
     ok = ok && storage;
+    bool files = storage && autotest_storage_run(device, run);
+    field("usb_file_operations", files ? "PASS" : "FAIL");
+    ok = ok && files;
     field("status", ok ? "PASS" : "FAIL");
     console_write_n(report, report_size);
     make_path(path, run, ".txt");

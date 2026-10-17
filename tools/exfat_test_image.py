@@ -81,7 +81,7 @@ class ExfatFixture:
         struct.pack_into('<H', entry, 2, value)
         return entry
 
-    def add_request(self, run):
+    def add_request(self, run, version=1):
         root = self.chain(self.root)
         bitmap_cluster = None
         end = 0
@@ -100,7 +100,7 @@ class ExfatFixture:
             struct.pack_into('<I', self.data, self.fat+cluster*4, 0xffffffff)
             off = self.offset(cluster)
             self.data[off:off+self.cluster] = b'\0'*self.cluster
-        payload = f'SRVROS-AUTOTEST-V1 {run}\n'.encode()
+        payload = f'SRVROS-AUTOTEST-V{version} {run}\n'.encode()
         off = self.offset(request_cluster)
         self.data[off:off+len(payload)] = payload
         entry = self.checked_entry(f'{run}.req', request_cluster, payload)

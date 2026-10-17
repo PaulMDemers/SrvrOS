@@ -10,6 +10,8 @@
 static struct block_device disks[2];
 static unsigned disk_count, write_count, flush_count, resets, tests, fail_write, fail_flush;
 static bool writable;
+static bool storage_ok;
+static unsigned storage_runs;
 static uint64_t now, paint;
 static uint8_t pages[16][4096];
 static unsigned allocated;
@@ -30,6 +32,10 @@ bool timer_wait_ticks_bounded(uint64_t ticks,uint64_t spins) { (void)ticks;(void
 uint64_t timer_monotonic_us(void) { return ++now; }
 bool timer_delay_us(uint64_t n) { (void)n;return true; }
 bool fpu_selftest(void) { tests++;return true; }
+bool autotest_storage_run(struct block_device *d, const char *id) {
+    assert(d==disks && !strcmp(id,run) && writable && flush_count>=2);
+    storage_runs++; return storage_ok;
+}
 uint64_t pmm_alloc_frame(void) { assert(allocated<16);return (uint64_t)pages[allocated++]; }
 void *pmm_phys_to_virt(uint64_t n) { return (void *)n; }
 void pmm_free_frame(uint64_t n) { (void)n; }
@@ -73,8 +79,9 @@ static void reset(void) {
     disks[0].flush=flush_stub;disk_count=1;file_count=0;
     write_count=flush_count=resets=tests=fail_write=fail_flush=allocated=0;
     writable=false;now=paint=0;
+    storage_ok=true;storage_runs=0;
     char path[80],text[64];make_path(path,run,".req");
-    snprintf(text,sizeof(text),"SRVROS-AUTOTEST-V1 %s\n",run);put_file(path,text,strlen(text));
+    snprintf(text,sizeof(text),"SRVROS-AUTOTEST-V2 %s\n",run);put_file(path,text,strlen(text));
 }
 static void test_reset_gas(void) {
     uint8_t table[244]={0},value=0;
@@ -100,6 +107,7 @@ int main(void) {
     reset();autotest_run("srvros.storage=ram",true);assert(!writable && !tests && !resets);
     reset();autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==4 && flush_count==4);
     assert(strstr(report,"status=PASS\n") && strstr(report,"physical_keypress=NOT_TESTED\n"));
+    assert(storage_runs==1 && strstr(report,"usb_file_operations=PASS\n"));
     unsigned before=write_count;autotest_run(cmdline,true);assert(write_count==before && resets==1 && tests==1);
     reset();autotest_run(cmdline,false);assert(strstr(report,"status=FAIL\n") && resets==1);
     reset();disk_count=2;autotest_run(cmdline,true);assert(!writable && !tests && resets==1);
@@ -108,5 +116,8 @@ int main(void) {
     reset();fail_write=3;autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==3);
     char path[80];make_path(path,run,".done");assert(!vfs_lookup(path));
     reset();fail_flush=3;autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==3 && !vfs_lookup(path));
+    reset();storage_ok=false;autotest_run(cmdline,true);
+    assert(storage_runs==1 && strstr(report,"usb_file_operations=FAIL\n") && strstr(report,"status=FAIL\n"));
+    reset();fail_write=2;autotest_run(cmdline,true);assert(!storage_runs && strstr(report,"status=FAIL\n"));
     puts("autotest-host: PASS (identity, replay, duplicate UUID, consumption-before-test, save/flush failures, CRC, FADT bounds)");
 }

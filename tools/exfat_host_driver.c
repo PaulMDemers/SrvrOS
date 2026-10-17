@@ -12,6 +12,7 @@
 #include <srvros/block.h>
 #include <srvros/exfat.h>
 #include <srvros/vfs.h>
+#include <srvros/autotest_storage.h>
 static int fd;
 static unsigned writes, flushes, fail_at, crash_at, fail_flush_at;
 static bool failed, foreign;
@@ -53,6 +54,18 @@ int main(int argc, char **argv) {
     if(argc>3) fail_at=strtoul(argv[3],0,10);
     if(argc>4) crash_at=strtoul(argv[4],0,10);
     if(argc>5) fail_flush_at=strtoul(argv[5],0,10);
+    if(!strcmp(argv[2],"workload")) {
+        assert(exfat_mount_block_device("/testlog",&d));
+        assert(exfat_create_directory("/testlog/srvros-tests"));
+        assert(autotest_storage_run(&d,"0123456789abcdef"));
+        unsigned before=writes;
+        assert(!autotest_storage_run(&d,"0123456789abcdef"));
+        assert(!autotest_storage_run(&d,"../bad"));
+        assert(before==writes);
+        assert(fsync(fd)==0); close(fd);
+        puts("hardware file workload/remount and existing-directory refusal PASS");
+        return 0;
+    }
     assert(exfat_mount_block_device("/vol",&d));
     if(!strcmp(argv[2],"ops")) {
         uint8_t data[270000]; for(unsigned i=0;i<sizeof(data);i++) data[i]=(uint8_t)(i*17+3);

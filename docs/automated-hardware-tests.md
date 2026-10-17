@@ -1,5 +1,10 @@
 # USB-backed hardware test cycle
 
+New preparations now use the expanded v2
+[USB file workload](usb-file-workload-2026-10-17.md), including multi-cluster
+files, rename/delete, remount/readback and independent host verification of the
+retained directory tree. Older v1 reports remain collectable.
+
 The first physical run exposed an exFAT metadata interoperability bug. See the
 [correction and recovery notes](exfat-interop-2026-10-17.md) before reusing the
 original prepared release below. Its report was recovered with a valid CRC;

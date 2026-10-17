@@ -6,6 +6,7 @@ import struct
 import subprocess
 import tempfile
 from exfat_test_image import ExfatFixture, check_clean_image as clean
+from hardware_workload import verify_tree
 
 ROOT = Path(__file__).resolve().parents[1]
 DRIVER = ROOT/'build/tests/exfat-driver'
@@ -38,6 +39,17 @@ def main():
     with tempfile.TemporaryDirectory(prefix='srvros-exfat-fault-') as tmp:
         directory = Path(tmp)
         for cluster in ('4K','128K'):
+            workload = directory/'workload.img'
+            format_image(workload,cluster)
+            print(command(DRIVER,workload,'workload').strip(),flush=True)
+            clean(workload)
+            fs=ExfatFixture(workload.read_bytes())
+            base='srvros-tests/0123456789abcdef.files'
+            def listing(relative):
+                path=base+('/'+relative if relative else '')
+                return {name: 'directory' if entry[4]&0x10 else 'file'
+                        for name,entry in fs.entries(fs.read(path))}
+            verify_tree(lambda name,size:fs.read(base+'/'+name),listing)
             image = directory/'ops.img'
             format_image(image,cluster)
             print(command(DRIVER,image,'ops').strip(),flush=True)

@@ -144,7 +144,7 @@ class InstallTests(unittest.TestCase):
         self.assertFalse(self.base.exists())
 
     def test_autotest_profile_roundtrip_and_exact_install(self):
-        version = 'ram-usb-v5-autotest-37d8c5d0-0123456789abcdef'
+        version = 'ram-usb-v6-autotest-37d8c5d0-0123456789abcdef'
         release = self.payload('auto', version)
         path = self.stage / release / 'manifest.json'
         manifest = json.loads(path.read_text())

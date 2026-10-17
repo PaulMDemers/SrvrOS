@@ -13,6 +13,7 @@ from unittest.mock import patch
 
 import hardware_boot as boot
 import hardware_test as test
+from hardware_workload import verify_tree
 import inspect_hardware_test as recovery
 import repair_hardware_test as repair
 from hardware_boot_smoke import make_disk, wait_for
@@ -42,13 +43,13 @@ def main():
         subprocess.run(['/usr/sbin/mkfs.exfat', '-c', '128K', str(volume_image)], check=True)
         fixture = ExfatFixture(volume_image.read_bytes())
         volume = f'{fixture.u32(100):08x}'
-        fixture.add_request(RUN)
+        fixture.add_request(RUN, version=2)
         volume_image.write_bytes(fixture.data)
         print(check_clean_image(volume_image), end='', flush=True)
         with patch.object(boot, 'STAGE', temp / 'stage'), contextlib.redirect_stdout(io.StringIO()):
             release = boot.stage(autotest_volume=volume, run_id=RUN)
         source = temp / 'stage' / release
-        assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V1 {RUN}\n'.encode()
+        assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V2 {RUN}\n'.encode()
         disk = temp / 'scratch.img'
         mbr = bytearray(512)
         mbr[450] = 7
@@ -133,13 +134,21 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         print(check_clean_image(volume_image), end='', flush=True)
         data = result.read(f'srvros-tests/{RUN}.txt')
         done = result.read(f'srvros-tests/{RUN}.done')
-        fields = test.validate_result({'run': RUN, 'release': release, 'volume': volume}, data, done)
+        metadata = {'run': RUN, 'release': release, 'volume': volume, 'suite': test.SUITE}
+        fields = test.validate_result(metadata, data, done)
         assert fields['status'] == 'PASS'
         assert result.read(f'srvros-tests/{RUN}.probe') == test.PROBE_BYTES
         assert result.read(f'srvros-tests/{RUN}.req') == f'STARTED {RUN}\n'.encode()
         (logs / 'autotest-cycle-report.txt').write_bytes(data)
         (logs / 'autotest-cycle-completion.txt').write_bytes(done)
-        metadata = {'run': RUN, 'release': release, 'volume': volume}
+        base = f'srvros-tests/{RUN}.files'
+        def listing(relative):
+            path = base + ('/' + relative if relative else '')
+            return {name: 'directory' if entry[4] & 0x10 else 'file'
+                    for name, entry in result.entries(result.read(path))}
+        verified = verify_tree(lambda name, size: result.read(base + '/' + name), listing)
+        assert len(verified) == 6
+        print('hardware-test-smoke: persisted file-operation tree PASS', flush=True)
         with volume_image.open('rb') as stream:
             recovered = recovery.inspect(stream, metadata)
         assert recovered['recovered_payload_checksum_valid']
