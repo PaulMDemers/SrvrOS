@@ -58,6 +58,7 @@ bool vfs_register_file_with_metadata(const char *path,
     const struct vfs_metadata *metadata);
 bool vfs_register_directory_with_metadata(const char *path, const struct vfs_metadata *metadata);
 uint64_t vfs_count(void);
+uint64_t vfs_free_nodes(void);
 const struct vfs_node *vfs_node_at(uint64_t index);
 const struct vfs_node *vfs_lookup(const char *path);
 bool vfs_read_all(const struct vfs_node *node, const uint8_t **data, uint64_t *size);

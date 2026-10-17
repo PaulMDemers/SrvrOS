@@ -51,6 +51,21 @@ int main(int argc, char **argv) {
         .read=block_read,.write=block_write,.flush=flush};
     if(!strcmp(argv[2],"noflush")) d.flush=NULL;
     if(!strcmp(argv[2],"foreign")) foreign=true;
+    if(!strcmp(argv[2],"snapshot-seed")) {
+        assert(argc==4 && strlen(argv[3])==16);
+        for(unsigned i=0;i<16;i++) assert(strchr("0123456789abcdef",argv[3][i]));
+        assert(exfat_mount_block_device("/testlog",&d));
+        for(unsigned i=0;i<5;i++) {
+            char run[17],path[96],request[64]; strcpy(run,argv[3]);
+            unsigned digit=(unsigned)(strchr("0123456789abcdef",run[15])-"0123456789abcdef");
+            run[15]="0123456789abcdef"[digit^i];
+            snprintf(path,sizeof(path),"/testlog/srvros-tests/%s.req",run);
+            assert(!vfs_lookup(path));
+            snprintf(request,sizeof(request),"SRVROS-AUTOTEST-V3 %s\n",run);
+            assert(exfat_write_file(path,(const uint8_t *)request,strlen(request)));
+        }
+        assert(fsync(fd)==0);close(fd);puts("snapshot: five fresh requests prepared");return 0;
+    }
     if(argc>3) fail_at=strtoul(argv[3],0,10);
     if(argc>4) crash_at=strtoul(argv[4],0,10);
     if(argc>5) fail_flush_at=strtoul(argv[5],0,10);
@@ -67,7 +82,78 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
-    if(!strcmp(argv[2],"ops")) {
+    if(!strcmp(argv[2],"capacity")) {
+        assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"original",8));
+        uint64_t available=vfs_free_nodes();
+        char (*paths)[40]=calloc(available,sizeof(*paths)); assert(paths);
+        unsigned count=0;
+        while(vfs_free_nodes()>1) {
+            snprintf(paths[count],40,"/unrelated-%u",count);
+            assert(vfs_register_directory(paths[count])); count++;
+        }
+        /* One free slot is needed for the sidecar, not a new user name. */
+        assert(!exfat_write_file("/vol/refused",(const uint8_t *)"x",1));
+        assert(!exfat_create_directory("/vol/refused-dir"));
+        assert(!vfs_lookup("/vol/refused") && !vfs_lookup("/vol/refused-dir"));
+        assert(exfat_is_writable("/vol")); equal("/vol/keep.txt",(const uint8_t *)"original",8);
+        assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"updated",7));
+        snprintf(paths[count],40,"/unrelated-%u",count);
+        assert(vfs_register_directory(paths[count])); count++;
+        assert(vfs_free_nodes()==0);
+        assert(!exfat_write_file("/vol/keep.txt",NULL,0));
+        assert(exfat_is_writable("/vol")); equal("/vol/keep.txt",(const uint8_t *)"updated",7);
+        assert(vfs_unregister_path(paths[--count]));
+        assert(vfs_unregister_path(paths[--count]));
+        assert(exfat_write_file("/vol/resumed",(const uint8_t *)"saved",5));
+        for(unsigned i=0;i<count;i++) assert(vfs_unregister_path(paths[i]));
+        free(paths);
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal("/vol/resumed",(const uint8_t *)"saved",5);
+        equal("/vol/keep.txt",(const uint8_t *)"updated",7);
+        puts("VFS exhaustion refuses before publication; overwrite reserve and recovery PASS");
+        /* Failed mounts must not expose a partial tree or leave stale nodes. */
+        assert(exfat_unmount("/vol"));
+        available=vfs_free_nodes(); paths=calloc(available,sizeof(*paths)); assert(paths); count=0;
+        while(vfs_free_nodes()>2) {
+            snprintf(paths[count],40,"/unrelated-%u",count);
+            assert(vfs_register_directory(paths[count])); count++;
+        }
+        uint64_t nodes_before=vfs_count(); unsigned writes_before=writes;
+        assert(!exfat_mount_block_device("/vol",&d));
+        assert(vfs_count()==nodes_before && writes==writes_before && !vfs_lookup("/vol"));
+        for(unsigned i=0;i<count;i++) assert(vfs_unregister_path(paths[i]));
+        free(paths);
+        assert(exfat_mount_block_device("/vol",&d));
+        equal("/vol/resumed",(const uint8_t *)"saved",5);
+        puts("capacity-limited mount rollback and retry PASS");
+    } else if(!strcmp(argv[2],"file-capacity")) {
+        char path[160],last[160]; unsigned count=0;
+        for(;;) {
+            snprintf(path,sizeof(path),"/vol/file-%04u-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz-abcdefghijklmnopqrstuvwxyz.txt",count);
+            if(!exfat_write_file(path,NULL,0)) break;
+            strcpy(last,path); count++; assert(count<10000);
+        }
+        assert(count>512 && exfat_is_writable("/vol") && !vfs_lookup(path));
+        const struct vfs_node *meta=vfs_lookup("/vol/.srvros/meta"); assert(meta && meta->size>65536);
+        assert(exfat_delete_file(last));
+        assert(exfat_write_file(path,(const uint8_t *)"saved",5));
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        equal(path,(const uint8_t *)"saved",5);
+        assert(exfat_is_writable("/vol"));
+        printf("file table exhaustion and >64KiB sidecar remount PASS files=%u\n",count);
+    } else if(!strcmp(argv[2],"dir-capacity")) {
+        char path[40],last[40]; unsigned count=0;
+        for(;;) {
+            snprintf(path,sizeof(path),"/vol/directory-%04u",count);
+            if(!exfat_create_directory(path)) break;
+            strcpy(last,path); count++; assert(count<10000);
+        }
+        assert(count>128 && exfat_is_writable("/vol") && !vfs_lookup(path));
+        assert(exfat_delete_directory(last)); assert(exfat_create_directory(path));
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        assert(vfs_lookup(path) && exfat_is_writable("/vol"));
+        printf("directory table exhaustion and recovery PASS directories=%u\n",count);
+    } else if(!strcmp(argv[2],"ops")) {
         uint8_t data[270000]; for(unsigned i=0;i<sizeof(data);i++) data[i]=(uint8_t)(i*17+3);
         assert(exfat_create_directory("/vol/Directory"));
         assert(exfat_write_file("/vol/Directory/MixedCase.txt",data,17));

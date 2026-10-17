@@ -133,7 +133,7 @@ tests do not generate a physical keypress or measure the laptop display.
 ## Physical acceptance pending
 
 Launch a fresh five-round run using the exact locally tested payload hashes in
-`build/review/clock-progress-tested-payload.json`. Accept it only after Ubuntu
+`build/review/capacity-tested-payload.json`. Accept it only after Ubuntu
 collects all five PASS reports/CRCs and all 75 files, followed by a clean offline
 check with clear main VolumeFlags and no repair. Preserve the tested rollback.
 After acceptance, install a reusable workspace profile using those same tested
@@ -182,3 +182,83 @@ test still passed bounded quarantine and keyboard progress. Evidence:
 `clock-progress-usb-timeout.log`, and `clock-progress-build.log`. Exact tested
 payload hashes are recorded in `clock-progress-tested-payload.json`. Physical
 acceptance remains pending a fresh five-round run.
+
+## Physical failure at the VFS limit
+
+Batch `a311e222cec1865e`, source `d29c8d9`, release `0c8a09716ed769b2`
+halted in round one. The photo shows file operations PASS, the first editor
+exiting 1, shell elapsed 334,709 us, and report SAVE_FAILED. Unlike the previous
+failure, all 17,215 USB commands completed without a transport error or
+quarantine. The retained shell settings file was empty and the document remained
+unchanged. No complete report exists, so this batch is not accepted.
+
+A sparse snapshot of the prefix and every allocated cluster is preserved in
+`build/hardware-tests/a311e222cec1865e/volume-baseline.img`, with verified extent
+hashes in `snapshot-geometry.json`. Offline `fsck.exfat -n` found no structural
+errors (98 directories, 464 files), but main VolumeFlags=2. The captured image
+is retained unchanged; unallocated contents were not captured.
+
+A host replay of the actual exFAT/VFS code reproduced the failure with one VFS
+slot left: creating the user file consumed node 1024, then sidecar creation
+failed and blocked further writes despite no transport failure. The old global
+limit combined RAM boot files with the accumulated USB test tree. Fresh QEMU
+volumes had not reached that limit.
+
+VFS capacity is now 4096 nodes; each exFAT mount supports 1024 files and 256
+directories. The sidecar serialization buffer is sized from those limits and
+maximum record lengths. Mutation admission reserves space for the user node,
+metadata directory, final sidecar, and temporary sidecar before publishing any
+file data or directory changes. Exhaustion refuses the operation and retains a
+writable volume. Mounting refuses incomplete scans and removes partial VFS
+registrations instead of silently hiding files when a table is full.
+
+The new capacity regression also exposed a directory-growth bug with long names:
+an END marker in a cluster's too-small tail hid later clusters. Those skipped
+tail entries are now marked inactive, and free-slot scanning validates the
+entire deleted-entry run before choosing it. Regression checks fill both tables,
+remount a sidecar larger than 64 KiB, and independently check the disk format.
+A separate snapshot replay runs all five guest rounds on a private sparse copy
+of the captured laptop volume and verifies every pre-existing non-sidecar file
+is unchanged. These tests supplement the fresh-volume GRUB cycle.
+
+Validation of the capacity correction:
+
+- All 22 host groups passed. Exhaustion tests refused new names without
+  publication, preserved existing contents and write access, then resumed after
+  capacity was freed. A deliberately constrained mount left no partial nodes,
+  performed no writes, and succeeded on retry after capacity was available.
+- File capacity reached 1022 user files plus the final sidecar, retaining its
+  transient slot; directory capacity reached 254 user directories plus root and
+  the metadata directory. Both refused safely, allowed deletion/replacement,
+  survived remount, and passed independent `fsck.exfat -n`. The long-name file
+  test also persisted and reloaded a sidecar larger than the old 64 KiB limit.
+- The exFAT fault suite passed all tested write, flush-failure and power-cut
+  boundaries for overwrite, create, delete and rename, including read-only
+  dirty remount and offline recovery. These are disposable-image tests, not a
+  claim of complete physical power-loss tolerance.
+- Snapshot replay passed all five report CRCs and 75 output files, preserved all
+  463 pre-existing non-sidecar files, and finished clean with VolumeFlags=0,
+  123 directories and 594 files. Evidence: `build/review/capacity-snapshot-cycle.log`,
+  `snapshot-cycle-result.json`, and `snapshot-cycle-serial.log`.
+- Capacity/fault evidence: `capacity-build.log`, `capacity-hardening.log`, and
+  `capacity-mount.log`. The captured physical drive was recovered only after its
+  verified snapshot; the checker cleared its dirty flag and confirmed a clean
+  offline filesystem. See the run's `dirty-flag-recovery.json`.
+
+To replay a captured volume without writing the evidence or the physical drive:
+
+```sh
+tools/host-env.sh python3 tools/hardware_snapshot_smoke.py \
+  --snapshot build/hardware-tests/a311e222cec1865e/volume-baseline.img \
+  --volume 37D8-C5D0
+```
+
+The snapshot tool uses a private sparse copy and checks all prior files against
+its initial inventory. Physical acceptance still requires a fresh laptop run;
+capacities remain bounded rather than implying unlimited file counts.
+
+The final fresh-volume five-round GRUB cycle also passed all reports/CRCs and
+75 files, default boot return, consumed-request refusal and indefinite failure
+halts. Its independent filesystem checks were clean. Evidence:
+`build/review/capacity-five-round-cycle.log` and `capacity-autotest-*`.
+The exact tested payload hashes are in `capacity-tested-payload.json`.

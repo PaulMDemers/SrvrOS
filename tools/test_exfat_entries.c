@@ -23,6 +23,21 @@ static uint16_t check(const uint8_t *p, unsigned n) {
     return sum;
 }
 int main(void) {
+    uint8_t slots[8 * EXFAT_ENTRY_SIZE];
+    memset(slots,0,sizeof(slots));
+    for(unsigned i=0;i<8;i++) slots[i*EXFAT_ENTRY_SIZE]=0x85;
+    uint64_t offset=999;
+    slots[4*EXFAT_ENTRY_SIZE]=slots[5*EXFAT_ENTRY_SIZE]=0x05;
+    /* A short deleted run must never consume the following live entry. */
+    assert(!scan_directory_cluster_for_free(slots,sizeof(slots),3,&offset));
+    slots[6*EXFAT_ENTRY_SIZE]=0x05;
+    assert(scan_directory_cluster_for_free(slots,sizeof(slots),3,&offset) && offset==4*EXFAT_ENTRY_SIZE);
+    slots[4*EXFAT_ENTRY_SIZE]=slots[5*EXFAT_ENTRY_SIZE]=slots[6*EXFAT_ENTRY_SIZE]=0x85;
+    slots[7*EXFAT_ENTRY_SIZE]=0;
+    assert(!scan_directory_cluster_for_free(slots,sizeof(slots),3,&offset));
+    slots[6*EXFAT_ENTRY_SIZE]=0x05;slots[5*EXFAT_ENTRY_SIZE]=0x05;
+    assert(scan_directory_cluster_for_free(slots,sizeof(slots),3,&offset) && offset==5*EXFAT_ENTRY_SIZE);
+
     uint8_t entries[EXFAT_ENTRY_SIZE * EXFAT_MAX_FILE_ENTRIES];
     uint64_t count, names;
     assert(build_file_entry_set(entries, "Aa.txt", 5, 35, 0x20, true, &count, &names));

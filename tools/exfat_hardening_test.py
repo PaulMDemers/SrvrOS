@@ -58,6 +58,11 @@ def main():
             assert fs.read('empty') == b'' and fs.read('truncated') == b''
             assert fs.read('A-much-longer-renamed-file.txt') == bytes((i*17+3)&255 for i in range(9))
             print(f'operations {cluster}: create/grow/shrink/empty/rename/move/delete PASS',flush=True)
+        for mode in ('capacity', 'file-capacity', 'dir-capacity'):
+            image=directory/(mode+'.img')
+            format_image(image,'4K')
+            print(command(DRIVER,image,mode).strip(),flush=True)
+            clean(image)
         image=directory/'fragmented.img'
         format_image(image,'4K'); command(DRIVER,image,'fragmented'); clean(image)
         fs=ExfatFixture(image.read_bytes())
