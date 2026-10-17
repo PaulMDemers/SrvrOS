@@ -1035,9 +1035,9 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 	mkdir -p $(dir $@)
 	$(LD) $(LDFLAGS) $(KERNEL_OBJ) -o $@
 
-# These paths execute before CR4.OSFXSR is enabled. Even integer-only C may
-# otherwise acquire compiler-generated SSE loads/copies at -O2.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+# Early-boot paths and trap-state helpers/diagnostics must not use compiler
+# SSE: it may run before CR4.OSFXSR or clobber registers before they are saved.
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/arch/x86_64/fpu_selftest.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -2014,3 +2014,21 @@ test-core: test-syscall-cancel
 .PHONY: storage-service-smoke
 storage-service-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
 	$(PYTHON) tools/storage_service_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)
+
+.PHONY: test-fpu
+test-fpu: build/tests/fpu-host$(HOST_EXE)
+	$<
+build/tests/fpu-host$(HOST_EXE): tools/test_fpu.c kernel/src/arch/x86_64/fpu.c kernel/src/arch/x86_64/fpu_test_state.h $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -mno-sse -mno-sse2 -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-fpu
+
+.PHONY: test-pmm interrupt-smoke
+test-pmm: build/tests/pmm-host$(HOST_EXE)
+	$<
+build/tests/pmm-host$(HOST_EXE): tools/test_pmm.c kernel/src/memory/pmm.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-pmm
+interrupt-smoke: $(IMAGE) $(EXFAT_IMAGE) test-core
+	$(PYTHON) tools/interrupt_smoke.py --qemu $(QEMU) --boot-wait $(SMOKE_BOOT_WAIT)

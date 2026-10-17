@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-enum latency_site { LATENCY_CONSOLE, LATENCY_HEAP, LATENCY_AHCI, LATENCY_SERIAL, LATENCY_SITE_COUNT };
+enum latency_site { LATENCY_CONSOLE, LATENCY_HEAP, LATENCY_AHCI, LATENCY_SERIAL, LATENCY_PMM, LATENCY_SITE_COUNT };
 struct latency_sample { uint64_t count, total_us, max_us, over_1ms, over_10ms; };
 struct latency_stats {
     bool enabled;

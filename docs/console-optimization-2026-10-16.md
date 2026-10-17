@@ -353,6 +353,101 @@ That selects verbose logging, the USB diagnostic snapshot and the deliberate
 input probe. Re-run `make hardware-stage` to return to the normal configuration.
 Both configurations preserve verification of older v2/v3 releases.
 
+## Follow-up: kernel interrupt state and cached-storage responsiveness (2026-10-17)
+
+Kernel-mode traps now save and restore the interrupted FXSAVE state, including
+all 16 XMM registers, x87 registers/control and MXCSR. Previously the trap helpers
+handled only user/kernel transitions, although compiler-generated kernel copies
+use SSE. Both the common IDT entry and direct legacy keyboard entry reserve a
+16-byte-aligned 512-byte save area on the interrupted stack. That area survives
+C dispatch, nested traps and scheduler switches; it is not a shared per-thread
+scratch buffer. User transitions retain their separate process FPU state. Early
+boot skips FPU instructions until initialization. The integer-only legacy timer
+stub does not call C or touch SIMD. This covers the current SSE2/FXSAVE baseline;
+AVX/XSAVE support is not enabled by this change.
+
+`fpustress` seeds every XMM register plus x87/MXCSR, enters the actual IDT path,
+deliberately clobbers the state in a nested handler, yields while that trap is
+suspended, and then waits for a real timer IRQ before capturing registers in
+assembly. The timer wait has an iteration bound so a stopped timer can fail the
+probe rather than halt indefinitely. The host regression also exercises user
+transitions and an explicit switch away/back. A negative control with the old
+kernel-trap behavior fails the nested-register assertion. This confirms a separate
+interrupt-state defect; the previously diagnosed executable-load failure remains
+the independently reproduced block-cache publication race.
+
+The physical allocator now retains up to eight first-fit search hints keyed by
+minimum physical address. Kernel data, page tables and user pages use different
+minimums; each benefits without changing placement semantics. Skipped small holes
+remain available, freeing memory lowers every applicable hint, and eviction
+simply loses a hint. Fully occupied bitmap bytes are skipped in one step. Bounds,
+frame tags and free poisoning remain enforced, and `latency` now includes `pmm`
+allocation/free critical sections. The heap's integrity scans are unchanged:
+the preceding storage test measured a maximum of 74 microseconds there, so this
+batch targets the clearly repeated physical-frame searches first.
+
+In a deterministic host workload, 8,192 single-frame allocations required 8,192
+bitmap search steps versus 33,558,528 in the original first-fit scan. This holds
+separately for the current 1 MiB, 32 MiB and 64 MiB allocation floors. The test
+also compares 12,000 mixed allocation/free operations against a simple first-fit
+oracle, including fragmentation, differing floors, hint eviction, frame reuse,
+poisoning, tag counts, end-of-bitmap bounds and caller interrupt state. These are
+algorithmic counts, not measured laptop speedups or IRQ-latency guarantees.
+
+Cached block reads/writes now offer the same restricted keyboard/console service
+windows as AHCI waits. Ownership remains held through publication and caller
+copies. A checkpoint after each completed block checks the reference clock every
+32 blocks and offers a window after at least 1 ms since the last window; without
+a reference it offers one every 256 blocks. Early boot and temporary address
+spaces still reject unsafe scheduling. This also benefits the laptop's RAM-backed
+filesystem. The block-cache status line exposes its own `service_windows` count,
+separate from AHCI's counter. It is an opportunity to run services, not a hard
+1 ms response bound. Uncached-device operations and long CPU-only filesystem
+loops are outside this checkpoint, and the filesystem is still serialized.
+
+Candidate **`88a84edb13220e8b`** is staged. Its kernel SHA-256 is
+`01c98d698df4de5c205e6fb684e73cf04e9d2b6179e21d4e4dba42047d660701`.
+The installed current release remains `70ddde650d0fc3f8`, with
+`3cd2e11a98996ccb` as previous. The installed payload and independent backup
+`~/.local/share/srvros/known-good/70ddde650d0fc3f8` were hash-verified. No boot
+installation, reboot or physical storage change was performed by this batch.
+
+The final build passed all 13 host groups and eight installer tests. QEMU passed
+two complete kernel register probes (133/132 timer ticks, 67/66 preemptions), four
+userspace floating-point runs, the full thread-stress suite and syscall ABI
+checks. The disposable-disk test passed throttled typing, Ctrl-C, file comparison,
+clean fsck, three executable reloads and forced timeout/quarantine with input
+recovery. Before the injected failure it recorded 28,912 AHCI commands, 16,477
+AHCI service windows, 885 block-cache windows, no busy rejects and no failures;
+afterward the failure count was exactly one.
+
+That storage run sampled a maximum PMM section of 1,578 microseconds, heap
+section of 97 microseconds, AHCI segment of 7,602 microseconds, timer gap of
+40,372 microseconds and USB poll gap of 38,667 microseconds. The CLI regression
+was running concurrently. These are sampled emulator observations, not physical
+latency limits or a controlled before/after speedup comparison. CPU-only work
+outside the sampled sections remains unmeasured.
+
+The separate 12-cycle filesystem-check/executable-reload test passed. Final
+GRUB/OVMF chainloading of the staged payload passed the kernel probe (129 ticks,
+64 preemptions), RAM fsck and cached service windows (32), mixed-case/Caps/repeat,
+renderbench, sustained USB typing, Escape cancellation and userspace Ctrl-C.
+Its output stress captured all seven `aAzZ123` characters with zero drops over
+10,496 lines and 301 timer ticks. This is QEMU validation; this candidate has not
+yet been booted on the physical MacBook Air.
+
+The full **479-command CLI regression passed**, including `posixdemo` and the
+final filesystem check: 384 files, 66,664 clusters, zero leaks, zero FAT/bitmap
+mismatches and zero errors. All listed final-build tests completed successfully.
+
+Evidence is retained under `build/review/`: `interrupt-final-build.log`,
+`interrupt-negative.log`, `interrupt-installer.log`, `interrupt-final-probe.log`,
+`interrupt-thread.log`, `interrupt-sysabi.log`, `interrupt-storage.log`,
+`interrupt-storage-serial.log`, `interrupt-cli.log`, `interrupt-relaunch.log`, and
+`interrupt-grub.log`. The final focused reload test owns the standard
+`storage-service-serial.log`; the full storage run has its own saved copy.
+See [testing](testing.md) for the next physical RAM-backed test procedure.
+
 ## Remaining non-GUI work
 
 1. Capture quantitative laptop input latency under sustained output (functional
@@ -363,10 +458,11 @@ Both configurations preserve verification of older v2/v3 releases.
    sections using explicit ownership. AHCI now admits keyboard/console services
    during waits, but ordinary application scheduling still requires explicit
    filesystem/cache locking and buffer-lifetime rules. Non-I/O filesystem work
-   can still keep interrupts masked for long periods. Audit kernel-mode trap
-   preservation of compiler-generated SSE state before widening preemption:
-   current FPU trap helpers save/restore only userspace transitions. This is a
-   separate code-review finding, not the cause proven by the cache regression.
+   can still keep interrupts masked for long periods. Kernel-mode trap SSE
+   preservation, cached-block service windows and physical-frame search hints
+   are now implemented and tested; wider preemption still requires explicit
+   subsystem ownership. Heap validation, frame-free poisoning, VFS bookkeeping
+   and network paths remain candidates for measured follow-up.
 3. Add deeper exFAT fault/power-loss recovery tests before enabling persistent
    hardware storage. Reboot tests currently use RAM storage deliberately.
 4. Implement the Apple trackpad's separate USB interface, followed by physical

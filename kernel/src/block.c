@@ -1,6 +1,7 @@
 #include <srvros/block.h>
 #include <srvros/console.h>
 #include <srvros/scheduler.h>
+#include <srvros/timer.h>
 
 #include <stddef.h>
 
@@ -38,6 +39,8 @@ static uint64_t cache_clock;
 static uint64_t cache_hits;
 static uint64_t cache_misses;
 static uint64_t cache_write_throughs;
+static unsigned service_blocks;
+static uint64_t last_service_us, service_windows;
 
 static uint64_t irq_save(void) {
 #ifdef SRVROS_BLOCK_HOST_TEST
@@ -171,6 +174,8 @@ void block_init(void) {
     cache_hits = 0;
     cache_misses = 0;
     cache_write_throughs = 0;
+    service_blocks = 0;
+    last_service_us = service_windows = 0;
     for (uint64_t i = 0; i < BLOCK_MAX_DEVICES; i++) {
         devices[i].used = false;
     }
@@ -391,6 +396,25 @@ static struct block_cache_entry *cache_get(struct block_device *device, uint64_t
     return entry;
 }
 
+/* RAM-backed devices and cache hits never reach the AHCI wait loop. Admit
+ * the same restricted services between completed blocks, with ownership still
+ * held. Check the reference clock every 32 blocks to bound polling overhead. */
+static void service_checkpoint(void) {
+    if (++service_blocks < 32) return;
+    uint64_t now = timer_monotonic_us();
+    if (timer_reference_ready()) {
+        service_blocks = 0;
+        if (now - last_service_us < 1000) return;
+    } else if (service_blocks < 256) {
+        return;
+    }
+    service_blocks = 0;
+    if (scheduler_io_yield()) {
+        service_windows++;
+        last_service_us = timer_monotonic_us();
+    }
+}
+
 static bool read_locked(struct block_device *device, uint64_t offset, void *buffer, uint64_t length) {
     if (device == 0 || !device->used || device->read == 0 || buffer == 0) {
         return false;
@@ -422,6 +446,7 @@ static bool read_locked(struct block_device *device, uint64_t offset, void *buff
         }
         copy_memory(out + copied, entry->data + block_offset, chunk);
         copied += chunk;
+        service_checkpoint();
     }
 
     return true;
@@ -466,6 +491,7 @@ static bool write_locked(struct block_device *device, uint64_t offset, const voi
         }
         cache_write_throughs++;
         copied += chunk;
+        service_checkpoint();
     }
 
     return true;
@@ -552,10 +578,11 @@ void block_print_status(void) {
                 devices[i].write != 0 ? "yes" : "no");
         }
     }
-    console_printf("block: cache entries=%u block_max=%u hits=%u misses=%u writes=%u\n",
+    console_printf("block: cache entries=%u block_max=%u hits=%u misses=%u writes=%u service_windows=%u\n",
         (uint64_t)BLOCK_CACHE_ENTRIES,
         (uint64_t)BLOCK_CACHE_MAX_BLOCK_SIZE,
         cache_hits,
         cache_misses,
-        cache_write_throughs);
+        cache_write_throughs,
+        service_windows);
 }

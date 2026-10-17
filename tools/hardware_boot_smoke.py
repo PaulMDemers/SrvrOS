@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--console-check", action="store_true")
+    parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
@@ -115,6 +116,19 @@ def main():
                     qmp_command(qmp, {"execute": "qmp_capabilities"})
                     send_qmp_text(qmp, "echo grub-usb-ok\n", 0.08)
                     text = wait_for(serial, lambda s: "\ngrub-usb-ok\n" in s, process, 20)
+                    if args.kernel_check:
+                        send_qmp_text(qmp, "fpustress\n", 0.08)
+                        text = wait_for(serial, lambda s: "fpustress: PASS" in s and s.endswith("srv> "), process, 30)
+                        probe = re.search(r"fpustress: PASS iterations=128 traps=256 failures=0 ticks=(\d+) preemptions=(\d+)", text)
+                        if probe is None or int(probe[1]) < 128 or int(probe[2]) == 0:
+                            raise RuntimeError("Kernel trap probe lacked timer/preemption coverage")
+                        send_qmp_text(qmp, "fsck /fat\n", 0.08)
+                        text = wait_for(serial, lambda s: "errors=0 ok" in s and s.endswith("srv> "), process, 60)
+                        send_qmp_text(qmp, "block\n", 0.08)
+                        text = wait_for(serial, lambda s: "block: cache entries=" in s and s.endswith("srv> "), process, 20)
+                        cache = re.search(r"block: cache entries=.* service_windows=(\d+)", text)
+                        if cache is None or int(cache[1]) == 0:
+                            raise RuntimeError("RAM filesystem did not offer cache service windows")
                     if args.console_check:
                         if "calibrated=yes target=100Hz" not in text or "init: readiness=ready" not in text:
                             raise RuntimeError("Timer calibration or init readiness missing")
@@ -200,6 +214,8 @@ def main():
                     process.kill()
                     process.wait()
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
+    if args.kernel_check:
+        print("kernel: PASS (nested register preservation, timer/preemption, RAM fsck, cache service windows)")
     if args.responsiveness_check:
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     print(f"Serial log: {serial}")

@@ -30,12 +30,15 @@ python3 -m unittest discover -s tools -p test_hardware_boot.py -v
 tools/host-env.sh make hardware-smoke
 python3 tools/console_benchmark.py --baseline b79c559
 tools/host-env.sh make storage-service-smoke
+tools/host-env.sh make interrupt-smoke
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --kernel-check --console-check --responsiveness-check
 ```
 
 `test-core` covers the actual console, keyboard decoder, ACPI timer, block cache,
 AHCI command path, xHCI enumeration helpers, FIFO workqueue, serial IRQ windows,
 latency counter nesting/reset/thresholds, storage-service scheduler policy,
-cache-publication races and safe syscall-boundary cancellation.
+cache-publication races, safe syscall-boundary cancellation, nested FPU trap
+preservation and physical-frame allocation against a first-fit oracle.
 AHCI tests simulate busy/completion waits, reentrant and cross-disk attempts,
 partial-sector ownership, fast completion, stalled clocks and failure cleanup.
 The scheduler tests check boot gating, nesting, temporary-address-space rejection
@@ -56,7 +59,7 @@ and suppresses serial mirroring during the workload. Escape stops it early.
 `latency` alone reads the current counters; `latency reset` starts a new window.
 Measurements require the ACPI PM reference and are disabled by default.
 
-Console/heap/AHCI/serial samples cover only instrumented interrupt-disabled
+Console/heap/AHCI/serial/PMM samples cover only instrumented interrupt-disabled
 sections, including nested work inside them. Different sites may overlap, so do
 not sum them. Timer and USB poll gaps include scheduling and emulator delays;
 they are not direct interrupt-disabled duration or key-to-visible latency.
@@ -87,6 +90,33 @@ tools/host-env.sh python3 tools/storage_service_smoke.py --relaunch-only 12
 
 Each run replaces the standard serial log; save it first when retaining multiple
 runs for comparison.
+
+`interrupt-smoke` runs `fpustress` twice around four userspace `fpdemo` runs.
+Each kernel probe requires 128 iterations, 256 deliberately clobbering nested
+traps, zero register mismatches, at least 128 timer ticks and actual preemptions.
+The probe covers XMM0–15, x87 ST0/control and MXCSR, captures state before C can
+alter it, and restores its caller's original FPU state. The host FPU test adds
+user/kernel transitions, a nested syscall interrupt, early-boot gating and an
+explicit kernel-state switch. The probe tests the current SSE2/FXSAVE baseline,
+not AVX. `hardware_boot_smoke.py --kernel-check` adds the kernel probe, a clean
+RAM-filesystem check and nonzero cached-block service windows to GRUB/OVMF boot.
+
+For the next physical laptop check, use the normal RAM-backed entry and run:
+
+```text
+fpustress
+latency reset
+fsck /fat
+run /fat/bin/fpdemo
+renderstress
+latency off
+block
+```
+
+Type `aAzZ123` during `renderstress`. Expect `fpustress: PASS`, `fpdemo: ok`, a
+clean filesystem check, retained text with zero drops, and nonzero block-cache
+service windows. Photograph the final counters if possible. The normal laptop
+entry still disables AHCI, so this procedure does not write the physical drive.
 
 ## Release Verification
 

@@ -115,26 +115,22 @@ irq0_legacy_stub:
     pushq %r14
     pushq %r15
 
+    /* Keep an aligned, private FXSAVE area alive through dispatch, including
+     * nested traps and scheduler switches. The GPR/iret frame stays unchanged. */
     movq 128(%rsp), %rdi
     movq %rsp, %rax
     andq $-16, %rsp
-    subq $16, %rsp
+    subq $528, %rsp
     movq %rax, (%rsp)
+    leaq 16(%rsp), %rsi
     call fpu_trap_enter
-    movq (%rsp), %rsp
 
-    movq %rsp, %rax
-    andq $-16, %rsp
-    subq $16, %rsp
-    movq %rax, (%rsp)
+    movq (%rsp), %rdi
     call \target
-    movq (%rsp), %rsp
 
-    movq 128(%rsp), %rdi
-    movq %rsp, %rax
-    andq $-16, %rsp
-    subq $16, %rsp
-    movq %rax, (%rsp)
+    movq (%rsp), %rax
+    movq 128(%rax), %rdi
+    leaq 16(%rsp), %rsi
     call fpu_trap_exit
     movq (%rsp), %rsp
 
@@ -178,27 +174,22 @@ isr_common:
     pushq %r14
     pushq %r15
 
+    /* Keep an aligned, private FXSAVE area alive through dispatch, including
+     * nested traps and scheduler switches. The GPR/iret frame stays unchanged. */
     movq 144(%rsp), %rdi
     movq %rsp, %rax
     andq $-16, %rsp
-    subq $16, %rsp
+    subq $528, %rsp
     movq %rax, (%rsp)
+    leaq 16(%rsp), %rsi
     call fpu_trap_enter
-    movq (%rsp), %rsp
 
-    movq %rsp, %rdi
-    movq %rsp, %rax
-    andq $-16, %rsp
-    subq $16, %rsp
-    movq %rax, (%rsp)
+    movq (%rsp), %rdi
     call isr_dispatch
-    movq (%rsp), %rsp
 
-    movq 144(%rsp), %rdi
-    movq %rsp, %rax
-    andq $-16, %rsp
-    subq $16, %rsp
-    movq %rax, (%rsp)
+    movq (%rsp), %rax
+    movq 144(%rax), %rdi
+    leaq 16(%rsp), %rsi
     call fpu_trap_exit
     movq (%rsp), %rsp
 

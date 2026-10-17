@@ -1,6 +1,7 @@
 #include <srvros/console.h>
 #include <srvros/bootlog.h>
 #include <srvros/halt.h>
+#include <srvros/fpu.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
 #include <srvros/vmm.h>
@@ -189,6 +190,7 @@ void isr_dispatch(struct isr_frame *frame) {
     }
 
     if (frame->vector == 3 && (frame->cs & 3) == 0) {
+        fpu_selftest_trap(frame->rax);
         return;
     }
 

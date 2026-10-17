@@ -16,6 +16,21 @@ void console_printf(const char *fmt, ...) { (void)fmt; }
 bool scheduler_io_begin(void) { if(foreign_service) return false; io_depth++; return true; }
 bool scheduler_io_active(void) { return io_depth != 0 || foreign_service; }
 void scheduler_io_end(void) { assert(io_depth); io_depth--; }
+static uint64_t clock_us;
+static bool clock_ready = true;
+static unsigned service_yields;
+uint64_t timer_monotonic_us(void) { return clock_us; }
+bool timer_reference_ready(void) { return clock_ready; }
+bool scheduler_io_yield(void) {
+    assert(io_depth && !irq_enabled && !foreign_service);
+    service_yields++;
+    foreign_service = true;
+    uint8_t byte = 0x25;
+    assert(!block_read(&devices[0], 0, &byte, 1) && byte == 0x25);
+    assert(!block_write(&devices[0], 0, &byte, 1));
+    foreign_service = false;
+    return true;
+}
 static bool fake_read(struct block_device *d, uint64_t off, void *buf, uint64_t len) {
     assert(off+len<=sizeof(medium)); reads++; memcpy(buf,medium+off,len);
     /* Reproduce a supervisor read at the driver's IRQ-restore boundary. With
@@ -66,5 +81,16 @@ int main(void) {
     foreign_service=false;
     irq_enabled=false; assert(block_read(d,0,&c,1) && !irq_enabled);
     assert(io_depth==0);
-    puts("block-host: PASS (cache publication isolation, service rejection, failed writes, partition coherence, bounds, flush errors)");
+    /* Cache hits must offer services without yielding on every tiny read. */
+    service_blocks=0; last_service_us=0; clock_us=999;
+    for (unsigned i=0; i<64; i++) assert(block_read(d,0,&c,1) && c=='a');
+    assert(service_yields==0);
+    clock_us=1000;
+    before=reads;
+    for (unsigned i=0; i<32; i++) assert(block_read(d,0,&c,1) && c=='a');
+    assert(service_yields==1 && reads==before && !irq_enabled && io_depth==0);
+    clock_ready=false; service_blocks=0;
+    for (unsigned i=0; i<256; i++) assert(block_write(d,0,&c,1));
+    assert(service_yields==2 && !irq_enabled && io_depth==0);
+    puts("block-host: PASS (cache publication isolation, cached I/O service windows, service rejection, failed writes, partition coherence, bounds, flush errors)");
 }

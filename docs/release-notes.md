@@ -1,5 +1,32 @@
 # Release Notes
 
+## 2026-10-17 kernel interrupt state and allocation
+
+Candidate `88a84edb13220e8b` preserves kernel SSE/x87/MXCSR state across
+interrupts, including nested traps and suspended handlers. Each trap owns its
+stack save area; user FPU transitions retain their existing separate state.
+`fpustress` exercises actual IDT entry, deliberate register clobbering, timer
+interrupts and scheduling, and reports register mismatches.
+
+Physical-memory allocation caches first-fit search positions for different
+address floors and skips occupied bitmap bytes. It preserves small holes,
+placement semantics, frame tags and free poisoning. Cached/RAM block operations
+now offer restricted keyboard/console service windows while retaining storage
+ownership. `block` reports cache service windows and `latency` includes PMM
+critical sections. General concurrent filesystem operations remain deferred.
+
+Validation passed: 13 host groups, eight installer tests, the full 479-command
+CLI suite, QEMU interrupt and userspace floating-point tests, thread stress,
+syscall ABI, throttled disk I/O and failure recovery, 12 executable reload cycles,
+and the GRUB/USB responsiveness rehearsal. A negative FPU control confirms the
+register regression detects the original defect. Detailed final results and the physical test
+procedure are in the [implementation report](console-optimization-2026-10-16.md)
+and [testing guide](testing.md).
+
+The candidate is staged; installed release `70ddde650d0fc3f8` and its independently
+verified backup remain unchanged. The laptop entry still uses RAM storage with
+AHCI disabled, and this candidate awaits physical laptop validation.
+
 ## 2026-10-16 storage service windows
 
 Release `63d0bd952feb6b1d` lets the USB keyboard and eligible console work run

@@ -1,5 +1,6 @@
 #include <srvros/ahci.h>
 #include <srvros/latency.h>
+#include <srvros/fpu.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/bootlog.h>
@@ -455,7 +456,7 @@ static void command_latency(const char *args) {
     latency_snapshot(&snapshot);
     console_printf("latency: active=%s reference=%s (sampled sections; gaps include scheduling)\n",
         snapshot.enabled ? "yes" : "no", timer_reference_ready() ? "acpi-pm" : "unavailable");
-    static const char *names[] = {"console", "heap", "ahci", "serial"};
+    static const char *names[] = {"console", "heap", "ahci", "serial", "pmm"};
     for (unsigned i = 0; i < LATENCY_SITE_COUNT; i++) print_latency_sample(names[i], &snapshot.critical[i]);
     print_latency_sample("timer-gap", &snapshot.tick_gap);
     print_latency_sample("usb-poll-gap", &snapshot.input_poll_gap);
@@ -496,7 +497,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress latency [reset|off] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static void command_pci(void);
@@ -1054,6 +1055,8 @@ static void run_command(char *line) {
         print_render_stats();
     } else if (streq(command, "latency")) {
         command_latency(args);
+    } else if (streq(command, "fpustress")) {
+        fpu_selftest();
     } else if (streq(command, "renderstress")) {
         render_stress();
     } else if (streq(command, "renderbench")) {

@@ -163,8 +163,13 @@ void fpu_switch_kernel_state(struct fpu_state *old_state,
     }
 }
 
-void fpu_trap_enter(uint64_t cs) {
-    if (!available || (cs & 3) != 3 || !user_state_loaded) {
+void fpu_trap_enter(uint64_t cs, uint8_t *kernel_trap_area) {
+    if (!available) return;
+    if ((cs & 3) != 3) {
+        fxsave(kernel_trap_area);
+        return;
+    }
+    if (!user_state_loaded) {
         return;
     }
     if (current_user_state != NULL) {
@@ -176,8 +181,13 @@ void fpu_trap_enter(uint64_t cs) {
     user_state_loaded = false;
 }
 
-void fpu_trap_exit(uint64_t cs) {
-    if (!available || (cs & 3) != 3 || current_user_state == NULL) {
+void fpu_trap_exit(uint64_t cs, const uint8_t *kernel_trap_area) {
+    if (!available) return;
+    if ((cs & 3) != 3) {
+        fxrstor(kernel_trap_area);
+        return;
+    }
+    if (current_user_state == NULL) {
         return;
     }
     if (current_kernel_state != NULL) {
