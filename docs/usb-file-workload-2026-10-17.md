@@ -58,7 +58,7 @@ names that remain, wrong contents and symlinks are rejected. Successful collecti
 saves `storage-files.json` with each file's length and SHA-256 alongside the
 report. Guest PASS alone is insufficient for host acceptance.
 
-## Validation and next physical run
+## Validation and physical result
 
 - The new build passed all 16 C regression groups.
 - 23 hardware/collector/repair Python tests and three bitmap tests passed.
@@ -76,8 +76,26 @@ Evidence: `build/review/storage-workload-build.log`,
 `storage-workload-python.log`, `storage-workload-hardening.log`,
 `storage-workload-qemu.log` and `storage-workload-legacy-collect.log`.
 
-The expanded workload still needs its own laptop run. Preparation stages the
-current build and writes a fresh request without arming GRUB or rebooting:
+Physical run `4b74215549a371c9`, release `9fe5cf4d5d8fa841`, passed on the
+MacBookAir7,2 on 2026-10-17. Its manifest identifies clean source commit
+`25d2f0e12d4f28a7add9af7ebc2e8a5387f6d5df`. After the user returned to Ubuntu,
+normal collection verified the report/completion checksum and all six retained
+files, including the 393,253-byte pattern and exact directory layout. No repair
+was needed. All guest checks passed; physical key presses remain untested by
+the automatic suite. Rendering 1,000 lines took 4,919 microseconds at 1440x900,
+pitch 6144, with one presentation and 5,160,988 framebuffer bytes written.
+
+The unmounted USB volume passed `fsck.exfat -n`: clean, eight directories and
+25 files, without diagnostics. It was remounted afterward. Installed payload
+hashes were verified and GRUB's one-shot selection was confirmed consumed.
+Current is `9fe5cf4d5d8fa841`; previous is `dfd1690ca43b2ec0`.
+
+Evidence is in `build/hardware-tests/4b74215549a371c9/`: `report.txt`,
+`completion.txt`, `result.json`, `storage-files.json`, `launch.log` and
+`offline-check.log`. This request is consumed and cannot be reused.
+
+For future cycles, preparation stages the current build and writes a fresh
+request without arming GRUB or rebooting:
 
 ```sh
 python3 tools/hardware_test.py prepare --uuid 37D8-C5D0
@@ -88,6 +106,6 @@ python3 tools/hardware_test.py collect --run latest
 ```
 
 Keep the flash drive connected. No persistent general-purpose workspace is
-enabled by this change. That follows physical validation of this workload;
+enabled by this change. That is the next milestone after this validated workload;
 the interrupted-write limitations in the
 [filesystem hardening notes](filesystem-hardening-2026-10-17.md) still apply.
