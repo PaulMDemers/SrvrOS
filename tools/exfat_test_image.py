@@ -86,7 +86,10 @@ class ExfatFixture:
                                 f'SRVROS-AUTOTEST-V{version} {run}\n'.encode())
 
     def add_directory_file(self, directory_name, filename, payload):
-        if len(payload) > self.cluster: raise ValueError('Fixture payload too large')
+        self.add_directory_files(directory_name, {filename: payload})
+
+    def add_directory_files(self, directory_name, files):
+        if any(len(payload) > self.cluster for payload in files.values()): raise ValueError('Fixture payload too large')
         root = self.chain(self.root)
         bitmap_cluster = None
         end = 0
@@ -96,20 +99,23 @@ class ExfatFixture:
             end += 32
         if bitmap_cluster is None: raise ValueError('No allocation bitmap')
         bitmap = self.offset(bitmap_cluster)
-        free = [i+2 for i in range(self.count) if not self.data[bitmap+i//8] & (1 << (i%8))][:2]
-        if len(free) != 2: raise ValueError('Fixture full')
-        directory_cluster, request_cluster = free
+        free = [i+2 for i in range(self.count) if not self.data[bitmap+i//8] & (1 << (i%8))][:1+len(files)]
+        if len(free) != 1+len(files): raise ValueError('Fixture full')
+        directory_cluster = free[0]
         for cluster in free:
             bit = cluster-2
             self.data[bitmap+bit//8] |= 1 << (bit%8)
             struct.pack_into('<I', self.data, self.fat+cluster*4, 0xffffffff)
             off = self.offset(cluster)
             self.data[off:off+self.cluster] = b'\0'*self.cluster
-        off = self.offset(request_cluster)
-        self.data[off:off+len(payload)] = payload
-        entry = self.checked_entry(filename, request_cluster, payload)
+        entries = bytearray()
+        for cluster, (filename, payload) in zip(free[1:], files.items()):
+            off = self.offset(cluster)
+            self.data[off:off+len(payload)] = payload
+            entries += self.checked_entry(filename, cluster, payload)
+        if len(entries) + 32 > self.cluster: raise ValueError('Fixture directory full')
         off = self.offset(directory_cluster)
-        self.data[off:off+len(entry)] = entry
+        self.data[off:off+len(entries)] = entries
         entry = self.checked_entry(directory_name, directory_cluster, b'', 0x10, self.cluster)
         # Generated root chain is contiguous; ensure this entry doesn't straddle
         # a cluster boundary and the next zero entry remains inside the root.

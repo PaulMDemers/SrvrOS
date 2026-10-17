@@ -20,6 +20,61 @@ class HostTests(unittest.TestCase):
                 'uuid': '37D8-C5D0', 'mountpoints': ['/media/test'] if mounted else [None]}
         return {'blockdevices': [{'tran': transport, 'children': [item, item] if duplicate else [item]}]}
 
+    def test_stress_prepare_and_collect_all_rounds(self):
+        seed='0123456789abcdef';release='abcdef0123456789'
+        self.assertEqual(test.batch_runs(seed,5),[seed[:-1]+x for x in 'fedcb'])
+        for count in (0,2,6):
+            with self.assertRaises(ValueError):test.batch_runs(seed,count)
+        config=f'ram-usb-v9-autotest-37d8c5d0-{seed}'
+        self.assertIn('srvros.autotest-repeat=5',boot.limine_config(release,config))
+        manifest={'sha256':{},'config_version':config}
+        with tempfile.TemporaryDirectory() as tmp, contextlib.ExitStack() as stack:
+            root=Path(tmp);mount=root/'usb';mount.mkdir();runs=root/'runs'
+            stack.enter_context(patch.object(test,'RUNS',runs))
+            stack.enter_context(patch.object(test,'volume_mount',return_value=mount))
+            stack.enter_context(patch.object(test.secrets,'token_hex',return_value=seed))
+            stage=stack.enter_context(patch.object(boot,'stage',return_value=release))
+            stack.enter_context(patch.object(boot,'verify',return_value=manifest))
+            stack.enter_context(patch.object(test.os,'sync'))
+            self.assertEqual(test.prepare('37D8-C5D0',repeat=5),seed)
+            stage.assert_called_once_with(autotest_volume='37d8c5d0',run_id=seed,repeat=5)
+            folder=mount/'srvros-tests'
+            members=test.batch_runs(seed,5)
+            for member in members:
+                self.assertEqual((folder/f'{member}.req').read_text(),f'SRVROS-AUTOTEST-V3 {member}\n')
+                metadata=test.load_run(member)
+                self.assertEqual(metadata['batch_parent'],seed)
+                self.assertEqual(metadata['repeat'],5 if member==seed else 1)
+            # A consumed later request prevents arming, even if round one is fresh.
+            late=folder/f'{members[-1]}.req';original=late.read_bytes();late.write_bytes(b'STARTED')
+            with patch.object(test.subprocess,'run') as execute:
+                with self.assertRaisesRegex(RuntimeError,'consumed'):test.launch(seed)
+                execute.assert_not_called()
+                with self.assertRaisesRegex(RuntimeError,'batch parent'):test.launch(members[1])
+            late.write_bytes(original)
+            for member in members:
+                _,data,_=self.report(expanded=True)
+                data=data.replace(seed.encode(),member.encode()).replace(b'srvros-autotest-v2',test.SUITE.encode())
+                data+=b'usb_shell_workspace=PASS\nshell_elapsed_us=42\nshell_input_poll_count=3\nshell_input_poll_max_us=5\nshell_tick_max_us=10\nphysical_key_latency=NOT_TESTED\n'
+                done=f'COMPLETE {member} {binascii.crc32(data):08x}\n'.encode()
+                for suffix,payload in (('.txt',data),('.done',done),('.probe',test.PROBE_BYTES)):
+                    (folder/(member+suffix)).write_bytes(payload)
+                tree=folder/(member+'.files')
+                for name in hardware_workload.DIRECTORIES:(tree/name).mkdir(parents=True,exist_ok=True)
+                for name,payload in hardware_workload.expected_files().items():(tree/name).write_bytes(payload)
+                shell=folder/(member+'.shell');shell.mkdir()
+                for name,payload in hardware_shell_workload.EXPECTED.items():(shell/name).write_bytes(payload)
+                (shell/'history-proof.txt').write_bytes(b'1 echo workspace-history-sentinel\n')
+            self.assertTrue(test.collect(seed))
+            self.assertEqual(json.loads((runs/seed/'batch-result.json').read_text())['rounds'],members)
+            marker=folder/f'{members[-1]}.done';original=marker.read_bytes();marker.unlink()
+            with self.assertRaisesRegex(RuntimeError,'No complete report'):test.collect(seed)
+            self.assertFalse((runs/seed/'batch-result.json').exists())
+            marker.write_bytes(original)
+            (folder/(members[0]+'.shell')/'document.txt').write_bytes(b'corruption after later rounds')
+            with self.assertRaises(ValueError):test.collect(seed)
+            with self.assertRaisesRegex(RuntimeError,'already exists'):test.prepare('37D8-C5D0',repeat=5)
+
     def test_volume_selection(self):
         self.assertEqual(test.volume_id('37D8-C5D0'), '37d8c5d0')
         self.assertEqual(test.volume_mount('37d8c5d0', self.inventory()), Path('/media/test'))

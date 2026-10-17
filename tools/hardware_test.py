@@ -62,7 +62,13 @@ def sync_file(path, content, exclusive=False):
         os.fsync(out.fileno())
 
 
-def prepare(uuid):
+def batch_runs(run, repeat=1):
+    if not RUN_RE.fullmatch(run) or repeat not in (1, 5):
+        raise ValueError('Invalid batch identity/count')
+    return [run[:-1] + format(int(run[-1], 16) ^ i, 'x') for i in range(repeat)]
+
+
+def prepare(uuid, repeat=1):
     volume = volume_id(uuid)
     mount = volume_mount(volume)
     folder = mount / 'srvros-tests'
@@ -70,21 +76,28 @@ def prepare(uuid):
         raise RuntimeError('Refusing a symlink at the USB result directory')
     folder.mkdir(exist_ok=True)
     run = secrets.token_hex(8)
-    release = boot.stage(autotest_volume=volume, run_id=run)
+    members = batch_runs(run, repeat)
+    for member in members:
+        if (RUNS / member).exists() or any(folder.glob(member + '.*')):
+            raise RuntimeError('Test identity already exists; prepare a fresh request')
+    release = boot.stage(autotest_volume=volume, run_id=run, repeat=repeat)
     manifest = boot.verify(boot.STAGE / release)
-    directory = RUNS / run
-    directory.mkdir(parents=True)
-    metadata = {'format': 'srvros-host-test-v1', 'run': run, 'volume': volume,
-                'suite': SUITE,
-                'release': release, 'created_utc': datetime.now(timezone.utc).isoformat(),
-                'boot_manifest': manifest}
-    sync_file(directory / 'manifest.json', (json.dumps(metadata, indent=2) + '\n').encode(), exclusive=True)
-    sync_file(folder / f'{run}.req', f'SRVROS-AUTOTEST-V3 {run}\n'.encode(), exclusive=True)
+    for member in members:
+        directory = RUNS / member
+        directory.mkdir(parents=True)
+        metadata = {'format': 'srvros-host-test-v1', 'run': member, 'volume': volume,
+                    'suite': SUITE,
+                    'release': release, 'created_utc': datetime.now(timezone.utc).isoformat(),
+                    'boot_manifest': manifest}
+        if repeat == 5:
+            metadata.update(batch_parent=run, repeat=repeat if member == run else 1)
+        sync_file(directory / 'manifest.json', (json.dumps(metadata, indent=2) + '\n').encode(), exclusive=True)
+        sync_file(folder / f'{member}.req', f'SRVROS-AUTOTEST-V3 {member}\n'.encode(), exclusive=True)
     # Commit the directory entry as well as the request contents before reboot.
     os.sync()
     RUNS.mkdir(parents=True, exist_ok=True)
     boot.atomic_write(RUNS / 'latest', (run + '\n').encode(), 0o644)
-    print(f'Prepared run {run}; release {release}; USB UUID {volume}')
+    print(f'Prepared run {run}; rounds {repeat}; release {release}; USB UUID {volume}')
     print(f'Launch when ready: python3 tools/hardware_test.py run --run {run}')
     print(f'Results on the flash drive: srvros-tests/{run}.txt and .done')
     return run
@@ -121,19 +134,31 @@ def check_ubuntu_default(defaults, config):
 
 def launch(run):
     metadata = load_run(run)
+    repeat = metadata.get('repeat', 1)
+    if metadata.get('batch_parent', metadata['run']) != metadata['run']:
+        raise RuntimeError('Launch the batch parent, not an individual round')
+    members = batch_runs(metadata['run'], repeat)
     release = metadata['release']
     manifest = boot.verify(boot.STAGE / release)
     suite = metadata.get('suite', 'srvros-autotest-v1')
     versions = {'srvros-autotest-v1':(5,1), 'srvros-autotest-v2':(6,2), SUITE:(8,3)}
     if suite not in versions: raise ValueError('Unknown suite')
     profile_version, request_version = versions[suite]
+    if repeat == 5:
+        if suite != SUITE: raise ValueError('Stress requires the shell suite')
+        profile_version = 9
     expected = f"ram-usb-v{profile_version}-autotest-{metadata['volume']}-{metadata['run']}"
     if manifest['config_version'] != expected or manifest['sha256'] != metadata['boot_manifest']['sha256']:
         raise RuntimeError('Staged payload does not match this test request')
     mount = volume_mount(metadata['volume'])
-    request = mount / 'srvros-tests' / f"{metadata['run']}.req"
-    if request.read_bytes() != f"SRVROS-AUTOTEST-V{request_version} {metadata['run']}\n".encode():
-        raise RuntimeError('Request is missing or already consumed; prepare a new run')
+    for member in members:
+        if repeat == 5:
+            child = load_run(member)
+            if any(child.get(k) != metadata.get(k) for k in ('release','volume','suite','boot_manifest','batch_parent')):
+                raise ValueError('Batch member identity mismatch')
+        request = mount / 'srvros-tests' / f'{member}.req'
+        if request.read_bytes() != f'SRVROS-AUTOTEST-V{request_version} {member}\n'.encode():
+            raise RuntimeError('Request is missing or already consumed; prepare a new run')
     subprocess.run(['sudo', '-v'], check=True)
     defaults = Path('/etc/default/grub').read_text()
     config = subprocess.check_output(['sudo', 'cat', '/boot/grub/grub.cfg'], text=True)
@@ -191,7 +216,7 @@ def validate_result(metadata, data, completion):
     return fields
 
 
-def collect(run):
+def collect_one(run):
     metadata = load_run(run)
     folder = volume_mount(metadata['volume']) / 'srvros-tests'
     prefix = metadata['run']
@@ -234,14 +259,37 @@ def collect(run):
     return fields['status'] == 'PASS'
 
 
+def collect(run):
+    metadata = load_run(run)
+    members = batch_runs(metadata['run'], metadata.get('repeat', 1))
+    summary_path = RUNS / metadata['run'] / 'batch-result.json'
+    if len(members) == 5:
+        summary_path.unlink(missing_ok=True)
+    passed = True
+    for member in members:
+        if len(members) == 5:
+            child = load_run(member)
+            if any(child.get(k) != metadata.get(k) for k in ('release','volume','suite','boot_manifest','batch_parent')):
+                raise ValueError('Batch member identity mismatch')
+        result = collect_one(member)
+        passed = passed and result
+    if len(members) == 5:
+        summary = {'run': metadata['run'], 'rounds': members, 'status': 'PASS' if passed else 'FAIL'}
+        sync_file(summary_path, (json.dumps(summary, indent=2) + '\n').encode())
+        print(f'Stress batch: {len(members)} complete reports and file sets verified; {summary["status"]}')
+    return passed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=('prepare', 'run', 'collect'))
     parser.add_argument('--uuid', default='37D8-C5D0', help='Target USB exFAT UUID for prepare')
     parser.add_argument('--run', default='latest', help='Exact prepared run ID (default: latest)')
+    parser.add_argument('--stress', action='store_true', help='Prepare five complete rounds in one boot')
     args = parser.parse_args()
+    if args.stress and args.action != 'prepare': parser.error('--stress applies only to prepare')
     try:
-        if args.action == 'prepare': prepare(args.uuid)
+        if args.action == 'prepare': prepare(args.uuid, repeat=5 if args.stress else 1)
         elif args.action == 'run': launch(args.run)
         elif not collect(args.run): parser.exit(2, 'Hardware test reported FAIL\n')
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

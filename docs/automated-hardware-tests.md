@@ -73,6 +73,47 @@ collection daemon is installed.
 
 ## Subsequent runs
 
+For a bounded heavier confidence run, prepare with `--stress`:
+
+```sh
+python3 tools/hardware_test.py prepare --uuid 37D8-C5D0 --stress
+python3 tools/hardware_test.py run --run latest
+# After the automatic return to Ubuntu:
+python3 tools/hardware_test.py collect --run latest
+```
+
+This uses a v9 boot profile to run five complete v3 suites in one boot. Each
+round has an independent, pre-created single-use request, file directories,
+report and CRC completion marker. The filesystem is unmounted and remounted
+between successful rounds, in addition to each shell workload's own remount.
+The batch stops at its first failure. The existing process/open-file guards and
+120-second per-script deadlines remain in force. Save failures display the
+diagnostic screen for 15 seconds before automatic return when no files are open.
+
+The parent run ID selects the entire batch for launch and collection. Its five
+round IDs differ by XORing the final hexadecimal digit with 0 through 4; all
+share one exact build. Launch checks every request before arming the reboot.
+Collection requires all five complete reports and verifies all 75 expected
+storage/shell outputs after the reboot, including earlier rounds' contents. It
+writes `batch-result.json` only after validating the complete batch. Individual
+round manifests and reports remain available for diagnosing a partial batch.
+
+For this laptop's current milestone, the acceptance bar is five PASS reports,
+all expected files verified by Ubuntu, automatic return, a clean offline
+`fsck.exfat -n` check and clear main VolumeFlags without repair. If these pass,
+move on to responsiveness work and retain the finalization diagnostics. This
+is a practical confidence checkpoint, not a claim that the earlier intermittent
+missing completion marker has a known cause or that power-loss recovery was
+tested. Physical keyboard latency remains outside this unattended workload.
+
+The five-round runner passed all 21 host test groups and 35 Python hardware-tool
+tests. `hardware_test_smoke.py --stress` completed all five rounds, independently
+verified all reports and 75 output files, checked the filesystem clean (28
+directories, 131 files), and returned through GRUB's default entry. Consumed
+request replay caused no disk writes or reset; the read-only failure case also
+returned without changing the disk. Evidence is retained under
+`build/review/stress-*`. Laptop validation of the five-round profile is pending.
+
 Each cycle needs a new request, even for the same kernel:
 
 ```sh

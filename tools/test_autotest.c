@@ -12,7 +12,8 @@ static struct block_device disks[2];
 static unsigned disk_count, write_count, flush_count, resets, tests, fail_write, fail_flush;
 static bool writable;
 static bool storage_ok, shell_ok, files_open;
-static unsigned storage_runs;
+static unsigned storage_runs, unmounts;
+static bool unmount_ok;
 static uint64_t now, paint;
 static uint64_t save_failure_delay;
 static unsigned storage_diagnostics;
@@ -20,7 +21,7 @@ static char save_diagnostic[256];
 static uint8_t pages[16][4096];
 static unsigned allocated;
 struct file { struct vfs_node node; char path[80]; uint8_t bytes[2048]; };
-static struct file files[8];
+static struct file files[40];
 static unsigned file_count;
 static const char *run = "0123456789abcdef";
 static const char *cmdline = "srvros.storage=ram srvros.autotest-volume=37d8c5d0 srvros.autotest-run=0123456789abcdef srvros.autotest-release=abcdef0123456789";
@@ -43,14 +44,14 @@ uint64_t timer_monotonic_us(void) { return ++now; }
 bool timer_delay_us(uint64_t n) { if(n==15000000) save_failure_delay+=n;return true; }
 bool process_has_open_vfs_prefix(const char *p) { (void)p;return files_open; }
 bool autotest_shell_run(struct block_device *d,const char *r,struct autotest_shell_stats *s) {
-    assert(d==disks && !strcmp(r,run)); *s=(struct autotest_shell_stats){.elapsed_us=10,.input_poll_count=1};return shell_ok;
+    assert(d==disks && !strncmp(r,run,15)); *s=(struct autotest_shell_stats){.elapsed_us=10,.input_poll_count=1};return shell_ok;
 }
 bool fpu_selftest(void) { tests++;return true; }
 bool autotest_storage_run(struct block_device *d, const char *id) {
-    assert(d==disks && !strcmp(id,run) && writable && flush_count>=2);
+    assert(d==disks && !strncmp(id,run,15) && writable && flush_count>=2);
     storage_runs++; return storage_ok;
 }
-uint64_t pmm_alloc_frame(void) { assert(allocated<16);return (uint64_t)pages[allocated++]; }
+uint64_t pmm_alloc_frame(void) { assert(allocated<80);return (uint64_t)pages[(allocated++)%16]; }
 void *pmm_phys_to_virt(uint64_t n) { return (void *)n; }
 void pmm_free_frame(uint64_t n) { (void)n; }
 uint64_t xhci_device_count(void) { return 2; }
@@ -69,6 +70,7 @@ bool block_read(struct block_device *d,uint64_t off,void *out,uint64_t n) {
 }
 static bool flush_stub(struct block_device *d) { assert(d==disks);return ++flush_count!=fail_flush; }
 bool exfat_mount_block_device(const char *path,struct block_device *d) { assert(!strcmp(path,"/testlog") && d==disks);return true; }
+bool exfat_unmount(const char *p) { assert(!strcmp(p,"/testlog"));unmounts++;return unmount_ok; }
 const struct vfs_node *vfs_lookup(const char *path) {
     for(unsigned i=0;i<file_count;i++) if(!strcmp(path,files[i].path)) return &files[i].node;
     return NULL;
@@ -81,7 +83,7 @@ static void put_file(const char *path,const char *data,unsigned size) {
     unsigned i;
     for(i=0;i<file_count;i++) if(!strcmp(path,files[i].path)) break;
     if(i==file_count) file_count++;
-    assert(i<8 && size<2048);strcpy(files[i].path,path);memcpy(files[i].bytes,data,size);files[i].bytes[size]=0;
+    assert(i<40 && size<2048);strcpy(files[i].path,path);memcpy(files[i].bytes,data,size);files[i].bytes[size]=0;
     files[i].node=(struct vfs_node){.used=true,.path=files[i].path,.size=size,.type=VFS_NODE_FILE,.private_data=files[i].bytes};
 }
 bool exfat_write_file(const char *path,const uint8_t *data,uint64_t size) {
@@ -96,9 +98,36 @@ static void reset(void) {
     write_count=flush_count=resets=tests=fail_write=fail_flush=allocated=0;
     writable=false;now=paint=0;
     save_failure_delay=0;storage_diagnostics=0;save_diagnostic[0]=0;
-    storage_ok=shell_ok=true;files_open=false;storage_runs=0;
+    storage_ok=shell_ok=true;files_open=false;storage_runs=unmounts=0;unmount_ok=true;
     char path[80],text[64];make_path(path,run,".req");
     snprintf(text,sizeof(text),"SRVROS-AUTOTEST-V3 %s\n",run);put_file(path,text,strlen(text));
+}
+static void prepare_batch(void) {
+    reset();
+    for (unsigned i=1; i<5; i++) {
+        char id[17],path[80],text[64];strcpy(id,run);id[15]="0123456789abcdef"[15^i];
+        make_path(path,id,".req");
+        snprintf(text,sizeof(text),"SRVROS-AUTOTEST-V3 %s\n",id);put_file(path,text,strlen(text));
+    }
+}
+static void test_batch(void) {
+    char command[256];snprintf(command,sizeof(command),"%s srvros.autotest-repeat=5",cmdline);
+    prepare_batch();autotest_run(command,true);
+    assert(tests==5 && resets==1 && write_count==20 && flush_count==20 && unmounts==4);
+    autotest_run(command,true);assert(tests==5 && resets==1 && write_count==20);
+    prepare_batch();fail_write=7;autotest_run(command,true);
+    assert(tests==2 && resets==1 && write_count==7 && unmounts==1);
+    assert(save_failure_delay==15000000);
+    prepare_batch();shell_ok=false;autotest_run(command,true);
+    assert(tests==1 && resets==1 && write_count==4 && unmounts==0);
+    prepare_batch();unmount_ok=false;autotest_run(command,true);
+    assert(tests==1 && !resets && unmounts==1);
+    prepare_batch();file_count=1;autotest_run(command,true);
+    assert(tests==1 && !resets && write_count==4); /* No request for round 2. */
+    for (unsigned i=0; i<2; i++) {
+        prepare_batch();snprintf(command,sizeof(command),"%s srvros.autotest-repeat=%s",cmdline,i?"5 srvros.autotest-repeat=5":"6");
+        autotest_run(command,true);assert(!tests && !write_count && !resets);
+    }
 }
 static void test_reset_gas(void) {
     uint8_t table[244]={0},value=0;
@@ -121,6 +150,7 @@ int main(void) {
     assert(!hex_option("x=0123456789abcdef x=0123456789abcdef", "x=",out,16));
     assert(crc32((const uint8_t *)"123456789",9)==0xcbf43926);
     test_reset_gas();
+    test_batch();
     reset();autotest_run("srvros.storage=ram",true);assert(!writable && !tests && !resets);
     reset();autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==4 && flush_count==4);
     assert(!save_failure_delay && !storage_diagnostics);

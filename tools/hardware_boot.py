@@ -22,7 +22,7 @@ CONFIG_VERSION = "ram-usb-v4-console"
 DIAGNOSTIC_VERSION = "ram-usb-v4-diagnostic"
 CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOSTIC_VERSION)
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
-AUTOTEST_RE = re.compile(r"ram-usb-v[568]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
+AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 
 
@@ -43,6 +43,8 @@ def limine_config(release, version=CONFIG_VERSION):
         volume, run = autotest.groups()
         cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
                    f"srvros.autotest-run={run} srvros.autotest-release={release}")
+        if version.startswith('ram-usb-v9-'):
+            cmdline += ' srvros.autotest-repeat=5'
     elif workspace:
         cmdline = f"srvros.storage=ram srvros.workspace-volume={workspace[1]}"
     elif version == CONFIG_VERSION:
@@ -91,14 +93,16 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1):
+    if repeat not in (1, 5) or (repeat != 1 and (autotest_volume is None or run_id is None)):
+        raise ValueError('Invalid automated-test repeat count')
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
     if workspace_volume is not None:
         version = f"ram-usb-v7-workspace-{workspace_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or not WORKSPACE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting workspace profile")
     if autotest_volume is not None or run_id is not None:
-        version = f"ram-usb-v8-autotest-{autotest_volume}-{run_id}"
+        version = f"ram-usb-v{9 if repeat == 5 else 8}-autotest-{autotest_volume}-{run_id}"
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     sources = {

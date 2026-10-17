@@ -166,20 +166,19 @@ static void return_to_host(void) {
     arch_reboot();
 }
 
-void autotest_run(const char *cmdline, bool boot_ready) {
+static int autotest_once(const char *cmdline, bool boot_ready) {
     char uuid[9], run[17], release[17];
-    if (!hex_option(cmdline, "srvros.autotest-volume=", uuid, 8)) return;
+    if (!hex_option(cmdline, "srvros.autotest-volume=", uuid, 8)) return 0;
     if (!hex_option(cmdline, "srvros.autotest-run=", run, 16) ||
         !hex_option(cmdline, "srvros.autotest-release=", release, 16)) {
         console_write("autotest: invalid run identity; staying at monitor\n");
-        return;
+        return 0;
     }
     console_printf("autotest: run=%s release=%s USB-volume=%s\n", run, release, uuid);
     struct block_device *device = find_volume(hex_value(uuid));
     if (!device || !exfat_mount_block_device("/testlog", device)) {
         console_write("autotest: target unavailable; no report saved\n");
-        return_to_host();
-        return;
+        return 1;
     }
     char path[80], request[64];
     unsigned length = 0;
@@ -189,13 +188,13 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     make_path(path, run, ".req");
     if (!file_equals(path, request, length)) {
         console_write("autotest: request absent, invalid or already consumed; staying at monitor\n");
-        return; /* A stale boot profile cannot cause an endless test/reboot loop. */
+        return 0; /* A stale boot profile cannot cause an endless test/reboot loop. */
     }
     char done_path[80];
     make_path(done_path, run, ".done");
     if (vfs_lookup(done_path) || !usb_storage_enable_volume_writes(device)) {
         console_write("autotest: refusing completed request or unavailable write path\n");
-        return;
+        return 0;
     }
     length = 0;
     append(request, &length, "STARTED ");
@@ -203,8 +202,7 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     append(request, &length, "\n");
     if (!exfat_write_file(path, (const uint8_t *)request, length) || !flush_volume(device)) {
         console_write("autotest: request-consumption write/flush failed; no tests run\n");
-        return_to_host();
-        return;
+        return 1;
     }
     report_size = 0;
     report_overflow = false;
@@ -285,12 +283,58 @@ void autotest_run(const char *cmdline, bool boot_ready) {
     }
     if (process_has_open_vfs_prefix("/testlog")) {
         console_write("autotest: files remain open; staying at monitor\n");
-        return;
+        return 0;
     }
     if (!saved) {
         console_write("autotest: photograph this screen; returning to Ubuntu in 15 seconds\n");
         console_sync();
         timer_delay_us(15000000);
     }
+    return ok && saved ? 2 : 1;
+}
+
+/* Five independent, pre-authorized V3 requests. A partial batch never passes. */
+void autotest_run(const char *cmdline, bool boot_ready) {
+    const char *key = "srvros.autotest-repeat=";
+    bool present = false;
+    for (const char *p = cmdline; *p; p++) {
+        if (p != cmdline && !separator(p[-1])) continue;
+        unsigned n = 0;
+        while (key[n] && p[n] == key[n]) n++;
+        if (!key[n]) present = true;
+    }
+    if (!present) {
+        if (autotest_once(cmdline, boot_ready)) return_to_host();
+        return;
+    }
+    char repeat[2], uuid[9], seed[17], release[17];
+    if (!hex_option(cmdline, key, repeat, 1) || repeat[0] != '5' ||
+        !hex_option(cmdline, "srvros.autotest-volume=", uuid, 8) ||
+        !hex_option(cmdline, "srvros.autotest-run=", seed, 16) ||
+        !hex_option(cmdline, "srvros.autotest-release=", release, 16)) {
+        console_write("autotest: invalid repeat profile; staying at monitor\n");
+        return;
+    }
+    unsigned last = seed[15] <= '9' ? seed[15] - '0' : seed[15] - 'a' + 10;
+    for (unsigned round = 0; round < 5; round++) {
+        char run[17], command[160]; unsigned n = 0;
+        for (unsigned i = 0; i < 17; i++) run[i] = seed[i];
+        run[15] = "0123456789abcdef"[last ^ round];
+        append(command, &n, "srvros.autotest-volume="); append(command, &n, uuid);
+        append(command, &n, " srvros.autotest-run="); append(command, &n, run);
+        append(command, &n, " srvros.autotest-release="); append(command, &n, release);
+        console_printf("autotest: stress round %u/5 run=%s\n", (uint64_t)round + 1, run);
+        int result = autotest_once(command, boot_ready);
+        if (result != 2) {
+            console_write("autotest: stress INCOMPLETE; stopping at failed round\n");
+            if (result) return_to_host();
+            return;
+        }
+        if (round < 4 && !exfat_unmount("/testlog")) {
+            console_write("autotest: stress unmount FAILED; staying at monitor\n");
+            return;
+        }
+    }
+    console_write("autotest: stress 5/5 PASS; host must verify all five reports\n");
     return_to_host();
 }

@@ -28,7 +28,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--ovmf', default=default_ovmf_path())
+    parser.add_argument('--stress', action='store_true')
     args = parser.parse_args()
+    members = test.batch_runs(RUN, 5 if args.stress else 1)
     root = Path(__file__).resolve().parents[1]
     logs = root / 'build/review'
     logs.mkdir(exist_ok=True)
@@ -44,11 +46,11 @@ def main():
         subprocess.run(['/usr/sbin/mkfs.exfat', '-c', '128K', str(volume_image)], check=True)
         fixture = ExfatFixture(volume_image.read_bytes())
         volume = f'{fixture.u32(100):08x}'
-        fixture.add_request(RUN, version=3)
+        fixture.add_directory_files('srvros-tests', {f'{member}.req': f'SRVROS-AUTOTEST-V3 {member}\n'.encode() for member in members})
         volume_image.write_bytes(fixture.data)
         print(check_clean_image(volume_image), end='', flush=True)
         with patch.object(boot, 'STAGE', temp / 'stage'), contextlib.redirect_stdout(io.StringIO()):
-            release = boot.stage(autotest_volume=volume, run_id=RUN)
+            release = boot.stage(autotest_volume=volume, run_id=RUN, repeat=len(members))
         source = temp / 'stage' / release
         assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V3 {RUN}\n'.encode()
         disk = temp / 'scratch.img'
@@ -110,7 +112,7 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
                 process = subprocess.Popen(command, stdout=errors, stderr=errors)
                 try:
                     marker = "srvros monitor ready." if replay else 'SRVROS_RETURNED_TO_HOST_DEFAULT'
-                    output = wait_for(log, lambda s: marker in s, process, 180)
+                    output = wait_for(log, lambda s: marker in s, process, 900 if args.stress else 180)
                     if replay:
                         if 'request absent, invalid or already consumed' not in output or 'reboot: ACPI reset' in output:
                             raise RuntimeError('Consumed request did not stop at monitor')
@@ -118,6 +120,9 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
                         required = 'request-consumption write/flush failed' if readonly else 'autotest: PASS report=flushed'
                         for text in (required, 'reboot: ACPI reset', 'storage: RAM-only mode; AHCI disabled'):
                             if text not in output: raise RuntimeError(f'Missing {text}')
+                    if args.stress and not readonly and not replay:
+                        if output.count('autotest: PASS report=flushed') != 5 or 'stress 5/5 PASS' not in output:
+                            raise RuntimeError('Not all five rounds completed')
                     if output.count('srvros: entering kernel') != 1:
                         raise RuntimeError('One-shot test did not boot exactly once')
                 finally:
@@ -153,6 +158,19 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         shell_base = f'srvros-tests/{RUN}.shell'
         hardware_shell_workload.verify(lambda name: result.read(shell_base+'/'+name))
         print('hardware-test-smoke: persisted shell/editor/history/settings PASS',flush=True)
+        for member in members[1:]:
+            child = dict(metadata, run=member)
+            payload = result.read(f'srvros-tests/{member}.txt')
+            completion = result.read(f'srvros-tests/{member}.done')
+            assert test.validate_result(child, payload, completion)['status'] == 'PASS'
+            assert result.read(f'srvros-tests/{member}.probe') == test.PROBE_BYTES
+            assert result.read(f'srvros-tests/{member}.req') == f'STARTED {member}\n'.encode()
+            base = f'srvros-tests/{member}.files'
+            assert len(verify_tree(lambda name, size: result.read(base+'/'+name), listing)) == 6
+            shell_base = f'srvros-tests/{member}.shell'
+            assert len(hardware_shell_workload.verify(lambda name: result.read(shell_base+'/'+name))) == 9
+            (logs / f'autotest-round-{member}-report.txt').write_bytes(payload)
+        print(f'hardware-test-smoke: all {len(members)} rounds independently verified', flush=True)
         with volume_image.open('rb') as stream:
             recovered = recovery.inspect(stream, metadata)
         assert recovered['recovered_payload_checksum_valid']
