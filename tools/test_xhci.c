@@ -298,8 +298,20 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
     (void)state; assert(report[2]==4); injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
-static uint64_t test_time;
-uint64_t timer_monotonic_us(void) { test_time+=1000; return test_time; }
+static uint64_t test_time, test_time_step=1000, complete_at;
+static struct xhci_device *complete_device;
+uint64_t timer_monotonic_us(void) {
+    test_time+=test_time_step;
+    if(complete_device && test_time>=complete_at && complete_device->bulk_pending) {
+        struct xhci_device *d=complete_device;
+        xhci.event_ring[xhci.event_dequeue]=(struct xhci_trb){
+            .parameter_low=(uint32_t)d->bulk_trb,.parameter_high=(uint32_t)(d->bulk_trb>>32),
+            .status=1u<<24,.control=(32u<<10)|((uint32_t)d->slot_id<<24)|
+                ((uint32_t)d->bulk_dci<<16)|(xhci.event_cycle?1u:0u)};
+        complete_device=NULL;
+    }
+    return test_time;
+}
 bool scheduler_io_active(void) { return false; }
 bool scheduler_io_yield(void) { return false; }
 static void test_storage(void) {
@@ -376,6 +388,30 @@ static void test_storage(void) {
     assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
     assert(!strcmp(disk->bulk_reason,"completion-code") && disk->bulk_completion==6 && disk->bulk_done);
     assert(disk->bulk_length==13 && disk->bulk_spins==0);
+    /* A 500 ms status read on a fast CPU must survive the former total spin
+     * budget. Model three microseconds per 256 polls (as on the laptop). */
+    disk->bulk_failed=disk->bulk_pending=false;
+    test_time_step=3;complete_device=disk;complete_at=test_time+500000;
+    memset(bounce,0x5a,sizeof(bounce));memset(caller,0,sizeof(caller));
+    assert(storage_bulk_transfer(disk,true,caller,13,&actual));
+    assert(actual==13 && !memcmp(caller,bounce,13) && !disk->bulk_failed);
+    assert(!strcmp(disk->bulk_reason,"completed") && test_time>=complete_at);
+    assert(disk->bulk_ep[1].enqueue==2); /* Exactly one submission, no retry. */
+    /* A progressing clock still enforces the original two-second deadline,
+     * even when reaching it needs more than the old iteration allowance. */
+    uint64_t before=test_time;
+    assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
+    assert(!strcmp(disk->bulk_reason,"deadline") && test_time-before>=2000000);
+    assert(disk->bulk_spins>XHCI_TRANSFER_TIMEOUT && disk->bulk_failed && disk->bulk_pending);
+    /* A frozen reference must remain bounded and preserve DMA quarantine. */
+    disk->bulk_failed=disk->bulk_pending=false;test_time_step=0;
+    assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
+    assert(!strcmp(disk->bulk_reason,"clock-stalled") && disk->bulk_elapsed_us==0);
+    assert(disk->bulk_spins<=XHCI_TRANSFER_TIMEOUT && disk->bulk_failed && disk->bulk_pending);
+    uint64_t enqueue=disk->bulk_ep[1].enqueue;
+    assert(!storage_bulk_transfer(disk,true,caller,13,&actual));
+    assert(disk->bulk_ep[1].enqueue==enqueue);
+    test_time_step=1000;
 }
 
 int main(int argc, char **argv) {

@@ -133,9 +133,52 @@ tests do not generate a physical keypress or measure the laptop display.
 ## Physical acceptance pending
 
 Launch a fresh five-round run using the exact locally tested payload hashes in
-`build/review/io-admission-tested-payload.json`. Accept it only after Ubuntu
+`build/review/clock-progress-tested-payload.json`. Accept it only after Ubuntu
 collects all five PASS reports/CRCs and all 75 files, followed by a clean offline
 check with clear main VolumeFlags and no repair. Preserve the tested rollback.
 After acceptance, install a reusable workspace profile using those same tested
 binaries and record the physical evidence here. Physical key-to-display latency,
 hot-unplug and power-loss recovery remain outside this checkpoint.
+
+
+## Physical failure and premature timeout correction
+
+Source `13c02e6`, release `de38c6d228a1221c`, batch `f7f6257a240aeecf` did
+not pass the physical checkpoint. Round one passed with all 15 files and report
+CRC verified (shell 11.731 s, render 4,069 us). Round two `f7f6257a240aeece`
+halted during file operations; its shell workload never started. Later requests
+were untouched, and no complete report for round two survived.
+
+The photographed finalization diagnostics identify WRITE(10) command 31174's
+13-byte CSW read: pending=1, done=0, completion=0, actual=0. The xHCI reason was
+`spin-budget`, after 20,000,000 polls and **291,399 us**. Thus the independent
+iteration cap expired before the intended two-second bulk-transfer deadline.
+This establishes premature timeout for this run; it does not prove when that
+particular flash-drive operation would have completed, or identify every earlier
+CSW failure.
+
+The bulk loop now renews its fallback polling budget whenever the monotonic
+clock advances. A progressing clock retains the existing two-second deadline;
+a stopped/unavailable reference terminates with `clock-stalled`. The change adds
+no retries and retains pending-DMA quarantine, error validation and failure halt.
+Host regressions model a 500 ms completion requiring more than the old polling
+budget, a genuine two-second deadline, and a frozen clock. All 22 host groups
+passed. Keyboard and filesystem syscall admission are unchanged.
+
+Evidence is retained in `build/hardware-tests/f7f6257a240aeecf/`: copied files and
+requests, the photo, partial collection result, and an extent-hash-verified sparse
+snapshot of the volume prefix and all 605 allocated 128 KiB clusters. Unallocated
+cluster contents were not captured. Offline `fsck.exfat -n` found no structural
+errors (93 directories, 443 files), with main VolumeFlags=2. After snapshotting,
+`fsck.exfat -p` cleared the dirty flag; a second read-only check was clean with
+flags=0. Round one's report and files revalidated after recovery. This recovery
+does not turn the failed batch into a pass. A fresh physical batch is required.
+
+The corrected build also passed the full five-round QEMU GRUB cycle, including
+all reports/CRCs and 75 output files, independent clean filesystem checks,
+default boot return, and indefinite failure halts. The stalled USB integration
+test still passed bounded quarantine and keyboard progress. Evidence:
+`build/review/clock-progress-five-round-cycle.log`, `clock-progress-autotest-*`,
+`clock-progress-usb-timeout.log`, and `clock-progress-build.log`. Exact tested
+payload hashes are recorded in `clock-progress-tested-payload.json`. Physical
+acceptance remains pending a fresh five-round run.

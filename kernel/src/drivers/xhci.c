@@ -1908,9 +1908,9 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
     d->bulk_trb=ring_push(ep->ring,ep->ring_phys,&ep->enqueue,&ep->cycle,&trb);
     d->bulk_dci=ep->dci; d->bulk_done=false; d->bulk_pending=true;
     db_write32(d->slot_id,ep->dci);
-    uint64_t start=timer_monotonic_us(), last=start;
-    uint64_t spins=0;
-    for(;spins<XHCI_TRANSFER_TIMEOUT;spins++) {
+    uint64_t start=timer_monotonic_us(), last=start, clock_at=start;
+    uint64_t spins=0, stalled_spins=0;
+    for(;;spins++) {
         struct xhci_trb event;
         if(poll_event(&event)) dispatch_transfer_event(&event);
         if(d->bulk_done) {
@@ -1924,12 +1924,17 @@ static bool storage_bulk_transfer(void *context,bool in,void *buffer,uint32_t le
         if((spins&255)==0) {
             uint64_t now=timer_monotonic_us();
             if(now-start>=2000000) { d->bulk_reason="deadline"; break; }
+            /* A fast CPU can exhaust the old total iteration limit well
+             * before two seconds. Bound a stopped/unavailable clock instead;
+             * every observed clock advance renews that fallback budget. */
+            stalled_spins=now==clock_at ? stalled_spins+256 : 0;
+            clock_at=now;
+            if(stalled_spins>=XHCI_TRANSFER_TIMEOUT) { d->bulk_reason="clock-stalled"; break; }
             if(now-last>=1000 && scheduler_io_active()) { scheduler_io_yield(); last=now; }
         }
         __asm__ volatile("pause");
     }
     /* Never reuse the buffer/rings: a timed-out DMA may still be active. */
-    if(spins==XHCI_TRANSFER_TIMEOUT) d->bulk_reason="spin-budget";
     d->bulk_elapsed_us=timer_monotonic_us()-start; d->bulk_spins=spins;
     d->bulk_failed=true; d->stage="storage-quarantined";
     console_printf("xhci: bulk failed slot=%u dci=%u cc=%u done=%u\n",(uint64_t)d->slot_id,
