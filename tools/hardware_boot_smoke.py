@@ -68,6 +68,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--console-check", action="store_true")
+    parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
     release = (boot.STAGE / "latest").read_text().strip()
@@ -143,6 +144,52 @@ def main():
                         qmp_command(qmp, {"execute": "screendump", "arguments": {
                             "filename": str(logs / "console-performance.ppm")}})
 
+                    if args.responsiveness_check:
+                        send_qmp_text(qmp, "latency reset\n", 0.08)
+                        wait_for(serial, lambda s: "latency: reset active=yes" in s and s.endswith("srv> "), process, 20)
+                        send_qmp_text(qmp, "renderstress\n", 0.08)
+                        wait_for(serial, lambda s: "renderstress: running" in s, process, 20)
+                        send_qmp_text(qmp, "aAzZ123", 0.08)
+                        text = wait_for(serial, lambda s: "renderstress: input=" in s and s.endswith("srv> "), process, 30)
+                        if "renderstress: input=aAzZ123\n" not in text:
+                            raise RuntimeError("USB input lost or changed during output stress")
+                        result = re.search(r"renderstress: lines=(\d+) us=(\d+) ticks=(\d+) keys=7 dropped=0 complete=yes stopped=no", text)
+                        if result is None or int(result[1]) < 32 or int(result[3]) < 2:
+                            raise RuntimeError("Sustained output did not complete with timer/input progress")
+                        send_qmp_text(qmp, "latency off\n", 0.08)
+                        text = wait_for(serial, lambda s: "latency: usb-poll-gap" in s and s.endswith("srv> "), process, 20)
+                        for name in ("console", "timer-gap", "usb-poll-gap"):
+                            sample = re.search(r"latency: " + name + r" count=(\d+) max_us=(\d+)", text)
+                            if sample is None or int(sample[1]) == 0:
+                                raise RuntimeError(f"Missing latency samples: {name}")
+                        time.sleep(0.2)
+                        qmp_command(qmp, {"execute": "screendump", "arguments": {
+                            "filename": str(logs / "console-latency.ppm")}})
+
+                        # Escape must cancel a second run and leave the monitor usable.
+                        offset = len(text)
+                        send_qmp_text(qmp, "renderstress\n", 0.08)
+                        wait_for(serial, lambda s: "renderstress: running" in s[offset:], process, 20)
+                        send_qmp_key(qmp, "esc")
+                        text = wait_for(serial, lambda s: "stopped=yes" in s[offset:] and s.endswith("srv> "), process, 20)
+
+                        # Exercise the user syscall output path and USB Ctrl-C signal
+                        # delivery while serial mirroring and framebuffer output run.
+                        send_qmp_text(qmp, "run /fat/bin/sh\n", 0.08)
+                        wait_for(serial, lambda s: s.endswith(" $ "), process, 20)
+                        send_qmp_text(qmp, "yes latency-output\n", 0.08)
+                        wait_for(serial, lambda s: s.count("\nlatency-output\n") >= 10, process, 20)
+                        for down in (True, False):
+                            qmp_command(qmp, {"execute": "input-send-event", "arguments": {"events": [
+                                {"type": "key", "data": {"down": down, "key": {"type": "qcode", "data": key}}}
+                                for key in ("ctrl", "c")]}})
+                            time.sleep(0.1)
+                        wait_for(serial, lambda s: s.endswith(" $ "), process, 20)
+                        send_qmp_text(qmp, "echo survived-output\n", 0.08)
+                        wait_for(serial, lambda s: "\nsurvived-output\n" in s and s.endswith(" $ "), process, 20)
+                        send_qmp_text(qmp, "exit\n", 0.08)
+                        text = wait_for(serial, lambda s: s.endswith("srv> "), process, 20)
+
                 if has_fatal_exception(text):
                     raise RuntimeError("Fatal kernel exception in chainload test")
             finally:
@@ -153,6 +200,8 @@ def main():
                     process.kill()
                     process.wait()
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
+    if args.responsiveness_check:
+        print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     print(f"Serial log: {serial}")
 
 

@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/heap.h>
 #include <srvros/halt.h>
@@ -23,10 +24,12 @@ static uint64_t total_bytes;
 static uint64_t irq_save(void) {
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    latency_enter(LATENCY_HEAP);
     return flags;
 }
 
 static void irq_restore(uint64_t flags) {
+    latency_leave(LATENCY_HEAP);
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }

@@ -154,6 +154,60 @@ bytes written and zero read. Evidence is the user-supplied `Photo 1.jpg`
 also retained in `build/review/non-gui-validation.json`. Installed payload hashes
 and both independent rollback copies were verified after the report.
 
+## Follow-up: sustained output and latency
+
+The next candidate removes serial transmission waits from the console's
+text-model critical section. UART readiness checks and individual byte writes
+remain atomic; waits restore the caller's interrupt state between attempts.
+Early boot and callers already holding interrupts disabled retain that state.
+Concurrent serial writers can interleave at byte boundaries; serial remains
+synchronous and timeout-bounded by an iteration limit.
+
+The workqueue now processes pending callbacks in FIFO order, preserving
+coalescing by callback/argument. A callback that requeues itself goes behind
+existing work. The worker yields after every callback, and scheduling fails if
+worker creation failed so callers can use their fallback paths. Callback bodies
+still need their own bounds; this is not priority scheduling.
+
+`latency reset` enables reference-clock sampling of console, heap, AHCI and
+serial critical sections, plus timer-delivery and USB-worker polling gaps.
+`latency off` freezes the counters and prints them. Sampling is off by default.
+Critical-section samples are local to the named subsystem, not whole-kernel
+IRQ-off coverage; cross-site samples may overlap. Gaps include scheduling and
+emulator delays and are not input-to-pixel measurements. AHCI remains disabled
+in the normal laptop configuration. Its synchronous polling/address-space and
+DMA ownership rules need a separate change before interrupts can safely be
+enabled while waiting for storage.
+
+`renderstress` continuously writes and scrolls for three seconds, yielding
+between 32-line batches and collecting keyboard input. Type `aAzZ123` during
+the run; the final report includes captured text, timer ticks and dropped-key
+count. Escape cancels it. Serial mirroring is suppressed for the workload, as in
+the default `renderbench`; the separate userspace `yes`/Ctrl-C smoke exercises
+output with serial mirroring enabled. See [testing](testing.md) for reproduction
+and measurement limits. This follow-up candidate still needs physical testing.
+
+Candidate **`70ddde650d0fc3f8`** passed nine host test groups, eight installer
+tests, the QEMU syscall ABI smoke, and the shell-editing smoke with zero
+filesystem errors. The expanded GRUB/OVMF smoke passed mixed-case/Caps/repeat
+checks, sustained USB typing, Escape cancellation, and USB Ctrl-C during
+userspace `yes` followed by a successful shell command.
+
+In the instrumented QEMU run, `renderstress` wrote 11,008 lines in 3,000,246 µs,
+delivered 299 timer ticks, and captured all seven `aAzZ123` characters with zero
+keyboard drops. Over the full sampling window (including command entry), the
+largest observed console section was 5,506 µs, heap section 65 µs, and serial
+section 62 µs; AHCI had no samples. Maximum timer-delivery and USB-poll gaps were
+34,928 µs and 39,521 µs. These are single-run emulator observations with sampling
+overhead, not physical latency guarantees. The uninstrumented `renderbench`
+completed in 39,314 µs with two presentations and zero framebuffer reads.
+
+Evidence: `build/review/latency-host-tests.log`, `latency-installer-tests.log`,
+`latency-grub-smoke.log`, `hardware-grub-serial.log`, `console-latency.png`,
+`latency-sysabi.log`, and `latency-shell-edit.log`. The full 479-command CLI suite
+was not repeated for this follow-up. The currently installed, hardware-tested
+release remains `3cd2e11a98996ccb`; the new candidate is staged only.
+
 ## Repeating the laptop test
 
 From the repository in Ubuntu, install the staged candidate, then request a

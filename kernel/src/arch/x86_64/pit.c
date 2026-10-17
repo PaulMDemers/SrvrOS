@@ -1,5 +1,6 @@
 #include <srvros/console.h>
 #include <srvros/timer.h>
+#include <srvros/latency.h>
 
 #include "io.h"
 #include "irq.h"
@@ -37,7 +38,7 @@ void timer_init(uint64_t frequency_hz) {
 void timer_handle_tick(void) {
     timer_irq_ticks++;
     /* Sample the 24-bit reference at 100 Hz to extend its wrap monotonically. */
-    if (timer_reference_ready()) (void)timer_monotonic_us();
+    if (timer_reference_ready()) latency_tick(timer_monotonic_us());
 }
 
 uint64_t timer_ticks(void) {

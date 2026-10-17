@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/bootlog.h>
 #include <srvros/serial.h>
@@ -55,18 +56,28 @@ static struct console_stats stats;
 
 static uint64_t console_irq_save(void) {
 #ifdef SRVROS_CONSOLE_HOST_TEST
+#ifdef SRVROS_CONSOLE_TEST_IRQ_SAVE
+    return SRVROS_CONSOLE_TEST_IRQ_SAVE();
+#else
     return 0;
+#endif
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    latency_enter(LATENCY_CONSOLE);
     return flags;
 #endif
 }
 
 static void console_irq_restore(uint64_t flags) {
 #ifdef SRVROS_CONSOLE_HOST_TEST
-    (void)flags;
+#ifdef SRVROS_CONSOLE_TEST_IRQ_RESTORE
+    SRVROS_CONSOLE_TEST_IRQ_RESTORE(flags);
 #else
+    (void)flags;
+#endif
+#else
+    latency_leave(LATENCY_CONSOLE);
     if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
 #endif
 }
@@ -575,14 +586,17 @@ void console_write_n(const char *s, size_t length) {
         size_t count = length < WRITE_BATCH ? length : WRITE_BATCH;
         uint64_t flags = console_irq_save();
         bool visible = !framebuffer_console_muted;
+        bool mirror = serial_output;
         for (size_t i = 0; i < count; i++) {
             bootlog_putc(s[i]);
-            if (serial_output) serial_putc(s[i]);
             if (visible) framebuffer_putc(s[i]);
         }
         stats.bytes_received += count;
         console_irq_restore(flags);
         if (visible) console_request_present();
+        /* UART waits must not extend the text-model critical section. Serial
+         * preserves each byte atomically; concurrent writers can interleave. */
+        if (mirror) for (size_t i = 0; i < count; i++) serial_putc(s[i]);
         s += count;
         length -= count;
     }

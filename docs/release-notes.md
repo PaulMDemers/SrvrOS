@@ -1,5 +1,16 @@
 # Release Notes
 
+## 2026-10-16 responsiveness candidate
+
+Release `70ddde650d0fc3f8` moves serial waits outside console critical sections
+and makes the workqueue FIFO with a yield between callbacks. It adds opt-in
+`latency` counters and a three-second `renderstress` typing/scrolling test.
+QEMU retained all seven test characters with zero keyboard drops under sustained
+output; Escape cancellation and USB Ctrl-C during userspace output also passed.
+Host, installer, syscall ABI and shell-editing checks passed. This candidate is
+staged for physical testing; see the [report](console-optimization-2026-10-16.md)
+for measurements and limits. Storage polling remains synchronous.
+
 ## 2026-10-16 console and kernel candidate
 
 The [non-GUI implementation report](console-optimization-2026-10-16.md) records

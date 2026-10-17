@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
 #include <srvros/process.h>
@@ -13,7 +14,9 @@
 #define SERIAL_MCR_NORMAL 0x0b
 #define SERIAL_MCR_LOOPBACK 0x1e
 #define SERIAL_PROBE_BYTE 0xae
+#ifndef SERIAL_TX_SPIN_LIMIT
 #define SERIAL_TX_SPIN_LIMIT 1000000
+#endif
 
 static bool serial_ready;
 static char rx_buffer[SERIAL_BUFFER_SIZE];
@@ -109,32 +112,45 @@ static bool tx_empty(void) {
     return (inb(COM1 + 5) & SERIAL_LSR_TX_EMPTY) != 0;
 }
 
-static bool wait_tx_empty(void) {
-    for (uint64_t spins = 0; spins < SERIAL_TX_SPIN_LIMIT; spins++) {
-        if (tx_empty()) {
-            return true;
-        }
-    }
-    serial_ready = false;
-    return false;
+static uint64_t serial_irq_save(void) {
+#ifdef SRVROS_SERIAL_HOST_TEST
+    return test_irq_save();
+#else
+    uint64_t flags;
+    __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    latency_enter(LATENCY_SERIAL);
+    return flags;
+#endif
+}
+static void serial_irq_restore(uint64_t flags) {
+#ifdef SRVROS_SERIAL_HOST_TEST
+    test_irq_restore(flags);
+#else
+    latency_leave(LATENCY_SERIAL);
+    if (flags & (1ull << 9)) __asm__ volatile ("sti" : : : "memory");
+#endif
 }
 
 void serial_putc(char c) {
-    if (!serial_ready) {
-        return;
-    }
-
-    if (c == '\n') {
-        serial_putc('\r');
-        if (!serial_ready) {
+    if (!serial_ready) return;
+    if (c == '\n') serial_putc('\r');
+    for (uint64_t spins = 0; spins < SERIAL_TX_SPIN_LIMIT; spins++) {
+        /* Test and write atomically, but allow interrupts/preemption between
+         * attempts when the caller permits them. Never force-enable IRQs in an
+         * interrupt handler, early boot, or another subsystem's critical section. */
+        uint64_t flags = serial_irq_save();
+        if (!serial_ready) { serial_irq_restore(flags); return; }
+        if (tx_empty()) {
+            outb(COM1, (uint8_t)c);
+            serial_irq_restore(flags);
             return;
         }
+        serial_irq_restore(flags);
+        __asm__ volatile ("pause");
     }
-
-    if (!wait_tx_empty()) {
-        return;
-    }
-    outb(COM1, (uint8_t)c);
+    uint64_t flags = serial_irq_save();
+    serial_ready = false;
+    serial_irq_restore(flags);
 }
 
 void serial_write(const char *s) {

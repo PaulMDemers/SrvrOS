@@ -32,10 +32,30 @@ python3 tools/console_benchmark.py --baseline b79c559
 ```
 
 `test-core` covers the actual console, keyboard decoder, ACPI timer, block cache,
-AHCI command path and xHCI enumeration helpers. Hardware smoke additionally
+AHCI command path, xHCI enumeration helpers, FIFO workqueue, serial IRQ windows,
+and latency counter nesting/reset/thresholds. Hardware smoke additionally
 checks calibrated timing/init readiness, mixed-case USB typing, Caps Lock, held
-key repeat and `renderbench`, and saves a framebuffer screenshot. See the
+key repeat and `renderbench`, and saves a framebuffer screenshot. Its
+`--responsiveness-check` types mixed-case text during three seconds of sustained
+scrolling, checks timer progress and zero keyboard drops, cancels another run
+with Escape, and interrupts userspace `yes` with USB Ctrl-C before running a
+follow-up shell command. It saves `console-latency.ppm` and validates that latency
+counters collected samples; it imposes no host-dependent timing threshold. See the
 [implementation report](console-optimization-2026-10-16.md) for scope and results.
+
+On the laptop, run `latency reset`, then `renderstress` and type `aAzZ123` while
+the screen scrolls. Run `latency off` to freeze and display the counters.
+`renderstress` captures up to 64 printable characters, counts all received keys,
+and suppresses serial mirroring during the workload. Escape stops it early.
+`latency` alone reads the current counters; `latency reset` starts a new window.
+Measurements require the ACPI PM reference and are disabled by default.
+
+Console/heap/AHCI/serial samples cover only instrumented interrupt-disabled
+sections, including nested work inside them. Different sites may overlap, so do
+not sum them. Timer and USB poll gaps include scheduling and emulator delays;
+they are not direct interrupt-disabled duration or key-to-visible latency.
+Counters include reference-read overhead. A zero sample count means unexercised,
+not zero latency (AHCI is disabled in the normal laptop boot configuration).
 
 ## Release Verification
 

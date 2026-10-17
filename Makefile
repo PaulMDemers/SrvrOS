@@ -1037,7 +1037,7 @@ $(KERNEL): $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_OBJ) kernel/linker.ld
 
 # These paths execute before CR4.OSFXSR is enabled. Even integer-only C may
 # otherwise acquire compiler-generated SSE loads/copies at -O2.
-build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
+build/kernel/src/arch/x86_64/fpu.c.o build/kernel/src/console.c.o build/kernel/src/memory/mem.c.o build/kernel/src/latency.c.o: build/%.c.o: %.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(KERNEL_HEADERS)
 	mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -mno-sse -mno-sse2 -c $< -o $@
 
@@ -1860,7 +1860,7 @@ hardware-stage: $(LIMINE_DIR)/.ready $(KERNEL) $(INITRAMFS)
 
 hardware-smoke: hardware-stage test-core
 	$(PYTHON) -m unittest discover -s tools -p test_hardware_boot.py
-	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check
+	$(PYTHON) tools/hardware_boot_smoke.py --qemu $(QEMU) --console-check --responsiveness-check
 
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
@@ -1976,3 +1976,21 @@ build/tests/ahci-host$(HOST_EXE): tools/test_ahci.c kernel/src/drivers/ahci.c $(
 
 .PHONY: test-core
 test-core: test-console test-keyboard test-clock test-storage test-xhci
+
+.PHONY: test-latency test-workqueue test-serial
+test-latency: build/tests/latency-host$(HOST_EXE)
+	$<
+test-workqueue: build/tests/workqueue-host$(HOST_EXE)
+	$<
+test-serial: build/tests/serial-host$(HOST_EXE)
+	$<
+build/tests/latency-host$(HOST_EXE): tools/test_latency.c kernel/src/latency.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/workqueue-host$(HOST_EXE): tools/test_workqueue.c kernel/src/workqueue.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+build/tests/serial-host$(HOST_EXE): tools/test_serial.c kernel/src/arch/x86_64/serial.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-latency test-workqueue test-serial

@@ -3,6 +3,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
+static bool test_irqs = true, expected_serial_irqs = true;
+static uint64_t test_irq_save(void) { uint64_t f=test_irqs ? 512 : 0; test_irqs=false; return f; }
+static void test_irq_restore(uint64_t f) { if (f & 512) test_irqs=true; }
+#define SRVROS_CONSOLE_TEST_IRQ_SAVE test_irq_save
+#define SRVROS_CONSOLE_TEST_IRQ_RESTORE test_irq_restore
 #define SRVROS_CONSOLE_HOST_TEST
 #include "../kernel/src/console.c"
 
@@ -11,7 +18,7 @@ static size_t serial_count;
 static workqueue_fn queued;
 static bool queue_full;
 void bootlog_putc(char c) { (void)c; }
-void serial_putc(char c) { assert(serial_count < sizeof(serial_log)); serial_log[serial_count++] = c; }
+void serial_putc(char c) { assert(test_irqs == expected_serial_irqs); assert(serial_count < sizeof(serial_log)); serial_log[serial_count++] = c; }
 bool workqueue_schedule(workqueue_fn fn, void *arg) {
     assert(arg == NULL);
     if (queue_full) return false;
@@ -27,6 +34,7 @@ static uint32_t storage[STRIDE * H + 2];
 static struct limine_framebuffer frame;
 static void setup(bool deferred) {
     for (unsigned i = 0; i < sizeof(storage)/sizeof(storage[0]); i++) storage[i] = 0x12345678;
+    test_irqs = expected_serial_irqs = true;
     serial_count = 0; queued = NULL; queue_full = false;
     frame = (struct limine_framebuffer){.address=storage+1, .width=W, .height=H, .pitch=STRIDE*4,
         .bpp=32, .memory_model=LIMINE_FRAMEBUFFER_RGB,
@@ -125,7 +133,16 @@ static void test_emergency(void) {
     assert(memcmp(cells[0], "Panic aA", 8) == 0);
     check_guards();
 }
+static void test_serial_irq_state(void) {
+    setup(true);
+    console_write("Serial waits outside model lock");
+    test_irqs = expected_serial_irqs = false;
+    console_write("Caller IRQ state preserved");
+    assert(!test_irqs);
+    test_irqs = expected_serial_irqs = true;
+}
 int main(void) {
+    test_serial_irq_state();
     test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output();
     puts("console-host-test: PASS (95 glyphs, mixed case, ANSI, chunking, scroll, coalescing, guards, formats)");
 }

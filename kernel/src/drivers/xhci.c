@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
 #include <srvros/mouse.h>
@@ -1640,6 +1641,7 @@ static void xhci_poll_worker(void *arg) {
         if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
             poll_hid_events_once();
             uint64_t now = timer_monotonic_us();
+            latency_input_poll(now);
             for (uint64_t i = 0; i < XHCI_MAX_DEVICES; i++) {
                 struct xhci_device *d = &xhci.devices[i];
                 if (d->present && d->interrupt_ready && d->hid_keyboard) {

@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/ahci.h>
 #include <srvros/block.h>
 #include <srvros/console.h>
@@ -154,6 +155,7 @@ static uint64_t irq_save(void) {
 #else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+    latency_enter(LATENCY_AHCI);
     return flags;
 #endif
 }
@@ -162,6 +164,7 @@ static void irq_restore(uint64_t flags) {
 #ifdef SRVROS_AHCI_HOST_TEST
     (void)flags;
 #else
+    latency_leave(LATENCY_AHCI);
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }

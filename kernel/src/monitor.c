@@ -1,3 +1,4 @@
+#include <srvros/latency.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/bootlog.h>
@@ -437,8 +438,64 @@ static void render_benchmark(bool serial) {
         after.framebuffer_bytes_written - before.framebuffer_bytes_written);
 }
 
+static void print_latency_sample(const char *name, const struct latency_sample *s) {
+    console_printf("latency: %s count=%u max_us=%u total_us=%u over_1ms=%u over_10ms=%u\n",
+        name, s->count, s->max_us, s->total_us, s->over_1ms, s->over_10ms);
+}
+
+static void command_latency(const char *args) {
+    if (streq(args, "reset")) {
+        console_printf("latency: reset active=%s\n", latency_reset() ? "yes" : "no");
+        return;
+    }
+    if (streq(args, "off")) latency_stop();
+    else if (*args) { console_write("usage: latency [reset|off]\n"); return; }
+    struct latency_stats snapshot;
+    latency_snapshot(&snapshot);
+    console_printf("latency: active=%s reference=%s (sampled sections; gaps include scheduling)\n",
+        snapshot.enabled ? "yes" : "no", timer_reference_ready() ? "acpi-pm" : "unavailable");
+    static const char *names[] = {"console", "heap", "ahci", "serial"};
+    for (unsigned i = 0; i < LATENCY_SITE_COUNT; i++) print_latency_sample(names[i], &snapshot.critical[i]);
+    print_latency_sample("timer-gap", &snapshot.tick_gap);
+    print_latency_sample("usb-poll-gap", &snapshot.input_poll_gap);
+}
+
+static void render_stress(void) {
+    if (!timer_reference_ready()) { console_write("renderstress: calibrated reference unavailable\n"); return; }
+    console_write("renderstress: running for 3 seconds; type letters, Esc stops\n");
+    if (!console_sync()) { console_write("renderstress: presenter busy\n"); return; }
+    bool serial = console_set_serial_output(false);
+    uint64_t start = timer_monotonic_us(), ticks = timer_ticks();
+    uint64_t dropped = keyboard_dropped_count(), keys = 0, lines = 0;
+    char input[65];
+    unsigned captured = 0;
+    bool stopped = false;
+    static const char line[] = "AaZz sustained output: type while scrolling; Escape ends the test.\n";
+    /* A finite iteration guard also stops the test if the reference stalls. */
+    for (unsigned batch = 0; batch < 100000 && timer_monotonic_us() - start < 3000000; batch++) {
+        for (unsigned i = 0; i < 32; i++) { console_write(line); lines++; }
+        char c;
+        while (keyboard_try_read_char(&c)) {
+            if (c == 27) { stopped = true; break; }
+            keys++;
+            if (c >= 32 && c <= 126 && captured < sizeof(input) - 1) input[captured++] = c;
+        }
+        if (stopped) break;
+        scheduler_yield();
+    }
+    bool drained = console_sync();
+    uint64_t elapsed = timer_monotonic_us() - start;
+    ticks = timer_ticks() - ticks;
+    dropped = keyboard_dropped_count() - dropped;
+    console_set_serial_output(serial);
+    input[captured] = 0;
+    console_printf("renderstress: lines=%u us=%u ticks=%u keys=%u dropped=%u complete=%s stopped=%s\n",
+        lines, elapsed, ticks, keys, dropped, drained ? "yes" : "no", stopped ? "yes" : "no");
+    console_printf("renderstress: input=%s\n", input);
+}
+
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress latency [reset|off] heap workers block mount unmount fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
 }
 
 static void command_pci(void);
@@ -993,6 +1050,10 @@ static void run_command(char *line) {
         acpi_print_input_diagnostics();
     } else if (streq(command, "renderstat")) {
         print_render_stats();
+    } else if (streq(command, "latency")) {
+        command_latency(args);
+    } else if (streq(command, "renderstress")) {
+        render_stress();
     } else if (streq(command, "renderbench")) {
         render_benchmark(streq(args, "serial"));
     } else if (streq(command, "xhci") || streq(command, "usb")) {
