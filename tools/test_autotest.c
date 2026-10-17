@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <setjmp.h>
+#define SRVROS_AUTOTEST_HOST_TEST
 #include "../kernel/src/autotest.c"
 #define arch_reboot unused_hardware_reboot
 #include "../kernel/src/arch/x86_64/reboot.c"
@@ -15,7 +17,10 @@ static bool storage_ok, shell_ok, files_open;
 static unsigned storage_runs, unmounts;
 static bool unmount_ok;
 static uint64_t now, paint;
-static uint64_t save_failure_delay;
+static uint64_t reboot_delay;
+static unsigned halts;
+static bool halt_notice;
+static jmp_buf halt_jump;
 static unsigned storage_diagnostics;
 static char save_diagnostic[256];
 static uint8_t pages[16][4096];
@@ -25,7 +30,7 @@ static struct file files[40];
 static unsigned file_count;
 static const char *run = "0123456789abcdef";
 static const char *cmdline = "srvros.storage=ram srvros.autotest-volume=37d8c5d0 srvros.autotest-run=0123456789abcdef srvros.autotest-release=abcdef0123456789";
-void console_write(const char *s) { paint += strlen(s); }
+void console_write(const char *s) { paint += strlen(s);if(strstr(s,"autotest: HALTED")) halt_notice=true; }
 void console_write_n(const char *s,size_t n) { (void)s; paint+=n; }
 void console_printf(const char *f,...) {
     if (strstr(f,"SAVE_FAILED stage=")) {
@@ -41,7 +46,7 @@ void console_get_stats(struct console_stats *s) { memset(s,0,sizeof(*s));s->fram
 bool timer_reference_ready(void) { return true; }
 bool timer_wait_ticks_bounded(uint64_t ticks,uint64_t spins) { (void)ticks;(void)spins;return true; }
 uint64_t timer_monotonic_us(void) { return ++now; }
-bool timer_delay_us(uint64_t n) { if(n==15000000) save_failure_delay+=n;return true; }
+bool timer_delay_us(uint64_t n) { assert(n==250000);reboot_delay+=n;return true; }
 bool process_has_open_vfs_prefix(const char *p) { (void)p;return files_open; }
 bool autotest_shell_run(struct block_device *d,const char *r,struct autotest_shell_stats *s) {
     assert(d==disks && !strncmp(r,run,15)); *s=(struct autotest_shell_stats){.elapsed_us=10,.input_poll_count=1};return shell_ok;
@@ -92,12 +97,18 @@ bool exfat_write_file(const char *path,const uint8_t *data,uint64_t size) {
     if(write_count==fail_write) return false;
     put_file(path,(const char *)data,size);return true;
 }
+__attribute__((noreturn)) void halt_forever(void) {
+    assert(halt_notice);halts++;longjmp(halt_jump,1);
+}
+static void run_test(const char *command, bool ready) {
+    if (!setjmp(halt_jump)) autotest_run(command,ready);
+}
 static void reset(void) {
     memset(files,0,sizeof(files));memset(disks,0,sizeof(disks));
     disks[0].flush=flush_stub;disk_count=1;file_count=0;
     write_count=flush_count=resets=tests=fail_write=fail_flush=allocated=0;
     writable=false;now=paint=0;
-    save_failure_delay=0;storage_diagnostics=0;save_diagnostic[0]=0;
+    reboot_delay=0;halts=0;halt_notice=false;storage_diagnostics=0;save_diagnostic[0]=0;
     storage_ok=shell_ok=true;files_open=false;storage_runs=unmounts=0;unmount_ok=true;
     char path[80],text[64];make_path(path,run,".req");
     snprintf(text,sizeof(text),"SRVROS-AUTOTEST-V3 %s\n",run);put_file(path,text,strlen(text));
@@ -112,21 +123,21 @@ static void prepare_batch(void) {
 }
 static void test_batch(void) {
     char command[256];snprintf(command,sizeof(command),"%s srvros.autotest-repeat=5",cmdline);
-    prepare_batch();autotest_run(command,true);
+    prepare_batch();run_test(command,true);
     assert(tests==5 && resets==1 && write_count==20 && flush_count==20 && unmounts==4);
-    autotest_run(command,true);assert(tests==5 && resets==1 && write_count==20);
-    prepare_batch();fail_write=7;autotest_run(command,true);
-    assert(tests==2 && resets==1 && write_count==7 && unmounts==1);
-    assert(save_failure_delay==15000000);
-    prepare_batch();shell_ok=false;autotest_run(command,true);
-    assert(tests==1 && resets==1 && write_count==4 && unmounts==0);
-    prepare_batch();unmount_ok=false;autotest_run(command,true);
-    assert(tests==1 && !resets && unmounts==1);
-    prepare_batch();file_count=1;autotest_run(command,true);
-    assert(tests==1 && !resets && write_count==4); /* No request for round 2. */
+    run_test(command,true);assert(tests==5 && resets==1 && halts==1 && write_count==20);
+    prepare_batch();fail_write=7;run_test(command,true);
+    assert(tests==2 && !resets && halts==1 && write_count==7 && unmounts==1);
+    assert(!reboot_delay);
+    prepare_batch();shell_ok=false;run_test(command,true);
+    assert(tests==1 && !resets && halts==1 && write_count==4 && unmounts==0);
+    prepare_batch();unmount_ok=false;run_test(command,true);
+    assert(tests==1 && !resets && halts==1 && unmounts==1);
+    prepare_batch();file_count=1;run_test(command,true);
+    assert(tests==1 && !resets && halts==1 && write_count==4); /* No request for round 2. */
     for (unsigned i=0; i<2; i++) {
         prepare_batch();snprintf(command,sizeof(command),"%s srvros.autotest-repeat=%s",cmdline,i?"5 srvros.autotest-repeat=5":"6");
-        autotest_run(command,true);assert(!tests && !write_count && !resets);
+        run_test(command,true);assert(!tests && !write_count && !resets && halts==1);
     }
 }
 static void test_reset_gas(void) {
@@ -151,36 +162,36 @@ int main(void) {
     assert(crc32((const uint8_t *)"123456789",9)==0xcbf43926);
     test_reset_gas();
     test_batch();
-    reset();autotest_run("srvros.storage=ram",true);assert(!writable && !tests && !resets);
-    reset();autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==4 && flush_count==4);
-    assert(!save_failure_delay && !storage_diagnostics);
+    reset();run_test("srvros.storage=ram",true);assert(!writable && !tests && !resets);
+    reset();run_test(cmdline,true);assert(tests==1 && resets==1 && write_count==4 && flush_count==4);
+    assert(reboot_delay==250000 && !halts && !storage_diagnostics);
     assert(strstr(report,"status=PASS\n") && strstr(report,"physical_keypress=NOT_TESTED\n"));
     assert(storage_runs==1 && strstr(report,"usb_file_operations=PASS\n"));
-    unsigned before=write_count;autotest_run(cmdline,true);assert(write_count==before && resets==1 && tests==1);
-    reset();autotest_run(cmdline,false);assert(strstr(report,"status=FAIL\n") && resets==1);
-    reset();disk_count=2;autotest_run(cmdline,true);assert(!writable && !tests && resets==1);
-    reset();file_count=0;autotest_run(cmdline,true);assert(!writable && !tests && !resets);
-    reset();fail_flush=1;autotest_run(cmdline,true);assert(!tests && resets==1 && write_count==1);
-    reset();fail_write=3;autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==3);
+    unsigned before=write_count;run_test(cmdline,true);assert(write_count==before && resets==1 && tests==1);
+    reset();run_test(cmdline,false);assert(strstr(report,"status=FAIL\n") && !resets && halts==1);
+    reset();disk_count=2;run_test(cmdline,true);assert(!writable && !tests && !resets && halts==1);
+    reset();file_count=0;run_test(cmdline,true);assert(!writable && !tests && !resets && halts==1);
+    reset();fail_flush=1;run_test(cmdline,true);assert(!tests && !resets && halts==1 && write_count==1);
+    reset();fail_write=3;run_test(cmdline,true);assert(tests==1 && !resets && halts==1 && write_count==3);
     assert(strstr(save_diagnostic,"stage=report-write exfat-writable=no"));
-    assert(save_failure_delay==15000000 && storage_diagnostics==1);
+    assert(!reboot_delay && storage_diagnostics==1);
     char path[80];make_path(path,run,".done");assert(!vfs_lookup(path));
-    reset();fail_flush=3;autotest_run(cmdline,true);assert(tests==1 && resets==1 && write_count==3 && !vfs_lookup(path));
+    reset();fail_flush=3;run_test(cmdline,true);assert(tests==1 && !resets && halts==1 && write_count==3 && !vfs_lookup(path));
     assert(strstr(save_diagnostic,"stage=report-flush"));
-    reset();fail_write=4;autotest_run(cmdline,true);
-    assert(resets==1 && write_count==4 && flush_count==3 && !vfs_lookup(path));
+    reset();fail_write=4;run_test(cmdline,true);
+    assert(!resets && halts==1 && write_count==4 && flush_count==3 && !vfs_lookup(path));
     assert(strstr(save_diagnostic,"stage=completion-write"));
-    reset();fail_flush=4;autotest_run(cmdline,true);
-    assert(resets==1 && write_count==4 && flush_count==4 && vfs_lookup(path));
+    reset();fail_flush=4;run_test(cmdline,true);
+    assert(!resets && halts==1 && write_count==4 && flush_count==4 && vfs_lookup(path));
     assert(strstr(save_diagnostic,"stage=completion-flush"));
-    reset();fail_write=3;files_open=true;autotest_run(cmdline,true);
-    assert(!resets && !save_failure_delay && storage_diagnostics==1);
-    reset();storage_ok=false;autotest_run(cmdline,true);
-    assert(storage_runs==1 && strstr(report,"usb_file_operations=FAIL\n") && strstr(report,"status=FAIL\n"));
-    reset();shell_ok=false;autotest_run(cmdline,true);
-    assert(strstr(report,"usb_shell_workspace=FAIL\n") && strstr(report,"status=FAIL\n"));
-    reset();shell_ok=false;files_open=true;autotest_run(cmdline,true);
-    assert(resets==0 && strstr(report,"status=FAIL\n"));
-    reset();fail_write=2;autotest_run(cmdline,true);assert(!storage_runs && strstr(report,"status=FAIL\n"));
+    reset();fail_write=3;files_open=true;run_test(cmdline,true);
+    assert(!resets && halts==1 && !reboot_delay && storage_diagnostics==1);
+    reset();storage_ok=false;run_test(cmdline,true);
+    assert(storage_runs==1 && !resets && halts==1 && strstr(report,"usb_file_operations=FAIL\n") && strstr(report,"status=FAIL\n"));
+    reset();shell_ok=false;run_test(cmdline,true);
+    assert(!resets && halts==1 && strstr(report,"usb_shell_workspace=FAIL\n") && strstr(report,"status=FAIL\n"));
+    reset();shell_ok=false;files_open=true;run_test(cmdline,true);
+    assert(resets==0 && halts==1 && strstr(report,"status=FAIL\n"));
+    reset();fail_write=2;run_test(cmdline,true);assert(!storage_runs && strstr(report,"status=FAIL\n"));
     puts("autotest-host: PASS (identity, replay, duplicate UUID, consumption-before-test, save/flush failures, CRC, FADT bounds)");
 }

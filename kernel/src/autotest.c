@@ -8,6 +8,7 @@
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
+#include <srvros/halt.h>
 #include <srvros/keyboard.h>
 #include <srvros/pmm.h>
 #include <srvros/timer.h>
@@ -166,13 +167,24 @@ static void return_to_host(void) {
     arch_reboot();
 }
 
+/* Freeze the diagnostic screen, including any still-running test processes. */
+__attribute__((noreturn)) static void stop_for_diagnostics(void) {
+    console_write("autotest: HALTED - photograph this screen; restart the laptop manually\n");
+    console_sync();
+#ifndef SRVROS_AUTOTEST_HOST_TEST
+    __asm__ volatile("cli" ::: "memory");
+#endif
+    halt_forever();
+}
+
+/* 0: normal boot without a test request; 1: failed/incomplete; 2: complete PASS. */
 static int autotest_once(const char *cmdline, bool boot_ready) {
     char uuid[9], run[17], release[17];
     if (!hex_option(cmdline, "srvros.autotest-volume=", uuid, 8)) return 0;
     if (!hex_option(cmdline, "srvros.autotest-run=", run, 16) ||
         !hex_option(cmdline, "srvros.autotest-release=", release, 16)) {
-        console_write("autotest: invalid run identity; staying at monitor\n");
-        return 0;
+        console_write("autotest: invalid run identity; stopping for diagnostics\n");
+        return 1;
     }
     console_printf("autotest: run=%s release=%s USB-volume=%s\n", run, release, uuid);
     struct block_device *device = find_volume(hex_value(uuid));
@@ -187,14 +199,14 @@ static int autotest_once(const char *cmdline, bool boot_ready) {
     append(request, &length, "\n");
     make_path(path, run, ".req");
     if (!file_equals(path, request, length)) {
-        console_write("autotest: request absent, invalid or already consumed; staying at monitor\n");
-        return 0; /* A stale boot profile cannot cause an endless test/reboot loop. */
+        console_write("autotest: request absent, invalid or already consumed; stopping for diagnostics\n");
+        return 1; /* A stale boot profile cannot cause an endless test/reboot loop. */
     }
     char done_path[80];
     make_path(done_path, run, ".done");
     if (vfs_lookup(done_path) || !usb_storage_enable_volume_writes(device)) {
         console_write("autotest: refusing completed request or unavailable write path\n");
-        return 0;
+        return 1;
     }
     length = 0;
     append(request, &length, "STARTED ");
@@ -202,6 +214,8 @@ static int autotest_once(const char *cmdline, bool boot_ready) {
     append(request, &length, "\n");
     if (!exfat_write_file(path, (const uint8_t *)request, length) || !flush_volume(device)) {
         console_write("autotest: request-consumption write/flush failed; no tests run\n");
+        usb_storage_print_status(device);
+        console_printf("autotest: exfat-writable=%s\n", exfat_is_writable("/testlog") ? "yes" : "no");
         return 1;
     }
     report_size = 0;
@@ -276,19 +290,14 @@ static int autotest_once(const char *cmdline, bool boot_ready) {
     console_printf("autotest: %s report=%s run=%s\n", ok ? "PASS" : "FAIL", saved ? "flushed" : "SAVE_FAILED", run);
     if (!saved) {
         /* Do not attempt more writes to a possibly quarantined volume. Keep
-         * the failure visible for a photograph before the automatic return. */
+         * the failure visible until a manual restart. */
         usb_storage_print_status(device);
         console_printf("autotest: SAVE_FAILED stage=%s exfat-writable=%s\n",
             save_failure, exfat_is_writable("/testlog") ? "yes" : "no");
     }
     if (process_has_open_vfs_prefix("/testlog")) {
-        console_write("autotest: files remain open; staying at monitor\n");
-        return 0;
-    }
-    if (!saved) {
-        console_write("autotest: photograph this screen; returning to Ubuntu in 15 seconds\n");
-        console_sync();
-        timer_delay_us(15000000);
+        console_write("autotest: files remain open; stopping for diagnostics\n");
+        return 1;
     }
     return ok && saved ? 2 : 1;
 }
@@ -304,7 +313,9 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         if (!key[n]) present = true;
     }
     if (!present) {
-        if (autotest_once(cmdline, boot_ready)) return_to_host();
+        int result = autotest_once(cmdline, boot_ready);
+        if (result == 1) stop_for_diagnostics();
+        if (result == 2) return_to_host();
         return;
     }
     char repeat[2], uuid[9], seed[17], release[17];
@@ -312,8 +323,8 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         !hex_option(cmdline, "srvros.autotest-volume=", uuid, 8) ||
         !hex_option(cmdline, "srvros.autotest-run=", seed, 16) ||
         !hex_option(cmdline, "srvros.autotest-release=", release, 16)) {
-        console_write("autotest: invalid repeat profile; staying at monitor\n");
-        return;
+        console_write("autotest: invalid repeat profile\n");
+        stop_for_diagnostics();
     }
     unsigned last = seed[15] <= '9' ? seed[15] - '0' : seed[15] - 'a' + 10;
     for (unsigned round = 0; round < 5; round++) {
@@ -327,12 +338,12 @@ void autotest_run(const char *cmdline, bool boot_ready) {
         int result = autotest_once(command, boot_ready);
         if (result != 2) {
             console_write("autotest: stress INCOMPLETE; stopping at failed round\n");
-            if (result) return_to_host();
-            return;
+            stop_for_diagnostics();
         }
         if (round < 4 && !exfat_unmount("/testlog")) {
-            console_write("autotest: stress unmount FAILED; staying at monitor\n");
-            return;
+            console_write("autotest: stress unmount FAILED\n");
+            usb_storage_print_status(find_volume(hex_value(uuid)));
+            stop_for_diagnostics();
         }
     }
     console_write("autotest: stress 5/5 PASS; host must verify all five reports\n");

@@ -87,8 +87,11 @@ round has an independent, pre-created single-use request, file directories,
 report and CRC completion marker. The filesystem is unmounted and remounted
 between successful rounds, in addition to each shell workload's own remount.
 The batch stops at its first failure. The existing process/open-file guards and
-120-second per-script deadlines remain in force. Save failures display the
-diagnostic screen for 15 seconds before automatic return when no files are open.
+120-second per-script deadlines remain in force. Any failed or incomplete test
+halts indefinitely on its diagnostic screen. Interrupts are disabled after the
+console is presented, preventing background test processes from overwriting the
+screen or continuing writes. Photograph the screen and restart the laptop
+manually. Only a complete successful run returns to Ubuntu automatically.
 
 The parent run ID selects the entire batch for launch and collection. Its five
 round IDs differ by XORing the final hexadecimal digit with 0 through 4; all
@@ -110,9 +113,34 @@ The five-round runner passed all 21 host test groups and 35 Python hardware-tool
 tests. `hardware_test_smoke.py --stress` completed all five rounds, independently
 verified all reports and 75 output files, checked the filesystem clean (28
 directories, 131 files), and returned through GRUB's default entry. Consumed
-request replay caused no disk writes or reset; the read-only failure case also
-returned without changing the disk. Evidence is retained under
+request replay caused no disk writes or reset; the original read-only failure
+case returned without changing the disk. Evidence is retained under
 `build/review/stress-*`. Laptop validation of the five-round profile is pending.
+
+The first physical batch, `c63ec9cd282d3357` / `8898d0bea1c5b09a`, returned
+early. Round one left a STARTED request, a probe and a partial storage tree;
+no report or completion marker was present, and the other four requests were
+untouched. It did not pass. The main VolumeFlags were 2 (dirty); offline
+`fsck.exfat -n` found no structural errors (27 directories, 116 files). After
+preserving a sparse allocated-cluster snapshot, `fsck.exfat -p` cleared the
+dirty flag, verified before remount. Evidence is in
+`build/hardware-tests/c63ec9cd282d3357/`. The exact write failure remains unknown.
+
+Following this run, the user requested an indefinite halt on failure, replacing
+the 15-second diagnostic window. This applies to single runs and stress batches,
+including target/mount failures, request-consumption errors, failed checks,
+report or completion write/flush failures, open test handles, and failed
+between-round unmounts. Consumed-request replay now also halts without writes or
+reboot. Normal boots without an automatic-test request still reach the monitor.
+Successful test runs retain the one-shot return to Ubuntu.
+
+The halt revision passed all 21 host test groups and the full five-round QEMU
+cycle with all reports/files verified. The consumed-request case halted without
+writes or reset. A forced read-only write failure remained alive with an
+unchanged diagnostic log for 17 seconds after the complete HALTED line, beyond
+the removed timeout, and never reached the host boot entry. Logs and retained
+serial evidence use `build/review/halt-*`. This validates the failure-display
+behavior; it does not resolve the laptop's underlying storage failure.
 
 Each cycle needs a new request, even for the same kernel:
 

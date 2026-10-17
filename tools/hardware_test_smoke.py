@@ -9,6 +9,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import time
 from unittest.mock import patch
 
 import hardware_boot as boot
@@ -111,14 +112,24 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
             with (logs / f'autotest-{label}-qemu.log').open('wb') as errors:
                 process = subprocess.Popen(command, stdout=errors, stderr=errors)
                 try:
-                    marker = "srvros monitor ready." if replay else 'SRVROS_RETURNED_TO_HOST_DEFAULT'
+                    marker = ('autotest: HALTED - photograph this screen; restart the laptop manually\n'
+                              if replay or readonly else 'SRVROS_RETURNED_TO_HOST_DEFAULT')
                     output = wait_for(log, lambda s: marker in s, process, 900 if args.stress else 180)
-                    if replay:
-                        if 'request absent, invalid or already consumed' not in output or 'reboot: ACPI reset' in output:
-                            raise RuntimeError('Consumed request did not stop at monitor')
+                    if replay or readonly:
+                        required = 'request absent, invalid or already consumed' if replay else 'request-consumption write/flush failed'
+                        if required not in output:
+                            raise RuntimeError('Missing failure diagnostic')
+                        # Observe beyond the removed 15-second delay. Failure
+                        # must retain the screen and never reach the host entry.
+                        if readonly:
+                            time.sleep(17)
+                            settled = log.read_text(errors='replace')
+                            if settled != output or process.poll() is not None:
+                                raise RuntimeError('Failure did not remain halted')
+                        if 'reboot: ACPI reset' in output or 'SRVROS_RETURNED_TO_HOST_DEFAULT' in output:
+                            raise RuntimeError('Failure unexpectedly rebooted')
                     else:
-                        required = 'request-consumption write/flush failed' if readonly else 'autotest: PASS report=flushed'
-                        for text in (required, 'reboot: ACPI reset', 'storage: RAM-only mode; AHCI disabled'):
+                        for text in ('autotest: PASS report=flushed', 'reboot: ACPI reset', 'storage: RAM-only mode; AHCI disabled'):
                             if text not in output: raise RuntimeError(f'Missing {text}')
                     if args.stress and not readonly and not replay:
                         if output.count('autotest: PASS report=flushed') != 5 or 'stress 5/5 PASS' not in output:
@@ -219,7 +230,7 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         if hashlib.sha256(disk.read_bytes()).hexdigest() != before:
             raise RuntimeError('Read-only failure changed the disk')
         print(data.decode(), end='')
-        print('hardware-test-smoke: PASS (one-shot GRUB, USB request/write/flush, persisted report CRC, ACPI reset, default return)')
+        print('hardware-test-smoke: PASS (one-shot GRUB, persisted report CRC, successful default return, failures remain halted)')
 
 
 if __name__ == '__main__':
