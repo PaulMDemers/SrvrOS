@@ -7,8 +7,12 @@ scope, measurements, validation and remaining work. This candidate adds distinct
 lowercase console glyphs, batched RAM-based scrolling, Caps Lock and USB repeat,
 a calibrated timer, init readiness, AHCI timeout/flush handling and block-cache
 failure fixes. Normal laptop staging is quiet, with an opt-in diagnostic mode.
-Physical keyboard support remains based on the laptop-confirmed USB release;
-this candidate still needs its own laptop performance/behavior check.
+The user confirmed a much faster physical boot on the MacBookAir7,2 with release
+`3cd2e11a98996ccb`. The photographed 1440×900 benchmark completed 1,000 lines
+in 4,889 µs with one presentation and zero framebuffer reads; mixed-case output
+is visible. This is a single throughput sample, not a measured boot duration.
+Physical Caps Lock/repeat behavior still needs separate confirmation. Both this
+release and the original working USB release have verified independent backups.
 
 ## Initial Repository Milestone
 

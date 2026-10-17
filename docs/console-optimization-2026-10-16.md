@@ -2,16 +2,18 @@
 
 This is the first non-GUI implementation batch from the
 [architecture review](optimization-review-2026-10-16.md). GUI work is deferred.
-The next gate is a laptop boot and performance check; the wider hardware and
-porting roadmap is not complete.
+The laptop boot and throughput check passed on 2026-10-16; the wider hardware
+and porting roadmap is not complete.
 
 ## Preserved baseline
 
 Source checkpoint: `b79c5593d09952d6a1b334db0abe00c75db58807`.
-The laptop-confirmed payload is `c02ec72ad1c8f3d4`. A verified copy is retained at
+The original laptop-confirmed payload is `c02ec72ad1c8f3d4`. A verified copy is retained at
 `/home/paul/.local/share/srvros/known-good/c02ec72ad1c8f3d4`, outside the installer's
-current/previous rotation. This batch has not modified Ubuntu's installed boot
-files or rebooted the laptop.
+current/previous rotation. The user installed and booted the optimized release
+`3cd2e11a98996ccb`; it now has its own verified independent copy at
+`/home/paul/.local/share/srvros/known-good/3cd2e11a98996ccb`. Installed state retains
+the original release as `previous` and the optimized release as `current`.
 
 ## Implemented
 
@@ -118,12 +120,41 @@ sample used one final presentation and wrote 5,160,988 framebuffer bytes.
 Kernel timing/output tests provide a separate check because the host build and
 its stubbed scheduler/serial are not equivalent to the booted kernel.
 
-Final staged payload: **`3cd2e11a98996ccb`** (normal quiet configuration),
-verified through GRUB/OVMF/QEMU 10.2.1 with 2 GiB guest RAM. Installation remains
-a separate sudo step. The hardware entry uses the existing read-only initramfs
+Final payload: **`3cd2e11a98996ccb`** (normal quiet configuration),
+verified through GRUB/OVMF/QEMU 10.2.1 with 2 GiB guest RAM, then installed and
+booted on the laptop by the user. The hardware entry uses the existing read-only initramfs
 block device; filesystem mutation tests use disposable AHCI disk images.
 
-## Laptop test
+## Physical laptop result — 2026-10-16
+
+The user reported that the MacBookAir7,2 booted "instantly, way faster."
+The supplied photograph shows mixed-case output and this completed benchmark:
+
+| Measurement | Observed value |
+| --- | --- |
+| Workload | 1,000 lines × 80 columns, serial mirroring off |
+| Elapsed time | **4,889 µs (4.889 ms)** |
+| Framebuffer | 1440×900, pitch 6144 bytes |
+| Logical scrolls | 951 |
+| Presentations | **1** |
+| Framebuffer bytes written | 5,160,988 |
+| Framebuffer bytes read | **0** |
+
+This confirms the batching path on physical hardware: scrolling updates the RAM
+text model, then the final viewport is presented once. It does not redraw the
+framebuffer for every logical scroll. This is one throughput sample, not a
+measurement of interactive latency or boot duration. There is no measured old
+laptop baseline from which to calculate a physical speedup ratio. Caps Lock and
+held-key repeat were not separately confirmed in this report.
+
+The subsequent `renderstat` reports lifetime totals, separate from that benchmark:
+88,984 bytes, 954 scrolls, 35 presentations, 45,271 cells, 23,179,732 framebuffer
+bytes written and zero read. Evidence is the user-supplied `Photo 1.jpg`
+(attachment `8AF50B55-111E-4C62-AEB2-45F60CD88AB8`); structured measurements are
+also retained in `build/review/non-gui-validation.json`. Installed payload hashes
+and both independent rollback copies were verified after the report.
+
+## Repeating the laptop test
 
 From the repository in Ubuntu, install the staged candidate, then request a
 one-shot boot:
@@ -161,7 +192,8 @@ Both configurations preserve verification of older v2/v3 releases.
 
 ## Remaining non-GUI work
 
-1. Record laptop throughput, interactive latency and framebuffer cache attributes.
+1. Extend the confirmed laptop throughput result with sustained-output and
+   interactive-latency measurements; record framebuffer cache attributes.
    Check PAT/MTRR and mapping aliases before changing write-combining policy.
 2. Extend deadline/idle-wait conversion beyond LAPIC/AHCI, measure maximum
    interrupt-disabled intervals, and reduce allocator/network/storage critical
