@@ -40,6 +40,15 @@ int main(void) {
     key(SRV_KEY_F10);key(SRV_KEY_ESCAPE);assert(m.open<0);
     key(SRV_KEY_F10);struct srv_key_event cancel={.flags=SRV_KEY_CANCEL};desk_menu_key(&m,&cancel);assert(m.open<0);
     key(SRV_KEY_F10);
+    memcpy(bad,items,sizeof(bad));bad[6].flags=0;
+    assert(!desk_menu_replace(&m,bad,8) && m.open==0 && m.selected==1); /* Unrelated group update. */
+    bad[1].flags=DESK_MENU_DISABLED;
+    assert(!desk_menu_replace(&m,bad,8) && m.open==0 && m.selected==-1 && !m.armed);
+    assert(!key(SRV_KEY_ENTER).action && m.open==0); /* No fallthrough into app. */
+    assert(!desk_menu_replace(&m,items,8));key(SRV_KEY_HOME);
+    key(SRV_KEY_RIGHT);assert(m.open==1);
+    assert(!desk_menu_replace(&m,items,5) && m.open==0 && m.selected==-1 && !key(SRV_KEY_ENTER).action);
+    assert(!desk_menu_replace(&m,items,8));key(SRV_KEY_HOME);
     for(unsigned i=0;i<sizeof(pixels)/sizeof(*pixels);i++) pixels[i]=tiles[i]=0xdeadbeef;
     struct desk_canvas a,b;assert(!desk_canvas_init(&a,pixels,W,H,STRIDE));assert(!desk_canvas_init(&b,tiles,W,H,STRIDE));
     desk_menu_bar_draw(&a,&m,&desk_theme_quiet);desk_menu_popup_draw(&a,&m,&desk_theme_quiet);

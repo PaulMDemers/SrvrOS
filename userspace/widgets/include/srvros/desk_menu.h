@@ -23,6 +23,10 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count);
 void desk_menu_init(struct desk_menu *menu);
 int desk_menu_configure(struct desk_menu *menu,const struct desk_menu_item *items,unsigned count,
     struct desk_rect bar,struct desk_rect bounds,const struct desk_font *font);
+/* Replace content in the same layout. Keeps the open heading, but retains a
+ * selection only when the complete selected item is unchanged and enabled.
+ * Changed popup contents disarm a pending pointer release. */
+int desk_menu_replace(struct desk_menu *menu,const struct desk_menu_item *items,unsigned count);
 void desk_menu_cancel(struct desk_menu *menu);
 struct desk_rect desk_menu_heading(const struct desk_menu *menu,unsigned group);
 struct desk_rect desk_menu_popup(const struct desk_menu *menu);

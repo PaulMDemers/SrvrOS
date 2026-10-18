@@ -30,6 +30,7 @@ struct session {
     struct desktop_scene scene;
     struct desk_damage damage;
     struct desk_rect menu_visible;
+    uint64_t menu_owner;
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
     int child_apps[DESKD_WINDOWS],exiting,text_size;
@@ -247,8 +248,11 @@ static void global_menu_rebuild(struct session *s) {
         while(n && !desk_text_utf8_valid(s->scene.windows[i].title,n)) n--;
         if(n) memcpy(item->label,s->scene.windows[i].title,n);else strcpy(item->label,"Window");
     }
-    desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-190,44},
+    uint64_t owner=s->scene.focus>=0?s->clients[s->scene.focus].pid:0;
+    if(s->scene.menu.font && owner==s->menu_owner) desk_menu_replace(&s->scene.menu,items,count);
+    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-190,44},
         (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
+    s->menu_owner=owner;
     global_menu_damage(s);
 }
 static void global_menu_action(struct session *s,uint32_t id) {

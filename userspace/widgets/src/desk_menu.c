@@ -17,6 +17,7 @@ int desk_menu_valid(const struct desk_menu_item *items,unsigned count) {
         if(p->flags&DESK_MENU_HEADING) {
             if(p->flags!=DESK_MENU_HEADING || p->id || !p->label[0] || p->shortcut[0] ||
                 (groups && !rows) || ++groups>DESK_MENU_GROUPS) return 0;
+            for(unsigned j=0;j<i;j++) if((items[j].flags&DESK_MENU_HEADING) && !strcmp(items[j].label,p->label)) return 0;
             rows=0;
         } else {
             if(!groups || ++rows>12) return 0;
@@ -44,6 +45,26 @@ int desk_menu_configure(struct desk_menu *m,const struct desk_menu_item *items,u
 }
 static unsigned end(const struct desk_menu *m) {
     return m->open+1<(int)m->groups?m->headings[m->open+1]:m->count;
+}
+int desk_menu_replace(struct desk_menu *m,const struct desk_menu_item *items,unsigned count) {
+    if(!desk_menu_valid(items,count)) return -1;
+    struct desk_menu_item old[13],selected={0};unsigned old_count=0;int armed=m->armed;
+    if(m->open>=0 && m->open<(int)m->groups) {
+        unsigned first=m->headings[m->open];old_count=end(m)-first;
+        memcpy(old,m->items+first,old_count*sizeof(old[0]));
+        if(m->selected>=0) selected=m->items[m->selected];
+    }
+    if(desk_menu_configure(m,items,count,m->bar,m->bounds,m->font)) return -1;
+    if(!old_count) return 0;
+    for(unsigned g=0;g<m->groups;g++) if(!strcmp(m->items[m->headings[g]].label,old[0].label)) {
+        m->open=g;unsigned first=m->headings[g],last=end(m);
+        if(last-first==old_count && !memcmp(m->items+first,old,old_count*sizeof(old[0]))) m->armed=armed;
+        if(selected.id) for(unsigned i=first+1;i<last;i++)
+            if(!(m->items[i].flags&DESK_MENU_DISABLED) && !memcmp(&m->items[i],&selected,sizeof(selected))) m->selected=i;
+        break;
+    }
+    if(m->open<0 && m->groups) m->open=0;
+    return 0;
 }
 static int enabled(const struct desk_menu *m,int i) {
     return i>=0 && i<(int)m->count && !(m->items[i].flags&(DESK_MENU_HEADING|DESK_MENU_SEPARATOR|DESK_MENU_DISABLED));

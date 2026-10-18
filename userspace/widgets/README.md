@@ -190,7 +190,11 @@ snapshot revision; the runtime rejects unknown, disabled, unfocused or stale
 actions. The server adds its SrvrOS and Window menus and routes app actions back
 to the focused process. Shared controls never execute commands or perform IPC.
 `desk_edit_command` exposes selection, undo/redo and clipboard requests directly
-so menus and keyboard shortcuts use the same editor behavior.
+so menus and keyboard shortcuts use the same editor behavior. Content updates
+use `desk_menu_replace`: an open heading remains open, an unchanged selected
+item stays selected, and changed popup contents disarm pointer release. Removed
+headings fall back to the first menu without selecting a command. This keeps a
+background update from sending the user's next Enter into the document.
 
 ## Modal dialogs and wrapped text
 
