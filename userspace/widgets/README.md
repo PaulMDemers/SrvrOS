@@ -486,3 +486,42 @@ already accepted filesystem mutation; an incomplete transfer is abandoned.
 
 Checks: `make test-capture test-notices`; end-to-end verification:
 `tools/host-env.sh python3 tools/desktop_capture_smoke.py`.
+
+### Sliders, color panels and editable canvases
+
+`desk_slider` is a horizontal signed 32-bit scalar control with an inclusive
+range and positive step. Pointer values snap relative to the minimum; Home/End,
+arrows and Page Up/Down are supported. Shift-arrows step by ten units. Thumb
+presses preserve the exact value, including ranges finer than screen pixels.
+Resize, disable and focus loss cancel capture. Wheel scrolling leaves values
+alone. It participates in `desk_ui` as `DESK_CONTROL_SLIDER`.
+
+`desk_color_panel` composes three sliders, twelve preset swatches, a color preview
+and Use/Cancel/Copy buttons. It owns an RGB draft and a seven-byte uppercase hex
+representation. Only Use asks the owner to adopt the draft; Copy returns a request
+for the owner to handle with its clipboard client. The compact panel fits a
+280×240 application and supports both body fonts.
+
+`desk_bitmap` owns no allocation: the caller supplies an arena for the working
+image and 2–8 committed history states. A stroke/shape/clear is one transaction.
+Preview restore and cancel return to the last committed image. Commit discards
+redo, rotates history pointers when full, and skips unchanged results. Saved
+revision IDs distinguish a completed background snapshot from newer edits.
+Imported straight alpha is flattened onto white; working pixels are opaque.
+
+`desk_paint` binds that model to the shared image viewport. Pen joins successive
+points continuously; Line and Box preview a replacement shape. Pan, zoom, scroll
+and keyboard navigation use `desk_image`. `desk_image_point` exposes the same
+viewport-to-pixel mapping used by rendering, with optional clamping to visible
+pixels. Focus loss, resize, Escape or tool changes cancel an unfinished gesture.
+The view participates in `desk_ui` as `DESK_CONTROL_PAINT`.
+
+Sketch uses these components with four undo steps, image import, global menus,
+file pickers and a background verified BMP-copy save. Existing files are never
+replaced by Save copy. New/Open/Close prompt for unsaved work. A save remembers its
+revision, so drawing during a save cannot mark newer content clean. Preview's
+Edit in Sketch hands off its current image. There are no layers, object editing,
+text tools or flood fill in this first version.
+
+Checks: `make test-slider test-color-panel test-bitmap test-paint test-sketch-app`;
+native workflow: `tools/host-env.sh python3 tools/desktop_sketch_smoke.py`.

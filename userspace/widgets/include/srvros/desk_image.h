@@ -22,5 +22,8 @@ unsigned desk_image_zoom(struct desk_image *image,int direction);
 unsigned desk_image_scroll(struct desk_image *image,int32_t dx,int32_t dy);
 unsigned desk_image_event(struct desk_image *image,struct desk_widget_event event);
 unsigned desk_image_key(struct desk_image *image,const struct srv_key_event *key);
+/* Map viewport coordinates to source pixels; optional clamping stays inside
+ * both the visible viewport and image. Invalid/empty views return zero. */
+int desk_image_point(const struct desk_image *image,int32_t x,int32_t y,int clamp_to_view,int32_t *pixel_x,int32_t *pixel_y);
 void desk_image_draw(struct desk_canvas *canvas,const struct desk_image *image,const struct desk_theme *theme);
 #endif

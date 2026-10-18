@@ -861,3 +861,36 @@ verified exact editor content on disk, opened the notification's folder and load
 the image in Preview, repeated capture through the menu, and exited cleanly.
 Evidence: `desktop_capture_smoke.py`, `native-desktop-capture.png`. No hardware
 reboot or deployment occurred.
+
+### Shared color/drawing controls and Sketch
+
+Added an inclusive signed-range slider with pointer snapping, keyboard steps,
+focus/capture behavior and no accidental wheel changes. The reusable RGB panel
+combines three sliders, twelve swatches, a color preview, exact hex export and a
+draft that is only committed by Use. Both join the existing toolkit rather than
+being private application controls. The compact panel fits a 280×240 window.
+
+The bitmap model uses a caller-owned arena with bounded pointer-rotated history.
+Strokes, lines, boxes and clear are transactions; canceled gestures restore the
+previous image, previews leave no ghosts, no-op edits consume no undo step and
+new edits discard redo. Saved revision IDs keep background snapshots separate
+from newer edits. The editable image view shares Preview's zoom/pan rendering and
+coordinate mapping. Transparent imports are flattened onto white for opaque BMP
+output. Focus loss, resize, tool changes and Escape cancel unfinished gestures.
+
+Sketch is a native launcher application with Pen/Line/Box/Pan, 1–32 pixel brushes,
+color selection, four undo steps, image import, global menus, file pickers and
+verified background BMP copies. Existing files are preserved. New/Open/Close ask
+about unsaved work; saving remembers its exact revision while editing can continue.
+Preview's Edit in Sketch hands off the current image. Help documents controls and
+limits. Layers, text objects, flood fill and selections remain future work.
+
+Host/model/controller tests and address/UB sanitizers passed; the full desktop
+suite and production build passed. The VM test independently generated expected
+pixels for Pen/Line/Box and compared both saved BMPs exactly, with undo/redo,
+editing during save, collision preservation, a safe close prompt, hex clipboard
+export into Text, Preview-to-Sketch import, compact drawing/color views and orderly
+exit. Normal/compact screenshots were reviewed. This test also exposed and fixed
+a one-shot worker race: a process can exit after queuing its reply; the capture
+client now drains the pipe and uses EOF rather than a racy liveness probe. The
+specific ordering has a host regression test. No hardware reboot or deployment.

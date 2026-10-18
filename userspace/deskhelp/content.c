@@ -8,7 +8,7 @@
 #define C(id,text) {id,DESK_DOCUMENT_CODE,text}
 static const struct desk_document_block welcome[]={
  T(1,"Welcome to SrvrOS"),P(2,"A small desktop, built from the ground up. Open a tool, arrange your workspace and make something. This guide travels with the system and works without a network connection."),
- H(3,"Find your way"),P(4,"The dock opens Files, Text, Calculator, System, Settings and Terminal. Press Command-Space to search for any application or an open window. Preview, Clock and Help are available there too."),
+ H(3,"Find your way"),P(4,"The dock opens Files, Text, Calculator, System, Settings and Terminal. Press Command-Space to search for any application or an open window. Preview, Sketch, Clock and Help are available there too."),
  H(5,"Start with a document"),P(6,"Open Text, type a few lines and choose File > Save. Your home folder is /fat/home. Files can open saved text and images with the appropriate application."),
  H(7,"Make it yours"),P(8,"Settings offers larger text, wallpaper colors and clock preferences. The global menu follows the active application. Click the clock to open the calendar."),
  H(9,"Using this guide"),P(10,"Choose Topics or press Ctrl-L to search the guide. Back and Forward restore the page and your scroll position. Copy page puts a plain-text copy on the shared clipboard. Open app starts the tool described by the current topic."),
@@ -51,7 +51,7 @@ static const struct desk_document_block terminal[]={
  C(9,"seq 1 10 | wc -l\necho hello > /fat/home/greeting.txt"),
  H(10,"Closing"),P(11,"Type exit to leave the shell. Closing the window while its shell is running asks for confirmation. This terminal does not yet provide full Unix job control or saved shell history.")};
 static const struct desk_document_block preview[]={
- T(1,"Preview"),P(2,"Open PNG, JPEG and BMP images. Choose one in Files or press Ctrl-O in Preview to browse. Decoding runs in a separate worker so the desktop can continue handling input."),
+ T(1,"Preview"),P(2,"Open PNG, JPEG and BMP images. Choose one in Files or press Ctrl-O in Preview to browse. Decoding runs in a separate worker so the desktop can continue handling input. Ctrl-E or File > Edit in Sketch opens the current image in the drawing tool."),
  H(3,"Look closer"),P(4,"Fit or 0 fits the image inside the window without enlarging a small image. 1:1 or 1 displays one image pixel per screen pixel. Plus and Minus step through zoom levels from 6.25% to 400%."),
  P(5,"Drag to pan a zoomed image. Scrolling and arrow keys move around it; Page Up, Page Down, Home and End offer larger movements. Transparent pixels appear over a checkerboard."),
  H(6,"Opening another image"),P(7,"Cancel or Escape stops an in-progress opening. The previous image remains visible if the new file cannot be opened. Open is available again after the canceled worker has finished closing."),
@@ -85,8 +85,8 @@ static const struct desk_document_block limits[]={
  N(11,"Save work before ending a session. A destructive file operation does not have a desktop undo or recovery facility.")};
 static const struct desk_document_block about[]={
  T(1,"SrvrOS"),P(2,"A native operating system and a quiet, practical desktop. Built from scratch, with the MacBook Air as its first physical desktop target."),
- H(3,"One shared toolkit"),P(4,"Applications use the same buttons, text fields, lists, tables, tabs, scrollbars, dialogs, file pickers, image views, property views, document views and contextual menus. The desktop supplies window management, global menus, a launcher, calendar and clipboard."),
- H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview, Clock and Help. Open app below opens System for a view of running processes and network status."),
+ H(3,"One shared toolkit"),P(4,"Applications use the same buttons, text fields, lists, tables, tabs, scrollbars, dialogs, file pickers, image views, property views, document views, sliders, drawing canvases, color panels and contextual menus. The desktop supplies window management, global menus, a launcher, calendar and clipboard."),
+ H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview, Sketch, Clock and Help. Open app below opens System for a view of running processes and network status."),
  H(7,"Acknowledgments"),P(8,"The desktop uses DejaVu fonts. Preview uses the stb_image decoder under its MIT license. The source repository includes upstream licenses and records local changes."),
  N(9,"This is a development system. Hardware acceptance and virtual-machine validation are tracked separately in the project documentation.")};
 static const struct desk_document_block clock_guide[]={
@@ -97,6 +97,13 @@ static const struct desk_document_block clock_guide[]={
  H(9,"Work in another window"),P(10,"Minimize Clock to keep timing while you work. A completed timer shows a brief notification without taking focus. Alerts in the menu bar, SrvrOS > Notifications or Command-Shift-N opens the session history. Open app returns to the source window when it is still open; otherwise it starts the application."),
  P(11,"Click a notification's close button to dismiss its banner. The history retains up to 16 notices, with at most four from one window. Clear removes a selected notice and Clear all empties the history. Opening history marks its notices as read."),
  N(12,"Closing Clock stops its timer and stopwatch; the window asks first while either is running. Timers, laps and notifications are not saved across sessions. There is no audible alarm or suspend/resume guarantee. The stopwatch stops at 100 hours.")};
+static const struct desk_document_block sketch_guide[]={
+ T(1,"Sketch"),P(2,"Draw on a blank 640 by 360 canvas, or open a PNG, JPEG or BMP image. Sketch uses the shared color panel, sliders, canvas and image workers."),
+ H(3,"Draw and navigate"),P(4,"Choose Pen, Line or Box, then drag on the canvas. B, L and R select those tools. Pan (H), wheel scrolling and arrow keys move a zoomed canvas. Plus and minus zoom; 0 fits and 1 shows actual pixels. The Size slider sets a 1 to 32 pixel brush. Paint with white to erase."),
+ H(5,"Choose a color"),P(6,"Color or Ctrl-K opens the RGB panel. Drag a channel slider, or use arrow keys, Page Up/Down and Home/End. Shift with an arrow changes ten units. Choose a swatch for a preset. Copy puts the hex color on the clipboard. Use applies the draft; Cancel keeps the previous brush color."),
+ H(7,"Undo and cancel"),P(8,"Each completed stroke, line, box or clear is one undo step. Ctrl-Z undoes and Ctrl-Shift-Z redoes; the latest four steps are retained. A new edit discards redo. Escape, focus loss or resize cancels an unfinished stroke or shape. Edit > Clear canvas fills white and can be undone."),
+ H(9,"Save a copy"),P(10,"Ctrl-S writes a new BMP copy through a background worker and verifies the saved bytes. Choose a filename ending in .bmp. Existing files are kept; use a different name. Drawing can continue during saving, and newer changes remain marked unsaved. New, Open and Close ask what to do with unsaved work. Imports retain their original files."),
+ N(11,"Sketch flattens transparent images onto white and saves opaque BMPs. Its image size must fit an 8 MiB BMP; inputs also follow Preview's format limits. There are no layers, text objects, selections, flood fill or pressure-sensitive brushes yet.")};
 #define TOPIC(id,alias,title,detail,app,data) {id,alias,title,detail,app,data,sizeof(data)/sizeof(*data)}
 const struct help_topic help_topics[]={
  TOPIC(1,"welcome","Welcome","Start here · applications and documents",0,welcome),
@@ -112,6 +119,7 @@ const struct help_topic help_topics[]={
  TOPIC(11,"limits","Current scope","Limits · supported features · testing",0,limits),
  TOPIC(12,"about","About SrvrOS","System · toolkit · acknowledgments",DESK_APP_SYSTEM,about),
  TOPIC(13,"clock","Clock","Timer · stopwatch · laps · alerts · notifications",DESK_APP_CLOCK,clock_guide),
+ TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
 };
 const unsigned help_topic_count=sizeof(help_topics)/sizeof(*help_topics);
 const struct help_topic *help_topic(unsigned id) { for(unsigned i=0;i<help_topic_count;i++) if(help_topics[i].id==id) return &help_topics[i];return NULL; }

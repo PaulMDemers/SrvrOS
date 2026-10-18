@@ -128,3 +128,18 @@ void desk_image_draw(struct desk_canvas *c,const struct desk_image *v,const stru
     }
     c->clip=old;
 }
+
+int desk_image_point(const struct desk_image *v,int32_t px,int32_t py,int clamped,int32_t *sx,int32_t *sy) {
+    struct desk_rect r=desk_widget_inset(v->frame,1);
+    if(!v->pixels || !v->width || !v->height || !v->scale || !r.w || !r.h || !sx || !sy) return 0;
+    int w=scaled(v->width,v->scale),h=scaled(v->height,v->scale);
+    int x=r.x+(w<r.w?(r.w-w)/2:-v->offset_x),y=r.y+(h<r.h?(r.h-h)/2:-v->offset_y);
+    struct desk_rect visible=desk_intersect(r,(struct desk_rect){x,y,w,h});
+    if(!visible.w || !visible.h || (!clamped && !desk_widget_contains(visible,px,py))) return 0;
+    int64_t cx=px,cy=py;
+    if(cx<visible.x) cx=visible.x;
+    if(cy<visible.y) cy=visible.y;
+    if(cx>=visible.x+visible.w) cx=visible.x+visible.w-1;
+    if(cy>=visible.y+visible.h) cy=visible.y+visible.h-1;
+    *sx=clamp((cx-x)*ONE/v->scale,(int)v->width-1);*sy=clamp((cy-y)*ONE/v->scale,(int)v->height-1);return 1;
+}

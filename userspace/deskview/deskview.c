@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-enum { VIEW_OPEN=1,VIEW_CANCEL,VIEW_FIT,VIEW_ACTUAL,VIEW_OUT,VIEW_IN,VIEW_IMAGE,VIEW_CLOSE };
+enum { VIEW_OPEN=1,VIEW_CANCEL,VIEW_FIT,VIEW_ACTUAL,VIEW_OUT,VIEW_IN,VIEW_IMAGE,VIEW_CLOSE,VIEW_SKETCH };
 struct preview_app {
     struct desk_app window;
     struct desk_ui ui;
@@ -149,6 +149,7 @@ static void action(struct desk_action a) {
         desk_log("deskview: view scale=%u fit=%d x=%d y=%d\n",app.view.scale,app.view.fit,app.view.offset_x,app.view.offset_y);
     if(!(a.flags&DESK_WIDGET_ACTIVATED)) return;
     if(a.id==VIEW_OPEN) { picker_open();return; }
+    if(a.id==VIEW_SKETCH) { if(app.pixels && app.path[0] && !app.image_job.busy) { if(desk_app_launch(&app.window,DESK_APP_SKETCH,app.path)) status("Sketch could not be opened. Try again."); }return; }
     if(a.id==VIEW_CLOSE) { app.quit=1;return; }
     if(a.id==VIEW_CANCEL) { desk_image_job_cancel(&app.image_job);status("Opening canceled. The current image was kept.");layout(); }
     else if(a.id==VIEW_FIT) desk_image_fit(&app.view);
@@ -162,6 +163,7 @@ static void key(const struct srv_key_event *k) {
     if(app.picker_open) { picker_action(desk_picker_key(&app.picker,k));return; }
     if(k->flags&SRV_KEY_DOWN_EVENT) {
         if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==18) { picker_open();return; }
+        if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==8) { action((struct desk_action){VIEW_SKETCH,DESK_WIDGET_ACTIVATED});return; }
         if((k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META)) && k->usage==26) { app.quit=1;return; }
         if(k->usage==SRV_KEY_ESCAPE && app.image_job.busy) { action((struct desk_action){VIEW_CANCEL,DESK_WIDGET_ACTIVATED});return; }
     }
@@ -174,6 +176,7 @@ static void menus(void) {
         {0,DESK_MENU_HEADING,"File",""},
         {VIEW_OPEN,modal|(app.image_job.busy || app.image_job.retiring_pid || app.file_job.busy?DESK_MENU_DISABLED:0),"Open image…","Ctrl-O"},
         {VIEW_CANCEL,modal|(!app.image_job.busy?DESK_MENU_DISABLED:0),"Cancel opening","Esc"},
+        {VIEW_SKETCH,empty|(app.image_job.busy?DESK_MENU_DISABLED:0),"Edit in Sketch","Ctrl-E"},
         {VIEW_CLOSE,modal,"Close window","Ctrl-W"},
         {0,DESK_MENU_HEADING,"View",""},
         {VIEW_FIT,empty|(app.view.fit?DESK_MENU_CHECKED:0),"Fit in window","0"},
