@@ -14,6 +14,39 @@ battery serial numbers or input events. Values retain Linux units and are not
 an atomic snapshot. The unprivileged capture records unavailable ACPI-table
 reads in `capture.json`; an unread table is not evidence that it is absent.
 
+## Current checkpoint: evening device candidate
+
+The sections below preserve the bring-up sequence; earlier statements about
+unavailable controls describe those earlier stages. Candidate
+**0620ce5e026b2f32** now includes manual brightness, HDA test-tone output,
+read-only CPU/fan providers, device inventory, CDC ECM networking and isolated
+AML discovery. Their implementation/VM results are recorded in the
+[device progress](desktop-progress-2026-10-18.md#device-support-block-audio-usb-networking-and-sensors).
+The new audio and sensor providers still need physical acceptance. Battery/AC,
+recording, media playback, fan control, lid policy and suspend remain unfinished.
+
+After the physical round, advance device support in this order:
+
+1. Resolve any audio route, sensor or tap failures from the preserved session
+   diagnostics. Keep those fixes separate from adding continuous playback.
+2. Match an actual USB adapter's captured identifiers/descriptors to its driver
+   requirements. The October 18 evening inventory still has no Ethernet adapter;
+   CDC ECM VM success does not establish support for an arbitrary purchase.
+3. Build a separate live ACPI runtime adapter with scheduler-backed waits/work
+   and explicit SCI/GPE/EC ownership. Keep the isolated probe available as a
+   diagnostic. Do not turn its snapshot callbacks into live I/O callbacks.
+4. Serialize EC transactions and query dispatch through one owner, then bind the
+   existing SMBus/SBS engines to a scheduled provider. Publish complete samples
+   with age/error state and preserve charge versus energy units. Exercise delayed
+   replies, query contention, removal and failed initialization before enabling
+   the provider in the normal laptop profile.
+5. Add bounded PCM streaming to the accepted audio route, with explicit buffer
+   ownership, underrun silence, cancellation and per-client cleanup. Test streams
+   during USB writes and app termination before adding a media player.
+
+Power-off and suspend/resume each need their own storage-flush and device-state
+acceptance work. Neither should be inferred from working sensors or battery data.
+
 ## Observed target
 
 | Component | Observation |

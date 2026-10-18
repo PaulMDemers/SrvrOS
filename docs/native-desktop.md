@@ -54,6 +54,15 @@ step is demand-sized window buffers, coordinated queue/surface capacity and
 graceful allocation failure under memory pressure; this device milestone keeps
 the existing limit.
 
+A capacity follow-up should first allocate caches for live windows at their
+actual size, while retaining the old front buffer until a replacement frame is
+complete. Failed growth must leave the displayed frame and input ownership
+intact. Then coordinate client slots, GUI queues/surfaces and process resources
+under a memory budget. Validate opening beyond eight windows, repeated maximize/
+restore, close/reopen and allocation failure without leaks or lost input before
+raising the advertised limit. There will still be a resource ceiling, but it
+should be an intentional policy rather than eight preallocated full-screen pairs.
+
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size
 returns to the original position as well. Tiled windows must be restored or
