@@ -29,19 +29,12 @@ void tool_layout(struct tool *t) {
     int w=t->window.width,h=t->window.height;
     if(w<280 || h<240) return;
     int busy=t->job.busy,read_busy=busy && t->job.request.operation==DESK_FILE_READ;
-    if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) {
+    if(t->role==DESK_APP_TEXT) {
         for(int i=0;i<3;i++) desk_button_configure(&t->buttons[i],(struct desk_rect){16+i*84,16,76,28},!busy);
         desk_edit_configure(&t->path,(struct desk_rect){16,56,w-32,34},&desk_font_16,!read_busy && (t->role==DESK_APP_TEXT || !busy));
-        if(t->role==DESK_APP_TEXT) {
-            desk_edit_configure(&t->body,(struct desk_rect){16,102,w-32,h-144},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
-        } else {
-            for(int i=0;i<3;i++) { int x[]={268,356,468},width[]={80,104,80};
-                desk_button_configure(&t->buttons[4+i],w>=564?(struct desk_rect){x[i],16,width[i],28}:(struct desk_rect){0},!busy && w>=564 && t->table.body.selected>=0); }
-            desk_table_configure(&t->table,(struct desk_rect){16,102,w-32,h-190},!busy);
-            desk_edit_configure(&t->name,(struct desk_rect){16,h-76,w-156,34},&desk_font_16,!busy);
-            desk_button_configure(&t->buttons[3],(struct desk_rect){w-132,h-73,116,28},!busy);
-        }
-    } else if(t->role==DESK_APP_CALCULATOR) {
+        desk_edit_configure(&t->body,(struct desk_rect){16,102,w-32,h-144},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
+    } else if(t->role==DESK_APP_FILES) tool_files_layout(t);
+    else if(t->role==DESK_APP_CALCULATOR) {
         desk_edit_configure(&t->body,(struct desk_rect){24,56,w-48,38},&desk_font_20,1);
         desk_button_configure(&t->buttons[0],(struct desk_rect){24,110,112,32},1);
         desk_button_configure(&t->buttons[1],(struct desk_rect){148,110,88,32},1);
@@ -103,16 +96,18 @@ static void key(struct tool *t,const struct srv_key_event *k) {
         t->ui.focus>=0 && t->ui.controls[t->ui.focus].id==TOOL_LIST && (k->usage==0x3b || k->usage==SRV_KEY_DELETE)) {
         tool_files_action(t,(struct desk_action){k->usage==0x3b?TOOL_RENAME:TOOL_DELETE,DESK_WIDGET_ACTIVATED});return;
     }
-    if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&SRV_KEY_ALT) && k->usage==SRV_KEY_UP) {
-        tool_files_action(t,(struct desk_action){TOOL_UP,DESK_WIDGET_ACTIVATED});return;
+    if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&SRV_KEY_ALT)) {
+        unsigned action=k->usage==SRV_KEY_UP?TOOL_UP:k->usage==SRV_KEY_LEFT?TOOL_BACK:k->usage==SRV_KEY_RIGHT?TOOL_FORWARD:k->usage==SRV_KEY_HOME?TOOL_HOME:0;
+        if(action) { tool_files_action(t,(struct desk_action){action,DESK_WIDGET_ACTIVATED});return; }
     }
+    if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==SRV_KEY_F5) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
     if(t->role==DESK_APP_SYSTEM && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==0x3e) { tool_system_refresh(t,1);return; }
     tool_dispatch(t,desk_ui_key(&t->ui,k));
 }
 static void draw(struct tool *t,struct desk_canvas *c) {
     const struct desk_theme *theme=&desk_theme_quiet;
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},theme->surface);
-    if(t->role==DESK_APP_SETTINGS) tool_settings_draw(t,c);else desk_ui_draw(c,&t->ui,theme);
+    if(t->role==DESK_APP_SETTINGS) tool_settings_draw(t,c);else if(t->role==DESK_APP_FILES) tool_files_draw(t,c);else desk_ui_draw(c,&t->ui,theme);
     if(t->role==DESK_APP_CALCULATOR) {
         desk_label_draw(c,(struct desk_rect){24,20,c->width-48,28},theme->heading,"Calculator",theme->text);
         desk_label_draw(c,(struct desk_rect){24,164,c->width-48,28},theme->body,"Use +, -, *, / and parentheses. Enter evaluates.",theme->muted);

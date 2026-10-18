@@ -11,6 +11,12 @@
 
 static struct vfs_node nodes[VFS_MAX_NODES];
 static uint64_t node_count;
+/* The boot archive has bounded paths and file count. Keep synthesized directory
+ * names alive independently of the temporary prefix used while walking a path. */
+#define VFS_BOOT_DIRECTORIES 256
+#define VFS_BOOT_PATH 256
+static char boot_directories[VFS_BOOT_DIRECTORIES][VFS_BOOT_PATH];
+static unsigned boot_directory_count;
 static uint64_t next_inode = 1;
 static vfs_metadata_changed_fn metadata_changed_callback;
 
@@ -210,20 +216,57 @@ bool vfs_register_file_with_metadata(const char *path,
     return false;
 }
 
+static bool boot_parents(const char *path) {
+    if(path == NULL || path[0] != '/' || !path[1]) return false;
+    char prefix[VFS_BOOT_PATH];unsigned length=0;
+    while(path[length]) {
+        if(length+1>=sizeof(prefix)) return false;
+        prefix[length]=path[length];length++;
+    }
+    prefix[length]=0;
+    unsigned component=1;
+    for(unsigned i=1;i<=length;i++) if(!prefix[i] || prefix[i]=='/') {
+        unsigned count=i-component;
+        if(!count || (count==1 && prefix[component]=='.') ||
+           (count==2 && prefix[component]=='.' && prefix[component+1]=='.')) return false;
+        component=i+1;
+    }
+    for(unsigned i=1;i<length;i++) {
+        if(prefix[i]!='/') continue;
+        if(prefix[i-1]=='/' || i+1==length) return false;
+        prefix[i]=0;
+        const struct vfs_node *node=vfs_lookup(prefix);
+        if(node && node->type!=VFS_NODE_DIRECTORY) return false;
+        if(!node) {
+            if(boot_directory_count==VFS_BOOT_DIRECTORIES) return false;
+            char *name=boot_directories[boot_directory_count];
+            for(unsigned j=0;j<=i;j++) name[j]=prefix[j];
+            if(!vfs_register_directory(name)) return false;
+            boot_directory_count++;
+        }
+        prefix[i]='/';
+    }
+    const struct vfs_node *existing=vfs_lookup(path);
+    return !existing || existing->type==VFS_NODE_FILE;
+}
+
 void vfs_init(void) {
     node_count = 0;
     next_inode = 1;
+    boot_directory_count = 0;
     metadata_changed_callback = NULL;
     for (uint64_t i = 0; i < VFS_MAX_NODES; i++) {
         nodes[i].used = false;
     }
 
+    (void)vfs_register_directory("/");
+    uint64_t skipped=0;
     for (uint64_t i = 0; i < initramfs_file_count() && node_count < VFS_MAX_NODES; i++) {
         const struct initramfs_file *file = initramfs_file_at(i);
-        vfs_register_file(file->path, file->size, file, initramfs_read_all);
+        if(!file || !boot_parents(file->path) || !vfs_register_file(file->path, file->size, file, initramfs_read_all)) skipped++;
     }
 
-    console_printf("vfs: mounted initramfs nodes=%u\n", node_count);
+    console_printf("vfs: mounted initramfs nodes=%u skipped=%u\n", node_count, skipped);
 }
 
 uint64_t vfs_count(void) {

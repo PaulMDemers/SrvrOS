@@ -48,6 +48,11 @@ void tool_menu_refresh(struct tool *t) {
     }
     if(t->role==DESK_APP_FILES) {
         append(items,&count,0,"Go",NULL,DESK_MENU_HEADING);
+        append(items,&count,TOOL_BACK,"Back","Alt-Left",busy|(t->location_index<=0?DESK_MENU_DISABLED:0));
+        append(items,&count,TOOL_FORWARD,"Forward","Alt-Right",busy|(t->location_index+1>=t->location_count?DESK_MENU_DISABLED:0));
+        append(items,&count,TOOL_HOME,"Home","Alt-Home",busy);
+        append(items,&count,TOOL_VOLUME,"Startup disk",NULL,busy);
+        append(items,&count,TOOL_ROOT,"System root",NULL,busy);
         append(items,&count,TOOL_UP,"Parent folder","Alt-Up",busy);
         append(items,&count,MENU_LOCATION,"Location…","Ctrl-L",busy);
         append(items,&count,TOOL_REFRESH,"Refresh","Ctrl-R",busy);

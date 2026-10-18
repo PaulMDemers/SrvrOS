@@ -470,3 +470,24 @@ workflow passed. The guest verifies search via keyboard and global menu, focus
 restoration by saved-document readback, no close-box click-through, both clipboard
 directions and explicit new windows. Visual review shortened detail labels to fit.
 Screenshot: `native-desktop-launcher.png`.
+
+### Files navigation and a real system root
+
+Files now has a Places area (Home, Startup disk, System root), Back/Forward,
+Alt-Left/Right, Alt-Home and F5. Its 24-entry history commits only successful
+listings and retains per-location selection/scroll state. Failed requests leave
+the displayed folder and history intact; new navigation after Back discards the
+old forward branch. Lexical absolute paths collapse repeated slashes and dot
+components. Narrow layouts keep navigation and move secondary commands to menus.
+
+The guest test exposed an existing VFS gap: boot-archive files had no root or
+parent directory nodes. Boot registration now creates `/` and bounded persistent
+parent-directory names, rejecting conflicting or noncanonical archive paths.
+This makes root and archive subfolders visible to stat/readdir and the GUI.
+It does not make the boot archive writable.
+
+Validation: full core and desktop host suites, Files ASan/UBSan, root/parent VFS
+and root enumeration tests passed. The QEMU Files workflow passes Places,
+Back/Forward/branching, failed-path recovery, normalization, refresh and all prior
+rename/duplicate/delete checks. The final layout screenshot was inspected and
+updated at `native-desktop-files.png`.

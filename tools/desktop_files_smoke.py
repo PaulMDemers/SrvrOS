@@ -78,21 +78,34 @@ def main():
                 click(390,750);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 type_text("file-actions");shortcut("f2");wait(b"files-prompt operation=5");shot("rename-prompt")
                 type_text("renamed-actions.txt");qmp.key("ret");wait(b"file-result role=files op=5 status=0");wait(b"file-result role=files op=3 status=0")
-                click(460,162);wait(b"files-prompt operation=7");shot("duplicate-prompt");qmp.key("ret")
+                click(605,162);wait(b"files-prompt operation=7");shot("duplicate-prompt");qmp.key("ret")
                 wait(b"file-result role=files op=7 status=0");wait(b"file-result role=files op=3 status=0");shot("copy-verified")
-                click(565,162);wait(b"files-delete-confirm");shot("delete-confirm");qmp.key("ret");wait(b"files-delete-canceled")
-                click(565,162);wait(b"files-delete-confirm");click(580,445)
+                click(708,162);wait(b"files-delete-confirm");shot("delete-confirm");qmp.key("ret");wait(b"files-delete-canceled")
+                click(708,162);wait(b"files-delete-confirm");click(580,445)
                 wait(b"file-result role=files op=6 status=0");wait(b"file-result role=files op=3 status=0")
                 type_text("renamed-actions");shortcut("f2");wait(b"files-prompt operation=5");type_text("home");qmp.key("ret")
                 wait(b"file-result role=files op=5 status=2");shot("collision-kept")
                 shortcut("ctrl-r");wait(b"file-result role=files op=3 status=0")
                 # Exercise directory creation and guarded empty-directory rename.
-                click(180,550);shortcut("ctrl-a");type_text("Action folder");click(700,553)
+                click(300,550);shortcut("ctrl-a");type_text("Action folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
                 type_text("Action folder");shortcut("f2");wait(b"files-prompt operation=5");type_text("Renamed folder");qmp.key("ret")
                 wait(b"file-result role=files op=5 status=0");wait(b"file-result role=files op=3 status=0")
                 # Sort via the shared heading and inspect details.
                 click(670,247);wait(b"files-sort column=3 descending=0");shot("files-details")
+                # Places and history commit only after the requested folder opens.
+                shortcut("alt-home");wait(b"files-location path=/fat/home history=2/2")
+                shortcut("alt-left");wait(b"files-location path=/fat history=1/2")
+                shortcut("alt-right");wait(b"files-location path=/fat/home history=2/2")
+                shortcut("ctrl-l");type_text("/fat/no-such-folder");qmp.key("ret");wait(b"file-result role=files op=3 status=1")
+                shortcut("alt-left");wait(b"files-location path=/fat history=1/2")
+                # Branching from history discards the old Forward destination.
+                click(110,359);wait(b"files-location path=/ history=2/2")
+                shortcut("alt-left");wait(b"files-location path=/fat history=1/2")
+                shortcut("alt-right");wait(b"files-location path=/ history=2/2")
+                click(110,319);wait(b"files-location path=/fat history=3/3")
+                shortcut("ctrl-l");type_text("//fat/home/.././");qmp.key("ret");wait(b"files-location path=/fat history=3/3")
+                shortcut("f5");wait(b"files-location path=/fat history=3/3");shot("files-navigation")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/renamed-actions.txt\n");wait(b"Files action sample.");wait(b"srv> ")
                 serial.sendall(b"ls /fat\n");wait(b"Renamed folder");wait(b"srv> ")
@@ -101,7 +114,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-files: PASS sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision preservation and empty-directory rename. Evidence: {out}")
+    print(f"desktop-files: PASS Places, successful-only history, back/forward/branching, path normalization, refresh, sorted metadata, shared rename/duplicate prompts, verified copy, safe delete cancel/confirm, collision preservation and empty-directory rename. Evidence: {out}")
 
 
 if __name__=="__main__": main()

@@ -9,9 +9,11 @@
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
-enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT };
+enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
+#define TOOL_HISTORY 24
+struct tool_location { char path[DESK_FILE_PATH];uint64_t selected;int scroll; };
 struct tool {
     int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
     struct desk_app window;
@@ -42,6 +44,8 @@ struct tool {
     struct desk_file_entry entries[DESK_FILE_ENTRIES];
     char details[DESK_FILE_ENTRIES][32],file_dates[DESK_FILE_ENTRIES][24];
     int file_count;
+    struct tool_location locations[TOOL_HISTORY];
+    int location_count,location_index,location_pending;
     struct desk_file_job job;
     char status[160],saved_path[DESK_FILE_PATH],pending_path[DESK_FILE_PATH];
     char saved_data[DESK_FILE_BYTES+1],clipboard[DESK_FILE_BYTES+1];
@@ -89,6 +93,8 @@ void tool_text_request(struct tool *tool,int pending);
 void tool_text_dialog(struct tool *tool,unsigned id);
 void tool_files_prompt(struct tool *tool,struct desk_action action);
 void tool_files_dialog(struct tool *tool,unsigned id);
+void tool_files_layout(struct tool *tool);
+void tool_files_draw(struct tool *tool,struct desk_canvas *canvas);
 void tool_files_init(struct tool *tool,const char *path);
 void tool_files_action(struct tool *tool,struct desk_action action);
 void tool_files_finish(struct tool *tool,int result);

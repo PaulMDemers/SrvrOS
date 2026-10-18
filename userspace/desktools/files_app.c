@@ -38,22 +38,89 @@ static void file_rows(struct tool *t) {
     }
     desk_table_rows(&t->table,t->table_rows,t->file_count);t->window.dirty=1;
 }
-static void list_directory(struct tool *t,const char *path) {
-    char target[DESK_FILE_PATH];snprintf(target,sizeof(target),"%s",path);
-    size_t n=strlen(target);while(n>1 && target[n-1]=='/') target[--n]=0;
-    if(!t->worker_ready || desk_file_job_start(&t->job,DESK_FILE_LIST,target,NULL,0,0,0)) {
-        tool_status(t,"Enter an absolute folder path and try again.");return;
+/* Keep navigation state separate from in-flight folder requests. A failed request
+ * never consumes history or changes the authoritative displayed folder. */
+static int normalize_path(const char *path,char target[DESK_FILE_PATH]) {
+    if(!path || path[0]!='/' || strlen(path)>=DESK_FILE_PATH || !desk_text_utf8_valid(path,strlen(path))) return -1;
+    size_t length=1;target[0]='/';target[1]=0;
+    for(const char *p=path;*p;) {
+        while(*p=='/') p++;
+        const char *start=p;while(*p && *p!='/') { if((unsigned char)*p<32 || (unsigned char)*p==127) return -1;p++; }
+        size_t n=p-start;if(!n || (n==1 && start[0]=='.')) continue;
+        if(n==2 && start[0]=='.' && start[1]=='.') {
+            while(length>1 && target[length-1]!='/') length--;
+            if(length>1) length--;
+            target[length]=0;continue;
+        }
+        if(length>1) target[length++]='/';
+        memcpy(target+length,start,n);length+=n;target[length]=0;
     }
-    tool_status(t,"Opening folder…");tool_layout(t);
+    return 0;
+}
+static void remember_selection(struct tool *t) {
+    if(t->location_index<0 || t->location_index>=t->location_count) return;
+    struct tool_location *location=&t->locations[t->location_index];
+    int selected=t->table.body.selected;
+    location->selected=selected>=0 && selected<t->file_count?t->entries[selected].inode:0;
+    location->scroll=t->table.body.scroll.offset;
+}
+static int list_directory(struct tool *t,const char *path) {
+    char target[DESK_FILE_PATH];
+    if(normalize_path(path,target) || !t->worker_ready || desk_file_job_start(&t->job,DESK_FILE_LIST,target,NULL,0,0,0)) {
+        tool_status(t,"Enter an absolute folder path and try again.");return -1;
+    }
+    remember_selection(t);t->location_pending=-1;
+    tool_status(t,"Opening folder…");tool_layout(t);return 0;
+}
+static void location_commit(struct tool *t) {
+    int index=t->location_pending;t->location_pending=-1;
+    if(index>=0 && index<t->location_count && !strcmp(t->locations[index].path,t->job.request.path)) {
+        t->location_index=index;return;
+    }
+    if(t->location_index>=0 && !strcmp(t->locations[t->location_index].path,t->job.request.path)) return;
+    t->location_count=t->location_index+1;
+    if(t->location_count==TOOL_HISTORY) {
+        memmove(t->locations,t->locations+1,(TOOL_HISTORY-1)*sizeof(*t->locations));t->location_count--;
+    }
+    t->location_index=t->location_count++;
+    struct tool_location *location=&t->locations[t->location_index];*location=(struct tool_location){0};strcpy(location->path,t->job.request.path);
+}
+void tool_files_layout(struct tool *t) {
+    int w=t->window.width,h=t->window.height,busy=t->job.busy,sidebar=w>=640,left=sidebar?164:16;
+    desk_button_configure(&t->buttons[7],(struct desk_rect){16,16,64,28},!busy && t->location_index>0);
+    desk_button_configure(&t->buttons[8],(struct desk_rect){88,16,80,28},!busy && t->location_index+1<t->location_count);
+    desk_button_configure(&t->buttons[0],(struct desk_rect){176,16,52,28},!busy && t->saved_path[0] && strcmp(t->saved_path,"/"));
+    desk_button_configure(&t->buttons[1],w>=324?(struct desk_rect){236,16,72,28}:(struct desk_rect){0},!busy && w>=324);
+    desk_button_configure(&t->buttons[2],w>=420?(struct desk_rect){316,16,88,28}:(struct desk_rect){0},!busy && w>=420);
+    for(int i=0;i<3;i++) { int x[]={412,500,612},width[]={80,104,80};
+        desk_button_configure(&t->buttons[4+i],w>=708?(struct desk_rect){x[i],16,width[i],28}:(struct desk_rect){0},!busy && w>=708 && t->table.body.selected>=0); }
+    for(int i=0;i<3;i++) desk_button_configure(&t->buttons[9+i],sidebar?(struct desk_rect){24,134+i*40,116,30}:(struct desk_rect){0},!busy && sidebar);
+    desk_edit_configure(&t->path,(struct desk_rect){16,56,w-32,34},&desk_font_16,!busy);
+    desk_table_configure(&t->table,(struct desk_rect){left,102,w-left-16,h-190},!busy);
+    desk_edit_configure(&t->name,(struct desk_rect){left,h-76,w-left-140,34},&desk_font_16,!busy);
+    desk_button_configure(&t->buttons[3],(struct desk_rect){w-132,h-73,116,28},!busy);
+}
+void tool_files_draw(struct tool *t,struct desk_canvas *c) {
+    if(t->window.width>=640) {
+        desk_fill(c,(struct desk_rect){16,102,132,t->window.height-190},desk_theme_quiet.track);
+        desk_label_draw(c,(struct desk_rect){24,106,116,24},desk_theme_quiet.body,"Places",desk_theme_quiet.muted);
+    }
+    desk_ui_draw(c,&t->ui,&desk_theme_quiet);
 }
 void tool_files_init(struct tool *t,const char *path) {
+    t->location_index=t->location_pending=-1;
     desk_table_init(&t->table);desk_table_columns(&t->table,file_columns,4);desk_table_sort_indicator(&t->table,0,0);
+    desk_ui_add(&t->ui,TOOL_BACK,DESK_CONTROL_BUTTON,&t->buttons[7],"Back");
+    desk_ui_add(&t->ui,TOOL_FORWARD,DESK_CONTROL_BUTTON,&t->buttons[8],"Forward");
     desk_ui_add(&t->ui,TOOL_UP,DESK_CONTROL_BUTTON,&t->buttons[0],"Up");
     desk_ui_add(&t->ui,TOOL_OPEN,DESK_CONTROL_BUTTON,&t->buttons[1],"Open");
     desk_ui_add(&t->ui,TOOL_REFRESH,DESK_CONTROL_BUTTON,&t->buttons[2],"Refresh");
     desk_ui_add(&t->ui,TOOL_RENAME,DESK_CONTROL_BUTTON,&t->buttons[4],"Rename");
     desk_ui_add(&t->ui,TOOL_DUPLICATE,DESK_CONTROL_BUTTON,&t->buttons[5],"Duplicate");
     desk_ui_add(&t->ui,TOOL_DELETE,DESK_CONTROL_BUTTON,&t->buttons[6],"Delete");
+    desk_ui_add(&t->ui,TOOL_HOME,DESK_CONTROL_BUTTON,&t->buttons[9],"Home");
+    desk_ui_add(&t->ui,TOOL_VOLUME,DESK_CONTROL_BUTTON,&t->buttons[10],"Startup disk");
+    desk_ui_add(&t->ui,TOOL_ROOT,DESK_CONTROL_BUTTON,&t->buttons[11],"System root");
     desk_ui_add(&t->ui,TOOL_PATH,DESK_CONTROL_EDIT,&t->path,NULL);
     desk_ui_add(&t->ui,TOOL_LIST,DESK_CONTROL_TABLE,&t->table,NULL);
     desk_ui_add(&t->ui,TOOL_NAME,DESK_CONTROL_EDIT,&t->name,NULL);
@@ -137,13 +204,21 @@ void tool_files_dialog(struct tool *t,unsigned id) {
 void tool_files_action(struct tool *t,struct desk_action a) {
     if(t->job.busy || t->prompt_mode || t->modal) return;
     if(a.id==TOOL_LIST && (a.flags&DESK_WIDGET_CHANGED)) {
-        for(int i=4;i<=6;i++) desk_button_configure(&t->buttons[i],t->buttons[i].frame,t->window.width>=564 && t->table.body.selected>=0);
+        for(int i=4;i<=6;i++) desk_button_configure(&t->buttons[i],t->buttons[i].frame,t->window.width>=708 && t->table.body.selected>=0);
     }
     if(a.id==TOOL_LIST && (a.flags&DESK_TABLE_SORT)) {
         file_rows(t);desk_log("desktools: files-sort column=%d descending=%d\n",t->table.sort_column,t->table.descending);return;
     }
     if(a.id==TOOL_PATH && (a.flags&DESK_EDIT_SUBMIT)) { list_directory(t,t->path_text.data);return; }
     if(!(a.flags&DESK_WIDGET_ACTIVATED) && !(a.id==TOOL_NAME && (a.flags&DESK_EDIT_SUBMIT))) return;
+    if(a.id==TOOL_BACK || a.id==TOOL_FORWARD) {
+        int index=t->location_index+(a.id==TOOL_BACK?-1:1);
+        if(index>=0 && index<t->location_count && !list_directory(t,t->locations[index].path)) t->location_pending=index;
+        return;
+    }
+    if(a.id==TOOL_HOME || a.id==TOOL_VOLUME || a.id==TOOL_ROOT) {
+        list_directory(t,a.id==TOOL_HOME?"/fat/home":a.id==TOOL_VOLUME?"/fat":"/");return;
+    }
     if(a.id==TOOL_RENAME || a.id==TOOL_DUPLICATE || a.id==TOOL_DELETE) { open_change(t,a.id);return; }
     if(a.id==TOOL_UP) {
         char path[DESK_FILE_PATH];strcpy(path,t->saved_path[0]?t->saved_path:"/");
@@ -198,7 +273,7 @@ void tool_files_finish(struct tool *t,int result) {
         else if(t->job.response.status==DESK_FILE_BUSY) message="The item is open in another process. Close it and try again.";
         else if(t->job.response.status==DESK_FILE_TOO_LARGE) message="Duplicate supports individual files up to 64 KiB.";
         else if(t->job.request.operation>=DESK_FILE_RENAME) message="The change could not be verified. Refresh before retrying. Folders must be empty and the volume writable.";
-        tool_status(t,message);
+        t->location_pending=-1;tool_status(t,message);
         if(t->saved_path[0]) desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
         tool_layout(t);return;
     }
@@ -208,10 +283,18 @@ void tool_files_finish(struct tool *t,int result) {
         list_directory(t,t->saved_path);return;
     }
     int count=tool_listing_decode(t);
-    if(count<0) { tool_status(t,"The folder listing was invalid.");desk_table_rows(&t->table,NULL,0);t->file_count=0;tool_layout(t);return; }
+    if(count<0) {
+        t->location_pending=-1;tool_status(t,"The folder listing was invalid.");
+        desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));tool_layout(t);return;
+    }
+    location_commit(t);
     if(strcmp(t->saved_path,t->job.request.path)) desk_table_rows(&t->table,NULL,0);
     strcpy(t->saved_path,t->job.request.path);desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
     t->file_count=count;file_rows(t);
+    struct tool_location *location=&t->locations[t->location_index];
+    for(int i=0;i<count;i++) if(t->entries[i].inode==location->selected) desk_list_select(&t->table.body,i);
+    desk_scrollbar_set(&t->table.body.scroll,location->scroll);
+    desk_log("desktools: files-location path=%s history=%d/%d\n",t->saved_path,t->location_index+1,t->location_count);
     if(t->file_select_name[0]) {
         for(int i=0;i<count;i++) if(!strcmp(t->entries[i].name,t->file_select_name)) desk_list_select(&t->table.body,i);
         t->file_select_name[0]=0;

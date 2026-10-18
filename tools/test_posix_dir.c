@@ -14,7 +14,7 @@ static void *test_realloc(void *p,size_t n) { if(allocation_fail) return NULL;re
 static int test_stat(const char *path,struct stat *st) {
     if(stat_fail) { errno=EACCES;return -1; }
     memset(st,0,sizeof(*st));
-    st->st_mode=!strcmp(path,"/fat") || strstr(path,"folder")?S_IFDIR:S_IFREG;return 0;
+    st->st_mode=!strcmp(path,"/") || !strcmp(path,"/fat") || strstr(path,"folder")?S_IFDIR:S_IFREG;return 0;
 }
 #define realloc test_realloc
 #define stat test_stat
@@ -58,5 +58,7 @@ int main(void) {
     assert(scandir("/fat",&list,NULL,alphasort)==101);for(unsigned i=0;i<101;i++) free(list[i]);free(list);
     path_count=1;strcpy(paths[0],"/fat/");memset(paths[0]+5,'x',100);paths[0][105]=0;
     d=opendir("/fat");errno=0;assert(!readdir(d) && errno==ENAMETOOLONG);closedir(d);
+    path_count=0;strcpy(paths[path_count++],"/");strcpy(paths[path_count++],"/fat");strcpy(paths[path_count++],"/fat/folder/file");strcpy(paths[path_count++],"/init");
+    d=opendir("/");assert(d);count=0;while((e=readdir(d))) { assert(!strcmp(e->d_name,"fat") || !strcmp(e->d_name,"init"));count++; }assert(count==2);closedir(d);
     puts("posix-dir: PASS >64 unique children, duplicate descendants, directory type, allocation retry, permission/list errors and long names");
 }

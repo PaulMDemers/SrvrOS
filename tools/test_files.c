@@ -5,7 +5,7 @@ static unsigned started,launched,clipboard_id;
 void srv_puts(const char *s) { (void)s; }
 void tool_status(struct tool *p,const char *s) { snprintf(p->status,sizeof(p->status),"%s",s);if(p->prompt_mode) snprintf(p->prompt.dialog.message,sizeof(p->prompt.dialog.message),"%s",s); }
 void tool_layout(struct tool *p) {
-    desk_table_configure(&p->table,(struct desk_rect){16,102,688,290},!p->job.busy);
+    tool_files_layout(p);
     if(p->prompt_mode) desk_prompt_configure(&p->prompt,(struct desk_rect){0,0,720,480});
     if(p->modal) desk_dialog_configure(&p->dialog,(struct desk_rect){0,0,720,480});
     desk_ui_layout_changed(&p->ui);
@@ -62,5 +62,29 @@ int main(void) {
     for(int i=0;i<t.file_count;i++) if(t.entries[i].modified==INT64_MAX) assert(!strcmp(t.file_dates[i],"—"));
     struct desk_file_entry bad[2]={{.name="a",.inode=1},{.name="b",.inode=1}};memcpy(t.job.incoming,bad,sizeof(bad));t.job.response.count=2;t.job.response.length=sizeof(bad);
     assert(tool_listing_decode(&t)<0);
-    puts("files: PASS table metadata/order/selection, open, prompts, lexical validation, guarded payload, collision, verified copy selection, safe delete and limits");
+    /* Successful navigation is the only operation that moves history. */
+    assert(t.location_count==1 && t.location_index==0 && !strcmp(t.locations[0].path,"/fat"));
+    choose(5);activate(TOOL_HOME);assert(t.job.busy && t.location_count==1);listing(0);
+    assert(!strcmp(t.saved_path,"/fat/home") && t.location_index==1 && t.location_count==2);
+    activate(TOOL_BACK);assert(t.location_index==1 && t.location_pending==0);listing(0);
+    assert(t.location_index==0 && !strcmp(t.saved_path,"/fat") && t.table_rows[t.table.body.selected].id==5);
+    activate(TOOL_FORWARD);t.job.busy=0;t.job.response.status=DESK_FILE_IO;tool_files_finish(&t,1);
+    assert(t.location_index==0 && t.location_count==2 && !strcmp(t.saved_path,"/fat"));
+    activate(TOOL_FORWARD);listing(0);assert(t.location_index==1);
+    activate(TOOL_REFRESH);listing(0);assert(t.location_count==2);
+    activate(TOOL_BACK);listing(0);activate(TOOL_ROOT);listing(0);
+    assert(t.location_index==1 && t.location_count==2 && !strcmp(t.saved_path,"/"));
+    unsigned before_invalid=started;assert(list_directory(&t,"relative")<0 && started==before_invalid);
+    assert(!list_directory(&t,"//fat/home/.././"));assert(!strcmp(t.job.request.path,"/fat"));listing(0);
+    assert(t.location_count==3 && !strcmp(t.saved_path,"/fat"));
+    for(int i=0;i<40;i++) { char path[64];snprintf(path,sizeof(path),"/fat/folder%d",i);assert(!list_directory(&t,path));listing(0); }
+    assert(t.location_count==TOOL_HISTORY && t.location_index==TOOL_HISTORY-1 && !strcmp(t.locations[0].path,"/fat/folder16"));
+    activate(TOOL_BACK);t.job.busy=0;t.job.response=(struct desk_file_response){.count=1,.length=1};tool_files_finish(&t,1);
+    assert(t.location_index==TOOL_HISTORY-1 && !strcmp(t.saved_path,"/fat/folder39") && t.file_count==3);
+    char normalized[DESK_FILE_PATH];assert(!normalize_path("/../../fat//x/../",normalized) && !strcmp(normalized,"/fat"));
+    assert(normalize_path("/bad\npath",normalized)<0);
+    t.window.width=400;tool_files_layout(&t);assert(!t.buttons[9].enabled && !t.buttons[4].enabled && t.table.frame.x==16);
+    t.window.width=720;tool_files_layout(&t);assert(t.buttons[9].enabled && t.table.frame.x==164);
+    puts("files: PASS navigation history/failure/branching/bounds, places/responsive layout, table metadata/order/selection, open, prompts, lexical validation, guarded payload, collision, verified copy selection, safe delete and limits");
+    return 0;
 }
