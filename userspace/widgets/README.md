@@ -68,13 +68,11 @@ are separate. A keyboard router sends ACTIVATE only for the focused control,
 after interpreting the app's key bindings. The button itself does not infer a
 key from console bytes or steal input from another control.
 
-The study currently has one text destination and a Ctrl-L action. General
-within-window focus traversal is **not implemented**. The current compositor
-reserves Tab for window switching and TEXT transports decoded console bytes.
-Structured key/modifier events and explicit window-focus notifications need a
-tested transport extension before adding general keyboard navigation, text
-selection, shortcuts and clipboard behavior. The toolkit event API leaves
-those routing decisions outside individual widgets.
+The legacy study retains its original bindings. The application desktop now
+uses structured key/modifier events, explicit focus notifications and Alt-Tab
+for window switching. Within-window Tab/Shift-Tab traversal, editing selection
+and shared clipboard actions are handled by the router and client runtime
+described below; widgets remain independent of the IPC transport.
 
 ## Build and verification
 

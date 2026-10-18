@@ -69,30 +69,14 @@ void cfmakeraw(struct termios *termios_p) {
 }
 
 pid_t tcgetpgrp(int fd) {
-    if (!isatty(fd)) {
-        errno = ENOTTY;
-        return -1;
-    }
-    long result = srv_proc_control(SRV_PROC_GET_FOREGROUND_PGROUP, 0, 0);
-    if (result <= 0) {
-        errno = ENOTTY;
-        return -1;
-    }
-    return (pid_t)result;
+    int32_t group=0;
+    if(srv_ioctl(fd,SRV_TIOCGPGRP,&group)<0) { errno=ENOTTY;return -1; }
+    return (pid_t)group;
 }
 
 int tcsetpgrp(int fd, pid_t pgrp) {
-    if (pgrp <= 0) {
-        errno = EINVAL;
-        return -1;
-    }
-    if (!isatty(fd)) {
-        errno = ENOTTY;
-        return -1;
-    }
-    if (srv_proc_control(SRV_PROC_SET_FOREGROUND_PGROUP, 0, (uint64_t)pgrp) < 0) {
-        errno = EINVAL;
-        return -1;
-    }
+    if(pgrp<=0) { errno=EINVAL;return -1; }
+    int32_t group=pgrp;
+    if(srv_ioctl(fd,SRV_TIOCSPGRP,&group)<0) { errno=ENOTTY;return -1; }
     return 0;
 }

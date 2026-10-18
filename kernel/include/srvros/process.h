@@ -23,6 +23,8 @@ enum process_file_type {
     PROCESS_FILE_PIPE_WRITE,
     PROCESS_FILE_PIPE_DUPLEX,
     PROCESS_FILE_UNIX_LISTENER,
+    PROCESS_FILE_PTY_MASTER,
+    PROCESS_FILE_PTY_SLAVE,
 };
 
 struct process_file {
@@ -149,6 +151,13 @@ int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer,
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);
 bool process_file_nonblocking(struct process *process, uint64_t fd);
 int64_t process_file_pipe(struct process *process, uint64_t fds_out[2]);
+struct pty_model;
+int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]);
+struct pty_model *process_tty_model(struct process *process,uint64_t fd);
+uint64_t process_tty_handle(struct process *process,uint64_t fd);
+bool process_tty_set_group(struct process *process,uint64_t fd,uint64_t group);
+void process_tty_hangup(uint64_t handle);
+void process_tty_signal(uint64_t handle,uint64_t signal);
 int64_t process_file_pipe_pair(struct process *process, uint64_t fds_out[2]);
 int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length);
 int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length);

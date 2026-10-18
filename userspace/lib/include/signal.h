@@ -33,6 +33,8 @@ typedef struct {
 #define SIGALRM 14
 #define SIGTERM 15
 #define SIGCHLD 17
+#define SIGHUP 1
+#define SIGWINCH 28
 #define SIGCONT 18
 #define SIGSTOP 19
 #define SIGTSTP 20

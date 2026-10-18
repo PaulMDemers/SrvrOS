@@ -549,7 +549,7 @@ char *linenoise(const char *prompt) {
     }
     if (tcgetattr(SRV_STDIN, &original_termios) == 0) {
         struct termios raw = original_termios;
-        raw.c_lflag &= ~(ICANON | ECHO);
+        raw.c_lflag &= ~(ICANON | ECHO | ISIG);
         raw.c_cc[VMIN] = 1;
         raw.c_cc[VTIME] = 0;
         raw_mode = tcsetattr(SRV_STDIN, TCSANOW, &raw) == 0;

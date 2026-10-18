@@ -19,7 +19,7 @@ static int signal_supported(int signum) {
         signum == SIGPIPE ||
         signum == SIGALRM ||
         signum == SIGTERM ||
-        signum == SIGCHLD;
+        signum == SIGCHLD || signum == SIGHUP || signum == SIGWINCH;
 }
 
 static sigset_t signal_mask_for(int signum) {

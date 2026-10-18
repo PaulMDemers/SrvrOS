@@ -3,6 +3,8 @@
 
 #include <srvros/syscall_numbers.h>
 
+#define TIOCGPGRP SRV_TIOCGPGRP
+#define TIOCSPGRP SRV_TIOCSPGRP
 #define TIOCGWINSZ SRV_TIOCGWINSZ
 #define TIOCSWINSZ SRV_TIOCSWINSZ
 #define FIONBIO 0x5421

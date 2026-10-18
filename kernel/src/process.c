@@ -7,6 +7,7 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/pty.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
@@ -189,6 +190,7 @@ struct process {
     uint64_t main_signal_mask;
     uint64_t process_group;
     uint64_t session_id;
+    uint64_t controlling_tty;
     uint64_t pid;
     uint64_t parent_pid;
     uint64_t exit_status;
@@ -417,7 +419,7 @@ static void process_set_current_signal_mask(struct process *process, uint64_t ma
 }
 
 static uint64_t process_supported_signal_mask(void) {
-    return (1ull << SRV_SIGNAL_INT) |
+    return (1ull << SRV_SIGNAL_HUP) | (1ull << SRV_SIGNAL_WINCH) | (1ull << SRV_SIGNAL_INT) |
         (1ull << SRV_SIGNAL_QUIT) |
         (1ull << SRV_SIGNAL_USR1) |
         (1ull << SRV_SIGNAL_USR2) |
@@ -447,6 +449,7 @@ static void process_wake_for_signal(struct process *process) {
         scheduler_wake_all(&process->thread_wait_queue);
     }
     keyboard_wake_waiters();
+    pty_wake();
     process_file_poll_wake();
     process_futex_wake_process(process);
 }
@@ -465,7 +468,7 @@ static bool process_queue_signal(struct process *process, uint64_t signal) {
         process_wake_for_signal(process);
         return true;
     }
-    if (signal == SRV_SIGNAL_CHLD) {
+    if (signal == SRV_SIGNAL_CHLD || signal == SRV_SIGNAL_WINCH) {
         return true;
     }
     process->killed = true;
@@ -563,6 +566,7 @@ static struct process *alloc_process(const char *path, bool detached) {
             processes[i].parent_pid = process_pid(parent);
             processes[i].process_group = parent != NULL ? parent->process_group : processes[i].pid;
             processes[i].session_id = parent != NULL ? parent->session_id : processes[i].pid;
+            processes[i].controlling_tty = parent != NULL ? parent->controlling_tty : 0;
             processes[i].main_signal_mask = process_current_signal_mask(parent);
             if (processes[i].process_group == 0) {
                 processes[i].process_group = processes[i].pid;
@@ -1605,6 +1609,10 @@ int64_t process_spawn_exec(const char *path,
         return -1;
     }
 
+    struct process_file *terminal_input=child->stdin_redirect && child->stdin_fd>=3?
+        process_file_at(child,(uint64_t)child->stdin_fd):NULL;
+    if(terminal_input && terminal_input->type==PROCESS_FILE_PTY_SLAVE)
+        child->controlling_tty=terminal_input->handle;
     if (process_group == UINT64_MAX) {
         child->process_group = child->pid;
     } else if (process_group != 0) {
@@ -1617,7 +1625,9 @@ int64_t process_spawn_exec(const char *path,
         child->main_signal_mask = signal_mask;
     }
     if (foreground && child->process_group != 0) {
-        foreground_process_group = child->process_group;
+        struct pty_model *terminal=pty_state(child->controlling_tty);
+        if(terminal) terminal->foreground_group=child->process_group;
+        else if(!child->controlling_tty) foreground_process_group = child->process_group;
     }
 
     if (detached) {
@@ -2080,6 +2090,9 @@ static bool process_configure_stdio_fds(struct process *child,
         return false;
     }
 
+    struct process_file *terminal=child->stdin_redirect && child->stdin_fd>=3?
+        process_file_at(child,(uint64_t)child->stdin_fd):NULL;
+    if(terminal && terminal->type==PROCESS_FILE_PTY_SLAVE) child->controlling_tty=terminal->handle;
     return true;
 }
 
@@ -2343,7 +2356,7 @@ bool process_signal_config_current(uint64_t signal, uint64_t action) {
 
 bool process_signal_pending_current(void) {
     struct process *process = process_current();
-    return process != NULL && process->pending_signals != 0;
+    return process != NULL && (process->pending_signals & ~process_current_signal_mask(process)) != 0;
 }
 
 uint64_t process_signal_pending_mask_current(void) {
@@ -2395,7 +2408,10 @@ bool process_signal_mask_current(uint64_t how, uint64_t set, uint64_t *oldset_ou
 
     uint64_t unblocked = process->pending_signals & ~next &
         ~(process->signal_catch_mask | process->signal_ignore_mask);
-    unblocked &= ~(1ull << SRV_SIGNAL_CHLD);
+    /* SIGWINCH has an ignored default disposition, including after an
+     * application unblocks a resize that arrived while it was masked. */
+    process->pending_signals &= ~(unblocked & (1ull << SRV_SIGNAL_WINCH));
+    unblocked &= ~((1ull << SRV_SIGNAL_CHLD) | (1ull << SRV_SIGNAL_WINCH));
     if (unblocked != 0) {
         for (uint64_t signal = 1; signal < 64; signal++) {
             uint64_t mask = 1ull << signal;
@@ -2479,6 +2495,7 @@ bool process_create_session_current(uint64_t *session_out) {
     }
     current->session_id = current->pid;
     current->process_group = current->pid;
+    current->controlling_tty = UINT64_MAX; /* Detached; never fall back to the console. */
     if (session_out != NULL) {
         *session_out = current->session_id;
     }
@@ -2486,10 +2503,19 @@ bool process_create_session_current(uint64_t *session_out) {
 }
 
 void process_set_foreground_group(uint64_t group) {
-    foreground_process_group = group;
+    struct process *current=process_current();
+    if(current && current->controlling_tty) {
+        struct pty_model *terminal=pty_state(current->controlling_tty);
+        if(terminal) terminal->foreground_group=group;
+    } else foreground_process_group = group;
 }
 
 uint64_t process_foreground_group(void) {
+    struct process *current=process_current();
+    if(current && current->controlling_tty) {
+        struct pty_model *terminal=pty_state(current->controlling_tty);
+        return terminal?terminal->foreground_group:0;
+    }
     return foreground_process_group;
 }
 
@@ -3046,7 +3072,8 @@ int64_t process_input_write(struct process *process, const uint8_t *buffer, uint
     if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
         return process_file_pipe_write(process, (uint64_t)process->stdin_fd, buffer, length);
     }
-    if (file->type == PROCESS_FILE_VFS_WRITE) {
+    if (file->type == PROCESS_FILE_VFS_WRITE || file->type == PROCESS_FILE_PTY_MASTER ||
+        file->type == PROCESS_FILE_PTY_SLAVE) {
         return process_file_write(process, (uint64_t)process->stdin_fd, buffer, length);
     }
     return -1;
@@ -3095,6 +3122,56 @@ struct process_file *process_file_at(struct process *process, uint64_t fd) {
 
     struct process_file *file = &process->files[fd - 3];
     return file->used ? file : NULL;
+}
+
+uint64_t process_tty_handle(struct process *process,uint64_t fd) {
+    if(!process) return 0;
+    for(unsigned depth=0;depth<4;depth++) {
+        if(fd<=2) {
+            bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
+            int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
+            if(!redirected || target<3) return 0;
+            fd=(uint64_t)target;
+        }
+        struct process_file *file=process_file_at(process,fd);if(!file) return 0;
+        if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) return file->handle;
+        if(file->type!=PROCESS_FILE_STDIO) return 0;
+        fd=file->handle;
+    }
+    return 0;
+}
+struct pty_model *process_tty_model(struct process *process,uint64_t fd) {
+    return pty_state(process_tty_handle(process,fd));
+}
+bool process_tty_set_group(struct process *process,uint64_t fd,uint64_t group) {
+    uint64_t handle=process_tty_handle(process,fd);struct pty_model *terminal=pty_state(handle);
+    if(!terminal || !group) return false;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated &&
+        processes[i].process_group==group && processes[i].controlling_tty==handle) {
+        terminal->foreground_group=group;return true;
+    }
+    return false;
+}
+void process_tty_signal(uint64_t handle,uint64_t signal) {
+    struct pty_model *terminal=pty_state(handle);
+    if(!terminal || !terminal->foreground_group) return;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated &&
+        processes[i].controlling_tty==handle && processes[i].process_group==terminal->foreground_group)
+        (void)process_queue_signal(&processes[i],signal);
+}
+void process_tty_hangup(uint64_t handle) {
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated && processes[i].controlling_tty==handle)
+        (void)process_queue_signal(&processes[i],SRV_SIGNAL_HUP);
+}
+int64_t process_file_pty_pair(struct process *process,uint64_t fds_out[2]) {
+    if(!process || !fds_out) return -1;
+    unsigned found=0,index[2];
+    for(unsigned i=0;i<PROCESS_MAX_OPEN_FILES && found<2;i++) if(!process->files[i].used) index[found++]=i;
+    if(found!=2) return -1;
+    uint64_t handle=pty_create();if(!handle) return -1;
+    process->files[index[0]]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_MASTER,.handle=handle};
+    process->files[index[1]]=(struct process_file){.used=true,.type=PROCESS_FILE_PTY_SLAVE,.handle=handle};
+    fds_out[0]=index[0]+3;fds_out[1]=index[1]+3;return 0;
 }
 
 int64_t process_file_alloc(struct process *process,
@@ -3194,6 +3271,9 @@ static void read_file_close(uint64_t handle) {
 }
 
 int64_t process_file_read(struct process *process, uint64_t fd, uint8_t *buffer, uint64_t length) {
+    struct process_file *endpoint=process_file_at(process,fd);
+    if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
+        return pty_read(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,(endpoint->flags&SRV_FD_NONBLOCK)!=0);
     uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL ||
@@ -3565,6 +3645,9 @@ int64_t process_file_open_write(struct process *process, const char *path, uint6
 }
 
 int64_t process_file_write(struct process *process, uint64_t fd, const uint8_t *buffer, uint64_t length) {
+    struct process_file *endpoint=process_file_at(process,fd);
+    if(endpoint && (endpoint->type==PROCESS_FILE_PTY_MASTER || endpoint->type==PROCESS_FILE_PTY_SLAVE))
+        return pty_write(endpoint->handle,endpoint->type==PROCESS_FILE_PTY_MASTER,buffer,length,(endpoint->flags&SRV_FD_NONBLOCK)!=0);
     uint64_t flags = process_irq_save();
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL || file->type != PROCESS_FILE_VFS_WRITE || (buffer == NULL && length != 0)) {
@@ -3783,6 +3866,7 @@ int64_t process_file_flush(struct process *process, uint64_t fd) {
         }
         if (file->type == PROCESS_FILE_VFS ||
             file->type == PROCESS_FILE_STDIO ||
+            file->type == PROCESS_FILE_PTY_MASTER || file->type == PROCESS_FILE_PTY_SLAVE ||
             file->type == PROCESS_FILE_PIPE_READ ||
             file->type == PROCESS_FILE_PIPE_WRITE ||
             file->type == PROCESS_FILE_PIPE_DUPLEX) {
@@ -4393,6 +4477,8 @@ uint16_t process_file_poll(struct process *process, int64_t fd, uint16_t events)
         return revents;
     }
 
+    if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE)
+        return pty_poll(file->handle,file->type==PROCESS_FILE_PTY_MASTER,events);
     if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
         struct process_pipe *read_pipe = pipe_at(file->handle);
         struct process_pipe *write_pipe = pipe_at(file->aux_handle);
@@ -4511,6 +4597,10 @@ static bool process_file_clone_entry(struct process_file *target, const struct p
         return true;
     }
 
+    if(source->type==PROCESS_FILE_PTY_MASTER || source->type==PROCESS_FILE_PTY_SLAVE) {
+        if(!pty_ref(source->handle,source->type==PROCESS_FILE_PTY_MASTER)) return false;
+        *target=*source;return true;
+    }
     if (source->type == PROCESS_FILE_PIPE_DUPLEX) {
         if (pipe_at(source->handle) == NULL || pipe_at(source->aux_handle) == NULL) {
             return false;
@@ -4620,6 +4710,8 @@ static void process_file_release_entry(struct process_file *file) {
         pipe_close(file->handle, false);
     } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
         pipe_close(file->handle, true);
+    } else if (file->type == PROCESS_FILE_PTY_MASTER || file->type == PROCESS_FILE_PTY_SLAVE) {
+        pty_close(file->handle,file->type==PROCESS_FILE_PTY_MASTER);
     } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
         pipe_close(file->handle, false);
         pipe_close(file->aux_handle, true);
@@ -4978,6 +5070,8 @@ int64_t process_file_close(struct process *process, uint64_t fd) {
         pipe_close(file->handle, false);
     } else if (file->type == PROCESS_FILE_PIPE_WRITE) {
         pipe_close(file->handle, true);
+    } else if (file->type == PROCESS_FILE_PTY_MASTER || file->type == PROCESS_FILE_PTY_SLAVE) {
+        pty_close(file->handle,file->type==PROCESS_FILE_PTY_MASTER);
     } else if (file->type == PROCESS_FILE_PIPE_DUPLEX) {
         pipe_close(file->handle, false);
         pipe_close(file->aux_handle, true);
@@ -5070,12 +5164,18 @@ int64_t process_file_stat(struct process *process,
         return -1;
     }
     if (fd < 3) {
+        bool redirected=fd==0?process->stdin_redirect:fd==1?process->stdout_redirect:process->stderr_redirect;
+        int64_t target=fd==0?process->stdin_fd:fd==1?process->stdout_fd:process->stderr_fd;
+        if(redirected) {
+            if(target<3) return -1;
+            return process_file_stat(process,(uint64_t)target,metadata_out,size_out,type_out);
+        }
         *size_out = 0;
         *type_out = 0;
         if (metadata_out != NULL) {
             *metadata_out = (struct vfs_metadata) {
                 .inode = fd + 1,
-                .mode = VFS_MODE_IFIFO | 0600,
+                .mode = VFS_MODE_IFCHR | 0600,
                 .nlink = 1,
             };
         }
@@ -5084,6 +5184,13 @@ int64_t process_file_stat(struct process *process,
     struct process_file *file = process_file_at(process, fd);
     if (file == NULL) {
         return -1;
+    }
+
+    if(file->type==PROCESS_FILE_PTY_MASTER || file->type==PROCESS_FILE_PTY_SLAVE) {
+        if(!pty_state(file->handle)) return -1;
+        *size_out=0;*type_out=0;
+        if(metadata_out) *metadata_out=(struct vfs_metadata){.inode=file->handle,.mode=VFS_MODE_IFCHR|0600,.nlink=1};
+        return 0;
     }
 
     if (file->type == PROCESS_FILE_VFS || file->type == PROCESS_FILE_VFS_WRITE) {

@@ -115,6 +115,10 @@ long srv_pipe(int fds[2]) {
     return srv_syscall1(SYS_PIPE, (long)fds);
 }
 
+long srv_pty_create(int fds[2]) {
+    return srv_syscall1(SYS_PTY_CREATE, (long)fds);
+}
+
 long srv_pipe_pair(int fds[2]) {
     return srv_syscall1(SYS_PIPE_PAIR, (long)fds);
 }

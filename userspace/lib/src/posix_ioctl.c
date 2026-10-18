@@ -24,6 +24,11 @@ int ioctl(int fd, unsigned long request, ...) {
     void *argument = va_arg(args, void *);
     va_end(args);
 
+    if(request==TIOCGPGRP || request==TIOCSPGRP) {
+        if(!argument) { errno=EINVAL;return -1; }
+        if(srv_ioctl(fd,request,argument)<0) { errno=ENOTTY;return -1; }
+        return 0;
+    }
     if (request == TIOCGWINSZ) {
         if (argument == 0) {
             errno = EINVAL;

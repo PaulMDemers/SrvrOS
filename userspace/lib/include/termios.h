@@ -11,6 +11,8 @@ typedef unsigned int tcflag_t;
 #define NCCS SRV_NCCS
 
 #define ICRNL SRV_TTY_IFLAG_ICRNL
+#define OPOST SRV_TTY_OFLAG_OPOST
+#define ONLCR SRV_TTY_OFLAG_ONLCR
 
 #define ECHO SRV_TTY_LFLAG_ECHO
 #define ICANON SRV_TTY_LFLAG_ICANON

@@ -43,6 +43,12 @@ int main(void) {
     pipe_file.type=PROCESS_FILE_PIPE_READ;assert(!syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;assert(syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_VFS_WRITE;assert(!syscall_io_safe(&frame));
+    pipe_file.type=PROCESS_FILE_PTY_MASTER;assert(syscall_io_safe(&frame));
+    frame.rax=SYS_READ;assert(syscall_io_safe(&frame));
+    pipe_file.type=PROCESS_FILE_PTY_SLAVE;assert(syscall_io_safe(&frame));
+    pipe_file.flags=0;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_TTY_SETATTR;assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_PTY_CREATE;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAKE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));

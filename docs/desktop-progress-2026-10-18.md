@@ -126,3 +126,31 @@ file content; diagnostics are not treated as an atomic logging channel.
 
 Next: a graphical terminal with a reusable screen/view model and isolated tty
 state, followed by richer shared menus/dialogs and broader application workflows.
+
+## Isolated terminal sessions
+
+Added a bounded PTY line discipline and refcounted kernel endpoint manager,
+exposed through `srv_pty_create` (master/slave descriptors). Each pair owns its
+input, output, termios, window size and foreground group. Canonical records,
+EOF, UTF-8 erase, raw bytes, echo/output newline processing, VMIN, poll,
+nonblocking backpressure, descriptor duplication and hangup are covered.
+Foreground Ctrl-C/resize signals are restricted to processes attached to that
+PTY, even if another terminal uses the same numeric process group. Closing the
+last master sends HUP and wakes blocked readers/writers. Redirected `isatty` and
+`fstat` now describe their actual endpoints; terminal group ioctls are fd-aware.
+The shell line editor disables ISIG while editing its prompt, then restores it
+for foreground commands. Masked signals do not interrupt blocked reads, and
+unblocking a default-ignored SIGWINCH does not kill the process.
+
+This is an initial native PTY API: no `/dev/pts` namespace, no VTIME timers,
+serial-device controls, background-job SIGTTIN/SIGTTOU enforcement, or complete
+POSIX terminal emulation claim. Unsupported termios modes are rejected.
+Explicit nonblocking PTY operations follow the existing desktop try-I/O gate;
+they retry while another process owns storage rather than entering unsafe work.
+
+Host tests exercise bounded state/fuzz invariants, waiting/wakeup, interruption,
+capacity/generation reuse, descriptor lifecycle and terminal-scoped signals.
+ASan/UBSan passes the model and manager. The full core suite passed, and the
+`ptyprobe` guest passed real syscall tests for isolated attributes, binary raw
+input, canonical EOF, inherited stdio, window size, character-device stat,
+foreground Ctrl-C and close hangup. Evidence: `build/review/pty/`.

@@ -12,6 +12,7 @@
 #include <srvros/net.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
+#include <srvros/pty.h>
 #include <srvros/scheduler.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
@@ -346,7 +347,8 @@ static int64_t console_write_user(const char *buffer, uint64_t length) {
 
 static bool io_try_pipe_write(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
-    return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX) &&
+    return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX ||
+        f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
         (f->flags&SRV_FD_NONBLOCK);
 }
 static bool io_defer_pipe_write(uint64_t fd) {
@@ -381,7 +383,8 @@ static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
             }
             return console_write_user(buffer, length);
         }
-        if (file->type == PROCESS_FILE_VFS_WRITE) {
+        if (file->type == PROCESS_FILE_VFS_WRITE || file->type == PROCESS_FILE_PTY_MASTER ||
+            file->type == PROCESS_FILE_PTY_SLAVE) {
             return process_file_write(process_current(), fd, (const uint8_t *)buffer, length);
         }
         if (file->type == PROCESS_FILE_PIPE_WRITE || file->type == PROCESS_FILE_PIPE_DUPLEX) {
@@ -491,11 +494,12 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
     return (int64_t)count;
 }
 
-/* Only explicit nonblocking pipe descriptors get the try-read path. No
+/* Only explicit nonblocking pipe/PTY descriptors get the try-read path. No
  * redirected stdio guessing, network operations or regular-file reads. */
 static bool io_try_pipe_read(uint64_t fd) {
     struct process_file *f=process_file_at(process_current(),fd);
-    return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX) &&
+    return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX ||
+        f->type==PROCESS_FILE_PTY_MASTER || f->type==PROCESS_FILE_PTY_SLAVE) &&
         (f->flags & SRV_FD_NONBLOCK);
 }
 static bool io_defer_pipe_read(uint64_t fd) {
@@ -534,7 +538,8 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
     if (file->type == PROCESS_FILE_PIPE_READ || file->type == PROCESS_FILE_PIPE_DUPLEX) {
         return process_file_pipe_read(process_current(), fd, (uint8_t *)buffer, length);
     }
-    if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE) {
+    if (file->type != PROCESS_FILE_VFS && file->type != PROCESS_FILE_VFS_WRITE &&
+        file->type != PROCESS_FILE_PTY_MASTER && file->type != PROCESS_FILE_PTY_SLAVE) {
         return -1;
     }
 
@@ -542,18 +547,17 @@ static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
 }
 
 static bool syscall_tty_fd_ok(uint64_t fd) {
-    if (fd <= 2) {
-        return true;
-    }
-    struct process_file *file = process_file_at(process_current(), fd);
-    return file != NULL && file->type == PROCESS_FILE_STDIO && file->handle <= 2;
+    struct process *process=process_current();
+    return process_tty_model(process,fd) || process_fd_is_console(process,fd,true) ||
+        process_fd_is_console(process,fd,false);
 }
 
 static int64_t syscall_tty_getattr(uint64_t fd, struct srv_termios *termios) {
     if (!syscall_tty_fd_ok(fd) || !user_buffer_ok(termios, sizeof(*termios), true)) {
         return -1;
     }
-    return copy_to_user(termios, &console_termios, sizeof(console_termios)) ? 0 : -1;
+    struct pty_model *terminal=process_tty_model(process_current(),fd);
+    return copy_to_user(termios, terminal?&terminal->attributes:&console_termios, sizeof(console_termios)) ? 0 : -1;
 }
 
 static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct srv_termios *termios) {
@@ -562,6 +566,8 @@ static int64_t syscall_tty_setattr(uint64_t fd, uint64_t actions, const struct s
         !copy_from_user(&copy, termios, sizeof(copy))) {
         return -1;
     }
+    uint64_t terminal=process_tty_handle(process_current(),fd);
+    if(terminal) return pty_setattr(terminal,&copy,(unsigned)actions);
     console_termios = copy;
     return 0;
 }
@@ -592,8 +598,19 @@ static int64_t syscall_ioctl(uint64_t fd, uint64_t request, void *argument) {
         return -1;
     }
 
+    struct pty_model *terminal=process_tty_model(process_current(),fd);
+    if(request==SRV_TIOCGPGRP) {
+        int32_t group=(int32_t)(terminal?terminal->foreground_group:process_foreground_group());
+        return copy_to_user(argument,&group,sizeof(group))?0:-1;
+    }
+    if(request==SRV_TIOCSPGRP) {
+        int32_t group;
+        if(!copy_from_user(&group,argument,sizeof(group)) || group<=0) return -1;
+        if(terminal) return process_tty_set_group(process_current(),fd,(uint64_t)group)?0:-1;
+        process_set_foreground_group((uint64_t)group);return 0;
+    }
     if (request == SRV_TIOCGWINSZ) {
-        struct srv_winsize winsize = tty_current_winsize();
+        struct srv_winsize winsize = terminal?terminal->size:tty_current_winsize();
         return copy_to_user(argument, &winsize, sizeof(winsize)) ? 0 : -1;
     }
     if (request == SRV_TIOCSWINSZ) {
@@ -602,6 +619,14 @@ static int64_t syscall_ioctl(uint64_t fd, uint64_t request, void *argument) {
             winsize.row == 0 ||
             winsize.col == 0) {
             return -1;
+        }
+        if(terminal) {
+            bool changed=terminal->size.row!=winsize.row || terminal->size.col!=winsize.col ||
+                terminal->size.xpixel!=winsize.xpixel || terminal->size.ypixel!=winsize.ypixel;
+            terminal->size=winsize;
+            if(changed && terminal->foreground_group)
+                process_tty_signal(process_tty_handle(process_current(),fd),SRV_SIGNAL_WINCH);
+            return 0;
         }
         console_winsize = winsize;
         console_winsize_set = true;
@@ -1205,6 +1230,14 @@ static int64_t syscall_pipe_pair(int32_t *fds_out) {
     copy[0] = (int32_t)fds[0];
     copy[1] = (int32_t)fds[1];
     return copy_to_user(fds_out, copy, sizeof(copy)) ? 0 : -1;
+}
+
+static int64_t syscall_pty_create(int32_t *fds_out) {
+    uint64_t fds[2];int32_t copy[2];
+    if(!user_buffer_ok(fds_out,sizeof(copy),true) || process_file_pty_pair(process_current(),fds)<0) return -1;
+    copy[0]=(int32_t)fds[0];copy[1]=(int32_t)fds[1];
+    if(copy_to_user(fds_out,copy,sizeof(copy))) return 0;
+    process_file_close(process_current(),fds[0]);process_file_close(process_current(),fds[1]);return -1;
 }
 
 static int64_t syscall_pipe_send_rights(uint64_t fd, const int32_t *user_fds, uint64_t count) {
@@ -2319,7 +2352,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
-    case SYS_TTY_GETATTR: case SYS_TTY_SETATTR: case SYS_IOCTL:
+    case SYS_TTY_GETATTR: case SYS_IOCTL:
     /* stdio unlock wakes process-local waiters. It neither allocates futex
      * entries nor releases process/file resources; scheduler eligibility
      * still prevents a woken unsafe continuation from entering owned I/O. */
@@ -2594,6 +2627,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_PIPE:
         frame->rax = (uint64_t)syscall_pipe((int32_t *)frame->rdi);
+        return;
+    case SYS_PTY_CREATE:
+        frame->rax = (uint64_t)syscall_pty_create((int32_t *)frame->rdi);
         return;
     case SYS_PIPE_PAIR:
         frame->rax = (uint64_t)syscall_pipe_pair((int32_t *)frame->rdi);

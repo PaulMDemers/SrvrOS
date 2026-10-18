@@ -124,6 +124,7 @@
 #define SYS_MONOTONIC_US 118
 #define SYS_GUI_KEYBOARD_MODE 119
 #define SYS_GUI_KEYBOARD_READ 120
+#define SYS_PTY_CREATE 121
 
 #define SRV_ABI_VERSION 1
 
@@ -169,6 +170,8 @@ struct srv_flock {
 #define SRV_NCCS 32
 
 #define SRV_TTY_IFLAG_ICRNL 0x00000001u
+#define SRV_TTY_OFLAG_OPOST 0x00000001u
+#define SRV_TTY_OFLAG_ONLCR 0x00000002u
 
 #define SRV_TTY_LFLAG_ECHO 0x00000001u
 #define SRV_TTY_LFLAG_ICANON 0x00000002u
@@ -194,6 +197,8 @@ struct srv_termios {
     uint8_t cc[SRV_NCCS];
 };
 
+#define SRV_TIOCGPGRP 0x540Fu
+#define SRV_TIOCSPGRP 0x5410u
 #define SRV_TIOCGWINSZ 0x5413u
 #define SRV_TIOCSWINSZ 0x5414u
 
@@ -331,6 +336,8 @@ struct srv_meminfo {
 
 #define SRV_WAIT_NOHANG 0x01
 
+#define SRV_SIGNAL_HUP 1
+#define SRV_SIGNAL_WINCH 28
 #define SRV_SIGNAL_INT 2
 #define SRV_SIGNAL_QUIT 3
 #define SRV_SIGNAL_KILL 9

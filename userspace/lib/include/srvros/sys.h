@@ -98,6 +98,8 @@ long srv_dup(int fd);
 long srv_dup2(int old_fd, int new_fd);
 long srv_pipe(int fds[2]);
 long srv_pipe_pair(int fds[2]);
+/* Returns master, slave descriptors for an isolated terminal session. */
+long srv_pty_create(int fds[2]);
 long srv_pipe_send_rights(int fd, const int *fds, size_t count);
 long srv_pipe_recv_rights(int fd, int *fds, size_t capacity, uint64_t *flags_out);
 long srv_unix_bind(const char *path);
