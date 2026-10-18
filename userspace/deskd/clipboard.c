@@ -60,6 +60,15 @@ void desk_clipboard_service(struct desk_clipboard_store *s,uint64_t pid,uint64_t
         p->offset+=q.height;if(q.value) p->reading=0;
     }
 }
+int desk_clipboard_write_local(struct desk_clipboard_store *s,const void *data,uint32_t length) {
+    if(length>DESK_CLIPBOARD_BYTES || (!data && length)) return -1;
+    if(s->writer) {
+        struct desk_clipboard_peer *p=peer(s,s->writer);if(p) reply(p,s->write_request,1);
+        s->writer=0;
+    }
+    if(length) memmove(s->data,data,length);
+    s->length=length;s->version++;return 0;
+}
 void desk_clipboard_forget(struct desk_clipboard_store *s,uint64_t pid) {
     if(s->writer==pid) s->writer=0;
     for(unsigned i=0;i<DESK_CLIPBOARD_PEERS;i++) if(s->peers[i].pid==pid) s->peers[i]=(struct desk_clipboard_peer){0};

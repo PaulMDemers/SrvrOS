@@ -15,7 +15,8 @@ not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
 windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings
-and Terminal. Files supports sortable details, rename, verified duplication of
+and Terminal. Command-Space opens application/window search; the SrvrOS menu
+provides the same launcher. Files supports sortable details, rename, verified duplication of
 files up to 64 KiB, and confirmed permanent deletion. System shows live process
 and memory information; Settings saves text, color and clock preferences.
 Start it with `run /fat/bin/deskd`. The

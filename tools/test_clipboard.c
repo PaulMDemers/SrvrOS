@@ -64,6 +64,14 @@ int main(void) {
     desk_clipboard_request(&store,99,1,&p,tick);p.generation=2;p.value=1;
     desk_clipboard_request(&store,99,1,&p,tick);assert(!store.writer && !store.length);
     p.generation=0;p.serial++;desk_clipboard_request(&store,99,1,&p,tick);assert(!store.writer && !store.length);
+    p=desk_packet_new(DESK_CLIPBOARD_SET);p.serial=900;p.width=12;p.height=3;memcpy(p.text,"old",3);
+    desk_clipboard_request(&store,99,1,&p,tick);assert(store.writer==99);
+    uint64_t previous=store.version;assert(!desk_clipboard_write_local(&store,"Files",5));
+    assert(!store.writer && store.version==previous+1 && store.length==5 && !memcmp(store.data,"Files",5));
+    p.generation=3;p.height=9;p.value=1;memcpy(p.text," contents",9);desk_clipboard_request(&store,99,1,&p,tick);
+    assert(store.length==5 && !memcmp(store.data,"Files",5));
+    assert(desk_clipboard_write_local(&store,NULL,1)<0 && store.length==5);
+    assert(!desk_clipboard_write_local(&store,store.data+1,4) && !memcmp(store.data,"iles",4));
     assert(received>700);
     puts("clipboard: PASS 64 KiB chunking, retry, focused access, staged publication, interrupted copy, revision-consistent paste, empty data, bounds and timeout");
 }

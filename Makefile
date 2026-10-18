@@ -2503,3 +2503,11 @@ build/tests/strftime-host$(HOST_EXE): tools/test_strftime.c userspace/lib/src/po
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
 test-core: test-strftime
+
+.PHONY: test-palette
+test-palette: build/tests/palette-host$(HOST_EXE)
+	$<
+build/tests/palette-host$(HOST_EXE): tools/test_palette.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_palette.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-widgets: test-palette

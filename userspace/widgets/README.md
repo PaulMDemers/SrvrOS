@@ -263,3 +263,20 @@ the field so the application can apply the existing revision/selection guards.
 Name validation, overwrite policy and the resulting operation stay in the app.
 Files uses this for Rename and Duplicate, and the shared safe-default dialog for
 permanent deletion.
+
+## Search palettes
+
+`desk_palette.h` combines a single-line editor and selectable result list. It owns
+up to 64 validated item snapshots with 64-bit identities, label/detail strings,
+and a bounded query. Space-separated tokens match labels or details; ASCII case
+is ignored and other UTF-8 bytes match exactly. Up/Down moves the result selection
+while typing, Enter activates, Tab reaches the list, and Escape or an outside
+press requests cancellation. Replacing items preserves the selected identity.
+The owner handles actions and clipboard requests, then calls `desk_palette_filter`
+after external edits. No launching, focus policy or clipboard transport lives in
+the control.
+
+The compositor uses this for Command-Space application/window search. Open windows
+use process identities; application entries explicitly launch a new instance.
+Opening suspends client focus, cancel restores it, and outside clicks are consumed
+through release. The query shares the desktop clipboard with applications.

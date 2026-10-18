@@ -16,5 +16,6 @@ struct desk_clipboard_store {
 };
 void desk_clipboard_request(struct desk_clipboard_store *store,uint64_t pid,int focused,const struct desk_packet *packet,uint64_t tick);
 void desk_clipboard_service(struct desk_clipboard_store *store,uint64_t pid,uint64_t tick);
+int desk_clipboard_write_local(struct desk_clipboard_store *store,const void *data,uint32_t length);
 void desk_clipboard_forget(struct desk_clipboard_store *store,uint64_t pid);
 #endif

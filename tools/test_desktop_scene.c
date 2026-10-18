@@ -24,6 +24,11 @@ int main(void) {
             assert(!desk_menu_configure(&s.menu,menu,5,(struct desk_rect){10,0,450,44},(struct desk_rect){0,0,W,H},&desk_font_16));
             struct srv_key_event k={.usage=SRV_KEY_F10,.flags=SRV_KEY_DOWN_EVENT};desk_menu_key(&s.menu,&k);
         }
+        if(pass==4) {
+            desk_palette_init(&s.launcher);struct desk_palette_item entries[]={{1,"Files","Application"},{5000000000ULL,"Text — Notes","Window"}};
+            assert(!desk_palette_open(&s.launcher,"Open application or window",entries,2));
+            desk_palette_configure(&s.launcher,(struct desk_rect){0,44,W,H-120});s.launcher_open=1;
+        }
         for (unsigned i=0;i<S*H;i++) full[i]=tiles[i]=0xdeadbeef;
         desk_clip(&a,(struct desk_rect){0,0,W,H}); desktop_draw(&a,&s);
         for (int y=0;y<H;y+=29) for (int x=0;x<W;x+=31) {

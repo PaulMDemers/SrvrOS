@@ -451,3 +451,22 @@ calendar formatting and `date +FORMAT`. File-date rendering bounds malformed
 metadata to the supported year range before calendar conversion.
 Screenshots: `native-desktop-files.png`, `native-desktop-rename.png`, and
 `native-desktop-system.png` under `docs/assets/screenshots/`.
+
+### Global application/window launcher
+
+Command-Space and the SrvrOS menu now open a shared `desk_palette`. It owns bounded
+search/query state and stable 64-bit result IDs; token filtering, keyboard/list
+navigation, cancellation and clipped drawing remain independent of launching or
+IPC. The desktop lists recent open/minimized windows and explicit new-app entries.
+Window actions resolve process identities at activation, avoiding reused slots.
+
+The overlay suspends client focus, restores it on cancel, and consumes outside
+clicks through release. Its single-line query shares the desktop clipboard;
+local copies cancel older staged writers and update the clipboard revision.
+
+Validation: palette and clipboard host tests, full desktop host regression,
+ASan/UBSan, tiled/full scene equality with the overlay, and the 512 MiB QEMU
+workflow passed. The guest verifies search via keyboard and global menu, focus
+restoration by saved-document readback, no close-box click-through, both clipboard
+directions and explicit new windows. Visual review shortened detail labels to fit.
+Screenshot: `native-desktop-launcher.png`.

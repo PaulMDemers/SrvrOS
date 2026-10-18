@@ -2,6 +2,7 @@
 #define DESKD_SCENE_H
 #include <srvros/desk_render.h>
 #include <srvros/desk_menu.h>
+#include <srvros/desk_palette.h>
 #define DESKD_WINDOWS 8
 #define DESK_INPUT_QUEUE 64
 struct desktop_window {
@@ -16,6 +17,8 @@ struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS];
     int focus,cursor_x,cursor_y,trackpad_trial,apps;
     struct desk_menu menu;
+    struct desk_palette launcher;
+    int launcher_open;
     uint64_t stack_serial;
     char notice[96],clock[64];
     int wallpaper;

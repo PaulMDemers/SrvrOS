@@ -144,6 +144,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
+        if(s->launcher_open) desk_palette_draw(c,&s->launcher,&desk_theme_quiet);
     }
     for (int y=0;y<16;y++) {
         desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x292e2b);
