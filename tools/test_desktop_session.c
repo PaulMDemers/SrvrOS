@@ -60,6 +60,21 @@ int main(void) {
     p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     incoming(&s,42,&p); service(&s); now+=501; service(&s);
     assert(killed==2 && !s.clients[0].pid && !s.children[0] && allocations==frees);
+    /* Scroll targets content under the cursor, keeps focus, and retries the
+     * same recipient when the transport queue is full. */
+    memset(&s,0,sizeof(s)); s.scene.focus=1;
+    s.clients[0].pid=42; s.scene.windows[0].visible=1;
+    s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
+    alive=1; queue_full=1;
+    scroll_at(&s,60,70,0,120); assert(!s.clients[0].scroll_count); /* Title bar. */
+    scroll_at(&s,60,150,0,120); scroll_at(&s,60,150,0,40);
+    scroll_at(&s,60,150,0,-20);
+    assert(s.scene.focus==1 && s.clients[0].scroll_count==2);
+    assert(s.clients[0].scroll[0].y==160 && s.clients[0].scroll[1].y==-20);
+    service(&s); assert(s.clients[0].scroll_count==2);
+    queue_full=0; service(&s); assert(s.clients[0].scroll_count==1);
+    service(&s); assert(!s.clients[0].scroll_count && sent[sends-1]==DESK_SCROLL);
+    scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].scroll_count);
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

@@ -165,7 +165,7 @@ int64_t gui_send(const struct gui_message *message) {
     if (message->type == DESK_TRANSPORT_MESSAGE) {
         for (size_t i=0;i<sizeof(packet);i++) ((uint8_t *)&packet)[i]=(uint8_t)message->text[i];
         if (packet.version != DESK_PROTOCOL_VERSION || packet.size != sizeof(packet) ||
-            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_FOCUS)
+            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_SCROLL)
             goto rejected;
         bool from_server = source_pid == server_pid;
         if ((!from_server && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE) ||

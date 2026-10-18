@@ -297,12 +297,15 @@ uint64_t mouse_overflow_count(void) { return 0; }
 static unsigned injected, pointer_injected;
 static struct trackpad_motion last_pointer;
 void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
-    pointer_injected++; last_pointer=(struct trackpad_motion){x,y,buttons};
+    pointer_injected++; last_pointer=(struct trackpad_motion){.dx=x,.dy=y,.buttons=buttons};
 }
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
     (void)state; assert(report[2]==4); injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
+void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
+    mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
+}
 static uint64_t test_time, test_time_step=1000, complete_at;
 static struct xhci_device *complete_device;
 uint64_t timer_monotonic_us(void) {
@@ -419,7 +422,8 @@ static void test_storage(void) {
     test_time_step=1000;
 }
 
-static void test_trackpad(const char *fixture,bool pointer) {
+static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
+    xhci_set_trackpad_gestures(false);
     xhci_set_trackpad_pointer(false); pointer_injected=0;
     reset_test();
     uint8_t descriptor[84];
@@ -434,7 +438,7 @@ static void test_trackpad(const char *fixture,bool pointer) {
         .hid_keyboard=true,.interrupt_dci=5,.interrupt_max_packet=64,.interrupt_buffer=keyboard,
         .interrupt_pending=true,.interrupt_trb=0xa000};
     xhci_set_trackpad_capture(false); assert(!parse_trackpad_config(d,84));
-    xhci_set_trackpad_capture(!pointer); xhci_set_trackpad_pointer(pointer);
+    xhci_set_trackpad_capture(!pointer); xhci_set_trackpad_pointer(pointer); xhci_set_trackpad_gestures(gestures);
     for (unsigned n=0;n<84;n++) assert(!parse_trackpad_config(d,n));
     d->product_id=0x0292; assert(!parse_trackpad_config(d,84)); d->product_id=0x0291;
     descriptor[62]=1; assert(!parse_trackpad_config(d,84)); descriptor[62]=0; /* alternate */
@@ -478,6 +482,7 @@ static void test_trackpad(const char *fixture,bool pointer) {
     e.parameter_low=0xa000; e.status=(13u<<24)|56;
     unsigned before=injected; dispatch_transfer_event(&e);
     assert(injected==before+1 && !d->interrupt_pending && t->pending && d->bulk_pending);
+    if (gestures) assert(t->typing_until>test_time);
     e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(7u<<16);
     e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38); dispatch_transfer_event(&e);
     assert(t->reports==2 && t->frame.count==0 && !t->frame.button); /* Lift frame. */
@@ -500,6 +505,18 @@ static void test_trackpad(const char *fixture,bool pointer) {
         e.parameter_low=(uint32_t)t->trb;
         dispatch_transfer_event(&e); assert(last_pointer.dx==2 && last_pointer.buttons==1);
     }
+    if (gestures) {
+        t->typing_until=0;
+        buffer[54]=buffer[82]=10;
+        e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-94);
+        dispatch_transfer_event(&e); /* New centroid baseline, releases the drag. */
+        buffer[54]=buffer[82]=10; buffer[42]=buffer[70]=160;
+        e.parameter_low=(uint32_t)t->trb; dispatch_transfer_event(&e);
+        assert(last_pointer.wheel_y==10 && !last_pointer.dx && !last_pointer.dy && t->scroll_events==1);
+        buffer[23]=1; buffer[54]=10;
+        e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
+        dispatch_transfer_event(&e); assert(last_pointer.buttons==1);
+    }
     e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
     if (pointer) assert(!last_pointer.buttons && t->pointer_cancels==2 && t->pointer_motion==1);
@@ -511,7 +528,7 @@ static void test_trackpad(const char *fixture,bool pointer) {
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
     if (pointer) assert(capture.pointer_enabled && capture.pointer_cancels==0);
-    xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false);
+    xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }
 
@@ -522,7 +539,8 @@ int main(int argc, char **argv) {
     test_scratchpads();
     test_handoff();
     test_keyboard_context(argv[1]);
-    test_trackpad(argv[1],false);
-    test_trackpad(argv[1],true);
+    test_trackpad(argv[1],false,false);
+    test_trackpad(argv[1],true,false);
+    test_trackpad(argv[1],true,true);
     puts("xhci-host-test: PASS (delayed root ports, reset handshake/timeouts, scratchpads, ownership, Apple HID, BOT descriptors/contexts, HID/bulk demultiplexing, quarantine, short packets)");
 }

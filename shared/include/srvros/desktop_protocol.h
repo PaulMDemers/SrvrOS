@@ -11,7 +11,7 @@
 #define DESK_MAX_HEIGHT 640
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
-    DESK_CLOSE, DESK_TEXT, DESK_FOCUS
+    DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL
 };
 struct desk_packet {
     uint32_t version, size, type, reserved;
@@ -25,5 +25,7 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
 /* COMMIT publishes the entire surface and seals it against writes/destruction.
  * RELEASE acknowledges a private compositor snapshot, not scanout completion.
  * CONFIGURE generations prevent an old-sized frame replacing a newer resize.
+ * SCROLL uses signed x/y viewport-pixel deltas (positive right/down); only the
+ * server may send it, targeting the window under the pointer without focus change.
  * TEXT currently carries one decoded console byte; raw keys are a later ABI. */
 #endif

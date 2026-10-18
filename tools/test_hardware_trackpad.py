@@ -35,6 +35,14 @@ class CaptureTests(unittest.TestCase):
             payload=data[:data.index(b'crc32=')].replace(old,new)
             altered=payload+f"crc32={binascii.crc32(payload)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
             with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
+    def test_gesture_measurements(self):
+        metadata=dict(self.metadata,pointer=True,gestures=True)
+        with self.assertRaises(ValueError): capture.validate_result(metadata,self.data,self.completion(self.data))
+        data=subprocess.check_output([str(capture.boot.ROOT/'build/tests/trackpad-capture-host'),'--dump-gestures'])
+        self.assertEqual(capture.validate_result(metadata,data,self.completion(data))['gesture_trial'],'EXERCISED')
+        payload=data[:data.index(b'crc32=')].replace(b'gesture_scroll_events=12',b'gesture_scroll_events=0')
+        altered=payload+f"crc32={binascii.crc32(payload)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
+        with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
     def test_physical_pointer_trial(self):
         fixtures=capture.boot.ROOT/'tools/fixtures'
         fields=capture.validate_result(

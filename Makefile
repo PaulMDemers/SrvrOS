@@ -2135,6 +2135,7 @@ test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE
 	build/tests/apple-trackpad-host$(HOST_EXE)
 	build/tests/desktop-scene-host$(HOST_EXE)
 	build/tests/desktop-session-host$(HOST_EXE)
+	build/tests/deskclient-host$(HOST_EXE)
 build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c userspace/lib/include/srvros/desk_render.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include tools/test_desktop.c userspace/deskstudy/scene.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
@@ -2177,6 +2178,7 @@ test-core: test-pointer
 test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE)
 	build/tests/trackpad-pointer-host$(HOST_EXE)
 	build/tests/mouse-input-host$(HOST_EXE)
+	build/tests/syscall-mouse-host$(HOST_EXE)
 
 build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h
 	mkdir -p build/tests
@@ -2185,3 +2187,13 @@ build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kern
 build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+test-pointer: build/tests/syscall-mouse-host$(HOST_EXE)
+build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+test-desktop: build/tests/deskclient-host$(HOST_EXE)
+build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@

@@ -102,6 +102,12 @@ int main(void) {
     current_pid=100;
     assert(gui_register_server()==-1 && server_pid==0);
     protocol_tests();
+    current_pid=1; assert(gui_register_server()==0);
+    struct gui_message wheel=packet_message(DESK_SCROLL,2,0,0),received;
+    current_pid=2; assert(gui_send(&wheel)==-1); /* Clients cannot forge input. */
+    current_pid=1; assert(gui_send(&wheel)==0);
+    current_pid=2; assert(gui_recv(&received)==1 && received.source_pid==1);
+    gui_process_cleanup(1); gui_process_cleanup(2);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;
 }

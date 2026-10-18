@@ -107,6 +107,14 @@ static void build_report(const char *run,const char *release,const struct xhci_t
         bool exercised=coverage(s,keyboard) && desktop_exit==0 && s->pointer_motion &&
             s->pointer_buttons>=2 && !s->pointer_cancels && !s->pointer_queue_overflows;
         field("pointer_trial",exercised?"EXERCISED":"INCOMPLETE");
+        if (s->gestures_enabled) {
+            number("gesture_scroll_events",s->scroll_events);
+            number("gesture_typing_suppressed",s->typing_suppressed);
+            number("gesture_palm_suppressed",s->palm_suppressed);
+            number("gesture_max_touch_major",s->max_touch_major);
+            number("gesture_max_touch_minor",s->max_touch_minor);
+            field("gesture_trial",exercised && s->scroll_events?"EXERCISED":"INCOMPLETE");
+        }
     }
     field("status",coverage(s,keyboard)?"CAPTURED":"INCOMPLETE");
     number("crc32",crc32((const uint8_t *)report,used));
@@ -151,7 +159,7 @@ static void capture(const char *run,const char *release) {
         struct mouse_event stale;
         while (mouse_scan(&stale)) {}
         console_write("trackpad-test: starting desktop; Escape returns to capture checks\n");
-        desktop_exit=process_run_elf_args("/fat/bin/deskd","--trackpad-test")?0:-1;
+        desktop_exit=process_run_elf_args("/fat/bin/deskd",snapshot.gestures_enabled?"--gesture-test":"--trackpad-test")?0:-1;
         while (keyboard_scan_char(&c)) {}
         xhci_trackpad_snapshot(&snapshot);
     }
@@ -193,6 +201,8 @@ static void capture(const char *run,const char *release) {
     console_printf("Malformed=%u errors=%u\n",snapshot.malformed,snapshot.errors);
     if (snapshot.pointer_enabled) console_printf("Desktop exit=%s motion events=%u button edges=%u cancels=%u\n",
         desktop_exit==0?"PASS":"FAIL",snapshot.pointer_motion,snapshot.pointer_buttons,snapshot.pointer_cancels);
+    if (snapshot.gestures_enabled) console_printf("Scroll events=%u typing-filter frames=%u broad-contact frames=%u\n",
+        snapshot.scroll_events,snapshot.typing_suppressed,snapshot.palm_suppressed);
     console_printf("Report: %s\nUSB unmounted: %s\n",saved?result_path:"SAVE_FAILED",unmounted?"yes":"NO");
     console_write("Host must verify the saved report; this is not gesture acceptance.\n");
 }

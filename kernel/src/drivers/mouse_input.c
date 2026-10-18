@@ -28,18 +28,23 @@ static int32_t sum(int32_t a,int32_t b) {
     int64_t n=(int64_t)a+b;
     return n>INT32_MAX?INT32_MAX:n<INT32_MIN?INT32_MIN:(int32_t)n;
 }
-static void inject(unsigned source,int32_t dx,int32_t dy,uint8_t buttons) {
+static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
     uint64_t flags=lock();
     uint8_t previous=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
     source_buttons[source]=buttons&7;
     blocked[source]&=buttons;
     buttons=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
-    if (!dx && !dy && buttons==previous) { unlock(flags); return; }
+    if (!dx && !dy && !wx && !wy && buttons==previous) { unlock(flags); return; }
     /* Never coalesce movement into a button edge: its click position matters. */
     if (count && previous==buttons) {
         struct mouse_event *last=&queue[(head+count-1)%MOUSE_QUEUE_SIZE];
-        if (last->buttons==buttons && !last->reserved && !(last->flags&MOUSE_CANCEL)) {
+        bool wheel=wx || wy,prior_wheel=last->wheel_x || last->wheel_y;
+        bool same_direction=(!wx || !last->wheel_x || (wx>0)==(last->wheel_x>0)) &&
+            (!wy || !last->wheel_y || (wy>0)==(last->wheel_y>0));
+        if (last->buttons==buttons && !last->reserved && !(last->flags&MOUSE_CANCEL) &&
+            wheel==prior_wheel && (!wheel || same_direction)) {
             last->dx=sum(last->dx,dx); last->dy=sum(last->dy,dy);
+            last->wheel_x=sum(last->wheel_x,wx); last->wheel_y=sum(last->wheel_y,wy);
             unlock(flags); return;
         }
     }
@@ -53,13 +58,13 @@ static void inject(unsigned source,int32_t dx,int32_t dy,uint8_t buttons) {
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
-        .dx=dx,.dy=dy,.buttons=buttons,.flags=buttons,
+        .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,.flags=buttons,
         .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
     count++;
     unlock(flags);
 }
-void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,buttons); }
-void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,buttons); }
+void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
+void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,0,0,buttons); }
 bool mouse_scan(struct mouse_event *out) {
     if (!out) return false;
     uint64_t flags=lock();
@@ -72,4 +77,8 @@ bool mouse_scan(struct mouse_event *out) {
 uint64_t mouse_overflow_count(void) {
     uint64_t flags=lock(),value=overflows;
     unlock(flags); return value;
+}
+
+void mouse_inject_trackpad_scroll(int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
+    inject(1,dx,dy,wx,wy,buttons);
 }

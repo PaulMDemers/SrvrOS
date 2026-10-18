@@ -29,7 +29,8 @@ def folder_for(volume):
     return folder
 
 
-def prepare(uuid,pointer=False):
+def prepare(uuid,pointer=False,gestures=False):
+    pointer=pointer or gestures
     volume = host.volume_id(uuid)
     folder = folder_for(volume)
     run = secrets.token_hex(8)
@@ -37,11 +38,11 @@ def prepare(uuid,pointer=False):
     if request.exists() or request.is_symlink() or any((folder/f'trackpad-{run}{suffix}').exists() or
             (folder/f'trackpad-{run}{suffix}').is_symlink() for suffix in ('.txt','.done')):
         raise ValueError('Run identity collision')
-    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer)
+    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer,gestures=gestures)
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
@@ -67,7 +68,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v{11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -133,6 +134,13 @@ def validate_result(metadata,data,completion):
             int(fields['pointer_buttons'])>=2 and fields['pointer_cancels']=='0' and fields['pointer_queue_overflows']=='0'
         if fields.get('pointer_trial')!=('EXERCISED' if exercised else 'INCOMPLETE'):
             raise ValueError('Inconsistent pointer trial')
+    if metadata.get('gestures') or 'gesture_trial' in fields:
+        for key in ('gesture_scroll_events','gesture_typing_suppressed','gesture_palm_suppressed',
+                    'gesture_max_touch_major','gesture_max_touch_minor'):
+            if not re.fullmatch(r'[0-9]{1,20}',fields.get(key,'')): raise ValueError('Invalid gesture measurement')
+        exercised=fields.get('pointer_trial')=='EXERCISED' and int(fields['gesture_scroll_events'])>0
+        if fields.get('gesture_trial')!=('EXERCISED' if exercised else 'INCOMPLETE'):
+            raise ValueError('Inconsistent gesture trial')
     return fields
 
 
@@ -153,19 +161,21 @@ def collect(run):
     print(' '.join(f'{key}={fields[key]}' for key in ('reports','max_contacts','button_reports','lifts','malformed','errors')))
     print(f'Evidence: {RUNS/run}')
     if metadata.get('pointer'): print(f"Pointer trial: {fields['pointer_trial']} (physical feel still needs user feedback)")
-    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED')
+    if metadata.get('gestures'): print(f"Gesture trial: {fields['gesture_trial']}; scroll events={fields['gesture_scroll_events']}; typing suppressed={fields['gesture_typing_suppressed']}; broad-contact suppressed={fields['gesture_palm_suppressed']}")
+    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('prepare','run','collect'))
+    parser.add_argument('--gestures',action='store_true',help='Prepare scrolling and accidental-touch trial')
     parser.add_argument('--pointer',action='store_true',help='Prepare an interactive desktop pointer trial')
     parser.add_argument('--uuid'); parser.add_argument('--run')
     args=parser.parse_args()
     try:
         if args.action=='prepare':
             if not args.uuid: parser.error('prepare requires --uuid')
-            prepare(args.uuid,args.pointer)
+            prepare(args.uuid,args.pointer,args.gestures)
         elif args.action=='run': launch(args.run)
         elif not collect(args.run): raise SystemExit(2)
     except (OSError,ValueError,RuntimeError,KeyError,subprocess.CalledProcessError) as error:

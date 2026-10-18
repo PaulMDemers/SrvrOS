@@ -186,6 +186,8 @@ struct xhci_trackpad_endpoint {
     uint32_t last_length,last_completion;
     struct apple_trackpad_frame frame;
     struct trackpad_pointer pointer;
+    uint64_t scroll_events,typing_suppressed,palm_suppressed,typing_until;
+    uint32_t max_touch_major,max_touch_minor;
     uint64_t pointer_motion, pointer_events,pointer_buttons,pointer_cancels;
     uint64_t lifts;
     uint32_t max_contacts;
@@ -341,7 +343,8 @@ static volatile bool xhci_input_probe_active;
 
 static bool storage_writable;
 void xhci_set_storage_writable(bool writable) { storage_writable = writable; }
-static bool trackpad_capture,trackpad_pointer_enabled;
+static bool trackpad_capture,trackpad_pointer_enabled,trackpad_gestures;
+void xhci_set_trackpad_gestures(bool enabled) { trackpad_gestures=enabled; }
 void xhci_set_trackpad_pointer(bool enabled) { trackpad_pointer_enabled=enabled; }
 void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
 static void dispatch_transfer_event(const struct xhci_trb *event);
@@ -364,7 +367,7 @@ void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
     if (!out) return;
     uint64_t flags=event_irq_save();
     *out=(struct xhci_trackpad_capture){.pointer_enabled=trackpad_pointer_enabled,
-        .pointer_queue_overflows=mouse_overflow_count()};
+        .pointer_queue_overflows=mouse_overflow_count(),.gestures_enabled=trackpad_gestures};
     for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];
         struct xhci_trackpad_endpoint *t=&d->trackpad;
@@ -375,6 +378,9 @@ void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
         out->contact_reports=t->contact_reports; out->button_reports=t->button_reports;
         out->lifts=t->lifts; out->malformed=t->malformed; out->errors=t->errors;
         out->keyboard_reports=d->hid_reports;
+        out->scroll_events=t->scroll_events; out->typing_suppressed=t->typing_suppressed;
+        out->palm_suppressed=t->palm_suppressed;
+        out->max_touch_major=t->max_touch_major; out->max_touch_minor=t->max_touch_minor;
         out->pointer_motion=t->pointer_motion;
         out->pointer_events=t->pointer_events; out->pointer_buttons=t->pointer_buttons;
         out->pointer_cancels=t->pointer_cancels;
@@ -387,6 +393,8 @@ void xhci_trackpad_reset_capture(void) {
     uint64_t flags=event_irq_save();
     for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_trackpad_endpoint *t=&xhci.devices[i].trackpad;
+        t->scroll_events=t->typing_suppressed=t->palm_suppressed=0;
+        t->max_touch_major=t->max_touch_minor=0;
         t->pointer_motion=t->pointer_events=t->pointer_buttons=t->pointer_cancels=0;
         t->reports=t->contact_reports=t->button_reports=t->lifts=t->malformed=0;
         t->max_contacts=0; t->frame=(struct apple_trackpad_frame){0};
@@ -1699,6 +1707,14 @@ static void handle_hid_report(struct xhci_device *device) {
     if (bytes_equal(report, device->previous_report, 8)) {
         return;
     }
+    if (trackpad_gestures && device->trackpad.candidate && !(report[0]&0xdd)) {
+        for (unsigned i=2;i<8;i++) {
+            if (report[i]<4 || report[i]>0x38) continue;
+            bool held=false;
+            for (unsigned j=2;j<8;j++) held |= device->previous_report[j]==report[i];
+            if (!held) { device->trackpad.typing_until=timer_monotonic_us()+300000; break; }
+        }
+    }
     keyboard_inject_hid_report(report, &device->keyboard_state);
     copy_bytes(device->previous_report, report, 8);
     device->hid_reports++;
@@ -1810,12 +1826,24 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             if (trackpad_pointer_enabled) {
                 struct trackpad_motion motion;
                 uint8_t buttons=t->pointer.buttons;
-                if (trackpad_pointer_frame(&t->pointer,&t->frame,&motion)) {
-                    mouse_inject_trackpad(motion.dx,motion.dy,motion.buttons);
+                bool changed=trackpad_gestures?
+                    trackpad_gesture_frame(&t->pointer,&t->frame,timer_monotonic_us()<t->typing_until ||
+                        (device->keyboard_state.repeat_usage && !(device->keyboard_state.previous_report[0]&0xdd)),&motion):
+                    trackpad_pointer_frame(&t->pointer,&t->frame,&motion);
+                t->typing_suppressed+=motion.typing_suppressed;
+                t->palm_suppressed+=motion.palm_suppressed;
+                if (changed) {
+                    mouse_inject_trackpad_scroll(motion.dx,motion.dy,motion.wheel_x,motion.wheel_y,motion.buttons);
+                    if (motion.wheel_x || motion.wheel_y) t->scroll_events++;
                     t->pointer_events++;
                     if (motion.dx || motion.dy) t->pointer_motion++;
                     if (buttons!=motion.buttons) t->pointer_buttons++;
                 }
+            }
+            for (unsigned i=0;i<t->frame.count;i++) {
+                const struct apple_trackpad_contact *c=&t->frame.contacts[i];
+                if (c->touch_major>(int32_t)t->max_touch_major) t->max_touch_major=c->touch_major;
+                if (c->touch_minor>(int32_t)t->max_touch_minor) t->max_touch_minor=c->touch_minor;
             }
             trackpad_sample(t,0);
             if (t->frame.count) { t->contact_reports++; trackpad_sample(t,1); }

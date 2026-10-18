@@ -10,6 +10,38 @@ static bool feed(struct trackpad_pointer *s,struct trackpad_motion *m,int x,int 
     struct apple_trackpad_frame f=frame(x,y,n,b);
     return trackpad_pointer_frame(s,&f,m);
 }
+static void gestures(void) {
+    struct trackpad_pointer s={0}; struct trackpad_motion m;
+    struct apple_trackpad_frame f=frame(100,200,2,0);
+    f.contacts[1].x=300; f.contacts[1].y=400;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[0].y+=160; f.contacts[1].y+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.wheel_y==10 && !m.dx && !m.dy);
+    f.contacts[0].y-=80; f.contacts[1].y-=80;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.wheel_y==-5);
+    struct apple_trackpad_contact temp=f.contacts[0]; f.contacts[0]=f.contacts[1]; f.contacts[1]=temp;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m)); /* Slot ordering is irrelevant to centroid. */
+    f.count=1; assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[0].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==10 && !m.wheel_y);
+    assert(!trackpad_gesture_frame(&s,&f,true,&m) && m.typing_suppressed);
+    f.contacts[0].x+=160;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.typing_suppressed); /* Latched until lift. */
+    f.button=1;
+    assert(trackpad_gesture_frame(&s,&f,true,&m) && m.buttons && !m.typing_suppressed && !m.dx);
+    f.contacts[0].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,true,&m) && m.dx==10 && m.buttons); /* Explicit drag survives typing. */
+    f.contacts[0].touch_major=601;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && !m.buttons && m.palm_suppressed);
+    f.contacts[0].touch_major=50; f.button=0;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.palm_suppressed);
+    f.count=0; assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.count=1; f.contacts[0].x=-30000;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && !m.palm_suppressed);
+    f.contacts[0].x+=16;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==1);
+    f.count=3; assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.palm_suppressed);
+}
 int main(void) {
     struct trackpad_pointer s={0}; struct trackpad_motion m;
     assert(!feed(&s,&m,-2635,3858,1,0)); /* Real capture starting coordinate. */
@@ -31,5 +63,6 @@ int main(void) {
     assert(feed(&s,&m,0,0,1,1) && m.buttons);
     assert(feed(&s,&m,0,0,0,0) && !m.buttons);
     assert(!trackpad_pointer_cancel(&s,&m));
+    gestures();
     puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, discontinuity, cancellation/release");
 }

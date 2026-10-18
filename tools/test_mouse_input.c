@@ -26,5 +26,10 @@ int main(void) {
     mouse_inject_trackpad(0,0,1); mouse_inject_trackpad(0,0,0);
     next(0,0,1); next(0,0,0);
     for (int i=0;i<200;i++) { mouse_inject_event(1,0,0); next(1,0,0); }
+    mouse_inject_trackpad_scroll(0,0,0,10,0); mouse_inject_trackpad_scroll(0,0,0,20,0);
+    mouse_inject_trackpad_scroll(0,0,0,-5,0); mouse_inject_trackpad(16,0,0);
+    e=next(0,0,0); assert(e.wheel_y==30);
+    e=next(0,0,0); assert(e.wheel_y==-5);
+    e=next(16,0,0); assert(!e.wheel_y);
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

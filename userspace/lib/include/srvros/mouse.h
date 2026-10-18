@@ -17,6 +17,8 @@ struct mouse_event {
     uint8_t buttons;
     uint8_t flags;
     uint16_t reserved;
+    uint32_t padding; /* Preserve the complete original 32-byte ABI prefix. */
+    int32_t wheel_x, wheel_y; /* Viewport pixels: positive is right/down. */
 };
 
 int mouse_scan(struct mouse_event *event);

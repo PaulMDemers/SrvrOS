@@ -430,7 +430,9 @@ void kmain(void) {
         console_write("lpss-spi: disabled (experimental transport)\n");
     }
     xhci_set_storage_writable(cmdline_has_token(cmdline, "srvros.usb-storage=rw"));
-    xhci_set_trackpad_pointer(cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
+    bool gestures=cmdline_has_token(cmdline,"srvros.trackpad=gestures");
+    xhci_set_trackpad_gestures(gestures);
+    xhci_set_trackpad_pointer(gestures || cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
     xhci_set_trackpad_capture(cmdline_has_token(cmdline, "srvros.trackpad=capture"));
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",

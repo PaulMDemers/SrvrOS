@@ -215,3 +215,7 @@ Do not carry two supported widget systems indefinitely.
 The immediate implementation slice is **native text/rendering and the minimal
 surface contract, with built-in trackpad bring-up**. Files/Text/Terminal follow
 those foundations. This avoids spending the next milestone repainting old demos.
+
+The [scrolling/accidental-touch slice](trackpad-scroll-2026-10-17.md) adds an opt-in
+gesture profile and a scrollable native study. Physical acceptance is pending;
+its conservative broad-contact filter is not yet calibrated palm rejection.

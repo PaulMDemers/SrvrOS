@@ -5,20 +5,48 @@
 #include <stdio.h>
 #include <string.h>
 
-static void draw(struct desk_canvas *c,const char *input,int large) {
+#define STUDY_LINES 48
+static int scroll_limit(int height) {
+    int viewport=height-202;
+    return STUDY_LINES*24-(viewport>0?viewport:1);
+}
+static int scroll_clamp(int64_t n,int height) {
+    int max=scroll_limit(height);
+    return n<0?0:n>max?max:(int)n;
+}
+static void draw(struct desk_canvas *c,const char *input,int large,int offset) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xfaf9f6);
     desk_text(c,&desk_font_20,24,24,"A little room to think.",0x292e2b);
-    desk_text(c,&desk_font_16,24,68,
-        "An independent application, in its own window.\n"
-        "Type a few words. Drag the title. Resize the corner.\n"
-        "\nThe quick brown fox jumps over the lazy dog.\n"
-        "Café · naïve · £ € — Aa Bb Cc 0123456789",0x465348);
+    desk_text(c,&desk_font_16,24,58,"Two fingers to scroll. Type below. Drag the title.",0x465348);
     struct desk_rect clip=c->clip;
+    struct desk_rect viewport={24,94,c->width-58,c->height-202};
+    desk_clip(c,viewport);
+    static const char *lines[]={
+        "A quiet space for a few thoughts.",
+        "The quick brown fox jumps over the lazy dog.",
+        "Café · naïve · £ € — Aa Bb Cc 0123456789",
+        "Lift your fingers, then settle them again.",
+        "Move the page without moving the pointer.",
+        "Small movements deserve a steady response."};
+    for (int i=0;i<STUDY_LINES;i++) {
+        int y=viewport.y+i*24-offset;
+        if (y+24<viewport.y || y>=viewport.y+viewport.h) continue;
+        char text[120]; snprintf(text,sizeof(text),"%02d   %s",i+1,lines[i%6]);
+        desk_text(c,&desk_font_16,viewport.x,y,text,0x465348);
+    }
+    c->clip=clip;
+    int thumb=viewport.h*viewport.h/(STUDY_LINES*24);
+    if (thumb<16) thumb=16;
+    if (thumb>viewport.h) thumb=viewport.h;
+    desk_fill(c,(struct desk_rect){c->width-23,viewport.y,3,viewport.h},0xe7ebe2);
+    int top=viewport.y+(int)((int64_t)offset*(viewport.h-thumb)/scroll_limit(c->height));
+    desk_fill(c,(struct desk_rect){c->width-23,top,3,thumb},0x748b79);
     desk_clip(c,(struct desk_rect){20,c->height-92,c->width-40,44});
     desk_fill(c,c->clip,0xe0eade);
     desk_text(c,large?&desk_font_20:&desk_font_16,26,c->height-82,input,0x38644f);
     c->clip=clip;
-    desk_text(c,&desk_font_16,24,c->height-30,"Type study   ·   Ctrl-L: text size",0x646b65);
+    char status[96]; snprintf(status,sizeof(status),"Scroll %d / %d   ·   Ctrl-L: text size",offset,scroll_limit(c->height));
+    desk_text(c,&desk_font_16,24,c->height-30,status,0x646b65);
 }
 int main(int argc,char **argv) {
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
@@ -31,7 +59,7 @@ int main(int argc,char **argv) {
     uint32_t width=0,height=0,*pixels=0;
     struct desk_packet configure={0};
     char input[160]={0}; size_t length=0;
-    int dirty=0,large=0,failed=0,quit=0;
+    int dirty=0,large=0,failed=0,quit=0,offset=0;
     while (!quit) {
         for (int n=0;n<32;n++) {
             uint64_t source; struct desk_packet p;
@@ -47,6 +75,11 @@ int main(int argc,char **argv) {
                 configure=p; last=srv_ticks();
             } else if (p.type==DESK_RELEASE && p.surface==surface && p.serial==pending &&
                        p.generation==pending_gen) { pending=0; last=srv_ticks(); }
+            else if (p.type==DESK_SCROLL && height) {
+                if (!dirty && !pending) last=srv_ticks();
+                offset=scroll_clamp((int64_t)offset+p.y,height); dirty=1;
+                printf("deskclient: scroll=%d\n",offset);
+            }
             else if (p.type==DESK_TEXT) {
                 if (!dirty && !pending) last=srv_ticks();
                 if (p.value==12) { large=!large; dirty=1; }
@@ -67,12 +100,12 @@ int main(int argc,char **argv) {
             if (surface) gui_surface_destroy(surface);
             desk_pixels_free(pixels,width,height);
             surface=next_surface; pixels=next; width=configure.width; height=configure.height;
-            generation=configure.generation; dirty=1;
+            generation=configure.generation; offset=scroll_clamp(offset,height); dirty=1;
         }
         if (dirty && !pending && surface) {
             struct desk_canvas c;
             desk_canvas_init(&c,pixels,width,height,width);
-            draw(&c,input,large);
+            draw(&c,input,large,offset);
             struct desk_packet p=desk_packet_new(DESK_COMMIT);
             p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
             if (gui_surface_blit(surface,0,0,width,height,pixels,width)!=0) { failed=1; break; }

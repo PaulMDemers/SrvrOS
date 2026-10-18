@@ -105,12 +105,17 @@ def main():
                     wait(b"input=aAzZ1231")
                 qmp.key("z",True); wait(b"deskclient: text=bBZ")
                 qmp.key("esc"); wait(b"deskd: exited"); wait(b"srv> ")
+                serial.sendall(b"run /fat/bin/deskd --scroll-smoke\n")
+                wait(b"deskd: ready;"); wait(b"deskclient: scroll=120"); wait(b"deskclient: scroll=96")
+                time.sleep(.2) # Client logs input before its sealed frame reaches scanout.
+                qmp.call("screendump",{"filename":str(out/"desktop-scroll.ppm")})
+                wait(b"deskd: exited"); wait(b"srv> ")
                 # Relaunch checks kernel server cleanup, bounded idle rendering.
                 serial.sendall(b"run /fat/bin/deskd --smoke\n")
                 wait(b"deskd: ready;"); wait(b"deskd: exited",45); wait(b"srv> ")
                 text=output.decode(errors="replace")
                 metrics=re.findall(r"deskd: exited frames=(\d+) fb_bytes=(\d+)",text)
-                if len(metrics)!=2 or not 1<=int(metrics[-1][0])<=3:
+                if len(metrics)!=3 or not 1<=int(metrics[-1][0])<=3:
                     raise RuntimeError(f"Idle repaint or relaunch failure: {metrics}")
                 if "deskclient: FAIL" in text or "deskd: FAIL" in text:
                     raise RuntimeError("Client/compositor failure")

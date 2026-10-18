@@ -12,6 +12,9 @@ struct client {
     uint64_t pid,generation,progress;
     int configure,awaiting,closing;
     struct desk_packet release;
+    struct desk_packet scroll[8];
+    unsigned scroll_head,scroll_count;
+    uint64_t scroll_since;
 };
 struct session {
     struct desktop_scene scene;
@@ -123,6 +126,7 @@ static void service(struct session *s) {
             if (desk_send(c->pid,&c->release)!=0) continue;
             c->release.type=0; c->progress=srv_ticks();
         }
+        if (c->scroll_count && (uint64_t)srv_ticks()-c->scroll_since>500) close_client(s,i);
         if (c->closing) {
             struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
         } else if (c->configure) {
@@ -130,6 +134,11 @@ static void service(struct session *s) {
             p.generation=c->generation;
             p.width=s->scene.windows[i].frame.w-2; p.height=s->scene.windows[i].frame.h-45;
             if (desk_send(c->pid,&p)==0) c->configure=0;
+        }
+        if (c->scroll_count && !c->configure && !c->closing &&
+            desk_send(c->pid,&c->scroll[c->scroll_head])==0) {
+            c->scroll_head=(c->scroll_head+1)%8; c->scroll_count--;
+            c->scroll_since=srv_ticks();
         }
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
@@ -151,9 +160,29 @@ static int hit(struct session *s,int x,int y) {
     }
     return -1;
 }
+static void scroll_at(struct session *s,int x,int y,int wx,int wy) {
+    int i=hit(s,x,y);
+    if (i<0 || s->clients[i].closing) return;
+    struct desktop_window *w=&s->scene.windows[i];
+    if (y<w->frame.y+44 || x<=w->frame.x || x>=w->frame.x+w->frame.w-1 || y>=w->frame.y+w->frame.h-1) return;
+    struct client *c=&s->clients[i];
+    if (c->scroll_count) {
+        struct desk_packet *last=&c->scroll[(c->scroll_head+c->scroll_count-1)%8];
+        if ((!wx || !last->x || (wx>0)==(last->x>0)) && (!wy || !last->y || (wy>0)==(last->y>0))) {
+            last->x=clamp((int64_t)last->x+wx,-16384,16384);
+            last->y=clamp((int64_t)last->y+wy,-16384,16384);
+            return;
+        }
+    }
+    if (c->scroll_count==8) { close_client(s,i); return; }
+    if (!c->scroll_count) c->scroll_since=srv_ticks();
+    struct desk_packet *p=&c->scroll[(c->scroll_head+c->scroll_count++)%8];
+    *p=desk_packet_new(DESK_SCROLL); p->x=clamp(wx,-16384,16384); p->y=clamp(wy,-16384,16384);
+}
 int main(int argc,char **argv) {
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
-    int smoke=argc==2 && strcmp(argv[1],"--smoke")==0;
+    int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
+    int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
@@ -164,7 +193,8 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && strcmp(argv[1],"--trace")==0)};
-    s.scene.trackpad_trial=argc==2 && strcmp(argv[1],"--trackpad-test")==0;
+    s.scene.trackpad_trial=argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
+        (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
@@ -181,6 +211,13 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if (scroll_smoke && s.scene.windows[0].pixels) {
+            struct desk_rect r=s.scene.windows[0].frame;
+            if (!scroll_phase) { scroll_at(&s,r.x+50,r.y+150,0,120); scroll_phase=1; }
+            else if (scroll_phase==1 && (uint64_t)srv_ticks()-start>75) {
+                scroll_at(&s,r.x+50,r.y+150,0,-24); scroll_phase=2;
+            }
+        }
         if (lifecycle) {
             if (phase==0 && s.scene.windows[0].pixels && (uint64_t)srv_ticks()-start>=100) {
                 srv_puts("deskd: lifecycle killing client\n");
@@ -222,7 +259,12 @@ int main(int argc,char **argv) {
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
             if (s.trace) printf("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
-            if (e.flags&MOUSE_CANCEL) { drag=resize=-1; buttons=e.buttons; }
+            if (e.flags&MOUSE_CANCEL) {
+                drag=resize=-1; buttons=e.buttons;
+                for (int i=0;i<DESKD_WINDOWS;i++) s.clients[i].scroll_count=0;
+            }
+            if ((e.wheel_x || e.wheel_y) && drag<0 && resize<0 && !e.buttons)
+                scroll_at(&s,x,y,e.wheel_x,e.wheel_y);
             if ((e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)) {
                 int i=hit(&s,x,y);
                 if (i>=0) {

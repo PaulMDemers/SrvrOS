@@ -29,7 +29,8 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xd6dcd2);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
     desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
-    desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
+    desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
+        s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
     for (int i=0;i<DESKD_WINDOWS;i++) if (i!=s->focus) draw_window(c,&s->windows[i],0);
     if (s->focus>=0 && s->focus<DESKD_WINDOWS) draw_window(c,&s->windows[s->focus],1);

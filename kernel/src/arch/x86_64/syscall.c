@@ -95,6 +95,8 @@ struct syscall_mouse_event {
     uint8_t buttons;
     uint8_t flags;
     uint16_t reserved;
+    uint32_t padding;
+    int32_t wheel_x, wheel_y;
 };
 
 struct syscall_process_info {
@@ -1716,10 +1718,13 @@ static int64_t syscall_mouse_scan(struct syscall_mouse_event *event) {
         .abi_version = SRV_ABI_VERSION,
         .struct_size = sizeof(copy),
     };
+    if (!abi_user_struct_size(event,sizeof(copy),SRV_ABI_VERSION)) return -1;
     if (!mouse_scan(&kernel_event)) {
         return 0;
     }
 
+    copy.wheel_x = kernel_event.wheel_x;
+    copy.wheel_y = kernel_event.wheel_y;
     copy.dx = kernel_event.dx;
     copy.dy = kernel_event.dy;
     copy.buttons = kernel_event.buttons;

@@ -18,11 +18,13 @@ from desktop_foundation_smoke import QMP
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--gestures',action='store_true')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     args=parser.parse_args()
+    args.pointer |= args.gestures
     root=Path(__file__).resolve().parents[1]
-    logs=root/('build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
+    logs=root/('build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
     run='0123456789abcdef'; release='fedcba9876543210'
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
         temp=Path(directory); volume=temp/'volume.img'; disk=temp/'usb.img'
@@ -39,7 +41,7 @@ def main():
             struct.pack_into('<II',mbr,454,2048,len(initial)//512); mbr[510:]=b'\x55\xaa'
             with disk.open('wb') as f: f.write(mbr); f.seek(2048*512); f.write(initial)
         reset()
-        iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"pointer" if args.pointer else "capture"}'
+        iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"gestures" if args.gestures else "pointer" if args.pointer else "capture"}'
             f' srvros.trackpad-run={run} srvros.trackpad-release={release}')
         def boot(label,interactive=False,readonly=False):
             sockpath=temp/'serial.sock'; sockpath.unlink(missing_ok=True)
@@ -98,7 +100,8 @@ def main():
         saved=ExfatFixture(volume.read_bytes())
         report=saved.read(f'srvros-work/trackpad-{run}.txt')
         complete=saved.read(f'srvros-work/trackpad-{run}.done')
-        fields=validate_result({'run':run,'release':release,'pointer':args.pointer},report,complete)
+        fields=validate_result({'run':run,'release':release,'pointer':args.pointer,'gestures':args.gestures},report,complete)
+        if args.gestures: assert fields['gesture_trial']=='INCOMPLETE' and fields['gesture_scroll_events']=='0'
         if args.pointer: assert fields['desktop_exit']=='PASS' and fields['pointer_trial']=='INCOMPLETE'
         assert fields['status']=='INCOMPLETE' and fields['found']=='0' and fields['typed']=='AaZz09'
         assert saved.read(f'srvros-work/trackpad-{run}.req')==f'STARTED {run}\n'.encode()
