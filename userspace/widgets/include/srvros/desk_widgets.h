@@ -60,9 +60,10 @@ void desk_scrollbar_draw(struct desk_canvas *canvas, const struct desk_scrollbar
  * Return ACTIVATED to the app; controls never perform application actions. */
 struct desk_button {
     struct desk_rect frame;
-    int enabled, focused, armed, inside;
+    int enabled, focused, armed, inside, centered;
 };
 void desk_button_configure(struct desk_button *button, struct desk_rect frame, int enabled);
+void desk_button_centered(struct desk_button *button,int centered);
 unsigned desk_button_event(struct desk_button *button, struct desk_widget_event event);
 void desk_button_draw(struct desk_canvas *canvas, const struct desk_button *button,
                       const char *label, const struct desk_theme *theme);

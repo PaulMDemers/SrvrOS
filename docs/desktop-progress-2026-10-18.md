@@ -607,3 +607,25 @@ Validation: huge and 65,536-digit exponents, signed zero, range/end-pointer case
 core/desktop host suite and guest libc/node probes passed, including the new
 large-exponent checks. The libc smoke runner is now headless and handles a stalled
 Limine menu through QMP, matching the desktop test harnesses.
+
+### Calculator keypad and calculation history
+
+Calculator now has a keypad built from shared centered buttons, a separate result
+display, Use result/Copy actions, and a 16-entry in-memory history table. Successful
+evaluation selects the expression for fresh typing; an operator immediately after
+a result starts from that result. Ans inserts the last value, ± negates the
+expression, and history activation recalls an expression without adding a duplicate
+entry. The expression is bounded to 255 bytes. Small windows keep entry, Calculate,
+Clear and Copy, with remaining actions available from the global Calculate menu.
+
+Visual review added the missing U+2212 minus glyph to all generated atlases and
+shortened compact-window help/status text. Number-range diagnostics now preserve
+the first parser error. The calculator still uses double arithmetic and a 12-digit
+result display; history is session-local.
+
+Validation: host controller tests cover keypad/result chaining, history eviction
+and recall, clipboard snapshots, errors, capacity/focus and full-versus-tiled compact
+rendering. ASan/UBSan and the full desktop host suite passed. QEMU passed real
+keypad clicks, answer insertion/negation, history recall, huge-exponent and division
+errors, compact resize, global Copy result and exact cross-app saved readback.
+The final screenshot was reviewed and saved as `native-desktop-calculator.png`.

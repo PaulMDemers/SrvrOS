@@ -65,7 +65,9 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,TOOL_REFRESH,"Refresh","Ctrl-R",busy);
     } else if(t->role==DESK_APP_CALCULATOR) {
         append(items,&count,0,"Calculate",NULL,DESK_MENU_HEADING);
-        append(items,&count,1,"Evaluate","Enter",blocked);append(items,&count,2,"Clear",NULL,blocked);
+        append(items,&count,CALC_EVALUATE,"Evaluate","Enter",blocked);append(items,&count,CALC_CLEAR,"Clear",NULL,blocked);
+        append(items,&count,CALC_USE,"Use result",NULL,blocked|(!t->calc_valid?DESK_MENU_DISABLED:0));
+        append(items,&count,CALC_COPY,"Copy result",NULL,blocked|(!t->calc_valid || t->clip.mode?DESK_MENU_DISABLED:0));
     } else if(t->role==DESK_APP_SYSTEM) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,SYSTEM_PAUSE,t->system_paused?"Resume updates":"Pause updates",NULL,blocked);

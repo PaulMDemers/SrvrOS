@@ -2576,3 +2576,11 @@ test-number: build/tests/number-host$(HOST_EXE)
 build/tests/number-host$(HOST_EXE): tools/test_number.c userspace/lib/src/posix_number.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_number.c -lm -o $@
+
+.PHONY: test-calculator-app
+test-desktop: test-calculator-app
+test-calculator-app: build/tests/calculator-app-host$(HOST_EXE)
+	$<
+build/tests/calculator-app-host$(HOST_EXE): tools/test_calculator_app.c userspace/desktools/calculator_app.c userspace/desktools/calculator.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_calculator_app.c userspace/desktools/calculator.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -lm -o $@

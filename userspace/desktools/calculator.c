@@ -1,6 +1,7 @@
 #include "calculator.h"
 #include <stdlib.h>
 #include <math.h>
+#include <errno.h>
 struct parser { const char *p,*error;unsigned depth; };
 static void spaces(struct parser *s) { while(*s->p==' ' || *s->p=='\t') s->p++; }
 static double sum(struct parser *s);
@@ -13,20 +14,21 @@ static double atom(struct parser *s) {
         s->p++;value=sum(s);spaces(s);
         if(*s->p!=')') s->error="A closing parenthesis is missing.";else s->p++;
     } else {
-        char *end;value=strtod(s->p,&end);
+        char *end;errno=0;value=strtod(s->p,&end);
+        if(errno==ERANGE) s->error="The number is outside the supported range.";
         if(end==s->p) s->error="Enter a number or parenthesized expression.";
         else s->p=end;
     }
-    if(!isfinite(value)) s->error="The result is outside the supported range.";
+    if(!s->error && !isfinite(value)) s->error="The result is outside the supported range.";
     s->depth--;return value;
 }
 static double product(struct parser *s) {
     double value=atom(s);spaces(s);
     while(!s->error && (*s->p=='*' || *s->p=='/')) {
         char op=*s->p++;double rhs=atom(s);
-        if(op=='/' && rhs==0) { s->error="Division by zero.";return 0; }
+        if(!s->error && op=='/' && rhs==0) { s->error="Division by zero.";return 0; }
         value=op=='*'?value*rhs:value/rhs;spaces(s);
-        if(!isfinite(value)) s->error="The result is outside the supported range.";
+        if(!s->error && !isfinite(value)) s->error="The result is outside the supported range.";
     }
     return value;
 }
@@ -34,7 +36,7 @@ static double sum(struct parser *s) {
     double value=product(s);spaces(s);
     while(!s->error && (*s->p=='+' || *s->p=='-')) {
         char op=*s->p++;double rhs=product(s);value=op=='+'?value+rhs:value-rhs;spaces(s);
-        if(!isfinite(value)) s->error="The result is outside the supported range.";
+        if(!s->error && !isfinite(value)) s->error="The result is outside the supported range.";
     }
     return value;
 }

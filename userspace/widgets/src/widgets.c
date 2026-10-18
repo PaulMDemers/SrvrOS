@@ -113,6 +113,7 @@ void desk_button_configure(struct desk_button *b, struct desk_rect r, int enable
     if (!enabled) b->focused=0;
     b->frame=r; b->enabled=enabled;
 }
+void desk_button_centered(struct desk_button *b,int centered) { b->centered=centered!=0; }
 unsigned desk_button_event(struct desk_button *b, struct desk_widget_event e) {
     int old_visual=b->armed && b->inside, old_focus=b->focused;
     unsigned result=0;
@@ -144,5 +145,9 @@ void desk_button_draw(struct desk_canvas *c, const struct desk_button *b,
               b->enabled && b->armed && b->inside?theme->selected:theme->surface);
     struct desk_rect text=desk_widget_inset(b->frame,4);
     if (text.h>theme->body->line_height) text.y+=(text.h-theme->body->line_height)/2;
+    if(b->centered && text.w>0) {
+        int width=desk_text_width(theme->body,label);
+        if(width<text.w) { int shift=(text.w-width)/2;text.x+=shift;text.w-=shift; }
+    }
     desk_label_draw(c,text,theme->body,label,b->enabled?theme->text:theme->muted);
 }

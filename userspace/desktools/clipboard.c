@@ -29,7 +29,7 @@ void tool_clipboard_result(struct tool *t,int result) {
     unsigned operation=t->clip_action;t->clip_action=0;
     if(result<0) { tool_status(t,"Clipboard transfer did not finish. Your text was kept; try again.");return; }
     desk_log("desktools: clipboard role=%d action=%u bytes=%u\n",t->role,operation,t->clip.length);
-    if(operation==DESK_EDIT_COPY) return;
+    if(operation==DESK_EDIT_COPY) { if(t->role==DESK_APP_CALCULATOR && t->clip_target==CALC_COPY) tool_status(t,"Result copied.");return; }
     struct desk_edit *edit=target(t,t->clip_target);if(!edit) return;
     struct desk_text_buffer *text=edit->text;
     if(!edit->enabled || t->modal || text->revision!=t->clip_revision || text->caret!=t->clip_caret || text->anchor!=t->clip_anchor) {
@@ -46,5 +46,6 @@ void tool_clipboard_result(struct tool *t,int result) {
         tool_status(t,"That text is invalid or too large for this field. Your text was kept.");return;
     }
     desk_edit_reveal(edit);t->window.dirty=1;
+    if(t->role==DESK_APP_CALCULATOR) tool_calculator_action(t,(struct desk_action){t->clip_target,DESK_WIDGET_CHANGED|DESK_WIDGET_REDRAW});
     if(t->role==DESK_APP_TEXT) tool_text_action(t,(struct desk_action){t->clip_target,DESK_WIDGET_CHANGED|DESK_WIDGET_REDRAW});
 }

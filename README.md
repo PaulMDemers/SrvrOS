@@ -21,7 +21,7 @@ with month/year navigation and Today. Files has Places, Back/Forward history, so
 details, rename, verified duplication of
 files up to 64 KiB, and confirmed permanent deletion. System shows live process, memory and network information; Settings saves text, color and clock preferences.
 Text includes a modeless Find bar, next/previous search, bounded multi-step undo
-and shared clipboard.
+and shared clipboard. Calculator has a keypad, result copying and session history.
 Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented
 behavior, VM checks and remaining limitations. The accepted MacBook Air input/I/O

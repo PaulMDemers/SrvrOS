@@ -12,6 +12,9 @@
 #include <srvros/sys.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK };
+enum { CALC_EVALUATE=70,CALC_CLEAR,CALC_USE,CALC_COPY,CALC_HISTORY,CALC_KEY_FIRST=300 };
+#define CALC_HISTORY_LIMIT 16
+#define CALC_EXPRESSION_BYTES 256
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 #define TOOL_HISTORY 24
 struct tool_location { char path[DESK_FILE_PATH];uint64_t selected;int scroll; };
@@ -38,7 +41,13 @@ struct tool {
     struct desk_text_buffer path_text,body_text,name_text;
     struct desk_text_history *body_history;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
-    struct desk_table table;
+    struct desk_table table,calc_history;
+    struct desk_table_row calc_rows[CALC_HISTORY_LIMIT];
+    char calc_expressions[CALC_HISTORY_LIMIT][CALC_EXPRESSION_BYTES],calc_results[CALC_HISTORY_LIMIT][64],calc_result[64];
+    uint64_t calc_ids[CALC_HISTORY_LIMIT],calc_next_id;
+    int calc_count,calc_valid,calc_just_evaluated;
+    struct desk_rect calc_keys;
+
     struct srv_process_info processes[DESK_TABLE_MAX_ROWS];
     struct desk_table_row table_rows[DESK_TABLE_MAX_ROWS];
     char process_numbers[DESK_TABLE_MAX_ROWS][3][24];
@@ -67,6 +76,11 @@ struct tool {
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_calculator_init(struct tool *tool);
+void tool_calculator_layout(struct tool *tool);
+void tool_calculator_draw(struct tool *tool,struct desk_canvas *canvas);
+void tool_calculator_action(struct tool *tool,struct desk_action action);
+int tool_calculator_key(struct tool *tool,const struct srv_key_event *key);
 void tool_system_init(struct tool *tool);
 void tool_system_layout(struct tool *tool);
 void tool_system_refresh(struct tool *tool,int force);

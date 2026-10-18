@@ -36,6 +36,7 @@ tree or dynamic object graph is introduced yet.
 - Button with press feedback, release-inside activation, cancellation, disabled
   state, focus indication and an abstract keyboard activation event. A press
   beginning outside never activates it. Disable, resize and focus loss disarm it.
+  `desk_button_centered` optionally centers short labels, as used by Calculator.
 
 The existing `/fat/bin/deskclient` study now uses the shared scrollbar and a
 Text size button. Ctrl-L remains its keyboard shortcut. The content, typing

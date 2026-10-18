@@ -38,9 +38,7 @@ void tool_layout(struct tool *t) {
         desk_edit_configure(&t->body,(struct desk_rect){16,102+search,w-32,h-144-search},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
     } else if(t->role==DESK_APP_FILES) tool_files_layout(t);
     else if(t->role==DESK_APP_CALCULATOR) {
-        desk_edit_configure(&t->body,(struct desk_rect){24,56,w-48,38},&desk_font_20,1);
-        desk_button_configure(&t->buttons[0],(struct desk_rect){24,110,112,32},1);
-        desk_button_configure(&t->buttons[1],(struct desk_rect){148,110,88,32},1);
+        tool_calculator_layout(t);
     } else if(t->role==DESK_APP_SYSTEM) {
         tool_system_layout(t);
     } else if(t->role==DESK_APP_SETTINGS) {
@@ -57,15 +55,8 @@ void tool_dispatch(struct tool *t,struct desk_action a) {
     tool_clipboard_action(t,a);
     if(t->role==DESK_APP_TEXT) tool_text_action(t,a);
     else if(t->role==DESK_APP_FILES) tool_files_action(t,a);
-    else if(t->role==DESK_APP_CALCULATOR) {
-        if((a.id==TOOL_BODY && (a.flags&DESK_EDIT_SUBMIT)) || (a.id==1 && (a.flags&DESK_WIDGET_ACTIVATED))) {
-            double result;const char *error=desk_calculate(t->body_text.data,&result);
-            if(error) tool_status(t,error);
-            else { snprintf(t->status,sizeof(t->status),"= %.12g",result);t->window.dirty=1; }
-        } else if(a.id==2 && (a.flags&DESK_WIDGET_ACTIVATED)) {
-            desk_text_buffer_set(&t->body_text,"",0);tool_status(t,"Ready.");desk_ui_focus(&t->ui,TOOL_BODY);
-        }
-    } else if(t->role==DESK_APP_SETTINGS) tool_settings_action(t,a);
+    else if(t->role==DESK_APP_CALCULATOR) tool_calculator_action(t,a);
+    else if(t->role==DESK_APP_SETTINGS) tool_settings_action(t,a);
     else if(t->role==DESK_APP_SYSTEM) tool_system_action(t,a);
 }
 static void key(struct tool *t,const struct srv_key_event *k) {
@@ -112,6 +103,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
         if(t->search_open && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==SRV_KEY_ESCAPE) { tool_text_search_close(t);return; }
         if(t->search_open && t->search_focus) { tool_text_search_action(t,desk_searchbar_key(&t->search,k));return; }
     }
+    if(t->role==DESK_APP_CALCULATOR && tool_calculator_key(t,k)) return;
     tool_dispatch(t,desk_ui_key(&t->ui,k));
 }
 static void draw(struct tool *t,struct desk_canvas *c) {
@@ -119,10 +111,8 @@ static void draw(struct tool *t,struct desk_canvas *c) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},theme->surface);
     if(t->role==DESK_APP_SETTINGS) tool_settings_draw(t,c);else if(t->role==DESK_APP_FILES) tool_files_draw(t,c);else desk_ui_draw(c,&t->ui,theme);
     if(t->search_open) desk_searchbar_draw(c,&t->search,theme);
-    if(t->role==DESK_APP_CALCULATOR) {
-        desk_label_draw(c,(struct desk_rect){24,20,c->width-48,28},theme->heading,"Calculator",theme->text);
-        desk_label_draw(c,(struct desk_rect){24,164,c->width-48,28},theme->body,"Use +, -, *, / and parentheses. Enter evaluates.",theme->muted);
-    } else if(t->role==DESK_APP_SYSTEM) {
+    if(t->role==DESK_APP_CALCULATOR) tool_calculator_draw(t,c);
+    else if(t->role==DESK_APP_SYSTEM) {
         tool_system_draw(t,c);
     }
     desk_label_draw(c,(struct desk_rect){16,c->height-28,c->width-32,24},theme->body,t->status,theme->muted);
@@ -136,20 +126,17 @@ int main(int argc,char **argv) {
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
-    desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],DESK_FILE_BYTES+1);
+    desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],t->role==DESK_APP_CALCULATOR?CALC_EXPRESSION_BYTES:DESK_FILE_BYTES+1);
     desk_text_buffer_init(&t->name_text,t->name_store[0],t->name_store[1],128);
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
     if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) t->worker_ready=desk_file_job_init(&t->job)==0;
     desk_log("desktools: starting role=%s\n",roles[t->role-1]);
-    if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
+    if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
     if(t->role==DESK_APP_TEXT) tool_text_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
-    else if(t->role==DESK_APP_CALCULATOR) {
-        desk_ui_add(&t->ui,TOOL_BODY,DESK_CONTROL_EDIT,&t->body,NULL);
-        desk_ui_add(&t->ui,1,DESK_CONTROL_BUTTON,&t->buttons[0],"Calculate");
-        desk_ui_add(&t->ui,2,DESK_CONTROL_BUTTON,&t->buttons[1],"Clear");tool_status(t,"Ready.");
-    } else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
+    else if(t->role==DESK_APP_CALCULATOR) tool_calculator_init(t);
+    else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
     else if(t->role==DESK_APP_SYSTEM) tool_system_init(t);
     while(!t->quit && !t->window.failed && !t->window.closed) {
         if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);

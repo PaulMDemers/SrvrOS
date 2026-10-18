@@ -7,6 +7,7 @@ static struct tool tool;
 static int changes;
 long srv_ticks(void) { return 10; }
 void tool_status(struct tool *t,const char *s) { snprintf(t->status,sizeof(t->status),"%s",s); }
+void tool_calculator_action(struct tool *t,struct desk_action a) { (void)t;(void)a; }
 void tool_text_action(struct tool *t,struct desk_action a) { (void)t;if(a.flags&DESK_WIDGET_CHANGED) changes++; }
 struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.type=type}; }
 int desk_send(uint64_t target,const struct desk_packet *p) { (void)p;assert(target==42);return 0; }
