@@ -4,6 +4,16 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_release_identity_requires_complete_boot_option(self):
+        release="0620ce5e026b2f32"
+        text=(f"cmdline: srvros.desktop-release={release}\n"
+              f"desktop-trial: boot options=srvros.desktop-release={release}\n"
+              "terminal: srvros.desktop-release=ffffffffffffffff\n"
+              "cmdline: srvros.desktop-release=11111111111111111\n"
+              "cmdline: srvros.desktop-release=2222222222222222suffix\n")
+        self.assertEqual(desktop.session_releases(text),[release])
+        self.assertEqual(desktop.session_releases("desktop started\n"),[])
+
     def test_device_summary_order_and_attention(self):
         newer="workspace-devices: audio_state=4 error=3 started=2 completed=1 monotonic_us=200"
         older="workspace-devices: audio_state=2 error=0 started=1 completed=1 monotonic_us=100"
@@ -30,6 +40,12 @@ class CollectionTests(unittest.TestCase):
             self.assertEqual(len(item['brightness']),2);self.assertEqual(len(item['attention']),2);self.assertEqual(len(item['probe']),1)
             self.assertEqual((out/item['session']/'exit.log').read_bytes(),(folder/'exit.log').read_bytes())
             self.assertEqual(report['hardware_acceptance'],'manual-pending')
+            self.assertEqual(item['releases'],[])
+            (folder/'boot.log').write_text('cmdline: srvros.desktop-release=0620ce5e026b2f32\n')
+            (folder/'exit.log').write_text('cmdline: srvros.desktop-release=d61e60a82a295d84\n')
+            _,mixed=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertEqual(mixed['sessions'][0]['releases'],['0620ce5e026b2f32','d61e60a82a295d84'])
+            self.assertIn('collection: conflicting boot release identities',mixed['sessions'][0]['attention'])
             (folder/'exit.log').unlink();(folder/'exit.log').symlink_to(folder/'boot.log')
             with self.assertRaises(ValueError): desktop.collect(mount,'37d8c5d0',root/'out')
             (folder/'exit.log').unlink();(folder/'exit.log').write_bytes(b'x'*65537)

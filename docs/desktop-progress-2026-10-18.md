@@ -1767,3 +1767,12 @@ The physical amplifier sequence, audible quality, sensor readings and adapter
 compatibility remain unproven until that round. Battery/AC status, recording,
 media-file playback, general adapter support and dynamic window allocation remain
 follow-up work.
+
+
+The Ubuntu collector now records boot release identities per session and prints
+them beside the exit-log/attention summary. Missing identities remain unknown;
+conflicting identities are flagged rather than selecting one. It accepts only
+complete release options in boot-option records. Three focused collection tests
+passed, and replay against both final VM sessions and the accepted physical
+held-drag baseline identified their distinct releases correctly. This is a
+host-tool-only follow-up; the installed candidate is unchanged.

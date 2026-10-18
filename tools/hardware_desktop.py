@@ -12,6 +12,20 @@ SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
 FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
 
 
+def session_releases(text):
+    """Use boot-option records, not commands or app text echoed into the log."""
+    releases = set()
+    for line in text.splitlines():
+        record = next((p for p in ("cmdline: ", "desktop-trial: boot options=") if line.startswith(p)), None)
+        if record is None:
+            continue
+        for token in line[len(record):].split():
+            prefix = "srvros.desktop-release="
+            if token.startswith(prefix) and re.fullmatch(r"[0-9a-f]{16}", token[len(prefix):]):
+                releases.add(token[len(prefix):])
+    return sorted(releases)
+
+
 def device_snapshot(line):
     if not line.startswith("workspace-devices: "):
         return None
@@ -98,12 +112,17 @@ def collect(mount, volume, output):
             if (saved / filename).read_bytes() != data:
                 raise OSError("Local collection verification failed")
         text = "\n".join(data.decode("utf-8", errors="replace") for data in payload.values())
+        releases = session_releases(text)
+        attention = sorted(set(line for line in text.splitlines() if needs_attention(line)))
+        if len(releases) > 1:
+            attention.append("collection: conflicting boot release identities")
         records.append({
             "session": name,
+            "releases": releases,
             "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()},
             "exit_snapshot_present": "exit.log" in payload,
             "desktop_exit_seen": "deskd: exited" in text,
-            "attention": sorted(set(line for line in text.splitlines() if needs_attention(line))),
+            "attention": attention,
             "devices": device_summaries(text),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),
@@ -126,7 +145,8 @@ def main():
         parser.exit(1, f"desktop-collect: {error}\n")
     print(f"desktop-collect: {len(report['sessions'])} sessions copied and verified: {destination}")
     for item in report["sessions"]:
-        print(f"  {item['session']}: exit log={'yes' if item['exit_snapshot_present'] else 'missing'}, attention={len(item['attention'])}")
+        release = ",".join(item["releases"]) or "unknown"
+        print(f"  {item['session']}: release={release}, exit log={'yes' if item['exit_snapshot_present'] else 'missing'}, attention={len(item['attention'])}")
     print("Logs are diagnostic evidence, not an automatic hardware pass.")
 
 
