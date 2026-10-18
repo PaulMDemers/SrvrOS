@@ -7,6 +7,8 @@
 
 static uint64_t current_pid=1;
 static bool keyboard_events;
+static unsigned pointer_speed=3;static bool pointer_accel;
+void mouse_trackpad_settings(unsigned speed,bool acceleration) { pointer_speed=speed;pointer_accel=acceleration; }
 void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
 bool keyboard_read_event(struct srv_key_event *event) { (void)event; return keyboard_events; }
 struct process *process_current(void) { return (struct process *)(uintptr_t)current_pid; }
@@ -29,7 +31,10 @@ static void protocol_tests(void) {
     struct srv_key_event key;
     assert(gui_keyboard_mode(2)==-1 && gui_keyboard_mode(1)==0 && keyboard_events);
     assert(gui_keyboard_read(&key)==1);
+    assert(gui_pointer_config(0,1)==-1 && gui_pointer_config(6,1)==-1 && gui_pointer_config(3,2)==-1);
+    assert(gui_pointer_config(5,1)==0 && pointer_speed==5 && pointer_accel);
     current_pid=2;
+    assert(gui_pointer_config(1,0)==-1 && pointer_speed==5 && pointer_accel);
     assert(gui_keyboard_mode(0)==-1 && gui_keyboard_read(&key)==-1 && keyboard_events);
     assert(gui_surface_create(2,2,2,1ull<<40)==-1);
     uint32_t pixels[4]={11,22,33,44}, copy[4]={0};
@@ -65,7 +70,7 @@ static void protocol_tests(void) {
     current_pid=2; assert(gui_send(&commit)==-1); /* Replay rejected. */
     commit=packet_message(DESK_COMMIT,0,id,2); assert(gui_send(&commit)==0);
     gui_process_cleanup(1); /* Pending client can reclaim after server death. */
-    assert(!keyboard_events);
+    assert(!keyboard_events && pointer_speed==3 && !pointer_accel);
     assert(!surface_for_id(id)->sealed);
     assert(gui_surface_destroy(2,id)==0);
     gui_process_cleanup(2);

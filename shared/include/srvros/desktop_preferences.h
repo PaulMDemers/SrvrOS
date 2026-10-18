@@ -6,6 +6,7 @@ struct desk_preferences {
     uint32_t text_size;
     int32_t utc_offset_minutes;
     uint32_t clock_flags,wallpaper;
+    uint32_t pointer_speed,pointer_acceleration;
 };
 #define DESK_CLOCK_24H 1u
 #define DESK_CLOCK_DATE 2u
@@ -15,7 +16,10 @@ struct desk_preferences {
 #define DESK_PREF_DATE 8u
 #define DESK_PREF_CLOCK (DESK_PREF_OFFSET|DESK_PREF_FORMAT|DESK_PREF_DATE)
 #define DESK_PREF_WALLPAPER 16u
-#define DESK_PREF_ALL 31u
+#define DESK_PREF_POINTER_SPEED 32u
+#define DESK_PREF_POINTER_ACCELERATION 64u
+#define DESK_PREF_POINTER (DESK_PREF_POINTER_SPEED|DESK_PREF_POINTER_ACCELERATION)
+#define DESK_PREF_ALL 127u
 enum desk_preferences_status { DESK_PREF_LOADING, DESK_PREF_SAVED, DESK_PREF_SAVING,
     DESK_PREF_SESSION_ONLY, DESK_PREF_CONFLICT };
 #endif

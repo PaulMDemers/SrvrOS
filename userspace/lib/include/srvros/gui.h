@@ -49,6 +49,7 @@ struct gui_message {
 };
 
 int gui_register_server(void);
+int gui_pointer_config(unsigned speed,unsigned acceleration);
 int gui_keyboard_mode(int enabled);
 /* 1 event, 0 empty, -1 rejected; only the registered server can use these. */
 int gui_keyboard_read(struct srv_key_event *event);

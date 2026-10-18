@@ -311,15 +311,17 @@ static void clock_update(struct session *s,int force) {
     }
 }
 static void preferences_changed(struct session *s) {
+    gui_pointer_config(s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration);
     if(s->scene.wallpaper!=(int)s->preferences.value.wallpaper) {
         s->scene.wallpaper=s->preferences.value.wallpaper;
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
     }
     clock_update(s,1);
     for(int n=0;n<DESKD_WINDOWS;n++) if(s->clients[n].pid) s->clients[n].preferences_dirty=1;
-    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u\n",
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u\n",
         (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
-        s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper);
+        s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper,
+        s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration);
 }
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
@@ -929,7 +931,8 @@ int main(int argc,char **argv) {
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
-    if(apps) { desktop_preferences_init(&s.preferences);clock_update(&s,1); }
+    if(apps) { desktop_preferences_init_path(&s.preferences,hardware_trial?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
+        gui_pointer_config(s.preferences.value.pointer_speed,s.preferences.value.pointer_acceleration);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);

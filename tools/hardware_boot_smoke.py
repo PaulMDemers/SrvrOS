@@ -65,6 +65,48 @@ def wait_for(log, predicate, process, seconds):
     raise RuntimeError(f"Timed out; see {log}")
 
 
+def workspace_preferences(ui, serial, process, logs, restored=False):
+    """Use Settings beside the initial Help window; exercise the real USB writer."""
+    def shortcut(keys):
+        ui.call("human-monitor-command", {"command-line": "sendkey " + keys})
+        time.sleep(.3)
+    shortcut("meta_l-spc")
+    for c in "settings new app": ui.key("spc" if c == " " else c)
+    ui.key("ret")
+    wait_for(serial, lambda s: "desktools: starting role=settings" in s, process, 30)
+    time.sleep(1)
+    # Help is slot 0; Settings is slot 1, content origin (57,132).
+    # Shorten its window, then scroll to the trackpad controls.
+    ui.mouse(613-24, 688-56)
+    ui.mouse(0, 0, 1); ui.mouse(0, -80, 1); ui.mouse(0, 0, 0)
+    shortcut("pgdn")
+    pointer=[613,608]
+    def click(x,y):
+        ui.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
+        ui.mouse(0,0,1);ui.mouse(0,0,0)
+    if not restored:
+        click(545,430)  # Speed 5; the initial default is 3.
+    click(110,478)  # First boot disables acceleration; second re-enables it.
+    time.sleep(1)
+    ui.call("screendump", {"filename": str(logs / ("workspace-settings-restored.ppm" if restored else "workspace-settings-saved.ppm"))})
+    before=len(serial.read_text(errors="replace"))
+    shortcut("ctrl-w")
+    wait_for(serial, lambda s: "desktools: exited role=settings failure=0" in s[before:], process, 30)
+
+
+def verify_workspace(stick, volume, acceleration):
+    from exfat_test_image import ExfatFixture, check_clean_image
+    with stick.open("rb") as stream:
+        stream.seek(2048*512);saved=stream.read()
+    volume.write_bytes(saved);check_clean_image(volume)
+    fixture=ExfatFixture(saved)
+    expected=("srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
+              f"wallpaper=0\npointer_speed=5\npointer_acceleration={acceleration}\n").encode()
+    actual=fixture.read("srvros-work/desktop.conf")
+    assert actual==expected, (actual,expected)
+    return fixture
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--boot-wait", type=float, default=180)
@@ -132,8 +174,10 @@ def main():
                         for c in value: ui.key(keys.get(c,c.lower()),c.isupper())
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
+                    workspace_preferences(ui,serial,process,logs)
+                    before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
-                    wait_for(serial,lambda s:"window=1" in s,process,30)
+                    wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
                     time.sleep(.7);type_text("Laptop trial AaZz09 saved on USB.")
                     shortcut("ctrl-l");type_text("/work/srvros-work/native-trial.txt")
                     shortcut("ctrl-s")
@@ -141,9 +185,7 @@ def main():
                     wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
                     shortcut("f10");shortcut("end");shortcut("ret")
                     wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
-                    with stick.open("rb") as stream: stream.seek(2048*512);saved=stream.read()
-                    volume.write_bytes(saved);check_clean_image(volume)
-                    assert ExfatFixture(saved).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
+                    assert verify_workspace(stick,volume,0).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
                     ui.stream.close();ui.sock.close()
                 text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
                 for marker in ("SRVROS_GRUB_CHAINLOAD_TEST", "srvros: entering kernel",
@@ -256,13 +298,33 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+            if args.desktop_check:
+                # A new VM has a fresh RAM root. Only the USB workspace survives.
+                first_serial=logs/"hardware-grub-first-serial.log"
+                first_serial.write_bytes(serial.read_bytes());serial.unlink()
+                qmp_path.unlink(missing_ok=True)
+                process=subprocess.Popen(command,stdout=errors,stderr=errors)
+                try:
+                    wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
+                    ui=QMP(qmp_path)
+                    workspace_preferences(ui,serial,process,logs,restored=True)
+                    for keys in ("f10","end","ret"):
+                        ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
+                    text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
+                    assert not has_fatal_exception(text)
+                    assert verify_workspace(stick,volume,1).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
+                    ui.stream.close();ui.sock.close()
+                finally:
+                    process.terminate()
+                    try: process.wait(timeout=5)
+                    except subprocess.TimeoutExpired: process.kill();process.wait()
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
     if args.kernel_check:
         print("kernel: PASS (nested register preservation, timer/preemption, RAM fsck, cache service windows)")
     if args.responsiveness_check:
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     if args.desktop_check:
-        print("Native desktop trial: checklist, USB keyboard editing, verified GUI save and clean unmount passed.")
+        print("Native desktop trial: checklist, USB keyboard editing, verified GUI save, preferences across fresh VM boot and two clean unmounts passed.")
     print(f"Serial log: {serial}")
 
 

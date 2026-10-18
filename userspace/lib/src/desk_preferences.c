@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <time.h>
 struct desk_preferences desk_preferences_default(void) {
-    return (struct desk_preferences){.text_size=16,.clock_flags=DESK_CLOCK_24H|DESK_CLOCK_DATE};
+    return (struct desk_preferences){.text_size=16,.clock_flags=DESK_CLOCK_24H|DESK_CLOCK_DATE,.pointer_speed=3,.pointer_acceleration=1};
 }
 int desk_preferences_valid(const struct desk_preferences *p) {
     return p && (p->text_size==16 || p->text_size==20) && p->utc_offset_minutes>=-720 &&
         p->utc_offset_minutes<=840 && p->utc_offset_minutes%15==0 &&
-        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3;
+        !(p->clock_flags&~(DESK_CLOCK_24H|DESK_CLOCK_DATE)) && p->wallpaper<3 && p->pointer_speed>=1 && p->pointer_speed<=5 && p->pointer_acceleration<=1;
 }
 int desk_preferences_merge(struct desk_preferences *d,const struct desk_preferences *s,unsigned mask) {
     if(!d || !s || !mask || (mask&~DESK_PREF_ALL)) return -1;
@@ -19,19 +19,22 @@ int desk_preferences_merge(struct desk_preferences *d,const struct desk_preferen
     if(mask&DESK_PREF_FORMAT) p.clock_flags=(p.clock_flags&~DESK_CLOCK_24H)|(s->clock_flags&DESK_CLOCK_24H);
     if(mask&DESK_PREF_DATE) p.clock_flags=(p.clock_flags&~DESK_CLOCK_DATE)|(s->clock_flags&DESK_CLOCK_DATE);
     if(mask&DESK_PREF_WALLPAPER) p.wallpaper=s->wallpaper;
+    if(mask&DESK_PREF_POINTER_SPEED) p.pointer_speed=s->pointer_speed;
+    if(mask&DESK_PREF_POINTER_ACCELERATION) p.pointer_acceleration=s->pointer_acceleration;
     if(!desk_preferences_valid(&p)) return -1;
     *d=p;return 0;
 }
 int desk_preferences_encode(const struct desk_preferences *p,char *out,size_t capacity) {
     if(!desk_preferences_valid(p) || !out || !capacity) return -1;
-    int n=snprintf(out,capacity,"srvros-desktop-v1\ntext_size=%u\nutc_offset_minutes=%d\nclock_flags=%u\nwallpaper=%u\n",
-        p->text_size,p->utc_offset_minutes,p->clock_flags,p->wallpaper);
+    int n=snprintf(out,capacity,"srvros-desktop-v2\ntext_size=%u\nutc_offset_minutes=%d\nclock_flags=%u\nwallpaper=%u\npointer_speed=%u\npointer_acceleration=%u\n",
+        p->text_size,p->utc_offset_minutes,p->clock_flags,p->wallpaper,p->pointer_speed,p->pointer_acceleration);
     return n<0 || (size_t)n>=capacity?-1:n;
 }
 int desk_preferences_decode(struct desk_preferences *out,const void *data,size_t length) {
-    static const char header[]="srvros-desktop-v1\n";
-    if(!out || !data || length<sizeof(header)-1 || length>256 || memcmp(data,header,sizeof(header)-1)) return -1;
+    static const char header[]="srvros-desktop-v";
+    if(!out || !data || length<sizeof(header)+1 || length>256 || memcmp(data,header,sizeof(header)-1)) return -1;
     const char *text=data;size_t at=sizeof(header)-1;unsigned seen=0;
+    char version=text[at++];if((version!='1' && version!='2') || text[at++]!='\n') return -1;
     struct desk_preferences p=desk_preferences_default();
     while(at<length) {
         size_t begin=at;while(at<length && text[at]!='=') { if(text[at]=='\n' || !text[at]) return -1;at++; }
@@ -49,11 +52,13 @@ int desk_preferences_decode(struct desk_preferences *out,const void *data,size_t
         else if(name==18 && !memcmp(text+begin,"utc_offset_minutes",18)) { bit=2;p.utc_offset_minutes=number; }
         else if(name==11 && !memcmp(text+begin,"clock_flags",11)) { bit=4;p.clock_flags=number; }
         else if(name==9 && !memcmp(text+begin,"wallpaper",9)) { bit=8;p.wallpaper=number; }
+        else if(version=='2' && name==13 && !memcmp(text+begin,"pointer_speed",13)) { bit=16;p.pointer_speed=number; }
+        else if(version=='2' && name==20 && !memcmp(text+begin,"pointer_acceleration",20)) { bit=32;p.pointer_acceleration=number; }
         else return -1;
         if(seen&bit) return -1;
         seen|=bit;
     }
-    if(seen!=15 || !desk_preferences_valid(&p)) return -1;
+    if(seen!=(version=='1'?15u:63u) || !desk_preferences_valid(&p)) return -1;
     *out=p;return 0;
 }
 int desk_clock_format(char *out,size_t capacity,long utc,const struct desk_preferences *p) {

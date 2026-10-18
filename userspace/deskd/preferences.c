@@ -2,8 +2,11 @@
 #include <string.h>
 
 void desktop_preferences_init(struct desktop_preferences_store *s) {
-    *s=(struct desktop_preferences_store){.value=desk_preferences_default(),.revision=1,.status=DESK_PREF_LOADING,.loading=1};
-    if(desk_file_job_init(&s->job) || desk_file_job_start(&s->job,DESK_FILE_READ,DESKTOP_PREFERENCES_PATH,NULL,0,0,0)) {
+    desktop_preferences_init_path(s,DESKTOP_PREFERENCES_PATH);
+}
+void desktop_preferences_init_path(struct desktop_preferences_store *s,const char *path) {
+    *s=(struct desktop_preferences_store){.path=path,.value=desk_preferences_default(),.revision=1,.status=DESK_PREF_LOADING,.loading=1};
+    if(desk_file_job_init(&s->job) || desk_file_job_start(&s->job,DESK_FILE_READ,s->path,NULL,0,0,0)) {
         s->status=DESK_PREF_SESSION_ONLY;s->loading=0;desk_file_job_close(&s->job);return;
     }
     s->initialized=1;
@@ -50,7 +53,7 @@ int desktop_preferences_poll(struct desktop_preferences_store *s,uint64_t now) {
     }
     if(!s->loading && s->writable && s->dirty && !s->job.busy && now-s->changed_at>=30) {
         char data[256];int length=desk_preferences_encode(&s->value,data,sizeof(data));
-        if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,DESKTOP_PREFERENCES_PATH,data,(size_t)length,
+        if(length<0 || desk_file_job_start(&s->job,DESK_FILE_WRITE,s->path,data,(size_t)length,
             s->existing?DESK_FILE_EXPECT_EXISTING:0,s->disk_crc)) {
             s->status=DESK_PREF_SESSION_ONLY;s->writable=0;return 1;
         }

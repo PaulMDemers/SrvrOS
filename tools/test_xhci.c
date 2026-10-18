@@ -293,6 +293,7 @@ static void test_root_ports(void) {
     assert(strcmp(xhci.ports[0].reset_result, "link-ready") == 0);
 }
 
+void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration) { *speed=3;*acceleration=false; }
 uint64_t mouse_overflow_count(void) { return 0; }
 static unsigned injected, pointer_injected;
 static struct trackpad_motion last_pointer;

@@ -84,18 +84,24 @@ def main():
                 # Resize shorter, then Page Down scrolls the shared viewport; pick Sand.
                 qmp.mouse(613-pointer[0],688-pointer[1]);pointer[:]=[613,688]
                 qmp.mouse(0,0,1);qmp.mouse(0,-80,1);qmp.mouse(0,0,0);pointer[1]-=80;time.sleep(.5)
-                shortcut("pgdn");shot("settings-scrolled");click(225,535)
+                shortcut("pgdn");shot("settings-scrolled");click(225,325)
                 wait(b"text=20 offset=-240 flags=0 wallpaper=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1");shot("settings-saved")
+                # The bottom of the longer settings viewport contains native
+                # trackpad controls. They must save without disturbing clock/color.
+                click(545,430);wait(b"pointer_speed=5 acceleration=1")
+                click(110,478);wait(b"pointer_speed=5 acceleration=0")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0")
+                shot("trackpad-settings")
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"srvros-desktop-v1\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1")
+                wait(b"srvros-desktop-v2\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0")
                 wait(b"srv> ")
                 # A fresh desktop process reloads disk, not inherited process state.
                 pointer[:]=[24,56]
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
-                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1", b"deskd: commit"])
+                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0", b"deskd: commit"])
                 click(790,750);wait(b"desktools: starting role=settings");shot("settings-restored")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:

@@ -14,6 +14,9 @@ void tool_settings_init(struct tool *t) {
     t->preferences=desk_preferences_default();t->preferences_status=DESK_PREF_LOADING;offset_text(t);
     static const char *labels[]={"Standard","Larger","24-hour clock","Show date","Sage","Sand","Slate"};
     for(unsigned i=0;i<7;i++) desk_ui_add(&t->ui,i+1,DESK_CONTROL_CHECK,&t->checks[i],labels[i]);
+    desk_slider_init(&t->pointer_speed);desk_slider_range(&t->pointer_speed,1,5,1);
+    desk_ui_add(&t->ui,SETTINGS_POINTER_SPEED,DESK_CONTROL_SLIDER,&t->pointer_speed,NULL);
+    desk_ui_add(&t->ui,SETTINGS_POINTER_ACCELERATION,DESK_CONTROL_CHECK,&t->checks[7],"Accelerate fast swipes");
     desk_ui_add(&t->ui,TOOL_NAME,DESK_CONTROL_EDIT,&t->name,NULL);
     desk_ui_add(&t->ui,8,DESK_CONTROL_BUTTON,&t->buttons[0],"Apply");
     desk_ui_add(&t->ui,9,DESK_CONTROL_BUTTON,&t->buttons[1],"UTC");
@@ -21,7 +24,7 @@ void tool_settings_init(struct tool *t) {
 }
 void tool_settings_layout(struct tool *t) {
     struct desk_rect view=viewport(t);
-    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?440:512,view.h);
+    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?650:722,view.h);
     int y=64-t->settings_scroll.offset,w=t->window.width;
     desk_check_configure(&t->checks[0],(struct desk_rect){24,y+52,112,32},visible(t,y+52,32),t->preferences.text_size==16,1);
     desk_check_configure(&t->checks[1],(struct desk_rect){148,y+52,96,32},visible(t,y+52,32),t->preferences.text_size==20,1);
@@ -35,6 +38,10 @@ void tool_settings_layout(struct tool *t) {
         desk_check_configure(&t->checks[i+4],(struct desk_rect){24+(w>=372?i*100:0),row,92,32},
             visible(t,row,32),t->preferences.wallpaper==(unsigned)i,1);
     }
+    int py=y+(w>=372?460:532);
+    desk_slider_configure(&t->pointer_speed,(struct desk_rect){24,py+40,w-72,32},visible(t,py+40,32));
+    desk_slider_set(&t->pointer_speed,t->preferences.pointer_speed);
+    desk_check_configure(&t->checks[7],(struct desk_rect){24,py+88,w-64,32},visible(t,py+88,32),t->preferences.pointer_acceleration,0);
 }
 void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
     const struct desk_theme *theme=&desk_theme_quiet;struct desk_rect old=c->clip,view=viewport(t);
@@ -48,6 +55,10 @@ void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
     desk_label_draw(c,(struct desk_rect){24,y+250,c->width-64,28},theme->body,"Fixed UTC offset (±HH:MM)",theme->text);
     desk_label_draw(c,(struct desk_rect){24,y+326,c->width-64,28},theme->body,"Daylight-saving changes are manual.",theme->muted);
     desk_label_draw(c,(struct desk_rect){24,y+360,c->width-64,28},theme->body,"Desktop color",theme->text);
+    int py=y+(t->window.width>=372?460:532);char label[64];
+    snprintf(label,sizeof(label),"Trackpad speed: %u of 5",t->preferences.pointer_speed);
+    desk_label_draw(c,(struct desk_rect){24,py,c->width-64,28},theme->body,label,theme->text);
+    desk_label_draw(c,(struct desk_rect){24,py+128,c->width-64,28},theme->body,"Scrolling speed stays unchanged.",theme->muted);
     desk_ui_draw(c,&t->ui,theme);c->clip=old;
     if(desk_scrollbar_limit(&t->settings_scroll)>0) desk_scrollbar_draw(c,&t->settings_scroll,theme);
 }
@@ -56,12 +67,18 @@ static void request(struct tool *t,const struct desk_preferences *value,unsigned
         tool_status(t,"The setting could not be applied. Try again.");tool_layout(t);return;
     }
     desk_preferences_merge(&t->preferences,value,mask);t->body_size=t->preferences.text_size;
-    tool_layout(t);tool_status(t,"Applying preference…");
+    if(mask&~DESK_PREF_POINTER) tool_layout(t);
+    else { desk_slider_set(&t->pointer_speed,t->preferences.pointer_speed);t->checks[7].checked=t->preferences.pointer_acceleration; }
+    tool_status(t,"Applying preference…");
 }
 void tool_settings_action(struct tool *t,struct desk_action a) {
     int activated=(a.flags&DESK_WIDGET_ACTIVATED)!=0;
     struct desk_preferences value=t->preferences;
-    if(activated && (a.id==1 || a.id==2)) { value.text_size=a.id==1?16:20;request(t,&value,DESK_PREF_TEXT); }
+    if(a.id==SETTINGS_POINTER_SPEED && (a.flags&DESK_WIDGET_CHANGED)) {
+        value.pointer_speed=t->pointer_speed.value;request(t,&value,DESK_PREF_POINTER_SPEED);
+    } else if(activated && a.id==SETTINGS_POINTER_ACCELERATION) {
+        value.pointer_acceleration=t->checks[7].checked;request(t,&value,DESK_PREF_POINTER_ACCELERATION);
+    } else if(activated && (a.id==1 || a.id==2)) { value.text_size=a.id==1?16:20;request(t,&value,DESK_PREF_TEXT); }
     else if(activated && (a.id==3 || a.id==4)) {
         unsigned bit=a.id==3?DESK_CLOCK_24H:DESK_CLOCK_DATE;
         value.clock_flags=(value.clock_flags&~bit)|(t->checks[a.id-1].checked?bit:0);

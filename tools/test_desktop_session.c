@@ -5,6 +5,7 @@
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+int gui_pointer_config(unsigned speed,unsigned acceleration) { (void)speed;(void)acceleration;return 0; }
 void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;

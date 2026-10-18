@@ -47,6 +47,7 @@ struct gui_message {
 };
 
 int64_t gui_register_server(void);
+int64_t gui_pointer_config(uint64_t speed,uint64_t acceleration);
 int64_t gui_keyboard_mode(uint64_t enabled);
 int64_t gui_keyboard_read(struct srv_key_event *event);
 int64_t gui_send(const struct gui_message *message);

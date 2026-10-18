@@ -60,11 +60,12 @@ static const struct desk_document_block preview[]={
  H(8,"Supported images"),P(9,"Files may be up to 8 MiB, with at most 4,194,304 pixels and 4096 pixels along either side. Preview displays a still image and does not edit or export it."),
  N(10,"EXIF orientation, color profiles, animation and smooth resampling are not implemented yet. Some photographs may need manual rotation in another tool before opening here.")};
 static const struct desk_document_block settings[]={
- T(1,"Settings"),P(2,"Choose a comfortable text size, wallpaper and clock format. Preferences are shared with open applications and saved to /fat/home/desktop.conf."),
+ T(1,"Settings"),P(2,"Choose a comfortable text size, wallpaper, clock format and trackpad speed. Preferences are shared with open applications."),
  H(3,"Appearance"),P(4,"Standard and Larger adjust the desktop body text. Sage, Sand and Slate change the desktop wallpaper color. Applications reflow their controls where space permits."),
  H(5,"Clock"),P(6,"Choose a 12-hour or 24-hour clock and whether to show the date. The UTC offset changes in 15-minute steps. This is a fixed offset, so daylight-saving changes must be applied manually."),
- H(7,"Saving preferences"),P(8,"The window reports whether changes were saved. If saving fails, the preferences may still be active for this session but will not necessarily survive a restart. Check that the main volume is writable."),
- N(9,"Settings currently covers desktop appearance and the clock. It does not configure storage, networking, accounts or power management.")};
+ H(7,"Saving preferences"),P(8,"The window reports whether changes were saved. If saving fails, the preferences may still be active for this session but will not necessarily survive a restart. In the laptop trial, preferences are saved on the prepared USB workspace and survive a reboot. Other desktop sessions use /fat/home/desktop.conf; a RAM-backed /fat does not survive reboot."),
+ H(9,"Trackpad"),P(10,"Scroll down to Trackpad speed. Slow movement stays precise; Accelerate fast swipes increases travel when you move quickly. Try a few speed levels or turn acceleration off for a fixed response. Two-finger scrolling keeps its own speed. These controls affect the built-in Apple trackpad."),
+ N(11,"Settings does not configure storage, networking, accounts or power management.")};
 static const struct desk_document_block system[]={
  T(1,"System and network status"),P(2,"System provides a live view of processes and network status. Switch between the Processes and Network tabs. Pause freezes the display; Refresh or F5 takes a new snapshot."),
  H(3,"Processes"),P(4,"The process table lists the running programs and their current state. It is a read-only view; use the command-line tools when a process must be managed."),
@@ -123,9 +124,10 @@ static const struct desk_document_block laptop_trial[]={
  T(1,"MacBook Air desktop trial"),
  P(2,"Take your time: this session has no deadline and will not reboot itself. Keep this guide open, or reopen Help and search Topics for Laptop trial. Scroll down for the full checklist."),
  H(3,"1. Open and arrange"),P(4,"Command-Space opens the launcher. Try Text, Files and Terminal. Drag and resize windows, minimize and restore them, and switch with Alt-Tab. Command-Alt-Left/Right tiles a window; Command-Alt-Down restores it. Check two-finger scrolling and dragging scrollbar thumbs."),
+ H(14,"Trackpad checks for this round"),P(15,"Keep Help open and scroll quickly up and down with two fingers. Repeatedly add and lift a second finger, then switch apps and repeat. Windows should stay open. If one disappears, note the app and gesture. In Settings, scroll to Trackpad speed: compare slow precise moves, fast swipes, and acceleration off. Try dragging and resizing after each change; check that scrolling feels unchanged."),
  H(5,"2. Type and edit"),P(6,"In Text, type several lines with AaZz09 and punctuation. Try held keys, Shift, Caps Lock, selection, Ctrl-C/Ctrl-V, Undo and Find/Replace. Open a second Text window by searching Text new app; copy text between them."),
  H(7,"3. Save on the flash drive"),P(8,"Use File > Save as. Set the location to /work/srvros-work and use a fresh filename such as desktop-trial.txt. Close the document, then open it from Files at that same location and check every line. Add a short note about anything that failed and save again. /fat is RAM: files saved there disappear on reboot."),
- H(9,"4. Exercise the apps"),P(10,"In Terminal try seq 1 2000, then exit. While output scrolls, type in Text and move the pointer. Try Calculator, Settings, Sketch and Clock. Command-Shift-3 saves a screenshot in /fat/home/Screenshots; open it in Preview. You can copy a screenshot to the USB workspace from Terminal with cp SOURCE /work/srvros-work/desktop-shot.bmp. Close unused windows: eight can be open at once."),
+ H(9,"4. Exercise the apps"),P(10,"In Terminal try seq 1 2000, then exit. While output scrolls, type in Text and move the pointer. Try Calculator, Settings, Sketch and Clock. Command-Shift-3 saves a screenshot in /fat/home/Screenshots; open it in Preview. You can copy a screenshot to the USB workspace from Terminal with cp SOURCE /work/srvros-work/desktop-shot.bmp. Close unused windows: eight can be open at once. Change a setting and wait for confirmation that preferences are saved. On the following trial boot, check that the setting returns."),
  H(11,"5. Finish and return"),P(12,"Save your USB document and exit the Terminal shell. Choose SrvrOS > Return to console. The trial flushes and unmounts the USB volume. Photograph an error if one appears. Once the console says USB unmounted=yes, type reboot to return to Ubuntu, then tell us how it behaved."),
  N(13,"For a stuck desktop, Ctrl-Alt-Escape returns to the console without saving unfinished edits. The trial will still attempt to flush and unmount the USB workspace. Network adapters, battery and brightness are separate upcoming work.")};
 const struct help_topic help_topics[]={
@@ -136,7 +138,7 @@ const struct help_topic help_topics[]={
  TOPIC(5,"calculator","Calculator","Expressions · answers · history",DESK_APP_CALCULATOR,calculator),
  TOPIC(6,"terminal","Terminal","Shell · commands · pipes · clipboard",DESK_APP_TERMINAL,terminal),
  TOPIC(7,"preview","Preview","Images · zoom · pan · PNG JPEG BMP",DESK_APP_PREVIEW,preview),
- TOPIC(8,"settings","Settings","Appearance · text size · wallpaper · clock",DESK_APP_SETTINGS,settings),
+ TOPIC(8,"settings","Settings","Appearance · clock · trackpad speed",DESK_APP_SETTINGS,settings),
  TOPIC(9,"system","System and network","Processes · status · interface · DNS",DESK_APP_SYSTEM,system),
  TOPIC(10,"keyboard","Keyboard shortcuts","Navigation · editing · Command and Control",0,keyboard),
  TOPIC(11,"limits","Current scope","Limits · supported features · testing",0,limits),

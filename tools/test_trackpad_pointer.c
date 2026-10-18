@@ -42,6 +42,60 @@ static void gestures(void) {
     assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==1);
     f.count=3; assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.palm_suppressed);
 }
+static int timed_path(int dx,int dt,int steps,unsigned speed,bool accel) {
+    struct trackpad_pointer s={0};struct trackpad_motion m;
+    struct apple_trackpad_frame f=frame(0,0,1,0);uint64_t now=1000000;int total=0;
+    assert(!trackpad_pointer_timed(&s,&f,true,false,now,speed,accel,&m));
+    for(int n=0;n<steps;n++) { now+=dt;f.contacts[0].x+=dx;
+        trackpad_pointer_timed(&s,&f,true,false,now,speed,accel,&m);total+=m.dx;assert(!m.dy && !m.wheel_y); }
+    return total;
+}
+static void acceleration(void) {
+    assert(timed_path(8,10000,40,3,true)==20); /* Precision below threshold. */
+    assert(timed_path(160,10000,50,3,false)==500);
+    assert(timed_path(160,10000,50,3,true)==1500);
+    assert(timed_path(16,1000,500,3,true)==1500); /* Same trajectory at 10x sample rate. */
+    int middle=timed_path(160,50000,20,3,true);
+    assert(middle>200 && middle<600);
+    assert(timed_path(80,25000,40,3,true)==middle); /* Also within the ramp. */
+    int previous=0;
+    for(unsigned speed=1;speed<=5;speed++) {
+        int travel=timed_path(160,50000,20,speed,true);
+        assert(travel>previous);previous=travel;
+    }
+    assert(timed_path(-160,10000,50,3,true)==-1500);
+    assert(timed_path(160,10000,50,1,false)==250);
+    assert(timed_path(160,10000,50,5,false)==750);
+    assert(timed_path(160,0,20,3,true)==200); /* Bad clock cannot amplify. */
+    assert(timed_path(160,200000,20,3,true)==200); /* Pause resets velocity. */
+    struct trackpad_pointer s={0};struct trackpad_motion m;
+    struct apple_trackpad_frame f=frame(0,0,1,0);
+    trackpad_pointer_timed(&s,&f,true,false,10000,3,true,&m);
+    f.contacts[0].x=160;f.contacts[0].y=-160;
+    assert(trackpad_pointer_timed(&s,&f,true,false,20000,3,true,&m) && m.dx==30 && m.dy==30);
+    f.count=2;f.contacts[1].x=300;f.contacts[1].y=400;
+    assert(!trackpad_pointer_timed(&s,&f,true,false,30000,3,true,&m));
+    f.contacts[0].y+=160;f.contacts[1].y+=160;
+    assert(trackpad_pointer_timed(&s,&f,true,false,31000,5,true,&m)==false); /* Setting change rebases. */
+    f.contacts[0].y+=160;f.contacts[1].y+=160;
+    assert(trackpad_pointer_timed(&s,&f,true,false,32000,5,true,&m) && m.wheel_y==10 && !m.dx);
+    f.count=0;trackpad_pointer_timed(&s,&f,true,false,33000,5,true,&m);
+    f.count=1;f.contacts[0].x=-2000;
+    assert(!trackpad_pointer_timed(&s,&f,true,false,34000,5,true,&m));
+    trackpad_pointer_cancel(&s,&m);f.contacts[0].x=2000;
+    assert(!trackpad_pointer_timed(&s,&f,true,false,35000,5,true,&m));
+    /* Equal-distance axis/diagonal moves use the same velocity gain, even
+     * inside the ramp; output rounding differs by less than one pixel. */
+    struct trackpad_pointer axis={0},diagonal={0};struct trackpad_motion a,b;
+    struct apple_trackpad_frame af=frame(0,0,1,0),bf=af;
+    trackpad_pointer_timed(&axis,&af,true,false,1000,3,true,&a);
+    trackpad_pointer_timed(&diagonal,&bf,true,false,1000,3,true,&b);
+    af.contacts[0].x=800;bf.contacts[0].x=480;bf.contacts[0].y=-640;
+    trackpad_pointer_timed(&axis,&af,true,false,101000,3,true,&a);
+    trackpad_pointer_timed(&diagonal,&bf,true,false,101000,3,true,&b);
+    int ax=5*b.dx-3*a.dx,ay=5*b.dy-4*a.dx;
+    assert(ax>=-5 && ax<=5 && ay>=-5 && ay<=5);
+}
 int main(void) {
     struct trackpad_pointer s={0}; struct trackpad_motion m;
     assert(!feed(&s,&m,-2635,3858,1,0)); /* Real capture starting coordinate. */
@@ -63,6 +117,6 @@ int main(void) {
     assert(feed(&s,&m,0,0,1,1) && m.buttons);
     assert(feed(&s,&m,0,0,0,0) && !m.buttons);
     assert(!trackpad_pointer_cancel(&s,&m));
-    gestures();
+    gestures();acceleration();
     puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, discontinuity, cancellation/release");
 }

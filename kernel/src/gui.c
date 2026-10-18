@@ -1,5 +1,6 @@
 #include <srvros/gui.h>
 #include <srvros/keyboard.h>
+#include <srvros/mouse.h>
 #include <srvros/heap.h>
 #include <srvros/process.h>
 #include <srvros/desktop_protocol.h>
@@ -123,6 +124,13 @@ static int64_t validate_surface_rect(const struct gui_surface *surface,
     return 0;
 }
 
+int64_t gui_pointer_config(uint64_t speed,uint64_t acceleration) {
+    struct process *p=process_current();uint64_t flags=irq_save();int64_t result=-1;
+    if(p && server_pid && process_pid(p)==server_pid && speed>=1 && speed<=5 && acceleration<=1) {
+        mouse_trackpad_settings((unsigned)speed,acceleration!=0);result=0;
+    }
+    irq_restore(flags);return result;
+}
 int64_t gui_keyboard_mode(uint64_t enabled) {
     struct process *p=process_current();
     uint64_t flags=irq_save();
@@ -394,6 +402,7 @@ void gui_process_cleanup(uint64_t pid) {
     }
     if (server_pid == pid) {
         keyboard_set_event_mode(false);
+        mouse_trackpad_settings(3,false);
         server_pid = 0;
         /* The server's receive queue is gone. Owners can reclaim outstanding
          * buffers after detecting its death; no old server can acknowledge. */

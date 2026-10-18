@@ -82,3 +82,13 @@ uint64_t mouse_overflow_count(void) {
 void mouse_inject_trackpad_scroll(int32_t dx,int32_t dy,int32_t wx,int32_t wy,uint8_t buttons) {
     inject(1,dx,dy,wx,wy,buttons);
 }
+
+/* Only the owning display server changes these. Fixed mapping outside desktop. */
+static unsigned trackpad_speed=3;
+static bool trackpad_acceleration;
+void mouse_trackpad_settings(unsigned speed,bool acceleration) {
+    uint64_t flags=lock();trackpad_speed=speed;trackpad_acceleration=acceleration;unlock(flags);
+}
+void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration) {
+    uint64_t flags=lock();*speed=trackpad_speed;*acceleration=trackpad_acceleration;unlock(flags);
+}

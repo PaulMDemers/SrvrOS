@@ -2,10 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "../userspace/deskd/preferences.h"
+static const char *expected_path=DESKTOP_PREFERENCES_PATH;
 static unsigned starts;static int result,init_fail,start_fail;static struct desk_file_job *active;
 int desk_file_job_init(struct desk_file_job *j) { *j=(struct desk_file_job){.pid=42};active=j;return init_fail?-1:0; }
 int desk_file_job_start(struct desk_file_job *j,unsigned op,const char *path,const void *data,size_t length,unsigned flags,uint32_t crc) {
-    assert(!j->busy && !strcmp(path,DESKTOP_PREFERENCES_PATH));if(start_fail) return -1;
+    assert(!j->busy && !strcmp(path,expected_path));if(start_fail) return -1;
     starts++;j->busy=1;j->request=(struct desk_file_request){.operation=op,.length=length,.flags=flags,.expected_crc=crc};
     if(length) memcpy(j->outgoing,data,length);
     return 0;
@@ -20,6 +21,8 @@ static void response(unsigned status,const char *data) {
 static void model(void) {
     struct desk_preferences p=desk_preferences_default(),q;char data[256],text[64];
     int n=desk_preferences_encode(&p,data,sizeof(data));assert(n>0 && !desk_preferences_decode(&q,data,n) && !memcmp(&p,&q,sizeof(p)));
+    const char old[]="srvros-desktop-v1\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\n";
+    assert(!desk_preferences_decode(&q,old,sizeof(old)-1) && q.pointer_speed==3 && q.pointer_acceleration==1);
     struct desk_preferences saved=q;
     for(int i=0;i<n;i++) { assert(desk_preferences_decode(&q,data,i)<0);assert(!memcmp(&q,&saved,sizeof(q))); }
     assert(desk_preferences_encode(&p,data,8)<0);
@@ -64,5 +67,13 @@ int main(void) {
     p.text_size=20;desktop_preferences_set(&s,&p,DESK_PREF_TEXT,2);unsigned before=starts;desktop_preferences_poll(&s,1000);assert(starts==before);
     desktop_preferences_init(&s);response(DESK_FILE_IO,NULL);assert(desktop_preferences_poll(&s,1)==1 && !s.writable);
     init_fail=1;desktop_preferences_init(&s);assert(!s.initialized && !s.loading && s.status==DESK_PREF_SESSION_ONLY);init_fail=0;
+    expected_path=DESKTOP_WORKSPACE_PREFERENCES_PATH;
+    desktop_preferences_init_path(&s,expected_path);response(DESK_FILE_NOT_FOUND,NULL);desktop_preferences_poll(&s,1);
+    p=desk_preferences_default();p.pointer_speed=5;p.pointer_acceleration=0;
+    assert(desktop_preferences_set(&s,&p,DESK_PREF_POINTER,2)==1);desktop_preferences_poll(&s,32);
+    assert(s.job.busy && strstr((char *)s.job.outgoing,"pointer_speed=5\n") && strstr((char *)s.job.outgoing,"pointer_acceleration=0\n"));
+    response(DESK_FILE_OK,NULL);desktop_preferences_poll(&s,33);assert(!s.dirty && s.status==DESK_PREF_SAVED);
+    p.pointer_speed=0;assert(desktop_preferences_set(&s,&p,DESK_PREF_POINTER_SPEED,34)==-1 && s.value.pointer_speed==5);
+    desktop_preferences_close(&s);
     puts("preferences: PASS strict config, offset/date formatting, delayed load merge, debounce, in-flight edits, verified save state and conflict/failure retention");
 }

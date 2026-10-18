@@ -1239,3 +1239,67 @@ verified the saved clipboard document byte-for-byte. A final logging-only cleanu
 preserved the established retirement marker used by other VM harnesses; the
 production build and pressure regression passed again afterward. No hardware
 installation or reboot was performed for this correction.
+
+
+## Trackpad controls, persistent laptop preferences and power groundwork
+
+The scroll-pressure correction remains queued for the next physical trial.
+This round adds velocity-dependent pointer gain at Apple trackpad sample receipt,
+before input coalescing. Slow motion keeps fractional precision; fast swipes get
+up to 3x extra travel. Five base speeds and an acceleration toggle are exposed
+through the shared Settings slider/check controls. Two-finger scrolling is
+independent. Contact/mode changes, cancellation, setting changes and implausible
+coordinate jumps rebase motion history; invalid or paused clocks cannot amplify
+motion. The native desktop defaults to speed 3 with acceleration on. Console and
+legacy input retain fixed scaling. The actual gain curve still needs laptop
+feedback; VM pointer tests do not simulate the Apple device.
+
+Only the registered compositor can apply the bounded kernel input policy; owner
+cleanup restores fixed mapping. Preferences migrate valid v1 files to v2 when
+next saved and retain the existing debounce, background verification and conflict
+handling. The hardware-trial desktop uses `/work/srvros-work/desktop.conf`, so its
+prepared USB workspace can carry settings across boots. Other launches keep
+`/fat/home/desktop.conf`. Save status remains explicit, and verified saves do not
+claim power-loss atomicity.
+
+Host regressions cover the gain curve (including its middle range), diagonal
+consistency, different sample rates, reversals, speed levels, pauses/cancellation,
+scroll independence, compositor access/cleanup, preferences migration and widget
+capture. The complete `make all test-core` run passed, including the Help content
+and layout suite; evidence is `build/review/desktop-next-blocks-build-tests.txt`.
+The Settings VM workflow passed saved clock/color/text/pointer changes and a
+fresh desktop-session reload, with screenshots under
+`build/review/desktop-settings/`. Its pointer remains QEMU's ordinary mouse, so
+this validates the settings path rather than physical acceleration.
+
+The on-screen Laptop trial guide now explicitly asks for repeated fast scrolling,
+adding/lifting the second finger, keeping Help and another app open, comparing
+pointer speeds and checking saved settings after the following boot. These checks
+remain **pending hardware**. No physical boot installation or reboot was performed.
+
+Separately, read-only firmware capture resolved the laptop's EC ports, register
+layout and conditional battery namespace. A bounded callback-driven EC byte
+transport and fault-path tests are committed as groundwork. It has no hardware
+binding or caller; battery, brightness and suspend remain unavailable. See the
+[laptop-service evidence and next steps](macbook-air-laptop-services-2026-10-18.md).
+
+
+Staged candidate **3ebe5b991358262b** passed the exact GRUB/UEFI hardware-profile
+rehearsal on a disposable USB image. The first VM saved a Text document plus
+speed 5/acceleration off, then returned to the monitor and unmounted cleanly.
+A completely new VM booted the same RAM-root release and USB image; changing
+only the acceleration toggle preserved the loaded speed 5 and wrote acceleration
+on. Independent file-byte checks and offline exFAT checks passed after both
+sessions. Evidence: `build/review/desktop-workspace-reboot-vm.txt`,
+`hardware-grub-first-serial.log`, `hardware-grub-serial.log`, and the
+`workspace-settings-{saved,restored}.png` screenshots in that review directory.
+An initial harness timeout mixed byte offsets with decoded GRUB Unicode text;
+the harness was corrected, and the complete two-boot test passed on rerun.
+
+The candidate includes the previous scroll-pressure correction. It is staged
+only: the installed physical trial remains **e9dcca07595df573**, with accepted
+recovery **f05dfcc01c28dc85**. The frozen earlier VM candidate remains untouched.
+Next physical gate: confirm no spontaneous app closures during gesture bursts,
+choose a comfortable pointer speed, type/drag under I/O, and confirm USB settings
+on a subsequent boot. Next power block: resolve EC/AML initialization and event
+ownership before enabling a scheduled SMBus/SBS provider.

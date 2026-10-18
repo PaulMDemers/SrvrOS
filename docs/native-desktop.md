@@ -10,7 +10,8 @@ run /fat/bin/deskd
 
 Automated evidence is from disposable QEMU VMs. The first expanded MacBook Air
 trial was generally successful, with two intermittent window closures under
-investigation and pointer acceleration queued. The accepted input/I/O checkpoint
+investigation. Scroll-pressure protection and adjustable trackpad acceleration
+are VM/host-tested and queued for the next physical trial. The accepted input/I/O checkpoint
 is preserved independently; the expanded app set has not replaced it. See the [development journal](desktop-progress-2026-10-18.md) for
 implementation and verification details.
 
@@ -68,7 +69,7 @@ BMP files under `/fat/home/Screenshots`; the completion banner opens that folder
 | Calculator | Expressions, parentheses, keypad, explicit errors, copied results and calculation history |
 | System | Live process and memory information; network interface, address, link state, speed and duplex; open diagnostics |
 | Network Utility | Background Ping and DNS lookup; Stop; copied reports |
-| Settings | Persisted desktop color, document text size and clock display/UTC offset |
+| Settings | Persisted desktop color, document text size, clock display/UTC offset and trackpad speed/acceleration |
 | Clock | Countdown and stopwatch; pause/resume, laps and copied times; completion notification |
 | Help | Offline topics, topic search, Back/Forward, keyboard navigation and copied pages |
 
@@ -92,6 +93,23 @@ Open/Save pickers and folder fields normalize absolute paths consistently:
 repeated slashes and `.` collapse, and `..` stops at root. This is lexical path
 normalization, not symbolic-link resolution. Operations target the mounted VFS;
 the desktop does not yet offer a removable-volume manager or automatic mounting.
+
+## Trackpad and saved preferences
+
+Settings offers five trackpad speed levels and an acceleration toggle. Slow
+movement retains precision; fast swipes gain more travel. Two-finger scrolling
+is independent. This policy currently applies to the Apple trackpad path, not
+generic mice. The default desktop starts at speed 3 with acceleration on;
+console/legacy trial input retains fixed scaling. The final feel awaits the
+next MacBook Air trial.
+
+The prepared laptop trial saves preferences in
+`/work/srvros-work/desktop.conf` using the existing verified background writer.
+Normal desktop sessions use `/fat/home/desktop.conf`; if `/fat` is RAM-backed,
+those settings last only until reboot. Settings reports save errors and external
+file conflicts. Existing v1 preference files load with default trackpad values
+and migrate to v2 on the next successful change. Save verification does not
+provide power-loss atomicity.
 
 ## Deliberate current limits
 
