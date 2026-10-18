@@ -1,6 +1,5 @@
 #include <srvros/desk_capture_job.h>
 #include <srvros/sys.h>
-#include <srvros/desktop.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/mman.h>
@@ -58,7 +57,10 @@ int desk_capture_job_poll(struct desk_capture_job *j) {
         j->sent+=n;
     }
     long n=srv_read(j->reader,(char *)&j->response+j->received,sizeof(j->response)-j->received);
-    if(n==SRV_ERR_AGAIN || n==SRV_ERR_INTR) { if(!desk_process_alive(j->pid)) goto failed;return 0; }
+    /* The worker may publish its response and exit between an empty read and
+     * any process-status query. Drain the pipe; EOF, not process liveness, is
+     * the authoritative end of this one-shot stream. */
+    if(n==SRV_ERR_AGAIN || n==SRV_ERR_INTR) return 0;
     if(n<=0 || (size_t)n>sizeof(j->response)-j->received) goto failed;
     j->received+=n;
     if(j->received<sizeof(j->response)) return 0;

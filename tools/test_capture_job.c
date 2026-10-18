@@ -4,7 +4,7 @@
 #include "../userspace/lib/src/desk_capture_job.c"
 static struct desk_capture_job job;
 static unsigned char outgoing[200000];static struct desk_capture_response reply;
-static size_t sent,received,total;static int reads,writes,alive=1,wait_ready=1,pipe_count,closes,spawn_fail,write_fail;
+static size_t sent,received,total;static int reads,writes,alive=1,wait_ready=1,pipe_count,closes,spawn_fail,write_fail,eof;
 long srv_signal_config(uint64_t signal,uint64_t action) { assert(signal==SIGPIPE && action==SRV_SIGNAL_IGNORE);return 0; }
 long srv_pipe(int pair[2]) { pair[0]=pipe_count?10:12;pair[1]=pipe_count?13:11;pipe_count++;return 0; }
 long srv_fcntl(int fd,int command,uint64_t value) { assert((fd==10 || fd==11) && command==SRV_F_SETFL && value==SRV_FD_NONBLOCK);return 0; }
@@ -18,13 +18,13 @@ long srv_write(int fd,const void *data,size_t n) {
     assert(sent+n<=sizeof(outgoing));memcpy(outgoing+sent,data,n);sent+=n;return n;
 }
 long srv_read(int fd,void *data,size_t n) {
-    assert(fd==10);if(++reads%4==0 || sent<total) return SRV_ERR_AGAIN;
+    assert(fd==10);if(eof) return 0;if(++reads%4==0 || sent<total) return SRV_ERR_AGAIN;
     if(n>3) n=3;
     memcpy(data,(char *)&reply+received,n);received+=n;return n;
 }
 static void reset(void) {
     wait_ready=1;desk_capture_job_close(&job);desk_capture_job_init(&job);
-    sent=received=reads=writes=pipe_count=closes=spawn_fail=write_fail=0;alive=1;
+    sent=received=reads=writes=pipe_count=closes=spawn_fail=write_fail=eof=0;alive=1;
 }
 static int finish(void) { for(unsigned i=0;i<20000;i++) { int r=desk_capture_job_poll(&job);if(r) return r; }return 0; }
 int main(void) {
@@ -40,10 +40,11 @@ int main(void) {
     wait_ready=1;desk_capture_job_poll(&job);assert(!job.retiring_pid);
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));reply.id=job.request.id+1;assert(finish()==-1 && !job.pixels);
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));reply.id=job.request.id;reply.status=DESK_CAPTURE_IO;assert(finish()==1 && job.response.status==DESK_CAPTURE_IO);
-    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));alive=0;assert(desk_capture_job_poll(&job)==-1 && !job.pixels);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));alive=0;reply.status=0;assert(!desk_capture_job_poll(&job));assert(finish()==1 && !job.pixels);
+    reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));eof=1;assert(desk_capture_job_poll(&job)==-1 && !job.pixels);
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));write_fail=1;assert(desk_capture_job_poll(&job)==-1 && !job.pixels);
     reset();assert(desk_capture_job_start(&job,pixels,4096,4096,path)<0 && !pipe_count);assert(desk_capture_job_start(&job,pixels,191,127,"relative")<0);
     spawn_fail=1;assert(desk_capture_job_start(&job,pixels,191,127,path)<0 && !job.pixels && closes==4);
     assert(desk_capture_bytes(1920,1080)==1920*1080*4 && !desk_capture_bytes(UINT32_MAX,UINT32_MAX));
-    puts("capture-job: PASS immutable pixels/path, bounded fragmented transfers, retry, protocol failure, worker loss and nonblocking reaping without killing writes");
+    puts("capture-job: PASS immutable pixels/path, bounded fragmented transfers, retry, protocol failure, exited worker with buffered reply, EOF and nonblocking reaping without killing writes");
 }
