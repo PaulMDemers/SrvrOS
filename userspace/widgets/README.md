@@ -348,3 +348,25 @@ identities/names and bad lengths, sorts folders first, and builds borrowed list
 items. Files and Preview's picker share it; filesystem calls remain in their
 workers. `desktop_apps.h` owns the launch catalog, pinned dock positions and image
 extension associations. Preview is available through the launcher and Files.
+
+## Structured documents
+
+`desk_document.h` is a read-only, scrollable document made of title, heading,
+paragraph, code and note blocks. The view copies up to 64 descriptors and borrows
+immutable UTF-8 strings; each block is limited to 4095 bytes and total source text
+to 32768 bytes. IDs are unique and nonzero. Invalid replacements leave the current
+page intact. Word wrapping, explicit newlines and tabs are shared with dialogs
+through `desk_flow.h`; code blocks use the mono font, while paragraphs reflow at
+the supplied body size. Notes have a restrained inset rule.
+
+The control owns its scrollbar and integrates with shared focus/capture, wheel,
+arrows, Page Up/Down, Space/Shift-Space and Home/End. `jump` reveals a block subject
+to scroll bounds; `text` measures or exports a plain-text page with blank lines
+between blocks. It does not parse markup, select text, navigate links or access
+files. The owner supplies navigation, history and clipboard behavior.
+
+Help uses this view for offline application guides, with the shared search palette
+for topics, 16-entry history and scroll restoration. The global SrvrOS menu and
+F1 open Help; F1 chooses the active app's topic. Help and Preview remain launcher
+entries, keeping the six dock pins stable. About SrvrOS opens the guide's About
+page. Preferences reflow Help's body text without changing its content.

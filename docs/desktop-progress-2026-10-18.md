@@ -685,3 +685,30 @@ regressions. The screenshot is `native-desktop-preview.png`.
 Current limits: nearest-neighbor zoom, no color-management or EXIF orientation,
 no editing/export, no animated image support. The image worker is a separate
 process with bounded resources, not a security sandbox. No hardware boot changed.
+
+### Offline Help and shared structured documents
+
+Help is a native application with twelve offline topics, a searchable shared
+palette, Back/Forward history (16 entries with scroll restoration), page copying
+and related-app launching. F1 opens the active application's topic. The global
+SrvrOS menu includes Help, and About now opens a real About page. Help is in the
+launcher without adding another dock pin. Larger-text preferences reflow its
+body; the minimum window retains all toolbar actions and readable chooser hints.
+
+The shared document widget supports validated borrowed title/heading/paragraph/
+code/note blocks, word wrapping, explicit newlines/tabs, a captured scrollbar,
+keyboard navigation, block jumps and plain-text export. It has fixed limits and
+no allocation, I/O or navigation policy. Shared flow helpers were extracted from
+dialogs. The clipboard client now safely accepts its own buffer or overlapping
+slices as copy input.
+
+Validation: content/UTF-8/limits and atomic replacement, history eviction and
+branching, scroll restoration, clipboard snapshot/stale-reply guards, app routing,
+minimum/large layouts, both body fonts, parent clipping and tiled rendering passed
+host tests. ASan/UBSan, the full core/desktop suite and production build passed.
+QEMU passed F1 context, search, history, scrolling, page copy into Text with exact
+persisted-byte comparison, related Preview launch, search-field clipboard, minimum
+resize, About/global menus, launcher and orderly exit. The test explicitly
+qualifies app versus window searches because filenames may also match. Evidence:
+`tools/desktop_help_smoke.py`, `build/review/desktop-help/`, screenshot
+`native-desktop-help.png`. No hardware deployment or reboot occurred.

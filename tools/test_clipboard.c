@@ -73,5 +73,10 @@ int main(void) {
     assert(desk_clipboard_write_local(&store,NULL,1)<0 && store.length==5);
     assert(!desk_clipboard_write_local(&store,store.data+1,4) && !memcmp(store.data,"iles",4));
     assert(received>700);
+    /* Callers may build a page directly in the transfer buffer or copy a slice. */
+    strcpy((char *)buffer,"shared buffer");completed=0;
+    assert(!desk_clipboard_copy(&client,42,buffer,13,tick));pump();assert(completed==1 && store.length==13 && !memcmp(store.data,"shared buffer",13));
+    completed=0;assert(!desk_clipboard_copy(&client,42,buffer+7,6,tick));pump();
+    assert(completed==1 && store.length==6 && !memcmp(store.data,"buffer",6));
     puts("clipboard: PASS 64 KiB chunking, retry, focused access, staged publication, interrupted copy, revision-consistent paste, empty data, bounds and timeout");
 }

@@ -226,7 +226,7 @@ static void cycle_focus(struct session *s,int reverse) {
     }
 }
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_WINDOW=65792 };
 static void global_menu_damage(struct session *s) {
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
     if(s->menu_visible.w>0) desk_damage_add(&s->damage,s->menu_visible);
@@ -268,10 +268,11 @@ static void global_menu_rebuild(struct session *s) {
         {0,DESK_MENU_HEADING,"SrvrOS",""},{GLOBAL_ABOUT,0,"About SrvrOS",""},
         {GLOBAL_SETTINGS,0,"Settings",""},{GLOBAL_LAUNCHER,0,"Open application or window…","Cmd-Space"},
         {GLOBAL_CALENDAR,0,"Calendar",""},{GLOBAL_TEXT,0,"New Text document",""},
-        {GLOBAL_TERMINAL,0,"New Terminal",""},{0,DESK_MENU_SEPARATOR,"",""},
+        {GLOBAL_TERMINAL,0,"New Terminal",""},{GLOBAL_HELP,0,"SrvrOS Help","F1"},
+        {0,DESK_MENU_SEPARATOR,"",""},
         {GLOBAL_EXIT,0,"Return to console",""}
     };
-    unsigned count=9;
+    unsigned count=10;
     if(s->scene.focus>=0) {
         struct desk_menu_store *m=&s->clients[s->scene.focus].menus;
         memcpy(items+count,m->items,m->count*sizeof(items[0]));count+=m->count;
@@ -307,7 +308,11 @@ static void global_menu_action(struct session *s,uint32_t id) {
     }
     if(id==GLOBAL_LAUNCHER) launcher_open(s);
     else if(id==GLOBAL_CALENDAR) calendar_open(s);
-    else if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_SYSTEM,"");
+    else if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_HELP,"about");
+    else if(id==GLOBAL_HELP) {
+        const struct desk_application_info *info=s->scene.focus>=0?desk_application_info(s->scene.windows[s->scene.focus].application):NULL;
+        spawn_app(s,DESK_APP_HELP,info?info->role:"welcome");
+    }
     else if(id==GLOBAL_SETTINGS) spawn_app(s,DESK_APP_SETTINGS,"");
     else if(id==GLOBAL_TEXT) spawn_app(s,DESK_APP_TEXT,"");
     else if(id==GLOBAL_TERMINAL) spawn_app(s,DESK_APP_TERMINAL,"");
@@ -770,6 +775,13 @@ int main(int argc,char **argv) {
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
             if((key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT) && (key.modifiers&SRV_KEY_META) && key.usage==SRV_KEY_SPACE) {
                 drag=resize=-1;pointer_cancel(&s);if(s.scene.launcher_open) launcher_close(&s);else launcher_open(&s);continue;
+            }
+            if((key.flags&SRV_KEY_DOWN_EVENT) && !(key.flags&SRV_KEY_REPEAT) &&
+                !(key.modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT|SRV_KEY_META|SRV_KEY_SHIFT)) && key.usage==SRV_KEY_F1) {
+                drag=resize=-1;pointer_cancel(&s);
+                if(s.scene.launcher_open) launcher_close(&s);
+                if(s.scene.calendar_open) calendar_close(&s);
+                desk_menu_cancel(&s.scene.menu);global_menu_damage(&s);global_menu_action(&s,GLOBAL_HELP);continue;
             }
             if(s.scene.calendar_open && !((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_TAB)) {
                 if((key.flags&SRV_KEY_DOWN_EVENT) && key.usage==SRV_KEY_ESCAPE) calendar_close(&s);

@@ -1,6 +1,7 @@
 #ifndef SRVROS_DESK_DIALOG_H
 #define SRVROS_DESK_DIALOG_H
 #include <srvros/desk_ui.h>
+#include <srvros/desk_flow.h>
 #define DESK_DIALOG_CHOICES 3
 struct desk_dialog_choice { unsigned id; char label[24]; int enabled; };
 /* Owned modal presentation, built from the shared focus router and buttons.
@@ -24,8 +25,4 @@ unsigned desk_dialog_focus(struct desk_dialog *dialog,int active);
 struct desk_action desk_dialog_key(struct desk_dialog *dialog,const struct srv_key_event *key);
 struct desk_action desk_dialog_pointer(struct desk_dialog *dialog,struct desk_widget_event event,uint64_t time_us);
 void desk_dialog_draw(struct desk_canvas *canvas,const struct desk_dialog *dialog,const struct desk_theme *theme);
-/* Word wrapping with Unicode boundaries, explicit newlines and character
- * wrapping for long words. Rendering clips and preserves the incoming clip. */
-int desk_text_block_height(const struct desk_font *font,const char *text,int width,int max_lines);
-void desk_text_block_draw(struct desk_canvas *canvas,struct desk_rect frame,const struct desk_font *font,const char *text,uint32_t color);
 #endif

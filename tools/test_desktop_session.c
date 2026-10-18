@@ -9,7 +9,12 @@ void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
-long srv_exec(const struct srv_exec_request *request) { (void)request; return -1; }
+static char executed_path[160],executed_role[32],executed_argument[160];
+long srv_exec(const struct srv_exec_request *request) {
+    snprintf(executed_path,sizeof(executed_path),"%s",request->path);
+    snprintf(executed_role,sizeof(executed_role),"%s",request->argv[1]);
+    snprintf(executed_argument,sizeof(executed_argument),"%s",request->argv[2]);return -1;
+}
 long srv_ticks(void) { return (long)now; }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
@@ -150,7 +155,12 @@ int main(void) {
     assert(command->type==DESK_MENU_ACTION && command->value==7 && command->serial==19);
     global_menu_action(&s,GLOBAL_MINIMIZE);assert(s.scene.focus==-1 && s.scene.menu.groups==2);
     global_menu_action(&s,GLOBAL_WINDOW);assert(s.scene.focus==0 && s.scene.menu.groups==3);
+    global_menu_action(&s,GLOBAL_ABOUT);
+    assert(!strcmp(executed_path,"/fat/bin/deskhelp") && !strcmp(executed_role,"help") && !strcmp(executed_argument,"about"));
+    s.scene.windows[0].application=DESK_APP_TEXT;global_menu_action(&s,GLOBAL_HELP);
+    assert(!strcmp(executed_argument,"text"));
     forget(&s,0);assert(s.scene.menu.groups==2 && s.scene.focus==-1);
+    global_menu_action(&s,GLOBAL_HELP);assert(!strcmp(executed_argument,"welcome"));
     struct session failed={0}; alloc_fail=allocations+1;
     assert(cache_init(&failed)<0 && allocations==frees);
     for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) assert(!failed.cache[i][j]);

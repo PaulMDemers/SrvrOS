@@ -99,6 +99,6 @@ void desk_palette_draw(struct desk_canvas *c,const struct desk_palette *p,const 
     struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
     desk_label_draw(c,(struct desk_rect){r.x+16,r.y+16,r.w>32?r.w-32:0,28},theme->heading,p->title,theme->text);
     desk_ui_draw(c,&p->ui,theme);
-    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-28,r.w>32?r.w-32:0,24},theme->body,p->notice[0]?p->notice:"Type to search · Enter to open · Esc to close",theme->muted);
+    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-28,r.w>32?r.w-32:0,24},theme->body,p->notice[0]?p->notice:r.w<420?"Enter: open · Esc: close":"Type to search · Enter to open · Esc to close",theme->muted);
     desk_clip(c,clip);
 }

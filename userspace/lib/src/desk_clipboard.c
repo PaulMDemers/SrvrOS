@@ -11,7 +11,7 @@ static int begin(struct desk_clipboard_client *c,uint64_t server,int mode,uint64
 }
 int desk_clipboard_copy(struct desk_clipboard_client *c,uint64_t server,const void *data,size_t length,uint64_t tick) {
     if(length>DESK_CLIPBOARD_BYTES || (length && !data) || begin(c,server,1,tick)) return -1;
-    if(length) memcpy(c->buffer,data,length);
+    if(length) memmove(c->buffer,data,length);
     c->length=length;c->buffer[length]=0;return 0;
 }
 int desk_clipboard_paste(struct desk_clipboard_client *c,uint64_t server,uint64_t tick) { return begin(c,server,2,tick); }

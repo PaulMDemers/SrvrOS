@@ -6,8 +6,9 @@
 #include <srvros/desk_calendar.h>
 #include <srvros/desk_tabs.h>
 #include <srvros/desk_image.h>
+#include <srvros/desk_document.h>
 #define DESK_UI_MAX_CONTROLS 32
-enum desk_control_kind { DESK_CONTROL_BUTTON, DESK_CONTROL_EDIT, DESK_CONTROL_LIST, DESK_CONTROL_CHECK, DESK_CONTROL_TABLE, DESK_CONTROL_CALENDAR, DESK_CONTROL_TABS, DESK_CONTROL_IMAGE };
+enum desk_control_kind { DESK_CONTROL_BUTTON, DESK_CONTROL_EDIT, DESK_CONTROL_LIST, DESK_CONTROL_CHECK, DESK_CONTROL_TABLE, DESK_CONTROL_CALENDAR, DESK_CONTROL_TABS, DESK_CONTROL_IMAGE, DESK_CONTROL_DOCUMENT };
 struct desk_control {
     unsigned id;
     enum desk_control_kind kind;
