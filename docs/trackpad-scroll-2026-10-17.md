@@ -216,5 +216,37 @@ Host checks cover capture outside windows, queue pressure, edge ordering, focus,
 resize, cancellation and retirement; application checks cover grab position,
 range limits, paging and cancellation. ASan/UBSan cover both implementations.
 The QEMU mouse workflow exercises actual pointer delivery, dragging to the bottom
-outside the window and clicking the track to page upward. Physical scrollbar
-acceptance is pending. The on-screen trial checklist includes those actions.
+outside the window and clicking the track to page upward. The on-screen trial
+checklist includes those actions. Initial physical acceptance is recorded below.
+
+## Interactive scrollbar physical result — 2026-10-17
+
+**Initial scrollbar interaction gate accepted.** After testing the updated
+on-screen checklist, the user reported “tested and worked well.” This closes
+the reported missing scrollbar interaction; it does not complete all D1/D2 gates.
+
+- Run `66fc03b96f171cf7`, release `e276699c454972fd`, source `6d33a14`.
+- 3,169 valid trackpad reports, 1,796 pointer-motion events, 24 button transitions,
+  43 wheel events and 39 lifts. At most two contacts were observed.
+- Typing suppression activated for 109 frames; broad-contact suppression for 230.
+  Maximum touch dimensions were 2,231 major / 589 minor raw units. Because this
+  run never exceeded two contacts, broad-contact activation exercised the size
+  threshold rather than only the greater-than-two-contact rule.
+- Exact keyboard check and normal desktop exit passed. Zero malformed packets,
+  transport errors, dropped keyboard input, pointer cancellations or queue
+  overflows. Host collection verified report identity/checksums, completion
+  marker and the host reboot.
+- Report SHA-256: `33b1fb288db73f0c5682d3e4392f6c20442a2f330a75bba24475aeba9401cce1`.
+
+The original [report](../tools/fixtures/apple-05ac-0291-scrollbar.txt) and
+[completion marker](../tools/fixtures/apple-05ac-0291-scrollbar.done) are retained
+and were revalidated after copying. Installed and staged payloads match the
+independent verified checkpoint at
+`~/.local/share/srvros/known-good/e276699c454972fd`; its sibling acceptance JSON
+records the evidence and limits. Earlier checkpoints remain available. Repeating
+this consumed one-shot profile requires preparing a fresh run.
+
+Next: exercise keyboard, pointer capture and scrolling during filesystem work,
+including focus changes and cancellation. Quantitative latency, device recovery
+and palm-classifier accuracy remain separate open checks; this manual trial does
+not establish them.

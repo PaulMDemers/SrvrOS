@@ -221,4 +221,6 @@ gesture profile and a scrollable native study. Initial two-finger scrolling is
 physically accepted. A guided follow-up exercised both typing and broad-contact suppression with
 general positive feedback; its conservative filter is not yet calibrated palm
 rejection. The interactive scrollbar follow-up adds client pointer capture and
-page/drag behavior; physical scrollbar acceptance remains pending.
+page/drag behavior; its initial physical trial passed. The next gate combines
+input and focus/capture checks with filesystem activity, followed by measured
+latency and device recovery.
