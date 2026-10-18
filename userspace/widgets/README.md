@@ -2,9 +2,91 @@
 
 The new desktop's shared controls live here. Files, Text and subsequent native
 apps should use and extend this library rather than maintain private controls.
-The public C API is `include/srvros/desk_widgets.h`; the build produces
+The base C API is `include/srvros/desk_widgets.h`, with focused headers for richer
+controls and models; the build produces
 `build/userspace/widgets/libdeskwidgets.a`. It is independent of the legacy
 `ui.h` / `gui2.h` implementations.
+
+## Component map
+
+| Need | Shared API | Application example |
+| --- | --- | --- |
+| Theme, labels, buttons, scrollbars | `desk_widgets.h` | Every native app |
+| Rows/columns and focus/capture routing | `desk_flow.h`, `desk_ui.h` | Files, Clock |
+| Text storage, history and editing | `desk_text.h`, `desk_edit.h` | Text |
+| Literal search and replacement | `desk_text.h`, `desk_searchbar.h` | Text |
+| Lists and sortable tables | `desk_list.h`, `desk_table.h` | Files, System, Find Files |
+| Choices, sliders and tabs | `desk_widgets.h`, `desk_slider.h`, `desk_tabs.h` | Settings, Sketch, System |
+| Menus and contextual popups | `desk_menu.h`, `desk_popup.h` | Desktop shell, Files |
+| Prompts, dialogs and file picking | `desk_prompt.h`, `desk_dialog.h`, `desk_file_picker.h` | Text, Files, Sketch |
+| Information fields | `desk_properties.h` | Files item information |
+| Wrapped structured documents | `desk_document.h` | Help, Network Utility |
+| Images and pan/zoom | `desk_image.h` | Preview |
+| Bitmap history, drawing and colors | `desk_bitmap.h`, `desk_paint.h`, `desk_color_panel.h` | Sketch |
+| Terminal model and view | `desk_terminal.h`, `desk_terminal_view.h` | Terminal |
+| Calendar, durations, timers and notices | `desk_calendar.h`, `desk_time_model.h`, `desk_notice.h` | Desktop, Clock |
+| Launcher-style matching | `desk_palette.h` | Desktop launcher |
+| Paths, directory snapshots and search results | `desk_path.h`, `desk_listing.h`, `desk_file_search.h` | Files, picker, Find Files |
+
+The sections below document ownership and limits for these APIs. Their headers
+are the authoritative declarations. For desktop workflows and keyboard shortcuts,
+see the [native desktop guide](../../docs/native-desktop.md).
+
+## Adding a native application
+
+Keep one application-owned state object containing its `desk_app` transport,
+control instances, document/model state and any worker jobs. `deskclock` is a
+useful composed-control example; `desknet` demonstrates bounded read-only jobs,
+and `deskfind` adds validation and sorting of worker-produced results. Do not
+start from the old `gui2` apps.
+
+1. Initialize the pure models and register controls once with stable, nonzero
+   IDs through `desk_ui_add`. Item arrays, label strings and model buffers must
+   outlive every control that borrows them. Check initialization failures.
+2. Open the surface with `desk_app_open`. On configure, recompute content-space
+   rectangles, configure controls, and call `desk_ui_layout_changed`. Layout may
+   cancel capture and repair focus. Test at the minimum 280×240 client size as
+   well as the normal size; hide secondary content before making primary
+   controls unreachable.
+3. Poll transport in bounded batches. `desk_app_poll` returning 2 means it handled
+   an internal transport event, not an application action. Route window focus,
+   key, pointer, scroll and cancellation events to the appropriate model or
+   router. Respect modal ownership. A control's REDRAW/CHANGED/ACTIVATED flags
+   request application behavior; controls do not call application callbacks.
+4. Advance file/image/diagnostic/clipboard jobs without blocking. Completion
+   applies to the snapshot that started the job. Recheck document revisions,
+   selections and destinations before accepting delayed results. Sanitized text
+   and validated metadata reach controls; raw worker bytes do not.
+5. Publish menu snapshots and service `desk_app_menu_tick`. Use the same action
+   handlers for shortcuts, menu commands and contextual actions. Global heading
+   names **SrvrOS**, **Arrange** and **Window** are reserved. Apps may publish
+   at most 32 entries and four headings; each popup has at most twelve rows.
+6. Draw only when `desk_app_canvas` returns 1. Present through
+   `desk_app_present`; never retain and mutate a sealed pixel buffer while the
+   compositor owns it. Keep polling releases/configures even when no repaint is
+   needed. Mark the window dirty after model or layout changes.
+7. Close jobs and transport on exit. Unsaved work needs a visible decision.
+   Canceling a read-only child and interrupting an accepted file mutation have
+   different contracts. Preserve a worker's result until the parent has reaped it.
+
+The client runtime lives under `userspace/lib`, outside this archive:
+
+| Runtime service | Contract |
+| --- | --- |
+| `desk_app.h` | One-window surface, transport, menu, title and launch lifecycle |
+| `desk_clipboard.h` | Asynchronous shared clipboard; caller checks stale edits |
+| `desk_file_job.h` | Persistent bounded file requests; inspect response status, not just transport completion |
+| `desk_image_job.h` | Cancelable read-only decode; take owned pixels and release with returned dimensions |
+| `desk_command_job.h` | Explicit argv, read-only child, bounded output and timeout/cancel; never use for a mutating command |
+| `desk_capture_job.h` | Owned bitmap snapshot and verified background file save; close does not kill an accepted writer |
+| `desk_notify.h` | Bounded asynchronous desktop notification publication |
+
+Add focused model/controller host checks, including clipped/tiled drawing and
+capture cancellation if adding a control. Then exercise the real workflow in a
+disposable VM and independently check saved bytes. Register new product apps in
+the shared application catalog, add a contextual Help topic, and extend the
+lifecycle check. An app's private test UI is not a reason to add a duplicate
+widget implementation.
 
 ## Boundaries
 
@@ -24,11 +106,12 @@ their assigned area. Coordinates and rectangles use the renderer's pixel units
 and half-open bounds. Applications supply explicit frames; no implicit layout
 tree or dynamic object graph is introduced yet.
 
-## Initial controls
+## Base controls
 
 - Immutable `desk_theme_quiet` with shared warm surfaces, restrained color,
   fonts and spacing. Pass an application-owned copy for a different theme.
-- Clipped labels and rectangle containment/inset helpers.
+- Clipped labels and rectangle containment/inset helpers. A shared 11×8 native
+  checkmark draws menu and checkbox state without depending on font coverage.
 - Vertical scrollbar with independent content/viewport extents, bounded wheel
   deltas, thumb grab offset, page clicks and captured drag outside the track.
   Release applies its final coordinate. Cancellation, geometry changes and
@@ -105,11 +188,22 @@ allocation dependencies. Evidence is retained at `build/review/widgets-20261018/
 This extraction has not been deployed to the laptop; the accepted hardware boot
 and its independent backup remain available.
 
-## Growth toward Files and Text
+`make test-widget-boundary` (also included in `test-widgets`) inspects the archive's
+external symbols with `HOST_NM` (default `nm`). Its allowlist contains renderer
+primitives and pure memory/string/formatting helpers. New OS, allocation, file,
+network, logging or threading imports fail the check. This enforces link
+boundaries; it does not replace review of runtime behavior. To inspect the
+freestanding archive as well:
 
-Add controls only as the first useful workflows require them: layout rows and
-columns, focus traversal, a single-line text field, selectable file list, editor
-view, dialogs and menus. Shared selection/caret/scroll behavior belongs here;
+```sh
+python3 tools/check_widget_boundary.py build/tests/widgets/libdeskwidgets.a build/userspace/widgets/libdeskwidgets.a
+```
+
+## Extending the library
+
+Add controls as useful workflows require them. Layout, focus traversal, fields,
+lists, editors, dialogs and menus are now shared components. Selection, caret
+and scrolling behavior belongs here;
 directory enumeration, document storage, save policy and unsaved-change decisions
 belong to the applications. Keep the editor's document model separate from its
 view so storage and large-document behavior can be tested without rendering.
@@ -195,7 +289,7 @@ Applications publish up to 32 entries/four headings using `desk_app_menus` and
 service bounded nonblocking sends with `desk_app_menu_tick`. The desktop keeps
 the previous complete menu until a replacement validates. Commands include the
 snapshot revision; the runtime rejects unknown, disabled, unfocused or stale
-actions. The server adds its SrvrOS and Window menus and routes app actions back
+actions. The server adds its SrvrOS, Arrange and Window menus and routes app actions back
 to the focused process. Shared controls never execute commands or perform IPC.
 `desk_edit_command` exposes selection, undo/redo and clipboard requests directly
 so menus and keyboard shortcuts use the same editor behavior. Content updates

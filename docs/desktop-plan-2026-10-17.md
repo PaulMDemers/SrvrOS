@@ -21,6 +21,23 @@ small environment for files, text, terminal work, and system controls. A modern
 web browser, broad application compatibility, and a full daily-driver OS are
 larger subsequent projects.
 
+## Native implementation update — 2026-10-18
+
+The shared toolkit and twelve native applications now implement much of D3 in
+VMs: Files/Text open-edit-save, PTY Terminal, persistent Settings, Calculator,
+System, Preview, Sketch, Clock, Help, Network Utility and Find Files. Global
+menus, clipboard, launcher, contextual actions, calendar, notifications,
+screenshots and window arrangement are in place. See the
+[current desktop guide](native-desktop.md) and
+[implementation evidence](desktop-progress-2026-10-18.md).
+
+The earlier “next” and “not implemented” statements below describe the original
+plan/review. They are retained as rationale, not a current feature inventory.
+The complete D3 hardware gate still requires a later laptop trial, including
+persisted documents and real input during storage work. D4 laptop power controls
+and USB-network adapter bring-up remain separate work; VM acceptance does not
+close those gates.
+
 ## Design study
 
 Open [the interactive desktop study](design/desktop-study.html) in a browser.

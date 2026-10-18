@@ -6,6 +6,11 @@ adding supporting OS work as needed. Use host checks and VMs; **do not reboot
 the laptop or replace the accepted hardware boot**. The visual direction stays
 quiet and refined; Tiger is a reference for scope/coherence, not a pixel copy.
 
+For the current app set, shortcuts and limits, use the
+[native desktop guide](native-desktop.md). Entries below are chronological:
+statements such as “not yet implemented” describe that entry's checkpoint and
+may be superseded by later work in this journal.
+
 ## Working sequence
 
 1. Structured keyboard delivery, reusable editor/list controls and focus routing.
@@ -1067,3 +1072,78 @@ side-by-side typing and exact saved contents, menu and shortcut routing, repeate
 resize generations, centering and restore at both 1280×800 and 800×600. Screens
 were inspected at both resolutions. Evidence: `build/review/desktop-arrange/`
 and `build/review/desktop-arrange-small/`.
+
+## Desktop lifecycle, capacity and recovery acceptance
+
+The six-round disposable-VM soak passed 72 application lifetimes. Each round
+opened all twelve apps, tiled/restored each window, decoded a 1024×768 image,
+ran Find Files and exited a real Terminal shell. After init reaped exited
+workers, only the baseline init/supervisor processes remained. Live kernel heap
+was **4096 bytes** at baseline and after every round. After the first warmup
+round, all six samples had **972716 in the PMM reported used-frame counter**,
+with unchanged
+per-tag counts (including user frames and page tables). This counter includes
+reserved address ranges; its trend is a cleanup check, not a usable-RAM size.
+The initial increase is
+retained heap capacity and cached kernel stacks; it does not grow each round.
+The test's bounds remain 64 KiB live-heap spread and 128 physical frames, rather
+than assuming identical allocator behavior on every build. Actual samples are
+in `build/review/desktop-lifecycle/samples.json`.
+
+A separate 512 MiB VM passed eight simultaneous windows, refusal of a ninth,
+reuse of the released slot, the full Window menu, exact saved text, and verified
+screenshot output while all eight slots were occupied. Normal exit left no GUI
+processes. Visual inspection caught a missing checkmark glyph; menus and
+checkboxes now share a clipped native 11×8 checkmark. A successful app launch
+also clears the obsolete capacity/failure notice. Targeted launch tests cover
+full capacity without spawning, failed exec, and successful slot reuse. The
+final capacity VM rerun passed after both fixes. Evidence:
+`build/review/desktop-capacity/`.
+
+Emergency recovery passed three cycles with unsaved Text, a live shell running
+`cat` in a PTY, and a pending Ping diagnostic. Every cycle reclaimed the GUI,
+PTY children and diagnostic; USB typing worked in the restored console. The
+same init, supervisor and web-server PIDs survived, and exact HTTP response bytes
+were fetched both during the desktop workload and after emergency exit. A fresh
+desktop then saved a document whose bytes were checked outside the VM. This
+covers cancellation of read-only work, not power loss during accepted writes.
+Evidence: `build/review/desktop-recovery/`.
+
+The final renderer/arrangement workflow also passed at **1440×900** (the Air's
+panel size) and **1920×1080**, alongside the earlier 1280×800/800×600 checks.
+Host widget/menu/popup checks and the full desktop suite pass. The OS image
+build passes. Physical gesture feel, USB-media removal and laptop power controls
+still require their own hardware acceptance; none is inferred from these VMs.
+
+## Toolkit boundaries and current documentation
+
+The toolkit guide now maps controls/models to their public headers and consuming
+apps, and gives the ownership/event/worker/render lifecycle for a new native app.
+`test-widget-boundary`, included in `test-widgets`, inspects archive imports and
+rejects dependencies outside renderer primitives and pure libc helpers. Both
+host and freestanding archives pass (271 definitions, respectively 24 and 21
+external helpers). Injected allocation and OS-call imports are correctly rejected.
+This is a link dependency guard, not a proof about arbitrary C behavior.
+
+The native desktop guide provides a current app inventory, shortcuts, workflows,
+explicit limits and VM commands. README and the original roadmap point to it;
+the chronological journal remains available without presenting earlier
+limitations as the current feature set. No hardware boot entry or accepted
+checkpoint was replaced.
+
+A final read-only Ubuntu inventory identified the battery as ACPI0002 /
+`acpi-sbs` beneath the EC-backed ACPI0001 SMBus controller, and the display as
+Intel Broadwell HD 6000 with `intel_backlight`. No USB Ethernet adapter is
+present. The Linux capture tool now records an explicit power/backlight
+property allowlist without serial numbers or setting changes. The
+[laptop-service follow-on](macbook-air-laptop-services-2026-10-18.md) records
+evidence, source references and acceptance order; no unverified power driver
+was enabled.
+
+The final runtime build passed a second six-session / 72-application soak, now
+requiring the entire post-session process set (PID, executable and state) to
+match the initial baseline. All six rounds again returned to 4096 bytes of live
+heap, with identical post-warmup PMM counters. The updated capacity check also
+requires exact process-set restoration and passes. Final soak evidence is in
+`build/review/desktop-lifecycle-final/`; the earlier six-round samples are retained
+separately. Across both completed soaks, 144 application lifetimes were exercised.

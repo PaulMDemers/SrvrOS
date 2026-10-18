@@ -15,10 +15,14 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument("--small",action="store_true");args=parser.parse_args()
-    width,height=(800,600) if args.small else (1280,800)
+    parser=argparse.ArgumentParser();modes=parser.add_mutually_exclusive_group()
+    modes.add_argument("--small",action="store_true",help="800x600 compatibility mode")
+    modes.add_argument("--resolution",choices=["800x600","1280x800","1440x900","1920x1080"],default="1280x800")
+    args=parser.parse_args()
+    width,height=(800,600) if args.small else tuple(map(int,args.resolution.split("x")))
     root=Path(__file__).resolve().parents[1]
-    out=root/("build/review/desktop-arrange-small" if args.small else "build/review/desktop-arrange")
+    suffix="-small" if (width,height)==(800,600) else "" if (width,height)==(1280,800) else f"-{width}x{height}"
+    out=root/("build/review/desktop-arrange"+suffix)
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)

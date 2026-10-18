@@ -13,32 +13,20 @@ replacement UI architecture and its quiet, refined visual direction; the
 [interactive design study](docs/design/desktop-study.html) is a browser prototype,
 not an implemented native desktop.
 
-The current native desktop has a global menu bar, dock, independent application
-windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings,
-Terminal, Preview, Sketch, Help, Clock and Find Files, Network Utility. Command-Space opens application/window search; the SrvrOS menu
-provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
-with month/year navigation and Today. Files has Places, Back/Forward history, sortable
-details, rename, verified duplication of
-files up to 16 MiB, and confirmed permanent deletion. System shows live process, memory and network information; Settings saves text, color and clock preferences.
-Text includes a modeless Find/Replace bar, next/previous search, atomic Replace All, bounded multi-step undo
-and shared clipboard. Calculator has a keypad, result copying and session history.
-Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate
-worker. Command-Shift-3 saves a screenshot to `/fat/home/Screenshots` through a
-background worker, with verified readback and a notification that opens the folder.
-Sketch adds Pen/Line/Box drawing, a shared RGB color panel, four undo steps,
-image import and verified BMP copies. Preview’s Edit in Sketch opens the current image.
-Network Utility runs background Ping and DNS lookup with copyable reports; System distinguishes link state and speed from configured IPv4 addresses.
-Clock provides a countdown, stopwatch and copyable laps. Completed timers
-appear as nonintrusive banners and in Alerts (Command-Shift-N). Right-click,
-Control-click or Shift-F10 opens contextual actions in Files and editable fields;
-the desktop background has its own application menu. Files offers current item
-information (Ctrl-I), with copyable paths and metadata. F1 opens the active app’s offline Help topic, with searchable topics,
-Back/Forward history and page copying.
-Start it with `run /fat/bin/deskd`. The
-[development journal](docs/desktop-progress-2026-10-18.md) records implemented
-behavior, VM checks and remaining limitations. The accepted MacBook Air input/I/O
-checkpoint is preserved separately; these new application changes are being
-validated in disposable VMs before another hardware test.
+The current native desktop has a global menu bar, dock, launcher, independent
+application windows and a shared widget toolkit. Its twelve apps cover Files,
+Text, Terminal, Preview, Sketch, Find Files, Calculator, System, Network Utility,
+Settings, Clock and Help. Background workers keep file, image and diagnostic work
+outside the input/render loop. Window tiling, clipboard, contextual menus,
+notifications and screenshot saving are shared desktop services.
+
+Start it with `run /fat/bin/deskd`. The [native desktop guide](docs/native-desktop.md)
+covers workflows, shortcuts and current limits; the
+[widget library guide](userspace/widgets/README.md) documents reusable controls and
+application boundaries. The [development journal](docs/desktop-progress-2026-10-18.md)
+records implementation and VM checks. The accepted MacBook Air input/I/O
+checkpoint is preserved separately; the expanded app set is being validated in
+disposable VMs before another hardware test.
 
 ## Screenshots
 
@@ -519,7 +507,3 @@ and retains full debug `.elf` files under `build/userspace/` on the host. This
 avoids carrying duplicated debug sections in boot RAM. `make test-runtime-elf`
 checks segment preservation; `tools/host-env.sh python3 tools/desktop_settings_smoke.py`
 checks live desktop preferences and persistence in a disposable VM.
-
-Find Files is available from Command-Shift-F, the SrvrOS menu, and Ctrl-F in Files. It searches names below a chosen folder in the background, with kind filters, sortable results, Open, Show in Files and Copy path. It reports the first 256 matches; this is name search over the mounted VFS, not content indexing.
-
-Arrange provides Tile left, Tile right and Center. Command-Alt-Left/Right tiles the active window, Command-Alt-Up centers it, and Command-Alt-Down zooms or restores its original geometry. The original position is retained while switching sides.

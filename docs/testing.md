@@ -22,6 +22,42 @@ With the locally unpacked Ubuntu tools, prefix these commands with
 suite below. The custom SPI model has a known hardware identity error; see
 [the project review](project-review-2026-10-16.md).
 
+## Current native desktop
+
+`make test-desktop` now covers the shared widget models/controllers, client
+transport and worker protocols as well as the original renderer/compositor.
+Use [the native desktop guide](native-desktop.md) for current functionality and
+[the toolkit guide](../userspace/widgets/README.md) when extending controls.
+Build with `tools/host-env.sh make -j2 all` before running VM scripts.
+
+| Regression | Command after the build | Evidence directory under `build/review/` |
+| --- | --- | --- |
+| Arrangement and input/save across resizes | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --resolution 1440x900` | `desktop-arrange-1440x900` |
+| Minimum supported display | `tools/host-env.sh python3 tools/desktop_arrange_smoke.py --small` | `desktop-arrange-small` |
+| Eight simultaneous windows and capacity recovery | `tools/host-env.sh python3 tools/desktop_capacity_smoke.py` | `desktop-capacity` |
+| Repeated app/desktop cleanup and memory plateau | `tools/host-env.sh python3 tools/desktop_lifecycle_soak.py --rounds 6` | `desktop-lifecycle` |
+| Emergency exit and usable console/desktop recovery | `tools/host-env.sh python3 tools/desktop_recovery_smoke.py` | `desktop-recovery` |
+
+The lifecycle soak opens all twelve apps each round, arranges/restores them,
+loads a 1024×768 image, runs a name search and exits a real Terminal shell. It
+checks process cleanup after init's reaper interval, then samples kernel heap
+and PMM frame counters. The first pass warms caches. Later samples must stay
+within 64 KiB of live heap and 128 physical frames; `samples.json` preserves the
+actual counts, not just a PASS label. This checks repeated ownership/lifetime
+behavior, not physical input latency or power-loss durability.
+
+The capacity test checks rejection of a ninth app, reuse of a freed slot,
+keyboard editing and a screenshot save while all eight slots are occupied.
+The recovery test uses unsaved disposable text, a live PTY and a pending
+read-only diagnostic; it does not kill an accepted filesystem mutation.
+App-specific `desktop_*_smoke.py` scripts cover deeper workflows and independently
+read back saved image/document bytes.
+
+Serial diagnostics from concurrent writers can interleave within a line. The
+lifecycle harness uses compositor PID registration/retirement and post-session
+process snapshots rather than requiring every client's log line to be intact.
+All these tests use disposable filesystem copies and do not deploy to hardware.
+
 ## Console and kernel regression checks
 
 The new desktop foundation has an opt-in native study and separate regression
