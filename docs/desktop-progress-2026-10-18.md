@@ -93,3 +93,36 @@ restore, zoom/restore, and empty-file save through the whole-file syscall.
 Visuals were checked at 1280×800. ASan/UBSan passed the text/editor/UI controls,
 file worker behavior and fragmented worker client. These are VM results, not a
 new hardware acceptance claim.
+
+## Shared clipboard and useful Files workflows
+
+The desktop now owns a 64 KiB session clipboard. Client transfers are bounded
+and nonblocking. Copy publishes only a complete staged value; partial copies
+and client death retain the previous value. Paste cancels if the clipboard
+changes mid-transfer. Cut waits for acknowledgement, and Cut/Paste recheck the
+editor revision and selection before mutating text. Malformed UTF-8, oversized
+pastes and newlines in single-line fields are rejected without losing content.
+The clipboard survives the source window closing, until the desktop exits.
+
+Files now supports Ctrl-L for its location, Ctrl-R to refresh, Alt-Up for the
+parent, and timed name-prefix selection in the reusable list control. A VM run
+created a folder, navigated into it/back out, and selected/opened the saved
+text document from Files. Cross-app copy from Calculator to Text, acknowledged
+cut/undo, save and console readback passed in the same run.
+
+Visual review exposed duplicate directory rows after 64 distinct children.
+The libc `readdir` shim had a fixed 64-name deduplication array and silently
+stopped recording names after that point. It now grows the set, reports memory
+or listing failures, rejects overlong names and correctly identifies explicit
+directory entries. `scandir` propagates listing failures instead of returning
+partial success. Host/ASan/UBSan checks cover >100 children, repeated descendant
+paths, allocation retry and error propagation. QEMU confirms the duplicate row
+is gone. Full core checks pass; shared clipboard model tests and sanitizers pass.
+
+The VM harness hit one diagnostic-output race: startup logging interleaved with
+compositor output. Startup is now logged before window registration and app-mode
+trace logs only the first frame per window. Assertions still verify persisted
+file content; diagnostics are not treated as an atomic logging channel.
+
+Next: a graphical terminal with a reusable screen/view model and isolated tty
+state, followed by richer shared menus/dialogs and broader application workflows.

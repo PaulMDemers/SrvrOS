@@ -6,9 +6,10 @@ void desk_list_init(struct desk_list *l) {
 }
 void desk_list_configure(struct desk_list *l,struct desk_rect frame,int enabled) {
     if(memcmp(&frame,&l->frame,sizeof(frame)) || !enabled) {
-        l->pressed=-1;l->scrollbar_capture=0;l->last_click=-1;l->last_click_us=0;
+        l->pressed=-1;l->scrollbar_capture=0;l->last_click=-1;l->last_click_us=0;l->typeahead_length=0;
     }
     l->frame=frame;l->enabled=enabled!=0;
+    if(!enabled) l->typeahead_length=0;
     if(!enabled) l->focused=0;
     struct desk_rect inner=desk_widget_inset(frame,1);
     struct desk_rect track=inner.w>=18?(struct desk_rect){inner.x+inner.w-18,inner.y,18,inner.h}:(struct desk_rect){0};
@@ -18,7 +19,7 @@ int desk_list_set_items(struct desk_list *l,const struct desk_list_item *items,i
     if(count<0 || count>DESK_LIST_MAX_ITEMS || (!items && count)) return -1;
     for(int i=0;i<count;i++) if(!items[i].label) return -1;
     l->items=items;l->count=count;l->selected=-1;l->pressed=-1;l->last_click=-1;
-    l->last_click_us=0;l->scrollbar_capture=0;
+    l->last_click_us=0;l->scrollbar_capture=0;l->typeahead_length=0;
     l->scroll.dragging=0;
     desk_list_configure(l,l->frame,l->enabled);desk_scrollbar_set(&l->scroll,0);
     return 0;
@@ -45,7 +46,7 @@ static int hit(const struct desk_list *l,int x,int y) {
 }
 unsigned desk_list_event(struct desk_list *l,struct desk_widget_event e,uint64_t time_us) {
     if(e.type==DESK_WIDGET_CANCEL || e.type==DESK_WIDGET_FOCUS_OUT) {
-        l->pressed=-1;l->scrollbar_capture=0;l->last_click=-1;l->last_click_us=0;
+        l->pressed=-1;l->scrollbar_capture=0;l->last_click=-1;l->last_click_us=0;l->typeahead_length=0;
         desk_scrollbar_event(&l->scroll,e);
         if(e.type==DESK_WIDGET_FOCUS_OUT && l->focused) { l->focused=0;return DESK_WIDGET_REDRAW; }
         return 0;
@@ -54,6 +55,7 @@ unsigned desk_list_event(struct desk_list *l,struct desk_widget_event e,uint64_t
     if(e.type==DESK_WIDGET_FOCUS_IN) { l->focused=1;return DESK_WIDGET_REDRAW; }
     if(e.type==DESK_WIDGET_ACTIVATE) return l->focused && l->selected>=0?DESK_WIDGET_ACTIVATED:0;
     if(e.type!=DESK_WIDGET_POINTER) return 0;
+    if(e.pressed) l->typeahead_length=0;
     if(e.pressed) l->scrollbar_capture=desk_widget_contains(l->scroll.track,e.x,e.y);
     if(l->scrollbar_capture) {
         unsigned result=desk_scrollbar_event(&l->scroll,e)&DESK_WIDGET_REDRAW;
@@ -94,14 +96,26 @@ unsigned desk_list_key(struct desk_list *l,const struct srv_key_event *key) {
         if(key->modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT|SRV_KEY_META)) return 0;
         unsigned c=key->codepoint; if(c>='A' && c<='Z') c+=32;
         if(c<32 || c>126) return 0;
-        for(int n=1;n<=l->count;n++) {
-            int i=(index+n)%l->count; unsigned first=(unsigned char)l->items[i].label[0];
-            if(first>='A' && first<='Z') first+=32;
-            if(first==c) return desk_list_select(l,i);
+        if(!key->time_us || !l->typeahead_us || key->time_us<l->typeahead_us || key->time_us-l->typeahead_us>750000)
+            l->typeahead_length=0;
+        l->typeahead_us=key->time_us;
+        int cycle=l->typeahead_length==1 && l->typeahead[0]==(char)c;
+        if(!cycle && l->typeahead_length<sizeof(l->typeahead)-1) l->typeahead[l->typeahead_length++]=(char)c;
+        l->typeahead[l->typeahead_length]=0;
+        int start=index<0?0:(index+(l->typeahead_length==1?1:0))%l->count;
+        for(int n=0;n<l->count;n++) {
+            int i=(start+n)%l->count;unsigned j=0;
+            for(;j<l->typeahead_length;j++) {
+                unsigned next=(unsigned char)l->items[i].label[j];
+                if(next>='A' && next<='Z') next+=32;
+                if(!next || next!=(unsigned char)l->typeahead[j]) break;
+            }
+            if(j==l->typeahead_length) return desk_list_select(l,i);
         }
         return 0;
     }
     }
+    l->typeahead_length=0;
     return desk_list_select(l,index);
 }
 void desk_list_draw(struct desk_canvas *c,const struct desk_list *l,const struct desk_theme *theme) {

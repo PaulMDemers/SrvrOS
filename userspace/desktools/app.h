@@ -2,6 +2,7 @@
 #define DESKTOOLS_APP_H
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
+#include <srvros/desk_clipboard.h>
 #include "file_job.h"
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
@@ -20,10 +21,16 @@ struct tool {
     struct desk_file_job job;
     char status[160],saved_path[DESK_FILE_PATH],pending_path[DESK_FILE_PATH];
     char saved_data[DESK_FILE_BYTES+1],clipboard[DESK_FILE_BYTES+1];
-    size_t saved_length,clipboard_length;
+    size_t saved_length;
+    struct desk_clipboard_client clip;
+    unsigned clip_action,clip_target;
+    uint64_t clip_revision;
+    size_t clip_caret,clip_anchor;
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_clipboard_action(struct tool *tool,struct desk_action action);
+void tool_clipboard_result(struct tool *tool,int result);
 void tool_status(struct tool *tool,const char *message);
 int tool_modified(const struct tool *tool);
 void tool_dialog(struct tool *tool,int mode);

@@ -1,5 +1,6 @@
 #include <srvros/desk_log.h>
 #include "scene.h"
+#include "clipboard.h"
 #include "io_trial.h"
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
@@ -9,6 +10,8 @@
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <string.h>
+
+static struct desk_clipboard_store clipboard;
 
 struct client {
     uint64_t pid,generation,progress,present_input;
@@ -119,6 +122,7 @@ static void focus(struct session *s,int i) {
     }
 }
 static void forget(struct session *s,int i) {
+    desk_clipboard_forget(&clipboard,s->clients[i].pid);
     if (s->pointer_pid==s->clients[i].pid && s->pointer_pid) {
         s->pointer_pid=0; s->pointer_blocked=1;
     }
@@ -237,6 +241,10 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     }
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
     if (p->type==DESK_CLOSE) { forget(s,i); return; }
+    if(p->type==DESK_CLIPBOARD_SET || p->type==DESK_CLIPBOARD_GET) {
+        if(s->scene.apps) desk_clipboard_request(&clipboard,pid,s->scene.focus==i,p,srv_ticks());
+        return;
+    }
     if(p->type==DESK_PREFERENCES_SET) {
         if(s->scene.apps && w->application==DESK_APP_SETTINGS && s->scene.focus==i && (p->value==16 || p->value==20)) {
             s->text_size=p->value;
@@ -280,10 +288,11 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         close_client(s,i); return;
     }
     c->present_input=p->input_serial;
+    int first_frame=w->pixels==NULL;
     w->pixels=next; w->width=p->width; w->height=p->height;
     c->awaiting=0;
     damage_window(s,i);
-    if (s->trace) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
+    if (s->trace && (!s->scene.apps || first_frame)) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
 }
 static void service(struct session *s) {
@@ -316,6 +325,7 @@ static void service(struct session *s) {
             c->input_head=(c->input_head+1)%DESK_INPUT_QUEUE; c->input_count--;
             c->input_since=srv_ticks();
         }
+        if(s->scene.apps && !c->closing) desk_clipboard_service(&clipboard,c->pid,srv_ticks());
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
         uint64_t status;
@@ -539,7 +549,7 @@ int main(int argc,char **argv) {
             desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
-            if (s.trace) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
+            if (s.trace && !apps) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
             if (e.flags&MOUSE_CANCEL) {
                 drag=resize=-1; buttons=e.buttons;
                 cancel_input(&s,e.buttons);

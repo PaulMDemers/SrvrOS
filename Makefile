@@ -2143,6 +2143,8 @@ test-desktop: build/tests/desktop-host$(HOST_EXE) build/tests/gui-host$(HOST_EXE
 	build/tests/calculator-host$(HOST_EXE)
 	build/tests/deskfs-host$(HOST_EXE)
 	build/tests/file-job-host$(HOST_EXE)
+	build/tests/clipboard-host$(HOST_EXE)
+	build/tests/tool-clipboard-host$(HOST_EXE)
 build/tests/desktop-host$(HOST_EXE): tools/test_desktop.c userspace/deskstudy/scene.c userspace/deskstudy/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c userspace/lib/include/srvros/desk_render.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include tools/test_desktop.c userspace/deskstudy/scene.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
@@ -2154,7 +2156,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_apple_trackpad.c kernel/src/drivers/apple_trackpad.c -o $@
 
-DESKD_OBJ := build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ := build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2181,7 +2183,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c userspace/
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
 build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/scene.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/scene.c userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-trackpad-capture
 test-core: test-trackpad-capture
@@ -2281,3 +2283,21 @@ test-desktop: build/tests/file-job-host$(HOST_EXE)
 build/tests/file-job-host$(HOST_EXE): tools/test_file_job.c userspace/desktools/file_job.c shared/include/srvros/desktop_file.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+test-desktop: build/tests/clipboard-host$(HOST_EXE)
+build/tests/clipboard-host$(HOST_EXE): tools/test_clipboard.c userspace/deskd/clipboard.c userspace/lib/src/desk_clipboard.c userspace/deskd/clipboard.h userspace/lib/include/srvros/desk_clipboard.h shared/include/srvros/desktop_protocol.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_clipboard.c userspace/deskd/clipboard.c userspace/lib/src/desk_clipboard.c -o $@
+
+test-desktop: build/tests/tool-clipboard-host$(HOST_EXE)
+build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-posix-dir
+test-core: test-posix-dir
+test-posix-dir: build/tests/posix-dir-host$(HOST_EXE)
+	build/tests/posix-dir-host$(HOST_EXE)
+build/tests/posix-dir-host$(HOST_EXE): tools/test_posix_dir.c userspace/lib/src/posix_dir.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include $< -o $@

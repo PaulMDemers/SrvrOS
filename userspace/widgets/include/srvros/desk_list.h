@@ -15,7 +15,9 @@ struct desk_list {
     const struct desk_list_item *items;
     int count, selected, focused, enabled, pressed, scrollbar_capture;
     int last_click;
-    uint64_t last_click_us;
+    uint64_t last_click_us,typeahead_us;
+    char typeahead[64];
+    unsigned typeahead_length;
     struct desk_scrollbar scroll;
 };
 void desk_list_init(struct desk_list *list);

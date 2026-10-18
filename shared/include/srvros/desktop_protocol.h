@@ -9,11 +9,13 @@
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
 #define DESK_MAX_HEIGHT 640
+#define DESK_CLIPBOARD_BYTES 65536
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
-    DESK_PREFERENCES_SET, DESK_PREFERENCES
+    DESK_PREFERENCES_SET, DESK_PREFERENCES,
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_COUNT=5 };
@@ -51,5 +53,11 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * starts/replaces a request; nothing launches until a valid final chunk.
  * PREFERENCES_SET requests document text size (value=16 or 20); only the
  * Settings application may change it. PREFERENCES broadcasts the current
- * session value to every app, including newly opened windows. */
+ * session value to every app, including newly opened windows.
+ * CLIPBOARD_SET/DATA: serial=request, generation=byte offset, width=total,
+ * height=chunk bytes, value=final (DATA may use 2 for cancellation). SET is
+ * committed only after a complete transfer; interrupted copies retain the old
+ * clipboard. GET carries serial=request. ACK value=0 success, 1 failure.
+ * Only a focused window may begin copy/paste. No data is exposed on partial
+ * paste, and a clipboard revision change cancels an in-flight paste. */
 #endif

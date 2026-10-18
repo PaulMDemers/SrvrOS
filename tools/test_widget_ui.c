@@ -53,6 +53,14 @@ int main(void) {
     assert(desk_list_set_items(&list,items,DESK_LIST_MAX_ITEMS+1)==-1 && list.count==4);
     assert(!desk_list_set_items(&list,NULL,0) && list.selected==-1 && !list.scroll.offset);
     assert(!desk_list_key(&list,&enter));
+    struct desk_list_item names[]={{.label="Desktop"},{.label="Denim"},{.label="Delta"},{.label="Alpha"}};
+    assert(!desk_list_set_items(&list,names,4));list.focused=1;
+    letter.time_us=100;letter.codepoint='d';desk_list_key(&list,&letter);assert(list.selected==0);
+    letter.time_us=200;letter.codepoint='e';desk_list_key(&list,&letter);assert(list.selected==0);
+    letter.time_us=300;letter.codepoint='n';desk_list_key(&list,&letter);assert(list.selected==1);
+    letter.time_us=1000000;letter.codepoint='d';desk_list_key(&list,&letter);assert(list.selected==2);
+    letter.time_us=1000100;desk_list_key(&list,&letter);assert(list.selected==0);
+    desk_list_event(&list,(struct desk_widget_event){.type=DESK_WIDGET_FOCUS_OUT},0);assert(!list.typeahead_length);
     /* Composite rendering preserves every damage clip. */
     uint32_t full[240*180],tiled[240*180];for(unsigned i=0;i<240*180;i++) full[i]=tiled[i]=0x12345678;
     struct desk_canvas c;desk_canvas_init(&c,full,240,180,240);desk_ui_draw(&c,&ui,&desk_theme_quiet);

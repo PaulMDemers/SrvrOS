@@ -52,30 +52,9 @@ void tool_layout(struct tool *t) {
     }
     t->window.dirty=1;
 }
-static void clipboard(struct tool *t,struct desk_action a) {
-    struct desk_edit *edit=a.id==TOOL_BODY?&t->body:a.id==TOOL_PATH?&t->path:a.id==TOOL_NAME?&t->name:NULL;
-    if(!edit || !(a.flags&(DESK_EDIT_COPY|DESK_EDIT_CUT|DESK_EDIT_PASTE))) return;
-    struct desk_text_buffer *text=edit->text;
-    size_t lo=text->caret<text->anchor?text->caret:text->anchor,hi=text->caret>text->anchor?text->caret:text->anchor;
-    if(a.flags&(DESK_EDIT_COPY|DESK_EDIT_CUT)) {
-        if(hi==lo) return;
-        t->clipboard_length=hi-lo;memcpy(t->clipboard,text->data+lo,hi-lo);t->clipboard[hi-lo]=0;
-        if(a.flags&DESK_EDIT_CUT) {
-            desk_text_buffer_insert(text,"",0);a.flags|=DESK_WIDGET_CHANGED;
-        }
-    } else if(t->clipboard_length) {
-        if(!edit->multiline && (memchr(t->clipboard,'\n',t->clipboard_length) || memchr(t->clipboard,'\r',t->clipboard_length))) {
-            tool_status(t,"This field accepts one line of text.");return;
-        }
-        if(desk_text_buffer_insert(text,t->clipboard,t->clipboard_length)<0) tool_status(t,"There is not enough room to paste that text.");
-        else a.flags|=DESK_WIDGET_CHANGED;
-    }
-    desk_edit_reveal(edit);t->window.dirty=1;
-    if(t->role==DESK_APP_TEXT) tool_text_action(t,a);
-}
 static void action(struct tool *t,struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
-    clipboard(t,a);
+    tool_clipboard_action(t,a);
     if(t->role==DESK_APP_TEXT) tool_text_action(t,a);
     else if(t->role==DESK_APP_FILES) tool_files_action(t,a);
     else if(t->role==DESK_APP_CALCULATOR) {
@@ -99,11 +78,18 @@ static void key(struct tool *t,const struct srv_key_event *k) {
     }
     if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META))) {
         if(k->usage==0x1a) { if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;return; }
+        if(t->role==DESK_APP_FILES) {
+            if(k->usage==0x0f) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
+            if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
+        }
         if(t->role==DESK_APP_TEXT) {
             if(k->usage==0x16) { action(t,(struct desk_action){TOOL_SAVE,DESK_WIDGET_ACTIVATED});return; }
             if(k->usage==0x12) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x11) { tool_text_request(t,TOOL_PENDING_NEW);return; }
         }
+    }
+    if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&SRV_KEY_ALT) && k->usage==SRV_KEY_UP) {
+        tool_files_action(t,(struct desk_action){TOOL_UP,DESK_WIDGET_ACTIVATED});return;
     }
     action(t,desk_ui_key(&t->ui,k));
 }
@@ -149,12 +135,14 @@ int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(int i=0;i<DESK_APP_COUNT;i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
     desk_ui_init(&t->ui);desk_ui_init(&t->dialog);desk_list_init(&t->list);
+    desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],DESK_FILE_BYTES+1);
     desk_text_buffer_init(&t->name_text,t->name_store[0],t->name_store[1],128);
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
     if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) t->worker_ready=desk_file_job_init(&t->job)==0;
+    desk_log("desktools: starting role=%s\n",roles[t->role-1]);
     if(desk_app_open(&t->window,titles[t->role-1],t->role<=2?720:560,t->role<=2?480:320)) return 1;
     if(t->role==DESK_APP_TEXT) tool_text_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
@@ -166,13 +154,15 @@ int main(int argc,char **argv) {
         desk_ui_add(&t->ui,1,DESK_CONTROL_BUTTON,&t->buttons[0],"Standard");
         desk_ui_add(&t->ui,2,DESK_CONTROL_BUTTON,&t->buttons[1],"Larger");tool_status(t,"Document text size applies to this desktop session.");
     }
-    desk_log("desktools: ready role=%s\n",roles[t->role-1]);
     while(!t->quit && !t->window.failed && !t->window.closed) {
+        if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);
         for(unsigned n=0;n<32;n++) {
             struct desk_packet p;int r=desk_app_poll(&t->window,&p);
             if(r<=0) break;
             if(r==2) continue;
-            if(p.type==DESK_CONFIGURE) { tool_layout(t);if(t->role==DESK_APP_TEXT || t->role==DESK_APP_CALCULATOR) desk_ui_focus(&t->ui,TOOL_BODY); }
+            if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
+                int result=desk_clipboard_receive(&t->clip,&p);if(result) tool_clipboard_result(t,result);
+            } else if(p.type==DESK_CONFIGURE) { tool_layout(t);if(t->role==DESK_APP_TEXT || t->role==DESK_APP_CALCULATOR) desk_ui_focus(&t->ui,TOOL_BODY); }
             else if(p.type==DESK_PREFERENCES && (p.value==16 || p.value==20)) {
                 t->body_size=p.value;tool_layout(t);
                 if(t->role==DESK_APP_SETTINGS) tool_status(t,p.value==16?"Standard text · applies to this desktop session.":"Larger text · applies to this desktop session.");

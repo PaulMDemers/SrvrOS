@@ -8,16 +8,15 @@
 
 #define POSIX_PATH_MAX 160
 #define POSIX_CHILD_MAX 96
-#define POSIX_SEEN_MAX 64
 
 int __posix_make_path(const char *path, char *out, size_t capacity);
 
 struct DIR {
     char path[POSIX_PATH_MAX];
-    char prefix[POSIX_PATH_MAX];
+    char prefix[POSIX_PATH_MAX+1];
     uint64_t index;
-    size_t seen_count;
-    char seen[POSIX_SEEN_MAX][POSIX_CHILD_MAX];
+    size_t seen_count,seen_capacity;
+    char (*seen)[POSIX_CHILD_MAX];
     struct dirent entry;
 };
 
@@ -39,13 +38,19 @@ static int seen(DIR *dir, const char *name) {
     return 0;
 }
 
-static void remember(DIR *dir, const char *name) {
-    if (dir->seen_count >= POSIX_SEEN_MAX || seen(dir, name)) {
-        return;
+static int remember(DIR *dir, const char *name) {
+    if (dir->seen_count == dir->seen_capacity) {
+        size_t capacity=dir->seen_capacity?dir->seen_capacity*2:16;
+        if(capacity<dir->seen_capacity || capacity>SIZE_MAX/POSIX_CHILD_MAX) {
+            errno=ENOMEM;return -1;
+        }
+        void *next=realloc(dir->seen,capacity*POSIX_CHILD_MAX);
+        if(!next) { errno=ENOMEM;return -1; }
+        dir->seen=next;dir->seen_capacity=capacity;
     }
-    strncpy(dir->seen[dir->seen_count], name, POSIX_CHILD_MAX - 1);
-    dir->seen[dir->seen_count][POSIX_CHILD_MAX - 1] = '\0';
+    memcpy(dir->seen[dir->seen_count],name,strlen(name)+1);
     dir->seen_count++;
+    return 0;
 }
 
 static void make_prefix(DIR *dir) {
@@ -64,12 +69,15 @@ DIR *opendir(const char *path) {
     struct stat st;
     DIR *dir = malloc(sizeof(DIR));
     if (dir == 0) {
+        errno = ENOMEM;
         return 0;
     }
     memset(dir, 0, sizeof(*dir));
-    if (__posix_make_path(path, dir->path, sizeof(dir->path)) < 0 ||
-        stat(dir->path, &st) < 0 ||
-        !S_ISDIR(st.st_mode)) {
+    if (__posix_make_path(path, dir->path, sizeof(dir->path)) < 0 || stat(dir->path, &st) < 0) {
+        free(dir);
+        return 0;
+    }
+    if (!S_ISDIR(st.st_mode)) {
         free(dir);
         errno = ENOTDIR;
         return 0;
@@ -86,7 +94,10 @@ struct dirent *readdir(DIR *dir) {
         return 0;
     }
 
-    while (srv_list(dir->index++, path, sizeof(path), &size) > 0) {
+    for (;;) {
+        long result=srv_list(dir->index,path,sizeof(path),&size);
+        if(result<=0) { if(result<0) errno=EIO;return 0; }
+        dir->index++;
         if (strcmp(path, dir->path) == 0 || !starts_with(path, dir->prefix)) {
             continue;
         }
@@ -101,15 +112,21 @@ struct dirent *readdir(DIR *dir) {
             child_len++;
         }
         child[child_len] = '\0';
+        if(rest[child_len] && rest[child_len]!='/') { errno=ENAMETOOLONG;return 0; }
         if (child[0] == '\0' || seen(dir, child)) {
             continue;
         }
 
-        remember(dir, child);
+        if(remember(dir,child)<0) { dir->index--;return 0; }
         memset(&dir->entry, 0, sizeof(dir->entry));
-        strncpy(dir->entry.d_name, child, sizeof(dir->entry.d_name) - 1);
+        memcpy(dir->entry.d_name,child,child_len+1);
         dir->entry.d_ino = dir->index;
-        dir->entry.d_type = rest[child_len] == '/' ? DT_DIR : DT_REG;
+        dir->entry.d_type = rest[child_len] == '/' ? DT_DIR : DT_UNKNOWN;
+        if(!rest[child_len]) {
+            struct stat st;int saved_errno=errno;
+            if(!stat(path,&st)) dir->entry.d_type=S_ISDIR(st.st_mode)?DT_DIR:S_ISREG(st.st_mode)?DT_REG:DT_UNKNOWN;
+            errno=saved_errno;
+        }
         return &dir->entry;
     }
     return 0;
@@ -124,6 +141,7 @@ int closedir(DIR *dir) {
         errno = EBADF;
         return -1;
     }
+    free(dir->seen);
     free(dir);
     return 0;
 }
@@ -152,7 +170,10 @@ int scandir(const char *path,
         return -1;
     }
 
-    while ((entry = readdir(dir)) != 0) {
+    int failure=ENOMEM;
+    for (;;) {
+        errno=0;entry=readdir(dir);
+        if(!entry) { if(errno) { failure=errno;goto fail; }break; }
         if (filter != 0 && !filter(entry)) {
             continue;
         }
@@ -186,7 +207,7 @@ fail:
     }
     free(entries);
     closedir(dir);
-    errno = ENOMEM;
+    errno = failure;
     return -1;
 }
 

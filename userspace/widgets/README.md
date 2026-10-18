@@ -139,3 +139,8 @@ Window focus loss, cancellation and layout changes cancel pointer capture.
 The common `desk_app.h` client runtime owns surface/IPC lifecycle. It is separate
 from this library. Files and Text use a persistent `deskfs` worker with bounded,
 nonblocking request/response polling; widgets never perform file operations.
+
+Lists also support timed ASCII name-prefix selection (using key-event timestamps)
+and repeated-letter cycling. The shared clipboard transport lives in the client
+runtime (`desk_clipboard.h`), outside the toolkit; editor actions request it and
+the app rechecks selection/revision before applying asynchronous results.
