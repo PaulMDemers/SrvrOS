@@ -82,6 +82,20 @@ class InstallTests(unittest.TestCase):
         self.assertIn("srvros.laptop-services=probe",cfg)
         self.assertNotIn("laptop-services",boot.limine_config("0123456789abcdef","ram-usb-v17-desktop-37d8c5d0"))
 
+    def test_automatic_laptop_probe_profile(self):
+        version="ram-usb-v19-laptop-probe-37d8c5d0"
+        release=self.payload("probe",version)
+        path=self.stage/release/'manifest.json'
+        m=json.loads(path.read_text());m['config_version']=version;path.write_text(json.dumps(m))
+        boot.install(release)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.laptop-services=probe-autoreboot',cfg)
+        self.assertIn('srvros.workspace-volume=37d8c5d0',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg)
+        for options in ({'diagnostic':True},{'desktop_volume':'37d8c5d0'},{'workspace_volume':'37d8c5d0'}):
+            with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',**options)
+        with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='bad')
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

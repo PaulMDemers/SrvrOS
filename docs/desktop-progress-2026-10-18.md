@@ -1377,3 +1377,15 @@ prepared USB workspace is present. Ubuntu remains the default and no reboot was
 requested. Candidate evidence is retained under
 `build/native-desktop-trials/a91913d3db4219e8/`. Awaiting the user's availability
 for the physical trial; battery/brightness providers remain unimplemented.
+
+
+## Unattended preflight follow-up
+
+The user authorized the next reboot on the expectation that it returns by itself.
+The interactive v18 desktop trial intentionally waits for manual exit, so a
+separate v19 laptop-service capture now handles that request. It collects the
+same read-only diagnostics, writes verified boot/exit snapshots, flushes and
+unmounts the USB workspace, then reboots. Any save/unmount/reboot failure halts
+with the error visible. Physical gesture/acceleration acceptance stays pending.
+The exact boot-profile VM regression covers successful file persistence plus
+reset, and a missing-workspace run must remain halted without resetting.

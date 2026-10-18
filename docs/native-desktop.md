@@ -233,3 +233,23 @@ The collector verifies the prepared volume marker, copies bounded log files into
 `build/desktop-collections/`, checks the copies and records hashes and attention
 markers in `collection.json`. Missing exit logs and recorded failures remain
 visible. A collection is evidence for review, never an automatic hardware pass.
+
+
+### Unattended laptop-service capture
+
+For diagnostics that do not need physical input, stage a separate profile:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume 37d8c5d0
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check --probe-missing-workspace
+```
+
+The v19 profile runs the same read-only laptop preflight, mounts the prepared USB
+workspace, saves boot/exit snapshots with release identity, flushes and unmounts,
+then requests a normal reboot. It opens no desktop and does not test physical
+keyboard/trackpad behavior. Missing workspace, failed logging, failed unmount or
+failed reboot halts on a visible error, without a countdown. Install the exact
+verified release with `--keep-previous`, then select it once using `grub-reboot`;
+Ubuntu remains the default. Collect its session logs with `hardware_desktop.py`
+after Ubuntu returns. A saved capture is not desktop hardware acceptance.

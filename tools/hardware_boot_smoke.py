@@ -112,6 +112,8 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
+    parser.add_argument("--probe-check", action="store_true")
+    parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
@@ -123,6 +125,10 @@ def main():
     desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
     if bool(desktop) != args.desktop_check:
         parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
+    probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
+    if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
+        parser.error("Automatic laptop probe stages require --probe-check")
+    workspace=desktop or probe
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
     serial = logs / "hardware-grub-serial.log"
@@ -147,14 +153,14 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
-        if args.desktop_check:
+        if workspace and not args.probe_missing_workspace:
             from exfat_test_image import ExfatFixture, check_clean_image
             volume=temp/"workspace.exfat";stick=temp/"workspace.img"
             with volume.open("wb") as stream: stream.truncate(128*1024*1024)
             subprocess.run(["/usr/sbin/mkfs.exfat","-c","128K",str(volume)],check=True,stdout=subprocess.DEVNULL)
-            subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+desktop[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
+            subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+workspace[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
             fixture=ExfatFixture(volume.read_bytes())
-            fixture.add_directory_file("srvros-work",".workspace",f"SRVROS-WORKSPACE-V1 {desktop[1]}\n".encode())
+            fixture.add_directory_file("srvros-work",".workspace",f"SRVROS-WORKSPACE-V1 {workspace[1]}\n".encode())
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
             struct.pack_into("<II",mbr,454,2048,len(fixture.data)//512);mbr[510:]=b"\x55\xaa"
@@ -163,6 +169,31 @@ def main():
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.probe_check:
+                    if args.probe_missing_workspace:
+                        text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
+                        time.sleep(2)
+                        assert process.poll() is None and "laptop-capture: returning" not in text
+                        assert "laptop-capture: saved=NO unmounted=NO" in text
+                        print(f"laptop-probe-smoke: PASS ({release}); missing workspace halts without reboot")
+                        return
+                    text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
+                    assert "laptop-capture: saved=yes unmounted=yes" in text
+                    assert "laptop-probe: unsupported chipset; no register access" in text
+                    assert not has_fatal_exception(text)
+                    assert process.wait(timeout=30)==0 # -no-reboot exits only after guest reset.
+                    with stick.open("rb") as stream:
+                        stream.seek(2048*512);volume.write_bytes(stream.read())
+                    check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
+                    folder=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1].removeprefix("/work/")
+                    for filename in ("boot.log","exit.log"):
+                        contents=stored.read(folder+"/"+filename)
+                        assert release.encode() in contents and b"laptop-probe: unsupported chipset" in contents
+                        (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
+                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT, automatic reset")
+                    return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)

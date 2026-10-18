@@ -546,8 +546,23 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
-    if(cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
+    bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
+    if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     workspace_boot(cmdline);
+    if(automatic_probe) {
+        console_printf("laptop-capture: boot options=%s\n",cmdline);
+        bool started=workspace_active() && workspace_log_start();
+        if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
+        bool saved=started && workspace_log_stop();
+        bool unmounted=workspace_active() && workspace_unmount();
+        console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
+        if(saved && unmounted) {
+            console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
+            console_sync();timer_delay_us(250000);arch_reboot();
+        }
+        console_write("laptop-capture: HALTED - photograph this screen; restart manually\n");
+        console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+    }
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
     if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
