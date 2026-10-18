@@ -231,21 +231,11 @@ static void push_pending_byte(int *pending_byte, int value) {
 }
 
 static int read_byte_scan(void) {
-    for (int spin = 0; spin < 24; spin++) {
-        int c = kbhit();
-        if (c != 0) {
-            return c;
-        }
-        srv_yield();
-    }
-    for (int spin = 0; spin < 12; spin++) {
-        srv_sleep_ticks(1);
-        int c = kbhit();
-        if (c != 0) {
-            return c;
-        }
-    }
-    return -1;
+    /* Escape continuations come from this terminal's stdin, not the physical
+     * keyboard queue. A short poll also lets a standalone Escape finish. */
+    struct srv_pollfd ready={.fd=SRV_STDIN,.events=SRV_POLLIN};
+    long result=srv_poll(&ready,1,120);
+    return result>0 && (ready.revents&SRV_POLLIN)?read_byte():-1;
 }
 
 static void replace_buffer(char *buffer, size_t capacity, size_t *length, size_t *position, const char *text) {

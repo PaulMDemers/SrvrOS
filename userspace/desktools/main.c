@@ -133,7 +133,7 @@ static void draw(struct tool *t,struct desk_canvas *c) {
 }
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
-    if(argc>1) for(int i=0;i<DESK_APP_COUNT;i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
+    if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
     desk_ui_init(&t->ui);desk_ui_init(&t->dialog);desk_list_init(&t->list);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);

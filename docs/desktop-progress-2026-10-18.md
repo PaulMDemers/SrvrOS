@@ -154,3 +154,41 @@ ASan/UBSan passes the model and manager. The full core suite passed, and the
 `ptyprobe` guest passed real syscall tests for isolated attributes, binary raw
 input, canonical EOF, inherited stdio, window size, character-device stat,
 foreground Ctrl-C and close hangup. Evidence: `build/review/pty/`.
+
+## Native Terminal and reusable terminal controls
+
+The dock now launches a real Terminal app, and New opens independent windows.
+It runs the native shell over its own PTY, with bounded nonblocking read/write
+batches, a 64 KiB input queue, scrollback selection, shared clipboard, window-size
+updates and a close confirmation while the shell is running. Completed sessions
+remain visible. Ctrl-Shift-C/V copy/paste, Ctrl-C interrupts a foreground command,
+and Shift-PageUp/PageDown scroll history. Pasted text is validated and rejected
+as a whole if it contains control bytes other than tab/newline/carriage return.
+The shell keeps per-window command history in memory (`HISTFILE=` now explicitly
+disables disk history) rather than competing over a shared history file.
+
+The screen parser, view, selection, scroll following and key encoding live in
+the widget library. The app owns PTY and clipboard transport. Bundled DejaVu Sans
+Mono supplies a fixed 10-pixel cell font; ANSI color/cursor/erase/scroll/margin
+commands, alternate screen, fragmented UTF-8 and bounded query responses are
+supported. Limitations are documented in `userspace/widgets/README.md`.
+
+Two old console assumptions were corrected: `clrscr`/`gotoxy` now send control
+sequences through stdout, and linenoise reads escape continuations by polling
+its own stdin instead of consuming the physical keyboard queue. `stty size`
+reports the terminal's actual rows/columns; raw mode uses the shared `cfmakeraw`.
+
+Host tests and ASan/UBSan pass parser fragmentation/fuzz bounds, colors/margins,
+UTF-8, alternate screens, resize, selection/copy, scroll anchoring, keyboard
+encoding, tiled/clipped rendering and pixel guards. Host checks also cover
+console-control routing and terminal-local escape reading. QEMU passed two
+independent shells, clipboard commands, edited-command persistence, scrollback,
+Ctrl-C status 130, continued operation of the other shell, Clear, resizing
+(20×90 reported by the child), close cancellation and shell/window exit. The
+Files/Text/application regression also passed with the six-item dock. Screens
+were visually inspected under `build/review/desktop-terminal/`.
+
+The first Terminal harness expected a console exit log for a killed command.
+The screen correctly showed status 130; the harness now checks the shell's
+persisted `$?` value. This was an assertion issue, not a Ctrl-C failure. These
+remain VM/host results; the accepted hardware checkpoint is unchanged.

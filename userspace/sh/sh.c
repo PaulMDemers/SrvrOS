@@ -1905,7 +1905,7 @@ static int history_size_from_env(void) {
 
 static const char *history_file_from_env(void) {
     const char *file = getenv("HISTFILE");
-    return file != 0 && file[0] != '\0' ? file : DEFAULT_HISTORY_FILE;
+    return file != 0 ? file : DEFAULT_HISTORY_FILE;
 }
 
 static void configure_history(void) {

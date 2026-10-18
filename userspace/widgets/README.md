@@ -142,3 +142,30 @@ Lists also support timed ASCII name-prefix selection (using key-event timestamps
 and repeated-letter cycling. The shared clipboard transport lives in the client
 runtime (`desk_clipboard.h`), outside the toolkit; editor actions request it and
 the app rechecks selection/revision before applying asynchronous results.
+
+## Terminal screen and view
+
+`desk_terminal.h` is a bounded screen model. Callers supply scrollback rows and
+an alternate-screen buffer. It parses arbitrarily fragmented UTF-8 and a useful
+ANSI/VT subset: cursor movement, erase/insert/delete, margins, scrolling,
+16/256/RGB colors, basic rendition, alternate screen, cursor visibility,
+application cursor mode and bracketed-paste mode. Responses to cursor/status
+queries are queued for the application to send. OSC/DCS strings are consumed
+without clipboard, filesystem, title or other side effects. Sequence meanings
+are checked against the [xterm control-sequence reference](https://invisible-island.net/xterm/ctlseqs/ctlseqs.html).
+This is a subset, not a complete xterm or VT100 implementation.
+
+`desk_terminal_view.h` supplies monospace drawing, clipped colored cells,
+selection/copy, the shared scrollbar, output-following/scrollback anchoring,
+pointer capture and keyboard-to-terminal encoding. Applications own PTYs,
+clipboard transfers, paste policy, command lifetime and input/output queues.
+The Terminal app demonstrates this separation. It uses bounded batches on both
+sides of a nonblocking master descriptor and retains a completed session for
+inspection until its window is closed.
+
+The model accepts at most 160 columns and 64 visible rows. The app retains 576
+rows including the visible screen; resizing preserves the cursor and retained
+rows but does not reflow text. Cells hold one Unicode scalar; shaping, combining
+marks and double-width glyphs remain future work. Selection is canceled on new
+output or resize. Terminal key shortcuts use Ctrl-Shift-C/V for copy/paste and
+Ctrl-C for the foreground command; Shift-PageUp/PageDown scroll history.

@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/ioctl.h>
 #include <sys/wait.h>
 #include <termios.h>
 #include <time.h>
@@ -55,7 +56,7 @@ static void usage(const char *tool) {
     } else if (strcmp(tool, "tty") == 0) {
         puts("usage: tty [-s]");
     } else if (strcmp(tool, "stty") == 0) {
-        puts("usage: stty [-a|raw|cooked|sane|echo|-echo]");
+        puts("usage: stty [-a|size|raw|cooked|sane|echo|-echo]");
     } else if (strcmp(tool, "time") == 0) {
         puts("usage: time command [arg ...]");
     } else if (strcmp(tool, "timeout") == 0) {
@@ -905,8 +906,14 @@ static int stty_main(int argc, char **argv) {
         perror("stty");
         return 1;
     }
+    if(argc==2 && strcmp(argv[1],"size")==0) {
+        struct winsize size;
+        if(ioctl(STDIN_FILENO,TIOCGWINSZ,&size)<0) { perror("stty");return 1; }
+        printf("%u %u\n",size.ws_row,size.ws_col);return 0;
+    }
     if (argc == 1 || strcmp(argv[1], "-a") == 0) {
-        printf("speed 0 baud; rows cols unknown; %s %s %s\n",
+        struct winsize size={0};ioctl(STDIN_FILENO,TIOCGWINSZ,&size);
+        printf("speed 0 baud; rows %u; columns %u; %s %s %s\n",size.ws_row,size.ws_col,
             (t.c_lflag & ICANON) ? "icanon" : "-icanon",
             (t.c_lflag & ECHO) ? "echo" : "-echo",
             (t.c_iflag & ICRNL) ? "icrnl" : "-icrnl");
@@ -914,13 +921,10 @@ static int stty_main(int argc, char **argv) {
     }
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "raw") == 0) {
-            t.c_lflag &= ~(ICANON | ECHO);
-            t.c_iflag &= ~ICRNL;
-            t.c_cc[VMIN] = 1;
-            t.c_cc[VTIME] = 0;
+            cfmakeraw(&t);
         } else if (strcmp(argv[i], "cooked") == 0 || strcmp(argv[i], "sane") == 0) {
             t.c_lflag |= ICANON | ECHO | ISIG;
-            t.c_iflag |= ICRNL;
+            t.c_iflag |= ICRNL;t.c_oflag |= OPOST | ONLCR;
         } else if (strcmp(argv[i], "echo") == 0) {
             t.c_lflag |= ECHO;
         } else if (strcmp(argv[i], "-echo") == 0) {

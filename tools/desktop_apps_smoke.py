@@ -75,7 +75,7 @@ def main():
                 qmp.key("esc");type_text(" Kept.");shortcut("ctrl-s")
                 wait(b"file-result role=text op=2 status=0")
                 # Files lists asynchronously; open a saved file using its location field.
-                click(440,750);wait(b"desktools: starting role=files")
+                click(390,750);wait(b"desktools: starting role=files")
                 wait(b"file-result role=files op=3 status=0");shot("files")
                 click(180,550);shortcut("ctrl-a");type_text("GUI folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
@@ -86,14 +86,14 @@ def main():
                 wait(b"desktools: starting role=text");wait(b"file-result role=text op=1 status=0")
                 shot("opened-from-files");shortcut("ctrl-w");wait(b"desktools: exited role=text failure=0")
                 # Calculator is a separate process and receives raw editing/navigation keys.
-                click(640,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
+                click(590,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
                 type_text("2 + 3 * (4 - 1)");qmp.key("ret");shot("calculator")
                 shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=3 action=8")
-                click(740,750);wait(b"desktools: starting role=system");shot("system")
-                click(840,750);wait(b"desktools: starting role=settings");shot("settings")
-                click(210,240);time.sleep(.3);click(540,750);shot("larger-text")
+                click(690,750);wait(b"desktools: starting role=system");shot("system")
+                click(790,750);wait(b"desktools: starting role=settings");shot("settings")
+                click(210,240);time.sleep(.3);click(490,750);shot("larger-text")
                 # Minimize and restore through the dock, then zoom and restore.
-                click(666,86);shot("text-minimized");click(540,750)
+                click(666,86);shot("text-minimized");click(490,750)
                 click(700,86);shot("text-zoomed");click(1078,74);shot("text-restored")
                 shortcut("ctrl-n");shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-empty.txt")
                 shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")

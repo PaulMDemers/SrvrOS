@@ -39,6 +39,10 @@ static void icon(struct desk_canvas *c,int app,int x,int y) {
         desk_fill(c,(struct desk_rect){x+2,y+3,27,19},0xfaf9f6);
         for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+5+i*6,y+18-i*3,3,3+i*3},0x748b79);
         desk_fill(c,(struct desk_rect){x+11,y+24,9,4},0x748b79);
+    } else if(app==DESK_APP_TERMINAL) {
+        desk_fill(c,(struct desk_rect){x,y+1,31,26},0x748b79);
+        desk_fill(c,(struct desk_rect){x+2,y+3,27,22},0xfaf9f6);
+        desk_text(c,&desk_font_16,x+5,y+3,">_",0x38644f);
     } else {
         for(int i=0;i<3;i++) {
             desk_fill(c,(struct desk_rect){x+2,y+5+i*9,27,2},0x748b79);
@@ -47,7 +51,7 @@ static void icon(struct desk_canvas *c,int app,int x,int y) {
     }
 }
 static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
-    static const char *names[]={"Files","Text","Calculator","System","Settings"};
+    static const char *names[]={"Files","Text","Calculator","System","Settings","Terminal"};
     int width=DESK_APP_COUNT*100;
     desk_fill(c,(struct desk_rect){(c->width-width)/2-8,c->height-74,width+16,70},0xf1f0eb);
     for(int app=1;app<=DESK_APP_COUNT;app++) {

@@ -22,11 +22,14 @@ def main():
              '#include <srvros/desk_render.h>',
              'const char desk_font_license[] = ' + json.dumps(
                  (FONT.parent / "LICENSE-DejaVu.txt").read_text()) + ';']
-    for size in (16, 20):
-        font = ImageFont.truetype(str(FONT), size, layout_engine=ImageFont.Layout.BASIC)
+    for name, size, source in (("16",16,FONT),("20",20,FONT),("mono_16",16,FONT.parent/"DejaVuSansMono.ttf")):
+        if source != FONT:
+            lines.append(f"/* {source.name} SHA256: {hashlib.sha256(source.read_bytes()).hexdigest()} */")
+        font = ImageFont.truetype(str(source), size, layout_engine=ImageFont.Layout.BASIC)
         pixels, glyphs = [], []
         ascent, descent = font.getmetrics()
-        for cp in POINTS:
+        points = sorted(set(POINTS + list(range(0x2500,0x2580)))) if source != FONT else POINTS
+        for cp in points:
             char = chr(cp)
             x0, y0, x1, y1 = font.getbbox(char, anchor="ls")
             w, h = x1-x0, y1-y0
@@ -36,12 +39,12 @@ def main():
                 ImageDraw.Draw(im).text((-x0, -y0), char, font=font, fill=255, anchor="ls")
                 pixels.extend(im.tobytes())
             glyphs.append((cp, offset, w, h, x0, y0, round(font.getlength(char))))
-        lines.append(f"static const uint8_t alpha_{size}[] = {{")
+        lines.append(f"static const uint8_t alpha_{name}[] = {{")
         for start in range(0, len(pixels), 24):
             lines.append("    " + ",".join(map(str, pixels[start:start+24])) + ",")
-        lines += ["};", f"static const struct desk_glyph glyphs_{size}[] = {{"]
+        lines += ["};", f"static const struct desk_glyph glyphs_{name}[] = {{"]
         lines.extend("    {" + ",".join(map(str, g)) + "}," for g in glyphs)
-        lines += ["};", f"const struct desk_font desk_font_{size} = {{glyphs_{size}, alpha_{size}, {len(glyphs)}, {ascent}, {ascent+descent+3}}};"]
+        lines += ["};", f"const struct desk_font desk_font_{name} = {{glyphs_{name}, alpha_{name}, {len(glyphs)}, {ascent}, {ascent+descent+3}}};"]
     OUT.write_text("\n".join(lines) + "\n")
 
 

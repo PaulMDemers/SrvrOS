@@ -175,10 +175,10 @@ static void spawn_client(struct session *s) {
     }
 }
 static void spawn_app(struct session *s,int application,const char *path) {
-    static char *names[]={"files","text","calculator","system","settings"};
+    static char *names[]={"files","text","calculator","system","settings","terminal"};
     if(application<1 || application>DESK_APP_COUNT) return;
     for(int i=0;i<DESKD_WINDOWS;i++) if(!s->children[i]) {
-        char *argv[]={"/fat/bin/desktools",names[application-1],(char *)(path?path:""),NULL};
+        char *argv[]={application==DESK_APP_TERMINAL?"/fat/bin/deskterm":"/fat/bin/desktools",names[application-1],(char *)(path?path:""),NULL};
         struct srv_exec_request request={.path=argv[0],.argv=argv,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
