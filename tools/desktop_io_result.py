@@ -1,0 +1,38 @@
+"""Strict validation of the desktop trial's auxiliary records and durable payload."""
+import binascii
+import hashlib
+import re
+
+BYTES=256*1024
+
+def record(data,run,kind,numbers):
+    if not data or len(data)>2048: raise ValueError('Missing/oversized desktop I/O record')
+    lines=data.decode('ascii').splitlines()
+    pairs=[line.split('=',1) for line in lines]
+    if any(len(pair)!=2 for pair in pairs): raise ValueError('Malformed desktop I/O record')
+    fields=dict(pairs)
+    if len(fields)!=len(pairs) or set(fields)!={'format','run','crc32',*numbers}:
+        raise ValueError('Unexpected desktop I/O fields')
+    if fields['format']!=f'srvros-desktop-{kind}-v1' or fields['run']!=run:
+        raise ValueError('Desktop I/O identity mismatch')
+    for key in (*numbers,'crc32'):
+        if not re.fullmatch(r'[0-9]{1,20}',fields[key]): raise ValueError('Invalid desktop I/O number')
+    tail=f"crc32={fields['crc32']}\n".encode()
+    if not data.endswith(tail) or binascii.crc32(data[:-len(tail)])&0xffffffff!=int(fields['crc32']):
+        raise ValueError('Desktop I/O checksum mismatch')
+    return {key:int(fields[key]) for key in numbers}
+
+def validate(run,worker_data,ui_data,payload):
+    worker=record(worker_data,run,'io',('state','rounds','bytes'))
+    ui=record(ui_data,run,'ui',('state','rounds','keys','motions','wheels','focus_changes','cancels'))
+    rounds=worker['rounds']
+    if worker['state'] not in (2,3) or ui['state']!=worker['state'] or ui['rounds']!=rounds:
+        raise ValueError('Desktop I/O worker failed or results disagree')
+    if not 1<=rounds<=128 or worker['bytes']!=rounds*BYTES or len(payload)!=BYTES:
+        raise ValueError('Incomplete desktop I/O payload')
+    if worker['state']==2 and rounds!=128: raise ValueError('Premature desktop I/O completion')
+    expected=bytes((i*17+rounds*29+ord(run[i%16]))&255 for i in range(BYTES))
+    if payload!=expected: raise ValueError('Durable desktop I/O payload mismatch')
+    covered=rounds>=16 and ui['keys']>=8 and ui['motions']>0 and ui['wheels']>0 and ui['focus_changes']>=2 and ui['cancels']>0
+    return {'status':'EXERCISED' if covered else 'INCOMPLETE','worker':worker,'input_during_workload':ui,
+            'payload_sha256':hashlib.sha256(payload).hexdigest()}

@@ -8,23 +8,27 @@ import struct
 import subprocess
 import tempfile
 import time
+import threading
 
 from exfat_test_image import ExfatFixture, check_clean_image
 from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
 from hardware_trackpad import validate_result
 from desktop_foundation_smoke import QMP
+from desktop_io_result import validate as validate_io
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--gestures',action='store_true')
+    parser.add_argument('--desktop-io',action='store_true')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     args=parser.parse_args()
+    args.gestures |= args.desktop_io
     args.pointer |= args.gestures
     root=Path(__file__).resolve().parents[1]
-    logs=root/('build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
+    logs=root/('build/review/desktop-io-trial' if args.desktop_io else 'build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
     run='0123456789abcdef'; release='fedcba9876543210'
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
         temp=Path(directory); volume=temp/'volume.img'; disk=temp/'usb.img'
@@ -42,7 +46,7 @@ def main():
             with disk.open('wb') as f: f.write(mbr); f.seek(2048*512); f.write(initial)
         reset()
         iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"gestures" if args.gestures else "pointer" if args.pointer else "capture"}'
-            f' srvros.trackpad-run={run} srvros.trackpad-release={release}')
+            f' srvros.trackpad-run={run} srvros.trackpad-release={release}'+(f' srvros.desktop-io={run}' if args.desktop_io else ''))
         def boot(label,interactive=False,readonly=False):
             sockpath=temp/'serial.sock'; sockpath.unlink(missing_ok=True)
             qmppath=temp/'qmp'; qmppath.unlink(missing_ok=True)
@@ -51,7 +55,7 @@ def main():
                 '-drive',f'if=none,id=stick,format=raw,file={disk}'+(',readonly=on' if readonly else ''),
                 '-device','usb-storage,drive=stick,bus=xhci.0','-serial',f'unix:{sockpath},server=on,wait=on',
                 '-display','none','-monitor','none','-no-reboot','-qmp',f'unix:{qmppath},server=on,wait=off']
-            data=b''
+            data=b''; qmp=None; reader=None; stop_reader=threading.Event()
             with (logs/f'trackpad-{label}-qemu.log').open('wb') as errors:
                 p=subprocess.Popen(command,stdout=errors,stderr=errors)
                 try:
@@ -62,15 +66,33 @@ def main():
                             except (FileNotFoundError,ConnectionRefusedError):
                                 if time.monotonic()>deadline: raise
                                 time.sleep(.1)
-                        def wait(marker):
+                        # Keep draining during QMP input injection: a stalled host
+                        # receiver can trigger the guest UART transmit timeout.
+                        def capture_serial():
                             nonlocal data
+                            with (logs/f'trackpad-{label}-serial.log').open('wb') as log:
+                                while not stop_reader.is_set():
+                                    try: chunk=sock.recv(8192)
+                                    except socket.timeout: continue
+                                    except OSError: break
+                                    if not chunk: break
+                                    data+=chunk
+                                    log.write(chunk); log.flush()
+                        reader=threading.Thread(target=capture_serial,daemon=True)
+                        reader.start()
+                        def wait(marker):
                             deadline=time.monotonic()+180
                             while marker not in data:
+                                if args.desktop_io and interactive and (b'deskio: failed' in data or
+                                        b'deskd: io start failed' in data or b'deskd: io worker ended state=4' in data):
+                                    raise RuntimeError('Desktop I/O worker failed; see serial log')
                                 if marker==b'deskd: opened' and b'trackpad-test: ready for gestures' in data:
                                     raise RuntimeError('Desktop launch failed; returned to capture before opening a window')
-                                if p.poll() is not None or time.monotonic()>deadline: raise RuntimeError(f'Missing {marker!r}; {label}')
-                                try: data+=sock.recv(8192)
-                                except socket.timeout: pass
+                                if p.poll() is not None or time.monotonic()>deadline:
+                                    if args.desktop_io and interactive and qmp is not None:
+                                        qmp.call('screendump',{'filename':str(logs/'stalled.ppm')})
+                                    raise RuntimeError(f'Missing {marker!r}; {label}')
+                                time.sleep(.02)
                         if interactive:
                             if args.pointer:
                                 wait(b'deskd: opened')
@@ -78,6 +100,15 @@ def main():
                                 time.sleep(.5)
                                 qmp.key('a'); qmp.key('a',True)
                                 wait(b'deskclient: text=aA')
+                                if args.desktop_io:
+                                    wait(b'deskd: io rounds=1 state=1')
+                                    qmp.call('human-monitor-command',{'command-line':'sendkey ctrl-n'})
+                                    wait(b'window=1'); time.sleep(.5)
+                                    qmp.key('tab')
+                                    for key in 'abcdefgh': qmp.key(key)
+                                    qmp.mouse(588,153); qmp.mouse(0,0,1); qmp.mouse(0,40)
+                                    qmp.key('tab'); qmp.mouse(0,0,0); qmp.mouse(-100,0)
+                                    wait(b'deskd: io rounds=16 state=1')
                                 qmp.call('screendump',{'filename':str(logs/'desktop-pointer-trial.ppm')})
                                 qmp.key('esc')
                                 wait(b'deskd: exited')
@@ -97,6 +128,8 @@ def main():
                         wait(b'trackpad-test: HALTED')
                         assert p.poll() is None, 'Guest rebooted/exited instead of halting'
                 finally:
+                    stop_reader.set()
+                    if reader: reader.join(timeout=1)
                     p.terminate()
                     try: p.wait(timeout=5)
                     except subprocess.TimeoutExpired: p.kill(); p.wait()
@@ -113,6 +146,13 @@ def main():
         fields=validate_result({'run':run,'release':release,'pointer':args.pointer,'gestures':args.gestures},report,complete)
         if args.gestures: assert fields['gesture_trial']=='INCOMPLETE' and fields['gesture_scroll_events']=='0'
         if args.pointer: assert fields['desktop_exit']=='PASS' and fields['pointer_trial']=='INCOMPLETE'
+        if args.desktop_io:
+            folder=f'srvros-work/desktop-{run}'
+            checked=validate_io(run,saved.read(f'{folder}/result.txt'),saved.read(f'{folder}/ui.txt'),saved.read(f'{folder}/payload.bin'))
+            assert checked['worker']['rounds']>=16
+            activity=checked['input_during_workload']
+            assert activity['keys']>=8 and activity['motions']>0 and activity['focus_changes']>=2 and activity['cancels']>0, checked
+            print('desktop-io-smoke: verified persisted payload and concurrent key/motion/focus/cancel coverage',flush=True)
         assert fields['status']=='INCOMPLETE' and fields['found']=='0' and fields['typed']=='AaZz09'
         assert saved.read(f'srvros-work/trackpad-{run}.req')==f'STARTED {run}\n'.encode()
         (logs/'trackpad-capture-report.txt').write_bytes(report)

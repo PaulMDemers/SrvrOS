@@ -29,10 +29,11 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xd6dcd2);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
     desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
-    desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
+    desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==3?s->io_status:
+        s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
-    if (s->trackpad_trial==2 && c->height>=700) {
+    if (s->trackpad_trial>=2 && c->height>=700) {
         int y=c->height-269;
         desk_fill(c,(struct desk_rect){24,y,c->width-48,218},0xf1f0eb);
         const char *steps[]={
@@ -45,8 +46,18 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
             "   Lift completely, then check normal movement, clicking, dragging and resizing.",
             "4. Press Escape for live filter counters and the final save instructions."
         };
+        const char *io_steps[]={
+            "Input + USB file work - keep testing while the status below says RUNNING",
+            "1. Type, scroll with two fingers, drag the thumb and resize the window.",
+            "2. Ctrl-N opens another study. Tab switches focus; type in both windows.",
+            "3. Hold the scrollbar thumb, press Tab, then release the pad.",
+            "   Moving afterward must NOT continue the old drag. Try a fresh drag.",
+            "4. Repeat while at least 16 file rounds complete. Note stalls or missing input.",
+            "5. Escape stops file work after its current round, then shows save checks.",
+            "   Follow those checks and restart manually after the final halt."
+        };
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
-            desk_text(c,&desk_font_16,40,y+12+24*i,steps[i],i?0x465348:0x292e2b);
+            desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (i!=s->focus) draw_window(c,&s->windows[i],0);
     if (s->focus>=0 && s->focus<DESKD_WINDOWS) draw_window(c,&s->windows[s->focus],1);

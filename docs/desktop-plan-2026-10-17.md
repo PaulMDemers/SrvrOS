@@ -224,3 +224,7 @@ rejection. The interactive scrollbar follow-up adds client pointer capture and
 page/drag behavior; its initial physical trial passed. The next gate combines
 input and focus/capture checks with filesystem activity, followed by measured
 latency and device recovery.
+
+The [desktop I/O trial](desktop-io-2026-10-17.md) adds a bounded USB worker,
+on-screen focus/capture checks, activity counters and independent final-payload
+validation. Its physical acceptance remains pending.

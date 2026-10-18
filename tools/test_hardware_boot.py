@@ -193,6 +193,13 @@ class InstallTests(unittest.TestCase):
         self.assertNotIn('srvros.trackpad=capture',cfg)
         with self.assertRaises(ValueError): boot.stage(pointer=True)
 
+    def test_desktop_io_profile(self):
+        version='ram-usb-v13-trackpad-37d8c5d0-0123456789abcdef'
+        release=self.payload('desktop-io',version)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.trackpad=gestures',cfg)
+        self.assertIn('srvros.desktop-io=0123456789abcdef',cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_io=True)
     def test_trackpad_profile_roundtrip_and_conflicts(self):
         version='ram-usb-v10-trackpad-37d8c5d0-0123456789abcdef'
         release=self.payload('trackpad',version)

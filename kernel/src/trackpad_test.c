@@ -156,7 +156,7 @@ static void screen(const char *run,const struct xhci_trackpad_capture *s,const c
     console_printf("Malformed=%u transport errors=%u\nTyped: %s\n",s->malformed,s->errors,input);
     console_sync();
 }
-static void capture(const char *run,const char *release) {
+static void capture(const char *run,const char *release,bool desktop_io) {
     char request_path[80],result_path[80],done_path[80],request[64]; unsigned n=0;
     path(request_path,run,".req"); path(result_path,run,".txt"); path(done_path,run,".done");
     append(request,&n,"SRVROS-TRACKPAD-V1 "); append(request,&n,run); append(request,&n,"\n");
@@ -178,7 +178,10 @@ static void capture(const char *run,const char *release) {
         struct mouse_event stale;
         while (mouse_scan(&stale)) {}
         console_write("trackpad-test: starting desktop; Escape returns to capture checks\n");
-        desktop_exit=process_run_elf_args("/fat/bin/deskd",snapshot.gestures_enabled?"--gesture-test":"--trackpad-test")?0:-1;
+        char args[64]; unsigned arglen=0;
+        append(args,&arglen,desktop_io?"--io-test ":snapshot.gestures_enabled?"--gesture-test":"--trackpad-test");
+        if (desktop_io) append(args,&arglen,run);
+        desktop_exit=process_run_elf_args("/fat/bin/deskd",args)?0:-1;
         while (keyboard_scan_char(&c)) {}
         xhci_trackpad_snapshot(&snapshot);
     }
@@ -229,6 +232,7 @@ static void capture(const char *run,const char *release) {
     if (snapshot.gestures_enabled) console_printf("Scroll events=%u typing-filter frames=%u broad-contact frames=%u\n",
         snapshot.scroll_events,snapshot.typing_suppressed,snapshot.palm_suppressed);
     console_printf("Report: %s\nUSB unmounted: %s\n",saved?result_path:"SAVE_FAILED",unmounted?"yes":"NO");
+    if (desktop_io) console_write("USB workload: Ubuntu must verify its result, input counts and saved payload.\n");
     console_write("Host must verify the saved report; this is not gesture acceptance.\n");
 }
 void trackpad_test_boot(const char *cmdline) {
@@ -237,7 +241,11 @@ void trackpad_test_boot(const char *cmdline) {
     if (!active) return;
     if (active<0 || option(cmdline,"srvros.trackpad-release=",release)!=1)
         console_write("trackpad-test: invalid run identity\n");
-    else capture(run,release);
+    else {
+        char io_run[17]; int io=option(cmdline,"srvros.desktop-io=",io_run);
+        if (io<0 || (io && !equal(run,io_run))) console_write("trackpad-test: invalid desktop I/O identity\n");
+        else capture(run,release,io==1);
+    }
     console_write("trackpad-test: HALTED - photograph if needed; restart manually\n");
     console_sync();
 #ifndef SRVROS_TRACKPAD_TEST_HOST

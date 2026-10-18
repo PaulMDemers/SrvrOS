@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "io_trial.h"
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
 #include <srvros/gfx.h>
@@ -23,6 +24,7 @@ struct session {
     uint64_t children[DESKD_WINDOWS];
     int trace,pointer_blocked;
     uint64_t pointer_pid;
+    struct io_trial io;
 };
 static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
 static void close_client(struct session *s,int i);
@@ -50,6 +52,7 @@ static void pointer_cancel(struct session *s) {
     uint64_t pid=s->pointer_pid;
     s->pointer_pid=0;
     if (!pid) return;
+    if (io_trial_active(&s->io)) s->io.cancels++;
     s->pointer_blocked=1;
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==pid) {
         struct desk_packet p=desk_packet_new(DESK_POINTER);
@@ -247,6 +250,7 @@ int main(int argc,char **argv) {
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
+    int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
     uint32_t *pixels=desk_pixels_alloc(info.width,info.height);
@@ -256,13 +260,14 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && strcmp(argv[1],"--trace")==0)};
-    s.scene.trackpad_trial=argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
+    s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
+    if (io_mode) io_trial_start(&s.io,argv[2]);
     uint64_t start=srv_ticks(),frames=0,bytes=0;
-    int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0;
+    int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     uint64_t key_pid=0,key_since=0;
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
@@ -274,6 +279,8 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        io_trial_poll(&s.io);
+        if (io_leaving && s.io.finished) { quit=1; break; }
         if (scroll_smoke && s.scene.windows[0].pixels) {
             struct desk_rect r=s.scene.windows[0].frame;
             if (!scroll_phase) { scroll_at(&s,r.x+50,r.y+150,0,120); scroll_phase=1; }
@@ -297,11 +304,17 @@ int main(int argc,char **argv) {
             int key=pending_key?pending_key:kbhit();
             if (key<=0) break;
             if (!pending_key) {
-                if (key==27) { quit=1; break; }
+                if (key==27) {
+                    if (io_mode) { io_trial_stop(&s.io); io_leaving=1; continue; }
+                    quit=1; break;
+                }
                 if (key==14) { spawn_client(&s); continue; }
                 if (key==9) {
                     int other=1-s.scene.focus;
-                    if (other>=0 && other<DESKD_WINDOWS && s.clients[other].pid) focus(&s,other);
+                    if (other>=0 && other<DESKD_WINDOWS && s.clients[other].pid) {
+                        if (io_trial_active(&s.io)) s.io.focus_changes++;
+                        focus(&s,other);
+                    }
                     continue;
                 }
                 key_pid=s.scene.focus>=0?s.clients[s.scene.focus].pid:0;
@@ -315,9 +328,14 @@ int main(int argc,char **argv) {
                 break;
             }
             pending_key=0;
+            if (io_trial_active(&s.io)) s.io.keys++;
         }
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            if (io_trial_active(&s.io)) {
+                if (e.dx || e.dy) s.io.motions++;
+                if (e.wheel_x || e.wheel_y) s.io.wheels++;
+            }
             desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
@@ -331,6 +349,7 @@ int main(int argc,char **argv) {
             if ((e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)) {
                 int i=hit(&s,x,y);
                 if (i>=0) {
+                    if (s.scene.focus!=i && io_trial_active(&s.io)) s.io.focus_changes++;
                     focus(&s,i); struct desk_rect w=s.scene.windows[i].frame;
                     if (x>=w.x+w.w-40 && y<w.y+43) close_client(&s,i);
                     else if (x>=w.x+w.w-24 && y>=w.y+w.h-24) resize=i;
@@ -354,6 +373,17 @@ int main(int argc,char **argv) {
             buttons=e.buttons;
             desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});
         }
+        if (io_mode) {
+            char status[160]; const char *states[]={"STARTING","RUNNING","COMPLETE","STOPPED","FAILED"};
+            snprintf(status,sizeof(status),"USB %s%s | rounds %u/128 | keys %llu | moves %llu | scroll %llu | focus %llu | cancel %llu",
+                states[s.io.progress.state],s.io.stopping && !s.io.finished?" (stopping)":"",
+                s.io.progress.rounds,(unsigned long long)s.io.keys,(unsigned long long)s.io.motions,
+                (unsigned long long)s.io.wheels,(unsigned long long)s.io.focus_changes,(unsigned long long)s.io.cancels);
+            if (strcmp(status,s.scene.io_status)) {
+                strcpy(s.scene.io_status,status);
+                desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-36,canvas.width,36});
+            }
+        }
         for (unsigned n=0;n<s.damage.count;n++) {
             struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
             if (blitrect(r.x,r.y,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride)!=0) failed=1;
@@ -364,6 +394,7 @@ int main(int argc,char **argv) {
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         srv_sleep_ticks(1);
     }
+    if (io_trial_finish(&s.io)!=0) failed=1;
     /* Bound shutdown even when a client stopped reading. Only kill children
      * launched by this session; all queues/surfaces also have kernel cleanup. */
     for (int i=0;i<DESKD_WINDOWS;i++) if (s.clients[i].pid) close_client(&s,i);

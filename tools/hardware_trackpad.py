@@ -12,6 +12,7 @@ import subprocess
 
 import hardware_boot as boot
 import hardware_test as host
+from desktop_io_result import validate as validate_io
 
 RUNS = boot.ROOT/'build/trackpad-tests'
 NUMBERS = ('found','ready','slot','reports','contact_reports','button_reports','lifts','max_contacts',
@@ -29,7 +30,8 @@ def folder_for(volume):
     return folder
 
 
-def prepare(uuid,pointer=False,gestures=False):
+def prepare(uuid,pointer=False,gestures=False,desktop_io=False):
+    gestures=gestures or desktop_io
     pointer=pointer or gestures
     volume = host.volume_id(uuid)
     folder = folder_for(volume)
@@ -38,11 +40,11 @@ def prepare(uuid,pointer=False,gestures=False):
     if request.exists() or request.is_symlink() or any((folder/f'trackpad-{run}{suffix}').exists() or
             (folder/f'trackpad-{run}{suffix}').is_symlink() for suffix in ('.txt','.done')):
         raise ValueError('Run identity collision')
-    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer,gestures=gestures)
+    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer,gestures=gestures,desktop_io=desktop_io)
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
@@ -68,7 +70,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v{12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -156,18 +158,31 @@ def collect(run):
         raise ValueError('No recorded host reboot for this capture')
     host.sync_file(RUNS/run/'report.txt',data)
     result = {'sha256':hashlib.sha256(data).hexdigest(),'fields':fields,'reboot_observed':True}
+    if metadata.get('desktop_io'):
+        directory=folder/f'desktop-{run}'
+        if directory.is_symlink() or not directory.is_dir(): raise ValueError('Missing desktop I/O results')
+        blobs=[]
+        for name,limit in (('result.txt',2048),('ui.txt',2048),('payload.bin',256*1024)):
+            item=directory/name
+            if item.is_symlink() or not item.is_file() or item.stat().st_size>limit:
+                raise ValueError(f'Missing/oversized desktop I/O {name}')
+            blob=item.read_bytes(); blobs.append(blob)
+            host.sync_file(RUNS/run/f'desktop-{name}',blob)
+        result['desktop_io']=validate_io(run,*blobs)
+        print(f"Desktop + file work: {result['desktop_io']['status']}; {result['desktop_io']['worker']}; {result['desktop_io']['input_during_workload']}")
     host.sync_file(RUNS/run/'result.json',(json.dumps(result,indent=2)+'\n').encode())
     print(f"Trackpad capture {run}: {fields['status']}; keyboard={fields['keyboard']}")
     print(' '.join(f'{key}={fields[key]}' for key in ('reports','max_contacts','button_reports','lifts','malformed','errors')))
     print(f'Evidence: {RUNS/run}')
     if metadata.get('pointer'): print(f"Pointer trial: {fields['pointer_trial']} (physical feel still needs user feedback)")
     if metadata.get('gestures'): print(f"Gesture trial: {fields['gesture_trial']}; scroll events={fields['gesture_scroll_events']}; typing suppressed={fields['gesture_typing_suppressed']}; broad-contact suppressed={fields['gesture_palm_suppressed']}")
-    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED')
+    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED') and (not metadata.get('desktop_io') or result['desktop_io']['status']=='EXERCISED')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('prepare','run','collect'))
+    parser.add_argument('--desktop-io',action='store_true',help='Run desktop input with bounded USB file work')
     parser.add_argument('--gestures',action='store_true',help='Prepare scrolling and accidental-touch trial')
     parser.add_argument('--pointer',action='store_true',help='Prepare an interactive desktop pointer trial')
     parser.add_argument('--uuid'); parser.add_argument('--run')
@@ -175,7 +190,7 @@ if __name__=='__main__':
     try:
         if args.action=='prepare':
             if not args.uuid: parser.error('prepare requires --uuid')
-            prepare(args.uuid,args.pointer,args.gestures)
+            prepare(args.uuid,args.pointer,args.gestures,args.desktop_io)
         elif args.action=='run': launch(args.run)
         elif not collect(args.run): raise SystemExit(2)
     except (OSError,ValueError,RuntimeError,KeyError,subprocess.CalledProcessError) as error:
