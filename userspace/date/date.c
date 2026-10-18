@@ -1,25 +1,24 @@
 #include <srvros/cli.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 int main(int argc, char **argv) {
-    struct timespec now;
     if (argc > 1 && cli_is_help_arg(argv[1])) {
-        cli_puts("usage: date\n");
+        cli_puts("usage: date [-u]\nDisplay the hardware-seeded UTC clock.\n");
         return 0;
     }
-    (void)argv;
-    if (clock_gettime(CLOCK_MONOTONIC, &now) < 0) {
-        cli_puts("date: failed\n");
-        return 1;
+    if (argc > 2 || (argc == 2 && strcmp(argv[1],"-u") != 0)) {
+        cli_puts("usage: date [-u]\n"); return 1;
     }
-    cli_puts("uptime ");
-    cli_putn((uint64_t)now.tv_sec);
-    cli_puts(".");
-    long centiseconds = now.tv_nsec / 10000000;
-    if (centiseconds < 10) {
-        cli_puts("0");
+    time_t now = time(NULL);
+    struct tm utc;
+    if (now == (time_t)-1 || !gmtime_r(&now,&utc)) {
+        cli_puts("date: UTC clock unavailable\n"); return 1;
     }
-    cli_putn((uint64_t)centiseconds);
-    cli_puts("s\n");
+    char text[64];
+    snprintf(text,sizeof(text),"%04d-%02d-%02d %02d:%02d:%02d UTC\n",
+        utc.tm_year+1900,utc.tm_mon+1,utc.tm_mday,utc.tm_hour,utc.tm_min,utc.tm_sec);
+    cli_puts(text);
     return 0;
 }

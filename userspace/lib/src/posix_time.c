@@ -11,7 +11,9 @@
 int __posix_signal_dispatch_pending(void);
 
 time_t time(time_t *out) {
-    time_t seconds = (time_t)(srv_ticks() / SRVROS_TICKS_PER_SECOND);
+    long us = srv_realtime_us();
+    if (us < 0) { errno = EIO; return (time_t)-1; }
+    time_t seconds = (time_t)(us / 1000000);
     if (out != 0) {
         *out = seconds;
     }
@@ -133,6 +135,7 @@ int utime(const char *path, const struct utimbuf *times) {
         mtime = times->modtime;
     } else {
         atime = time(0);
+        if (atime == (time_t)-1) return -1;
         mtime = atime;
     }
     if (srv_utime(path, (uint64_t)atime, (uint64_t)mtime) < 0) {
@@ -147,9 +150,11 @@ int clock_gettime(int clock_id, struct timespec *tp) {
         errno = EINVAL;
         return -1;
     }
-    uint64_t ticks = (uint64_t)srv_ticks();
-    tp->tv_sec = (time_t)(ticks / SRVROS_TICKS_PER_SECOND);
-    tp->tv_nsec = (long)((ticks % SRVROS_TICKS_PER_SECOND) * (1000000000ull / SRVROS_TICKS_PER_SECOND));
+    long us = clock_id == CLOCK_REALTIME ? srv_realtime_us() : srv_monotonic_us();
+    if (us < 0 && clock_id == CLOCK_MONOTONIC) us = srv_ticks() * 10000;
+    if (us < 0) { errno = EIO; return -1; }
+    tp->tv_sec = (time_t)(us / 1000000);
+    tp->tv_nsec = (long)((us % 1000000) * 1000);
     return 0;
 }
 
@@ -158,8 +163,9 @@ int clock_getres(int clock_id, struct timespec *tp) {
         errno = EINVAL;
         return -1;
     }
+    if (clock_id == CLOCK_REALTIME && srv_realtime_us() < 0) { errno = EIO; return -1; }
     tp->tv_sec = 0;
-    tp->tv_nsec = 1000000000L / SRVROS_TICKS_PER_SECOND;
+    tp->tv_nsec = srv_monotonic_us() >= 0 ? 1000 : 10000000;
     return 0;
 }
 
@@ -205,9 +211,10 @@ int gettimeofday(struct timeval *tv, void *tz) {
         errno = EINVAL;
         return -1;
     }
-    uint64_t ticks = (uint64_t)srv_ticks();
-    tv->tv_sec = (time_t)(ticks / SRVROS_TICKS_PER_SECOND);
-    tv->tv_usec = (suseconds_t)((ticks % SRVROS_TICKS_PER_SECOND) * (1000000ull / SRVROS_TICKS_PER_SECOND));
+    long us = srv_realtime_us();
+    if (us < 0) { errno = EIO; return -1; }
+    tv->tv_sec = (time_t)(us / 1000000);
+    tv->tv_usec = (suseconds_t)(us % 1000000);
     return 0;
 }
 

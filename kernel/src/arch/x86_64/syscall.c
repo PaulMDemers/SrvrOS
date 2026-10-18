@@ -2350,6 +2350,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
+    case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
     case SYS_TTY_GETATTR: case SYS_IOCTL:
@@ -2586,6 +2587,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_EXEPATH:
         frame->rax = (uint64_t)syscall_exepath((char *)frame->rdi, frame->rsi);
+        return;
+    case SYS_REALTIME_US:
+        frame->rax = (uint64_t)timer_realtime_us();
         return;
     case SYS_MONOTONIC_US:
         frame->rax = timer_reference_ready() ? timer_monotonic_us() : (uint64_t)-1;

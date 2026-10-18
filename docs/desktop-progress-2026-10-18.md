@@ -270,3 +270,30 @@ republishing app menus could dismiss an open SrvrOS menu and send the following
 Enter into the document. Commit d5734ef preserves an open heading, keeps only
 unchanged enabled selections and disarms changed pointer actions. Host regressions
 cover this behavior, and the previously failing Terminal workflow now passes.
+
+## UTC wall-clock foundation
+
+The old `time()`, `gettimeofday()` and `CLOCK_REALTIME` exposed uptime as if it
+were a Unix date. A bounded, read-only CMOS RTC sample now seeds UTC at boot;
+runtime calls advance that seed with the monotonic reference and perform no CMOS
+I/O. ACPI's no-RTC flag and optional century register are honored. Two complete
+stable samples, update-in-progress checks, power-valid and mode checks, strict
+BCD/binary decoding, 12/24-hour conversion and Gregorian validation reject bad
+readings. Missing/stuck hardware cannot block boot indefinitely. Without a
+century register the explicitly documented range is 1970–2069.
+
+`SYS_REALTIME_US` exposes the cached clock. Libc and `date [-u]` use it and return
+an error if no valid wall clock exists. Monotonic time remains independent;
+its libc interface now retains microsecond precision when the reference exists.
+The RTC is assumed UTC (Ubuntu's LocalRTC is false on this laptop). There is no
+clock-setting, NTP, timezone database or suspend/resume resynchronization yet;
+initial accuracy is limited by the RTC's one-second calendar sample.
+
+Validation: RTC host cases cover invalid dates, leap-century rules, BCD/binary,
+12 AM/PM, rollovers during sampling, ACPI bounds/no-RTC, stopped references and
+cached reads. A disposable QEMU with RTC fixed to 2026-10-18 12:34 UTC passed the
+new `clockprobe` ABI/libc checks and `date` output. Evidence:
+`build/review/clock/serial.log`. Specification references: ACPI 6.6 FADT
+(https://uefi.org/specs/ACPI/6.6/05_ACPI_Software_Programming_Model.html), Linux
+RTC register description (https://kernel.org/doc/html/v5.19/virt/kvm/x86/timekeeping.html).
+The full core host suite also passed after the clock changes.

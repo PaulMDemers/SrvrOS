@@ -6,6 +6,8 @@
 
 bool timer_reference_init(void);
 bool timer_reference_ready(void);
+bool timer_wall_init(void);
+int64_t timer_realtime_us(void);
 uint64_t timer_monotonic_us(void);
 bool timer_delay_us(uint64_t delay);
 void timer_init(uint64_t frequency_hz);

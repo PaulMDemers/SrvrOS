@@ -605,3 +605,4 @@ void srv_yield(void) {
 }
 
 long srv_monotonic_us(void) { return srv_syscall0(SYS_MONOTONIC_US); }
+long srv_realtime_us(void) { return srv_syscall0(SYS_REALTIME_US); }

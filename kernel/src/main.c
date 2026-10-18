@@ -407,6 +407,7 @@ void kmain(void) {
     }
     vmm_init();
     timer_reference_init();
+    timer_wall_init();
     lapic_init();
     lapic_timer_init(32, 10000000);
     bool keyboard_ready = keyboard_init();
