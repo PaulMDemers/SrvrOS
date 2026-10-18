@@ -2,6 +2,7 @@
 #include "app.h"
 #include <srvros/desktop_apps.h>
 #include <srvros/desk_listing.h>
+#include <srvros/desk_path.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -43,21 +44,7 @@ static void file_rows(struct tool *t) {
 /* Keep navigation state separate from in-flight folder requests. A failed request
  * never consumes history or changes the authoritative displayed folder. */
 static int normalize_path(const char *path,char target[DESK_FILE_PATH]) {
-    if(!path || path[0]!='/' || strlen(path)>=DESK_FILE_PATH || !desk_text_utf8_valid(path,strlen(path))) return -1;
-    size_t length=1;target[0]='/';target[1]=0;
-    for(const char *p=path;*p;) {
-        while(*p=='/') p++;
-        const char *start=p;while(*p && *p!='/') { if((unsigned char)*p<32 || (unsigned char)*p==127) return -1;p++; }
-        size_t n=p-start;if(!n || (n==1 && start[0]=='.')) continue;
-        if(n==2 && start[0]=='.' && start[1]=='.') {
-            while(length>1 && target[length-1]!='/') length--;
-            if(length>1) length--;
-            target[length]=0;continue;
-        }
-        if(length>1) target[length++]='/';
-        memcpy(target+length,start,n);length+=n;target[length]=0;
-    }
-    return 0;
+    return desk_path_normalize(target,DESK_FILE_PATH,path);
 }
 static void remember_selection(struct tool *t) {
     if(t->location_index<0 || t->location_index>=t->location_count) return;
@@ -132,9 +119,7 @@ void tool_files_init(struct tool *t,const char *path) {
     list_directory(t,t->path_text.data);
 }
 static int child_path(struct tool *t,const char *name,char path[DESK_FILE_PATH]) {
-    if(!name[0] || !strcmp(name,".") || !strcmp(name,"..") || strchr(name,'/')) return -1;
-    int n=snprintf(path,DESK_FILE_PATH,"%s%s%s",t->saved_path,!strcmp(t->saved_path,"/")?"":"/",name);
-    return n<0 || n>=DESK_FILE_PATH?-1:0;
+    return desk_path_join(path,DESK_FILE_PATH,t->saved_path,name);
 }
 static int basename_valid(const char *name) {
     size_t n=strlen(name);if(!n || n>=96 || !strcmp(name,".") || !strcmp(name,"..")) return 0;
@@ -226,9 +211,8 @@ void tool_files_action(struct tool *t,struct desk_action a) {
     }
     if(a.id==TOOL_RENAME || a.id==TOOL_DUPLICATE || a.id==TOOL_DELETE) { open_change(t,a.id);return; }
     if(a.id==TOOL_UP) {
-        char path[DESK_FILE_PATH];strcpy(path,t->saved_path[0]?t->saved_path:"/");
-        char *slash=strrchr(path,'/');if(slash && slash!=path) *slash=0;else strcpy(path,"/");
-        list_directory(t,path);
+        char path[DESK_FILE_PATH];
+        if(!desk_path_parent(path,sizeof(path),t->saved_path[0]?t->saved_path:"/")) list_directory(t,path);
     } else if(a.id==TOOL_REFRESH) list_directory(t,t->saved_path[0]?t->saved_path:t->path_text.data);
     else if(a.id==TOOL_OPEN || a.id==TOOL_LIST) {
         if(t->table.body.selected<0) { tool_status(t,"Select a file or folder first.");return; }

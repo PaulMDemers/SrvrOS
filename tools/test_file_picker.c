@@ -25,7 +25,7 @@ int main(void) {
     a=key(SRV_KEY_UP,SRV_KEY_ALT,0);assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/fat"));
     key(SRV_KEY_END,0,0);a=key(SRV_KEY_ENTER,0,0);assert(a.operation==DESK_PICKER_ACCEPT && !strcmp(p.target,"/fat/Folder/café.txt"));
     key(0x0f,SRV_KEY_CTRL,0);assert(p.location_text.anchor==0 && p.location_text.caret==p.location_text.length);
-    desk_text_buffer_set(&p.location_text,"/another/",9);a=key(SRV_KEY_ENTER,0,0);assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/another"));
+    desk_text_buffer_set(&p.location_text,"/a/../another//./",17);a=key(SRV_KEY_ENTER,0,0);assert(a.operation==DESK_PICKER_BROWSE && !strcmp(p.target,"/another"));
     desk_picker_loading(&p);desk_picker_error(&p,"Folder is unavailable.");assert(!p.busy && !strcmp(p.location_text.data,"/fat/Folder"));
     assert(!desk_picker_open(&p,DESK_PICKER_SAVE,"/","Untitled.txt"));assert(!desk_picker_listing(&p,"/",listing,3));
     assert(p.name_text.anchor==0 && p.name_text.caret==p.name_text.length);

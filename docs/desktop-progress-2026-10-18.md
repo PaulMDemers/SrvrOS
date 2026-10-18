@@ -1031,3 +1031,18 @@ and empty results, compact keyboard navigation, context menu, contextual Help
 and clean desktop exit. Every source fixture was independently checked after
 shutdown. Screens were reviewed at normal and 280×240 client sizes. Evidence:
 `build/review/desktop-find/`.
+
+## Consistent shared path handling
+
+Files, Find Files and the reusable Open/Save picker now use `desk_path` for
+lexical UTF-8 normalization, child joins and parent navigation. Repeated slashes,
+`.` and `..` behave consistently; parent traversal stops at root. Invalid or
+oversized results leave destination buffers untouched, including overlapping
+input/output. Search sends and displays the canonical location used by its
+worker. This does not claim symbolic-link resolution.
+
+The 10,000 independent component-stack oracle, UTF-8/bounds/aliasing checks and
+ASan/UBSan pass. Files, Search, picker model and picker-controller checks pass.
+The production build and full Search VM workflow pass with noncanonical paths
+entered in both Search and every Save picker; exact saved paths and document
+contents are unchanged. Evidence: `build/review/desktop-find/`.

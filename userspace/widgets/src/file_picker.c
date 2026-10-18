@@ -1,4 +1,5 @@
 #include <srvros/desk_file_picker.h>
+#include <srvros/desk_path.h>
 #include <string.h>
 static int valid(const char *text,size_t capacity) {
     if(!text) return 0;
@@ -6,13 +7,12 @@ static int valid(const char *text,size_t capacity) {
     while(n<capacity && text[n]) { if((unsigned char)text[n]<32 || (unsigned char)text[n]==127) return 0;n++; }
     return n<capacity && desk_text_utf8_valid(text,n);
 }
-static int directory_valid(const char *path) { return valid(path,DESK_PICKER_PATH) && path[0]=='/'; }
+static int directory_valid(const char *path) { char normalized[DESK_PICKER_PATH];return !desk_path_normalize(normalized,sizeof(normalized),path); }
 static int name_valid(const char *name) {
-    return valid(name,DESK_PICKER_NAME) && name[0] && !strchr(name,'/') && strcmp(name,".") && strcmp(name,"..");
+    return valid(name,DESK_PICKER_NAME) && desk_path_name_valid(name);
 }
 static void directory_copy(char *out,const char *path) {
-    size_t length=strlen(path);while(length>1 && path[length-1]=='/') length--;
-    memmove(out,path,length);out[length]=0;
+    (void)desk_path_normalize(out,DESK_PICKER_PATH,path);
 }
 static void layout(struct desk_file_picker *p) {
     struct desk_rect r=p->frame;int w=r.w,h=r.h,x=r.x,y=r.y;
@@ -74,12 +74,7 @@ void desk_picker_error(struct desk_file_picker *p,const char *message) {
 }
 unsigned desk_picker_focus(struct desk_file_picker *p,int active) { return desk_ui_window_focus(&p->ui,active); }
 static int join(struct desk_file_picker *p,const char *name) {
-    if(!name_valid(name)) return -1;
-    char copy[DESK_PICKER_NAME];strcpy(copy,name);name=copy;
-    size_t folder=strlen(p->directory),length=strlen(name),slash=folder>1;
-    if(folder+slash+length>=sizeof(p->target)) return -1;
-    memcpy(p->target,p->directory,folder);if(slash) p->target[folder++]='/';
-    memcpy(p->target+folder,name,length+1);return 0;
+    return name_valid(name)?desk_path_join(p->target,sizeof(p->target),p->directory,name):-1;
 }
 static struct desk_picker_result browse(struct desk_file_picker *p,const char *directory) {
     if(!directory_valid(directory)) { strcpy(p->status,"Enter an absolute folder path.");return (struct desk_picker_result){.flags=DESK_WIDGET_REDRAW}; }
@@ -110,8 +105,8 @@ static struct desk_picker_result action(struct desk_file_picker *p,struct desk_a
     if(a.flags&DESK_WIDGET_ACTIVATED) {
         if(a.id==DESK_PICKER_REFRESH) return browse(p,p->directory);
         if(a.id==DESK_PICKER_UP) {
-            char parent[DESK_PICKER_PATH];strcpy(parent,p->directory);char *slash=strrchr(parent,'/');
-            if(slash==parent) parent[1]=0;else if(slash) *slash=0;return browse(p,parent);
+            char parent[DESK_PICKER_PATH];
+            if(!desk_path_parent(parent,sizeof(parent),p->directory)) return browse(p,parent);
         }
     }
     return result;

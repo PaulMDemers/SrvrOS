@@ -82,11 +82,11 @@ def main():
                 def focus_find():
                     shortcut("meta_l-spc");wait(b"launcher opened");type_text("Find Files");qmp.key("ret");wait(b"launcher window=")
                 def save_text(name):
-                    shortcut("ctrl-l");type_text("/fat/"+name);shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                    shortcut("ctrl-l");type_text("/fat/"+name);shortcut("ctrl-s");wait(b"picker ready mode=2");shortcut("ctrl-l");type_text("/fat/home/../");qmp.key("ret");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 click(390,750);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 shortcut("ctrl-l");type_text("/fat/find-fixture");qmp.key("ret");wait(b"files-location path=/fat/find-fixture")
                 shortcut("ctrl-f");wait_all([b"deskfind: starting",b"size=760x500"])
-                type_text("REPORT");qmp.key("ret");wait(b"deskfind: started root=/fat/find-fixture query=REPORT kind=0");wait(b"count=2 matched=2 skipped=0");shot("find-results")
+                shortcut("ctrl-l");type_text("/fat/find-fixture/../find-fixture//");shortcut("ctrl-f");type_text("REPORT");qmp.key("ret");wait(b"deskfind: started root=/fat/find-fixture query=REPORT kind=0");wait(b"count=2 matched=2 skipped=0");shot("find-results")
                 # Result selection has keyboard focus after completion.
                 shortcut("ctrl-c");wait(b"deskfind: copy path=/fat/find-fixture/Report-one.txt");time.sleep(.5)
                 click(490,750);shortcut("ctrl-v");wait(b"clipboard role=2 action=32");save_text("find-path.txt")

@@ -2,6 +2,7 @@
 #include <srvros/desk_ui.h>
 #include <srvros/desk_popup.h>
 #include <srvros/desk_file_search.h>
+#include <srvros/desk_path.h>
 #include <srvros/desk_command_job.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desktop_apps.h>
@@ -42,7 +43,7 @@ static const struct desk_table_column columns[]={{"Name",0,0,1},{"Kind",68,0,1},
 static const struct desk_table_column compact_columns[]={{"Name",0,0,1},{"Kind",68,0,1}};
 static void rows(void);
 static void status(const char *s) { snprintf(app.status,sizeof(app.status),"%s",s);app.window.dirty=1; }
-static void parent_path(const char *path,char *parent) { strcpy(parent,path);char *slash=strrchr(parent,'/');if(slash==parent) slash[1]=0;else if(slash) *slash=0; }
+static void parent_path(const char *path,char *parent) { (void)desk_path_parent(parent,DESK_SEARCH_PATH,path); }
 static struct desk_search_entry *selected(void) { int i=app.table.body.selected;return i>=0 && (unsigned)i<app.header.count?&app.entries[app.order[i]]:NULL; }
 static void layout(void) {
     int w=app.window.width,h=app.window.height,busy=app.job.busy,have=selected()!=NULL,small=h<320,button_y=small?96:138,table_y=small?136:178;
@@ -85,11 +86,12 @@ static void rows(void) {
 static void run(void) {
     if(app.job.busy || app.job.retiring_pid) return;
     if(!desk_file_search_query_valid(app.query_text.data)) { status("Enter part of a file name. Matching is literal; ASCII letters ignore case.");desk_ui_focus(&app.ui,FIND_QUERY);return; }
-    if(!desk_file_search_path_valid(app.root_text.data)) { status("Use an absolute folder path without trailing slashes, . or .. components.");desk_ui_focus(&app.ui,FIND_ROOT);return; }
+    char root[DESK_SEARCH_PATH];
+    if(desk_path_normalize(root,sizeof(root),app.root_text.data)) { status("Use an absolute folder path within 159 bytes.");desk_ui_focus(&app.ui,FIND_ROOT);return; }
     char kind[2]={(char)('0'+desk_tabs_selected(&app.tabs)-FIND_ALL),0};
-    char *args[]={"deskfind-worker",app.root_text.data,app.query_text.data,kind,NULL};
+    char *args[]={"deskfind-worker",root,app.query_text.data,kind,NULL};
     if(desk_command_job_start(&app.job,"/fat/bin/deskfind-worker",args,app.now,60000000)) { status("The search could not start. Try again.");return; }
-    strcpy(app.run_root,app.root_text.data);strcpy(app.run_query,app.query_text.data);app.run_kind=kind[0]-'0';
+    desk_text_buffer_set(&app.root_text,root,strlen(root));strcpy(app.run_root,root);strcpy(app.run_query,app.query_text.data);app.run_kind=kind[0]-'0';
     memset(&app.header,0,sizeof(app.header));desk_table_rows(&app.table,NULL,0);status("Searching names… You can keep working in other windows.");layout();
     desk_log("deskfind: started root=%s query=%s kind=%u\n",app.run_root,app.run_query,app.run_kind);
 }
@@ -214,7 +216,8 @@ static void initialize(const char *root) {
     desk_ui_init(&app.ui);desk_popup_init(&app.context);desk_tabs_init(&app.tabs);const struct desk_tab tabs[]={{FIND_ALL,"All items",0},{FIND_FILES,"Files",0},{FIND_FOLDERS,"Folders",0}};desk_tabs_items(&app.tabs,tabs,3);
     desk_text_buffer_init(&app.query_text,app.query_storage[0],app.query_storage[1],sizeof(app.query_storage[0]));desk_edit_init(&app.query,&app.query_text,0);
     desk_text_buffer_init(&app.root_text,app.root_storage[0],app.root_storage[1],sizeof(app.root_storage[0]));desk_edit_init(&app.root,&app.root_text,0);
-    if(!desk_file_search_path_valid(root)) root="/fat/home";
+    char normalized_root[DESK_SEARCH_PATH];
+    if(desk_path_normalize(normalized_root,sizeof(normalized_root),root)) root="/fat/home";else root=normalized_root;
     desk_text_buffer_set(&app.root_text,root,strlen(root));desk_table_init(&app.table);desk_table_columns(&app.table,columns,4);desk_table_sort_indicator(&app.table,0,0);
     desk_command_job_init(&app.job,(char *)app.incoming,sizeof(app.incoming));desk_clipboard_init(&app.clipboard,app.clipboard_data);
     desk_ui_add(&app.ui,FIND_QUERY,DESK_CONTROL_EDIT,&app.query,NULL);desk_ui_add(&app.ui,FIND_ROOT,DESK_CONTROL_EDIT,&app.root,NULL);desk_ui_add(&app.ui,FIND_TABS,DESK_CONTROL_TABS,&app.tabs,NULL);

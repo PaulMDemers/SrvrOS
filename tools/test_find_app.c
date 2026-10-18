@@ -25,7 +25,7 @@ static void finish(void) {
 int main(void) {
     initialize(NULL);app.window.width=760;app.window.height=500;app.window.focused=1;app.window.server=42;layout();desk_ui_focus(&app.ui,FIND_QUERY);
     assert(!strcmp(app.root_text.data,"/fat/home"));run();assert(!started && strstr(app.status,"Enter part"));
-    set(&app.query_text,"report");set(&app.root_text,"/fat/../home");run();assert(!started && strstr(app.status,"absolute"));set(&app.root_text,"/fat/home");
+    set(&app.query_text,"report");set(&app.root_text,"relative");run();assert(!started && strstr(app.status,"absolute"));set(&app.root_text,"/fat/../fat//home/");
     spawn_fail=1;run();assert(!started && strstr(app.status,"could not start"));spawn_fail=0;run();assert(started==1 && app.job.busy && !app.search.enabled && app.stop.enabled);
     set(&app.query_text,"newer");set(&app.root_text,"/elsewhere");run();assert(started==1 && !strcmp(child_query,"report") && !strcmp(child_root,"/fat/home"));
     action((struct desk_action){FIND_FILES,DESK_WIDGET_ACTIVATED});assert(desk_tabs_selected(&app.tabs)==FIND_ALL);

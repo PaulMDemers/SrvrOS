@@ -587,3 +587,14 @@ Find Files composes the existing table, tabs, editors, buttons, popup and focus
 router around this model. A read-only worker enumerates the mounted VFS; the app
 uses `desk_command_job` to collect it outside the input/render loop. Results are
 limited to 256 entries and 159-byte paths, with explicit omitted-result notices.
+
+## Shared paths
+
+`desk_path.h` normalizes absolute UTF-8 paths, joins a single child name and finds
+a parent without filesystem access. Repeated slashes and `.` are collapsed;
+`..` removes a component and stops at root. These are lexical operations, not
+symbolic-link resolution. All operations accept overlapping input/output and
+leave output unchanged on invalid UTF-8, control characters or capacity failure.
+Inputs are bounded to 4095 bytes, and callers choose the output capacity. Files,
+the shared Open/Save picker and Find Files use these helpers, preserving their
+159-byte actionable path limit and any filesystem-specific creation rules.
