@@ -1592,3 +1592,9 @@ USB keyboard editing, verified document saves, screenshots, durable boot/periodi
 exit logs, preference reload on a fresh VM boot and two clean USB unmounts.
 Evidence is archived in `build/native-desktop-trials/d61e60a82a295d84/`.
 QEMU's generic pointer cannot validate Apple multi-contact feel or recognition.
+
+Candidate **d61e60a82a295d84** was subsequently installed for the user-requested
+hardware trial. Installed current/recovery hashes and GRUB syntax were verified;
+accepted recovery **f05dfcc01c28dc85**, Ubuntu's default and EFI boot order remain
+unchanged. The prepared USB workspace marker was verified. This is an interactive
+trial with persistent Help, not an automated gesture pass.
