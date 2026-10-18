@@ -35,6 +35,18 @@ class CaptureTests(unittest.TestCase):
             payload=data[:data.index(b'crc32=')].replace(old,new)
             altered=payload+f"crc32={binascii.crc32(payload)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
             with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
+    def test_physical_pointer_trial(self):
+        fixtures=capture.boot.ROOT/'tools/fixtures'
+        fields=capture.validate_result(
+            {'run':'0133f0fdf2364d7b','release':'fecfea827320e7c3','pointer':True},
+            (fixtures/'apple-05ac-0291-pointer.txt').read_bytes(),
+            (fixtures/'apple-05ac-0291-pointer.done').read_bytes())
+        self.assertEqual(fields['pointer_trial'],'EXERCISED')
+        self.assertEqual(fields['desktop_exit'],'PASS')
+        self.assertEqual(fields['pointer_motion'],'1905')
+        self.assertEqual(fields['pointer_buttons'],'18')
+        for key in ('pointer_cancels','pointer_queue_overflows','keyboard_dropped','errors','malformed'):
+            self.assertEqual(fields[key],'0')
     def test_truncation_corruption_missing_completion(self):
         for data,done in ((self.data[:-1],self.completion(self.data)),
                           (self.data.replace(b'AaZz09',b'AaZz08'),self.completion(self.data)),

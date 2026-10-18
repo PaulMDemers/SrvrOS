@@ -26,3 +26,10 @@ The C decoder tests replay the touch, multi-contact and physical-button samples;
 the Python collector tests validate the original report and marker checksums.
 See [the capture result](../../docs/trackpad-capture-2026-10-17.md#physical-result--2026-10-17)
 for provenance, counters and the distinction between transport and gesture acceptance.
+
+`apple-05ac-0291-pointer.txt` and `.done` preserve physical desktop trial
+`0133f0fdf2364d7b` on 2026-10-17. The collector regression verifies their original
+checksums and pointer/keyboard measurements. User confirmation of typing,
+clicking, dragging and resizing is recorded in the
+[pointer trial result](../../docs/trackpad-pointer-2026-10-17.md#physical-result--2026-10-17).
+The report counters alone do not establish pointer feel or window behavior.

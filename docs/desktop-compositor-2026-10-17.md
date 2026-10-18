@@ -2,13 +2,15 @@
 
 Follow-up: the [physical capture workflow](trackpad-capture-2026-10-17.md) adds
 an interactive boot, bounded raw packet samples, USB reports and a persistent
-halt screen. Its first physical capture passed; see the linked result for evidence.
+halt screen. Its first physical capture passed; see the linked result for evidence. The
+[subsequent pointer trial](trackpad-pointer-2026-10-17.md) also passed physical
+typing, clicking, dragging and resizing.
 
 This advances the [desktop plan](desktop-plan-2026-10-17.md) beyond the single
 process rendering study. The new compositor and test application run as separate
 ring-3 processes. The capture transport for the built-in trackpad is implemented
-and remains opt-in. Physical packet capture is now verified; pointer/gesture
-behavior is still pending. Building this work does not install
+and remains opt-in. Physical capture and initial pointer interaction are now verified; scrolling,
+palm rejection and the complete input contract are still pending. Building this work does not install
 a hardware release or change the laptop's boot entry.
 
 ![Two independent study applications in QEMU at 1440×900](design/desktop-native-compositor.png)
@@ -147,6 +149,6 @@ zero-copy throughput. Surface sizes are capped at 960×640; the compositor suppo
 The input payload still carries decoded console bytes. Raw key up/down, modifiers,
 wheel events, cancellation, focus notifications to applications and complete
 display/input ownership remain future work. `DESK_FOCUS` is reserved, not emitted.
-This is not yet the shared widget toolkit, Files/Text/Terminal, or a usable
-built-in trackpad. The subsequent capture checkpoint accepts the physical
-transport only; desktop interaction acceptance remains open.
+This is not yet the shared widget toolkit or Files/Text/Terminal. Subsequent
+checkpoints accept physical capture and initial trackpad pointer interaction;
+the complete desktop input acceptance gate remains open.

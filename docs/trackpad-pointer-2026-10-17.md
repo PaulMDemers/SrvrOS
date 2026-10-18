@@ -40,7 +40,8 @@ work; this is not a general desktop event service.
 Two or more contacts pause pointer movement; physical clicks still report.
 Scrolling, tap-to-click, acceleration, calibrated palm rejection and multi-finger
 drag are deliberately not enabled in this trial. Use one finger to press-drag.
-Pointer direction, speed, small movements and button feel need physical feedback.
+The first physical trial received positive user feedback for trackpad movement,
+clicking, dragging and resizing; see the result below.
 
 ## Trial workflow
 
@@ -94,5 +95,43 @@ also have ASan/UBSan coverage.
 
 QEMU verifies the downstream desktop with its emulated mouse and keyboard, and
 the new launch/exit/report/USB/halt workflow. It does not emulate Apple's raw
-trackpad and must report incomplete physical coverage. Hardware acceptance is
-pending the next trial.
+trackpad and must report incomplete physical coverage. The separate physical
+result below establishes initial desktop interaction acceptance.
+
+
+## Physical result — 2026-10-17
+
+**Initial pointer/desktop interaction gate accepted.** The user reported that
+entering many characters, dragging, resizing, trackpad movement and clicking all
+worked great. This supplies the physical interaction evidence that automated
+capture counters alone cannot establish.
+
+- Run `0133f0fdf2364d7b`, release `fecfea827320e7c3`.
+- Source `e8fbff2c195d96da620c101cbc7b056655bd10ce`, clean when staged.
+- Report SHA-256: `b79ae64f8e7cd89be959422e57ff9cd10326faa2be056ce61b12309ef10a7be8`.
+- 2,621 valid trackpad frames, 1,905 pointer-motion events and 18 button
+  transitions; 27 lift transitions and at most two simultaneous contacts.
+- 98 keyboard reports, exact `AaZz09` check, zero dropped characters.
+- Zero malformed packets, transport errors, policy cancellations and mouse-queue
+  overflows. The desktop exited successfully.
+- Host collection verified report identity/checksums, the separate completion
+  marker and the host reboot. Status: `CAPTURED`, `pointer_trial=EXERCISED`.
+
+The report covers roughly 629 seconds including user interaction and waiting;
+it is not an input-latency measurement or a sustained I/O stress test. The user
+confirmed the listed interactions; focus switching between two windows was not
+separately reported. Scrolling, palm rejection, the complete input/focus contract,
+device recovery and measured latency remain open, so D1/D2 are not complete.
+
+The original [report](../tools/fixtures/apple-05ac-0291-pointer.txt) and
+[completion marker](../tools/fixtures/apple-05ac-0291-pointer.done) are retained
+as collector regression fixtures. Host manifests/results remain under
+`build/trackpad-tests/0133f0fdf2364d7b/`. The installed and staged payloads were
+hash-verified against an independent copy under
+`~/.local/share/srvros/known-good/fecfea827320e7c3`, with a sibling acceptance
+JSON recording scope and evidence. The saved profile contains a consumed trial
+request: repeating the test requires preparing a fresh run, not reusing its ID.
+
+Next: extend pointer delivery with explicit wheel events and build a scrollable
+native study to exercise two-finger scrolling, then add conservative palm/typing
+suppression and cancellation/focus checks before desktop input acceptance.

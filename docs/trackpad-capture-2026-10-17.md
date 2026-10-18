@@ -129,4 +129,5 @@ coexistence tested before calling the desktop interaction usable. Pointer feel,
 latency and gesture behavior still require a physical interactive test.
 
 The [pointer trial implementation](trackpad-pointer-2026-10-17.md) now adds the
-next opt-in profile; its physical desktop acceptance is pending.
+next opt-in profile; its first physical trial passed typing, trackpad movement,
+clicking, dragging and resizing. See that result for scope and remaining gates.
