@@ -23,7 +23,7 @@ static const struct desk_document_block desktop[]={
  H(13,"Screenshots"),P(14,"Command-Shift-3 or SrvrOS > Save screenshot captures the whole desktop, including its pointer. Saving runs in the background. The completion notification opens /fat/home/Screenshots; choose a BMP there to view it in Preview. Capture supports displays whose BMP fits within 8 MiB, including full HD. Return to console waits for a pending save; immediate exit may abandon an incomplete capture."),N(15,"The desktop currently supports eight application windows at once. Close a window if there is no room to open another.")};
 static const struct desk_document_block files[]={
  T(1,"Files"),P(2,"Browse folders, open documents and manage individual files. Home opens /fat/home, Volume opens /fat, and Root shows the filesystem root."),
- H(3,"Go somewhere"),P(4,"Press Ctrl-L to edit the location, type an absolute path and press Enter. Alt-Left and Alt-Right move through visited folders; Alt-Up opens the parent; Alt-Home opens Home. Ctrl-R refreshes the listing."),
+ H(3,"Go somewhere"),P(4,"Press Ctrl-L to edit the location, type an absolute path and press Enter. Alt-Left and Alt-Right move through visited folders; Alt-Up opens the parent; Alt-Home opens Home. Ctrl-R refreshes the listing. Ctrl-F opens Find Files at this folder for a recursive name search."),
  H(5,"Open and organize"),P(6,"Select a row, then use Open or press Enter. Folders open in Files; PNG, JPEG and BMP images open in Preview; other files open in Text. New folder, Rename, Duplicate and Delete are available from the controls and menus."),
  P(7,"Duplicate copies an individual file up to 16 MiB and verifies its contents before reporting success. Delete removes an individual file or an empty folder after confirmation. There is no Trash or automatic recovery of deleted files."),
  H(8,"Paths and volumes"),P(9,"A path beginning with / is absolute. /fat is the main exFAT volume in this desktop environment. Other mounted volumes appear at their assigned paths. Files does not format, partition or automatically mount drives."),
@@ -112,6 +112,12 @@ static const struct desk_document_block network_guide[]={
  H(5,"Work in another window"),P(6,"Diagnostics run in a separate process. You can type in another app or prepare a new target while a diagnostic runs; the report retains the target used for that run. Stop or Escape cancels it. A run has a 15-second deadline. Closing the window stops its diagnostic."),
  H(7,"Keep a report"),P(8,"Copy report or Ctrl-Shift-C copies the operation, target, completion state and output. Paste into Text to save it. Diagnostic > Clear results clears this window. Results are kept only for the current session, and output is limited to 4095 bytes."),
  N(9,"The utility reports when no supported adapter, network link or IPv4 configuration is available. System shows current link state and speed separately from configured addresses. A successful ping checks reachability to that target; it does not test every Internet service.")};
+static const struct desk_document_block find_guide[]={
+ T(1,"Find Files"),P(2,"Search file and folder names within a location and its subfolders. Open Find Files from the launcher, SrvrOS menu or Command-Shift-F. In Files, Ctrl-F starts with the displayed folder."),
+ H(3,"Choose a search"),P(4,"Enter part of a name and an absolute folder path, then Search or Ctrl-Enter. Matching is literal, including punctuation; ASCII letters ignore case. File contents are not searched. Ctrl-F selects the name field and Ctrl-L selects the location. Choose All items, Files or Folders; Ctrl-1, Ctrl-2 and Ctrl-3 also switch kinds."),
+ H(5,"Use a result"),P(6,"Select a result and press Enter to open it in its normal application. Show in Files or Ctrl-R opens its containing folder. Copy path or Ctrl-C copies the complete path. Click a heading to sort; F6 selects headings for keyboard sorting. Right-click or Shift-F10 opens the result menu."),
+ H(7,"Background work"),P(8,"Search runs in a separate process. You can keep using the desktop or edit fields for the next search. The results retain the search that produced them. Stop or Escape cancels; closing the window also stops its worker."),
+ N(9,"The first 256 matches are shown; a notice appears when more exist. Paths must fit within 159 UTF-8 bytes, and skipped paths are reported. Searches reflect the currently mounted VFS; they are not an index or an atomic filesystem snapshot. Missing or changed results can fail to open. The search deadline is 60 seconds. Small windows keep kind selection in the menu and keyboard shortcuts.")};
 const struct help_topic help_topics[]={
  TOPIC(1,"welcome","Welcome","Start here · applications and documents",0,welcome),
  TOPIC(2,"desktop","Your desktop","Windows · launcher · menus · calendar",0,desktop),
@@ -128,6 +134,7 @@ const struct help_topic help_topics[]={
  TOPIC(13,"clock","Clock","Timer · stopwatch · laps · alerts · notifications",DESK_APP_CLOCK,clock_guide),
  TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
  TOPIC(15,"network","Network Utility","Ping · DNS lookup · reports · connectivity",DESK_APP_NETWORK,network_guide),
+ TOPIC(16,"find","Find Files","Names · folders · search · results",DESK_APP_FIND,find_guide),
 };
 const unsigned help_topic_count=sizeof(help_topics)/sizeof(*help_topics);
 const struct help_topic *help_topic(unsigned id) { for(unsigned i=0;i<help_topic_count;i++) if(help_topics[i].id==id) return &help_topics[i];return NULL; }

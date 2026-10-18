@@ -575,3 +575,15 @@ for read-only diagnostics; accepted filesystem mutations use the file worker's
 completion protocol instead. Network Utility demonstrates UI composition around
 this transport, including target validation, retained partial output and report
 export. Raw command bytes must be validated or sanitized by the application.
+
+## File-name search results
+
+`desk_file_search.h` supplies allocation-free canonical UTF-8 path validation,
+root-boundary checks, literal name matching (ASCII case folding) and validation
+of a bounded `desktop_search.h` worker snapshot. Decode checks the entire reply
+before changing caller storage, including unique paths, query/kind/root matches,
+metadata bounds and consistent truncation counters. It does no filesystem work.
+Find Files composes the existing table, tabs, editors, buttons, popup and focus
+router around this model. A read-only worker enumerates the mounted VFS; the app
+uses `desk_command_job` to collect it outside the input/render loop. Results are
+limited to 256 entries and 159-byte paths, with explicit omitted-result notices.

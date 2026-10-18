@@ -72,6 +72,7 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,TOOL_UP,"Parent folder","Alt-Up",busy);
         append(items,&count,MENU_LOCATION,"Location…","Ctrl-L",busy);
         append(items,&count,TOOL_REFRESH,"Refresh","Ctrl-R",busy);
+        append(items,&count,TOOL_FIND,"Find in this folder…","Ctrl-F",busy);
     } else if(t->role==DESK_APP_CALCULATOR) {
         append(items,&count,0,"Calculate",NULL,DESK_MENU_HEADING);
         append(items,&count,CALC_EVALUATE,"Evaluate","Enter",blocked);append(items,&count,CALC_CLEAR,"Clear",NULL,blocked);

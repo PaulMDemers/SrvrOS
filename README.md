@@ -15,7 +15,7 @@ not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
 windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings,
-Terminal, Preview, Sketch, Help, Clock and Network Utility. Command-Space opens application/window search; the SrvrOS menu
+Terminal, Preview, Sketch, Help, Clock and Find Files, Network Utility. Command-Space opens application/window search; the SrvrOS menu
 provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
 with month/year navigation and Today. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
@@ -519,3 +519,5 @@ and retains full debug `.elf` files under `build/userspace/` on the host. This
 avoids carrying duplicated debug sections in boot RAM. `make test-runtime-elf`
 checks segment preservation; `tools/host-env.sh python3 tools/desktop_settings_smoke.py`
 checks live desktop preferences and persistence in a disposable VM.
+
+Find Files is available from Command-Shift-F, the SrvrOS menu, and Ctrl-F in Files. It searches names below a chosen folder in the background, with kind filters, sortable results, Open, Show in Files and Copy path. It reports the first 256 matches; this is name search over the mounted VFS, not content indexing.

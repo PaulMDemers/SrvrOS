@@ -82,6 +82,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
         if(k->usage==0x1a) { if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;return; }
         if(t->role==DESK_APP_FILES) {
             if(k->usage==12) { tool_files_info_open(t);return; }
+            if(k->usage==9 && !(k->flags&SRV_KEY_REPEAT)) { tool_files_action(t,(struct desk_action){TOOL_FIND,DESK_WIDGET_ACTIVATED});return; }
             if(k->usage==0x0f) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
         }

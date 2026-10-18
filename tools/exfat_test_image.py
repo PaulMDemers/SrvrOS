@@ -90,7 +90,17 @@ class ExfatFixture:
 
     def add_directory_files(self, directory_name, files):
         if any(len(payload) > 16*1024*1024 for payload in files.values()): raise ValueError('Fixture payload too large')
-        needed = 1 + sum((len(payload)+self.cluster-1)//self.cluster for payload in files.values())
+        # Keep each entry set within one cluster, matching the production
+        # packer, and reserve a terminating zero entry. Large fixtures can then
+        # exercise listing/search limits without changing the test filesystem.
+        directory_bytes = 0
+        for filename, payload in files.items():
+            size = len(self.checked_entry(filename, 0, payload))
+            remaining = self.cluster - directory_bytes % self.cluster
+            if size > remaining: directory_bytes += remaining
+            directory_bytes += size
+        directory_clusters = (directory_bytes + 32 + self.cluster - 1) // self.cluster
+        needed = directory_clusters + sum((len(payload)+self.cluster-1)//self.cluster for payload in files.values())
         root = self.chain(self.root)
         bitmap_cluster = None
         end = 0
@@ -110,7 +120,7 @@ class ExfatFixture:
             off = self.offset(cluster)
             self.data[off:off+self.cluster] = b'\0'*self.cluster
         entries = bytearray()
-        cursor = 1
+        cursor = directory_clusters
         for filename, payload in files.items():
             count = (len(payload)+self.cluster-1)//self.cluster
             chain = free[cursor:cursor+count]
@@ -121,11 +131,17 @@ class ExfatFixture:
                 self.data[off:off+len(block)] = block
                 following = chain[index+1] if index+1<len(chain) else 0xffffffff
                 struct.pack_into('<I', self.data, self.fat+cluster*4, following)
-            entries += self.checked_entry(filename, chain[0] if chain else 0, payload, contiguous=False)
-        if len(entries) + 32 > self.cluster: raise ValueError('Fixture directory full')
-        off = self.offset(directory_cluster)
-        self.data[off:off+len(entries)] = entries
-        entry = self.checked_entry(directory_name, directory_cluster, b'', 0x10, self.cluster)
+            entry = self.checked_entry(filename, chain[0] if chain else 0, payload, contiguous=False)
+            if len(entry) > self.cluster - len(entries) % self.cluster:
+                while len(entries) % self.cluster: entries += b'\x01' + b'\0'*31
+            entries += entry
+        entries += b'\0' * (directory_clusters*self.cluster-len(entries))
+        for index, cluster in enumerate(free[:directory_clusters]):
+            off = self.offset(cluster)
+            self.data[off:off+self.cluster] = entries[index*self.cluster:(index+1)*self.cluster]
+            following = free[index+1] if index+1<directory_clusters else 0xffffffff
+            struct.pack_into('<I', self.data, self.fat+cluster*4, following)
+        entry = self.checked_entry(directory_name, directory_cluster, b'', 0x10, directory_clusters*self.cluster, contiguous=False)
         # Generated root chain is contiguous; ensure this entry doesn't straddle
         # a cluster boundary and the next zero entry remains inside the root.
         if end % self.cluster + len(entry) + 32 > self.cluster: raise ValueError('Root slot straddles cluster')

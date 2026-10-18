@@ -991,3 +991,43 @@ down/up, compact/context/Help, close during work and clean desktop exit. No publ
 network service is required by the regression. Evidence: `build/review/desktop-network/`.
 The laptop has not been rebooted or deployed to; USB network drivers are still
 unimplemented pending an adapter target.
+
+## Find Files and shared file-search result model
+
+Find Files searches literal names under a selected folder through a separate
+read-only worker. It supports All/Files/Folders, ASCII-insensitive matching,
+sortable results, Open, Show in Files, Copy path, context/global menus and Help.
+Files' Ctrl-F passes its current folder; Command-Shift-F and the SrvrOS menu
+launch a home-folder search. Query/location edits do not relabel an in-flight
+snapshot. Stop and window close cancel this read-only worker. Small windows
+retain an accessible result row and use wider name/kind columns; resizing keeps
+keyboard focus on the results. The first 256 matches are shown with an explicit
+limit notice. File contents are not searched, and this is a view of the mounted
+VFS rather than an index or atomic filesystem snapshot.
+
+The reusable `desk_file_search` model owns no I/O: canonical UTF-8 path checks,
+root boundaries, literal matching and strict binary snapshot validation live in
+the toolkit. Worker output is bounded below 64 KiB. Long/noncanonical paths are
+counted as skipped, never turned into actionable truncated prefixes. A failed or
+malformed scan publishes no results. The desktop global menu now derives its
+base count from its actual entries, with a regression requiring every global
+command (including Return to console) exactly once.
+
+Host checks cover 10,000 independent literal matches, invalid/duplicate/outside
+results, atomic rejection, 256-match limits, disappearing files, fragmented
+writes, immutable request snapshots, stable selection on sorting, open/reveal,
+clipboard races and compact/tiled rendering. The desktop suite passes; model,
+worker and app sanitizer checks pass. Disposable image fixtures now support
+multi-cluster directories; 300 fixture files round-trip byte-for-byte. An
+additional fsck check exposed an existing limitation in the generated base image
+(zero boot-region checksum); the fixture helper is not claimed to make that
+synthetic image externally exFAT-conformant. The hardware test flash filesystem
+and accepted boot checkpoint remain untouched.
+
+The completed Search VM run passed Files/global launch, case-insensitive names,
+folder-boundary isolation, file opening and folder reveal, exact clipboard path
+and document exports, 256-of-300 result reporting, kind filters, missing-folder
+and empty results, compact keyboard navigation, context menu, contextual Help
+and clean desktop exit. Every source fixture was independently checked after
+shutdown. Screens were reviewed at normal and 280×240 client sizes. Evidence:
+`build/review/desktop-find/`.

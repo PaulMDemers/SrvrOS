@@ -213,6 +213,7 @@ void tool_files_action(struct tool *t,struct desk_action a) {
     }
     if(a.id==TOOL_PATH && (a.flags&DESK_EDIT_SUBMIT)) { list_directory(t,t->path_text.data);return; }
     if(!(a.flags&DESK_WIDGET_ACTIVATED) && !(a.id==TOOL_NAME && (a.flags&DESK_EDIT_SUBMIT))) return;
+    if(a.id==TOOL_FIND) { tool_launch(t,DESK_APP_FIND,t->saved_path);return; }
     if(a.id==TOOL_INFO) { tool_files_info_open(t);return; }
     if(a.id==TOOL_COPY_PATH) { tool_files_copy_path(t);return; }
     if(a.id==TOOL_BACK || a.id==TOOL_FORWARD) {

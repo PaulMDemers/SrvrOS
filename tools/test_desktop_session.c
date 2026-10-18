@@ -150,6 +150,11 @@ int main(void) {
     memcpy(p.text,&menu[0],sizeof(menu[0]));incoming(&s,42,&p);assert(!s.clients[0].menus.revision);
     p.generation=1;p.value=1;memcpy(p.text,&menu[1],sizeof(menu[1]));incoming(&s,42,&p);
     assert(s.clients[0].menus.revision==19 && s.scene.menu.groups==3);
+    unsigned system_actions[]={GLOBAL_ABOUT,GLOBAL_SETTINGS,GLOBAL_LAUNCHER,GLOBAL_FIND,GLOBAL_CALENDAR,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_CAPTURE,GLOBAL_EXIT};
+    for(unsigned i=0;i<sizeof(system_actions)/sizeof(*system_actions);i++) {
+        unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==system_actions[i];assert(found==1);
+    }
+    global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));
     unsigned before_input=s.clients[0].input_count;global_menu_action(&s,7);
     assert(s.clients[0].input_count==before_input+1);
     struct desk_packet *command=&s.clients[0].input[(s.clients[0].input_head+before_input)%DESK_INPUT_QUEUE];
