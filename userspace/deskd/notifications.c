@@ -49,3 +49,11 @@ void desktop_notifications_read(struct desktop_notifications *store) { for(unsig
 unsigned desktop_notifications_unread(const struct desktop_notifications *store) {
     unsigned count=0;for(unsigned i=0;i<store->count;i++) count+=store->records[i].unread!=0;return count;
 }
+
+int desktop_notification_target(struct desktop_notifications *store,uint64_t id,const char *path) {
+    if(!path || path[0]!='/' || !valid(path,sizeof(store->records[0].target))) return -1;
+    for(unsigned i=0;i<store->count;i++) if(store->records[i].id==id) {
+        memmove(store->records[i].target,path,strlen(path)+1);return 0;
+    }
+    return -1;
+}

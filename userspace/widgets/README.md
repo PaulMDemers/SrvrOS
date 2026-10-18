@@ -467,3 +467,22 @@ details; Ctrl-Shift-C exports the path; Escape returns to the folder.
 
 Host checks: `make test-properties test-file-info`; native workflow:
 `tools/host-env.sh python3 tools/desktop_file_info_smoke.py`.
+
+### Desktop capture service
+
+The global screenshot command snapshots the compositor's RAM canvas after pending
+painting, then `desk_capture_job` streams an owned immutable copy to `shotworker`
+through nonblocking pipes (at most 16 KiB per desktop iteration). The worker
+encodes a standard bottom-up 32-bit BMP and saves it through a new temporary file,
+flush/readback verification, a guarded non-replacing rename, and final verification.
+The desktop never performs file I/O or reads the hardware framebuffer to capture.
+The current 8-MiB BMP limit matches Preview's file limit and includes 1920×1080.
+
+Command-Shift-3 and SrvrOS > Save screenshot save to `/fat/home/Screenshots`.
+A server-owned notification destination opens that folder; arbitrary client
+notifications cannot supply executable paths or launch targets. Normal session
+exit waits for a pending save. The emergency exit closes pipes without killing an
+already accepted filesystem mutation; an incomplete transfer is abandoned.
+
+Checks: `make test-capture test-notices`; end-to-end verification:
+`tools/host-env.sh python3 tools/desktop_capture_smoke.py`.

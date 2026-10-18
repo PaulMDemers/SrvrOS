@@ -4,7 +4,7 @@
 #include <srvros/desk_ui.h>
 #include <srvros/desk_notice.h>
 enum { NOTICE_LIST=1,NOTICE_OPEN,NOTICE_REMOVE,NOTICE_CLEAR,NOTICE_CLOSE,NOTICE_TOAST_OPEN,NOTICE_TOAST_CLOSE };
-struct desktop_notice_action { uint64_t owner;unsigned application;int close; };
+struct desktop_notice_action { uint64_t owner;unsigned application;int close;char target[160]; };
 struct desktop_notice_view {
     struct desktop_notifications store;
     struct desk_ui ui,toast_ui;

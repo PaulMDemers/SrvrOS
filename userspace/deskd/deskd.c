@@ -6,6 +6,7 @@
 #include "preferences.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
+#include <srvros/desk_capture_job.h>
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
 #include <srvros/gfx.h>
@@ -48,6 +49,9 @@ struct session {
     int notice_visible,context_down;
     unsigned modifiers;
     struct io_trial io;
+    struct desk_capture_job capture;
+    int capture_pending;
+    uint64_t capture_serial;
     uint32_t *cache[DESKD_WINDOWS][2];
 };
 /* Two bounded caches per window: failed partial copies never touch the front.
@@ -78,6 +82,7 @@ static void notifications_open(struct session *s);
 static void notifications_close(struct session *s);
 static void notifications_damage(struct session *s);
 static void context_close(struct session *s);
+static void capture_request(struct session *s);
 static void queue_input(struct session *s,int i,struct desk_packet p) {
     struct client *c=&s->clients[i];
     if (c->closing) return;
@@ -235,7 +240,7 @@ static void cycle_focus(struct session *s,int reverse) {
     }
 }
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_WINDOW=65792 };
 static void global_menu_damage(struct session *s) {
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
     if(s->menu_visible.w>0) desk_damage_add(&s->damage,s->menu_visible);
@@ -279,10 +284,11 @@ static void global_menu_rebuild(struct session *s) {
         {GLOBAL_CALENDAR,0,"Calendar",""},{GLOBAL_TEXT,0,"New Text document",""},
         {GLOBAL_TERMINAL,0,"New Terminal",""},{GLOBAL_HELP,0,"SrvrOS Help","F1"},
         {GLOBAL_NOTIFICATIONS,0,"Notifications","Cmd-Shift-N"},
+        {GLOBAL_CAPTURE,s->capture.busy || s->capture_pending?DESK_MENU_DISABLED:0,"Save screenshot","Cmd-Shift-3"},
         {0,DESK_MENU_SEPARATOR,"",""},
         {GLOBAL_EXIT,0,"Return to console",""}
     };
-    unsigned count=11;
+    unsigned count=12;
     if(s->scene.focus>=0) {
         struct desk_menu_store *m=&s->clients[s->scene.focus].menus;
         memcpy(items+count,m->items,m->count*sizeof(items[0]));count+=m->count;
@@ -319,6 +325,7 @@ static void global_menu_action(struct session *s,uint32_t id) {
     if(id==GLOBAL_LAUNCHER) launcher_open(s);
     else if(id==GLOBAL_CALENDAR) calendar_open(s);
     else if(id==GLOBAL_NOTIFICATIONS) notifications_open(s);
+    else if(id==GLOBAL_CAPTURE) capture_request(s);
     else if(id==GLOBAL_FILES) spawn_app(s,DESK_APP_FILES,"");
     else if(id==GLOBAL_SYSTEM) spawn_app(s,DESK_APP_SYSTEM,"");
     else if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_HELP,"about");
@@ -508,7 +515,7 @@ static void notifications_apply(struct session *s,struct desktop_notice_action r
     if(result.close) notifications_close(s);
     if(result.application) {
         int owner=-1;for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid==result.owner && !s->clients[i].closing) owner=i;
-        if(owner>=0) focus(s,owner);else spawn_app(s,result.application,"");
+        if(owner>=0 && !result.target[0]) focus(s,owner);else spawn_app(s,result.application,result.target);
         if(s->trace) desk_log("deskd: notification opened owner=%llu application=%u\n",(unsigned long long)result.owner,result.application);
     }
     notifications_damage(s);
@@ -526,6 +533,47 @@ static void notifications_tick(struct session *s) {
     int visible=notifications_toast_visible(s);
     if(changed || visible!=s->notice_visible) notifications_damage(s);
     s->notice_visible=visible;desk_ui_window_focus(&s->scene.notifications.toast_ui,visible);
+}
+static int capture_shortcut(const struct srv_key_event *key) {
+    return (key->flags&SRV_KEY_DOWN_EVENT) && !(key->flags&SRV_KEY_REPEAT) &&
+        (key->modifiers&SRV_KEY_META) && (key->modifiers&SRV_KEY_SHIFT) &&
+        !(key->modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT)) && key->usage==32;
+}
+static void capture_notice(struct session *s,int success,const char *message) {
+    struct desk_notification text={0};strcpy(text.title,success?"Screenshot saved":"Screenshot not saved");
+    snprintf(text.message,sizeof(text.message),"%s",message);
+    uint64_t id;long us=srv_monotonic_us();
+    if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX,DESK_APP_FILES,++s->capture_serial,
+        us<0?0:(uint64_t)us,success?DESK_NOTICE_SUCCESS:DESK_NOTICE_WARNING,&text,&id)>0) {
+        if(success) desktop_notification_target(&s->scene.notifications.store,id,DESK_CAPTURE_FOLDER);
+        desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s);
+    }
+}
+static void capture_request(struct session *s) {
+    if(s->exiting || s->capture.busy || s->capture_pending) return;
+    if(!desk_capture_bytes(s->damage.width,s->damage.height)) {
+        capture_notice(s,0,"This display exceeds the 8 MiB capture limit.");return;
+    }
+    s->capture_pending=1;
+}
+static void capture_tick(struct session *s,const uint32_t *pixels) {
+    int result=desk_capture_job_poll(&s->capture);
+    if(result) {
+        int success=result>0 && !s->capture.response.status;
+        const char *name=strrchr(s->capture.request.path,'/');
+        capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
+        if(s->trace) desk_log("deskd: screenshot %s status=%u path=%s\n",success?"saved":"failed",s->capture.response.status,s->capture.request.path);
+        global_menu_rebuild(s);
+    }
+    if(!s->capture_pending) return;
+    s->capture_pending=0;
+    char path[DESK_CAPTURE_PATH],date[32]="undated";long us=srv_realtime_us();
+    time_t seconds=us<0?0:us/1000000;struct tm utc;
+    if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
+    snprintf(path,sizeof(path),DESK_CAPTURE_FOLDER "/Screen-%s-%llu-%u.bmp",date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
+    if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) capture_notice(s,0,"The capture worker could not start.");
+    else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
+    global_menu_rebuild(s);
 }
 static void notification_received(struct session *s,int i,const struct desk_packet *p) {
     struct client *c=&s->clients[i];
@@ -807,6 +855,7 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+    desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,info.width,info.height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
@@ -915,6 +964,7 @@ int main(int argc,char **argv) {
             s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
+            if(capture_shortcut(&key)) { capture_request(&s);continue; }
             if(notifications_shortcut(&key)) {
                 drag=resize=-1;pointer_cancel(&s);if(s.scene.notifications.opened) notifications_close(&s);else notifications_open(&s);continue;
             }
@@ -969,8 +1019,8 @@ int main(int argc,char **argv) {
             if(!live) {
                 if(!s.exit_wait) s.exit_wait=srv_ticks();
                 int saving=s.preferences.job.busy || (s.preferences.writable && s.preferences.dirty);
-                if(!saving || (uint64_t)srv_ticks()-s.exit_wait>1000) { quit=1;break; }
-                if(!s.scene.notice[0]) { strcpy(s.scene.notice,"Finishing saved preferences…");desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height}); }
+                if(!s.capture.busy && !s.capture_pending && (!saving || (uint64_t)srv_ticks()-s.exit_wait>1000)) { quit=1;break; }
+                if(!s.scene.notice[0]) { strcpy(s.scene.notice,s.capture.busy?"Finishing screenshot save…":"Finishing saved preferences…");desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height}); }
             }
         }
         struct mouse_event e;
@@ -1122,6 +1172,7 @@ int main(int argc,char **argv) {
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
         if (s.damage.count) frames++;
         s.damage.count=0;
+        if(apps && !failed) capture_tick(&s,pixels);
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         srv_sleep_ticks(1);
     }
@@ -1138,6 +1189,7 @@ int main(int argc,char **argv) {
     if(apps) {
         if(s.preferences.dirty) desk_log("deskd: preferences were not fully saved (status=%u)\n",s.preferences.status);
         desktop_preferences_close(&s.preferences);
+        desk_capture_job_close(&s.capture);
     }
     cache_free(&s);
     desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);

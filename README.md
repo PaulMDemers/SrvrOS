@@ -23,7 +23,9 @@ files up to 64 KiB, and confirmed permanent deletion. System shows live process,
 Text includes a modeless Find bar, next/previous search, bounded multi-step undo
 and shared clipboard. Calculator has a keypad, result copying and session history.
 Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate
-worker. Clock provides a countdown, stopwatch and copyable laps. Completed timers
+worker. Command-Shift-3 saves a screenshot to `/fat/home/Screenshots` through a
+background worker, with verified readback and a notification that opens the folder.
+Clock provides a countdown, stopwatch and copyable laps. Completed timers
 appear as nonintrusive banners and in Alerts (Command-Shift-N). Right-click,
 Control-click or Shift-F10 opens contextual actions in Files and editable fields;
 the desktop background has its own application menu. Files offers current item

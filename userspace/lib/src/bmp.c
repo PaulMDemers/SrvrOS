@@ -36,7 +36,7 @@ int bmp_decode_rgba(const uint8_t *bmp, size_t bmp_size, uint32_t *pixels,
 
     uint32_t pixel_offset = read32(bmp + 10);
     uint32_t dib_size = read32(bmp + 14);
-    if (dib_size < 40 || pixel_offset >= bmp_size) {
+    if (dib_size < 40 || dib_size > bmp_size - 14 || pixel_offset < 14 + (uint64_t)dib_size || pixel_offset >= bmp_size) {
         return -1;
     }
 
@@ -51,7 +51,7 @@ int bmp_decode_rgba(const uint8_t *bmp, size_t bmp_size, uint32_t *pixels,
     }
 
     uint64_t width = (uint64_t)signed_width;
-    uint64_t height = signed_height < 0 ? (uint64_t)-signed_height : (uint64_t)signed_height;
+    uint64_t height = signed_height < 0 ? (uint64_t)-(int64_t)signed_height : (uint64_t)signed_height;
     if (width == 0 || height == 0 || width > UINT64_MAX / height ||
         width * height > pixel_capacity) {
         return -1;
@@ -87,7 +87,7 @@ int bmp_decode_rgba(const uint8_t *bmp, size_t bmp_size, uint32_t *pixels,
 int bmp_encode_rgba32(const uint32_t *pixels, uint64_t width, uint64_t height,
     uint8_t *bmp, size_t bmp_capacity, size_t *size_out) {
     if (pixels == 0 || bmp == 0 || width == 0 || height == 0 ||
-        width > UINT32_MAX || height > UINT32_MAX) {
+        width > INT32_MAX || height > INT32_MAX || width > (UINT32_MAX - 54u) / 4u / height) {
         return -1;
     }
 

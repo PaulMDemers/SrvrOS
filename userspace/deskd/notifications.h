@@ -7,6 +7,7 @@ struct desktop_notice {
     uint64_t id,owner,serial,time_us;
     unsigned application,tone,unread;
     struct desk_notification text;
+    char target[160]; /* Server-owned launch path; never accepted from client packets. */
 };
 /* Oldest-first session history. No allocation, clock, I/O or focus policy.
  * Callers authenticate owner/application and enforce request ordering/rate. */
@@ -14,6 +15,7 @@ struct desktop_notifications { struct desktop_notice records[DESKTOP_NOTICES];un
 int desktop_notification_valid(const struct desk_notification *text,unsigned tone);
 int desktop_notification_add(struct desktop_notifications *store,uint64_t owner,unsigned application,uint64_t serial,uint64_t time_us,unsigned tone,const struct desk_notification *text,uint64_t *id);
 const struct desktop_notice *desktop_notification_find(const struct desktop_notifications *store,uint64_t id);
+int desktop_notification_target(struct desktop_notifications *store,uint64_t id,const char *path);
 int desktop_notification_remove(struct desktop_notifications *store,uint64_t id);
 void desktop_notifications_read(struct desktop_notifications *store);
 unsigned desktop_notifications_unread(const struct desktop_notifications *store);

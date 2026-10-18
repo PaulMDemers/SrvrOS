@@ -836,3 +836,28 @@ Production builds succeeded. `desktop_file_info_smoke.py` passed with exact file
 content, path and metadata exports read back from the VM disk; folder metadata,
 context access, compact scrolling and orderly exit were exercised. The reviewed
 screenshot is `native-desktop-file-info.png`. No laptop reboot or deployment.
+
+### Global screenshot capture and background image saving
+
+Command-Shift-3 and SrvrOS > Save screenshot now snapshot the fully painted RAM
+canvas (including the pointer), with no framebuffer reads. An immutable bounded
+copy streams through nonblocking pipes to a dedicated worker; each desktop turn
+sends at most 16 KiB. The worker writes a BMP through a temporary file, flushes and
+verifies the content, performs a guarded non-replacing rename, then verifies the
+final destination. Screenshots use unique names under `/fat/home/Screenshots`.
+The 8-MiB BMP limit matches Preview and covers the Air panel and full HD. Normal
+session exit waits for a pending save; the emergency exit never kills an accepted
+file mutation. Completion appears in a nonintrusive notification with an Open
+folder action. That destination is owned by the server, not client packets.
+
+Host tests cover fragmented transfers, immutable pixel/path ownership, retry,
+protocol/worker failure, limits, existing files, partial I/O, failed writes, sync,
+readback and rename, cleanup and nonblocking worker reaping. BMP validation also
+now rejects overflowing dimensions and malformed header offsets and handles the
+signed-height minimum without undefined behavior. Address/UB sanitizers passed;
+the full desktop suite and production build passed. The VM capture test compared
+the saved BMP pixel-for-pixel with a QMP display reference, typed during saving,
+verified exact editor content on disk, opened the notification's folder and loaded
+the image in Preview, repeated capture through the menu, and exited cleanly.
+Evidence: `desktop_capture_smoke.py`, `native-desktop-capture.png`. No hardware
+reboot or deployment occurred.

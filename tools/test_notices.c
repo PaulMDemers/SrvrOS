@@ -48,9 +48,15 @@ static void view(void) {
     assert(!desktop_notice_view_tick(&v,9000000));e.down=e.pressed=0;
     struct desktop_notice_action a=desktop_notice_toast_action(&v,desk_ui_pointer(&v.toast_ui,e,2));assert(a.owner==10 && !v.toast_id);
     assert(desktop_notice_view_tick(&v,9000010) && v.toast_id==second);
+    char path[]="/fat/home/Screenshots";
+    assert(!desktop_notification_target(&v.store,second,path));path[5]='X';
+    assert(desktop_notification_target(&v.store,second,"relative")<0);
+    assert(desktop_notification_target(&v.store,second,"/bad\npath")<0);
+    assert(desktop_notification_target(&v.store,999,"/fat")<0);
     desktop_notice_view_open(&v);assert(v.opened && !v.toast_id && !v.pending_toast && !desktop_notifications_unread(&v.store));
     assert(v.list.count==2 && v.items[0].id==second && v.open.enabled);
-    a=desktop_notice_view_action(&v,(struct desk_action){NOTICE_OPEN,DESK_WIDGET_ACTIVATED});assert(a.owner==10 && a.application==1 && a.close);
+    a=desktop_notice_view_action(&v,(struct desk_action){NOTICE_OPEN,DESK_WIDGET_ACTIVATED});assert(a.owner==10 && a.application==1 && a.close && !strcmp(a.target,"/fat/home/Screenshots"));
+    assert(!strcmp(v.ui.controls[1].label,"Open folder"));
     desktop_notice_view_action(&v,(struct desk_action){NOTICE_REMOVE,DESK_WIDGET_ACTIVATED});assert(v.store.count==1 && v.items[0].id==id);
     desktop_notice_view_action(&v,(struct desk_action){NOTICE_CLEAR,DESK_WIDGET_ACTIVATED});assert(!v.store.count && !v.open.enabled && !v.remove.enabled && !v.clear.enabled);
     desktop_notice_view_close(&v);assert(!v.opened);

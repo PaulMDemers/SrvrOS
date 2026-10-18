@@ -163,7 +163,8 @@ int main(void) {
     for(unsigned mods=0;mods<256;mods++) {
         struct srv_key_event key={.flags=SRV_KEY_DOWN_EVENT,.usage=17,.modifiers=mods};
         assert(!!notifications_shortcut(&key)==!!((mods&0x88) && (mods&0x22) && !(mods&0x55)));
-        key.flags|=SRV_KEY_REPEAT;assert(!notifications_shortcut(&key));
+        key.usage=32;assert(!!capture_shortcut(&key)==!!((mods&0x88) && (mods&0x22) && !(mods&0x55)));
+        key.flags|=SRV_KEY_REPEAT;assert(!capture_shortcut(&key));key.usage=17;assert(!notifications_shortcut(&key));
         key.flags=0;assert(!notifications_shortcut(&key));
     }
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,800,600);
@@ -181,6 +182,10 @@ int main(void) {
     queue_full=1;service(&s);assert(s.clients[0].notice_ack_pending);queue_full=0;service(&s);assert(!s.clients[0].notice_ack_pending);
     notifications_open(&s);assert(s.scene.notifications.opened && s.scene.focus==-1 && !desktop_notifications_unread(&s.scene.notifications.store));
     notifications_close(&s);assert(!s.scene.notifications.opened && s.scene.focus==0);
+    struct desktop_notice_action target={.owner=42,.application=DESK_APP_FILES};strcpy(target.target,DESK_CAPTURE_FOLDER);
+    notifications_apply(&s,target);assert(!strcmp(executed_argument,DESK_CAPTURE_FOLDER));
+    global_menu_action(&s,GLOBAL_CAPTURE);assert(s.capture_pending);s.capture_pending=0;s.capture.busy=1;
+    global_menu_action(&s,GLOBAL_CAPTURE);assert(!s.capture_pending);s.capture.busy=0;
     s.clients[0].input_count=0;s.clients[0].awaiting=0;s.pointer_blocked=0;
     context_at(&s,80,120,0);unsigned last=(s.clients[0].input_head+s.clients[0].input_count-1)%DESK_INPUT_QUEUE;
     assert(s.clients[0].input[last].type==DESK_CONTEXT && s.clients[0].input[last].x==47 && s.clients[0].input[last].y==12);
