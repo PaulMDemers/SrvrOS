@@ -87,6 +87,12 @@ def main():
                 wait(b"deskclient: text=aAzZ123")
                 # Emulated mouse -> compositor capture -> application thumb.
                 client_w=min(600,width-40); client_h=min(320,height-149)
+                # The study uses the shared library button; release activates it.
+                move(33+client_w-80-pointer_x,108+client_h-24-pointer_y)
+                move(0,0,1); move(0,0,0)
+                wait(b"deskclient: text-size=20")
+                move(0,0,1); move(0,0,0)
+                wait(b"deskclient: text-size=16")
                 bar_x=33+client_w-21; bar_y=108+94
                 limit=48*24-(client_h-202)
                 move(bar_x-pointer_x,bar_y+7-pointer_y); move(0,0,1)
@@ -154,7 +160,7 @@ def main():
             finally:
                 stop_process(process)
                 (out/"desktop-compositor-serial.log").write_bytes(output)
-    print("desktop-compositor: PASS separate processes, mixed case, scrollbar capture/page clicks, two windows, focus, drag, resize, close, idle, client death/replacement, abrupt server exit, console return/relaunch")
+    print("desktop-compositor: PASS separate processes, mixed case, shared button, scrollbar capture/page clicks, two windows, focus, drag, resize, close, idle, client death/replacement, abrupt server exit, console return/relaunch")
     print(f"Evidence: {out}")
 
 

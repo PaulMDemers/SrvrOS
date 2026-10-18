@@ -175,6 +175,14 @@ cannot substitute for those checks.
 
 ### D3 — One consistent desktop and three useful apps
 
+Shared controls are a reusable client-side toolkit, implemented under
+[`userspace/widgets`](../userspace/widgets/README.md) and built as
+`libdeskwidgets.a`. Files, Text and other clients consume that library. Keep
+control geometry, interaction and styling there; application data and file
+actions stay in each app, while window management stays in the compositor.
+The first slice extracts the study scrollbar and adds theme, label and button
+primitives; text editing and general focus traversal are subsequent slices.
+
 Build only the shared controls required by Files, Text and Settings. Add the
 launcher/dock, window switching, resize, clipboard, focus traversal and settings
 persistence. Build Terminal on a tested PTY path with the existing shell.

@@ -1,63 +1,34 @@
 #include <srvros/desk_log.h>
 #include <srvros/desktop.h>
 #include <srvros/desk_render.h>
+#include <srvros/desk_widgets.h>
 #include <srvros/gui.h>
 #include <srvros/sys.h>
 #include <stdio.h>
 #include <string.h>
 
 #define STUDY_LINES 48
-static int scroll_limit(int height) {
-    int viewport=height-202;
-    int max=STUDY_LINES*24-(viewport>0?viewport:1);
-    return max>0?max:0;
+static void layout(struct desk_scrollbar *bar,struct desk_button *button,int width,int height) {
+    desk_scrollbar_configure(bar,(struct desk_rect){width-30,94,18,height-202},
+                             STUDY_LINES*24,height-202);
+    desk_button_configure(button,(struct desk_rect){width-132,height-38,108,28},1);
 }
-static int scroll_clamp(int64_t n,int height) {
-    int max=scroll_limit(height);
-    return n<0?0:n>max?max:(int)n;
+static struct desk_widget_event pointer_event(const struct desk_packet *p) {
+    return (struct desk_widget_event){
+        .type=(p->value&DESK_POINTER_CANCEL)?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
+        .x=p->x,.y=p->y,.down=(p->value&DESK_POINTER_LEFT)!=0,
+        .pressed=(p->value&DESK_POINTER_PRESS)!=0};
 }
-struct scrollbar { struct desk_rect track,thumb; int limit,travel; };
-struct scrollbar_drag { int active,grab; };
-static struct scrollbar scrollbar_geometry(int width,int height,int offset) {
-    struct scrollbar b={.track={width-30,94,18,height-202},.limit=scroll_limit(height)};
-    int thumb=b.track.h*b.track.h/(STUDY_LINES*24);
-    if (thumb<16) thumb=16;
-    if (thumb>b.track.h) thumb=b.track.h;
-    b.travel=b.track.h-thumb;
-    int top=b.track.y+(b.limit?(int)((int64_t)scroll_clamp(offset,height)*b.travel/b.limit):0);
-    b.thumb=(struct desk_rect){b.track.x+4,top,10,thumb};
-    return b;
-}
-static void scrollbar_pointer(struct scrollbar_drag *d,int width,int height,int *offset,
-                              const struct desk_packet *p) {
-    if (p->value&DESK_POINTER_CANCEL) { d->active=0; return; }
-    int released=!(p->value&DESK_POINTER_LEFT);
-    if (released && !d->active) return;
-    struct scrollbar b=scrollbar_geometry(width,height,*offset);
-    if (p->value&DESK_POINTER_PRESS) {
-        d->active=0;
-        if (p->x<b.track.x || p->x>=b.track.x+b.track.w ||
-            p->y<b.track.y || p->y>=b.track.y+b.track.h) return;
-        if (p->y>=b.thumb.y && p->y<b.thumb.y+b.thumb.h) {
-            d->active=1; d->grab=p->y-b.thumb.y;
-        } else *offset=scroll_clamp((int64_t)*offset+(p->y<b.thumb.y?-b.track.h:b.track.h),height);
-        return;
-    }
-    if (d->active && b.travel>0) {
-        int64_t top=(int64_t)p->y-d->grab-b.track.y;
-        if (top<0) top=0;
-        if (top>b.travel) top=b.travel;
-        *offset=(int)((top*b.limit+b.travel/2)/b.travel);
-    }
-    if (released) d->active=0;
-}
-static void draw(struct desk_canvas *c,const char *input,int large,int offset) {
-    desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xfaf9f6);
-    desk_text(c,&desk_font_20,24,24,"A little room to think.",0x292e2b);
+static void draw(struct desk_canvas *c,const char *input,int large,
+                 const struct desk_scrollbar *bar,const struct desk_button *button) {
+    const struct desk_theme *theme=&desk_theme_quiet;
+    int offset=bar->offset;
+    desk_fill(c,(struct desk_rect){0,0,c->width,c->height},theme->surface);
+    desk_text(c,theme->heading,24,24,"A little room to think.",theme->text);
     desk_text(c,&desk_font_16,24,58,"Two fingers to scroll. Type below. Drag the title.",0x465348);
     struct desk_rect clip=c->clip;
     struct desk_rect viewport={24,94,c->width-58,c->height-202};
-    desk_clip(c,viewport);
+    desk_clip(c,desk_intersect(clip,viewport));
     static const char *lines[]={
         "A quiet space for a few thoughts.",
         "The quick brown fox jumps over the lazy dog.",
@@ -72,15 +43,14 @@ static void draw(struct desk_canvas *c,const char *input,int large,int offset) {
         desk_text(c,&desk_font_16,viewport.x,y,text,0x465348);
     }
     c->clip=clip;
-    struct scrollbar bar=scrollbar_geometry(c->width,c->height,offset);
-    desk_fill(c,bar.track,0xe7ebe2);
-    desk_fill(c,bar.thumb,0x748b79);
-    desk_clip(c,(struct desk_rect){20,c->height-92,c->width-40,44});
-    desk_fill(c,c->clip,0xe0eade);
-    desk_text(c,large?&desk_font_20:&desk_font_16,26,c->height-82,input,0x38644f);
+    desk_scrollbar_draw(c,bar,theme);
+    desk_clip(c,desk_intersect(clip,(struct desk_rect){20,c->height-92,c->width-40,44}));
+    desk_fill(c,c->clip,theme->selected);
+    desk_text(c,large?&desk_font_20:&desk_font_16,26,c->height-82,input,theme->accent);
     c->clip=clip;
-    char status[96]; snprintf(status,sizeof(status),"Scroll %d / %d   ·   Ctrl-L: text size",offset,scroll_limit(c->height));
-    desk_text(c,&desk_font_16,24,c->height-30,status,0x646b65);
+    char status[64]; snprintf(status,sizeof(status),"Scroll %d / %d",offset,desk_scrollbar_limit(bar));
+    desk_label_draw(c,(struct desk_rect){24,c->height-30,c->width-164,24},theme->body,status,theme->muted);
+    desk_button_draw(c,button,"Text size",theme);
 }
 int main(int argc,char **argv) {
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
@@ -94,8 +64,9 @@ int main(int argc,char **argv) {
     if(!pixels) return 1;
     struct desk_packet configure={0};
     char input[160]={0}; size_t length=0;
-    int dirty=0,large=0,failed=0,quit=0,offset=0;
-    struct scrollbar_drag scrollbar={0};
+    int dirty=0,large=0,failed=0,quit=0;
+    struct desk_scrollbar scrollbar={0};
+    struct desk_button size_button={0};
     while (!quit) {
         for (int n=0;n<32;n++) {
             uint64_t source; struct desk_packet p;
@@ -108,22 +79,33 @@ int main(int argc,char **argv) {
             if (p.type==DESK_CLOSE) { quit=1; break; }
             if (p.type==DESK_CONFIGURE && p.generation>configure.generation &&
                 p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
-                configure=p; scrollbar.active=0; last=srv_ticks();
+                configure=p;
+                struct desk_widget_event cancel={.type=DESK_WIDGET_CANCEL};
+                desk_scrollbar_event(&scrollbar,cancel); desk_button_event(&size_button,cancel);
+                last=srv_ticks();
             } else if (p.type==DESK_RELEASE && p.surface==surface && p.serial==pending &&
                        p.generation==pending_gen) { pending=0; last=srv_ticks(); }
             else if (p.type==DESK_POINTER && height && p.generation==generation &&
                      configure.generation==generation) {
-                int before=offset;
-                scrollbar_pointer(&scrollbar,width,height,&offset,&p);
-                if (offset!=before) {
-                    if (!dirty && !pending) last=srv_ticks();
-                    dirty=1; desk_log("deskclient: scroll=%d\n",offset);
+                struct desk_widget_event event=pointer_event(&p);
+                unsigned scroll=desk_scrollbar_event(&scrollbar,event);
+                unsigned button=desk_button_event(&size_button,event);
+                if (button&DESK_WIDGET_ACTIVATED) {
+                    large=!large;
+                    button|=DESK_WIDGET_REDRAW;
+                    desk_log("deskclient: text-size=%d\n",large?20:16);
                 }
+                if ((scroll|button)&DESK_WIDGET_REDRAW) {
+                    if (!dirty && !pending) last=srv_ticks();
+                    dirty=1;
+                }
+                if (scroll&DESK_WIDGET_CHANGED)
+                    desk_log("deskclient: scroll=%d\n",scrollbar.offset);
             }
             else if (p.type==DESK_SCROLL && height) {
                 if (!dirty && !pending) last=srv_ticks();
-                offset=scroll_clamp((int64_t)offset+p.y,height); dirty=1;
-                desk_log("deskclient: scroll=%d\n",offset);
+                desk_scrollbar_scroll(&scrollbar,p.y); dirty=1;
+                desk_log("deskclient: scroll=%d\n",scrollbar.offset);
             }
             else if (p.type==DESK_TEXT) {
                 if (p.input_serial>input_serial) { input_serial=p.input_serial; dirty=1; }
@@ -144,12 +126,12 @@ int main(int argc,char **argv) {
             }
             if (surface) gui_surface_destroy(surface);
             surface=next_surface; width=configure.width; height=configure.height;
-            generation=configure.generation; offset=scroll_clamp(offset,height); dirty=1;
+            generation=configure.generation; layout(&scrollbar,&size_button,width,height); dirty=1;
         }
         if (dirty && !pending && surface) {
             struct desk_canvas c;
             desk_canvas_init(&c,pixels,width,height,width);
-            draw(&c,input,large,offset);
+            draw(&c,input,large,&scrollbar,&size_button);
             struct desk_packet p=desk_packet_new(DESK_COMMIT);
             p.input_serial=input_serial; p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
             if (gui_surface_blit(surface,0,0,width,height,pixels,width)!=0) { failed=1; break; }

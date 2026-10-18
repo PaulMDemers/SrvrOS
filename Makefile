@@ -2150,10 +2150,20 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 
 DESKD_OBJ := build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
+DESK_WIDGETS_INCLUDE := userspace/widgets/include
+DESK_WIDGETS_SRC := userspace/widgets/src/widgets.c
+DESK_WIDGETS_OBJ := $(DESK_WIDGETS_SRC:%.c=build/%.c.o)
+DESK_WIDGETS_A := build/userspace/widgets/libdeskwidgets.a
+.PHONY: widget-library
+widget-library: $(DESK_WIDGETS_A)
+$(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
+$(DESK_WIDGETS_A): $(ZIG) $(DESK_WIDGETS_OBJ)
+	$(AR) rcs $@ $(DESK_WIDGETS_OBJ)
+-include $(DESK_WIDGETS_OBJ:.o=.d)
 $(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(USER_LIB_OBJ) -o $@
-$(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(USER_LIB_OBJ) -o $@
+$(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
 
 test-desktop: build/tests/desktop-scene-host$(HOST_EXE)
@@ -2195,9 +2205,17 @@ build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-desktop: build/tests/deskclient-host$(HOST_EXE)
-build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c shared/include/srvros/desktop_protocol.h userspace/lib/include/srvros/desk_log.h
+build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c shared/include/srvros/desktop_protocol.h userspace/lib/include/srvros/desk_log.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_INCLUDE)/srvros/desk_widgets.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+
+.PHONY: test-widgets
+test-desktop: test-widgets
+test-widgets: build/tests/widgets-host$(HOST_EXE)
+	build/tests/widgets-host$(HOST_EXE)
+build/tests/widgets-host$(HOST_EXE): tools/test_widgets.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_INCLUDE)/srvros/desk_widgets.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c userspace/lib/include/srvros/desk_render.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I $(DESK_WIDGETS_INCLUDE) tools/test_widgets.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 DESKIO_OBJ := build/userspace/deskio/deskio.c.o
 $(USER_DESKIO): $(ZIG) $(USER_CRT0_OBJ) $(DESKIO_OBJ) $(USER_LIB_OBJ) userspace/app.ld
