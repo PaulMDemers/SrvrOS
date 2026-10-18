@@ -4,6 +4,16 @@ Status: product direction and implementation plan, 2026-10-17. This supersedes
 the earlier GUI roadmaps. The user selected **quiet and refined: warm neutral
 surfaces, crisp type, restrained color**.
 
+Current checkpoint (2026-10-18): the bounded desktop/input/USB responsiveness
+milestone is accepted on the MacBook Air. Run `e47acf8f45debc6f` combined 42 file
+rounds with typing, scrolling, focus switching and captured-drag cancellation;
+all timing/coverage gates passed, the final payload verified, and offline exFAT
+was clean. The accepted release and evidence are preserved independently. See
+[the acceptance details](desktop-io-2026-10-17.md#combined-physical-gate-accepted).
+Next: shared native controls and a useful Files/Text open-edit-save-reopen flow.
+General asynchronous file operations and device removal/recovery remain separate
+work; this closes the bounded responsiveness optimization, not every D2/D3 gate.
+
 The primary hardware target is now a useful, pleasant desktop on the
 MacBookAir7,2. Server workloads remain supported: a desktop session must coexist
 with services, and a headless boot must remain available. The first release is a
@@ -212,9 +222,11 @@ Once the new desktop passes its core hardware workflow, remove obsolete UI build
 routes and implementations in a dedicated change, retaining useful test cases.
 Do not carry two supported widget systems indefinitely.
 
-The immediate implementation slice is **native text/rendering and the minimal
-surface contract, with built-in trackpad bring-up**. Files/Text/Terminal follow
-those foundations. This avoids spending the next milestone repainting old demos.
+The initial implementation slice established native text/rendering, the minimal
+surface contract and built-in trackpad input. The immediate next slice is shared
+controls for Files/Text, followed by Terminal on a tested PTY path.
+
+The following records the progression to the accepted checkpoint above.
 
 The [scrolling/accidental-touch slice](trackpad-scroll-2026-10-17.md) adds an opt-in
 gesture profile and a scrollable native study. Initial two-finger scrolling is
@@ -229,24 +241,25 @@ The [desktop I/O trial](desktop-io-2026-10-17.md) adds a bounded USB worker,
 on-screen focus/capture checks, activity counters and independent final-payload
 validation. Its first physical run verified 126 file rounds but exposed pronounced
 stuttering under I/O. The linked trial document records the bounded scheduling /
-I/O responsiveness plan and proposed exit gate; physical acceptance remains open.
+I/O responsiveness plan and proposed exit gate; physical acceptance was still open.
 
 The bounded responsiveness pass adds measured active update gaps, audited desktop
 service during storage waits, cumulative USB service checkpoints and reusable
 compositor caches. The v14 physical run improved cursor movement but exposed
 blocked text input. The v15 follow-up removes stdio dependencies from desktop
 diagnostics, preloads both studies and measures text events through application
-commit/presentation. Hardware acceptance remains open; see the trial record for
+commit/presentation. Hardware acceptance was still open; see the trial record for
 the safety boundaries, baseline and subsequent measurements.
 
 The next physical v15 run confirmed smooth keyboard and trackpad interaction:
 98/98 text events presented, maximum 21.258 ms, maximum active update gap
 14.599 ms, verified USB data and clean offline exFAT. Responsiveness is validated
-on the MacBook Air. Combined coverage still needs 16+ file rounds, two focus
+on the MacBook Air. Combined coverage at that point still needed 16+ file rounds, two focus
 switches and a captured-scrollbar-drag cancellation in one run. Follow-up trial
 guidance highlights the next missing check and warns before an incomplete exit.
 
 A later run completed all 128 file rounds with verified data and a clean volume,
 but recorded no interaction during the workload. To remove the timing ambiguity,
 the v16 trial waits for Space and persists worker start/end plus first-input
-reference-clock timestamps. The combined physical gate remains open.
+reference-clock timestamps. The subsequent v16 run closed the combined physical
+gate, with verified concurrent interaction over 132.157 seconds of file work.

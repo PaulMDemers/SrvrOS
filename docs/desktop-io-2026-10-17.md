@@ -438,3 +438,51 @@ passed. In that retry the worker interval was 24.475974 seconds, first key
 The short emulated run deliberately remains incomplete for physical coverage.
 The READY screen was visually checked at 1280x800. Evidence is retained under
 `build/review/desktop-io-manual-start-20261018/`.
+
+## Combined physical gate accepted
+
+On 2026-10-18, run `e47acf8f45debc6f`, release `f05dfcc01c28dc85`, source
+`a870060590788184e9bbc9326de437e77d68c3b5` passed the unchanged combined gate on
+the MacBookAir7,2. The user returned with “all set,” following the earlier smooth
+keyboard/trackpad feedback. This closes the bounded responsiveness milestone.
+
+- Work: 42 rounds / 10.5 MiB logical payload over 132.156837 seconds, followed
+  by a clean worker stop and independently verified final payload.
+- Concurrent interaction: 542 text events, 3,869 pointer motions, 880 wheel
+  events, 31 focus changes and three captured-drag cancellations.
+- Text: 542/542 events presented, zero timing overflow, p95 upper bound
+  16.667 ms, p99 and maximum 23.142 ms.
+- Desktop: 6,165 active samples, maximum update gap 14.882 ms; 6,831 renders,
+  render p95 upper bound 2 ms and maximum 2.881 ms.
+- Capture: keyboard PASS, zero dropped keyboard reports, zero pointer queue
+  overflows, zero malformed trackpad reports and zero transport errors.
+- Ubuntu collection passed timing, text, concurrent-coverage, checksums and
+  payload verification. Offline `fsck.exfat -n` was clean: 128 directories,
+  648 files. No repairs were performed; udisks remounted the volume afterward.
+
+The first key timestamp precedes the worker loop by 31.911 ms, during worker
+startup; the 542 RUNNING-state text events establish actual overlap. First
+pointer input was 9.718996 seconds into the worker interval. The worker ended
+at reference-clock 146.720095 seconds; the evidence record was prepared at
+151.582129 seconds. These timestamps distinguish active work from the subsequent
+capture/halt screen; they are not wall-clock shutdown timestamps.
+
+Timing remains compositor-read through successful application commit/presentation,
+not physical input-to-photon latency. Filesystem-dependent calls still serialize:
+the maximum recorded I/O gate wait was 5.051888 seconds. The accepted result is
+responsive desktop input while that work proceeds; it does not establish that
+arbitrary application file operations are asynchronous. Device removal/recovery,
+calibrated palm rejection and general asynchronous file APIs remain separate.
+
+Report SHA-256: `9ec49c247cde964d2402fd0d92d3527dbc2c4474823c2543563fd04cf46ab0d0`.
+Payload SHA-256: `16a4533121cadb13a8929fc0809d4f369bf7aca6a48a4fde7630f84d283954d1`.
+Evidence: `build/trackpad-tests/e47acf8f45debc6f/`, including
+`offline-exfat-check.txt`. A hash-verified independent copy of the accepted
+release, acceptance note and complete run evidence is retained at
+`/home/paul/.local/share/srvros/known-good/f05dfcc01c28dc85/`.
+Previous known-good releases remain intact. The preserved boot configuration is
+the accepted test profile, not a newly armed request.
+
+Stop this optimization pass here. Proceed to shared native controls and useful
+Files/Text workflows, retaining these tests as regression coverage. No additional
+hardware reboot is needed to close this milestone.
