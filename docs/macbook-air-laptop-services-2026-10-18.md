@@ -34,6 +34,54 @@ Battery status and reported capacity are separate observations: Linux reported
 provider semantics and distinguish unknown/stale readings rather than invent a
 percentage from unrelated fields or infer charging from an AC connection alone.
 
+## Firmware evidence and EC transport foundation
+
+A second, privileged **read-only** capture is retained at
+`build/hardware/laptop-services-20261018/`; its capture manifest reports no
+unavailable/partial reads. Copies disassembled by the bundled ACPICA `iasl`
+are in `build/review/laptop-acpi/`, with the command log at
+`build/review/laptop-acpi-disassemble.txt`. The 35,034-byte DSDT identifies
+APPLE / MacBookA, OEM revision `00070001`, compiler INTL `20140424`.
+Its SHA-256 is
+`64d28c86c389dbec90d322e17bb0fa2111246c3a41910529c52ca041eb39ad31`.
+
+The relevant namespace is `\_SB.PCI0.LPCB.EC`:
+
+| Firmware object | Evidence |
+| --- | --- |
+| EC `_HID` / `_UID` | `PNP0C09` / 0 |
+| EC `_CRS` | One-byte data port `0x62`, command/status port `0x66` |
+| EC `_GPE` | `0x4e` |
+| `ECOR` | EmbeddedControl region, offset 0, length `0xff` |
+| EC offset `0x20` | `SPTR`, `SSTS`, `SADR`, `SCMD`, 32-byte `SBFR`, `SCNT`, alarm fields |
+| EC offset `0x60` | `ELSW` lid bit 0, `EACP` AC bit 1 |
+| `SMB0` | `ACPI0001`, `_EC=0x2010`, serialized AML accesses through `SMTX` |
+| `SMB0.SBS0` | `ACPI0002`, `_SBS=1` |
+
+This is resource evidence, not a ready-to-use initialization recipe. Firmware
+makes the SMB0 `_STA` result conditional on `OSDW()` (OSYS `0x2710`, selected
+through its Darwin `_OSI` path). There is also an alternative `PNP0C0A` battery
+path. EC `_REG` writes `ECSS` at offset `0x10` and seeds lid/AC state. `_Q10`
+routes battery/SMBus notifications; `_Q20` and `_Q21` update lid and AC state.
+No `_GLK` was found in the captured disassembly, but that alone does not prove
+exclusive controller ownership or establish correct SCI/query handling.
+
+The new `ec_transport.c` is a callback-based, bounded byte-transaction engine
+following [ACPI 6.5, Embedded Controller Interface](https://uefi.org/specs/ACPI/6.5/12_Embedded_Controller_Interface_Specification.html).
+Each poll performs at most one status read and one command/data access; it never
+spins or sleeps internally. Read/write handshakes retain progress across polls.
+Timeout, clock rollback, excess polling, cancellation and unexpected output
+poison the transaction state until external recovery explicitly reinitializes it.
+Unexpected output bytes are not silently consumed. Host tests model delayed
+responses, overlapping-request refusal and those failure conditions.
+
+**There is no hardware binding or caller yet.** This code does not access EC
+ports, execute AML, drain SCI queries, read a battery, change brightness or claim
+power-management support. Before binding it, resolve namespace initialization,
+controller ownership/Global Lock requirements, query/event dispatch and a
+scheduled worker. Then build the SMBus/SBS sampler and its cached userspace API.
+Firmware bytes and Linux driver implementations were not copied into the driver.
+
 ## Battery/AC implementation sequence
 
 1. Capture and inspect this machine's relevant ACPI namespace/resources. Resolve

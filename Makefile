@@ -2884,3 +2884,11 @@ test-desktop: test-path
 test-widgets: test-widget-boundary
 test-widget-boundary: $(HOST_DESK_WIDGETS_A)
 	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
+
+.PHONY: test-ec-transport
+test-core: test-ec-transport
+test-ec-transport: build/tests/ec-transport-host$(HOST_EXE)
+	$<
+build/tests/ec-transport-host$(HOST_EXE): tools/test_ec_transport.c kernel/src/drivers/ec_transport.c kernel/include/srvros/ec_transport.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_ec_transport.c kernel/src/drivers/ec_transport.c -o $@
