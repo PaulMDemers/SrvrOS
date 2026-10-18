@@ -96,7 +96,38 @@ static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
     }
 }
 
-static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int focused) {
+struct desk_rect desktop_window_control_rect(struct desk_rect frame,unsigned control) {
+    if(control<DESKTOP_CLOSE || control>DESKTOP_MINIMIZE) return (struct desk_rect){0};
+    return (struct desk_rect){frame.x+frame.w-8-32*(int)control,frame.y+1,32,42};
+}
+unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y) {
+    for(unsigned control=DESKTOP_CLOSE;control<=(standard?DESKTOP_MINIMIZE:DESKTOP_CLOSE);control++) {
+        struct desk_rect r=desktop_window_control_rect(frame,control);
+        if(x>=r.x && x<r.x+r.w && y>=r.y && y<r.y+r.h) return control;
+    }
+    return 0;
+}
+static void window_control(struct desk_canvas *c,struct desk_rect frame,unsigned control,int restored,int focused) {
+    struct desk_rect hit=desktop_window_control_rect(frame,control);
+    struct desk_rect box={hit.x+2,hit.y+5,28,30};
+    uint32_t ink=focused?0x46574b:0x646b65,bg=focused?0xfaf9f6:0xf1f0eb;
+    desk_fill(c,box,focused?0x9ca99b:0xb2baaf);
+    desk_fill(c,desk_widget_inset(box,1),bg);
+    int x=hit.x+9,y=hit.y+14;
+    if(control==DESKTOP_MINIMIZE) desk_fill(c,(struct desk_rect){x,y+10,14,2},ink);
+    else if(control==DESKTOP_MAXIMIZE) {
+        if(restored) {
+            desk_fill(c,(struct desk_rect){x+3,y-3,12,11},ink);
+            desk_fill(c,(struct desk_rect){x+5,y-1,8,7},bg);
+        }
+        desk_fill(c,(struct desk_rect){x,y,14,12},ink);
+        desk_fill(c,(struct desk_rect){x+2,y+3,10,7},bg);
+    } else for(int n=0;n<10;n++) {
+        desk_fill(c,(struct desk_rect){x+2+n,y+1+n,2,2},ink);
+        desk_fill(c,(struct desk_rect){x+11-n,y+1+n,2,2},ink);
+    }
+}
+static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int focused,int standard) {
     if (!w->visible || w->minimized) return;
     struct desk_rect r=w->frame;
     desk_fill(c,(struct desk_rect){r.x+5,r.y+7,r.w,r.h},0xb9c2b4);
@@ -104,16 +135,11 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
     desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,r.h-2},0xfaf9f6);
     desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,42},focused?0xe7ebe2:0xf1f0eb);
     struct desk_rect clip=c->clip;
-    desk_clip(c,desk_intersect(clip,(struct desk_rect){r.x+16,r.y+1,r.w-(w->application?126:62),41}));
-    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(w->application?128:64),24},&desk_font_16,w->title,0x292e2b);
+    desk_clip(c,desk_intersect(clip,(struct desk_rect){r.x+16,r.y+1,r.w-(standard?126:62),41}));
+    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(standard?128:64),24},&desk_font_16,w->title,0x292e2b);
     c->clip=clip;
-    desk_text(c,&desk_font_16,r.x+r.w-30,r.y+12,"×",0x646b65);
-    if(w->application) {
-        desk_fill(c,(struct desk_rect){r.x+r.w-91,r.y+24,12,1},0x646b65);
-        desk_fill(c,(struct desk_rect){r.x+r.w-59,r.y+16,12,10},0x646b65);
-        desk_fill(c,(struct desk_rect){r.x+r.w-58,r.y+18,10,7},focused?0xe7ebe2:0xf1f0eb);
-        if(w->maximized) desk_fill(c,(struct desk_rect){r.x+r.w-56,r.y+13,12,1},0x646b65);
-    }
+    for(unsigned control=DESKTOP_CLOSE;control<=(standard?DESKTOP_MINIMIZE:DESKTOP_CLOSE);control++)
+        window_control(c,r,control,w->maximized,focused);
     desk_fill(c,(struct desk_rect){r.x+1,r.y+43,r.w-2,1},0xd9ddd5);
     if (w->pixels) {
         struct desk_rect content={r.x+1,r.y+44,w->width,w->height};
@@ -189,7 +215,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
             desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);
     }
     int order[DESKD_WINDOWS];desktop_stack(s,order);
-    for(int n=0;n<DESKD_WINDOWS;n++) draw_window(c,&s->windows[order[n]],order[n]==s->focus);
+    for(int n=0;n<DESKD_WINDOWS;n++) draw_window(c,&s->windows[order[n]],order[n]==s->focus,s->apps);
     if(s->apps) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);

@@ -34,6 +34,9 @@ struct desktop_scene {
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
+enum desktop_window_control { DESKTOP_CLOSE=1,DESKTOP_MAXIMIZE,DESKTOP_MINIMIZE };
+struct desk_rect desktop_window_control_rect(struct desk_rect frame,unsigned control);
+unsigned desktop_titlebar_hit(struct desk_rect frame,int standard,int x,int y);
 enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER };
 /* Pure geometry: keep decorated windows below the menu and above the dock,
  * honor client surface bounds, and leave output unchanged if there is no room. */

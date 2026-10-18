@@ -2204,7 +2204,7 @@ $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) 
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
 
 test-desktop: build/tests/desktop-scene-host$(HOST_EXE)
-build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
+build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c shared/include/srvros/desktop_protocol.h userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c $(DESKD_NOTICE_SRC) userspace/deskd/menus.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 

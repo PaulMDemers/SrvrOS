@@ -1496,3 +1496,29 @@ has been installed and no reboot is scheduled.
 The 512 MiB QEMU capacity regression also passed with all eight client slots:
 ninth launch refusal, slot reuse, exact saved text, screenshot creation and
 process cleanup back to baseline. Evidence is archived with the staged release.
+
+
+## Standard titlebar controls across apps
+
+The user clarified that maximize did not appear available outside Preview.
+The old titlebar drew very small glyphs and gated minimize/maximize drawing on
+the application ID, while input handling used desktop mode. This did not prove
+why a particular hardware window looked incomplete, but the two conditions were
+inconsistent. Standard desktop mode now determines control availability for
+every window, independently of app identity. Minimize, maximize/restore and close
+have distinct outlined buttons and stronger icons. Drawing and hit testing use
+one shared geometry helper. The global Window menu now says Maximize instead
+of Zoom, and Help explains the button order and restore behavior.
+
+The production build, desktop host suite and Help tests passed. The scene test
+now checks titlebar hit regions and uses the shared surface bounds for placement
+assertions. Its missing protocol-header build dependency was added so changes
+to those limits cannot leave this test using an old binary. A new VM regression
+clicks maximize/restore/close in each of the 12 application types, checks exact
+frame geometry and matching client surface commits, and saves normal/maximized
+screenshots. All 12 apps passed in the 1440x900 VM: Text, Files, Calculator,
+System, Settings, Terminal, Preview, Help, Clock, Sketch, Network Utility and
+Find Files. Normal Text and Settings screenshots were visually inspected.
+Candidate **c8715a60f16075dd** is staged; evidence is archived in
+`build/native-desktop-trials/c8715a60f16075dd/`. It supersedes the staged
+maximize-only candidate. No new installation or reboot was performed.

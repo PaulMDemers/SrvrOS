@@ -359,7 +359,7 @@ static void global_menu_rebuild(struct session *s) {
     items[count++]=(struct desk_menu_item){GLOBAL_CENTER,disabled,"Center","Cmd-Alt-Up"};
     items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
     items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize",""};
-    items[count]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Zoom","Cmd-Alt-Down"};
+    items[count]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Maximize","Cmd-Alt-Down"};
     if(s->scene.focus>=0 && s->scene.windows[s->scene.focus].maximized) strcpy(items[count].label,"Restore size");
     count++;
     items[count++]=(struct desk_menu_item){GLOBAL_NEXT,disabled,"Next window","Alt-Tab"};
@@ -1218,9 +1218,10 @@ int main(int argc,char **argv) {
                 if (i>=0) {
                     if (s.scene.focus!=i && io_trial_active(&s.io)) s.io.focus_changes++;
                     focus(&s,i); struct desk_rect w=s.scene.windows[i].frame;
-                    if (x>=w.x+w.w-40 && y<w.y+43) request_close(&s,i);
-                    else if (apps && x>=w.x+w.w-72 && y<w.y+43) { maximize(&s,i);s.pointer_blocked=1; }
-                    else if (apps && x>=w.x+w.w-104 && y<w.y+43) { minimize(&s,i);s.pointer_blocked=1; }
+                    unsigned control=desktop_titlebar_hit(w,apps,x,y);
+                    if (control==DESKTOP_CLOSE) request_close(&s,i);
+                    else if (control==DESKTOP_MAXIMIZE) { maximize(&s,i);s.pointer_blocked=1; }
+                    else if (control==DESKTOP_MINIMIZE) { minimize(&s,i);s.pointer_blocked=1; }
                     else if (!s.scene.windows[i].maximized && x>=w.x+w.w-24 && y>=w.y+w.h-24) resize=i;
                     else if (!s.scene.windows[i].maximized && y<w.y+43) { drag=i; grabx=x-w.x; graby=y-w.y; }
                 }

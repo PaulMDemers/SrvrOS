@@ -31,7 +31,7 @@ Mac keyboard's Command key, or the Meta/Windows key in a VM.
 | Navigate menus | F10, arrows, Enter, Escape |
 | Tile left / right | Command-Alt-Left / Right |
 | Center at the original normal size | Command-Alt-Up |
-| Zoom / restore original geometry | Command-Alt-Down |
+| Maximize / restore original geometry | Command-Alt-Down |
 | Save a screenshot | Command-Shift-3 |
 | Open Alerts | Command-Shift-N |
 | Open contextual Help | F1 |
@@ -284,3 +284,9 @@ position and size. Preview's Fit/1:1 controls affect the image inside that windo
 independently. Shared client surfaces are capped at 1440x900; the kernel pixel
 budget derives from the same constants. Larger screens still respect that cap.
 Compositor caches remain preallocated, so resizing adds no cache allocations.
+
+All standard desktop windows draw the same three outlined titlebar buttons:
+minimize, maximize/restore and close, from left to right. Their visibility depends
+on desktop mode, not an application catalog ID. Drawing and hit testing share
+the control rectangles. Window > Maximize (or Restore size) exposes the same
+action for the active app.
