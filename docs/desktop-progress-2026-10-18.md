@@ -491,3 +491,21 @@ and root enumeration tests passed. The QEMU Files workflow passes Places,
 Back/Forward/branching, failed-path recovery, normalization, refresh and all prior
 rename/duplicate/delete checks. The final layout screenshot was inspected and
 updated at `native-desktop-files.png`.
+
+### Shared search bar and Text search
+
+Text now supports incremental search, Previous/Next, one wrap around the document,
+ASCII case-insensitive or exact matching, and a modeless shared search bar.
+Ctrl-F opens/focuses it; Ctrl-G/Shift-Ctrl-G and F3/Shift-F3 repeat a search even
+after closing the bar. Clicking the document restores editing while the bar stays
+visible. Opening a file picker or modal dialog closes search and retains the query.
+Deferred clipboard mutations recheck the bar's lifetime/focus and cannot spill
+into the document.
+
+The toolkit separates `desk_searchbar` interaction from the read-only
+`desk_text_find` model. Focused host tests include 20,000 reference comparisons,
+UTF-8 boundaries, directions/wrapping, case rules, query validation, controller
+focus ownership and delayed clipboard isolation. Search ASan/UBSan passed.
+The QEMU workflow passed incremental, next/previous, case and wrapped searches,
+query clipboard transfer, hidden-bar repeat, document editing, picker isolation,
+and exact saved-document readback.

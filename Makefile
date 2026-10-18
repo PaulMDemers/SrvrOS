@@ -2294,7 +2294,7 @@ build/tests/clipboard-host$(HOST_EXE): tools/test_clipboard.c userspace/deskd/cl
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include tools/test_clipboard.c userspace/deskd/clipboard.c userspace/lib/src/desk_clipboard.c -o $@
 
 test-desktop: build/tests/tool-clipboard-host$(HOST_EXE)
-build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+build/tests/tool-clipboard-host$(HOST_EXE): tools/test_tool_clipboard.c userspace/desktools/app.h userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tool_clipboard.c userspace/desktools/clipboard.c userspace/lib/src/desk_clipboard.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
@@ -2511,3 +2511,15 @@ build/tests/palette-host$(HOST_EXE): tools/test_palette.c $(DESK_WIDGETS_SRC) $(
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_palette.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-widgets: test-palette
+
+.PHONY: test-search
+test-search: build/tests/search-host$(HOST_EXE) build/tests/tool-search-host$(HOST_EXE)
+	build/tests/search-host$(HOST_EXE)
+	build/tests/tool-search-host$(HOST_EXE)
+build/tests/search-host$(HOST_EXE): tools/test_search.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+build/tests/tool-search-host$(HOST_EXE): tools/test_tool_search.c userspace/desktools/search.c userspace/desktools/app.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-widgets: test-search

@@ -5,6 +5,7 @@
 static struct tool t;
 static int fail_start,cancels,opened,saved,requested,clipboard_target;
 static char destination[DESK_FILE_PATH];
+void tool_text_search_close(struct tool *tool) { (void)tool; }
 void srv_puts(const char *s) { (void)s; }
 void tool_status(struct tool *tool,const char *s) { snprintf(tool->status,sizeof(tool->status),"%s",s); }
 int desk_app_cancel_close(struct desk_app *app) { (void)app;cancels++;return 0; }

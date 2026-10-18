@@ -280,3 +280,18 @@ The compositor uses this for Command-Space application/window search. Open windo
 use process identities; application entries explicitly launch a new instance.
 Opening suspends client focus, cancel restores it, and outside clicks are consumed
 through release. The query shares the desktop clipboard with applications.
+
+## Search bars and text search
+
+`desk_searchbar.h` is a modeless single-line query with Previous/Next, a case
+checkbox, and Close. It returns commands and editing/clipboard flags; the owner
+controls focus between bar and document and supplies result feedback. Enter and
+Shift-Enter request forward/backward search; Escape closes. The compact 72-pixel
+layout fits the editor's minimum width and preserves parent clips.
+
+`desk_text_find` searches UTF-8 byte boundaries in either direction, wrapping once
+and reporting whether it wrapped. Case-insensitive matching folds ASCII only;
+other Unicode bytes compare exactly. It changes neither the document nor its undo
+history. Text uses the bar with Ctrl-F, Ctrl-G/Shift-Ctrl-G and F3/Shift-F3; repeat
+search also works after the bar closes. File pickers and modal dialogs close the
+bar while retaining its query. Clipboard results recheck its lifetime and focus.

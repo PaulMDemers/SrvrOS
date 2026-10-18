@@ -28,4 +28,10 @@ size_t desk_text_line_start(const struct desk_text_buffer *text,size_t position)
 size_t desk_text_line_end(const struct desk_text_buffer *text,size_t position);
 size_t desk_text_line_count(const struct desk_text_buffer *text);
 int desk_text_utf8_valid(const char *data,size_t length);
+struct desk_text_match { size_t start,end;int wrapped; };
+/* One circular search from a byte position. Backwards chooses a match strictly
+ * before from; forward includes from. ASCII-only case folding; other UTF-8 bytes
+ * compare exactly. Returns 1 found, 0 absent/empty query, -1 invalid input. */
+int desk_text_find(const struct desk_text_buffer *text,const char *query,size_t length,
+    size_t from,int backwards,int match_case,struct desk_text_match *match);
 #endif

@@ -16,6 +16,7 @@ static void open_failed(struct tool *t,const char *message) {
 void tool_picker_open(struct tool *t,int mode) {
     if(t->job.busy || t->modal || t->picker_mode) return;
     if(!t->worker_ready) { open_failed(t,"The file worker is unavailable. Your document was kept.");return; }
+    tool_text_search_close(t);
     char folder[DESK_FILE_PATH],name[DESK_PICKER_NAME];
     const char *candidate=t->path_text.data;
     snprintf(folder,sizeof(folder),"%s",candidate[0]=='/'?candidate:"/fat/Untitled.txt");

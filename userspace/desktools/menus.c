@@ -3,6 +3,7 @@
 enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
     if(t->modal || t->picker_mode || t->prompt_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
+    if(t->search_open && t->search_focus) { *id=TOOL_FIND_QUERY;return &t->search.query; }
     struct desk_control *c=&t->ui.controls[t->ui.focus];
     if(c->kind!=DESK_CONTROL_EDIT || !((struct desk_edit *)c->state)->enabled) return NULL;
     *id=c->id;return c->state;
@@ -46,7 +47,13 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
         append(items,&count,MENU_EDIT+DESK_EDIT_SELECT_ALL,"Select all","Ctrl-A",disabled);
     }
-    if(t->role==DESK_APP_FILES) {
+    if(t->role==DESK_APP_TEXT) {
+        append(items,&count,0,"Search",NULL,DESK_MENU_HEADING);
+        append(items,&count,TOOL_FIND,"Find…","Ctrl-F",busy);
+        append(items,&count,TOOL_FIND_NEXT,"Find next","Ctrl-G",busy);
+        append(items,&count,TOOL_FIND_PREVIOUS,"Find previous","Ctrl-Shift-G",busy);
+        append(items,&count,TOOL_FIND_CLOSE,"Close search","Esc",blocked|(!t->search_open?DESK_MENU_DISABLED:0));
+    } else if(t->role==DESK_APP_FILES) {
         append(items,&count,0,"Go",NULL,DESK_MENU_HEADING);
         append(items,&count,TOOL_BACK,"Back","Alt-Left",busy|(t->location_index<=0?DESK_MENU_DISABLED:0));
         append(items,&count,TOOL_FORWARD,"Forward","Alt-Right",busy|(t->location_index+1>=t->location_count?DESK_MENU_DISABLED:0));

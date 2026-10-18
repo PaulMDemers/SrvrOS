@@ -55,5 +55,11 @@ int main(void) {
     tool_clipboard_action(t,(struct desk_action){TOOL_PROMPT,DESK_EDIT_CUT});t->prompt_mode=0;copy_done(0);assert(!strcmp(t->prompt.text.data,"kept.txt"));
     tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_CUT});t->prompt_mode=DESK_FILE_RENAME;copy_done(0);assert(!strcmp(t->body_text.data,"new text"));
     tool_clipboard_action(t,(struct desk_action){TOOL_PROMPT,DESK_EDIT_CUT});copy_done(0);assert(!t->prompt.text.length);
+    t->prompt_mode=0;t->role=DESK_APP_TEXT;desk_searchbar_init(&t->search);desk_searchbar_configure(&t->search,(struct desk_rect){0,0,600,72},1);
+    assert(!desk_searchbar_open(&t->search,"needle"));t->search_open=t->search_focus=1;
+    tool_clipboard_action(t,(struct desk_action){TOOL_FIND_QUERY,DESK_EDIT_CUT});t->search_open=0;copy_done(0);assert(!strcmp(t->search.text.data,"needle"));
+    t->search_open=1;tool_clipboard_action(t,(struct desk_action){TOOL_FIND_QUERY,DESK_EDIT_CUT});t->search_focus=0;copy_done(0);assert(!strcmp(t->search.text.data,"needle"));
+    tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_CUT});t->search_focus=1;copy_done(0);assert(!strcmp(t->body_text.data,"new text"));
+    tool_clipboard_action(t,(struct desk_action){TOOL_FIND_QUERY,DESK_EDIT_CUT});copy_done(0);assert(!t->search.text.length);
     puts("tool-clipboard: PASS acknowledged cut, failure retention, revision guard, undo, paste, single-line/UTF-8 validation and modal isolation");
 }

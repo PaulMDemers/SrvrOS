@@ -16,7 +16,7 @@ void tool_launch(struct tool *t,int application,const char *path) {
     if(desk_app_launch(&t->window,application,path)) tool_status(t,"The application could not be opened. Try again.");
 }
 void tool_dialog(struct tool *t,int mode) {
-    t->modal=mode;desk_ui_window_focus(&t->ui,0);
+    tool_text_search_close(t);t->modal=mode;desk_ui_window_focus(&t->ui,0);
     struct desk_dialog_choice choices[]={ {1001,"Save",1},{1002,"Discard",1},{1003,"Cancel",1} };
     if(mode==2) { strcpy(choices[0].label,"Replace");choices[1]=choices[2]; }
     desk_dialog_open(&t->dialog,mode==2?"Replace this file?":"Save your changes?",
@@ -32,7 +32,9 @@ void tool_layout(struct tool *t) {
     if(t->role==DESK_APP_TEXT) {
         for(int i=0;i<3;i++) desk_button_configure(&t->buttons[i],(struct desk_rect){16+i*84,16,76,28},!busy);
         desk_edit_configure(&t->path,(struct desk_rect){16,56,w-32,34},&desk_font_16,!read_busy && (t->role==DESK_APP_TEXT || !busy));
-        desk_edit_configure(&t->body,(struct desk_rect){16,102,w-32,h-144},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
+        int search=t->search_open?80:0;
+        if(t->search_open) desk_searchbar_configure(&t->search,(struct desk_rect){16,102,w-32,72},!read_busy);
+        desk_edit_configure(&t->body,(struct desk_rect){16,102+search,w-32,h-144-search},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
     } else if(t->role==DESK_APP_FILES) tool_files_layout(t);
     else if(t->role==DESK_APP_CALCULATOR) {
         desk_edit_configure(&t->body,(struct desk_rect){24,56,w-48,38},&desk_font_20,1);
@@ -86,9 +88,11 @@ static void key(struct tool *t,const struct srv_key_event *k) {
             if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
         }
         if(t->role==DESK_APP_TEXT) {
+            if(k->usage==0x09) { tool_text_search_open(t);return; }
+            if(k->usage==0x0a) { tool_text_search_step(t,(k->modifiers&SRV_KEY_SHIFT)!=0,0);return; }
             if(k->usage==0x16) { tool_text_save(t,(k->modifiers&SRV_KEY_SHIFT)!=0);return; }
             if(k->usage==0x12) { tool_picker_open(t,DESK_PICKER_OPEN);return; }
-            if(k->usage==0x0f) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
+            if(k->usage==0x0f) { t->search_focus=0;tool_content_focus(t,t->window.focused);desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x11) { tool_text_request(t,TOOL_PENDING_NEW);return; }
         }
     }
@@ -102,12 +106,18 @@ static void key(struct tool *t,const struct srv_key_event *k) {
     }
     if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==SRV_KEY_F5) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
     if(t->role==DESK_APP_SYSTEM && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==0x3e) { tool_system_refresh(t,1);return; }
+    if(t->role==DESK_APP_TEXT) {
+        if((k->flags&SRV_KEY_DOWN_EVENT) && k->usage==0x3c) { tool_text_search_step(t,(k->modifiers&SRV_KEY_SHIFT)!=0,0);return; }
+        if(t->search_open && (k->flags&SRV_KEY_DOWN_EVENT) && k->usage==SRV_KEY_ESCAPE) { tool_text_search_close(t);return; }
+        if(t->search_open && t->search_focus) { tool_text_search_action(t,desk_searchbar_key(&t->search,k));return; }
+    }
     tool_dispatch(t,desk_ui_key(&t->ui,k));
 }
 static void draw(struct tool *t,struct desk_canvas *c) {
     const struct desk_theme *theme=&desk_theme_quiet;
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},theme->surface);
     if(t->role==DESK_APP_SETTINGS) tool_settings_draw(t,c);else if(t->role==DESK_APP_FILES) tool_files_draw(t,c);else desk_ui_draw(c,&t->ui,theme);
+    if(t->search_open) desk_searchbar_draw(c,&t->search,theme);
     if(t->role==DESK_APP_CALCULATOR) {
         desk_label_draw(c,(struct desk_rect){24,20,c->width-48,28},theme->heading,"Calculator",theme->text);
         desk_label_draw(c,(struct desk_rect){24,164,c->width-48,28},theme->body,"Use +, -, *, / and parentheses. Enter evaluates.",theme->muted);
@@ -157,7 +167,7 @@ int main(int argc,char **argv) {
                 }
             } else if(p.type==DESK_FOCUS) {
                 if(t->role==DESK_APP_SETTINGS && !p.value) tool_settings_pointer(t,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL});
-                if(t->prompt_mode) desk_prompt_focus(&t->prompt,p.value!=0);else if(t->picker_mode) desk_picker_focus(&t->picker,p.value!=0);else if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else desk_ui_window_focus(&t->ui,p.value!=0);t->window.dirty=1;
+                if(t->prompt_mode) desk_prompt_focus(&t->prompt,p.value!=0);else if(t->picker_mode) desk_picker_focus(&t->picker,p.value!=0);else if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else tool_content_focus(t,p.value!=0);t->window.dirty=1;
             } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
             else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
             else if(p.type==DESK_POINTER) {
@@ -166,6 +176,11 @@ int main(int argc,char **argv) {
                 if(t->role==DESK_APP_SETTINGS && tool_settings_pointer(t,e)) continue;
                 if(t->prompt_mode) { tool_files_prompt(t,desk_prompt_pointer(&t->prompt,e,srv_monotonic_us()));continue; }
                 if(t->picker_mode) { tool_picker_result(t,desk_picker_pointer(&t->picker,e,srv_monotonic_us()));continue; }
+                if(t->search_open && !t->modal) {
+                    if(e.type==DESK_WIDGET_CANCEL) tool_text_search_action(t,desk_searchbar_pointer(&t->search,e,srv_monotonic_us()));
+                    if(e.pressed) { t->search_focus=desk_widget_contains(t->search.frame,e.x,e.y);tool_content_focus(t,t->window.focused); }
+                    if(t->search_focus) { tool_text_search_action(t,desk_searchbar_pointer(&t->search,e,srv_monotonic_us()));continue; }
+                }
                 struct desk_action a=t->modal?desk_dialog_pointer(&t->dialog,e,srv_monotonic_us()):desk_ui_pointer(&t->ui,e,srv_monotonic_us());
                 if(t->modal) { if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;if(a.flags&DESK_WIDGET_ACTIVATED) { if(t->role==DESK_APP_FILES) tool_files_dialog(t,a.id);else tool_text_dialog(t,a.id); } }
                 else tool_dispatch(t,a);

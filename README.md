@@ -20,6 +20,7 @@ provides the same launcher. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
 files up to 64 KiB, and confirmed permanent deletion. System shows live process
 and memory information; Settings saves text, color and clock preferences.
+Text includes a modeless Find bar, next/previous search and shared clipboard.
 Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented
 behavior, VM checks and remaining limitations. The accepted MacBook Air input/I/O

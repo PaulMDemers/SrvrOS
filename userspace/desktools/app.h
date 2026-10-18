@@ -4,12 +4,13 @@
 #include <srvros/desk_ui.h>
 #include <srvros/desk_dialog.h>
 #include <srvros/desk_prompt.h>
+#include <srvros/desk_searchbar.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
-enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT };
+enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 #define TOOL_HISTORY 24
@@ -20,6 +21,8 @@ struct tool {
     struct desk_ui ui;
     struct desk_dialog dialog;
     struct desk_prompt prompt;
+    struct desk_searchbar search;
+    int search_open,search_focus;
     int prompt_mode;
     struct desk_file_entry file_selected;
     char file_source[DESK_FILE_PATH],file_select_name[96],file_notice[80];
@@ -86,6 +89,11 @@ void tool_status(struct tool *tool,const char *message);
 int tool_modified(const struct tool *tool);
 void tool_dialog(struct tool *tool,int mode);
 void tool_layout(struct tool *tool);
+void tool_content_focus(struct tool *tool,int active);
+void tool_text_search_open(struct tool *tool);
+void tool_text_search_close(struct tool *tool);
+void tool_text_search_step(struct tool *tool,int backwards,int restart);
+void tool_text_search_action(struct tool *tool,struct desk_action action);
 void tool_text_init(struct tool *tool,const char *path);
 void tool_text_action(struct tool *tool,struct desk_action action);
 void tool_text_finish(struct tool *tool,int result);

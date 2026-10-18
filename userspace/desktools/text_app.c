@@ -36,6 +36,7 @@ static void continue_action(struct tool *t) {
     if(pending==TOOL_PENDING_CLOSE) { t->quit=1;return; }
     if(pending==TOOL_PENDING_OPEN) { load(t,t->pending_path);return; }
     if(pending==TOOL_PENDING_NEW) {
+        tool_text_search_close(t);
         desk_text_buffer_set(&t->body_text,"",0);desk_text_buffer_set(&t->path_text,"/fat/Untitled.txt",17);
         t->saved_path[0]=t->saved_data[0]=0;t->saved_length=0;t->saved_crc=0;
         t->body.scroll_x=t->body.scroll_y=0;t->title_dirty=1;
@@ -43,6 +44,7 @@ static void continue_action(struct tool *t) {
     }
 }
 void tool_text_init(struct tool *t,const char *path) {
+    desk_searchbar_init(&t->search);
     desk_text_buffer_set(&t->path_text,"/fat/Untitled.txt",17);
     desk_ui_add(&t->ui,TOOL_NEW,DESK_CONTROL_BUTTON,&t->buttons[0],"New");
     desk_ui_add(&t->ui,TOOL_OPEN,DESK_CONTROL_BUTTON,&t->buttons[1],"Open");
@@ -70,6 +72,12 @@ void tool_text_request(struct tool *t,int pending) {
     if(tool_modified(t)) tool_dialog(t,1);else continue_action(t);
 }
 void tool_text_action(struct tool *t,struct desk_action a) {
+    if(a.id==TOOL_FIND_QUERY && (a.flags&DESK_WIDGET_CHANGED)) tool_text_search_step(t,0,1);
+    if(a.flags&DESK_WIDGET_ACTIVATED) {
+        if(a.id==TOOL_FIND) tool_text_search_open(t);
+        if(a.id==TOOL_FIND_NEXT || a.id==TOOL_FIND_PREVIOUS) tool_text_search_step(t,a.id==TOOL_FIND_PREVIOUS,0);
+        if(a.id==TOOL_FIND_CLOSE) tool_text_search_close(t);
+    }
     if(a.id==TOOL_BODY && (a.flags&DESK_WIDGET_CHANGED)) {
         t->title_dirty=1;tool_status(t,"Edited. Ctrl-S saves the current document.");
     }
@@ -105,6 +113,7 @@ void tool_text_finish(struct tool *t,int result) {
         cancel_pending(t);tool_layout(t);return;
     }
     if(operation==DESK_FILE_READ) {
+        tool_text_search_close(t);
         if(desk_text_buffer_set(&t->body_text,(const char *)t->job.incoming,t->job.response.length)<0) {
             tool_status(t,"This file is not supported UTF-8 text. The current document was kept.");cancel_pending(t);tool_layout(t);return;
         }
