@@ -1398,3 +1398,24 @@ without rebooting. Production build and 20 boot-tool tests passed. The release
 is installed as current, with **f05dfcc01c28dc85** retained as recovery. The user
 has authorized the one-time automatic capture boot; physical results are pending.
 Evidence: `build/native-desktop-trials/8d348e2935c28972/`.
+
+
+Physical capture **8d348e2935c28972** is now recovered. The single new session
+`session-00065e22393276ae-00` has verified boot/exit files, the expected release,
+the diagnostics-collected marker and zero collector attention markers. Its exit
+snapshot precedes final flush/unmount/reset, so those later actions are not
+independently present in the saved transcript. No desktop ran; gesture and
+acceleration acceptance remains pending.
+
+The exact firmware/resource checks succeeded on hardware. SCI_EN and the EC GPE
+enable were both zero. Backlight control was PCH override (`0xc0000000`) with CPU
+PWM disabled and duty 388 of period 2777. The next brightness implementation can
+target this observed mode while preserving period/control bits and validating
+readback. Battery/AC reporting needs ACPI initialization and SCI/EC event ownership
+before binding the tested transport. Full readings and implications are recorded
+in `docs/macbook-air-laptop-services-2026-10-18.md`.
+
+Physical evidence is archived under
+`build/native-desktop-trials/8d348e2935c28972/physical-collection/`; the host pending
+record now says `capture-recovered`. No new installation or reboot was performed
+during collection.

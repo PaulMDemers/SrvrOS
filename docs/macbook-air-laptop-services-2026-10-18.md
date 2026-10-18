@@ -175,3 +175,38 @@ work is firmware initialization/event integration, a scheduled cached SBS
 provider, and a mode-preserving backlight provider followed by their UI controls.
 The new USB boot/session logs make the next physical preflight recoverable without
 relying on a short photograph window.
+
+
+## Physical preflight recovered after automatic return
+
+Release **8d348e2935c28972** produced boot and exit snapshots on the real USB
+volume, recovered and hash-verified after the user returned to Ubuntu. The saved
+exit snapshot includes the expected release and diagnostics-collected marker;
+no error markers were found. It ends before the final flush/unmount/reset, so the
+file alone does not independently record those later steps. The automatic code
+path requests reset only after successful save and unmount. No desktop was opened
+and physical input acceptance remains pending.
+
+| Reading | Observed value |
+| --- | --- |
+| PM1 control / SCI_EN | `0x0000` / disabled |
+| EC status / EC GPE enable | `0x00` / disabled |
+| CPU PWM control / duty | `0x00000000` / `0x00000000` |
+| PCH PWM control | `0xc0000000` (enabled, PCH override) |
+| PCH period/duty | `0x0ad90184`: period 2777, duty 388 |
+
+The current duty is about 14% of the PWM period; that is a register ratio, not
+perceptual brightness. This resolves the backlight control-path question for this
+boot. Brightness bring-up should preserve the current mode, period, polarity and
+reserved bits, expose a bounded nonzero range, verify readback and stop on changed
+controller state. Initializing the desktop must not itself change panel brightness.
+Do not switch to CPU PWM or infer a different panel's register programming.
+
+For battery/AC, SCI_EN=0 means the native boot has not entered ACPI mode. The EC
+status byte being clear does not prove exclusive ownership or initialized SMBus.
+Resolve ACPI namespace initialization, SCI/query dispatch and EC serialization
+before binding the read-word engine. The evidence favors implementing the needed
+AML/SCI integration rather than treating the register inventory as a battery driver.
+
+Collected evidence: `build/desktop-collections/collection-daf5ezhd/`, also retained
+under `build/native-desktop-trials/8d348e2935c28972/physical-collection/`.
