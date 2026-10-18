@@ -1389,3 +1389,12 @@ unmounts the USB workspace, then reboots. Any save/unmount/reboot failure halts
 with the error visible. Physical gesture/acceleration acceptance stays pending.
 The exact boot-profile VM regression covers successful file persistence plus
 reset, and a missing-workspace run must remain halted without resetting.
+
+
+Unattended release **8d348e2935c28972** passed the exact GRUB/UEFI VM capture:
+boot/exit log bytes and release identity survived, offline exFAT was clean, and
+the guest reset automatically. A separate missing-workspace VM remained halted
+without rebooting. Production build and 20 boot-tool tests passed. The release
+is installed as current, with **f05dfcc01c28dc85** retained as recovery. The user
+has authorized the one-time automatic capture boot; physical results are pending.
+Evidence: `build/native-desktop-trials/8d348e2935c28972/`.
