@@ -377,3 +377,25 @@ Validation: PMM range/overflow/alignment tests, focused VFS creation/access/writ
 utime/import tests, full core host suite, and exFAT failure/power-cut hardening
 passed. A fixed-RTC 512 MiB QEMU guest passed libc wall/monotonic checks, actual
 exFAT create/write/stat/utime/unlink checks, and a physical-RAM accounting bound.
+
+### Shared table and live System app
+
+Added `desk_table` to the widget archive and focus router: borrowed columns/rows,
+stable-ID selection across refresh/sort, fixed and remaining-space columns,
+right-aligned numbers, sorting requests/indicators, row navigation/typeahead,
+double-click, vertical scrolling, clipping, and keyboard heading navigation.
+F6 switches headings/rows; Left/Right and Enter/Space choose/apply a heading.
+Application code owns data access and ordering.
+
+System now shows a live process table and accurate physical-memory summary, with
+pause/resume, manual refresh, column sorting and corresponding global View menu
+commands. The process ABI appends parent PID and private mapped-user-page bytes;
+size-negotiated copying retains compatibility with the previous shorter record.
+The UI labels process mode and mapped pages explicitly rather than inventing CPU
+usage or presenting shared surface memory as per-process private memory.
+
+Validation: table/controller tests, table ASan/UBSan, full core and desktop host
+suites passed. A 512 MiB QEMU workflow passed heading clicks/keyboard sorting,
+pause/manual refresh/resume, resize/row navigation, global View commands, and a
+libc probe covering new process fields, old record bounds and invalid ABI input.
+Screenshots were inspected; the Parent column was widened after that review.

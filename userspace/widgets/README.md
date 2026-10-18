@@ -239,3 +239,16 @@ The asynchronous `desk_file_job` transport is in the shared userspace library
 preference owner use it to keep filesystem work out of their UI event loops.
 `desk_preferences` provides validated field merging, a bounded text format and
 fixed-offset clock formatting. These models perform no file operations.
+
+## Tables
+
+`desk_table.h` provides up to eight columns and 256 borrowed rows. Unique stable
+row IDs retain selection across data refreshes or application sorting. The first
+cell supplies row typeahead; arrows, Home/End and Page Up/Down navigate rows.
+Headings request sorting with `DESK_TABLE_SORT`; the app applies the order and
+resubmits rows. The control shows the selected sort column/direction. F6 switches
+between headings and rows; Left/Right chooses a heading and Enter/Space requests
+its sort. Tab continues normal control traversal. Fixed-width columns and
+remaining-space columns share one clipped viewport; narrow layouts clip trailing
+columns. The shared list navigation and scrollbar provide scrolling, double-click
+activation and capture cancellation without embedding a data source in the UI.

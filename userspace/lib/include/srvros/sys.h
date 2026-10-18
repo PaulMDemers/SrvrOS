@@ -17,6 +17,8 @@ struct srv_process_info {
     uint64_t pid;
     char name[64];
     char state[24];
+    uint64_t parent_pid;
+    uint64_t user_mapped_bytes; /* Private mapped user pages; excludes kernel and shared surfaces. */
 };
 
 struct srv_stat {

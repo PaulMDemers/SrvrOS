@@ -2455,3 +2455,19 @@ build/tests/vfs-time-host$(HOST_EXE): tools/test_vfs_time.c kernel/src/vfs.c $(K
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
 test-core: test-vfs-time
+
+.PHONY: test-table
+test-table: build/tests/table-host$(HOST_EXE)
+	$<
+build/tests/table-host$(HOST_EXE): tools/test_table.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_table.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-widgets: test-table
+
+.PHONY: test-system
+test-system: build/tests/system-host$(HOST_EXE)
+	$<
+build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/desktools/system.c userspace/desktools/app.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_system.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-desktop: test-system

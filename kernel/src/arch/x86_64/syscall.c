@@ -106,6 +106,8 @@ struct syscall_process_info {
     uint64_t pid;
     char name[64];
     char state[24];
+    uint64_t parent_pid;
+    uint64_t user_mapped_bytes; /* Private mapped user pages; excludes kernel and shared surfaces. */
 };
 
 struct syscall_pollfd {
@@ -1864,7 +1866,7 @@ static int64_t syscall_proc_list(uint64_t index, struct syscall_process_info *in
         .abi_version = SRV_ABI_VERSION,
         .struct_size = sizeof(copy),
     };
-    uint64_t next = process_list(index, &pid, &name, &state);
+    uint64_t next = process_list_details(index, &pid, &name, &state, &copy.parent_pid, &copy.user_mapped_bytes);
     if (next == 0) {
         return 0;
     }

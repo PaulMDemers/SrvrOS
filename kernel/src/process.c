@@ -2245,6 +2245,11 @@ uint64_t process_list(uint64_t start_index,
     uint64_t *pid_out,
     const char **name_out,
     const char **state_out) {
+    return process_list_details(start_index,pid_out,name_out,state_out,NULL,NULL);
+}
+
+uint64_t process_list_details(uint64_t start_index, uint64_t *pid_out,
+    const char **name_out, const char **state_out, uint64_t *parent_out, uint64_t *mapped_bytes_out) {
     for (uint64_t i = start_index; i < PROCESS_MAX_PROCESSES; i++) {
         if (processes[i].allocated) {
             if (pid_out != NULL) {
@@ -2256,6 +2261,8 @@ uint64_t process_list(uint64_t start_index,
             if (state_out != NULL) {
                 *state_out = process_state(&processes[i]);
             }
+            if(parent_out) *parent_out=processes[i].parent_pid;
+            if(mapped_bytes_out) *mapped_bytes_out=processes[i].mapping_count*PMM_FRAME_SIZE;
             return i + 1;
         }
     }

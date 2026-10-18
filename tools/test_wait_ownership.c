@@ -34,5 +34,11 @@ int main(void) {
     setup();caller=&processes[1];processes[2].reapable=false;processes[2].active=true;
     assert(process_wait(11,&status,true)==0); /* Live owned child. */
     caller=&processes[3];assert(process_wait(0,&status,true)==-1);
+    setup();strcpy(processes[1].name,"sample");processes[1].mapping_count=17;
+    uint64_t pid=0,parent=0,mapped=0;const char *name=NULL,*state=NULL;
+    assert(process_list_details(1,&pid,&name,&state,&parent,&mapped)==2);
+    assert(pid==10 && parent==1 && mapped==17*4096 && !strcmp(name,"sample") && !strcmp(state,"foreground"));
+    assert(process_list(2,&pid,&name,&state)==3 && pid==11 && !strcmp(state,"exited"));
+    assert(process_list_details(PROCESS_MAX_PROCESSES,&pid,&name,&state,&parent,&mapped)==0);
     puts("wait-ownership: PASS parent-only waits, init orphan adoption, live parent protection and kernel-owned task isolation");
 }

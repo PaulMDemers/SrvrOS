@@ -6,6 +6,7 @@ static int enabled(const struct desk_control *c) {
     case DESK_CONTROL_EDIT: return ((struct desk_edit *)c->state)->enabled;
     case DESK_CONTROL_LIST: return ((struct desk_list *)c->state)->enabled;
     case DESK_CONTROL_CHECK: return ((struct desk_check *)c->state)->button.enabled;
+    case DESK_CONTROL_TABLE: return ((struct desk_table *)c->state)->body.enabled;
     }
     return 0;
 }
@@ -15,6 +16,7 @@ static struct desk_rect frame(const struct desk_control *c) {
     case DESK_CONTROL_EDIT: return ((struct desk_edit *)c->state)->frame;
     case DESK_CONTROL_LIST: return ((struct desk_list *)c->state)->frame;
     case DESK_CONTROL_CHECK: return ((struct desk_check *)c->state)->button.frame;
+    case DESK_CONTROL_TABLE: return ((struct desk_table *)c->state)->frame;
     }
     return (struct desk_rect){0};
 }
@@ -24,12 +26,13 @@ static unsigned event(struct desk_control *c,struct desk_widget_event e,uint64_t
     case DESK_CONTROL_EDIT: return desk_edit_event(c->state,e);
     case DESK_CONTROL_LIST: return desk_list_event(c->state,e,time_us);
     case DESK_CONTROL_CHECK: return desk_check_event(c->state,e);
+    case DESK_CONTROL_TABLE: return desk_table_event(c->state,e,time_us);
     }
     return 0;
 }
 void desk_ui_init(struct desk_ui *ui) { *ui=(struct desk_ui){.focus=-1,.capture=-1,.active=1}; }
 int desk_ui_add(struct desk_ui *ui,unsigned id,enum desk_control_kind kind,void *state,const char *label) {
-    if(!id || !state || kind<DESK_CONTROL_BUTTON || kind>DESK_CONTROL_CHECK || ui->count==DESK_UI_MAX_CONTROLS) return -1;
+    if(!id || !state || kind<DESK_CONTROL_BUTTON || kind>DESK_CONTROL_TABLE || ui->count==DESK_UI_MAX_CONTROLS) return -1;
     for(unsigned i=0;i<ui->count;i++) if(ui->controls[i].id==id || ui->controls[i].state==state) return -1;
     ui->controls[ui->count++]=(struct desk_control){id,kind,state,label?label:""};return 0;
 }
@@ -115,6 +118,7 @@ struct desk_action desk_ui_key(struct desk_ui *ui,const struct srv_key_event *ke
         break;
     case DESK_CONTROL_EDIT: result.flags|=desk_edit_key(c->state,key);break;
     case DESK_CONTROL_LIST: result.flags|=desk_list_key(c->state,key);break;
+    case DESK_CONTROL_TABLE: result.flags|=desk_table_key(c->state,key);break;
     }
     return result;
 }
@@ -124,6 +128,7 @@ struct desk_action desk_ui_scroll(struct desk_ui *ui,int32_t x,int32_t y,int32_t
     struct desk_control *c=&ui->controls[i];result.id=c->id;
     if(c->kind==DESK_CONTROL_EDIT) result.flags=desk_edit_scroll(c->state,dx,dy);
     if(c->kind==DESK_CONTROL_LIST) result.flags=desk_list_scroll(c->state,dy);
+    if(c->kind==DESK_CONTROL_TABLE) result.flags=desk_table_scroll(c->state,dy);
     return result;
 }
 void desk_ui_draw(struct desk_canvas *canvas,const struct desk_ui *ui,const struct desk_theme *theme) {
@@ -134,6 +139,7 @@ void desk_ui_draw(struct desk_canvas *canvas,const struct desk_ui *ui,const stru
         case DESK_CONTROL_EDIT: desk_edit_draw(canvas,c->state,theme);break;
         case DESK_CONTROL_LIST: desk_list_draw(canvas,c->state,theme);break;
         case DESK_CONTROL_CHECK: desk_check_draw(canvas,c->state,c->label,theme);break;
+        case DESK_CONTROL_TABLE: desk_table_draw(canvas,c->state,theme);break;
         }
     }
 }

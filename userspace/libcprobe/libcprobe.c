@@ -8,6 +8,7 @@
 #include <time.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <srvros/sys.h>
 
 static int fail(const char *step) {
     printf("libcprobe: fail %s errno=%d\n", step, errno);
@@ -237,6 +238,23 @@ static int check_time_wchar(void) {
     return 0;
 }
 
+static int check_process_info(void) {
+    struct srv_process_info info;long index=0;int found=0;
+    while((index=srv_proc_list(index,&info))>0) if(info.pid==(uint64_t)getpid()) {
+        if(info.parent_pid!=(uint64_t)getppid() || !info.user_mapped_bytes || info.user_mapped_bytes%4096 ||
+            !memchr(info.name,0,sizeof(info.name)) || !memchr(info.state,0,sizeof(info.state))) return fail("process-details");
+        found=1;
+    }
+    if(index<0 || !found) return fail("process-list");
+    struct legacy_info { uint64_t abi_version,struct_size,pid;char name[64],state[24]; };
+    struct { struct legacy_info value;uint64_t guard; } old={.value={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(struct legacy_info)},.guard=0x123456789abcdef0ULL};
+    if(srv_syscall2(SYS_PROC_LIST,0,(long)&old.value)<=0 || old.guard!=0x123456789abcdef0ULL ||
+        !old.value.pid || old.value.struct_size!=sizeof(info)) return fail("process-legacy-size");
+    old.value.abi_version=UINT64_MAX;old.value.struct_size=sizeof(old.value);
+    if(srv_syscall2(SYS_PROC_LIST,0,(long)&old.value)!=-1 || old.guard!=0x123456789abcdef0ULL) return fail("process-bad-abi");
+    puts("libcprobe: process details and legacy-size ABI ok");return 0;
+}
+
 int main(void) {
     puts("libcprobe: start");
     if (check_string_helpers() != 0 ||
@@ -244,7 +262,8 @@ int main(void) {
         check_locale_helpers() != 0 ||
         check_stdio_lines() != 0 ||
         check_temp_env() != 0 ||
-        check_time_wchar() != 0) {
+        check_time_wchar() != 0 ||
+        check_process_info() != 0) {
         return 1;
     }
     puts("libcprobe: ok");

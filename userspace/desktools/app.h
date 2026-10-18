@@ -7,7 +7,9 @@
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
+#include <srvros/sys.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME };
+enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 struct tool {
     int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
@@ -25,6 +27,12 @@ struct tool {
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
+    struct desk_table table;
+    struct srv_process_info processes[DESK_TABLE_MAX_ROWS];
+    struct desk_table_row process_rows[DESK_TABLE_MAX_ROWS];
+    char process_numbers[DESK_TABLE_MAX_ROWS][3][24];
+    struct srv_meminfo system_memory;
+    int process_count,system_paused,system_memory_valid;
     struct desk_list list;
     struct desk_list_item items[DESK_FILE_ENTRIES];
     struct desk_file_entry entries[DESK_FILE_ENTRIES];
@@ -40,6 +48,11 @@ struct tool {
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_system_init(struct tool *tool);
+void tool_system_layout(struct tool *tool);
+void tool_system_refresh(struct tool *tool,int force);
+void tool_system_draw(struct tool *tool,struct desk_canvas *canvas);
+void tool_system_action(struct tool *tool,struct desk_action action);
 void tool_settings_init(struct tool *tool);
 void tool_settings_layout(struct tool *tool);
 void tool_settings_draw(struct tool *tool,struct desk_canvas *canvas);

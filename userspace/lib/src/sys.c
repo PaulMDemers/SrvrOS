@@ -364,6 +364,7 @@ long srv_execve(const char *path, char *const argv[], char *const envp[]) {
 
 long srv_proc_list(uint64_t index, struct srv_process_info *info) {
     if (info != NULL) {
+        *info = (struct srv_process_info){0};
         info->abi_version = SRV_ABI_VERSION;
         info->struct_size = sizeof(*info);
     }

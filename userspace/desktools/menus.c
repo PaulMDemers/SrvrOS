@@ -50,6 +50,10 @@ void tool_menu_refresh(struct tool *t) {
     } else if(t->role==DESK_APP_CALCULATOR) {
         append(items,&count,0,"Calculate",NULL,DESK_MENU_HEADING);
         append(items,&count,1,"Evaluate","Enter",blocked);append(items,&count,2,"Clear",NULL,blocked);
+    } else if(t->role==DESK_APP_SYSTEM) {
+        append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
+        append(items,&count,SYSTEM_PAUSE,t->system_paused?"Resume updates":"Pause updates",NULL,blocked);
+        append(items,&count,SYSTEM_REFRESH,"Refresh now","F5",blocked);
     } else if(t->role==DESK_APP_SETTINGS) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,MENU_STANDARD,"Standard text",NULL,blocked|(t->body_size==16?DESK_MENU_CHECKED:0));
