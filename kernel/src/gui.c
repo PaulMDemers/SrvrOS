@@ -1,4 +1,5 @@
 #include <srvros/gui.h>
+#include <srvros/keyboard.h>
 #include <srvros/heap.h>
 #include <srvros/process.h>
 #include <srvros/desktop_protocol.h>
@@ -122,6 +123,23 @@ static int64_t validate_surface_rect(const struct gui_surface *surface,
     return 0;
 }
 
+int64_t gui_keyboard_mode(uint64_t enabled) {
+    struct process *p=process_current();
+    uint64_t flags=irq_save();
+    int64_t result=-1;
+    if (p && server_pid && process_pid(p)==server_pid && enabled<=1) {
+        keyboard_set_event_mode(enabled!=0); result=0;
+    }
+    irq_restore(flags); return result;
+}
+int64_t gui_keyboard_read(struct srv_key_event *event) {
+    struct process *p=process_current();
+    uint64_t flags=irq_save();
+    int64_t result=-1;
+    if (p && server_pid && process_pid(p)==server_pid)
+        result=keyboard_read_event(event)?1:0;
+    irq_restore(flags); return result;
+}
 int64_t gui_register_server(void) {
     struct process *process = process_current();
     uint64_t flags;
@@ -373,6 +391,7 @@ void gui_process_cleanup(uint64_t pid) {
         }
     }
     if (server_pid == pid) {
+        keyboard_set_event_mode(false);
         server_pid = 0;
         /* The server's receive queue is gone. Owners can reclaim outstanding
          * buffers after detecting its death; no old server can acknowledge. */

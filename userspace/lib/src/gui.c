@@ -4,6 +4,14 @@
 int gui_register_server(void) {
     return (int)srv_syscall0(SYS_GUI_REGISTER);
 }
+int gui_keyboard_mode(int enabled) {
+    return (int)srv_syscall1(SYS_GUI_KEYBOARD_MODE,enabled);
+}
+int gui_keyboard_read(struct srv_key_event *event) {
+    if (!event) return -1;
+    event->abi_version=SRV_KEY_EVENT_VERSION; event->struct_size=sizeof(*event);
+    return (int)srv_syscall1(SYS_GUI_KEYBOARD_READ,(long)event);
+}
 
 int gui_send(const struct gui_message *message) {
     if (message == 0) {

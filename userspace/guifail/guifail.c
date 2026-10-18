@@ -1,6 +1,7 @@
 #include <srvros/gfx.h>
 #include <srvros/gui2.h>
 #include <srvros/sys.h>
+#include <srvros/desk_log.h>
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -58,6 +59,24 @@ static void draw_app(struct gui2_window *window, const char *mode) {
 }
 
 int main(int argc, char **argv) {
+    if (argc==2 && streq(argv[1],"--keyboard-events")) {
+        if (gui_keyboard_mode(1)!=-1 || gui_register_server()!=0 || gui_keyboard_mode(1)!=0) return 1;
+        srv_puts("guifail: keyboard-events ready\n");
+        uint64_t start=srv_ticks();
+        while ((uint64_t)srv_ticks()-start<3000) {
+            struct srv_key_event e;
+            if (gui_keyboard_read(&e)==1) {
+                desk_log("guifail: key usage=%u text=%u mods=%u flags=%u\n",
+                    e.usage,e.codepoint,e.modifiers,e.flags);
+                if (e.usage==SRV_KEY_ESCAPE && (e.flags&SRV_KEY_DOWN_EVENT)) {
+                    srv_puts("guifail: keyboard-events abrupt exit\n");
+                    return 0; /* Kernel exit cleanup restores the console input path. */
+                }
+            }
+            srv_sleep_ticks(1);
+        }
+        return 1;
+    }
     int exit_mode = 0;
     int fault_mode = 0;
     int console_probe = 0;

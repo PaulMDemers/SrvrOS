@@ -122,6 +122,8 @@
 /* Report completion of this process's startup (used by system init). */
 #define SYS_PROC_READY 117
 #define SYS_MONOTONIC_US 118
+#define SYS_GUI_KEYBOARD_MODE 119
+#define SYS_GUI_KEYBOARD_READ 120
 
 #define SRV_ABI_VERSION 1
 

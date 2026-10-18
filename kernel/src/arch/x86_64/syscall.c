@@ -1440,6 +1440,14 @@ static int64_t syscall_key_scan(void) {
     }
     return (uint8_t)c;
 }
+static int64_t syscall_gui_keyboard_read(struct srv_key_event *out) {
+    struct srv_key_event event;
+    if (abi_user_struct_size(out,sizeof(event),SRV_KEY_EVENT_VERSION)!=sizeof(event) ||
+        !user_buffer_ok(out,sizeof(event),true)) return -1;
+    int64_t result=gui_keyboard_read(&event);
+    if (result==1 && !copy_to_user(out,&event,sizeof(event))) return -1;
+    return result;
+}
 
 static int64_t syscall_gfx_info(struct syscall_gfx_info *info) {
     struct console_display_info display;
@@ -2287,6 +2295,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
      * Process listing is a read-only snapshot. Mapping/spawn/kill remain gated. */
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
+    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_SLEEP_TICKS:
@@ -2451,6 +2460,12 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GUI_REGISTER:
         frame->rax = (uint64_t)syscall_gui_register();
+        return;
+    case SYS_GUI_KEYBOARD_MODE:
+        frame->rax=(uint64_t)gui_keyboard_mode(frame->rdi);
+        return;
+    case SYS_GUI_KEYBOARD_READ:
+        frame->rax=(uint64_t)syscall_gui_keyboard_read((struct srv_key_event *)frame->rdi);
         return;
     case SYS_GUI_SEND:
         frame->rax = (uint64_t)syscall_gui_send((const struct gui_message *)frame->rdi);

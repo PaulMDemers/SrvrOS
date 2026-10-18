@@ -39,6 +39,12 @@ static bool caps_lock, caps_key_down;
 static bool ctrl_down;
 static bool extended_scancode;
 static struct scheduler_wait_queue keyboard_wait_queue;
+static bool event_mode;
+static uint64_t event_generation;
+static struct srv_key_event event_queue[128];
+static unsigned event_head, event_count;
+static uint8_t ps2_modifiers;
+static bool ps2_pressed[256];
 
 static const char scancode_set1[128] = {
     0, 27, '1', '2', '3', '4', '5', '6',
@@ -113,8 +119,49 @@ static void keyboard_irq_restore(uint64_t flags) {
 #endif
 }
 
+void keyboard_set_event_mode(bool enabled) {
+    uint64_t flags=keyboard_irq_save();
+    if (event_mode!=enabled) {
+        event_mode=enabled; event_generation++;
+        event_head=event_count=0; read_index=write_index=0;
+        shift_down=ctrl_down=caps_key_down=extended_scancode=false;
+        shift_keys=ps2_modifiers=0;
+        for (unsigned i=0;i<256;i++) ps2_pressed[i]=false;
+    }
+    keyboard_irq_restore(flags);
+}
+static void push_event(uint8_t usage,uint8_t modifiers,bool caps,bool down,bool repeat) {
+    uint64_t flags=keyboard_irq_save();
+    struct srv_key_event e={.abi_version=SRV_KEY_EVENT_VERSION,.struct_size=sizeof(e),
+        .time_us=timer_monotonic_us(),.usage=usage,
+        .modifiers=modifiers|(caps?SRV_KEY_CAPS:0),
+        .flags=(down?SRV_KEY_DOWN_EVENT:0)|(repeat?SRV_KEY_REPEAT:0)};
+    if (!usage) e.flags=SRV_KEY_CANCEL;
+    if (down) {
+        unsigned char c=(modifiers&SRV_KEY_SHIFT)?hid_usage_shift[usage]:hid_usage[usage];
+        if (caps && usage>=4 && usage<=0x1d) c^=0x20;
+        if (c>=32 && c<127) e.codepoint=c;
+    }
+    if (event_count==128) {
+        event_head=event_count=0;
+        struct srv_key_event cancel=e;
+        cancel.usage=cancel.codepoint=0; cancel.flags=SRV_KEY_CANCEL;
+        event_queue[event_count++]=cancel;
+    }
+    event_queue[(event_head+event_count++)%128]=e;
+    scheduler_wake_all(&keyboard_wait_queue);
+    keyboard_irq_restore(flags);
+}
+bool keyboard_read_event(struct srv_key_event *out) {
+    uint64_t flags=keyboard_irq_save();
+    if (!event_mode || !event_count) { keyboard_irq_restore(flags); return false; }
+    *out=event_queue[event_head]; event_head=(event_head+1)%128; event_count--;
+    keyboard_irq_restore(flags); return true;
+}
+
 static void push_char(char c) {
     uint64_t flags = keyboard_irq_save();
+    if (event_mode) { keyboard_irq_restore(flags); return; }
     uint64_t next = (write_index + 1) % KEYBOARD_BUFFER_SIZE;
     if (next == read_index) {
         dropped_count++;
@@ -230,9 +277,7 @@ bool keyboard_init(void) {
     return true;
 }
 
-void keyboard_handle_irq(void) {
-    irq_count++;
-    uint8_t scancode = inb(PS2_DATA);
+static void keyboard_decode_scancode(uint8_t scancode) {
     scancode_count++;
     last_scancode = scancode;
     bool released = (scancode & 0x80) != 0;
@@ -240,6 +285,45 @@ void keyboard_handle_irq(void) {
 
     if (scancode == 0xe0) {
         extended_scancode = true;
+        return;
+    }
+
+    if (event_mode) {
+        static const uint8_t usages[128]={
+            [1]=0x29,[2]=0x1e,[3]=0x1f,[4]=0x20,[5]=0x21,[6]=0x22,[7]=0x23,
+            [8]=0x24,[9]=0x25,[10]=0x26,[11]=0x27,[12]=0x2d,[13]=0x2e,[14]=0x2a,[15]=0x2b,
+            [16]=0x14,[17]=0x1a,[18]=0x08,[19]=0x15,[20]=0x17,[21]=0x1c,[22]=0x18,
+            [23]=0x0c,[24]=0x12,[25]=0x13,[26]=0x2f,[27]=0x30,[28]=0x28,[29]=0xe0,
+            [30]=0x04,[31]=0x16,[32]=0x07,[33]=0x09,[34]=0x0a,[35]=0x0b,[36]=0x0d,
+            [37]=0x0e,[38]=0x0f,[39]=0x33,[40]=0x34,[41]=0x35,[42]=0xe1,[43]=0x31,
+            [44]=0x1d,[45]=0x1b,[46]=0x06,[47]=0x19,[48]=0x05,[49]=0x11,[50]=0x10,
+            [51]=0x36,[52]=0x37,[53]=0x38,[54]=0xe5,[56]=0xe2,[57]=0x2c,[58]=0x39,
+            [59]=0x3a,[60]=0x3b,[61]=0x3c,[62]=0x3d,[63]=0x3e,[64]=0x3f,[65]=0x40,
+            [66]=0x41,[67]=0x42,[68]=0x43,[87]=0x44,[88]=0x45
+        };
+        uint8_t usage=usages[key];
+        if (extended_scancode) {
+            switch (key) {
+            case 0x1d: usage=0xe4; break; case 0x38: usage=0xe6; break;
+            case 0x5b: usage=0xe3; break; case 0x5c: usage=0xe7; break;
+            case 0x48: usage=SRV_KEY_UP; break; case 0x50: usage=SRV_KEY_DOWN; break;
+            case 0x4b: usage=SRV_KEY_LEFT; break; case 0x4d: usage=SRV_KEY_RIGHT; break;
+            case 0x47: usage=SRV_KEY_HOME; break; case 0x4f: usage=SRV_KEY_END; break;
+            case 0x53: usage=SRV_KEY_DELETE; break; case 0x52: usage=SRV_KEY_INSERT; break;
+            case 0x49: usage=SRV_KEY_PAGEUP; break; case 0x51: usage=SRV_KEY_PAGEDOWN; break;
+            case 0x1c: usage=SRV_KEY_ENTER; break; default: usage=0; break;
+            }
+        }
+        extended_scancode=false;
+        if (!usage) return;
+        bool repeat=ps2_pressed[usage] && !released;
+        ps2_pressed[usage]=!released;
+        if (usage>=0xe0 && usage<=0xe7) {
+            if (released) ps2_modifiers&=(uint8_t)~(1u<<(usage-0xe0));
+            else ps2_modifiers|=(uint8_t)(1u<<(usage-0xe0));
+        }
+        if (usage==0x39 && !released && !repeat) caps_lock=!caps_lock;
+        push_event(usage,ps2_modifiers,caps_lock,!released,repeat);
         return;
     }
 
@@ -314,6 +398,11 @@ void keyboard_handle_irq(void) {
     }
 }
 
+void keyboard_handle_irq(void) {
+    irq_count++;
+    keyboard_decode_scancode(inb(PS2_DATA));
+}
+
 void keyboard_wake_waiters(void) {
     scheduler_wake_all(&keyboard_wait_queue);
 }
@@ -339,7 +428,11 @@ static void inject_escape_sequence(const char *sequence) {
     }
 }
 
-static bool emit_hid_usage(uint8_t usage, uint8_t modifiers, bool caps) {
+static bool emit_hid_usage(uint8_t usage, uint8_t modifiers, bool caps, bool repeat) {
+    if (event_mode) {
+        push_event(usage,modifiers,caps,true,repeat);
+        return usage!=0x39 && usage<0xe0;
+    }
     bool shift = (modifiers & 0x22) != 0;
     bool ctrl = (modifiers & 0x11) != 0;
     switch (usage) {
@@ -370,7 +463,22 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
     /* ErrorRollOver/POSTFail/ErrorUndefined are not key releases. Stop repeat
      * until a valid report establishes the held keys again. */
     for (uint64_t i = 2; i < 8; i++) {
-        if (report[i] >= 1 && report[i] <= 3) { state->repeat_usage = 0; return; }
+        if (report[i] >= 1 && report[i] <= 3) {
+            state->repeat_usage = 0;
+            if (event_mode) push_event(0,report[0],state->caps_lock,false,false);
+            return;
+        }
+    }
+    if (event_mode) {
+        for (unsigned bit=0;bit<8;bit++) if ((report[0]^state->previous_report[0])&(1u<<bit))
+            push_event(0xe0+bit,report[0],state->caps_lock,(report[0]&(1u<<bit))!=0,false);
+        for (unsigned i=2;i<8;i++) {
+            uint8_t usage=state->previous_report[i];
+            bool duplicate=false;
+            for (unsigned j=2;j<i;j++) duplicate|=state->previous_report[j]==usage;
+            if (usage>3 && !duplicate && !hid_usage_was_down(report,usage))
+                push_event(usage,report[0],state->caps_lock,false,false);
+        }
     }
     for (uint64_t i = 2; i < 8; i++) {
         if (report[i] == 0x39 && !hid_usage_was_down(state->previous_report, 0x39)) {
@@ -380,12 +488,13 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
     }
     for (uint64_t i = 2; i < 8; i++) {
         uint8_t usage = report[i];
-        if (usage == 0 || usage == 0x39 || hid_usage_was_down(state->previous_report, usage)) continue;
+        if (usage == 0 || (!event_mode && usage == 0x39) || hid_usage_was_down(state->previous_report, usage)) continue;
         bool duplicate = false;
         for (uint64_t j = 2; j < i; j++) duplicate |= report[j] == usage;
         if (duplicate) continue;
-        if (emit_hid_usage(usage, report[0], state->caps_lock)) {
+        if (emit_hid_usage(usage, report[0], state->caps_lock,false)) {
             state->repeat_usage = usage;
+            state->repeat_generation=event_generation;
             state->repeat_due_us = timer_monotonic_us() + 500000;
         }
     }
@@ -394,11 +503,11 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
 }
 
 void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us) {
-    if (state == 0 || state->repeat_usage == 0 || now_us < state->repeat_due_us) return;
+    if (state == 0 || state->repeat_usage == 0 || state->repeat_generation!=event_generation || now_us < state->repeat_due_us) return;
     /* Avoid catch-up bursts after the CPU was occupied, and repeated signals. */
     state->repeat_due_us = now_us + 33333;
     if ((state->previous_report[0] & 0x11) == 0)
-        (void)emit_hid_usage(state->repeat_usage, state->previous_report[0], state->caps_lock);
+        (void)emit_hid_usage(state->repeat_usage, state->previous_report[0], state->caps_lock,true);
 }
 
 bool keyboard_try_read_char(char *out) {

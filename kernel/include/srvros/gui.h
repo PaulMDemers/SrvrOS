@@ -2,6 +2,7 @@
 #define SRVROS_GUI_H
 
 #include <stdint.h>
+#include <srvros/key_event.h>
 
 #define GUI_TEXT_MAX 192
 
@@ -46,6 +47,8 @@ struct gui_message {
 };
 
 int64_t gui_register_server(void);
+int64_t gui_keyboard_mode(uint64_t enabled);
+int64_t gui_keyboard_read(struct srv_key_event *event);
 int64_t gui_send(const struct gui_message *message);
 int64_t gui_recv(struct gui_message *message);
 int64_t gui_surface_create(uint64_t owner_pid, uint64_t width, uint64_t height, uint64_t flags);

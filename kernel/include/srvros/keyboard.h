@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <srvros/key_event.h>
 
 bool keyboard_init(void);
 void keyboard_handle_irq(void);
@@ -13,7 +14,10 @@ struct keyboard_hid_state {
     bool caps_lock;
     uint8_t repeat_usage;
     uint64_t repeat_due_us;
+    uint64_t repeat_generation;
 };
+void keyboard_set_event_mode(bool enabled);
+bool keyboard_read_event(struct srv_key_event *event);
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state);
 void keyboard_repeat_hid(struct keyboard_hid_state *state, uint64_t now_us);
 bool keyboard_try_read_char(char *out);

@@ -6,6 +6,9 @@
 #include "../kernel/src/gui.c"
 
 static uint64_t current_pid=1;
+static bool keyboard_events;
+void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
+bool keyboard_read_event(struct srv_key_event *event) { (void)event; return keyboard_events; }
 struct process *process_current(void) { return (struct process *)(uintptr_t)current_pid; }
 uint64_t process_pid(const struct process *p) { return (uintptr_t)p; }
 void *kmalloc(size_t bytes) { return malloc(bytes); }
@@ -23,7 +26,11 @@ static struct gui_message packet_message(unsigned type, uint64_t target,
 static void protocol_tests(void) {
     for (unsigned i=0;i<GUI_MAX_QUEUES;i++) gui_process_cleanup(i+10);
     current_pid=1; assert(gui_register_server()==0);
+    struct srv_key_event key;
+    assert(gui_keyboard_mode(2)==-1 && gui_keyboard_mode(1)==0 && keyboard_events);
+    assert(gui_keyboard_read(&key)==1);
     current_pid=2;
+    assert(gui_keyboard_mode(0)==-1 && gui_keyboard_read(&key)==-1 && keyboard_events);
     assert(gui_surface_create(2,2,2,1ull<<40)==-1);
     uint32_t pixels[4]={11,22,33,44}, copy[4]={0};
     int64_t id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
@@ -58,6 +65,7 @@ static void protocol_tests(void) {
     current_pid=2; assert(gui_send(&commit)==-1); /* Replay rejected. */
     commit=packet_message(DESK_COMMIT,0,id,2); assert(gui_send(&commit)==0);
     gui_process_cleanup(1); /* Pending client can reclaim after server death. */
+    assert(!keyboard_events);
     assert(!surface_for_id(id)->sealed);
     assert(gui_surface_destroy(2,id)==0);
     gui_process_cleanup(2);
