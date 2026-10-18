@@ -2,6 +2,7 @@
 #define DESKD_SCENE_H
 #include <srvros/desk_render.h>
 #include <srvros/desk_menu.h>
+#include <srvros/desk_popup.h>
 #include <srvros/desk_palette.h>
 #include "notification_view.h"
 #define DESKD_WINDOWS 8
@@ -18,6 +19,7 @@ struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS];
     int focus,cursor_x,cursor_y,trackpad_trial,apps;
     struct desk_menu menu;
+    struct desk_popup context;
     struct desktop_notice_view notifications;
     struct desk_palette launcher;
     int launcher_open;

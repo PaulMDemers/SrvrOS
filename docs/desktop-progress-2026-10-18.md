@@ -779,3 +779,33 @@ TSV comparison, compact timer/stopwatch, invalid input, history clear and orderl
 session exit. Screenshots were visually reviewed and saved as
 `native-desktop-clock.png` and `native-desktop-notifications.png`. Hardware remains
 at its accepted checkpoint; no physical reboot/deployment occurred.
+
+
+### Reusable contextual menus
+
+Added an owned, bounded `desk_popup` widget with separators, disabled/checked
+rows, keyboard/first-letter navigation, overflow scrolling, scrollbar capture and
+outside-press/release isolation. Popup sizing uses independent label and shortcut
+columns, clamps to the content area and preserves UTF-8 boundaries when clipped.
+List row hit-testing/geometry is now public, so Files anchors keyboard menus near
+the selected row without duplicating list layout.
+
+Protocol v7 adds generation-checked server-originated context requests and distinct
+coalescible hover packets. Right-click, Control-click and Shift-F10/Menu-key reach
+app context handlers; the kernel rejects forged client context messages. Text and
+editable tool fields retain their selection while offering Undo/Redo/Cut/Copy/
+Paste/Select all. Files selects the clicked row without opening it and offers its
+existing guarded file actions. The desktop background provides application
+shortcuts through the same widget. Existing file confirmations are preserved.
+
+Host tests cover atomic validation, owned snapshots, anchor bounds, disabled rows,
+keyboard selection/reveal, press/release and cancellation, overflow wheel/drag,
+clipping/stride/tiled rendering, clicked file selection, stale resize requests,
+hover coalescing, kernel transport direction and all Control/Shift key variants
+used by the new bindings. The desktop host suite passed, and popup address/UB
+sanitizers passed. Production builds and `desktop_context_smoke.py` passed after
+layout refinement: native mouse and keyboard routes, exact selected-text copy/
+paste, outside click on New without activation, compact layout, Files rename,
+duplicate/delete cancellation, desktop launch and orderly exit. Screenshot
+`native-desktop-context-menu.png` was reviewed. Physical Control-click remains to
+be tested at a later laptop checkpoint; no hardware deployment occurred.

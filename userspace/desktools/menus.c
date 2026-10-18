@@ -1,5 +1,6 @@
 #include "app.h"
 #include <string.h>
+#include <srvros/desk_log.h>
 enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
     if(t->modal || t->picker_mode || t->prompt_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
@@ -99,4 +100,66 @@ void tool_menu_action(struct tool *t,unsigned id) {
         if(t->role==DESK_APP_TEXT) tool_status(t,"Enter a file path, then press Enter to open it.");
     } else if(id==MENU_STANDARD || id==MENU_LARGER) tool_dispatch(t,(struct desk_action){id==MENU_STANDARD?1:2,DESK_WIDGET_ACTIVATED});
     else tool_dispatch(t,(struct desk_action){id,DESK_WIDGET_ACTIVATED});
+}
+
+
+void tool_context_result(struct tool *t,struct desk_menu_result result) {
+    if(result.redraw) t->window.dirty=1;
+    if(result.action) { desk_log("desktools: context action=%u role=%d\n",result.action,t->role);tool_menu_action(t,result.action); }
+}
+void tool_context_open(struct tool *t,int x,int y,int keyboard) {
+    if(t->modal || t->picker_mode || t->prompt_mode || t->closing) return;
+    int files=0;unsigned target=0;
+    if(keyboard) {
+        if(t->role==DESK_APP_FILES && t->ui.focus>=0 && t->ui.controls[t->ui.focus].id==TOOL_LIST) files=1;
+        else edit_target(t,&target);
+        if(!target && !files && t->role==DESK_APP_FILES) files=1;
+        if(files) {
+            struct desk_rect row=desk_list_row_rect(&t->table.body,t->table.body.selected);
+            x=t->table.body.frame.x+24;y=row.h>0?row.y+row.h:t->table.body.frame.y+16;
+        }
+        else if(target) {
+            struct desk_edit *e=edit_target(t,&target);x=e->frame.x+16;y=e->frame.y+24;
+        }
+    } else {
+        if(t->role==DESK_APP_FILES && desk_widget_contains(t->table.body.frame,x,y)) {
+            if(t->job.busy || !t->table.body.enabled) return;
+            int index=desk_list_index_at(&t->table.body,x,y);
+            if(desk_widget_contains(t->table.body.scroll.track,x,y)) return;
+            desk_list_select(&t->table.body,index);t->table.header_focus=0;desk_ui_focus(&t->ui,TOOL_LIST);files=1;
+        } else if(t->search_open && desk_widget_contains(t->search.query.frame,x,y) && t->search.query.enabled) {
+            t->search_focus=1;tool_content_focus(t,t->window.focused);target=TOOL_FIND_QUERY;
+        } else for(unsigned i=0;i<t->ui.count;i++) if(t->ui.controls[i].kind==DESK_CONTROL_EDIT) {
+            struct desk_edit *e=t->ui.controls[i].state;
+            if(e->enabled && desk_widget_contains(e->frame,x,y)) { t->search_focus=0;tool_content_focus(t,t->window.focused);target=t->ui.controls[i].id;desk_ui_focus(&t->ui,target);break; }
+        }
+    }
+    if(!target && !files) return;
+    struct desk_menu_item items[DESK_POPUP_ITEMS]={0};unsigned count=0;
+    if(files) {
+        if(t->job.busy) return;
+        int index=t->table.body.selected,selected=index>=0 && index<t->file_count;
+        unsigned disabled=selected?0:DESK_MENU_DISABLED;
+        append(items,&count,TOOL_OPEN,"Open","Enter",disabled);
+        append(items,&count,TOOL_RENAME,"Rename…","F2",disabled);
+        append(items,&count,TOOL_DUPLICATE,"Duplicate…",NULL,disabled|(selected && t->entries[index].directory?DESK_MENU_DISABLED:0));
+        append(items,&count,TOOL_DELETE,"Delete…","Delete",disabled);
+        append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
+        append(items,&count,MENU_NEW_FOLDER,"New folder…",NULL,0);append(items,&count,TOOL_REFRESH,"Refresh","Ctrl-R",0);
+    } else {
+        struct desk_edit *e=edit_target(t,&target);if(!e) return;
+        struct desk_text_buffer *text=e->text;unsigned selection=text->caret==text->anchor?DESK_MENU_DISABLED:0,busy=t->clip.mode?DESK_MENU_DISABLED:0;
+        append(items,&count,MENU_EDIT+DESK_EDIT_UNDO,"Undo","Ctrl-Z",desk_text_buffer_can_undo(text,0)?0:DESK_MENU_DISABLED);
+        append(items,&count,MENU_EDIT+DESK_EDIT_REDO,"Redo","Ctrl-Shift-Z",desk_text_buffer_can_undo(text,1)?0:DESK_MENU_DISABLED);
+        append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
+        append(items,&count,MENU_EDIT+DESK_EDIT_COMMAND_CUT,"Cut","Ctrl-X",selection|busy);
+        append(items,&count,MENU_EDIT+DESK_EDIT_COMMAND_COPY,"Copy","Ctrl-C",selection|busy);
+        append(items,&count,MENU_EDIT+DESK_EDIT_COMMAND_PASTE,"Paste","Ctrl-V",busy);
+        append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
+        append(items,&count,MENU_EDIT+DESK_EDIT_SELECT_ALL,"Select all","Ctrl-A",0);
+    }
+    desk_ui_pointer(&t->ui,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL},0);
+    if(!desk_popup_open(&t->context,items,count,x,y,(struct desk_rect){0,0,t->window.width,t->window.height},&desk_font_16,keyboard)) {
+        t->window.dirty=1;desk_log("desktools: context opened role=%d target=%u selected=%d\n",t->role,files?TOOL_LIST:target,t->table.body.selected);
+    }
 }

@@ -134,6 +134,10 @@ int main(void) {
     notice=packet_message(DESK_NOTIFY_ACK,2,0,1);assert(gui_send(&notice)==0);
     current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
     assert(gui_send(&notice)==-1); /* An app cannot forge an acknowledgement. */
+    struct gui_message context=packet_message(DESK_CONTEXT,2,0,1);
+    assert(gui_send(&context)==-1);
+    current_pid=1;assert(gui_send(&context)==0);
+    current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
     gui_process_cleanup(1); gui_process_cleanup(2);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;

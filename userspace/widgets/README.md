@@ -416,3 +416,29 @@ ends timers, and these are not persistent or wake-from-sleep alarms.
 Validation targets: `make test-notices test-time-model test-clock-app`;
 `tools/host-env.sh python3 tools/desktop_clock_smoke.py` exercises the native VM
 workflow and independently compares saved text, copied time and lap data.
+
+### Standalone popup menus
+
+`desk_popup` owns up to 32 validated menu rows (actions, disabled/checked rows and
+separators), using the same `desk_menu_item` format as the global menu. It clamps
+its anchor to caller-supplied bounds and scrolls overflow with a shared scrollbar.
+Arrow/Home/End and first-letter navigation skip disabled rows and reveal the
+selection. Enter/Space activates once; Escape/Tab cancels. A pointer action needs
+an inside press and release. An outside press dismisses the popup and consumes its
+release; applications must route exclusively while `desk_popup_active` is true.
+Cancel on focus loss, resize or input discontinuity. Rendering preserves the
+parent clip and uses separate label/shortcut column widths with UTF-8 ellipsis.
+
+Protocol v7 adds server-originated `DESK_CONTEXT` requests for a secondary click,
+Control-click, Shift-F10 or the keyboard Menu key. It carries a surface generation;
+stale requests are discarded during resize. Unpressed pointer motion is separately
+marked and coalesced, so hover updates cannot replace a release. The kernel
+rejects forged application-originated context requests. `desk_list_index_at` and
+`desk_list_row_rect` expose row geometry without duplicating a table/list's layout.
+
+Files and editable fields in the standard tools use this popup. Context opening
+preserves editor selections; Files selects the clicked row without opening it.
+File operations still use their guarded worker and confirmation paths. Desktop
+background menus provide Files, Text, Terminal, Settings, System and Help. Physical
+Control-click behavior awaits a future laptop test; all three input paths were
+exercised in the VM, and the accepted hardware image remains unchanged.

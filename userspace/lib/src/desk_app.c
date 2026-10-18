@@ -43,7 +43,7 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
             if(!valid || !a->focused) return 2;
         }
         if(p.type==DESK_FOCUS) a->focused=p.value!=0;
-        if(p.type==DESK_POINTER && (p.generation!=a->generation || a->configure.generation!=a->generation)) return 2;
+        if((p.type==DESK_POINTER || p.type==DESK_CONTEXT) && (p.generation!=a->generation || a->configure.generation!=a->generation)) return 2;
         if(p.input_serial>a->input_serial) { a->input_serial=p.input_serial;a->dirty=1; }
         *event=p;return 1;
     }

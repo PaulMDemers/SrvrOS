@@ -46,11 +46,14 @@ int main(void) {
     receive(DESK_CONFIGURE,2);incoming.width=500;incoming.height=350;
     assert(desk_app_poll(&a,&event)==2 && created==1 && !destroyed);
     receive(DESK_POINTER,1);assert(desk_app_poll(&a,&event)==2);
+    receive(DESK_CONTEXT,1);assert(desk_app_poll(&a,&event)==2);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=999;
     desk_app_poll(&a,&event);assert(a.pending==1);
     receive(DESK_RELEASE,1);incoming.surface=a.surface;incoming.serial=1;
     assert(desk_app_poll(&a,&event)==2 && !a.pending);
     assert(desk_app_poll(&a,&event)==1 && a.width==500 && created==2 && destroyed==1);
+    receive(DESK_CONTEXT,1);assert(desk_app_poll(&a,&event)==2);
+    receive(DESK_CONTEXT,2);assert(desk_app_poll(&a,&event)==1 && event.type==DESK_CONTEXT);
     receive(DESK_KEY,2);incoming.input_serial=17;
     assert(desk_app_poll(&a,&event)==1 && a.input_serial==17 && a.dirty);
     assert(desk_app_present(&a)==1 && last_sent.input_serial==17);

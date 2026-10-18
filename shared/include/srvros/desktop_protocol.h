@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v6 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v7 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 6
+#define DESK_PROTOCOL_VERSION 7
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
@@ -15,13 +15,14 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_COUNT=9 };
 #define DESK_POINTER_LEFT 1u
 #define DESK_POINTER_PRESS (1u << 8)
 #define DESK_POINTER_CANCEL (1u << 9)
+#define DESK_POINTER_HOVER (1u << 10)
 struct desk_packet {
     uint32_t version, size, type, reserved;
     uint64_t serial, generation, surface;
@@ -41,6 +42,10 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * configured generation, and value bits above. PRESS preserves the initial
  * grab position; held motion may coalesce, release/cancel may not. A content
  * press captures through release; focus/resize/device cancellation ends capture.
+ * CONTEXT is server-originated: generation guards the current surface, x/y
+ * are content coordinates, value=0 for secondary/Control-click or 1 for a
+ * keyboard request (the client chooses its focused control anchor).
+ * POINTER_HOVER is unpressed motion; it may coalesce, never with a release.
  * TEXT carries one decoded byte for legacy study clients.
  * Its optional input_serial is echoed cumulatively in COMMIT after processing
  * that input. It acknowledges application state, not physical display scanout.

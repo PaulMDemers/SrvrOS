@@ -16,7 +16,7 @@ int main(void) {
     struct desk_canvas a,b;
     assert(desk_canvas_init(&a,full,W,H,S)==0);
     assert(desk_canvas_init(&b,tiles,W,H,S)==0);
-    for (int pass=0;pass<6;pass++) {
+    for (int pass=0;pass<7;pass++) {
         if(pass==3) {
             s.apps=1;desk_menu_init(&s.menu);
             const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"SrvrOS",""},{1,0,"Settings",""},
@@ -35,6 +35,11 @@ int main(void) {
             desk_calendar_configure(&s.calendar,(struct desk_rect){284,100,328,272},1,0);desk_ui_init(&s.calendar_ui);
             desk_ui_add(&s.calendar_ui,1,DESK_CONTROL_CALENDAR,&s.calendar,NULL);desk_ui_focus(&s.calendar_ui,1);
             strcpy(s.calendar_date,"Sunday · 2026-10-18");strcpy(s.calendar_zone,"UTC");strcpy(s.clock,"12:34 UTC");
+        }
+        if(pass==6) {
+            s.calendar_open=0;desk_menu_cancel(&s.menu);desk_popup_init(&s.context);
+            const struct desk_menu_item items[]={{1,0,"Open Files",""},{2,0,"Settings",""},{3,0,"SrvrOS Help","F1"}};
+            assert(!desk_popup_open(&s.context,items,3,630,470,(struct desk_rect){0,44,W,H-124},&desk_font_16,1));
         }
         for (unsigned i=0;i<S*H;i++) full[i]=tiles[i]=0xdeadbeef;
         desk_clip(&a,(struct desk_rect){0,0,W,H}); desktop_draw(&a,&s);

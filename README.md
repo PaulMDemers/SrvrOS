@@ -24,7 +24,9 @@ Text includes a modeless Find bar, next/previous search, bounded multi-step undo
 and shared clipboard. Calculator has a keypad, result copying and session history.
 Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate
 worker. Clock provides a countdown, stopwatch and copyable laps. Completed timers
-appear as nonintrusive banners and in Alerts (Command-Shift-N). F1 opens the active app’s offline Help topic, with searchable topics,
+appear as nonintrusive banners and in Alerts (Command-Shift-N). Right-click,
+Control-click or Shift-F10 opens contextual actions in Files and editable fields;
+the desktop background has its own application menu. F1 opens the active app’s offline Help topic, with searchable topics,
 Back/Forward history and page copying.
 Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented

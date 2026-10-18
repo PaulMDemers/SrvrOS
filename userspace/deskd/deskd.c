@@ -45,7 +45,8 @@ struct session {
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
     uint64_t pointer_pid;
-    int notice_visible;
+    int notice_visible,context_down;
+    unsigned modifiers;
     struct io_trial io;
     uint32_t *cache[DESKD_WINDOWS][2];
 };
@@ -76,12 +77,13 @@ static void calendar_today_update(struct session *s,long utc);
 static void notifications_open(struct session *s);
 static void notifications_close(struct session *s);
 static void notifications_damage(struct session *s);
+static void context_close(struct session *s);
 static void queue_input(struct session *s,int i,struct desk_packet p) {
     struct client *c=&s->clients[i];
     if (c->closing) return;
     if (c->input_count) {
         struct desk_packet *last=&c->input[(c->input_head+c->input_count-1)%DESK_INPUT_QUEUE];
-        if (p.type==DESK_POINTER && p.value==DESK_POINTER_LEFT &&
+        if (p.type==DESK_POINTER && (p.value==DESK_POINTER_LEFT || p.value==DESK_POINTER_HOVER) &&
             last->type==p.type && last->value==p.value && last->generation==p.generation) {
             *last=p; return;
         }
@@ -233,7 +235,7 @@ static void cycle_focus(struct session *s,int reverse) {
     }
 }
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_WINDOW=65792 };
 static void global_menu_damage(struct session *s) {
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
     if(s->menu_visible.w>0) desk_damage_add(&s->damage,s->menu_visible);
@@ -317,6 +319,8 @@ static void global_menu_action(struct session *s,uint32_t id) {
     if(id==GLOBAL_LAUNCHER) launcher_open(s);
     else if(id==GLOBAL_CALENDAR) calendar_open(s);
     else if(id==GLOBAL_NOTIFICATIONS) notifications_open(s);
+    else if(id==GLOBAL_FILES) spawn_app(s,DESK_APP_FILES,"");
+    else if(id==GLOBAL_SYSTEM) spawn_app(s,DESK_APP_SYSTEM,"");
     else if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_HELP,"about");
     else if(id==GLOBAL_HELP) {
         const struct desk_application_info *info=s->scene.focus>=0?desk_application_info(s->scene.windows[s->scene.focus].application):NULL;
@@ -358,6 +362,7 @@ static void launcher_catalog(struct session *s) {
     }
 }
 static void launcher_open(struct session *s) {
+    context_close(s);
     if(s->scene.notifications.opened) notifications_close(s);
     if(s->exiting || s->scene.launcher_open) return;
     if(s->scene.calendar_open) calendar_close(s);
@@ -435,6 +440,7 @@ static void calendar_today_update(struct session *s,long utc) {
     }
 }
 static void calendar_open(struct session *s) {
+    context_close(s);
     if(s->scene.notifications.opened) notifications_close(s);
     if(s->exiting || s->scene.calendar_open) return;
     if(s->scene.launcher_open) launcher_close(s);
@@ -481,6 +487,7 @@ static void notifications_damage(struct session *s) {
     if(v->opened) { r=v->frame;r.w+=5;r.h+=6;desk_damage_add(&s->damage,r); }
 }
 static void notifications_open(struct session *s) {
+    context_close(s);
     if(s->exiting || s->scene.notifications.opened) return;
     if(s->scene.launcher_open) launcher_close(s);
     if(s->scene.calendar_open) calendar_close(s);
@@ -512,7 +519,7 @@ static void notifications_action(struct session *s,struct desk_action action) {
     if(s->trace && (action.flags&DESK_WIDGET_ACTIVATED)) desk_log("deskd: notification action=%u count=%u\n",action.id,s->scene.notifications.store.count);
 }
 static int notifications_toast_visible(const struct session *s) {
-    return s->scene.notifications.toast_id && !s->scene.notifications.opened && !s->scene.launcher_open && !s->scene.calendar_open && s->scene.menu.open<0;
+    return s->scene.notifications.toast_id && !s->scene.notifications.opened && !s->scene.launcher_open && !s->scene.calendar_open && s->scene.menu.open<0 && !desk_popup_active(&s->scene.context);
 }
 static void notifications_tick(struct session *s) {
     long us=srv_monotonic_us();int changed=desktop_notice_view_tick(&s->scene.notifications,us<0?0:(uint64_t)us);
@@ -713,6 +720,48 @@ static void scroll_at(struct session *s,int x,int y,int wx,int wy) {
     p.width=(uint32_t)(x-w->frame.x-1);p.height=(uint32_t)(y-w->frame.y-44);
     queue_input(s,i,p);
 }
+static void context_damage(struct session *s) {
+    struct desk_rect r=s->scene.context.frame;if(r.w>0) { r.w+=4;r.h+=5;desk_damage_add(&s->damage,r); }
+}
+static void context_close(struct session *s) {
+    if(!desk_popup_active(&s->scene.context)) return;
+    context_damage(s);desk_popup_cancel(&s->scene.context);
+}
+static void desktop_context_result(struct session *s,struct desk_menu_result result) {
+    if(result.redraw) context_damage(s);
+    if(result.action) { if(s->trace) desk_log("deskd: desktop context action=%u\n",result.action);global_menu_action(s,result.action); }
+}
+static void desktop_context_open(struct session *s,int x,int y,int keyboard) {
+    if(s->exiting) return;
+    const struct desk_menu_item items[]={
+        {GLOBAL_FILES,0,"Open Files",""},{GLOBAL_TEXT,0,"New Text document",""},{GLOBAL_TERMINAL,0,"New Terminal",""},
+        {0,DESK_MENU_SEPARATOR,"",""},{GLOBAL_SETTINGS,0,"Settings",""},{GLOBAL_SYSTEM,0,"System information",""},{GLOBAL_HELP,0,"SrvrOS Help","F1"}
+    };
+    context_close(s);pointer_cancel(s);desk_menu_cancel(&s->scene.menu);global_menu_damage(s);
+    if(!desk_popup_open(&s->scene.context,items,sizeof(items)/sizeof(*items),x,y,(struct desk_rect){0,44,s->damage.width,s->damage.height-124},&desk_font_16,keyboard)) {
+        context_damage(s);if(s->trace) srv_puts("deskd: desktop context opened\n");
+    }
+}
+static int context_key(const struct srv_key_event *key) {
+    return (key->flags&SRV_KEY_DOWN_EVENT) && !(key->flags&SRV_KEY_REPEAT) &&
+        !(key->modifiers&(SRV_KEY_CTRL|SRV_KEY_ALT|SRV_KEY_META)) &&
+        ((key->usage==SRV_KEY_F10 && (key->modifiers&SRV_KEY_SHIFT)) || key->usage==0x65);
+}
+static void context_at(struct session *s,int x,int y,int keyboard) {
+    int i=keyboard?s->scene.focus:hit(s,x,y);
+    if(i<0) {
+        if(keyboard || (y>=44 && y<s->damage.height-80)) desktop_context_open(s,keyboard?24:x,keyboard?64:y,keyboard);
+        return;
+    }
+    if(s->clients[i].closing || s->clients[i].awaiting) return;
+    struct desk_rect w=s->scene.windows[i].frame;
+    if(!keyboard && (x<=w.x || x>=w.x+w.w-1 || y<w.y+44 || y>=w.y+w.h-1)) return;
+    pointer_cancel(s);focus(s,i);
+    struct desk_packet p=desk_packet_new(DESK_CONTEXT);p.value=keyboard!=0;p.generation=s->clients[i].generation;
+    if(!keyboard) { p.x=x-w.x-1;p.y=y-w.y-44; }
+    queue_input(s,i,p);
+    if(s->trace) desk_log("deskd: context pid=%llu keyboard=%d\n",(unsigned long long)s->clients[i].pid,keyboard);
+}
 static void pointer_at(struct session *s,int x,int y,unsigned buttons,int pressed) {
     if (s->pointer_blocked) {
         if (!(buttons&MOUSE_LEFT)) s->pointer_blocked=0;
@@ -725,7 +774,14 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
         if (x<=w.x || x>=w.x+w.w-1 || y<w.y+44 || y>=w.y+w.h-1) return;
         s->pointer_pid=s->clients[i].pid;
     }
-    if (!s->pointer_pid) return;
+    if (!s->pointer_pid) {
+        if(!s->scene.apps || buttons) return;
+        int i=hit(s,x,y);if(i<0 || s->clients[i].closing || s->clients[i].awaiting) return;
+        struct desk_rect w=s->scene.windows[i].frame;
+        if(x<=w.x || x>=w.x+w.w-1 || y<w.y+44 || y>=w.y+w.h-1) return;
+        struct desk_packet p=desk_packet_new(DESK_POINTER);p.value=DESK_POINTER_HOVER;p.generation=s->clients[i].generation;p.x=x-w.x-1;p.y=y-w.y-44;
+        queue_input(s,i,p);return;
+    }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid==s->pointer_pid) {
         struct desk_packet p=desk_packet_new(DESK_POINTER);
         p.x=x-s->scene.windows[i].frame.x-1; p.y=y-s->scene.windows[i].frame.y-44;
@@ -752,7 +808,7 @@ int main(int argc,char **argv) {
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,info.width,info.height);
-    s.scene.apps=apps;desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
+    s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_GRID,DESK_CONTROL_CALENDAR,&s.scene.calendar,NULL);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_TODAY,DESK_CONTROL_BUTTON,&s.scene.calendar_today,"Today");
@@ -856,6 +912,7 @@ int main(int argc,char **argv) {
         for(int n=0;apps && n<32;n++) {
             struct srv_key_event key;int read=gui_keyboard_read(&key);
             if(read<=0) break;
+            s.modifiers=key.flags&SRV_KEY_CANCEL?0:key.modifiers;
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
             if(notifications_shortcut(&key)) {
@@ -870,7 +927,11 @@ int main(int argc,char **argv) {
                 if(s.scene.launcher_open) launcher_close(&s);
                 if(s.scene.calendar_open) calendar_close(&s);
                 if(s.scene.notifications.opened) notifications_close(&s);
-                desk_menu_cancel(&s.scene.menu);global_menu_damage(&s);global_menu_action(&s,GLOBAL_HELP);continue;
+                context_close(&s);desk_menu_cancel(&s.scene.menu);global_menu_damage(&s);global_menu_action(&s,GLOBAL_HELP);continue;
+            }
+            if(desk_popup_active(&s.scene.context)) {
+                if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_TAB) context_close(&s);
+                else { desktop_context_result(&s,desk_popup_key(&s.scene.context,&key));continue; }
             }
             if(s.scene.notifications.opened && !((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_TAB)) {
                 if((key.flags&SRV_KEY_DOWN_EVENT) && key.usage==SRV_KEY_ESCAPE) notifications_close(&s);
@@ -895,6 +956,7 @@ int main(int argc,char **argv) {
                 if(s.scene.notifications.opened) notifications_close(&s);
                 cycle_focus(&s,(key.modifiers&SRV_KEY_SHIFT)!=0);continue;
             }
+            if(s.scene.menu.open<0 && context_key(&key)) { drag=resize=-1;context_at(&s,0,0,1);continue; }
             struct desk_menu_result menu_result=desk_menu_key(&s.scene.menu,&key);
             if(menu_result.consumed) { drag=resize=-1;pointer_cancel(&s);global_menu_result(&s,menu_result);if(!(key.flags&SRV_KEY_CANCEL)) continue; }
             if(s.scene.focus>=0) {
@@ -924,6 +986,16 @@ int main(int argc,char **argv) {
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
             if (s.trace && !apps) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
+            if(s.context_down) {
+                if(!e.buttons || (e.flags&MOUSE_CANCEL)) { s.context_down=0;s.pointer_blocked=0; }
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+            }
+            if(apps && desk_popup_active(&s.scene.context)) {
+                drag=resize=-1;
+                if(e.wheel_y && !e.buttons) desktop_context_result(&s,desk_popup_scroll(&s.scene.context,e.wheel_y));
+                else desktop_context_result(&s,desk_popup_pointer(&s.scene.context,(struct desk_widget_event){.type=e.flags&MOUSE_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,.pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)}));
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+            }
             if(apps && s.scene.notifications.opened) {
                 drag=resize=-1;s.overlay_down=(e.buttons&MOUSE_LEFT)!=0;
                 struct desk_widget_event event={.type=e.flags&MOUSE_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,.x=x,.y=y,.down=s.overlay_down,.pressed=s.overlay_down && !(buttons&MOUSE_LEFT)};
@@ -971,6 +1043,11 @@ int main(int argc,char **argv) {
                     s.pointer_blocked=(e.buttons&MOUSE_LEFT)!=0;buttons=e.buttons;
                     desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
                 }
+            }
+            if(apps && !buttons && !(e.flags&MOUSE_CANCEL) && drag<0 && resize<0 && !s.pointer_pid &&
+                ((e.buttons&MOUSE_RIGHT) || ((e.buttons&MOUSE_LEFT) && (s.modifiers&SRV_KEY_CTRL)))) {
+                context_at(&s,x,y,0);s.context_down=1;s.pointer_blocked=1;
+                buttons=e.buttons;desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
             }
             if ((e.wheel_x || e.wheel_y) && drag<0 && resize<0 && !e.buttons && !s.pointer_pid)
                 scroll_at(&s,x,y,e.wheel_x,e.wheel_y);

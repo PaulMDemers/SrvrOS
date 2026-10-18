@@ -172,8 +172,9 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) calendar_panel(c,s);
         if(s->launcher_open) desk_palette_draw(c,&s->launcher,&desk_theme_quiet);
-        if(s->notifications.opened || (!s->launcher_open && !s->calendar_open && s->menu.open<0)) desktop_notice_view_draw(c,&s->notifications,&desk_theme_quiet);
+        if(s->notifications.opened || (!s->launcher_open && !s->calendar_open && s->menu.open<0 && !desk_popup_active(&s->context))) desktop_notice_view_draw(c,&s->notifications,&desk_theme_quiet);
     }
+    if(s->apps) desk_popup_draw(c,&s->context,&desk_theme_quiet);
     for (int y=0;y<16;y++) {
         desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x292e2b);
         if (y>1 && y<13) desk_fill(c,(struct desk_rect){s->cursor_x+1,s->cursor_y+y,y/2,1},0xfaf9f6);

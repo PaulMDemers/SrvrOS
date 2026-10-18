@@ -5,6 +5,7 @@
 #include <srvros/desk_dialog.h>
 #include <srvros/desk_prompt.h>
 #include <srvros/desk_searchbar.h>
+#include <srvros/desk_popup.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
@@ -23,6 +24,7 @@ struct tool {
     struct desk_app window;
     struct desk_ui ui;
     struct desk_dialog dialog;
+    struct desk_popup context;
     struct desk_prompt prompt;
     struct desk_searchbar search;
     int search_open,search_focus;
@@ -103,6 +105,8 @@ void tool_picker_cancel(struct tool *tool);
 void tool_text_open_path(struct tool *tool,const char *path);
 void tool_text_save(struct tool *tool,int choose_path);
 void tool_text_save_path(struct tool *tool,const char *path);
+void tool_context_open(struct tool *tool,int x,int y,int keyboard);
+void tool_context_result(struct tool *tool,struct desk_menu_result result);
 void tool_menu_refresh(struct tool *tool);
 void tool_menu_action(struct tool *tool,unsigned id);
 void tool_dispatch(struct tool *tool,struct desk_action action);

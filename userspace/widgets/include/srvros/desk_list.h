@@ -23,6 +23,9 @@ struct desk_list {
 void desk_list_init(struct desk_list *list);
 int desk_list_set_items(struct desk_list *list,const struct desk_list_item *items,int count);
 void desk_list_configure(struct desk_list *list,struct desk_rect frame,int enabled);
+/* Row under a content point, excluding borders, scrollbar and empty space. */
+struct desk_rect desk_list_row_rect(const struct desk_list *list,int index);
+int desk_list_index_at(const struct desk_list *list,int x,int y);
 unsigned desk_list_select(struct desk_list *list,int index);
 unsigned desk_list_event(struct desk_list *list,struct desk_widget_event event,uint64_t time_us);
 unsigned desk_list_key(struct desk_list *list,const struct srv_key_event *key);

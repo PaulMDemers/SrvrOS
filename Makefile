@@ -2695,3 +2695,19 @@ build/tests/clock-app-host$(HOST_EXE): tools/test_clock_app.c userspace/deskcloc
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_clock_app.c userspace/lib/src/desk_notify.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-clock-app
+
+.PHONY: test-popup
+test-popup: build/tests/popup-host$(HOST_EXE)
+	$<
+build/tests/popup-host$(HOST_EXE): tools/test_popup.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-desktop: test-popup
+
+.PHONY: test-tool-context
+test-tool-context: build/tests/tool-context-host$(HOST_EXE)
+	$<
+build/tests/tool-context-host$(HOST_EXE): tools/test_tool_context.c userspace/desktools/menus.c userspace/desktools/app.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+test-desktop: test-tool-context

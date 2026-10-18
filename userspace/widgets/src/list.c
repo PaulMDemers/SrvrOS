@@ -38,7 +38,12 @@ unsigned desk_list_select(struct desk_list *l,int index) {
 unsigned desk_list_scroll(struct desk_list *l,int64_t delta) {
     return desk_scrollbar_scroll(&l->scroll,delta)&DESK_WIDGET_REDRAW;
 }
-static int hit(const struct desk_list *l,int x,int y) {
+struct desk_rect desk_list_row_rect(const struct desk_list *l,int index) {
+    if(index<0 || index>=l->count) return (struct desk_rect){0};
+    struct desk_rect r=desk_widget_inset(l->frame,1);r.w=r.w>18?r.w-18:0;
+    return desk_intersect(r,(struct desk_rect){r.x,r.y+index*ROW-l->scroll.offset,r.w,ROW});
+}
+int desk_list_index_at(const struct desk_list *l,int x,int y) {
     struct desk_rect r=desk_widget_inset(l->frame,1);
     if(!desk_widget_contains(r,x,y) || x>=l->scroll.track.x) return -1;
     int64_t index=((int64_t)y-r.y+l->scroll.offset)/ROW;
@@ -62,7 +67,7 @@ unsigned desk_list_event(struct desk_list *l,struct desk_widget_event e,uint64_t
         if(!e.down) l->scrollbar_capture=0;
         l->pressed=-1;return result;
     }
-    int index=hit(l,e.x,e.y);
+    int index=desk_list_index_at(l,e.x,e.y);
     if(e.pressed) {
         l->pressed=e.down?index:-1;
         return e.down?desk_list_select(l,index):0;
