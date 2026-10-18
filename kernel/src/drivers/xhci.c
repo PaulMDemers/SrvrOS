@@ -1826,12 +1826,12 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             if (trackpad_pointer_enabled) {
                 struct trackpad_motion motion;
                 uint8_t buttons=t->pointer.buttons;
-                unsigned speed;bool acceleration;mouse_trackpad_get_settings(&speed,&acceleration);
+                unsigned speed;bool acceleration,disable_while_typing;mouse_trackpad_get_settings(&speed,&acceleration,&disable_while_typing);
                 uint64_t sample_us=timer_monotonic_us();
                 bool typing=sample_us<t->typing_until ||
                     (device->keyboard_state.repeat_usage && !(device->keyboard_state.previous_report[0]&0xdd));
                 bool changed=trackpad_pointer_timed(&t->pointer,&t->frame,trackpad_gestures,typing,
-                    sample_us,speed,acceleration,&motion);
+                    sample_us,speed,acceleration,disable_while_typing,&motion);
                 t->typing_suppressed+=motion.typing_suppressed;
                 t->palm_suppressed+=motion.palm_suppressed;
                 if (changed) {

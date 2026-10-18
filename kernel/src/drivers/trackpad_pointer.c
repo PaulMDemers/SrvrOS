@@ -85,6 +85,9 @@ bool trackpad_gesture_frame(struct trackpad_pointer *s,
 }
 
 bool trackpad_pointer_timed(struct trackpad_pointer *s,const struct apple_trackpad_frame *f,
-    bool gestures,bool typing,uint64_t now,unsigned speed,bool acceleration,struct trackpad_motion *out) {
-    return frame(s,f,gestures,typing,now,speed,acceleration,out);
+    bool gestures,bool typing,uint64_t now,unsigned speed,bool acceleration,bool disable_while_typing,struct trackpad_motion *out) {
+    if(!disable_while_typing && s->typing_blocked) {
+        s->typing_blocked=false;rebase(s); /* Resume without replaying suppressed travel. */
+    }
+    return frame(s,f,gestures,typing && disable_while_typing,now,speed,acceleration,out);
 }

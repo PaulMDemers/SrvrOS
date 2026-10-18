@@ -108,8 +108,9 @@ The prepared laptop trial saves preferences in
 `/work/srvros-work/desktop.conf` using the existing verified background writer.
 Normal desktop sessions use `/fat/home/desktop.conf`; if `/fat` is RAM-backed,
 those settings last only until reboot. Settings reports save errors and external
-file conflicts. Existing v1 preference files load with default trackpad values
-and migrate to v2 on the next successful change. Save verification does not
+file conflicts. Existing v1 and v2 preference files load with typing suppression
+off and migrate to v3 on the next successful change. v1 also receives default
+speed and acceleration values. Save verification does not
 provide power-loss atomicity.
 
 ## Deliberate current limits
@@ -290,3 +291,15 @@ minimize, maximize/restore and close, from left to right. Their visibility depen
 on desktop mode, not an application catalog ID. Drawing and hit testing share
 the control rectangles. Window > Maximize (or Restore size) exposes the same
 action for the active app.
+
+### Typing and trackpad movement
+
+Settings → Trackpad → Disable while typing is off by default, including when
+loading older preference files. Switching it on opts into the existing built-in
+keyboard suppression policy: ordinary typing starts a 300 ms quiet interval,
+held typing keys extend it, and incidental contacts stay suppressed until lift.
+Physical clicks and ongoing drags override typing suppression; palm rejection
+remains independent. External mice and keyboards do not participate in this
+paired internal-device policy. Turning the setting off clears a suppression latch
+on the next trackpad frame and rebases motion so suppressed travel cannot jump
+the cursor. The normal verified preferences writer saves the choice.

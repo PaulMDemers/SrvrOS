@@ -1522,3 +1522,33 @@ Find Files. Normal Text and Settings screenshots were visually inspected.
 Candidate **c8715a60f16075dd** is staged; evidence is archived in
 `build/native-desktop-trials/c8715a60f16075dd/`. It supersedes the staged
 maximize-only candidate. No new installation or reboot was performed.
+
+
+## Opt-in typing suppression and trackpad interaction plan
+
+Settings → Trackpad now includes Disable while typing, off by default. The saved
+boolean has an independent preference mask. v1/v2 files retain their existing
+values and load the new field off; a successful write uses v3. Desktop protocol
+v9 carries the added field. The pointer syscall keeps two arguments, extending
+the second into validated acceleration/typing-suppression flags. Only the owning
+compositor can set them, and cleanup returns suppression to off.
+
+The Apple path applies suppression only when opted in. Turning it off clears a
+latched typing block on the next report and rebases rather than replaying missed
+travel. Independent palm rejection, physical-click override, external mouse input
+and existing scrolling/acceleration remain. Help includes the option and next
+physical checks. The separate interaction plan prioritizes stable contact
+tracking and anchored two-finger drag, then tapping/tap-drag, secondary click,
+and optional three-finger interactions; none of those future gestures is claimed
+as implemented. See `docs/trackpad-interactions-plan-2026-10-18.md`.
+
+Production build and `test-core` passed. Focused final pointer, Help and compositor
+tests passed. Coverage includes default off, old-file migration, boolean bounds,
+preference-to-kernel flags, setting storage, suppression on/off, latch clearing
+without a jump and independent palm rejection. Settings QEMU passed toggle-on,
+verified v3 save, fresh-session reload and toggle-off; its layout was visually
+checked. Physical simultaneous typing/trackpad acceptance remains pending.
+
+Candidate **c3cea87b41179645** is staged with evidence under
+`build/native-desktop-trials/c3cea87b41179645/`; it includes the universal titlebar
+controls and maximize correction. No installation or reboot was performed.

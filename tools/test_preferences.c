@@ -23,9 +23,18 @@ static void model(void) {
     int n=desk_preferences_encode(&p,data,sizeof(data));assert(n>0 && !desk_preferences_decode(&q,data,n) && !memcmp(&p,&q,sizeof(p)));
     const char old[]="srvros-desktop-v1\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\n";
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1) && q.pointer_speed==3 && q.pointer_acceleration==1);
+    assert(!p.disable_while_typing && !q.disable_while_typing);
+    const char v2[]="srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=5\npointer_acceleration=0\n";
+    assert(!desk_preferences_decode(&q,v2,sizeof(v2)-1) && q.pointer_speed==5 && !q.pointer_acceleration && !q.disable_while_typing);
+    assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
     struct desk_preferences saved=q;
     for(int i=0;i<n;i++) { assert(desk_preferences_decode(&q,data,i)<0);assert(!memcmp(&q,&saved,sizeof(q))); }
     assert(desk_preferences_encode(&p,data,8)<0);
+    p.disable_while_typing=1;assert(!desk_preferences_merge(&q,&p,DESK_PREF_DISABLE_WHILE_TYPING) && q.disable_while_typing==1);
+    char updated[256];int updated_length=desk_preferences_encode(&q,updated,sizeof(updated));
+    assert(updated_length>0 && !desk_preferences_decode(&q,updated,updated_length) && q.disable_while_typing==1);
+    p.disable_while_typing=2;assert(!desk_preferences_valid(&p) && desk_preferences_merge(&q,&p,DESK_PREF_DISABLE_WHILE_TYPING)<0);
+    q=saved;p=desk_preferences_default();
     p.text_size=999;assert(!desk_preferences_valid(&p));assert(desk_preferences_merge(&q,&p,DESK_PREF_TEXT)<0 && !memcmp(&q,&saved,sizeof(q)));
     p=desk_preferences_default();p.utc_offset_minutes=-240;p.clock_flags=DESK_CLOCK_DATE;
     assert(desk_preferences_merge(&q,&p,DESK_PREF_OFFSET|DESK_PREF_FORMAT)==0 && q.utc_offset_minutes==-240 && q.clock_flags==DESK_CLOCK_DATE);

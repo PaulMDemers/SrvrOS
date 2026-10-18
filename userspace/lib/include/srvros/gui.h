@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <srvros/key_event.h>
+#include <srvros/pointer_config.h>
 
 #define GUI_TEXT_MAX 192
 
@@ -50,7 +51,7 @@ struct gui_message {
 
 int gui_register_server(void);
 int gui_brightness(unsigned percent); /* 0 query; 5..100 set; server only. */
-int gui_pointer_config(unsigned speed,unsigned acceleration);
+int gui_pointer_config(unsigned speed,unsigned options);
 int gui_keyboard_mode(int enabled);
 /* 1 event, 0 empty, -1 rejected; only the registered server can use these. */
 int gui_keyboard_read(struct srv_key_event *event);

@@ -317,18 +317,23 @@ static void clock_update(struct session *s,int force) {
         desk_damage_add(&s->damage,(struct desk_rect){s->damage.width-reserve,0,reserve,44});
     }
 }
+static void pointer_preferences(struct session *s) {
+    const struct desk_preferences *p=&s->preferences.value;
+    gui_pointer_config(p->pointer_speed,(p->pointer_acceleration?SRV_POINTER_ACCELERATION:0)|
+        (p->disable_while_typing?SRV_POINTER_DISABLE_WHILE_TYPING:0));
+}
 static void preferences_changed(struct session *s) {
-    gui_pointer_config(s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration);
+    pointer_preferences(s);
     if(s->scene.wallpaper!=(int)s->preferences.value.wallpaper) {
         s->scene.wallpaper=s->preferences.value.wallpaper;
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
     }
     clock_update(s,1);
     for(int n=0;n<DESKD_WINDOWS;n++) if(s->clients[n].pid) s->clients[n].preferences_dirty=1;
-    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u\n",
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u\n",
         (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
         s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper,
-        s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration);
+        s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration,s->preferences.value.disable_while_typing);
 }
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
@@ -960,7 +965,7 @@ int main(int argc,char **argv) {
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
     if(apps) { desktop_preferences_init_path(&s.preferences,hardware_trial?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
-        gui_pointer_config(s.preferences.value.pointer_speed,s.preferences.value.pointer_acceleration);clock_update(&s,1); }
+        pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);

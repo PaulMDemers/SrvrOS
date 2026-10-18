@@ -15,8 +15,8 @@ struct mouse_event {
     int32_t wheel_x, wheel_y; /* Viewport pixels: positive is right/down. */
 };
 
-void mouse_trackpad_settings(unsigned speed,bool acceleration);
-void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration);
+void mouse_trackpad_settings(unsigned speed,bool acceleration,bool disable_while_typing);
+void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration,bool *disable_while_typing);
 bool mouse_init(void);
 void mouse_handle_irq(void);
 void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons);

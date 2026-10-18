@@ -9,8 +9,8 @@ static unsigned brightness_calls;
 int backlight_percent(unsigned value) { brightness_calls++;return value?(int)value:14; }
 static uint64_t current_pid=1;
 static bool keyboard_events;
-static unsigned pointer_speed=3;static bool pointer_accel;
-void mouse_trackpad_settings(unsigned speed,bool acceleration) { pointer_speed=speed;pointer_accel=acceleration; }
+static unsigned pointer_speed=3;static bool pointer_accel,pointer_typing;
+void mouse_trackpad_settings(unsigned speed,bool acceleration,bool disable_while_typing) { pointer_speed=speed;pointer_accel=acceleration;pointer_typing=disable_while_typing; }
 void keyboard_set_event_mode(bool enabled) { keyboard_events=enabled; }
 bool keyboard_read_event(struct srv_key_event *event) { (void)event; return keyboard_events; }
 struct process *process_current(void) { return (struct process *)(uintptr_t)current_pid; }
@@ -35,8 +35,10 @@ static void protocol_tests(void) {
     struct srv_key_event key;
     assert(gui_keyboard_mode(2)==-1 && gui_keyboard_mode(1)==0 && keyboard_events);
     assert(gui_keyboard_read(&key)==1);
-    assert(gui_pointer_config(0,1)==-1 && gui_pointer_config(6,1)==-1 && gui_pointer_config(3,2)==-1);
+    assert(gui_pointer_config(0,1)==-1 && gui_pointer_config(6,1)==-1 && gui_pointer_config(3,4)==-1);
     assert(gui_pointer_config(5,1)==0 && pointer_speed==5 && pointer_accel);
+    assert(gui_pointer_config(5,3)==0 && pointer_accel && pointer_typing);
+    assert(gui_pointer_config(5,1)==0 && pointer_accel && !pointer_typing);
     current_pid=2;
     assert(gui_brightness(50)==-1 && brightness_calls==2);
     assert(gui_pointer_config(1,0)==-1 && pointer_speed==5 && pointer_accel);

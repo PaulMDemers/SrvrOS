@@ -19,7 +19,7 @@ int main(void) {
     desk_ui_init(&t.ui);assert(!desk_text_buffer_init(&t.name_text,t.name_store[0],t.name_store[1],128));
     desk_edit_init(&t.name,&t.name_text,0);tool_settings_init(&t);tool_layout(&t);
     assert(t.checks[0].checked && !t.checks[1].checked && t.checks[2].checked && t.checks[3].checked);
-    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==798);
+    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==838);
     tool_settings_action(&t,(struct desk_action){2,DESK_WIDGET_ACTIVATED});
     assert(sends==1 && mask==DESK_PREF_TEXT && requested.text_size==20 && t.body_size==20 && t.checks[1].checked && !t.checks[0].checked);
     t.checks[2].checked=0;tool_settings_action(&t,(struct desk_action){3,DESK_WIDGET_ACTIVATED});
@@ -41,7 +41,7 @@ int main(void) {
     tool_settings_receive(&t,&p);assert(!strcmp(t.name_text.data,"+05:30"));
     fail=1;tool_settings_action(&t,(struct desk_action){1,DESK_WIDGET_ACTIVATED});assert(sends==before && t.preferences.text_size==20);fail=0;
     tool_settings_scroll(&t,68);assert(t.settings_scroll.offset==68 && t.checks[6].button.enabled);
-    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==870);
+    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==910);
     tool_settings_scroll(&t,312);assert(t.checks[4].button.enabled && t.checks[5].button.enabled && t.checks[6].button.enabled);
     for(int i=4;i<7;i++) assert(t.checks[i].button.frame.x==24 && t.checks[i].button.frame.w==92);
     struct desk_rect thumb=desk_scrollbar_geometry(&t.settings_scroll).thumb;
@@ -57,6 +57,11 @@ int main(void) {
     assert(requested.pointer_speed==5 && mask==DESK_PREF_POINTER_SPEED && t.pointer_speed.dragging);
     t.checks[7].checked=0;tool_settings_action(&t,(struct desk_action){SETTINGS_POINTER_ACCELERATION,DESK_WIDGET_ACTIVATED});
     assert(!requested.pointer_acceleration && mask==DESK_PREF_POINTER_ACCELERATION);
+    assert(!t.preferences.disable_while_typing && !t.checks[8].checked);
+    t.checks[8].checked=1;tool_settings_action(&t,(struct desk_action){SETTINGS_DISABLE_WHILE_TYPING,DESK_WIDGET_ACTIVATED});
+    assert(requested.disable_while_typing==1 && mask==DESK_PREF_DISABLE_WHILE_TYPING);
+    t.checks[8].checked=0;tool_settings_action(&t,(struct desk_action){SETTINGS_DISABLE_WHILE_TYPING,DESK_WIDGET_ACTIVATED});
+    assert(!requested.disable_while_typing && !t.preferences.disable_while_typing);
     t.window.server=42;tool_settings_tick(&t);
     assert(t.brightness_pending && brightness_sent.value==0);
     struct desk_packet bp=brightness_sent;bp.value=14;tool_settings_brightness(&t,&bp);

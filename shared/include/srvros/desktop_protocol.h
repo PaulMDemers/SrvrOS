@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v8 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v9 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 8
+#define DESK_PROTOCOL_VERSION 9
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 /* Bounded surfaces cover the initial 1440x900 laptop target. */

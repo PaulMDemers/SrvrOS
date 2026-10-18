@@ -7,7 +7,8 @@
 
 static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
-int gui_pointer_config(unsigned speed,unsigned acceleration) { (void)speed;(void)acceleration;return 0; }
+static unsigned pointer_options;
+int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_options=options;return 0; }
 void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
@@ -197,6 +198,10 @@ int main(void) {
     struct desk_preferences changed=desk_preferences_default();changed.text_size=20;memcpy(p.text,&changed,sizeof(changed));
     incoming(&s,42,&p);assert(s.preferences.value.text_size==16);
     s.scene.windows[0].application=DESK_APP_SETTINGS;incoming(&s,42,&p);assert(s.preferences.value.text_size==20 && s.clients[0].preferences_dirty);
+    changed.disable_while_typing=1;memcpy(p.text,&changed,sizeof(changed));p.value=DESK_PREF_DISABLE_WHILE_TYPING;
+    incoming(&s,42,&p);assert(s.preferences.value.disable_while_typing==1 && pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_DISABLE_WHILE_TYPING));
+    changed.disable_while_typing=0;memcpy(p.text,&changed,sizeof(changed));incoming(&s,42,&p);
+    assert(!s.preferences.value.disable_while_typing && pointer_options==SRV_POINTER_ACCELERATION);
     p.value=999;incoming(&s,42,&p);assert(s.preferences.value.text_size==20);
     request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
     p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);

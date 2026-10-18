@@ -8,6 +8,13 @@ static struct mouse_event next(int x,int y,int buttons) {
     return e;
 }
 int main(void) {
+    unsigned speed;bool acceleration,typing;
+    mouse_trackpad_get_settings(&speed,&acceleration,&typing);
+    assert(speed==3 && !acceleration && !typing);
+    mouse_trackpad_settings(5,true,true);mouse_trackpad_get_settings(&speed,&acceleration,&typing);
+    assert(speed==5 && acceleration && typing);
+    mouse_trackpad_settings(3,false,false);mouse_trackpad_get_settings(&speed,&acceleration,&typing);
+    assert(speed==3 && !acceleration && !typing);
     struct mouse_event e;
     assert(!mouse_scan(NULL) && !mouse_scan(&e));
     mouse_inject_trackpad(10,20,0); mouse_inject_trackpad(5,-5,0); next(15,15,0);

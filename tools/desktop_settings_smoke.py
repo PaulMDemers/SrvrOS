@@ -92,6 +92,8 @@ def main():
                 click(545,336);wait(b"pointer_speed=5 acceleration=1")
                 click(110,384);wait(b"pointer_speed=5 acceleration=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0")
+                click(110,424);wait(b"pointer_speed=5 acceleration=0 disable_while_typing=1")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1")
                 shot("trackpad-settings")
                 assert b"desktools: brightness percent=-1" in output
                 shortcut("pgdn");shot("brightness-unavailable")
@@ -100,13 +102,16 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"srvros-desktop-v2\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0")
+                wait(b"srvros-desktop-v3\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1")
                 wait(b"srv> ")
                 # A fresh desktop process reloads disk, not inherited process state.
                 pointer[:]=[24,56]
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
-                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0", b"deskd: commit"])
+                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1", b"deskd: commit"])
                 click(790,750);wait(b"desktools: starting role=settings");shot("settings-restored")
+                shortcut("pgdn");click(110,414)
+                wait(b"pointer_speed=5 acceleration=0 disable_while_typing=0")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
