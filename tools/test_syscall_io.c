@@ -25,7 +25,7 @@ int main(void) {
     }
     const uint64_t admitted[]={SYS_CONSOLE_INFO,SYS_CONSOLE_CLEAR,SYS_CONSOLE_GOTOXY,SYS_GUI_SEND,SYS_GUI_RECV,SYS_MOUSE_SCAN,
         SYS_GUI_SURFACE_BLIT,SYS_GUI_SURFACE_COPY,SYS_GUI_SURFACE_CREATE,SYS_GUI_SURFACE_DESTROY,
-        SYS_GFX_BLIT_RECT,SYS_PROC_LIST,SYS_SLEEP_TICKS,SYS_MONOTONIC_US};
+        SYS_GFX_BLIT_RECT,SYS_PROC_LIST,SYS_MEMINFO,SYS_SLEEP_TICKS,SYS_MONOTONIC_US};
     for(unsigned i=0;i<sizeof(admitted)/sizeof(*admitted);i++) { frame.rax=admitted[i]; assert(syscall_io_safe(&frame)); }
     frame.rax=SYS_WAIT; frame.rdx=0; assert(!syscall_io_safe(&frame));
     frame.rdx=SRV_WAIT_NOHANG; assert(syscall_io_safe(&frame));
@@ -36,6 +36,13 @@ int main(void) {
     busy=false; assert(!io_defer_pipe_read(10) && !user_safe);
     pipe_file.type=PROCESS_FILE_VFS; assert(!syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_NET_CONNECTION; assert(!syscall_io_safe(&frame));
+    frame.rax=SYS_WRITE;pipe_file.type=PROCESS_FILE_PIPE_WRITE;pipe_file.flags=0;
+    assert(!syscall_io_safe(&frame));pipe_file.flags=SRV_FD_NONBLOCK;assert(syscall_io_safe(&frame));
+    busy=true;user_safe=true;assert(io_defer_pipe_write(10) && user_safe);
+    busy=false;assert(!io_defer_pipe_write(10) && !user_safe);
+    pipe_file.type=PROCESS_FILE_PIPE_READ;assert(!syscall_io_safe(&frame));
+    pipe_file.type=PROCESS_FILE_PIPE_DUPLEX;assert(syscall_io_safe(&frame));
+    pipe_file.type=PROCESS_FILE_VFS_WRITE;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAKE;assert(syscall_io_safe(&frame));
     frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));

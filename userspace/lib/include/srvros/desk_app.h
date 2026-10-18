@@ -1,0 +1,27 @@
+#ifndef SRVROS_DESK_APP_H
+#define SRVROS_DESK_APP_H
+#include <srvros/desktop.h>
+#include <srvros/desk_render.h>
+
+/* One-window client transport. Independent of the widget library and app data.
+ * Application controls its bounded event batches and sleep cadence. */
+struct desk_app {
+    uint64_t server,surface,serial,generation,pending,pending_generation,last,input_serial,send_since;
+    struct desk_packet configure;
+    uint32_t *pixels,width,height;
+    int dirty,focused,closed,failed;
+};
+int desk_app_open(struct desk_app *app,const char *title,uint32_t width,uint32_t height);
+/* Return 1 app event, 0 empty, 2 handled/discarded transport event, -1 failure. CONFIGURE is emitted
+ * only after the old sealed frame is released and the new surface exists.
+ * Caller can receive one internal event per call; service in bounded batches. */
+int desk_app_poll(struct desk_app *app,struct desk_packet *event);
+/* 1 caller may draw into canvas; 0 waiting/clean, -1 failure. */
+int desk_app_canvas(struct desk_app *app,struct desk_canvas *canvas);
+int desk_app_present(struct desk_app *app);
+int desk_app_title(struct desk_app *app,const char *title);
+int desk_app_cancel_close(struct desk_app *app);
+int desk_app_launch(struct desk_app *app,unsigned application,const char *path);
+int desk_app_text_size(struct desk_app *app,unsigned size);
+void desk_app_close(struct desk_app *app);
+#endif

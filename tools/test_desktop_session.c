@@ -8,6 +8,7 @@ void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
+long srv_exec(const struct srv_exec_request *request) { (void)request; return -1; }
 long srv_ticks(void) { return (long)now; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
@@ -35,7 +36,7 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
 }
 int main(void) {
     struct session s={.scene={.focus=-1},.children={42}};
-    assert(cache_init(&s)==0 && allocations==4);
+    assert(cache_init(&s)==0 && allocations==2*DESKD_WINDOWS);
     desk_damage_init(&s.damage,800,600);
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     strcpy(p.text,"Test"); incoming(&s,42,&p); service(&s);
@@ -44,13 +45,13 @@ int main(void) {
     incoming(&s,42,&p);
     assert(s.scene.windows[0].pixels && !s.clients[0].awaiting && s.clients[0].present_input==5);
     const uint32_t *front=s.scene.windows[0].pixels;
-    assert(allocations==4 && frees==0);
+    assert(allocations==2*DESKD_WINDOWS && frees==0);
 
     queue_full=1; service(&s);
     assert(s.clients[0].release.type==DESK_RELEASE && sends==1);
     queue_full=0; service(&s); assert(sent[1]==DESK_RELEASE);
     p.serial=2; incoming(&s,42,&p);
-    assert(s.scene.windows[0].pixels!=front && allocations==4 && frees==0);
+    assert(s.scene.windows[0].pixels!=front && allocations==2*DESKD_WINDOWS && frees==0);
     front=s.scene.windows[0].pixels; service(&s);
     configure(&s,0,450,300);
     p.serial=3; p.input_serial=6; incoming(&s,42,&p); /* Old generation still gets released. */
@@ -63,12 +64,12 @@ int main(void) {
     assert(s.clients[0].present_input==5); /* Nor can a partial copy. */
     service(&s); assert(sent[5]==DESK_RELEASE && sent[6]==DESK_CLOSE);
     now+=501; service(&s);
-    assert(killed==1 && !s.clients[0].pid && !s.children[0] && allocations==4 && frees==0);
+    assert(killed==1 && !s.clients[0].pid && !s.children[0] && allocations==2*DESKD_WINDOWS && frees==0);
     /* A live process that never answers CONFIGURE is also bounded. */
     alive=1; s.children[0]=42; copy_failure=0; reaped=1;
     p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     incoming(&s,42,&p); service(&s); now+=501; service(&s);
-    assert(killed==2 && !s.clients[0].pid && !s.children[0] && allocations==4 && frees==0);
+    assert(killed==2 && !s.clients[0].pid && !s.children[0] && allocations==2*DESKD_WINDOWS && frees==0);
     cache_free(&s); assert(allocations==frees);
     /* Scroll targets content under the cursor, keeps focus, and retries the
      * same recipient when the transport queue is full. */
@@ -105,7 +106,7 @@ int main(void) {
     service(&s);
     pointer_at(&s,400,200,MOUSE_LEFT,1); focus(&s,-1);
     assert(!s.pointer_pid && s.pointer_blocked && s.clients[0].input_count==2);
-    unsigned tail=(s.clients[0].input_head+1)%16;
+    unsigned tail=(s.clients[0].input_head+1)%DESK_INPUT_QUEUE;
     assert(s.clients[0].input[tail].value==DESK_POINTER_CANCEL);
     pointer_at(&s,400,200,MOUSE_LEFT,0); assert(!s.pointer_pid);
     pointer_at(&s,400,200,0,0); assert(!s.pointer_blocked);
@@ -116,10 +117,23 @@ int main(void) {
     assert(!s.pointer_pid && s.pointer_blocked && !s.clients[0].input_count);
     memset(&s,0,sizeof(s)); s.clients[0].pid=42; s.pointer_pid=42;
     p=desk_packet_new(DESK_POINTER); p.value=DESK_POINTER_PRESS|DESK_POINTER_LEFT;
-    for (int i=0;i<16;i++) queue_input(&s,0,p);
-    assert(s.clients[0].input_count==16 && !s.clients[0].closing);
+    for (int i=0;i<DESK_INPUT_QUEUE;i++) queue_input(&s,0,p);
+    assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
     queue_input(&s,0,p);
     assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
+    memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
+    s.clients[0].pid=42;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
+    s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};
+    struct desk_rect original=s.scene.windows[0].frame;
+    maximize(&s,0);assert(s.scene.windows[0].maximized && s.clients[0].generation==1);
+    maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
+    minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
+    focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
+    p=desk_packet_new(DESK_PREFERENCES_SET);p.value=20;incoming(&s,42,&p);assert(!s.text_size);
+    s.scene.windows[0].application=DESK_APP_SETTINGS;incoming(&s,42,&p);assert(s.text_size==20 && s.clients[0].preferences_dirty);
+    p.value=999;incoming(&s,42,&p);assert(s.text_size==20);
+    request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
+    p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);
     struct session failed={0}; alloc_fail=allocations+1;
     assert(cache_init(&failed)<0 && allocations==frees);
     for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) assert(!failed.cache[i][j]);

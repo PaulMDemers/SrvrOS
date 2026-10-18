@@ -117,3 +117,25 @@ view so storage and large-document behavior can be tested without rendering.
 Preserve the accepted desktop/I/O checkpoint while replacing the study content
 incrementally. Toolkit changes need focused host and QEMU checks; request a new
 physical trial when a meaningful workflow or input behavior is ready to assess.
+
+## Editor, lists and focus (2026-10-18)
+
+The toolkit now also exports `desk_text.h`, `desk_edit.h`, `desk_list.h` and
+`desk_ui.h`. `desk_text_buffer` uses two caller-owned buffers, validates UTF-8,
+tracks caret/anchor byte boundaries and offers one-level undo/redo. After undo,
+use `text.data`, since the buffers swap roles. Editing is codepoint-based;
+grapheme clusters, shaping, composition and multiple undo levels remain future
+work. The view supports selection, keyboard navigation, word movement, clipping,
+caret reveal and scrolling, independently of storage. The app chooses capacity;
+Text currently allows 64 KiB.
+
+`desk_list` borrows item strings and metadata from its caller, and provides
+selection, keyboard navigation, double-click activation and a shared scrollbar.
+`desk_ui` routes Tab/Shift-Tab, focus, primary-pointer capture and normalized
+keyboard events across stable control IDs. Register controls once, configure
+frames/enabled state during layout, then call `desk_ui_layout_changed`.
+Window focus loss, cancellation and layout changes cancel pointer capture.
+
+The common `desk_app.h` client runtime owns surface/IPC lifecycle. It is separate
+from this library. Files and Text use a persistent `deskfs` worker with bounded,
+nonblocking request/response polling; widgets never perform file operations.

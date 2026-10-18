@@ -344,7 +344,22 @@ static int64_t console_write_user(const char *buffer, uint64_t length) {
     return (int64_t)written;
 }
 
+static bool io_try_pipe_write(uint64_t fd) {
+    struct process_file *f=process_file_at(process_current(),fd);
+    return f && (f->type==PROCESS_FILE_PIPE_WRITE || f->type==PROCESS_FILE_PIPE_DUPLEX) &&
+        (f->flags&SRV_FD_NONBLOCK);
+}
+static bool io_defer_pipe_write(uint64_t fd) {
+    if(io_try_pipe_write(fd)) {
+        /* Match the try-read contract: never enter descriptor/signal cleanup
+         * while another process owns storage. The UI retries next iteration. */
+        if(scheduler_io_busy()) return true;
+        scheduler_io_set_user_safe(false);
+    }
+    return false;
+}
 static int64_t syscall_write(uint64_t fd, const char *buffer, uint64_t length) {
+    if(io_defer_pipe_write(fd)) return length?SRV_ERR_AGAIN:0;
     if (!user_buffer_ok(buffer, length, false)) {
         return -1;
     }
@@ -887,11 +902,13 @@ static int64_t syscall_fs_write(const char *user_path, const uint8_t *buffer, ui
     uint8_t *copy;
     int64_t result;
     if (!copy_user_string(user_path, path, sizeof(path)) ||
-        length == 0 ||
         length > MAX_SYSCALL_COPY) {
         return -1;
     }
 
+    /* A zero-byte replacement is still one directory publication. Do not open
+     * O_TRUNC first: the old contents survive until exFAT publishes this data. */
+    if (length == 0) return exfat_write_file(path, NULL, 0) ? 0 : -1;
     copy = kmalloc(length);
     if (copy == NULL) {
         return -1;
@@ -2288,17 +2305,18 @@ static int64_t syscall_sync(void) {
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi);
-    case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false);
+    case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
     /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
      * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
-     * Process listing is a read-only snapshot. Mapping/spawn/kill remain gated. */
+     * Process listing and memory counters are read-only snapshots.
+     * Mapping/spawn/kill remain gated. */
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
-    case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_SLEEP_TICKS:
+    case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
     case SYS_TTY_GETATTR: case SYS_TTY_SETATTR: case SYS_IOCTL:

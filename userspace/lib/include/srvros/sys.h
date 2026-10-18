@@ -122,6 +122,9 @@ long srv_mmap(void *address, size_t length, int protection, int flags, int fd, i
 long srv_munmap(void *address, size_t length);
 long srv_mprotect(void *address, size_t length, int protection);
 long srv_msync(void *address, size_t length, int flags);
+/* Whole-file replacement, copied before filesystem mutation; no preliminary
+ * truncation. Returns bytes or -1. Sync separately for the durability boundary. */
+long srv_fs_replace(const char *path, const void *buffer, size_t length);
 long srv_fs_write(const char *path, const void *buffer, size_t length);
 long srv_fs_append(const char *path, const void *buffer, size_t length);
 long srv_stat(const char *path, struct srv_stat *info);

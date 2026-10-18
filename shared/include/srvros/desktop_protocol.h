@@ -2,17 +2,21 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v2 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v3 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 2
+#define DESK_PROTOCOL_VERSION 3
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
 #define DESK_MAX_HEIGHT 640
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
-    DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER
+    DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
+    DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
+    DESK_PREFERENCES_SET, DESK_PREFERENCES
 };
+enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
+    DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_COUNT=5 };
 #define DESK_POINTER_LEFT 1u
 #define DESK_POINTER_PRESS (1u << 8)
 #define DESK_POINTER_CANCEL (1u << 9)
@@ -35,7 +39,17 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * configured generation, and value bits above. PRESS preserves the initial
  * grab position; held motion may coalesce, release/cancel may not. A content
  * press captures through release; focus/resize/device cancellation ends capture.
- * TEXT currently carries one decoded console byte; raw keys are a later ABI.
+ * TEXT carries one decoded byte for legacy study clients.
  * Its optional input_serial is echoed cumulatively in COMMIT after processing
- * that input. It acknowledges application state, not physical display scanout. */
+ * that input. It acknowledges application state, not physical display scanout.
+ * KEY stores a srv_key_event in text, FOCUS.value is 0/1. CLOSE_REQUEST asks
+ * an app to close; it may show an unsaved dialog and send CANCEL_CLOSE to veto.
+ * CLOSE remains final client retirement or server-forced shutdown. TITLE is a
+ * client-originated NUL-terminated title in text. LAUNCH is a whitelisted app
+ * request: value=application, serial=path offset, height=chunk bytes, width=final.
+ * Up to 160 bytes including the final NUL, assembled per client. Offset zero
+ * starts/replaces a request; nothing launches until a valid final chunk.
+ * PREFERENCES_SET requests document text size (value=16 or 20); only the
+ * Settings application may change it. PREFERENCES broadcasts the current
+ * session value to every app, including newly opened windows. */
 #endif
