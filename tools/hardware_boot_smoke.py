@@ -341,8 +341,23 @@ def main():
                     assert stored.read(shot_path.removeprefix("/work/"))==shot_bytes
                     second_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1]
                     assert second_session!=first_session
+                    from hardware_desktop import collect, FILES
+                    recovered=temp/"recovered-usb"
+                    (recovered/"srvros-work").mkdir(parents=True)
+                    (recovered/"srvros-work/.workspace").write_bytes(stored.read("srvros-work/.workspace"))
                     for folder in (first_session,second_session):
-                        assert b"deskd: exited" in stored.read(folder.removeprefix("/work/")+"/exit.log")
+                        relative=folder.removeprefix("/work/")
+                        assert b"deskd: exited" in stored.read(relative+"/exit.log")
+                        target=recovered/relative;target.mkdir(parents=True)
+                        for filename in FILES:
+                            try: contents=stored.read(relative+"/"+filename)
+                            except StopIteration: continue
+                            (target/filename).write_bytes(contents)
+                    destination,report=collect(recovered,desktop[1],logs/"desktop-collections")
+                    assert len(report["sessions"])==2
+                    assert all(item["exit_snapshot_present"] and item["desktop_exit_seen"] and not item["attention"] for item in report["sessions"])
+                    print(f"desktop diagnostics: two sessions collected and verified: {destination}")
+                    (logs/"workspace-final.exfat").write_bytes(volume.read_bytes())
                     ui.stream.close();ui.sock.close()
                 finally:
                     process.terminate()

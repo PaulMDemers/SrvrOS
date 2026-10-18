@@ -218,7 +218,7 @@ def atomic_write(path, data, mode):
             temp.unlink(missing_ok=True)
 
 
-def install(release=None):
+def install(release=None, keep_previous=False):
     if os.geteuid() != 0:
         raise RuntimeError("Installation needs root: sudo python3 tools/hardware_boot.py install")
     release = release or (STAGE / "latest").read_text().strip()
@@ -246,6 +246,11 @@ def install(release=None):
     if SNIPPET.exists() and MARKER not in SNIPPET.read_text().splitlines():
         raise RuntimeError(f"Refusing to replace unmanaged {SNIPPET}")
     previous = old.get("current") if old.get("current") != release else old.get("previous")
+    if keep_previous:
+        previous = old.get("previous")
+        if not previous or previous == release:
+            raise ValueError("No distinct previous release to preserve")
+        verify(BASE / previous)
     config = grub_config(uuid, release, previous)
     subprocess.run(["grub-script-check"], input=config, text=True, check=True)
     destination = BASE / release
@@ -308,8 +313,11 @@ def main():
     parser.add_argument("action", choices=("stage", "install"))
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
+    parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
     parser.add_argument("--desktop-volume", help="stage an interactive native desktop trial for this compact USB UUID")
     args = parser.parse_args()
+    if args.keep_previous and args.action != "install":
+        parser.error("--keep-previous applies only to install")
     if args.release and args.action != "install":
         parser.error("--release applies only to install")
     if args.desktop_volume and args.action != "stage":
@@ -320,7 +328,7 @@ def main():
         if args.action == "stage":
             stage(args.diagnostic, desktop_volume=args.desktop_volume)
         else:
-            install(args.release)
+            install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"hardware-boot: {error}\n")
 

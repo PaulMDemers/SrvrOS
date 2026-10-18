@@ -1349,3 +1349,22 @@ The VM regression checks those results using files on the disposable USB volume.
 An earlier harness attempt also used Ctrl-W rather than Terminal's Command-W
 close shortcut; that harness error was corrected. Failed-attempt logs remain in
 `build/review/` instead of being counted as passes.
+
+
+Final candidate **a91913d3db4219e8**, built from source commit **8a5f6c8**, passed
+the expanded exact GRUB/UEFI two-boot rehearsal. The first session saved default
+USB Text and screenshot files, verified Terminal's workspace directory through
+`pwd` overwrite/append and error-status files, and saved periodic/final logs.
+The second fresh VM retained the document/screenshot bytes and pointer speed,
+changed the acceleration toggle, and wrote a distinct log session. Both unmounts
+and offline exFAT checks passed. The Ubuntu collector copied and verified both
+sessions with exit snapshots and no attention markers. Evidence is
+`build/review/persistent-desktop-two-boot-vm.txt`, the two hardware GRUB serial
+logs, and `build/review/desktop-collections/collection-bw9a5_9i/`.
+
+Boot installation now supports `--keep-previous`, which verifies and retains the
+existing recovery entry instead of rotating it out. The installer regression
+covers retention, corrupt recovery rejection and unchanged state on rejection.
+The accepted **f05dfcc01c28dc85** recovery and its independent backup both remain
+available. Physical gesture/acceleration acceptance and actual laptop preflight
+values are still pending; VM success does not settle those hardware checks.

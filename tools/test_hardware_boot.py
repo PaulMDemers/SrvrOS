@@ -164,6 +164,20 @@ class InstallTests(unittest.TestCase):
         self.assertEqual(self.snippet.read_text(), "custom config\n")
         self.assertFalse(self.base.exists())
 
+    def test_keep_verified_previous_recovery(self):
+        first=self.payload('accepted');boot.install(first)
+        second=self.payload('trial');boot.install(second)
+        third=self.payload('next')
+        boot.install(third, keep_previous=True)
+        state=json.loads((self.base/'state.json').read_text())
+        self.assertEqual((state['current'],state['previous']),(third,first))
+        self.assertTrue((self.base/first/'manifest.json').is_file())
+        self.assertIn(first,self.snippet.read_text())
+        with self.assertRaises(ValueError): boot.install(first, keep_previous=True)
+        (self.base/first/'srvros.elf').write_bytes(b'bad')
+        with self.assertRaises(ValueError): boot.install(second, keep_previous=True)
+        self.assertEqual(json.loads((self.base/'state.json').read_text()),state)
+
     def test_autotest_profile_roundtrip_and_exact_install(self):
         version = 'ram-usb-v6-autotest-37d8c5d0-0123456789abcdef'
         release = self.payload('auto', version)

@@ -180,7 +180,10 @@ must mount successfully before the desktop starts. Return to console closes the
 session and attempts to flush/unmount `/work`; the console reports the result and
 waits. Type `reboot` only after `USB unmounted=yes`. Errors remain visible.
 
-Before installing a trial, preserve the accepted hardware release. Rehearse its
+Before installing a trial, preserve the accepted hardware release. Use
+`install --release RELEASE --keep-previous` when the existing previous entry is
+the accepted recovery to retain; the installer verifies it before making changes.
+Rehearse the trial’s
 exact staged loader/kernel/initramfs with:
 
 ```sh
