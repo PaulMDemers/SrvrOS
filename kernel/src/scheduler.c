@@ -1,4 +1,5 @@
 #include <srvros/console.h>
+#include <srvros/latency.h>
 #include <srvros/fpu.h>
 #include <srvros/pmm.h>
 #include <srvros/process.h>
@@ -64,7 +65,7 @@ static uint64_t current_thread;
 static bool initialized;
 static bool switching;
 static bool io_services_enabled;
-static uint64_t io_owner, io_depth;
+static uint64_t io_owner, io_depth, io_service_at;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
@@ -151,17 +152,19 @@ void scheduler_enable_io_services(void) {
 }
 
 bool scheduler_io_active(void) { return io_depth != 0; }
+bool scheduler_io_busy(void) { return io_depth != 0 && io_owner != current_thread; }
 
 bool scheduler_io_begin(void) {
     if (!initialized || !io_services_enabled || switching) return false;
     if (io_depth != 0 && io_owner != current_thread) return false;
-    if (io_depth++ == 0) io_owner = current_thread;
+    if (io_depth++ == 0) { io_owner = current_thread; io_service_at=timer_monotonic_us(); latency_owner_begin(); }
     return true;
 }
 
 void scheduler_io_end(void) {
-    if (io_depth != 0 && io_owner == current_thread && --io_depth == 0)
-        scheduler_wake_all(&io_waiters);
+    if (io_depth != 0 && io_owner == current_thread && --io_depth == 0) {
+        latency_owner_end(); scheduler_wake_all(&io_waiters);
+    }
 }
 
 void scheduler_io_set_user_safe(bool safe) {
@@ -191,6 +194,7 @@ void scheduler_io_wait(void) {
 bool scheduler_io_yield(void) {
     if (io_depth == 0 || io_owner != current_thread ||
         vmm_current_address_space() != thread_address_space(&threads[current_thread])) return false;
+    io_service_at=timer_monotonic_us();
     /* The caller restored its scheduler-recorded address space before entry.
      * Service IRQs even when there is no other eligible runnable thread. */
 #ifndef SRVROS_SCHEDULER_HOST_TEST
@@ -199,6 +203,13 @@ bool scheduler_io_yield(void) {
     __asm__ volatile ("cli" : : : "memory");
 #endif
     return true;
+}
+
+/* Per-owner budget spans commands: a sequence of individually fast transfers
+ * must not avoid service windows by restarting a timer on every transfer. */
+void scheduler_io_checkpoint(void) {
+    if(io_depth && io_owner==current_thread && timer_monotonic_us()-io_service_at>=4000)
+        (void)scheduler_io_yield();
 }
 
 static bool has_ready_thread_except(uint64_t skipped_index) {

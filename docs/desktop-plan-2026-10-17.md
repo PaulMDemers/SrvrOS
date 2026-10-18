@@ -230,3 +230,8 @@ on-screen focus/capture checks, activity counters and independent final-payload
 validation. Its first physical run verified 126 file rounds but exposed pronounced
 stuttering under I/O. The linked trial document records the bounded scheduling /
 I/O responsiveness plan and proposed exit gate; physical acceptance remains open.
+
+The bounded responsiveness pass adds measured active update gaps, audited desktop
+service during storage waits, cumulative USB service checkpoints and reusable
+compositor caches. The timed v14 hardware gate remains open; see the trial record
+for the safety boundaries, baseline and subsequent measurements.

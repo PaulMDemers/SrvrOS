@@ -595,3 +595,5 @@ void srv_exit(int status) {
 void srv_yield(void) {
     srv_syscall0(SYS_YIELD);
 }
+
+long srv_monotonic_us(void) { return srv_syscall0(SYS_MONOTONIC_US); }

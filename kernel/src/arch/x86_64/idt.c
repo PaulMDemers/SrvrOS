@@ -1,4 +1,5 @@
 #include <srvros/console.h>
+#include <srvros/latency.h>
 #include <srvros/bootlog.h>
 #include <srvros/halt.h>
 #include <srvros/fpu.h>
@@ -173,7 +174,11 @@ static void dispatch_syscall_with_cancellation(struct isr_frame *frame) {
         process_exit(process_current_kill_status());
     }
     bool safe=(frame->cs & 3)==3 && syscall_io_safe(frame);
-    if (!safe) scheduler_io_wait();
+    if (!safe) {
+        uint64_t start=scheduler_io_active()?latency_clock():0;
+        scheduler_io_wait();
+        latency_gate(start,frame->rax);
+    }
     if ((frame->cs & 3)==3 && process_should_exit_current()) {
         scheduler_io_wait();
         process_exit(process_current_kill_status());

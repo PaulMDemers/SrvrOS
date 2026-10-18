@@ -10,11 +10,14 @@
 #include <srvros/halt.h>
 #include <srvros/process.h>
 #include <srvros/mouse.h>
+#include <srvros/latency.h>
 #include <stddef.h>
 
 static char report[8192];
 static unsigned used;
 static bool overflow;
+static bool measure_io;
+static struct latency_stats io_stats;
 static bool equal(const char *a,const char *b) {
     while (*a && *a==*b) { a++; b++; }
     return *a==*b;
@@ -116,6 +119,19 @@ static void build_report(const char *run,const char *release,const struct xhci_t
             field("gesture_trial",exercised && s->scroll_events?"EXERCISED":"INCOMPLETE");
         }
     }
+    if(measure_io) {
+        number("io_clock",io_stats.enabled);
+        number("io_owner_count",io_stats.io_owner.count);
+        number("io_owner_max_us",io_stats.io_owner.max);
+        number("io_owner_p95_us",perf_percentile(&io_stats.io_owner,95));
+        number("io_gate_count",io_stats.io_gate.count);
+        number("io_gate_max_us",io_stats.io_gate.max);
+        number("io_gate_p95_us",perf_percentile(&io_stats.io_gate,95));
+        number("io_gate_syscall",io_stats.longest_gate_syscall);
+        number("io_usb_commands",io_stats.usb_commands);
+        number("io_usb_bytes",io_stats.usb_bytes);
+        number("io_usb_flushes",io_stats.usb_flushes);
+    }
     field("status",coverage(s,keyboard)?"CAPTURED":"INCOMPLETE");
     number("crc32",crc32((const uint8_t *)report,used));
     field("complete",run);
@@ -157,6 +173,7 @@ static void screen(const char *run,const struct xhci_trackpad_capture *s,const c
     console_sync();
 }
 static void capture(const char *run,const char *release,bool desktop_io) {
+    measure_io=false; io_stats=(struct latency_stats){0};
     char request_path[80],result_path[80],done_path[80],request[64]; unsigned n=0;
     path(request_path,run,".req"); path(result_path,run,".txt"); path(done_path,run,".done");
     append(request,&n,"SRVROS-TRACKPAD-V1 "); append(request,&n,run); append(request,&n,"\n");
@@ -181,7 +198,9 @@ static void capture(const char *run,const char *release,bool desktop_io) {
         char args[64]; unsigned arglen=0;
         append(args,&arglen,desktop_io?"--io-test ":snapshot.gestures_enabled?"--gesture-test":"--trackpad-test");
         if (desktop_io) append(args,&arglen,run);
+        if(desktop_io) { measure_io=true; latency_reset(); }
         desktop_exit=process_run_elf_args("/fat/bin/deskd",args)?0:-1;
+        if(desktop_io) { latency_snapshot(&io_stats); latency_stop(); }
         while (keyboard_scan_char(&c)) {}
         xhci_trackpad_snapshot(&snapshot);
     }

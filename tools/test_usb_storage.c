@@ -157,3 +157,7 @@ int main(void) {
     }
     puts("usb-storage-host: PASS (4 KiB batches, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
 }
+
+void latency_usb(uint64_t bytes,uint8_t opcode) { (void)bytes; (void)opcode; }
+
+void scheduler_io_checkpoint(void) {}

@@ -178,6 +178,7 @@ long srv_getpid(void);
 long srv_getppid(void);
 long srv_exepath(char *buffer, size_t capacity);
 long srv_ticks(void);
+long srv_monotonic_us(void);
 long srv_sleep_ticks(uint64_t ticks);
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
 long srv_thread_exit(uint64_t value);

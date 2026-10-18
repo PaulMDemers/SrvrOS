@@ -2162,7 +2162,7 @@ build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c userspace/
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c
+build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include tools/test_desktop_session.c userspace/lib/src/desk_render.c -Wl,--gc-sections -o $@
 
@@ -2212,6 +2212,6 @@ test-desktop-io: build/tests/desktop-io-host$(HOST_EXE) build/tests/desktop-io-s
 build/tests/desktop-io-host$(HOST_EXE): tools/test_desktop_io.c userspace/deskio/deskio.c shared/include/srvros/desktop_trial.h userspace/lib/include/srvros/trial_file.h
 	mkdir -p build/tests
 	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@
-build/tests/desktop-io-state-host$(HOST_EXE): tools/test_desktop_io_state.c userspace/deskd/io_trial.c userspace/deskd/io_trial.h shared/include/srvros/desktop_trial.h
+build/tests/desktop-io-state-host$(HOST_EXE): tools/test_desktop_io_state.c userspace/deskd/io_trial.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include $< -Wl,--gc-sections -o $@

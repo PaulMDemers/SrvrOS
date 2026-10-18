@@ -52,9 +52,9 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
             "2. Ctrl-N opens another study. Tab switches focus; type in both windows.",
             "3. Hold the scrollbar thumb, press Tab, then release the pad.",
             "   Moving afterward must NOT continue the old drag. Try a fresh drag.",
-            "4. Repeat while at least 16 file rounds complete. Note stalls or missing input.",
+            "4. Test until 16+ file rounds and 100+ active samples; all checks below must say OK.",
             "5. Escape stops file work after its current round, then shows save checks.",
-            "   Follow those checks and restart manually after the final halt."
+            s->io_check[0]?s->io_check:"   Complete all coverage counters below before Escape."
         };
         for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
             desk_text(c,&desk_font_16,40,y+12+24*i,s->trackpad_trial==3?io_steps[i]:steps[i],i?0x465348:0x292e2b);

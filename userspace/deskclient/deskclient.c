@@ -89,7 +89,8 @@ int main(int argc,char **argv) {
     if (desk_send(0,&open)!=0) { srv_puts("deskclient: no compositor\n"); return 1; }
     uint64_t server=0,surface=0,serial=0,generation=0,pending=0,pending_gen=0;
     uint64_t last=srv_ticks(),frames=0;
-    uint32_t width=0,height=0,*pixels=0;
+    uint32_t width=0,height=0,*pixels=desk_pixels_alloc(DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
+    if(!pixels) return 1;
     struct desk_packet configure={0};
     char input[160]={0}; size_t length=0;
     int dirty=0,large=0,failed=0,quit=0,offset=0;
@@ -135,14 +136,12 @@ int main(int argc,char **argv) {
         }
         if (quit) break;
         if (!pending && configure.generation>generation) {
-            uint32_t *next=desk_pixels_alloc(configure.width,configure.height);
             uint64_t next_surface=0;
-            if (!next || gui_surface_create(configure.width,configure.height,DESK_SURFACE_STREAM,&next_surface)!=0) {
-                desk_pixels_free(next,configure.width,configure.height); failed=1; break;
+            if (gui_surface_create(configure.width,configure.height,DESK_SURFACE_STREAM,&next_surface)!=0) {
+                failed=1; break;
             }
             if (surface) gui_surface_destroy(surface);
-            desk_pixels_free(pixels,width,height);
-            surface=next_surface; pixels=next; width=configure.width; height=configure.height;
+            surface=next_surface; width=configure.width; height=configure.height;
             generation=configure.generation; offset=scroll_clamp(offset,height); dirty=1;
         }
         if (dirty && !pending && surface) {
@@ -162,7 +161,7 @@ int main(int argc,char **argv) {
     }
     if (server) { struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(server,&p); }
     if (surface && !pending) gui_surface_destroy(surface);
-    desk_pixels_free(pixels,width,height);
+    desk_pixels_free(pixels,DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
     printf("deskclient: %s frames=%llu input=%s\n",failed?"FAIL":"exited",(unsigned long long)frames,input);
     return failed?1:0;
 }

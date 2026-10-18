@@ -50,3 +50,7 @@ int main(void) {
     assert(calls==4 && exit_status==130); /* No side effects after a kill in the wait queue. */
     puts("syscall-cancel-host: PASS (pending kill, deferred I/O kill, normal return, kernel entry)");
 }
+
+uint64_t latency_clock(void) { return 0; }
+void latency_gate(uint64_t a,uint64_t b) { (void)a;(void)b; }
+bool scheduler_io_active(void) { return false; }

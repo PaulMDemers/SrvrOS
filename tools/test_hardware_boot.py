@@ -194,7 +194,7 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(pointer=True)
 
     def test_desktop_io_profile(self):
-        version='ram-usb-v13-trackpad-37d8c5d0-0123456789abcdef'
+        version='ram-usb-v14-trackpad-37d8c5d0-0123456789abcdef'
         release=self.payload('desktop-io',version)
         cfg=boot.limine_config(release,version)
         self.assertIn('srvros.trackpad=gestures',cfg)

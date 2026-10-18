@@ -3,7 +3,8 @@
 #include <string.h>
 #define SRVROS_SCHEDULER_HOST_TEST
 #include "../kernel/src/scheduler.c"
-static uint64_t actual_space=1;
+static uint64_t actual_space=1,clock_us;
+uint64_t timer_monotonic_us(void) { return clock_us; }
 uint64_t vmm_current_address_space(void) { return actual_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
 void vmm_switch_address_space(uint64_t space) { actual_space=space; }
@@ -45,6 +46,11 @@ int main(void) {
     threads[3].address_space=2;
     assert(!scheduler_io_yield()); /* A temporary CR3 cannot cross a context switch. */
     actual_space=2; assert(scheduler_io_yield());
+    clock_us=3999; scheduler_io_checkpoint(); assert(io_service_at==0);
+    clock_us=4000; scheduler_io_checkpoint(); assert(io_service_at==4000);
+    clock_us=7999; scheduler_io_checkpoint(); assert(io_service_at==4000);
+    clock_us=8000; scheduler_io_checkpoint(); assert(io_service_at==8000);
+    assert(!scheduler_io_busy());
     assert(io_thread_allowed(3) && io_thread_allowed(4));
     assert(!io_thread_allowed(5) && !io_thread_allowed(6));
     /* Other processes can execute userspace/audited console paths, but an
@@ -62,6 +68,7 @@ int main(void) {
     assert(!has_ready_thread_except(3));
     assert(scheduler_io_begin() && io_depth == 2);
     current_thread = 4;
+    assert(scheduler_io_busy());
     assert(!scheduler_io_begin()); scheduler_io_end(); assert(io_depth == 2);
     current_thread = 3;
     threads[7].state=THREAD_BLOCKED; threads[7].blocked_queue=&io_waiters;
@@ -81,3 +88,6 @@ int main(void) {
     scheduler_io_wait();assert(switches==1); /* Uncontended calls do not sleep. */
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
+
+void latency_owner_begin(void) {}
+void latency_owner_end(void) {}

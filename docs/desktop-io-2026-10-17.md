@@ -158,3 +158,90 @@ Stop when that gate passes. Full asynchronous storage, a general filesystem
 cache, GPU acceleration, a scheduler redesign and peak USB throughput tuning
 are separate projects unless measurements prove one necessary for this gate.
 Then proceed to the shared controls and useful Files/Text workflow in D3.
+
+## Responsiveness implementation (physical validation pending)
+
+The timed profile is now v14. `SYS_MONOTONIC_US` returns reference-clock
+microseconds, or -1 if unavailable. The compositor records a fixed histogram of
+loop-completion gaps only when the current or previous loop handled input while
+the worker was RUNNING; quiet idle intervals are excluded. Render measurements
+cover compositor raster/present work, not the client's raster or physical scanout.
+Percentiles are conservative histogram upper bounds, capped by the observed
+maximum, rather than exact order statistics. `timing.txt` is checksummed and
+bound to the run. Collection requires at least 100 active samples for the timing
+gate, in addition to the existing input/workload coverage requirements. The
+collector also requires compositor render/present p95 <=16.667 ms.
+
+Kernel instrumentation, enabled only for this trial, records I/O ownership and
+explicit syscall gate waits, plus USB command/data-byte/flush counts. Owner time
+includes time spent servicing other tasks. Gate counts exclude time a thread
+was simply ineligible to run before reaching the gate; neither metric is a
+complete CPU-time profile. USB bytes are requested data-phase bytes across the
+whole measured desktop session, including startup and evidence writes.
+
+The guarded paths have these boundaries:
+
+- GUI messages, mouse scanning, surface operations and framebuffer blits can run
+  during another process's storage wait. Queues/surfaces are protected by IRQ
+  exclusion; copy chunks are private; heap allocation is IRQ-protected. No new
+  permission bypasses surface ownership, sealing, size or user-buffer checks.
+- Process listing is a read-only snapshot. Bounded sleeps remain schedulable.
+  Process exit, kill, spawn, mappings and ordinary filesystem operations remain
+  gated; sibling threads of the I/O owner remain excluded.
+- Explicit nonblocking pipe reads return AGAIN during foreign I/O. They do not
+  consume bytes/file rights or run descriptor cleanup then. When admitted without
+  contention, their continuation is marked unsafe before reading. Redirected
+  stdio and ordinary file/network reads do not gain this exception.
+- Nonblocking waits return "not ready" during foreign I/O and defer reaping.
+  Ordinary reaping retains unsafe eligibility, and the nonblocking path no longer
+  enables interrupts before its quick check. Blocking waits retain their behavior.
+- Successful USB commands offer a service opportunity after a cumulative 4 ms
+  owner budget. This closes the gap where many individually fast transfers each
+  restarted their local timer. Existing longer-transfer wait service remains at
+  approximately 1 ms. Filesystem ownership is retained across these yields.
+
+The compositor now keeps two reusable maximum-size private caches per window.
+A failed partial surface copy never replaces the front cache. With two 960x640
+windows this reserves 9.375 MiB for caches; each study also reuses one 2.344 MiB
+raster buffer across resizes. These bounded allocations replace per-commit
+mmap/munmap churn. Allocation failure cleans up the whole cache reservation.
+Filesystems, flush ordering, transport quarantine and the 256 KiB workload are
+unchanged. Metadata-write optimization remains deferred unless hardware timing
+shows it is necessary.
+
+The on-screen trial now shows WAIT/OK coverage for scrolling, two focus switches
+and captured-drag cancellation, plus the active timing sample count. The trial
+still saves and halts; timing/coverage failures cannot silently count as acceptance.
+
+Instrumented QEMU baseline (16 rounds, 1280x800): 51 active samples,
+p95 <=250 ms, p99/max 296.752 ms, longest explicit gate wait 413.245 ms in
+SYS_GFX_BLIT_RECT. Requested USB data was 92,173,824 bytes over 24,341 commands,
+including 666 flushes. This demonstrates write amplification but includes all
+session overhead; it is not a payload-throughput measurement. Baseline artifacts
+are retained under `build/review/desktop-io-baseline-20261017/`.
+
+Final short QEMU comparison with the 4 ms cumulative service budget: 58 active
+samples, p95/p99/max <=28.032 ms; 110 render samples, p95/p99/max <=16.179 ms.
+USB counts/bytes/flushes exactly matched the baseline, and the independently
+read payload and offline exFAT check passed. Ordinary desktop regression at
+1440x900 also passed mixed-case input, text size, drag, resize, exit/relaunch and
+one idle presentation. These are emulator results, not hardware acceptance.
+
+The parent now waits for pipe EOF as well as worker exit before judging a missing
+terminal record. A deferred nonblocking read must not turn a successfully exited
+worker into a false failure. Tests cover this race, histogram thresholds and idle
+exclusion, pipe admission/deferral, same-owner thread exclusion, cumulative service
+budget, cache reuse and partial-copy/allocation failure cleanup. Full core tests
+passed; cache and trial-state tests also receive ASan/UBSan checks.
+
+The extended 64-round QEMU run verified 16 MiB of logical payload with repeated
+input during rounds 17–64: 974 active samples, p95/p99/max <=38.972 ms; 1,543
+render samples, p95 <=16.667 ms, p99 <=25 ms, maximum 27.176 ms. Both final-payload
+verification and offline exFAT checks passed, as did replay/read-only refusal and
+halt behavior. This satisfies the software timing thresholds in this emulator;
+physical scrolling coverage and feel still require the laptop trial. Evidence:
+`build/review/desktop-io-trial-64/`.
+
+The physical USB volume from the prior 126-round run was separately unmounted
+and checked with `fsck.exfat -n`: clean, 124 directories and 615 files. It was
+remounted through udisks afterward. No filesystem repair was performed.

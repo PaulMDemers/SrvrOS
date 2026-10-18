@@ -476,7 +476,24 @@ static int64_t tty_read_console(char *buffer, uint64_t length) {
     return (int64_t)count;
 }
 
+/* Only explicit nonblocking pipe descriptors get the try-read path. No
+ * redirected stdio guessing, network operations or regular-file reads. */
+static bool io_try_pipe_read(uint64_t fd) {
+    struct process_file *f=process_file_at(process_current(),fd);
+    return f && (f->type==PROCESS_FILE_PIPE_READ || f->type==PROCESS_FILE_PIPE_DUPLEX) &&
+        (f->flags & SRV_FD_NONBLOCK);
+}
+static bool io_defer_pipe_read(uint64_t fd) {
+    if(io_try_pipe_read(fd)) {
+        if(scheduler_io_busy()) return true;
+        /* A read can discard transferred file rights and close/flush them.
+         * Defer that work during I/O; retain ordinary eligibility otherwise. */
+        scheduler_io_set_user_safe(false);
+    }
+    return false;
+}
 static int64_t syscall_read(uint64_t fd, char *buffer, uint64_t length) {
+    if(io_defer_pipe_read(fd)) return length?SRV_ERR_AGAIN:0;
     if (!user_buffer_ok(buffer, length, true)) {
         return -1;
     }
@@ -1874,8 +1891,12 @@ static int64_t syscall_proc_control(uint64_t operation, uint64_t pid, uint64_t v
 }
 
 static int64_t syscall_wait(uint64_t pid, uint64_t *status_out, uint64_t flags) {
+    if(flags==SRV_WAIT_NOHANG && scheduler_io_busy()) return 0;
+    /* Reaping may free mappings/descriptors; never run that continuation under
+     * another owner's I/O after the function enables interrupts. */
+    scheduler_io_set_user_safe(false);
     uint64_t status = 0;
-    __asm__ volatile ("sti" : : : "memory");
+    if(!(flags & SRV_WAIT_NOHANG)) __asm__ volatile ("sti" : : : "memory");
     int64_t result = process_wait(pid, &status, (flags & SRV_WAIT_NOHANG) != 0);
     if (result > 0 && status_out != NULL && !copy_to_user(status_out, &status, sizeof(status))) {
         return -1;
@@ -2258,9 +2279,18 @@ static int64_t syscall_sync(void) {
  * poll by inspecting a mutable userspace fd array before the actual copy. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true);
+    case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false);
+    case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:
+    /* Bounded queues/mouse state use IRQ exclusion. Surface copies use private
+     * chunks and IRQ-protected heap/surface state; no VFS or lifetime cleanup.
+     * Process listing is a read-only snapshot. Mapping/spawn/kill remain gated. */
+    case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
+    case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
+    case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
+    case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_SLEEP_TICKS:
+    case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
     case SYS_TTY_GETATTR: case SYS_TTY_SETATTR: case SYS_IOCTL:
     /* stdio unlock wakes process-local waiters. It neither allocates futex
@@ -2490,6 +2520,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_EXEPATH:
         frame->rax = (uint64_t)syscall_exepath((char *)frame->rdi, frame->rsi);
+        return;
+    case SYS_MONOTONIC_US:
+        frame->rax = timer_reference_ready() ? timer_monotonic_us() : (uint64_t)-1;
         return;
     case SYS_TICKS:
         frame->rax = timer_ticks();

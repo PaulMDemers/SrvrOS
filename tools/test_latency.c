@@ -30,5 +30,16 @@ int main(void) {
     assert(latency_reset()); latency_tick(1000000); latency_input_poll(1000000);
     latency_snapshot(&s); assert(s.tick_gap.count == 0 && s.input_poll_gap.count == 0 && s.critical[0].count == 0);
     latency_enter(LATENCY_SITE_COUNT); latency_leave(LATENCY_SITE_COUNT);
+    now=100; latency_owner_begin(); now=50100; latency_owner_end();
+    latency_gate(100,42); latency_usb(4096,0x2a); latency_usb(0,0x35);
+    latency_snapshot(&s);
+    assert(s.io_owner.count==1 && s.io_owner.max==50000);
+    assert(s.io_gate.count==1 && s.io_gate.max==50000 && s.longest_gate_syscall==42);
+    assert(s.usb_commands==2 && s.usb_bytes==4096 && s.usb_flushes==1);
+    struct perf_sample histogram={0};
+    for(unsigned i=0;i<95;i++) perf_record(&histogram,50000);
+    for(unsigned i=0;i<4;i++) perf_record(&histogram,100000);
+    perf_record(&histogram,250001);
+    assert(perf_percentile(&histogram,95)==50000 && perf_percentile(&histogram,99)==100000 && histogram.max==250001);
     puts("latency-host: PASS (disabled clock, nested sections, thresholds, gaps, reset/stop)");
 }

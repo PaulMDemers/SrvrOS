@@ -75,3 +75,20 @@ void latency_snapshot(struct latency_stats *out) {
     *out = measured;
     restore_irq(flags);
 }
+
+static uint64_t owner_start;
+uint64_t latency_clock(void) { return measured.enabled ? timer_monotonic_us() : 0; }
+void latency_gate(uint64_t start,uint64_t syscall) {
+    if(!measured.enabled || !start) return;
+    uint64_t flags=save_irq(),us=timer_monotonic_us()-start;
+    if(us>measured.io_gate.max) measured.longest_gate_syscall=syscall;
+    perf_record(&measured.io_gate,us); restore_irq(flags);
+}
+void latency_owner_begin(void) { owner_start=latency_clock(); }
+void latency_owner_end(void) {
+    if(measured.enabled && owner_start) perf_record(&measured.io_owner,timer_monotonic_us()-owner_start);
+}
+void latency_usb(uint64_t bytes,uint8_t opcode) {
+    if(!measured.enabled) return;
+    measured.usb_commands++; measured.usb_bytes+=bytes; if(opcode==0x35) measured.usb_flushes++;
+}

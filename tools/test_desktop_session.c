@@ -5,7 +5,7 @@
 #undef main
 
 static uint64_t now=1;
-static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped;
+static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
 long srv_ticks(void) { return (long)now; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
@@ -13,7 +13,7 @@ long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
     (void)status; (void)flags; return !alive?(reaped?-1:(long)pid):0;
 }
-uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { allocations++; return malloc((size_t)w*h*4); }
+uint32_t *desk_pixels_alloc(uint32_t w,uint32_t h) { if(alloc_fail && allocations==alloc_fail) return NULL; allocations++; return malloc((size_t)w*h*4); }
 void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) {
     (void)w; (void)h; if (p) { frees++; free(p); }
 }
@@ -34,6 +34,7 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
 }
 int main(void) {
     struct session s={.scene={.focus=-1},.children={42}};
+    assert(cache_init(&s)==0 && allocations==4);
     desk_damage_init(&s.damage,800,600);
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     strcpy(p.text,"Test"); incoming(&s,42,&p); service(&s);
@@ -42,24 +43,30 @@ int main(void) {
     incoming(&s,42,&p);
     assert(s.scene.windows[0].pixels && !s.clients[0].awaiting);
     const uint32_t *front=s.scene.windows[0].pixels;
+    assert(allocations==4 && frees==0);
+
     queue_full=1; service(&s);
     assert(s.clients[0].release.type==DESK_RELEASE && sends==1);
     queue_full=0; service(&s); assert(sent[1]==DESK_RELEASE);
+    p.serial=2; incoming(&s,42,&p);
+    assert(s.scene.windows[0].pixels!=front && allocations==4 && frees==0);
+    front=s.scene.windows[0].pixels; service(&s);
     configure(&s,0,450,300);
-    p.serial=2; incoming(&s,42,&p); /* Old generation still gets released. */
+    p.serial=3; incoming(&s,42,&p); /* Old generation still gets released. */
     assert(s.scene.windows[0].pixels==front && s.clients[0].awaiting);
-    service(&s); assert(sent[2]==DESK_RELEASE && sent[3]==DESK_CONFIGURE);
-    p.generation=2; p.width=450; p.height=300; p.serial=3;
+    service(&s); assert(sent[3]==DESK_RELEASE && sent[4]==DESK_CONFIGURE);
+    p.generation=2; p.width=450; p.height=300; p.serial=4;
     copy_failure=1; incoming(&s,42,&p);
     assert(s.clients[0].closing && s.scene.windows[0].pixels==front && front[0]==0x123456);
-    service(&s); assert(sent[4]==DESK_RELEASE && sent[5]==DESK_CLOSE);
+    service(&s); assert(sent[5]==DESK_RELEASE && sent[6]==DESK_CLOSE);
     now+=501; service(&s);
-    assert(killed==1 && !s.clients[0].pid && !s.children[0] && allocations==frees);
+    assert(killed==1 && !s.clients[0].pid && !s.children[0] && allocations==4 && frees==0);
     /* A live process that never answers CONFIGURE is also bounded. */
     alive=1; s.children[0]=42; copy_failure=0; reaped=1;
     p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     incoming(&s,42,&p); service(&s); now+=501; service(&s);
-    assert(killed==2 && !s.clients[0].pid && !s.children[0] && allocations==frees);
+    assert(killed==2 && !s.clients[0].pid && !s.children[0] && allocations==4 && frees==0);
+    cache_free(&s); assert(allocations==frees);
     /* Scroll targets content under the cursor, keeps focus, and retries the
      * same recipient when the transport queue is full. */
     memset(&s,0,sizeof(s)); s.scene.focus=1;
@@ -110,6 +117,9 @@ int main(void) {
     assert(s.clients[0].input_count==16 && !s.clients[0].closing);
     queue_input(&s,0,p);
     assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
+    struct session failed={0}; alloc_fail=allocations+1;
+    assert(cache_init(&failed)<0 && allocations==frees);
+    for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) assert(!failed.cache[i][j]);
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

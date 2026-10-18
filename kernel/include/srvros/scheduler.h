@@ -25,6 +25,8 @@ void scheduler_enable_io_services(void);
  * All other kernel entries wait; cancellation is deferred over this scope. */
 bool scheduler_io_begin(void);
 bool scheduler_io_active(void);
+bool scheduler_io_busy(void); /* Another thread owns storage state. IRQs masked. */
+void scheduler_io_checkpoint(void);
 void scheduler_io_end(void);
 bool scheduler_io_yield(void);
 void scheduler_io_wait(void);

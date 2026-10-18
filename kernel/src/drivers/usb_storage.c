@@ -3,6 +3,7 @@
  * device for this boot. xHCI retains DMA memory even after timeout/disconnect. */
 #include <srvros/usb_storage.h>
 #include <srvros/console.h>
+#include <srvros/latency.h>
 #include <srvros/scheduler.h>
 
 static uint32_t le32(const uint8_t *p) {
@@ -37,6 +38,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     put_le32(cbw,0x43425355); put_le32(cbw+4,tag); put_le32(cbw+8,length);
     cbw[12]=in?0x80:0; cbw[14]=cdb_len; copy(cbw+15,cdb,cdb_len);
     s->commands++;
+    latency_usb(length,cdb[0]);
     uint8_t phase = 1; /* CBW, data, CSW, then full-transfer validation. */
     const char *reason = "cbw-transfer";
     if (!s->bulk(s->context,false,cbw,sizeof(cbw),&actual)) goto bad;
@@ -64,6 +66,7 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     phase = 4;
     reason="data-length";
     if (le32(csw+8)!=0 || transferred!=length) goto bad;
+    scheduler_io_checkpoint();
     return 0;
 bad:
     s->failed=true; s->errors++;

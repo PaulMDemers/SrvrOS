@@ -15,20 +15,21 @@ from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
 from hardware_trackpad import validate_result
 from desktop_foundation_smoke import QMP
-from desktop_io_result import validate as validate_io
+from desktop_io_result import validate as validate_io, validate_timing
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--gestures',action='store_true')
     parser.add_argument('--desktop-io',action='store_true')
+    parser.add_argument('--io-rounds',type=int,default=16,choices=range(16,129),metavar='16..128')
     parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     args=parser.parse_args()
     args.gestures |= args.desktop_io
     args.pointer |= args.gestures
     root=Path(__file__).resolve().parents[1]
-    logs=root/('build/review/desktop-io-trial' if args.desktop_io else 'build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
+    logs=root/((f'build/review/desktop-io-trial-{args.io_rounds}' if args.io_rounds>16 else 'build/review/desktop-io-trial') if args.desktop_io else 'build/review/gesture-trial' if args.gestures else 'build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
     run='0123456789abcdef'; release='fedcba9876543210'
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
         temp=Path(directory); volume=temp/'volume.img'; disk=temp/'usb.img'
@@ -109,6 +110,17 @@ def main():
                                     qmp.mouse(588,153); qmp.mouse(0,0,1); qmp.mouse(0,40)
                                     qmp.key('tab'); qmp.mouse(0,0,0); qmp.mouse(-100,0)
                                     wait(b'deskd: io rounds=16 state=1')
+                                    # Longer runs keep injecting while waiting for each
+                                    # round, covering its writes as well as pacing gaps.
+                                    for target in range(17,args.io_rounds+1):
+                                        marker=f'deskd: io rounds={target} state=1'.encode()
+                                        limit=time.monotonic()+180
+                                        qmp.key('tab')
+                                        while marker not in data:
+                                            if time.monotonic()>limit or b'deskio: failed' in data:
+                                                raise RuntimeError('Extended desktop workload failed/stalled')
+                                            qmp.key('x'); qmp.key('backspace')
+                                            qmp.mouse(6,0); qmp.mouse(-6,0)
                                 qmp.call('screendump',{'filename':str(logs/'desktop-pointer-trial.ppm')})
                                 qmp.key('esc')
                                 wait(b'deskd: exited')
@@ -149,7 +161,11 @@ def main():
         if args.desktop_io:
             folder=f'srvros-work/desktop-{run}'
             checked=validate_io(run,saved.read(f'{folder}/result.txt'),saved.read(f'{folder}/ui.txt'),saved.read(f'{folder}/payload.bin'))
-            assert checked['worker']['rounds']>=16
+            timings=validate_timing(run,saved.read(f'{folder}/timing.txt'))
+            (logs/'timing.txt').write_bytes(saved.read(f'{folder}/timing.txt'))
+            print(f'desktop-io-smoke: timing {timings}',flush=True)
+            if args.io_rounds>16: assert timings['active_count']>=100
+            assert checked['worker']['rounds']>=args.io_rounds
             activity=checked['input_during_workload']
             assert activity['keys']>=8 and activity['motions']>0 and activity['focus_changes']>=2 and activity['cancels']>0, checked
             print('desktop-io-smoke: verified persisted payload and concurrent key/motion/focus/cancel coverage',flush=True)

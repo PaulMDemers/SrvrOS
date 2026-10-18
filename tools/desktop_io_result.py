@@ -36,3 +36,20 @@ def validate(run,worker_data,ui_data,payload):
     covered=rounds>=16 and ui['keys']>=8 and ui['motions']>0 and ui['wheels']>0 and ui['focus_changes']>=2 and ui['cancels']>0
     return {'status':'EXERCISED' if covered else 'INCOMPLETE','worker':worker,'input_during_workload':ui,
             'payload_sha256':hashlib.sha256(payload).hexdigest()}
+
+
+def validate_timing(run,data):
+    fields=('clock','active_count','active_p95_us','active_p99_us','active_max_us',
+            'render_count','render_p95_us','render_p99_us','render_max_us')
+    values=record(data,run,'timing',fields)
+    if values['clock']!=1: raise ValueError('No reference clock for desktop timing')
+    for kind in ('active','render'):
+        if not values[kind+'_count'] or not 0<=values[kind+'_p95_us']<=values[kind+'_p99_us']<=values[kind+'_max_us']:
+            raise ValueError('Incomplete/inconsistent desktop timing')
+    return values
+
+
+def timing_gate(t):
+    return (t['active_count']>=100 and t['active_p95_us']<=50000 and
+            t['active_p99_us']<=100000 and t['active_max_us']<=250000 and
+            t['render_p95_us']<=16667)
