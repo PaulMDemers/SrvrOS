@@ -1668,8 +1668,9 @@ checks. No new installation or physical reboot was performed; installed
 ## Device support block: audio, USB networking and sensors
 
 The user deferred physical testing until 20:00 EDT. Development in this block
-uses disposable VMs and read-only Ubuntu hardware captures; no laptop reboot,
-installation, EFI-order change or firmware-control write is performed.
+uses disposable VMs and read-only Ubuntu hardware captures. No laptop reboot
+or EFI-order change is performed. The validated candidate installation is
+recorded below; physical device acceptance remains pending.
 
 The v21 desktop profile adds opt-in HDA output, USB CDC ECM, CPU temperatures,
 read-only SMC fan sampling and an isolated AML namespace probe. Settings has
@@ -1721,3 +1722,48 @@ The eight-window limit remains: fixed compositor caches consume about 79 MiB,
 with separate kernel queue/surface limits. It is a software allocation policy,
 not a MacBook limitation. Demand-sized buffers and coordinated resource limits
 are the appropriate follow-up; increasing one constant is not this milestone.
+
+
+### Final device candidate and evidence
+
+Candidate **0620ce5e026b2f32** (v21) is installed for the next interactive trial.
+Its manifest records clean source commit `cc58e97967d839cff6771f326e863343e2c1f4e5`;
+subsequent harness commit `d4e1a5d` accepts an interleaved Settings exit-log prefix.
+The exact staged image passed two fresh GRUB/EFI desktop VM boots, document and
+screenshot persistence, device logging, preference reload, captured audio and
+clean USB unmounts. The recovered sessions and hashes are archived under
+`build/native-desktop-trials/0620ce5e026b2f32/vm-device-support/`.
+
+The 40-minute audio soak completed **1,841** tones and **185** USB keyboard checks.
+Captured stereo samples, tone durations/frequency, quiet tails and final service
+counters passed. The command wrapper returned 143 after complete PASS output;
+an independent full-waveform and serial-counter check also passed and records
+that anomaly in `audio-soak/postvalidation.json`. This soak used the preserved
+earlier audio-test image, before the later SMC diagnostic changes; the exact
+final candidate separately passed its boot and audio checks.
+
+A further four-session lifecycle run after the input-batching change completed
+48 app lifetimes. Six driver/service tests passed ASan/UBSan, covering HDA,
+SMC transport and service, audio service, CPU temperature and the offline SBS
+sampler. The final core suite, 26 Python host tests, System/Network/Sound UI
+checks and new syscall boundary tests passed. Evidence retains earlier failure
+captures as diagnostic history; final outcomes are in the result files.
+
+Installation verified current/recovery file hashes, GRUB syntax, unchanged Ubuntu
+default and EFI boot order, and an empty one-shot boot entry. Recovery
+**f05dfcc01c28dc85** remains available. User-accepted **d61e60a82a295d84** is also
+verified and backed up under `~/.local/share/srvros/known-good/`. To make EFI space,
+the obsolete, unreferenced **e9dcca07595df573** was copied to
+`~/.local/share/srvros/boot-archive/`, verified, then removed from EFI. The prepared
+USB workspace marker was verified without modifying its contents. No physical
+reboot was requested.
+
+The next hardware round should check one/two-finger taps and held-click steering,
+then Settings Sound at its initial low volume, manual headphone routing if
+available, and System Sensors for fresh CPU/fan samples. An attached CDC ECM
+adapter can be checked using the steps in the USB networking notes. Help remains
+open until dismissed; boot/periodic/exit diagnostics are saved to the workspace.
+The physical amplifier sequence, audible quality, sensor readings and adapter
+compatibility remain unproven until that round. Battery/AC status, recording,
+media-file playback, general adapter support and dynamic window allocation remain
+follow-up work.

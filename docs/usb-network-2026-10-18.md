@@ -44,6 +44,20 @@ keyboard reports and interface quarantine after unplugging. Alternating 64- and
 is tested. Its notification interface-index quirk is accepted only for that
 VID/PID. Physical adapter acceptance is pending.
 
+## First physical adapter round
+
+Attach the adapter and Ethernet cable before boot. In System > Devices, record
+its vendor/product IDs and whether it is identified as USB Ethernet with an
+active driver. An unclaimed device is useful inventory evidence, not a working
+network provider. Its Linux descriptor capture determines the next driver work.
+
+For a bound ECM adapter, open Terminal and run `dhcp`, then `net`. Check the
+assigned address/router in System > Network before trying Network Utility.
+The GUI does not configure DHCP itself yet. Use a known reachable LAN peer for
+the first ping, then DNS and HTTP. Preserve the session logs and note cable/link
+behavior. Re-enumeration after unplugging is a separate milestone; this driver
+quarantines a disconnected interface for the rest of the boot.
+
 Protocol reference: the original USB-IF [ECM 1.2 specification](https://home.codevoid.de/paste/ECM120.pdf).
 The [QEMU 9.2 USB network device](https://raw.githubusercontent.com/qemu/qemu/v9.2.0/hw/usb/dev-network.c)
 provides the VM interoperability reference. No Linux driver implementation was
