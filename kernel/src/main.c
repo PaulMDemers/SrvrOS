@@ -547,5 +547,18 @@ void kmain(void) {
     workspace_boot(cmdline);
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
+    if (cmdline_has_token(cmdline, "srvros.desktop=trial")) {
+        if (!workspace_active()) {
+            console_write("desktop-trial: USB workspace unavailable; trial not started. Photograph this screen.\n");
+        } else {
+            console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
+            bool exited = process_run_elf_args("/fat/bin/deskd", "--hardware-trial");
+            bool unmounted = workspace_unmount();
+            console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
+            console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");
+            if (unmounted) console_write("When finished, type reboot to return to Ubuntu.\n");
+            else console_write("USB sync/unmount failed. Photograph this screen before restarting.\n");
+        }
+    }
     monitor_run();
 }

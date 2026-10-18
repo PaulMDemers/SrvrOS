@@ -61,6 +61,21 @@ class InstallTests(unittest.TestCase):
         (self.stage / "latest").write_text(release)
         return release
 
+    def test_native_desktop_profile(self):
+        version="ram-usb-v17-desktop-37d8c5d0"
+        release=self.payload("desktop", version)
+        path=self.stage/release
+        manifest=json.loads((path/"manifest.json").read_text());manifest["config_version"]=version
+        (path/"manifest.json").write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path)["release"],release)
+        config=(path/"limine.conf").read_text()
+        for option in ("srvros.storage=ram","srvros.workspace-volume=37d8c5d0","srvros.trackpad=gestures","srvros.desktop=trial"):
+            self.assertIn(option,config)
+        self.assertNotIn("srvros.autotest",config)
+        self.assertNotIn("srvros.trackpad-run",config)
+        boot.install(release)
+        self.assertEqual(json.loads((self.base/"state.json").read_text())["current"],release)
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

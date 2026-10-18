@@ -119,6 +119,15 @@ static const struct desk_document_block find_guide[]={
  H(5,"Use a result"),P(6,"Select a result and press Enter to open it in its normal application. Show in Files or Ctrl-R opens its containing folder. Copy path or Ctrl-C copies the complete path. Click a heading to sort; F6 selects headings for keyboard sorting. Right-click or Shift-F10 opens the result menu."),
  H(7,"Background work"),P(8,"Search runs in a separate process. You can keep using the desktop or edit fields for the next search. The results retain the search that produced them. Stop or Escape cancels; closing the window also stops its worker."),
  N(9,"The first 256 matches are shown; a notice appears when more exist. Paths must fit within 159 UTF-8 bytes, and skipped paths are reported. Searches reflect the currently mounted VFS; they are not an index or an atomic filesystem snapshot. Missing or changed results can fail to open. The search deadline is 60 seconds. Small windows keep kind selection in the menu and keyboard shortcuts.")};
+static const struct desk_document_block laptop_trial[]={
+ T(1,"MacBook Air desktop trial"),
+ P(2,"Take your time: this session has no deadline and will not reboot itself. Keep this guide open, or reopen Help and search Topics for Laptop trial. Scroll down for the full checklist."),
+ H(3,"1. Open and arrange"),P(4,"Command-Space opens the launcher. Try Text, Files and Terminal. Drag and resize windows, minimize and restore them, and switch with Alt-Tab. Command-Alt-Left/Right tiles a window; Command-Alt-Down restores it. Check two-finger scrolling and dragging scrollbar thumbs."),
+ H(5,"2. Type and edit"),P(6,"In Text, type several lines with AaZz09 and punctuation. Try held keys, Shift, Caps Lock, selection, Ctrl-C/Ctrl-V, Undo and Find/Replace. Open a second Text window by searching Text new app; copy text between them."),
+ H(7,"3. Save on the flash drive"),P(8,"Use File > Save as. Set the location to /work/srvros-work and use a fresh filename such as desktop-trial.txt. Close the document, then open it from Files at that same location and check every line. Add a short note about anything that failed and save again. /fat is RAM: files saved there disappear on reboot."),
+ H(9,"4. Exercise the apps"),P(10,"In Terminal try seq 1 2000, then exit. While output scrolls, type in Text and move the pointer. Try Calculator, Settings, Sketch and Clock. Command-Shift-3 saves a screenshot in /fat/home/Screenshots; open it in Preview. You can copy a screenshot to the USB workspace from Terminal with cp SOURCE /work/srvros-work/desktop-shot.bmp. Close unused windows: eight can be open at once."),
+ H(11,"5. Finish and return"),P(12,"Save your USB document and exit the Terminal shell. Choose SrvrOS > Return to console. The trial flushes and unmounts the USB volume. Photograph an error if one appears. Once the console says USB unmounted=yes, type reboot to return to Ubuntu, then tell us how it behaved."),
+ N(13,"For a stuck desktop, Ctrl-Alt-Escape returns to the console without saving unfinished edits. The trial will still attempt to flush and unmount the USB workspace. Network adapters, battery and brightness are separate upcoming work.")};
 const struct help_topic help_topics[]={
  TOPIC(1,"welcome","Welcome","Start here · applications and documents",0,welcome),
  TOPIC(2,"desktop","Your desktop","Windows · launcher · menus · calendar",0,desktop),
@@ -135,6 +144,7 @@ const struct help_topic help_topics[]={
  TOPIC(13,"clock","Clock","Timer · stopwatch · laps · alerts · notifications",DESK_APP_CLOCK,clock_guide),
  TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
  TOPIC(15,"network","Network Utility","Ping · DNS lookup · reports · connectivity",DESK_APP_NETWORK,network_guide),
+ TOPIC(17,"laptop-trial","Laptop trial","MacBook Air · physical acceptance · checklist",0,laptop_trial),
  TOPIC(16,"find","Find Files","Names · folders · search · results",DESK_APP_FIND,find_guide),
 };
 const unsigned help_topic_count=sizeof(help_topics)/sizeof(*help_topics);

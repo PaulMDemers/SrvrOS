@@ -145,3 +145,29 @@ checks. Read a script's options before using it as a targeted regression.
 The next laptop-service work is grounded in a
 [read-only battery/backlight inventory](macbook-air-laptop-services-2026-10-18.md),
 including the observed ACPI SBS path and hardware acceptance order.
+
+## Opt-in laptop acceptance trial
+
+`python3 tools/hardware_boot.py stage --desktop-volume 37d8c5d0` stages the
+interactive trial for the prepared USB workspace on this laptop. It enables
+Apple trackpad gestures, keeps AHCI disabled and `/fat` in RAM, and opens Help
+at **Laptop trial**. No automatic pass is inferred and there is no timed exit
+or automatic reboot. The normal boot profiles remain unchanged.
+
+The checklist covers window controls, typing/clipboard, persistent USB document
+save/reopen, Terminal output, the new apps and screenshots. The prepared volume
+must mount successfully before the desktop starts. Return to console closes the
+session and attempts to flush/unmount `/work`; the console reports the result and
+waits. Type `reboot` only after `USB unmounted=yes`. Errors remain visible.
+
+Before installing a trial, preserve the accepted hardware release. Rehearse its
+exact staged loader/kernel/initramfs with:
+
+```sh
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check
+```
+
+This creates a disposable USB workspace with the stage's UUID, boots through
+UEFI GRUB and Limine, checks the initial Help page, saves mixed-case text through
+the GUI, exits and unmounts, and independently checks file contents and exFAT
+consistency. It does not validate the physical Apple input path.

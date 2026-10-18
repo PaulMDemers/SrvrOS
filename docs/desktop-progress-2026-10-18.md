@@ -1163,3 +1163,28 @@ Every file listed in the accepted hardware checkpoint `f05dfcc01c28dc85` still
 matches its original manifest hash. The candidate is VM-tested and has not been
 installed to GRUB or accepted on the physical laptop. All test VMs have stopped;
 Ubuntu remained running throughout this development session.
+
+
+## Physical acceptance trial prepared after the autonomous window
+
+The user authorized a laptop reboot for the expanded native desktop. Added an
+opt-in `ram-usb-v17-desktop-37d8c5d0` boot profile, with RAM root, AHCI disabled,
+Apple gestures and the existing UUID-selected USB workspace. It starts `deskd
+--hardware-trial` at the new Help checklist; the profile refuses to launch if the
+workspace is unavailable. Closing the desktop flushes/unmounts USB and leaves the
+monitor visible indefinitely. There is no automatic reboot or inferred pass.
+
+Staged release: `e9dcca07595df573`. The frozen VM candidate is untouched; this
+trial adds only its boot wrapper and checklist. The accepted hardware checkpoint
+`f05dfcc01c28dc85` was reverified and is the installed current release before this
+deployment, so the installer will retain it as previous.
+
+Validation: production build and Help content/layout suite passed; all 17 boot
+installer tests passed. The exact staged GRUB/UEFI loader, kernel and initramfs
+passed the expanded hardware-boot smoke with a disposable UUID-matching USB
+volume. It opened Laptop trial, typed `Laptop trial AaZz09 saved on USB.` in Text,
+saved through the GUI, returned to the monitor and cleanly unmounted. Independent
+file-byte comparison and offline exFAT check passed; USB console input worked
+afterward. Two initial harness waits were corrected to avoid trace-only and
+interleaved serial markers; these were harness issues, not guest acceptance.
+The physical session and user's feedback remain pending.

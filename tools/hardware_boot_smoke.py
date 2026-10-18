@@ -69,6 +69,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
+    parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--console-check", action="store_true")
     parser.add_argument("--kernel-check", action="store_true")
     parser.add_argument("--responsiveness-check", action="store_true")
@@ -76,7 +77,10 @@ def main():
     args = parser.parse_args()
     release = (boot.STAGE / "latest").read_text().strip()
     source = boot.STAGE / release
-    boot.verify(source)
+    manifest=boot.verify(source)
+    desktop=boot.DESKTOP_RE.fullmatch(manifest.get("config_version", ""))
+    if bool(desktop) != args.desktop_check:
+        parser.error("Native desktop stages require --desktop-check; other stages cannot use it")
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
     serial = logs / "hardware-grub-serial.log"
@@ -101,9 +105,46 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if args.desktop_check:
+            from exfat_test_image import ExfatFixture, check_clean_image
+            volume=temp/"workspace.exfat";stick=temp/"workspace.img"
+            with volume.open("wb") as stream: stream.truncate(128*1024*1024)
+            subprocess.run(["/usr/sbin/mkfs.exfat","-c","128K",str(volume)],check=True,stdout=subprocess.DEVNULL)
+            subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+desktop[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
+            fixture=ExfatFixture(volume.read_bytes())
+            fixture.add_directory_file("srvros-work",".workspace",f"SRVROS-WORKSPACE-V1 {desktop[1]}\n".encode())
+            volume.write_bytes(fixture.data);check_clean_image(volume)
+            mbr=bytearray(512);mbr[450]=7
+            struct.pack_into("<II",mbr,454,2048,len(fixture.data)//512);mbr[510:]=b"\x55\xaa"
+            with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
+            command += ["-drive",f"if=none,id=stick,format=raw,file={stick}","-device","usb-storage,drive=stick,bus=xhci.0"]
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
+                if args.desktop_check:
+                    from desktop_foundation_smoke import QMP
+                    wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
+                    ui=QMP(qmp_path)
+                    def shortcut(keys):
+                        ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
+                    def type_text(value):
+                        keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
+                        for c in value: ui.key(keys.get(c,c.lower()),c.isupper())
+                    time.sleep(.5)
+                    ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
+                    shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
+                    wait_for(serial,lambda s:"window=1" in s,process,30)
+                    time.sleep(.7);type_text("Laptop trial AaZz09 saved on USB.")
+                    shortcut("ctrl-l");type_text("/work/srvros-work/native-trial.txt")
+                    shortcut("ctrl-s")
+                    wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
+                    wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                    shortcut("f10");shortcut("end");shortcut("ret")
+                    wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
+                    with stick.open("rb") as stream: stream.seek(2048*512);saved=stream.read()
+                    volume.write_bytes(saved);check_clean_image(volume)
+                    assert ExfatFixture(saved).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
+                    ui.stream.close();ui.sock.close()
                 text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
                 for marker in ("SRVROS_GRUB_CHAINLOAD_TEST", "srvros: entering kernel",
                                "lpss-spi: disabled (experimental transport)",
@@ -220,6 +261,8 @@ def main():
         print("kernel: PASS (nested register preservation, timer/preemption, RAM fsck, cache service windows)")
     if args.responsiveness_check:
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
+    if args.desktop_check:
+        print("Native desktop trial: checklist, USB keyboard editing, verified GUI save and clean unmount passed.")
     print(f"Serial log: {serial}")
 
 

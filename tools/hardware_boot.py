@@ -24,6 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v17-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -41,7 +42,11 @@ def limine_config(release, version=CONFIG_VERSION):
     autotest = AUTOTEST_RE.fullmatch(version)
     workspace = WORKSPACE_RE.fullmatch(version)
     trackpad = TRACKPAD_RE.fullmatch(version)
-    if trackpad:
+    desktop = DESKTOP_RE.fullmatch(version)
+    if desktop:
+        cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
+                   "srvros.trackpad=gestures srvros.desktop=trial")
+    elif trackpad:
         volume, run = trackpad.groups()
         mode="gestures" if version.startswith(("ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad={mode} "
@@ -91,7 +96,7 @@ def verify(directory):
     if version is None:
         version = next((v for v in CONFIG_VERSIONS if release_id(payload, v) == manifest["release"]), None)
     if version not in CONFIG_VERSIONS and not (isinstance(version, str) and
-            (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version))):
+            (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version) or DESKTOP_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     release = release_id(payload, version)
     if manifest["release"] != release or any(
@@ -101,7 +106,7 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None):
     gestures=gestures or desktop_io
     pointer=pointer or gestures
     if pointer and trackpad_run is None:
@@ -121,6 +126,10 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         version = f"ram-usb-v{16 if desktop_io else 12 if gestures else 11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
+    if desktop_volume is not None:
+        version = f"ram-usb-v17-desktop-{desktop_volume}"
+        if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
+            raise ValueError("Invalid or conflicting native desktop profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
         "srvros.elf": ROOT / "build/kernel/srvros.elf",
@@ -284,6 +293,8 @@ def install(release=None):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
     elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
+    elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
+        print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Workspace profile: prepared UUID-selected USB volume mounted at /work; boot filesystem stays in RAM.")
     else:
@@ -295,14 +306,17 @@ def main():
     parser.add_argument("action", choices=("stage", "install"))
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
+    parser.add_argument("--desktop-volume", help="stage an interactive native desktop trial for this compact USB UUID")
     args = parser.parse_args()
     if args.release and args.action != "install":
         parser.error("--release applies only to install")
+    if args.desktop_volume and args.action != "stage":
+        parser.error("--desktop-volume applies only to stage")
     if args.diagnostic and args.action != "stage":
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume)
         else:
             install(args.release)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
