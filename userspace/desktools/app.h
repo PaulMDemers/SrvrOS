@@ -11,7 +11,7 @@
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE };
-enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH };
+enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 #define TOOL_HISTORY 24
 struct tool_location { char path[DESK_FILE_PATH];uint64_t selected;int scroll; };
@@ -36,12 +36,19 @@ struct tool {
     int settings_capture;
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
+    struct desk_text_history *body_history;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
     struct desk_table table;
     struct srv_process_info processes[DESK_TABLE_MAX_ROWS];
     struct desk_table_row table_rows[DESK_TABLE_MAX_ROWS];
     char process_numbers[DESK_TABLE_MAX_ROWS][3][24];
     struct srv_meminfo system_memory;
+    struct desk_tabs system_tabs;
+    struct desk_table network_table;
+    struct srv_net_status_info network;
+    struct desk_table_row network_rows[16];
+    char network_values[16][80];
+    int network_valid;
     int process_count,system_paused,system_memory_valid;
     struct desk_list_item items[DESK_FILE_ENTRIES];
     struct desk_file_entry entries[DESK_FILE_ENTRIES];

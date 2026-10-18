@@ -38,8 +38,8 @@ void tool_menu_refresh(struct tool *t) {
         unsigned id=0;struct desk_edit *e=edit_target(t,&id);struct desk_text_buffer *text=e?e->text:NULL;
         unsigned disabled=blocked|(!e?DESK_MENU_DISABLED:0),selection=disabled|(!text || text->anchor==text->caret?DESK_MENU_DISABLED:0);
         append(items,&count,0,"Edit",NULL,DESK_MENU_HEADING);
-        append(items,&count,MENU_EDIT+DESK_EDIT_UNDO,"Undo","Ctrl-Z",disabled|(!text || text->history!=1?DESK_MENU_DISABLED:0));
-        append(items,&count,MENU_EDIT+DESK_EDIT_REDO,"Redo","Ctrl-Shift-Z",disabled|(!text || text->history!=2?DESK_MENU_DISABLED:0));
+        append(items,&count,MENU_EDIT+DESK_EDIT_UNDO,"Undo","Ctrl-Z",disabled|(!desk_text_buffer_can_undo(text,0)?DESK_MENU_DISABLED:0));
+        append(items,&count,MENU_EDIT+DESK_EDIT_REDO,"Redo","Ctrl-Shift-Z",disabled|(!desk_text_buffer_can_undo(text,1)?DESK_MENU_DISABLED:0));
         append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
         append(items,&count,MENU_EDIT+DESK_EDIT_COMMAND_CUT,"Cut","Ctrl-X",selection|(t->clip.mode?DESK_MENU_DISABLED:0));
         append(items,&count,MENU_EDIT+DESK_EDIT_COMMAND_COPY,"Copy","Ctrl-C",selection|(t->clip.mode?DESK_MENU_DISABLED:0));
@@ -70,6 +70,9 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,SYSTEM_PAUSE,t->system_paused?"Resume updates":"Pause updates",NULL,blocked);
         append(items,&count,SYSTEM_REFRESH,"Refresh now","F5",blocked);
+        append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
+        append(items,&count,SYSTEM_PROCESSES,"Processes",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_PROCESSES?DESK_MENU_CHECKED:0));
+        append(items,&count,SYSTEM_NETWORK,"Network",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?DESK_MENU_CHECKED:0));
     } else if(t->role==DESK_APP_SETTINGS) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,MENU_STANDARD,"Standard text",NULL,blocked|(t->body_size==16?DESK_MENU_CHECKED:0));

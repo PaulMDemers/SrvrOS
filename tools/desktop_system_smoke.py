@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise the shared table and live System app in a disposable VM."""
+import argparse
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -13,8 +15,11 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--network",action="store_true",help="Exercise e1000 DHCP and live address/counter display")
+    args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-system"
+    out=root/("build/review/desktop-system-network" if args.network else "build/review/desktop-system")
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
@@ -28,6 +33,7 @@ def main():
             "-device","qemu-xhci,id=xhci","-device","usb-kbd,bus=xhci.0",
             "-serial",f"tcp:127.0.0.1:{port},server=on,wait=off",
             "-qmp",f"unix:{tmp/'qmp'},server=on,wait=off","-display","none","-monitor","none","-no-reboot","-rtc","base=2026-10-18T12:34:00,clock=vm"]
+        command += ["-netdev","user,id=net0","-device","e1000,netdev=net0"] if args.network else ["-nic","none"]
         with (out/"qemu.log").open("wb") as errors:
             process=subprocess.Popen(command,stdout=errors,stderr=errors)
             try:
@@ -70,16 +76,28 @@ def main():
                 def shot(name):
                     time.sleep(.5);qmp.call("screendump",{"filename":str(out/f"{name}.ppm")})
                 wait(b"srv> ",100)
+                if args.network:
+                    serial.sendall(b"run /fat/bin/sh\n");wait(b" $ ")
+                    serial.sendall(b"dhcp\n");wait(b"dhcp: 10.0.2.15");wait(b" $ ")
+                    serial.sendall(b"exit\n");wait(b"srv> ")
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready");wait(b"deskd: commit");shot("system-default")
                 # Second window content starts at (57,132), 760 by 500.
-                click(720,265);wait(b"system-sort column=4 descending=0")
-                click(720,265);wait(b"system-sort column=4 descending=1")
+                click(720,305);wait(b"system-sort column=4 descending=0")
+                click(720,305);wait(b"system-sort column=4 descending=1")
                 shortcut("left");shortcut("ret");wait(b"system-sort column=3 descending=0")
                 shortcut("f6");shortcut("end");shot("system-sorted")
                 click(660,163);wait(b"system-paused=1")
                 shortcut("f5");wait(b"system-refresh processes=");shot("system-paused")
+                click(610,204);wait(b"system-page=network");shot("system-network")
+                if args.network:
+                    readings=re.findall(rb"network-refresh valid=1 initialized=1 ip=167772687 rx=(\d+) tx=(\d+)",output)
+                    if not readings or not all(int(value)>0 for value in readings[-1]):
+                        raise RuntimeError("Missing configured address or DHCP traffic counters")
+                elif b"network-refresh valid=1 initialized=0 ip=" not in output:
+                    raise RuntimeError("Missing no-adapter state")
+                shortcut("left");wait(b"system-page=processes")
                 # Resize while paused; rows remain keyboard/scroll accessible.
                 qmp.mouse(813-pointer[0],628-pointer[1]);pointer[:]=[813,628]
                 qmp.mouse(0,0,1);qmp.mouse(-160,-120,1);qmp.mouse(0,0,0);pointer[0]-=160;pointer[1]-=120;time.sleep(.5)
@@ -96,7 +114,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, RAM and process ABI compatibility. Evidence: {out}")
+    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, RAM and process ABI compatibility. Evidence: {out}")
 
 
 if __name__=="__main__": main()

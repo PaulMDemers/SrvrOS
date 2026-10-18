@@ -2552,3 +2552,19 @@ build/tests/calendar-widget-host$(HOST_EXE): tools/test_calendar_widget.c $(HOST
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-widgets: test-calendar-widget
+
+.PHONY: test-text-history
+test-widgets: test-text-history
+test-text-history: build/tests/text-history-host$(HOST_EXE)
+	$<
+build/tests/text-history-host$(HOST_EXE): tools/test_text_history.c userspace/widgets/src/text.c userspace/widgets/include/srvros/desk_text.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include tools/test_text_history.c userspace/widgets/src/text.c -o $@
+
+.PHONY: test-tabs
+test-widgets: test-tabs
+test-tabs: build/tests/tabs-host$(HOST_EXE)
+	$<
+build/tests/tabs-host$(HOST_EXE): tools/test_tabs.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tabs.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@

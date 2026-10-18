@@ -3,8 +3,22 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#define DESK_TEXT_HISTORY_LIMIT 256
+/* Optional caller-owned edit journal. Payload stores deleted/inserted UTF-8;
+ * old records are evicted at the fixed record or byte limit. Treat fields as
+ * private. Keep the journal and payload alive until the buffer is discarded. */
+struct desk_text_change {
+    size_t offset, position, removed, inserted, caret, anchor;
+};
+struct desk_text_history {
+    char *data;
+    size_t capacity, used;
+    unsigned count, applied;
+    struct desk_text_change changes[DESK_TEXT_HISTORY_LIMIT];
+};
 /* Bounded UTF-8 document model, independent of rendering and file I/O.
- * Supply two equally sized buffers for text and one-level undo/redo. The model
+ * Supply two equally sized buffers for text and default one-level undo/redo.
+ * Attach a journal for bounded multi-step history. Without a journal the model
  * swaps their roles on undo; always read model.data, not the original pointer.
  * Positions are UTF-8 byte boundaries. Unsupported glyphs remain valid text.
  * Failed loads/inserts are atomic. Embedded NUL and malformed UTF-8 are rejected.
@@ -13,10 +27,17 @@ struct desk_text_buffer {
     char *data, *history_data;
     size_t capacity, length, caret, anchor;
     size_t history_length, history_caret, history_anchor;
-    unsigned history; /* 0 none, 1 undo available, 2 redo available. */
+    unsigned history; /* Availability bits: 1 undo, 2 redo. */
+    struct desk_text_history *journal;
     uint64_t revision;
 };
 int desk_text_buffer_init(struct desk_text_buffer *text,char *buffer,char *history,size_t capacity);
+/* Attach an empty multi-step journal; existing one-level history is cleared.
+ * Payload capacity must be at least twice (text capacity - 1), so every valid
+ * edit is undoable. All backing stores must be disjoint. No allocation occurs. */
+int desk_text_buffer_history(struct desk_text_buffer *text,struct desk_text_history *journal,
+    char *payload,size_t capacity);
+int desk_text_buffer_can_undo(const struct desk_text_buffer *text,int redo);
 int desk_text_buffer_set(struct desk_text_buffer *text,const char *data,size_t length);
 int desk_text_buffer_insert(struct desk_text_buffer *text,const char *data,size_t length);
 int desk_text_buffer_erase(struct desk_text_buffer *text,int backwards);

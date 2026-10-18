@@ -121,10 +121,17 @@ physical trial when a meaningful workflow or input behavior is ready to assess.
 
 The toolkit now also exports `desk_text.h`, `desk_edit.h`, `desk_list.h` and
 `desk_ui.h`. `desk_text_buffer` uses two caller-owned buffers, validates UTF-8,
-tracks caret/anchor byte boundaries and offers one-level undo/redo. After undo,
-use `text.data`, since the buffers swap roles. Editing is codepoint-based;
-grapheme clusters, shaping, composition and multiple undo levels remain future
-work. The view supports selection, keyboard navigation, word movement, clipping,
+tracks caret/anchor byte boundaries and offers one-level undo/redo by default.
+Attach a caller-owned `desk_text_history` and payload arena for up to 256 edit
+records, bounded by both record count and byte storage. Each record stores only
+deleted/inserted bytes and the original selection; old records are evicted when
+needed. A new edit after undo discards the redo branch. Loads clear history;
+saving is outside the model and does not clear it. The arena must fit twice the
+maximum document size so every valid edit remains undoable. Use
+`desk_text_buffer_can_undo` for menu availability and `text.data` for content,
+since the default buffers swap roles. Text allocates a 256 KiB history arena;
+allocation failure retains single-step undo. Editing is codepoint-based;
+grapheme clusters, shaping and composition remain future work. The view supports selection, keyboard navigation, word movement, clipping,
 caret reveal and scrolling, independently of storage. The app chooses capacity;
 Text currently allows 64 KiB.
 
@@ -295,3 +302,22 @@ other Unicode bytes compare exactly. It changes neither the document nor its und
 history. Text uses the bar with Ctrl-F, Ctrl-G/Shift-Ctrl-G and F3/Shift-F3; repeat
 search also works after the bar closes. File pickers and modal dialogs close the
 bar while retaining its query. Clipboard results recheck its lifetime and focus.
+
+## Calendar and tabs
+
+`desk_calendar.h` is a date browser for Gregorian years 1–9999. It owns a selected
+date and an optional Today highlight supplied by its owner, accepts any first
+weekday, and lays out adjacent-month days in six rows. Arrows move days/weeks,
+Page Up/Down moves months (Shift moves years), Home/End chooses month bounds,
+and Ctrl-Home chooses Today. Pointer release inside selects a date; the owner
+handles any action. No clock, timezone, appointment or storage logic lives here.
+The desktop's menu-bar clock uses it in a focus-isolated popup.
+
+`desk_tabs.h` owns up to 16 validated tab snapshots with stable IDs. Selection
+survives replacement/reordering by identity, and disabled tabs are skipped.
+Left/Right/Home/End selects a page; Enter/Space activates it. The strip is one
+Tab focus stop and integrates with `desk_ui`. Pointer capture follows the shared
+release-inside/cancel rules. Frames have equal-width items, with clipped labels;
+use at least 24 pixels per item and 24 pixels in height to enable interaction.
+The app owns page contents and their retained state. System uses separate tables
+under Processes and Network, retaining process selection when switching pages.

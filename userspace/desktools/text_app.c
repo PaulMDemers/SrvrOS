@@ -1,6 +1,8 @@
 #include "app.h"
+#include <srvros/desk_log.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 int tool_modified(const struct tool *t) {
     return t->body_text.length!=t->saved_length || memcmp(t->body_text.data,t->saved_data,t->saved_length);
@@ -45,6 +47,11 @@ static void continue_action(struct tool *t) {
 }
 void tool_text_init(struct tool *t,const char *path) {
     desk_searchbar_init(&t->search);
+    const size_t history_bytes=4*DESK_FILE_BYTES;
+    t->body_history=malloc(sizeof(*t->body_history)+history_bytes);
+    if(t->body_history && desk_text_buffer_history(&t->body_text,t->body_history,
+       (char *)(t->body_history+1),history_bytes)) { free(t->body_history);t->body_history=NULL; }
+    desk_log("desktools: text history=%s\n",t->body_history?"multi-step":"single-step");
     desk_text_buffer_set(&t->path_text,"/fat/Untitled.txt",17);
     desk_ui_add(&t->ui,TOOL_NEW,DESK_CONTROL_BUTTON,&t->buttons[0],"New");
     desk_ui_add(&t->ui,TOOL_OPEN,DESK_CONTROL_BUTTON,&t->buttons[1],"Open");

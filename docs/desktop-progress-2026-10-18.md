@@ -555,3 +555,36 @@ Host tests now reuse a separate native toolkit archive with generated header
 dependencies and atomic archive replacement. The freestanding production archive
 is unchanged. This avoids recompiling the entire toolkit separately for each
 host test; the complete desktop host suite passed using the shared objects.
+
+### Multi-step editing history
+
+The shared text model now supports an optional caller-owned delta journal, with
+up to 256 edits and a fixed byte budget. It restores UTF-8 selections, discards
+redo only when a new edit creates a branch, evicts the oldest records as needed,
+and rejects failed/aliased insertions without changing history. The original
+two-buffer single-step mode remains available. Text allocates 256 KiB for edit
+payloads; if allocation fails it retains single-step undo. Saving retains history;
+loading/new documents clear it. Menus test independent undo/redo availability.
+
+Validation: 300,000 randomized reference-model operations, maximum-size edits,
+byte/record eviction, UTF-8 and failure atomicity passed with ASan/UBSan and the
+full desktop host suite. QEMU passed multi-step undo/redo, redo branching, cut
+restoration, independent path-field history, global Edit commands, history after
+save, reset after open and exact final-file readback. Edits are individual actions;
+continuous typing is not yet coalesced into word-sized undo groups.
+
+### Shared tabs and System network information
+
+The new tab strip owns validated labels and stable identities, preserves selection
+on item replacement, skips disabled pages, and shares keyboard focus and pointer
+capture rules with other controls. System uses it for Processes and Network. The
+network page reads the versioned kernel status ABI for IPv4/router/DNS, hardware
+address, address source, packet totals and socket counts. Pause/Refresh applies
+to both views, with process selection retained between pages. A configured IP is
+reported as such; this is not a physical-link or Internet-connectivity claim.
+
+Validation: host focus/identity/capture/disabled/resize tests, full-versus-tiled
+rendering, ASan/UBSan, System status ABI/error/cadence checks and the full desktop
+suite passed. QEMU passed both no-adapter and e1000 DHCP variants, including tab
+navigation, pause/refresh, resize and real address/traffic counters. Screenshots
+were reviewed: `native-desktop-network.png` and updated `native-desktop-system.png`.

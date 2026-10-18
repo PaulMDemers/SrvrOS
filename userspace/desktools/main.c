@@ -3,6 +3,7 @@
 #include <srvros/desk_log.h>
 #include <srvros/sys.h>
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 
 static struct tool app;
@@ -211,6 +212,7 @@ int main(int argc,char **argv) {
         struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
         srv_sleep_ticks(1);
     }
+    free(t->body_history);
     if(t->worker_ready) desk_file_job_close(&t->job);
     desk_app_close(&t->window);desk_log("desktools: exited role=%s failure=%d\n",roles[t->role-1],t->window.failed);
     return t->window.failed?1:0;
