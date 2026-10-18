@@ -89,8 +89,8 @@ def main():
                 shortcut("ctrl-shift-w");shot("close-confirmation");qmp.key("esc")
                 type_text("exit\n");wait(b"deskterm: shell exited status=0")
                 shortcut("ctrl-shift-w");wait(b"deskterm: exited failure=0")
-                click(490,750);shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/terminal-clipboard-source.txt")
-                shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
+                click(490,750);shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/terminal-clipboard-source.txt")
+                shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 for name,contents in [("paste","from-clipboard"),("one","terminal-one"),("two","terminal-two"),
                                       ("survived","survived"),("first-alive","first-alive"),("interrupted","130"),("size","20 90"),("edited","abc")]:

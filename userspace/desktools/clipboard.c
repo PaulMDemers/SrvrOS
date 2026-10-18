@@ -3,6 +3,8 @@
 #include <srvros/desk_log.h>
 #include <string.h>
 static struct desk_edit *target(struct tool *t,unsigned id) {
+    if(id==TOOL_PICK_LOCATION || id==TOOL_PICK_NAME) return t->picker_mode?(id==TOOL_PICK_LOCATION?&t->picker.location:&t->picker.name):NULL;
+    if(t->picker_mode) return NULL;
     return id==TOOL_BODY?&t->body:id==TOOL_PATH?&t->path:id==TOOL_NAME?&t->name:NULL;
 }
 void tool_clipboard_action(struct tool *t,struct desk_action a) {

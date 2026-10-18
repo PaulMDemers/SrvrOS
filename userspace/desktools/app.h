@@ -3,15 +3,18 @@
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_dialog.h>
+#include <srvros/desk_file_picker.h>
 #include <srvros/desk_clipboard.h>
 #include "file_job.h"
-enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME };
+enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 struct tool {
     int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
     struct desk_app window;
     struct desk_ui ui;
     struct desk_dialog dialog;
+    struct desk_file_picker picker;
+    int picker_mode,picker_job;
     struct desk_button buttons[32];
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
@@ -33,6 +36,14 @@ struct tool {
 };
 void tool_clipboard_action(struct tool *tool,struct desk_action action);
 void tool_clipboard_result(struct tool *tool,int result);
+int tool_listing_decode(struct tool *tool);
+void tool_picker_open(struct tool *tool,int mode);
+void tool_picker_result(struct tool *tool,struct desk_picker_result action);
+void tool_picker_finish(struct tool *tool,int result);
+void tool_picker_cancel(struct tool *tool);
+void tool_text_open_path(struct tool *tool,const char *path);
+void tool_text_save(struct tool *tool,int choose_path);
+void tool_text_save_path(struct tool *tool,const char *path);
 void tool_menu_refresh(struct tool *tool);
 void tool_menu_action(struct tool *tool,unsigned id);
 void tool_dispatch(struct tool *tool,struct desk_action action);

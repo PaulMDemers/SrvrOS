@@ -239,3 +239,34 @@ preserves focus on blank clicks, cancels capture across focus/resize changes,
 and wraps explanatory text at Unicode boundaries. The application still owns
 modal state and actions. The host tests and ASan/UBSan pass; both native-app and
 Terminal QEMU regressions pass. The unsaved panel was visually inspected.
+
+## Shared Open / Save picker and document workflows
+
+Text now has Open, first-save and Save As panels built from a reusable file
+picker. The control owns lexical path/filename state and borrowed list items;
+the app continues using its nonblocking file worker. It supports folder
+navigation, parent/refresh/location shortcuts, typed selection, filename entry
+and shared clipboard requests. Cancel remains responsive while a listing runs;
+the controller drains/discards that response without touching the document.
+The folder decoder validates a complete payload before replacing borrowed data.
+
+Unsaved-document continuations survive a chosen save path, and canceling clears
+the pending close/open safely. Overwriting a different existing file still
+requires explicit Replace and uses the existing CRC guard, sync and readback.
+The original 64 KiB document, 159-byte path and 256-entry listing limits remain.
+The picker accepts UTF-8 lexically; the current exFAT creation path is still
+restricted to ASCII names.
+
+Host and sanitizer tests pass picker state, paths, Unicode boundaries, busy
+cancellation, clipboard isolation, controller lifetime, drawing/clipping and
+listing validation. QEMU passed initial Save, Open, Save As, replacement cancel,
+confirmed replacement/readback, folder navigation/cancel, and the native app and
+Terminal workflows. The picker was visually inspected. A test expectation was
+adjusted after reopening a document: its caret correctly starts at the beginning,
+so the append test now explicitly moves to the end.
+
+The VM also exposed a real global-menu race after asynchronous save completion:
+republishing app menus could dismiss an open SrvrOS menu and send the following
+Enter into the document. Commit d5734ef preserves an open heading, keeps only
+unchanged enabled selections and disarms changed pointer actions. Host regressions
+cover this behavior, and the previously failing Terminal workflow now passes.

@@ -9,7 +9,7 @@ static struct tool app;
 static const char *roles[]={"files","text","calculator","system","settings"};
 static const char *titles[]={"Files","Text — Untitled","Calculator","System","Settings"};
 void tool_status(struct tool *t,const char *message) {
-    snprintf(t->status,sizeof(t->status),"%s",message);t->window.dirty=1;
+    snprintf(t->status,sizeof(t->status),"%s",message);if(t->picker_mode) desk_picker_message(&t->picker,message);t->window.dirty=1;
 }
 void tool_launch(struct tool *t,int application,const char *path) {
     if(desk_app_launch(&t->window,application,path)) tool_status(t,"The application could not be opened. Try again.");
@@ -47,6 +47,7 @@ void tool_layout(struct tool *t) {
         desk_button_configure(&t->buttons[1],(struct desk_rect){136,116,100,32},1);
     }
     desk_ui_layout_changed(&t->ui);
+    if(t->picker_mode) desk_picker_configure(&t->picker,(struct desk_rect){0,0,w,h});
     if(t->modal) desk_dialog_configure(&t->dialog,(struct desk_rect){0,0,w,h});
     t->window.dirty=1;
 }
@@ -68,6 +69,7 @@ void tool_dispatch(struct tool *t,struct desk_action a) {
     }
 }
 static void key(struct tool *t,const struct srv_key_event *k) {
+    if(t->picker_mode) { tool_picker_result(t,desk_picker_key(&t->picker,k));return; }
     if(t->modal) {
         struct desk_action a=desk_dialog_key(&t->dialog,k);
         if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
@@ -81,8 +83,9 @@ static void key(struct tool *t,const struct srv_key_event *k) {
             if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
         }
         if(t->role==DESK_APP_TEXT) {
-            if(k->usage==0x16) { tool_dispatch(t,(struct desk_action){TOOL_SAVE,DESK_WIDGET_ACTIVATED});return; }
-            if(k->usage==0x12) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
+            if(k->usage==0x16) { tool_text_save(t,(k->modifiers&SRV_KEY_SHIFT)!=0);return; }
+            if(k->usage==0x12) { tool_picker_open(t,DESK_PICKER_OPEN);return; }
+            if(k->usage==0x0f) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x11) { tool_text_request(t,TOOL_PENDING_NEW);return; }
         }
     }
@@ -118,12 +121,13 @@ static void draw(struct tool *t,struct desk_canvas *c) {
         desk_label_draw(c,(struct desk_rect){24,176,c->width-48,32},t->body_size==20?theme->heading:theme->body,"The quick brown fox jumps over the lazy dog.",theme->text);
     }
     desk_label_draw(c,(struct desk_rect){16,c->height-28,c->width-32,24},theme->body,t->status,theme->muted);
+    if(t->picker_mode) desk_picker_draw(c,&t->picker,theme);
     if(t->modal) desk_dialog_draw(c,&t->dialog,theme);
 }
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_list_init(&t->list);
+    desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_picker_init(&t->picker);desk_list_init(&t->list);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],DESK_FILE_BYTES+1);
@@ -156,23 +160,28 @@ int main(int argc,char **argv) {
                 t->body_size=p.value;tool_layout(t);
                 if(t->role==DESK_APP_SETTINGS) tool_status(t,p.value==16?"Standard text · applies to this desktop session.":"Larger text · applies to this desktop session.");
             } else if(p.type==DESK_FOCUS) {
-                if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else desk_ui_window_focus(&t->ui,p.value!=0);t->window.dirty=1;
+                if(t->picker_mode) desk_picker_focus(&t->picker,p.value!=0);else if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else desk_ui_window_focus(&t->ui,p.value!=0);t->window.dirty=1;
             } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
             else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
                     .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
+                if(t->picker_mode) { tool_picker_result(t,desk_picker_pointer(&t->picker,e,srv_monotonic_us()));continue; }
                 struct desk_action a=t->modal?desk_dialog_pointer(&t->dialog,e,srv_monotonic_us()):desk_ui_pointer(&t->ui,e,srv_monotonic_us());
                 if(t->modal) { if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;if(a.flags&DESK_WIDGET_ACTIVATED) tool_text_dialog(t,a.id); }
                 else tool_dispatch(t,a);
-            } else if(p.type==DESK_SCROLL && !t->modal) tool_dispatch(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));
+            } else if(p.type==DESK_SCROLL && !t->modal) {
+                if(t->picker_mode) tool_picker_result(t,desk_picker_scroll(&t->picker,p.width,p.height,p.y));
+                else tool_dispatch(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));
+            }
             else if(p.type==DESK_CLOSE_REQUEST) {
+                if(t->picker_mode) tool_picker_cancel(t);
                 if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
             }
         }
         if(t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
             desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
-            if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
+            if(t->picker_job) tool_picker_finish(t,result);else if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
         } }
         if(t->closing && !t->job.busy && t->role!=DESK_APP_TEXT) t->quit=1;
         if(t->role==DESK_APP_SYSTEM) system_refresh(t);

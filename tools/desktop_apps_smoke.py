@@ -66,12 +66,14 @@ def main():
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
                 type_text("Hello, SrvrOS!\nNative desktop text.")
                 qmp.key("left");qmp.key("right")
-                shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-smoke.txt")
+                shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-smoke.txt")
                 # Global File menu uses keyboard navigation and app commands.
                 shortcut("f10");shortcut("right");shortcut("down");shortcut("down");shot("file-menu")
-                shortcut("ret")
+                shortcut("ret");wait(b"picker ready mode=2");shot("save-picker");qmp.key("ret")
                 wait(b"file-result role=text op=2 status=0")
                 shot("text-saved")
+                shortcut("ctrl-o");wait(b"picker ready mode=1");shot("open-picker")
+                type_text("desktop-smoke");qmp.key("ret");wait(b"file-result role=text op=1 status=0");shortcut("ctrl-end")
                 # Close with unsaved changes, then Escape must preserve the window.
                 type_text(" More.");shortcut("ctrl-w");shot("unsaved-dialog")
                 qmp.key("esc");type_text(" Kept.");shortcut("ctrl-s")
@@ -97,13 +99,26 @@ def main():
                 # Minimize and restore through the dock, then zoom and restore.
                 click(666,86);shot("text-minimized");click(490,750)
                 click(700,86);shot("text-zoomed");click(1078,74);shot("text-restored")
-                shortcut("ctrl-n");shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-empty.txt")
-                shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
+                shortcut("ctrl-n");shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-empty.txt")
+                shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32")
                 shortcut("ctrl-a");shortcut("ctrl-x");wait(b"clipboard role=2 action=16")
                 shortcut("ctrl-z");shot("shared-clipboard")
-                shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-clipboard.txt")
-                shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
+                shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-clipboard.txt")
+                shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
+                # Save As must ask before replacing another file, and Cancel keeps edits.
+                shortcut("ctrl-n");type_text("Original replacement target")
+                shortcut("ctrl-shift-s");wait(b"picker ready mode=2");shortcut("ctrl-a");type_text("desktop-replace.txt");qmp.key("ret")
+                wait(b"file-result role=text op=2 status=0")
+                shortcut("ctrl-n");type_text("Updated replacement target")
+                shortcut("ctrl-shift-s");wait(b"picker ready mode=2");shortcut("ctrl-a");type_text("desktop-replace.txt");qmp.key("ret")
+                wait(b"file-result role=text op=2 status=2");shot("replace-confirmation");qmp.key("esc")
+                shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret")
+                wait(b"file-result role=text op=2 status=2");shortcut("shift-tab");qmp.key("ret")
+                wait(b"file-result role=text op=2 status=0");shot("replacement-saved")
+                # Browse inside the Open picker, then cancel without touching the document.
+                shortcut("ctrl-o");wait(b"picker ready mode=1");type_text("GUI folder");qmp.key("ret")
+                wait(b"picker ready mode=1");shot("picker-folder");shortcut("alt-up");wait(b"picker ready mode=1");qmp.key("esc")
                 # Return through the global menu; saved documents close normally.
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
@@ -112,12 +127,13 @@ def main():
                 wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-clipboard.txt\n")
                 wait(b"2 + 3 * (4 - 1)");wait(b"srv> ")
+                serial.sendall(b"cat /fat/desktop-replace.txt\n");wait(b"Updated replacement target");wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-apps: PASS native tools, raw input, save/readback, unsaved cancel, shared clipboard/cut undo, text-size broadcast, minimize/zoom restore, empty save, global launch/exit. Evidence: {out}")
+    print(f"desktop-apps: PASS native tools, Open/Save/Save As, replacement cancel/verified overwrite, folder navigation, unsaved cancel, shared clipboard/cut undo, text-size broadcast, minimize/zoom restore, empty save and global menus. Evidence: {out}")
 
 
 if __name__=="__main__": main()

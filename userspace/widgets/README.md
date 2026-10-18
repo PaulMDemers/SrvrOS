@@ -206,3 +206,22 @@ Focus loss and layout changes cancel captures. Applications own modal lifetime
 and any Save/Replace/Close behavior. Text and Terminal now use this component.
 The shared text-block helper wraps words and long UTF-8 words without allocation,
 honors explicit newlines, and preserves the incoming drawing clip.
+
+## File picker
+
+`desk_file_picker.h` composes the shared editors, list, scroll bar and buttons
+into a reusable Open/Save panel. It owns the location/filename text and borrows
+validated listing items. It returns Browse, Accept and Cancel requests with a
+bounded absolute path; it never performs I/O or assumes a particular filesystem.
+The app marks loading and supplies a completed listing or error. Cancel stays
+available while loading. Ctrl-L edits the folder, Alt-Up navigates to its parent,
+F5 refreshes, Enter opens/accepts, and Escape cancels. Clipboard requests identify
+the relevant editor field. Lexical validation preserves UTF-8 but filesystem
+rules may further restrict names (the current exFAT writer creates ASCII names).
+
+Text adapts this control to its asynchronous file worker. Ctrl-O opens the
+picker, Ctrl-S saves (choosing a path for a new document), and Ctrl-Shift-S uses
+Save As. Ctrl-L still focuses the explicit document path field. Canceling a
+picker drains/discards pending listing work and keeps the document; deferred
+clipboard edits cannot mutate a closed picker or its underlying document.
+Save/replace confirmation and verified writes remain application behavior.

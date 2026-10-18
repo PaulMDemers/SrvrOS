@@ -2390,3 +2390,17 @@ test-dialog: build/tests/dialog-host$(HOST_EXE)
 build/tests/dialog-host$(HOST_EXE): tools/test_dialog.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_dialog.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-file-picker
+test-widgets: test-file-picker
+test-file-picker: build/tests/file-picker-host$(HOST_EXE)
+	build/tests/file-picker-host$(HOST_EXE)
+	build/tests/tool-picker-host$(HOST_EXE)
+build/tests/file-picker-host$(HOST_EXE): tools/test_file_picker.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_file_picker.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+test-file-picker: build/tests/tool-picker-host$(HOST_EXE)
+build/tests/tool-picker-host$(HOST_EXE): tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c userspace/desktools/app.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_tool_picker.c userspace/desktools/picker.c userspace/desktools/files_app.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@

@@ -49,18 +49,16 @@ void tool_files_action(struct tool *t,struct desk_action a) {
         tool_status(t,"Creating folder…");tool_layout(t);
     }
 }
-void tool_files_finish(struct tool *t,int result) {
-    if(result<0 || t->job.response.status) {
-        tool_status(t,result<0?"The file worker stopped. Close and reopen Files to retry.":"Could not open or change this folder. Check the path and volume.");
-        if(t->saved_path[0]) desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
-        tool_layout(t);return;
-    }
-    if(t->job.request.operation==DESK_FILE_MKDIR) { list_directory(t,t->saved_path);return; }
+int tool_listing_decode(struct tool *t) {
     unsigned count=t->job.response.count;
-    memcpy(t->entries,t->job.incoming,count*sizeof(t->entries[0]));
-    for(unsigned i=0;i<count;i++) if(!memchr(t->entries[i].name,0,sizeof(t->entries[i].name)) || t->entries[i].reserved || t->entries[i].directory>1) {
-        tool_status(t,"The folder listing was invalid.");desk_list_set_items(&t->list,NULL,0);tool_layout(t);return;
+    if(count>DESK_FILE_ENTRIES || t->job.response.length!=count*sizeof(t->entries[0])) return -1;
+    for(unsigned i=0;i<count;i++) {
+        struct desk_file_entry entry;memcpy(&entry,t->job.incoming+i*sizeof(entry),sizeof(entry));
+        if(!memchr(entry.name,0,sizeof(entry.name)) || entry.reserved || entry.directory>1 || !entry.name[0] ||
+           strchr(entry.name,'/') || !strcmp(entry.name,".") || !strcmp(entry.name,"..") || !desk_text_utf8_valid(entry.name,strlen(entry.name))) return -1;
+        for(const char *p=entry.name;*p;p++) if((unsigned char)*p<32 || (unsigned char)*p==127) return -1;
     }
+    memcpy(t->entries,t->job.incoming,count*sizeof(t->entries[0]));
     for(unsigned i=1;i<count;i++) {
         struct desk_file_entry item=t->entries[i];unsigned j=i;
         while(j && (item.directory>t->entries[j-1].directory ||
@@ -74,9 +72,20 @@ void tool_files_finish(struct tool *t,int result) {
         else snprintf(t->details[i],sizeof(t->details[i]),"%llu bytes",(unsigned long long)t->entries[i].size);
         t->items[i]=(struct desk_list_item){t->entries[i].name,t->details[i],i,t->entries[i].directory};
     }
+    return count;
+}
+void tool_files_finish(struct tool *t,int result) {
+    if(result<0 || t->job.response.status) {
+        tool_status(t,result<0?"The file worker stopped. Close and reopen Files to retry.":"Could not open or change this folder. Check the path and volume.");
+        if(t->saved_path[0]) desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
+        tool_layout(t);return;
+    }
+    if(t->job.request.operation==DESK_FILE_MKDIR) { list_directory(t,t->saved_path);return; }
+    int count=tool_listing_decode(t);
+    if(count<0) { tool_status(t,"The folder listing was invalid.");desk_list_set_items(&t->list,NULL,0);tool_layout(t);return; }
     strcpy(t->saved_path,t->job.request.path);desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));
     desk_list_set_items(&t->list,t->items,count);tool_layout(t);desk_ui_focus(&t->ui,TOOL_LIST);
-    snprintf(t->status,sizeof(t->status),"%u items%s",count,t->job.response.truncated?" · Listing limited to supported paths and 256 items":"");
+    snprintf(t->status,sizeof(t->status),"%u items%s",(unsigned)count,t->job.response.truncated?" · Listing limited to supported paths and 256 items":"");
     t->window.dirty=1;
     if(t->closing) t->quit=1;
 }

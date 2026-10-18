@@ -22,6 +22,15 @@ static void save(struct tool *t,int overwrite) {
     }
     tool_status(t,"Saving document…");tool_layout(t);
 }
+void tool_text_save(struct tool *t,int choose_path) {
+    if(t->job.busy) return;
+    if(choose_path || !t->saved_path[0] || strcmp(t->path_text.data,t->saved_path)) tool_picker_open(t,DESK_PICKER_SAVE);
+    else save(t,0);
+}
+void tool_text_save_path(struct tool *t,const char *path) {
+    if(desk_text_buffer_set(&t->path_text,path,strlen(path))<0) { tool_status(t,"This path is too long.");cancel_pending(t);return; }
+    save(t,0);
+}
 static void continue_action(struct tool *t) {
     int pending=t->pending;t->pending=0;
     if(pending==TOOL_PENDING_CLOSE) { t->quit=1;return; }
@@ -46,6 +55,11 @@ void tool_text_init(struct tool *t,const char *path) {
         else load(t,path);
     }
 }
+void tool_text_open_path(struct tool *t,const char *path) {
+    if(t->job.busy || strlen(path)>=sizeof(t->pending_path)) return;
+    strcpy(t->pending_path,path);t->pending=TOOL_PENDING_OPEN;
+    if(tool_modified(t)) tool_dialog(t,1);else continue_action(t);
+}
 void tool_text_request(struct tool *t,int pending) {
     if(t->job.busy) {
         if(pending==TOOL_PENDING_CLOSE) { t->closing=1;tool_status(t,"Finishing the file operation before closing…"); }
@@ -60,9 +74,10 @@ void tool_text_action(struct tool *t,struct desk_action a) {
         t->title_dirty=1;tool_status(t,"Edited. Ctrl-S saves the current document.");
     }
     if(a.flags&DESK_EDIT_FULL) tool_status(t,"The document has reached the 64 KiB editing limit.");
-    if((a.id==TOOL_PATH && (a.flags&DESK_EDIT_SUBMIT)) || (a.id==TOOL_OPEN && (a.flags&DESK_WIDGET_ACTIVATED))) tool_text_request(t,TOOL_PENDING_OPEN);
+    if(a.id==TOOL_PATH && (a.flags&DESK_EDIT_SUBMIT)) tool_text_request(t,TOOL_PENDING_OPEN);
+    if(a.id==TOOL_OPEN && (a.flags&DESK_WIDGET_ACTIVATED)) tool_picker_open(t,DESK_PICKER_OPEN);
     if(a.id==TOOL_NEW && (a.flags&DESK_WIDGET_ACTIVATED)) tool_text_request(t,TOOL_PENDING_NEW);
-    if(a.id==TOOL_SAVE && (a.flags&DESK_WIDGET_ACTIVATED) && !t->job.busy) save(t,0);
+    if(a.id==TOOL_SAVE && (a.flags&DESK_WIDGET_ACTIVATED) && !t->job.busy) tool_text_save(t,0);
 }
 void tool_text_dialog(struct tool *t,unsigned id) {
     int modal=t->modal;
@@ -74,7 +89,7 @@ void tool_text_dialog(struct tool *t,unsigned id) {
         t->modal=0;desk_ui_window_focus(&t->ui,1);continue_action(t);t->window.dirty=1;return;
     }
     if(id==1001) {
-        t->modal=0;desk_ui_window_focus(&t->ui,1);save(t,modal==2);t->window.dirty=1;
+        t->modal=0;desk_ui_window_focus(&t->ui,1);if(modal==2) save(t,1);else tool_text_save(t,0);t->window.dirty=1;
     }
 }
 void tool_text_finish(struct tool *t,int result) {
