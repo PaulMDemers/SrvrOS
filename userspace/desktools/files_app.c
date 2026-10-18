@@ -169,8 +169,8 @@ static void open_change(struct tool *t,unsigned action) {
         t->modal=3;desk_ui_window_focus(&t->ui,0);tool_layout(t);desk_dialog_focus(&t->dialog,t->window.focused);
         desk_log("desktools: files-delete-confirm name=%s\n",t->file_selected.name);return;
     }
-    if(action==TOOL_DUPLICATE && (t->file_selected.directory || t->file_selected.size>DESK_FILE_BYTES)) {
-        tool_status(t,"Duplicate currently supports individual files up to 64 KiB.");return;
+    if(action==TOOL_DUPLICATE && (t->file_selected.directory || t->file_selected.size>DESK_FILE_COPY_BYTES)) {
+        tool_status(t,"Duplicate currently supports individual files up to 16 MiB.");return;
     }
     char name[128];snprintf(name,sizeof(name),"%s",t->file_selected.name);
     if(action==TOOL_DUPLICATE) {
@@ -254,7 +254,7 @@ void tool_files_finish(struct tool *t,int result) {
         else if(t->job.response.status==DESK_FILE_CHANGED) message="The selected item changed. Refresh the folder before trying again.";
         else if(t->job.response.status==DESK_FILE_EXISTS) message="That name already exists. Choose a different name.";
         else if(t->job.response.status==DESK_FILE_BUSY) message="The item is open in another process. Close it and try again.";
-        else if(t->job.response.status==DESK_FILE_TOO_LARGE) message="Duplicate supports individual files up to 64 KiB.";
+        else if(t->job.response.status==DESK_FILE_TOO_LARGE) message="Duplicate supports individual files up to 16 MiB.";
         else if(t->job.request.operation>=DESK_FILE_RENAME) message="The change could not be verified. Refresh before retrying. Folders must be empty and the volume writable.";
         t->location_pending=-1;tool_status(t,message);
         if(t->saved_path[0]) desk_text_buffer_set(&t->path_text,t->saved_path,strlen(t->saved_path));

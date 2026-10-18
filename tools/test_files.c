@@ -61,7 +61,13 @@ int main(void) {
     tool_files_dialog(&t,1003);assert(!t.modal && !t.job.busy);
     activate(TOOL_DELETE);tool_files_dialog(&t,1004);assert(t.job.request.operation==DESK_FILE_DELETE && !t.modal);
     t.job.busy=0;t.job.response.status=DESK_FILE_CHANGED;tool_files_finish(&t,1);assert(strstr(t.status,"Refresh"));
-    choose(12);before=started;activate(TOOL_DUPLICATE);assert(!t.prompt_mode && started==before && strstr(t.status,"64 KiB"));
+    choose(12);before=started;activate(TOOL_DUPLICATE);assert(!t.prompt_mode && started==before && strstr(t.status,"16 MiB"));
+    choose(5);int selected=t.table.body.selected;t.entries[selected].size=2*1024*1024;
+    activate(TOOL_DUPLICATE);assert(t.prompt_mode==DESK_FILE_COPY);accept();
+    memcpy(&change,t.job.outgoing,sizeof(change));assert(change.size==2*1024*1024);
+    t.job.busy=0;t.job.response.status=DESK_FILE_IO;tool_files_finish(&t,1);
+    t.entries[selected].size=DESK_FILE_COPY_BYTES+1;before=started;activate(TOOL_DUPLICATE);
+    assert(!t.prompt_mode && started==before && strstr(t.status,"16 MiB"));t.entries[selected].size=7;
     t.entries[0].modified=INT64_MAX;file_rows(&t);
     for(int i=0;i<t.file_count;i++) if(t.entries[i].modified==INT64_MAX) assert(!strcmp(t.file_dates[i],"—"));
     struct desk_file_entry bad[2]={{.name="a",.inode=1},{.name="b",.inode=1}};memcpy(t.job.incoming,bad,sizeof(bad));t.job.response.count=2;t.job.response.length=sizeof(bad);

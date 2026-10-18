@@ -140,6 +140,9 @@ struct srv_abi_header {
 #define SRV_FILE_RENAME 1
 #define SRV_FILE_DELETE 2
 #define SRV_FILE_COPY 3
+/* Guarded source snapshot, copied inside the filesystem syscall gate. */
+#define SRV_FILE_DUPLICATE 4
+#define SRV_FILE_DUPLICATE_MAX (16u * 1024u * 1024u)
 #define SRV_FILE_CHANGED -2
 #define SRV_FILE_EXISTS -3
 #define SRV_FILE_BUSY -4

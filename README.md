@@ -19,7 +19,7 @@ Terminal, Preview, Sketch, Help and Clock. Command-Space opens application/windo
 provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
 with month/year navigation and Today. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
-files up to 64 KiB, and confirmed permanent deletion. System shows live process, memory and network information; Settings saves text, color and clock preferences.
+files up to 16 MiB, and confirmed permanent deletion. System shows live process, memory and network information; Settings saves text, color and clock preferences.
 Text includes a modeless Find bar, next/previous search, bounded multi-step undo
 and shared clipboard. Calculator has a keypad, result copying and session history.
 Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate

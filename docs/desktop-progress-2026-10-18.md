@@ -894,3 +894,22 @@ exit. Normal/compact screenshots were reviewed. This test also exposed and fixed
 a one-shot worker race: a process can exit after queuing its reply; the capture
 client now drains the pipe and uses EOF rather than a racy liveness probe. The
 specific ordering has a host regression test. No hardware reboot or deployment.
+
+### Files copies beyond the editor limit
+
+Files can now duplicate individual files up to 16 MiB, including screenshots and
+Sketch drawings. The existing guarded filesystem ABI gains a kernel-owned source
+snapshot operation: identity/size/date/type, absent destination and open-file
+conflicts are checked before the read/write scope. The background file worker
+independently streams source and destination CRC32 checks, syncs, and only reports
+success after verification. Text's 64-KiB editing limit remains independent.
+An incremental nibble-table CRC preserves the existing protocol checksum.
+
+Kernel/worker/UI host tests cover multi-megabyte and empty copies, stale identity,
+collisions, open-file conflicts, bounded sizes, read/write failure, snapshot
+release and corrupted readback. Kernel and worker address/UB sanitizers passed.
+The checksum matched a separate bitwise implementation on 1,000 randomized inputs.
+Production build passed. The throttled-disk VM test copied 4 MiB + 17 bytes while
+Text visibly accepted input, verified exact document and binary contents from the
+VM disk, preserved an existing destination, renamed the copy and exited cleanly.
+Evidence: `desktop_large_copy_smoke.py`. No hardware reboot or deployment.

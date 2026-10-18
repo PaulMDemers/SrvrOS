@@ -4,7 +4,7 @@
 #define main deskfs_guest_main
 #include "../userspace/deskfs/deskfs.c"
 #undef main
-static int write_failure,sync_failure,writes;
+static int write_failure,sync_failure,writes,corrupt_copy;
 long srv_fs_replace(const char *path,const void *data,size_t length) {
     writes++;if(write_failure) return -1;
     int fd=open(path,O_WRONLY|O_CREAT|O_TRUNC,0600);if(fd<0) return -1;
@@ -19,7 +19,13 @@ long srv_file_change(const struct srv_file_change *q) {
     if(q->operation==SRV_FILE_DELETE) return q->expected_type?rmdir(q->path):unlink(q->path);
     if(q->operation==SRV_FILE_RENAME) return rename(q->path,q->destination);
     int fd=open(q->destination,O_WRONLY|O_CREAT|O_EXCL,0600);if(fd<0) return -1;
-    ssize_t n=write(fd,q->data,q->length);int result=close(fd);return n==(ssize_t)q->length && !result?0:-1;
+    assert(q->operation==SRV_FILE_DUPLICATE && !q->data && !q->length);
+    int source=open(q->path,O_RDONLY);assert(source>=0);unsigned char buffer[4096];ssize_t n;int result=0;
+    while((n=read(source,buffer,sizeof(buffer)))>0) { if(corrupt_copy) buffer[0]^=1;if(write(fd,buffer,n)!=n) result=-1; }
+    if(n<0) result=-1;
+    if(close(source)) result=-1;
+    if(close(fd)) result=-1;
+    return result;
 }
 int main(void) {
     char dir[]="/tmp/srvros-deskfs-test-XXXXXX";assert(mkdtemp(dir));
@@ -72,6 +78,16 @@ int main(void) {
     perform(&q,&r);assert(!r.status && stat(q.path,&st)<0);
     strcpy(q.path,change.destination);q.operation=DESK_FILE_DELETE;perform(&q,&r);assert(!r.status && stat(q.path,&st)<0);
     snprintf(q.path,sizeof(q.path),"%s/copy.txt",dir);assert(!unlink(q.path));
+    snprintf(q.path,sizeof(q.path),"%s/large-source.bmp",dir);fd=open(q.path,O_WRONLY|O_CREAT|O_EXCL,0600);assert(fd>=0);
+    unsigned char block[4096];for(unsigned i=0;i<sizeof(block);i++) block[i]=(i*29+i/71)&255;
+    for(unsigned i=0;i<257;i++) assert(write(fd,block,sizeof(block))==sizeof(block));
+    assert(!close(fd) && !stat(q.path,&st));
+    change=(struct desk_file_change){.inode=st.st_ino,.size=st.st_size,.modified=st.st_mtime};snprintf(change.destination,sizeof(change.destination),"%s/large-copy.bmp",dir);
+    q.operation=DESK_FILE_COPY;q.length=sizeof(change);memcpy(input,&change,sizeof(change));perform(&q,&r);assert(!r.status);
+    uint64_t copied_length;uint32_t copied_crc;assert(!file_checksum(change.destination,&copied_length,&copied_crc) && copied_length==sizeof(block)*257);
+    perform(&q,&r);assert(r.status==DESK_FILE_EXISTS);assert(!unlink(change.destination));
+    corrupt_copy=1;perform(&q,&r);assert(r.status==DESK_FILE_IO);corrupt_copy=0;assert(!unlink(change.destination));
+    change.size=DESK_FILE_COPY_BYTES+1;memcpy(input,&change,sizeof(change));perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);assert(!unlink(q.path));
     snprintf(q.path,sizeof(q.path),"%s/folder",dir);assert(!rmdir(q.path));assert(!rmdir(dir));
-    puts("deskfs: PASS create, guarded overwrite, changed/missing files, empty save, readback, write/sync failure, listing, mkdir, size limits, guarded duplicate/rename/delete");
+    puts("deskfs: PASS create, guarded overwrite, changed/missing files, empty save, readback, write/sync failure, listing, mkdir, size limits, guarded large duplicate/rename/delete, streamed verification and corruption rejection");
 }

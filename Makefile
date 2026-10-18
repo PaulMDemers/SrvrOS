@@ -2791,3 +2791,11 @@ build/tests/sketch-app-host$(HOST_EXE): tools/test_sketch_app.c userspace/desksk
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-sketch-app
+
+.PHONY: test-file-crc
+test-file-crc: build/tests/file-crc-host$(HOST_EXE)
+	$<
+build/tests/file-crc-host$(HOST_EXE): tools/test_file_crc.c shared/include/srvros/desktop_file.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+test-desktop: test-file-crc

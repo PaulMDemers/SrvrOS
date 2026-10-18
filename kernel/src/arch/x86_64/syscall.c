@@ -1136,10 +1136,14 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
 static int64_t syscall_file_change(const struct srv_file_change *user_request) {
     struct srv_file_change q;char path[MAX_PATH_LENGTH],destination[MAX_PATH_LENGTH];
     if(abi_user_struct_size(user_request,sizeof(q),SRV_ABI_VERSION)!=sizeof(q) ||
-        !copy_from_user(&q,user_request,sizeof(q)) || q.operation<SRV_FILE_RENAME || q.operation>SRV_FILE_COPY ||
+        !copy_from_user(&q,user_request,sizeof(q)) || q.operation<SRV_FILE_RENAME || q.operation>SRV_FILE_DUPLICATE ||
         !q.expected_inode || q.expected_type>VFS_NODE_DIRECTORY || !copy_user_string(q.path,path,sizeof(path)) || path[0]!='/') return SRV_FILE_INVALID;
     if(q.operation!=SRV_FILE_DELETE && (!copy_user_string(q.destination,destination,sizeof(destination)) || destination[0]!='/')) return SRV_FILE_INVALID;
     if(q.operation==SRV_FILE_COPY && (q.expected_type!=VFS_NODE_FILE || q.length!=q.expected_size || q.length>MAX_SYSCALL_COPY)) return SRV_FILE_LIMIT;
+    if(q.operation==SRV_FILE_DUPLICATE) {
+        if(q.data || q.length) return SRV_FILE_INVALID;
+        if(q.expected_type!=VFS_NODE_FILE || q.expected_size>SRV_FILE_DUPLICATE_MAX) return SRV_FILE_LIMIT;
+    }
     const struct vfs_node *node=vfs_lookup(path);
     if(!node || node->metadata.inode!=q.expected_inode || node->size!=q.expected_size ||
         node->metadata.mtime!=q.expected_mtime || (uint64_t)node->type!=q.expected_type) return SRV_FILE_CHANGED;
@@ -1147,6 +1151,18 @@ static int64_t syscall_file_change(const struct srv_file_change *user_request) {
     if(process_has_open_vfs_prefix(path) || (q.operation!=SRV_FILE_DELETE && process_has_open_vfs_prefix(destination))) return SRV_FILE_BUSY;
     if(q.operation==SRV_FILE_RENAME) return exfat_rename(path,destination)?0:-1;
     if(q.operation==SRV_FILE_DELETE) return (q.expected_type==VFS_NODE_DIRECTORY?exfat_delete_directory(path):exfat_delete_file(path))?0:-1;
+    if(q.operation==SRV_FILE_DUPLICATE) {
+        const uint8_t *snapshot=NULL;uint64_t length=0;
+        bool read=vfs_read_all(node,&snapshot,&length);
+        if(!read || length!=q.expected_size || (length && !snapshot)) {
+            vfs_release_data(node,snapshot);return -1;
+        }
+        /* The source owns this immutable read buffer until release. The syscall
+         * gate spans both operations, including owned I/O continuations, so no
+         * other filesystem syscall can replace either guarded path in between. */
+        bool ok=exfat_write_file(destination,snapshot,length);
+        vfs_release_data(node,snapshot);return ok?0:-1;
+    }
     uint8_t *data=q.length?kmalloc(q.length):NULL;
     if(q.length && (!data || !copy_from_user(data,q.data,q.length))) { kfree(data);return -1; }
     bool ok=exfat_write_file(destination,data,q.length);kfree(data);return ok?0:-1;
