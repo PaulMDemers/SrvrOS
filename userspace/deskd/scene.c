@@ -49,10 +49,10 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         const char *io_steps[]={
             "Input + USB file work - keep testing while the status below says RUNNING",
             "1. Type, scroll with two fingers, drag the thumb and resize the window.",
-            "2. Ctrl-N opens another study. Tab switches focus; type in both windows.",
+            "2. Two studies are ready. Tab switches focus; type 32+ characters in both.",
             "3. Hold the scrollbar thumb, press Tab, then release the pad.",
             "   Moving afterward must NOT continue the old drag. Try a fresh drag.",
-            "4. Test until 16+ file rounds and 100+ active samples; all checks below must say OK.",
+            "4. Test until 16+ rounds, 100+ active samples and 32+ text samples; all checks OK.",
             "5. Escape stops file work after its current round, then shows save checks.",
             s->io_check[0]?s->io_check:"   Complete all coverage counters below before Escape."
         };

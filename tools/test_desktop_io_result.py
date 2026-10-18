@@ -1,6 +1,6 @@
 import binascii
 import unittest
-from desktop_io_result import validate, validate_timing, timing_gate, BYTES
+from desktop_io_result import validate, validate_timing, timing_gate, validate_text, text_gate, BYTES
 
 class DesktopIOTests(unittest.TestCase):
     run_id='0123456789abcdef'
@@ -19,6 +19,17 @@ class DesktopIOTests(unittest.TestCase):
         with self.assertRaises(ValueError): validate(self.run_id,worker,ui,payload[:-1]+b'\0')
         with self.assertRaises(ValueError): validate(self.run_id,worker[:-1],ui,payload)
         with self.assertRaises(ValueError): validate(self.run_id,worker,self.record('ui',dict(activity,state=4)),payload)
+
+    def test_text_evidence(self):
+        target=dict(clock=1,sent=32,presented=32,overflow=0,p95_us=50000,p99_us=100000,max_us=250000)
+        self.assertEqual(validate_text(self.run_id,self.record('text',target)),target)
+        self.assertTrue(text_gate(target))
+        for miss in (dict(sent=31,presented=31),dict(presented=31),dict(overflow=1),
+                     dict(p95_us=50001),dict(p99_us=100001),dict(max_us=250001)):
+            self.assertFalse(text_gate(dict(target,**miss)))
+        for invalid in (dict(clock=0),dict(presented=33),dict(overflow=33),dict(p99_us=1)):
+            with self.assertRaises(ValueError): validate_text(self.run_id,self.record('text',dict(target,**invalid)))
+        with self.assertRaises(ValueError): validate_text(self.run_id,self.record('text',target)[:-1])
 
     def test_timing_evidence(self):
         fields=dict(clock=1,active_count=51,active_p95_us=50000,active_p99_us=100000,active_max_us=150000,

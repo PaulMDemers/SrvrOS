@@ -1,3 +1,4 @@
+#include <srvros/desk_log.h>
 #include "scene.h"
 #include "io_trial.h"
 #include <srvros/desktop.h>
@@ -10,7 +11,7 @@
 #include <string.h>
 
 struct client {
-    uint64_t pid,generation,progress;
+    uint64_t pid,generation,progress,present_input;
     int configure,awaiting,closing;
     struct desk_packet release;
     struct desk_packet input[16];
@@ -103,7 +104,7 @@ static void forget(struct session *s,int i) {
     }
     struct desktop_window *w=&s->scene.windows[i];
     damage_window(s,i);
-    if (s->trace) printf("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
+    if (s->trace) desk_log("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
     memset(w,0,sizeof(*w)); memset(&s->clients[i],0,sizeof(s->clients[i]));
     if (s->scene.focus==i) {
         focus(s,-1);
@@ -152,13 +153,13 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         s->clients[i].pid=pid;
         w->visible=1;
         w->frame.x=32+40*i; w->frame.y=64+36*i;
-        memcpy(w->title,p->text,sizeof(w->title)); w->title[sizeof(w->title)-1]=0;
+        memcpy(w->title,p->text,sizeof(p->text)); w->title[sizeof(p->text)]=0;
         configure(s,i,clamp(p->width,280,s->damage.width-w->frame.x-8<DESK_MAX_WIDTH?
             s->damage.width-w->frame.x-8:DESK_MAX_WIDTH),
             clamp(p->height,240,s->damage.height-w->frame.y-85<DESK_MAX_HEIGHT?
             s->damage.height-w->frame.y-85:DESK_MAX_HEIGHT));
         focus(s,i);
-        printf("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
+        desk_log("deskd: opened pid=%llu window=%d\n",(unsigned long long)pid,i);
         return;
     }
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
@@ -169,7 +170,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     c->release=*p; c->release.type=DESK_RELEASE; c->progress=srv_ticks();
     if (p->generation!=c->generation || p->width!=(uint32_t)(w->frame.w-2) ||
         p->height!=(uint32_t)(w->frame.h-45) || c->closing) {
-        printf("deskd: stale commit released pid=%llu\n",(unsigned long long)pid); return;
+        desk_log("deskd: stale commit released pid=%llu\n",(unsigned long long)pid); return;
     }
     /* Keep displaying the front until a complete copy succeeds. */
     uint32_t *next=w->pixels==s->cache[i][0]?s->cache[i][1]:s->cache[i][0];
@@ -177,10 +178,11 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         gui_surface_copy(p->surface,0,0,p->width,p->height,next,p->width)!=0) {
         close_client(s,i); return;
     }
+    c->present_input=p->input_serial;
     w->pixels=next; w->width=p->width; w->height=p->height;
     c->awaiting=0;
     damage_window(s,i);
-    if (s->trace) printf("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
+    if (s->trace) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
 }
 static void service(struct session *s) {
@@ -280,10 +282,11 @@ int main(int argc,char **argv) {
     desk_damage_init(&s.damage,info.width,info.height);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
-    if (io_mode) io_trial_start(&s.io,argv[2]);
+    if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
+    int io_started=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
-    uint64_t key_pid=0,key_since=0;
+    uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
     while (!quit) {
@@ -295,6 +298,10 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if (io_mode && !io_started && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
+            io_trial_start(&s.io,argv[2]); io_started=1;
+        }
+        if (io_mode && !io_started && (uint64_t)srv_ticks()-start>500) { failed=1; break; }
         io_trial_poll(&s.io);
         if (io_leaving && s.io.finished) { quit=1; break; }
         if (scroll_smoke && s.scene.windows[0].pixels) {
@@ -321,7 +328,7 @@ int main(int argc,char **argv) {
             if (key<=0) break;
             if (!pending_key) {
                 if (key==27) {
-                    if (io_mode) { io_trial_stop(&s.io); io_leaving=1; continue; }
+                    if (io_mode && io_started) { io_trial_stop(&s.io); io_leaving=1; continue; }
                     quit=1; break;
                 }
                 if (key==14) { spawn_client(&s); continue; }
@@ -335,9 +342,10 @@ int main(int argc,char **argv) {
                 }
                 key_pid=s.scene.focus>=0?s.clients[s.scene.focus].pid:0;
                 key_since=srv_ticks();
+                key_serial=key_pid?io_trial_text_begin(&s.io,key_pid):0;
             }
             if (!key_pid || !desk_process_alive(key_pid)) { pending_key=0; continue; }
-            struct desk_packet p=desk_packet_new(DESK_TEXT); p.value=key;
+            struct desk_packet p=desk_packet_new(DESK_TEXT); p.value=key; p.input_serial=key_serial;
             if (desk_send(key_pid,&p)!=0) {
                 pending_key=key;
                 if ((uint64_t)srv_ticks()-key_since>500) { srv_kill(key_pid); pending_key=0; }
@@ -355,7 +363,7 @@ int main(int argc,char **argv) {
             desk_damage_add(&s.damage,(struct desk_rect){s.scene.cursor_x,s.scene.cursor_y,10,17});
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
-            if (s.trace) printf("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
+            if (s.trace) desk_log("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
             if (e.flags&MOUSE_CANCEL) {
                 drag=resize=-1; buttons=e.buttons;
                 cancel_input(&s,e.buttons);
@@ -396,9 +404,9 @@ int main(int argc,char **argv) {
                 s.io.progress.rounds,(unsigned long long)s.io.keys,(unsigned long long)s.io.motions,
                 (unsigned long long)s.io.wheels,(unsigned long long)s.io.focus_changes,(unsigned long long)s.io.cancels);
             char checks[160];
-            snprintf(checks,sizeof(checks),"Scroll: %s | Tab focus twice: %s | Hold thumb + Tab: %s | active samples: %llu/100",
+            snprintf(checks,sizeof(checks),"Scroll: %s | Tab focus twice: %s | Hold thumb + Tab: %s | active: %llu/100 | text: %llu/32",
                 s.io.wheels?"OK":"WAIT",s.io.focus_changes>=2?"OK":"WAIT",s.io.cancels?"OK":"WAIT",
-                (unsigned long long)s.io.active_gap.count);
+                (unsigned long long)s.io.active_gap.count,(unsigned long long)s.io.text_present.count);
             if(strcmp(checks,s.scene.io_check)) {
                 strcpy(s.scene.io_check,checks);
                 desk_damage_add(&s.damage,(struct desk_rect){24,canvas.height-269+12+24*7,canvas.width-48,24});
@@ -414,6 +422,8 @@ int main(int argc,char **argv) {
             if (blitrect(r.x,r.y,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride)!=0) failed=1;
             bytes+=(uint64_t)r.w*r.h*4;
         }
+        if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
+            io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
         if (s.damage.count) frames++;
         s.damage.count=0;
@@ -432,7 +442,7 @@ int main(int argc,char **argv) {
     }
     cache_free(&s);
     desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);
-    printf("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
+    desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:0;
 }

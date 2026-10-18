@@ -245,3 +245,83 @@ physical scrolling coverage and feel still require the laptop trial. Evidence:
 The physical USB volume from the prior 126-round run was separately unmounted
 and checked with `fsck.exfat -n`: clean, 124 directories and 615 files. It was
 remounted through udisks afterward. No filesystem repair was performed.
+
+## Physical timed result and text-path follow-up (2026-10-18)
+
+Run `7c6f08f4dc58ebac`, release `448fd9b297dd65bc`: the user reported that
+text input appeared blocked by I/O while the trackpad cursor stayed fluid.
+Collection verified 66 rounds / 16.5 MiB of logical payload, graceful worker stop,
+89 text events, 2,720 motion events, 55 wheel events, one focus switch and no
+capture cancellation during RUNNING. The combined gate remains INCOMPLETE.
+There were no malformed trackpad reports, transport errors or dropped keyboard
+characters; the final `AaZz09` check passed.
+
+The 3,006 active compositor samples had p95/p99 <=16.667 ms, but maximum
+987.437 ms. Render/present maximum was 2.018 ms. The timing gate correctly says
+NEEDS_WORK. Kernel ownership maximum was 525.477 ms; the longest explicit gate
+wait was 1,714.650 ms in SYS_OPEN. These aggregate metrics do not attribute the
+text stall or identify which process opened a file. Loading a second study while
+file work is running also uses the serialized filesystem path.
+
+Report SHA-256: `7babf16ef8e986b6e951a9c0b24cbfa247f73e61c8adfc40d6dfd8d67138ab96`.
+Payload SHA-256: `9ba6a7aade4c43fb9b7bd965e6c4badb10ee03c6d7012338e54d0c9634aee762`.
+Evidence: `build/trackpad-tests/7c6f08f4dc58ebac/`. After collection, offline
+`fsck.exfat -n` reported clean: 125 directories, 622 files. The volume was
+remounted through udisks. The accepted `e276699c454972fd` backup still verifies.
+
+Code inspection found a separate blocking dependency on every text event:
+`deskclient` called printf before drawing. Stdio locks call pthread_self, which
+uses the gated SYS_THREAD_SELF; write's libc wrapper also queries gated signal
+state, and first use may allocate a stream buffer. Compositor progress logging
+used the same path. These are incidental diagnostic dependencies, not required
+filesystem operations. Desktop logs now format in a fixed stack buffer and call
+srv_puts directly. This retains the diagnostic markers used by emulator tests,
+without stdio initialization, lock queries or signal queries in the input path.
+Redirected output is still subject to the ordinary kernel I/O gate. No kernel
+admission rules, filesystem ordering or USB workload guarantees were relaxed.
+
+The v15 trial loads both studies and receives their initial surfaces before
+starting file work. This separates application startup from steady interaction;
+application launch, mapping and process teardown remain serialized and can still
+pause a caller during I/O. A full asynchronous launch path is outside this fix.
+Escape during startup cancels the trial rather than starting a workload later.
+
+Desktop protocol v2 keeps the 160-byte packet size, replacing eight title bytes
+with input_serial. Unknown protocol versions are rejected by both kernel and
+library. For the I/O trial, each accepted text event gets a sequence and reference
+clock timestamp before its first IPC attempt. The client echoes the cumulative
+sequence in the surface commit after processing input. Only a valid copied
+surface followed by a successful compositor presentation cycle acknowledges it.
+This measures the application round trip, including IPC retries, client drawing,
+surface copy and compositor presentation. It excludes time before the compositor
+reads the key and physical scanout; occlusion can still hide a window's content.
+It is not an input-to-photon measurement or proof of correct text layout.
+
+A fixed 256-entry pending table tracks each event independently, including keys
+batched into one frame. Cursor-only frames, another client's frames, stale or
+failed copies cannot acknowledge new text. Missing acknowledgements and table
+overflow fail the new host gate. Checksummed `text.txt` requires at least 32 text
+samples, all acknowledged, no overflow, p95 <=50 ms, p99 <=100 ms and maximum
+<=250 ms. The prior compositor/render gate and functional coverage still apply.
+Old v14 evidence remains readable without pretending it contains text timing.
+The on-screen checklist now starts with two studies ready and shows the text
+sample count. Hardware acceptance remains pending.
+
+Follow-up validation: full core tests and 29 Python tests passed. ASan/UBSan
+checks passed for pending text timing and compositor cache/session handling.
+Tests cover batched acknowledgements, wrong-client/future acknowledgements,
+duplicate acknowledgements, an intentionally delayed text frame, table overflow,
+stale/partial surface copies and protocol-v1 rejection.
+
+The 64-round emulator run verified its final 256 KiB payload after 16 MiB of
+logical work and a clean offline filesystem. All 234 measured text events were
+acknowledged: p95 <=50 ms, p99 <=100 ms, maximum 116.011 ms, zero table overflows.
+There were 1,057 active compositor samples (p95/p99 <=50 ms, maximum 74.051 ms)
+and 1,665 render samples (p95 <=16.667 ms, maximum 64.099 ms). Both software
+timing gates passed. This run included a concurrent ordinary desktop regression
+on the host; these emulator numbers are not a direct hardware prediction.
+The ordinary 1440x900 compositor regression passed typing, scrollbar dragging,
+two windows, focus, resize, client replacement, abrupt server exit and relaunch.
+The updated on-screen checklist was visually inspected at 1280x800.
+Replay/read-only refusal and indefinite halt also passed. Follow-up emulator
+evidence is retained at `build/review/desktop-io-text-20261018/`.

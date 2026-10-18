@@ -1,3 +1,4 @@
+#include <srvros/desk_log.h>
 #include <srvros/desktop.h>
 #include <srvros/desk_render.h>
 #include <srvros/gui.h>
@@ -88,7 +89,7 @@ int main(int argc,char **argv) {
     strcpy(open.text,"Type study");
     if (desk_send(0,&open)!=0) { srv_puts("deskclient: no compositor\n"); return 1; }
     uint64_t server=0,surface=0,serial=0,generation=0,pending=0,pending_gen=0;
-    uint64_t last=srv_ticks(),frames=0;
+    uint64_t last=srv_ticks(),frames=0,input_serial=0;
     uint32_t width=0,height=0,*pixels=desk_pixels_alloc(DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
     if(!pixels) return 1;
     struct desk_packet configure={0};
@@ -116,22 +117,23 @@ int main(int argc,char **argv) {
                 scrollbar_pointer(&scrollbar,width,height,&offset,&p);
                 if (offset!=before) {
                     if (!dirty && !pending) last=srv_ticks();
-                    dirty=1; printf("deskclient: scroll=%d\n",offset);
+                    dirty=1; desk_log("deskclient: scroll=%d\n",offset);
                 }
             }
             else if (p.type==DESK_SCROLL && height) {
                 if (!dirty && !pending) last=srv_ticks();
                 offset=scroll_clamp((int64_t)offset+p.y,height); dirty=1;
-                printf("deskclient: scroll=%d\n",offset);
+                desk_log("deskclient: scroll=%d\n",offset);
             }
             else if (p.type==DESK_TEXT) {
+                if (p.input_serial>input_serial) { input_serial=p.input_serial; dirty=1; }
                 if (!dirty && !pending) last=srv_ticks();
                 if (p.value==12) { large=!large; dirty=1; }
                 else if ((p.value==8 || p.value==127) && length) { input[--length]=0; dirty=1; }
                 else if (p.value>=32 && p.value<=126 && length+1<sizeof(input)) {
                     input[length++]=(char)p.value; input[length]=0; dirty=1;
                 }
-                printf("deskclient: text=%s\n",input);
+                desk_log("deskclient: text=%s\n",input);
             }
         }
         if (quit) break;
@@ -149,7 +151,7 @@ int main(int argc,char **argv) {
             desk_canvas_init(&c,pixels,width,height,width);
             draw(&c,input,large,offset);
             struct desk_packet p=desk_packet_new(DESK_COMMIT);
-            p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
+            p.input_serial=input_serial; p.surface=surface; p.serial=serial+1; p.generation=generation; p.width=width; p.height=height;
             if (gui_surface_blit(surface,0,0,width,height,pixels,width)!=0) { failed=1; break; }
             if (desk_send(server,&p)==0) {
                 pending=++serial; pending_gen=generation; dirty=0; last=srv_ticks(); frames++;
@@ -162,6 +164,6 @@ int main(int argc,char **argv) {
     if (server) { struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(server,&p); }
     if (surface && !pending) gui_surface_destroy(surface);
     desk_pixels_free(pixels,DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
-    printf("deskclient: %s frames=%llu input=%s\n",failed?"FAIL":"exited",(unsigned long long)frames,input);
+    desk_log("deskclient: %s frames=%llu input=%s\n",failed?"FAIL":"exited",(unsigned long long)frames,input);
     return failed?1:0;
 }

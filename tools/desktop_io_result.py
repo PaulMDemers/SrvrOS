@@ -53,3 +53,17 @@ def timing_gate(t):
     return (t['active_count']>=100 and t['active_p95_us']<=50000 and
             t['active_p99_us']<=100000 and t['active_max_us']<=250000 and
             t['render_p95_us']<=16667)
+
+
+def validate_text(run,data):
+    values=record(data,run,'text',('clock','sent','presented','overflow','p95_us','p99_us','max_us'))
+    if values['clock']!=1 or values['presented']>values['sent'] or values['overflow']>values['sent'] or not 0<=values['p95_us']<=values['p99_us']<=values['max_us']:
+        raise ValueError('Incomplete/inconsistent desktop text timing')
+    if not values['presented'] and any(values[k] for k in ('p95_us','p99_us','max_us')):
+        raise ValueError('Text latency without samples')
+    return values
+
+
+def text_gate(t):
+    return (t['sent']>=32 and t['presented']==t['sent'] and not t['overflow'] and
+            t['p95_us']<=50000 and t['p99_us']<=100000 and t['max_us']<=250000)

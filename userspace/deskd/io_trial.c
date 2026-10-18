@@ -1,3 +1,4 @@
+#include <srvros/desk_log.h>
 #include "io_trial.h"
 #include <srvros/sys.h>
 #include <srvros/desktop.h>
@@ -19,7 +20,7 @@ void io_trial_start(struct io_trial *io,const char *run) {
     srv_close(status[1]); srv_close(stop[0]);
     if (pid<=0) goto fail;
     io->pid=(uint64_t)pid;
-    printf("deskd: io worker pid=%ld\n",pid); return;
+    desk_log("deskd: io worker pid=%ld\n",pid); return;
 fail:
     srv_puts("deskd: io start failed\n");
     io->progress.state=DESK_IO_FAILED; io->finished=io->error=1;
@@ -45,7 +46,7 @@ static void read_progress(struct io_trial *io) {
                 io->error=1; io_trial_stop(io); break;
             }
             io->progress=io->partial; io->received=0;
-            printf("deskd: io rounds=%u state=%u\n",io->progress.rounds,io->progress.state);
+            desk_log("deskd: io rounds=%u state=%u\n",io->progress.rounds,io->progress.state);
         }
     }
 }
@@ -66,7 +67,7 @@ void io_trial_poll(struct io_trial *io) {
             (io->progress.state!=DESK_IO_COMPLETE && io->progress.state!=DESK_IO_STOPPED))
             io->progress.state=DESK_IO_FAILED;
         io->finished=1;
-        printf("deskd: io worker ended state=%u\n",io->progress.state);
+        desk_log("deskd: io worker ended state=%u\n",io->progress.state);
     } else if (io->stopping && (uint64_t)srv_ticks()-io->stop_since>2000) {
         srv_kill(io->pid); io->progress.state=DESK_IO_FAILED; io->finished=1;
     }
@@ -92,12 +93,44 @@ int io_trial_finish(struct io_trial *io) {
         (unsigned long long)perf_percentile(&io->render,95),(unsigned long long)perf_percentile(&io->render,99),
         (unsigned long long)io->render.max);
     if(trial_record(path,body)!=0 || srv_sync()!=0) saved=0;
-    printf("deskd: timing active=%llu p95=%llu p99=%llu max=%llu render_max=%llu\n",
+    snprintf(path,sizeof(path),"/work/srvros-work/desktop-%s/text.txt",io->run);
+    snprintf(body,sizeof(body),"format=srvros-desktop-text-v1\nrun=%s\nclock=%d\nsent=%llu\npresented=%llu\noverflow=%llu\np95_us=%llu\np99_us=%llu\nmax_us=%llu\n",
+        io->run,io->clock_ok,(unsigned long long)io->text_sent,
+        (unsigned long long)io->text_present.count,(unsigned long long)io->text_overflow,
+        (unsigned long long)perf_percentile(&io->text_present,95),
+        (unsigned long long)perf_percentile(&io->text_present,99),(unsigned long long)io->text_present.max);
+    if(trial_record(path,body)!=0 || srv_sync()!=0) saved=0;
+    desk_log("deskd: timing active=%llu p95=%llu p99=%llu max=%llu render_max=%llu\n",
         (unsigned long long)io->active_gap.count,(unsigned long long)perf_percentile(&io->active_gap,95),
         (unsigned long long)perf_percentile(&io->active_gap,99),(unsigned long long)io->active_gap.max,
         (unsigned long long)io->render.max);
-    printf("deskd: io state=%u rounds=%u saved=%d\n",io->progress.state,io->progress.rounds,saved);
+    desk_log("deskd: io state=%u rounds=%u saved=%d\n",io->progress.state,io->progress.rounds,saved);
     return saved && io->progress.state!=DESK_IO_FAILED?0:-1;
+}
+
+/* Start when the compositor accepts a key, before IPC retry. Each key has its
+ * own timestamp, including keys batched into one frame. A fixed table bounds
+ * memory; overflow and unacknowledged keys make acceptance fail on the host. */
+uint64_t io_trial_text_begin(struct io_trial *io,uint64_t pid) {
+    if(!io_trial_active(io)) return 0;
+    uint64_t serial=++io->text_sent;
+    long now=srv_monotonic_us();
+    if(now<0) { io->clock_ok=0; return serial; }
+    for(unsigned i=0;i<256;i++) if(!io->text_pending[i].serial) {
+        io->text_pending[i].pid=pid; io->text_pending[i].serial=serial;
+        io->text_pending[i].at=(uint64_t)now; return serial;
+    }
+    io->text_overflow++; return serial;
+}
+void io_trial_text_present(struct io_trial *io,uint64_t pid,uint64_t serial) {
+    if(!io->enabled || !pid || !serial || serial>io->text_sent) return;
+    long now=srv_monotonic_us();
+    if(now<0) { io->clock_ok=0; return; }
+    for(unsigned i=0;i<256;i++) if(io->text_pending[i].serial &&
+            io->text_pending[i].pid==pid && io->text_pending[i].serial<=serial) {
+        perf_record(&io->text_present,(uint64_t)now-io->text_pending[i].at);
+        io->text_pending[i].serial=0;
+    }
 }
 
 void io_trial_loop_begin(struct io_trial *io) {

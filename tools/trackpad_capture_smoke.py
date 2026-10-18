@@ -15,7 +15,7 @@ from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
 from hardware_trackpad import validate_result
 from desktop_foundation_smoke import QMP
-from desktop_io_result import validate as validate_io, validate_timing
+from desktop_io_result import validate as validate_io, validate_timing, validate_text, text_gate
 
 
 def main():
@@ -164,6 +164,11 @@ def main():
             timings=validate_timing(run,saved.read(f'{folder}/timing.txt'))
             (logs/'timing.txt').write_bytes(saved.read(f'{folder}/timing.txt'))
             print(f'desktop-io-smoke: timing {timings}',flush=True)
+            text=validate_text(run,saved.read(f'{folder}/text.txt'))
+            (logs/'text.txt').write_bytes(saved.read(f'{folder}/text.txt'))
+            print(f'desktop-io-smoke: text {text}',flush=True)
+            assert text['sent']>=8 and text['presented']==text['sent'] and not text['overflow']
+            if args.io_rounds>16: assert text_gate(text), text
             if args.io_rounds>16: assert timings['active_count']>=100
             assert checked['worker']['rounds']>=args.io_rounds
             activity=checked['input_during_workload']

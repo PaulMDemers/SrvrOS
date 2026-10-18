@@ -233,5 +233,8 @@ I/O responsiveness plan and proposed exit gate; physical acceptance remains open
 
 The bounded responsiveness pass adds measured active update gaps, audited desktop
 service during storage waits, cumulative USB service checkpoints and reusable
-compositor caches. The timed v14 hardware gate remains open; see the trial record
-for the safety boundaries, baseline and subsequent measurements.
+compositor caches. The v14 physical run improved cursor movement but exposed
+blocked text input. The v15 follow-up removes stdio dependencies from desktop
+diagnostics, preloads both studies and measures text events through application
+commit/presentation. Hardware acceptance remains open; see the trial record for
+the safety boundaries, baseline and subsequent measurements.

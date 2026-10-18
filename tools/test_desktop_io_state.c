@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <string.h>
 #include "../userspace/deskd/io_trial.c"
+void srv_puts(const char *text) { fputs(text,stdout); }
 static unsigned char wire[128]; static unsigned used,read_at;
 static int dead,race,kills,deferred;
 static uint64_t ticks=1;
@@ -46,5 +47,21 @@ int main(void) {
     ticks=10000000; io_trial_loop_begin(&io); io_trial_loop_end(&io,0);
     assert(io.active_gap.count==2); /* Quiet idle is not an interaction stall. */
     ticks=(uint64_t)-1; io_trial_loop_begin(&io); assert(!io.clock_ok);
+    io=(struct io_trial){.enabled=1,.clock_ok=1,.progress={.state=DESK_IO_RUNNING}};
+    ticks=100; assert(io_trial_text_begin(&io,42)==1);
+    ticks=200; assert(io_trial_text_begin(&io,43)==2);
+    ticks=300; assert(io_trial_text_begin(&io,42)==3);
+    ticks=900000; io_trial_text_present(&io,99,3);
+    assert(io.text_present.count==0); /* Fluid cursor/other client isn't text. */
+    io_trial_text_present(&io,42,4); assert(io.text_present.count==0);
+    io_trial_text_present(&io,42,3);
+    assert(io.text_present.count==2 && io.text_present.max==899900);
+    io_trial_text_present(&io,42,3); assert(io.text_present.count==2);
+    io.progress.state=DESK_IO_STOPPED; /* An outstanding frame may arrive later. */
+    io_trial_text_present(&io,43,2); assert(io.text_present.count==3);
+    assert(!io_trial_text_begin(&io,42));
+    io.progress.state=DESK_IO_RUNNING;
+    for(int i=0;i<257;i++) io_trial_text_begin(&io,42);
+    assert(io.text_overflow==1 && io.text_sent==260 && io.text_present.count==3);
     puts("desktop-io-state: PASS fragmented pipe, terminal/exit race, malformed progress, bounded stop");
 }

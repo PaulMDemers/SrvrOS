@@ -33,6 +33,7 @@ static void protocol_tests(void) {
     current_pid=2;
     struct gui_message bad=commit;
     bad.text[0]=99; assert(gui_send(&bad)==-1);
+    bad=commit; bad.text[0]=1; assert(gui_send(&bad)==-1); /* v1 has no text acknowledgement. */
     struct gui_message legacy={.type=1};
     for (unsigned i=0;i<GUI_QUEUE_DEPTH;i++) assert(gui_send(&legacy)==0);
     assert(gui_send(&commit)==-1 && !surface_for_id(id)->sealed);

@@ -4,6 +4,7 @@
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
@@ -18,7 +19,7 @@ void desk_pixels_free(uint32_t *p,uint32_t w,uint32_t h) {
     (void)w; (void)h; if (p) { frees++; free(p); }
 }
 struct desk_packet desk_packet_new(uint32_t type) {
-    return (struct desk_packet){.type=type,.version=1,.size=sizeof(struct desk_packet)};
+    return (struct desk_packet){.type=type,.version=DESK_PROTOCOL_VERSION,.size=sizeof(struct desk_packet)};
 }
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
@@ -39,9 +40,9 @@ int main(void) {
     struct desk_packet p=desk_packet_new(DESK_OPEN); p.width=400; p.height=280;
     strcpy(p.text,"Test"); incoming(&s,42,&p); service(&s);
     assert(s.clients[0].awaiting && !s.clients[0].configure && sends==1 && sent[0]==DESK_CONFIGURE);
-    p=desk_packet_new(DESK_COMMIT); p.generation=1; p.surface=7; p.serial=1; p.width=400; p.height=280;
+    p=desk_packet_new(DESK_COMMIT); p.generation=1; p.surface=7; p.serial=1; p.width=400; p.height=280; p.input_serial=5;
     incoming(&s,42,&p);
-    assert(s.scene.windows[0].pixels && !s.clients[0].awaiting);
+    assert(s.scene.windows[0].pixels && !s.clients[0].awaiting && s.clients[0].present_input==5);
     const uint32_t *front=s.scene.windows[0].pixels;
     assert(allocations==4 && frees==0);
 
@@ -52,12 +53,14 @@ int main(void) {
     assert(s.scene.windows[0].pixels!=front && allocations==4 && frees==0);
     front=s.scene.windows[0].pixels; service(&s);
     configure(&s,0,450,300);
-    p.serial=3; incoming(&s,42,&p); /* Old generation still gets released. */
+    p.serial=3; p.input_serial=6; incoming(&s,42,&p); /* Old generation still gets released. */
     assert(s.scene.windows[0].pixels==front && s.clients[0].awaiting);
+    assert(s.clients[0].present_input==5); /* Stale frame cannot acknowledge text. */
     service(&s); assert(sent[3]==DESK_RELEASE && sent[4]==DESK_CONFIGURE);
     p.generation=2; p.width=450; p.height=300; p.serial=4;
     copy_failure=1; incoming(&s,42,&p);
     assert(s.clients[0].closing && s.scene.windows[0].pixels==front && front[0]==0x123456);
+    assert(s.clients[0].present_input==5); /* Nor can a partial copy. */
     service(&s); assert(sent[5]==DESK_RELEASE && sent[6]==DESK_CLOSE);
     now+=501; service(&s);
     assert(killed==1 && !s.clients[0].pid && !s.children[0] && allocations==4 && frees==0);

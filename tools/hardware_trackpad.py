@@ -12,7 +12,7 @@ import subprocess
 
 import hardware_boot as boot
 import hardware_test as host
-from desktop_io_result import validate as validate_io, validate_timing, timing_gate
+from desktop_io_result import validate as validate_io, validate_timing, timing_gate, validate_text, text_gate
 
 RUNS = boot.ROOT/'build/trackpad-tests'
 NUMBERS = ('found','ready','slot','reports','contact_reports','button_reports','lifts','max_contacts',
@@ -44,7 +44,7 @@ def prepare(uuid,pointer=False,gestures=False,desktop_io=False):
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io,'desktop_text':desktop_io}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
@@ -70,7 +70,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v{14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{15 if metadata.get('desktop_text') else 14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -183,6 +183,14 @@ def collect(run):
             t=result['desktop_timing']
             result['desktop_timing_gate']='MET' if timing_gate(t) else 'NEEDS_WORK'
             print(f"Desktop timing: {result['desktop_timing_gate']}; {t}")
+        if metadata.get('desktop_text'):
+            item=directory/'text.txt'
+            if item.is_symlink() or not item.is_file() or item.stat().st_size>2048:
+                raise ValueError('Missing/oversized desktop text timing')
+            text=item.read_bytes(); host.sync_file(RUNS/run/'desktop-text.txt',text)
+            t=validate_text(run,text); result['desktop_text']=t
+            result['desktop_text_gate']='MET' if text_gate(t) else 'NEEDS_WORK'
+            print(f"Desktop text: {result['desktop_text_gate']}; {t}")
         print(f"Desktop + file work: {result['desktop_io']['status']}; {result['desktop_io']['worker']}; {result['desktop_io']['input_during_workload']}")
     host.sync_file(RUNS/run/'result.json',(json.dumps(result,indent=2)+'\n').encode())
     print(f"Trackpad capture {run}: {fields['status']}; keyboard={fields['keyboard']}")
@@ -190,7 +198,7 @@ def collect(run):
     print(f'Evidence: {RUNS/run}')
     if metadata.get('pointer'): print(f"Pointer trial: {fields['pointer_trial']} (physical feel still needs user feedback)")
     if metadata.get('gestures'): print(f"Gesture trial: {fields['gesture_trial']}; scroll events={fields['gesture_scroll_events']}; typing suppressed={fields['gesture_typing_suppressed']}; broad-contact suppressed={fields['gesture_palm_suppressed']}")
-    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED') and (not metadata.get('desktop_io') or result['desktop_io']['status']=='EXERCISED') and (not metadata.get('desktop_timing') or result['desktop_timing_gate']=='MET')
+    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED') and (not metadata.get('gestures') or fields['gesture_trial']=='EXERCISED') and (not metadata.get('desktop_io') or result['desktop_io']['status']=='EXERCISED') and (not metadata.get('desktop_timing') or result['desktop_timing_gate']=='MET') and (not metadata.get('desktop_text') or result['desktop_text_gate']=='MET')
 
 
 if __name__=='__main__':
