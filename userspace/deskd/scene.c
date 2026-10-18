@@ -79,7 +79,7 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
     desk_fill(c,(struct desk_rect){r.x+1,r.y+1,r.w-2,42},focused?0xe7ebe2:0xf1f0eb);
     struct desk_rect clip=c->clip;
     desk_clip(c,desk_intersect(clip,(struct desk_rect){r.x+16,r.y+1,r.w-(w->application?126:62),41}));
-    desk_text(c,&desk_font_16,r.x+18,r.y+12,w->title,0x292e2b);
+    desk_label_ellipsis(c,(struct desk_rect){r.x+18,r.y+12,r.w-(w->application?128:64),24},&desk_font_16,w->title,0x292e2b);
     c->clip=clip;
     desk_text(c,&desk_font_16,r.x+r.w-30,r.y+12,"×",0x646b65);
     if(w->application) {

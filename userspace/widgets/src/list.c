@@ -125,7 +125,7 @@ void desk_list_draw(struct desk_canvas *c,const struct desk_list *l,const struct
     if(inner.w<=18 || !inner.h) return;
     struct desk_rect rows=inner;rows.w-=18;
     desk_clip(c,desk_intersect(clip,rows));
-    if(!l->count) desk_label_draw(c,desk_widget_inset(rows,12),theme->body,"No items",theme->muted);
+    if(!l->count) desk_label_ellipsis(c,desk_widget_inset(rows,12),theme->body,"No items",theme->muted);
     for(int i=l->scroll.offset/ROW;i<l->count;i++) {
         int y=inner.y+i*ROW-l->scroll.offset;if(y>=inner.y+inner.h) break;
         if(i==l->selected) desk_fill(c,(struct desk_rect){inner.x,y,rows.w,ROW},theme->selected);
@@ -137,8 +137,8 @@ void desk_list_draw(struct desk_canvas *c,const struct desk_list *l,const struct
             desk_fill(c,(struct desk_rect){inner.x+11,y+7,10,15},theme->surface);
         }
         int detail=rows.w>380?130:0;
-        desk_label_draw(c,(struct desk_rect){inner.x+32,y+4,rows.w-40-detail,ROW-4},theme->body,l->items[i].label,l->enabled?theme->text:theme->muted);
-        if(detail && l->items[i].detail) desk_label_draw(c,(struct desk_rect){inner.x+rows.w-detail,y+4,detail-8,ROW-4},theme->body,l->items[i].detail,theme->muted);
+        desk_label_ellipsis(c,(struct desk_rect){inner.x+32,y+4,rows.w-40-detail,ROW-4},theme->body,l->items[i].label,l->enabled?theme->text:theme->muted);
+        if(detail && l->items[i].detail) desk_label_ellipsis(c,(struct desk_rect){inner.x+rows.w-detail,y+4,detail-8,ROW-4},theme->body,l->items[i].detail,theme->muted);
     }
     c->clip=clip;desk_scrollbar_draw(c,&l->scroll,theme);
 }

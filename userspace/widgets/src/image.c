@@ -105,14 +105,26 @@ void desk_image_draw(struct desk_canvas *c,const struct desk_image *v,const stru
         int w=scaled(v->width,v->scale),h=scaled(v->height,v->scale);
         int x=r.x+(w<r.w?(r.w-w)/2:-v->offset_x),y=r.y+(h<r.h?(r.h-h)/2:-v->offset_y);
         struct desk_rect visible=desk_intersect(c->clip,desk_intersect(r,(struct desk_rect){x,y,w,h}));
+        if(!visible.w || !visible.h) { c->clip=old;return; }
+        /* Exact rational stepping removes a divide from every output pixel.
+         * Start from the clipped left edge, retaining the division remainder,
+         * so tiled and full draws sample precisely the same source pixels. */
+        uint64_t numerator=(uint64_t)(visible.x-x)*ONE;
+        uint32_t first=numerator/v->scale,first_remainder=numerator%v->scale;
+        uint32_t step=ONE/v->scale,remainder_step=ONE%v->scale;
         for(int py=visible.y;py<visible.y+visible.h;py++) {
             uint32_t sy=(uint32_t)((uint64_t)(py-y)*ONE/v->scale);if(sy>=v->height) sy=v->height-1;
+            const uint32_t *source=v->pixels+(size_t)sy*v->width;
+            uint32_t *target=c->pixels+(size_t)py*c->stride+visible.x;
+            uint32_t sx=first,remainder=first_remainder;
             for(int px=visible.x;px<visible.x+visible.w;px++) {
-                uint32_t sx=(uint32_t)((uint64_t)(px-x)*ONE/v->scale);if(sx>=v->width) sx=v->width-1;
                 uint32_t bg=(((px-x)/8+(py-y)/8)&1)?0xd7ddd5:0xf1f0eb;
-                c->pixels[(size_t)py*c->stride+px]=blend(v->pixels[(size_t)sy*v->width+sx],bg);c->pixel_writes++;
+                *target++=blend(source[sx<v->width?sx:v->width-1],bg);
+                sx+=step;remainder+=remainder_step;
+                if(remainder>=v->scale) { remainder-=v->scale;sx++; }
             }
         }
+        c->pixel_writes+=(uint64_t)visible.w*visible.h;
     }
     c->clip=old;
 }

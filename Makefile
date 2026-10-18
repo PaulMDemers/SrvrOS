@@ -2592,7 +2592,7 @@ build/tests/calculator-app-host$(HOST_EXE): tools/test_calculator_app.c userspac
 test-widgets: test-image-view
 test-image-view: build/tests/image-view-host$(HOST_EXE)
 	$<
-build/tests/image-view-host$(HOST_EXE): tools/test_image_view.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+build/tests/image-view-host$(HOST_EXE): tools/test_image_view.c tools/image_view_reference.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_image_view.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
@@ -2659,3 +2659,10 @@ build/tests/help-app-host$(HOST_EXE): tools/test_help_app.c userspace/deskhelp/d
 	@mkdir -p $(@D)
 	$(HOST_CC) -D_DEFAULT_SOURCE -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_help_app.c userspace/deskhelp/content.c userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-help-app
+
+.PHONY: bench-image-view
+bench-image-view: build/tests/image-view-bench$(HOST_EXE)
+	$<
+build/tests/image-view-bench$(HOST_EXE): tools/bench_image_view.c tools/image_view_reference.h $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@

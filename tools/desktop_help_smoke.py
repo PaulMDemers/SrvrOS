@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise native Help, topic navigation, global integration and exact page clipboard in a disposable VM."""
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -55,6 +56,15 @@ def main():
                     for marker in markers:
                         consumed=start;wait(marker,timeout);end=max(end,consumed)
                     consumed=end
+                def current_help_pid():
+                    wait(b"size=760x540")
+                    matches=re.findall(rb"deskd: commit pid=(\d+) generation=\d+ size=760x540",output[:consumed])
+                    if not matches: raise RuntimeError("Missing Help process identity")
+                    return matches[-1]
+                def close_help(pid):
+                    # Console UART mirroring is deliberately preemptible. The
+                    # app's farewell can interleave with the server's retirement.
+                    shortcut("ctrl-w");wait(b"deskd: retired pid="+pid)
                 def shortcut(keys):
                     qmp.call("human-monitor-command",{"command-line":f"sendkey {keys}"});time.sleep(.3)
                 def type_text(text):
@@ -76,7 +86,7 @@ def main():
                 wait(b"desktools: starting role=text");wait_all([b"deskd: commit",b"text history=multi-step"])
                 # F1 opens the active application's guide directly.
                 shortcut("f1");wait_all([b"deskhelp: page=text",b"deskhelp: starting"]);wait(b"deskd: commit")
-                shot("help-text")
+                help_pid=current_help_pid();shot("help-text")
                 shortcut("ctrl-l");wait(b"deskhelp: topics opened");type_text("keyboard");qmp.key("ret");wait(b"deskhelp: page=keyboard")
                 qmp.key("pgdn");wait(b"deskhelp: scroll=");shot("help-keyboard")
                 shortcut("alt-left");wait(b"deskhelp: history topic=text")
@@ -98,10 +108,10 @@ def main():
                 qmp.mouse(0,0,1);qmp.mouse(-480,-300,1);qmp.mouse(0,0,0);pointer[0]-=480;pointer[1]-=300;time.sleep(.5)
                 qmp.key("home");wait(b"deskhelp: scroll=0");shot("help-compact")
                 shortcut("ctrl-l");wait(b"deskhelp: topics opened");type_text("about");shot("help-compact-topics");qmp.key("ret");wait(b"deskhelp: page=about")
-                shortcut("ctrl-w");wait(b"deskhelp: exited failure=0")
+                close_help(help_pid)
                 # About is now a real guide page, accessed through the global menu.
-                shortcut("f10");shortcut("ret");wait(b"deskhelp: page=about");wait(b"deskhelp: starting");wait(b"deskd: commit");shot("help-about")
-                shortcut("ctrl-w");wait(b"deskhelp: exited failure=0")
+                shortcut("f10");shortcut("ret");wait(b"deskhelp: page=about");wait(b"deskhelp: starting");wait(b"deskd: commit");help_pid=current_help_pid();shot("help-about")
+                close_help(help_pid)
                 shortcut("meta_l-spc");wait(b"launcher opened");type_text("Help new app");qmp.key("ret");wait(b"launcher application=8");wait(b"deskhelp: page=welcome");wait(b"deskd: commit");shot("help-welcome")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:

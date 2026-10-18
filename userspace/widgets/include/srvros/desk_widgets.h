@@ -31,6 +31,11 @@ int desk_widget_contains(struct desk_rect frame, int32_t x, int32_t y);
 struct desk_rect desk_widget_inset(struct desk_rect frame, int32_t inset);
 void desk_label_draw(struct desk_canvas *canvas, struct desk_rect frame,
                      const struct desk_font *font, const char *text, uint32_t color);
+/* Single-line label with a UTF-8 ellipsis when content exceeds its frame.
+ * Uses the full frame width (independent of the damage clip). If even the
+ * ellipsis cannot fit, draw nothing. No allocation or source modification. */
+void desk_label_ellipsis(struct desk_canvas *canvas, struct desk_rect frame,
+                         const struct desk_font *font, const char *text, uint32_t color);
 
 /* Zero-initialize. Reconfiguration cancels capture when geometry changes.
  * content and viewport use the same units as offset (normally pixels).

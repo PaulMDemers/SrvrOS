@@ -370,3 +370,11 @@ for topics, 16-entry history and scroll restoration. The global SrvrOS menu and
 F1 open Help; F1 chooses the active app's topic. Help and Preview remain launcher
 entries, keeping the six dock pins stable. About SrvrOS opens the guide's About
 page. Preferences reflow Help's body text without changing its content.
+
+`desk_label_ellipsis` draws a single-line label, replacing an overflowing tail
+with U+2026 at a UTF-8 boundary. It measures against the complete assigned frame,
+not the current damage clip, so tiled redraws do not move the marker. It draws
+nothing if the marker itself cannot fit. Titles, lists, tables and tabs use this;
+ordinary clipped labels remain available for content that should not be elided.
+Image sampling uses exact rational stepping, preserving the direct-division
+reference output while avoiding a divide per displayed pixel.

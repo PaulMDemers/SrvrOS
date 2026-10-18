@@ -99,7 +99,7 @@ static void cell(struct desk_canvas *c,struct desk_rect r,const struct desk_font
     if(!text || r.w<=0 || r.h<=0) return;
     struct desk_rect clip=c->clip;desk_clip(c,desk_intersect(clip,r));
     if(right) { int width=desk_text_width(font,text);if(width<r.w) { r.x+=r.w-width;r.w=width; } }
-    desk_label_draw(c,r,font,text,color);c->clip=clip;
+    desk_label_ellipsis(c,r,font,text,color);c->clip=clip;
 }
 void desk_table_draw(struct desk_canvas *c,const struct desk_table *t,const struct desk_theme *theme) {
     struct desk_rect clip=c->clip,inner=desk_widget_inset(t->frame,1);

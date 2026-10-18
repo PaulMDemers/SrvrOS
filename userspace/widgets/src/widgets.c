@@ -1,5 +1,6 @@
 #include <srvros/desk_widgets.h>
 #include <limits.h>
+#include <string.h>
 
 const struct desk_theme desk_theme_quiet = {
     .surface=0xfaf9f6, .text=0x292e2b, .muted=0x646b65, .accent=0x38644f,
@@ -31,6 +32,30 @@ void desk_label_draw(struct desk_canvas *c, struct desk_rect r,
     desk_clip(c,desk_intersect(clip,r));
     desk_text(c,font,r.x,r.y,text,color);
     c->clip=clip;
+}
+
+void desk_label_ellipsis(struct desk_canvas *c,struct desk_rect r,
+                         const struct desk_font *font,const char *text,uint32_t color) {
+    if(!valid(r) || !font || !text) return;
+    const char *p=text,*end=text;int64_t width=0,prefix_width=0;
+    int marker=desk_text_width(font,"…"),truncated=0;
+    while(*p) {
+        const char *start=p;uint32_t cp=desk_utf8_next(&p);
+        if(cp=='\n') { truncated=1;break; }
+        char character[5]={0};size_t bytes=p-start;if(bytes>4) bytes=4;memcpy(character,start,bytes);
+        width+=desk_text_width(font,character);
+        if(width>r.w) { truncated=1;break; }
+        if(width+marker<=r.w) { end=p;prefix_width=width; }
+    }
+    if(!truncated) { desk_label_draw(c,r,font,text,color);return; }
+    if(marker>r.w) return;
+    struct desk_rect old=c->clip;desk_clip(c,desk_intersect(old,r));
+    p=text;int64_t x=r.x;
+    while(p<end) {
+        const char *start=p;desk_utf8_next(&p);char character[5]={0};size_t bytes=p-start;if(bytes>4) bytes=4;memcpy(character,start,bytes);
+        desk_text(c,font,(int32_t)x,r.y,character,color);x+=desk_text_width(font,character);
+    }
+    desk_text(c,font,r.x+(int32_t)prefix_width,r.y,"…",color);c->clip=old;
 }
 
 int32_t desk_scrollbar_limit(const struct desk_scrollbar *b) {

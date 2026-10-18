@@ -119,8 +119,30 @@ static void clipping(void) {
     desk_clip(&c,(struct desk_rect){0}); uint64_t before=c.pixel_writes;
     scene(&c); assert(c.pixel_writes==before);
 }
+static void ellipsis(void) {
+    const char *samples[]={"Short","A long title with spaces and punctuation", "Café — mañana · résumé", "\xf0\x9f\x8c\xbf unsupported", "bad\xc0\x80 text", "First line\nsecond", ""};
+    uint32_t actual[320*40],expected[320*40],tiled[320*40];
+    for(unsigned f=0;f<2;f++) for(unsigned sample=0;sample<sizeof(samples)/sizeof(*samples);sample++) for(int width=0;width<280;width+=3) {
+        const struct desk_font *font=f?&desk_font_20:&desk_font_16;const char *text=samples[sample];char reference[256]="";
+        if(!strchr(text,'\n') && desk_text_width(font,text)<=width) strcpy(reference,text);
+        else if(desk_text_width(font,"…")<=width) {
+            strcpy(reference,"…");const char *p=text;
+            while(*p && *p!='\n') {
+                desk_utf8_next(&p);size_t count=p-text;char candidate[256];memcpy(candidate,text,count);strcpy(candidate+count,"…");
+                if(desk_text_width(font,candidate)>width) break;
+                strcpy(reference,candidate);
+            }
+        }
+        memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));memset(tiled,0,sizeof(tiled));struct desk_canvas a,b,c;
+        desk_canvas_init(&a,actual,300,40,320);desk_canvas_init(&b,expected,300,40,320);desk_canvas_init(&c,tiled,300,40,320);
+        struct desk_rect frame={7,4,width,30};desk_label_ellipsis(&a,frame,font,text,0xffffff);desk_label_draw(&b,frame,font,reference,0xffffff);
+        assert(!memcmp(actual,expected,sizeof(actual)));
+        for(int y=0;y<40;y+=9) for(int x=0;x<300;x+=31) { desk_clip(&c,(struct desk_rect){x,y,31,9});struct desk_rect clip=c.clip;desk_label_ellipsis(&c,frame,font,text,0xffffff);assert(!memcmp(&clip,&c.clip,sizeof(clip))); }
+        assert(!memcmp(actual,tiled,sizeof(actual)));
+    }
+}
 int main(void) {
-    scrollbar(); button(); clipping();
+    scrollbar(); button(); clipping(); ellipsis();
     puts("widgets: PASS capture/page/resize/clamp, button activation/cancel/focus/disable, nested clipping and stride guards");
     return 0;
 }

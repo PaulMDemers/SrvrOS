@@ -101,7 +101,7 @@ void desk_tabs_draw(struct desk_canvas *c,const struct desk_tabs *t,const struct
         int width=desk_text_width(theme->body,t->items[i].label),space=r.w-16;
         if(space>0 && r.h>=theme->body->line_height+4) {
             int x=r.x+8+(width<space?(space-width)/2:0);
-            desk_label_draw(c,(struct desk_rect){x,r.y+(r.h-theme->body->line_height)/2,r.x+r.w-8-x,theme->body->line_height},theme->body,t->items[i].label,active?theme->text:theme->muted);
+            desk_label_ellipsis(c,(struct desk_rect){x,r.y+(r.h-theme->body->line_height)/2,r.x+r.w-8-x,theme->body->line_height},theme->body,t->items[i].label,active?theme->text:theme->muted);
         }
     }
     c->clip=old;

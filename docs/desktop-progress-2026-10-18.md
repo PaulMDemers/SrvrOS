@@ -712,3 +712,32 @@ resize, About/global menus, launcher and orderly exit. The test explicitly
 qualifies app versus window searches because filenames may also match. Evidence:
 `tools/desktop_help_smoke.py`, `build/review/desktop-help/`, screenshot
 `native-desktop-help.png`. No hardware deployment or reboot occurred.
+
+### Image sampling throughput and readable truncation
+
+Image views now advance exact rational source coordinates using a quotient and
+remainder instead of dividing for every destination pixel. The clipped left edge
+initializes the sampler, so full and tiled draws remain identical. Pixel-write
+accounting moves outside the inner loop. Four hundred randomized geometry/zoom/
+clip cases match a separate direct-division reference, including exact write
+counts and alpha output; sanitizers and the full desktop suite passed.
+
+A host benchmark over 100 960×640 frames per mode measured the previous image
+painter at 716/873/797 ms for opaque fit/actual/zoom and 859 ms for alpha-heavy fit.
+The new painter measured 256/251/307 ms and 540 ms respectively in the same setup.
+These are approximate renderer timings on the host, not a whole-desktop or
+physical SrvrOS latency claim. `make bench-image-view` retains a direct-reference
+comparison, without turning timing variability into a pass/fail threshold.
+
+The shared single-line ellipsis helper preserves UTF-8 boundaries, parent clips
+and damage-independent layout. Window titles, list rows, table cells/headings and
+tabs now use it. Widths too small for the marker draw nothing. Both font sizes,
+malformed/unsupported text, newline truncation, exact-fit boundaries, tiled drawing
+and stride guards passed host/sanitizer checks. Production build and native
+Preview/Help VM workflows passed; compact title screenshots were reviewed.
+
+The Help smoke now uses the committed surface's PID and server retirement when
+closing a window. UART mirroring deliberately permits interleaved process output
+to preserve input latency; one run mixed an app farewell and server retirement.
+That was test-observation ambiguity, not a failed close, and the console's bounded
+critical sections remain unchanged.
