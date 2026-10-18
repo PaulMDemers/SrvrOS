@@ -26,7 +26,9 @@ int main(void) {
     assert(store.revision==3);items[1].id=1;
     assert(!send_item(0,33,6,0));assert(!send_item(0,3,6,1));assert(store.revision==3);
     strcpy(items[0].label,"SrvrOS");assert(!send_item(0,3,6,0));assert(!send_item(1,3,6,0));assert(!send_item(2,3,6,1));
-    assert(store.revision==3);strcpy(items[0].label,"File");
+    assert(store.revision==3);
+    strcpy(items[0].label,"Arrange");assert(!send_item(0,3,6,0));assert(!send_item(1,3,6,0));assert(!send_item(2,3,6,1));assert(store.revision==3);
+    strcpy(items[0].label,"File");
     assert(send_item(0,0,7,1) && !store.count && store.revision==7);
     assert(!send_item(0,0,7,1));
     puts("menu-transport: PASS staged publication, replacement, stale/out-of-order rejection, reserved/duplicate IDs, bounds and clear");

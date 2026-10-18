@@ -34,6 +34,11 @@ struct desktop_scene {
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
+enum desktop_placement { DESKTOP_TILE_LEFT=1,DESKTOP_TILE_RIGHT,DESKTOP_CENTER };
+/* Pure geometry: keep decorated windows below the menu and above the dock,
+ * honor client surface bounds, and leave output unchanged if there is no room. */
+int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
+    unsigned placement,struct desk_rect *result);
 struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);

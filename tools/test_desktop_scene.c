@@ -50,6 +50,19 @@ int main(void) {
         for (int y=0;y<H;y++) for (int x=W;x<S;x++) assert(full[y*S+x]==0xdeadbeef);
         s.focus=0; s.windows[1].frame.x+=250; s.windows[1].frame.y+=150;
     }
-    puts("desktop-scene: PASS overlap, clipping, stale-size cache, focus, tiled/full equality, stride guards");
+    struct desk_rect left,right,center,original={32,64,722,525},unchanged={1,2,3,4};
+    for(int width=200;width<4100;width+=37) for(int height=200;height<2200;height+=41) {
+        left=unchanged;int possible=desktop_window_placement(width,height,original,DESKTOP_TILE_LEFT,&left);
+        if(!possible) { assert(!memcmp(&left,&unchanged,sizeof(left)));continue; }
+        assert(desktop_window_placement(width,height,original,DESKTOP_TILE_RIGHT,&right));
+        assert(left.x>=8 && left.y>=52 && left.w>=282 && left.h>=285 && left.w<=962 && left.h<=685);
+        assert(left.x+left.w+8<=right.x && right.x+right.w<=width-8 && right.y+right.h<=height-80);
+        assert(desktop_window_placement(width,height,original,DESKTOP_CENTER,&center));
+        assert(center.x>=8 && center.y>=52 && center.x+center.w<=width-8 && center.y+center.h<=height-80);
+    }
+    assert(!desktop_window_placement(20000,800,original,DESKTOP_CENTER,&center));
+    assert(!desktop_window_placement(800,400,original,DESKTOP_TILE_LEFT,&center));
+    assert(!desktop_window_placement(800,600,original,0,&center));
+    puts("desktop-scene: PASS overlap, clipping, stale-size cache, focus, tiled/full equality, stride guards and bounded window placement");
     return 0;
 }

@@ -201,6 +201,22 @@ static void maximize(struct session *s,int i) {
         w->frame.x=(s->damage.width-width-2)/2;w->frame.y=52;
         configure(s,i,width,height);w->maximized=1;
     }
+    global_menu_rebuild(s);
+    if(s->trace) desk_log("deskd: zoom pid=%llu maximized=%d frame=%d,%d,%d,%d\n",(unsigned long long)s->clients[i].pid,w->maximized,w->frame.x,w->frame.y,w->frame.w,w->frame.h);
+}
+static void arrange_window(struct session *s,int i,unsigned placement) {
+    struct desktop_window *w=&s->scene.windows[i];struct desk_rect target;
+    struct desk_rect original=w->maximized?w->restore:w->frame;
+    if(!desktop_window_placement(s->damage.width,s->damage.height,original,placement,&target)) return;
+    if(s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
+    damage_window(s,i);
+    if(!w->maximized) w->restore=w->frame;
+    int resize=w->frame.w!=target.w || w->frame.h!=target.h;
+    w->frame.x=target.x;w->frame.y=target.y;w->maximized=placement!=DESKTOP_CENTER;
+    if(resize) configure(s,i,target.w-2,target.h-45);else damage_window(s,i);
+    global_menu_rebuild(s);
+    if(s->trace) desk_log("deskd: arranged pid=%llu mode=%u frame=%d,%d,%d,%d generation=%llu\n",
+        (unsigned long long)s->clients[i].pid,placement,w->frame.x,w->frame.y,w->frame.w,w->frame.h,(unsigned long long)s->clients[i].generation);
 }
 static void spawn_client(struct session *s) {
     for (int i=0;i<DESKD_WINDOWS;i++) if (!s->children[i]) {
@@ -240,7 +256,13 @@ static void cycle_focus(struct session *s,int reverse) {
     }
 }
 enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
-    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_WINDOW=65792 };
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_LAUNCHER,GLOBAL_CALENDAR,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_FILES,GLOBAL_SYSTEM,GLOBAL_CAPTURE,GLOBAL_FIND,GLOBAL_TILE_LEFT,GLOBAL_TILE_RIGHT,GLOBAL_CENTER,GLOBAL_WINDOW=65792 };
+static unsigned arrange_shortcut(const struct srv_key_event *key) {
+    if(!(key->flags&SRV_KEY_DOWN_EVENT) || (key->flags&SRV_KEY_REPEAT) ||
+       !(key->modifiers&SRV_KEY_META) || !(key->modifiers&SRV_KEY_ALT) || (key->modifiers&(SRV_KEY_CTRL|SRV_KEY_SHIFT))) return 0;
+    return key->usage==SRV_KEY_LEFT?GLOBAL_TILE_LEFT:key->usage==SRV_KEY_RIGHT?GLOBAL_TILE_RIGHT:
+        key->usage==SRV_KEY_UP?GLOBAL_CENTER:key->usage==SRV_KEY_DOWN?GLOBAL_ZOOM:0;
+}
 static void global_menu_damage(struct session *s) {
     desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
     if(s->menu_visible.w>0) desk_damage_add(&s->damage,s->menu_visible);
@@ -296,10 +318,18 @@ static void global_menu_rebuild(struct session *s) {
         struct desk_menu_store *m=&s->clients[s->scene.focus].menus;
         memcpy(items+count,m->items,m->count*sizeof(items[0]));count+=m->count;
     }
-    items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
     unsigned disabled=s->scene.focus<0?DESK_MENU_DISABLED:0;
+    struct desk_rect unused,original={0};if(s->scene.focus>=0) original=s->scene.windows[s->scene.focus].frame;
+    unsigned tile_disabled=disabled|(!desktop_window_placement(s->damage.width,s->damage.height,original,DESKTOP_TILE_LEFT,&unused)?DESK_MENU_DISABLED:0);
+    items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Arrange",""};
+    items[count++]=(struct desk_menu_item){GLOBAL_TILE_LEFT,tile_disabled,"Tile left","Cmd-Alt-Left"};
+    items[count++]=(struct desk_menu_item){GLOBAL_TILE_RIGHT,tile_disabled,"Tile right","Cmd-Alt-Right"};
+    items[count++]=(struct desk_menu_item){GLOBAL_CENTER,disabled,"Center","Cmd-Alt-Up"};
+    items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
     items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize",""};
-    items[count++]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Zoom",""};
+    items[count]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Zoom","Cmd-Alt-Down"};
+    if(s->scene.focus>=0 && s->scene.windows[s->scene.focus].maximized) strcpy(items[count].label,"Restore size");
+    count++;
     items[count++]=(struct desk_menu_item){GLOBAL_NEXT,disabled,"Next window","Alt-Tab"};
     int have=0;
     for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid && !s->clients[i].closing) {
@@ -344,6 +374,8 @@ static void global_menu_action(struct session *s,uint32_t id) {
         s->exiting=1;for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid) request_close(s,i);
     } else if(id==GLOBAL_MINIMIZE && s->scene.focus>=0) minimize(s,s->scene.focus);
     else if(id==GLOBAL_ZOOM && s->scene.focus>=0) maximize(s,s->scene.focus);
+    else if(s->scene.focus>=0 && (id==GLOBAL_TILE_LEFT || id==GLOBAL_TILE_RIGHT || id==GLOBAL_CENTER))
+        arrange_window(s,s->scene.focus,id==GLOBAL_TILE_LEFT?DESKTOP_TILE_LEFT:id==GLOBAL_TILE_RIGHT?DESKTOP_TILE_RIGHT:DESKTOP_CENTER);
     else if(id==GLOBAL_NEXT) cycle_focus(s,0);
     else if(id>=GLOBAL_WINDOW && id<GLOBAL_WINDOW+DESKD_WINDOWS && s->clients[id-GLOBAL_WINDOW].pid) focus(s,id-GLOBAL_WINDOW);
 }
@@ -975,6 +1007,14 @@ int main(int argc,char **argv) {
                 if(s.scene.calendar_open) calendar_close(&s);
                 if(s.scene.notifications.opened) notifications_close(&s);
                 context_close(&s);desk_menu_cancel(&s.scene.menu);global_menu_damage(&s);global_menu_action(&s,GLOBAL_FIND);continue;
+            }
+            unsigned placement=arrange_shortcut(&key);
+            if(placement) {
+                drag=resize=-1;pointer_cancel(&s);
+                if(s.scene.launcher_open) launcher_close(&s);
+                if(s.scene.calendar_open) calendar_close(&s);
+                if(s.scene.notifications.opened) notifications_close(&s);
+                context_close(&s);desk_menu_cancel(&s.scene.menu);global_menu_damage(&s);global_menu_action(&s,placement);continue;
             }
             if(capture_shortcut(&key)) { capture_request(&s);continue; }
             if(notifications_shortcut(&key)) {

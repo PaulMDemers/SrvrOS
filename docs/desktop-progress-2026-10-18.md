@@ -1046,3 +1046,24 @@ ASan/UBSan pass. Files, Search, picker model and picker-controller checks pass.
 The production build and full Search VM workflow pass with noncanonical paths
 entered in both Search and every Save picker; exact saved paths and document
 contents are unchanged. Evidence: `build/review/desktop-find/`.
+
+## Side-by-side workspace arrangement
+
+The desktop's Arrange menu provides Tile left, Tile right and Center. The matching
+shortcuts are Command-Alt-Left/Right/Up; Command-Alt-Down zooms or restores. Tiling
+uses the available workspace between menu and dock and respects each client's
+surface limits. Switching sides retains one original restore frame. Center uses
+the original normal size, and restored windows can be dragged/resized normally.
+Repeated same-size placement avoids unnecessary surface generations. Moving a
+captured window cancels the old pointer capture even when its dimensions match.
+
+Pure geometry checks cover thousands of screen sizes, narrow-display rejection,
+non-overlap, borders/dock clearance and bounds. Session tests cover original-frame
+preservation, repeated placement, centering, shortcut modifiers/repeats, capture
+cancellation and the maximum 62-entry menu with all eight windows and four app
+headings. Arrange is reserved against application menu spoofing. The full core
+and desktop suites pass; scene geometry/rendering passes ASan/UBSan. QEMU passed
+side-by-side typing and exact saved contents, menu and shortcut routing, repeated
+resize generations, centering and restore at both 1280×800 and 800×600. Screens
+were inspected at both resolutions. Evidence: `build/review/desktop-arrange/`
+and `build/review/desktop-arrange-small/`.

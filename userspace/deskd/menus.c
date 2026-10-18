@@ -14,7 +14,7 @@ int desk_menu_receive(struct desk_menu_store *s,const struct desk_packet *p) {
     unsigned headings=0;
     for(unsigned i=0;i<s->total;i++) {
         if((s->staging[i].flags&DESK_MENU_HEADING) &&
-            (!strcmp(s->staging[i].label,"SrvrOS") || !strcmp(s->staging[i].label,"Window"))) return 0;
+            (!strcmp(s->staging[i].label,"SrvrOS") || !strcmp(s->staging[i].label,"Window") || !strcmp(s->staging[i].label,"Arrange"))) return 0;
         if(s->staging[i].id>65535 || ((s->staging[i].flags&DESK_MENU_HEADING) && ++headings>4)) return 0;
     }
     memcpy(s->items,s->staging,s->total*sizeof(s->items[0]));s->count=s->total;s->revision=p->serial;

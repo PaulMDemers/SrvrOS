@@ -521,3 +521,5 @@ checks segment preservation; `tools/host-env.sh python3 tools/desktop_settings_s
 checks live desktop preferences and persistence in a disposable VM.
 
 Find Files is available from Command-Shift-F, the SrvrOS menu, and Ctrl-F in Files. It searches names below a chosen folder in the background, with kind filters, sortable results, Open, Show in Files and Copy path. It reports the first 256 matches; this is name search over the mounted VFS, not content indexing.
+
+Arrange provides Tile left, Tile right and Center. Command-Alt-Left/Right tiles the active window, Command-Alt-Up centers it, and Command-Alt-Down zooms or restores its original geometry. The original position is retained while switching sides.

@@ -4,6 +4,30 @@
 #include <stdio.h>
 #include <string.h>
 
+int desktop_window_placement(int screen_width,int screen_height,struct desk_rect original,
+    unsigned placement,struct desk_rect *result) {
+    if(!result || screen_width<1 || screen_height<1 || screen_width>16384 || screen_height>16384 ||
+       placement<DESKTOP_TILE_LEFT || placement>DESKTOP_CENTER) return 0;
+    int available_w=screen_width-16,available_h=screen_height-132;
+    if(available_w<282 || available_h<285) return 0;
+    int width,height;
+    if(placement==DESKTOP_CENTER) {
+        width=original.w;height=original.h;
+        if(width<282) width=282;
+        if(height<285) height=285;
+        if(width>available_w) width=available_w;
+        if(height>available_h) height=available_h;
+    } else {
+        width=(available_w-8)/2;height=available_h;
+        if(width<282) return 0;
+    }
+    if(width>DESK_MAX_WIDTH+2) width=DESK_MAX_WIDTH+2;
+    if(height>DESK_MAX_HEIGHT+45) height=DESK_MAX_HEIGHT+45;
+    int x=placement==DESKTOP_TILE_LEFT?8:placement==DESKTOP_TILE_RIGHT?screen_width-width-8:(screen_width-width)/2;
+    int y=52+(placement==DESKTOP_CENTER?(available_h-height)/2:0);
+    *result=(struct desk_rect){x,y,width,height};return 1;
+}
+
 void desktop_stack(const struct desktop_scene *s,int order[DESKD_WINDOWS]) {
     for(int i=0;i<DESKD_WINDOWS;i++) order[i]=i;
     for(int i=1;i<DESKD_WINDOWS;i++) {

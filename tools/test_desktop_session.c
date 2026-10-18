@@ -135,6 +135,15 @@ int main(void) {
     struct desk_rect original=s.scene.windows[0].frame;
     maximize(&s,0);assert(s.scene.windows[0].maximized && s.clients[0].generation==1);
     maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
+    arrange_window(&s,0,DESKTOP_TILE_LEFT);assert(s.scene.windows[0].maximized && s.scene.windows[0].frame.x==8 && !memcmp(&original,&s.scene.windows[0].restore,sizeof(original)));
+    uint64_t arranged_generation=s.clients[0].generation;arrange_window(&s,0,DESKTOP_TILE_LEFT);assert(s.clients[0].generation==arranged_generation);
+    s.pointer_pid=42;arrange_window(&s,0,DESKTOP_TILE_RIGHT);assert(!s.pointer_pid && s.pointer_blocked);s.pointer_blocked=0;assert(s.scene.windows[0].frame.x>s.damage.width/2 && !memcmp(&original,&s.scene.windows[0].restore,sizeof(original)));
+    maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
+    arrange_window(&s,0,DESKTOP_TILE_LEFT);arrange_window(&s,0,DESKTOP_CENTER);assert(!s.scene.windows[0].maximized && s.scene.windows[0].frame.w==original.w && s.scene.windows[0].frame.h==original.h);
+    s.scene.windows[0].frame=original;
+    struct srv_key_event placement_key={.usage=SRV_KEY_LEFT,.modifiers=SRV_KEY_META|SRV_KEY_ALT,.flags=SRV_KEY_DOWN_EVENT};
+    assert(arrange_shortcut(&placement_key)==GLOBAL_TILE_LEFT);placement_key.flags|=SRV_KEY_REPEAT;assert(!arrange_shortcut(&placement_key));placement_key.flags=0;assert(!arrange_shortcut(&placement_key));
+    placement_key.flags=SRV_KEY_DOWN_EVENT;placement_key.modifiers|=SRV_KEY_CTRL;assert(!arrange_shortcut(&placement_key));
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
     s.preferences.value=desk_preferences_default();
@@ -149,18 +158,30 @@ int main(void) {
     p=desk_packet_new(DESK_MENU_SET);p.serial=19;p.width=2;
     memcpy(p.text,&menu[0],sizeof(menu[0]));incoming(&s,42,&p);assert(!s.clients[0].menus.revision);
     p.generation=1;p.value=1;memcpy(p.text,&menu[1],sizeof(menu[1]));incoming(&s,42,&p);
-    assert(s.clients[0].menus.revision==19 && s.scene.menu.groups==3);
+    assert(s.clients[0].menus.revision==19 && s.scene.menu.groups==4);
     unsigned system_actions[]={GLOBAL_ABOUT,GLOBAL_SETTINGS,GLOBAL_LAUNCHER,GLOBAL_FIND,GLOBAL_CALENDAR,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_HELP,GLOBAL_NOTIFICATIONS,GLOBAL_CAPTURE,GLOBAL_EXIT};
     for(unsigned i=0;i<sizeof(system_actions)/sizeof(*system_actions);i++) {
         unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==system_actions[i];assert(found==1);
     }
+    struct desk_menu_store saved_menus=s.clients[0].menus;
+    const char *headings[]={"File","Edit","Search","Tools"};
+    s.clients[0].menus.count=32;
+    for(unsigned i=0;i<32;i++) {
+        struct desk_menu_item *item=&s.clients[0].menus.items[i];memset(item,0,sizeof(*item));
+        if(!(i%8)) { item->flags=DESK_MENU_HEADING;strcpy(item->label,headings[i/8]); }
+        else { item->id=i;snprintf(item->label,sizeof(item->label),"Action %u",i); }
+    }
+    for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=42+i;
+    global_menu_rebuild(&s);assert(s.scene.menu.count==62 && s.scene.menu.groups==7 && desk_menu_valid(s.scene.menu.items,s.scene.menu.count));
+    for(unsigned i=0;i<DESKD_WINDOWS;i++) { unsigned found=0;for(unsigned j=0;j<s.scene.menu.count;j++) found+=s.scene.menu.items[j].id==GLOBAL_WINDOW+i;assert(found==1); }
+    s.clients[0].menus=saved_menus;for(unsigned i=1;i<DESKD_WINDOWS;i++) s.clients[i].pid=0;global_menu_rebuild(&s);
     global_menu_action(&s,GLOBAL_FIND);assert(!strcmp(executed_path,"/fat/bin/deskfind") && !strcmp(executed_role,"find"));
     unsigned before_input=s.clients[0].input_count;global_menu_action(&s,7);
     assert(s.clients[0].input_count==before_input+1);
     struct desk_packet *command=&s.clients[0].input[(s.clients[0].input_head+before_input)%DESK_INPUT_QUEUE];
     assert(command->type==DESK_MENU_ACTION && command->value==7 && command->serial==19);
-    global_menu_action(&s,GLOBAL_MINIMIZE);assert(s.scene.focus==-1 && s.scene.menu.groups==2);
-    global_menu_action(&s,GLOBAL_WINDOW);assert(s.scene.focus==0 && s.scene.menu.groups==3);
+    global_menu_action(&s,GLOBAL_MINIMIZE);assert(s.scene.focus==-1 && s.scene.menu.groups==3);
+    global_menu_action(&s,GLOBAL_WINDOW);assert(s.scene.focus==0 && s.scene.menu.groups==4);
     global_menu_action(&s,GLOBAL_ABOUT);
     assert(!strcmp(executed_path,"/fat/bin/deskhelp") && !strcmp(executed_role,"help") && !strcmp(executed_argument,"about"));
     s.scene.windows[0].application=DESK_APP_TEXT;global_menu_action(&s,GLOBAL_HELP);
@@ -204,7 +225,7 @@ int main(void) {
     contextual.usage=0x65;assert(context_key(&contextual));contextual.flags|=SRV_KEY_REPEAT;assert(!context_key(&contextual));
     context_at(&s,760,550,0);assert(s.scene.context.opened && s.scene.focus==0);
     notifications_open(&s);assert(!desk_popup_active(&s.scene.context));notifications_close(&s);
-    forget(&s,0);assert(s.scene.menu.groups==2 && s.scene.focus==-1);
+    forget(&s,0);assert(s.scene.menu.groups==3 && s.scene.focus==-1);
     global_menu_action(&s,GLOBAL_HELP);assert(!strcmp(executed_argument,"welcome"));
     struct session failed={0}; alloc_fail=allocations+1;
     assert(cache_init(&failed)<0 && allocations==frees);
