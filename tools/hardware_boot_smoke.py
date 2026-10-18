@@ -91,7 +91,9 @@ def workspace_preferences(ui, serial, process, logs, restored=False, expanded=Fa
     ui.call("screendump", {"filename": str(logs / ("workspace-settings-restored.ppm" if restored else "workspace-settings-saved.ppm"))})
     before=len(serial.read_text(errors="replace"))
     shortcut("ctrl-w")
-    wait_for(serial, lambda s: "desktools: exited role=settings failure=0" in s[before:], process, 30)
+    # Independent process logs can split the prefix ("desktools:"), while the
+    # exit payload still identifies the exact role and successful result.
+    wait_for(serial, lambda s: "exited role=settings failure=0" in s[before:], process, 30)
 
 
 def verify_workspace(stick, volume, acceleration):
