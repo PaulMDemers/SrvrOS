@@ -97,3 +97,64 @@ pausing host reads had triggered the guest UART timeout and hidden continued
 worker progress. This was a harness observation failure, not evidence of a
 filesystem deadlock. The on-screen checklist and live counts were inspected at
 1280x800. Physical acceptance remains pending.
+
+## First physical result and bounded optimization plan
+
+Run `9827a0816f9a01a1`, release `860b0e14f63f89e8`, returned to Ubuntu after
+manual testing. User feedback: significant stuttering during heavy I/O, but
+interaction continued to work. This is a functional result, not responsiveness
+acceptance; retain the earlier accepted checkpoint.
+
+Collection validated the report/completion marker, both auxiliary records and
+final persisted payload. The worker stopped gracefully after 126 rounds
+(33,030,144 logical bytes / 31.5 MiB). During its RUNNING interval the compositor
+recorded 58 characters and 325 motion events, but zero wheel events, focus changes
+or captured-drag cancellations. Overall capture recorded 2,015 valid trackpad
+reports, 23 scroll events, zero malformed/transport errors, zero dropped keyboard
+characters and a successful desktop exit. Overall gesture coverage does not
+establish scroll/focus/capture coverage during the workload: the combined gate
+is correctly INCOMPLETE.
+
+Report SHA-256: `aa3955f4aed8582f9faf8c021be8b2910fd208e0db70c5231aad4cc2324ecd9e`.
+Final payload SHA-256: `8e479b18bbcec08f7e18e973ced31ec4a6bd63943bab884c90039523d2171eea`.
+Host evidence: `build/trackpad-tests/9827a0816f9a01a1/`.
+
+The first code-level suspect is the global I/O ownership gate. exFAT retains
+ownership across a complete mutation. USB bulk waits yield, but
+`syscall_io_safe()` excludes desktop IPC, mouse scanning, surface operations,
+presentation and several compositor housekeeping calls. Therefore yielding the
+CPU does not itself let the desktop complete an update. Allocation-bitmap and
+metadata-sidecar writes also amplify traffic; their contribution to the observed
+stutters has not yet been measured.
+
+Recommended remaining scope, in order:
+
+1. Measure active desktop service/presentation gaps, syscall I/O-gate wait time,
+   I/O ownership duration and USB command/byte/flush counts. Report distributions
+   and maxima, separating normal idle time from active interaction. Preserve a
+   comparable baseline before changing scheduling.
+2. Keep filesystem mutation serialization while permitting audited bounded input,
+   desktop messaging and presentation work during storage waits. Review shared
+   allocator, process lifetime, surface ownership and queue invariants first;
+   blindly marking every GUI syscall safe is not a solution. Compositor worker
+   progress/liveness checks must also avoid reintroducing a blocking dependency.
+3. If measurements still show long uninterrupted work, reduce redundant bitmap /
+   sidecar traffic and add bounded service opportunities between transfer batches.
+   Preserve fsync, clean-marker ordering and error quarantine. Do not improve the
+   benchmark by reducing the workload or acknowledging saves early.
+4. Repeat the combined test with all activity categories observed while RUNNING,
+   then a bounded longer run and independent payload/offline filesystem checks.
+   Regress slow/dead clients, queue pressure and storage failure behavior.
+
+Proposed exit gate: normal redraw retains the 16.7 ms target; during active input
+under the same USB workload, desktop service/presentation gaps should be below
+50 ms at p95 and 100 ms at p99, with no unexplained gap above 250 ms. These are
+engineering targets, not measurements or physical input-to-photon claims. Also
+require no lost input/stuck capture, verified durable data, clean offline exFAT,
+and user confirmation that the pronounced stuttering is gone. If a flash-device
+flush itself takes longer, the desktop must remain serviceable while it waits.
+
+Stop when that gate passes. Full asynchronous storage, a general filesystem
+cache, GPU acceleration, a scheduler redesign and peak USB throughput tuning
+are separate projects unless measurements prove one necessary for this gate.
+Then proceed to the shared controls and useful Files/Text workflow in D3.

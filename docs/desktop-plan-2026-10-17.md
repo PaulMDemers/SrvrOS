@@ -227,4 +227,6 @@ latency and device recovery.
 
 The [desktop I/O trial](desktop-io-2026-10-17.md) adds a bounded USB worker,
 on-screen focus/capture checks, activity counters and independent final-payload
-validation. Its physical acceptance remains pending.
+validation. Its first physical run verified 126 file rounds but exposed pronounced
+stuttering under I/O. The linked trial document records the bounded scheduling /
+I/O responsiveness plan and proposed exit gate; physical acceptance remains open.
