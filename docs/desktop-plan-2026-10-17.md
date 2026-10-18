@@ -73,7 +73,7 @@ box is not sufficient for that application.
 | Area | Current evidence | Desktop requirement |
 | --- | --- | --- |
 | Internal keyboard | Working on SrvrOS; USB `05ac:0291`, interface 1 | Preserve modifiers, repeat, case, and responsiveness during I/O. |
-| Internal trackpad | Ubuntu binds USB interface 2 of the same device to `bcm5974`; not validated on SrvrOS | Movement, click, drag, two-finger scroll, palm rejection. |
+| Internal trackpad | Ubuntu binds USB interface 2 to `bcm5974`; SrvrOS raw capture verified, pointer/gestures pending | Movement, click, drag, two-finger scroll, palm rejection. |
 | Display | Native 1440×900 framebuffer; fast batched console output | Antialiased text, bounded composition, responsive cursor and resize. |
 | USB exFAT workspace | Accepted five-round hardware test and clean offline check | Persistent documents, honest save/error state, safe unmount. |
 | Laptop controls | Ubuntu exposes battery, AC adapter and lid input | Battery reporting, brightness, idle policy, safe power controls. |
@@ -127,8 +127,9 @@ adds the renderer, an optional native study, exclusive GUI registration and a
 tested trackpad packet decoder. The [compositor/client slice](desktop-compositor-2026-10-17.md)
 adds versioned surface ownership, separate applications, resize/focus and crash
 recovery, plus opt-in trackpad endpoint capture. D1's complete input contract,
-event-driven waits and timing gates, and D2's physical trackpad validation and
-gesture policy remain open.
+event-driven waits and timing gates remain open. The [physical capture gate](trackpad-capture-2026-10-17.md)
+passed with simultaneous keyboard input; D2's pointer/gesture policy and desktop
+interaction acceptance remain open.
 
 ### D0 — Product and design contract (this change)
 

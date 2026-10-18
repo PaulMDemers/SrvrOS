@@ -14,6 +14,16 @@ class CaptureTests(unittest.TestCase):
         fields=capture.validate_result(self.metadata,self.data,self.completion(self.data))
         self.assertEqual(fields['status'],'CAPTURED')
         self.assertEqual(len(fields['sample_multi']),972)
+    def test_physical_capture(self):
+        fixtures=capture.boot.ROOT/'tools/fixtures'
+        fields=capture.validate_result(
+            {'run':'69fe1189e88fb65d','release':'9640bd00eeb0ed49'},
+            (fixtures/'apple-05ac-0291-capture.txt').read_bytes(),
+            (fixtures/'apple-05ac-0291-capture.done').read_bytes())
+        self.assertEqual(fields['status'],'CAPTURED')
+        self.assertEqual(fields['keyboard'],'PASS')
+        self.assertEqual(fields['reports'],'493')
+        self.assertEqual(fields['errors'],'0')
     def test_truncation_corruption_missing_completion(self):
         for data,done in ((self.data[:-1],self.completion(self.data)),
                           (self.data.replace(b'AaZz09',b'AaZz08'),self.completion(self.data)),

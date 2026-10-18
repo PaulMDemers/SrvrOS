@@ -93,3 +93,37 @@ consumed-request replay with unchanged disk bytes, read-only write failure, and
 halting. QEMU has no matching Apple device and must report `INCOMPLETE`; that is
 the expected result, not evidence of hardware support. Logs are under
 `build/review/trackpad-*`.
+
+## Physical result — 2026-10-17
+
+**Capture gate passed** on the MacBookAir7,2. The user reported that the tester
+behaved well. Host collection independently accepted the report and durable
+completion marker and observed a changed Ubuntu boot ID.
+
+- Run: `69fe1189e88fb65d`; release: `9640bd00eeb0ed49`.
+- Source: `c47dc04b1291d5c3324ff056a51a0df9eb80923e`, clean when staged.
+- Report SHA-256: `4f634f1043350dbaa6d7c48953975c74aa3f6cbd314e806bc17a006f19488057`.
+- 493 valid reports, 481 contact frames, maximum two simultaneous contacts,
+  57 button-down frames and six lift transitions. Frame counts are not click counts.
+- Zero malformed reports, transport errors or dropped keyboard characters.
+  The same USB device delivered 17 keyboard reports and exact text `AaZz09`.
+- Samples contain 66-byte single-contact/button reports and a 94-byte two-contact
+  report, exceeding the 64-byte endpoint packet size as expected. The final
+  transfer completion code 13 is a short packet, accepted using its actual length.
+- The session lasted about 612 seconds including human interaction/waiting;
+  that is not an input-latency measurement.
+
+The exact [report](../tools/fixtures/apple-05ac-0291-capture.txt) and
+[completion marker](../tools/fixtures/apple-05ac-0291-capture.done) are retained
+in source control. Decoder regressions replay the physical touch, two-contact
+and button samples; collector regressions verify the original checksums.
+Full host manifests and collection evidence remain under
+`build/trackpad-tests/69fe1189e88fb65d/`.
+
+This clears the transport/packet capture gate, not D2's desktop acceptance gate.
+Next implement bounded one-finger relative motion and physical click/drag,
+resetting the motion baseline on lift, contact-count changes and errors. Do not
+assume the raw `origin` word is a stable finger ID. Then extend the input contract
+for two-finger scrolling and cancellation, with palm rejection and typing/I/O
+coexistence tested before calling the desktop interaction usable. Pointer feel,
+latency and gesture behavior still require a physical interactive test.

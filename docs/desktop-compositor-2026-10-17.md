@@ -2,12 +2,13 @@
 
 Follow-up: the [physical capture workflow](trackpad-capture-2026-10-17.md) adds
 an interactive boot, bounded raw packet samples, USB reports and a persistent
-halt screen for the next hardware validation.
+halt screen. Its first physical capture passed; see the linked result for evidence.
 
 This advances the [desktop plan](desktop-plan-2026-10-17.md) beyond the single
 process rendering study. The new compositor and test application run as separate
 ring-3 processes. The capture transport for the built-in trackpad is implemented
-but remains opt-in and physically unverified. Building this work does not install
+and remains opt-in. Physical packet capture is now verified; pointer/gesture
+behavior is still pending. Building this work does not install
 a hardware release or change the laptop's boot entry.
 
 ![Two independent study applications in QEMU at 1440×900](design/desktop-native-compositor.png)
@@ -99,8 +100,8 @@ trackpad, then run `xhci` in the monitor. The `trackpad-capture` lines show read
 request/actual length, successful frames, contact/button frame counts, malformed
 reports and transfer errors. Current coordinates are live state and may return
 to zero after lifting. Use keyboard input throughout to verify coexistence.
-This is the next physical validation step, before contact tracking and gesture
-policy. The [decoder reference and device inventory](desktop-foundation-2026-10-17.md#trackpad-evidence-and-next-integration)
+The dedicated capture workflow has since passed this physical gate. Contact
+tracking and gesture policy are next. The [decoder reference and device inventory](desktop-foundation-2026-10-17.md#trackpad-evidence-and-next-integration)
 remain the basis for the Type 3 format; synthetic tests are not hardware evidence.
 
 ## Verification
@@ -147,4 +148,5 @@ The input payload still carries decoded console bytes. Raw key up/down, modifier
 wheel events, cancellation, focus notifications to applications and complete
 display/input ownership remain future work. `DESK_FOCUS` is reserved, not emitted.
 This is not yet the shared widget toolkit, Files/Text/Terminal, or a usable
-built-in trackpad. No new physical hardware acceptance is claimed by this change.
+built-in trackpad. The subsequent capture checkpoint accepts the physical
+transport only; desktop interaction acceptance remains open.
