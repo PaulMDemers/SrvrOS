@@ -363,3 +363,33 @@ Guidance validation passed the desktop and I/O host suites and a 16-round QEMU
 trial. The emulator verified the early-Escape warning, deliberate second-Escape
 exit, final payload, clean offline exFAT, replay/read-only refusal and halt.
 Its deliberately incomplete physical-input coverage remains INCOMPLETE.
+
+
+## Full workload completed; concurrent-input coverage absent
+
+Run `a08397c25b269821`, release `66dd9f876af60696` (commit `943f528`),
+completed all 128 rounds / 32 MiB of logical work. The user reported everything
+appeared to work well. Ubuntu verified the final payload, the report and its
+completion marker. Offline `fsck.exfat -n` reported clean: 127 directories,
+638 files; the volume was remounted afterward. Overall capture recorded 3,740
+valid reports, 469 scroll events, no malformed reports or transport errors,
+and a passing keyboard/desktop-exit result.
+
+However, every input-during-workload counter was zero, with zero active-loop
+and text timing samples. This run establishes a complete storage workload,
+but does not establish concurrent interaction or new responsiveness timing.
+The previous run's smooth physical feedback and timings remain valid within
+their recorded scope. Clarification is pending on whether interaction began
+after the workload finished; do not classify this as a responsiveness regression
+or promote it as combined acceptance without that missing evidence.
+
+Collection initially rejected the zero-sample timing record as inconsistent.
+The host validator now accepts a zero-sample histogram only when all its timing
+values are zero, preserving the evidence as incomplete. Acceptance still requires
+100 active samples and nonzero render samples; zero text samples also cannot
+pass. Thirteen collector/evidence tests passed, including the new empty-histogram
+case and rejection of timings reported without samples.
+
+Report SHA-256: `2d688458dba98fd306eb485c63339e1288bad4dfa2098a5d7df5ac646c105390`.
+Payload SHA-256: `a3f1a4bb482cd88b6fb2a67190bd3b9c06bd39c1ab77155a166d0231e04bdb72`.
+Evidence: `build/trackpad-tests/a08397c25b269821/`.

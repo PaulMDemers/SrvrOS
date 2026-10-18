@@ -41,5 +41,10 @@ class DesktopIOTests(unittest.TestCase):
             self.assertFalse(timing_gate(dict(target,**miss)))
         for invalid in (dict(clock=0),dict(active_count=0),dict(active_p95_us=200000),dict(render_max_us=1)):
             with self.assertRaises(ValueError): validate_timing(self.run_id,self.record('timing',dict(fields,**invalid)))
+        empty=dict(clock=1,active_count=0,active_p95_us=0,active_p99_us=0,active_max_us=0,
+                   render_count=0,render_p95_us=0,render_p99_us=0,render_max_us=0)
+        self.assertEqual(validate_timing(self.run_id,self.record('timing',empty)),empty)
+        self.assertFalse(timing_gate(empty))
+        self.assertFalse(timing_gate(dict(target,render_count=0,render_p95_us=0,render_p99_us=0,render_max_us=0)))
 
 if __name__=='__main__': unittest.main()

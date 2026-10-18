@@ -44,7 +44,9 @@ def validate_timing(run,data):
     values=record(data,run,'timing',fields)
     if values['clock']!=1: raise ValueError('No reference clock for desktop timing')
     for kind in ('active','render'):
-        if not values[kind+'_count'] or not 0<=values[kind+'_p95_us']<=values[kind+'_p99_us']<=values[kind+'_max_us']:
+        samples=values[kind+'_count']
+        times=[values[kind+suffix] for suffix in ('_p95_us','_p99_us','_max_us')]
+        if (not samples and any(times)) or not 0<=times[0]<=times[1]<=times[2]:
             raise ValueError('Incomplete/inconsistent desktop timing')
     return values
 
@@ -52,7 +54,7 @@ def validate_timing(run,data):
 def timing_gate(t):
     return (t['active_count']>=100 and t['active_p95_us']<=50000 and
             t['active_p99_us']<=100000 and t['active_max_us']<=250000 and
-            t['render_p95_us']<=16667)
+            t['render_count']>0 and t['render_p95_us']<=16667)
 
 
 def validate_text(run,data):
