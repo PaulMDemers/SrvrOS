@@ -19,11 +19,18 @@ struct desktop_scene {
     struct desk_menu menu;
     struct desk_palette launcher;
     int launcher_open;
+    struct desk_calendar calendar;
+    struct desk_ui calendar_ui;
+    struct desk_button calendar_today,calendar_close;
+    struct desk_rect calendar_frame;
+    int calendar_open;
+    char calendar_date[64],calendar_zone[32];
     uint64_t stack_serial;
     char notice[96],clock[64];
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
+struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
 void desktop_stack(const struct desktop_scene *scene,int order[DESKD_WINDOWS]);
 struct desk_rect desktop_dock_item(int width,int height,int application);

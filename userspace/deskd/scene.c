@@ -99,12 +99,27 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
     for (int n=0;n<3;n++)
         desk_fill(c,(struct desk_rect){r.x+r.w-5-4*n,r.y+r.h-5,2,2},0x748b79);
 }
+struct desk_rect desktop_clock_rect(int width,const char *clock) {
+    int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
+}
+static void calendar_panel(struct desk_canvas *c,const struct desktop_scene *s) {
+    struct desk_rect r=s->calendar_frame,clip=c->clip;
+    desk_fill(c,(struct desk_rect){r.x+4,r.y+5,r.w,r.h},0xb9c2b4);
+    desk_fill(c,r,desk_theme_quiet.border);desk_fill(c,desk_widget_inset(r,1),desk_theme_quiet.surface);
+    desk_clip(c,desk_intersect(clip,r));
+    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+12,140,28},&desk_font_20,"Calendar",desk_theme_quiet.text);
+    desk_label_draw(c,(struct desk_rect){r.x+r.w-148,r.y+16,132,24},&desk_font_16,s->calendar_zone,desk_theme_quiet.muted);
+    desk_ui_draw(c,&s->calendar_ui,&desk_theme_quiet);
+    desk_label_draw(c,(struct desk_rect){r.x+16,r.y+r.h-82,r.w-32,24},&desk_font_16,s->calendar_date,desk_theme_quiet.text);
+    desk_clip(c,clip);
+}
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     static const uint32_t backgrounds[]={0xd6dcd2,0xe2dace,0xcbd5da};
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},backgrounds[s->wallpaper>=0 && s->wallpaper<3?s->wallpaper:0]);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
     if(s->apps) {
         desk_menu_bar_draw(c,&s->menu,&desk_theme_quiet);
+        if(s->calendar_open) desk_fill(c,desktop_clock_rect(c->width,s->clock),desk_theme_quiet.selected);
         int clock_width=desk_text_width(&desk_font_16,s->clock);
         desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
@@ -144,6 +159,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
+        if(s->calendar_open) calendar_panel(c,s);
         if(s->launcher_open) desk_palette_draw(c,&s->launcher,&desk_theme_quiet);
     }
     for (int y=0;y<16;y++) {

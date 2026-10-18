@@ -533,3 +533,25 @@ and extreme epochs, randomized field normalization, leap days and output
 preservation on overflow. ASan/UBSan and the complete core/desktop host suites
 passed. The fixed-RTC guest verifies negative epochs, normalized leap-day input,
 overflow handling, current clock formatting and actual file timestamps.
+
+### Shared calendar and global clock panel
+
+Clicking the menu-bar clock or choosing Calendar from SrvrOS opens a date browser.
+The shared calendar widget handles Gregorian dates from year 1 through 9999,
+month/year paging, day/week navigation, Today, keyboard focus and release-inside
+pointer activation. The desktop supplies its current fixed-offset date; changing
+the offset updates Today across midnight. The panel restores client focus and
+consumes dismissal clicks through release, and can switch directly to Launcher.
+It is a date browser, without appointment storage.
+
+Validation: 2,825,928 reference grid dates across every month of 1600–2400 and all
+seven week starts, boundary/leap tests, capture cancellation, focus routing,
+clipped/tiled rendering, ASan/UBSan and the full desktop host suite passed. QEMU
+passed clock/menu entry, navigation, Today, pointer selection, offset rollover,
+overlay switching and exact Text readback after focus restoration. The screenshot
+was inspected and saved as `native-desktop-calendar.png`.
+
+Host tests now reuse a separate native toolkit archive with generated header
+dependencies and atomic archive replacement. The freestanding production archive
+is unchanged. This avoids recompiling the entire toolkit separately for each
+host test; the complete desktop host suite passed using the shared objects.

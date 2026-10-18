@@ -29,6 +29,13 @@ int main(void) {
             assert(!desk_palette_open(&s.launcher,"Open application or window",entries,2));
             desk_palette_configure(&s.launcher,(struct desk_rect){0,44,W,H-120});s.launcher_open=1;
         }
+        if(pass==5) {
+            s.launcher_open=0;s.calendar_open=1;s.calendar_frame=(struct desk_rect){268,52,360,416};
+            desk_calendar_init(&s.calendar);desk_calendar_select(&s.calendar,(struct desk_date){2026,10,18});desk_calendar_today(&s.calendar,s.calendar.selected);
+            desk_calendar_configure(&s.calendar,(struct desk_rect){284,100,328,272},1,0);desk_ui_init(&s.calendar_ui);
+            desk_ui_add(&s.calendar_ui,1,DESK_CONTROL_CALENDAR,&s.calendar,NULL);desk_ui_focus(&s.calendar_ui,1);
+            strcpy(s.calendar_date,"Sunday · 2026-10-18");strcpy(s.calendar_zone,"UTC");strcpy(s.clock,"12:34 UTC");
+        }
         for (unsigned i=0;i<S*H;i++) full[i]=tiles[i]=0xdeadbeef;
         desk_clip(&a,(struct desk_rect){0,0,W,H}); desktop_draw(&a,&s);
         for (int y=0;y<H;y+=29) for (int x=0;x<W;x+=31) {
