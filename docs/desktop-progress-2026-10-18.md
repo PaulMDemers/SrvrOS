@@ -1598,3 +1598,69 @@ hardware trial. Installed current/recovery hashes and GRUB syntax were verified;
 accepted recovery **f05dfcc01c28dc85**, Ubuntu's default and EFI boot order remain
 unchanged. The prepared USB workspace marker was verified. This is an interactive
 trial with persistent Help, not an automated gesture pass.
+
+
+## Held-click hardware acceptance and basic tapping
+
+The user reported that the held-click trial worked well. Collected and verified
+USB session `session-00065e2376bde633-00` in
+`build/desktop-collections/collection-m4aw_761/`; its exit log records a clean
+desktop exit, 427 two-finger held-drag frames, 28 rebases, 484 scroll events,
+zero typing/palm suppressions and zero pointer cancellations. The collector
+reported no attention markers. There were zero steering handoffs counted, so
+that particular transition is not independently demonstrated by the counters.
+The session is also archived beneath the installed candidate's physical evidence
+folder. This records the user's acceptance, not an automatic gesture verdict.
+
+The next requested milestone implements one-finger primary taps and two-finger
+secondary taps. Right-click already has a desktop-wide context-menu route,
+also reached by Control-click and Shift-F10. Files and editable fields provide
+contextual actions; the desktop provides launcher/settings actions. The new
+trackpad recognizer uses that existing route and does not invent per-app gestures.
+
+Settings adds separate Tap to click and Two-finger right-click switches, both on
+by default. Existing v1/v2/v3 preferences migrate with both on; v4 persists each
+choice. Typing suppression remains off by default. Desktop protocol v10 and the
+validated, owner-only pointer configuration carry the two options. Tap dragging
+and physical two-finger secondary clicking are not included in this milestone.
+
+The bounded recognizer emits a pulse only after all contacts lift. Provisional
+limits: 10–200 ms total contact, 80 ms chord formation, 80 ms release spread and
+64 raw coordinate units of motion. It handles staggered arrival/release and
+report ordering, suppresses quiet candidate scrolling, and rejects movement,
+long holds, late joining, contact replacement after release starts, broad/palm
+contacts, physical clicks, cancellation, clock rollback and mid-contact option
+changes. Typing suppression also invalidates taps when enabled. The queue emits
+adjacent press/release edges at the same position, ignores taps while a physical
+mouse button is held and retains overflow cancellation. No subsequent report or
+timer callback is needed to release a synthetic click. Logs count recognized
+primary and secondary taps, independently of physical-button counters.
+
+
+Validation for tapping: production build and `test-core` passed. Replay tests
+cover single/chord taps, reordered and staggered contacts, no scroll before a
+secondary tap, independent settings, movement/hold/palm/physical-click rejection,
+typing policy, invalid clocks and cancellation. Mouse-queue tests check adjacent
+edges, fixed click position, external-button ownership and overflow recovery.
+The synthetic xHCI test passes raw Type 3 tap reports through the dispatcher,
+checks primary/secondary delivery and diagnostic snapshots while bulk I/O is
+pending. GUI ownership/flag validation, preference migration/roundtrip, Settings
+requests and compositor flag propagation passed.
+
+The Settings VM test passed both toggles off, v4 save, fresh-session reload and
+both toggles on again. The context-menu VM test passed right-click, Control-click,
+Shift-F10, selected-text clipboard actions, outside-click isolation, compact
+menus, Files rename and duplicate/delete cancellation. Its fixture now navigates
+to /fat explicitly because Files starts in /fat/home; the Settings script scrolls
+before hitting the newly added lower control. The restored tap-settings layout
+was visually inspected. These VM checks exercise ordinary mouse input; Apple
+contact recognition and threshold feel still require the next physical round.
+
+
+Candidate **5aa0372d69d1a350** is staged. Its exact GRUB/native-desktop VM trial
+passed USB keyboard editing, verified document and screenshot saves, durable
+session logs, v4 preferences across a fresh boot and two clean USB unmounts.
+Evidence is archived in `build/native-desktop-trials/5aa0372d69d1a350/`.
+The persistent Help checklist includes primary/secondary taps and rejection
+checks. No new installation or physical reboot was performed; installed
+**d61e60a82a295d84** remains the user-accepted held-drag build.

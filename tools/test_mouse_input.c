@@ -8,13 +8,10 @@ static struct mouse_event next(int x,int y,int buttons) {
     return e;
 }
 int main(void) {
-    unsigned speed;bool acceleration,typing;
-    mouse_trackpad_get_settings(&speed,&acceleration,&typing);
-    assert(speed==3 && !acceleration && !typing);
-    mouse_trackpad_settings(5,true,true);mouse_trackpad_get_settings(&speed,&acceleration,&typing);
-    assert(speed==5 && acceleration && typing);
-    mouse_trackpad_settings(3,false,false);mouse_trackpad_get_settings(&speed,&acceleration,&typing);
-    assert(speed==3 && !acceleration && !typing);
+    unsigned speed,options;
+    mouse_trackpad_get_settings(&speed,&options);assert(speed==3 && options==0);
+    mouse_trackpad_settings(5,15);mouse_trackpad_get_settings(&speed,&options);assert(speed==5 && options==15);
+    mouse_trackpad_settings(3,0);mouse_trackpad_get_settings(&speed,&options);assert(speed==3 && !options);
     struct mouse_event e;
     assert(!mouse_scan(NULL) && !mouse_scan(&e));
     mouse_inject_trackpad(10,20,0); mouse_inject_trackpad(5,-5,0); next(15,15,0);
@@ -38,5 +35,17 @@ int main(void) {
     e=next(0,0,0); assert(e.wheel_y==30);
     e=next(0,0,0); assert(e.wheel_y==-5);
     e=next(16,0,0); assert(!e.wheel_y);
+    /* Tap edges are adjacent, at a fixed position, and preserve physical ownership. */
+    mouse_inject_trackpad(7,9,0);mouse_inject_trackpad_tap(1);mouse_inject_trackpad(3,4,0);
+    next(7,9,0);next(0,0,1);next(0,0,0);next(3,4,0);
+    mouse_inject_trackpad_tap(2);next(0,0,2);next(0,0,0);
+    mouse_inject_event(0,0,1);next(0,0,1);mouse_inject_trackpad_tap(2);
+    assert(!mouse_scan(&e));mouse_inject_event(0,0,0);next(0,0,0);
+    mouse_inject_trackpad(0,0,1);next(0,0,1);mouse_inject_trackpad_tap(1);
+    assert(!mouse_scan(&e));mouse_inject_trackpad(0,0,0);next(0,0,0);
+    for(unsigned i=0;i<32;i++) mouse_inject_trackpad_tap(1);
+    mouse_inject_trackpad_tap(2);e=next(0,0,0);
+    assert((e.flags&MOUSE_CANCEL) && !mouse_scan(&e));
+    mouse_inject_trackpad_tap(2);next(0,0,2);next(0,0,0);
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

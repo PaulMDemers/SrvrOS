@@ -13,7 +13,7 @@ struct xhci_trackpad_sample {
 struct xhci_trackpad_capture {
     bool found, ready, pending, pointer_enabled, gestures_enabled;
     uint64_t scroll_events, typing_suppressed, palm_suppressed;
-    uint64_t drag_frames, drag_rebases, drag_handoffs;
+    uint64_t drag_frames, drag_rebases, drag_handoffs, tap_primary, tap_secondary;
     uint64_t pointer_queue_overflows, pointer_motion, pointer_events, pointer_buttons, pointer_cancels;
     uint8_t slot;
     uint32_t last_length, completion, max_contacts, max_touch_major, max_touch_minor;

@@ -1,7 +1,8 @@
 # Trackpad interactions for the MacBook Air
 
-Status: typing-suppression preference and physical held-click two-finger dragging
-implemented; hardware acceptance pending. Tap gestures remain planned.
+Status: physical held-click two-finger dragging accepted by the user on hardware.
+One-finger primary and two-finger secondary taps implemented; physical tap
+acceptance pending. Tap dragging and three-finger gestures remain planned.
 Target: MacBookAir7,2 built-in Apple 05ac:0291 Type 3 trackpad. This is a plan for
 SrvrOS behavior, not a claim of macOS compatibility or physical acceptance.
 
@@ -27,8 +28,8 @@ must not silently turn a two-finger scroll into a drag.
   selects the moving contact with hysteresis. Raw report order and `origin` do
   not define identity. Ambiguous matches pause motion while preserving the press.
 - Contact-count changes and steering handoffs reset motion baselines. The tracker
-  is deliberately limited to two contacts; there is no tap recognizer or tap-drag
-  state yet. Physical button ownership remains independent of contact ownership.
+  is deliberately limited to two contacts. The tap recognizer emits a primary or
+  secondary click only after full lift; there is no tap-drag state yet. Physical button ownership remains independent of contact ownership.
 - Three or more contacts currently latch palm suppression. Merely enabling a
   three-finger action would conflict with that rule.
 - The mouse queue preserves button edges and cancels on overflow. The compositor
@@ -76,6 +77,20 @@ new click, app closure or stuck drag is acceptable.
 
 ### 2. Tap-to-click and tap-and-drag
 
+Implemented basic taps: one finger produces a primary click, two a secondary
+click. Settings has separate saved switches, initially on, including migrated
+v1/v2/v3 preferences. v4 stores both choices; desktop protocol v10 carries them.
+The current provisional limits are 10–200 ms total contact, 80 ms to form a
+chord, 80 ms between first and final lift, and 64 raw units of displacement.
+Quiet two-finger candidates do not emit scrolling. Exceeding motion/time bounds,
+physical clicking, broad contacts, transport cancellation, clock rollback or a
+mid-contact tap-option change invalidates the candidate until all contacts lift.
+A completed tap queues adjacent press/release edges at one pointer position,
+without retaining synthetic button state or relying on a future report/timer.
+The queue refuses taps while another physical button is held and preserves its
+existing overflow cancellation. Hardware acceptance and threshold tuning remain
+pending. The following tap-drag work has not been implemented.
+
 Recognize a short one-finger down/up with bounded movement as a click. Emit one
 press/release pair at a fixed cursor position. A physical click consumes the tap
 candidate so it cannot produce a duplicate click on lift. Scrolling, broad
@@ -95,6 +110,11 @@ Proposed defaults after physical acceptance: tap-to-click on, tap dragging on,
 drag lock off, each with a visible setting.
 
 ### 3. Two-finger secondary click and resting-thumb handling
+
+The two-finger tap portion is implemented with the shared tap recognizer above.
+It sends the existing right-button input to the desktop context-menu path;
+Files, editable fields and the desktop already support contextual actions.
+Physical secondary clicks and resting-thumb classification remain future work.
 
 A short, low-movement two-finger tap invokes the existing secondary-click/context
 menu path. A moving pair remains scrolling. Decide the gesture before emitting a

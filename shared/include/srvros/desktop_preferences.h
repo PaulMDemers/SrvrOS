@@ -7,6 +7,7 @@ struct desk_preferences {
     int32_t utc_offset_minutes;
     uint32_t clock_flags,wallpaper;
     uint32_t pointer_speed,pointer_acceleration,disable_while_typing;
+    uint32_t tap_to_click,two_finger_tap;
 };
 #define DESK_CLOCK_24H 1u
 #define DESK_CLOCK_DATE 2u
@@ -19,8 +20,10 @@ struct desk_preferences {
 #define DESK_PREF_POINTER_SPEED 32u
 #define DESK_PREF_POINTER_ACCELERATION 64u
 #define DESK_PREF_DISABLE_WHILE_TYPING 128u
-#define DESK_PREF_POINTER (DESK_PREF_POINTER_SPEED|DESK_PREF_POINTER_ACCELERATION|DESK_PREF_DISABLE_WHILE_TYPING)
-#define DESK_PREF_ALL 255u
+#define DESK_PREF_TAP_CLICK 256u
+#define DESK_PREF_TWO_FINGER_TAP 512u
+#define DESK_PREF_POINTER (DESK_PREF_TAP_CLICK|DESK_PREF_TWO_FINGER_TAP|DESK_PREF_POINTER_SPEED|DESK_PREF_POINTER_ACCELERATION|DESK_PREF_DISABLE_WHILE_TYPING)
+#define DESK_PREF_ALL 1023u
 enum desk_preferences_status { DESK_PREF_LOADING, DESK_PREF_SAVED, DESK_PREF_SAVING,
     DESK_PREF_SESSION_ONLY, DESK_PREF_CONFLICT };
 #endif

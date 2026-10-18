@@ -2228,9 +2228,9 @@ test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-inp
 	build/tests/mouse-input-host$(HOST_EXE)
 	build/tests/syscall-mouse-host$(HOST_EXE)
 
-build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h
+build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h shared/include/srvros/pointer_config.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c -o $@
 
 build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
 	mkdir -p build/tests

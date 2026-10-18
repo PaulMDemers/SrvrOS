@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <srvros/apple_trackpad.h>
+#include <srvros/pointer_config.h>
 
 struct trackpad_pointer {
     bool baseline, blocked, palm_blocked, typing_blocked;
@@ -14,6 +15,11 @@ struct trackpad_pointer {
     /* Two-contact physical drag: logical ordering survives report-slot swaps.
      * origin is deliberately not treated as a hardware finger identifier. */
     uint8_t drag_count,drag_active;
+    bool tap_armed,tap_inhibit,tap_releasing;
+    uint8_t tap_contacts,tap_peak;
+    unsigned tap_options;
+    uint64_t tap_start_us,tap_last_us,tap_release_us;
+    int32_t tap_x[2],tap_y[2];
     int32_t drag_x[2],drag_y[2],drag_anchor_x[2],drag_anchor_y[2];
 };
 struct trackpad_motion {
@@ -21,6 +27,7 @@ struct trackpad_motion {
     int32_t wheel_x,wheel_y;
     bool palm_suppressed,typing_suppressed;
     bool two_finger_drag,drag_rebased,drag_handoff;
+    uint8_t tap_buttons; /* Completed click pulse: deliver press/release atomically. */
 };
 /* Legacy fixed 16 native units/pixel. No acceleration,
  * tap-to-click or inferred finger IDs. Screen Y is opposite native device Y. */
@@ -36,5 +43,10 @@ bool trackpad_gesture_frame(struct trackpad_pointer *state,
 bool trackpad_pointer_timed(struct trackpad_pointer *state,
     const struct apple_trackpad_frame *frame,bool gestures,bool typing,
     uint64_t sample_us,unsigned speed,bool acceleration,bool disable_while_typing,struct trackpad_motion *out);
+/* Configured desktop policy. Taps complete only on full lift; never hold a
+ * synthetic button across reports. Physical clicking consumes any tap candidate. */
+bool trackpad_pointer_configured(struct trackpad_pointer *state,
+    const struct apple_trackpad_frame *frame,bool gestures,bool typing,
+    uint64_t sample_us,unsigned speed,unsigned options,struct trackpad_motion *out);
 bool trackpad_pointer_cancel(struct trackpad_pointer *state,struct trackpad_motion *out);
 #endif

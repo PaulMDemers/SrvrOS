@@ -2,7 +2,7 @@
 
 bool trackpad_pointer_cancel(struct trackpad_pointer *s,struct trackpad_motion *out) {
     bool release=s->buttons!=0;
-    *s=(struct trackpad_pointer){.blocked=true};
+    *s=(struct trackpad_pointer){.blocked=true,.tap_inhibit=true};
     *out=(struct trackpad_motion){0};
     return release;
 }
@@ -158,4 +158,77 @@ bool trackpad_pointer_timed(struct trackpad_pointer *s,const struct apple_trackp
         s->typing_blocked=false;rebase(s); /* Resume without replaying suppressed travel. */
     }
     return frame(s,f,gestures,typing && disable_while_typing,now,speed,acceleration,out);
+}
+
+/* Provisional policy in native units, independent of pointer speed/gain.
+ * A chord must form promptly; both contacts must lift before a click is emitted.
+ * No timer callback is needed: expiry only disarms, never synthesizes input. */
+#define TAP_MIN_US 10000u
+#define TAP_MAX_US 200000u
+#define TAP_CHORD_US 80000u
+#define TAP_RELEASE_US 80000u
+#define TAP_SLOP 64
+static int tap_distance(const struct trackpad_pointer *s,unsigned old,
+    const struct apple_trackpad_frame *f,unsigned next) {
+    return distance(f->contacts[next].x-s->tap_x[old],f->contacts[next].y-s->tap_y[old]);
+}
+static void tap_policy(struct trackpad_pointer *s,const struct apple_trackpad_frame *f,
+    bool enabled,uint64_t now,unsigned options,struct trackpad_motion *out) {
+    options &= SRV_POINTER_TAPS;
+    unsigned previous=s->tap_contacts;
+    if(s->tap_options!=options && previous) s->tap_inhibit=true;
+    s->tap_options=options;
+    bool invalid=!enabled || !options || f->button || s->blocked ||
+        out->palm_suppressed || out->typing_suppressed || f->count>2 ||
+        !now || (s->tap_last_us && now<=s->tap_last_us);
+    s->tap_last_us=now;
+    if(invalid) s->tap_inhibit=true;
+    if(s->tap_inhibit) s->tap_armed=false;
+    if(s->tap_armed && (now-s->tap_start_us>TAP_MAX_US ||
+        (s->tap_releasing && now-s->tap_release_us>TAP_RELEASE_US))) s->tap_armed=false;
+    if(!f->count) {
+        if(s->tap_armed && now-s->tap_start_us>=TAP_MIN_US) {
+            if(s->tap_peak==1 && (options&SRV_POINTER_TAP_CLICK)) out->tap_buttons=1;
+            if(s->tap_peak==2 && (options&SRV_POINTER_TWO_FINGER_TAP)) out->tap_buttons=2;
+        }
+        s->tap_armed=s->tap_inhibit=s->tap_releasing=false;
+    } else if(!previous && !s->tap_inhibit) {
+        s->tap_armed=true;s->tap_releasing=false;s->tap_peak=f->count;s->tap_start_us=now;
+        for(unsigned i=0;i<f->count;i++) { s->tap_x[i]=f->contacts[i].x;s->tap_y[i]=f->contacts[i].y; }
+    } else if(s->tap_armed) {
+        if(f->count>previous) {
+            if(s->tap_peak!=1 || s->tap_releasing || now-s->tap_start_us>TAP_CHORD_US) s->tap_armed=false;
+            else {
+                unsigned old=tap_distance(s,0,f,1)<tap_distance(s,0,f,0);
+                if(tap_distance(s,0,f,old)>TAP_SLOP) s->tap_armed=false;
+                else { s->tap_x[1]=f->contacts[1-old].x;s->tap_y[1]=f->contacts[1-old].y;s->tap_peak=2; }
+            }
+        } else if(f->count==2) {
+            unsigned order=tap_distance(s,0,f,1)+tap_distance(s,1,f,0)<
+                tap_distance(s,0,f,0)+tap_distance(s,1,f,1);
+            if(tap_distance(s,0,f,order)>TAP_SLOP || tap_distance(s,1,f,1-order)>TAP_SLOP) s->tap_armed=false;
+        } else {
+            unsigned old=previous==2 && tap_distance(s,1,f,0)<tap_distance(s,0,f,0);
+            if(tap_distance(s,old,f,0)>TAP_SLOP) s->tap_armed=false;
+            if(previous==2) {
+                s->tap_x[0]=s->tap_x[old];s->tap_y[0]=s->tap_y[old];
+                s->tap_releasing=true;s->tap_release_us=now;
+            }
+        }
+    }
+    if(s->tap_peak==2 && !(options&SRV_POINTER_TWO_FINGER_TAP)) s->tap_armed=false;
+    /* A quiet two-finger tap must not scroll and then open a context menu.
+     * Crossing the displacement/time limit gives subsequent motion to scrolling. */
+    if(s->tap_armed && s->tap_peak==2) {
+        out->wheel_x=out->wheel_y=0;s->remainder_x=s->remainder_y=0;
+    }
+    s->tap_contacts=f->count;
+}
+bool trackpad_pointer_configured(struct trackpad_pointer *s,const struct apple_trackpad_frame *f,
+    bool gestures,bool typing,uint64_t now,unsigned speed,unsigned options,struct trackpad_motion *out) {
+    uint8_t previous=s->buttons;
+    trackpad_pointer_timed(s,f,gestures,typing,now,speed,(options&SRV_POINTER_ACCELERATION)!=0,
+        (options&SRV_POINTER_DISABLE_WHILE_TYPING)!=0,out);
+    tap_policy(s,f,gestures && !(typing && (options&SRV_POINTER_DISABLE_WHILE_TYPING)),now,options,out);
+    return previous!=out->buttons || out->dx || out->dy || out->wheel_x || out->wheel_y || out->tap_buttons;
 }

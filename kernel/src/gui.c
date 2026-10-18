@@ -134,7 +134,7 @@ int64_t gui_brightness(uint64_t percent) {
 int64_t gui_pointer_config(uint64_t speed,uint64_t options) {
     struct process *p=process_current();uint64_t flags=irq_save();int64_t result=-1;
     if(p && server_pid && process_pid(p)==server_pid && speed>=1 && speed<=5 && !(options&~(uint64_t)SRV_POINTER_FLAGS)) {
-        mouse_trackpad_settings((unsigned)speed,(options&SRV_POINTER_ACCELERATION)!=0,(options&SRV_POINTER_DISABLE_WHILE_TYPING)!=0);result=0;
+        mouse_trackpad_settings((unsigned)speed,(unsigned)options);result=0;
     }
     irq_restore(flags);return result;
 }
@@ -409,7 +409,7 @@ void gui_process_cleanup(uint64_t pid) {
     }
     if (server_pid == pid) {
         keyboard_set_event_mode(false);
-        mouse_trackpad_settings(3,false,false);
+        mouse_trackpad_settings(3,0);
         server_pid = 0;
         /* The server's receive queue is gone. Owners can reclaim outstanding
          * buffers after detecting its death; no old server can acknowledge. */

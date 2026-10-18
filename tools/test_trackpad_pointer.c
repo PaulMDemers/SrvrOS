@@ -182,6 +182,78 @@ static void anchored_drag(void) {
     f.contacts[1].x+=160;
     assert(trackpad_pointer_timed(&s,&f,true,true,21000,3,true,false,&m) && m.dx==30 && m.buttons==1);
 }
+static struct trackpad_motion tap_feed(struct trackpad_pointer *s,struct apple_trackpad_frame *f,
+    uint64_t now,unsigned options,bool typing) {
+    struct trackpad_motion m;
+    trackpad_pointer_configured(s,f,true,typing,now,3,options,&m);
+    assert(!(m.tap_buttons && (m.buttons || f->count || m.dx || m.dy || m.wheel_x || m.wheel_y)));
+    return m;
+}
+static void tapping(void) {
+    const unsigned taps=SRV_POINTER_TAPS;
+    struct trackpad_pointer s={0};struct apple_trackpad_frame f=frame(-1000,0,1,0);
+    struct trackpad_motion m=tap_feed(&s,&f,1000,taps,false);assert(!m.tap_buttons);
+    f.count=0;m=tap_feed(&s,&f,51000,taps,false);assert(m.tap_buttons==1);
+    assert(!tap_feed(&s,&f,61000,taps,false).tap_buttons);
+    f.count=1;tap_feed(&s,&f,71000,taps,false);f.count=0;
+    assert(tap_feed(&s,&f,121000,taps,false).tap_buttons==1); /* Rapid repeated taps. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
+    tap_feed(&s,&f,1000,taps,false);swap_contacts(&f);f.contacts[0].origin=9;
+    m=tap_feed(&s,&f,20000,taps,false);assert(!m.tap_buttons && !m.buttons);
+    f.count=1;tap_feed(&s,&f,40000,taps,false);f.count=0;
+    assert(tap_feed(&s,&f,60000,taps,false).tap_buttons==2);
+    /* Staggered arrival, reordered chord, staggered departure. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
+    tap_feed(&s,&f,1000,taps,false);f.count=2;f.contacts[1].x=1000;swap_contacts(&f);
+    tap_feed(&s,&f,30000,taps,false);f.count=1;tap_feed(&s,&f,50000,taps,false);f.count=0;
+    assert(tap_feed(&s,&f,70000,taps,false).tap_buttons==2);
+    /* Two-finger jitter is quiet. Deliberate scroll cancels tapping permanently. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
+    tap_feed(&s,&f,1000,taps,false);f.contacts[0].y=f.contacts[1].y=48;
+    m=tap_feed(&s,&f,20000,taps,false);assert(!m.wheel_y);
+    f.contacts[0].y=f.contacts[1].y=96;m=tap_feed(&s,&f,30000,taps,false);assert(m.wheel_y==3);
+    f.count=0;assert(!tap_feed(&s,&f,50000,taps,false).tap_buttons);
+    /* Independent options: a secondary tap never falls back to primary. */
+    for(unsigned opts=0;opts<=taps;opts+=4) for(int count=1;count<=2;count++) {
+        s=(struct trackpad_pointer){0};f=frame(-1000,0,count,0);f.contacts[1].x=1000;
+        tap_feed(&s,&f,1000,opts,false);f.count=0;m=tap_feed(&s,&f,51000,opts,false);
+        assert(m.tap_buttons==(count==1?(opts&SRV_POINTER_TAP_CLICK?1:0):(opts&SRV_POINTER_TWO_FINGER_TAP?2:0)));
+    }
+    /* Long hold, short noise, late join, replacement, broad contact, backwards
+     * clock, configuration changes and canceled transport must not click. */
+    for(unsigned reason=0;reason<12;reason++) {
+        s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
+        tap_feed(&s,&f,10000,taps,false);uint64_t end=100000;
+        unsigned opts=taps;
+        switch(reason) {
+        case 0:end=220000;break;
+        case 1:end=15000;break;
+        case 2:f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,95000,taps,false);break;
+        case 3:f.contacts[0].x=2000;tap_feed(&s,&f,20000,taps,false);break;
+        case 4:f.contacts[0].touch_major=601;tap_feed(&s,&f,20000,taps,false);break;
+        case 5:f.count=3;tap_feed(&s,&f,20000,taps,false);break;
+        case 6:tap_feed(&s,&f,9000,taps,false);break;
+        case 7:tap_feed(&s,&f,20000,0,false);break;
+        case 8:trackpad_pointer_cancel(&s,&m);break;
+        case 9:f.button=1;assert(tap_feed(&s,&f,20000,taps,false).buttons==1);
+            f.button=0;assert(!tap_feed(&s,&f,30000,taps,false).buttons);break;
+        case 10:opts=taps|SRV_POINTER_DISABLE_WHILE_TYPING;break;
+        case 11:f.count=2;f.contacts[1].x=1000;tap_feed(&s,&f,20000,taps,false);
+            f.count=1;tap_feed(&s,&f,30000,taps,false);end=120000;break;
+        }
+        f.count=0;assert(!tap_feed(&s,&f,end,opts,reason==10).tap_buttons);
+    }
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,1,0);
+    tap_feed(&s,&f,1000,0,false);tap_feed(&s,&f,20000,taps,false);f.count=0;
+    assert(!tap_feed(&s,&f,40000,taps,false).tap_buttons); /* Enabling during touch. */
+    f.count=1;tap_feed(&s,&f,50000,taps,true);f.count=0;
+    assert(tap_feed(&s,&f,80000,taps,true).tap_buttons==1); /* Typing opt-out. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,0);f.contacts[1].x=1000;
+    tap_feed(&s,&f,1000,taps,false);f.count=1;tap_feed(&s,&f,20000,taps,false);
+    f.count=2;tap_feed(&s,&f,30000,taps,false);f.count=0;
+    assert(!tap_feed(&s,&f,40000,taps,false).tap_buttons); /* Finger replacement after release began. */
+}
+
 int main(void) {
     struct trackpad_pointer s={0}; struct trackpad_motion m;
     assert(!feed(&s,&m,-2635,3858,1,0)); /* Real capture starting coordinate. */
@@ -203,6 +275,6 @@ int main(void) {
     assert(feed(&s,&m,0,0,1,1) && m.buttons);
     assert(feed(&s,&m,0,0,0,0) && !m.buttons);
     assert(!trackpad_pointer_cancel(&s,&m));
-    gestures();acceleration();typing_policy();anchored_drag();
-    puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, anchored drag, handoffs, contact ordering, discontinuity, cancellation/release");
+    gestures();acceleration();typing_policy();anchored_drag();tapping();
+    puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, anchored drag, handoffs, contact ordering, tap arbitration, discontinuity, cancellation/release");
 }

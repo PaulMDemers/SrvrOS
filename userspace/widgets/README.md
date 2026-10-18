@@ -709,3 +709,11 @@ with its own update mask, default zero. The strict v3 preference file persists
 it; v1/v2 decode with the new field off. Settings uses the shared checkbox.
 `SYS_GUI_POINTER_CONFIG` retains two arguments: speed and flags (bit 0 enables
 acceleration, bit 1 opts into disable-while-typing); unknown bits are rejected.
+
+
+Protocol v10 adds `tap_to_click` and `two_finger_tap` preferences, with independent
+`DESK_PREF_TAP_CLICK` and `DESK_PREF_TWO_FINGER_TAP` masks. Settings exposes both
+under Trackpad. Defaults and v1/v2/v3 migration enable them; v4 saves their choices.
+They map to `SRV_POINTER_TAP_CLICK` and `SRV_POINTER_TWO_FINGER_TAP` flags in the
+owner-only pointer syscall. Secondary taps reuse the existing right-button /
+`DESK_CONTEXT` path: widgets do not implement their own tap recognizers.

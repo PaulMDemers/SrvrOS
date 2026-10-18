@@ -93,6 +93,7 @@ def main():
                 shortcut("shift-f10");wait(b"context opened role=2 target=5");shot("text-context-compact");shortcut("esc")
                 right_click(1000,600);wait(b"desktop context opened");shot("desktop-context");shortcut("home");shortcut("ret")
                 wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
+                shortcut("ctrl-l");type_text("/fat");qmp.key("ret");wait(b"files-location path=/fat history=")
                 type_text("context-proof");shortcut("shift-f10");wait(b"context opened role=1 target=9");shot("files-context");qmp.key("r");qmp.key("ret");wait(b"files-prompt operation=5")
                 type_text("context-renamed.txt");qmp.key("ret");wait(b"file-result role=files op=5 status=0");wait(b"file-result role=files op=3 status=0")
                 shortcut("shift-f10");wait(b"context opened role=1 target=9");qmp.key("d");qmp.key("ret");wait(b"files-prompt operation=7");shortcut("esc")

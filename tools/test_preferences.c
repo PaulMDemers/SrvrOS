@@ -27,6 +27,16 @@ static void model(void) {
     const char v2[]="srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=5\npointer_acceleration=0\n";
     assert(!desk_preferences_decode(&q,v2,sizeof(v2)-1) && q.pointer_speed==5 && !q.pointer_acceleration && !q.disable_while_typing);
     assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
+    assert(q.tap_to_click && q.two_finger_tap);
+    const char v3[]="srvros-desktop-v3\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\nwallpaper=0\npointer_speed=3\npointer_acceleration=1\ndisable_while_typing=1\n";
+    assert(!desk_preferences_decode(&q,v3,sizeof(v3)-1) && q.disable_while_typing && q.tap_to_click && q.two_finger_tap);
+    assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
+    p.tap_to_click=0;assert(!desk_preferences_merge(&q,&p,DESK_PREF_TAP_CLICK) && !q.tap_to_click && q.two_finger_tap);
+    p.two_finger_tap=0;assert(!desk_preferences_merge(&q,&p,DESK_PREF_TWO_FINGER_TAP) && !q.two_finger_tap);
+    char tap_file[256];int tap_len=desk_preferences_encode(&q,tap_file,sizeof(tap_file));
+    assert(tap_len>0 && !desk_preferences_decode(&q,tap_file,tap_len) && !q.tap_to_click && !q.two_finger_tap);
+    p.tap_to_click=2;assert(!desk_preferences_valid(&p));p.tap_to_click=1;p.two_finger_tap=2;assert(!desk_preferences_valid(&p));
+    p=desk_preferences_default();assert(!desk_preferences_decode(&q,old,sizeof(old)-1));
     struct desk_preferences saved=q;
     for(int i=0;i<n;i++) { assert(desk_preferences_decode(&q,data,i)<0);assert(!memcmp(&q,&saved,sizeof(q))); }
     assert(desk_preferences_encode(&p,data,8)<0);

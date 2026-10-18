@@ -293,7 +293,8 @@ static void test_root_ports(void) {
     assert(strcmp(xhci.ports[0].reset_result, "link-ready") == 0);
 }
 
-void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration,bool *disable_while_typing) { *speed=3;*acceleration=false;*disable_while_typing=false; }
+static unsigned test_pointer_options,tap_injected;static uint8_t last_tap;
+void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) { *speed=3;*options=test_pointer_options; }
 uint64_t mouse_overflow_count(void) { return 0; }
 static unsigned injected, pointer_injected;
 static struct trackpad_motion last_pointer;
@@ -304,6 +305,7 @@ void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_sta
     (void)state; assert(report[2]==4); injected++;
 }
 void mouse_inject_event(int32_t x,int32_t y,uint8_t buttons) { (void)x;(void)y;(void)buttons; }
+void mouse_inject_trackpad_tap(uint8_t button) { tap_injected++;last_tap=button;mouse_inject_trackpad(0,0,button);mouse_inject_trackpad(0,0,0); }
 void mouse_inject_trackpad_scroll(int32_t x,int32_t y,int32_t wx,int32_t wy,uint8_t buttons) {
     mouse_inject_trackpad(x,y,buttons); last_pointer.wheel_x=wx; last_pointer.wheel_y=wy;
 }
@@ -536,18 +538,35 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
         assert(last_pointer.buttons==1 && !last_pointer.wheel_x && !last_pointer.wheel_y);
         assert(t->drag_frames==3 && t->drag_rebases==2 && !t->drag_handoffs);
     }
+    if(gestures) {
+        /* Full Apple reports complete one primary and one secondary tap. */
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38);
+        dispatch_transfer_event(&e);test_pointer_options=SRV_POINTER_TAPS;test_time_step=20000;
+        for(unsigned contacts=1;contacts<=2;contacts++) {
+            unsigned before=tap_injected;
+            buffer[54]=10;buffer[40]=64;
+            if(contacts==2) { buffer[82]=10;buffer[68]=232;buffer[69]=3; }
+            e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-(38+28*contacts));
+            dispatch_transfer_event(&e);assert(tap_injected==before);
+            e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38);
+            dispatch_transfer_event(&e);
+            assert(tap_injected==before+1 && last_tap==contacts && !last_pointer.buttons && d->bulk_pending);
+        }
+        assert(t->tap_primary==1 && t->tap_secondary==1);test_pointer_options=0;test_time_step=1000;
+    }
     e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
     if (pointer) assert(!last_pointer.buttons && t->pointer_cancels==2 && t->pointer_motion==(gestures?2u:1u));
     submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
     struct xhci_trackpad_capture capture;
     xhci_trackpad_snapshot(&capture);
-    assert(capture.found && capture.max_contacts==2 && capture.lifts==1 && capture.errors==1);
+    assert(capture.found && capture.max_contacts==2 && capture.lifts==(gestures?4u:1u) && capture.errors==1);
+    assert(capture.tap_primary==(gestures?1u:0u) && capture.tap_secondary==(gestures?1u:0u));
     assert(capture.drag_frames==(gestures?3u:0u) && capture.drag_rebases==(gestures?2u:0u));
     assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
-    assert(!capture.drag_frames && !capture.drag_rebases && !capture.drag_handoffs);
+    assert(!capture.drag_frames && !capture.drag_rebases && !capture.drag_handoffs && !capture.tap_primary && !capture.tap_secondary);
     if (pointer) assert(capture.pointer_enabled && capture.pointer_cancels==0);
     xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");

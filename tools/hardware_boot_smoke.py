@@ -103,8 +103,10 @@ def verify_workspace(stick, volume, acceleration):
     expected=("srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
               f"wallpaper=0\npointer_speed=5\npointer_acceleration={acceleration}\n").encode()
     actual=fixture.read("srvros-work/desktop.conf")
-    if actual.startswith(b"srvros-desktop-v3\n"):
+    if actual.startswith((b"srvros-desktop-v3\n",b"srvros-desktop-v4\n")):
         expected=expected.replace(b"srvros-desktop-v2",b"srvros-desktop-v3")+b"disable_while_typing=0\n"
+    if actual.startswith(b"srvros-desktop-v4\n"):
+        expected=expected.replace(b"srvros-desktop-v3",b"srvros-desktop-v4")+b"tap_to_click=1\ntwo_finger_tap=1\n"
     assert actual==expected, (actual,expected)
     return fixture
 

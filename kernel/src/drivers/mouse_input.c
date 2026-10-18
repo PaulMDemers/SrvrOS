@@ -85,10 +85,19 @@ void mouse_inject_trackpad_scroll(int32_t dx,int32_t dy,int32_t wx,int32_t wy,ui
 
 /* Only the owning display server changes these. Fixed mapping outside desktop. */
 static unsigned trackpad_speed=3;
-static bool trackpad_acceleration,trackpad_disable_while_typing;
-void mouse_trackpad_settings(unsigned speed,bool acceleration,bool disable_while_typing) {
-    uint64_t flags=lock();trackpad_speed=speed;trackpad_acceleration=acceleration;trackpad_disable_while_typing=disable_while_typing;unlock(flags);
+static unsigned trackpad_options;
+void mouse_trackpad_settings(unsigned speed,unsigned options) {
+    uint64_t flags=lock();trackpad_speed=speed;trackpad_options=options;unlock(flags);
 }
-void mouse_trackpad_get_settings(unsigned *speed,bool *acceleration,bool *disable_while_typing) {
-    uint64_t flags=lock();*speed=trackpad_speed;*acceleration=trackpad_acceleration;*disable_while_typing=trackpad_disable_while_typing;unlock(flags);
+void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) {
+    uint64_t flags=lock();*speed=trackpad_speed;*options=trackpad_options;unlock(flags);
+}
+/* Keep both edges at the same position, even when userspace is busy. Do not
+ * combine a tap with a held external-mouse button or an overflow-blocked drag. */
+void mouse_inject_trackpad_tap(uint8_t button) {
+    uint64_t flags=lock();
+    if((button==1 || button==2) && !(source_buttons[0]|source_buttons[1]|blocked[0]|blocked[1])) {
+        inject(1,0,0,0,0,button);inject(1,0,0,0,0,0);
+    }
+    unlock(flags);
 }

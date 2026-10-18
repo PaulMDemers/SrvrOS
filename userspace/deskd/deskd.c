@@ -320,7 +320,8 @@ static void clock_update(struct session *s,int force) {
 static void pointer_preferences(struct session *s) {
     const struct desk_preferences *p=&s->preferences.value;
     gui_pointer_config(p->pointer_speed,(p->pointer_acceleration?SRV_POINTER_ACCELERATION:0)|
-        (p->disable_while_typing?SRV_POINTER_DISABLE_WHILE_TYPING:0));
+        (p->disable_while_typing?SRV_POINTER_DISABLE_WHILE_TYPING:0)|
+        (p->tap_to_click?SRV_POINTER_TAP_CLICK:0)|(p->two_finger_tap?SRV_POINTER_TWO_FINGER_TAP:0));
 }
 static void preferences_changed(struct session *s) {
     pointer_preferences(s);
@@ -330,10 +331,11 @@ static void preferences_changed(struct session *s) {
     }
     clock_update(s,1);
     for(int n=0;n<DESKD_WINDOWS;n++) if(s->clients[n].pid) s->clients[n].preferences_dirty=1;
-    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u\n",
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u pointer_speed=%u acceleration=%u disable_while_typing=%u tap_to_click=%u two_finger_tap=%u\n",
         (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
         s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper,
-        s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration,s->preferences.value.disable_while_typing);
+        s->preferences.value.pointer_speed,s->preferences.value.pointer_acceleration,s->preferences.value.disable_while_typing,
+        s->preferences.value.tap_to_click,s->preferences.value.two_finger_tap);
 }
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;

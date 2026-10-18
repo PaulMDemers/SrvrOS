@@ -199,10 +199,14 @@ int main(void) {
     incoming(&s,42,&p);assert(s.preferences.value.text_size==16);
     s.scene.windows[0].application=DESK_APP_SETTINGS;incoming(&s,42,&p);assert(s.preferences.value.text_size==20 && s.clients[0].preferences_dirty);
     changed.disable_while_typing=1;memcpy(p.text,&changed,sizeof(changed));p.value=DESK_PREF_DISABLE_WHILE_TYPING;
-    incoming(&s,42,&p);assert(s.preferences.value.disable_while_typing==1 && pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_DISABLE_WHILE_TYPING));
+    incoming(&s,42,&p);assert(s.preferences.value.disable_while_typing==1 && pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_DISABLE_WHILE_TYPING|SRV_POINTER_TAPS));
     changed.disable_while_typing=0;memcpy(p.text,&changed,sizeof(changed));incoming(&s,42,&p);
-    assert(!s.preferences.value.disable_while_typing && pointer_options==SRV_POINTER_ACCELERATION);
-    p.value=999;incoming(&s,42,&p);assert(s.preferences.value.text_size==20);
+    assert(!s.preferences.value.disable_while_typing && pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_TAPS));
+    changed.tap_to_click=0;memcpy(p.text,&changed,sizeof(changed));p.value=DESK_PREF_TAP_CLICK;
+    incoming(&s,42,&p);assert(pointer_options==(SRV_POINTER_ACCELERATION|SRV_POINTER_TWO_FINGER_TAP));
+    changed.two_finger_tap=0;memcpy(p.text,&changed,sizeof(changed));p.value=DESK_PREF_TWO_FINGER_TAP;
+    incoming(&s,42,&p);assert(pointer_options==SRV_POINTER_ACCELERATION);
+    p.value=2048;incoming(&s,42,&p);assert(s.preferences.value.text_size==20);
     request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
     p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);
     const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"File",""},{7,0,"New","Ctrl-N"} };

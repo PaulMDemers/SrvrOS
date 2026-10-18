@@ -187,7 +187,7 @@ struct xhci_trackpad_endpoint {
     struct apple_trackpad_frame frame;
     struct trackpad_pointer pointer;
     uint64_t scroll_events,typing_suppressed,palm_suppressed,typing_until;
-    uint64_t drag_frames,drag_rebases,drag_handoffs;
+    uint64_t drag_frames,drag_rebases,drag_handoffs,tap_primary,tap_secondary;
     uint32_t max_touch_major,max_touch_minor;
     uint64_t pointer_motion, pointer_events,pointer_buttons,pointer_cancels;
     uint64_t lifts;
@@ -381,6 +381,7 @@ void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
         out->keyboard_reports=d->hid_reports;
         out->scroll_events=t->scroll_events; out->typing_suppressed=t->typing_suppressed;
         out->palm_suppressed=t->palm_suppressed;
+        out->tap_primary=t->tap_primary;out->tap_secondary=t->tap_secondary;
         out->drag_frames=t->drag_frames;out->drag_rebases=t->drag_rebases;out->drag_handoffs=t->drag_handoffs;
         out->max_touch_major=t->max_touch_major; out->max_touch_minor=t->max_touch_minor;
         out->pointer_motion=t->pointer_motion;
@@ -396,7 +397,7 @@ void xhci_trackpad_reset_capture(void) {
     for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_trackpad_endpoint *t=&xhci.devices[i].trackpad;
         t->scroll_events=t->typing_suppressed=t->palm_suppressed=0;
-        t->drag_frames=t->drag_rebases=t->drag_handoffs=0;
+        t->drag_frames=t->drag_rebases=t->drag_handoffs=t->tap_primary=t->tap_secondary=0;
         t->max_touch_major=t->max_touch_minor=0;
         t->pointer_motion=t->pointer_events=t->pointer_buttons=t->pointer_cancels=0;
         t->reports=t->contact_reports=t->button_reports=t->lifts=t->malformed=0;
@@ -1829,18 +1830,22 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             if (trackpad_pointer_enabled) {
                 struct trackpad_motion motion;
                 uint8_t buttons=t->pointer.buttons;
-                unsigned speed;bool acceleration,disable_while_typing;mouse_trackpad_get_settings(&speed,&acceleration,&disable_while_typing);
+                unsigned speed,options;mouse_trackpad_get_settings(&speed,&options);
                 uint64_t sample_us=timer_monotonic_us();
                 bool typing=sample_us<t->typing_until ||
                     (device->keyboard_state.repeat_usage && !(device->keyboard_state.previous_report[0]&0xdd));
-                bool changed=trackpad_pointer_timed(&t->pointer,&t->frame,trackpad_gestures,typing,
-                    sample_us,speed,acceleration,disable_while_typing,&motion);
+                bool changed=trackpad_pointer_configured(&t->pointer,&t->frame,trackpad_gestures,typing,
+                    sample_us,speed,options,&motion);
                 t->typing_suppressed+=motion.typing_suppressed;
                 t->palm_suppressed+=motion.palm_suppressed;
                 t->drag_frames+=motion.two_finger_drag;t->drag_rebases+=motion.drag_rebased;
                 t->drag_handoffs+=motion.drag_handoff;
                 if (changed) {
                     mouse_inject_trackpad_scroll(motion.dx,motion.dy,motion.wheel_x,motion.wheel_y,motion.buttons);
+                    if(motion.tap_buttons) {
+                        mouse_inject_trackpad_tap(motion.tap_buttons);
+                        t->tap_primary+=motion.tap_buttons==1;t->tap_secondary+=motion.tap_buttons==2;
+                    }
                     if (motion.wheel_x || motion.wheel_y) t->scroll_events++;
                     t->pointer_events++;
                     if (motion.dx || motion.dy) t->pointer_motion++;
@@ -2501,8 +2506,8 @@ static void print_trackpad_capture(const struct xhci_device *device) {
         (uint64_t)t->packet,(uint64_t)APPLE_TRACKPAD_REPORT_MAX,(uint64_t)t->last_length,(uint64_t)t->last_completion);
     console_printf("trackpad-capture: reports=%u contact_reports=%u button_reports=%u malformed=%u errors=%u\n",
         t->reports,t->contact_reports,t->button_reports,t->malformed,t->errors);
-    console_printf("trackpad-gesture: policy=held-drag-v1 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u\n",
-        t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels);
+    console_printf("trackpad-gesture: policy=taps-v1 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
+        t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels,t->tap_primary,t->tap_secondary);
     console_printf("trackpad-capture: current contacts=%u button=%u x=%d y=%d origin=%u\n",
         (uint64_t)t->frame.count,(uint64_t)t->frame.button,(int64_t)t->frame.contacts[0].x,
         (int64_t)t->frame.contacts[0].y,(uint64_t)t->frame.contacts[0].origin);

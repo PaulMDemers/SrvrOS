@@ -94,6 +94,10 @@ def main():
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0")
                 click(110,424);wait(b"pointer_speed=5 acceleration=0 disable_while_typing=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1")
+                click(110,504);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
+                shortcut("pgdn");click(110,362);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 shot("trackpad-settings")
                 assert b"desktools: brightness percent=-1" in output
                 shortcut("pgdn");shot("brightness-unavailable")
@@ -102,16 +106,22 @@ def main():
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
-                wait(b"srvros-desktop-v3\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1")
+                wait(b"srvros-desktop-v4\r\ntext_size=20\r\nutc_offset_minutes=-240\r\nclock_flags=0\r\nwallpaper=1\r\npointer_speed=5\r\npointer_acceleration=0\r\ndisable_while_typing=1\r\ntap_to_click=0\r\ntwo_finger_tap=0")
                 wait(b"srv> ")
                 # A fresh desktop process reloads disk, not inherited process state.
                 pointer[:]=[24,56]
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
-                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1", b"deskd: commit"])
+                wait_all([b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0", b"deskd: commit"])
                 click(790,750);wait(b"desktools: starting role=settings");shot("settings-restored")
-                shortcut("pgdn");click(110,414)
+                qmp.mouse(613-pointer[0],688-pointer[1]);pointer[:]=[613,688]
+                qmp.mouse(0,0,1);qmp.mouse(0,-80,1);qmp.mouse(0,0,0);pointer[1]-=80;time.sleep(.5)
+                shortcut("pgdn");click(110,424)
                 wait(b"pointer_speed=5 acceleration=0 disable_while_typing=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0")
+                click(110,504);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=0")
+                shortcut("pgdn");click(110,362);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
+                wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
+                shot("tap-settings-restored")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
                     raise RuntimeError("Guest failure; see serial.log")
