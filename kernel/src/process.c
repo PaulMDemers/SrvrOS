@@ -61,7 +61,9 @@
 #define PROCESS_MAX_UNIX_LISTENERS 16
 #define PROCESS_UNIX_ACCEPT_QUEUE 16
 #define PROCESS_MAX_FILE_LOCKS 64
-#define PROCESS_PIPE_CAPACITY 4096
+/* A desktop worker can transfer one bounded 64 KiB batch per UI turn.
+ * Fixed storage is 4 MiB across the 64-pipe pool; no allocation in I/O paths. */
+#define PROCESS_PIPE_CAPACITY (64 * 1024)
 #define PROCESS_STDIO_CLOSED_FD (-2)
 #define PROCESS_MAX_USER_THREADS 8
 #define PROCESS_MAX_FUTEXES 64
@@ -4343,10 +4345,11 @@ int64_t process_file_pipe_read(struct process *process, uint64_t fd, uint8_t *bu
         }
     }
     uint64_t count = length < pipe->size ? length : pipe->size;
-    for (uint64_t i = 0; i < count; i++) {
-        buffer[i] = pipe->buffer[pipe->read_pos];
-        pipe->read_pos = (pipe->read_pos + 1) % PROCESS_PIPE_CAPACITY;
-    }
+    uint64_t first = PROCESS_PIPE_CAPACITY - pipe->read_pos;
+    if (first > count) first = count;
+    copy_bytes(buffer, pipe->buffer + pipe->read_pos, first);
+    copy_bytes(buffer + first, pipe->buffer, count - first);
+    pipe->read_pos = (pipe->read_pos + count) % PROCESS_PIPE_CAPACITY;
     pipe->size -= count;
     if (count > 0) {
         pipe_rights_consume_read(pipe, count);
@@ -4394,10 +4397,11 @@ int64_t process_file_pipe_write(struct process *process, uint64_t fd, const uint
         }
         uint64_t remaining = length - done;
         uint64_t count = remaining < space ? remaining : space;
-        for (uint64_t i = 0; i < count; i++) {
-            pipe->buffer[pipe->write_pos] = buffer[done + i];
-            pipe->write_pos = (pipe->write_pos + 1) % PROCESS_PIPE_CAPACITY;
-        }
+        uint64_t first = PROCESS_PIPE_CAPACITY - pipe->write_pos;
+        if (first > count) first = count;
+        copy_bytes(pipe->buffer + pipe->write_pos, buffer + done, first);
+        copy_bytes(pipe->buffer, buffer + done + first, count - first);
+        pipe->write_pos = (pipe->write_pos + count) % PROCESS_PIPE_CAPACITY;
         pipe->size += count;
         done += count;
         scheduler_wake_all(&pipe_wait_queue);

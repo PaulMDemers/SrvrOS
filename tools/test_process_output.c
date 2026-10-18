@@ -10,13 +10,20 @@ static bool fail_save;
 static uint8_t saved[4096];
 static size_t saved_size;
 static struct process *current_subject;
+static unsigned pipe_wait_mode;
 void *scheduler_current_user_context(void) { return current_subject; }
 void *scheduler_current_user_thread_context(void) { return NULL; }
 void net_process_wake(struct process *process) { (void)process; }
 void keyboard_wake_waiters(void) {}
 void scheduler_wake_all(struct scheduler_wait_queue *queue) { (void)queue; }
-bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
-    (void)queue; (void)ready; (void)arg; assert(0); return false;
+__attribute__((noinline)) bool scheduler_wait(struct scheduler_wait_queue *queue, bool (*ready)(void *), void *arg) {
+    (void)queue;struct process_pipe *pipe=arg;
+    if(pipe_wait_mode==1) { pipe->size=0;pipe->read_pos=pipe->write_pos; }
+    else if(pipe_wait_mode==2) { memcpy(pipe->buffer,"ready",5);pipe->read_pos=0;pipe->write_pos=pipe->size=5; }
+    else if(pipe_wait_mode==3) pipe->write_refs=0;
+    else if(pipe_wait_mode==4) pipe->read_refs=0;
+    else assert(0);
+    pipe_wait_mode=0;return ready(arg);
 }
 void vfs_release_data(const struct vfs_node *node, const uint8_t *data) {
     (void)node; (void)data; assert(0);
@@ -39,7 +46,45 @@ static void setup(unsigned refs) {
     subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS_WRITE,.handle=1};
     subject.stdout_redirect=true;subject.stdout_fd=3;
 }
+static void pipe_regression(void) {
+    memset(&subject,0,sizeof(subject));memset(pipes,0,sizeof(pipes));uint64_t fds[2];
+    assert(!process_file_pipe(&subject,fds) && fds[0]==3 && fds[1]==4);
+    subject.files[0].flags=subject.files[1].flags=SRV_FD_NONBLOCK;
+    static uint8_t input[PROCESS_PIPE_CAPACITY+512],output[PROCESS_PIPE_CAPACITY+512],model[PROCESS_PIPE_CAPACITY];
+    size_t size=0;unsigned seed=12345,sequence=0;
+    for(unsigned iteration=0;iteration<20000;iteration++) {
+        seed=seed*1664525+1013904223;size_t request=seed%(PROCESS_PIPE_CAPACITY+113);
+        if(seed&0x10000) {
+            for(size_t i=0;i<request;i++) input[i]=(uint8_t)(sequence+i);
+            size_t expected=PROCESS_PIPE_CAPACITY-size;if(expected>request) expected=request;
+            long result=process_file_pipe_write(&subject,4,input,request);
+            assert(result==(request && !expected?SRV_ERR_AGAIN:(long)expected));
+            memcpy(model+size,input,expected);size+=expected;sequence+=expected;
+        } else {
+            memset(output,0xa7,sizeof(output));size_t expected=request<size?request:size;
+            long result=process_file_pipe_read(&subject,3,output,request);
+            assert(result==(request && !expected?SRV_ERR_AGAIN:(long)expected));
+            assert(!memcmp(output,model,expected));for(size_t i=expected;i<sizeof(output);i++) assert(output[i]==0xa7);
+            memmove(model,model+expected,size-expected);size-=expected;
+        }
+        assert(pipes[0].size==size && pipes[0].read_pos<PROCESS_PIPE_CAPACITY && pipes[0].write_pos<PROCESS_PIPE_CAPACITY);
+    }
+    if(size) assert(process_file_pipe_read(&subject,3,output,size)==(long)size && !memcmp(output,model,size));
+    /* Rights offsets still follow consumed bytes across a wrapped bulk read. */
+    assert(process_file_pipe_write(&subject,4,input,200)==200);pipes[0].rights[0]=(struct process_pipe_rights){.used=true,.offset=100};
+    assert(process_file_pipe_read(&subject,3,output,100)==100 && pipes[0].rights[0].used && !pipes[0].rights[0].offset);
+    assert(process_file_pipe_read(&subject,3,output,100)==100 && !pipes[0].rights[0].used);
+    subject.files[0].flags=subject.files[1].flags=0;
+    pipe_wait_mode=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY+17)==PROCESS_PIPE_CAPACITY+17 && !pipe_wait_mode);
+    assert(process_file_pipe_read(&subject,3,output,100)==17);
+    pipe_wait_mode=2;assert(process_file_pipe_read(&subject,3,output,100)==5 && !memcmp(output,"ready",5));
+    pipe_wait_mode=3;assert(process_file_pipe_read(&subject,3,output,100)==0);
+    pipes[0].write_refs=1;assert(process_file_pipe_write(&subject,4,input,PROCESS_PIPE_CAPACITY)==PROCESS_PIPE_CAPACITY);
+    pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==-1);
+    assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && !pipes[0].used);
+}
 int main(void) {
+    pipe_regression();
     setup(2); /* Parent retains a duplicate until wait returns. */
     for(unsigned i=0;i<1000;i++) assert(process_output_write(&subject,1,(const uint8_t *)"x",1)==1);
     assert(saves==0 && write_files[0].size==1000);
@@ -125,5 +170,5 @@ int main(void) {
     assert(process_signal_mask_current(SRV_SIGNAL_UNBLOCK,1ull<<SRV_SIGNAL_WINCH,NULL));
     assert(process_signal_pending_current() && !subject.killed);
     current_subject=NULL;
-    puts("process-output-host: PASS (1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
+    puts("process-output-host: PASS (20,000 pipe reference transfers, wrap/backpressure/EOF/rights, 1000 small writes batched, parent duplicate, explicit flush, stderr alias, exit errors, PTY inheritance/refcounts/session signals and stale handles)");
 }

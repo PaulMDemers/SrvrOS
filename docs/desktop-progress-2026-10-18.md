@@ -629,3 +629,20 @@ rendering. ASan/UBSan and the full desktop host suite passed. QEMU passed real
 keypad clicks, answer insertion/negation, history recall, huge-exponent and division
 errors, compact resize, global Copy result and exact cross-app saved readback.
 The final screenshot was reviewed and saved as `native-desktop-calculator.png`.
+
+### Bulk pipe throughput for desktop workers
+
+The new image worker exposed a transport bottleneck: a 4 KiB pipe emptied once
+per 100 Hz UI turn carries only about 400 KiB/s, so a maximum-size 16 MiB pixel
+response could hit its 30-second timeout. Pipes now have bounded 64 KiB rings
+(4 MiB of fixed storage across the 64-pipe pool). Reads/writes copy at most two
+contiguous spans instead of updating a ring index for every byte. Nonblocking
+partial writes, wakeups, EOF, close behavior and rights offsets remain intact.
+
+Validation: 20,000 randomized reference transfers plus wraparound, full/empty,
+blocking wakeup, EOF, reader closure and rights-consumption tests passed with
+ASan/UBSan. The full core/desktop host suite passed. QEMU passed a 100,000-line
+three-process pipeline with exact persisted `cksum` readback (2052179976, 588895
+bytes), and an early-closing `yes | head | wc` pipeline. The large-image VM test
+completed a 16 MiB response in 399 ticks (about four seconds), including decode
+and transfer. These are VM measurements, not a laptop hardware latency claim.
