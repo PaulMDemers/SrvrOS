@@ -26,7 +26,8 @@ Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a sepa
 worker. Clock provides a countdown, stopwatch and copyable laps. Completed timers
 appear as nonintrusive banners and in Alerts (Command-Shift-N). Right-click,
 Control-click or Shift-F10 opens contextual actions in Files and editable fields;
-the desktop background has its own application menu. F1 opens the active app’s offline Help topic, with searchable topics,
+the desktop background has its own application menu. Files offers current item
+information (Ctrl-I), with copyable paths and metadata. F1 opens the active app’s offline Help topic, with searchable topics,
 Back/Forward history and page copying.
 Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented

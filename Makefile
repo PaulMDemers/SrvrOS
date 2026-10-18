@@ -2711,3 +2711,19 @@ build/tests/tool-context-host$(HOST_EXE): tools/test_tool_context.c userspace/de
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 test-desktop: test-tool-context
+
+.PHONY: test-properties
+test-properties: build/tests/properties-host$(HOST_EXE)
+	$<
+build/tests/properties-host$(HOST_EXE): tools/test_properties.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-desktop: test-properties
+
+.PHONY: test-file-info
+test-file-info: build/tests/file-info-host$(HOST_EXE)
+	$<
+build/tests/file-info-host$(HOST_EXE): tools/test_file_info.c userspace/desktools/file_info.c userspace/desktools/app.h userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< userspace/lib/src/desk_clipboard.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+test-desktop: test-file-info

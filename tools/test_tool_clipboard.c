@@ -5,6 +5,7 @@
 #include <srvros/sys.h>
 static struct tool tool;
 static int changes;
+void tool_files_info_layout(struct tool *t) { t->window.dirty=1; }
 long srv_ticks(void) { return 10; }
 void tool_status(struct tool *t,const char *s) { snprintf(t->status,sizeof(t->status),"%s",s); }
 void tool_calculator_action(struct tool *t,struct desk_action a) { (void)t;(void)a; }
@@ -41,7 +42,7 @@ int main(void) {
     t->body.multiline=0;paste("\nline");assert(!strcmp(t->body_text.data,"new text"));
     paste("\xc0\xaf");assert(!strcmp(t->body_text.data,"new text"));
     t->modal=1;paste(" blocked");assert(!strcmp(t->body_text.data,"new text"));
-    t->modal=0;desk_picker_init(&t->picker);desk_picker_configure(&t->picker,(struct desk_rect){0,0,640,480});
+    t->modal=0;t->info_mode=1;tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_PASTE});assert(!t->clip.mode && !strcmp(t->body_text.data,"new text"));t->info_mode=0;desk_picker_init(&t->picker);desk_picker_configure(&t->picker,(struct desk_rect){0,0,640,480});
     assert(!desk_picker_open(&t->picker,DESK_PICKER_SAVE,"/fat","notes.txt"));t->picker_mode=DESK_PICKER_SAVE;
     desk_text_buffer_select(&t->picker.name_text,0,t->picker.name_text.length);
     tool_clipboard_action(t,(struct desk_action){TOOL_PICK_NAME,DESK_EDIT_CUT});copy_done(0);assert(!t->picker.name_text.length);

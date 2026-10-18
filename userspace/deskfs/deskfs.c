@@ -109,6 +109,17 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
             if(closedir(dir)) r->status=DESK_FILE_IO;
             r->length=r->count*sizeof(*entries);
         }
+    } else if(q->operation==DESK_FILE_STAT) {
+        struct desk_file_probe probe;memcpy(&probe,input,sizeof(probe));struct stat st;
+        if(stat(q->path,&st)) r->status=errno==ENOENT?DESK_FILE_NOT_FOUND:DESK_FILE_IO;
+        else if(probe.inode && probe.inode!=(uint64_t)st.st_ino) r->status=DESK_FILE_CHANGED;
+        else if(st.st_size<0) r->status=DESK_FILE_INVALID;
+        else {
+            struct desk_file_info info={.inode=st.st_ino,.size=st.st_size,.modified=st.st_mtime,
+                .kind=S_ISREG(st.st_mode)?DESK_FILE_KIND_FILE:S_ISDIR(st.st_mode)?DESK_FILE_KIND_FOLDER:DESK_FILE_KIND_OTHER,
+                .permissions=st.st_mode&0777};
+            memcpy(output,&info,sizeof(info));r->length=sizeof(info);
+        }
     } else if(q->operation>=DESK_FILE_RENAME && q->operation<=DESK_FILE_COPY) r->status=change_file(q);
     else r->status=DESK_FILE_INVALID;
     if(r->status) r->length=r->count=0;

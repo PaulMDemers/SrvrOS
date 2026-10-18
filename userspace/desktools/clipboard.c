@@ -2,7 +2,9 @@
 #include <srvros/sys.h>
 #include <srvros/desk_log.h>
 #include <string.h>
+#include <stdio.h>
 static struct desk_edit *target(struct tool *t,unsigned id) {
+    if(t->info_mode) return NULL;
     if(id==TOOL_PROMPT) return t->prompt_mode?&t->prompt.edit:NULL;
     if(t->prompt_mode) return NULL;
     if(id==TOOL_PICK_LOCATION || id==TOOL_PICK_NAME) return t->picker_mode?(id==TOOL_PICK_LOCATION?&t->picker.location:&t->picker.name):NULL;
@@ -27,6 +29,11 @@ void tool_clipboard_action(struct tool *t,struct desk_action a) {
 }
 void tool_clipboard_result(struct tool *t,int result) {
     unsigned operation=t->clip_action;t->clip_action=0;
+    if(operation==DESK_EDIT_COPY && t->clip_target==TOOL_INFO) {
+        snprintf(t->info_notice,sizeof(t->info_notice),"%s",result>0?"Copied.":"Copy did not finish. Try again.");
+        tool_files_info_layout(t);return;
+    }
+    if(operation==DESK_EDIT_COPY && t->clip_target==TOOL_COPY_PATH) { tool_status(t,result>0?"Path copied.":"Copy did not finish. Try again.");return; }
     if(result<0) { tool_status(t,"Clipboard transfer did not finish. Your text was kept; try again.");return; }
     desk_log("desktools: clipboard role=%d action=%u bytes=%u\n",t->role,operation,t->clip.length);
     if(operation==DESK_EDIT_COPY) { if(t->role==DESK_APP_CALCULATOR && t->clip_target==CALC_COPY) tool_status(t,"Result copied.");return; }

@@ -3,7 +3,7 @@
 #include <srvros/desk_log.h>
 enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
-    if(t->modal || t->picker_mode || t->prompt_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
+    if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
     if(t->search_open && t->search_focus) { *id=TOOL_FIND_QUERY;return &t->search.query; }
     struct desk_control *c=&t->ui.controls[t->ui.focus];
     if(c->kind!=DESK_CONTROL_EDIT || !((struct desk_edit *)c->state)->enabled) return NULL;
@@ -15,7 +15,7 @@ static void append(struct desk_menu_item *items,unsigned *count,unsigned id,cons
 }
 void tool_menu_refresh(struct tool *t) {
     struct desk_menu_item items[DESK_APP_MENU_ITEMS]={0};unsigned count=0;
-    unsigned blocked=(t->modal || t->picker_mode || t->prompt_mode)?DESK_MENU_DISABLED:0,busy=blocked|(t->job.busy?DESK_MENU_DISABLED:0);
+    unsigned blocked=(t->modal || t->picker_mode || t->prompt_mode || t->info_mode)?DESK_MENU_DISABLED:0,busy=blocked|(t->job.busy?DESK_MENU_DISABLED:0);
     append(items,&count,0,"File",NULL,DESK_MENU_HEADING);
     if(t->role==DESK_APP_TEXT) {
         append(items,&count,TOOL_NEW,"New document","Ctrl-N",busy);
@@ -28,6 +28,8 @@ void tool_menu_refresh(struct tool *t) {
             append(items,&count,TOOL_OPEN,"Open selected item","Enter",busy|(t->table.body.selected<0?DESK_MENU_DISABLED:0));
             append(items,&count,MENU_NEW_FOLDER,"New folder…",NULL,busy);
             unsigned selected=busy|(t->table.body.selected<0?DESK_MENU_DISABLED:0);
+            append(items,&count,TOOL_INFO,"Information…","Ctrl-I",selected);
+            append(items,&count,TOOL_COPY_PATH,"Copy path",NULL,selected|(t->clip.mode?DESK_MENU_DISABLED:0));
             append(items,&count,TOOL_RENAME,"Rename…","F2",selected);
             append(items,&count,TOOL_DUPLICATE,"Duplicate…",NULL,selected);
             append(items,&count,TOOL_DELETE,"Delete…","Delete",selected);
@@ -84,7 +86,7 @@ void tool_menu_refresh(struct tool *t) {
     desk_app_menus(&t->window,items,count);
 }
 void tool_menu_action(struct tool *t,unsigned id) {
-    if(t->modal || t->picker_mode || t->prompt_mode) return;
+    if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode) return;
     if(id>=MENU_EDIT && id<=MENU_EDIT+DESK_EDIT_REDO) {
         unsigned target=0;struct desk_edit *e=edit_target(t,&target);
         if(e) tool_dispatch(t,(struct desk_action){target,desk_edit_command(e,id-MENU_EDIT)});
@@ -108,7 +110,7 @@ void tool_context_result(struct tool *t,struct desk_menu_result result) {
     if(result.action) { desk_log("desktools: context action=%u role=%d\n",result.action,t->role);tool_menu_action(t,result.action); }
 }
 void tool_context_open(struct tool *t,int x,int y,int keyboard) {
-    if(t->modal || t->picker_mode || t->prompt_mode || t->closing) return;
+    if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode || t->closing) return;
     int files=0;unsigned target=0;
     if(keyboard) {
         if(t->role==DESK_APP_FILES && t->ui.focus>=0 && t->ui.controls[t->ui.focus].id==TOOL_LIST) files=1;
@@ -141,6 +143,8 @@ void tool_context_open(struct tool *t,int x,int y,int keyboard) {
         int index=t->table.body.selected,selected=index>=0 && index<t->file_count;
         unsigned disabled=selected?0:DESK_MENU_DISABLED;
         append(items,&count,TOOL_OPEN,"Open","Enter",disabled);
+        append(items,&count,TOOL_INFO,"Information…","Ctrl-I",disabled);
+        append(items,&count,TOOL_COPY_PATH,"Copy path",NULL,disabled|(t->clip.mode?DESK_MENU_DISABLED:0));
         append(items,&count,TOOL_RENAME,"Rename…","F2",disabled);
         append(items,&count,TOOL_DUPLICATE,"Duplicate…",NULL,disabled|(selected && t->entries[index].directory?DESK_MENU_DISABLED:0));
         append(items,&count,TOOL_DELETE,"Delete…","Delete",disabled);

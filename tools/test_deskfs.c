@@ -51,6 +51,15 @@ int main(void) {
     assert(fd>=0 && !ftruncate(fd,DESK_FILE_BYTES+1) && !close(fd));perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);
     assert(!unlink(q.path));perform(&q,&r);assert(r.status==DESK_FILE_NOT_FOUND);q.operation=DESK_FILE_WRITE;q.flags=DESK_FILE_EXPECT_EXISTING;
     perform(&q,&r);assert(r.status==DESK_FILE_CHANGED);
+    /* Metadata reads do not load contents and accept files beyond editor limits. */
+    q.operation=DESK_FILE_STAT;q.length=sizeof(struct desk_file_probe);q.flags=0;
+    struct desk_file_probe probe={0};memcpy(input,&probe,sizeof(probe));perform(&q,&r);assert(r.status==DESK_FILE_NOT_FOUND && !r.length);
+    snprintf(q.path,sizeof(q.path),"%s/large",dir);fd=open(q.path,O_WRONLY|O_CREAT,0600);assert(fd>=0 && !ftruncate(fd,1000000) && !close(fd));
+    perform(&q,&r);assert(!r.status && r.length==sizeof(struct desk_file_info) && !r.count && r.crc==desk_file_crc(output,r.length));
+    struct desk_file_info info;memcpy(&info,output,sizeof(info));assert(info.size==1000000 && info.kind==DESK_FILE_KIND_FILE && info.permissions==0600);
+    probe.inode=info.inode+1;memcpy(input,&probe,sizeof(probe));perform(&q,&r);assert(r.status==DESK_FILE_CHANGED && !r.length);
+    probe.inode=info.inode;memcpy(input,&probe,sizeof(probe));perform(&q,&r);assert(!r.status);assert(!unlink(q.path));
+    strcpy(q.path,dir);probe.inode=0;memcpy(input,&probe,sizeof(probe));perform(&q,&r);memcpy(&info,output,sizeof(info));assert(!r.status && info.kind==DESK_FILE_KIND_FOLDER);
     /* Duplicate/rename/delete retain identity guards and verify the result. */
     snprintf(q.path,sizeof(q.path),"%s/source.txt",dir);fd=open(q.path,O_WRONLY|O_CREAT,0600);assert(fd>=0 && write(fd,"copy me",7)==7 && !close(fd));
     struct stat st;assert(!stat(q.path,&st));

@@ -11,6 +11,7 @@ static int enabled(const struct desk_control *c) {
     case DESK_CONTROL_TABS: return ((struct desk_tabs *)c->state)->enabled;
     case DESK_CONTROL_IMAGE: return ((struct desk_image *)c->state)->enabled;
     case DESK_CONTROL_DOCUMENT: return ((struct desk_document *)c->state)->enabled;
+    case DESK_CONTROL_PROPERTIES: return ((struct desk_properties *)c->state)->enabled;
     }
     return 0;
 }
@@ -25,6 +26,7 @@ static struct desk_rect frame(const struct desk_control *c) {
     case DESK_CONTROL_TABS: return ((struct desk_tabs *)c->state)->frame;
     case DESK_CONTROL_IMAGE: return ((struct desk_image *)c->state)->frame;
     case DESK_CONTROL_DOCUMENT: return ((struct desk_document *)c->state)->frame;
+    case DESK_CONTROL_PROPERTIES: return ((struct desk_properties *)c->state)->frame;
     }
     return (struct desk_rect){0};
 }
@@ -39,12 +41,13 @@ static unsigned event(struct desk_control *c,struct desk_widget_event e,uint64_t
     case DESK_CONTROL_TABS: return desk_tabs_event(c->state,e);
     case DESK_CONTROL_IMAGE: return desk_image_event(c->state,e);
     case DESK_CONTROL_DOCUMENT: return desk_document_event(c->state,e);
+    case DESK_CONTROL_PROPERTIES: return desk_properties_event(c->state,e);
     }
     return 0;
 }
 void desk_ui_init(struct desk_ui *ui) { *ui=(struct desk_ui){.focus=-1,.capture=-1,.active=1}; }
 int desk_ui_add(struct desk_ui *ui,unsigned id,enum desk_control_kind kind,void *state,const char *label) {
-    if(!id || !state || kind<DESK_CONTROL_BUTTON || kind>DESK_CONTROL_DOCUMENT || ui->count==DESK_UI_MAX_CONTROLS) return -1;
+    if(!id || !state || kind<DESK_CONTROL_BUTTON || kind>DESK_CONTROL_PROPERTIES || ui->count==DESK_UI_MAX_CONTROLS) return -1;
     for(unsigned i=0;i<ui->count;i++) if(ui->controls[i].id==id || ui->controls[i].state==state) return -1;
     ui->controls[ui->count++]=(struct desk_control){id,kind,state,label?label:""};return 0;
 }
@@ -135,6 +138,7 @@ struct desk_action desk_ui_key(struct desk_ui *ui,const struct srv_key_event *ke
     case DESK_CONTROL_TABS: result.flags|=desk_tabs_key(c->state,key);break;
     case DESK_CONTROL_IMAGE: result.flags|=desk_image_key(c->state,key);break;
     case DESK_CONTROL_DOCUMENT: result.flags|=desk_document_key(c->state,key);break;
+    case DESK_CONTROL_PROPERTIES: result.flags|=desk_properties_key(c->state,key);break;
     }
     return result;
 }
@@ -147,6 +151,7 @@ struct desk_action desk_ui_scroll(struct desk_ui *ui,int32_t x,int32_t y,int32_t
     if(c->kind==DESK_CONTROL_TABLE) result.flags=desk_table_scroll(c->state,dy);
     if(c->kind==DESK_CONTROL_IMAGE) result.flags=desk_image_scroll(c->state,dx,dy);
     if(c->kind==DESK_CONTROL_DOCUMENT) result.flags=desk_document_scroll(c->state,dy);
+    if(c->kind==DESK_CONTROL_PROPERTIES) result.flags=desk_properties_scroll(c->state,dy);
     return result;
 }
 void desk_ui_draw(struct desk_canvas *canvas,const struct desk_ui *ui,const struct desk_theme *theme) {
@@ -162,6 +167,7 @@ void desk_ui_draw(struct desk_canvas *canvas,const struct desk_ui *ui,const stru
         case DESK_CONTROL_TABS: desk_tabs_draw(canvas,c->state,theme);break;
         case DESK_CONTROL_IMAGE: desk_image_draw(canvas,c->state,theme);break;
         case DESK_CONTROL_DOCUMENT: desk_document_draw(canvas,c->state,theme);break;
+        case DESK_CONTROL_PROPERTIES: desk_properties_draw(canvas,c->state,theme);break;
         }
     }
 }

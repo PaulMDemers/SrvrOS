@@ -809,3 +809,30 @@ paste, outside click on New without activation, compact layout, Files rename,
 duplicate/delete cancellation, desktop launch and orderly exit. Screenshot
 `native-desktop-context-menu.png` was reviewed. Physical Control-click remains to
 be tested at a later laptop checkpoint; no hardware deployment occurred.
+
+
+### Shared property views and fresh Files information
+
+Added `desk_properties`: sixteen owned UTF-8 label/value pairs, responsive two-column
+or stacked layout, wrapped values, shared scrollbar/keyboard/focus routing and exact
+plain-text export. Validation and snapshot publication are atomic, including inputs
+borrowed from the existing view. Labels/values are bounded; all data remains local
+to the widget with no filesystem or clipboard side effects.
+
+Files now has Information (Ctrl-I, File menu or contextual menu), Copy path and Copy
+details. A read-only worker request checks the selected inode and obtains current
+kind, exact byte size and modification time without reading file contents. A changed
+identity or missing item is shown explicitly. Folder contents are not recursively
+totaled. Closing a pending information view does not reopen it on late completion.
+The compact layout keeps Path, Details and Close available; metadata remains fully
+scrollable. Help covers the information view and the new contextual bindings.
+
+Host tests passed for worker metadata including files larger than the editor limit,
+identity changes, missing files, fragmented responses and invalid response lengths.
+Controller/widget tests passed for clipboard snapshots, late completion, changed/
+missing/malformed results, both body fonts, compact layout, clipping and tiled/stride
+rendering. Property/controller address/UB sanitizers and the desktop suite passed.
+Production builds succeeded. `desktop_file_info_smoke.py` passed with exact file
+content, path and metadata exports read back from the VM disk; folder metadata,
+context access, compact scrolling and orderly exit were exercised. The reviewed
+screenshot is `native-desktop-file-info.png`. No laptop reboot or deployment.

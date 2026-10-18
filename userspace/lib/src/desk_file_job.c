@@ -59,7 +59,8 @@ int desk_file_job_poll(struct desk_file_job *j) {
             if(j->response.magic!=DESK_FILE_MAGIC || j->response.id!=j->request.id ||
                j->response.length>DESK_FILE_BYTES || j->response.count>DESK_FILE_ENTRIES ||
                j->response.status>DESK_FILE_BUSY || j->response.truncated>1 ||
-               (j->request.operation==DESK_FILE_LIST && j->response.length!=j->response.count*sizeof(struct desk_file_entry))) goto failed;
+               (j->request.operation==DESK_FILE_LIST && j->response.length!=j->response.count*sizeof(struct desk_file_entry)) ||
+               (j->request.operation==DESK_FILE_STAT && (j->response.count || j->response.truncated || j->response.length!=(j->response.status?0:sizeof(struct desk_file_info))))) goto failed;
         }
     }
     if(j->pid && !desk_process_alive(j->pid)) goto failed;

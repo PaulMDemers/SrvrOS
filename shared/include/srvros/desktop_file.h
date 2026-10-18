@@ -5,7 +5,7 @@
 #define DESK_FILE_BYTES 65536
 #define DESK_FILE_PATH 160
 #define DESK_FILE_ENTRIES 256
-enum desk_file_operation { DESK_FILE_READ=1, DESK_FILE_WRITE, DESK_FILE_LIST, DESK_FILE_MKDIR, DESK_FILE_RENAME, DESK_FILE_DELETE, DESK_FILE_COPY };
+enum desk_file_operation { DESK_FILE_READ=1, DESK_FILE_WRITE, DESK_FILE_LIST, DESK_FILE_MKDIR, DESK_FILE_RENAME, DESK_FILE_DELETE, DESK_FILE_COPY, DESK_FILE_STAT };
 enum desk_file_status { DESK_FILE_OK, DESK_FILE_IO, DESK_FILE_EXISTS, DESK_FILE_CHANGED,
     DESK_FILE_TOO_LARGE, DESK_FILE_INVALID, DESK_FILE_NOT_FOUND, DESK_FILE_BUSY };
 #define DESK_FILE_EXPECT_EXISTING 1u
@@ -17,6 +17,11 @@ struct desk_file_response {
     uint32_t magic,id,status,length,count,crc,truncated,existing_crc;
 };
 struct desk_file_entry { char name[96]; uint64_t size,inode,modified; uint32_t directory,reserved; };
+/* Read-only probe. An expected inode of zero accepts the current path. */
+struct desk_file_probe { uint64_t inode; };
+struct desk_file_info { uint64_t inode,size;int64_t modified;uint32_t kind,permissions; };
+enum { DESK_FILE_KIND_FILE=1,DESK_FILE_KIND_FOLDER,DESK_FILE_KIND_OTHER };
+_Static_assert(sizeof(struct desk_file_info)==32,"file info wire layout");
 /* Mutation payload captures the selected listing identity. Rename/copy never
  * overwrite a destination. Directory changes remain limited by the filesystem. */
 struct desk_file_change {
@@ -25,7 +30,8 @@ struct desk_file_change {
     char destination[DESK_FILE_PATH];
 };
 static inline int desk_file_payload_valid(unsigned operation,unsigned length,unsigned flags) {
-    if(operation<DESK_FILE_READ || operation>DESK_FILE_COPY || length>DESK_FILE_BYTES) return 0;
+    if(operation<DESK_FILE_READ || operation>DESK_FILE_STAT || length>DESK_FILE_BYTES) return 0;
+    if(operation==DESK_FILE_STAT) return length==sizeof(struct desk_file_probe) && !flags;
     if(operation>=DESK_FILE_RENAME) return length==sizeof(struct desk_file_change) && !flags;
     return (operation==DESK_FILE_WRITE || !length) && flags<=DESK_FILE_EXPECT_EXISTING;
 }

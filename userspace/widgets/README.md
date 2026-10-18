@@ -442,3 +442,28 @@ File operations still use their guarded worker and confirmation paths. Desktop
 background menus provide Files, Text, Terminal, Settings, System and Help. Physical
 Control-click behavior awaits a future laptop test; all three input paths were
 exercised in the VM, and the accepted hardware image remains unchanged.
+
+
+### Property views and file information
+
+`desk_properties` owns up to sixteen UTF-8 label/value pairs with unique IDs,
+47-byte labels and 383-byte values. It uses two columns at wider sizes and stacks
+labels above values below 360 pixels. Both columns wrap; wheel/scrollbar and
+Arrow/Page/Home/End navigation expose all content. It participates in `desk_ui`
+focus/capture routing as `DESK_CONTROL_PROPERTIES`. Setting a snapshot is atomic,
+including borrowed input from the existing view. Text export measures or writes
+exact `Label: value` lines with a trailing newline. No filesystem/clipboard work
+occurs inside the widget.
+
+Files' Information view (Ctrl-I, File menu or contextual menu) uses a read-only
+`DESK_FILE_STAT` worker request with the selected inode as an identity guard.
+Changing the file's contents can update its metadata; replacing its identity at
+the same path returns a changed-item error. The bounded response carries file
+kind, exact size and modification time without reading contents, so metadata is
+not limited by the editor's 64-KiB document limit. Folder contents are not totaled.
+Closing during a pending read never reopens the view when the result arrives.
+Copy path / Copy details use the existing asynchronous clipboard. Ctrl-C exports
+details; Ctrl-Shift-C exports the path; Escape returns to the folder.
+
+Host checks: `make test-properties test-file-info`; native workflow:
+`tools/host-env.sh python3 tools/desktop_file_info_smoke.py`.

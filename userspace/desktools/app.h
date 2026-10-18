@@ -11,7 +11,7 @@
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
-enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE };
+enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE,TOOL_INFO,TOOL_COPY_PATH };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK };
 enum { CALC_EVALUATE=70,CALC_CLEAR,CALC_USE,CALC_COPY,CALC_HISTORY,CALC_KEY_FIRST=300 };
 #define CALC_HISTORY_LIMIT 16
@@ -25,6 +25,11 @@ struct tool {
     struct desk_ui ui;
     struct desk_dialog dialog;
     struct desk_popup context;
+    struct desk_properties properties;
+    struct desk_ui info_ui;
+    struct desk_button info_buttons[3];
+    int info_mode,info_ready;
+    char info_path[DESK_FILE_PATH],info_notice[128];
     struct desk_prompt prompt;
     struct desk_searchbar search;
     int search_open,search_focus;
@@ -124,6 +129,14 @@ void tool_text_action(struct tool *tool,struct desk_action action);
 void tool_text_finish(struct tool *tool,int result);
 void tool_text_request(struct tool *tool,int pending);
 void tool_text_dialog(struct tool *tool,unsigned id);
+void tool_files_info_open(struct tool *tool);
+void tool_files_info_close(struct tool *tool);
+void tool_files_info_layout(struct tool *tool);
+void tool_files_info_draw(struct tool *tool,struct desk_canvas *canvas);
+void tool_files_info_action(struct tool *tool,struct desk_action action);
+void tool_files_info_key(struct tool *tool,const struct srv_key_event *key);
+void tool_files_info_finish(struct tool *tool,int result);
+void tool_files_copy_path(struct tool *tool);
 void tool_files_prompt(struct tool *tool,struct desk_action action);
 void tool_files_dialog(struct tool *tool,unsigned id);
 void tool_files_layout(struct tool *tool);

@@ -21,8 +21,8 @@ int main(void) {
     assert(desk_list_index_at(&t.table.body,40,145)==0);
     struct desk_rect hit_row=desk_list_row_rect(&t.table.body,0);assert(desk_widget_contains(hit_row,40,145));
     assert(!desk_list_row_rect(&t.table.body,2).w && desk_list_index_at(&t.table.body,702,145)==-1);
-    tool_context_open(&t,40,145,0);assert(t.context.opened && t.table.body.selected==0 && (t.context.items[2].flags&DESK_MENU_DISABLED));
-    desk_popup_cancel(&t.context);tool_context_open(&t,40,175,0);assert(t.table.body.selected==1 && !t.context.items[2].flags);
+    tool_context_open(&t,40,145,0);assert(t.context.opened && t.table.body.selected==0 && (t.context.items[4].flags&DESK_MENU_DISABLED));
+    desk_popup_cancel(&t.context);tool_context_open(&t,40,175,0);assert(t.table.body.selected==1 && !t.context.items[4].flags);
     desk_popup_cancel(&t.context);tool_context_open(&t,40,300,0);assert(t.table.body.selected==-1 && (t.context.items[0].flags&DESK_MENU_DISABLED));
     desk_popup_cancel(&t.context);t.job.busy=1;tool_context_open(&t,40,145,0);assert(!t.context.opened);t.job.busy=0;
     desk_ui_focus(&t.ui,TOOL_LIST);desk_list_select(&t.table.body,1);tool_context_open(&t,0,0,1);assert(t.context.opened && t.table.body.selected==1);

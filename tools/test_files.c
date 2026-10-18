@@ -1,5 +1,9 @@
 #include "../userspace/desktools/files_app.c"
 #include <assert.h>
+
+void tool_files_info_open(struct tool *t) { (void)t;assert(0); }
+void tool_files_info_finish(struct tool *t,int result) { (void)t;(void)result;assert(0); }
+void tool_files_copy_path(struct tool *t) { (void)t;assert(0); }
 static struct tool t;
 static unsigned started,launched,clipboard_id;
 void srv_puts(const char *s) { (void)s; }

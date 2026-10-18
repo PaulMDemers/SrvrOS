@@ -204,7 +204,7 @@ void tool_files_dialog(struct tool *t,unsigned id) {
     else if(id==1004) start_change(t,DESK_FILE_DELETE,NULL);
 }
 void tool_files_action(struct tool *t,struct desk_action a) {
-    if(t->job.busy || t->prompt_mode || t->modal) return;
+    if(t->job.busy || t->prompt_mode || t->modal || t->info_mode) return;
     if(a.id==TOOL_LIST && (a.flags&DESK_WIDGET_CHANGED)) {
         for(int i=4;i<=6;i++) desk_button_configure(&t->buttons[i],t->buttons[i].frame,t->window.width>=708 && t->table.body.selected>=0);
     }
@@ -213,6 +213,8 @@ void tool_files_action(struct tool *t,struct desk_action a) {
     }
     if(a.id==TOOL_PATH && (a.flags&DESK_EDIT_SUBMIT)) { list_directory(t,t->path_text.data);return; }
     if(!(a.flags&DESK_WIDGET_ACTIVATED) && !(a.id==TOOL_NAME && (a.flags&DESK_EDIT_SUBMIT))) return;
+    if(a.id==TOOL_INFO) { tool_files_info_open(t);return; }
+    if(a.id==TOOL_COPY_PATH) { tool_files_copy_path(t);return; }
     if(a.id==TOOL_BACK || a.id==TOOL_FORWARD) {
         int index=t->location_index+(a.id==TOOL_BACK?-1:1);
         if(index>=0 && index<t->location_count && !list_directory(t,t->locations[index].path)) t->location_pending=index;
@@ -245,6 +247,7 @@ int tool_listing_decode(struct tool *t) {
 }
 
 void tool_files_finish(struct tool *t,int result) {
+    if(t->job.request.operation==DESK_FILE_STAT) { tool_files_info_finish(t,result);return; }
     if(result<0 || t->job.response.status) {
         const char *message="Could not open or change this folder. Check the path and volume.";
         if(result<0) message="The file worker stopped. Close and reopen Files to retry.";
