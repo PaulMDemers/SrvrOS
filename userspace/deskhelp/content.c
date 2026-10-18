@@ -68,7 +68,7 @@ static const struct desk_document_block system[]={
  T(1,"System and network status"),P(2,"System provides a live view of processes and network status. Switch between the Processes and Network tabs. Pause freezes the display; Refresh or F5 takes a new snapshot."),
  H(3,"Processes"),P(4,"The process table lists the running programs and their current state. It is a read-only view; use the command-line tools when a process must be managed."),
  H(5,"Network"),P(6,"The Network tab reports the available interface, link state, MAC and IPv4 addresses, router, DNS configuration and packet counters. A disconnected or unavailable interface is reported explicitly."),
- H(7,"Configuration"),P(8,"Network setup remains a console task. Available tools include ifconfig, route, arp, ping, host and netstat. The virtual machine can exercise the supported emulated adapter; support for a particular USB network adapter depends on its driver."),
+ H(7,"Configuration"),P(8,"Open Diagnostics for background Ping and DNS lookup with copyable reports. Network configuration remains a console task. Available tools include ifconfig, route, arp, ping, host and netstat. The virtual machine can exercise the supported emulated adapter; support for a particular USB network adapter depends on its driver."),
  N(9,"An interface being present does not by itself prove that DNS or Internet access works. Check the address and route, then test the destination you need.")};
 static const struct desk_document_block keyboard[]={
  T(1,"Keyboard shortcuts"),H(2,"Across the desktop"),C(3,"Command-Space    Applications and windows\nAlt-Tab          Next window\nAlt-Shift-Tab    Previous window\nF10              Global menu bar\nShift-F10        Contextual actions\nF1               Help for the active application\nCommand-Shift-N  Notifications\nCommand-Shift-3  Save screenshot"),
@@ -87,7 +87,7 @@ static const struct desk_document_block limits[]={
 static const struct desk_document_block about[]={
  T(1,"SrvrOS"),P(2,"A native operating system and a quiet, practical desktop. Built from scratch, with the MacBook Air as its first physical desktop target."),
  H(3,"One shared toolkit"),P(4,"Applications use the same buttons, text fields, lists, tables, tabs, scrollbars, dialogs, file pickers, image views, property views, document views, sliders, drawing canvases, color panels and contextual menus. The desktop supplies window management, global menus, a launcher, calendar and clipboard."),
- H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview, Sketch, Clock and Help. Open app below opens System for a view of running processes and network status."),
+ H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview, Sketch, Clock, Network Utility and Help. Open app below opens System for a view of running processes and network status."),
  H(7,"Acknowledgments"),P(8,"The desktop uses DejaVu fonts. Preview uses the stb_image decoder under its MIT license. The source repository includes upstream licenses and records local changes."),
  N(9,"This is a development system. Hardware acceptance and virtual-machine validation are tracked separately in the project documentation.")};
 static const struct desk_document_block clock_guide[]={
@@ -106,6 +106,12 @@ static const struct desk_document_block sketch_guide[]={
  H(9,"Save a copy"),P(10,"Ctrl-S writes a new BMP copy through a background worker and verifies the saved bytes. Choose a filename ending in .bmp. Existing files are kept; use a different name. Drawing can continue during saving, and newer changes remain marked unsaved. New, Open and Close ask what to do with unsaved work. Imports retain their original files."),
  N(11,"Sketch flattens transparent images onto white and saves opaque BMPs. Its image size must fit an 8 MiB BMP; inputs also follow Preview's format limits. There are no layers, text objects, selections, flood fill or pressure-sensitive brushes yet.")};
 #define TOPIC(id,alias,title,detail,app,data) {id,alias,title,detail,app,data,sizeof(data)/sizeof(*data)}
+static const struct desk_document_block network_guide[]={
+ T(1,"Network Utility"),P(2,"Run a small connection diagnostic while the desktop stays responsive. Open Network Utility from the launcher or the Diagnostics control in System."),
+ H(3,"Ping and DNS"),P(4,"Ping sends four echo requests to an IPv4 address or host. DNS lookup asks the configured DNS server for one IPv4 address. Enter a target without spaces or options, then press Run or Ctrl-Enter. Ctrl-L selects the target; Ctrl-1 chooses Ping and Ctrl-2 chooses DNS lookup."),
+ H(5,"Work in another window"),P(6,"Diagnostics run in a separate process. You can type in another app or prepare a new target while a diagnostic runs; the report retains the target used for that run. Stop or Escape cancels it. A run has a 15-second deadline. Closing the window stops its diagnostic."),
+ H(7,"Keep a report"),P(8,"Copy report or Ctrl-Shift-C copies the operation, target, completion state and output. Paste into Text to save it. Diagnostic > Clear results clears this window. Results are kept only for the current session, and output is limited to 4095 bytes."),
+ N(9,"The utility reports when no supported adapter, network link or IPv4 configuration is available. System shows current link state and speed separately from configured addresses. A successful ping checks reachability to that target; it does not test every Internet service.")};
 const struct help_topic help_topics[]={
  TOPIC(1,"welcome","Welcome","Start here · applications and documents",0,welcome),
  TOPIC(2,"desktop","Your desktop","Windows · launcher · menus · calendar",0,desktop),
@@ -121,6 +127,7 @@ const struct help_topic help_topics[]={
  TOPIC(12,"about","About SrvrOS","System · toolkit · acknowledgments",DESK_APP_SYSTEM,about),
  TOPIC(13,"clock","Clock","Timer · stopwatch · laps · alerts · notifications",DESK_APP_CLOCK,clock_guide),
  TOPIC(14,"sketch","Sketch","Drawing · brushes · color · BMP copies",DESK_APP_SKETCH,sketch_guide),
+ TOPIC(15,"network","Network Utility","Ping · DNS lookup · reports · connectivity",DESK_APP_NETWORK,network_guide),
 };
 const unsigned help_topic_count=sizeof(help_topics)/sizeof(*help_topics);
 const struct help_topic *help_topic(unsigned id) { for(unsigned i=0;i<help_topic_count;i++) if(help_topics[i].id==id) return &help_topics[i];return NULL; }

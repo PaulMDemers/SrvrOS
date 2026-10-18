@@ -297,6 +297,9 @@ struct srv_net_info {
     char state_name[24];
 };
 
+#define SRV_NET_LINK_KNOWN 1u
+#define SRV_NET_LINK_UP 2u
+#define SRV_NET_LINK_FULL_DUPLEX 4u
 struct srv_net_status_info {
     uint64_t abi_version;
     uint64_t struct_size;
@@ -337,6 +340,9 @@ struct srv_net_status_info {
     uint8_t arp_mac[6];
     uint8_t arp_valid;
     uint8_t reserved[3];
+    /* Appended v1 extension: a configured IPv4 address is not proof of link. */
+    uint64_t link_flags;
+    uint64_t link_speed_mbps; /* Zero when unavailable/down. */
 };
 
 struct srv_arp_info {

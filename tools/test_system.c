@@ -22,9 +22,12 @@ long srv_net_status_info(struct srv_net_status_info *n) {
         .initialized=net_phase!=2,.worker_started=1,.dhcp_configured=1,.local_ip=0x0a00020f,.router_ip=0x0a000202,.dns_ip=0x0a000203,
         .rx_frames=123,.tx_frames=456,.tcp_connection_count=2,.listener_count=3,.udp_socket_count=4,.local_mac={0x52,0x54,0,0x12,0x34,0x56}};
     if(net_phase==3) n->struct_size=16;
+    if(net_phase>=4) n->link_flags=SRV_NET_LINK_KNOWN;
+    if(net_phase==5) { n->link_flags|=SRV_NET_LINK_UP|SRV_NET_LINK_FULL_DUPLEX;n->link_speed_mbps=1000; }
     return 0;
 }
 void tool_status(struct tool *t,const char *text) { snprintf(t->status,sizeof(t->status),"%s",text);t->window.dirty=1; }
+void tool_launch(struct tool *t,int application,const char *path) { (void)t;assert(application==DESK_APP_NETWORK && !*path); }
 static struct tool t;
 int main(void) {
     t.window.width=760;t.window.height=500;desk_ui_init(&t.ui);tool_system_init(&t);tool_system_layout(&t);desk_ui_layout_changed(&t.ui);
@@ -50,6 +53,8 @@ int main(void) {
     net_phase=1;tool_system_refresh(&t,1);assert(!t.network_valid && strstr(network_state(&t),"unavailable") && !strcmp(t.network_values[0],"—"));
     net_phase=2;tool_system_refresh(&t,1);assert(t.network_valid && strstr(network_state(&t),"No supported") && !strcmp(t.network_values[5],"—"));
     net_phase=3;tool_system_refresh(&t,1);assert(!t.network_valid);
+    net_phase=4;tool_system_refresh(&t,1);assert(strstr(network_state(&t),"disconnected") && !strcmp(t.network_values[12],"Disconnected") && !strcmp(t.network_values[13],"—"));
+    net_phase=5;tool_system_refresh(&t,1);assert(!strcmp(t.network_values[12],"Connected") && !strcmp(t.network_values[13],"1000 Mb/s") && !strcmp(t.network_values[14],"Full duplex"));
     net_phase=0;tool_system_action(&t,(struct desk_action){SYSTEM_PROCESSES,DESK_WIDGET_ACTIVATED});assert(t.table.body.enabled && !t.network_table.body.enabled);
     assert(t.table.navigation[t.table.body.selected].id==selected);
     static uint32_t pixels[760*500];struct desk_canvas c;assert(!desk_canvas_init(&c,pixels,760,500,760));

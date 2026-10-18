@@ -962,3 +962,32 @@ full core/desktop suites and production build passed. The VM dragged both axes o
 a 200-line document, typed at the preserved caret, copied the whole document,
 resized to minimum size and saved two exact expected files. Screenshots were
 reviewed. No hardware reboot or deployment.
+
+## Network Utility and live link reporting
+
+Network Utility adds native Ping and DNS lookup tabs, a validated target editor,
+Stop, a wrapped report, clipboard export, shared context/global menus, Help, and
+compact layouts. It directly invokes the existing read-only tools without shell
+parsing. A reusable client-side command collector drains at most 16 KiB per turn,
+retains bounded output, waits for EOF plus the child's exit status, and handles
+cancel/timeout/reaping. It is explicitly unsuitable for mutating workers because
+cancellation kills its child. Network operations use a 15-second deadline; output
+is capped at 4 KiB. Run targets are snapshots, and asynchronous clipboard edits
+recheck focus, revision and selection. This app configures no network settings.
+
+The size-aware network status ABI now appends link flags and speed. e1000 reads
+its live STATUS register; System distinguishes a disconnected cable from a
+retained IPv4 address and shows speed/duplex. Unknown adapters remain explicitly
+unknown. System's Diagnostics button opens Network Utility.
+
+Validation: production build and full core/desktop host suites pass. Dedicated
+checks cover all 256 low STATUS combinations; command fragmentation, bounded
+output, truncation/draining, EOF/exit ordering, timeout/cancel and cleanup;
+application prerequisites, target snapshots, malformed output, clipboard races
+and compact/tiled rendering. Command collector and complete app/widget checks
+pass ASan/UBSan. QEMU passed Ping to its local gateway, localhost DNS, saved report
+exports, typing into Text during a pending diagnostic, cancellation, live link
+down/up, compact/context/Help, close during work and clean desktop exit. No public
+network service is required by the regression. Evidence: `build/review/desktop-network/`.
+The laptop has not been rebooted or deployed to; USB network drivers are still
+unimplemented pending an adapter target.

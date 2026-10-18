@@ -81,6 +81,7 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,SYSTEM_PAUSE,t->system_paused?"Resume updates":"Pause updates",NULL,blocked);
         append(items,&count,SYSTEM_REFRESH,"Refresh now","F5",blocked);
+        append(items,&count,SYSTEM_DIAGNOSTICS,"Network Utility…",NULL,blocked);
         append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
         append(items,&count,SYSTEM_PROCESSES,"Processes",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_PROCESSES?DESK_MENU_CHECKED:0));
         append(items,&count,SYSTEM_NETWORK,"Network",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?DESK_MENU_CHECKED:0));

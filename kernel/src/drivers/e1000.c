@@ -324,6 +324,24 @@ bool e1000_available(void) {
     return nic != 0 && mmio != 0;
 }
 
+/* STATUS LU/FD and SPEED[7:6], as documented by the device's register map:
+ * https://github.com/torvalds/linux/blob/master/drivers/net/ethernet/intel/e1000/e1000_hw.h */
+struct e1000_link_info e1000_decode_link_status(uint32_t status) {
+    struct e1000_link_info info={.up=(status&2u)!=0};
+    if(info.up) {
+        info.full_duplex=(status&1u)!=0;
+        unsigned speed=(status>>6)&3u;
+        info.speed_mbps=speed==0?10:speed==1?100:speed==2?1000:0;
+    }
+    return info;
+}
+bool e1000_link_info(struct e1000_link_info *info) {
+    if(!info) return false;
+    *info=(struct e1000_link_info){0};
+    if(!e1000_available() || !ensure_mmio_mapping()) return false;
+    *info=e1000_decode_link_status(reg_read(E1000_REG_STATUS));return true;
+}
+
 const uint8_t *e1000_mac(void) {
     if (!e1000_available()) {
         return 0;

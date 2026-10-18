@@ -15,7 +15,7 @@ not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
 windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings,
-Terminal, Preview, Sketch, Help and Clock. Command-Space opens application/window search; the SrvrOS menu
+Terminal, Preview, Sketch, Help, Clock and Network Utility. Command-Space opens application/window search; the SrvrOS menu
 provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
 with month/year navigation and Today. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
@@ -27,6 +27,7 @@ worker. Command-Shift-3 saves a screenshot to `/fat/home/Screenshots` through a
 background worker, with verified readback and a notification that opens the folder.
 Sketch adds Pen/Line/Box drawing, a shared RGB color panel, four undo steps,
 image import and verified BMP copies. Preview’s Edit in Sketch opens the current image.
+Network Utility runs background Ping and DNS lookup with copyable reports; System distinguishes link state and speed from configured IPv4 addresses.
 Clock provides a countdown, stopwatch and copyable laps. Completed timers
 appear as nonintrusive banners and in Alerts (Command-Shift-N). Right-click,
 Control-click or Shift-F10 opens contextual actions in Files and editable fields;

@@ -6,6 +6,9 @@
 
 bool e1000_init(void);
 bool e1000_available(void);
+struct e1000_link_info { bool up,full_duplex;uint16_t speed_mbps; };
+struct e1000_link_info e1000_decode_link_status(uint32_t status);
+bool e1000_link_info(struct e1000_link_info *info);
 const uint8_t *e1000_mac(void);
 uint8_t e1000_irq_line(void);
 bool e1000_enable_interrupts(void);

@@ -16,6 +16,7 @@ static inline const struct desk_application_info *desk_application_info(unsigned
         {"Help","help","/fat/bin/deskhelp",0},
         {"Clock","clock","/fat/bin/deskclock",0},
         {"Sketch","sketch","/fat/bin/desksketch",0},
+        {"Network Utility","network","/fat/bin/desknet",0},
     };
     _Static_assert(sizeof(catalog)/sizeof(*catalog)==DESK_APP_COUNT,"application catalog coverage");
     return id>=1 && id<=DESK_APP_COUNT?&catalog[id-1]:0;

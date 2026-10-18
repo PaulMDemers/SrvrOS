@@ -2500,6 +2500,11 @@ int64_t net_status_info(struct srv_net_status_info *info) {
     info->abi_version = SRV_NET_ABI_VERSION;
     info->struct_size = sizeof(*info);
     info->initialized = initialized ? 1 : 0;
+    struct e1000_link_info link;
+    if(initialized && e1000_link_info(&link)) {
+        info->link_flags=SRV_NET_LINK_KNOWN|(link.up?SRV_NET_LINK_UP:0)|(link.full_duplex?SRV_NET_LINK_FULL_DUPLEX:0);
+        info->link_speed_mbps=link.speed_mbps;
+    }
     info->worker_started = worker_started ? 1 : 0;
     info->dhcp_configured = dhcp_configured ? 1 : 0;
     info->tcp_connection_capacity = TCP_MAX_CONNECTIONS;

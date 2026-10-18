@@ -562,3 +562,16 @@ measures only the current physical line. Drawing remains const and honors tiled
 clips and padded stride. Wrapping is not yet enabled; long lines use horizontal
 scrolling. `desk_scrollbar_configure_horizontal` exposes the same axis behavior
 for other controls, while the original configure function remains vertical.
+
+## Background read-only commands
+
+The client runtime's `desk_command_job.h` is separate from the widget library.
+It invokes a caller-selected executable and explicit argv, collects merged
+stdout/stderr through a nonblocking pipe, and bounds work to 16 KiB per poll.
+Caller-owned output is NUL-terminated and capped; excess bytes are drained and
+reported as truncation. Completion requires EOF and the parent's wait status.
+Timeout/cancel terminates the child and keeps its PID until reaped. Use it only
+for read-only diagnostics; accepted filesystem mutations use the file worker's
+completion protocol instead. Network Utility demonstrates UI composition around
+this transport, including target validation, retained partial output and report
+export. Raw command bytes must be validated or sanitized by the application.

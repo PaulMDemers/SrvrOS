@@ -42,6 +42,7 @@ static void ip_string(char *out,size_t size,uint32_t ip) {
 static const char *network_state(const struct tool *t) {
     if(!t->network_valid) return "Network information unavailable";
     if(!t->network.initialized) return "No supported network adapter";
+    if((t->network.link_flags&SRV_NET_LINK_KNOWN) && !(t->network.link_flags&SRV_NET_LINK_UP)) return "Network link disconnected";
     if(!t->network.worker_started) return "Network worker is stopped";
     return t->network.local_ip?"IPv4 address configured":"Waiting for an IPv4 address";
 }
@@ -50,7 +51,7 @@ static void network_refresh(struct tool *t,int force) {
     t->network_valid=srv_net_status_info(&n)==0 && n.abi_version==SRV_NET_ABI_VERSION && n.struct_size>=sizeof(n);
     t->network=t->network_valid?n:(struct srv_net_status_info){0};
     static const char *labels[]={"IPv4 address","Router","DNS server","Hardware address","Address source",
-        "Received frames","Sent frames","TCP connections","TCP listeners","UDP sockets","Pending connections","TCP table drops"};
+        "Received frames","Sent frames","TCP connections","TCP listeners","UDP sockets","Pending connections","TCP table drops","Link","Link speed","Duplex"};
     unsigned count=sizeof(labels)/sizeof(*labels);
     for(unsigned i=0;i<count;i++) {
         snprintf(t->network_values[i],sizeof(t->network_values[i]),"—");
@@ -62,10 +63,14 @@ static void network_refresh(struct tool *t,int force) {
         snprintf(t->network_values[4],80,"%s",n.dhcp_configured?"DHCP":n.local_ip?"Static / default":"Not configured");
         uint64_t numbers[]={n.rx_frames,n.tx_frames,n.tcp_connection_count,n.listener_count,n.udp_socket_count,n.pending_count,n.tcp_table_full_drops};
         for(unsigned i=0;i<7;i++) snprintf(t->network_values[i+5],80,"%llu",(unsigned long long)numbers[i]);
+        int known=(n.link_flags&SRV_NET_LINK_KNOWN)!=0,up=(n.link_flags&SRV_NET_LINK_UP)!=0;
+        snprintf(t->network_values[12],80,"%s",known?(up?"Connected":"Disconnected"):"Not available");
+        if(known && up && n.link_speed_mbps) snprintf(t->network_values[13],80,"%llu Mb/s",(unsigned long long)n.link_speed_mbps);
+        snprintf(t->network_values[14],80,"%s",known && up?(n.link_flags&SRV_NET_LINK_FULL_DUPLEX?"Full duplex":"Half duplex"):"—");
     }
     desk_table_rows(&t->network_table,t->network_rows,count);
-    if(force) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d\n",t->network_valid,
-        (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused);
+    if(force) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d link=%llu speed=%llu\n",t->network_valid,
+        (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused,(unsigned long long)t->network.link_flags,(unsigned long long)t->network.link_speed_mbps);
 }
 void tool_system_refresh(struct tool *t,int force) {
     uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;t->refresh_tick=now;
@@ -92,12 +97,14 @@ void tool_system_init(struct tool *t) {
     desk_ui_add(&t->ui,SYSTEM_TABLE,DESK_CONTROL_TABLE,&t->table,NULL);
     desk_ui_add(&t->ui,SYSTEM_PAUSE,DESK_CONTROL_BUTTON,&t->buttons[0],"Pause");
     desk_ui_add(&t->ui,SYSTEM_REFRESH,DESK_CONTROL_BUTTON,&t->buttons[1],"Refresh");
+    desk_ui_add(&t->ui,SYSTEM_DIAGNOSTICS,DESK_CONTROL_BUTTON,&t->buttons[2],"Diagnostics");
     tool_system_refresh(t,1);desk_log("desktools: system-ready processes=%d total=%llu\n",t->process_count,(unsigned long long)t->system_memory.total_bytes);
 }
 void tool_system_layout(struct tool *t) {
     int w=t->window.width,h=t->window.height;
     desk_button_configure(&t->buttons[0],(struct desk_rect){w-196,18,80,28},1);
     desk_button_configure(&t->buttons[1],(struct desk_rect){w-104,18,88,28},1);
+    desk_button_configure(&t->buttons[2],w>=500?(struct desk_rect){w-324,18,116,28}:(struct desk_rect){0},w>=500);
     desk_tabs_configure(&t->system_tabs,(struct desk_rect){16,56,w-32,32},1);
     int network=desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK;
     desk_table_configure(&t->table,network?(struct desk_rect){0}:(struct desk_rect){16,158,w-32,h>232?h-232:0},!network);
@@ -113,6 +120,7 @@ void tool_system_action(struct tool *t,struct desk_action a) {
         tool_system_layout(t);desk_ui_layout_changed(&t->ui);tool_system_refresh(t,1);
         desk_log("desktools: system-page=%s\n",desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?"network":"processes");
     }
+    if(a.id==SYSTEM_DIAGNOSTICS) tool_launch(t,DESK_APP_NETWORK,"");
     if(a.id==SYSTEM_REFRESH) tool_system_refresh(t,1);
     if(a.id==SYSTEM_PAUSE) {
         t->system_paused=!t->system_paused;
@@ -122,7 +130,7 @@ void tool_system_action(struct tool *t,struct desk_action a) {
 }
 void tool_system_draw(struct tool *t,struct desk_canvas *c) {
     const struct desk_theme *theme=&desk_theme_quiet;
-    desk_label_draw(c,(struct desk_rect){16,18,c->width-224,30},theme->heading,"System",theme->text);
+    desk_label_draw(c,(struct desk_rect){16,18,c->width-(c->width>=500?352:224),30},theme->heading,"System",theme->text);
     if(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK) {
         desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,network_state(t),theme->text);return;
     }
