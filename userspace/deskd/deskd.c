@@ -25,7 +25,7 @@ struct client {
     int configure,awaiting,closing,close_requested,preferences_dirty;
     struct desk_packet release;
     struct desk_packet input[DESK_INPUT_QUEUE];
-    unsigned input_head,input_count;
+    unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
     struct desk_menu_store menus;
     char launch_path[160];
@@ -83,6 +83,10 @@ static void notifications_close(struct session *s);
 static void notifications_damage(struct session *s);
 static void context_close(struct session *s);
 static void capture_request(struct session *s);
+static int disposable_input(const struct desk_packet *p) {
+    return p->type==DESK_SCROLL || (p->type==DESK_POINTER &&
+        (p->value==DESK_POINTER_HOVER || p->value==DESK_POINTER_LEFT));
+}
 static void queue_input(struct session *s,int i,struct desk_packet p) {
     struct client *c=&s->clients[i];
     if (c->closing) return;
@@ -93,13 +97,32 @@ static void queue_input(struct session *s,int i,struct desk_packet p) {
             *last=p; return;
         }
         if (p.type==DESK_SCROLL && last->type==p.type &&
+            last->generation==p.generation && last->width==p.width && last->height==p.height &&
             (!p.x || !last->x || (p.x>0)==(last->x>0)) &&
             (!p.y || !last->y || (p.y>0)==(last->y>0))) {
             last->x=clamp((int64_t)last->x+p.x,-16384,16384);
             last->y=clamp((int64_t)last->y+p.y,-16384,16384); return;
         }
     }
-    if (c->input_count==DESK_INPUT_QUEUE) { close_client(s,i); return; }
+    if (c->input_count==DESK_INPUT_QUEUE) {
+        /* Slow drawing is not a reason to close a document. Bound replaceable
+         * motion/scroll traffic; preserve ordered key, button and focus edges. */
+        unsigned discard=DESK_INPUT_QUEUE;
+        if (!disposable_input(&p)) {
+            for (unsigned n=0;n<c->input_count;n++)
+                if(disposable_input(&c->input[(c->input_head+n)%DESK_INPUT_QUEUE])) { discard=n;break; }
+        }
+        if (disposable_input(&p) || discard<DESK_INPUT_QUEUE) {
+            if (!c->input_dropped++) desk_log("deskd: input pressure pid=%llu; dropping motion, keeping app open\n",(unsigned long long)c->pid);
+            if (disposable_input(&p)) return;
+            for(unsigned n=discard;n+1<c->input_count;n++)
+                c->input[(c->input_head+n)%DESK_INPUT_QUEUE]=c->input[(c->input_head+n+1)%DESK_INPUT_QUEUE];
+            c->input_count--;
+        } else {
+            desk_log("deskd: closing pid=%llu reason=ordered-input-overflow\n",(unsigned long long)c->pid);
+            close_client(s,i); return;
+        }
+    }
     if (!c->input_count) c->input_since=srv_ticks();
     c->input[(c->input_head+c->input_count++)%DESK_INPUT_QUEUE]=p;
 }
@@ -800,6 +823,7 @@ static void scroll_at(struct session *s,int x,int y,int wx,int wy) {
     struct desktop_window *w=&s->scene.windows[i];
     if (y<w->frame.y+44 || x<=w->frame.x || x>=w->frame.x+w->frame.w-1 || y>=w->frame.y+w->frame.h-1) return;
     struct desk_packet p=desk_packet_new(DESK_SCROLL);
+    p.generation=s->clients[i].generation;
     p.x=clamp(wx,-16384,16384); p.y=clamp(wy,-16384,16384);
     p.width=(uint32_t)(x-w->frame.x-1);p.height=(uint32_t)(y-w->frame.y-44);
     queue_input(s,i,p);
@@ -1182,7 +1206,10 @@ int main(int argc,char **argv) {
                 int height=clamp(y-w.y-44,240,clamp(canvas.height-w.y-(s.scene.apps?125:85),240,DESK_MAX_HEIGHT));
                 if (w.w!=width+2 || w.h!=height+45) configure(&s,resize,width,height);
             }
-            if (drag<0 && resize<0 && !(e.flags&MOUSE_CANCEL))
+            /* A stationary two-finger scroll must not insert HOVER between
+             * every scroll packet: that defeats coalescing and floods clients. */
+            if (drag<0 && resize<0 && !(e.flags&MOUSE_CANCEL) &&
+                (e.dx || e.dy || e.buttons!=buttons))
                 pointer_at(&s,x,y,e.buttons,(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT));
             buttons=e.buttons;
             desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});

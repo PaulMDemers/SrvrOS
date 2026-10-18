@@ -94,6 +94,26 @@ int main(void) {
     service(&s); assert(s.clients[0].input_count==2);
     queue_full=0; service(&s); assert(s.clients[0].input_count==1);
     service(&s); assert(!s.clients[0].input_count && sent[sends-1]==DESK_SCROLL);
+    /* Reproduce the former scroll/hover alternation while the client cannot
+     * accept IPC. The app must survive and later receive its ordered release. */
+    s.scene.apps=1;queue_full=1;
+    for(unsigned n=0;n<4*DESK_INPUT_QUEUE;n++) {
+        scroll_at(&s,60,150,0,n%2?40:-40);
+        pointer_at(&s,60,150,0,0);
+    }
+    assert(s.clients[0].input_count==DESK_INPUT_QUEUE && s.clients[0].input_dropped && !s.clients[0].closing);
+    p=desk_packet_new(DESK_POINTER);p.value=0;queue_input(&s,0,p);
+    assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
+    unsigned tail_index=(s.clients[0].input_head+s.clients[0].input_count-1)%DESK_INPUT_QUEUE;
+    assert(s.clients[0].input[tail_index].type==DESK_POINTER && !s.clients[0].input[tail_index].value);
+    queue_full=0;sends=0;
+    while(s.clients[0].input_count) service(&s);
+    assert(!s.clients[0].closing && sent[sends-1]==DESK_POINTER);
+    /* Same-direction wheel packets at one target remain one bounded entry. */
+    for(unsigned n=0;n<1024;n++) scroll_at(&s,60,150,0,1);
+    assert(s.clients[0].input_count==1 && s.clients[0].input[s.clients[0].input_head].y==1024);
+    scroll_at(&s,70,150,0,1);assert(s.clients[0].input_count==2);
+    s.scene.apps=0;
     scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].input_count);
     memset(&s,0,sizeof(s)); s.scene.focus=0;
     s.clients[0].pid=42; s.clients[0].generation=1; s.scene.windows[0].visible=1;

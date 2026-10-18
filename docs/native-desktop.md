@@ -8,9 +8,10 @@ historical prototypes. Start the current desktop from the SrvrOS monitor:
 run /fat/bin/deskd
 ```
 
-Development evidence is from disposable QEMU VMs. The accepted MacBook Air
-input/I/O checkpoint is preserved independently; the expanded app set has not
-replaced it. See the [development journal](desktop-progress-2026-10-18.md) for
+Automated evidence is from disposable QEMU VMs. The first expanded MacBook Air
+trial was generally successful, with two intermittent window closures under
+investigation and pointer acceleration queued. The accepted input/I/O checkpoint
+is preserved independently; the expanded app set has not replaced it. See the [development journal](desktop-progress-2026-10-18.md) for
 implementation and verification details.
 
 ![Native Text windows at 1440×900, arranged side by side](assets/screenshots/native-desktop-arranged.png)

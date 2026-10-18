@@ -1188,3 +1188,54 @@ file-byte comparison and offline exFAT check passed; USB console input worked
 afterward. Two initial harness waits were corrected to avoid trace-only and
 interleaved serial markers; these were harness issues, not guest acceptance.
 The physical session and user's feedback remain pending.
+
+
+## Laptop trial feedback and scroll-pressure correction
+
+The user returned from `e9dcca07595df573` and reported that generally everything
+worked great. The initial Help instructions closed unexpectedly, possibly around
+a second trackpad contact, and one other application closed once. The events were
+not reliably reproducible. Pointer movement was functional but required too many
+swipes. This is positive provisional hardware feedback, not acceptance of the
+intermittent closures. The accepted recovery checkpoint remains unchanged.
+
+Inspection found a reproducible compositor failure mechanism: every wheel-only
+event also enqueued a stationary hover. Alternating SCROLL/HOVER prevented the
+adjacent-scroll coalescer from reducing traffic; a full 64-packet client queue
+forced the app to close. The actual physical events have no retained trace, so
+this is a plausible cause rather than proof of their origin.
+
+Wheel-only events now omit redundant hover. Adjacent scrolling coalesces only at
+the same content coordinates and configuration generation. At queue capacity,
+replaceable motion/scroll packets may be dropped; ordered key/button/focus packets
+can evict a queued motion packet while preserving the order of remaining input.
+Press/release/cancel packets are never classified as disposable. Queue pressure
+logs once per client. A queue containing only ordered events retains the existing
+forced-close limit, now with an explicit reason in diagnostics; stalled clients
+and protocol failures retain their existing recovery behavior.
+
+The session regression floods a transport-blocked client with alternating scroll
+and hover, verifies it survives at bounded capacity, enqueues a release and drains
+it successfully. It also checks 1,024 same-target wheel increments coalesce and
+that a changed target stays separate. The Help VM regression covers its existing clipboard, navigation, save and exit
+checks. An attempted USB mouse wheel burst could not exercise scrolling: the
+current generic USB mouse handler ignores wheel data, so no physical-trackpad
+coverage is claimed. The pressure regression injects at the compositor boundary.
+
+### Pointer acceleration follow-up
+
+The current trackpad converter uses fixed scaling with fractional remainders,
+without velocity-dependent gain. Add a bounded gain curve based on monotonic
+sample intervals, keeping slow movement precise and increasing travel for fast
+swipes. Keep scrolling independent, rebase on contact-count changes/lifts, and
+expose sensitivity in Settings. Validate diagonal consistency, sample-rate
+variation, reversals, device cancellation and no jumps after pauses; final curve
+selection requires the laptop. This is queued after closure reliability, not
+implemented or hardware-accepted in this correction.
+
+Validation outcome: production rebuild, the complete desktop host suite, the
+focused pressure regression, and the Help QEMU workflow passed. The latter also
+verified the saved clipboard document byte-for-byte. A final logging-only cleanup
+preserved the established retirement marker used by other VM harnesses; the
+production build and pressure regression passed again afterward. No hardware
+installation or reboot was performed for this correction.
