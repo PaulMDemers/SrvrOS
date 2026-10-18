@@ -29,10 +29,6 @@
 static uint8_t packet[3];
 static uint8_t packet_index;
 static bool initialized;
-static volatile int32_t pending_dx;
-static volatile int32_t pending_dy;
-static volatile uint8_t current_buttons;
-static volatile bool changed;
 
 static bool wait_input_empty(void) {
     for (uint64_t i = 0; i < 100000; i++) {
@@ -117,10 +113,6 @@ bool mouse_init(void) {
 
     initialized = true;
     packet_index = 0;
-    pending_dx = 0;
-    pending_dy = 0;
-    current_buttons = 0;
-    changed = false;
     console_write("mouse: ps/2 auxiliary device enabled\n");
     return true;
 }
@@ -157,32 +149,5 @@ void mouse_handle_irq(void) {
 
     int32_t dx = (int8_t)packet[1];
     int32_t dy = -(int32_t)(int8_t)packet[2];
-    pending_dx += dx;
-    pending_dy += dy;
-    current_buttons = packet[0] & (MOUSE_FLAG_LEFT | MOUSE_FLAG_RIGHT | MOUSE_FLAG_MIDDLE);
-    changed = true;
-}
-
-void mouse_inject_event(int32_t dx, int32_t dy, uint8_t buttons) {
-    pending_dx += dx;
-    pending_dy += dy;
-    current_buttons = buttons & (MOUSE_FLAG_LEFT | MOUSE_FLAG_RIGHT | MOUSE_FLAG_MIDDLE);
-    changed = true;
-}
-
-bool mouse_scan(struct mouse_event *event) {
-    if (event == 0 || !changed) {
-        return false;
-    }
-
-    event->dx = pending_dx;
-    event->dy = pending_dy;
-    event->buttons = current_buttons;
-    event->flags = current_buttons;
-    event->reserved = 0;
-
-    pending_dx = 0;
-    pending_dy = 0;
-    changed = false;
-    return true;
+    mouse_inject_event(dx,dy,packet[0] & (MOUSE_FLAG_LEFT | MOUSE_FLAG_RIGHT | MOUSE_FLAG_MIDDLE));
 }

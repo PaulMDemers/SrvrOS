@@ -24,6 +24,17 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(fields['keyboard'],'PASS')
         self.assertEqual(fields['reports'],'493')
         self.assertEqual(fields['errors'],'0')
+    def test_pointer_trial_requires_measurements_and_desktop_exit(self):
+        metadata=dict(self.metadata,pointer=True)
+        with self.assertRaises(ValueError): capture.validate_result(metadata,self.data,self.completion(self.data))
+        data=subprocess.check_output([str(capture.boot.ROOT/'build/tests/trackpad-capture-host'),'--dump-pointer'])
+        fields=capture.validate_result(metadata,data,self.completion(data))
+        self.assertEqual(fields['pointer_trial'],'EXERCISED')
+        for old,new in ((b'desktop_exit=PASS',b'desktop_exit=FAIL'),
+                        (b'pointer_queue_overflows=0',b'pointer_queue_overflows=1')):
+            payload=data[:data.index(b'crc32=')].replace(old,new)
+            altered=payload+f"crc32={binascii.crc32(payload)&0xffffffff}\ncomplete={self.metadata['run']}\n".encode()
+            with self.assertRaises(ValueError): capture.validate_result(metadata,altered,self.completion(altered))
     def test_truncation_corruption_missing_completion(self):
         for data,done in ((self.data[:-1],self.completion(self.data)),
                           (self.data.replace(b'AaZz09',b'AaZz08'),self.completion(self.data)),

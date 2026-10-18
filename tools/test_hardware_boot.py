@@ -178,6 +178,14 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError): boot.stage(workspace_volume='37d8c5d0', **options)
         with self.assertRaises(ValueError): boot.stage(workspace_volume='bad')
 
+    def test_pointer_profile(self):
+        version='ram-usb-v11-trackpad-37d8c5d0-0123456789abcdef'
+        release=self.payload('pointer',version)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.trackpad=pointer',cfg)
+        self.assertNotIn('srvros.trackpad=capture',cfg)
+        with self.assertRaises(ValueError): boot.stage(pointer=True)
+
     def test_trackpad_profile_roundtrip_and_conflicts(self):
         version='ram-usb-v10-trackpad-37d8c5d0-0123456789abcdef'
         release=self.payload('trackpad',version)

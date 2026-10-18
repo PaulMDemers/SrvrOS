@@ -10,6 +10,7 @@
 #include <srvros/xhci.h>
 #include <srvros/usb_storage.h>
 #include <srvros/apple_trackpad.h>
+#include <srvros/trackpad_pointer.h>
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -184,6 +185,8 @@ struct xhci_trackpad_endpoint {
     uint64_t reports,contact_reports,button_reports,malformed,errors;
     uint32_t last_length,last_completion;
     struct apple_trackpad_frame frame;
+    struct trackpad_pointer pointer;
+    uint64_t pointer_motion, pointer_events,pointer_buttons,pointer_cancels;
     uint64_t lifts;
     uint32_t max_contacts;
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
@@ -338,7 +341,8 @@ static volatile bool xhci_input_probe_active;
 
 static bool storage_writable;
 void xhci_set_storage_writable(bool writable) { storage_writable = writable; }
-static bool trackpad_capture;
+static bool trackpad_capture,trackpad_pointer_enabled;
+void xhci_set_trackpad_pointer(bool enabled) { trackpad_pointer_enabled=enabled; }
 void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
@@ -359,7 +363,8 @@ static void event_irq_restore(uint64_t flags) {
 void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
     if (!out) return;
     uint64_t flags=event_irq_save();
-    *out=(struct xhci_trackpad_capture){0};
+    *out=(struct xhci_trackpad_capture){.pointer_enabled=trackpad_pointer_enabled,
+        .pointer_queue_overflows=mouse_overflow_count()};
     for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_device *d=&xhci.devices[i];
         struct xhci_trackpad_endpoint *t=&d->trackpad;
@@ -370,6 +375,9 @@ void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
         out->contact_reports=t->contact_reports; out->button_reports=t->button_reports;
         out->lifts=t->lifts; out->malformed=t->malformed; out->errors=t->errors;
         out->keyboard_reports=d->hid_reports;
+        out->pointer_motion=t->pointer_motion;
+        out->pointer_events=t->pointer_events; out->pointer_buttons=t->pointer_buttons;
+        out->pointer_cancels=t->pointer_cancels;
         for (unsigned n=0;n<XHCI_TRACKPAD_SAMPLES;n++) out->samples[n]=t->samples[n];
         break;
     }
@@ -379,6 +387,7 @@ void xhci_trackpad_reset_capture(void) {
     uint64_t flags=event_irq_save();
     for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
         struct xhci_trackpad_endpoint *t=&xhci.devices[i].trackpad;
+        t->pointer_motion=t->pointer_events=t->pointer_buttons=t->pointer_cancels=0;
         t->reports=t->contact_reports=t->button_reports=t->lifts=t->malformed=0;
         t->max_contacts=0; t->frame=(struct apple_trackpad_frame){0};
         for (unsigned n=0;n<XHCI_TRACKPAD_SAMPLES;n++) t->samples[n].length=0;
@@ -1424,7 +1433,7 @@ static bool address_device(struct xhci_device *device) {
 }
 
 static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
-    if (!trackpad_capture || device->vendor_id!=0x05ac || device->product_id!=0x0291 ||
+    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || device->product_id!=0x0291 ||
         device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
     bool interface=false,found=false;
     uint8_t interval=0;
@@ -1765,6 +1774,13 @@ static void submit_interrupt_poll(struct xhci_device *device) {
     db_write32(device->slot_id, device->interrupt_dci);
 }
 
+static void cancel_trackpad_pointer(struct xhci_trackpad_endpoint *t) {
+    if (!trackpad_pointer_enabled) return;
+    struct trackpad_motion motion;
+    if (trackpad_pointer_cancel(&t->pointer,&motion)) mouse_inject_trackpad(0,0,0);
+    t->pointer_cancels++;
+}
+
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
@@ -1781,15 +1797,26 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (t->pending && dci==t->dci && pointer==t->trb) {
         t->pending=false; t->last_completion=completion;
+        if (!t->ready) return; /* Late completion after endpoint shutdown. */
         if ((completion!=1 && completion!=13) || remaining>APPLE_TRACKPAD_REPORT_MAX) {
-            t->errors++; t->ready=false; return;
+            t->errors++; t->ready=false; cancel_trackpad_pointer(t); return;
         }
         t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
         uint8_t previous_contacts=t->frame.count;
         int decoded=apple_trackpad_decode(t->buffer,t->last_length,&t->frame);
-        if (decoded<0) { t->malformed++; trackpad_sample(t,4); }
+        if (decoded<0) { t->malformed++; trackpad_sample(t,4); cancel_trackpad_pointer(t); }
         if (decoded>0) {
             t->reports++;
+            if (trackpad_pointer_enabled) {
+                struct trackpad_motion motion;
+                uint8_t buttons=t->pointer.buttons;
+                if (trackpad_pointer_frame(&t->pointer,&t->frame,&motion)) {
+                    mouse_inject_trackpad(motion.dx,motion.dy,motion.buttons);
+                    t->pointer_events++;
+                    if (motion.dx || motion.dy) t->pointer_motion++;
+                    if (buttons!=motion.buttons) t->pointer_buttons++;
+                }
+            }
             trackpad_sample(t,0);
             if (t->frame.count) { t->contact_reports++; trackpad_sample(t,1); }
             if (t->frame.count>1) trackpad_sample(t,2);
@@ -1851,7 +1878,15 @@ static void xhci_poll_worker(void *arg) {
                 if (d->present && d->interrupt_ready && d->hid_keyboard) {
                     uint32_t portsc = op_read32(XHCI_OP_PORTS + (d->port_id - 1) * 0x10);
                     if (portsc & XHCI_PORTSC_CCS) keyboard_repeat_hid(&d->keyboard_state, now);
-                    else d->keyboard_state.repeat_usage = 0;
+                    else {
+                        d->keyboard_state.repeat_usage = 0;
+                        uint64_t flags=event_irq_save();
+                        if (d->trackpad.ready) {
+                            d->trackpad.ready=false; d->trackpad.errors++;
+                            cancel_trackpad_pointer(&d->trackpad);
+                        }
+                        event_irq_restore(flags);
+                    }
                 }
             }
         }
@@ -2214,8 +2249,8 @@ static bool enumerate_device(struct xhci_device *device) {
     device->interrupt_ready = true;
     if (device->trackpad.candidate) {
         bool ready=configure_trackpad_endpoint(device);
-        console_printf("xhci: trackpad capture slot=%u dci=7 ready=%s request=%u (no pointer injection)\n",
-            (uint64_t)device->slot_id,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX);
+        console_printf("xhci: trackpad slot=%u dci=7 ready=%s request=%u pointer=%s\n",
+            (uint64_t)device->slot_id,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX,trackpad_pointer_enabled?"yes":"no");
     }
     device->stage = "ready";
     if (device->hid_keyboard) {

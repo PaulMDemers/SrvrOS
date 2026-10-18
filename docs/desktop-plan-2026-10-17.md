@@ -129,7 +129,8 @@ adds versioned surface ownership, separate applications, resize/focus and crash
 recovery, plus opt-in trackpad endpoint capture. D1's complete input contract,
 event-driven waits and timing gates remain open. The [physical capture gate](trackpad-capture-2026-10-17.md)
 passed with simultaneous keyboard input; D2's pointer/gesture policy and desktop
-interaction acceptance remain open.
+interaction acceptance remain open. The [first pointer trial](trackpad-pointer-2026-10-17.md)
+adds opt-in one-finger motion and physical click/drag, pending hardware acceptance.
 
 ### D0 — Product and design contract (this change)
 

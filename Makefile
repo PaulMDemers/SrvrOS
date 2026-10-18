@@ -1869,9 +1869,9 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
@@ -2171,3 +2171,17 @@ test-trackpad-capture: build/tests/trackpad-capture-host$(HOST_EXE)
 build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kernel/src/trackpad_test.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-pointer
+test-core: test-pointer
+test-pointer: build/tests/trackpad-pointer-host$(HOST_EXE) build/tests/mouse-input-host$(HOST_EXE)
+	build/tests/trackpad-pointer-host$(HOST_EXE)
+	build/tests/mouse-input-host$(HOST_EXE)
+
+build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c kernel/include/srvros/trackpad_pointer.h kernel/include/srvros/apple_trackpad.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_trackpad_pointer.c kernel/src/drivers/trackpad_pointer.c -o $@
+
+build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@

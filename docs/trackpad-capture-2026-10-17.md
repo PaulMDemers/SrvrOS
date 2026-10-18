@@ -127,3 +127,6 @@ assume the raw `origin` word is a stable finger ID. Then extend the input contra
 for two-finger scrolling and cancellation, with palm rejection and typing/I/O
 coexistence tested before calling the desktop interaction usable. Pointer feel,
 latency and gesture behavior still require a physical interactive test.
+
+The [pointer trial implementation](trackpad-pointer-2026-10-17.md) now adds the
+next opt-in profile; its physical desktop acceptance is pending.

@@ -10,7 +10,7 @@ struct desktop_window {
 };
 struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS];
-    int focus,cursor_x,cursor_y;
+    int focus,cursor_x,cursor_y,trackpad_trial;
 };
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
 #endif

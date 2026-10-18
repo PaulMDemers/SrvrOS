@@ -8,6 +8,8 @@
 #include <srvros/exfat.h>
 #include <srvros/vfs.h>
 #include <srvros/halt.h>
+#include <srvros/process.h>
+#include <srvros/mouse.h>
 #include <stddef.h>
 
 static char report[8192];
@@ -75,7 +77,7 @@ static bool coverage(const struct xhci_trackpad_capture *s,bool keyboard) {
         s->button_reports && s->lifts && !s->errors && !s->malformed && keyboard;
 }
 static void build_report(const char *run,const char *release,const struct xhci_trackpad_capture *s,
-    const char *input,uint64_t keyboard_before,uint64_t dropped,uint64_t elapsed) {
+    const char *input,uint64_t keyboard_before,uint64_t dropped,uint64_t elapsed,int64_t desktop_exit) {
     used=0; overflow=false;
     bool keyboard=equal(input,"AaZz09") && s->keyboard_reports>keyboard_before && !dropped;
     field("format","srvros-trackpad-v1"); field("run",run); field("release",release);
@@ -97,6 +99,15 @@ static void build_report(const char *run,const char *release,const struct xhci_t
         }
         hex[2*n]=0; field(names[i],hex);
     }
+    if (s->pointer_enabled) {
+        number("pointer_queue_overflows",s->pointer_queue_overflows);
+        number("pointer_motion",s->pointer_motion); number("pointer_buttons",s->pointer_buttons);
+        number("pointer_cancels",s->pointer_cancels);
+        field("desktop_exit",desktop_exit==0?"PASS":"FAIL");
+        bool exercised=coverage(s,keyboard) && desktop_exit==0 && s->pointer_motion &&
+            s->pointer_buttons>=2 && !s->pointer_cancels && !s->pointer_queue_overflows;
+        field("pointer_trial",exercised?"EXERCISED":"INCOMPLETE");
+    }
     field("status",coverage(s,keyboard)?"CAPTURED":"INCOMPLETE");
     number("crc32",crc32((const uint8_t *)report,used));
     field("complete",run);
@@ -108,7 +119,8 @@ static void screen(const char *run,const struct xhci_trackpad_capture *s,const c
     console_write("2. Swipe with TWO fingers, then lift them.\n");
     console_write("3. PRESS the trackpad to click several times (not just tap).\n");
     console_write("4. Type AaZz09 on the built-in keyboard, then press Enter.\n\n");
-    console_write("This captures reports only; the pointer will not move.\n");
+    console_write(s->pointer_enabled?"Desktop trial ended; complete these checks to save.\n":
+        "This captures reports only; the pointer will not move.\n");
     console_write("Enter saves the USB report and HALTS for a manual restart.\n\n");
     console_printf("Run: %s\nDevice found=%u ready=%u reports=%u\n",
         run,(uint64_t)s->found,(uint64_t)s->ready,s->reports);
@@ -134,6 +146,15 @@ static void capture(const char *run,const char *release) {
     uint64_t before=snapshot.keyboard_reports,start=timer_monotonic_us(),dropped=keyboard_dropped_count();
     char input[32]={0},c; unsigned count=0;
     while (keyboard_scan_char(&c)) {} /* Discard keys left over from boot. */
+    int64_t desktop_exit=-1;
+    if (snapshot.pointer_enabled) {
+        struct mouse_event stale;
+        while (mouse_scan(&stale)) {}
+        console_write("trackpad-test: starting desktop; Escape returns to capture checks\n");
+        desktop_exit=process_run_elf_args("/fat/bin/deskd","--trackpad-test")?0:-1;
+        while (keyboard_scan_char(&c)) {}
+        xhci_trackpad_snapshot(&snapshot);
+    }
     screen(run,&snapshot,input);
     console_write("trackpad-test: ready for gestures\n");
     uint64_t redraw=timer_ticks();
@@ -152,7 +173,7 @@ static void capture(const char *run,const char *release) {
     }
     xhci_trackpad_snapshot(&snapshot);
     dropped=keyboard_dropped_count()-dropped;
-    build_report(run,release,&snapshot,input,before,dropped,timer_monotonic_us()-start);
+    build_report(run,release,&snapshot,input,before,dropped,timer_monotonic_us()-start,desktop_exit);
     bool saved=!overflow && exfat_write_file(result_path,(const uint8_t *)report,used) &&
         workspace_sync() && file_equals(result_path,report,used);
     if (saved) {
@@ -170,6 +191,8 @@ static void capture(const char *run,const char *release) {
     console_printf("Reports=%u touches=%u max fingers=%u clicks=%u lifts=%u\n",snapshot.reports,
         snapshot.contact_reports,(uint64_t)snapshot.max_contacts,snapshot.button_reports,snapshot.lifts);
     console_printf("Malformed=%u errors=%u\n",snapshot.malformed,snapshot.errors);
+    if (snapshot.pointer_enabled) console_printf("Desktop exit=%s motion events=%u button edges=%u cancels=%u\n",
+        desktop_exit==0?"PASS":"FAIL",snapshot.pointer_motion,snapshot.pointer_buttons,snapshot.pointer_cancels);
     console_printf("Report: %s\nUSB unmounted: %s\n",saved?result_path:"SAVE_FAILED",unmounted?"yes":"NO");
     console_write("Host must verify the saved report; this is not gesture acceptance.\n");
 }

@@ -164,6 +164,7 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && strcmp(argv[1],"--trace")==0)};
+    s.scene.trackpad_trial=argc==2 && strcmp(argv[1],"--trackpad-test")==0;
     desk_damage_init(&s.damage,info.width,info.height);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
@@ -221,6 +222,7 @@ int main(int argc,char **argv) {
             int x=s.scene.cursor_x=clamp((int64_t)s.scene.cursor_x+e.dx,0,canvas.width-1);
             int y=s.scene.cursor_y=clamp((int64_t)s.scene.cursor_y+e.dy,0,canvas.height-1);
             if (s.trace) printf("deskd: pointer x=%d y=%d buttons=%u\n",x,y,(unsigned)e.buttons);
+            if (e.flags&MOUSE_CANCEL) { drag=resize=-1; buttons=e.buttons; }
             if ((e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)) {
                 int i=hit(&s,x,y);
                 if (i>=0) {

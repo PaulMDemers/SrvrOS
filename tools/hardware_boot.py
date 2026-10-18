@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-TRACKPAD_RE = re.compile(r"ram-usb-v10-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
+TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -43,7 +43,8 @@ def limine_config(release, version=CONFIG_VERSION):
     trackpad = TRACKPAD_RE.fullmatch(version)
     if trackpad:
         volume, run = trackpad.groups()
-        cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad=capture "
+        mode="pointer" if version.startswith("ram-usb-v11-") else "capture"
+        cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad={mode} "
                    f"srvros.trackpad-run={run} srvros.trackpad-release={release}")
     elif autotest:
         volume, run = autotest.groups()
@@ -99,7 +100,9 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False):
+    if pointer and trackpad_run is None:
+        raise ValueError("Pointer trial requires a trackpad run")
     if repeat not in (1, 5) or (repeat != 1 and (autotest_volume is None or run_id is None)):
         raise ValueError('Invalid automated-test repeat count')
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
@@ -112,7 +115,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
     if trackpad_run is not None:
-        version = f"ram-usb-v10-trackpad-{workspace_volume}-{trackpad_run}"
+        version = f"ram-usb-v{11 if pointer else 10}-trackpad-{workspace_volume}-{trackpad_run}"
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     sources = {

@@ -1,0 +1,75 @@
+#include <srvros/mouse.h>
+#include <limits.h>
+
+/* One CPU currently owns input. IRQ exclusion also covers producers reached
+ * from storage service hooks. Keep button edges even if userspace is delayed. */
+#define MOUSE_QUEUE_SIZE 64
+static struct mouse_event queue[MOUSE_QUEUE_SIZE];
+static unsigned head,count;
+static uint64_t overflows;
+static uint8_t source_buttons[2],blocked[2];
+static uint64_t lock(void) {
+#ifndef SRVROS_MOUSE_TEST_HOST
+    uint64_t flags;
+    __asm__ volatile("pushfq; popq %0; cli" : "=r"(flags) :: "memory");
+    return flags;
+#else
+    return 0;
+#endif
+}
+static void unlock(uint64_t flags) {
+#ifndef SRVROS_MOUSE_TEST_HOST
+    if (flags&(1ull<<9)) __asm__ volatile("sti" ::: "memory");
+#else
+    (void)flags;
+#endif
+}
+static int32_t sum(int32_t a,int32_t b) {
+    int64_t n=(int64_t)a+b;
+    return n>INT32_MAX?INT32_MAX:n<INT32_MIN?INT32_MIN:(int32_t)n;
+}
+static void inject(unsigned source,int32_t dx,int32_t dy,uint8_t buttons) {
+    uint64_t flags=lock();
+    uint8_t previous=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
+    source_buttons[source]=buttons&7;
+    blocked[source]&=buttons;
+    buttons=(source_buttons[0]&~blocked[0])|(source_buttons[1]&~blocked[1]);
+    if (!dx && !dy && buttons==previous) { unlock(flags); return; }
+    /* Never coalesce movement into a button edge: its click position matters. */
+    if (count && previous==buttons) {
+        struct mouse_event *last=&queue[(head+count-1)%MOUSE_QUEUE_SIZE];
+        if (last->buttons==buttons && !last->reserved && !(last->flags&MOUSE_CANCEL)) {
+            last->dx=sum(last->dx,dx); last->dy=sum(last->dy,dy);
+            unlock(flags); return;
+        }
+    }
+    if (count==MOUSE_QUEUE_SIZE) {
+        /* Drop the ambiguous gesture, release all buttons and require a real
+         * release before accepting another press from either source. */
+        overflows++;
+        head=0; count=1;
+        blocked[0]=source_buttons[0]; blocked[1]=source_buttons[1];
+        queue[0]=(struct mouse_event){.flags=MOUSE_CANCEL};
+        unlock(flags); return;
+    }
+    queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
+        .dx=dx,.dy=dy,.buttons=buttons,.flags=buttons,
+        .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
+    count++;
+    unlock(flags);
+}
+void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,buttons); }
+void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,buttons); }
+bool mouse_scan(struct mouse_event *out) {
+    if (!out) return false;
+    uint64_t flags=lock();
+    if (!count) { unlock(flags); return false; }
+    *out=queue[head]; out->reserved=0;
+    head=(head+1)%MOUSE_QUEUE_SIZE; count--;
+    unlock(flags); return true;
+}
+
+uint64_t mouse_overflow_count(void) {
+    uint64_t flags=lock(),value=overflows;
+    unlock(flags); return value;
+}

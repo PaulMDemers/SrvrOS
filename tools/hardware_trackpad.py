@@ -29,7 +29,7 @@ def folder_for(volume):
     return folder
 
 
-def prepare(uuid):
+def prepare(uuid,pointer=False):
     volume = host.volume_id(uuid)
     folder = folder_for(volume)
     run = secrets.token_hex(8)
@@ -37,15 +37,16 @@ def prepare(uuid):
     if request.exists() or request.is_symlink() or any((folder/f'trackpad-{run}{suffix}').exists() or
             (folder/f'trackpad-{run}{suffix}').is_symlink() for suffix in ('.txt','.done')):
         raise ValueError('Run identity collision')
-    release = boot.stage(workspace_volume=volume, trackpad_run=run)
+    release = boot.stage(workspace_volume=volume, trackpad_run=run,pointer=pointer)
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
     print(f'Prepared trackpad capture {run}, release {release}')
+    if pointer: print('Desktop trial opens first: move, physical click/drag, type; Escape returns to save checks.')
     print('The guest waits for gestures and AaZz09 + Enter, saves the report, then halts.')
     return metadata
 
@@ -66,7 +67,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v10-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -124,6 +125,14 @@ def validate_result(metadata,data,completion):
             fields.get('status')!=('CAPTURED' if covered else 'INCOMPLETE'):
         raise ValueError('Inconsistent capture coverage')
     if covered and any(not fields[k] for k in SAMPLES[:4]): raise ValueError('Missing coverage samples')
+    if metadata.get('pointer') or 'pointer_trial' in fields:
+        for key in ('pointer_motion','pointer_buttons','pointer_cancels','pointer_queue_overflows'):
+            if not re.fullmatch(r'[0-9]{1,20}',fields.get(key,'')): raise ValueError('Invalid pointer measurement')
+        if fields.get('desktop_exit') not in ('PASS','FAIL'): raise ValueError('Missing desktop result')
+        exercised=covered and fields['desktop_exit']=='PASS' and int(fields['pointer_motion'])>0 and \
+            int(fields['pointer_buttons'])>=2 and fields['pointer_cancels']=='0' and fields['pointer_queue_overflows']=='0'
+        if fields.get('pointer_trial')!=('EXERCISED' if exercised else 'INCOMPLETE'):
+            raise ValueError('Inconsistent pointer trial')
     return fields
 
 
@@ -143,18 +152,20 @@ def collect(run):
     print(f"Trackpad capture {run}: {fields['status']}; keyboard={fields['keyboard']}")
     print(' '.join(f'{key}={fields[key]}' for key in ('reports','max_contacts','button_reports','lifts','malformed','errors')))
     print(f'Evidence: {RUNS/run}')
-    return fields['status']=='CAPTURED'
+    if metadata.get('pointer'): print(f"Pointer trial: {fields['pointer_trial']} (physical feel still needs user feedback)")
+    return fields['status']=='CAPTURED' and (not metadata.get('pointer') or fields['pointer_trial']=='EXERCISED')
 
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action',choices=('prepare','run','collect'))
+    parser.add_argument('--pointer',action='store_true',help='Prepare an interactive desktop pointer trial')
     parser.add_argument('--uuid'); parser.add_argument('--run')
     args=parser.parse_args()
     try:
         if args.action=='prepare':
             if not args.uuid: parser.error('prepare requires --uuid')
-            prepare(args.uuid)
+            prepare(args.uuid,args.pointer)
         elif args.action=='run': launch(args.run)
         elif not collect(args.run): raise SystemExit(2)
     except (OSError,ValueError,RuntimeError,KeyError,subprocess.CalledProcessError) as error:

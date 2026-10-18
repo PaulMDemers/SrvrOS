@@ -11,7 +11,8 @@ struct xhci_trackpad_sample {
     uint8_t data[APPLE_TRACKPAD_REPORT_MAX];
 };
 struct xhci_trackpad_capture {
-    bool found, ready, pending;
+    bool found, ready, pending, pointer_enabled;
+    uint64_t pointer_queue_overflows, pointer_motion, pointer_events, pointer_buttons, pointer_cancels;
     uint8_t slot;
     uint32_t last_length, completion, max_contacts;
     uint64_t reports, contact_reports, button_reports, lifts, malformed, errors, keyboard_reports;
@@ -23,6 +24,7 @@ void xhci_trackpad_reset_capture(void);
 
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);
+void xhci_set_trackpad_pointer(bool enabled);
 void xhci_init(void);
 bool xhci_is_present(void);
 uint64_t xhci_keyboard_count(void);

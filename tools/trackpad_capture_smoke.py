@@ -13,14 +13,16 @@ from exfat_test_image import ExfatFixture, check_clean_image
 from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
 from hardware_trackpad import validate_result
+from desktop_foundation_smoke import QMP
 
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--pointer',action='store_true')
     parser.add_argument('--qemu',default='qemu-system-x86_64')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
-    logs=root/'build/review'; logs.mkdir(exist_ok=True)
+    logs=root/('build/review/pointer-trial' if args.pointer else 'build/review'); logs.mkdir(parents=True,exist_ok=True)
     run='0123456789abcdef'; release='fedcba9876543210'
     with tempfile.TemporaryDirectory(prefix='srvros-trackpad-') as directory:
         temp=Path(directory); volume=temp/'volume.img'; disk=temp/'usb.img'
@@ -37,15 +39,16 @@ def main():
             struct.pack_into('<II',mbr,454,2048,len(initial)//512); mbr[510:]=b'\x55\xaa'
             with disk.open('wb') as f: f.write(mbr); f.seek(2048*512); f.write(initial)
         reset()
-        iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad=capture'
+        iso=make_iso(root,temp,False,f' srvros.workspace-volume={uuid} srvros.trackpad={"pointer" if args.pointer else "capture"}'
             f' srvros.trackpad-run={run} srvros.trackpad-release={release}')
         def boot(label,interactive=False,readonly=False):
             sockpath=temp/'serial.sock'; sockpath.unlink(missing_ok=True)
+            qmppath=temp/'qmp'; qmppath.unlink(missing_ok=True)
             command=[args.qemu,'-M','q35','-m','512M','-drive',f'if=pflash,format=raw,readonly=on,file={default_ovmf_path()}',
                 '-cdrom',str(iso),'-boot','d','-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0',
                 '-drive',f'if=none,id=stick,format=raw,file={disk}'+(',readonly=on' if readonly else ''),
                 '-device','usb-storage,drive=stick,bus=xhci.0','-serial',f'unix:{sockpath},server=on,wait=on',
-                '-display','none','-monitor','none','-no-reboot']
+                '-display','none','-monitor','none','-no-reboot','-qmp',f'unix:{qmppath},server=on,wait=off']
             data=b''
             with (logs/f'trackpad-{label}-qemu.log').open('wb') as errors:
                 p=subprocess.Popen(command,stdout=errors,stderr=errors)
@@ -61,10 +64,22 @@ def main():
                             nonlocal data
                             deadline=time.monotonic()+180
                             while marker not in data:
+                                if marker==b'deskd: opened' and b'trackpad-test: ready for gestures' in data:
+                                    raise RuntimeError('Desktop launch failed; returned to capture before opening a window')
                                 if p.poll() is not None or time.monotonic()>deadline: raise RuntimeError(f'Missing {marker!r}; {label}')
                                 try: data+=sock.recv(8192)
                                 except socket.timeout: pass
                         if interactive:
+                            if args.pointer:
+                                wait(b'deskd: opened')
+                                qmp=QMP(qmppath)
+                                time.sleep(.5)
+                                qmp.key('a'); qmp.key('a',True)
+                                wait(b'deskclient: text=aA')
+                                qmp.call('screendump',{'filename':str(logs/'desktop-pointer-trial.ppm')})
+                                qmp.key('esc')
+                                wait(b'deskd: exited')
+                                qmp.stream.close(); qmp.sock.close()
                             wait(b'trackpad-test: ready for gestures')
                             sock.sendall(b'AaZz09\n')
                         wait(b'trackpad-test: HALTED')
@@ -83,7 +98,8 @@ def main():
         saved=ExfatFixture(volume.read_bytes())
         report=saved.read(f'srvros-work/trackpad-{run}.txt')
         complete=saved.read(f'srvros-work/trackpad-{run}.done')
-        fields=validate_result({'run':run,'release':release},report,complete)
+        fields=validate_result({'run':run,'release':release,'pointer':args.pointer},report,complete)
+        if args.pointer: assert fields['desktop_exit']=='PASS' and fields['pointer_trial']=='INCOMPLETE'
         assert fields['status']=='INCOMPLETE' and fields['found']=='0' and fields['typed']=='AaZz09'
         assert saved.read(f'srvros-work/trackpad-{run}.req')==f'STARTED {run}\n'.encode()
         (logs/'trackpad-capture-report.txt').write_bytes(report)

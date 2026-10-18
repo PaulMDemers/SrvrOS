@@ -7,6 +7,8 @@
 #define MOUSE_RIGHT 0x02
 #define MOUSE_MIDDLE 0x04
 
+#define MOUSE_CANCEL 0x80
+
 struct mouse_event {
     uint64_t abi_version;
     uint64_t struct_size;
