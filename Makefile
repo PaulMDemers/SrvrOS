@@ -172,6 +172,7 @@ A1466_SSDT := build/a1466-input.aml
 PYTHON ?= python3
 HOST_CC ?= cc
 HOST_AR ?= ar
+HOST_NM ?= nm
 
 CFLAGS := \
 	-target x86_64-freestanding-none \
@@ -2878,3 +2879,8 @@ build/tests/path-host$(HOST_EXE): tools/test_path.c $(HOST_DESK_WIDGETS_A) $(DES
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) $< $(HOST_DESK_WIDGETS_A) -o $@
 test-desktop: test-path
+
+.PHONY: test-widget-boundary
+test-widgets: test-widget-boundary
+test-widget-boundary: $(HOST_DESK_WIDGETS_A)
+	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
