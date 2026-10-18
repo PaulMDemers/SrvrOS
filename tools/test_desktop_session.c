@@ -6,7 +6,7 @@
 
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped;
-static uint32_t sent[16];
+static uint32_t sent[128];
 long srv_ticks(void) { return (long)now; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
@@ -23,7 +23,7 @@ struct desk_packet desk_packet_new(uint32_t type) {
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
     if (queue_full) return -1;
-    assert(sends<16); sent[sends++]=p->type; return 0;
+    assert(sends<128); sent[sends++]=p->type; return 0;
 }
 int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uint32_t *p,uint64_t stride) {
     assert(id==7 && !x && !y && stride==w);
@@ -66,15 +66,50 @@ int main(void) {
     s.clients[0].pid=42; s.scene.windows[0].visible=1;
     s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
     alive=1; queue_full=1;
-    scroll_at(&s,60,70,0,120); assert(!s.clients[0].scroll_count); /* Title bar. */
+    scroll_at(&s,60,70,0,120); assert(!s.clients[0].input_count); /* Title bar. */
     scroll_at(&s,60,150,0,120); scroll_at(&s,60,150,0,40);
     scroll_at(&s,60,150,0,-20);
-    assert(s.scene.focus==1 && s.clients[0].scroll_count==2);
-    assert(s.clients[0].scroll[0].y==160 && s.clients[0].scroll[1].y==-20);
-    service(&s); assert(s.clients[0].scroll_count==2);
-    queue_full=0; service(&s); assert(s.clients[0].scroll_count==1);
-    service(&s); assert(!s.clients[0].scroll_count && sent[sends-1]==DESK_SCROLL);
-    scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].scroll_count);
+    assert(s.scene.focus==1 && s.clients[0].input_count==2);
+    assert(s.clients[0].input[0].y==160 && s.clients[0].input[1].y==-20);
+    service(&s); assert(s.clients[0].input_count==2);
+    queue_full=0; service(&s); assert(s.clients[0].input_count==1);
+    service(&s); assert(!s.clients[0].input_count && sent[sends-1]==DESK_SCROLL);
+    scroll_at(&s,60,150,0,80); forget(&s,0); assert(!s.clients[0].input_count);
+    memset(&s,0,sizeof(s)); s.scene.focus=0;
+    s.clients[0].pid=42; s.clients[0].generation=1; s.scene.windows[0].visible=1;
+    s.scene.windows[0].frame=(struct desk_rect){20,60,400,300};
+    pointer_at(&s,400,200,MOUSE_LEFT,1);
+    pointer_at(&s,780,500,MOUSE_LEFT,0); pointer_at(&s,790,510,MOUSE_LEFT,0);
+    assert(s.pointer_pid==42 && s.clients[0].input_count==2);
+    assert(s.clients[0].input[0].value==(DESK_POINTER_LEFT|DESK_POINTER_PRESS));
+    assert(s.clients[0].input[0].x==379 && s.clients[0].input[0].y==96);
+    assert(s.clients[0].input[1].x==769 && s.clients[0].input[1].y==406);
+    pointer_at(&s,790,510,0,0);
+    assert(!s.pointer_pid && s.clients[0].input_count==3 && !s.clients[0].input[2].value);
+    queue_full=1; service(&s); assert(s.clients[0].input_count==3);
+    queue_full=0; service(&s); service(&s); service(&s); assert(!s.clients[0].input_count);
+    pointer_at(&s,400,200,MOUSE_LEFT,1); pointer_at(&s,400,200,0,0);
+    cancel_input(&s,0);
+    assert(!s.pointer_pid && s.clients[0].input_count==1);
+    assert(s.clients[0].input[s.clients[0].input_head].value==DESK_POINTER_CANCEL);
+    service(&s);
+    pointer_at(&s,400,200,MOUSE_LEFT,1); focus(&s,-1);
+    assert(!s.pointer_pid && s.pointer_blocked && s.clients[0].input_count==2);
+    unsigned tail=(s.clients[0].input_head+1)%16;
+    assert(s.clients[0].input[tail].value==DESK_POINTER_CANCEL);
+    pointer_at(&s,400,200,MOUSE_LEFT,0); assert(!s.pointer_pid);
+    pointer_at(&s,400,200,0,0); assert(!s.pointer_blocked);
+    focus(&s,0); pointer_at(&s,400,200,MOUSE_LEFT,1);
+    configure(&s,0,400,300); assert(!s.pointer_pid && s.pointer_blocked);
+    pointer_at(&s,400,200,0,0); s.clients[0].awaiting=0;
+    pointer_at(&s,400,200,MOUSE_LEFT,1); forget(&s,0);
+    assert(!s.pointer_pid && s.pointer_blocked && !s.clients[0].input_count);
+    memset(&s,0,sizeof(s)); s.clients[0].pid=42; s.pointer_pid=42;
+    p=desk_packet_new(DESK_POINTER); p.value=DESK_POINTER_PRESS|DESK_POINTER_LEFT;
+    for (int i=0;i<16;i++) queue_input(&s,0,p);
+    assert(s.clients[0].input_count==16 && !s.clients[0].closing);
+    queue_input(&s,0,p);
+    assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

@@ -68,6 +68,16 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(fields['gesture_palm_suppressed'],'0')
         for key in ('pointer_cancels','pointer_queue_overflows','keyboard_dropped','errors','malformed'):
             self.assertEqual(fields[key],'0')
+    def test_physical_filter_exercise(self):
+        fixtures=capture.boot.ROOT/'tools/fixtures'
+        fields=capture.validate_result(
+            {'run':'9ac0910666546aa2','release':'4108b7a4e581d201','pointer':True,'gestures':True},
+            (fixtures/'apple-05ac-0291-filters.txt').read_bytes(),
+            (fixtures/'apple-05ac-0291-filters.done').read_bytes())
+        self.assertEqual(fields['gesture_typing_suppressed'],'22')
+        self.assertEqual(fields['gesture_palm_suppressed'],'729')
+        self.assertEqual(fields['gesture_max_touch_major'],'1489')
+        self.assertEqual(fields['gesture_trial'],'EXERCISED')
     def test_truncation_corruption_missing_completion(self):
         for data,done in ((self.data[:-1],self.completion(self.data)),
                           (self.data.replace(b'AaZz09',b'AaZz08'),self.completion(self.data)),

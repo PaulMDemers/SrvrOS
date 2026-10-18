@@ -218,5 +218,7 @@ those foundations. This avoids spending the next milestone repainting old demos.
 
 The [scrolling/accidental-touch slice](trackpad-scroll-2026-10-17.md) adds an opt-in
 gesture profile and a scrollable native study. Initial two-finger scrolling is
-physically accepted. Typing/broad-contact suppression was not exercised in that
-trial; its conservative filter is not yet calibrated palm rejection.
+physically accepted. A guided follow-up exercised both typing and broad-contact suppression with
+general positive feedback; its conservative filter is not yet calibrated palm
+rejection. The interactive scrollbar follow-up adds client pointer capture and
+page/drag behavior; physical scrollbar acceptance remains pending.

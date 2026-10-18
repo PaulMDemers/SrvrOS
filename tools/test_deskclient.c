@@ -4,6 +4,31 @@
 #include "../userspace/deskclient/deskclient.c"
 #undef main
 int main(void) {
+    struct scrollbar_drag drag={0};
+    struct desk_packet p={.type=DESK_POINTER,.value=DESK_POINTER_LEFT|DESK_POINTER_PRESS};
+    int offset=0;
+    struct scrollbar bar=scrollbar_geometry(600,320,offset);
+    p.x=bar.track.x+1; p.y=bar.thumb.y+7; /* Generous hit area beside visible thumb. */
+    scrollbar_pointer(&drag,600,320,&offset,&p);
+    assert(drag.active && offset==0);
+    p.value=DESK_POINTER_LEFT; p.x=-500; p.y=INT32_MAX;
+    scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==scroll_limit(320));
+    p.y=INT32_MIN; scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==0);
+    p.value=0; scrollbar_pointer(&drag,600,320,&offset,&p); assert(!drag.active);
+    p.value=DESK_POINTER_LEFT; p.y=200;
+    scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==0); /* No capture after release. */
+    p.value=DESK_POINTER_LEFT|DESK_POINTER_PRESS; p.x=bar.track.x; p.y=bar.track.y+bar.track.h-1;
+    scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==bar.track.h && !drag.active);
+    p.y=bar.track.y; scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==0);
+    p.y=bar.thumb.y+7; scrollbar_pointer(&drag,600,320,&offset,&p); assert(drag.active);
+    p.value=DESK_POINTER_CANCEL; scrollbar_pointer(&drag,600,320,&offset,&p); assert(!drag.active);
+    p.value=DESK_POINTER_LEFT; p.y=200;
+    scrollbar_pointer(&drag,600,320,&offset,&p); assert(offset==0);
+    p.value=DESK_POINTER_LEFT|DESK_POINTER_PRESS; p.y=bar.thumb.y+7;
+    scrollbar_pointer(&drag,600,320,&offset,&p); assert(drag.active);
+    p.value=0; p.y=INT32_MAX;
+    scrollbar_pointer(&drag,600,320,&offset,&p);
+    assert(!drag.active && offset==scroll_limit(320)); /* Release carries final position. */
     assert(scroll_clamp(INT64_MAX,320)==scroll_limit(320));
     assert(scroll_clamp(INT64_MIN,320)==0);
     assert(scroll_clamp(120,320)==120);
@@ -20,5 +45,5 @@ int main(void) {
         draw(&canvas,"AaZz09",1,scroll_limit(h));
         assert(pixels[0]==0x1234 && pixels[280*h+1]==0x1234); free(pixels);
     }
-    puts("deskclient: PASS scroll bounds, resize limits, visible scroll change, viewport guards");
+    puts("deskclient: PASS thumb grab, outside drag, clamp, page clicks, release/cancel, scroll bounds, viewport guards");
 }

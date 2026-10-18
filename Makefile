@@ -2194,6 +2194,6 @@ build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
 test-desktop: build/tests/deskclient-host$(HOST_EXE)
-build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+build/tests/deskclient-host$(HOST_EXE): tools/test_deskclient.c userspace/deskclient/deskclient.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c shared/include/srvros/desktop_protocol.h
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -idirafter userspace/lib/include -I shared/include $< userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@

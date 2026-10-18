@@ -4,7 +4,8 @@ This follows the [accepted pointer trial](trackpad-pointer-2026-10-17.md#physica
 The accepted release remains independently backed up. The new behavior is enabled
 only by `srvros.trackpad=gestures`; capture-only and pointer-only modes retain
 their prior policies. Initial two-finger scrolling is physically accepted;
-accidental-touch protection remains unverified on hardware.
+both accidental-touch filter paths have now been exercised on hardware, with
+only general positive user feedback so far (see the guided result below).
 
 ## Input policy
 
@@ -162,3 +163,58 @@ keyboard string in the saved report. Physical filter acceptance is still pending
 Next: verify accidental-touch behavior, then input focus/cancellation and
 keyboard/trackpad operation during filesystem activity.
 No physical latency or sustained-I/O claim follows from this short trial.
+
+
+## Guided filter result — 2026-10-17
+
+Run `9ac0910666546aa2`, release `4108b7a4e581d201`, source `266259b`, completed
+normally. The user reported that it generally seemed to work, with two-finger
+scrolling still working, but the scrollbar could not be clicked and dragged.
+The old scrollbar was only an indicator; that interaction was missing.
+
+- 4,240 valid trackpad reports, 672 scroll events, 1,831 pointer-motion events,
+  28 button transitions and 41 lifts; up to three contacts.
+- Typing suppression: **22 frames**. Broad-contact suppression: **729 frames**.
+  Maximum dimensions: 1,489 major / 455 minor raw units. Both paths were exercised;
+  the broad-contact count combines size-based and contact-count-based rejection.
+- Keyboard `AaZz09`, desktop exit, report identity/checksums, durable completion
+  marker and observed host reboot passed. No malformed packets, transport errors,
+  dropped keys, pointer cancellations or queue overflows were recorded.
+- Report SHA-256: `eb103e9f807071d5d8ea31c67e8d06cfcfca57490dd3c0cfb2a6aab277f5a6bb`.
+
+The [report](../tools/fixtures/apple-05ac-0291-filters.txt) and
+[completion marker](../tools/fixtures/apple-05ac-0291-filters.done) are retained.
+Installed/staged files and an independent backup at
+`~/.local/share/srvros/known-good/4108b7a4e581d201` were hash-verified. A sibling
+acceptance record limits the evidence to filter activation and general feedback.
+This is not a measured palm-classifier accuracy or latency result.
+
+## Interactive scrollbar follow-up
+
+The study now has an 18-pixel-wide track hit target and a 10-pixel thumb. Pressing
+the thumb preserves its grab point; dragging maps to the document range and
+clamps at either end, including outside the window. Release applies its final
+position and ends the drag. Clicking the track above/below the thumb moves one
+viewport page. Two-finger scrolling remains available.
+
+`DESK_POINTER` extends the fixed v1 packet with generation-tagged content-local
+coordinates and explicit press, held-left, release and cancel states. Only the
+compositor can send input. A content press captures by client PID until release;
+it cannot transfer to another window under the pointer. Focus changes, resize,
+device cancellation, closing and client death end capture. A held button after
+cancellation must be released before a new capture. The client also abandons a
+drag on configuration and ignores pointer packets for stale generations.
+
+Pointer and wheel packets share a bounded 16-entry queue per client. Only held
+motion coalesces; press/release/cancel edges and wheel reversals retain order.
+Full transport queues retry the same recipient. Overflow or an unresponsive
+client follows the existing bounded close path. Device cancellation replaces
+queued input with cancellation for every client, including a client whose release
+was queued but not delivered. This prevents a stuck thumb after queue clearing.
+
+Host checks cover capture outside windows, queue pressure, edge ordering, focus,
+resize, cancellation and retirement; application checks cover grab position,
+range limits, paging and cancellation. ASan/UBSan cover both implementations.
+The QEMU mouse workflow exercises actual pointer delivery, dragging to the bottom
+outside the window and clicking the track to page upward. Physical scrollbar
+acceptance is pending. The on-screen trial checklist includes those actions.

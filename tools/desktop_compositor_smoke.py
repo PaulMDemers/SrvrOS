@@ -85,6 +85,22 @@ def main():
                 for key,shift in [("a",False),("a",True),("z",False),("z",True),("1",False),("2",False),("3",False)]:
                     qmp.key(key,shift)
                 wait(b"deskclient: text=aAzZ123")
+                # Emulated mouse -> compositor capture -> application thumb.
+                client_w=min(600,width-40); client_h=min(320,height-149)
+                bar_x=33+client_w-21; bar_y=108+94
+                limit=48*24-(client_h-202)
+                move(bar_x-pointer_x,bar_y+7-pointer_y); move(0,0,1)
+                scroll_start=len(output)
+                move(min(width-1,bar_x+80)-pointer_x,bar_y+client_h-202+30-pointer_y)
+                end_marker=f"deskclient: scroll={limit}".encode()
+                if end_marker not in output[scroll_start:]: wait(end_marker)
+                move(0,0,0)
+                move(bar_x-pointer_x,bar_y+2-pointer_y); move(0,0,1)
+                wait(f"deskclient: scroll={limit-(client_h-202)}".encode())
+                move(0,0,0)
+                time.sleep(.2)
+                qmp.call("screendump",{"filename":str(out/"desktop-scrollbar.ppm")})
+                move(24-pointer_x,56-pointer_y)
                 qmp.call("human-monitor-command",{"command-line":"sendkey ctrl-n"})
                 wait(b"window=1"); wait(b"generation=1 size=")
                 qmp.key("b"); qmp.key("b",True); wait(b"deskclient: text=bB")
@@ -138,7 +154,7 @@ def main():
             finally:
                 stop_process(process)
                 (out/"desktop-compositor-serial.log").write_bytes(output)
-    print("desktop-compositor: PASS separate processes, mixed case, two windows, focus, drag, resize, close, idle, client death/replacement, abrupt server exit, console return/relaunch")
+    print("desktop-compositor: PASS separate processes, mixed case, scrollbar capture/page clicks, two windows, focus, drag, resize, close, idle, client death/replacement, abrupt server exit, console return/relaunch")
     print(f"Evidence: {out}")
 
 

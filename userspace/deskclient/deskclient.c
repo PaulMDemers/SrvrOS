@@ -8,11 +8,47 @@
 #define STUDY_LINES 48
 static int scroll_limit(int height) {
     int viewport=height-202;
-    return STUDY_LINES*24-(viewport>0?viewport:1);
+    int max=STUDY_LINES*24-(viewport>0?viewport:1);
+    return max>0?max:0;
 }
 static int scroll_clamp(int64_t n,int height) {
     int max=scroll_limit(height);
     return n<0?0:n>max?max:(int)n;
+}
+struct scrollbar { struct desk_rect track,thumb; int limit,travel; };
+struct scrollbar_drag { int active,grab; };
+static struct scrollbar scrollbar_geometry(int width,int height,int offset) {
+    struct scrollbar b={.track={width-30,94,18,height-202},.limit=scroll_limit(height)};
+    int thumb=b.track.h*b.track.h/(STUDY_LINES*24);
+    if (thumb<16) thumb=16;
+    if (thumb>b.track.h) thumb=b.track.h;
+    b.travel=b.track.h-thumb;
+    int top=b.track.y+(b.limit?(int)((int64_t)scroll_clamp(offset,height)*b.travel/b.limit):0);
+    b.thumb=(struct desk_rect){b.track.x+4,top,10,thumb};
+    return b;
+}
+static void scrollbar_pointer(struct scrollbar_drag *d,int width,int height,int *offset,
+                              const struct desk_packet *p) {
+    if (p->value&DESK_POINTER_CANCEL) { d->active=0; return; }
+    int released=!(p->value&DESK_POINTER_LEFT);
+    if (released && !d->active) return;
+    struct scrollbar b=scrollbar_geometry(width,height,*offset);
+    if (p->value&DESK_POINTER_PRESS) {
+        d->active=0;
+        if (p->x<b.track.x || p->x>=b.track.x+b.track.w ||
+            p->y<b.track.y || p->y>=b.track.y+b.track.h) return;
+        if (p->y>=b.thumb.y && p->y<b.thumb.y+b.thumb.h) {
+            d->active=1; d->grab=p->y-b.thumb.y;
+        } else *offset=scroll_clamp((int64_t)*offset+(p->y<b.thumb.y?-b.track.h:b.track.h),height);
+        return;
+    }
+    if (d->active && b.travel>0) {
+        int64_t top=(int64_t)p->y-d->grab-b.track.y;
+        if (top<0) top=0;
+        if (top>b.travel) top=b.travel;
+        *offset=(int)((top*b.limit+b.travel/2)/b.travel);
+    }
+    if (released) d->active=0;
 }
 static void draw(struct desk_canvas *c,const char *input,int large,int offset) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xfaf9f6);
@@ -35,12 +71,9 @@ static void draw(struct desk_canvas *c,const char *input,int large,int offset) {
         desk_text(c,&desk_font_16,viewport.x,y,text,0x465348);
     }
     c->clip=clip;
-    int thumb=viewport.h*viewport.h/(STUDY_LINES*24);
-    if (thumb<16) thumb=16;
-    if (thumb>viewport.h) thumb=viewport.h;
-    desk_fill(c,(struct desk_rect){c->width-23,viewport.y,3,viewport.h},0xe7ebe2);
-    int top=viewport.y+(int)((int64_t)offset*(viewport.h-thumb)/scroll_limit(c->height));
-    desk_fill(c,(struct desk_rect){c->width-23,top,3,thumb},0x748b79);
+    struct scrollbar bar=scrollbar_geometry(c->width,c->height,offset);
+    desk_fill(c,bar.track,0xe7ebe2);
+    desk_fill(c,bar.thumb,0x748b79);
     desk_clip(c,(struct desk_rect){20,c->height-92,c->width-40,44});
     desk_fill(c,c->clip,0xe0eade);
     desk_text(c,large?&desk_font_20:&desk_font_16,26,c->height-82,input,0x38644f);
@@ -60,6 +93,7 @@ int main(int argc,char **argv) {
     struct desk_packet configure={0};
     char input[160]={0}; size_t length=0;
     int dirty=0,large=0,failed=0,quit=0,offset=0;
+    struct scrollbar_drag scrollbar={0};
     while (!quit) {
         for (int n=0;n<32;n++) {
             uint64_t source; struct desk_packet p;
@@ -72,9 +106,18 @@ int main(int argc,char **argv) {
             if (p.type==DESK_CLOSE) { quit=1; break; }
             if (p.type==DESK_CONFIGURE && p.generation>configure.generation &&
                 p.width>=280 && p.height>=240 && p.width<=DESK_MAX_WIDTH && p.height<=DESK_MAX_HEIGHT) {
-                configure=p; last=srv_ticks();
+                configure=p; scrollbar.active=0; last=srv_ticks();
             } else if (p.type==DESK_RELEASE && p.surface==surface && p.serial==pending &&
                        p.generation==pending_gen) { pending=0; last=srv_ticks(); }
+            else if (p.type==DESK_POINTER && height && p.generation==generation &&
+                     configure.generation==generation) {
+                int before=offset;
+                scrollbar_pointer(&scrollbar,width,height,&offset,&p);
+                if (offset!=before) {
+                    if (!dirty && !pending) last=srv_ticks();
+                    dirty=1; printf("deskclient: scroll=%d\n",offset);
+                }
+            }
             else if (p.type==DESK_SCROLL && height) {
                 if (!dirty && !pending) last=srv_ticks();
                 offset=scroll_clamp((int64_t)offset+p.y,height); dirty=1;

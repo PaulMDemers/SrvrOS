@@ -33,11 +33,12 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
     if (s->trackpad_trial==2 && c->height>=700) {
-        int y=c->height-245;
-        desk_fill(c,(struct desk_rect){24,y,c->width-48,194},0xf1f0eb);
+        int y=c->height-269;
+        desk_fill(c,(struct desk_rect){24,y,c->width-48,218},0xf1f0eb);
         const char *steps[]={
             "Trackpad checks - take your time",
-            "1. Scroll the numbered text with two fingers. Lift, then move with one finger.",
+            "1. Drag the scrollbar thumb; move outside the window while held, then release.",
+            "   Click the pale track above/below it. Also check two-finger scrolling.",
             "2. Hold a letter key while brushing the pad lightly. Do not press the pad.",
             "   The pointer should stay still. Release the key AND lift your hand; try moving again.",
             "3. Without typing, rest a palm edge on the pad. Note any unwanted movement.",

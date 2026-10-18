@@ -11,8 +11,11 @@
 #define DESK_MAX_HEIGHT 640
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,
-    DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL
+    DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER
 };
+#define DESK_POINTER_LEFT 1u
+#define DESK_POINTER_PRESS (1u << 8)
+#define DESK_POINTER_CANCEL (1u << 9)
 struct desk_packet {
     uint32_t version, size, type, reserved;
     uint64_t serial, generation, surface;
@@ -27,5 +30,9 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * CONFIGURE generations prevent an old-sized frame replacing a newer resize.
  * SCROLL uses signed x/y viewport-pixel deltas (positive right/down); only the
  * server may send it, targeting the window under the pointer without focus change.
+ * POINTER uses signed content-local x/y (possibly outside the window), the
+ * configured generation, and value bits above. PRESS preserves the initial
+ * grab position; held motion may coalesce, release/cancel may not. A content
+ * press captures through release; focus/resize/device cancellation ends capture.
  * TEXT currently carries one decoded console byte; raw keys are a later ABI. */
 #endif
