@@ -18,8 +18,18 @@ struct desk_edit {
     const struct desk_font *font;
     int multiline, enabled, focused, dragging;
     int32_t scroll_x, scroll_y, preferred_x;
+    struct desk_scrollbar vertical,horizontal;
+    int scrollbars,scroll_capture,show_vertical,show_horizontal,metrics_valid;
+    int32_t content_width,content_height;
+    uint64_t measure_revision;
+    const struct desk_font *measure_font;
 };
 void desk_edit_init(struct desk_edit *edit,struct desk_text_buffer *text,int multiline);
+/* Opt-in automatic bars for multiline views. Wheel/drag only move the viewport,
+ * never the selection or undo history. Single-line fields never show bars.
+ * After changing the text model externally, reveal refreshes metrics and caret. */
+void desk_edit_scrollbars(struct desk_edit *edit,int enabled);
+struct desk_rect desk_edit_viewport(const struct desk_edit *edit);
 void desk_edit_configure(struct desk_edit *edit,struct desk_rect frame,const struct desk_font *font,int enabled);
 unsigned desk_edit_event(struct desk_edit *edit,struct desk_widget_event event);
 enum desk_edit_command { DESK_EDIT_SELECT_ALL=1,DESK_EDIT_COMMAND_COPY,DESK_EDIT_COMMAND_CUT,

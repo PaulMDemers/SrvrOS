@@ -545,3 +545,20 @@ Replace/Replace all emit actions for the owning application. The With field emit
 ordinary clipboard requests; Enter requests Replace and Ctrl/Command-Enter
 requests Replace all. An empty replacement is meaningful. The application owns
 confirmation policy, document limits, status feedback and focus restoration.
+
+### Scrollable text views
+
+`desk_edit_scrollbars(edit, 1)` opts a multiline editor into automatic vertical
+and horizontal scrollbars. They share the toolkit's paging and captured-thumb
+behavior. Dragging or scrolling the viewport preserves selection, document
+revision and undo state; typing and navigation reveal the caret again. Both bars
+appear only when needed, and their intersection is inert. Single-line fields
+retain their existing layout. Use `desk_edit_viewport` for the actual text area.
+Revealing after an external text-model change updates content measurements.
+
+Document extents are cached by text revision and font. Painting skips whole
+physical lines above the viewport before measuring glyphs, and caret positioning
+measures only the current physical line. Drawing remains const and honors tiled
+clips and padded stride. Wrapping is not yet enabled; long lines use horizontal
+scrolling. `desk_scrollbar_configure_horizontal` exposes the same axis behavior
+for other controls, while the original configure function remains vertical.

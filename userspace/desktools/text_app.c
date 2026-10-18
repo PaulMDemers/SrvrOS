@@ -46,7 +46,7 @@ static void continue_action(struct tool *t) {
     }
 }
 void tool_text_init(struct tool *t,const char *path) {
-    desk_searchbar_init(&t->search);
+    desk_searchbar_init(&t->search);desk_edit_scrollbars(&t->body,1);
     const size_t history_bytes=4*DESK_FILE_BYTES;
     t->body_history=malloc(sizeof(*t->body_history)+history_bytes);
     if(t->body_history && desk_text_buffer_history(&t->body_text,t->body_history,

@@ -43,7 +43,7 @@ void desk_label_ellipsis(struct desk_canvas *canvas, struct desk_rect frame,
 struct desk_scrollbar {
     struct desk_rect track;
     int32_t content, viewport, offset, grab;
-    int dragging;
+    int dragging, horizontal;
 };
 struct desk_scrollbar_geometry {
     struct desk_rect thumb;
@@ -51,6 +51,10 @@ struct desk_scrollbar_geometry {
 };
 void desk_scrollbar_configure(struct desk_scrollbar *bar, struct desk_rect track,
                              int32_t content, int32_t viewport);
+/* Horizontal variant has identical paging/capture rules along the x axis.
+ * Calling the other configure function changes axis and cancels capture. */
+void desk_scrollbar_configure_horizontal(struct desk_scrollbar *bar,struct desk_rect track,
+                                         int32_t content,int32_t viewport);
 int32_t desk_scrollbar_limit(const struct desk_scrollbar *bar);
 struct desk_scrollbar_geometry desk_scrollbar_geometry(const struct desk_scrollbar *bar);
 unsigned desk_scrollbar_set(struct desk_scrollbar *bar, int64_t offset);

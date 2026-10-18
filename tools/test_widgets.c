@@ -55,6 +55,27 @@ static void scrollbar(void) {
     assert(!desk_widget_contains((struct desk_rect){0,0,10,10},10,0));
     assert(!desk_widget_inset((struct desk_rect){0,0,10,10},INT32_MAX).w);
 }
+static void horizontal_scrollbar(void) {
+    unsigned state=9193;
+    for(int trial=0;trial<5000;trial++) {
+        state=state*1664525u+1013904223u;int content=state%1000000;
+        state=state*1664525u+1013904223u;int view=state%2000;
+        state=state*1664525u+1013904223u;int extent=state%700+1;
+        struct desk_scrollbar v={0},h={0};desk_scrollbar_configure(&v,(struct desk_rect){10,20,18,extent},content,view);
+        desk_scrollbar_configure_horizontal(&h,(struct desk_rect){20,10,extent,18},content,view);
+        desk_scrollbar_set(&v,state);desk_scrollbar_set(&h,state);
+        struct desk_scrollbar_geometry a=desk_scrollbar_geometry(&v),b=desk_scrollbar_geometry(&h);
+        assert(a.limit==b.limit && a.travel==b.travel && a.thumb.x==b.thumb.y && a.thumb.y==b.thumb.x && a.thumb.w==b.thumb.h && a.thumb.h==b.thumb.w);
+        int points[]={a.thumb.y+1,20,20+extent-1,INT32_MIN,INT32_MAX};
+        for(unsigned i=0;i<sizeof(points)/sizeof(*points);i++) {
+            unsigned av=desk_scrollbar_event(&v,pointer(11,points[i],1,i==0));
+            unsigned ah=desk_scrollbar_event(&h,pointer(points[i],11,1,i==0));
+            assert(av==ah && v.offset==h.offset && v.dragging==h.dragging);
+        }
+        desk_scrollbar_event(&h,pointer(21,11,0,0));assert(!h.dragging);
+        desk_scrollbar_configure(&h,h.track,content,view);assert(!h.horizontal && !h.dragging);
+    }
+}
 static void button(void) {
     struct desk_button b={0};
     desk_button_configure(&b,(struct desk_rect){10,10,100,28},1);
@@ -100,6 +121,7 @@ static void scene(struct desk_canvas *c) {
     desk_scrollbar_configure(&bar,(struct desk_rect){101,-5,18,100},500,100);
     desk_scrollbar_set(&bar,200);
     desk_scrollbar_draw(c,&bar,&desk_theme_quiet);
+    desk_scrollbar_configure_horizontal(&bar,(struct desk_rect){4,66,100,12},600,100);desk_scrollbar_set(&bar,250);desk_scrollbar_draw(c,&bar,&desk_theme_quiet);
     desk_label_draw(c,(struct desk_rect){5,40,80,24},&desk_font_20,"Clipped label",0x292e2b);
 }
 static void clipping(void) {
@@ -142,7 +164,7 @@ static void ellipsis(void) {
     }
 }
 int main(void) {
-    scrollbar(); button(); clipping(); ellipsis();
+    scrollbar(); horizontal_scrollbar(); button(); clipping(); ellipsis();
     puts("widgets: PASS capture/page/resize/clamp, button activation/cancel/focus/disable, nested clipping and stride guards");
     return 0;
 }

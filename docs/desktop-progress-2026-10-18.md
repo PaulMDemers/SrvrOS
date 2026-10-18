@@ -938,3 +938,27 @@ The VM exercised single/all/empty replacements, clipboard transfer into With,
 undo and redo across saves, no-match behavior, global menus and compact layout.
 Both saved documents matched independently expected bytes. Normal/compact
 screenshots were reviewed. No hardware reboot or deployment.
+
+### Shared editor scrollbars and offscreen-line rendering
+
+Multiline editors can opt into automatic horizontal and vertical bars. Text uses
+both, with shared track paging, captured thumb dragging, release outside, focus/
+resize cancellation and an inert intersection. Viewport movement does not edit
+or move the selection; typing/navigation reveals the caret. Bars disappear when
+content fits, and single-line fields retain their layout. The horizontal scrollbar
+configuration is independently reusable by other controls.
+
+Content extents are cached by revision/font. Painting skips complete physical
+lines above the viewport, and caret positioning only measures glyphs on its own
+line. On the same host, 300 bottom-of-document redraws of a 62,400-byte document
+fell from 777,321 to 246,884 microseconds (about 3.1×); old/new pixel hashes were
+identical. This is a host rendering microbenchmark, not physical input latency.
+The reproducible driver is `tools/bench_edit.c`.
+
+Host tests include 5,000 rotated-axis scrollbar comparisons, extreme coordinates,
+selection/revision preservation, paging/drag/cancel/resize, metric invalidation,
+small views, clipping and padded/tiled drawing. Widget/editor address/UB sanitizers,
+full core/desktop suites and production build passed. The VM dragged both axes on
+a 200-line document, typed at the preserved caret, copied the whole document,
+resized to minimum size and saved two exact expected files. Screenshots were
+reviewed. No hardware reboot or deployment.

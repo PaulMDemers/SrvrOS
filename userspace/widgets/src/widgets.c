@@ -74,29 +74,35 @@ unsigned desk_scrollbar_scroll(struct desk_scrollbar *b, int64_t delta) {
     if (delta<-(int64_t)b->offset) return desk_scrollbar_set(b,0);
     return desk_scrollbar_set(b,b->offset+delta);
 }
-void desk_scrollbar_configure(struct desk_scrollbar *b, struct desk_rect track,
-                             int32_t content, int32_t viewport) {
+static void configure_scrollbar(struct desk_scrollbar *b,struct desk_rect track,int32_t content,int32_t viewport,int horizontal) {
     if (!valid(track)) track=(struct desk_rect){0};
     if (content<0) content=0;
     if (viewport<0) viewport=0;
-    if (!same(track,b->track) || content!=b->content || viewport!=b->viewport)
+    if (!same(track,b->track) || content!=b->content || viewport!=b->viewport || b->horizontal!=horizontal)
         b->dragging=0;
-    b->track=track; b->content=content; b->viewport=viewport;
+    b->track=track; b->content=content; b->viewport=viewport;b->horizontal=horizontal;
     desk_scrollbar_set(b,b->offset);
+}
+void desk_scrollbar_configure(struct desk_scrollbar *b,struct desk_rect track,int32_t content,int32_t viewport) {
+    configure_scrollbar(b,track,content,viewport,0);
+}
+void desk_scrollbar_configure_horizontal(struct desk_scrollbar *b,struct desk_rect track,int32_t content,int32_t viewport) {
+    configure_scrollbar(b,track,content,viewport,1);
 }
 struct desk_scrollbar_geometry desk_scrollbar_geometry(const struct desk_scrollbar *b) {
     struct desk_scrollbar_geometry g={.limit=desk_scrollbar_limit(b)};
     if (!valid(b->track)) return g;
-    int32_t height=b->track.h;
+    int32_t extent=b->horizontal?b->track.w:b->track.h,span=extent;
     if (g.limit) {
-        height=(int32_t)((int64_t)b->track.h*b->viewport/b->content);
-        if (height<16) height=16;
-        if (height>b->track.h) height=b->track.h;
+        span=(int32_t)((int64_t)extent*b->viewport/b->content);
+        if(span<16) span=16;
+        if(span>extent) span=extent;
     }
-    g.travel=b->track.h-height;
-    int32_t top=b->track.y+(g.limit?(int32_t)((int64_t)b->offset*g.travel/g.limit):0);
-    int32_t inset=b->track.w<8?0:4;
-    g.thumb=(struct desk_rect){b->track.x+inset,top,b->track.w-2*inset,height};
+    g.travel=extent-span;
+    int32_t offset=g.limit?(int32_t)((int64_t)b->offset*g.travel/g.limit):0;
+    int32_t cross=b->horizontal?b->track.h:b->track.w,inset=cross<8?0:4;
+    g.thumb=b->horizontal?(struct desk_rect){b->track.x+offset,b->track.y+inset,span,b->track.h-2*inset}:
+        (struct desk_rect){b->track.x+inset,b->track.y+offset,b->track.w-2*inset,span};
     return g;
 }
 unsigned desk_scrollbar_event(struct desk_scrollbar *b, struct desk_widget_event e) {
@@ -106,18 +112,20 @@ unsigned desk_scrollbar_event(struct desk_scrollbar *b, struct desk_widget_event
     if (e.type!=DESK_WIDGET_POINTER) return 0;
     struct desk_scrollbar_geometry g=desk_scrollbar_geometry(b);
     if (!g.limit || !valid(b->track)) { b->dragging=0; return 0; }
+    int32_t point=b->horizontal?e.x:e.y,thumb_start=b->horizontal?g.thumb.x:g.thumb.y;
+    int32_t thumb_span=b->horizontal?g.thumb.w:g.thumb.h,track_start=b->horizontal?b->track.x:b->track.y;
     if (e.pressed) {
         b->dragging=0;
         if (!e.down || !desk_widget_contains(b->track,e.x,e.y)) return 0;
-        if (e.y>=g.thumb.y && (int64_t)e.y<(int64_t)g.thumb.y+g.thumb.h) {
-            b->dragging=1; b->grab=e.y-g.thumb.y;
+        if(point>=thumb_start && (int64_t)point<(int64_t)thumb_start+thumb_span) {
+            b->dragging=1; b->grab=point-thumb_start;
             return 0;
         }
-        return desk_scrollbar_scroll(b,e.y<g.thumb.y?-(int64_t)b->viewport:b->viewport);
+        return desk_scrollbar_scroll(b,point<thumb_start?-(int64_t)b->viewport:b->viewport);
     }
     unsigned result=0;
     if (b->dragging && g.travel>0) {
-        int64_t top=(int64_t)e.y-b->grab-b->track.y;
+        int64_t top=(int64_t)point-b->grab-track_start;
         if (top<0) top=0;
         if (top>g.travel) top=g.travel;
         result=desk_scrollbar_set(b,(top*g.limit+g.travel/2)/g.travel);
