@@ -234,7 +234,7 @@ static void spawn_app(struct session *s,int application,const char *path) {
         struct srv_exec_request request={.path=argv[0],.argv=argv,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
-        if(pid>0) { s->children[i]=pid;s->child_apps[i]=application; }
+        if(pid>0) { s->children[i]=pid;s->child_apps[i]=application;s->scene.notice[0]=0; }
         else strcpy(s->scene.notice,"The application could not be opened.");
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
         return;

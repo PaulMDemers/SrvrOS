@@ -9,11 +9,12 @@ void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
+static long execute_result=-1;
 static char executed_path[160],executed_role[32],executed_argument[160];
 long srv_exec(const struct srv_exec_request *request) {
     snprintf(executed_path,sizeof(executed_path),"%s",request->path);
     snprintf(executed_role,sizeof(executed_role),"%s",request->argv[1]);
-    snprintf(executed_argument,sizeof(executed_argument),"%s",request->argv[2]);return -1;
+    snprintf(executed_argument,sizeof(executed_argument),"%s",request->argv[2]);return execute_result;
 }
 long srv_ticks(void) { return (long)now; }
 long srv_monotonic_us(void) { return (long)(now*10000); }
@@ -230,6 +231,15 @@ int main(void) {
     struct session failed={0}; alloc_fail=allocations+1;
     assert(cache_init(&failed)<0 && allocations==frees);
     for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) assert(!failed.cache[i][j]);
+    /* Refusal must not spawn or replace a child, and successful slot reuse
+     * clears the now-obsolete capacity/error message. */
+    for(int i=0;i<DESKD_WINDOWS;i++) failed.children[i]=100+i;
+    strcpy(executed_path,"untouched");spawn_app(&failed,DESK_APP_TEXT,"");
+    assert(!strcmp(executed_path,"untouched") && strstr(failed.scene.notice,"Close a window"));
+    failed.children[4]=0;execute_result=-1;spawn_app(&failed,DESK_APP_TEXT,"");
+    assert(!failed.children[4] && strstr(failed.scene.notice,"could not be opened"));
+    execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
+    assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

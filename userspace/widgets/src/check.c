@@ -40,8 +40,7 @@ void desk_check_draw(struct desk_canvas *c,const struct desk_check *check,const 
         desk_fill(c,(struct desk_rect){x+1,y+1,15,15},fill);
         if(check->checked) {
             uint32_t color=b->enabled?t->accent:t->muted;
-            for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+3+i,y+8+i,2,2},color);
-            for(int i=0;i<7;i++) desk_fill(c,(struct desk_rect){x+6+i,y+11-i,2,2},color);
+            desk_checkmark_draw(c,x+3,y+5,color);
         }
     }
     if(r.w>30 && r.h>=t->body->line_height) desk_label_draw(c,(struct desk_rect){r.x+28,r.y+(r.h-t->body->line_height)/2,r.w-30,t->body->line_height},t->body,label,ink);

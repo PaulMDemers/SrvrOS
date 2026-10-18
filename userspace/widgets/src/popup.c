@@ -126,7 +126,7 @@ void desk_popup_draw(struct desk_canvas *c,const struct desk_popup *p,const stru
         int shortcut_limit=available>48?available-48:0;if(sw>shortcut_limit) sw=shortcut_limit;
         desk_label_ellipsis(c,(struct desk_rect){row.x+24,row.y+5,available-sw,p->font->line_height},p->font,item->label,color);
         desk_label_ellipsis(c,(struct desk_rect){row.x+row.w-sw-12,row.y+5,sw,p->font->line_height},p->font,item->shortcut,t->muted);
-        if(item->flags&DESK_MENU_CHECKED) desk_text(c,p->font,row.x+5,row.y+5,"✓",color);
+        if(item->flags&DESK_MENU_CHECKED) desk_checkmark_draw(c,row.x+7,row.y+(row.h-8)/2,color);
     }
     desk_clip(c,desk_intersect(old,r));if(desk_scrollbar_limit(&p->scroll)) desk_scrollbar_draw(c,&p->scroll,t);c->clip=old;
 }

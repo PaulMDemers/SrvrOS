@@ -37,6 +37,10 @@ void desk_label_draw(struct desk_canvas *canvas, struct desk_rect frame,
 void desk_label_ellipsis(struct desk_canvas *canvas, struct desk_rect frame,
                          const struct desk_font *font, const char *text, uint32_t color);
 
+/* Font-independent 11x8 checkmark; obeys the current canvas clip. As with
+ * control frames, x+11 and y+8 must be representable pixel coordinates. */
+void desk_checkmark_draw(struct desk_canvas *canvas,int32_t x,int32_t y,uint32_t color);
+
 /* Zero-initialize. Reconfiguration cancels capture when geometry changes.
  * content and viewport use the same units as offset (normally pixels).
  * Both are clamped to nonnegative; zero viewport disables interaction. */

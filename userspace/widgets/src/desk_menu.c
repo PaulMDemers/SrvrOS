@@ -190,7 +190,7 @@ void desk_menu_popup_draw(struct desk_canvas *c,const struct desk_menu *m,const 
         int sw=desk_text_width(m->font,item->shortcut);
         desk_label_draw(c,(struct desk_rect){row.x+24,row.y+5,row.w>sw+48?row.w-sw-48:0,20},m->font,item->label,color);
         desk_label_draw(c,(struct desk_rect){row.x+row.w-sw-12,row.y+5,sw,20},m->font,item->shortcut,t->muted);
-        if(item->flags&DESK_MENU_CHECKED) desk_text(c,m->font,row.x+5,row.y+5,"✓",color);
+        if(item->flags&DESK_MENU_CHECKED) desk_checkmark_draw(c,row.x+7,row.y+(row.h-8)/2,color);
     }
     c->clip=clip;
 }

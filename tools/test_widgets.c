@@ -122,6 +122,8 @@ static void scene(struct desk_canvas *c) {
     desk_scrollbar_set(&bar,200);
     desk_scrollbar_draw(c,&bar,&desk_theme_quiet);
     desk_scrollbar_configure_horizontal(&bar,(struct desk_rect){4,66,100,12},600,100);desk_scrollbar_set(&bar,250);desk_scrollbar_draw(c,&bar,&desk_theme_quiet);
+    desk_checkmark_draw(c,112,72,0x38644f);
+    desk_checkmark_draw(c,-5,-3,0x38644f);
     desk_label_draw(c,(struct desk_rect){5,40,80,24},&desk_font_20,"Clipped label",0x292e2b);
 }
 static void clipping(void) {

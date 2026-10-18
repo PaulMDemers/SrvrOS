@@ -184,3 +184,8 @@ void desk_button_draw(struct desk_canvas *c, const struct desk_button *b,
     }
     desk_label_draw(c,text,theme->body,label,b->enabled?theme->text:theme->muted);
 }
+
+void desk_checkmark_draw(struct desk_canvas *c,int32_t x,int32_t y,uint32_t color) {
+    for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){x+i,y+3+i,2,2},color);
+    for(int i=0;i<7;i++) desk_fill(c,(struct desk_rect){x+3+i,y+6-i,2,2},color);
+}
