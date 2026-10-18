@@ -36,6 +36,12 @@ int desk_app_poll(struct desk_app *a,struct desk_packet *event) {
             a->pending=0;a->last=srv_ticks();return 2;
         }
         if(p.type==DESK_CLOSE) { a->closed=1;*event=p;return 1; }
+        if(p.type==DESK_MENU_ACTION) {
+            int valid=0;
+            if(p.serial==a->menu_revision) for(unsigned i=0;i<a->menu_count;i++)
+                if(a->menus[i].id==p.value && p.value && !(a->menus[i].flags&(DESK_MENU_DISABLED|DESK_MENU_HEADING|DESK_MENU_SEPARATOR))) valid=1;
+            if(!valid || !a->focused) return 2;
+        }
         if(p.type==DESK_FOCUS) a->focused=p.value!=0;
         if(p.type==DESK_POINTER && (p.generation!=a->generation || a->configure.generation!=a->generation)) return 2;
         if(p.input_serial>a->input_serial) { a->input_serial=p.input_serial;a->dirty=1; }
@@ -97,4 +103,24 @@ void desk_app_close(struct desk_app *a) {
     if(a->surface && !a->pending) gui_surface_destroy(a->surface);
     desk_pixels_free(a->pixels,DESK_MAX_WIDTH,DESK_MAX_HEIGHT);
     a->pixels=0;a->closed=1;
+}
+
+int desk_app_menus(struct desk_app *a,const struct desk_menu_item *items,unsigned count) {
+    if(count>DESK_APP_MENU_ITEMS || (count && !items)) return -1;
+    if(a->menu_revision && a->menu_count==count && (!count || !memcmp(a->menus,items,count*sizeof(*items)))) return 0;
+    if(count) memcpy(a->menus,items,count*sizeof(*items));
+    a->menu_count=count;a->menu_next=0;a->menu_pending=1;
+    if(!++a->menu_revision) ++a->menu_revision;
+    return 0;
+}
+void desk_app_menu_tick(struct desk_app *a) {
+    if(!a->server || a->closed || a->failed) return;
+    for(unsigned budget=0;budget<4 && a->menu_pending;budget++) {
+        struct desk_packet p=desk_packet_new(DESK_MENU_SET);
+        p.serial=a->menu_revision;p.generation=a->menu_next;p.width=a->menu_count;
+        p.value=!a->menu_count || a->menu_next+1==a->menu_count;
+        if(a->menu_count) memcpy(p.text,&a->menus[a->menu_next],sizeof(a->menus[0]));
+        if(desk_send(a->server,&p)) return;
+        if(p.value) a->menu_pending=0;else a->menu_next++;
+    }
 }

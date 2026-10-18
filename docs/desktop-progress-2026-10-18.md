@@ -206,3 +206,27 @@ launches are explicitly assigned to init.
 The host regression and full core suite pass. The guest PTY probe now delays
 its wait through multiple init polling cycles and still receives status 37;
 it also creates an orphan and confirms init removes it. This passed in QEMU.
+
+## Shared menus and global desktop commands
+
+The widget library now provides a menu bar/popup control with pointer release
+and press-drag selection, hover switching, F10/arrow navigation, disabled items,
+checkmarks and shortcut labels. It owns a bounded validated UTF-8 snapshot and
+returns action IDs; it performs no application work or transport. Editor menu
+commands and keyboard shortcuts share `desk_edit_command`.
+
+Protocol v4 adds staged application-menu publication and revision-tagged
+commands. The server retains the previous complete menu until a replacement
+validates; clients reject stale, disabled, unknown or unfocused commands. The
+kernel enforces message direction. Apps supply File/Edit/View/Go/Calculate
+menus as appropriate; the desktop adds SrvrOS launch/exit and Window menus,
+including minimize, zoom, next-window and a live window list. Menu damage is
+limited to the bar and old/new popup bounds.
+
+The full host core suite passes, including menu model, transport, client-runtime
+and kernel direction tests. Menu ASan/UBSan and tiled/clipped compositor drawing
+pass. QEMU passed File-menu Save, Edit-menu Copy, cross-app clipboard, normal
+launch/minimize/zoom/close workflows and keyboard global exit. The Terminal
+regression also passes. Visual evidence is in `build/review/desktop-apps/`.
+The first VM run exposed a missing menu-event branch in the tools app; that was
+fixed and the complete workflow rerun successfully. Hardware remains unchanged.

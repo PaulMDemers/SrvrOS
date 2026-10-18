@@ -102,15 +102,10 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xd6dcd2);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
-    desk_text(c,&desk_font_16,24,12,s->apps?"SrvrOS":s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
     if(s->apps) {
-        for(int i=0;i<4;i++) desk_fill(c,(struct desk_rect){93+i,20+i,7-i*2,1},0x646b65);
-        struct desk_rect clip=c->clip;
-        desk_clip(c,desk_intersect(clip,(struct desk_rect){160,0,c->width-380,44}));
-        if(s->focus>=0) desk_text(c,&desk_font_16,160,12,s->windows[s->focus].title,0x292e2b);
-        c->clip=clip;
-        desk_text(c,&desk_font_16,c->width-198,12,"Alt-Tab: switch window",0x646b65);
-    }
+        desk_menu_bar_draw(c,&s->menu,&desk_theme_quiet);
+        if(s->focus>=0) desk_label_draw(c,(struct desk_rect){c->width-180,12,164,24},&desk_font_16,s->windows[s->focus].title,0x646b65);
+    } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
     if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==3?s->io_status:
         s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
@@ -146,14 +141,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     if(s->apps) {
         dock(c,s);
         if(s->notice[0]) desk_text(c,&desk_font_16,24,c->height-98,s->notice,0x38644f);
-        if(s->menu) {
-            desk_fill(c,(struct desk_rect){12,44,240,122},0x748b79);
-            desk_fill(c,(struct desk_rect){13,45,238,120},0xfaf9f6);
-            desk_text(c,&desk_font_16,28,58,"About SrvrOS",0x292e2b);
-            desk_text(c,&desk_font_16,28,94,"New Text document",0x292e2b);
-            desk_fill(c,(struct desk_rect){24,125,216,1},0xd9ddd5);
-            desk_text(c,&desk_font_16,28,136,"Return to console",0x292e2b);
-        }
+        desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
     }
     for (int y=0;y<16;y++) {
         desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x292e2b);

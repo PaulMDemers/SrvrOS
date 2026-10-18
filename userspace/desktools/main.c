@@ -52,7 +52,7 @@ void tool_layout(struct tool *t) {
     }
     t->window.dirty=1;
 }
-static void action(struct tool *t,struct desk_action a) {
+void tool_dispatch(struct tool *t,struct desk_action a) {
     if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
     tool_clipboard_action(t,a);
     if(t->role==DESK_APP_TEXT) tool_text_action(t,a);
@@ -83,7 +83,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
             if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
         }
         if(t->role==DESK_APP_TEXT) {
-            if(k->usage==0x16) { action(t,(struct desk_action){TOOL_SAVE,DESK_WIDGET_ACTIVATED});return; }
+            if(k->usage==0x16) { tool_dispatch(t,(struct desk_action){TOOL_SAVE,DESK_WIDGET_ACTIVATED});return; }
             if(k->usage==0x12) { desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x11) { tool_text_request(t,TOOL_PENDING_NEW);return; }
         }
@@ -91,7 +91,7 @@ static void key(struct tool *t,const struct srv_key_event *k) {
     if(t->role==DESK_APP_FILES && (k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&SRV_KEY_ALT) && k->usage==SRV_KEY_UP) {
         tool_files_action(t,(struct desk_action){TOOL_UP,DESK_WIDGET_ACTIVATED});return;
     }
-    action(t,desk_ui_key(&t->ui,k));
+    tool_dispatch(t,desk_ui_key(&t->ui,k));
 }
 static void system_refresh(struct tool *t) {
     uint64_t now=srv_ticks();if(now-t->refresh_tick<100) return;t->refresh_tick=now;
@@ -168,14 +168,15 @@ int main(int argc,char **argv) {
                 if(t->role==DESK_APP_SETTINGS) tool_status(t,p.value==16?"Standard text · applies to this desktop session.":"Larger text · applies to this desktop session.");
             } else if(p.type==DESK_FOCUS) {
                 desk_ui_window_focus(t->modal?&t->dialog:&t->ui,p.value!=0);t->window.dirty=1;
-            } else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
+            } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
+            else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
                     .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
                 struct desk_action a=desk_ui_pointer(t->modal?&t->dialog:&t->ui,e,srv_monotonic_us());
                 if(t->modal) { if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;if(a.flags&DESK_WIDGET_ACTIVATED) tool_text_dialog(t,a.id); }
-                else action(t,a);
-            } else if(p.type==DESK_SCROLL && !t->modal) action(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));
+                else tool_dispatch(t,a);
+            } else if(p.type==DESK_SCROLL && !t->modal) tool_dispatch(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));
             else if(p.type==DESK_CLOSE_REQUEST) {
                 if(t->role==DESK_APP_TEXT) tool_text_request(t,TOOL_PENDING_CLOSE);else t->closing=1;
             }
@@ -191,6 +192,7 @@ int main(int argc,char **argv) {
             snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");
             if(!desk_app_title(&t->window,title)) t->title_dirty=0;
         }
+        tool_menu_refresh(t);desk_app_menu_tick(&t->window);
         struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
         srv_sleep_ticks(1);
     }

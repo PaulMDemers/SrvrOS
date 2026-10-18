@@ -22,6 +22,9 @@ struct desk_edit {
 void desk_edit_init(struct desk_edit *edit,struct desk_text_buffer *text,int multiline);
 void desk_edit_configure(struct desk_edit *edit,struct desk_rect frame,const struct desk_font *font,int enabled);
 unsigned desk_edit_event(struct desk_edit *edit,struct desk_widget_event event);
+enum desk_edit_command { DESK_EDIT_SELECT_ALL=1,DESK_EDIT_COMMAND_COPY,DESK_EDIT_COMMAND_CUT,
+    DESK_EDIT_COMMAND_PASTE,DESK_EDIT_UNDO,DESK_EDIT_REDO };
+unsigned desk_edit_command(struct desk_edit *edit,enum desk_edit_command command);
 unsigned desk_edit_key(struct desk_edit *edit,const struct srv_key_event *key);
 unsigned desk_edit_scroll(struct desk_edit *edit,int32_t x,int32_t y);
 void desk_edit_reveal(struct desk_edit *edit);

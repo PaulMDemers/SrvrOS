@@ -2158,7 +2158,7 @@ build/tests/apple-trackpad-host$(HOST_EXE): tools/test_apple_trackpad.c kernel/s
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_apple_trackpad.c kernel/src/drivers/apple_trackpad.c -o $@
 
-DESKD_OBJ := build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
+DESKD_OBJ := build/userspace/deskd/menus.c.o build/userspace/deskd/clipboard.c.o build/userspace/deskd/deskd.c.o build/userspace/deskd/scene.c.o build/userspace/deskd/io_trial.c.o
 DESKCLIENT_OBJ := build/userspace/deskclient/deskclient.c.o
 DESK_WIDGETS_INCLUDE := userspace/widgets/include
 DESK_WIDGETS_SRC := $(wildcard userspace/widgets/src/*.c)
@@ -2167,25 +2167,25 @@ DESK_WIDGETS_OBJ := $(DESK_WIDGETS_SRC:%.c=build/%.c.o)
 DESK_WIDGETS_A := build/userspace/widgets/libdeskwidgets.a
 .PHONY: widget-library
 widget-library: $(DESK_WIDGETS_A)
-$(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
+$(DESKD_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_OBJ): USER_CFLAGS += -I $(DESK_WIDGETS_INCLUDE)
 $(DESK_WIDGETS_A): $(ZIG) $(DESK_WIDGETS_OBJ)
 	$(AR) rcs $@ $(DESK_WIDGETS_OBJ)
 -include $(DESK_WIDGETS_OBJ:.o=.d)
-$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(USER_LIB_OBJ) userspace/app.ld
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(USER_LIB_OBJ) -o $@
+$(USER_DESKD): $(ZIG) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKD_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 $(USER_DESKCLIENT): $(ZIG) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) userspace/app.ld
 	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) $(DESKCLIENT_OBJ) $(DESK_WIDGETS_A) $(USER_LIB_OBJ) -o $@
 -include $(DESKD_OBJ:.o=.d) $(DESKCLIENT_OBJ:.o=.d)
 
 test-desktop: build/tests/desktop-scene-host$(HOST_EXE)
-build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c userspace/deskd/scene.c userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+build/tests/desktop-scene-host$(HOST_EXE): tools/test_desktop_scene.c userspace/deskd/scene.c userspace/deskd/scene.h userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_scene.c userspace/deskd/scene.c userspace/deskd/menus.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 
 test-desktop: build/tests/desktop-session-host$(HOST_EXE)
-build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h
+build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/io_trial.h shared/include/srvros/perf_sample.h shared/include/srvros/desktop_trial.h userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c userspace/lib/include/srvros/desk_log.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/deskd/menus.c
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/scene.c userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I $(DESK_WIDGETS_INCLUDE) -idirafter userspace/lib/include tools/test_desktop_session.c userspace/deskd/scene.c userspace/deskd/menus.c $(DESK_WIDGETS_SRC) userspace/deskd/clipboard.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -Wl,--gc-sections -o $@
 
 .PHONY: test-trackpad-capture
 test-core: test-trackpad-capture
@@ -2368,3 +2368,17 @@ test-wait-ownership: build/tests/wait-ownership-host$(HOST_EXE)
 build/tests/wait-ownership-host$(HOST_EXE): tools/test_wait_ownership.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-menu
+test-widgets: test-menu
+test-menu: build/tests/menu-host$(HOST_EXE)
+	build/tests/menu-host$(HOST_EXE)
+	build/tests/menu-transport-host$(HOST_EXE)
+build/tests/menu-host$(HOST_EXE): tools/test_menu.c userspace/widgets/src/desk_menu.c userspace/widgets/src/widgets.c userspace/widgets/src/text.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_menu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_menu.c userspace/widgets/src/desk_menu.c userspace/widgets/src/widgets.c userspace/widgets/src/text.c userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+test-menu: build/tests/menu-transport-host$(HOST_EXE)
+build/tests/menu-transport-host$(HOST_EXE): tools/test_menu_transport.c userspace/deskd/menus.c userspace/deskd/menus.h userspace/widgets/src/desk_menu.c userspace/widgets/src/text.c shared/include/srvros/desktop_protocol.h shared/include/srvros/desktop_menu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_menu_transport.c userspace/deskd/menus.c userspace/widgets/src/desk_menu.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@

@@ -67,7 +67,9 @@ def main():
                 type_text("Hello, SrvrOS!\nNative desktop text.")
                 qmp.key("left");qmp.key("right")
                 shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-smoke.txt")
-                shortcut("ctrl-s")
+                # Global File menu uses keyboard navigation and app commands.
+                shortcut("f10");shortcut("right");shortcut("down");shortcut("down");shot("file-menu")
+                shortcut("ret")
                 wait(b"file-result role=text op=2 status=0")
                 shot("text-saved")
                 # Close with unsaved changes, then Escape must preserve the window.
@@ -88,7 +90,7 @@ def main():
                 # Calculator is a separate process and receives raw editing/navigation keys.
                 click(590,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
                 type_text("2 + 3 * (4 - 1)");qmp.key("ret");shot("calculator")
-                shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=3 action=8")
+                shortcut("ctrl-a");click(178,22);shot("edit-menu");click(200,162);wait(b"clipboard role=3 action=8")
                 click(690,750);wait(b"desktools: starting role=system");shot("system")
                 click(790,750);wait(b"desktools: starting role=settings");shot("settings")
                 click(210,240);time.sleep(.3);click(490,750);shot("larger-text")
@@ -103,7 +105,7 @@ def main():
                 shortcut("ctrl-o");shortcut("ctrl-a");type_text("/fat/desktop-clipboard.txt")
                 shortcut("ctrl-s");wait(b"file-result role=text op=2 status=0")
                 # Return through the global menu; saved documents close normally.
-                click(60,22);click(100,145)
+                shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/desktop-smoke.txt\n")
                 wait(b"Hello, SrvrOS!\r\nNative desktop text. More. Kept.")

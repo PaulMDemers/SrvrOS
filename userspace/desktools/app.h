@@ -31,6 +31,9 @@ struct tool {
 };
 void tool_clipboard_action(struct tool *tool,struct desk_action action);
 void tool_clipboard_result(struct tool *tool,int result);
+void tool_menu_refresh(struct tool *tool);
+void tool_menu_action(struct tool *tool,unsigned id);
+void tool_dispatch(struct tool *tool,struct desk_action action);
 void tool_status(struct tool *tool,const char *message);
 int tool_modified(const struct tool *tool);
 void tool_dialog(struct tool *tool,int mode);

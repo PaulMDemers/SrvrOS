@@ -1,6 +1,8 @@
 #include <srvros/desk_log.h>
 #include "scene.h"
 #include "clipboard.h"
+#include "menus.h"
+#include <srvros/desk_text.h>
 #include "io_trial.h"
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
@@ -20,12 +22,14 @@ struct client {
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count;
     uint64_t input_since;
+    struct desk_menu_store menus;
     char launch_path[160];
     unsigned launch_length,launch_application;
 };
 struct session {
     struct desktop_scene scene;
     struct desk_damage damage;
+    struct desk_rect menu_visible;
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
     int child_apps[DESKD_WINDOWS],exiting,text_size;
@@ -51,6 +55,7 @@ static int cache_init(struct session *s) {
 }
 static int clamp(int64_t v,int lo,int hi) { return v<lo?lo:v>hi?hi:v; }
 static void close_client(struct session *s,int i);
+static void global_menu_rebuild(struct session *s);
 static void queue_input(struct session *s,int i,struct desk_packet p) {
     struct client *c=&s->clients[i];
     if (c->closing) return;
@@ -117,6 +122,7 @@ static void focus(struct session *s,int i) {
         }
     }
     if(s->scene.apps) {
+        global_menu_rebuild(s);
         desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
         desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
     }
@@ -135,6 +141,7 @@ static void forget(struct session *s,int i) {
         focus(s,-1);
         for (int j=0;j<DESKD_WINDOWS;j++) if (s->clients[j].pid) focus(s,j);
     }
+    global_menu_rebuild(s);
 }
 static void configure(struct session *s,int i,int width,int height) {
     if (s->pointer_pid==s->clients[i].pid) pointer_cancel(s);
@@ -203,6 +210,69 @@ static void cycle_focus(struct session *s,int reverse) {
         if(s->clients[i].pid && !s->clients[i].closing) { focus(s,i);return; }
     }
 }
+enum global_action { GLOBAL_ABOUT=65536,GLOBAL_SETTINGS,GLOBAL_TEXT,GLOBAL_TERMINAL,GLOBAL_EXIT,
+    GLOBAL_MINIMIZE,GLOBAL_ZOOM,GLOBAL_NEXT,GLOBAL_WINDOW=65792 };
+static void global_menu_damage(struct session *s) {
+    desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
+    if(s->menu_visible.w>0) desk_damage_add(&s->damage,s->menu_visible);
+    s->menu_visible=desk_menu_popup(&s->scene.menu);
+    if(s->menu_visible.w>0) {
+        s->menu_visible.w+=3;s->menu_visible.h+=4;desk_damage_add(&s->damage,s->menu_visible);
+    }
+}
+static void global_menu_rebuild(struct session *s) {
+    if(!s->scene.apps) return;
+    struct desk_menu_item items[DESK_MENU_ITEMS]={
+        {0,DESK_MENU_HEADING,"SrvrOS",""},{GLOBAL_ABOUT,0,"About SrvrOS",""},
+        {GLOBAL_SETTINGS,0,"Settings",""},{GLOBAL_TEXT,0,"New Text document",""},
+        {GLOBAL_TERMINAL,0,"New Terminal",""},{0,DESK_MENU_SEPARATOR,"",""},
+        {GLOBAL_EXIT,0,"Return to console",""}
+    };
+    unsigned count=7;
+    if(s->scene.focus>=0) {
+        struct desk_menu_store *m=&s->clients[s->scene.focus].menus;
+        memcpy(items+count,m->items,m->count*sizeof(items[0]));count+=m->count;
+    }
+    items[count++]=(struct desk_menu_item){0,DESK_MENU_HEADING,"Window",""};
+    unsigned disabled=s->scene.focus<0?DESK_MENU_DISABLED:0;
+    items[count++]=(struct desk_menu_item){GLOBAL_MINIMIZE,disabled,"Minimize",""};
+    items[count++]=(struct desk_menu_item){GLOBAL_ZOOM,disabled,"Zoom",""};
+    items[count++]=(struct desk_menu_item){GLOBAL_NEXT,disabled,"Next window","Alt-Tab"};
+    int have=0;
+    for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid && !s->clients[i].closing) {
+        if(!have++) items[count++]=(struct desk_menu_item){0,DESK_MENU_SEPARATOR,"",""};
+        struct desk_menu_item *item=&items[count++];item->id=GLOBAL_WINDOW+i;
+        item->flags=s->scene.focus==i?DESK_MENU_CHECKED:0;
+        size_t n=strlen(s->scene.windows[i].title);if(n>=sizeof(item->label)) n=sizeof(item->label)-1;
+        while(n && !desk_text_utf8_valid(s->scene.windows[i].title,n)) n--;
+        if(n) memcpy(item->label,s->scene.windows[i].title,n);else strcpy(item->label,"Window");
+    }
+    desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-190,44},
+        (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
+    global_menu_damage(s);
+}
+static void global_menu_action(struct session *s,uint32_t id) {
+    if(!id) return;
+    if(id<65536) {
+        int i=s->scene.focus;if(i<0 || s->clients[i].closing) return;
+        struct desk_packet p=desk_packet_new(DESK_MENU_ACTION);p.value=id;p.serial=s->clients[i].menus.revision;
+        queue_input(s,i,p);return;
+    }
+    if(id==GLOBAL_ABOUT) spawn_app(s,DESK_APP_SYSTEM,"");
+    else if(id==GLOBAL_SETTINGS) spawn_app(s,DESK_APP_SETTINGS,"");
+    else if(id==GLOBAL_TEXT) spawn_app(s,DESK_APP_TEXT,"");
+    else if(id==GLOBAL_TERMINAL) spawn_app(s,DESK_APP_TERMINAL,"");
+    else if(id==GLOBAL_EXIT) {
+        s->exiting=1;for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid) request_close(s,i);
+    } else if(id==GLOBAL_MINIMIZE && s->scene.focus>=0) minimize(s,s->scene.focus);
+    else if(id==GLOBAL_ZOOM && s->scene.focus>=0) maximize(s,s->scene.focus);
+    else if(id==GLOBAL_NEXT) cycle_focus(s,0);
+    else if(id>=GLOBAL_WINDOW && id<GLOBAL_WINDOW+DESKD_WINDOWS && s->clients[id-GLOBAL_WINDOW].pid) focus(s,id-GLOBAL_WINDOW);
+}
+static void global_menu_result(struct session *s,struct desk_menu_result result) {
+    if(result.redraw) global_menu_damage(s);
+    global_menu_action(s,result.action);
+}
 static int known_child(struct session *s,uint64_t pid) {
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]==pid) return 1;
     return 0;
@@ -241,6 +311,10 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     }
     struct client *c=&s->clients[i]; struct desktop_window *w=&s->scene.windows[i];
     if (p->type==DESK_CLOSE) { forget(s,i); return; }
+    if(p->type==DESK_MENU_SET) {
+        if(s->scene.apps && desk_menu_receive(&c->menus,p) && s->scene.focus==i) global_menu_rebuild(s);
+        return;
+    }
     if(p->type==DESK_CLIPBOARD_SET || p->type==DESK_CLIPBOARD_GET) {
         if(s->scene.apps) desk_clipboard_request(&clipboard,pid,s->scene.focus==i,p,srv_ticks());
         return;
@@ -256,6 +330,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if(p->type==DESK_TITLE) {
         memcpy(w->title,p->text,sizeof(p->text));w->title[sizeof(p->text)]=0;
         damage_window(s,i);
+        global_menu_rebuild(s);
         if(s->scene.focus==i) desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
         return;
     }
@@ -348,25 +423,6 @@ static int hit(struct session *s,int x,int y) {
 }
 static int global_click(struct session *s,int x,int y) {
     if(!s->scene.apps) return 0;
-    if(y<44) {
-        if(x<135) s->scene.menu=!s->scene.menu;
-        else s->scene.menu=0;
-        desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
-        return 1;
-    }
-    if(s->scene.menu) {
-        s->scene.menu=0;
-        desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
-        if(x>=12 && x<252 && y>=44 && y<166) {
-            if(y<88) spawn_app(s,DESK_APP_SYSTEM,"");
-            else if(y<125) spawn_app(s,DESK_APP_TEXT,"");
-            else {
-                s->exiting=1;
-                for(int i=0;i<DESKD_WINDOWS;i++) if(s->clients[i].pid) request_close(s,i);
-            }
-            return 1;
-        }
-    }
     for(int app=1;app<=DESK_APP_COUNT;app++) {
         struct desk_rect r=desktop_dock_item(s->damage.width,s->damage.height,app);
         if(x>=r.x && y>=r.y && x<r.x+r.w && y<r.y+r.h) {
@@ -427,12 +483,13 @@ int main(int argc,char **argv) {
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
-    s.scene.apps=apps;
+    s.scene.apps=apps;desk_menu_init(&s.scene.menu);
     if(apps && gui_keyboard_mode(1)!=0) { gfx_console_mute(0);return 1; }
     if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,info.width,info.height); return 1; }
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
+    global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     if(apps) spawn_app(&s,DESK_APP_TEXT,"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
@@ -528,6 +585,8 @@ int main(int argc,char **argv) {
             }
             if((key.flags&SRV_KEY_DOWN_EVENT) && (key.modifiers&SRV_KEY_CTRL) &&
                 (key.modifiers&SRV_KEY_ALT) && key.usage==SRV_KEY_ESCAPE) { quit=1;break; }
+            struct desk_menu_result menu_result=desk_menu_key(&s.scene.menu,&key);
+            if(menu_result.consumed) { drag=resize=-1;pointer_cancel(&s);global_menu_result(&s,menu_result);if(!(key.flags&SRV_KEY_CANCEL)) continue; }
             if(s.scene.focus>=0) {
                 struct desk_packet p=desk_packet_new(DESK_KEY);memcpy(p.text,&key,sizeof(key));
                 queue_input(&s,s.scene.focus,p);
@@ -553,6 +612,17 @@ int main(int argc,char **argv) {
             if (e.flags&MOUSE_CANCEL) {
                 drag=resize=-1; buttons=e.buttons;
                 cancel_input(&s,e.buttons);
+                if(apps) global_menu_result(&s,desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL}));
+            }
+            if(apps && drag<0 && resize<0 && !s.pointer_pid && !(e.flags&MOUSE_CANCEL)) {
+                struct desk_menu_result result=desk_menu_pointer(&s.scene.menu,(struct desk_widget_event){
+                    .type=DESK_WIDGET_POINTER,.x=x,.y=y,.down=(e.buttons&MOUSE_LEFT)!=0,
+                    .pressed=(e.buttons&MOUSE_LEFT) && !(buttons&MOUSE_LEFT)});
+                global_menu_result(&s,result);
+                if(result.consumed) {
+                    s.pointer_blocked=(e.buttons&MOUSE_LEFT)!=0;buttons=e.buttons;
+                    desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});continue;
+                }
             }
             if ((e.wheel_x || e.wheel_y) && drag<0 && resize<0 && !e.buttons && !s.pointer_pid)
                 scroll_at(&s,x,y,e.wheel_x,e.wheel_y);

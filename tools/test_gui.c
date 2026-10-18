@@ -120,6 +120,13 @@ int main(void) {
     assert(gui_send(&wheel)==-1);
     current_pid=1; assert(gui_send(&wheel)==0);
     current_pid=2; assert(gui_recv(&received)==1 && received.source_pid==1);
+    struct gui_message menu=packet_message(DESK_MENU_SET,0,0,1);
+    assert(gui_send(&menu)==0);
+    current_pid=1;assert(gui_recv(&received)==1 && received.source_pid==2);
+    menu.target_pid=2;assert(gui_send(&menu)==-1); /* Server cannot impersonate app menus. */
+    menu=packet_message(DESK_MENU_ACTION,2,0,1);assert(gui_send(&menu)==0);
+    current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
+    assert(gui_send(&menu)==-1); /* Clients cannot forge desktop menu commands. */
     gui_process_cleanup(1); gui_process_cleanup(2);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;

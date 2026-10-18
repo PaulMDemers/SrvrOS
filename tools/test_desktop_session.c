@@ -134,6 +134,18 @@ int main(void) {
     p.value=999;incoming(&s,42,&p);assert(s.text_size==20);
     request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
     p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);
+    const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"File",""},{7,0,"New","Ctrl-N"} };
+    p=desk_packet_new(DESK_MENU_SET);p.serial=19;p.width=2;
+    memcpy(p.text,&menu[0],sizeof(menu[0]));incoming(&s,42,&p);assert(!s.clients[0].menus.revision);
+    p.generation=1;p.value=1;memcpy(p.text,&menu[1],sizeof(menu[1]));incoming(&s,42,&p);
+    assert(s.clients[0].menus.revision==19 && s.scene.menu.groups==3);
+    unsigned before_input=s.clients[0].input_count;global_menu_action(&s,7);
+    assert(s.clients[0].input_count==before_input+1);
+    struct desk_packet *command=&s.clients[0].input[(s.clients[0].input_head+before_input)%DESK_INPUT_QUEUE];
+    assert(command->type==DESK_MENU_ACTION && command->value==7 && command->serial==19);
+    global_menu_action(&s,GLOBAL_MINIMIZE);assert(s.scene.focus==-1 && s.scene.menu.groups==2);
+    global_menu_action(&s,GLOBAL_WINDOW);assert(s.scene.focus==0 && s.scene.menu.groups==3);
+    forget(&s,0);assert(s.scene.menu.groups==2 && s.scene.focus==-1);
     struct session failed={0}; alloc_fail=allocations+1;
     assert(cache_init(&failed)<0 && allocations==frees);
     for(int i=0;i<DESKD_WINDOWS;i++) for(int j=0;j<2;j++) assert(!failed.cache[i][j]);

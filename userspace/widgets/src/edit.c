@@ -100,6 +100,19 @@ static size_t word(const struct desk_text_buffer *t,size_t p,int backwards) {
     }
     return p;
 }
+unsigned desk_edit_command(struct desk_edit *e,enum desk_edit_command command) {
+    if(!e->enabled || !e->focused) return 0;
+    if(command==DESK_EDIT_SELECT_ALL) {
+        desk_text_buffer_select(e->text,0,e->text->length);desk_edit_reveal(e);return DESK_WIDGET_REDRAW;
+    }
+    if(command==DESK_EDIT_COMMAND_COPY) return DESK_EDIT_COPY;
+    if(command==DESK_EDIT_COMMAND_CUT) return DESK_EDIT_CUT;
+    if(command==DESK_EDIT_COMMAND_PASTE) return DESK_EDIT_PASTE;
+    if(command!=DESK_EDIT_UNDO && command!=DESK_EDIT_REDO) return 0;
+    int changed=desk_text_buffer_undo(e->text,command==DESK_EDIT_REDO);e->preferred_x=-1;
+    if(changed>0) desk_edit_reveal(e);
+    return changed>0?DESK_WIDGET_CHANGED|DESK_WIDGET_REDRAW:0;
+}
 unsigned desk_edit_key(struct desk_edit *e,const struct srv_key_event *key) {
     if(key->flags&SRV_KEY_CANCEL) { e->dragging=0; return 0; }
     if(!e->enabled || !e->focused || !(key->flags&SRV_KEY_DOWN_EVENT)) return 0;
@@ -109,12 +122,12 @@ unsigned desk_edit_key(struct desk_edit *e,const struct srv_key_event *key) {
     size_t p=t->caret; int changed=0,moved=0,vertical=0;
     if(ctrl) {
         switch(key->usage) {
-        case 4: desk_text_buffer_select(t,0,t->length); desk_edit_reveal(e); return DESK_WIDGET_REDRAW;
-        case 6: return DESK_EDIT_COPY;
-        case 0x1b: return DESK_EDIT_CUT;
-        case 0x19: return DESK_EDIT_PASTE;
-        case 0x1d: changed=desk_text_buffer_undo(t,shift); goto edited;
-        case 0x1c: changed=desk_text_buffer_undo(t,1); goto edited;
+        case 4: return desk_edit_command(e,DESK_EDIT_SELECT_ALL);
+        case 6: return desk_edit_command(e,DESK_EDIT_COMMAND_COPY);
+        case 0x1b: return desk_edit_command(e,DESK_EDIT_COMMAND_CUT);
+        case 0x19: return desk_edit_command(e,DESK_EDIT_COMMAND_PASTE);
+        case 0x1d: return desk_edit_command(e,shift?DESK_EDIT_REDO:DESK_EDIT_UNDO);
+        case 0x1c: return desk_edit_command(e,DESK_EDIT_REDO);
         }
     }
     switch(key->usage) {
@@ -152,7 +165,6 @@ unsigned desk_edit_key(struct desk_edit *e,const struct srv_key_event *key) {
         else return 0;
         changed=desk_text_buffer_insert(t,bytes,n); break;
     }
-edited:
     if(moved) desk_text_buffer_select(t,shift?t->anchor:p,p);
     if(!vertical) e->preferred_x=-1;
     if(changed>0 || moved) desk_edit_reveal(e);

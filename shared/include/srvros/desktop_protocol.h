@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v3 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v4 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 3
+#define DESK_PROTOCOL_VERSION 4
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
@@ -15,7 +15,7 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_COUNT=6 };
@@ -59,5 +59,11 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * committed only after a complete transfer; interrupted copies retain the old
  * clipboard. GET carries serial=request. ACK value=0 success, 1 failure.
  * Only a focused window may begin copy/paste. No data is exposed on partial
- * paste, and a clipboard revision change cancels an in-flight paste. */
+ * paste, and a clipboard revision change cancels an in-flight paste.
+ * MENU_SET publishes one desk_menu_item per packet: serial=revision,
+ * generation=item index, width=total items (0..32), value=final (0/1).
+ * Index zero starts a replacement; the old snapshot remains until the entire
+ * validated new snapshot arrives. A zero-item final packet clears it.
+ * MENU_ACTION: serial=snapshot revision, value=action ID. Server-originated,
+ * focused app only. Clients reject stale revisions or disabled/unknown IDs. */
 #endif

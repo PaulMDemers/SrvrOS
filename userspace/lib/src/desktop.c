@@ -20,7 +20,7 @@ int desk_receive(uint64_t *source, struct desk_packet *packet) {
     if (message.type!=DESK_TRANSPORT_MESSAGE) return 2;
     memcpy(packet,message.text,sizeof(*packet));
     if (packet->version!=DESK_PROTOCOL_VERSION || packet->size!=sizeof(*packet) ||
-        packet->type<DESK_OPEN || packet->type>DESK_CLIPBOARD_DATA || packet->reserved || packet->reserved2) return 2;
+        packet->type<DESK_OPEN || packet->type>DESK_MENU_ACTION || packet->reserved || packet->reserved2) return 2;
     *source=message.source_pid;
     return 1;
 }

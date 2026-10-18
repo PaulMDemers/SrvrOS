@@ -63,6 +63,17 @@ int main(void) {
     assert(desk_app_launch(&a,99,path)<0);
     receive(DESK_CLOSE_REQUEST,2);assert(desk_app_poll(&a,&event)==1 && !a.closed);
     assert(!desk_app_cancel_close(&a) && last_sent.type==DESK_CANCEL_CLOSE);
+    struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"File",""},{1,0,"New","Ctrl-N"},{2,DESK_MENU_DISABLED,"Save","Ctrl-S"} };
+    assert(!desk_app_menus(&a,menu,3));uint64_t revision=a.menu_revision;
+    full=1;desk_app_menu_tick(&a);assert(a.menu_pending && !a.menu_next);
+    full=0;before=sends;desk_app_menu_tick(&a);assert(!a.menu_pending && sends==before+3 && last_sent.value==1);
+    assert(!desk_app_menus(&a,menu,3) && a.menu_revision==revision && !a.menu_pending);
+    receive(DESK_MENU_ACTION,0);incoming.serial=revision;incoming.value=1;assert(desk_app_poll(&a,&event)==2); /* Unfocused. */
+    a.focused=1;receive(DESK_MENU_ACTION,0);incoming.serial=revision;incoming.value=1;assert(desk_app_poll(&a,&event)==1);
+    receive(DESK_MENU_ACTION,0);incoming.serial=revision;incoming.value=2;assert(desk_app_poll(&a,&event)==2);
+    receive(DESK_MENU_ACTION,0);incoming.serial=revision-1;incoming.value=1;assert(desk_app_poll(&a,&event)==2);
+    receive(DESK_MENU_ACTION,0);incoming.serial=revision;incoming.value=999;assert(desk_app_poll(&a,&event)==2);
+    assert(!desk_app_menus(&a,NULL,0));desk_app_menu_tick(&a);assert(last_sent.type==DESK_MENU_SET && !last_sent.width && last_sent.value);
     alive=0;assert(desk_app_poll(&a,&event)<0 && a.closed);
     desk_app_close(&a);assert(destroyed==2 && !a.pixels);
     alive=1;assert(!desk_app_open(&a,"Timeout",400,300));ticks+=501;

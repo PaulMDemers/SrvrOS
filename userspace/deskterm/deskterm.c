@@ -149,6 +149,32 @@ static void keyboard(const struct srv_key_event *k) {
         else { desk_terminal_view_follow(&app.view);app.window.dirty=1; }
     }
 }
+enum { TERM_CLOSE=10,TERM_SELECT_ALL,TERM_PAGE_UP,TERM_PAGE_DOWN,TERM_FOLLOW };
+static void menus(void) {
+    unsigned disabled=app.modal?DESK_MENU_DISABLED:0;
+    unsigned stopped=disabled|(app.exited || !app.child?DESK_MENU_DISABLED:0);
+    struct desk_menu_item items[]={
+        {0,DESK_MENU_HEADING,"File",""},{1,disabled,"New terminal","Ctrl-Shift-N"},
+        {TERM_CLOSE,disabled,"Close window","Ctrl-Shift-W"},
+        {0,DESK_MENU_HEADING,"Edit",""},
+        {2,disabled|(app.clipboard.mode || app.view.anchor==app.view.caret?DESK_MENU_DISABLED:0),"Copy","Ctrl-Shift-C"},
+        {3,stopped|(app.clipboard.mode?DESK_MENU_DISABLED:0),"Paste","Ctrl-Shift-V"},
+        {TERM_SELECT_ALL,disabled,"Select all","Ctrl-Shift-A"},
+        {0,DESK_MENU_HEADING,"View",""},{4,stopped,"Clear screen","Ctrl-L"},
+        {TERM_PAGE_UP,disabled,"Page up","Shift-PageUp"},{TERM_PAGE_DOWN,disabled,"Page down","Shift-PageDown"},
+        {TERM_FOLLOW,disabled,"Follow output",""}
+    };
+    desk_app_menus(&app.window,items,sizeof(items)/sizeof(items[0]));desk_app_menu_tick(&app.window);
+}
+static void menu_action(unsigned id) {
+    if(app.modal) return;
+    if(id<=4) toolbar_action((struct desk_action){id,DESK_WIDGET_ACTIVATED});
+    else if(id==TERM_CLOSE) close_request();
+    else if(id==TERM_SELECT_ALL) { desk_terminal_view_select_all(&app.view);app.window.dirty=1; }
+    else if(id==TERM_PAGE_UP || id==TERM_PAGE_DOWN) {
+        desk_terminal_view_scroll(&app.view,(id==TERM_PAGE_UP?-1:1)*(int)app.view.rows*app.view.cell_height);app.window.dirty=1;
+    } else if(id==TERM_FOLLOW) { desk_terminal_view_follow(&app.view);app.window.dirty=1; }
+}
 static void pump(void) {
     if(app.master<0) return;
     for(unsigned batch=0;batch<4 && app.input_size;batch++) {
@@ -209,7 +235,8 @@ int main(void) {
             else if(p.type==DESK_FOCUS) {
                 desk_terminal_view_event(&app.view,(struct desk_widget_event){.type=p.value && !app.modal?DESK_WIDGET_FOCUS_IN:DESK_WIDGET_FOCUS_OUT});
                 desk_ui_window_focus(app.modal?&app.dialog:&app.toolbar,p.value!=0);app.window.dirty=1;
-            } else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));keyboard(&k); }
+            } else if(p.type==DESK_MENU_ACTION) menu_action(p.value);
+            else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));keyboard(&k); }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event event={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
                     .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
@@ -227,6 +254,7 @@ int main(void) {
         if(app.quit || app.window.closed || app.window.failed) break;
         pump();uint64_t blink=(uint64_t)srv_ticks()/50;
         if(blink!=app.blink) { app.blink=blink;if(app.view.focused && !app.modal) app.window.dirty=1; }
+        menus();
         struct desk_canvas canvas;if(desk_app_canvas(&app.window,&canvas)==1) { draw(&canvas);desk_app_present(&app.window); }
         srv_sleep_ticks(1);
     }

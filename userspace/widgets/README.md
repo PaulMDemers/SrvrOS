@@ -15,7 +15,8 @@ The public C API is `include/srvros/desk_widgets.h`; the build produces
 - **Client/application**: layout, event routing, focus ownership, document model,
   application actions, file work, dirty tracking and surface commits.
 - **Compositor**: window management, cross-window focus/capture, input transport
-  and presentation. It does not execute controls or own application documents.
+  and presentation. It uses the shared menu control for global UI, but does not
+  own application documents.
 
 Control drawing intersects the incoming canvas clip and preserves it. This
 supports parent clipping and damage redraw without controls repainting outside
@@ -169,3 +170,24 @@ rows but does not reflow text. Cells hold one Unicode scalar; shaping, combining
 marks and double-width glyphs remain future work. Selection is canceled on new
 output or resize. Terminal key shortcuts use Ctrl-Shift-C/V for copy/paste and
 Ctrl-C for the foreground command; Shift-PageUp/PageDown scroll history.
+
+
+## Menus and application commands
+
+`desk_menu.h` is an owned, bounded menu bar and popup control with release-based
+pointer activation, press-drag selection, hover switching, F10/arrow/Home/End
+navigation, Escape cancellation, disabled items, checkmarks and shortcut labels.
+It validates UTF-8 labels and unique action IDs. Flat headings group at most
+12 rows each; snapshots contain at most 64 entries and eight headings. The
+compositor uses this same control for its global UI. Drawing preserves parent
+clips and supports tiled damage; opening, changing or closing a popup damages
+only its old/new bounds and the menu bar.
+
+Applications publish up to 32 entries/four headings using `desk_app_menus` and
+service bounded nonblocking sends with `desk_app_menu_tick`. The desktop keeps
+the previous complete menu until a replacement validates. Commands include the
+snapshot revision; the runtime rejects unknown, disabled, unfocused or stale
+actions. The server adds its SrvrOS and Window menus and routes app actions back
+to the focused process. Shared controls never execute commands or perform IPC.
+`desk_edit_command` exposes selection, undo/redo and clipboard requests directly
+so menus and keyboard shortcuts use the same editor behavior.
