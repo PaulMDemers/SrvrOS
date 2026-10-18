@@ -48,6 +48,16 @@ class BitmapTests(unittest.TestCase):
         for data,volume in ((self.malformed(2),self.volume),(self.malformed(),'00000000')):
             with self.assertRaises(ValueError):repair.plan(io.BytesIO(data),volume)
 
+    def test_fixture_multicluster_and_empty_files(self):
+        fs=ExfatFixture(self.original)
+        payload=bytes(range(256))*(fs.cluster//128+3)
+        fs.add_directory_files('pictures',{'large.bin':payload,'empty':b''})
+        self.assertEqual(fs.read('pictures/large.bin'),payload)
+        self.assertEqual(fs.read('pictures/empty'),b'')
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'fixture.img';path.write_bytes(fs.data)
+            check_clean_image(path)
+
     def test_refuse_changed_original(self):
         proposed=repair.plan(io.BytesIO(self.malformed()),self.volume)
         with tempfile.TemporaryFile() as f:

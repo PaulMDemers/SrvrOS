@@ -66,9 +66,9 @@ class ExfatFixture:
         return directory
 
     @staticmethod
-    def checked_entry(name, first, data, attributes=0x20, data_length=None):
+    def checked_entry(name, first, data, attributes=0x20, data_length=None, contiguous=True):
         entry = bytearray(file_entry(name, first, data, attributes, data_length))
-        entry[33] |= 1  # AllocationPossible, required on stream extensions.
+        entry[33] = 3 if contiguous else 1  # AllocationPossible; optional NoFatChain.
         value = 0
         for byte in name.upper().encode('utf-16le'):
             value = (((value & 1) << 15) | (value >> 1)) + byte
@@ -89,7 +89,8 @@ class ExfatFixture:
         self.add_directory_files(directory_name, {filename: payload})
 
     def add_directory_files(self, directory_name, files):
-        if any(len(payload) > self.cluster for payload in files.values()): raise ValueError('Fixture payload too large')
+        if any(len(payload) > 16*1024*1024 for payload in files.values()): raise ValueError('Fixture payload too large')
+        needed = 1 + sum((len(payload)+self.cluster-1)//self.cluster for payload in files.values())
         root = self.chain(self.root)
         bitmap_cluster = None
         end = 0
@@ -99,8 +100,8 @@ class ExfatFixture:
             end += 32
         if bitmap_cluster is None: raise ValueError('No allocation bitmap')
         bitmap = self.offset(bitmap_cluster)
-        free = [i+2 for i in range(self.count) if not self.data[bitmap+i//8] & (1 << (i%8))][:1+len(files)]
-        if len(free) != 1+len(files): raise ValueError('Fixture full')
+        free = [i+2 for i in range(self.count) if not self.data[bitmap+i//8] & (1 << (i%8))][:needed]
+        if len(free) != needed: raise ValueError('Fixture full')
         directory_cluster = free[0]
         for cluster in free:
             bit = cluster-2
@@ -109,10 +110,18 @@ class ExfatFixture:
             off = self.offset(cluster)
             self.data[off:off+self.cluster] = b'\0'*self.cluster
         entries = bytearray()
-        for cluster, (filename, payload) in zip(free[1:], files.items()):
-            off = self.offset(cluster)
-            self.data[off:off+len(payload)] = payload
-            entries += self.checked_entry(filename, cluster, payload)
+        cursor = 1
+        for filename, payload in files.items():
+            count = (len(payload)+self.cluster-1)//self.cluster
+            chain = free[cursor:cursor+count]
+            cursor += count
+            for index, cluster in enumerate(chain):
+                off = self.offset(cluster)
+                block = payload[index*self.cluster:(index+1)*self.cluster]
+                self.data[off:off+len(block)] = block
+                following = chain[index+1] if index+1<len(chain) else 0xffffffff
+                struct.pack_into('<I', self.data, self.fat+cluster*4, following)
+            entries += self.checked_entry(filename, chain[0] if chain else 0, payload, contiguous=False)
         if len(entries) + 32 > self.cluster: raise ValueError('Fixture directory full')
         off = self.offset(directory_cluster)
         self.data[off:off+len(entries)] = entries

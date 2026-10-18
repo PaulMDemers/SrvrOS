@@ -646,3 +646,42 @@ three-process pipeline with exact persisted `cksum` readback (2052179976, 588895
 bytes), and an early-closing `yes | head | wc` pipeline. The large-image VM test
 completed a 16 MiB response in 399 ticks (about four seconds), including decode
 and transfer. These are VM measurements, not a laptop hardware latency claim.
+
+### Preview and shared image presentation
+
+Preview is a native read-only PNG/JPEG/BMP viewer with Open/Cancel, fit/actual-size,
+zoom, captured drag and two-finger/wheel panning, global File/View menus and the
+shared file picker/clipboard. Its image view is a reusable allocation/I/O-free
+widget over borrowed ARGB pixels, including transparent checkerboard compositing.
+Failed or canceled loads retain the previous image and title. Small windows keep
+all six toolbar actions; the Cancel label shortens to Stop. Preview is available
+in the launcher and through image extensions in Files. One catalog now owns app
+names, executable paths, dock pins and extension associations. Files and the
+picker also share validated, folders-first listing snapshots.
+
+A separate read-only worker uses a pinned stb_image implementation with only the
+three supported decoders enabled. Files are limited to 8 MiB, dimensions to 4096
+and total pixels to 4 million. Decode payload allocations are capped at 64 MiB
+including temporary reallocation copies. Source/large decode/received buffers use
+mapped memory; the initial heap-backed attempt exhausted the small process heap.
+The transport consumes at most 64 KiB per turn, checks lengths/identity/checksum,
+exposes only complete pixels, and cancels/reaps workers without blocking the UI.
+A damaged-JPEG mutation exposed signed overflow in the upstream scalar IDCT;
+a documented local patch widens both passes and clamps before narrowing. Exact
+reference JPEG output is unchanged.
+
+Validation: image geometry/alpha/clipping/tiled rendering, controller retention
+and compact layout, decoder malformed/truncated/mutated inputs, mapped large-image
+lifetimes, fragmented transport/checksums/worker death/timeouts/cancellation and
+interrupted reaping passed host tests. Decoder, widget/controller and pipe checks
+passed ASan/UBSan; the full core/desktop suite and production build passed.
+The disposable QEMU workflow passed PNG/JPEG/BMP, malformed/oversized retention,
+picker clipboard, global menus, resize, Files association and clean exit. Its
+stress variant canceled/retried a 4096×1024 image, completed its 16 MiB pixel
+response, and verified exact saved text typed into Text during that load.
+`tools/desktop_preview_smoke.py --stress` and `tools/pipe_smoke.py` retain the
+regressions. The screenshot is `native-desktop-preview.png`.
+
+Current limits: nearest-neighbor zoom, no color-management or EXIF orientation,
+no editing/export, no animated image support. The image worker is a separate
+process with bounded resources, not a security sandbox. No hardware boot changed.

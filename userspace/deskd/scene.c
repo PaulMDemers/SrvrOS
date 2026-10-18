@@ -1,5 +1,6 @@
 #include "scene.h"
 #include <srvros/desktop_protocol.h>
+#include <srvros/desktop_apps.h>
 
 void desktop_stack(const struct desktop_scene *s,int order[DESKD_WINDOWS]) {
     for(int i=0;i<DESKD_WINDOWS;i++) order[i]=i;
@@ -17,9 +18,10 @@ void desktop_stack(const struct desktop_scene *s,int order[DESKD_WINDOWS]) {
     }
 }
 struct desk_rect desktop_dock_item(int width,int height,int application) {
-    if(application<1 || application>DESK_APP_COUNT) return (struct desk_rect){0};
-    int total=DESK_APP_COUNT*100;
-    return (struct desk_rect){(width-total)/2+(application-1)*100,height-68,100,60};
+    const struct desk_application_info *info=desk_application_info(application);
+    if(!info || !info->dock) return (struct desk_rect){0};
+    int total=(int)desk_dock_count()*100;
+    return (struct desk_rect){(width-total)/2+(int)(info->dock-1)*100,height-68,100,60};
 }
 static void icon(struct desk_canvas *c,int app,int x,int y) {
     if(app==DESK_APP_FILES) {
@@ -51,19 +53,19 @@ static void icon(struct desk_canvas *c,int app,int x,int y) {
     }
 }
 static void dock(struct desk_canvas *c,const struct desktop_scene *s) {
-    static const char *names[]={"Files","Text","Calculator","System","Settings","Terminal"};
-    int width=DESK_APP_COUNT*100;
+    int width=(int)desk_dock_count()*100;
     desk_fill(c,(struct desk_rect){(c->width-width)/2-8,c->height-74,width+16,70},0xf1f0eb);
     for(int app=1;app<=DESK_APP_COUNT;app++) {
-        struct desk_rect r=desktop_dock_item(c->width,c->height,app);
+        struct desk_rect r=desktop_dock_item(c->width,c->height,app);if(!r.w) continue;
+        const char *name=desk_application_info(app)->title;
         int running=0,active=0;
         for(int i=0;i<DESKD_WINDOWS;i++) if(s->windows[i].visible && s->windows[i].application==app) {
             running=1;active|=s->focus==i;
         }
         if(active) desk_fill(c,(struct desk_rect){r.x+2,r.y+1,r.w-4,r.h-3},0xe0eade);
         icon(c,app,r.x+34,r.y+2);
-        int text=desk_text_width(&desk_font_16,names[app-1]);
-        desk_text(c,&desk_font_16,r.x+(r.w-text)/2,r.y+34,names[app-1],0x292e2b);
+        int text=desk_text_width(&desk_font_16,name);
+        desk_text(c,&desk_font_16,r.x+(r.w-text)/2,r.y+34,name,0x292e2b);
         if(running) desk_fill(c,(struct desk_rect){r.x+48,r.y+56,4,2},0x38644f);
     }
 }

@@ -1,5 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "app.h"
+#include <srvros/desktop_apps.h>
+#include <srvros/desk_listing.h>
 #include <stdio.h>
 #include <string.h>
 #include <strings.h>
@@ -229,7 +231,7 @@ void tool_files_action(struct tool *t,struct desk_action a) {
         if(t->table.body.selected<0) { tool_status(t,"Select a file or folder first.");return; }
         struct desk_file_entry *entry=&t->entries[t->table.body.selected];char path[DESK_FILE_PATH];
         if(child_path(t,entry->name,path)) { tool_status(t,"This path is too long to open.");return; }
-        if(entry->directory) list_directory(t,path);else tool_launch(t,DESK_APP_TEXT,path);
+        if(entry->directory) list_directory(t,path);else tool_launch(t,desk_application_for_path(path),path);
     } else if(a.id==TOOL_MKDIR || a.id==TOOL_NAME) {
         char path[DESK_FILE_PATH];
         if(!basename_valid(t->name_text.data) || child_path(t,t->name_text.data,path) || desk_file_job_start(&t->job,DESK_FILE_MKDIR,path,NULL,0,0,0)) {
@@ -239,31 +241,9 @@ void tool_files_action(struct tool *t,struct desk_action a) {
     }
 }
 int tool_listing_decode(struct tool *t) {
-    unsigned count=t->job.response.count;
-    if(count>DESK_FILE_ENTRIES || t->job.response.length!=count*sizeof(t->entries[0])) return -1;
-    for(unsigned i=0;i<count;i++) {
-        struct desk_file_entry entry;memcpy(&entry,t->job.incoming+i*sizeof(entry),sizeof(entry));
-        if(!memchr(entry.name,0,sizeof(entry.name)) || entry.reserved || entry.directory>1 || !entry.name[0] || !entry.inode ||
-           strchr(entry.name,'/') || !strcmp(entry.name,".") || !strcmp(entry.name,"..") || !desk_text_utf8_valid(entry.name,strlen(entry.name))) return -1;
-        for(unsigned j=0;j<i;j++) { struct desk_file_entry previous;memcpy(&previous,t->job.incoming+j*sizeof(previous),sizeof(previous));if(previous.inode==entry.inode || !strcmp(previous.name,entry.name)) return -1; }
-        for(const char *p=entry.name;*p;p++) if((unsigned char)*p<32 || (unsigned char)*p==127) return -1;
-    }
-    memcpy(t->entries,t->job.incoming,count*sizeof(t->entries[0]));
-    for(unsigned i=1;i<count;i++) {
-        struct desk_file_entry item=t->entries[i];unsigned j=i;
-        while(j && (item.directory>t->entries[j-1].directory ||
-            (item.directory==t->entries[j-1].directory && strcmp(item.name,t->entries[j-1].name)<0))) {
-            t->entries[j]=t->entries[j-1];j--;
-        }
-        t->entries[j]=item;
-    }
-    for(unsigned i=0;i<count;i++) {
-        if(t->entries[i].directory) strcpy(t->details[i],"Folder");
-        else snprintf(t->details[i],sizeof(t->details[i]),"%llu bytes",(unsigned long long)t->entries[i].size);
-        t->items[i]=(struct desk_list_item){t->entries[i].name,t->details[i],t->entries[i].inode,t->entries[i].directory};
-    }
-    return count;
+    return desk_listing_decode(t->entries,t->items,t->details,t->job.incoming,t->job.response.length,t->job.response.count);
 }
+
 void tool_files_finish(struct tool *t,int result) {
     if(result<0 || t->job.response.status) {
         const char *message="Could not open or change this folder. Check the path and volume.";

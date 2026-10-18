@@ -322,3 +322,29 @@ release-inside/cancel rules. Frames have equal-width items, with clipped labels;
 use at least 24 pixels per item and 24 pixels in height to enable interaction.
 The app owns page contents and their retained state. System uses separate tables
 under Processes and Network, retaining process selection when switching pages.
+
+## Image view and folder snapshots
+
+`desk_image.h` presents a borrowed immutable `0xAARRGGBB` pixel buffer. Fit keeps
+an image at or below 100%; explicit zoom steps run from 6.25% to 400%. Zoom keeps
+the image point at the viewport center. Dragging, wheel/trackpad deltas and arrow
+keys pan; Page Up/Down pans by a viewport, Home/End chooses its bounds. `+`/`−`
+zooms, `0` fits, and `1` selects actual pixels. The view clips to its frame,
+composites alpha over a checkerboard, and participates in shared focus/capture.
+The widget does not allocate, decode, open files or own its source pixels.
+
+Preview uses a separate read-only `imageworker` for PNG/JPEG/BMP. Its transport
+in `desk_image_job.h` snapshots a path, drains at most 64 KiB per poll, checks the
+complete response before exposing pixels, and supports cancellation with a
+nonblocking worker reap. The caller adopts completed pixels with `take` and
+releases them using `desk_image_pixels_release` with the response dimensions.
+Source, large decode and received pixel buffers use mapped memory rather than
+the small process heap. Limits are 8 MiB input, 4096 pixels per dimension,
+4 million total pixels and 64 MiB peak decoder payload allocation.
+
+`desk_listing_decode` validates a complete worker folder snapshot before changing
+caller-owned entry/item/detail arrays. It rejects malformed names, duplicate
+identities/names and bad lengths, sorts folders first, and builds borrowed list
+items. Files and Preview's picker share it; filesystem calls remain in their
+workers. `desktop_apps.h` owns the launch catalog, pinned dock positions and image
+extension associations. Preview is available through the launcher and Files.

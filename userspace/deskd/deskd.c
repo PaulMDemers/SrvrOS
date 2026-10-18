@@ -1,4 +1,5 @@
 #include <srvros/desk_log.h>
+#include <srvros/desktop_apps.h>
 #include "scene.h"
 #include "clipboard.h"
 #include "menus.h"
@@ -196,10 +197,10 @@ static void spawn_client(struct session *s) {
     }
 }
 static void spawn_app(struct session *s,int application,const char *path) {
-    static char *names[]={"files","text","calculator","system","settings","terminal"};
-    if(application<1 || application>DESK_APP_COUNT) return;
+    const struct desk_application_info *info=desk_application_info(application);
+    if(!info) return;
     for(int i=0;i<DESKD_WINDOWS;i++) if(!s->children[i]) {
-        char *argv[]={application==DESK_APP_TERMINAL?"/fat/bin/deskterm":"/fat/bin/desktools",names[application-1],(char *)(path?path:""),NULL};
+        char *argv[]={(char *)info->program,(char *)info->role,(char *)(path?path:""),NULL};
         struct srv_exec_request request={.path=argv[0],.argv=argv,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
@@ -325,7 +326,6 @@ static void launcher_damage(struct session *s) {
     struct desk_rect r=s->scene.launcher.frame;r.w+=5;r.h+=6;desk_damage_add(&s->damage,r);
 }
 static void launcher_catalog(struct session *s) {
-    static const char *names[]={"Files","Text","Calculator","System","Settings","Terminal"};
     struct desk_palette_item items[DESKD_WINDOWS+DESK_APP_COUNT]={0};unsigned count=0;
     int order[DESKD_WINDOWS];desktop_stack(&s->scene,order);
     for(int n=DESKD_WINDOWS-1;n>=0;n--) {
@@ -336,7 +336,7 @@ static void launcher_catalog(struct session *s) {
         strcpy(item->detail,s->scene.windows[i].minimized?"Hidden window":"Open window");
     }
     for(unsigned app=1;app<=DESK_APP_COUNT;app++) {
-        struct desk_palette_item *item=&items[count++];item->id=app;strcpy(item->label,names[app-1]);strcpy(item->detail,"New app");
+        struct desk_palette_item *item=&items[count++];item->id=app;strcpy(item->label,desk_application_info(app)->title);strcpy(item->detail,"New app");
     }
     struct desk_palette *p=&s->scene.launcher;
     if(p->count!=count || memcmp(p->items,items,count*sizeof(*items))) {
