@@ -1,5 +1,9 @@
 # Native compositor and independent client
 
+Follow-up: the [physical capture workflow](trackpad-capture-2026-10-17.md) adds
+an interactive boot, bounded raw packet samples, USB reports and a persistent
+halt screen for the next hardware validation.
+
 This advances the [desktop plan](desktop-plan-2026-10-17.md) beyond the single
 process rendering study. The new compositor and test application run as separate
 ring-3 processes. The capture transport for the built-in trackpad is implemented

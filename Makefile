@@ -2163,3 +2163,11 @@ test-desktop: build/tests/desktop-session-host$(HOST_EXE)
 build/tests/desktop-session-host$(HOST_EXE): tools/test_desktop_session.c userspace/deskd/deskd.c userspace/deskd/scene.h shared/include/srvros/desktop_protocol.h userspace/lib/src/desk_render.c
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -idirafter userspace/lib/include tools/test_desktop_session.c userspace/lib/src/desk_render.c -Wl,--gc-sections -o $@
+
+.PHONY: test-trackpad-capture
+test-core: test-trackpad-capture
+test-trackpad-capture: build/tests/trackpad-capture-host$(HOST_EXE)
+	$<
+build/tests/trackpad-capture-host$(HOST_EXE): tools/test_trackpad_capture.c kernel/src/trackpad_test.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include $< -Wl,--gc-sections -o $@

@@ -184,6 +184,9 @@ struct xhci_trackpad_endpoint {
     uint64_t reports,contact_reports,button_reports,malformed,errors;
     uint32_t last_length,last_completion;
     struct apple_trackpad_frame frame;
+    uint64_t lifts;
+    uint32_t max_contacts;
+    struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
 
 struct xhci_device {
@@ -351,6 +354,43 @@ static void event_irq_restore(uint64_t flags) {
 #else
     if(flags & (1ull<<9)) __asm__ volatile("sti":::"memory");
 #endif
+}
+
+void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out) {
+    if (!out) return;
+    uint64_t flags=event_irq_save();
+    *out=(struct xhci_trackpad_capture){0};
+    for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_device *d=&xhci.devices[i];
+        struct xhci_trackpad_endpoint *t=&d->trackpad;
+        if (!d->present || !t->candidate) continue;
+        out->found=true; out->slot=d->slot_id; out->ready=t->ready; out->pending=t->pending;
+        out->last_length=t->last_length; out->completion=t->last_completion;
+        out->max_contacts=t->max_contacts; out->reports=t->reports;
+        out->contact_reports=t->contact_reports; out->button_reports=t->button_reports;
+        out->lifts=t->lifts; out->malformed=t->malformed; out->errors=t->errors;
+        out->keyboard_reports=d->hid_reports;
+        for (unsigned n=0;n<XHCI_TRACKPAD_SAMPLES;n++) out->samples[n]=t->samples[n];
+        break;
+    }
+    event_irq_restore(flags);
+}
+void xhci_trackpad_reset_capture(void) {
+    uint64_t flags=event_irq_save();
+    for (unsigned i=0;i<XHCI_MAX_DEVICES;i++) {
+        struct xhci_trackpad_endpoint *t=&xhci.devices[i].trackpad;
+        t->reports=t->contact_reports=t->button_reports=t->lifts=t->malformed=0;
+        t->max_contacts=0; t->frame=(struct apple_trackpad_frame){0};
+        for (unsigned n=0;n<XHCI_TRACKPAD_SAMPLES;n++) t->samples[n].length=0;
+    }
+    event_irq_restore(flags);
+}
+
+static void trackpad_sample(struct xhci_trackpad_endpoint *t,unsigned category) {
+    struct xhci_trackpad_sample *sample=&t->samples[category];
+    if (sample->length || !t->last_length || t->last_length>APPLE_TRACKPAD_REPORT_MAX) return;
+    for (unsigned n=0;n<t->last_length;n++) sample->data[n]=t->buffer[n];
+    sample->length=t->last_length;
 }
 
 static uint64_t rdtsc(void) {
@@ -1745,12 +1785,17 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             t->errors++; t->ready=false; return;
         }
         t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
+        uint8_t previous_contacts=t->frame.count;
         int decoded=apple_trackpad_decode(t->buffer,t->last_length,&t->frame);
-        if (decoded<0) t->malformed++;
+        if (decoded<0) { t->malformed++; trackpad_sample(t,4); }
         if (decoded>0) {
             t->reports++;
-            if (t->frame.count) t->contact_reports++;
-            if (t->frame.button) t->button_reports++;
+            trackpad_sample(t,0);
+            if (t->frame.count) { t->contact_reports++; trackpad_sample(t,1); }
+            if (t->frame.count>1) trackpad_sample(t,2);
+            if (t->frame.button) { t->button_reports++; trackpad_sample(t,3); }
+            if (previous_contacts && !t->frame.count) t->lifts++;
+            if (t->max_contacts<t->frame.count) t->max_contacts=t->frame.count;
         }
         submit_trackpad_poll(device);
         return;

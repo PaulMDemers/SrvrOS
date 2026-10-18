@@ -178,6 +178,21 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError): boot.stage(workspace_volume='37d8c5d0', **options)
         with self.assertRaises(ValueError): boot.stage(workspace_volume='bad')
 
+    def test_trackpad_profile_roundtrip_and_conflicts(self):
+        version='ram-usb-v10-trackpad-37d8c5d0-0123456789abcdef'
+        release=self.payload('trackpad',version)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text()); manifest['config_version']=version
+        path.write_text(json.dumps(manifest)); boot.install(release)
+        cfg=(self.base/release/'limine.conf').read_text()
+        self.assertIn('srvros.trackpad=capture',cfg)
+        self.assertIn('srvros.workspace-volume=37d8c5d0',cfg)
+        self.assertIn('srvros.trackpad-release='+release,cfg)
+        self.assertNotIn('srvros.usb-storage=rw',cfg)
+        for args in ({'workspace_volume':'bad'},{'diagnostic':True},
+                     {'workspace_volume':'37d8c5d0','autotest_volume':'37d8c5d0'},{}):
+            with self.assertRaises(ValueError): boot.stage(trackpad_run='0123456789abcdef',**args)
+
     def test_unrecognized_profile_rejected(self):
         version = 'ram-usb-v5-autotest-37d8c5d0-0123456789abcdeg'
         release = self.payload('bad', version)

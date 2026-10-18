@@ -24,6 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
+TRACKPAD_RE = re.compile(r"ram-usb-v10-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
 def digest(path):
@@ -39,7 +40,12 @@ def release_id(hashes, version=CONFIG_VERSION):
 def limine_config(release, version=CONFIG_VERSION):
     autotest = AUTOTEST_RE.fullmatch(version)
     workspace = WORKSPACE_RE.fullmatch(version)
-    if autotest:
+    trackpad = TRACKPAD_RE.fullmatch(version)
+    if trackpad:
+        volume, run = trackpad.groups()
+        cmdline = (f"srvros.storage=ram srvros.workspace-volume={volume} srvros.trackpad=capture "
+                   f"srvros.trackpad-run={run} srvros.trackpad-release={release}")
+    elif autotest:
         volume, run = autotest.groups()
         cmdline = (f"srvros.storage=ram srvros.autotest-volume={volume} "
                    f"srvros.autotest-run={run} srvros.autotest-release={release}")
@@ -83,7 +89,7 @@ def verify(directory):
     if version is None:
         version = next((v for v in CONFIG_VERSIONS if release_id(payload, v) == manifest["release"]), None)
     if version not in CONFIG_VERSIONS and not (isinstance(version, str) and
-            (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version))):
+            (AUTOTEST_RE.fullmatch(version) or WORKSPACE_RE.fullmatch(version) or TRACKPAD_RE.fullmatch(version))):
         raise ValueError("Unknown boot configuration version")
     release = release_id(payload, version)
     if manifest["release"] != release or any(
@@ -93,7 +99,7 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None):
     if repeat not in (1, 5) or (repeat != 1 and (autotest_volume is None or run_id is None)):
         raise ValueError('Invalid automated-test repeat count')
     version = DIAGNOSTIC_VERSION if diagnostic else CONFIG_VERSION
@@ -105,6 +111,10 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         version = f"ram-usb-v{9 if repeat == 5 else 8}-autotest-{autotest_volume}-{run_id}"
         if diagnostic or not AUTOTEST_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automated-test profile")
+    if trackpad_run is not None:
+        version = f"ram-usb-v10-trackpad-{workspace_volume}-{trackpad_run}"
+        if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
+            raise ValueError("Invalid or conflicting trackpad profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
         "srvros.elf": ROOT / "build/kernel/srvros.elf",
@@ -266,6 +276,8 @@ def install(release=None):
     print("No reboot has been requested.")
     if AUTOTEST_RE.fullmatch(verify(source).get("config_version", "")):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
+    elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
+        print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Workspace profile: prepared UUID-selected USB volume mounted at /work; boot filesystem stays in RAM.")
     else:

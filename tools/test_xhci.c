@@ -462,6 +462,7 @@ static void test_trackpad(const char *fixture) {
     dispatch_transfer_event(&e);
     assert(t->reports==1 && t->contact_reports==1 && t->button_reports==1);
     assert(t->frame.count==1 && t->frame.contacts[0].x==123 && t->last_length==66);
+    assert(t->samples[1].length==66 && t->samples[1].data[40]==123 && t->samples[3].length==66);
     assert(t->pending && t->trb==0xb010 && d->interrupt_pending && d->bulk_pending);
     dispatch_transfer_event(&e); assert(t->reports==1); /* Old pointer ignored. */
     e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(5u<<16);
@@ -472,11 +473,22 @@ static void test_trackpad(const char *fixture) {
     e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(7u<<16);
     e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38); dispatch_transfer_event(&e);
     assert(t->reports==2 && t->frame.count==0 && !t->frame.button); /* Lift frame. */
+    assert(t->lifts==1 && t->max_contacts==1 && t->samples[1].data[40]==123);
     e.parameter_low=0xb020; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-65);
     dispatch_transfer_event(&e); assert(t->malformed==1 && t->reports==2 && t->pending);
-    e.parameter_low=0xb030; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
+    assert(t->samples[4].length==65);
+    buffer[54]=10; buffer[82]=10;
+    e.parameter_low=0xb030; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-94);
+    dispatch_transfer_event(&e); assert(t->max_contacts==2 && t->samples[2].length==94);
+    e.parameter_low=0xb040; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
     submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
+    struct xhci_trackpad_capture capture;
+    xhci_trackpad_snapshot(&capture);
+    assert(capture.found && capture.max_contacts==2 && capture.lifts==1 && capture.errors==1);
+    assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
+    xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
+    assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
     xhci_set_trackpad_capture(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }

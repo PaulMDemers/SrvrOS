@@ -1,6 +1,7 @@
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
 #include <srvros/workspace.h>
+#include <srvros/trackpad_test.h>
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
 #include <srvros/block.h>
@@ -539,6 +540,7 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     workspace_boot(cmdline);
+    trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
     monitor_run();
 }
