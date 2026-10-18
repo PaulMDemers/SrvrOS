@@ -2934,3 +2934,12 @@ test-backlight: build/tests/backlight-host$(HOST_EXE)
 build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c -o $@
+
+.PHONY: test-process-loader
+test-core: test-process-loader
+test-process-loader: build/tests/process-loader-host$(HOST_EXE)
+	$<
+build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+

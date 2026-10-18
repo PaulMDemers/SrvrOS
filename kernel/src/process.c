@@ -302,7 +302,9 @@ static struct process_unix_listener unix_listeners[PROCESS_MAX_UNIX_LISTENERS];
 static struct process_file_lock file_locks[PROCESS_MAX_FILE_LOCKS];
 static struct process_futex futexes[PROCESS_MAX_FUTEXES];
 static struct process_exit_record exit_records[PROCESS_EXIT_STATUS_CACHE];
-static struct process *loading_process;
+/* Reserve slots while their large mapping arrays are initialized or cleared.
+ * This keeps preemptible work outside the short publication critical section. */
+static bool process_slots_busy[PROCESS_MAX_PROCESSES];
 static uint64_t next_pid = 1;
 static uint64_t next_exit_record_sequence;
 static struct scheduler_wait_queue process_wait_queue;
@@ -555,45 +557,48 @@ static void clear_process(struct process *process) {
 }
 
 static struct process *alloc_process(const char *path, bool detached) {
-    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
-        if (!processes[i].allocated) {
-            clear_process(&processes[i]);
-            processes[i].allocated = true;
-            processes[i].active = true;
-            processes[i].detached = detached;
-            processes[i].pid = next_pid++;
-            if (next_pid == 0) {
-                next_pid = 1;
-            }
-            struct process *parent = process_current();
-            processes[i].parent_pid = process_pid(parent);
-            processes[i].process_group = parent != NULL ? parent->process_group : processes[i].pid;
-            processes[i].session_id = parent != NULL ? parent->session_id : processes[i].pid;
-            processes[i].controlling_tty = parent != NULL ? parent->controlling_tty : 0;
-            processes[i].main_signal_mask = process_current_signal_mask(parent);
-            if (processes[i].process_group == 0) {
-                processes[i].process_group = processes[i].pid;
-            }
-            if (processes[i].session_id == 0) {
-                processes[i].session_id = processes[i].pid;
-            }
-            processes[i].stack_top = USER_STACK_TOP;
-            processes[i].kernel_stack_top = gdt_default_kernel_stack_top();
-            processes[i].next_thread_id = 2;
-            fpu_init_state(&processes[i].fpu);
-            set_process_name(&processes[i], path);
-            (void)copy_process_path(processes[i].executable_path, sizeof(processes[i].executable_path), path);
-            return &processes[i];
+    uint64_t flags=process_irq_save(),slot=PROCESS_MAX_PROCESSES,pid=0;
+    for(uint64_t i=0;i<PROCESS_MAX_PROCESSES;i++) {
+        if(!processes[i].allocated && !process_slots_busy[i]) {
+            slot=i;process_slots_busy[i]=true;pid=next_pid++;
+            if(!next_pid) next_pid=1;
+            break;
         }
     }
-
-    return NULL;
+    process_irq_restore(flags);
+    if(slot==PROCESS_MAX_PROCESSES) return NULL;
+    struct process *process=&processes[slot];
+    clear_process(process);
+    process->active=true;process->detached=detached;process->pid=pid;
+    struct process *parent=process_current();
+    process->parent_pid=process_pid(parent);
+    process->process_group=parent?parent->process_group:pid;
+    process->session_id=parent?parent->session_id:pid;
+    process->controlling_tty=parent?parent->controlling_tty:0;
+    process->main_signal_mask=process_current_signal_mask(parent);
+    if(!process->process_group) process->process_group=pid;
+    if(!process->session_id) process->session_id=pid;
+    process->stack_top=USER_STACK_TOP;
+    process->kernel_stack_top=gdt_default_kernel_stack_top();
+    process->next_thread_id=2;
+    fpu_init_state(&process->fpu);
+    set_process_name(process,path);
+    (void)copy_process_path(process->executable_path,sizeof(process->executable_path),path);
+    flags=process_irq_save();
+    process->allocated=true;process_slots_busy[slot]=false;
+    process_irq_restore(flags);
+    return process;
 }
 
 static void release_process(struct process *process) {
     if (process == NULL) {
         return;
     }
+
+    uint64_t slot=(uint64_t)(process-processes),flags=process_irq_save();
+    process_slots_busy[slot]=true;
+    process->allocated=false;
+    process_irq_restore(flags);
 
     if (process->kernel_stack_physical != 0 && process->kernel_stack_frames != 0) {
         pmm_free_frame_range(process->kernel_stack_physical, process->kernel_stack_frames);
@@ -603,6 +608,7 @@ static void release_process(struct process *process) {
     }
 
     clear_process(process);
+    flags=process_irq_save();process_slots_busy[slot]=false;process_irq_restore(flags);
 }
 
 static void release_process_runtime(struct process *process) {
@@ -971,10 +977,6 @@ static bool map_process_page(struct process *process, uint64_t virtual_page, uin
     return true;
 }
 
-static bool map_segment_page(uint64_t virtual_page, uint64_t flags) {
-    return map_process_page(loading_process, virtual_page, flags);
-}
-
 static int64_t process_mapping_index(struct process *process, uint64_t virtual_page) {
     if (process == NULL) {
         return -1;
@@ -1096,7 +1098,7 @@ static void close_cloexec_files(struct process *process) {
     }
 }
 
-static bool load_segment(const uint8_t *file, uint64_t file_size, const struct elf64_program_header *program) {
+static bool load_segment(struct process *process, const uint8_t *file, uint64_t file_size, const struct elf64_program_header *program) {
     if (program->memsz < program->filesz ||
         program->offset > file_size ||
         program->filesz > file_size - program->offset) {
@@ -1119,7 +1121,7 @@ static bool load_segment(const uint8_t *file, uint64_t file_size, const struct e
     }
 
     for (uint64_t page = start; page < end; page += PAGE_SIZE) {
-        if (!map_segment_page(page, flags)) {
+        if (!map_process_page(process, page, flags)) {
             return false;
         }
     }
@@ -1127,7 +1129,7 @@ static bool load_segment(const uint8_t *file, uint64_t file_size, const struct e
     for (uint64_t copied = 0; copied < program->filesz;) {
         uint64_t virtual_address = program->vaddr + copied;
         uint64_t physical_address;
-        if (!vmm_virt_to_phys_in_space(loading_process->address_space, virtual_address, &physical_address)) {
+        if (!vmm_virt_to_phys_in_space(process->address_space, virtual_address, &physical_address)) {
             return false;
         }
 
@@ -1146,10 +1148,10 @@ static bool load_segment(const uint8_t *file, uint64_t file_size, const struct e
     return true;
 }
 
-static bool map_user_stack(uint64_t stack_top) {
+static bool map_user_stack(struct process *process, uint64_t stack_top) {
     uint64_t bottom = stack_top - (USER_STACK_PAGES * PAGE_SIZE);
     for (uint64_t page = bottom; page < stack_top; page += PAGE_SIZE) {
-        if (!map_segment_page(page, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE)) {
+        if (!map_process_page(process, page, VMM_PAGE_USER | VMM_PAGE_WRITABLE | VMM_PAGE_NO_EXECUTE)) {
             return false;
         }
     }
@@ -1280,7 +1282,6 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         return false;
     }
 
-    loading_process = process;
 
     const struct vfs_node *node = vfs_lookup(path);
     const uint8_t *data;
@@ -1291,7 +1292,6 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         console_printf("run: not found: %s\n", path);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
@@ -1300,7 +1300,6 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
@@ -1324,18 +1323,16 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         vfs_release_data(node, data);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
     for (uint64_t i = 0; i < header->phnum; i++) {
-        if (programs[i].type == PT_LOAD && !load_segment(data, size, &programs[i])) {
+        if (programs[i].type == PT_LOAD && !load_segment(process, data, size, &programs[i])) {
             console_printf("run: failed to load segment %u\n", i);
             vfs_release_data(node, data);
             cleanup_process_mappings(process);
             vmm_destroy_address_space(process->address_space);
             process->address_space = 0;
-            loading_process = NULL;
             return false;
         }
     }
@@ -1346,7 +1343,6 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
@@ -1356,17 +1352,15 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
-    if (!map_user_stack(stack_top)) {
+    if (!map_user_stack(process, stack_top)) {
         console_write("run: failed to map user stack\n");
         vfs_release_data(node, data);
         cleanup_process_mappings(process);
         vmm_destroy_address_space(process->address_space);
         process->address_space = 0;
-        loading_process = NULL;
         return false;
     }
 
@@ -1377,7 +1371,6 @@ static bool load_elf_image(const char *path, struct process *process, uint64_t s
     process->program_break = process->heap_base;
     process->mapped_break = process->heap_base;
     process->heap_limit = stack_top - (USER_STACK_PAGES * PAGE_SIZE) - (USER_STACK_GUARD_PAGES * PAGE_SIZE);
-    loading_process = NULL;
     vfs_release_data(node, data);
     return true;
 }
