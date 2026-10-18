@@ -150,6 +150,7 @@ int main(int argc,char **argv) {
     else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
     else if(t->role==DESK_APP_SYSTEM) tool_system_init(t);
     while(!t->quit && !t->window.failed && !t->window.closed) {
+        if(t->role==DESK_APP_SETTINGS) tool_settings_tick(t);
         if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);
         for(unsigned n=0;n<32;n++) {
             struct desk_packet p;int r=desk_app_poll(&t->window,&p);
@@ -158,6 +159,7 @@ int main(int argc,char **argv) {
             if(p.type==DESK_CLIPBOARD_ACK || p.type==DESK_CLIPBOARD_DATA) {
                 int result=desk_clipboard_receive(&t->clip,&p);if(result) tool_clipboard_result(t,result);
             } else if(p.type==DESK_CONFIGURE) { tool_layout(t);if(t->role==DESK_APP_TEXT || t->role==DESK_APP_CALCULATOR) desk_ui_focus(&t->ui,TOOL_BODY); }
+            else if(p.type==DESK_BRIGHTNESS && t->role==DESK_APP_SETTINGS) tool_settings_brightness(t,&p);
             else if(p.type==DESK_PREFERENCES) {
                 if(t->role==DESK_APP_SETTINGS) tool_settings_receive(t,&p);
                 else {
@@ -166,6 +168,7 @@ int main(int argc,char **argv) {
                 }
             } else if(p.type==DESK_CONTEXT) tool_context_open(t,p.x,p.y,p.value!=0);
             else if(p.type==DESK_FOCUS) {
+                if(t->role==DESK_APP_SETTINGS && p.value) t->brightness_refresh=1;
                 if(!p.value) desk_popup_cancel(&t->context);
                 if(t->role==DESK_APP_SETTINGS && !p.value) tool_settings_pointer(t,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL});
                 if(t->info_mode) desk_ui_window_focus(&t->info_ui,p.value!=0);else if(t->prompt_mode) desk_prompt_focus(&t->prompt,p.value!=0);else if(t->picker_mode) desk_picker_focus(&t->picker,p.value!=0);else if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else tool_content_focus(t,p.value!=0);t->window.dirty=1;

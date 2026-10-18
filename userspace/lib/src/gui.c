@@ -4,6 +4,7 @@
 int gui_register_server(void) {
     return (int)srv_syscall0(SYS_GUI_REGISTER);
 }
+int gui_brightness(unsigned percent) { return (int)srv_syscall1(SYS_GUI_BRIGHTNESS,percent); }
 int gui_pointer_config(unsigned speed,unsigned acceleration) {
     return (int)srv_syscall2(SYS_GUI_POINTER_CONFIG,speed,acceleration);
 }

@@ -548,6 +548,7 @@ void kmain(void) {
     }
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
+    if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     workspace_boot(cmdline);
     if(automatic_probe) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);

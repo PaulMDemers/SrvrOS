@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v7 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v8 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 7
+#define DESK_PROTOCOL_VERSION 8
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
@@ -15,7 +15,7 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_SKETCH, DESK_APP_NETWORK, DESK_APP_FIND, DESK_APP_COUNT=12 };
@@ -56,6 +56,9 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * request: value=application, serial=path offset, height=chunk bytes, width=final.
  * Up to 160 bytes including the final NUL, assembled per client. Offset zero
  * starts/replaces a request; nothing launches until a valid final chunk.
+ * BRIGHTNESS: client serial identifies a request; value=0 query or 5..100 set.
+ * Only focused Settings may set. Server echoes serial and returns value=0..100
+ * or UINT32_MAX unavailable/error. Replies are retried; requests do not persist.
  * PREFERENCES_SET: value=DESK_PREF_* field mask, text=desk_preferences.
  * Only focused Settings may update. PREFERENCES broadcasts the complete value
  * in text, value=persistence status, serial=revision, including new windows.

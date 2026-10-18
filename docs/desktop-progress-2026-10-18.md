@@ -1419,3 +1419,38 @@ Physical evidence is archived under
 `build/native-desktop-trials/8d348e2935c28972/physical-collection/`; the host pending
 record now says `capture-recovered`. No new installation or reboot was performed
 during collection.
+
+
+## Brightness control implementation
+
+The observed PCH override mode is now connected to a bounded brightness backend
+and a Settings slider below Trackpad. The backend is enabled only by the new v20
+interactive laptop profile after exact firmware/resource/chipset checks; normal
+and automatic read-only capture profiles retain their earlier behavior. Startup
+and queries perform no writes. Explicit 5–100% requests change only duty, preserve
+the period and control state, and require matching readback. Unexpected state
+makes the provider unavailable without retrying writes or switching modes.
+
+The registered compositor exclusively owns the syscall. Protocol v8 adds serial-
+tagged brightness messages; only focused Settings may change brightness, replies
+are retried, stale replies are ignored, and Settings refreshes on focus and shows
+unavailable after a timeout/failure. Changes apply to this session, independently
+of the persistent preferences file. The existing shared slider, keyboard controls,
+capture handling and scrollable layout are reused. The hardware guide includes
+20%/50%/comfortable-level checks while typing and moving the pointer.
+
+The full production build and `test-core` passed. Focused tests cover all allowed
+percentages, unchanged-duty suppression, invalid requests, mode/period drift,
+readback failure and disabled-provider behavior; GUI ownership/focus checks;
+reply retry; and Settings stale responses, timeout, capture and send failure.
+Evidence: `build/review/brightness-build-tests.txt` and
+`brightness-final-host-tests.txt`. Two host-test stub declarations needed fixes
+while adding the new logging path; production code compiled successfully.
+The log collector now retains provider/brightness messages and highlights failed
+change requests. Both VM checks passed: the Settings workflow (including disabled
+brightness on unsupported QEMU hardware), and the exact v20 GRUB/UEFI profile
+across two fresh boots, saved preferences, documents, screenshots, durable logs
+and clean USB unmounts. The revised Settings layout was visually inspected.
+Candidate **0f64e8a09d6c965e** and its evidence are archived under
+`build/native-desktop-trials/0f64e8a09d6c965e/`. Physical brightness changes remain
+unverified; the next trial also retains the pending gesture/acceleration checks.

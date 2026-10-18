@@ -210,3 +210,26 @@ AML/SCI integration rather than treating the register inventory as a battery dri
 
 Collected evidence: `build/desktop-collections/collection-daf5ezhd/`, also retained
 under `build/native-desktop-trials/8d348e2935c28972/physical-collection/`.
+
+
+## Brightness backend and Settings control
+
+The first backend uses the captured PCH override state only: CPU PWM control 0,
+PCH control `0xc0000000`, period 2777 and a valid nonzero duty. Exact firmware,
+chipset and ACPI-resource validation precede mapping. The opt-in v20 desktop
+profile makes the PCH register page writable but performs no initialization write.
+The callback-based backend exposes query and bounded 5–100% set operations;
+changing duty preserves the period, enable, polarity and mode. Each actual write
+is read back. Unexpected mode/period/duty or readback disagreement disables further
+access instead of attempting speculative recovery. No EC/AML operations are added.
+
+The new compositor-only brightness syscall is bounded and allowed during storage
+service windows. Protocol v8 carries serial-tagged requests/replies between
+Settings and the compositor. Settings refreshes on focus, rejects stale responses,
+times out unavailable replies, preserves slider capture during acknowledgements,
+and disables the control on unsupported hardware. Brightness is session-only;
+there is no automatic restore from disk and no new suspend/lid policy.
+
+Register definitions were checked against the pinned MIT-licensed Intel header
+linked above. This implementation does not copy Linux's brightness-mode-switching
+code. Battery/AC reporting still requires ACPI initialization and event handling.

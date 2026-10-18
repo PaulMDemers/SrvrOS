@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "../userspace/desktools/settings.c"
+static int brightness_send_fail;static uint64_t ticks=10;static struct desk_packet brightness_sent;
+long srv_ticks(void) { return ticks; }
+struct desk_packet desk_packet_new(uint32_t type) { return (struct desk_packet){.type=type}; }
+int desk_send(uint64_t target,const struct desk_packet *p) { (void)target;brightness_sent=*p;return brightness_send_fail?-1:0; }
+void srv_puts(const char *text) { (void)text; }
 static unsigned mask,sends;static struct desk_preferences requested;static int fail;
 int desk_app_preferences(struct desk_app *app,const struct desk_preferences *p,unsigned fields) {
     (void)app;if(fail) return -1;requested=*p;mask=fields;sends++;return 0;
@@ -14,7 +19,7 @@ int main(void) {
     desk_ui_init(&t.ui);assert(!desk_text_buffer_init(&t.name_text,t.name_store[0],t.name_store[1],128));
     desk_edit_init(&t.name,&t.name_text,0);tool_settings_init(&t);tool_layout(&t);
     assert(t.checks[0].checked && !t.checks[1].checked && t.checks[2].checked && t.checks[3].checked);
-    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==650);
+    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==798);
     tool_settings_action(&t,(struct desk_action){2,DESK_WIDGET_ACTIVATED});
     assert(sends==1 && mask==DESK_PREF_TEXT && requested.text_size==20 && t.body_size==20 && t.checks[1].checked && !t.checks[0].checked);
     t.checks[2].checked=0;tool_settings_action(&t,(struct desk_action){3,DESK_WIDGET_ACTIVATED});
@@ -36,7 +41,7 @@ int main(void) {
     tool_settings_receive(&t,&p);assert(!strcmp(t.name_text.data,"+05:30"));
     fail=1;tool_settings_action(&t,(struct desk_action){1,DESK_WIDGET_ACTIVATED});assert(sends==before && t.preferences.text_size==20);fail=0;
     tool_settings_scroll(&t,68);assert(t.settings_scroll.offset==68 && t.checks[6].button.enabled);
-    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==722);
+    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==870);
     tool_settings_scroll(&t,312);assert(t.checks[4].button.enabled && t.checks[5].button.enabled && t.checks[6].button.enabled);
     for(int i=4;i<7;i++) assert(t.checks[i].button.frame.x==24 && t.checks[i].button.frame.w==92);
     struct desk_rect thumb=desk_scrollbar_geometry(&t.settings_scroll).thumb;
@@ -52,5 +57,20 @@ int main(void) {
     assert(requested.pointer_speed==5 && mask==DESK_PREF_POINTER_SPEED && t.pointer_speed.dragging);
     t.checks[7].checked=0;tool_settings_action(&t,(struct desk_action){SETTINGS_POINTER_ACCELERATION,DESK_WIDGET_ACTIVATED});
     assert(!requested.pointer_acceleration && mask==DESK_PREF_POINTER_ACCELERATION);
+    t.window.server=42;tool_settings_tick(&t);
+    assert(t.brightness_pending && brightness_sent.value==0);
+    struct desk_packet bp=brightness_sent;bp.value=14;tool_settings_brightness(&t,&bp);
+    assert(t.brightness_percent==14 && !t.brightness_pending);
+    t.brightness.value=70;t.brightness.dragging=1;
+    tool_settings_action(&t,(struct desk_action){SETTINGS_BRIGHTNESS,DESK_WIDGET_CHANGED});
+    assert(brightness_sent.value==70 && t.brightness_pending);
+    bp.value=10;tool_settings_brightness(&t,&bp);assert(t.brightness_percent==14); /* Stale response. */
+    bp=brightness_sent;bp.value=70;tool_settings_brightness(&t,&bp);assert(t.brightness_percent==70 && t.brightness.dragging);
+    t.brightness.value=20;tool_settings_action(&t,(struct desk_action){SETTINGS_BRIGHTNESS,DESK_WIDGET_CHANGED});
+    ticks+=501;tool_settings_tick(&t);assert(t.brightness_percent==-1 && !t.brightness_pending);
+    t.brightness_refresh=1;tool_settings_tick(&t);bp=brightness_sent;bp.value=40;tool_settings_brightness(&t,&bp);
+    assert(t.brightness_percent==40);brightness_send_fail=1;t.brightness.value=50;
+    tool_settings_action(&t,(struct desk_action){SETTINGS_BRIGHTNESS,DESK_WIDGET_CHANGED});
+    assert(!t.brightness_pending && t.brightness_percent==-1);brightness_send_fail=0;
     puts("settings: PASS grouped choices, partial field requests, offset validation, draft retention, send failure, narrow scrolling and capture cancellation");
 }

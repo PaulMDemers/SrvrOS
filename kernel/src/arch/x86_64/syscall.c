@@ -2387,7 +2387,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * Process listing and memory counters are read-only snapshots.
      * Mapping/spawn/kill remain gated. */
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
-    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG:
+    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
@@ -2554,6 +2554,9 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_GUI_REGISTER:
         frame->rax = (uint64_t)syscall_gui_register();
         return;
+    case SYS_GUI_BRIGHTNESS:
+        frame->rax=(uint64_t)gui_brightness(frame->rdi);
+        break;
     case SYS_GUI_POINTER_CONFIG:
         frame->rax=(uint64_t)gui_pointer_config(frame->rdi,frame->rsi);
         break;

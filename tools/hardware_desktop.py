@@ -65,8 +65,9 @@ def collect(mount, volume, output):
             "exit_snapshot_present": "exit.log" in payload,
             "desktop_exit_seen": "deskd: exited" in text,
             "attention": sorted(set(line for line in text.splitlines()
-                                    if any(token in line for token in ("SAVE FAILED", "deskd: FAIL", "reason=", "exception:")))),
+                                    if any(token in line for token in ("SAVE FAILED", "deskd: FAIL", "reason=", "exception:")) or (line.startswith("deskd: brightness requested=") and "result=-1" in line))),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
+            "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),
         })
     report = {"format": "srvros-desktop-collection-v1", "volume": volume,
               "hardware_acceptance": "manual-pending", "sessions": records}

@@ -1,5 +1,6 @@
 #include "app.h"
 #include <stdio.h>
+#include <srvros/desk_log.h>
 #include <string.h>
 static struct desk_rect viewport(struct tool *t) { return (struct desk_rect){16,64,t->window.width-32,t->window.height-108}; }
 static int visible(struct tool *t,int y,int h) {
@@ -10,7 +11,33 @@ static void offset_text(struct tool *t) {
     snprintf(text,sizeof(text),"%c%02d:%02d",value<0?'-':'+',abs/60,abs%60);
     desk_text_buffer_set(&t->name_text,text,strlen(text));
 }
+static void brightness_request(struct tool *t,unsigned value) {
+    struct desk_packet p=desk_packet_new(DESK_BRIGHTNESS);p.value=value;p.serial=++t->brightness_serial;
+    t->brightness_pending=!desk_send(t->window.server,&p);t->brightness_at=srv_ticks();
+    if(!t->brightness_pending) { t->brightness_percent=-1;tool_layout(t);tool_status(t,"Brightness request could not be sent."); }
+}
+void tool_settings_tick(struct tool *t) {
+    if(t->window.server && (!t->brightness_serial || t->brightness_refresh) && !t->brightness_pending) {
+        t->brightness_refresh=0;brightness_request(t,0);
+    }
+    if(t->brightness_pending && (uint64_t)srv_ticks()-t->brightness_at>500) {
+        t->brightness_pending=0;t->brightness_percent=-1;tool_layout(t);tool_status(t,"Brightness controller did not respond.");
+    }
+}
+void tool_settings_brightness(struct tool *t,const struct desk_packet *p) {
+    if(!t->brightness_pending || p->serial!=t->brightness_serial) return;
+    t->brightness_pending=0;
+    int old=t->brightness_percent;t->brightness_percent=p->value<=100?(int)p->value:-1;
+    if(t->brightness_percent>=0) desk_slider_set(&t->brightness,t->brightness_percent);
+    if((old<0)!=(t->brightness_percent<0)) tool_layout(t);
+    t->window.dirty=1;
+    desk_log("desktools: brightness percent=%d\n",t->brightness_percent);
+    if(t->brightness_percent<0) tool_status(t,"Brightness is unavailable on this system.");
+    else if(t->brightness_serial>1) tool_status(t,"Brightness applied for this session.");
+}
 void tool_settings_init(struct tool *t) {
+    t->brightness_percent=-1;desk_slider_init(&t->brightness);desk_slider_range(&t->brightness,5,100,1);
+    desk_ui_add(&t->ui,SETTINGS_BRIGHTNESS,DESK_CONTROL_SLIDER,&t->brightness,NULL);
     t->preferences=desk_preferences_default();t->preferences_status=DESK_PREF_LOADING;offset_text(t);
     static const char *labels[]={"Standard","Larger","24-hour clock","Show date","Sage","Sand","Slate"};
     for(unsigned i=0;i<7;i++) desk_ui_add(&t->ui,i+1,DESK_CONTROL_CHECK,&t->checks[i],labels[i]);
@@ -24,7 +51,7 @@ void tool_settings_init(struct tool *t) {
 }
 void tool_settings_layout(struct tool *t) {
     struct desk_rect view=viewport(t);
-    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?650:722,view.h);
+    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?798:870,view.h);
     int y=64-t->settings_scroll.offset,w=t->window.width;
     desk_check_configure(&t->checks[0],(struct desk_rect){24,y+52,112,32},visible(t,y+52,32),t->preferences.text_size==16,1);
     desk_check_configure(&t->checks[1],(struct desk_rect){148,y+52,96,32},visible(t,y+52,32),t->preferences.text_size==20,1);
@@ -41,6 +68,7 @@ void tool_settings_layout(struct tool *t) {
     int py=y+(w>=372?460:532);
     desk_slider_configure(&t->pointer_speed,(struct desk_rect){24,py+40,w-72,32},visible(t,py+40,32));
     desk_slider_set(&t->pointer_speed,t->preferences.pointer_speed);
+    desk_slider_configure(&t->brightness,(struct desk_rect){24,py+212,w-72,32},t->brightness_percent>=0 && visible(t,py+212,32));
     desk_check_configure(&t->checks[7],(struct desk_rect){24,py+88,w-64,32},visible(t,py+88,32),t->preferences.pointer_acceleration,0);
 }
 void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
@@ -59,6 +87,10 @@ void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
     snprintf(label,sizeof(label),"Trackpad speed: %u of 5",t->preferences.pointer_speed);
     desk_label_draw(c,(struct desk_rect){24,py,c->width-64,28},theme->body,label,theme->text);
     desk_label_draw(c,(struct desk_rect){24,py+128,c->width-64,28},theme->body,"Scrolling speed stays unchanged.",theme->muted);
+    if(t->brightness_percent>=0) snprintf(label,sizeof(label),"Display brightness: %d%%",t->brightness_percent);
+    else snprintf(label,sizeof(label),"Display brightness: unavailable");
+    desk_label_draw(c,(struct desk_rect){24,py+176,c->width-64,28},theme->body,label,theme->text);
+    desk_label_draw(c,(struct desk_rect){24,py+252,c->width-64,28},theme->body,"5–100% · applies to this session",theme->muted);
     desk_ui_draw(c,&t->ui,theme);c->clip=old;
     if(desk_scrollbar_limit(&t->settings_scroll)>0) desk_scrollbar_draw(c,&t->settings_scroll,theme);
 }
@@ -74,7 +106,9 @@ static void request(struct tool *t,const struct desk_preferences *value,unsigned
 void tool_settings_action(struct tool *t,struct desk_action a) {
     int activated=(a.flags&DESK_WIDGET_ACTIVATED)!=0;
     struct desk_preferences value=t->preferences;
-    if(a.id==SETTINGS_POINTER_SPEED && (a.flags&DESK_WIDGET_CHANGED)) {
+    if(a.id==SETTINGS_BRIGHTNESS && (a.flags&DESK_WIDGET_CHANGED) && t->brightness_percent>=0) {
+        brightness_request(t,t->brightness.value);
+    } else if(a.id==SETTINGS_POINTER_SPEED && (a.flags&DESK_WIDGET_CHANGED)) {
         value.pointer_speed=t->pointer_speed.value;request(t,&value,DESK_PREF_POINTER_SPEED);
     } else if(activated && a.id==SETTINGS_POINTER_ACCELERATION) {
         value.pointer_acceleration=t->checks[7].checked;request(t,&value,DESK_PREF_POINTER_ACCELERATION);

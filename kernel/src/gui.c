@@ -1,4 +1,5 @@
 #include <srvros/gui.h>
+#include <srvros/backlight.h>
 #include <srvros/keyboard.h>
 #include <srvros/mouse.h>
 #include <srvros/heap.h>
@@ -124,6 +125,12 @@ static int64_t validate_surface_rect(const struct gui_surface *surface,
     return 0;
 }
 
+int64_t gui_brightness(uint64_t percent) {
+    struct process *p=process_current();uint64_t flags=irq_save();int64_t result=-1;
+    if(p && server_pid && process_pid(p)==server_pid && (percent==0 || (percent>=5 && percent<=100)))
+        result=backlight_percent((unsigned)percent);
+    irq_restore(flags);return result;
+}
 int64_t gui_pointer_config(uint64_t speed,uint64_t acceleration) {
     struct process *p=process_current();uint64_t flags=irq_save();int64_t result=-1;
     if(p && server_pid && process_pid(p)==server_pid && speed>=1 && speed<=5 && acceleration<=1) {
@@ -191,11 +198,11 @@ int64_t gui_send(const struct gui_message *message) {
     if (message->type == DESK_TRANSPORT_MESSAGE) {
         for (size_t i=0;i<sizeof(packet);i++) ((uint8_t *)&packet)[i]=(uint8_t)message->text[i];
         if (packet.version != DESK_PROTOCOL_VERSION || packet.size != sizeof(packet) ||
-            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_CONTEXT)
+            packet.reserved || packet.reserved2 || packet.type < DESK_OPEN || packet.type > DESK_BRIGHTNESS)
             goto rejected;
         bool from_server = source_pid == server_pid;
         if ((!from_server && packet.type != DESK_OPEN && packet.type != DESK_COMMIT && packet.type != DESK_CLOSE &&
-             packet.type != DESK_CANCEL_CLOSE && packet.type != DESK_TITLE && packet.type != DESK_LAUNCH && packet.type != DESK_PREFERENCES_SET && packet.type != DESK_CLIPBOARD_SET && packet.type != DESK_CLIPBOARD_GET && packet.type != DESK_MENU_SET && packet.type != DESK_NOTIFY) ||
+             packet.type != DESK_CANCEL_CLOSE && packet.type != DESK_TITLE && packet.type != DESK_LAUNCH && packet.type != DESK_PREFERENCES_SET && packet.type != DESK_CLIPBOARD_SET && packet.type != DESK_CLIPBOARD_GET && packet.type != DESK_MENU_SET && packet.type != DESK_NOTIFY && packet.type != DESK_BRIGHTNESS) ||
             (from_server && (packet.type == DESK_OPEN || packet.type == DESK_COMMIT ||
                             packet.type == DESK_CANCEL_CLOSE || packet.type == DESK_TITLE || packet.type == DESK_LAUNCH || packet.type == DESK_PREFERENCES_SET || packet.type == DESK_CLIPBOARD_SET || packet.type == DESK_CLIPBOARD_GET || packet.type == DESK_MENU_SET || packet.type == DESK_NOTIFY))) goto rejected;
         if (packet.type == DESK_COMMIT || packet.type == DESK_RELEASE) {

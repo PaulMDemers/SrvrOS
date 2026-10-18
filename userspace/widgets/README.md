@@ -694,3 +694,12 @@ leave output unchanged on invalid UTF-8, control characters or capacity failure.
 Inputs are bounded to 4095 bytes, and callers choose the output capacity. Files,
 the shared Open/Save picker and Find Files use these helpers, preserving their
 159-byte actionable path limit and any filesystem-specific creation rules.
+
+
+Protocol v8 adds `DESK_BRIGHTNESS` for the Settings display slider. Requests carry
+an increasing serial and value 0 (query) or 5–100 (set); replies echo the serial
+and return a percentage or `UINT32_MAX` for unavailable/error. The compositor
+retries replies, and Settings rejects stale responses and bounds its response
+wait. Only focused Settings can set; focus regain refreshes the current reading.
+The control uses the existing slider and scrollable Settings layout. Brightness
+is separate from persistent desktop preferences and discovery never changes it.

@@ -82,6 +82,12 @@ class InstallTests(unittest.TestCase):
         self.assertIn("srvros.laptop-services=probe",cfg)
         self.assertNotIn("laptop-services",boot.limine_config("0123456789abcdef","ram-usb-v17-desktop-37d8c5d0"))
 
+    def test_brightness_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0")
+        self.assertIn('srvros.laptop-services=brightness',cfg)
+        self.assertIn('srvros.desktop=trial',cfg)
+        self.assertNotIn('probe-autoreboot',cfg)
+
     def test_automatic_laptop_probe_profile(self):
         version="ram-usb-v19-laptop-probe-37d8c5d0"
         release=self.payload("probe",version)

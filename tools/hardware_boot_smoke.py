@@ -65,7 +65,7 @@ def wait_for(log, predicate, process, seconds):
     raise RuntimeError(f"Timed out; see {log}")
 
 
-def workspace_preferences(ui, serial, process, logs, restored=False):
+def workspace_preferences(ui, serial, process, logs, restored=False, expanded=False):
     """Use Settings beside the initial Help window; exercise the real USB writer."""
     def shortcut(keys):
         ui.call("human-monitor-command", {"command-line": "sendkey " + keys})
@@ -85,8 +85,8 @@ def workspace_preferences(ui, serial, process, logs, restored=False):
         ui.mouse(x-pointer[0],y-pointer[1]);pointer[:]=[x,y]
         ui.mouse(0,0,1);ui.mouse(0,0,0)
     if not restored:
-        click(545,430)  # Speed 5; the initial default is 3.
-    click(110,478)  # First boot disables acceleration; second re-enables it.
+        click(545,430-(94 if expanded else 0))  # Speed 5; the initial default is 3.
+    click(110,478-(94 if expanded else 0))  # First boot disables acceleration; second re-enables it.
     time.sleep(1)
     ui.call("screendump", {"filename": str(logs / ("workspace-settings-restored.ppm" if restored else "workspace-settings-saved.ppm"))})
     before=len(serial.read_text(errors="replace"))
@@ -205,7 +205,7 @@ def main():
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs)
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith("ram-usb-v20-"))
                     before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                     wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
@@ -362,7 +362,7 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True)
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith("ram-usb-v20-"))
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)

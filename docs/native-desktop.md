@@ -253,3 +253,24 @@ failed reboot halts on a visible error, without a countdown. Install the exact
 verified release with `--keep-previous`, then select it once using `grub-reboot`;
 Ubuntu remains the default. Collect its session logs with `hardware_desktop.py`
 after Ubuntu returns. A saved capture is not desktop hardware acceptance.
+
+
+### Brightness bring-up
+
+The v20 interactive laptop profile enables the brightness provider after the
+same exact firmware/resource and PCI checks used by the read-only preflight.
+Startup only reads registers. Settings adds a shared slider below Trackpad with
+a 5–100% range; opening Settings also only queries the provider. Other hardware
+shows unavailable. Changes apply to this session and are not loaded from the
+preferences file or changed automatically at startup.
+
+The initial backend supports the observed PCH override mode, period 2777 and
+disabled CPU PWM only. It changes the duty field, preserves the upper period
+bits, writes no control/enable/polarity register, and checks readback. A changed
+mode/period, invalid duty or failed readback makes the provider unavailable until
+reinitialization. There are no waits, allocations or filesystem accesses in the
+brightness syscall. Only the registered compositor can call it; the compositor
+accepts changes only from focused Settings. Query responses and failed requests
+never overwrite unrelated desktop preferences. Physical brightness acceptance
+still requires the laptop: compare 20%, 50% and a comfortable final setting while
+typing and moving the pointer, then confirm clean USB flush/unmount on exit.

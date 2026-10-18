@@ -13,7 +13,7 @@
 #include <srvros/sys.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE,TOOL_INFO,TOOL_COPY_PATH,TOOL_REPLACE,TOOL_REPLACEMENT };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK,SYSTEM_DIAGNOSTICS };
-enum { SETTINGS_POINTER_SPEED=100,SETTINGS_POINTER_ACCELERATION };
+enum { SETTINGS_POINTER_SPEED=100,SETTINGS_POINTER_ACCELERATION,SETTINGS_BRIGHTNESS };
 enum { CALC_EVALUATE=70,CALC_CLEAR,CALC_USE,CALC_COPY,CALC_HISTORY,CALC_KEY_FIRST=300 };
 #define CALC_HISTORY_LIMIT 16
 #define CALC_EXPRESSION_BYTES 256
@@ -41,7 +41,9 @@ struct tool {
     int picker_mode,picker_job;
     struct desk_button buttons[32];
     struct desk_check checks[8];
-    struct desk_slider pointer_speed;
+    struct desk_slider pointer_speed,brightness;
+    int brightness_percent,brightness_pending,brightness_refresh;
+    uint64_t brightness_serial,brightness_at;
     struct desk_scrollbar settings_scroll;
     struct desk_preferences preferences;
     unsigned preferences_status;
@@ -95,6 +97,8 @@ void tool_system_layout(struct tool *tool);
 void tool_system_refresh(struct tool *tool,int force);
 void tool_system_draw(struct tool *tool,struct desk_canvas *canvas);
 void tool_system_action(struct tool *tool,struct desk_action action);
+void tool_settings_tick(struct tool *t);
+void tool_settings_brightness(struct tool *t,const struct desk_packet *p);
 void tool_settings_init(struct tool *tool);
 void tool_settings_layout(struct tool *tool);
 void tool_settings_draw(struct tool *tool,struct desk_canvas *canvas);

@@ -5,6 +5,8 @@
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+static unsigned brightness_calls;
+int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 int gui_pointer_config(unsigned speed,unsigned acceleration) { (void)speed;(void)acceleration;return 0; }
 void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
@@ -169,6 +171,21 @@ int main(void) {
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
     s.preferences.value=desk_preferences_default();
+    p=desk_packet_new(DESK_BRIGHTNESS);p.serial=1;p.value=50;
+    unsigned bc=brightness_calls;
+    incoming(&s,42,&p);
+    assert(brightness_calls==bc); /* Existing client is not Settings. */
+    int old_app=s.scene.windows[0].application,old_focus=s.scene.focus;
+    s.scene.windows[0].application=DESK_APP_SETTINGS;s.scene.focus=0;
+    incoming(&s,42,&p);assert(brightness_calls==bc+1 && s.clients[0].brightness_reply.value==50);
+    s.scene.focus=-1;incoming(&s,42,&p);assert(brightness_calls==bc+1);
+    p.value=0;incoming(&s,42,&p);assert(brightness_calls==bc+2 && s.clients[0].brightness_reply.value==14);
+    p.value=101;incoming(&s,42,&p);assert(brightness_calls==bc+2);
+    int was_configuring=s.clients[0].configure;s.clients[0].configure=0;
+    queue_full=1;service(&s);assert(s.clients[0].brightness_reply.type==DESK_BRIGHTNESS);
+    queue_full=0;service(&s);assert(!s.clients[0].brightness_reply.type);
+    s.clients[0].configure=was_configuring;
+    s.clients[0].brightness_reply.type=0;s.scene.windows[0].application=old_app;s.scene.focus=old_focus;
     p=desk_packet_new(DESK_PREFERENCES_SET);p.value=DESK_PREF_TEXT;
     struct desk_preferences changed=desk_preferences_default();changed.text_size=20;memcpy(p.text,&changed,sizeof(changed));
     incoming(&s,42,&p);assert(s.preferences.value.text_size==16);

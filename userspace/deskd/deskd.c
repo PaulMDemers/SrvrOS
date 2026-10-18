@@ -24,7 +24,7 @@ static struct desk_clipboard_store clipboard;
 struct client {
     uint64_t pid,generation,progress,present_input;
     int configure,awaiting,closing,close_requested,preferences_dirty;
-    struct desk_packet release;
+    struct desk_packet release,brightness_reply;
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
@@ -703,6 +703,16 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         if(s->scene.apps) desk_clipboard_request(&clipboard,pid,s->scene.focus==i,p,srv_ticks());
         return;
     }
+    if(p->type==DESK_BRIGHTNESS) {
+        int result=-1;
+        if(p->serial && s->scene.apps && w->application==DESK_APP_SETTINGS &&
+           (!p->value || (s->scene.focus==i && p->value>=5 && p->value<=100)))
+            result=gui_brightness(p->value);
+        c->brightness_reply=desk_packet_new(DESK_BRIGHTNESS);
+        c->brightness_reply.serial=p->serial;c->brightness_reply.value=(uint32_t)result;
+        if(p->value) desk_log("deskd: brightness requested=%u result=%d\n",p->value,result);
+        return;
+    }
     if(p->type==DESK_PREFERENCES_SET) {
         if(s->scene.apps && w->application==DESK_APP_SETTINGS && s->scene.focus==i) {
             struct desk_preferences value;memcpy(&value,p->text,sizeof(value));
@@ -786,6 +796,8 @@ static void service(struct session *s) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;
             if(!desk_send(c->pid,&p)) c->notice_ack_pending=0;
         }
+        if(c->brightness_reply.type && !c->configure && !c->closing &&
+           !desk_send(c->pid,&c->brightness_reply)) c->brightness_reply.type=0;
         if(c->preferences_dirty && !c->configure && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_PREFERENCES);p.value=s->preferences.status;p.serial=s->preferences.revision;
             memcpy(p.text,&s->preferences.value,sizeof(s->preferences.value));

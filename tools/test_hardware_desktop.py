@@ -10,10 +10,10 @@ class CollectionTests(unittest.TestCase):
             folder.mkdir(parents=True);(work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
             (folder/'boot.log').write_text('laptop-probe: unsupported chipset\n')
             (folder/'session-a.log').write_text('deskd: closing pid=3 reason=input-timeout\n')
-            (folder/'exit.log').write_text('deskd: exited frames=20\n')
+            (folder/'exit.log').write_text('backlight: provider=ready initial_percent=14\ndeskd: brightness requested=50 result=-1\ndeskd: exited frames=20\n')
             out,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
             self.assertTrue(item['exit_snapshot_present'] and item['desktop_exit_seen'])
-            self.assertEqual(len(item['attention']),1);self.assertEqual(len(item['probe']),1)
+            self.assertEqual(len(item['brightness']),2);self.assertEqual(len(item['attention']),2);self.assertEqual(len(item['probe']),1)
             self.assertEqual((out/item['session']/'exit.log').read_bytes(),(folder/'exit.log').read_bytes())
             self.assertEqual(report['hardware_acceptance'],'manual-pending')
             (folder/'exit.log').unlink();(folder/'exit.log').symlink_to(folder/'boot.log')

@@ -2926,3 +2926,11 @@ test-core: test-desktop-host-tools
 test-desktop-host-tools:
 	$(PYTHON) tools/test_hardware_boot.py
 	$(PYTHON) tools/test_hardware_desktop.py
+
+.PHONY: test-backlight
+test-core: test-backlight
+test-backlight: build/tests/backlight-host$(HOST_EXE)
+	$<
+build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers/backlight.c kernel/include/srvros/backlight.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c -o $@

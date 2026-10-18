@@ -84,15 +84,19 @@ def main():
                 # Resize shorter, then Page Down scrolls the shared viewport; pick Sand.
                 qmp.mouse(613-pointer[0],688-pointer[1]);pointer[:]=[613,688]
                 qmp.mouse(0,0,1);qmp.mouse(0,-80,1);qmp.mouse(0,0,0);pointer[1]-=80;time.sleep(.5)
-                shortcut("pgdn");shot("settings-scrolled");click(225,325)
+                shortcut("pgdn");shot("settings-scrolled");click(225,231)
                 wait(b"text=20 offset=-240 flags=0 wallpaper=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1");shot("settings-saved")
                 # The bottom of the longer settings viewport contains native
                 # trackpad controls. They must save without disturbing clock/color.
-                click(545,430);wait(b"pointer_speed=5 acceleration=1")
-                click(110,478);wait(b"pointer_speed=5 acceleration=0")
+                click(545,336);wait(b"pointer_speed=5 acceleration=1")
+                click(110,384);wait(b"pointer_speed=5 acceleration=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0")
                 shot("trackpad-settings")
+                assert b"desktools: brightness percent=-1" in output
+                shortcut("pgdn");shot("brightness-unavailable")
+                click(300,440);time.sleep(.3)
+                assert b"deskd: brightness requested=" not in output
                 shortcut("f10");shortcut("end");shortcut("ret")
                 wait(b"deskd: exited",60);wait(b"srv> ")
                 serial.sendall(b"cat /fat/home/desktop.conf\n")
