@@ -83,6 +83,16 @@ def main():
                                 wait(b'deskd: exited')
                                 qmp.stream.close(); qmp.sock.close()
                             wait(b'trackpad-test: ready for gestures')
+                            if args.gestures:
+                                wait(b'TYPING: NOT YET (0 frames)   BROAD: NOT YET (0 frames)')
+                                # Trial typing can fill the buffer; Escape must clear it
+                                # before the exact keyboard check, without saving early.
+                                sock.sendall(b'a'*40)
+                                wait(b'Typed: '+b'a'*31)
+                                qmp=QMP(qmppath)
+                                qmp.call('screendump',{'filename':str(logs/'filter-checks.ppm')})
+                                qmp.stream.close(); qmp.sock.close()
+                                sock.sendall(b'\x1b')
                             sock.sendall(b'AaZz09\n')
                         wait(b'trackpad-test: HALTED')
                         assert p.poll() is None, 'Guest rebooted/exited instead of halting'

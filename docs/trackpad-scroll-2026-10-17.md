@@ -78,8 +78,19 @@ previous trials. The screen never disappears on a countdown.
    note unwanted motion or normal fingers being rejected. Avoid pressing down
    during the incidental-touch check, since that deliberately overrides typing
    suppression.
-4. Escape returns to capture checks. Complete the displayed gestures, type
-   `AaZz09`, then Enter. The report saves and the system halts for manual restart.
+4. Escape returns to live capture checks. Repeat the typing/brush and palm-edge
+   checks while watching the TYPING and BROAD counters. Lift fully between checks.
+   A zero counter remains NOT YET; do not force a pass by changing the gesture.
+   Press Escape to clear trial typing, type `AaZz09`, then Enter. The report saves
+   and the system halts for manual restart.
+
+The gesture desktop shows this checklist below the initial window on the target
+1440×900 panel. The console repeats the instructions and refreshes cumulative
+filter counts, maximum touch dimensions, motion and scroll counts regularly.
+It consumes unused pointer events after desktop exit so a long manual
+check cannot fill the desktop input queue. Escape clears the text buffer without
+saving; Enter retains the explicit save-and-halt behavior. Counters labelled
+EXERCISED mean the code path ran, not that physical rejection felt correct.
 
 `gesture_trial=EXERCISED` requires the prior pointer/capture gates and some wheel
 events. Typing/palm suppression counters describe frames, not verified palms or
@@ -144,6 +155,10 @@ hash-verified against the independent backup at
 JSON that limits acceptance to scrolling. The previous accepted pointer build
 is also retained. The consumed test request requires a fresh run to repeat.
 
-Next: make accidental-touch checks explicit and observable, then verify input
-focus/cancellation and keyboard/trackpad operation during filesystem activity.
+The follow-up trial adds explicit desktop instructions and live console filter
+counters without changing the gesture policy or thresholds. Its QEMU workflow
+also fills the trial typing buffer, clears it with Escape, and verifies the exact
+keyboard string in the saved report. Physical filter acceptance is still pending.
+Next: verify accidental-touch behavior, then input focus/cancellation and
+keyboard/trackpad operation during filesystem activity.
 No physical latency or sustained-I/O claim follows from this short trial.

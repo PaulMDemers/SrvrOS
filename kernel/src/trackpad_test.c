@@ -123,10 +123,29 @@ static void build_report(const char *run,const char *release,const struct xhci_t
 static void screen(const char *run,const struct xhci_trackpad_capture *s,const char *input) {
     console_clear();
     console_write("SrvrOS physical trackpad capture\n\n");
+    if (s->gestures_enabled) {
+        console_write("LIVE FILTER CHECKS - no timer; take your time\n");
+        console_write("1. Hold A while brushing the pad lightly WITHOUT pressing it.\n");
+        console_write("   TYPING should change to EXERCISED. Release A and lift fully.\n");
+        console_write("2. Without typing, rest a palm edge on the pad, then lift fully.\n");
+        console_write("   BROAD may change to EXERCISED; note if it never does.\n");
+        console_write("   This provisional filter may miss palms; do not force a pass.\n");
+        console_write("3. Swipe with one finger, then two; physically click several times.\n");
+        console_write("4. Press Escape to CLEAR the typing below. Type AaZz09, then Enter.\n\n");
+        console_printf("TYPING: %s (%u frames)   BROAD: %s (%u frames)\n",
+            s->typing_suppressed?"EXERCISED":"NOT YET",s->typing_suppressed,
+            s->palm_suppressed?"EXERCISED":"NOT YET",s->palm_suppressed);
+        console_printf("Max touch major=%u minor=%u; broad threshold >600 (or >2 contacts)\n",
+            (uint64_t)s->max_touch_major,(uint64_t)s->max_touch_minor);
+        console_printf("Scroll events=%u motion=%u button edges=%u\n\n",
+            s->scroll_events,s->pointer_motion,s->pointer_buttons);
+        console_write("Counters cover desktop + this screen; EXERCISED does not mean good feel.\n");
+    } else {
     console_write("1. Swipe with ONE finger, then lift it.\n");
     console_write("2. Swipe with TWO fingers, then lift them.\n");
     console_write("3. PRESS the trackpad to click several times (not just tap).\n");
     console_write("4. Type AaZz09 on the built-in keyboard, then press Enter.\n\n");
+    }
     console_write(s->pointer_enabled?"Desktop trial ended; complete these checks to save.\n":
         "This captures reports only; the pointer will not move.\n");
     console_write("Enter saves the USB report and HALTS for a manual restart.\n\n");
@@ -168,13 +187,19 @@ static void capture(const char *run,const char *release) {
     uint64_t redraw=timer_ticks();
     for (;;) {
         bool finish=false,changed=false;
+        /* This screen owns input after the compositor exits. Discard pointer
+         * events while observing driver counters, so a long manual check does
+         * not fill the bounded desktop queue. */
+        struct mouse_event ignored;
+        for (unsigned i=0;i<64 && mouse_scan(&ignored);i++) {}
         for (unsigned i=0;i<32 && keyboard_scan_char(&c);i++) {
             if (c=='\n' || c=='\r') { finish=true; break; }
-            if ((c==8 || c==127) && count) { input[--count]=0; changed=true; }
+            if (c==27) { count=0; input[0]=0; changed=true; }
+            else if ((c==8 || c==127) && count) { input[--count]=0; changed=true; }
             else if (c>=32 && c<=126 && count<sizeof(input)-1) { input[count++]=c; input[count]=0; changed=true; }
         }
         if (finish) break;
-        if (changed || timer_ticks()-redraw>=100) {
+        if (changed || timer_ticks()-redraw>=(snapshot.gestures_enabled?10u:100u)) {
             xhci_trackpad_snapshot(&snapshot); screen(run,&snapshot,input); redraw=timer_ticks();
         }
         timer_wait_ticks(1);

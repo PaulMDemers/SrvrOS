@@ -32,6 +32,21 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
+    if (s->trackpad_trial==2 && c->height>=700) {
+        int y=c->height-245;
+        desk_fill(c,(struct desk_rect){24,y,c->width-48,194},0xf1f0eb);
+        const char *steps[]={
+            "Trackpad checks - take your time",
+            "1. Scroll the numbered text with two fingers. Lift, then move with one finger.",
+            "2. Hold a letter key while brushing the pad lightly. Do not press the pad.",
+            "   The pointer should stay still. Release the key AND lift your hand; try moving again.",
+            "3. Without typing, rest a palm edge on the pad. Note any unwanted movement.",
+            "   Lift completely, then check normal movement, clicking, dragging and resizing.",
+            "4. Press Escape for live filter counters and the final save instructions."
+        };
+        for (unsigned i=0;i<sizeof(steps)/sizeof(*steps);i++)
+            desk_text(c,&desk_font_16,40,y+12+24*i,steps[i],i?0x465348:0x292e2b);
+    }
     for (int i=0;i<DESKD_WINDOWS;i++) if (i!=s->focus) draw_window(c,&s->windows[i],0);
     if (s->focus>=0 && s->focus<DESKD_WINDOWS) draw_window(c,&s->windows[s->focus],1);
     for (int y=0;y<16;y++) {
