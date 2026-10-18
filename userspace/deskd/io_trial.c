@@ -5,6 +5,21 @@
 #include <srvros/trial_file.h>
 #include <signal.h>
 
+/* NULL means coverage is complete, not that timing or durability has passed. */
+const char *io_trial_next_check(const struct io_trial *io) {
+    if(!io->enabled || io->progress.state==0) return "Starting both studies and USB work...";
+    if(io->progress.state==DESK_IO_FAILED) return "USB work failed. Press Escape to save the evidence.";
+    if(io->focus_changes<2) return "Next: press Tab twice to switch between the two windows.";
+    if(!io->cancels) return "Next: click AND HOLD the scrollbar thumb, press Tab while held, then release.";
+    if(!io->wheels) return "Next: scroll inside a study with two fingers.";
+    if(!io->motions) return "Next: move the pointer while USB work runs.";
+    if(io->text_present.count<32) return "Next: type 32+ characters across the two studies (Tab switches focus).";
+    if(io->text_present.count!=io->text_sent) return "Waiting for the last typed characters to reach an application frame...";
+    if(io->active_gap.count<100) return "Next: keep typing, moving and scrolling until 100 active samples.";
+    if(io->progress.rounds<16) return "Next: keep testing until at least 16 USB rounds finish.";
+    return NULL;
+}
+
 void io_trial_start(struct io_trial *io,const char *run) {
     *io=(struct io_trial){.enabled=1,.reader=-1,.stopper=-1,.clock_ok=1};
     memcpy(io->run,run,17);

@@ -325,3 +325,41 @@ two windows, focus, resize, client replacement, abrupt server exit and relaunch.
 The updated on-screen checklist was visually inspected at 1280x800.
 Replay/read-only refusal and indefinite halt also passed. Follow-up emulator
 evidence is retained at `build/review/desktop-io-text-20261018/`.
+
+## Smooth physical result; final coverage outstanding
+
+On 2026-10-18 the user reported that both keyboard and trackpad input stayed
+smooth in run `fa73dec75850d130`, release `c24b450ed120c323` (commit `e87f22b`).
+Both timing gates passed: all 98 accepted text events reached an application
+frame, p95 <=16.667 ms, p99/max 21.258 ms, zero pending-table overflows. Across
+1,915 active compositor samples the maximum gap was 14.599 ms; across 2,046
+render samples the maximum was 1.608 ms. There were zero dropped keyboard
+characters, malformed trackpad reports, transport errors or pointer overflows.
+The final `AaZz09` check and desktop exit passed.
+
+The worker stopped cleanly after 13 rounds (3,407,872 logical bytes). Ubuntu
+independently verified the final payload. Offline `fsck.exfat -n` reported clean:
+126 directories, 630 files; udisks remounted the volume afterward.
+Report SHA-256: `c5fd85521c313c102594efd8ee630b2006d0cf4cb6deb1293cb4b275b70b9ca3`.
+Payload SHA-256: `e5ec6b49506e06842082aa65dfb3452b60d9aad00acb92c75580b899b2beae36`.
+Evidence: `build/trackpad-tests/fa73dec75850d130/`.
+
+This establishes the responsiveness improvement on the target laptop. It does
+not complete the combined gate: the workload stopped before 16 rounds, only one
+focus switch was counted, and captured-drag cancellation was not exercised.
+Keep these distinctions in the results; do not lower thresholds after the run.
+A verified backup with that explicit acceptance scope is stored at
+`/home/paul/.local/share/srvros/checkpoints/c24b450ed120c323/`; the prior fully
+accepted desktop backup remains unchanged.
+
+The follow-up changes only test guidance: show the next missing action at the
+top of the checklist, explicitly request a physical click-and-hold on the
+scrollbar thumb while pressing Tab, and warn on early Escape. A consecutive
+second Escape still permits an incomplete exit; other input clears the warning.
+Worker failure/completion and startup cancellation remain escapable. The host
+still independently checks timing, coverage, checksums and payload contents.
+
+Guidance validation passed the desktop and I/O host suites and a 16-round QEMU
+trial. The emulator verified the early-Escape warning, deliberate second-Escape
+exit, final payload, clean offline exFAT, replay/read-only refusal and halt.
+Its deliberately incomplete physical-input coverage remains INCOMPLETE.

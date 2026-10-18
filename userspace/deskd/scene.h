@@ -11,7 +11,7 @@ struct desktop_window {
 struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS];
     int focus,cursor_x,cursor_y,trackpad_trial;
-    char io_status[160],io_check[160];
+    char io_status[160],io_check[160],io_next[160];
 };
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
 #endif

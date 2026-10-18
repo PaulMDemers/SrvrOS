@@ -283,7 +283,7 @@ int main(int argc,char **argv) {
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
-    int io_started=0;
+    int io_started=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     uint64_t key_pid=0,key_since=0,key_serial=0;
@@ -328,9 +328,18 @@ int main(int argc,char **argv) {
             if (key<=0) break;
             if (!pending_key) {
                 if (key==27) {
-                    if (io_mode && io_started) { io_trial_stop(&s.io); io_leaving=1; continue; }
+                    if (io_mode && io_started) {
+                        if (!stop_warning && !s.io.finished && !s.io.stopping &&
+                            s.io.progress.state!=DESK_IO_FAILED && io_trial_next_check(&s.io)) {
+                            stop_warning=1;
+                            srv_puts("deskd: coverage incomplete; Escape again saves an incomplete run\n");
+                            continue;
+                        }
+                        io_trial_stop(&s.io); io_leaving=1; continue;
+                    }
                     quit=1; break;
                 }
+                stop_warning=0;
                 if (key==14) { spawn_client(&s); continue; }
                 if (key==9) {
                     int other=1-s.scene.focus;
@@ -356,6 +365,7 @@ int main(int argc,char **argv) {
         }
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) stop_warning=0;
             if (io_trial_active(&s.io)) {
                 if (e.dx || e.dy) s.io.motions++;
                 if (e.wheel_x || e.wheel_y) s.io.wheels++;
@@ -398,6 +408,14 @@ int main(int argc,char **argv) {
             desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});
         }
         if (io_mode) {
+            const char *next=stop_warning?
+                "Checks incomplete. Continue below, or press Escape again to save an incomplete run.":
+                io_trial_next_check(&s.io);
+            if(!next) next="Coverage complete. Press Escape for save checks; Ubuntu will verify timing and data.";
+            if(strcmp(next,s.scene.io_next)) {
+                strcpy(s.scene.io_next,next);
+                desk_damage_add(&s.damage,(struct desk_rect){24,canvas.height-269+12,canvas.width-48,24});
+            }
             char status[160]; const char *states[]={"STARTING","RUNNING","COMPLETE","STOPPED","FAILED"};
             snprintf(status,sizeof(status),"USB %s%s | rounds %u/128 | keys %llu | moves %llu | scroll %llu | focus %llu | cancel %llu",
                 states[s.io.progress.state],s.io.stopping && !s.io.finished?" (stopping)":"",

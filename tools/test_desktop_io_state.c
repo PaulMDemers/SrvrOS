@@ -63,5 +63,13 @@ int main(void) {
     io.progress.state=DESK_IO_RUNNING;
     for(int i=0;i<257;i++) io_trial_text_begin(&io,42);
     assert(io.text_overflow==1 && io.text_sent==260 && io.text_present.count==3);
+    io=(struct io_trial){.enabled=1,.progress={.state=DESK_IO_RUNNING,.rounds=13},
+        .keys=98,.motions=1329,.wheels=330,.focus_changes=1,.text_sent=98,
+        .text_present={.count=98},.active_gap={.count=1915}};
+    assert(strstr(io_trial_next_check(&io),"Tab twice"));
+    io.focus_changes=2; assert(strstr(io_trial_next_check(&io),"click AND HOLD"));
+    io.cancels=1; assert(strstr(io_trial_next_check(&io),"16 USB rounds"));
+    io.progress.rounds=16; assert(!io_trial_next_check(&io));
+    io.text_sent++; assert(strstr(io_trial_next_check(&io),"last typed characters"));
     puts("desktop-io-state: PASS fragmented pipe, terminal/exit race, malformed progress, bounded stop");
 }

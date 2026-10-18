@@ -23,6 +23,7 @@ void io_trial_loop_begin(struct io_trial *io);
 void io_trial_loop_end(struct io_trial *io,uint64_t render_start);
 uint64_t io_trial_text_begin(struct io_trial *io,uint64_t pid);
 void io_trial_text_present(struct io_trial *io,uint64_t pid,uint64_t serial);
+const char *io_trial_next_check(const struct io_trial *io);
 void io_trial_start(struct io_trial *io,const char *run);
 void io_trial_poll(struct io_trial *io);
 void io_trial_stop(struct io_trial *io);

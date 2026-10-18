@@ -123,6 +123,12 @@ def main():
                                             qmp.mouse(6,0); qmp.mouse(-6,0)
                                 qmp.call('screendump',{'filename':str(logs/'desktop-pointer-trial.ppm')})
                                 qmp.key('esc')
+                                if args.desktop_io:
+                                    # Emulation deliberately lacks physical wheel coverage.
+                                    # Early Escape must warn; explicit second Escape aborts.
+                                    wait(b'deskd: coverage incomplete; Escape again')
+                                    time.sleep(.1)
+                                    qmp.key('esc')
                                 wait(b'deskd: exited')
                                 qmp.stream.close(); qmp.sock.close()
                             wait(b'trackpad-test: ready for gestures')

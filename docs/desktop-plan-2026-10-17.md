@@ -238,3 +238,10 @@ blocked text input. The v15 follow-up removes stdio dependencies from desktop
 diagnostics, preloads both studies and measures text events through application
 commit/presentation. Hardware acceptance remains open; see the trial record for
 the safety boundaries, baseline and subsequent measurements.
+
+The next physical v15 run confirmed smooth keyboard and trackpad interaction:
+98/98 text events presented, maximum 21.258 ms, maximum active update gap
+14.599 ms, verified USB data and clean offline exFAT. Responsiveness is validated
+on the MacBook Air. Combined coverage still needs 16+ file rounds, two focus
+switches and a captured-scrollbar-drag cancellation in one run. Follow-up trial
+guidance highlights the next missing check and warns before an incomplete exit.
