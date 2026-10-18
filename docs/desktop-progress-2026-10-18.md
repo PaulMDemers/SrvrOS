@@ -741,3 +741,41 @@ closing a window. UART mirroring deliberately permits interleaved process output
 to preserve input latency; one run mixed an app farewell and server retirement.
 That was test-observation ambiguity, not a failed close, and the console's bounded
 critical sections remain unchanged.
+
+
+### Clock and notification center
+
+Added an independent Clock application with countdown and stopwatch tabs, a compact
+monospace time face, pause/resume, exact-once completion, a 64-lap session history
+and copyable time/TSV lap data. Duration input accepts seconds, m:ss or h:mm:ss up
+to 24 hours; the stopwatch saturates at 100 hours. Timers and the stopwatch keep
+running while minimized. Closing an active Clock asks for confirmation; these are
+session timers, not persisted alarms, and there is no audio or suspend wakeup.
+
+Reusable pieces are `desk_notice` (owned, validated informational cards), a clipped
+determinate progress painter, and caller-clocked countdown/stopwatch models. The
+notification client snapshots and retries a bounded request without blocking app
+input. Protocol v6 adds app-to-server notices and server-to-app acknowledgements;
+the kernel enforces those directions. The desktop validates identity/text, bounds
+history to sixteen records/four per source, deduplicates retries even after Clear,
+and rate-limits new notices. Eight-second banners never focus their source and
+defer expiry/replacement during pointer capture. Alerts / Command-Shift-N opens
+history; Open app restores the source window or launches its app if it has closed.
+
+Host coverage includes exhaustive duration roundtrips, exact expiry and rollback,
+copy/cut/paste isolation, lap eviction, close cancellation, queue pressure,
+acknowledgement retries, source quotas, invalid UTF-8, duplicate serials, modifier
+variants, capture/expiry and focus restoration. Cards, progress, Clock and history
+views pass full/tiled rendering and stride guards at normal and compact sizes.
+Address/undefined sanitizers passed for the notice, time-model and Clock suites.
+Full `test-core` passed; subsequent targeted kernel transport/session checks passed
+after VM-discovered integration fixes (notification packet routing and modifier
+mask matching). The production image builds successfully.
+
+`desktop_clock_smoke.py` passes in native QEMU: background timer completion while
+Text keeps typing, banner dismissal without focus loss, history/open-source,
+close cancellation, exact saved text and copied time, independently formatted lap
+TSV comparison, compact timer/stopwatch, invalid input, history clear and orderly
+session exit. Screenshots were visually reviewed and saved as
+`native-desktop-clock.png` and `native-desktop-notifications.png`. Hardware remains
+at its accepted checkpoint; no physical reboot/deployment occurred.

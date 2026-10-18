@@ -127,6 +127,13 @@ int main(void) {
     menu=packet_message(DESK_MENU_ACTION,2,0,1);assert(gui_send(&menu)==0);
     current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
     assert(gui_send(&menu)==-1); /* Clients cannot forge desktop menu commands. */
+    struct gui_message notice=packet_message(DESK_NOTIFY,0,0,1);
+    assert(gui_send(&notice)==0);
+    current_pid=1;assert(gui_recv(&received)==1 && received.source_pid==2);
+    notice.target_pid=2;assert(gui_send(&notice)==-1);
+    notice=packet_message(DESK_NOTIFY_ACK,2,0,1);assert(gui_send(&notice)==0);
+    current_pid=2;assert(gui_recv(&received)==1 && received.source_pid==1);
+    assert(gui_send(&notice)==-1); /* An app cannot forge an acknowledgement. */
     gui_process_cleanup(1); gui_process_cleanup(2);
     puts("gui: PASS exclusive registration, full queue, ownership, bounds, cleanup, allocation failure");
     return 0;

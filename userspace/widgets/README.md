@@ -378,3 +378,41 @@ nothing if the marker itself cannot fit. Titles, lists, tables and tabs use this
 ordinary clipped labels remain available for content that should not be elided.
 Image sampling uses exact rational stepping, preserving the direct-division
 reference output while avoiding a divide per displayed pixel.
+
+
+### Notices, progress and time models
+
+`desk_notice` owns validated UTF-8 heading/body snapshots and draws a restrained
+information, success or warning card. It has no clock, focus or I/O policy. Owners
+can reserve trailing heading space and bottom body space for accessories.
+`desk_progress_draw` takes caller-defined unsigned value/maximum units, clamps
+progress, handles an empty maximum and preserves the parent clip.
+
+`desk_time_model` provides allocation-free countdown and stopwatch state driven by
+caller-supplied monotonic microseconds. Countdown expiry is reported exactly once;
+pause/resume keeps accumulated time. Parsing accepts seconds, m:ss and h:mm:ss,
+from one second through 24 hours. Formatting and the 100-hour stopwatch limit are
+shared by Clock and host tests. No model reads a hardware clock or schedules work.
+`desk_font_digits_32` is a small monospace face for time displays.
+
+Desktop notifications are a separate protocol service, not a widget side effect.
+`desk_notify_client` snapshots one pending notice and retries its serial until an
+ACK or bounded timeout. The server validates text, derives application identity
+from its registered client, limits accepted notices to one per second per client,
+and retains at most four per client / sixteen per desktop session. Duplicate
+serials are idempotent even after history is cleared. A notice does not focus its
+source window. Banners expire after eight seconds; pointer capture defers expiry
+and replacement through release. Alerts and Command-Shift-N open history, where
+Open app restores the source window or launches its application if it has closed.
+History is intentionally session-only; notices have no sound or persistence.
+
+Clock is a small independent application demonstrating these pieces. Its timer
+and stopwatch can run together while minimized. Copy time exports the displayed
+value; Copy laps exports tab-separated elapsed/split values for the latest 64
+laps. Closing an active clock requires confirmation. The application owns timer
+completion and notification policy; controls remain reusable. Closing the desktop
+ends timers, and these are not persistent or wake-from-sleep alarms.
+
+Validation targets: `make test-notices test-time-model test-clock-app`;
+`tools/host-env.sh python3 tools/desktop_clock_smoke.py` exercises the native VM
+workflow and independently compares saved text, copied time and lap data.

@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v5 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v6 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 5
+#define DESK_PROTOCOL_VERSION 6
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
@@ -15,10 +15,10 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
-    DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_COUNT=8 };
+    DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_COUNT=9 };
 #define DESK_POINTER_LEFT 1u
 #define DESK_POINTER_PRESS (1u << 8)
 #define DESK_POINTER_CANCEL (1u << 9)
@@ -65,5 +65,11 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * Index zero starts a replacement; the old snapshot remains until the entire
  * validated new snapshot arrives. A zero-item final packet clears it.
  * MENU_ACTION: serial=snapshot revision, value=action ID. Server-originated,
- * focused app only. Clients reject stale revisions or disabled/unknown IDs. */
+ * focused app only. Clients reject stale revisions or disabled/unknown IDs.
+ * NOTIFY: serial=nonzero per-client increasing request, value=tone (0..2),
+ * text=desk_notification (32-byte title,56-byte message; NUL-terminated UTF-8).
+ * Other payload fields are zero. Only registered session clients may send;
+ * server supplies app identity. Duplicate requests do not create new records.
+ * NOTIFY_ACK: serial=request, value=0 accepted / 1 rejected. Acceptance does not
+ * imply the user has read it. History is bounded and session-local. */
 #endif

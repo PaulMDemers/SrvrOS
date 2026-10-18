@@ -8,7 +8,7 @@
 #define C(id,text) {id,DESK_DOCUMENT_CODE,text}
 static const struct desk_document_block welcome[]={
  T(1,"Welcome to SrvrOS"),P(2,"A small desktop, built from the ground up. Open a tool, arrange your workspace and make something. This guide travels with the system and works without a network connection."),
- H(3,"Find your way"),P(4,"The dock opens Files, Text, Calculator, System, Settings and Terminal. Press Command-Space to search for any application or an open window. Preview and Help are available there too."),
+ H(3,"Find your way"),P(4,"The dock opens Files, Text, Calculator, System, Settings and Terminal. Press Command-Space to search for any application or an open window. Preview, Clock and Help are available there too."),
  H(5,"Start with a document"),P(6,"Open Text, type a few lines and choose File > Save. Your home folder is /fat/home. Files can open saved text and images with the appropriate application."),
  H(7,"Make it yours"),P(8,"Settings offers larger text, wallpaper colors and clock preferences. The global menu follows the active application. Click the clock to open the calendar."),
  H(9,"Using this guide"),P(10,"Choose Topics or press Ctrl-L to search the guide. Back and Forward restore the page and your scroll position. Copy page puts a plain-text copy on the shared clipboard. Open app starts the tool described by the current topic."),
@@ -69,7 +69,7 @@ static const struct desk_document_block system[]={
  H(7,"Configuration"),P(8,"Network setup remains a console task. Available tools include ifconfig, route, arp, ping, host and netstat. The virtual machine can exercise the supported emulated adapter; support for a particular USB network adapter depends on its driver."),
  N(9,"An interface being present does not by itself prove that DNS or Internet access works. Check the address and route, then test the destination you need.")};
 static const struct desk_document_block keyboard[]={
- T(1,"Keyboard shortcuts"),H(2,"Across the desktop"),C(3,"Command-Space    Applications and windows\nAlt-Tab          Next window\nAlt-Shift-Tab    Previous window\nF10              Global menu bar\nF1               Help for the active application"),
+ T(1,"Keyboard shortcuts"),H(2,"Across the desktop"),C(3,"Command-Space    Applications and windows\nAlt-Tab          Next window\nAlt-Shift-Tab    Previous window\nF10              Global menu bar\nF1               Help for the active application\nCommand-Shift-N  Notifications"),
  H(4,"Inside controls"),P(5,"Tab moves to the next control and Shift-Tab moves backward. Space activates a focused button. Arrow keys navigate lists and documents. Page Up and Page Down scroll a page; Home and End move to an edge. Escape dismisses a dialog or chooser."),
  H(6,"Text editing"),C(7,"Ctrl-A           Select all\nCtrl-X / C / V   Cut / Copy / Paste\nCtrl-Z           Undo\nCtrl-Shift-Z     Redo\nCtrl-F           Find in Text\nCtrl-G           Next match\nCtrl-Shift-G     Previous match"),
  H(8,"Files and documents"),C(9,"Ctrl-O           Open\nCtrl-S           Save in Text\nCtrl-Shift-S     Save as in Text\nCtrl-L           Location in Files; Topics in Help\nAlt-Left/Right   Back / Forward\nCtrl-W           Close window"),
@@ -85,9 +85,17 @@ static const struct desk_document_block limits[]={
 static const struct desk_document_block about[]={
  T(1,"SrvrOS"),P(2,"A native operating system and a quiet, practical desktop. Built from scratch, with the MacBook Air as its first physical desktop target."),
  H(3,"One shared toolkit"),P(4,"Applications use the same buttons, text fields, lists, tables, tabs, scrollbars, dialogs, file pickers, image views and document views. The desktop supplies window management, global menus, a launcher, calendar and clipboard."),
- H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview and Help. Open app below opens System for a view of running processes and network status."),
+ H(5,"Included tools"),P(6,"Files, Text, Calculator, System, Settings, Terminal, Preview, Clock and Help. Open app below opens System for a view of running processes and network status."),
  H(7,"Acknowledgments"),P(8,"The desktop uses DejaVu fonts. Preview uses the stb_image decoder under its MIT license. The source repository includes upstream licenses and records local changes."),
  N(9,"This is a development system. Hardware acceptance and virtual-machine validation are tracked separately in the project documentation.")};
+static const struct desk_document_block clock_guide[]={
+ T(1,"Clock"),P(2,"Keep a countdown timer and a stopwatch in one window. Both use monotonic time, so changing the displayed wall clock or UTC offset does not change their elapsed time."),
+ H(3,"Set a timer"),P(4,"Enter a duration as seconds, m:ss or h:mm:ss, from one second to 24 hours. Start begins counting down. Pause and Resume keep the remaining time; Reset stops the timer and restores its duration. Again repeats a completed timer."),
+ H(5,"Time a task"),P(6,"Choose Stopwatch, then Start. Lap records the elapsed time and the split since the previous lap. The latest 64 laps are retained. Pause stops accumulation, Resume continues it, and Reset clears a paused stopwatch and its laps."),
+ H(7,"Copy and keyboard controls"),P(8,"Copy puts the displayed time on the clipboard. Copy laps in the Clock menu exports a tab-separated table. Ctrl-1 selects Timer, Ctrl-2 selects Stopwatch, Ctrl-Enter starts or pauses, Ctrl-R resets and Ctrl-L records a lap. Ctrl-Shift-C copies time; Ctrl-Shift-L copies laps."),
+ H(9,"Work in another window"),P(10,"Minimize Clock to keep timing while you work. A completed timer shows a brief notification without taking focus. Alerts in the menu bar, SrvrOS > Notifications or Command-Shift-N opens the session history. Open app returns to the source window when it is still open; otherwise it starts the application."),
+ P(11,"Click a notification's close button to dismiss its banner. The history retains up to 16 notices, with at most four from one window. Clear removes a selected notice and Clear all empties the history. Opening history marks its notices as read."),
+ N(12,"Closing Clock stops its timer and stopwatch; the window asks first while either is running. Timers, laps and notifications are not saved across sessions. There is no audible alarm or suspend/resume guarantee. The stopwatch stops at 100 hours.")};
 #define TOPIC(id,alias,title,detail,app,data) {id,alias,title,detail,app,data,sizeof(data)/sizeof(*data)}
 const struct help_topic help_topics[]={
  TOPIC(1,"welcome","Welcome","Start here · applications and documents",0,welcome),
@@ -102,6 +110,7 @@ const struct help_topic help_topics[]={
  TOPIC(10,"keyboard","Keyboard shortcuts","Navigation · editing · Command and Control",0,keyboard),
  TOPIC(11,"limits","Current scope","Limits · supported features · testing",0,limits),
  TOPIC(12,"about","About SrvrOS","System · toolkit · acknowledgments",DESK_APP_SYSTEM,about),
+ TOPIC(13,"clock","Clock","Timer · stopwatch · laps · alerts · notifications",DESK_APP_CLOCK,clock_guide),
 };
 const unsigned help_topic_count=sizeof(help_topics)/sizeof(*help_topics);
 const struct help_topic *help_topic(unsigned id) { for(unsigned i=0;i<help_topic_count;i++) if(help_topics[i].id==id) return &help_topics[i];return NULL; }

@@ -16,6 +16,7 @@ long srv_exec(const struct srv_exec_request *request) {
     snprintf(executed_argument,sizeof(executed_argument),"%s",request->argv[2]);return -1;
 }
 long srv_ticks(void) { return (long)now; }
+long srv_monotonic_us(void) { return (long)(now*10000); }
 long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
@@ -159,6 +160,27 @@ int main(void) {
     assert(!strcmp(executed_path,"/fat/bin/deskhelp") && !strcmp(executed_role,"help") && !strcmp(executed_argument,"about"));
     s.scene.windows[0].application=DESK_APP_TEXT;global_menu_action(&s,GLOBAL_HELP);
     assert(!strcmp(executed_argument,"text"));
+    for(unsigned mods=0;mods<256;mods++) {
+        struct srv_key_event key={.flags=SRV_KEY_DOWN_EVENT,.usage=17,.modifiers=mods};
+        assert(!!notifications_shortcut(&key)==!!((mods&0x88) && (mods&0x22) && !(mods&0x55)));
+        key.flags|=SRV_KEY_REPEAT;assert(!notifications_shortcut(&key));
+        key.flags=0;assert(!notifications_shortcut(&key));
+    }
+    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,800,600);
+    p=desk_packet_new(DESK_NOTIFY);p.serial=1;p.value=1;
+    struct desk_notification notice={.title="Timer finished",.message="A completed timer."};memcpy(p.text,&notice,sizeof(notice));
+    s.clients[0].progress=s.clients[0].input_since=now;
+    now+=100;incoming(&s,43,&p);assert(!s.scene.notifications.store.count);
+    incoming(&s,42,&p);assert(s.scene.notifications.store.count==1 && s.scene.focus==0 && !s.clients[0].notice_ack_result);
+    uint64_t notice_id=s.scene.notifications.toast_id;incoming(&s,42,&p);assert(s.scene.notifications.store.count==1 && s.scene.notifications.toast_id==notice_id);
+    s.scene.notifications.store.count=0;incoming(&s,42,&p);assert(!s.scene.notifications.store.count && !s.clients[0].notice_ack_result);
+    p.serial=2;incoming(&s,42,&p);assert(!s.scene.notifications.store.count && s.clients[0].notice_ack_result);
+    now+=100;p.serial=3;incoming(&s,42,&p);assert(s.scene.notifications.store.count==1 && !s.clients[0].notice_ack_result);
+    now+=100;p.serial=4;p.width=1;incoming(&s,42,&p);assert(s.clients[0].notice_ack_result && s.scene.notifications.store.count==1);p.width=0;
+    p.serial=1;incoming(&s,42,&p);assert(s.clients[0].notice_ack_result && s.clients[0].notice_last==4);
+    queue_full=1;service(&s);assert(s.clients[0].notice_ack_pending);queue_full=0;service(&s);assert(!s.clients[0].notice_ack_pending);
+    notifications_open(&s);assert(s.scene.notifications.opened && s.scene.focus==-1 && !desktop_notifications_unread(&s.scene.notifications.store));
+    notifications_close(&s);assert(!s.scene.notifications.opened && s.scene.focus==0);
     forget(&s,0);assert(s.scene.menu.groups==2 && s.scene.focus==-1);
     global_menu_action(&s,GLOBAL_HELP);assert(!strcmp(executed_argument,"welcome"));
     struct session failed={0}; alloc_fail=allocations+1;

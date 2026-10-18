@@ -22,13 +22,15 @@ def main():
              '#include <srvros/desk_render.h>',
              'const char desk_font_license[] = ' + json.dumps(
                  (FONT.parent / "LICENSE-DejaVu.txt").read_text()) + ';']
-    for name, size, source in (("16",16,FONT),("20",20,FONT),("mono_16",16,FONT.parent/"DejaVuSansMono.ttf")):
+    for name, size, source in (("16",16,FONT),("20",20,FONT),("mono_16",16,FONT.parent/"DejaVuSansMono.ttf"),("digits_32",32,FONT.parent/"DejaVuSansMono.ttf")):
         if source != FONT:
             lines.append(f"/* {source.name} SHA256: {hashlib.sha256(source.read_bytes()).hexdigest()} */")
         font = ImageFont.truetype(str(source), size, layout_engine=ImageFont.Layout.BASIC)
         pixels, glyphs = [], []
         ascent, descent = font.getmetrics()
         points = sorted(set(POINTS + list(range(0x2500,0x2580)))) if source != FONT else POINTS
+        if name == "digits_32":
+            points = [32,46] + list(range(48,59)) + [0xfffd]
         for cp in points:
             char = chr(cp)
             x0, y0, x1, y1 = font.getbbox(char, anchor="ls")

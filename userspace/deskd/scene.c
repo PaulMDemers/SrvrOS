@@ -1,6 +1,8 @@
 #include "scene.h"
 #include <srvros/desktop_protocol.h>
 #include <srvros/desktop_apps.h>
+#include <stdio.h>
+#include <string.h>
 
 void desktop_stack(const struct desktop_scene *s,int order[DESKD_WINDOWS]) {
     for(int i=0;i<DESKD_WINDOWS;i++) order[i]=i;
@@ -104,6 +106,9 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
 struct desk_rect desktop_clock_rect(int width,const char *clock) {
     int text=desk_text_width(&desk_font_16,clock);return (struct desk_rect){width-text-24,0,text+24,44};
 }
+struct desk_rect desktop_alert_rect(int width,const char *clock) {
+    struct desk_rect r=desktop_clock_rect(width,clock);return (struct desk_rect){r.x-94,0,90,44};
+}
 static void calendar_panel(struct desk_canvas *c,const struct desktop_scene *s) {
     struct desk_rect r=s->calendar_frame,clip=c->clip;
     desk_fill(c,(struct desk_rect){r.x+4,r.y+5,r.w,r.h},0xb9c2b4);
@@ -122,6 +127,10 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
     if(s->apps) {
         desk_menu_bar_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) desk_fill(c,desktop_clock_rect(c->width,s->clock),desk_theme_quiet.selected);
+        struct desk_rect alerts=desktop_alert_rect(c->width,s->clock);char label[24];unsigned unread=desktop_notifications_unread(&s->notifications.store);
+        if(s->notifications.opened || unread) desk_fill(c,alerts,desk_theme_quiet.selected);
+        if(unread) snprintf(label,sizeof(label),"Alerts %u",unread);else strcpy(label,"Alerts");
+        desk_label_draw(c,(struct desk_rect){alerts.x+6,12,alerts.w-12,24},&desk_font_16,label,desk_theme_quiet.text);
         int clock_width=desk_text_width(&desk_font_16,s->clock);
         desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
@@ -163,6 +172,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         desk_menu_popup_draw(c,&s->menu,&desk_theme_quiet);
         if(s->calendar_open) calendar_panel(c,s);
         if(s->launcher_open) desk_palette_draw(c,&s->launcher,&desk_theme_quiet);
+        if(s->notifications.opened || (!s->launcher_open && !s->calendar_open && s->menu.open<0)) desktop_notice_view_draw(c,&s->notifications,&desk_theme_quiet);
     }
     for (int y=0;y<16;y++) {
         desk_fill(c,(struct desk_rect){s->cursor_x,s->cursor_y+y,1+y/2,1},0x292e2b);

@@ -15,7 +15,7 @@ not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
 windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings
-Terminal, Preview and Help. Command-Space opens application/window search; the SrvrOS menu
+Terminal, Preview, Help and Clock. Command-Space opens application/window search; the SrvrOS menu
 provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
 with month/year navigation and Today. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
@@ -23,7 +23,8 @@ files up to 64 KiB, and confirmed permanent deletion. System shows live process,
 Text includes a modeless Find bar, next/previous search, bounded multi-step undo
 and shared clipboard. Calculator has a keypad, result copying and session history.
 Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate
-worker. F1 opens the active app’s offline Help topic, with searchable topics,
+worker. Clock provides a countdown, stopwatch and copyable laps. Completed timers
+appear as nonintrusive banners and in Alerts (Command-Shift-N). F1 opens the active app’s offline Help topic, with searchable topics,
 Back/Forward history and page copying.
 Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented

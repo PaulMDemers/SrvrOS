@@ -22,7 +22,7 @@ struct desk_font {
     const uint8_t *alpha;
     uint16_t count, ascent, line_height;
 };
-extern const struct desk_font desk_font_16, desk_font_20, desk_font_mono_16;
+extern const struct desk_font desk_font_16, desk_font_20, desk_font_mono_16, desk_font_digits_32;
 extern const char desk_font_license[];
 
 #define DESK_DAMAGE_MAX 16

@@ -3,6 +3,7 @@
 #include <srvros/desk_render.h>
 #include <srvros/desk_menu.h>
 #include <srvros/desk_palette.h>
+#include "notification_view.h"
 #define DESKD_WINDOWS 8
 #define DESK_INPUT_QUEUE 64
 struct desktop_window {
@@ -17,6 +18,7 @@ struct desktop_scene {
     struct desktop_window windows[DESKD_WINDOWS];
     int focus,cursor_x,cursor_y,trackpad_trial,apps;
     struct desk_menu menu;
+    struct desktop_notice_view notifications;
     struct desk_palette launcher;
     int launcher_open;
     struct desk_calendar calendar;
@@ -30,6 +32,7 @@ struct desktop_scene {
     int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
+struct desk_rect desktop_alert_rect(int width,const char *clock);
 struct desk_rect desktop_clock_rect(int width,const char *clock);
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);
 void desktop_stack(const struct desktop_scene *scene,int order[DESKD_WINDOWS]);
