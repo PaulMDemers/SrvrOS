@@ -194,7 +194,7 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(pointer=True)
 
     def test_desktop_io_profile(self):
-        for v in (14,15):
+        for v in (14,15,16):
             version=f'ram-usb-v{v}-trackpad-37d8c5d0-0123456789abcdef'
             release=self.payload(f'desktop-io-{v}',version)
             cfg=boot.limine_config(release,version)

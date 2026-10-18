@@ -393,3 +393,48 @@ case and rejection of timings reported without samples.
 Report SHA-256: `2d688458dba98fd306eb485c63339e1288bad4dfa2098a5d7df5ac646c105390`.
 Payload SHA-256: `a3f1a4bb482cd88b6fb2a67190bd3b9c06bd39c1ab77155a166d0231e04bdb72`.
 Evidence: `build/trackpad-tests/a08397c25b269821/`.
+
+## User-started trial and workload timeline (v16)
+
+The Ubuntu journal placed the previous reboot at 2026-10-18 00:26:57 EDT and
+Ubuntu's return at 00:41:06 EDT. SrvrOS's capture lasted 801.326677 seconds,
+including the desktop and later capture screen. Neither that duration nor the
+unusable exFAT wall-clock timestamps identifies when the worker finished.
+The user confirmed interacting while the desktop was visible but was unsure
+whether file work was still running. Keep the no-overlap result unaccepted.
+
+The v16 I/O trial now loads both studies, displays READY, and waits indefinitely
+for Space before spawning the file worker. Space is consumed as the start action;
+it is not a text sample. Escape before starting returns without running the
+worker. Normal desktop launches retain their existing behavior. The completed
+workload now explicitly tells the user to save, rather than requesting checks
+that can no longer be counted during file work.
+
+Two additional checksummed records use the same monotonic reference clock:
+
+- `work-clock.txt`: the worker timestamps its own test-loop start and finish.
+  This interval includes the existing inter-round pacing and ends before writing
+  the result/evidence files. It is not pure device service time.
+- `input-clock.txt`: start request, first non-Escape key after starting, first
+  meaningful pointer event, last input, optional stop request, and the timestamp
+  when this record is prepared. Key events include controls such as Tab. First
+  input is measured when the compositor reads it, not at physical actuation.
+  Input after worker completion is also recorded, making late testing visible.
+
+The collector requires both records for v16, checks their checksums, identities
+and timestamp ordering, and prints workload duration plus whether the first key
+and pointer event were before, during or after the worker interval. Zero optional
+input timestamps mean no event, not time zero. Older trial profiles remain
+collectable without inventing timeline evidence. Existing coverage and latency
+acceptance thresholds are unchanged.
+
+Validation: the build, desktop/I/O host tests and 30 Python tests passed. The
+emulator verified a six-second READY wait without spawning the worker, explicit
+Space start, early-Escape warning/override, persisted timeline and payload,
+clean offline exFAT, replay/read-only refusal and indefinite halt. The first
+attempt was terminated during the final read-only boot; the complete retry
+passed. In that retry the worker interval was 24.475974 seconds, first key
+0.613341 seconds after its start and first pointer input 2.022013 seconds after.
+The short emulated run deliberately remains incomplete for physical coverage.
+The READY screen was visually checked at 1280x800. Evidence is retained under
+`build/review/desktop-io-manual-start-20261018/`.

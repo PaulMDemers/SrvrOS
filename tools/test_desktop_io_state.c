@@ -71,5 +71,14 @@ int main(void) {
     io.cancels=1; assert(strstr(io_trial_next_check(&io),"16 USB rounds"));
     io.progress.rounds=16; assert(!io_trial_next_check(&io));
     io.text_sent++; assert(strstr(io_trial_next_check(&io),"last typed characters"));
+    io=(struct io_trial){0}; ticks=100; io_trial_input(&io,0);
+    assert(!io.first_text_us && !io.last_input_us);
+    io.enabled=io.clock_ok=1; ticks=200; io_trial_input(&io,0);
+    ticks=300; io_trial_input(&io,1); ticks=400; io_trial_input(&io,0);
+    assert(io.first_text_us==200 && io.first_pointer_us==300 && io.last_input_us==400);
+    io.finished=1; ticks=500; io_trial_input(&io,1);
+    assert(io.first_pointer_us==300 && io.last_input_us==500);
+    io.progress.state=DESK_IO_COMPLETE; assert(strstr(io_trial_next_check(&io),"finished"));
+    ticks=(uint64_t)-1; io_trial_input(&io,0); assert(!io.clock_ok);
     puts("desktop-io-state: PASS fragmented pipe, terminal/exit race, malformed progress, bounded stop");
 }

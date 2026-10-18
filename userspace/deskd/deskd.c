@@ -283,7 +283,7 @@ int main(int argc,char **argv) {
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
-    int io_started=0,stop_warning=0;
+    int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     uint64_t key_pid=0,key_since=0,key_serial=0;
@@ -298,10 +298,10 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
-        if (io_mode && !io_started && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
-            io_trial_start(&s.io,argv[2]); io_started=1;
+        if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
+            io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
         }
-        if (io_mode && !io_started && (uint64_t)srv_ticks()-start>500) { failed=1; break; }
+        if (io_mode && !io_ready && (uint64_t)srv_ticks()-start>500) { failed=1; break; }
         io_trial_poll(&s.io);
         if (io_leaving && s.io.finished) { quit=1; break; }
         if (scroll_smoke && s.scene.windows[0].pixels) {
@@ -327,6 +327,10 @@ int main(int argc,char **argv) {
             int key=pending_key?pending_key:kbhit();
             if (key<=0) break;
             if (!pending_key) {
+                if (io_mode && io_ready && !io_started && key==' ') {
+                    io_trial_start(&s.io,argv[2]); io_started=1; continue;
+                }
+                if (key!=27) io_trial_input(&s.io,0);
                 if (key==27) {
                     if (io_mode && io_started) {
                         if (!stop_warning && !s.io.finished && !s.io.stopping &&
@@ -365,7 +369,9 @@ int main(int argc,char **argv) {
         }
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
-            if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) stop_warning=0;
+            if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
+                stop_warning=0; io_trial_input(&s.io,1);
+            }
             if (io_trial_active(&s.io)) {
                 if (e.dx || e.dy) s.io.motions++;
                 if (e.wheel_x || e.wheel_y) s.io.wheels++;
@@ -408,7 +414,7 @@ int main(int argc,char **argv) {
             desk_damage_add(&s.damage,(struct desk_rect){x,y,10,17});
         }
         if (io_mode) {
-            const char *next=stop_warning?
+            const char *next=!io_started? (io_ready?"READY - press Space when you are ready to start the USB test.":"Loading both studies..."):stop_warning?
                 "Checks incomplete. Continue below, or press Escape again to save an incomplete run.":
                 io_trial_next_check(&s.io);
             if(!next) next="Coverage complete. Press Escape for save checks; Ubuntu will verify timing and data.";
@@ -418,7 +424,7 @@ int main(int argc,char **argv) {
             }
             char status[160]; const char *states[]={"STARTING","RUNNING","COMPLETE","STOPPED","FAILED"};
             snprintf(status,sizeof(status),"USB %s%s | rounds %u/128 | keys %llu | moves %llu | scroll %llu | focus %llu | cancel %llu",
-                states[s.io.progress.state],s.io.stopping && !s.io.finished?" (stopping)":"",
+                (!io_started && io_ready)?"WAITING FOR SPACE":states[s.io.progress.state],s.io.stopping && !s.io.finished?" (stopping)":"",
                 s.io.progress.rounds,(unsigned long long)s.io.keys,(unsigned long long)s.io.motions,
                 (unsigned long long)s.io.wheels,(unsigned long long)s.io.focus_changes,(unsigned long long)s.io.cancels);
             char checks[160];

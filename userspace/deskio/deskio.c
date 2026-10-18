@@ -56,6 +56,8 @@ int main(int argc,char **argv) {
     if (got!=(ssize_t)strlen(expected) || memcmp(actual,expected,(size_t)got)) return failure("request-identity");
     snprintf(dir,sizeof(dir),"/work/srvros-work/desktop-%s",run);
     if (mkdir(dir,0700)!=0) return failure("mkdir");
+    long started=srv_monotonic_us();
+    if(started<=0) return failure("reference-clock");
     unsigned rounds=0,state=DESK_IO_RUNNING;
     if (progress(0,state)!=0) return failure("progress-pipe");
     while (rounds<DESK_IO_ROUNDS) {
@@ -75,6 +77,12 @@ int main(int argc,char **argv) {
         if (state!=DESK_IO_RUNNING) break;
     }
     if (state==DESK_IO_RUNNING) state=DESK_IO_COMPLETE;
+    long ended=srv_monotonic_us();
+    if(ended<started) state=DESK_IO_FAILED;
+    snprintf(result,sizeof(result),"%s/work-clock.txt",dir);
+    snprintf(body,sizeof(body),"format=srvros-desktop-workclock-v1\nrun=%s\nstart_us=%llu\nend_us=%llu\n",
+        run,(unsigned long long)started,(unsigned long long)(ended>0?ended:0));
+    if(trial_record(result,body)!=0 || srv_sync()!=0) state=DESK_IO_FAILED;
     snprintf(result,sizeof(result),"%s/result.txt",dir);
     snprintf(body,sizeof(body),"format=srvros-desktop-io-v1\nrun=%s\nstate=%u\nrounds=%u\nbytes=%u\n",
         run,state,rounds,rounds*DESK_IO_BYTES);

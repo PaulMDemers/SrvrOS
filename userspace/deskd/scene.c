@@ -48,7 +48,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         };
         const char *io_steps[]={
             s->io_next[0]?s->io_next:"Input + USB file work - keep testing while the status below says RUNNING",
-            "1. Type, scroll with two fingers, drag the thumb and resize the window.",
+            "1. Press Space to start USB work, then type, scroll, drag and resize.",
             "2. Two studies are ready. Tab switches focus; type 32+ characters in both.",
             "3. Click AND HOLD the scrollbar thumb, press Tab while held, then release.",
             "   Moving afterward must NOT continue the old drag. Try a fresh drag.",

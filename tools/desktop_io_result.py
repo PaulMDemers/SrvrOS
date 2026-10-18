@@ -69,3 +69,25 @@ def validate_text(run,data):
 def text_gate(t):
     return (t['sent']>=32 and t['presented']==t['sent'] and not t['overflow'] and
             t['p95_us']<=50000 and t['p99_us']<=100000 and t['max_us']<=250000)
+
+
+def validate_timeline(run,work_data,input_data):
+    work=record(work_data,run,'workclock',('start_us','end_us'))
+    activity=record(input_data,run,'inputclock',('clock','start_request_us','first_key_us',
+        'first_pointer_us','last_input_us','stop_request_us','recorded_us'))
+    start,end=work['start_us'],work['end_us']
+    requested,recorded=activity['start_request_us'],activity['recorded_us']
+    if activity['clock']!=1 or not 0<requested<=start<=end<=recorded:
+        raise ValueError('Invalid workload timeline')
+    for key in ('first_key_us','first_pointer_us','last_input_us','stop_request_us'):
+        if activity[key] and not requested<=activity[key]<=recorded:
+            raise ValueError('Input timestamp outside trial')
+    first=[activity[k] for k in ('first_key_us','first_pointer_us') if activity[k]]
+    if (not first and activity['last_input_us']) or (first and activity['last_input_us']<max(first)):
+        raise ValueError('Inconsistent first/last input timestamps')
+    result={'workload_seconds':(end-start)/1000000,'worker':work,'input':activity}
+    for name in ('key','pointer'):
+        stamp=activity['first_'+name+'_us']
+        result['first_'+name+'_phase']=('none' if not stamp else 'before' if stamp<start else 'after' if stamp>end else 'during')
+        result['first_'+name+'_after_start_seconds']=(stamp-start)/1000000 if stamp else None
+    return result

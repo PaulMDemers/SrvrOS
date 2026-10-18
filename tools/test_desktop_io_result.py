@@ -1,6 +1,6 @@
 import binascii
 import unittest
-from desktop_io_result import validate, validate_timing, timing_gate, validate_text, text_gate, BYTES
+from desktop_io_result import validate, validate_timing, timing_gate, validate_text, text_gate, validate_timeline, BYTES
 
 class DesktopIOTests(unittest.TestCase):
     run_id='0123456789abcdef'
@@ -30,6 +30,24 @@ class DesktopIOTests(unittest.TestCase):
         for invalid in (dict(clock=0),dict(presented=33),dict(overflow=33),dict(p99_us=1)):
             with self.assertRaises(ValueError): validate_text(self.run_id,self.record('text',dict(target,**invalid)))
         with self.assertRaises(ValueError): validate_text(self.run_id,self.record('text',target)[:-1])
+
+    def test_timeline(self):
+        work=dict(start_us=200,end_us=800)
+        activity=dict(clock=1,start_request_us=100,first_key_us=300,first_pointer_us=900,
+                      last_input_us=950,stop_request_us=0,recorded_us=1000)
+        def check(w=work,a=activity):
+            return validate_timeline(self.run_id,self.record('workclock',w),self.record('inputclock',a))
+        value=check()
+        self.assertEqual(value['workload_seconds'],0.0006)
+        self.assertEqual(value['first_key_phase'],'during')
+        self.assertEqual(value['first_pointer_phase'],'after')
+        self.assertEqual(check(a=dict(activity,first_key_us=150))['first_key_phase'],'before')
+        self.assertEqual(check(a=dict(activity,first_key_us=0,first_pointer_us=0,last_input_us=0))['first_key_phase'],'none')
+        for invalid in (dict(clock=0),dict(start_request_us=201),dict(first_key_us=99),
+                        dict(last_input_us=400),dict(stop_request_us=1001),dict(recorded_us=799)):
+            with self.assertRaises(ValueError): check(a=dict(activity,**invalid))
+        with self.assertRaises(ValueError): check(w=dict(work,end_us=199))
+        with self.assertRaises(ValueError): validate_timeline(self.run_id,self.record('workclock',work)[:-1],self.record('inputclock',activity))
 
     def test_timing_evidence(self):
         fields=dict(clock=1,active_count=51,active_p95_us=50000,active_p99_us=100000,active_max_us=150000,

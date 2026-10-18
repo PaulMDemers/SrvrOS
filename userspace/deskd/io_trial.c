@@ -5,10 +5,26 @@
 #include <srvros/trial_file.h>
 #include <signal.h>
 
+static uint64_t io_stamp(struct io_trial *io) {
+    long now=srv_monotonic_us();
+    if(now<=0) { io->clock_ok=0; return 0; }
+    return (uint64_t)now;
+}
+/* Includes input after file work finishes, so late interaction is distinguishable
+ * from missing input. The Space that starts the trial is not a test sample. */
+void io_trial_input(struct io_trial *io,int pointer) {
+    if(!io->enabled) return;
+    uint64_t now=io_stamp(io);
+    uint64_t *first=pointer?&io->first_pointer_us:&io->first_text_us;
+    if(!*first) *first=now;
+    io->last_input_us=now;
+}
+
 /* NULL means coverage is complete, not that timing or durability has passed. */
 const char *io_trial_next_check(const struct io_trial *io) {
     if(!io->enabled || io->progress.state==0) return "Starting both studies and USB work...";
     if(io->progress.state==DESK_IO_FAILED) return "USB work failed. Press Escape to save the evidence.";
+    if(io->finished) return "USB work finished. Press Escape to save; Ubuntu will verify coverage and timing.";
     if(io->focus_changes<2) return "Next: press Tab twice to switch between the two windows.";
     if(!io->cancels) return "Next: click AND HOLD the scrollbar thumb, press Tab while held, then release.";
     if(!io->wheels) return "Next: scroll inside a study with two fingers.";
@@ -22,6 +38,7 @@ const char *io_trial_next_check(const struct io_trial *io) {
 
 void io_trial_start(struct io_trial *io,const char *run) {
     *io=(struct io_trial){.enabled=1,.reader=-1,.stopper=-1,.clock_ok=1};
+    io->start_request_us=io_stamp(io);
     memcpy(io->run,run,17);
     if (srv_signal_config(SIGPIPE,SRV_SIGNAL_IGNORE)!=0) goto fail;
     int status[2],stop[2];
@@ -43,6 +60,7 @@ fail:
 void io_trial_stop(struct io_trial *io) {
     if (!io->enabled || io->finished || io->stopping) return;
     io->stopping=1; io->stop_since=srv_ticks();
+    io->stop_request_us=io_stamp(io);
     char stop=1;
     /* The worker may have closed stdin just before Escape. Its terminal
      * record/exit, or the bounded stop deadline, determines the outcome. */
@@ -107,6 +125,14 @@ int io_trial_finish(struct io_trial *io) {
         (unsigned long long)io->active_gap.max,(unsigned long long)io->render.count,
         (unsigned long long)perf_percentile(&io->render,95),(unsigned long long)perf_percentile(&io->render,99),
         (unsigned long long)io->render.max);
+    if(trial_record(path,body)!=0 || srv_sync()!=0) saved=0;
+    snprintf(path,sizeof(path),"/work/srvros-work/desktop-%s/input-clock.txt",io->run);
+    uint64_t recorded=io_stamp(io);
+    snprintf(body,sizeof(body),"format=srvros-desktop-inputclock-v1\nrun=%s\nclock=%d\nstart_request_us=%llu\nfirst_key_us=%llu\nfirst_pointer_us=%llu\nlast_input_us=%llu\nstop_request_us=%llu\nrecorded_us=%llu\n",
+        io->run,io->clock_ok,(unsigned long long)io->start_request_us,
+        (unsigned long long)io->first_text_us,(unsigned long long)io->first_pointer_us,
+        (unsigned long long)io->last_input_us,(unsigned long long)io->stop_request_us,
+        (unsigned long long)recorded);
     if(trial_record(path,body)!=0 || srv_sync()!=0) saved=0;
     snprintf(path,sizeof(path),"/work/srvros-work/desktop-%s/text.txt",io->run);
     snprintf(body,sizeof(body),"format=srvros-desktop-text-v1\nrun=%s\nclock=%d\nsent=%llu\npresented=%llu\noverflow=%llu\np95_us=%llu\np99_us=%llu\nmax_us=%llu\n",

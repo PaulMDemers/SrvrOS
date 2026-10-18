@@ -245,3 +245,8 @@ The next physical v15 run confirmed smooth keyboard and trackpad interaction:
 on the MacBook Air. Combined coverage still needs 16+ file rounds, two focus
 switches and a captured-scrollbar-drag cancellation in one run. Follow-up trial
 guidance highlights the next missing check and warns before an incomplete exit.
+
+A later run completed all 128 file rounds with verified data and a clean volume,
+but recorded no interaction during the workload. To remove the timing ambiguity,
+the v16 trial waits for Space and persists worker start/end plus first-input
+reference-clock timestamps. The combined physical gate remains open.

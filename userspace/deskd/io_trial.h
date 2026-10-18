@@ -15,6 +15,7 @@ struct io_trial {
     struct perf_sample text_present;
     uint64_t text_sent,text_overflow;
     struct { uint64_t pid,serial,at; } text_pending[256];
+    uint64_t start_request_us,first_text_us,first_pointer_us,last_input_us,stop_request_us;
 };
 static inline int io_trial_active(const struct io_trial *io) {
     return io->enabled && !io->finished && io->progress.state==DESK_IO_RUNNING;
@@ -24,6 +25,7 @@ void io_trial_loop_end(struct io_trial *io,uint64_t render_start);
 uint64_t io_trial_text_begin(struct io_trial *io,uint64_t pid);
 void io_trial_text_present(struct io_trial *io,uint64_t pid,uint64_t serial);
 const char *io_trial_next_check(const struct io_trial *io);
+void io_trial_input(struct io_trial *io,int pointer);
 void io_trial_start(struct io_trial *io,const char *run);
 void io_trial_poll(struct io_trial *io);
 void io_trial_stop(struct io_trial *io);

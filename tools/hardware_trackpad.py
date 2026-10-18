@@ -12,7 +12,7 @@ import subprocess
 
 import hardware_boot as boot
 import hardware_test as host
-from desktop_io_result import validate as validate_io, validate_timing, timing_gate, validate_text, text_gate
+from desktop_io_result import validate as validate_io, validate_timing, timing_gate, validate_text, text_gate, validate_timeline
 
 RUNS = boot.ROOT/'build/trackpad-tests'
 NUMBERS = ('found','ready','slot','reports','contact_reports','button_reports','lifts','max_contacts',
@@ -44,12 +44,13 @@ def prepare(uuid,pointer=False,gestures=False,desktop_io=False):
     manifest = boot.verify(boot.STAGE/release)
     host.sync_file(request,f'SRVROS-TRACKPAD-V1 {run}\n'.encode(),exclusive=True)
     target = RUNS/run; target.mkdir(parents=True)
-    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io,'desktop_text':desktop_io}
+    metadata = {'run':run,'volume':volume,'release':release,'boot_manifest':manifest,'pointer':pointer,'gestures':gestures,'desktop_io':desktop_io,'desktop_timing':desktop_io,'desktop_text':desktop_io,'desktop_timeline':desktop_io}
     host.sync_file(target/'manifest.json',(json.dumps(metadata,indent=2)+'\n').encode())
     host.sync_file(RUNS/'latest',(run+'\n').encode())
     os.sync()
     print(f'Prepared trackpad capture {run}, release {release}')
-    if pointer: print('Desktop trial opens first: move, physical click/drag, type; Escape returns to save checks.')
+    if desktop_io: print('Desktop waits for Space before starting USB work; follow the on-screen checklist.')
+    elif pointer: print('Desktop trial opens first: move, physical click/drag, type; Escape returns to save checks.')
     print('The guest waits for gestures and AaZz09 + Enter, saves the report, then halts.')
     return metadata
 
@@ -70,7 +71,7 @@ def launch(run):
     release = metadata['release']; run = metadata['run']
     manifest = boot.verify(boot.STAGE/release)
     if manifest != metadata['boot_manifest'] or manifest['config_version'] != \
-            f"ram-usb-v{15 if metadata.get('desktop_text') else 14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
+            f"ram-usb-v{16 if metadata.get('desktop_timeline') else 15 if metadata.get('desktop_text') else 14 if metadata.get('desktop_timing') else 13 if metadata.get('desktop_io') else 12 if metadata.get('gestures') else 11 if metadata.get('pointer') else 10}-trackpad-{metadata['volume']}-{run}":
         raise ValueError('Staged payload does not match the capture request')
     folder = folder_for(metadata['volume'])
     request = folder/f'trackpad-{run}.req'
@@ -89,7 +90,7 @@ def launch(run):
     try:
         subprocess.run(['grub-reboot','srvros-current'],check=True)
         os.sync()
-        print('One-shot capture armed. Swipe, physically click, type AaZz09 and Enter. Guest will HALT.',flush=True)
+        print('One-shot trial armed. Press Space to start USB work; follow the checklist, then save. Guest will HALT.' if metadata.get('desktop_timeline') else 'One-shot capture armed. Swipe, physically click, type AaZz09 and Enter. Guest will HALT.',flush=True)
         subprocess.run(['systemctl','reboot','-i'],check=True)
     except BaseException:
         subprocess.run(['grub-editenv','/boot/grub/grubenv','unset','next_entry'],check=False)
@@ -191,6 +192,16 @@ def collect(run):
             t=validate_text(run,text); result['desktop_text']=t
             result['desktop_text_gate']='MET' if text_gate(t) else 'NEEDS_WORK'
             print(f"Desktop text: {result['desktop_text_gate']}; {t}")
+        if metadata.get('desktop_timeline'):
+            blobs=[]
+            for name in ('work-clock.txt','input-clock.txt'):
+                item=directory/name
+                if item.is_symlink() or not item.is_file() or item.stat().st_size>2048:
+                    raise ValueError(f'Missing/oversized desktop {name}')
+                blob=item.read_bytes(); blobs.append(blob)
+                host.sync_file(RUNS/run/f'desktop-{name}',blob)
+            timeline=validate_timeline(run,*blobs); result['desktop_timeline']=timeline
+            print(f"Workload duration: {timeline['workload_seconds']:.3f}s; first key: {timeline['first_key_phase']} workload; first pointer: {timeline['first_pointer_phase']} workload")
         print(f"Desktop + file work: {result['desktop_io']['status']}; {result['desktop_io']['worker']}; {result['desktop_io']['input_during_workload']}")
     host.sync_file(RUNS/run/'result.json',(json.dumps(result,indent=2)+'\n').encode())
     print(f"Trackpad capture {run}: {fields['status']}; keyboard={fields['keyboard']}")

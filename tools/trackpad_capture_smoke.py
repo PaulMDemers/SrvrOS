@@ -15,7 +15,7 @@ from usb_storage_smoke import make_iso
 from uefi_usb_smoke import default_ovmf_path
 from hardware_trackpad import validate_result
 from desktop_foundation_smoke import QMP
-from desktop_io_result import validate as validate_io, validate_timing, validate_text, text_gate
+from desktop_io_result import validate as validate_io, validate_timing, validate_text, text_gate, validate_timeline
 
 
 def main():
@@ -98,6 +98,14 @@ def main():
                             if args.pointer:
                                 wait(b'deskd: opened')
                                 qmp=QMP(qmppath)
+                                if args.desktop_io:
+                                    wait(b'deskd: trial ready; Space starts USB work')
+                                    time.sleep(6) # Exceed the old startup timeout; no automatic workload.
+                                    assert b'deskd: io worker pid=' not in data
+                                    assert b'deskd: exited' not in data and b'deskd: FAIL' not in data
+                                    qmp.call('screendump',{'filename':str(logs/'waiting-for-start.ppm')})
+                                    qmp.key('spc')
+                                    wait(b'deskd: io rounds=0 state=1')
                                 time.sleep(.5)
                                 qmp.key('a'); qmp.key('a',True)
                                 wait(b'deskclient: text=aA')
@@ -173,6 +181,11 @@ def main():
             text=validate_text(run,saved.read(f'{folder}/text.txt'))
             (logs/'text.txt').write_bytes(saved.read(f'{folder}/text.txt'))
             print(f'desktop-io-smoke: text {text}',flush=True)
+            timeline=validate_timeline(run,saved.read(f'{folder}/work-clock.txt'),saved.read(f'{folder}/input-clock.txt'))
+            for name in ('work-clock.txt','input-clock.txt'):
+                (logs/name).write_bytes(saved.read(f'{folder}/{name}'))
+            assert timeline['first_key_phase']=='during' and timeline['first_pointer_phase']=='during', timeline
+            print(f'desktop-io-smoke: timeline {timeline}',flush=True)
             assert text['sent']>=8 and text['presented']==text['sent'] and not text['overflow']
             if args.io_rounds>16: assert text_gate(text), text
             if args.io_rounds>16: assert timings['active_count']>=100
