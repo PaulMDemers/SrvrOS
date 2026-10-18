@@ -84,7 +84,7 @@ def main():
                     shortcut("ctrl-l");type_text("/fat/"+name);shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 initial_left=(32,64,min(720,width-40)+2,min(480,height-189)+45)
                 initial_right=(56,88,min(720,width-64)+2,min(480,height-213)+45)
-                tile_w=min((width-24)//2,962);tile_h=min(height-132,685)
+                tile_w=min((width-24)//2,1442);tile_h=min(height-132,945)
                 def tiled(side):
                     x=8 if side==1 else width-tile_w-8
                     return f"mode={side} frame={x},52,{tile_w},{tile_h}".encode()
@@ -103,7 +103,10 @@ def main():
                 shortcut("meta_l-alt-left");wait(tiled(1));shortcut("meta_l-alt-up")
                 centered=( (width-initial_left[2])//2,52+(height-132-initial_left[3])//2,initial_left[2],initial_left[3])
                 wait(("mode=3 frame="+",".join(map(str,centered))).encode());shot("arrange-centered")
-                shortcut("meta_l-alt-down");wait(b"maximized=1 frame=");shortcut("meta_l-alt-down");wait(("maximized=0 frame="+",".join(map(str,centered))).encode())
+                shortcut("meta_l-alt-down");
+                zoom_w=min(width-18,1440)+2;zoom_h=min(height-177,900)+45
+                wait(f"maximized=1 frame={(width-zoom_w)//2},52,{zoom_w},{zoom_h}".encode());shot("arrange-maximized")
+                shortcut("meta_l-alt-down");wait(("maximized=0 frame="+",".join(map(str,centered))).encode())
                 # Repeated configuration generations must retain document state.
                 for i in range(12):
                     side=1+i%2;shortcut("meta_l-alt-"+("left" if side==1 else "right"));wait(tiled(side))

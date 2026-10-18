@@ -19,9 +19,11 @@ from desktop_foundation_smoke import QMP
 def main():
     parser=argparse.ArgumentParser()
     parser.add_argument("--stress",action="store_true",help="also exercise maximum-size images and cancellation")
+    parser.add_argument("--resolution",choices=["1280x800","1440x900"],default="1280x800")
     args=parser.parse_args()
+    width,height=map(int,args.resolution.split("x"))
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-preview"
+    out=root/("build/review/desktop-preview"+("-1440x900" if width==1440 else ""))
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
@@ -35,7 +37,7 @@ def main():
         fixture.add_directory_files("pictures",files)
         for name,data in files.items(): assert fixture.read("pictures/"+name)==data
         (tmp/"disk.exfat").write_bytes(fixture.data)
-        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy())
+        iso=build_iso(str(root),str(tmp),width,height,os.environ.copy())
         command=["qemu-system-x86_64","-M","q35","-m","512M","-cdrom",str(iso),"-boot","d",
             "-drive",f"if=none,id=disk,file={tmp/'disk.exfat'},format=raw",
             "-device","ich9-ahci,id=ahci","-device","ide-hd,drive=disk,bus=ahci.0",
@@ -96,6 +98,16 @@ def main():
                     shortcut("tab");shortcut("ctrl-a");type_text(name);qmp.key("ret")
                 open_name("Landscape.png",True);wait(b"deskview: loaded path=/fat/pictures/Landscape.png width=1600 height=1000")
                 shot("preview-fit")
+                # Exercise the titlebar control itself, then wait for the large
+                # client commit so a frame-only resize cannot pass this check.
+                click(766,109)
+                wait(f"maximized=1 frame=8,52,{width-16},{height-132}".encode())
+                wait(f"size={width-18}x{height-177}".encode())
+                shot("preview-maximized")
+                click(width-60,73)
+                wait(b"maximized=0 frame=56,88,762,565")
+                wait(b"size=760x520")
+                shot("preview-restored")
                 qmp.key("1");wait(b"view scale=65536 fit=0")
                 qmp.key("right");wait(b"view scale=65536 fit=0")
                 qmp.key("down");wait(b"view scale=65536 fit=0")
@@ -108,7 +120,7 @@ def main():
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png");qmp.key("esc")
                     wait(b"deskview: action=2");shot("preview-canceled")
                     open_name("Maximum.png");wait(b"deskview: loading path=/fat/pictures/Maximum.png")
-                    click(490,750);type_text("Preview remained responsive.")
+                    click(width//2-150,height-50);type_text("Preview remained responsive.")
                     wait(b"loaded path=/fat/pictures/Maximum.png width=4096 height=1024",90)
                     shortcut("ctrl-l");type_text("/fat/preview-input-proof.txt");shortcut("ctrl-s")
                     wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
@@ -132,7 +144,7 @@ def main():
                 qmp.key("0");wait(b"fit=1");shot("preview-compact")
                 shortcut("ctrl-w");wait(b"deskview: exited failure=0")
                 # Files associates the image extension with Preview.
-                click(390,750);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
+                click(width//2-250,height-50);wait(b"desktools: starting role=files");wait(b"file-result role=files op=3 status=0")
                 shortcut("ctrl-l");type_text("/fat/pictures");qmp.key("ret");wait(b"file-result role=files op=3 status=0")
                 qmp.key("home");qmp.key("down");qmp.key("ret")
                 wait(b"deskview: starting");wait(b"loaded path=/fat/pictures/Landscape.png width=1600 height=1000");shot("preview-files-launch")

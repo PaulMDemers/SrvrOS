@@ -221,7 +221,7 @@ static void maximize(struct session *s,int i) {
         configure(s,i,restore.w-2,restore.h-45);w->maximized=0;
     } else {
         w->restore=w->frame;
-        int width=clamp(s->damage.width-16,280,DESK_MAX_WIDTH);
+        int width=clamp(s->damage.width-18,280,DESK_MAX_WIDTH);
         int height=clamp(s->damage.height-177,240,DESK_MAX_HEIGHT);
         w->frame.x=(s->damage.width-width-2)/2;w->frame.y=52;
         configure(s,i,width,height);w->maximized=1;
@@ -759,7 +759,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         close_client(s,i); return;
     }
     c->present_input=p->input_serial;
-    int first_frame=w->pixels==NULL;
+    int first_frame=w->pixels==NULL || c->awaiting;
     w->pixels=next; w->width=p->width; w->height=p->height;
     c->awaiting=0;
     damage_window(s,i);

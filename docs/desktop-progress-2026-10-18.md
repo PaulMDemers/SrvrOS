@@ -1459,3 +1459,40 @@ Candidate **0f64e8a09d6c965e** is installed as current; accepted recovery
 **f05dfcc01c28dc85** is retained. Both installed payloads passed hash/config
 verification. Ubuntu remains the default. No reboot is scheduled: this trial
 needs a person to observe brightness changes and exit the interactive desktop.
+
+
+## Returned brightness/desktop trial and maximize correction
+
+Physical release **0f64e8a09d6c965e** returned with the user's report that things
+generally worked well and files were saved. Session `session-00065e228bee957b-00`
+has boot, periodic and exit snapshots, `deskd: exited`, matching release identity
+and zero collector attention markers. Both screenshots were copied locally.
+Evidence: `build/native-desktop-trials/0f64e8a09d6c965e/physical-collection/`.
+The provider was ready and Settings queried 14%, but no brightness change requests
+appear in the recovered logs. Physical slider adjustment remains unverified.
+
+The second screenshot confirms Preview was marked maximized but its client area
+was capped at 960x640, leaving the frame centered at 239,52 with size 962x685.
+This was a shared desktop limit, not an image-fit problem. The shared surface
+bounds now cover 1440x900 and the kernel derives its pixel limit from the same
+constants. Maximize accounts for frame borders and retains an eight-pixel side
+margin, menu bar and dock: frame 8,52,1424,768 on the target. Restore preserves
+the original frame. Tiling uses the same enlarged limits.
+
+The existing preallocated double caches remain bounded, now about 79 MiB total
+for eight windows (previously 37.5 MiB); each client canvas is at most 4.94 MiB.
+No per-frame allocations were added. Larger displays still respect this explicit
+client-size cap. Trace logging now records the first committed frame after each
+configuration, enabling tests to verify the client resized with its frame.
+The production build and full `test-desktop` passed. QEMU at 1440x900 passed
+Preview titlebar maximize/restore with matching client commits, image formats,
+fit/zoom/pan, failure retention and Files association; the arrangement suite
+passed repeated tile/restore/center/maximize cycles and exact saved documents.
+The maximized Preview screenshot was visually inspected. Candidate
+**158b693c01837e7b** is staged with evidence in
+`build/native-desktop-trials/158b693c01837e7b/`. No replacement hardware image
+has been installed and no reboot is scheduled.
+
+The 512 MiB QEMU capacity regression also passed with all eight client slots:
+ninth launch refusal, slot reuse, exact saved text, screenshot creation and
+process cleanup back to baseline. Evidence is archived with the staged release.

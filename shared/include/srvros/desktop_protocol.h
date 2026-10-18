@@ -7,8 +7,9 @@
 #define DESK_PROTOCOL_VERSION 8
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
-#define DESK_MAX_WIDTH 960
-#define DESK_MAX_HEIGHT 640
+/* Bounded surfaces cover the initial 1440x900 laptop target. */
+#define DESK_MAX_WIDTH 1440
+#define DESK_MAX_HEIGHT 900
 #define DESK_CLIPBOARD_BYTES 65536
 enum desk_packet_type {
     DESK_OPEN = 1, DESK_CONFIGURE, DESK_COMMIT, DESK_RELEASE,

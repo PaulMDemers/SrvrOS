@@ -13,7 +13,7 @@
 #define GUI_MAX_QUEUES 16
 #define GUI_QUEUE_DEPTH 64
 #define GUI_MAX_SURFACES 32
-#define GUI_SURFACE_MAX_PIXELS (1024 * 768)
+#define GUI_SURFACE_MAX_PIXELS (DESK_MAX_WIDTH * DESK_MAX_HEIGHT)
 
 struct gui_queue {
     bool used;

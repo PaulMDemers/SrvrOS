@@ -42,6 +42,9 @@ static void protocol_tests(void) {
     assert(gui_pointer_config(1,0)==-1 && pointer_speed==5 && pointer_accel);
     assert(gui_keyboard_mode(0)==-1 && gui_keyboard_read(&key)==-1 && keyboard_events);
     assert(gui_surface_create(2,2,2,1ull<<40)==-1);
+    int64_t laptop=gui_surface_create(2,1422,723,DESK_SURFACE_STREAM);
+    assert(laptop>0 && gui_surface_destroy(2,laptop)==0);
+    assert(gui_surface_create(2,DESK_MAX_WIDTH,DESK_MAX_HEIGHT+1,DESK_SURFACE_STREAM)==-1);
     uint32_t pixels[4]={11,22,33,44}, copy[4]={0};
     int64_t id=gui_surface_create(2,2,2,DESK_SURFACE_STREAM);
     assert(id>0 && gui_surface_blit(2,id,0,0,2,2,pixels,2)==0);

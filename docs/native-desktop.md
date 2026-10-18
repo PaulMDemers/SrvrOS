@@ -274,3 +274,13 @@ accepts changes only from focused Settings. Query responses and failed requests
 never overwrite unrelated desktop preferences. Physical brightness acceptance
 still requires the laptop: compare 20%, 50% and a comfortable final setting while
 typing and moving the pointer, then confirm clean USB flush/unmount on exit.
+
+
+### Window size limits
+
+Maximize fills the usable 1440x900 laptop desktop, leaving the menu bar, dock and
+eight-pixel side margins visible. Clicking again restores the original window
+position and size. Preview's Fit/1:1 controls affect the image inside that window
+independently. Shared client surfaces are capped at 1440x900; the kernel pixel
+budget derives from the same constants. Larger screens still respect that cap.
+Compositor caches remain preallocated, so resizing adds no cache allocations.
