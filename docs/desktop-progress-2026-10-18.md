@@ -363,3 +363,17 @@ polish. The default window now shows the complete settings panel; resizing small
 retains scrolling and all choices. The startup test accepts either ordering of
 initial preference loading and first window presentation, since both are async.
 The checked screenshot is `docs/assets/screenshots/native-desktop-settings.png`.
+
+### Accurate System memory and file dates
+
+The memory syscall now reports firmware-described RAM rather than the allocator's
+highest physical address. MMIO framebuffer ranges and address-space holes no
+longer inflate a 512 MiB VM to roughly 4 GiB. The allocator's address-span API is
+unchanged. VFS-generated timestamps now use UTC seconds from the RTC-seeded wall
+clock, with zero for an unavailable clock; imported explicit timestamps remain
+unchanged. Existing old uptime-based metadata is not guessed or rewritten.
+
+Validation: PMM range/overflow/alignment tests, focused VFS creation/access/write/
+utime/import tests, full core host suite, and exFAT failure/power-cut hardening
+passed. A fixed-RTC 512 MiB QEMU guest passed libc wall/monotonic checks, actual
+exFAT create/write/stat/utime/unlink checks, and a physical-RAM accounting bound.

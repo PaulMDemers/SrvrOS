@@ -14,6 +14,7 @@ static uint8_t frame_tags[PMM_MAX_TRACKED_FRAMES];
 static uint64_t tag_counts[PMM_TAG_COUNT];
 static uint64_t bitmap_bytes;
 static uint64_t frame_count;
+static uint64_t ram_count;
 static uint64_t free_count;
 static uint64_t hhdm;
 
@@ -145,6 +146,21 @@ static uint64_t find_highest_managed_address(struct limine_memmap_response *memm
     return highest;
 }
 
+static uint64_t count_ram_frames(struct limine_memmap_response *memmap) {
+    uint64_t count = 0;
+    /* Limine supplies non-overlapping physical ranges. Count actual RAM ranges,
+     * not the highest physical address (a framebuffer may sit near 4 GiB). */
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        const struct limine_memmap_entry *e = memmap->entries[i];
+        if (!is_managed_type(e->type) || e->type == LIMINE_MEMMAP_FRAMEBUFFER ||
+            e->length > UINT64_MAX - e->base || e->base > UINT64_MAX - (PMM_FRAME_SIZE - 1)) continue;
+        uint64_t first = align_up(e->base, PMM_FRAME_SIZE);
+        uint64_t last = align_down(e->base + e->length, PMM_FRAME_SIZE);
+        if (last > first) count += (last - first) / PMM_FRAME_SIZE;
+    }
+    return count;
+}
+
 static uint64_t find_bitmap_location(struct limine_memmap_response *memmap, uint64_t size) {
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *entry = memmap->entries[i];
@@ -182,6 +198,7 @@ void pmm_init(struct limine_memmap_response *memmap, uint64_t hhdm_offset) {
     }
 
     hhdm = hhdm_offset;
+    ram_count = count_ram_frames(memmap);
     for (unsigned i = 0; i < PMM_SEARCH_HINTS; i++) search_hints[i].valid = false;
     next_search_hint = 0;
     frame_count = align_up(find_highest_managed_address(memmap), PMM_FRAME_SIZE) / PMM_FRAME_SIZE;
@@ -370,6 +387,8 @@ void pmm_free_frame_range(uint64_t physical_address, uint64_t count) {
     }
     irq_restore(flags);
 }
+
+uint64_t pmm_ram_frames(void) { return ram_count; }
 
 uint64_t pmm_total_frames(void) {
     return frame_count;

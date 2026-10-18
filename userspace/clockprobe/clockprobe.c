@@ -1,11 +1,15 @@
 /* Small integration probe: exercise the ABI and libc, not a second calendar. */
 #include <stdio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <utime.h>
 #include <srvros/sys.h>
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 #define CHECK(condition) do { if (!(condition)) { printf("clockprobe: FAIL line=%d\n",__LINE__); return 1; } } while (0)
-int main(void) {
+int main(int argc,char **argv) {
+    if(argc>2 || (argc==2 && strcmp(argv[1],"--files"))) return 1;
     long raw=srv_realtime_us();
     struct timespec wall,mono,res,after;
     struct timeval tv;
@@ -35,6 +39,21 @@ int main(void) {
     CHECK(!clock_gettime(CLOCK_MONOTONIC,&after));
     delta=(after.tv_sec-mono.tv_sec)*1000000000+after.tv_nsec-mono.tv_nsec;
     CHECK(delta>=50000000 && delta<5000000000);
+    struct srv_meminfo memory;
+    CHECK(!srv_meminfo(&memory));
+    CHECK(memory.total_bytes>0 && memory.free_bytes<=memory.total_bytes &&
+        memory.used_bytes==memory.total_bytes-memory.free_bytes && memory.page_size==4096);
+    printf("clockprobe: memory_total=%llu memory_free=%llu\n",(unsigned long long)memory.total_bytes,(unsigned long long)memory.free_bytes);
+    if(argc==2) {
+        char path[]="/fat/home/clockprobe-XXXXXX";time_t before=time(NULL);
+        int fd=mkstemp(path);CHECK(fd>=0);CHECK(write(fd,"clock",5)==5);CHECK(!close(fd));CHECK(!srv_sync());
+        struct stat st;CHECK(!stat(path,&st));time_t now=time(NULL);
+        CHECK(st.st_size==5 && st.st_mtime>=before && st.st_mtime<=now && st.st_ctime>=before && st.st_ctime<=now);
+        struct utimbuf explicit={.actime=946684800,.modtime=946684801};CHECK(!utime(path,&explicit));
+        CHECK(!stat(path,&st) && st.st_mtime==946684801 && st.st_atime==946684800 && st.st_ctime>=before);
+        CHECK(!unlink(path));CHECK(!srv_sync());
+        puts("clockprobe: UTC file timestamps and explicit utime PASS");
+    }
     puts("clockprobe: PASS UTC calendar and independent advancing monotonic time");
     return 0;
 }

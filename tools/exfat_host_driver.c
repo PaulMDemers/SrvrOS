@@ -24,6 +24,7 @@ void *kmalloc(uint64_t n) { return malloc(n); }
 void *kcalloc(uint64_t n, uint64_t size) { return calloc(n,size); }
 void kfree(void *p) { free(p); }
 uint64_t timer_ticks(void) { return 100; }
+int64_t timer_realtime_us(void) { return 1792326896000000LL; }
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t block_device_size(const struct block_device *d) { return d->block_size*d->block_count; }

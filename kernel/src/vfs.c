@@ -17,7 +17,9 @@ static vfs_metadata_changed_fn metadata_changed_callback;
 static bool streq(const char *a, const char *b);
 
 static uint64_t metadata_time(void) {
-    return timer_ticks() / 100;
+    int64_t now = timer_realtime_us();
+    /* Zero denotes unknown before a valid RTC seed; uptime is not a date. */
+    return now >= 0 ? (uint64_t)now / 1000000 : 0;
 }
 
 static bool starts_with(const char *text, const char *prefix) {

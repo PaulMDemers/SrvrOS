@@ -2447,3 +2447,11 @@ test-desktop: test-settings
 .PHONY: test-runtime-elf
 test-runtime-elf: $(EXFAT_IMAGE)
 	$(PYTHON) tools/test_runtime_elf.py
+
+.PHONY: test-vfs-time
+test-vfs-time: build/tests/vfs-time-host$(HOST_EXE)
+	$<
+build/tests/vfs-time-host$(HOST_EXE): tools/test_vfs_time.c kernel/src/vfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include $< -Wl,--gc-sections -o $@
+test-core: test-vfs-time

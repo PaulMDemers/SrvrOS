@@ -1307,12 +1307,13 @@ static int64_t syscall_unix_unlink(const char *user_path) {
 }
 
 static int64_t syscall_meminfo(struct srv_meminfo *info) {
+    uint64_t total = pmm_ram_frames(), available = pmm_free_frames();
     struct srv_meminfo copy = {
         .abi_version = SRV_ABI_VERSION,
         .struct_size = sizeof(copy),
-        .total_bytes = pmm_total_frames() * PMM_FRAME_SIZE,
-        .free_bytes = pmm_free_frames() * PMM_FRAME_SIZE,
-        .used_bytes = pmm_used_frames() * PMM_FRAME_SIZE,
+        .total_bytes = total * PMM_FRAME_SIZE,
+        .free_bytes = available * PMM_FRAME_SIZE,
+        .used_bytes = (total >= available ? total - available : 0) * PMM_FRAME_SIZE,
         .page_size = PMM_FRAME_SIZE,
     };
     if (info == NULL || !user_buffer_ok(info, sizeof(copy), true)) {

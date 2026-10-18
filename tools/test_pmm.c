@@ -59,6 +59,16 @@ static void release(uint64_t address, unsigned count) {
     for (unsigned i = 0; i < count * 4096; i++) assert(p[i] == PMM_POISON_FREE);
 }
 int main(void) {
+    struct limine_memmap_entry ram={.base=0x1000,.length=16*4096,.type=LIMINE_MEMMAP_USABLE};
+    struct limine_memmap_entry kernel={.base=0x20000,.length=4*4096,.type=LIMINE_MEMMAP_EXECUTABLE_AND_MODULES};
+    struct limine_memmap_entry acpi={.base=0x30000,.length=2*4096,.type=LIMINE_MEMMAP_ACPI_RECLAIMABLE};
+    struct limine_memmap_entry fb={.base=0xfd000000,.length=16*1024*1024,.type=LIMINE_MEMMAP_FRAMEBUFFER};
+    struct limine_memmap_entry hole={.base=0x40000,.length=0x100000,.type=LIMINE_MEMMAP_RESERVED};
+    struct limine_memmap_entry *ranges[]={&ram,&kernel,&acpi,&fb,&hole};
+    struct limine_memmap_response map={.entry_count=5,.entries=ranges};
+    assert(count_ram_frames(&map)==22 && find_highest_managed_address(&map)==0xfe000000);
+    ram.base++;ram.length-=2;assert(count_ram_frames(&map)==20);
+    ram.base=UINT64_MAX-10;ram.length=100;assert(count_ram_frames(&map)==6);
     uint8_t *memory = malloc((size_t)FRAMES * 4096); assert(memory); hhdm = (uint64_t)memory;
     const uint64_t floors[] = {0x4000000, 0x2000000, 0x100000};
     for (unsigned f = 0; f < 3; f++) {

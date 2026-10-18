@@ -30,6 +30,8 @@ uint64_t pmm_alloc_frames_above_tagged(uint64_t count,
 void pmm_free_frame(uint64_t physical_address);
 void pmm_free_frame_range(uint64_t physical_address, uint64_t count);
 uint64_t pmm_total_frames(void);
+/* Firmware-described RAM, excluding address-space holes and framebuffer MMIO. */
+uint64_t pmm_ram_frames(void);
 uint64_t pmm_free_frames(void);
 uint64_t pmm_used_frames(void);
 uint64_t pmm_tagged_frames(enum pmm_frame_tag tag);
