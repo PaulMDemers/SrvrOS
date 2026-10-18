@@ -588,3 +588,22 @@ rendering, ASan/UBSan, System status ABI/error/cadence checks and the full deskt
 suite passed. QEMU passed both no-adapter and e1000 DHCP variants, including tab
 navigation, pause/refresh, resize and real address/traffic counters. Screenshots
 were reviewed: `native-desktop-network.png` and updated `native-desktop-system.png`.
+
+### Bound number conversion before expanding Calculator
+
+The existing decimal converter accumulated exponents in a signed int and scaled
+once per exponent unit. Large pasted exponents could overflow that int or hold
+the app in a very long loop. Decimal exponent accumulation now saturates while
+consuming the full input, and scaling stops at floating-point overflow/zero.
+Zero with any exponent remains exact (including signed zero), consistent with
+[WG14 defect report 23](https://open-std.org/JTC1/SC22/WG14/issues/c90/issue0023.html).
+Range errors and float narrowing are reported through ERANGE; leading ASCII
+whitespace is handled. Conversion is extracted for independent host testing.
+It remains the existing decimal-only, approximate converter: hexadecimal floats,
+full long-double precision and correctly rounded conversion are future libc work.
+
+Validation: huge and 65,536-digit exponents, signed zero, range/end-pointer cases,
+30,000 ordinary decimal reference comparisons and ASan/UBSan passed. The full
+core/desktop host suite and guest libc/node probes passed, including the new
+large-exponent checks. The libc smoke runner is now headless and handles a stalled
+Limine menu through QMP, matching the desktop test harnesses.

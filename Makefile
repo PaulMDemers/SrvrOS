@@ -2568,3 +2568,11 @@ test-tabs: build/tests/tabs-host$(HOST_EXE)
 build/tests/tabs-host$(HOST_EXE): tools/test_tabs.c $(HOST_DESK_WIDGETS_A) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I $(DESK_WIDGETS_INCLUDE) tools/test_tabs.c $(HOST_DESK_WIDGETS_A) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+
+.PHONY: test-number
+test-core: test-number
+test-number: build/tests/number-host$(HOST_EXE)
+	$<
+build/tests/number-host$(HOST_EXE): tools/test_number.c userspace/lib/src/posix_number.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_number.c -lm -o $@

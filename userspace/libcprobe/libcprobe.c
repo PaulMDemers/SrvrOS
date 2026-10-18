@@ -2,6 +2,7 @@
 #include <fcntl.h>
 #include <inttypes.h>
 #include <locale.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +50,19 @@ static int check_string_helpers(void) {
     }
     puts("libcprobe: string ok");
     return 0;
+}
+
+static int check_number_bounds(void) {
+    char *end;errno=0;
+    double value=strtod("-1e214748364799999999999tail",&end);
+    if(!isinf(value) || !signbit(value) || errno!=ERANGE || strcmp(end,"tail")) return fail("number-overflow");
+    errno=0;value=strtod("1e-214748364899999999999tail",&end);
+    if(value!=0.0 || errno!=ERANGE || strcmp(end,"tail")) return fail("number-underflow");
+    errno=EDOM;value=strtod("-0e999999999999999999",&end);
+    if(value!=0.0 || !signbit(value) || errno!=EDOM || *end) return fail("number-zero");
+    errno=0;float small=strtof("1e39",&end);
+    if(!isinf(small) || errno!=ERANGE || *end) return fail("number-float");
+    puts("libcprobe: number bounds ok");return 0;
 }
 
 static int check_format_scan_convert(void) {
@@ -258,7 +272,7 @@ static int check_process_info(void) {
 int main(void) {
     puts("libcprobe: start");
     if (check_string_helpers() != 0 ||
-        check_format_scan_convert() != 0 ||
+        check_number_bounds() != 0 || check_format_scan_convert() != 0 ||
         check_locale_helpers() != 0 ||
         check_stdio_lines() != 0 ||
         check_temp_env() != 0 ||

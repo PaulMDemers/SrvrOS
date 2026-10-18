@@ -8,6 +8,8 @@ import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
+from desktop_foundation_smoke import QMP
 
 
 def read_for(sock, seconds):
@@ -91,7 +93,8 @@ def main():
             "-drive", f"if=none,id=exfat,file={disk},format=raw",
             "-device", "ich9-ahci,id=ahci",
             "-device", "ide-hd,drive=exfat,bus=ahci.0",
-            "-monitor", "none",
+            "-monitor", "none", "-display", "none",
+            "-qmp", f"unix:{temp_dir}/qmp,server=on,wait=off",
             "-no-reboot",
         ]
         process = subprocess.Popen(command, cwd=root, env=env,
@@ -99,7 +102,12 @@ def main():
         try:
             sock = connect_serial(serial_port, 15)
             sock.settimeout(0.3)
-            output += read_until(sock, b"srv> ", args.boot_wait)
+            qmp=QMP(Path(temp_dir)/"qmp")
+            started=time.monotonic()
+            while b"srv> " not in output and time.monotonic()-started<args.boot_wait:
+                output+=read_for(sock,.5)
+                qmp.boot_if_menu_stalled(output,time.monotonic()-started)
+            qmp.stream.close();qmp.sock.close()
             send_serial_line(sock, "run /fat/bin/sh\n")
             output += read_until(sock, b" $ ", 6)
             for command_line, marker in [
@@ -123,6 +131,7 @@ def main():
     expected = [
         "libcprobe: string ok",
         "libcprobe: format/scan/convert ok",
+        "libcprobe: number bounds ok",
         "libcprobe: locale ok",
         "libcprobe: stdio lines ok",
         "libcprobe: temp/env ok",
