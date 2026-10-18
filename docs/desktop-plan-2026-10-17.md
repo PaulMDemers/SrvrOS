@@ -73,7 +73,7 @@ box is not sufficient for that application.
 | Area | Current evidence | Desktop requirement |
 | --- | --- | --- |
 | Internal keyboard | Working on SrvrOS; USB `05ac:0291`, interface 1 | Preserve modifiers, repeat, case, and responsiveness during I/O. |
-| Internal trackpad | Ubuntu binds USB interface 2 to `bcm5974`; SrvrOS raw capture, motion, physical click/drag and resize verified; scrolling/palm rejection pending | Movement, click, drag, two-finger scroll, palm rejection. |
+| Internal trackpad | Ubuntu binds USB interface 2 to `bcm5974`; SrvrOS raw capture, motion, physical click/drag and resize and two-finger scrolling verified; palm rejection pending | Movement, click, drag, two-finger scroll, palm rejection. |
 | Display | Native 1440×900 framebuffer; fast batched console output | Antialiased text, bounded composition, responsive cursor and resize. |
 | USB exFAT workspace | Accepted five-round hardware test and clean offline check | Persistent documents, honest save/error state, safe unmount. |
 | Laptop controls | Ubuntu exposes battery, AC adapter and lid input | Battery reporting, brightness, idle policy, safe power controls. |
@@ -131,8 +131,8 @@ event-driven waits and timing gates remain open. The [physical capture gate](tra
 passed with simultaneous keyboard input; D2's pointer/gesture policy and desktop
 interaction acceptance remain open. The [first pointer trial](trackpad-pointer-2026-10-17.md)
 adds opt-in one-finger motion and physical click/drag. Its first physical trial
-passed typing, clicking, dragging and resizing; scrolling, palm rejection and the
-complete input/focus contract remain open.
+passed typing, clicking, dragging and resizing. The subsequent scrolling trial
+also passed; palm rejection and the complete input/focus contract remain open.
 
 ### D0 — Product and design contract (this change)
 
@@ -217,5 +217,6 @@ surface contract, with built-in trackpad bring-up**. Files/Text/Terminal follow
 those foundations. This avoids spending the next milestone repainting old demos.
 
 The [scrolling/accidental-touch slice](trackpad-scroll-2026-10-17.md) adds an opt-in
-gesture profile and a scrollable native study. Physical acceptance is pending;
-its conservative broad-contact filter is not yet calibrated palm rejection.
+gesture profile and a scrollable native study. Initial two-finger scrolling is
+physically accepted. Typing/broad-contact suppression was not exercised in that
+trial; its conservative filter is not yet calibrated palm rejection.

@@ -3,7 +3,8 @@
 This follows the [accepted pointer trial](trackpad-pointer-2026-10-17.md#physical-result--2026-10-17).
 The accepted release remains independently backed up. The new behavior is enabled
 only by `srvros.trackpad=gestures`; capture-only and pointer-only modes retain
-their prior policies. Physical acceptance of this change is pending.
+their prior policies. Initial two-finger scrolling is physically accepted;
+accidental-touch protection remains unverified on hardware.
 
 ## Input policy
 
@@ -113,3 +114,36 @@ checks routing, application scrolling and composition, not physical trackpad
 transport. The gesture-profile smoke checks launching, exit, persistence, replay
 refusal, read-only failure and indefinite halt; absent Apple hardware must still
 report incomplete physical coverage. A new laptop trial is required.
+
+
+## Physical result — 2026-10-17
+
+**Initial two-finger scrolling gate accepted.** The user reported: “The scrolling
+with two fingers worked as expected.” This establishes scroll feel on the laptop;
+it does not establish palm rejection or the full D2 input milestone.
+
+- Run `c2bd37adbee95638`, release `a39982cf4c4499be`.
+- Source `97c45148fb5f3f476d7831bdf920fcee05d2bf70`, clean when staged.
+- Report SHA-256: `e55d72fa3be3ae33f1014baff09b4a79e9da206d347056e56757ddda7a85199e`.
+- 4,526 valid trackpad reports, 1,325 scroll events, 2,133 pointer-motion events,
+  30 button transitions and 58 lifts; at most two simultaneous contacts.
+- Exact `AaZz09` keyboard check passed; zero dropped keyboard input, malformed
+  packets, transport errors, pointer cancellations or mouse-queue overflows.
+- Normal desktop exit; host collection verified identity, both checksums,
+  completion marker and host reboot. `gesture_trial=EXERCISED`.
+- Both typing and broad-contact suppression counters were **zero**. Neither
+  filter was exercised in this capture. Maximum observed touch dimensions were
+  343 major / 322 minor raw units, below the provisional 600-unit threshold.
+
+The [original report](../tools/fixtures/apple-05ac-0291-scroll.txt) and
+[completion marker](../tools/fixtures/apple-05ac-0291-scroll.done) are retained as
+collector regression fixtures. Manifests and collection results remain under
+`build/trackpad-tests/c2bd37adbee95638/`. Installed and staged payloads were
+hash-verified against the independent backup at
+`~/.local/share/srvros/known-good/a39982cf4c4499be`, with a sibling acceptance
+JSON that limits acceptance to scrolling. The previous accepted pointer build
+is also retained. The consumed test request requires a fresh run to repeat.
+
+Next: make accidental-touch checks explicit and observable, then verify input
+focus/cancellation and keyboard/trackpad operation during filesystem activity.
+No physical latency or sustained-I/O claim follows from this short trial.

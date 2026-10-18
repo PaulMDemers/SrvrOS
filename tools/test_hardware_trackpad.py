@@ -55,6 +55,19 @@ class CaptureTests(unittest.TestCase):
         self.assertEqual(fields['pointer_buttons'],'18')
         for key in ('pointer_cancels','pointer_queue_overflows','keyboard_dropped','errors','malformed'):
             self.assertEqual(fields[key],'0')
+    def test_physical_scroll_trial(self):
+        fixtures=capture.boot.ROOT/'tools/fixtures'
+        fields=capture.validate_result(
+            {'run':'c2bd37adbee95638','release':'a39982cf4c4499be','pointer':True,'gestures':True},
+            (fixtures/'apple-05ac-0291-scroll.txt').read_bytes(),
+            (fixtures/'apple-05ac-0291-scroll.done').read_bytes())
+        self.assertEqual(fields['gesture_trial'],'EXERCISED')
+        self.assertEqual(fields['gesture_scroll_events'],'1325')
+        # Exercised scrolling does not imply exercised accidental-touch filters.
+        self.assertEqual(fields['gesture_typing_suppressed'],'0')
+        self.assertEqual(fields['gesture_palm_suppressed'],'0')
+        for key in ('pointer_cancels','pointer_queue_overflows','keyboard_dropped','errors','malformed'):
+            self.assertEqual(fields[key],'0')
     def test_truncation_corruption_missing_completion(self):
         for data,done in ((self.data[:-1],self.completion(self.data)),
                           (self.data.replace(b'AaZz09',b'AaZz08'),self.completion(self.data)),
