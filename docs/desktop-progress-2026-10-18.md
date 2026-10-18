@@ -1454,3 +1454,8 @@ and clean USB unmounts. The revised Settings layout was visually inspected.
 Candidate **0f64e8a09d6c965e** and its evidence are archived under
 `build/native-desktop-trials/0f64e8a09d6c965e/`. Physical brightness changes remain
 unverified; the next trial also retains the pending gesture/acceleration checks.
+
+Candidate **0f64e8a09d6c965e** is installed as current; accepted recovery
+**f05dfcc01c28dc85** is retained. Both installed payloads passed hash/config
+verification. Ubuntu remains the default. No reboot is scheduled: this trial
+needs a person to observe brightness changes and exit the interactive desktop.
