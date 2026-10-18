@@ -9,6 +9,67 @@ bool trackpad_pointer_cancel(struct trackpad_pointer *s,struct trackpad_motion *
 static void rebase(struct trackpad_pointer *s) {
     s->baseline=false; s->mode=0; s->remainder_x=s->remainder_y=0;
 }
+static int32_t distance(int32_t x,int32_t y) {
+    return (x<0?-x:x)+(y<0?-y:y);
+}
+static void drag_start(struct trackpad_pointer *s,const struct apple_trackpad_frame *f) {
+    s->drag_count=2;s->drag_active=0;
+    for(unsigned i=0;i<2;i++) {
+        s->drag_x[i]=s->drag_anchor_x[i]=f->contacts[i].x;
+        s->drag_y[i]=s->drag_anchor_y[i]=f->contacts[i].y;
+    }
+}
+/* Only two contacts are eligible here. Choose a unique bounded assignment,
+ * never an array slot or the as-yet unverified report origin field. Ambiguous
+ * contact crossing/replacement pauses motion without changing the held button. */
+static bool drag_point(struct trackpad_pointer *s,const struct apple_trackpad_frame *f,
+    int32_t *x,int32_t *y,struct trackpad_motion *out) {
+    bool reset=s->drag_count!=2;
+    int cost[2][2];
+    for(unsigned old=0;old<2;old++) for(unsigned next=0;next<2;next++)
+        cost[old][next]=distance(f->contacts[next].x-s->drag_x[old],f->contacts[next].y-s->drag_y[old]);
+    int straight=cost[0][0]+cost[1][1],swapped=cost[0][1]+cost[1][0];
+    unsigned order=swapped<straight;
+    /* Four base-scale pixels of assignment separation; bounded to the same
+     * discontinuity scale as ordinary pointing. All arithmetic fits int32. */
+    if(distance(straight-swapped,0)<=64 || cost[0][order]>2048 || cost[1][1-order]>2048 ||
+       distance(f->contacts[0].x-f->contacts[1].x,f->contacts[0].y-f->contacts[1].y)<=64) reset=true;
+    if(reset) {
+        drag_start(s,f);*x=s->drag_x[0];*y=s->drag_y[0];return true;
+    }
+    int32_t px[2],py[2],travel[2];
+    for(unsigned i=0;i<2;i++) {
+        unsigned next=i?1-order:order;
+        px[i]=f->contacts[next].x;py[i]=f->contacts[next].y;
+        travel[i]=distance(px[i]-s->drag_anchor_x[i],py[i]-s->drag_anchor_y[i]);
+    }
+    unsigned active=s->drag_active;
+    if(!active) {
+        unsigned best=travel[1]>travel[0];
+        /* Two base-scale pixels of deliberate travel, with a clear moving finger.
+         * A stationary anchor contributes no motion and cannot halve the gain. */
+        if(travel[best]>=32 && travel[best]>=2*travel[1-best]+16) active=best+1;
+        else if(travel[0]>=32 && travel[1]>=32 &&
+            distance((px[0]-s->drag_anchor_x[0])-(px[1]-s->drag_anchor_x[1]),
+                     (py[0]-s->drag_anchor_y[0])-(py[1]-s->drag_anchor_y[1]))<=16)
+            active=1; /* Both contacts moving together: stable logical owner. */
+    } else {
+        unsigned owner=active-1,other=1-owner;
+        /* A larger four-pixel threshold for switching prevents owner chatter.
+         * Evidence accumulates only while the current owner stays within one
+         * base-scale pixel of its anchor. */
+        if(travel[owner]<=16 && travel[other]>=64) active=other+1;
+    }
+    bool handoff=active!=s->drag_active;
+    if(handoff || (active && travel[active-1]>16)) {
+        for(unsigned i=0;i<2;i++) { s->drag_anchor_x[i]=px[i];s->drag_anchor_y[i]=py[i]; }
+    }
+    out->drag_handoff=handoff && s->drag_active!=0;
+    s->drag_active=active;
+    for(unsigned i=0;i<2;i++) { s->drag_x[i]=px[i];s->drag_y[i]=py[i]; }
+    *x=px[active?active-1:0];*y=py[active?active-1:0];
+    return handoff || !active;
+}
 static uint32_t root(uint32_t n) {
     uint32_t result=0,bit=1u<<30;
     while(bit>n) bit>>=2;
@@ -36,6 +97,7 @@ static bool frame(struct trackpad_pointer *s,const struct apple_trackpad_frame *
         out->typing_suppressed=s->typing_blocked;
         if (s->palm_blocked || s->typing_blocked) {
             bool release=s->buttons!=0;
+            s->drag_count=s->drag_active=0;
             s->buttons=0; rebase(s);
             if (s->palm_blocked && f->button) s->blocked=true;
             return release;
@@ -44,9 +106,15 @@ static bool frame(struct trackpad_pointer *s,const struct apple_trackpad_frame *
     out->buttons=f->button && !s->blocked;
     bool changed=out->buttons!=s->buttons;
     s->buttons=out->buttons;
-    unsigned mode=f->count==1?1:(gestures && f->count==2 && !f->button?2:0);
+    bool two_drag=gestures && f->count==2 && out->buttons;
+    unsigned mode=f->count==1 || two_drag?1:(gestures && f->count==2 && !f->button?2:0);
+    if(!two_drag && s->drag_count) { s->drag_count=s->drag_active=0;rebase(s);elapsed=0; }
     if (!mode) { rebase(s); return changed; }
     int32_t x=f->contacts[0].x,y=f->contacts[0].y;
+    if(two_drag) {
+        out->two_finger_drag=true;
+        if(drag_point(s,f,&x,&y,out)) { rebase(s);elapsed=0;out->drag_rebased=true; }
+    }
     if (mode==2) { x+=f->contacts[1].x; y+=f->contacts[1].y; }
     if (s->mode!=mode) rebase(s);
     if (s->baseline) {

@@ -574,6 +574,7 @@ void kmain(void) {
             console_printf("desktop-trial: boot options=%s\n",cmdline);
             (void)workspace_log_start();
             bool exited = process_run_elf_args("/fat/bin/deskd", "--hardware-trial");
+            xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
             bool logs_saved=workspace_log_stop();
             console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
             bool unmounted = workspace_unmount();

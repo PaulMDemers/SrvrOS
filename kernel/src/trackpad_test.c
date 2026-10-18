@@ -114,6 +114,8 @@ static void build_report(const char *run,const char *release,const struct xhci_t
             number("gesture_scroll_events",s->scroll_events);
             number("gesture_typing_suppressed",s->typing_suppressed);
             number("gesture_palm_suppressed",s->palm_suppressed);
+            number("held_drag_frames",s->drag_frames);number("held_drag_rebases",s->drag_rebases);
+            number("held_drag_handoffs",s->drag_handoffs);
             number("gesture_max_touch_major",s->max_touch_major);
             number("gesture_max_touch_minor",s->max_touch_minor);
             field("gesture_trial",exercised && s->scroll_events?"EXERCISED":"INCOMPLETE");

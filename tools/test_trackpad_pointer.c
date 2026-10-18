@@ -113,6 +113,75 @@ static void typing_policy(void) {
     f.contacts[0].touch_major=601;
     assert(!trackpad_pointer_timed(&s,&f,true,true,61000,3,false,false,&m) && m.palm_suppressed);
 }
+static void swap_contacts(struct apple_trackpad_frame *f) {
+    struct apple_trackpad_contact t=f->contacts[0];f->contacts[0]=f->contacts[1];f->contacts[1]=t;
+}
+static void anchored_drag(void) {
+    struct trackpad_pointer s={0};struct trackpad_motion m;
+    struct apple_trackpad_frame f=frame(-1000,0,1,1);
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1);
+    f.count=2;f.contacts[1].x=1000;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1 && m.drag_rebased);
+    f.contacts[1].x+=160;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.drag_rebased && !m.dx);
+    f.contacts[1].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,true,&m) && m.dx==10 && m.buttons==1 && !m.wheel_x);
+    /* Report order and raw origin values do not define finger identity. */
+    swap_contacts(&f);f.contacts[0].origin=65535;f.contacts[1].origin=65535;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && !m.drag_rebased);
+    f.contacts[0].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==10 && m.buttons==1);
+    /* Stationary steering finger, then deliberate movement of the old anchor. */
+    f.contacts[1].x+=16;assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[1].x+=16;assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[1].x+=32;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.drag_handoff && m.drag_rebased && m.buttons==1);
+    f.contacts[1].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==10 && m.buttons==1);
+    /* Lift the selected finger: do not jump to the remaining distant finger. */
+    f.count=1;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1 && !m.dx);
+    f.contacts[0].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==10 && m.buttons==1);
+    /* Replace it on the other side, then start dragging in that direction. */
+    f.count=2;f.contacts[1].x=-3000;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[1].x-=160;assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[1].x-=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==-10 && m.buttons==1);
+    f.button=0;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && !m.buttons && !m.dx && !m.wheel_x);
+    f.contacts[0].x+=160;f.contacts[1].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.wheel_x==-10 && !m.dx);
+    /* A new physical press must not replay scroll as drag motion. */
+    f.button=1;assert(trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1 && !m.dx && !m.wheel_x);
+    f.contacts[0].x+=160;f.contacts[1].x+=160;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    f.contacts[0].x+=160;f.contacts[1].x+=160;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && m.dx==10 && !m.wheel_x);
+    assert(trackpad_pointer_cancel(&s,&m) && !m.buttons);
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && !m.buttons);
+    f.button=0;trackpad_gesture_frame(&s,&f,false,&m);
+    f.button=1;assert(trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1);
+    f.contacts[0].touch_major=601;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && !m.buttons && m.palm_suppressed);
+    /* Converging contacts lose motion confidence, not the physical press. */
+    s=(struct trackpad_pointer){0};f=frame(-100,0,2,1);f.contacts[1].x=100;
+    trackpad_gesture_frame(&s,&f,false,&m);
+    f.contacts[0].x=0;f.contacts[1].x=0;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1 && m.drag_rebased);
+    f.contacts[0].x=-30000;f.contacts[1].x=30000;
+    assert(!trackpad_gesture_frame(&s,&f,false,&m) && m.buttons==1 && m.drag_rebased);
+    f.count=0;f.button=0;
+    assert(trackpad_gesture_frame(&s,&f,false,&m) && !m.buttons);
+    assert(!trackpad_gesture_frame(&s,&f,false,&m));
+    /* Steering uses the ordinary acceleration path, without centroid dilution. */
+    s=(struct trackpad_pointer){0};f=frame(-1000,0,2,1);f.contacts[1].x=1000;
+    trackpad_pointer_timed(&s,&f,true,true,1000,3,true,false,&m);
+    f.contacts[1].x+=160;trackpad_pointer_timed(&s,&f,true,true,11000,3,true,false,&m);
+    f.contacts[1].x+=160;
+    assert(trackpad_pointer_timed(&s,&f,true,true,21000,3,true,false,&m) && m.dx==30 && m.buttons==1);
+}
 int main(void) {
     struct trackpad_pointer s={0}; struct trackpad_motion m;
     assert(!feed(&s,&m,-2635,3858,1,0)); /* Real capture starting coordinate. */
@@ -134,6 +203,6 @@ int main(void) {
     assert(feed(&s,&m,0,0,1,1) && m.buttons);
     assert(feed(&s,&m,0,0,0,0) && !m.buttons);
     assert(!trackpad_pointer_cancel(&s,&m));
-    gestures();acceleration();typing_policy();
-    puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, discontinuity, cancellation/release");
+    gestures();acceleration();typing_policy();anchored_drag();
+    puts("trackpad-pointer: PASS motion, fractional units, drag, lift/recontact, multitouch, anchored drag, handoffs, contact ordering, discontinuity, cancellation/release");
 }

@@ -1,6 +1,7 @@
 # Trackpad interactions for the MacBook Air
 
-Status: typing-suppression preference implemented; additional gestures planned.
+Status: typing-suppression preference and physical held-click two-finger dragging
+implemented; hardware acceptance pending. Tap gestures remain planned.
 Target: MacBookAir7,2 built-in Apple 05ac:0291 Type 3 trackpad. This is a plan for
 SrvrOS behavior, not a claim of macOS compatibility or physical acceptance.
 
@@ -21,10 +22,13 @@ must not silently turn a two-finger scroll into a drag.
 - `apple_trackpad.c` decodes up to 16 contacts with position, size and an `origin`
   field. We have not established that `origin` is a stable contact identifier.
 - `trackpad_pointer.c` follows the first contact for one-finger movement. Two
-  unpressed contacts scroll using their summed position. Two contacts with the
-  physical button down select no movement mode, so the pointer stalls.
-- Contact-count changes reset motion baselines, but there is no per-finger
-  tracking, tap recognizer, tap-drag state or click ownership model.
+  unpressed contacts scroll using their summed position. Physical held-click
+  dragging now tracks two logical contacts using bounded position matching and
+  selects the moving contact with hysteresis. Raw report order and `origin` do
+  not define identity. Ambiguous matches pause motion while preserving the press.
+- Contact-count changes and steering handoffs reset motion baselines. The tracker
+  is deliberately limited to two contacts; there is no tap recognizer or tap-drag
+  state yet. Physical button ownership remains independent of contact ownership.
 - Three or more contacts currently latch palm suppression. Merely enabling a
   three-finger action would conflict with that rule.
 - The mouse queue preserves button edges and cancels on overflow. The compositor
@@ -40,7 +44,12 @@ must not silently turn a two-finger scroll into a drag.
 
 ### 1. Contact tracking and held-click dragging
 
-Add a small contact tracker between the raw decoder and pointer policy. Match
+The first implementation uses a small two-contact tracker within pointer policy.
+Its selection/handoff thresholds are provisional 32/64 raw units (2/4 pixels at
+base gain), with a 2048-unit continuity bound. Hardware feel is still unverified.
+Saved exit diagnostics include held-drag frames, rebases and handoffs; rebases
+include the deliberate waiting-for-motion phase, not only ambiguous matches.
+For later tap and thumb recognition, extend the tracker between decoder and policy. Match
 contacts using bounded distance and continuity, retaining age, motion history,
 size and an internal ID. Treat ambiguous matches as a reason to rebase, never
 as a new click. Validate the report's `origin` field with real traces before

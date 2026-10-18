@@ -518,16 +518,36 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
         e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
         dispatch_transfer_event(&e); assert(last_pointer.buttons==1);
     }
+    if (gestures) {
+        /* Actual Type 3 bytes through the shared transfer dispatcher: the
+         * stationary click contact must not dilute second-finger steering. */
+        unsigned events=pointer_injected;
+        for(unsigned step=0;step<3;step++) {
+            unsigned x=1000+160*step;
+            buffer[23]=1;buffer[54]=buffer[82]=10;
+            buffer[40]=64;buffer[42]=160;
+            buffer[68]=x&255;buffer[69]=x>>8;buffer[70]=160;
+            e.parameter_low=(uint32_t)t->trb;
+            e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-94);
+            dispatch_transfer_event(&e);
+            assert(d->bulk_pending && t->pointer.buttons==1);
+        }
+        assert(pointer_injected==events+1 && last_pointer.dx==10 && !last_pointer.dy);
+        assert(last_pointer.buttons==1 && !last_pointer.wheel_x && !last_pointer.wheel_y);
+        assert(t->drag_frames==3 && t->drag_rebases==2 && !t->drag_handoffs);
+    }
     e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
-    if (pointer) assert(!last_pointer.buttons && t->pointer_cancels==2 && t->pointer_motion==1);
+    if (pointer) assert(!last_pointer.buttons && t->pointer_cancels==2 && t->pointer_motion==(gestures?2u:1u));
     submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
     struct xhci_trackpad_capture capture;
     xhci_trackpad_snapshot(&capture);
     assert(capture.found && capture.max_contacts==2 && capture.lifts==1 && capture.errors==1);
+    assert(capture.drag_frames==(gestures?3u:0u) && capture.drag_rebases==(gestures?2u:0u));
     assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
+    assert(!capture.drag_frames && !capture.drag_rebases && !capture.drag_handoffs);
     if (pointer) assert(capture.pointer_enabled && capture.pointer_cancels==0);
     xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");

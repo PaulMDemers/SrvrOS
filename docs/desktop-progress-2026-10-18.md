@@ -1552,3 +1552,43 @@ checked. Physical simultaneous typing/trackpad acceptance remains pending.
 Candidate **c3cea87b41179645** is staged with evidence under
 `build/native-desktop-trials/c3cea87b41179645/`; it includes the universal titlebar
 controls and maximize correction. No installation or reboot was performed.
+
+
+## Physical held-click steering with a second finger
+
+The first trackpad interaction milestone now follows the moving finger while
+another finger holds the physical click. Previously two contacts plus a held
+button selected no motion mode. Two logical contacts now survive raw report-slot
+swaps using bounded position matching, with displacement thresholds and hysteresis
+for steering ownership. Ambiguous crossings, distant replacement and handoffs
+rebase motion without synthesizing button edges. The selected finger uses the
+existing pointer gain; a stationary contact does not halve its travel. Releasing
+the click rebases before returning to two-finger scrolling. Palm rejection and
+cancellation still release and require a physical release before rearming.
+
+This is limited to physical clicking. Tap-to-click, tap dragging, secondary taps
+and three-finger gestures remain planned. Matching/selection thresholds need
+physical acceptance on the Apple 05ac:0291. The implementation does not assume
+that the report's origin field is a stable finger ID. Settings retains Disable
+while typing off by default.
+
+Host tests cover anchored steering, slot swaps, changed origin values, steering
+handoffs, lift/replacement, coherent movement, crossing/discontinuity, release to
+scroll, palm/cancel and accelerated steering during typing. The USB-driver test
+also feeds synthetic Type 3 packets through the transfer dispatcher while a bulk
+request remains pending, checks undiluted motion and cancellation, and verifies
+counter snapshots/reset. Production build and the core suite passed; the updated
+pointer and USB-driver tests passed separately. Saved exit logs and explicit
+trackpad reports include held-drag frames, rebases and handoffs. Rebase counts
+include waiting for deliberate motion, so they are not failure counts.
+
+Help's persistent laptop checklist explains the held-click test, repeated finger
+replacement, scrolling after release and activity during terminal output. Its VM
+layout was visually checked. Candidate **d61e60a82a295d84** is staged; the hardware
+trial remains pending. No installation or physical reboot was performed.
+
+The exact staged candidate passed GRUB chainload and the native desktop VM trial:
+USB keyboard editing, verified document saves, screenshots, durable boot/periodic/
+exit logs, preference reload on a fresh VM boot and two clean USB unmounts.
+Evidence is archived in `build/native-desktop-trials/d61e60a82a295d84/`.
+QEMU's generic pointer cannot validate Apple multi-contact feel or recognition.
