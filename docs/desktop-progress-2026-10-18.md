@@ -1147,3 +1147,19 @@ heap, with identical post-warmup PMM counters. The updated capacity check also
 requires exact process-set restoration and passes. Final soak evidence is in
 `build/review/desktop-lifecycle-final/`; the earlier six-round samples are retained
 separately. Across both completed soaks, 144 application lifetimes were exercised.
+
+## Frozen VM candidate
+
+Candidate **c126e61fa08f382d**, source **06f60c8**, is preserved independently of
+`build/` at `$HOME/.local/share/srvros/vm-candidates/desktop-20261018-c126e61fa08f382d/`.
+It contains the ISO, exFAT image, kernel, initramfs, manifest, logs, memory/process
+samples and selected screenshots. Artifact copies were checked against SHA-256
+hashes. The exact packaged ISO and a disposable copy of its exFAT image then
+passed the eight-window workflow, launch refusal/reuse, saved document bytes,
+screenshot readback and exact process-set cleanup. The manifest includes that
+additional packaged-boot evidence.
+
+Every file listed in the accepted hardware checkpoint `f05dfcc01c28dc85` still
+matches its original manifest hash. The candidate is VM-tested and has not been
+installed to GRUB or accepted on the physical laptop. All test VMs have stopped;
+Ubuntu remained running throughout this development session.
