@@ -82,6 +82,7 @@ void tool_text_action(struct tool *t,struct desk_action a) {
     if(a.id==TOOL_FIND_QUERY && (a.flags&DESK_WIDGET_CHANGED)) tool_text_search_step(t,0,1);
     if(a.flags&DESK_WIDGET_ACTIVATED) {
         if(a.id==TOOL_FIND) tool_text_search_open(t);
+        if(a.id==TOOL_REPLACE) tool_text_replace_open(t);
         if(a.id==TOOL_FIND_NEXT || a.id==TOOL_FIND_PREVIOUS) tool_text_search_step(t,a.id==TOOL_FIND_PREVIOUS,0);
         if(a.id==TOOL_FIND_CLOSE) tool_text_search_close(t);
     }

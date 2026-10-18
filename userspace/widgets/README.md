@@ -525,3 +525,23 @@ text tools or flood fill in this first version.
 
 Checks: `make test-slider test-color-panel test-bitmap test-paint test-sketch-app`;
 native workflow: `tools/host-env.sh python3 tools/desktop_sketch_smoke.py`.
+
+
+### Literal replacement
+
+`desk_text_buffer_replace_range` edits an explicit UTF-8 range with the original
+selection restored by Undo. Equal bytes are a no-op. `desk_text_replace` replaces
+the selected exact match or all nonoverlapping occurrences in the original
+buffer. It uses the same ASCII case folding as Find, never searches newly
+inserted text, and performs the whole transformation as one undo step. Supply
+external scratch storage; insufficient document/scratch capacity or invalid
+UTF-8 leaves content, selection and history unchanged. Match count includes
+occurrences whose replacement is already identical; result 0 distinguishes a
+no-op from an edit. Neither operation allocates or performs I/O.
+
+`desk_searchbar_replacing` enables the reusable Find/With composite before
+`configure`. Allow 144 pixels of height for replacement mode (72 for Find).
+Replace/Replace all emit actions for the owning application. The With field emits
+ordinary clipboard requests; Enter requests Replace and Ctrl/Command-Enter
+requests Replace all. An empty replacement is meaningful. The application owns
+confirmation policy, document limits, status feedback and focus restoration.

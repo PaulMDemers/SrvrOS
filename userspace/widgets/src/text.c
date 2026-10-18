@@ -99,6 +99,17 @@ int desk_text_buffer_insert(struct desk_text_buffer *t,const char *data,size_t l
     t->length=t->length-(hi-lo)+length; t->caret=t->anchor=lo+length; t->revision++;
     return 1;
 }
+int desk_text_buffer_replace_range(struct desk_text_buffer *t,size_t lo,size_t hi,const char *data,size_t length) {
+    if(!t || lo>hi || hi>t->length || boundary(t,lo)!=lo || boundary(t,hi)!=hi) return -1;
+    if(length==hi-lo && (!length || (data && !memcmp(t->data+lo,data,length)))) return 0;
+    size_t anchor=t->anchor,caret=t->caret;t->anchor=lo;t->caret=hi;
+    int result=desk_text_buffer_insert(t,data,length);
+    if(result<=0) { t->anchor=anchor;t->caret=caret; }
+    else if(t->journal) {
+        struct desk_text_change *change=&t->journal->changes[t->journal->applied-1];change->anchor=anchor;change->caret=caret;
+    } else { t->history_anchor=anchor;t->history_caret=caret; }
+    return result;
+}
 void desk_text_buffer_select(struct desk_text_buffer *t,size_t anchor,size_t caret) {
     t->anchor=boundary(t,anchor); t->caret=boundary(t,caret);
 }

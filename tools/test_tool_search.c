@@ -28,5 +28,19 @@ int main(void) {
     tool_text_search_action(&t,(struct desk_action){DESK_SEARCH_CLOSE,DESK_WIDGET_ACTIVATED});assert(!t.search_open && t.ui.active && t.body.focused);
     t.search.match_case.checked=0;tool_text_search_step(&t,0,0);assert(!t.search_open && t.body_text.anchor==8);
     t.modal=1;tool_text_search_open(&t);assert(!t.search_open);t.modal=0;t.job.busy=1;t.job.request.operation=DESK_FILE_READ;tool_text_search_open(&t);assert(!t.search_open);
+    t.job.busy=0;t.search.match_case.checked=0;desk_text_buffer_set(&t.body_text,"One two ONE",11);desk_text_buffer_select(&t.body_text,0,3);
+    tool_text_replace_open(&t);assert(t.search.replacing && !strcmp(t.search.text.data,"One"));
+    desk_text_buffer_set(&t.search.replacement,"three",5);tool_text_replace(&t,0);
+    assert(!strcmp(t.body_text.data,"three two ONE") && t.body_text.anchor==10 && t.body_text.caret==13 && t.title_dirty);
+    tool_text_replace(&t,0);assert(!strcmp(t.body_text.data,"three two three"));
+    assert(desk_text_buffer_undo(&t.body_text,0)==1 && !strcmp(t.body_text.data,"three two ONE"));
+    desk_text_buffer_set(&t.search.text,"three",5);desk_text_buffer_set(&t.search.replacement,"",0);
+    tool_text_search_action(&t,(struct desk_action){DESK_SEARCH_REPLACE_ALL,DESK_WIDGET_ACTIVATED});
+    assert(!strcmp(t.body_text.data," two ONE") && strstr(t.status,"Replaced 1 match"));
+    tool_text_search_action(&t,(struct desk_action){DESK_SEARCH_REPLACEMENT_FIELD,DESK_EDIT_PASTE});assert(clipboard_target==TOOL_REPLACEMENT);
+    t.job.busy=1;t.job.request.operation=DESK_FILE_WRITE;desk_text_buffer_set(&t.search.text,"ONE",3);desk_text_buffer_set(&t.search.replacement,"one",3);tool_text_replace(&t,1);
+    assert(!strcmp(t.body_text.data," two one")); /* newer edits during save remain possible */
+    t.job.request.operation=DESK_FILE_READ;desk_text_buffer_set(&t.search.replacement,"blocked",7);tool_text_replace(&t,1);assert(!strcmp(t.body_text.data," two one"));
+    t.job.busy=0;tool_text_search_open(&t);assert(!t.search.replacing && t.search.query.focused);tool_text_search_close(&t);
     puts("tool-search: PASS selection seeding, next/previous/wrap, read-only selection, focus ownership, clipboard target, case/no-match, hidden-bar repeat and modal/I/O guards");
 }

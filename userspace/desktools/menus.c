@@ -4,7 +4,12 @@
 enum { MENU_CLOSE=100,MENU_LOCATION,MENU_NEW_WINDOW,MENU_NEW_FOLDER,MENU_STANDARD,MENU_LARGER,MENU_SAVE_AS,MENU_EDIT=200 };
 static struct desk_edit *edit_target(struct tool *t,unsigned *id) {
     if(t->modal || t->picker_mode || t->prompt_mode || t->info_mode || t->ui.focus<0 || t->ui.focus>=(int)t->ui.count) return NULL;
-    if(t->search_open && t->search_focus) { *id=TOOL_FIND_QUERY;return &t->search.query; }
+    if(t->search_open && t->search_focus) {
+        if(t->search.ui.focus<0 || t->search.ui.focus>=(int)t->search.ui.count) return NULL;
+        struct desk_control *control=&t->search.ui.controls[t->search.ui.focus];
+        if(control->kind!=DESK_CONTROL_EDIT || !((struct desk_edit *)control->state)->enabled) return NULL;
+        *id=control->id==DESK_SEARCH_REPLACEMENT_FIELD?TOOL_REPLACEMENT:TOOL_FIND_QUERY;return control->state;
+    }
     struct desk_control *c=&t->ui.controls[t->ui.focus];
     if(c->kind!=DESK_CONTROL_EDIT || !((struct desk_edit *)c->state)->enabled) return NULL;
     *id=c->id;return c->state;
@@ -53,6 +58,7 @@ void tool_menu_refresh(struct tool *t) {
     if(t->role==DESK_APP_TEXT) {
         append(items,&count,0,"Search",NULL,DESK_MENU_HEADING);
         append(items,&count,TOOL_FIND,"Find…","Ctrl-F",busy);
+        append(items,&count,TOOL_REPLACE,"Find and replace…","Ctrl-H",busy);
         append(items,&count,TOOL_FIND_NEXT,"Find next","Ctrl-G",busy);
         append(items,&count,TOOL_FIND_PREVIOUS,"Find previous","Ctrl-Shift-G",busy);
         append(items,&count,TOOL_FIND_CLOSE,"Close search","Esc",blocked|(!t->search_open?DESK_MENU_DISABLED:0));
@@ -130,7 +136,9 @@ void tool_context_open(struct tool *t,int x,int y,int keyboard) {
             if(desk_widget_contains(t->table.body.scroll.track,x,y)) return;
             desk_list_select(&t->table.body,index);t->table.header_focus=0;desk_ui_focus(&t->ui,TOOL_LIST);files=1;
         } else if(t->search_open && desk_widget_contains(t->search.query.frame,x,y) && t->search.query.enabled) {
-            t->search_focus=1;tool_content_focus(t,t->window.focused);target=TOOL_FIND_QUERY;
+            t->search_focus=1;tool_content_focus(t,t->window.focused);target=TOOL_FIND_QUERY;desk_ui_focus(&t->search.ui,DESK_SEARCH_QUERY_FIELD);
+        } else if(t->search_open && t->search.replacing && desk_widget_contains(t->search.with.frame,x,y) && t->search.with.enabled) {
+            t->search_focus=1;tool_content_focus(t,t->window.focused);target=TOOL_REPLACEMENT;desk_ui_focus(&t->search.ui,DESK_SEARCH_REPLACEMENT_FIELD);
         } else for(unsigned i=0;i<t->ui.count;i++) if(t->ui.controls[i].kind==DESK_CONTROL_EDIT) {
             struct desk_edit *e=t->ui.controls[i].state;
             if(e->enabled && desk_widget_contains(e->frame,x,y)) { t->search_focus=0;tool_content_focus(t,t->window.focused);target=t->ui.controls[i].id;desk_ui_focus(&t->ui,target);break; }

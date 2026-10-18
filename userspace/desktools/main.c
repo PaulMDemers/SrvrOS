@@ -33,11 +33,12 @@ void tool_layout(struct tool *t) {
     if(t->info_mode) { tool_files_info_layout(t);return; }
     int busy=t->job.busy,read_busy=busy && t->job.request.operation==DESK_FILE_READ;
     if(t->role==DESK_APP_TEXT) {
-        for(int i=0;i<3;i++) desk_button_configure(&t->buttons[i],(struct desk_rect){16+i*84,16,76,28},!busy);
-        desk_edit_configure(&t->path,(struct desk_rect){16,56,w-32,34},&desk_font_16,!read_busy && (t->role==DESK_APP_TEXT || !busy));
-        int search=t->search_open?80:0;
-        if(t->search_open) desk_searchbar_configure(&t->search,(struct desk_rect){16,102,w-32,72},!read_busy);
-        desk_edit_configure(&t->body,(struct desk_rect){16,102+search,w-32,h-144-search},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
+        int replacing=t->search_open && t->search.replacing;
+        for(int i=0;i<3;i++) desk_button_configure(&t->buttons[i],replacing?(struct desk_rect){0}:(struct desk_rect){16+i*84,16,76,28},!busy && !replacing);
+        desk_edit_configure(&t->path,replacing?(struct desk_rect){0}:(struct desk_rect){16,56,w-32,34},&desk_font_16,!read_busy && !replacing);
+        int top=replacing?168:t->search_open?182:102;
+        if(t->search_open) desk_searchbar_configure(&t->search,(struct desk_rect){16,replacing?16:102,w-32,replacing?144:72},!read_busy);
+        desk_edit_configure(&t->body,(struct desk_rect){16,top,w-32,h-42-top},t->body_size==20?&desk_font_20:&desk_font_16,!read_busy);
     } else if(t->role==DESK_APP_FILES) tool_files_layout(t);
     else if(t->role==DESK_APP_CALCULATOR) {
         tool_calculator_layout(t);
@@ -85,11 +86,12 @@ static void key(struct tool *t,const struct srv_key_event *k) {
             if(k->usage==0x15) { tool_files_action(t,(struct desk_action){TOOL_REFRESH,DESK_WIDGET_ACTIVATED});return; }
         }
         if(t->role==DESK_APP_TEXT) {
+            if(k->usage==0x0b) { tool_text_replace_open(t);return; }
             if(k->usage==0x09) { tool_text_search_open(t);return; }
             if(k->usage==0x0a) { tool_text_search_step(t,(k->modifiers&SRV_KEY_SHIFT)!=0,0);return; }
             if(k->usage==0x16) { tool_text_save(t,(k->modifiers&SRV_KEY_SHIFT)!=0);return; }
             if(k->usage==0x12) { tool_picker_open(t,DESK_PICKER_OPEN);return; }
-            if(k->usage==0x0f) { t->search_focus=0;tool_content_focus(t,t->window.focused);desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
+            if(k->usage==0x0f) { if(t->search_open && t->search.replacing) tool_text_search_close(t);t->search_focus=0;tool_content_focus(t,t->window.focused);desk_ui_focus(&t->ui,TOOL_PATH);desk_text_buffer_select(&t->path_text,0,t->path_text.length);t->window.dirty=1;return; }
             if(k->usage==0x11) { tool_text_request(t,TOOL_PENDING_NEW);return; }
         }
     }

@@ -14,6 +14,14 @@ int main(void) {
     desk_popup_cancel(&t.context);t.clip.mode=1;tool_context_open(&t,40,120,0);assert(t.context.items[3].flags&DESK_MENU_DISABLED);t.clip.mode=0;
     desk_popup_cancel(&t.context);t.modal=1;tool_context_open(&t,40,120,0);assert(!t.context.opened);t.modal=0;
     tool_context_open(&t,0,0,1);assert(t.context.opened && t.context.selected==3); /* Undo/redo disabled; Cut is first enabled. */
+    desk_popup_cancel(&t.context);desk_searchbar_init(&t.search);desk_searchbar_replacing(&t.search,1);
+    desk_searchbar_configure(&t.search,(struct desk_rect){16,16,688,144},1);desk_searchbar_open(&t.search,"find");
+    desk_text_buffer_set(&t.search.replacement,"with",4);desk_text_buffer_select(&t.search.replacement,0,4);
+    t.search_open=1;tool_context_open(&t,100,100,0);unsigned target=0;
+    assert(t.context.opened && t.search.with.focused && edit_target(&t,&target)==&t.search.with && target==TOOL_REPLACEMENT);
+    desk_popup_cancel(&t.context);tool_context_open(&t,100,25,0);
+    assert(t.search.query.focused && edit_target(&t,&target)==&t.search.query && target==TOOL_FIND_QUERY);
+    desk_ui_focus(&t.search.ui,DESK_SEARCH_REPLACE);assert(!edit_target(&t,&target));t.search_open=t.search_focus=0;
     desk_popup_cancel(&t.context);t.role=DESK_APP_FILES;desk_table_init(&t.table);
     static const struct desk_table_column columns[]={{"Name",0,0,0}};desk_table_columns(&t.table,columns,1);
     struct desk_table_row rows[]={{1,{"Folder"}},{2,{"File"}}};desk_table_rows(&t.table,rows,2);desk_table_configure(&t.table,(struct desk_rect){16,100,688,250},1);

@@ -50,5 +50,18 @@ int main(void) {
     struct desk_rect clip={30,30,200,60};desk_clip(&canvas,clip);desk_searchbar_draw(&canvas,&bar,&desk_theme_quiet);assert(!memcmp(&canvas.clip,&clip,sizeof(clip)));
     for(int y=0;y<240;y++) for(int x=0;x<640;x++) if(x<30 || x>=230 || y<30 || y>=90) assert(!pixels[y*640+x]);
     desk_searchbar_configure(&bar,(struct desk_rect){0,0,1,1},0);desk_searchbar_draw(&canvas,&bar,&desk_theme_quiet);
+    desk_searchbar_replacing(&bar,1);desk_searchbar_configure(&bar,(struct desk_rect){8,8,248,144},1);desk_searchbar_open(&bar,"abc");
+    assert(bar.query.frame.x==60 && bar.with.enabled && bar.replace.enabled && bar.replace_all.enabled);
+    desk_searchbar_key(&bar,&tab);assert(bar.with.focused);
+    enter.modifiers=0;action=desk_searchbar_key(&bar,&enter);assert(action.id==DESK_SEARCH_REPLACE && (action.flags&DESK_WIDGET_ACTIVATED));
+    enter.modifiers=SRV_KEY_CTRL;assert(desk_searchbar_key(&bar,&enter).id==DESK_SEARCH_REPLACE_ALL);
+    struct srv_key_event paste=key(25,SRV_KEY_CTRL);action=desk_searchbar_key(&bar,&paste);assert(action.id==DESK_SEARCH_REPLACEMENT_FIELD && (action.flags&DESK_EDIT_PASTE));
+    static uint32_t full[280*180],tiled[284*180];
+    desk_canvas_init(&canvas,full,280,180,280);desk_searchbar_draw(&canvas,&bar,&desk_theme_quiet);
+    desk_canvas_init(&canvas,tiled,280,180,284);
+    for(int y=0;y<180;y+=23) for(int x=0;x<280;x+=37) { desk_clip(&canvas,(struct desk_rect){x,y,37,23});desk_searchbar_draw(&canvas,&bar,&desk_theme_quiet); }
+    for(int y=0;y<180;y++) { assert(!memcmp(full+y*280,tiled+y*284,280*4));for(int x=280;x<284;x++) assert(!tiled[y*284+x]); }
+    desk_searchbar_replacing(&bar,0);desk_searchbar_configure(&bar,(struct desk_rect){8,8,248,72},1);
+    assert(!bar.with.enabled && !bar.replace.enabled && !bar.replace_all.enabled && !bar.with.frame.w);
     puts("search: PASS 20,000 circular-search comparisons, UTF-8 boundaries/case, query validation, direction, focus, controls and clipped/tiny drawing");
 }

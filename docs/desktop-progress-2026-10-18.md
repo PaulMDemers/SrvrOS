@@ -913,3 +913,28 @@ Production build passed. The throttled-disk VM test copied 4 MiB + 17 bytes whil
 Text visibly accepted input, verified exact document and binary contents from the
 VM disk, preserved an existing destination, renamed the copy and exited cleanly.
 Evidence: `desktop_large_copy_smoke.py`. No hardware reboot or deployment.
+
+### Shared Find/Replace and reversible document transformations
+
+The UTF-8 model now supports explicit-range replacement and literal replacement
+of the selected match or all nonoverlapping occurrences in the original document.
+It validates before publishing, rejects aliasing/invalid text/capacity overflow,
+does not re-search inserted text, and records the entire transformation as one
+undo step with the prior selection. Identical replacement is a no-op. Case
+folding follows Find's existing ASCII-only rule.
+
+The shared modeless search control has an optional Find/With mode. Text exposes
+it through Ctrl-H and Search > Find and replace; Enter in With replaces the
+selected match, Ctrl-Enter replaces all. Empty With removes matches. Query and
+replacement fields have independent clipboard/context routing and lifetime guards.
+The panel uses the toolbar space so a document viewport remains visible at the
+minimum window size. File operations and saved-revision behavior remain intact.
+
+Host tests cover literal/Unicode/case/overlap/empty/no-op cases, rejected edits,
+10,000 independent replacement/undo/redo comparisons, field focus, menu/context
+routing, delayed clipboard guards and tiled/stride drawing. Model and control
+address/UB sanitizers passed, as did the desktop suite and production build.
+The VM exercised single/all/empty replacements, clipboard transfer into With,
+undo and redo across saves, no-match behavior, global menus and compact layout.
+Both saved documents matched independently expected bytes. Normal/compact
+screenshots were reviewed. No hardware reboot or deployment.

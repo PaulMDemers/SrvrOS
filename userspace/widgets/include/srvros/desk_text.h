@@ -40,6 +40,10 @@ int desk_text_buffer_history(struct desk_text_buffer *text,struct desk_text_hist
 int desk_text_buffer_can_undo(const struct desk_text_buffer *text,int redo);
 int desk_text_buffer_set(struct desk_text_buffer *text,const char *data,size_t length);
 int desk_text_buffer_insert(struct desk_text_buffer *text,const char *data,size_t length);
+/* Replace an explicit UTF-8 range while retaining the original selection for
+ * Undo. A byte-identical replacement creates no history/revision change. */
+int desk_text_buffer_replace_range(struct desk_text_buffer *text,size_t start,size_t end,
+    const char *data,size_t length);
 int desk_text_buffer_erase(struct desk_text_buffer *text,int backwards);
 int desk_text_buffer_undo(struct desk_text_buffer *text,int redo);
 void desk_text_buffer_select(struct desk_text_buffer *text,size_t anchor,size_t caret);
@@ -55,4 +59,13 @@ struct desk_text_match { size_t start,end;int wrapped; };
  * compare exactly. Returns 1 found, 0 absent/empty query, -1 invalid input. */
 int desk_text_find(const struct desk_text_buffer *text,const char *query,size_t length,
     size_t from,int backwards,int match_case,struct desk_text_match *match);
+/* Replace the selected exact match, or all nonoverlapping matches in the original
+ * document. Literal text only; the same ASCII case folding as find applies.
+ * scratch must be disjoint from model/history/query/replacement and include room
+ * for a terminator. Failure keeps document, selection and history unchanged;
+ * success is one undo step. matches counts occurrences, including identical ones.
+ * Returns 1 changed, 0 no change/no match, -1 invalid input or insufficient room. */
+int desk_text_replace(struct desk_text_buffer *text,const char *query,size_t query_length,
+    const char *replacement,size_t replacement_length,int match_case,int all,
+    char *scratch,size_t scratch_capacity,size_t *matches);
 #endif

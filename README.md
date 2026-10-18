@@ -14,13 +14,13 @@ replacement UI architecture and its quiet, refined visual direction; the
 not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
-windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings
+windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings,
 Terminal, Preview, Sketch, Help and Clock. Command-Space opens application/window search; the SrvrOS menu
 provides the same launcher. Clicking the clock opens a keyboard-accessible calendar
 with month/year navigation and Today. Files has Places, Back/Forward history, sortable
 details, rename, verified duplication of
 files up to 16 MiB, and confirmed permanent deletion. System shows live process, memory and network information; Settings saves text, color and clock preferences.
-Text includes a modeless Find bar, next/previous search, bounded multi-step undo
+Text includes a modeless Find/Replace bar, next/previous search, atomic Replace All, bounded multi-step undo
 and shared clipboard. Calculator has a keypad, result copying and session history.
 Preview opens PNG/JPEG/BMP with fit, zoom and pan; image decoding runs in a separate
 worker. Command-Shift-3 saves a screenshot to `/fat/home/Screenshots` through a

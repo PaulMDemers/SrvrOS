@@ -63,5 +63,10 @@ int main(void) {
     t->search_open=1;tool_clipboard_action(t,(struct desk_action){TOOL_FIND_QUERY,DESK_EDIT_CUT});t->search_focus=0;copy_done(0);assert(!strcmp(t->search.text.data,"needle"));
     tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_CUT});t->search_focus=1;copy_done(0);assert(!strcmp(t->body_text.data,"new text"));
     tool_clipboard_action(t,(struct desk_action){TOOL_FIND_QUERY,DESK_EDIT_CUT});copy_done(0);assert(!t->search.text.length);
+    desk_searchbar_replacing(&t->search,1);desk_searchbar_configure(&t->search,(struct desk_rect){0,0,600,144},1);
+    desk_text_buffer_set(&t->search.replacement,"replacement",11);desk_text_buffer_select(&t->search.replacement,0,11);
+    tool_clipboard_action(t,(struct desk_action){TOOL_REPLACEMENT,DESK_EDIT_CUT});t->search.replacing=0;copy_done(0);assert(!strcmp(t->search.replacement.data,"replacement"));
+    t->search.replacing=1;tool_clipboard_action(t,(struct desk_action){TOOL_REPLACEMENT,DESK_EDIT_CUT});copy_done(0);
+    assert(!t->search.replacement.length && !strcmp(t->body_text.data,"new text"));
     puts("tool-clipboard: PASS acknowledged cut, failure retention, revision guard, undo, paste, single-line/UTF-8 validation and modal isolation");
 }

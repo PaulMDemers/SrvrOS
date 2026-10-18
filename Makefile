@@ -2799,3 +2799,11 @@ build/tests/file-crc-host$(HOST_EXE): tools/test_file_crc.c shared/include/srvro
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
 test-desktop: test-file-crc
+
+.PHONY: test-text-replace
+test-text-replace: build/tests/text-replace-host$(HOST_EXE)
+	$<
+build/tests/text-replace-host$(HOST_EXE): tools/test_text_replace.c userspace/widgets/src/text.c userspace/widgets/src/text_search.c userspace/widgets/include/srvros/desk_text.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include tools/test_text_replace.c userspace/widgets/src/text.c userspace/widgets/src/text_search.c -o $@
+test-desktop: test-text-replace
