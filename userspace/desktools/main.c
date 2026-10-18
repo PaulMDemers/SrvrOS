@@ -15,11 +15,14 @@ void tool_launch(struct tool *t,int application,const char *path) {
     if(desk_app_launch(&t->window,application,path)) tool_status(t,"The application could not be opened. Try again.");
 }
 void tool_dialog(struct tool *t,int mode) {
-    t->modal=mode;desk_ui_window_focus(&t->ui,0);desk_ui_init(&t->dialog);
-    desk_ui_add(&t->dialog,1001,DESK_CONTROL_BUTTON,&t->dialog_buttons[0],mode==2?"Replace":"Save");
-    if(mode==1) desk_ui_add(&t->dialog,1002,DESK_CONTROL_BUTTON,&t->dialog_buttons[1],"Discard");
-    desk_ui_add(&t->dialog,1003,DESK_CONTROL_BUTTON,&t->dialog_buttons[2],"Cancel");
-    tool_layout(t);desk_ui_focus(&t->dialog,1003);t->window.dirty=1;
+    t->modal=mode;desk_ui_window_focus(&t->ui,0);
+    struct desk_dialog_choice choices[]={ {1001,"Save",1},{1002,"Discard",1},{1003,"Cancel",1} };
+    if(mode==2) { strcpy(choices[0].label,"Replace");choices[1]=choices[2]; }
+    desk_dialog_open(&t->dialog,mode==2?"Replace this file?":"Save your changes?",
+        mode==2?"A file already exists at this path. Replace saves this document over it. Cancel keeps the existing file.":
+        "This document has unsaved edits. Save keeps them on disk. Discard loses these edits. Cancel returns to the document.",
+        choices,mode==2?2:3,1003,1003);
+    tool_layout(t);desk_dialog_focus(&t->dialog,t->window.focused);t->window.dirty=1;
 }
 void tool_layout(struct tool *t) {
     int w=t->window.width,h=t->window.height;
@@ -44,12 +47,7 @@ void tool_layout(struct tool *t) {
         desk_button_configure(&t->buttons[1],(struct desk_rect){136,116,100,32},1);
     }
     desk_ui_layout_changed(&t->ui);
-    if(t->modal) {
-        int width=w-32;if(width>480) width=480;int x=(w-width)/2,y=(h-170)/2;
-        int button_width=(width-40)/3;
-        for(int i=0;i<3;i++) desk_button_configure(&t->dialog_buttons[i],(struct desk_rect){x+12+i*(button_width+8),y+120,button_width,32},1);
-        desk_ui_layout_changed(&t->dialog);
-    }
+    if(t->modal) desk_dialog_configure(&t->dialog,(struct desk_rect){0,0,w,h});
     t->window.dirty=1;
 }
 void tool_dispatch(struct tool *t,struct desk_action a) {
@@ -71,9 +69,9 @@ void tool_dispatch(struct tool *t,struct desk_action a) {
 }
 static void key(struct tool *t,const struct srv_key_event *k) {
     if(t->modal) {
-        if(k->usage==SRV_KEY_ESCAPE && (k->flags&SRV_KEY_DOWN_EVENT)) tool_text_dialog(t,1003);
-        else { struct desk_action a=desk_ui_key(&t->dialog,k);if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
-            if(a.flags&DESK_WIDGET_ACTIVATED) tool_text_dialog(t,a.id); }
+        struct desk_action a=desk_dialog_key(&t->dialog,k);
+        if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;
+        if(a.flags&DESK_WIDGET_ACTIVATED) tool_text_dialog(t,a.id);
         return;
     }
     if((k->flags&SRV_KEY_DOWN_EVENT) && (k->modifiers&(SRV_KEY_CTRL|SRV_KEY_META))) {
@@ -120,21 +118,12 @@ static void draw(struct tool *t,struct desk_canvas *c) {
         desk_label_draw(c,(struct desk_rect){24,176,c->width-48,32},t->body_size==20?theme->heading:theme->body,"The quick brown fox jumps over the lazy dog.",theme->text);
     }
     desk_label_draw(c,(struct desk_rect){16,c->height-28,c->width-32,24},theme->body,t->status,theme->muted);
-    if(t->modal) {
-        int width=c->width-32;if(width>480) width=480;int x=(c->width-width)/2,y=(c->height-170)/2;
-        desk_fill(c,(struct desk_rect){x+4,y+5,width,170},0xb9c2b4);
-        desk_fill(c,(struct desk_rect){x,y,width,170},theme->border);
-        desk_fill(c,(struct desk_rect){x+1,y+1,width-2,168},theme->surface);
-        desk_label_draw(c,(struct desk_rect){x+16,y+18,width-32,30},theme->heading,t->modal==2?"Replace this file?":"Save your changes?",theme->text);
-        desk_label_draw(c,(struct desk_rect){x+16,y+60,width-32,28},theme->body,t->modal==2?"A file already exists at this path.":"This document has unsaved edits.",theme->muted);
-        desk_label_draw(c,(struct desk_rect){x+16,y+84,width-32,28},theme->body,"Cancel returns to your document.",theme->muted);
-        desk_ui_draw(c,&t->dialog,theme);
-    }
+    if(t->modal) desk_dialog_draw(c,&t->dialog,theme);
 }
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    desk_ui_init(&t->ui);desk_ui_init(&t->dialog);desk_list_init(&t->list);
+    desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_list_init(&t->list);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
     desk_text_buffer_init(&t->body_text,t->body_store[0],t->body_store[1],DESK_FILE_BYTES+1);
@@ -167,13 +156,13 @@ int main(int argc,char **argv) {
                 t->body_size=p.value;tool_layout(t);
                 if(t->role==DESK_APP_SETTINGS) tool_status(t,p.value==16?"Standard text · applies to this desktop session.":"Larger text · applies to this desktop session.");
             } else if(p.type==DESK_FOCUS) {
-                desk_ui_window_focus(t->modal?&t->dialog:&t->ui,p.value!=0);t->window.dirty=1;
+                if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else desk_ui_window_focus(&t->ui,p.value!=0);t->window.dirty=1;
             } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
             else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
                     .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
-                struct desk_action a=desk_ui_pointer(t->modal?&t->dialog:&t->ui,e,srv_monotonic_us());
+                struct desk_action a=t->modal?desk_dialog_pointer(&t->dialog,e,srv_monotonic_us()):desk_ui_pointer(&t->ui,e,srv_monotonic_us());
                 if(t->modal) { if(a.flags&DESK_WIDGET_REDRAW) t->window.dirty=1;if(a.flags&DESK_WIDGET_ACTIVATED) tool_text_dialog(t,a.id); }
                 else tool_dispatch(t,a);
             } else if(p.type==DESK_SCROLL && !t->modal) tool_dispatch(t,desk_ui_scroll(&t->ui,p.width,p.height,p.x,p.y));

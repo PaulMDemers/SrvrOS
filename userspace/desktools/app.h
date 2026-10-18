@@ -2,6 +2,7 @@
 #define DESKTOOLS_APP_H
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
+#include <srvros/desk_dialog.h>
 #include <srvros/desk_clipboard.h>
 #include "file_job.h"
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME };
@@ -9,8 +10,9 @@ enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PE
 struct tool {
     int role,quit,worker_ready,modal,pending,closing,body_size,title_dirty;
     struct desk_app window;
-    struct desk_ui ui,dialog;
-    struct desk_button buttons[32],dialog_buttons[3];
+    struct desk_ui ui;
+    struct desk_dialog dialog;
+    struct desk_button buttons[32];
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];

@@ -230,3 +230,12 @@ launch/minimize/zoom/close workflows and keyboard global exit. The Terminal
 regression also passes. Visual evidence is in `build/review/desktop-apps/`.
 The first VM run exposed a missing menu-event branch in the tools app; that was
 fixed and the complete workflow rerun successfully. Hardware remains unchanged.
+
+## Shared confirmation dialogs
+
+Text's unsaved/replace panels and Terminal's close confirmation now use the same
+owned dialog component. It keeps safe initial focus, handles Escape/Tab/Enter,
+preserves focus on blank clicks, cancels capture across focus/resize changes,
+and wraps explanatory text at Unicode boundaries. The application still owns
+modal state and actions. The host tests and ASan/UBSan pass; both native-app and
+Terminal QEMU regressions pass. The unsaved panel was visually inspected.

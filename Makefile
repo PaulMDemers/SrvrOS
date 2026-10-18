@@ -2382,3 +2382,11 @@ test-menu: build/tests/menu-transport-host$(HOST_EXE)
 build/tests/menu-transport-host$(HOST_EXE): tools/test_menu_transport.c userspace/deskd/menus.c userspace/deskd/menus.h userspace/widgets/src/desk_menu.c userspace/widgets/src/text.c shared/include/srvros/desktop_protocol.h shared/include/srvros/desktop_menu.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_menu_transport.c userspace/deskd/menus.c userspace/widgets/src/desk_menu.c userspace/widgets/src/text.c -Wl,--gc-sections -o $@
+
+.PHONY: test-dialog
+test-widgets: test-dialog
+test-dialog: build/tests/dialog-host$(HOST_EXE)
+	$<
+build/tests/dialog-host$(HOST_EXE): tools/test_dialog.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include tools/test_dialog.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@

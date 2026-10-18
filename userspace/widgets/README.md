@@ -191,3 +191,14 @@ actions. The server adds its SrvrOS and Window menus and routes app actions back
 to the focused process. Shared controls never execute commands or perform IPC.
 `desk_edit_command` exposes selection, undo/redo and clipboard requests directly
 so menus and keyboard shortcuts use the same editor behavior.
+
+## Modal dialogs and wrapped text
+
+`desk_dialog.h` owns a bounded title/message and up to three choices, using the
+shared button/focus router. Apps choose the initial safe focus and cancel ID;
+Escape activates cancellation, and Enter activates the focused choice. Blank
+or outside clicks preserve keyboard focus and do not dismiss the dialog.
+Focus loss and layout changes cancel captures. Applications own modal lifetime
+and any Save/Replace/Close behavior. Text and Terminal now use this component.
+The shared text-block helper wraps words and long UTF-8 words without allocation,
+honors explicit newlines, and preserves the incoming drawing clip.
