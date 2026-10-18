@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_color_panel.h>
@@ -171,7 +172,7 @@ static void picker_open(unsigned mode) {
     if(app.file_ready && app.file_job.broken) { desk_file_job_close(&app.file_job);app.file_ready=0; }
     if(!app.file_ready) app.file_ready=!desk_file_job_init(&app.file_job);
     if(!app.file_ready) { app.after_save=0;desk_app_cancel_close(&app.window);status("The folder worker could not start. Try again.");return; }
-    char directory[160]="/fat/home",name[96]="";
+    char directory[160],name[96]="";snprintf(directory,sizeof(directory),"%s",desk_home());
     if(app.path[0]) { strcpy(directory,app.path);char *slash=strrchr(directory,'/');if(slash==directory) slash[1]=0;else if(slash) *slash=0; }
     if(mode==DESK_PICKER_SAVE) snprintf(name,sizeof(name),"Drawing-%llu-%llu.bmp",(unsigned long long)srv_getpid(),(unsigned long long)srv_ticks());
     if(desk_picker_open(&app.picker,mode,directory,name)) return;

@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include "app.h"
 #include <srvros/desk_log.h>
 #include <srvros/sys.h>
@@ -19,7 +20,8 @@ void tool_picker_open(struct tool *t,int mode) {
     tool_text_search_close(t);
     char folder[DESK_FILE_PATH],name[DESK_PICKER_NAME];
     const char *candidate=t->path_text.data;
-    snprintf(folder,sizeof(folder),"%s",candidate[0]=='/'?candidate:"/fat/Untitled.txt");
+    if(candidate[0]=='/') snprintf(folder,sizeof(folder),"%s",candidate);
+    else snprintf(folder,sizeof(folder),"%s/Untitled.txt",desk_home());
     char *slash=strrchr(folder,'/');
     const char *leaf=slash?slash+1:"Untitled.txt";
     if(!leaf[0] || strlen(leaf)>=sizeof(name)) leaf="Untitled.txt";

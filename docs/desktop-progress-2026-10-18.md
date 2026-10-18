@@ -1303,3 +1303,49 @@ Next physical gate: confirm no spontaneous app closures during gesture bursts,
 choose a comfortable pointer speed, type/drag under I/O, and confirm USB settings
 on a subsequent boot. Next power block: resolve EC/AML initialization and event
 ownership before enabling a scheduled SMBus/SBS provider.
+
+
+## Persistent desktop workspace, session logs and laptop preflight
+
+The USB laptop trial now makes its prepared workspace the default Home across
+Files, document pickers, Text, Terminal, Find, Preview and Sketch. Screenshots
+and preferences use that same persistent volume. Normal desktop sessions retain
+`/fat/home`. No new filesystem operations were added to UI input handlers.
+
+The kernel retains a 64 KiB console tail and writes verified, flushed snapshots
+under a fresh `srvros-work/Logs/session-…` directory for each trial. Boot,
+alternating ten-second checkpoints and pre-unmount exit snapshots preserve
+release identity, application close/exit reasons and laptop preflight readings.
+The writer is an ordinary scheduled worker using the existing storage service
+gate, so waiting occurs through the established responsive I/O path. Failed
+writes remain visible and disable periodic retries. This is bounded tail history,
+not a complete transcript or power-loss-atomic crash journal.
+
+`tools/hardware_desktop.py` collects and verifies these logs after Ubuntu returns,
+records SHA-256 hashes and flags attention markers. It never labels a collection
+as a hardware pass. The USB source is read-only during collection; local outputs
+are separate per invocation.
+
+The v18 boot profile records its release and enables a read-only power/backlight
+preflight. Exact captured firmware and PCI/resource checks gate all register
+reads. This records inherited SCI/EC/GPE state and the active PWM mode without
+changing ACPI ownership or brightness. The EC-backed SMBus read-word protocol
+engine has delayed-response, overlap, timeout and fault tests, but no live
+hardware binding. Battery/AC reporting and brightness controls remain pending
+firmware initialization/event ownership and the physical preflight.
+
+Validation so far: `make all test-core`, desktop host tests, bootlog/logger
+fault-path tests, EC-SMBus tests, synthetic and actual captured ACPI-table tests,
+and Python boot-profile/collector tests passed. Build evidence is
+`build/review/persistent-laptop-build-tests.txt`; focused evidence is
+`persistent-desktop-host.txt`, `laptop-resources-host.txt` and
+`persistent-boot-tool-tests.txt` in the same review directory.
+
+
+The expanded VM check found an existing shell issue: builtin `pwd` ignored its
+stdout redirection even though Terminal's inherited working directory was correct.
+`pwd` now honors overwrite/append and returns failure for an unwritable destination.
+The VM regression checks those results using files on the disposable USB volume.
+An earlier harness attempt also used Ctrl-W rather than Terminal's Command-W
+close shortcut; that harness error was corrected. Failed-attempt logs remain in
+`build/review/` instead of being counted as passes.

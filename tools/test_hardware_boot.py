@@ -76,6 +76,12 @@ class InstallTests(unittest.TestCase):
         boot.install(release)
         self.assertEqual(json.loads((self.base/"state.json").read_text())["current"],release)
 
+    def test_desktop_logging_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v18-desktop-37d8c5d0")
+        self.assertIn("srvros.desktop-release=0123456789abcdef",cfg)
+        self.assertIn("srvros.laptop-services=probe",cfg)
+        self.assertNotIn("laptop-services",boot.limine_config("0123456789abcdef","ram-usb-v17-desktop-37d8c5d0"))
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

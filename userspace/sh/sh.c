@@ -5593,9 +5593,17 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
             cli_puts("usage: pwd\n");
             return 0;
         }
-        cli_puts(cwd);
-        cli_puts("\n");
-        return 0;
+        /* Builtins run in this shell, so the external-command redirection
+         * path below cannot redirect their output. Honor pwd's stdout here. */
+        int fd = SRV_STDOUT;
+        if (redirection.stdout_set) {
+            fd = open_redirection_output(redirection.stdout_path, redirection.stdout_append, "output");
+            if (fd < 0) return 1;
+        }
+        size_t length = strlen(cwd);
+        int ok = srv_write(fd, cwd, length) == (long)length && srv_write(fd, "\n", 1) == 1;
+        if (redirection.stdout_set && srv_close(fd) < 0) ok = 0;
+        return ok ? 0 : 1;
     }
     if (cli_streq(command, "cd")) {
         char next[CLI_PATH_MAX];

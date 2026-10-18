@@ -136,3 +136,42 @@ one register sequence is correct for this machine.
 4. Treat safe shutdown, lid behavior and suspend/resume as separate acceptance
    gates covering storage flushing and device reinitialization. They are not
    implied by battery reporting or brightness control.
+
+
+## Read-only preflight and SMBus protocol engine
+
+The next v18 desktop trial adds `srvros.laptop-services=probe`. It first requires
+GPU `8086:1626`, LPC `8086:9cc3`, the exact captured DSDT identity, and validated
+ECDT/FADT checksums, lengths and resources. Unmatched systems make no register
+accesses. Host tests exercise rejected tables and also parse the actual captured
+firmware files.
+
+The ECDT independently confirms EC data/status ports `0x62`/`0x66`, UID 0 and GPE
+`0x4e`. The FADT gives PM1 control `0x1804` (two bytes), GPE0 base `0x1880` (32
+bytes), SCI 9 and SMI command `0xb2`. The extended GPE GAS width is zero in this
+firmware; the legacy block length establishes the size. The probe reads PM1
+control, EC status (not EC data), and the EC GPE enable byte. It does not enable
+ACPI, clear status, issue a query or consume an EC response. These readings will
+show what state the native boot inherits and guide the AML/SCI ownership decision.
+
+The display preflight maps two read-only, uncached register pages only when PCI
+memory access is already enabled. It records CPU PWM control/duty and PCH PWM
+control/period/duty, then decodes valid CPU-controlled or PCH override mode.
+It does not switch modes, enable a disabled backlight or write duty. Register
+names/offsets are checked against the pinned MIT-licensed
+[Intel register definitions](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_backlight_regs.h).
+The actual mode must be observed before implementing a brightness writer.
+
+The independent `ec_smbus.c` read-word state machine now implements the EC SMBus
+protocol over the earlier transport callbacks: idle verification, address/command,
+protocol 9, paced completion polling, status and little-endian result. EC-byte
+and overall deadlines, overlapping-operation refusal and poisoning on uncertain
+completion are tested. It still has **no live hardware binding**. The caller must
+own the EC and SMBus bank and serialize AML/query traffic. It writes request
+registers only; it does not write battery or charger parameters.
+
+Battery/AC reporting and brightness controls remain unavailable. The remaining
+work is firmware initialization/event integration, a scheduled cached SBS
+provider, and a mode-preserving backlight provider followed by their UI controls.
+The new USB boot/session logs make the next physical preflight recoverable without
+relying on a short photograph window.

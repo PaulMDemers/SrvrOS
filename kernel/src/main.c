@@ -1,6 +1,8 @@
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
 #include <srvros/workspace.h>
+#include <srvros/workspace_log.h>
+#include <srvros/laptop_probe.h>
 #include <srvros/trackpad_test.h>
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
@@ -544,6 +546,7 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    if(cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     workspace_boot(cmdline);
     trackpad_test_boot(cmdline);
     autotest_run(cmdline, init_ready && timer_running);
@@ -552,7 +555,11 @@ void kmain(void) {
             console_write("desktop-trial: USB workspace unavailable; trial not started. Photograph this screen.\n");
         } else {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
+            console_printf("desktop-trial: boot options=%s\n",cmdline);
+            (void)workspace_log_start();
             bool exited = process_run_elf_args("/fat/bin/deskd", "--hardware-trial");
+            bool logs_saved=workspace_log_stop();
+            console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");
             bool unmounted = workspace_unmount();
             console_printf("desktop-trial: desktop returned=%s USB unmounted=%s\n", exited?"yes":"NO", unmounted?"yes":"NO");
             console_write("This is a manual trial, not an automated pass. Photograph any failure.\n");

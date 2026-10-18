@@ -1,4 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
+#include <srvros/desk_paths.h>
 #include "app.h"
 #include <srvros/desktop_apps.h>
 #include <srvros/desk_listing.h>
@@ -114,7 +115,7 @@ void tool_files_init(struct tool *t,const char *path) {
     desk_ui_add(&t->ui,TOOL_LIST,DESK_CONTROL_TABLE,&t->table,NULL);
     desk_ui_add(&t->ui,TOOL_NAME,DESK_CONTROL_EDIT,&t->name,NULL);
     desk_ui_add(&t->ui,TOOL_MKDIR,DESK_CONTROL_BUTTON,&t->buttons[3],"New folder");
-    desk_text_buffer_set(&t->path_text,path && path[0]?path:"/fat",strlen(path && path[0]?path:"/fat"));
+    desk_text_buffer_set(&t->path_text,path && path[0]?path:desk_home(),strlen(path && path[0]?path:desk_home()));
     desk_text_buffer_set(&t->name_text,"New folder",10);
     list_directory(t,t->path_text.data);
 }
@@ -207,7 +208,7 @@ void tool_files_action(struct tool *t,struct desk_action a) {
         return;
     }
     if(a.id==TOOL_HOME || a.id==TOOL_VOLUME || a.id==TOOL_ROOT) {
-        list_directory(t,a.id==TOOL_HOME?"/fat/home":a.id==TOOL_VOLUME?"/fat":"/");return;
+        list_directory(t,a.id==TOOL_HOME?desk_home():a.id==TOOL_VOLUME?"/fat":"/");return;
     }
     if(a.id==TOOL_RENAME || a.id==TOOL_DUPLICATE || a.id==TOOL_DELETE) { open_change(t,a.id);return; }
     if(a.id==TOOL_UP) {

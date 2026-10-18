@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_popup.h>
@@ -217,7 +218,7 @@ static void initialize(const char *root) {
     desk_text_buffer_init(&app.query_text,app.query_storage[0],app.query_storage[1],sizeof(app.query_storage[0]));desk_edit_init(&app.query,&app.query_text,0);
     desk_text_buffer_init(&app.root_text,app.root_storage[0],app.root_storage[1],sizeof(app.root_storage[0]));desk_edit_init(&app.root,&app.root_text,0);
     char normalized_root[DESK_SEARCH_PATH];
-    if(desk_path_normalize(normalized_root,sizeof(normalized_root),root)) root="/fat/home";else root=normalized_root;
+    if(desk_path_normalize(normalized_root,sizeof(normalized_root),root)) root=desk_home();else root=normalized_root;
     desk_text_buffer_set(&app.root_text,root,strlen(root));desk_table_init(&app.table);desk_table_columns(&app.table,columns,4);desk_table_sort_indicator(&app.table,0,0);
     desk_command_job_init(&app.job,(char *)app.incoming,sizeof(app.incoming));desk_clipboard_init(&app.clipboard,app.clipboard_data);
     desk_ui_add(&app.ui,FIND_QUERY,DESK_CONTROL_EDIT,&app.query,NULL);desk_ui_add(&app.ui,FIND_ROOT,DESK_CONTROL_EDIT,&app.root,NULL);desk_ui_add(&app.ui,FIND_TABS,DESK_CONTROL_TABS,&app.tabs,NULL);

@@ -4,12 +4,13 @@
 
 #include <stdint.h>
 
-#define BOOTLOG_CAPACITY 32768
+#define BOOTLOG_CAPACITY 65536
 
 static char ring[BOOTLOG_CAPACITY];
 static char linear[BOOTLOG_CAPACITY];
 static uint64_t write_index;
 static uint64_t bytes_recorded;
+static uint64_t total_bytes;
 static bool suppress_recording;
 
 void bootlog_putc(char c) {
@@ -17,6 +18,7 @@ void bootlog_putc(char c) {
         return;
     }
 
+    total_bytes++;
     ring[write_index] = c;
     write_index = (write_index + 1) % BOOTLOG_CAPACITY;
     if (bytes_recorded < BOOTLOG_CAPACITY) {
@@ -81,3 +83,18 @@ bool bootlog_persist(const char *path) {
     }
     return exfat_write_file(path, (const uint8_t *)linear, count);
 }
+
+/* Console writers hold IRQ exclusion. Take a coherent bounded snapshot before
+ * doing storage I/O; never leave interrupts masked while writing a file. */
+uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *total) {
+#ifndef SRVROS_BOOTLOG_HOST_TEST
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");
+#endif
+    uint64_t count=copy_log(out,capacity,0);
+    if(total) *total=total_bytes;
+#ifndef SRVROS_BOOTLOG_HOST_TEST
+    if(flags&(1ull<<9)) __asm__ volatile("sti":::"memory");
+#endif
+    return count;
+}
+uint64_t bootlog_total(void) { return total_bytes; }

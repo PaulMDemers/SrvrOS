@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
 #include <srvros/desk_terminal_view.h>
 #include <srvros/desk_ui.h>
@@ -58,7 +59,9 @@ static void start(void) {
     char *argv[]={"/fat/bin/sh",NULL};
     /* Keep per-window command history in memory. Empty HISTFILE explicitly
      * disables disk history, avoiding cross-session overwrites. */
-    char *environment[]={"PATH=/fat/bin:/:/fat","HOME=/fat","PWD=/","TERM=vt100","HISTFILE=","PS1=\\w $ ",NULL};
+    char home[192],pwd[192];snprintf(home,sizeof(home),"HOME=%s",desk_home());
+    snprintf(pwd,sizeof(pwd),"PWD=%s",desk_home());
+    char *environment[]={"PATH=/fat/bin:/:/fat",home,pwd,"TERM=vt100","HISTFILE=","PS1=\\w $ ",NULL};
     struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=environment,
         .flags=SRV_EXEC_BACKGROUND,.stdin_fd=pair[1],.stdout_fd=pair[1],.stderr_fd=pair[1],
         .process_group=UINT64_MAX,.foreground=1};

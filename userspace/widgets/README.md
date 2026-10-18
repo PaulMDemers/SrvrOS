@@ -572,7 +572,9 @@ flush/readback verification, a guarded non-replacing rename, and final verificat
 The desktop never performs file I/O or reads the hardware framebuffer to capture.
 The current 8-MiB BMP limit matches Preview's file limit and includes 1920×1080.
 
-Command-Shift-3 and SrvrOS > Save screenshot save to `/fat/home/Screenshots`.
+Command-Shift-3 and SrvrOS > Save screenshot save to the session Home’s
+`Screenshots` directory: `/fat/home/Screenshots` normally, or
+`/work/srvros-work/Screenshots` in the prepared USB laptop trial.
 A server-owned notification destination opens that folder; arbitrary client
 notifications cannot supply executable paths or launch targets. Normal session
 exit waits for a pending save. The emergency exit closes pipes without killing an

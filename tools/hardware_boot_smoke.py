@@ -171,7 +171,7 @@ def main():
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
-                        for c in value: ui.key(keys.get(c,c.lower()),c.isupper())
+                        for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
                     workspace_preferences(ui,serial,process,logs)
@@ -179,13 +179,37 @@ def main():
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                     wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
                     time.sleep(.7);type_text("Laptop trial AaZz09 saved on USB.")
-                    shortcut("ctrl-l");type_text("/work/srvros-work/native-trial.txt")
                     shortcut("ctrl-s")
                     wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
                     wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                    shortcut("meta_l-spc");type_text("terminal new app");ui.key("ret")
+                    wait_for(serial,lambda s:"deskterm: ready shell=" in s,process,30)
+                    for command_text in ("pwd > terminal-home.txt", "pwd >> terminal-home.txt",
+                                         "pwd > /missing-pwd-dir/out", "echo $? > terminal-pwd-status.txt"):
+                        time.sleep(.5);type_text(command_text);ui.key("ret")
+                    time.sleep(.5)
+                    ui.call("screendump",{"filename":str(logs/"workspace-terminal.ppm")})
+                    type_text("exit");ui.key("ret")
+                    wait_for(serial,lambda s:"deskterm: shell exited status=0" in s,process,30)
+                    shortcut("meta_l-w")
+                    wait_for(serial,lambda s:"deskterm: exited failure=0" in s,process,30)
+                    shortcut("meta_l-shift-3")
+                    shot_log=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=" in s,process,90)
+                    shot_path=re.search(r"deskd: screenshot saved status=0 path=(/work/srvros-work/Screenshots/[^\r\n]+)",shot_log)[1]
+                    wait_for(serial,lambda s:"workspace-log: snapshot=session-" in s,process,30)
                     shortcut("f10");shortcut("end");shortcut("ret")
                     wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
-                    assert verify_workspace(stick,volume,0).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
+                    stored=verify_workspace(stick,volume,0)
+                    (logs/"workspace-first.exfat").write_bytes(volume.read_bytes())
+                    assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
+                    assert stored.read("srvros-work/terminal-home.txt")==b"/work/srvros-work\n"*2
+                    assert stored.read("srvros-work/terminal-pwd-status.txt")==b"1\n"
+                    shot_bytes=stored.read(shot_path.removeprefix("/work/"))
+                    assert shot_bytes[:2]==b"BM" and len(shot_bytes)==54+1280*800*4
+                    assert struct.unpack_from("<II",shot_bytes,18)==(1280,800)
+                    first_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",serial.read_text(errors="replace"))[1]
+                    assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
+                    assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
                     ui.stream.close();ui.sock.close()
                 text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
                 for marker in ("SRVROS_GRUB_CHAINLOAD_TEST", "srvros: entering kernel",
@@ -312,7 +336,13 @@ def main():
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
                     assert not has_fatal_exception(text)
-                    assert verify_workspace(stick,volume,1).read("srvros-work/native-trial.txt")==b"Laptop trial AaZz09 saved on USB."
+                    stored=verify_workspace(stick,volume,1)
+                    assert stored.read("srvros-work/Untitled.txt")==b"Laptop trial AaZz09 saved on USB."
+                    assert stored.read(shot_path.removeprefix("/work/"))==shot_bytes
+                    second_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1]
+                    assert second_session!=first_session
+                    for folder in (first_session,second_session):
+                        assert b"deskd: exited" in stored.read(folder.removeprefix("/work/")+"/exit.log")
                     ui.stream.close();ui.sock.close()
                 finally:
                     process.terminate()
@@ -324,7 +354,7 @@ def main():
     if args.responsiveness_check:
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     if args.desktop_check:
-        print("Native desktop trial: checklist, USB keyboard editing, verified GUI save, preferences across fresh VM boot and two clean unmounts passed.")
+        print("Native desktop trial: checklist, USB keyboard editing, verified GUI save, default USB documents/screenshots, durable session logs, preferences across fresh VM boot and two clean unmounts passed.")
     print(f"Serial log: {serial}")
 
 

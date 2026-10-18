@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_file_picker.h>
@@ -93,7 +94,7 @@ static void picker_open(void) {
     if(app.file_ready && app.file_job.broken) { desk_file_job_close(&app.file_job);app.file_ready=0; }
     if(!app.file_ready) app.file_ready=!desk_file_job_init(&app.file_job);
     if(!app.file_ready) { status("The folder could not be opened. Try opening again.");return; }
-    char directory[DESK_IMAGE_PATH]="/fat/home";
+    char directory[DESK_IMAGE_PATH];snprintf(directory,sizeof(directory),"%s",desk_home());
     if(app.path[0]) { strcpy(directory,app.path);char *slash=strrchr(directory,'/');if(slash==directory) slash[1]=0;else if(slash) *slash=0; }
     if(desk_picker_open(&app.picker,DESK_PICKER_OPEN,directory,"")) return;
     app.picker_open=1;layout();browse();desk_log("deskview: picker opened\n");

@@ -1,4 +1,5 @@
 #include <srvros/desk_log.h>
+#include <srvros/desk_paths.h>
 #include <srvros/desktop_apps.h>
 #include "scene.h"
 #include "clipboard.h"
@@ -35,6 +36,7 @@ struct client {
     int notice_ack_pending,notice_has_time;
 };
 struct session {
+    const char *home;
     struct desktop_scene scene;
     struct desk_damage damage;
     struct desk_rect menu_visible;
@@ -186,7 +188,7 @@ static void forget(struct session *s,int i) {
     }
     struct desktop_window *w=&s->scene.windows[i];
     damage_window(s,i);
-    if (s->trace) desk_log("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
+    desk_log("deskd: retired pid=%llu\n",(unsigned long long)s->clients[i].pid);
     memset(w,0,sizeof(*w)); memset(&s->clients[i],0,sizeof(s->clients[i]));
     if(s->scene.apps) desk_damage_add(&s->damage,(struct desk_rect){0,s->damage.height-96,s->damage.width,96});
     if (s->scene.focus==i) {
@@ -254,7 +256,11 @@ static void spawn_app(struct session *s,int application,const char *path) {
     if(!info) return;
     for(int i=0;i<DESKD_WINDOWS;i++) if(!s->children[i]) {
         char *argv[]={(char *)info->program,(char *)info->role,(char *)(path?path:""),NULL};
-        struct srv_exec_request request={.path=argv[0],.argv=argv,.flags=SRV_EXEC_BACKGROUND,
+        char home[192],desktop_home[192];
+        snprintf(home,sizeof(home),"HOME=%s",s->home?s->home:DESK_RAM_HOME);
+        snprintf(desktop_home,sizeof(desktop_home),"SRVROS_DESKTOP_HOME=%s",s->home?s->home:DESK_RAM_HOME);
+        char *env[]={"PATH=/fat/bin:/:/fat",home,desktop_home,NULL};
+        struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
             .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
         long pid=srv_exec(&request);
         if(pid>0) { s->children[i]=pid;s->child_apps[i]=application;s->scene.notice[0]=0; }
@@ -268,6 +274,7 @@ static void spawn_app(struct session *s,int application,const char *path) {
 static void request_close(struct session *s,int i) {
     if(!s->scene.apps) { close_client(s,i);return; }
     if(s->clients[i].close_requested || !s->clients[i].pid) return;
+    desk_log("deskd: close-request pid=%llu tick=%llu\n",(unsigned long long)s->clients[i].pid,(unsigned long long)srv_ticks());
     struct desk_packet p=desk_packet_new(DESK_CLOSE_REQUEST);
     queue_input(s,i,p);s->clients[i].close_requested=1;
 }
@@ -606,7 +613,8 @@ static void capture_notice(struct session *s,int success,const char *message) {
     uint64_t id;long us=srv_monotonic_us();
     if(desktop_notification_add(&s->scene.notifications.store,UINT64_MAX,DESK_APP_FILES,++s->capture_serial,
         us<0?0:(uint64_t)us,success?DESK_NOTICE_SUCCESS:DESK_NOTICE_WARNING,&text,&id)>0) {
-        if(success) desktop_notification_target(&s->scene.notifications.store,id,DESK_CAPTURE_FOLDER);
+        if(success) { char folder[160];snprintf(folder,sizeof(folder),"%s/Screenshots",s->home?s->home:DESK_RAM_HOME);
+            desktop_notification_target(&s->scene.notifications.store,id,folder); }
         desktop_notice_view_arrived(&s->scene.notifications,id,us<0?0:(uint64_t)us);notifications_damage(s);
     }
 }
@@ -623,7 +631,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
         int success=result>0 && !s->capture.response.status;
         const char *name=strrchr(s->capture.request.path,'/');
         capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
-        if(s->trace) desk_log("deskd: screenshot %s status=%u path=%s\n",success?"saved":"failed",s->capture.response.status,s->capture.request.path);
+        desk_log("deskd: screenshot %s status=%u path=%s\n",success?"saved":"failed",s->capture.response.status,s->capture.request.path);
         global_menu_rebuild(s);
     }
     if(!s->capture_pending) return;
@@ -631,7 +639,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     char path[DESK_CAPTURE_PATH],date[32]="undated";long us=srv_realtime_us();
     time_t seconds=us<0?0:us/1000000;struct tm utc;
     if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
-    snprintf(path,sizeof(path),DESK_CAPTURE_FOLDER "/Screen-%s-%llu-%u.bmp",date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
+    snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
     if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) capture_notice(s,0,"The capture worker could not start.");
     else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
     global_menu_rebuild(s);
@@ -727,7 +735,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     }
     if (p->type!=DESK_COMMIT) return;
     /* A conforming client has at most one unreleased commit. */
-    if (c->release.type) { close_client(s,i); return; }
+    if (c->release.type) { desk_log("deskd: closing pid=%llu reason=unreleased-buffer\n",(unsigned long long)pid);close_client(s,i); return; }
     c->release=*p; c->release.type=DESK_RELEASE; c->progress=srv_ticks();
     if (p->generation!=c->generation || p->width!=(uint32_t)(w->frame.w-2) ||
         p->height!=(uint32_t)(w->frame.h-45) || c->closing) {
@@ -737,6 +745,7 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     uint32_t *next=w->pixels==s->cache[i][0]?s->cache[i][1]:s->cache[i][0];
     if (!next || p->width>DESK_MAX_WIDTH || p->height>DESK_MAX_HEIGHT ||
         gui_surface_copy(p->surface,0,0,p->width,p->height,next,p->width)!=0) {
+        desk_log("deskd: closing pid=%llu reason=surface-copy\n",(unsigned long long)pid);
         close_client(s,i); return;
     }
     c->present_input=p->input_serial;
@@ -753,13 +762,18 @@ static void service(struct session *s) {
         if (!c->pid) continue;
         if (!desk_process_alive(c->pid)) { forget(s,i); continue; }
         if ((c->release.type || c->configure || c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
+            desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
+                (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
             srv_kill((int64_t)c->pid); forget(s,i); continue;
         }
         if (c->release.type) {
             if (desk_send(c->pid,&c->release)!=0) continue;
             c->release.type=0; c->progress=srv_ticks();
         }
-        if (c->input_count && (uint64_t)srv_ticks()-c->input_since>500) close_client(s,i);
+        if (c->input_count && (uint64_t)srv_ticks()-c->input_since>500) {
+            if(!c->closing) desk_log("deskd: closing pid=%llu reason=input-timeout queue=%u\n",(unsigned long long)c->pid,c->input_count);
+            close_client(s,i);
+        }
         if (c->closing) {
             struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
         } else if (c->configure) {
@@ -785,10 +799,12 @@ static void service(struct session *s) {
         if(s->scene.apps && !c->closing) desk_clipboard_service(&clipboard,c->pid,srv_ticks());
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
-        uint64_t status;
+        uint64_t status=0;
         long waited=srv_wait(s->children[i],&status,SRV_WAIT_NOHANG);
         /* An interrupted wait is not proof of death. Init only adopts a
          * child after its parent exits; live clients retain their own results. */
+        if (waited==(long)s->children[i])
+            desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",(unsigned long long)s->children[i],(unsigned long long)status,(unsigned long long)srv_ticks());
         if (waited==(long)s->children[i] || (waited<0 && !desk_process_alive(s->children[i])))
             s->children[i]=0;
     }
@@ -916,7 +932,7 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,info.width,info.height,info.width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+    struct session s={.home=hardware_trial?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,info.width,info.height);

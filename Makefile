@@ -2234,7 +2234,7 @@ build/tests/trackpad-pointer-host$(HOST_EXE): tools/test_trackpad_pointer.c kern
 
 build/tests/mouse-input-host$(HOST_EXE): tools/test_mouse_input.c kernel/src/drivers/mouse_input.c kernel/include/srvros/mouse.h
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 
 test-pointer: build/tests/syscall-mouse-host$(HOST_EXE)
 build/tests/syscall-mouse-host$(HOST_EXE): tools/test_syscall_mouse.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
@@ -2892,3 +2892,37 @@ test-ec-transport: build/tests/ec-transport-host$(HOST_EXE)
 build/tests/ec-transport-host$(HOST_EXE): tools/test_ec_transport.c kernel/src/drivers/ec_transport.c kernel/include/srvros/ec_transport.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_ec_transport.c kernel/src/drivers/ec_transport.c -o $@
+
+.PHONY: test-workspace-log
+test-core: test-workspace-log
+test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
+	build/tests/workspace-log-host$(HOST_EXE)
+	build/tests/bootlog-host$(HOST_EXE)
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/workspace_log.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
+
+.PHONY: test-ec-smbus
+test-core: test-ec-smbus
+test-ec-smbus: build/tests/ec-smbus-host$(HOST_EXE)
+	$<
+build/tests/ec-smbus-host$(HOST_EXE): tools/test_ec_smbus.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/ec_transport.c kernel/include/srvros/ec_smbus.h kernel/include/srvros/ec_transport.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_ec_smbus.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/ec_transport.c -o $@
+
+.PHONY: test-laptop-resources
+test-core: test-laptop-resources
+test-laptop-resources: build/tests/laptop-resources-host$(HOST_EXE)
+	$<
+build/tests/laptop-resources-host$(HOST_EXE): tools/test_laptop_resources.c kernel/src/drivers/laptop_resources.c kernel/include/srvros/laptop_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_laptop_resources.c kernel/src/drivers/laptop_resources.c -o $@
+
+.PHONY: test-desktop-host-tools
+test-core: test-desktop-host-tools
+test-desktop-host-tools:
+	$(PYTHON) tools/test_hardware_boot.py
+	$(PYTHON) tools/test_hardware_desktop.py

@@ -1,3 +1,4 @@
+#include <srvros/desk_paths.h>
 #include "app.h"
 #include <srvros/desk_log.h>
 #include <string.h>
@@ -39,7 +40,9 @@ static void continue_action(struct tool *t) {
     if(pending==TOOL_PENDING_OPEN) { load(t,t->pending_path);return; }
     if(pending==TOOL_PENDING_NEW) {
         tool_text_search_close(t);
-        desk_text_buffer_set(&t->body_text,"",0);desk_text_buffer_set(&t->path_text,"/fat/Untitled.txt",17);
+        desk_text_buffer_set(&t->body_text,"",0);
+        char initial[DESK_FILE_PATH];snprintf(initial,sizeof(initial),"%s/Untitled.txt",desk_home());
+        desk_text_buffer_set(&t->path_text,initial,strlen(initial));
         t->saved_path[0]=t->saved_data[0]=0;t->saved_length=0;t->saved_crc=0;
         t->body.scroll_x=t->body.scroll_y=0;t->title_dirty=1;
         tool_status(t,"New document. Choose a path and save when ready.");desk_ui_focus(&t->ui,TOOL_BODY);
@@ -52,7 +55,8 @@ void tool_text_init(struct tool *t,const char *path) {
     if(t->body_history && desk_text_buffer_history(&t->body_text,t->body_history,
        (char *)(t->body_history+1),history_bytes)) { free(t->body_history);t->body_history=NULL; }
     desk_log("desktools: text history=%s\n",t->body_history?"multi-step":"single-step");
-    desk_text_buffer_set(&t->path_text,"/fat/Untitled.txt",17);
+    char initial[DESK_FILE_PATH];snprintf(initial,sizeof(initial),"%s/Untitled.txt",desk_home());
+    desk_text_buffer_set(&t->path_text,initial,strlen(initial));
     desk_ui_add(&t->ui,TOOL_NEW,DESK_CONTROL_BUTTON,&t->buttons[0],"New");
     desk_ui_add(&t->ui,TOOL_OPEN,DESK_CONTROL_BUTTON,&t->buttons[1],"Open");
     desk_ui_add(&t->ui,TOOL_SAVE,DESK_CONTROL_BUTTON,&t->buttons[2],"Save");

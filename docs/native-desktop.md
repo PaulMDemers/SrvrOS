@@ -54,7 +54,8 @@ minimum-size clients would not fit.
 The clock opens a month calendar with Today and keyboard navigation. Alerts
 retain the current session's notifications. Timer and screenshot banners do not
 steal keyboard focus. Screenshots include the pointer and are saved as verified
-BMP files under `/fat/home/Screenshots`; the completion banner opens that folder.
+BMP files under the session Home’s `Screenshots` folder; the completion banner opens it.
+Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop trial.
 
 ## Applications
 
@@ -188,5 +189,44 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check
 
 This creates a disposable USB workspace with the stage's UUID, boots through
 UEFI GRUB and Limine, checks the initial Help page, saves mixed-case text through
-the GUI, exits and unmounts, and independently checks file contents and exFAT
-consistency. It does not validate the physical Apple input path.
+the GUI using its default USB path, saves a screenshot and Terminal working-directory
+evidence, exits and unmounts, and independently checks file contents and exFAT
+consistency. A second fresh VM checks saved preferences and documents, separate
+log sessions and another clean unmount. It does not validate the physical Apple input path.
+
+
+### Persistent trial workspace and diagnostics
+
+In the laptop trial, Files Home, the document pickers, Text's new-document path,
+Terminal's initial directory, preferences and screenshots use `/work/srvros-work`.
+Normal sessions retain `/fat/home`. Applications receive the session location
+explicitly; choosing a default directory does not perform filesystem I/O from
+the compositor event loop.
+
+Every laptop trial creates a fresh `Logs/session-<timestamp>-<suffix>` directory
+on the prepared USB volume. `boot.log` saves the initial console tail. Changed
+logs are checkpointed about every ten seconds into alternating `session-a.log`
+and `session-b.log`; `exit.log` is saved before the final flush/unmount. Each file
+contains at most the latest 64 KiB, with a timestamp and byte counter in its
+snapshot marker. This is bounded diagnostic history, not a complete transcript.
+Writes are read back and flushed through the existing storage service gate.
+A failed save is visible and stops periodic retries; the previous checkpoint
+remains available. A sudden reset can lose recent messages and these writes do
+not provide power-loss atomicity. Photograph a frozen screen when possible.
+
+The compositor now records close requests, child exit statuses and forced-close
+reasons. Release identity and read-only laptop-service preflight readings are
+included in the boot snapshot. The preflight checks the captured firmware and
+chipset identity before reading status/backlight registers; it does not write
+EC commands, change ACPI mode or alter brightness.
+
+After returning to Ubuntu, collect without modifying the USB source:
+
+```sh
+python3 tools/hardware_desktop.py --uuid 37d8c5d0
+```
+
+The collector verifies the prepared volume marker, copies bounded log files into
+`build/desktop-collections/`, checks the copies and records hashes and attention
+markers in `collection.json`. Missing exit logs and recorded failures remain
+visible. A collection is evidence for review, never an automatic hardware pass.
