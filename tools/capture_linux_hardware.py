@@ -1,10 +1,53 @@
 #!/usr/bin/env python3
-"""Collect read-only PCI, USB, HID and ACPI evidence without opening input events."""
+"""Collect read-only PCI, USB, HID, ACPI, power and backlight evidence without input capture."""
 import argparse
 import datetime
 import json
 from pathlib import Path
 import subprocess
+
+
+def capture_laptop_state(output, errors):
+    """Read an explicit non-identifying property set; never alter power/display state."""
+    fields = {
+        "power_supply": ("type", "status", "online", "present", "capacity",
+            "voltage_now", "current_now", "power_now", "energy_now", "energy_full",
+            "energy_full_design", "charge_now", "charge_full", "charge_full_design",
+            "cycle_count", "technology", "temp"),
+        "backlight": ("type", "brightness", "actual_brightness", "max_brightness", "bl_power"),
+    }
+    captured = {}
+    for kind, names in fields.items():
+        root = Path("/sys/class") / kind
+        devices = []
+        if root.is_dir():
+            for node in sorted(root.iterdir()):
+                item = {"name": node.name, "sysfs_path": str(node.resolve()), "properties": {}}
+                for name in names:
+                    source = node / name
+                    if not source.exists():
+                        continue
+                    try:
+                        item["properties"][name] = source.read_text().strip()
+                    except OSError as error:
+                        errors.append(f"{source}: {error}")
+                device = node / "device"
+                item["firmware"] = {}
+                for name in ("path", "hid", "modalias"):
+                    source = device / name
+                    if source.exists():
+                        try:
+                            item["firmware"][name] = source.read_text().strip()
+                        except OSError as error:
+                            errors.append(f"{source}: {error}")
+                for name, source in (("driver", device / "driver"),
+                    ("physical_driver", device / "physical_node" / "driver")):
+                    if source.exists():
+                        item[name] = str(source.resolve())
+                devices.append(item)
+        captured[kind] = devices
+    captured["note"] = "Read-only Linux sysfs snapshots; values retain kernel units and are not sampled atomically. Battery serial/manufacturer/model fields are excluded."
+    (output / "laptop-state.json").write_text(json.dumps(captured, indent=2) + "\n")
 
 
 def main():
@@ -48,6 +91,7 @@ def main():
     for table in Path("/sys/firmware/acpi/tables").glob("*"):
         if table.is_file():
             copy(table, f"acpi/{table.name}.dat")
+    capture_laptop_state(output, errors)
     (output / "capture.json").write_text(json.dumps({
         "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "missing_or_partial": errors,
