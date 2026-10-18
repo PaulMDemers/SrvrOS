@@ -34,6 +34,7 @@
 #define ERANGE 34
 #define EDEADLK 35
 #define ENOLCK 37
+#define EOVERFLOW 75
 #define EILSEQ 84
 #define ENOSYS 38
 #define ENOTEMPTY 39

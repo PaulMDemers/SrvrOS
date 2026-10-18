@@ -289,6 +289,8 @@ char *strerror(int error) {
         return "invalid argument";
     case 38:
         return "not implemented";
+    case EOVERFLOW:
+        return "value too large";
     default:
         return "error";
     }

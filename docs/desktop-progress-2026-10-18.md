@@ -509,3 +509,27 @@ focus ownership and delayed clipboard isolation. Search ASan/UBSan passed.
 The QEMU workflow passed incremental, next/previous, case and wrapped searches,
 query clipboard transfer, hidden-bar repeat, document editing, picker isolation,
 and exact saved-document readback.
+
+Final search validation also passed entry through the global Search menu, and the
+checkbox focus frame was shortened after visual review. The complete core and
+desktop host suites pass. Screenshot: `native-desktop-search.png`.
+
+### Bounded UTC calendar conversion
+
+Replaced libc's per-year loop and pre-1970 clamp with bounded Gregorian conversion.
+`gmtime[_r]` and UTC `localtime[_r]` support negative epochs, validate representable
+`tm_year`, and preserve output on overflow. The reentrant forms no longer use a
+shared temporary. `mktime` normalizes out-of-range calendar fields, updates the
+caller structure and checks overflow; positive DST hints normalize into the fixed
+UTC zone. There is still no timezone/DST database. Added the missing `EOVERFLOW`
+error constant and message.
+
+The shared day/date formulas are adapted from Howard Hinnant's
+[public-domain calendar algorithms](https://howardhinnant.github.io/date_algorithms.html).
+Normalization behavior was checked against the
+[POSIX mktime reference](https://pubs.opengroup.org/onlinepubs/009695399/functions/mktime.html).
+Host tests passed 669,508 comparisons with libc: every day of 1600–2400, negative
+and extreme epochs, randomized field normalization, leap days and output
+preservation on overflow. ASan/UBSan and the complete core/desktop host suites
+passed. The fixed-RTC guest verifies negative epochs, normalized leap-day input,
+overflow handling, current clock formatting and actual file timestamps.

@@ -42,6 +42,7 @@ def main():
                 wait(b'clockprobe: UTC=2026-10-18 12:34:',5)
                 wait(b'clockprobe: formatted=2026-10-18 12:34',5)
                 wait(b'UTC file timestamps and explicit utime PASS',5)
+                wait(b'negative epochs, normalized leap day and overflow PASS',5)
                 memory=re.search(rb'memory_total=(\d+)',output)
                 assert memory and 450*1024*1024<int(memory[1])<=512*1024*1024, 'RAM must exclude physical address holes'
                 wait(b'process: exited status=0',15)

@@ -34,6 +34,7 @@ extern "C" {
 #endif
 
 time_t time(time_t *out);
+struct tm *gmtime(const time_t *timer);
 struct tm *localtime(const time_t *timer);
 struct tm *localtime_r(const time_t *timer, struct tm *result);
 struct tm *gmtime_r(const time_t *timer, struct tm *result);

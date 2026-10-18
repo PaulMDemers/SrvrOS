@@ -2523,3 +2523,11 @@ build/tests/tool-search-host$(HOST_EXE): tools/test_tool_search.c userspace/desk
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include $< $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-widgets: test-search
+
+.PHONY: test-calendar
+test-calendar: build/tests/calendar-host$(HOST_EXE)
+	$<
+build/tests/calendar-host$(HOST_EXE): tools/test_calendar.c userspace/lib/src/posix_calendar.c shared/include/srvros/calendar.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include $< -o $@
+test-core: test-calendar

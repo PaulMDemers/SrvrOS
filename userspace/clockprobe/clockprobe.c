@@ -1,5 +1,7 @@
 /* Small integration probe: exercise the ABI and libc, not a second calendar. */
 #include <stdio.h>
+#include <errno.h>
+#include <stdint.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <utime.h>
@@ -43,6 +45,14 @@ int main(int argc,char **argv) {
     CHECK(!clock_gettime(CLOCK_MONOTONIC,&after));
     delta=(after.tv_sec-mono.tv_sec)*1000000000+after.tv_nsec-mono.tv_nsec;
     CHECK(delta>=50000000 && delta<5000000000);
+    time_t past=-1;struct tm historic;
+    CHECK(gmtime_r(&past,&historic)==&historic && historic.tm_year==69 && historic.tm_mon==11 && historic.tm_mday==31 && historic.tm_hour==23 && historic.tm_min==59 && historic.tm_sec==59);
+    errno=0;CHECK(mktime(&historic)==-1 && errno==0);
+    struct tm normalize={.tm_year=124,.tm_mon=1,.tm_mday=30,.tm_hour=-1};
+    CHECK(mktime(&normalize)==1709247600 && normalize.tm_mon==1 && normalize.tm_mday==29 && normalize.tm_hour==23 && normalize.tm_wday==4);
+    past=INT64_MAX;memset(&historic,0x5a,sizeof(historic));struct tm kept=historic;errno=0;
+    CHECK(!gmtime_r(&past,&historic) && errno==EOVERFLOW && !memcmp(&historic,&kept,sizeof(kept)));
+    puts("clockprobe: negative epochs, normalized leap day and overflow PASS");
     struct srv_meminfo memory;
     CHECK(!srv_meminfo(&memory));
     CHECK(memory.total_bytes>0 && memory.free_bytes<=memory.total_bytes &&
