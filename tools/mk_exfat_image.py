@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import struct
 import sys
+from pack_runtime_elf import runtime_elf
 
 SECTOR_SIZE = 512
 SECTORS_PER_CLUSTER = 8
@@ -122,7 +123,11 @@ def main():
         app_names.append(name)
         app_sources[name] = path
         with open(path, "rb") as app:
-            app_data[name] = app.read()
+            try:
+                app_data[name] = runtime_elf(app.read())
+            except ValueError as error:
+                print(f"{path}: {error}", file=sys.stderr)
+                return 2
 
     allocated_clusters = set([2, 3])
     allocated_clusters.update(range(ROOT_DIRECTORY_CLUSTER, ROOT_DIRECTORY_CLUSTER + ROOT_DIRECTORY_CLUSTERS))

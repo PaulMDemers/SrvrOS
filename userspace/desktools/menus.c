@@ -29,7 +29,7 @@ void tool_menu_refresh(struct tool *t) {
     }
     append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
     append(items,&count,MENU_CLOSE,"Close window","Ctrl-W",blocked);
-    if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES || t->role==DESK_APP_CALCULATOR) {
+    if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES || t->role==DESK_APP_CALCULATOR || t->role==DESK_APP_SETTINGS) {
         unsigned id=0;struct desk_edit *e=edit_target(t,&id);struct desk_text_buffer *text=e?e->text:NULL;
         unsigned disabled=blocked|(!e?DESK_MENU_DISABLED:0),selection=disabled|(!text || text->anchor==text->caret?DESK_MENU_DISABLED:0);
         append(items,&count,0,"Edit",NULL,DESK_MENU_HEADING);

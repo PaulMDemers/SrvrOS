@@ -7,7 +7,7 @@
 #define DESK_FILE_ENTRIES 256
 enum desk_file_operation { DESK_FILE_READ=1, DESK_FILE_WRITE, DESK_FILE_LIST, DESK_FILE_MKDIR };
 enum desk_file_status { DESK_FILE_OK, DESK_FILE_IO, DESK_FILE_EXISTS, DESK_FILE_CHANGED,
-    DESK_FILE_TOO_LARGE, DESK_FILE_INVALID };
+    DESK_FILE_TOO_LARGE, DESK_FILE_INVALID, DESK_FILE_NOT_FOUND };
 #define DESK_FILE_EXPECT_EXISTING 1u
 struct desk_file_request {
     uint32_t magic,id,operation,length,flags,expected_crc;

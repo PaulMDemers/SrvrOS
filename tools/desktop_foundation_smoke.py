@@ -31,6 +31,7 @@ class QMP:
         self.stream = self.sock.makefile("rwb", buffering=0)
         self.stream.readline()
         self.call("qmp_capabilities")
+        self.boot_enters = 0
 
     def call(self, execute, arguments=None):
         self.stream.write(json.dumps({"execute": execute, "arguments": arguments or {}}).encode()+b"\n")
@@ -48,6 +49,16 @@ class QMP:
                 events.insert(0,{"type":"key","data":{"down":down,"key":{"type":"qcode","data":"shift"}}})
             self.call("input-send-event", {"events":events})
             time.sleep(.04)
+
+    def boot_if_menu_stalled(self, output, elapsed):
+        # Some BIOS/QEMU runs spin at Limine's countdown under host load.
+        # Select the visible boot entry explicitly, only before kernel loading;
+        # this never retries a kernel/app failure or changes the guest image.
+        if (self.boot_enters < 2 and elapsed >= 3 + self.boot_enters * 2
+                and b"Booting automatically" in output and b"limine: Loading" not in output):
+            self.boot_enters += 1
+            print("vm: selecting the visible Limine entry after a stalled countdown", flush=True)
+            self.key("ret")
 
     def mouse(self, dx, dy, button=None):
         if button is not None:

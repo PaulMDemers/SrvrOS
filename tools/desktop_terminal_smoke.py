@@ -36,6 +36,8 @@ def main():
                     nonlocal output,consumed
                     end=time.monotonic()+timeout
                     while marker not in output[consumed:]:
+                        if marker == b"srv> " and not consumed:
+                            qmp.boot_if_menu_stalled(output, time.monotonic() - (end - timeout))
                         if time.monotonic()>end or process.poll() is not None:
                             qmp.call("screendump",{"filename":str(out/"failure.ppm")})
                             raise RuntimeError(f"Missing {marker!r}; see {out}")

@@ -5,7 +5,8 @@
 #include <srvros/desk_dialog.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_clipboard.h>
-#include "file_job.h"
+#include <srvros/desk_file_job.h>
+#include <srvros/desk_preferences.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 struct tool {
@@ -16,6 +17,11 @@ struct tool {
     struct desk_file_picker picker;
     int picker_mode,picker_job;
     struct desk_button buttons[32];
+    struct desk_check checks[7];
+    struct desk_scrollbar settings_scroll;
+    struct desk_preferences preferences;
+    unsigned preferences_status;
+    int settings_capture;
     struct desk_edit path,body,name;
     struct desk_text_buffer path_text,body_text,name_text;
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
@@ -34,6 +40,13 @@ struct tool {
     uint32_t saved_crc,overwrite_crc;
     uint64_t refresh_tick;
 };
+void tool_settings_init(struct tool *tool);
+void tool_settings_layout(struct tool *tool);
+void tool_settings_draw(struct tool *tool,struct desk_canvas *canvas);
+void tool_settings_action(struct tool *tool,struct desk_action action);
+void tool_settings_receive(struct tool *tool,const struct desk_packet *packet);
+int tool_settings_pointer(struct tool *tool,struct desk_widget_event event);
+void tool_settings_scroll(struct tool *tool,int delta);
 void tool_clipboard_action(struct tool *tool,struct desk_action action);
 void tool_clipboard_result(struct tool *tool,int result);
 int tool_listing_decode(struct tool *tool);

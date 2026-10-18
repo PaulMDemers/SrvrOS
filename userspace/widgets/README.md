@@ -225,3 +225,17 @@ Save As. Ctrl-L still focuses the explicit document path field. Canceling a
 picker drains/discards pending listing work and keeps the document; deferred
 clipboard edits cannot mutate a closed picker or its underlying document.
 Save/replace confirmation and verified writes remain application behavior.
+
+## Checkboxes and radio choices
+
+`desk_check` shares button capture, release activation, focus, disable and
+cancellation semantics. Checkboxes toggle; radio controls select themselves and
+the application configures their peers as a group. Both integrate with `desk_ui`
+for Tab traversal, Space/Enter activation, repeat suppression and clipped drawing.
+Settings uses them for text size, clock options and desktop color.
+
+The asynchronous `desk_file_job` transport is in the shared userspace library
+(`srvros/desk_file_job.h`), separate from controls. Text, Files and the desktop's
+preference owner use it to keep filesystem work out of their UI event loops.
+`desk_preferences` provides validated field merging, a bounded text format and
+fixed-offset clock formatting. These models perform no file operations.

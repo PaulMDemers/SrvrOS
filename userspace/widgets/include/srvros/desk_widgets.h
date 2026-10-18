@@ -67,4 +67,14 @@ unsigned desk_button_event(struct desk_button *button, struct desk_widget_event 
 void desk_button_draw(struct desk_canvas *canvas, const struct desk_button *button,
                       const char *label, const struct desk_theme *theme);
 
+/* Checkbox/radio share button capture and focus semantics. A checkbox toggles;
+ * a radio only selects itself. The owning app maintains mutual exclusion of a
+ * radio group by configuring its peers after activation. */
+struct desk_check { struct desk_button button; int checked, radio; };
+void desk_check_configure(struct desk_check *check, struct desk_rect frame,
+                          int enabled, int checked, int radio);
+unsigned desk_check_event(struct desk_check *check, struct desk_widget_event event);
+void desk_check_draw(struct desk_canvas *canvas, const struct desk_check *check,
+                     const char *label, const struct desk_theme *theme);
+
 #endif

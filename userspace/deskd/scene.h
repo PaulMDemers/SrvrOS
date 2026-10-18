@@ -17,7 +17,8 @@ struct desktop_scene {
     int focus,cursor_x,cursor_y,trackpad_trial,apps;
     struct desk_menu menu;
     uint64_t stack_serial;
-    char notice[96];
+    char notice[96],clock[64];
+    int wallpaper;
     char io_status[160],io_check[160],io_next[160];
 };
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s);

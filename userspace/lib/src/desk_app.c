@@ -94,9 +94,14 @@ int desk_app_launch(struct desk_app *a,unsigned application,const char *path) {
     }
     return 0;
 }
+int desk_app_preferences(struct desk_app *a,const struct desk_preferences *preferences,unsigned mask) {
+    if(!a->server || !preferences || !mask || (mask&~DESK_PREF_ALL)) return -1;
+    struct desk_packet p=desk_packet_new(DESK_PREFERENCES_SET);p.value=mask;
+    memcpy(p.text,preferences,sizeof(*preferences));return desk_send(a->server,&p);
+}
 int desk_app_text_size(struct desk_app *a,unsigned size) {
-    if(!a->server || (size!=16 && size!=20)) return -1;
-    struct desk_packet p=desk_packet_new(DESK_PREFERENCES_SET);p.value=size;return desk_send(a->server,&p);
+    if(size!=16 && size!=20) return -1;
+    struct desk_preferences p={.text_size=size};return desk_app_preferences(a,&p,DESK_PREF_TEXT);
 }
 void desk_app_close(struct desk_app *a) {
     if(a->server) { struct desk_packet p=desk_packet_new(DESK_CLOSE);desk_send(a->server,&p); }

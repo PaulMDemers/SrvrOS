@@ -100,11 +100,13 @@ static void draw_window(struct desk_canvas *c,const struct desktop_window *w,int
         desk_fill(c,(struct desk_rect){r.x+r.w-5-4*n,r.y+r.h-5,2,2},0x748b79);
 }
 void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
-    desk_fill(c,(struct desk_rect){0,0,c->width,c->height},0xd6dcd2);
+    static const uint32_t backgrounds[]={0xd6dcd2,0xe2dace,0xcbd5da};
+    desk_fill(c,(struct desk_rect){0,0,c->width,c->height},backgrounds[s->wallpaper>=0 && s->wallpaper<3?s->wallpaper:0]);
     desk_fill(c,(struct desk_rect){0,0,c->width,44},0xf1f0eb);
     if(s->apps) {
         desk_menu_bar_draw(c,&s->menu,&desk_theme_quiet);
-        if(s->focus>=0) desk_label_draw(c,(struct desk_rect){c->width-180,12,164,24},&desk_font_16,s->windows[s->focus].title,0x646b65);
+        int clock_width=desk_text_width(&desk_font_16,s->clock);
+        desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
     if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==3?s->io_status:
         s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":

@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v4 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v5 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 4
+#define DESK_PROTOCOL_VERSION 5
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 #define DESK_MAX_WIDTH 960
@@ -51,9 +51,9 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * request: value=application, serial=path offset, height=chunk bytes, width=final.
  * Up to 160 bytes including the final NUL, assembled per client. Offset zero
  * starts/replaces a request; nothing launches until a valid final chunk.
- * PREFERENCES_SET requests document text size (value=16 or 20); only the
- * Settings application may change it. PREFERENCES broadcasts the current
- * session value to every app, including newly opened windows.
+ * PREFERENCES_SET: value=DESK_PREF_* field mask, text=desk_preferences.
+ * Only focused Settings may update. PREFERENCES broadcasts the complete value
+ * in text, value=persistence status, serial=revision, including new windows.
  * CLIPBOARD_SET/DATA: serial=request, generation=byte offset, width=total,
  * height=chunk bytes, value=final (DATA may use 2 for cancellation). SET is
  * committed only after a complete transfer; interrupted copies retain the old

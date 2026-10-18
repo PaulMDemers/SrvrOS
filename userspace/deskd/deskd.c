@@ -2,6 +2,7 @@
 #include "scene.h"
 #include "clipboard.h"
 #include "menus.h"
+#include "preferences.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
 #include <srvros/desktop.h>
@@ -33,7 +34,9 @@ struct session {
     uint64_t menu_owner;
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
-    int child_apps[DESKD_WINDOWS],exiting,text_size;
+    int child_apps[DESKD_WINDOWS],exiting;
+    struct desktop_preferences_store preferences;
+    uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked;
     uint64_t pointer_pid;
     struct io_trial io;
@@ -221,6 +224,32 @@ static void global_menu_damage(struct session *s) {
         s->menu_visible.w+=3;s->menu_visible.h+=4;desk_damage_add(&s->damage,s->menu_visible);
     }
 }
+static void clock_update(struct session *s,int force) {
+    if(!s->scene.apps) return;
+    uint64_t now=srv_ticks();
+    if(!force && now-s->clock_tick<100) return;
+    s->clock_tick=now;
+    struct desk_preferences p=s->preferences.value;
+    if(s->damage.width<1000) p.clock_flags&=~DESK_CLOCK_DATE;
+    long us=srv_realtime_us();char clock[64]="Clock unavailable";
+    desk_clock_format(clock,sizeof(clock),us<0?-1:us/1000000,&p);
+    if(strcmp(clock,s->scene.clock)) {
+        strcpy(s->scene.clock,clock);
+        int reserve=s->damage.width<1000?190:340;
+        desk_damage_add(&s->damage,(struct desk_rect){s->damage.width-reserve,0,reserve,44});
+    }
+}
+static void preferences_changed(struct session *s) {
+    if(s->scene.wallpaper!=(int)s->preferences.value.wallpaper) {
+        s->scene.wallpaper=s->preferences.value.wallpaper;
+        desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,s->damage.height});
+    }
+    clock_update(s,1);
+    for(int n=0;n<DESKD_WINDOWS;n++) if(s->clients[n].pid) s->clients[n].preferences_dirty=1;
+    if(s->trace) desk_log("deskd: preferences revision=%llu status=%u text=%u offset=%d flags=%u wallpaper=%u\n",
+        (unsigned long long)s->preferences.revision,s->preferences.status,s->preferences.value.text_size,
+        s->preferences.value.utc_offset_minutes,s->preferences.value.clock_flags,s->preferences.value.wallpaper);
+}
 static void global_menu_rebuild(struct session *s) {
     if(!s->scene.apps) return;
     struct desk_menu_item items[DESK_MENU_ITEMS]={
@@ -250,7 +279,7 @@ static void global_menu_rebuild(struct session *s) {
     }
     uint64_t owner=s->scene.focus>=0?s->clients[s->scene.focus].pid:0;
     if(s->scene.menu.font && owner==s->menu_owner) desk_menu_replace(&s->scene.menu,items,count);
-    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-190,44},
+    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-(s->damage.width<1000?190:340),44},
         (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
     s->menu_owner=owner;
     global_menu_damage(s);
@@ -324,9 +353,10 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         return;
     }
     if(p->type==DESK_PREFERENCES_SET) {
-        if(s->scene.apps && w->application==DESK_APP_SETTINGS && s->scene.focus==i && (p->value==16 || p->value==20)) {
-            s->text_size=p->value;
-            for(int n=0;n<DESKD_WINDOWS;n++) if(s->clients[n].pid) s->clients[n].preferences_dirty=1;
+        if(s->scene.apps && w->application==DESK_APP_SETTINGS && s->scene.focus==i) {
+            struct desk_preferences value;memcpy(&value,p->text,sizeof(value));
+            int changed=desktop_preferences_set(&s->preferences,&value,p->value,srv_ticks());
+            if(changed>0) preferences_changed(s);else if(!changed) c->preferences_dirty=1;
         }
         return;
     }
@@ -396,7 +426,8 @@ static void service(struct session *s) {
             if (desk_send(c->pid,&p)==0) c->configure=0;
         }
         if(c->preferences_dirty && !c->configure && !c->closing) {
-            struct desk_packet p=desk_packet_new(DESK_PREFERENCES);p.value=s->text_size?s->text_size:16;
+            struct desk_packet p=desk_packet_new(DESK_PREFERENCES);p.value=s->preferences.status;p.serial=s->preferences.revision;
+            memcpy(p.text,&s->preferences.value,sizeof(s->preferences.value));
             if(!desk_send(c->pid,&p)) c->preferences_dirty=0;
         }
         if (c->input_count && !c->configure && !c->closing &&
@@ -493,6 +524,7 @@ int main(int argc,char **argv) {
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,info.width,info.height);
+    if(apps) { desktop_preferences_init(&s.preferences);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
     if(apps) spawn_app(&s,DESK_APP_TEXT,"");else spawn_client(&s);
@@ -512,6 +544,7 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0); }
         if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
             io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
         }
@@ -598,7 +631,12 @@ int main(int argc,char **argv) {
         }
         if(apps && s.exiting) {
             int live=0;for(int i=0;i<DESKD_WINDOWS;i++) live|=s.clients[i].pid!=0;
-            if(!live) { quit=1;break; }
+            if(!live) {
+                if(!s.exit_wait) s.exit_wait=srv_ticks();
+                int saving=s.preferences.job.busy || (s.preferences.writable && s.preferences.dirty);
+                if(!saving || (uint64_t)srv_ticks()-s.exit_wait>1000) { quit=1;break; }
+                if(!s.scene.notice[0]) { strcpy(s.scene.notice,"Finishing saved preferences…");desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height}); }
+            }
         }
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
@@ -713,6 +751,10 @@ int main(int argc,char **argv) {
     for (int i=0;i<DESKD_WINDOWS;i++) {
         if (s.children[i]) { uint64_t status; srv_kill(s.children[i]); srv_wait(s.children[i],&status,0); }
         if (s.clients[i].pid) forget(&s,i);
+    }
+    if(apps) {
+        if(s.preferences.dirty) desk_log("deskd: preferences were not fully saved (status=%u)\n",s.preferences.status);
+        desktop_preferences_close(&s.preferences);
     }
     cache_free(&s);
     desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);

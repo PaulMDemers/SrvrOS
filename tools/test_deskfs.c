@@ -39,7 +39,7 @@ int main(void) {
     q.operation=DESK_FILE_READ;perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);
     snprintf(q.path,sizeof(q.path),"%s/document",dir);int fd=open(q.path,O_WRONLY);
     assert(fd>=0 && !ftruncate(fd,DESK_FILE_BYTES+1) && !close(fd));perform(&q,&r);assert(r.status==DESK_FILE_TOO_LARGE);
-    assert(!unlink(q.path));q.operation=DESK_FILE_WRITE;q.flags=DESK_FILE_EXPECT_EXISTING;
+    assert(!unlink(q.path));perform(&q,&r);assert(r.status==DESK_FILE_NOT_FOUND);q.operation=DESK_FILE_WRITE;q.flags=DESK_FILE_EXPECT_EXISTING;
     perform(&q,&r);assert(r.status==DESK_FILE_CHANGED);
     snprintf(q.path,sizeof(q.path),"%s/folder",dir);assert(!rmdir(q.path));assert(!rmdir(dir));
     puts("deskfs: PASS create, guarded overwrite, changed/missing files, empty save, readback, write/sync failure, listing, mkdir, size limits");

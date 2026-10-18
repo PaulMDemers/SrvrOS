@@ -1,6 +1,7 @@
 #ifndef SRVROS_DESK_APP_H
 #define SRVROS_DESK_APP_H
 #include <srvros/desktop.h>
+#include <srvros/desktop_preferences.h>
 #include <srvros/desktop_menu.h>
 #include <srvros/desk_render.h>
 
@@ -27,6 +28,7 @@ int desk_app_present(struct desk_app *app);
 int desk_app_title(struct desk_app *app,const char *title);
 int desk_app_cancel_close(struct desk_app *app);
 int desk_app_launch(struct desk_app *app,unsigned application,const char *path);
+int desk_app_preferences(struct desk_app *app,const struct desk_preferences *preferences,unsigned mask);
 int desk_app_text_size(struct desk_app *app,unsigned size);
 /* Copy a menu snapshot. Identical snapshots do not restart publication.
  * Call menu_tick once per application turn (at most four nonblocking sends).

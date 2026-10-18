@@ -1,5 +1,5 @@
-#ifndef DESKTOOLS_FILE_JOB_H
-#define DESKTOOLS_FILE_JOB_H
+#ifndef SRVROS_DESK_FILE_JOB_H
+#define SRVROS_DESK_FILE_JOB_H
 #include <srvros/desktop_file.h>
 #include <stddef.h>
 struct desk_file_job {

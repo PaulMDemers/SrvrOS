@@ -1,4 +1,4 @@
-#include "file_job.h"
+#include <srvros/desk_file_job.h>
 #include <srvros/sys.h>
 #include <srvros/desktop.h>
 #include <string.h>
@@ -59,7 +59,7 @@ int desk_file_job_poll(struct desk_file_job *j) {
         if(j->received==sizeof(j->response)) {
             if(j->response.magic!=DESK_FILE_MAGIC || j->response.id!=j->request.id ||
                j->response.length>DESK_FILE_BYTES || j->response.count>DESK_FILE_ENTRIES ||
-               j->response.status>DESK_FILE_INVALID || j->response.truncated>1 ||
+               j->response.status>DESK_FILE_NOT_FOUND || j->response.truncated>1 ||
                (j->request.operation==DESK_FILE_LIST && j->response.length!=j->response.count*sizeof(struct desk_file_entry))) goto failed;
         }
     }

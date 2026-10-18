@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdio.h>
 #define main unused_main
-#include "../userspace/desktools/file_job.c"
+#include "../userspace/lib/src/desk_file_job.c"
 #undef main
 static struct desk_file_job job;
 static unsigned char response_bytes[DESK_FILE_BYTES+sizeof(struct desk_file_response)];

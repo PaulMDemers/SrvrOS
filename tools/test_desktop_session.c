@@ -10,6 +10,7 @@ static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped
 static uint32_t sent[128];
 long srv_exec(const struct srv_exec_request *request) { (void)request; return -1; }
 long srv_ticks(void) { return (long)now; }
+long srv_realtime_us(void) { return 1792326896000000L; }
 int desk_process_alive(uint64_t pid) { return pid==42 && alive; }
 long srv_kill(int64_t pid) { assert(pid==42); alive=0; killed++; return 0; }
 long srv_wait(uint64_t pid,uint64_t *status,uint64_t flags) {
@@ -129,9 +130,12 @@ int main(void) {
     maximize(&s,0);assert(!s.scene.windows[0].maximized && !memcmp(&original,&s.scene.windows[0].frame,sizeof(original)));
     minimize(&s,0);assert(s.scene.windows[0].minimized && s.scene.focus==-1 && hit(&s,80,120)==-1);
     focus(&s,0);assert(!s.scene.windows[0].minimized && s.scene.focus==0);
-    p=desk_packet_new(DESK_PREFERENCES_SET);p.value=20;incoming(&s,42,&p);assert(!s.text_size);
-    s.scene.windows[0].application=DESK_APP_SETTINGS;incoming(&s,42,&p);assert(s.text_size==20 && s.clients[0].preferences_dirty);
-    p.value=999;incoming(&s,42,&p);assert(s.text_size==20);
+    s.preferences.value=desk_preferences_default();
+    p=desk_packet_new(DESK_PREFERENCES_SET);p.value=DESK_PREF_TEXT;
+    struct desk_preferences changed=desk_preferences_default();changed.text_size=20;memcpy(p.text,&changed,sizeof(changed));
+    incoming(&s,42,&p);assert(s.preferences.value.text_size==16);
+    s.scene.windows[0].application=DESK_APP_SETTINGS;incoming(&s,42,&p);assert(s.preferences.value.text_size==20 && s.clients[0].preferences_dirty);
+    p.value=999;incoming(&s,42,&p);assert(s.preferences.value.text_size==20);
     request_close(&s,0);assert(s.clients[0].close_requested && !s.clients[0].closing);
     p=desk_packet_new(DESK_CANCEL_CLOSE);incoming(&s,42,&p);assert(!s.clients[0].close_requested);
     const struct desk_menu_item menu[]={ {0,DESK_MENU_HEADING,"File",""},{7,0,"New","Ctrl-N"} };

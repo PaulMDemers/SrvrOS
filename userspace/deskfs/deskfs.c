@@ -17,8 +17,11 @@ static int transfer(int fd,void *buffer,size_t length,int writing) {
     return 0;
 }
 static unsigned read_file(const char *path,unsigned char *data,uint32_t *length) {
-    int fd=open(path,O_RDONLY);if(fd<0) return DESK_FILE_IO;
     struct stat st;
+    if(stat(path,&st)) return errno==ENOENT?DESK_FILE_NOT_FOUND:DESK_FILE_IO;
+    /* open currently folds read failures into ENOENT. An existing directory
+     * entry must never be mistaken for a missing file after a data I/O error. */
+    int fd=open(path,O_RDONLY);if(fd<0) return DESK_FILE_IO;
     if(fstat(fd,&st) || !S_ISREG(st.st_mode) || st.st_size<0 || (uint64_t)st.st_size>DESK_FILE_BYTES) {
         close(fd);return DESK_FILE_TOO_LARGE;
     }

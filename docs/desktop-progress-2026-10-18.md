@@ -297,3 +297,69 @@ new `clockprobe` ABI/libc checks and `date` output. Evidence:
 (https://uefi.org/specs/ACPI/6.6/05_ACPI_Software_Programming_Model.html), Linux
 RTC register description (https://kernel.org/doc/html/v5.19/virt/kvm/x86/timekeeping.html).
 The full core host suite also passed after the clock changes.
+
+## Shared choices, menu-bar clock and persistent Settings
+
+Checkboxes and radio choices now belong to the toolkit and focus router. Settings
+uses them in a scrollable panel with wheel, thumb drag and Page Up/Down support.
+The menu bar displays the validated UTC clock, with optional date, 12/24-hour
+format and an explicitly fixed UTC offset in 15-minute increments. Offsets do not
+pretend to provide a timezone database or automatic daylight-saving changes.
+Text size and sage/sand/slate desktop colors apply to open windows immediately.
+
+Protocol v5 broadcasts the complete preference snapshot, revision and save state;
+focused Settings requests update individual fields. The desktop is the single
+preference owner. It reads `/fat/home/desktop.conf` asynchronously and merges
+changes made during that initial read. Saves are debounced, snapshot-based,
+CRC-guarded, synced and read back by the shared file worker. Edits during a save
+trigger another snapshot. Invalid or unreadable configuration and conflicting
+writes retain session choices without blindly replacing the file. Settings
+reports saving, saved, session-only and conflict states. Normal desktop exit
+waits for pending preferences, with a bounded escape for a stuck worker.
+
+The worker transport moved from Text/Files into the shared client library.
+File READ now distinguishes a missing directory entry from a data-read failure;
+the latter must not be treated as permission to create a new settings file.
+Host preference tests and ASan/UBSan pass, including malformed/truncated config,
+field masks, calendar offset boundaries, delayed loading, in-flight changes,
+debounce, conflicts and failure retention. The final Settings VM workflow passed
+live updates, resizing/scrolling, disk readback and fresh-process restoration.
+
+### Runtime image footprint discovered by regression
+
+The expanded desktop exposed a real 512 MiB VM limit: two Terminals plus Text and
+the preference worker left no physical pages for a new command's stack. The
+application suite likewise could not start Settings. The boot initramfs was
+265 MiB, mostly debug sections duplicated across its command binaries plus the
+embedded exFAT image. Individual tiny commands carried nearly 1 MiB on disk even
+when their executable segments occupied only tens of KiB.
+
+Image packaging now removes section/debug trailers from **staged runtime copies**
+only. A checked ELF64 packer preserves the program-header table and every segment
+payload at its original offset, including TLS, notes and unwind information; it
+clears the unused section-table fields and trims the tail. Full host `.elf` files
+remain available for symbols/debugging. The exFAT builder uses the same helper.
+All built binaries passed payload-equivalence checks. The staged initramfs app
+payload fell from 142,674,248 to 6,186,587 bytes; the complete boot archive fell
+from 265 MiB to 135 MiB. VM regressions are being repeated at the original 512 MiB.
+The two-Terminal regression now passes at 512 MiB. Boot free pages rose from
+35,428 to 68,744 (about 130 MiB recovered). One application-suite attempt stopped
+at Limine's countdown before entering the kernel; its screenshot and serial log
+identify a bootloader-stage failure, and a fresh VM run is being checked.
+
+The full core host suite passed. The native application suite and two-Terminal
+suite pass at 512 MiB with packed images; libc/node compatibility probes also
+pass. The application-suite rerun reached and passed all guest checks. The VM
+harness now explicitly selects Limine's visible entry if its countdown stalls,
+with at most two Enter events and no retries after kernel loading starts.
+
+A subsequent Settings test exposed a separate interaction race: a save-status
+acknowledgement relaid out controls and canceled a held pointer press. Status-only
+updates now preserve capture and typed offset drafts; a focused host regression
+holds a checkbox press across the acknowledgement and verifies release activation.
+
+The final Settings VM run passes after the acknowledgement fix and visual layout
+polish. The default window now shows the complete settings panel; resizing smaller
+retains scrolling and all choices. The startup test accepts either ordering of
+initial preference loading and first window presentation, since both are async.
+The checked screenshot is `docs/assets/screenshots/native-desktop-settings.png`.

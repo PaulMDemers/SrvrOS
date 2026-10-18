@@ -13,10 +13,13 @@ replacement UI architecture and its quiet, refined visual direction; the
 [interactive design study](docs/design/desktop-study.html) is a browser prototype,
 not an implemented native desktop.
 
-The [native compositor checkpoint](docs/desktop-compositor-2026-10-17.md) now runs
-separate test applications with window movement, resize, focus and crash recovery.
-It remains an optional development session; built-in trackpad capture is opt-in
-and awaiting physical validation.
+The current native desktop has a global menu bar, dock, independent application
+windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings
+and Terminal. Start it with `run /fat/bin/deskd`. The
+[development journal](docs/desktop-progress-2026-10-18.md) records implemented
+behavior, VM checks and remaining limitations. The accepted MacBook Air input/I/O
+checkpoint is preserved separately; these new application changes are being
+validated in disposable VMs before another hardware test.
 
 ## Screenshots
 
@@ -24,10 +27,10 @@ Booted kernel monitor with AHCI, exFAT, e1000, and memory-map diagnostics:
 
 ![srvros boot console](docs/assets/screenshots/console-boot-monitor.png)
 
-Historical GUI prototype with calculator, notes, and text editor clients
-(scheduled for replacement under the desktop plan):
+Current native desktop with shared controls, global menus, a clock and saved
+preferences (QEMU development build):
 
-![srvros desktop with GUI apps](docs/assets/screenshots/desktop-apps.png)
+![Native desktop and Settings](docs/assets/screenshots/native-desktop-settings.png)
 
 ## Current Features
 
@@ -39,7 +42,8 @@ Historical GUI prototype with calculator, notes, and text editor clients
   presentation; `renderbench` measures output throughput.
 - Physical frame allocator, kernel heap, virtual memory manager, per-process
   page tables, and user pointer validation.
-- ACPI PM reference clock with calibrated Local APIC timer, IOAPIC routing,
+- Read-only RTC-seeded UTC clock, independent monotonic time, and an ACPI PM
+  reference with calibrated Local APIC timer, IOAPIC routing,
   PS/2 keyboard/mouse, xHCI USB keyboard input with Caps Lock and key repeat,
   and IRQ-backed COM1 serial input.
 - FPU/SSE/SSE2 enablement with per-process and per-scheduler-thread
@@ -490,3 +494,9 @@ more capable userspace.
 
 See [hardware development](docs/hardware-development.md) for the tested GRUB →
 Limine boot workflow, RAM-backed test filesystem, and Linux hardware capture.
+
+Runtime image packaging keeps program-header-described ELF data in guest images
+and retains full debug `.elf` files under `build/userspace/` on the host. This
+avoids carrying duplicated debug sections in boot RAM. `make test-runtime-elf`
+checks segment preservation; `tools/host-env.sh python3 tools/desktop_settings_smoke.py`
+checks live desktop preferences and persistence in a disposable VM.
