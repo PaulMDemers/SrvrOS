@@ -1368,3 +1368,12 @@ covers retention, corrupt recovery rejection and unchanged state on rejection.
 The accepted **f05dfcc01c28dc85** recovery and its independent backup both remain
 available. Physical gesture/acceleration acceptance and actual laptop preflight
 values are still pending; VM success does not settle those hardware checks.
+
+
+Candidate **a91913d3db4219e8** is now installed as `srvros-current`;
+**f05dfcc01c28dc85** remains `srvros-previous` through `--keep-previous`.
+Both installed payload manifests were reverified after GRUB regeneration. The
+prepared USB workspace is present. Ubuntu remains the default and no reboot was
+requested. Candidate evidence is retained under
+`build/native-desktop-trials/a91913d3db4219e8/`. Awaiting the user's availability
+for the physical trial; battery/brightness providers remain unimplemented.
