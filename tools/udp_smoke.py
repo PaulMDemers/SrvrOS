@@ -138,7 +138,7 @@ def main():
         missing.append("dhcp: 10.0.2.15")
     if f"udpdns: {args.host} A " not in text:
         missing.append("udpdns A answer")
-    if "e1000: flags=UP,RUNNING dhcp=yes" not in text:
+    if "net0: flags=UP,RUNNING dhcp=yes" not in text:
         missing.append("ifconfig status")
     if "default            10.0.2.2" not in text:
         missing.append("route default gateway")

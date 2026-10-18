@@ -103,6 +103,10 @@ static void test_batch_counters(void) {
 }
 static void test_formats_and_invalid(void) {
     setup(false);
+    console_printf("%d %d %d %d %d %u", (int64_t)0, (int64_t)-42000,
+        (int64_t)105000, (int64_t)INT64_MIN, (int64_t)INT64_MAX, (uint64_t)7654321);
+    const char *signed_expected="0 -42000 105000 -9223372036854775808 9223372036854775807 7654321";
+    assert(serial_count==strlen(signed_expected)&&!memcmp(serial_log,signed_expected,serial_count));
     frame.red_mask_shift=0; frame.blue_mask_shift=16;
     console_init(&frame); console_write("a"); check_guards();
     assert(storage[1] == color(0x0b,0x10,0x1a));

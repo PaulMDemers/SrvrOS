@@ -50,6 +50,55 @@ def capture_laptop_state(output, errors):
     (output / "laptop-state.json").write_text(json.dumps(captured, indent=2) + "\n")
 
 
+def capture_device_details(output, errors, sys_root=Path("/sys"), proc_root=Path("/proc")):
+    """Copy descriptor/capability files only; never open an input/event node."""
+    def read(path, binary=False):
+        try: return path.read_bytes() if binary else path.read_text().strip()
+        except OSError as error:
+            errors.append(f"{path}: {error}");return None
+    usb=[]
+    for device in sorted((sys_root/"bus/usb/devices").glob("*")):
+        if not (device/"idVendor").is_file(): continue
+        item={"path":device.name,"properties":{},"interfaces":[]}
+        for name in ("idVendor","idProduct","bcdDevice","bDeviceClass","bDeviceSubClass","bDeviceProtocol","bNumConfigurations","speed","busnum","devnum","devpath"):
+            if (device/name).exists(): item["properties"][name]=read(device/name)
+        descriptors=read(device/"descriptors",True)
+        if descriptors is not None:
+            relative=Path("usb")/device.name/"descriptors.bin"
+            (output/relative).parent.mkdir(parents=True,exist_ok=True)
+            (output/relative).write_bytes(descriptors);item["descriptors"]=str(relative)
+        for interface in sorted(device.glob(device.name+":*")):
+            entry={"path":interface.name}
+            for name in ("bInterfaceNumber","bAlternateSetting","bNumEndpoints","bInterfaceClass","bInterfaceSubClass","bInterfaceProtocol","modalias"):
+                if (interface/name).exists():entry[name]=read(interface/name)
+            if (interface/"driver").exists():entry["driver"]=(interface/"driver").resolve().name
+            item["interfaces"].append(entry)
+        usb.append(item)
+    sensors=[]
+    for node in sorted((sys_root/"class/hwmon").glob("hwmon*")):
+        # Older hwmon drivers expose attributes on the parent device.
+        source=node if (node/"name").exists() else node/"device"
+        item={"name":read(source/"name"),"values":{}}
+        for pattern in ("temp*_label","temp*_input","temp*_max","temp*_crit","temp*_crit_alarm","fan*_label","fan*_input","fan*_min","fan*_max"):
+            for prop in sorted(source.glob(pattern)):item["values"][prop.name]=read(prop)
+        sensors.append(item)
+    codecs=[]
+    for node in sorted((proc_root/"asound").glob("card*/codec#*")):
+        text=read(node)
+        if text is not None:
+            relative=Path("audio")/node.parent.name/(node.name+".txt")
+            (output/relative).parent.mkdir(parents=True,exist_ok=True)
+            (output/relative).write_text(text+"\n");codecs.append(str(relative))
+    cpu={};info=read(proc_root/"cpuinfo")
+    if info:
+        for line in info.split("\n\n",1)[0].splitlines():
+            key,sep,value=line.partition(":");key=key.strip()
+            if sep and key in ("vendor_id","cpu family","model","model name","stepping","microcode","flags"):cpu[key]=value.strip()
+    result={"usb":usb,"sensors":sensors,"audio_codec_files":codecs,"boot_cpu":cpu,
+        "note":"Read-only descriptors and capabilities. USB string contents, input events, network addresses and sensor-control writes are excluded. Values retain Linux units."}
+    (output/"device-details.json").write_text(json.dumps(result,indent=2)+"\n")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
@@ -92,6 +141,7 @@ def main():
         if table.is_file():
             copy(table, f"acpi/{table.name}.dat")
     capture_laptop_state(output, errors)
+    capture_device_details(output, errors)
     (output / "capture.json").write_text(json.dumps({
         "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "missing_or_partial": errors,

@@ -5,6 +5,7 @@ that will be brought up on srvros through the POSIX-compat layer.
 
 ## Upstream Source
 
+- `upstream/uacpi`: MIT AML interpreter, pinned to 7.0.0; isolated firmware evaluation only (see `srvros/uacpi/PORT.md`).
 - `upstream/zlib`: zlib compression library, pinned to `v1.3.2`.
 - `upstream/lua`: Lua runtime, pinned to `v5.4.8`.
 - `upstream/cjson`: cJSON parser/printer, pinned to `v1.7.19`.

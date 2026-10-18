@@ -1,3 +1,4 @@
+#include <srvros/net_device.h>
 #include <srvros/console.h>
 #include <srvros/e1000.h>
 #include <srvros/net.h>
@@ -267,6 +268,13 @@ static void configure_rxtx(void) {
     rings_ready = true;
 }
 
+static bool device_send(void *context,const uint8_t *frame,uint16_t length) { (void)context;return e1000_send_frame(frame,length); }
+static uint64_t device_poll(void *context,uint64_t budget,bool verbose) { (void)context;return e1000_poll(budget,verbose); }
+static bool device_link(void *context,struct net_device_link *out) {
+    (void)context;struct e1000_link_info info;
+    if(!e1000_link_info(&info)) return false;
+    *out=(struct net_device_link){info.up,info.full_duplex,true,info.speed_mbps};return true;
+}
 bool e1000_init(void) {
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
@@ -314,6 +322,9 @@ bool e1000_init(void) {
         return false;
     }
     configure_rxtx();
+    struct net_device_ops ops={.name="e1000",.priority=100,.send=device_send,.poll=device_poll,.link=device_link};
+    for(unsigned i=0;i<6;i++) ops.mac[i]=mac[i];
+    if(!net_device_register(&ops)) console_write("e1000: network provider registration failed\n");
     console_printf("e1000: rx=%u tx=%u irq-ready\n",
         (uint64_t)E1000_RX_DESC_COUNT,
         (uint64_t)E1000_TX_DESC_COUNT);

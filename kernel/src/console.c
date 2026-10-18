@@ -664,6 +664,18 @@ void console_printf(const char *fmt, ...) {
             for (size_t i = 0; i < count; i++) format_emit(&buffer, text[i]);
             break;
         }
+        case 'd': {
+            int64_t value = va_arg(args, int64_t);
+            uint64_t magnitude = (uint64_t)value;
+            if (value < 0) {
+                format_emit(&buffer, '-');
+                magnitude = 0 - magnitude; /* Includes INT64_MIN without signed overflow. */
+            }
+            char text[20];
+            size_t count = decimal_text(magnitude, text);
+            for (size_t i = 0; i < count; i++) format_emit(&buffer, text[i]);
+            break;
+        }
         case 'x': {
             uint64_t value = va_arg(args, uint64_t);
             const char *digits = "0123456789abcdef";

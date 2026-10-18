@@ -16,7 +16,63 @@ static void brightness_request(struct tool *t,unsigned value) {
     t->brightness_pending=!desk_send(t->window.server,&p);t->brightness_at=srv_ticks();
     if(!t->brightness_pending) { t->brightness_percent=-1;tool_layout(t);tool_status(t,"Brightness request could not be sent."); }
 }
+static int audio_available(const struct tool *t) {
+    return t->audio.state==SRV_AUDIO_READY || t->audio.state==SRV_AUDIO_PLAYING;
+}
+static void audio_request(struct tool *t,unsigned operation,unsigned value) {
+    if(t->audio_pending) {
+        if(operation && (operation==SRV_AUDIO_STOP || t->audio_queued_op!=SRV_AUDIO_STOP)) {
+            t->audio_queued_op=operation;t->audio_queued_value=value;
+        }
+        return;
+    }
+    struct desk_packet p=desk_packet_new(DESK_AUDIO);p.serial=++t->audio_serial;p.value=operation;p.width=value;
+    t->audio_pending=!desk_send(t->window.server,&p);t->audio_at=srv_ticks();t->audio_requested=operation;
+    if(!t->audio_pending && operation) tool_status(t,"Sound request could not be sent.");
+}
+void tool_settings_audio(struct tool *t,const struct desk_packet *p) {
+    if(!t->audio_pending || p->serial!=t->audio_serial) return;
+    struct srv_audio_status next;memcpy(&next,p->text,sizeof(next));
+    t->audio_pending=0;
+    if(next.version!=SRV_AUDIO_VERSION || next.state>SRV_AUDIO_FAULT || next.volume>100 || next.output>1) {
+        tool_status(t,"Sound controller returned an invalid reply.");return;
+    }
+    int old_available=audio_available(t),changed=memcmp(&next,&t->audio,sizeof(next))!=0;
+    int route_changed=t->audio.output!=next.output;t->audio=next;
+    if(t->audio_requested==SRV_AUDIO_QUERY && !t->audio_volume.dragging && t->audio_wanted_volume<0) desk_slider_set(&t->audio_volume,next.volume);
+    if(old_available!=audio_available(t)) tool_layout(t);
+    t->checks[11].checked=next.output==SRV_AUDIO_SPEAKERS;t->checks[12].checked=next.output==SRV_AUDIO_HEADPHONES;
+    if(changed || route_changed) t->window.dirty=1;
+    if(!t->audio_requested && t->audio_watch_op && !next.pending) {
+        if(next.state==SRV_AUDIO_FAULT || next.state==SRV_AUDIO_UNAVAILABLE) {
+            tool_status(t,"Sound device error. Diagnostics have been recorded.");t->audio_watch_op=0;
+        } else if(next.state==SRV_AUDIO_READY) {
+            tool_status(t,t->audio_watch_op==SRV_AUDIO_TEST?"Test sound finished.":
+                t->audio_watch_op==SRV_AUDIO_STOP?"Sound stopped.":"Sound setting applied for this session.");
+            t->audio_watch_op=0;
+        }
+    }
+    if(t->audio_requested) {
+        desk_log("desktools: sound operation=%d accepted=%d state=%u volume=%u output=%u\n",t->audio_requested,!p->value,next.state,next.volume,next.output);
+        if(p->value) tool_status(t,"Sound is busy or unavailable. Try again.");
+        else {
+            t->audio_watch_op=t->audio_requested;
+            tool_status(t,t->audio_requested==SRV_AUDIO_TEST?"Starting test sound…":
+                t->audio_requested==SRV_AUDIO_STOP?"Stopping sound…":"Applying sound setting…");
+        }
+    }
+}
 void tool_settings_tick(struct tool *t) {
+    if(t->window.server && !t->audio_pending) {
+        if(t->audio_queued_op) {
+            unsigned op=t->audio_queued_op,value=t->audio_queued_value;t->audio_queued_op=0;audio_request(t,op,value);
+        } else if(t->audio_wanted_volume>=0) {
+            unsigned volume=(unsigned)t->audio_wanted_volume;t->audio_wanted_volume=-1;audio_request(t,SRV_AUDIO_VOLUME,volume);
+        } else if(!t->audio_serial || (uint64_t)srv_ticks()-t->audio_at>=100) audio_request(t,SRV_AUDIO_QUERY,0);
+    }
+    if(t->audio_pending && (uint64_t)srv_ticks()-t->audio_at>500) {
+        t->audio_pending=0;t->audio.state=SRV_AUDIO_UNAVAILABLE;tool_layout(t);tool_status(t,"Sound controller did not respond.");
+    }
     if(t->window.server && (!t->brightness_serial || t->brightness_refresh) && !t->brightness_pending) {
         t->brightness_refresh=0;brightness_request(t,0);
     }
@@ -36,6 +92,13 @@ void tool_settings_brightness(struct tool *t,const struct desk_packet *p) {
     else if(t->brightness_serial>1) tool_status(t,"Brightness applied for this session.");
 }
 void tool_settings_init(struct tool *t) {
+    t->audio_wanted_volume=-1;
+    desk_slider_init(&t->audio_volume);desk_slider_range(&t->audio_volume,0,100,1);
+    desk_ui_add(&t->ui,SETTINGS_AUDIO_VOLUME,DESK_CONTROL_SLIDER,&t->audio_volume,NULL);
+    desk_ui_add(&t->ui,SETTINGS_AUDIO_SPEAKERS,DESK_CONTROL_CHECK,&t->checks[11],"Speakers");
+    desk_ui_add(&t->ui,SETTINGS_AUDIO_HEADPHONES,DESK_CONTROL_CHECK,&t->checks[12],"Headphones");
+    desk_ui_add(&t->ui,SETTINGS_AUDIO_TEST,DESK_CONTROL_BUTTON,&t->buttons[16],"Test sound");
+    desk_ui_add(&t->ui,SETTINGS_AUDIO_STOP,DESK_CONTROL_BUTTON,&t->buttons[17],"Stop");
     t->brightness_percent=-1;desk_slider_init(&t->brightness);desk_slider_range(&t->brightness,5,100,1);
     desk_ui_add(&t->ui,SETTINGS_BRIGHTNESS,DESK_CONTROL_SLIDER,&t->brightness,NULL);
     t->preferences=desk_preferences_default();t->preferences_status=DESK_PREF_LOADING;offset_text(t);
@@ -54,7 +117,7 @@ void tool_settings_init(struct tool *t) {
 }
 void tool_settings_layout(struct tool *t) {
     struct desk_rect view=viewport(t);
-    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?918:990,view.h);
+    desk_scrollbar_configure(&t->settings_scroll,(struct desk_rect){t->window.width-28,view.y,12,view.h},t->window.width>=372?1222:1294,view.h);
     int y=64-t->settings_scroll.offset,w=t->window.width;
     desk_check_configure(&t->checks[0],(struct desk_rect){24,y+52,112,32},visible(t,y+52,32),t->preferences.text_size==16,1);
     desk_check_configure(&t->checks[1],(struct desk_rect){148,y+52,96,32},visible(t,y+52,32),t->preferences.text_size==20,1);
@@ -69,6 +132,12 @@ void tool_settings_layout(struct tool *t) {
             visible(t,row,32),t->preferences.wallpaper==(unsigned)i,1);
     }
     int py=y+(w>=372?460:532);
+    int sound=py+420,available=audio_available(t);
+    desk_slider_configure(&t->audio_volume,(struct desk_rect){24,sound+76,w-72,32},available && visible(t,sound+76,32));
+    desk_check_configure(&t->checks[11],(struct desk_rect){24,sound+120,120,32},available && visible(t,sound+120,32),t->audio.output==0,1);
+    desk_check_configure(&t->checks[12],(struct desk_rect){156,sound+120,w-200,32},available && (t->audio.capabilities&SRV_AUDIO_CAP_HEADPHONES) && visible(t,sound+120,32),t->audio.output==1,1);
+    desk_button_configure(&t->buttons[16],(struct desk_rect){24,sound+164,128,32},available && visible(t,sound+164,32));
+    desk_button_configure(&t->buttons[17],(struct desk_rect){164,sound+164,80,32},available && visible(t,sound+164,32));
     desk_slider_configure(&t->pointer_speed,(struct desk_rect){24,py+40,w-72,32},visible(t,py+40,32));
     desk_slider_set(&t->pointer_speed,t->preferences.pointer_speed);
     desk_slider_configure(&t->brightness,(struct desk_rect){24,py+332,w-72,32},t->brightness_percent>=0 && visible(t,py+332,32));
@@ -97,6 +166,13 @@ void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
     else snprintf(label,sizeof(label),"Display brightness: unavailable");
     desk_label_draw(c,(struct desk_rect){24,py+296,c->width-64,28},theme->body,label,theme->text);
     desk_label_draw(c,(struct desk_rect){24,py+372,c->width-64,28},theme->body,"5–100% · applies to this session",theme->muted);
+    int sound=py+420;
+    static const char *states[]={"Sound · not enabled","Sound · unavailable","Sound · ready","Sound · playing test tone","Sound · device error"};
+    desk_label_draw(c,(struct desk_rect){24,sound,c->width-64,28},theme->body,states[t->audio.state<=SRV_AUDIO_FAULT?t->audio.state:SRV_AUDIO_FAULT],theme->text);
+    snprintf(label,sizeof(label),"Output volume: %d%%",t->audio_volume.value);
+    desk_label_draw(c,(struct desk_rect){24,sound+40,c->width-64,28},theme->body,label,theme->text);
+    desk_label_draw(c,(struct desk_rect){24,sound+212,c->width-64,28},theme->body,"A short, quiet test tone",theme->muted);
+    desk_label_draw(c,(struct desk_rect){24,sound+248,c->width-64,28},theme->body,(t->audio.capabilities&SRV_AUDIO_CAP_JACK_SENSE)?(t->audio.headphone_present?"Headphones connected.":"No headphones detected."):(t->audio.capabilities&SRV_AUDIO_CAP_HEADPHONES)?"Choose headphones after plugging them in.":audio_available(t)?"Speaker output only.":"Sound output is unavailable in this session.",theme->muted);
     desk_ui_draw(c,&t->ui,theme);c->clip=old;
     if(desk_scrollbar_limit(&t->settings_scroll)>0) desk_scrollbar_draw(c,&t->settings_scroll,theme);
 }
@@ -113,7 +189,13 @@ static void request(struct tool *t,const struct desk_preferences *value,unsigned
 void tool_settings_action(struct tool *t,struct desk_action a) {
     int activated=(a.flags&DESK_WIDGET_ACTIVATED)!=0;
     struct desk_preferences value=t->preferences;
-    if(a.id==SETTINGS_BRIGHTNESS && (a.flags&DESK_WIDGET_CHANGED) && t->brightness_percent>=0) {
+    if(a.id==SETTINGS_AUDIO_VOLUME && (a.flags&DESK_WIDGET_CHANGED) && audio_available(t)) {
+        t->audio_wanted_volume=t->audio_volume.value;
+    } else if(activated && (a.id==SETTINGS_AUDIO_TEST || a.id==SETTINGS_AUDIO_STOP)) {
+        audio_request(t,a.id==SETTINGS_AUDIO_TEST?SRV_AUDIO_TEST:SRV_AUDIO_STOP,0);
+    } else if(activated && (a.id==SETTINGS_AUDIO_SPEAKERS || a.id==SETTINGS_AUDIO_HEADPHONES)) {
+        audio_request(t,SRV_AUDIO_OUTPUT,a.id==SETTINGS_AUDIO_HEADPHONES);
+    } else if(a.id==SETTINGS_BRIGHTNESS && (a.flags&DESK_WIDGET_CHANGED) && t->brightness_percent>=0) {
         brightness_request(t,t->brightness.value);
     } else if(a.id==SETTINGS_POINTER_SPEED && (a.flags&DESK_WIDGET_CHANGED)) {
         value.pointer_speed=t->pointer_speed.value;request(t,&value,DESK_PREF_POINTER_SPEED);

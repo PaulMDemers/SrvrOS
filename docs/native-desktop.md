@@ -45,6 +45,15 @@ windows can be open at once. A full desktop asks you to close a window before
 opening another app. The [eight-window menu](assets/screenshots/native-desktop-window-menu.png)
 shows the desktop at its current client limit.
 
+This is a software capacity limit, not a MacBook hardware limit. The compositor
+reserves eight client slots and two maximum-size 1440×900 pixel caches per slot:
+about 79 MiB for those caches alone. The kernel separately bounds GUI queues to
+16 and surfaces to 32. Raising only the client constant would increase the
+up-front memory cost and eventually hit those other limits. The intended next
+step is demand-sized window buffers, coordinated queue/surface capacity and
+graceful allocation failure under memory pressure; this device milestone keeps
+the existing limit.
+
 Tile left/right retain the original frame across side switches. Center returns
 to the original normal dimensions at the middle of the workspace. Restore size
 returns to the original position as well. Tiled windows must be restored or
@@ -131,10 +140,14 @@ provide power-loss atomicity.
   lines; combining and double-width glyph semantics remain open.
 - Notification history and calculator/stopwatch history belong to the session.
   Windows and unsaved documents are not restored after reboot.
-- Network Utility uses the existing network stack. Live link reporting is
-  implemented for e1000 in QEMU; no USB Ethernet adapter driver is implied.
-- Laptop battery/brightness, safe suspend, audio, Wi-Fi and removable-device
-  recovery need separate hardware work. Do not infer these from the VM desktop.
+- Network Utility uses the existing network stack with boot-selected e1000 or
+  opt-in [USB CDC ECM](usb-network-2026-10-18.md). Other USB Ethernet chipsets,
+  Wi-Fi, live failover and re-enumeration remain open.
+- Settings has target-specific brightness and initial HDA sound controls; System
+  has Devices and Sensors tabs. [Audio](macbook-air-audio-2026-10-18.md) and
+  [temperature reporting](macbook-air-sensors-2026-10-18.md) need physical
+  acceptance. Battery/AC, fan control, safe suspend and removable-device recovery
+  remain separate hardware work.
 - Save verification is not power-loss atomicity. The generated test-image format
   also has existing external exFAT-conformance limits, recorded in the journal;
   the accepted hardware flash filesystem was not changed by this session.

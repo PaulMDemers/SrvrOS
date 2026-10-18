@@ -20,11 +20,12 @@
 #include <srvros/calendar.h>
 
 static struct desk_clipboard_store clipboard;
+#define DESK_INPUT_BATCH 8
 
 struct client {
     uint64_t pid,generation,progress,present_input;
     int configure,awaiting,closing,close_requested,preferences_dirty;
-    struct desk_packet release,brightness_reply;
+    struct desk_packet release,brightness_reply,audio_reply;
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
@@ -710,6 +711,17 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
         if(s->scene.apps) desk_clipboard_request(&clipboard,pid,s->scene.focus==i,p,srv_ticks());
         return;
     }
+    if(p->type==DESK_AUDIO) {
+        int result=-1;struct srv_audio_status audio={0};
+        (void)gui_audio(SRV_AUDIO_QUERY,0,&audio);
+        if(p->serial && s->scene.apps &&
+           (p->value==SRV_AUDIO_QUERY || (w->application==DESK_APP_SETTINGS && s->scene.focus==i)))
+            result=gui_audio(p->value,p->width,&audio);
+        c->audio_reply=desk_packet_new(DESK_AUDIO);c->audio_reply.serial=p->serial;
+        c->audio_reply.value=result?1:0;memcpy(c->audio_reply.text,&audio,sizeof(audio));
+        if(p->value) desk_log("deskd: audio operation=%u value=%u result=%d state=%u\n",p->value,p->width,result,audio.state);
+        return;
+    }
     if(p->type==DESK_BRIGHTNESS) {
         int result=-1;
         if(p->serial && s->scene.apps && w->application==DESK_APP_SETTINGS &&
@@ -803,6 +815,8 @@ static void service(struct session *s) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;
             if(!desk_send(c->pid,&p)) c->notice_ack_pending=0;
         }
+        if(c->audio_reply.type && !c->configure && !c->closing &&
+           !desk_send(c->pid,&c->audio_reply)) c->audio_reply.type=0;
         if(c->brightness_reply.type && !c->configure && !c->closing &&
            !desk_send(c->pid,&c->brightness_reply)) c->brightness_reply.type=0;
         if(c->preferences_dirty && !c->configure && !c->closing) {
@@ -810,8 +824,10 @@ static void service(struct session *s) {
             memcpy(p.text,&s->preferences.value,sizeof(s->preferences.value));
             if(!desk_send(c->pid,&p)) c->preferences_dirty=0;
         }
-        if (c->input_count && !c->configure && !c->closing &&
-            desk_send(c->pid,&c->input[c->input_head])==0) {
+        /* Input throughput must not be limited to the render-loop rate. Keep
+         * a per-client budget so one busy window cannot monopolize service. */
+        for(unsigned delivered=0;delivered<DESK_INPUT_BATCH && c->input_count && !c->configure && !c->closing;delivered++) {
+            if(desk_send(c->pid,&c->input[c->input_head])!=0) break;
             c->input_head=(c->input_head+1)%DESK_INPUT_QUEUE; c->input_count--;
             c->input_since=srv_ticks();
         }

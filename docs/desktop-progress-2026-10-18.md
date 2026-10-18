@@ -1664,3 +1664,60 @@ Evidence is archived in `build/native-desktop-trials/5aa0372d69d1a350/`.
 The persistent Help checklist includes primary/secondary taps and rejection
 checks. No new installation or physical reboot was performed; installed
 **d61e60a82a295d84** remains the user-accepted held-drag build.
+
+## Device support block: audio, USB networking and sensors
+
+The user deferred physical testing until 20:00 EDT. Development in this block
+uses disposable VMs and read-only Ubuntu hardware captures; no laptop reboot,
+installation, EFI-order change or firmware-control write is performed.
+
+The v21 desktop profile adds opt-in HDA output, USB CDC ECM, CPU temperatures,
+read-only SMC fan sampling and an isolated AML namespace probe. Settings has
+asynchronous Sound controls. System adds Devices and Sensors tables. The Help
+trial page retains explicit speaker/headphone, temperature/fan and adapter
+checks. Device snapshots are saved at boot, every ten seconds and at exit;
+the collector selects the newest timestamps and flags device faults. Battery/AC,
+microphone recording, media playback, fan control and general USB-adapter support
+are not claimed. See the [audio](macbook-air-audio-2026-10-18.md),
+[USB networking](usb-network-2026-10-18.md),
+[sensors](macbook-air-sensors-2026-10-18.md) and
+[laptop firmware](macbook-air-laptop-services-2026-10-18.md) notes for boundaries.
+
+uACPI 7.0.0 is vendored unchanged under its MIT license. The adapter evaluates
+private firmware/PCI snapshots, denies hardware operation regions and releases
+its bounded heap afterward. Offline evaluation of the captured MacBook DSDT and
+eight SSDTs resolved the EC/SMBus/SMC resources without denied accesses or leaks.
+An incremental Smart Battery sampler is host-tested but deliberately has no
+live EC caller until runtime ownership is implemented.
+
+Concurrent app launches exposed a shared ELF-loader owner and process-slot
+reservation race. Both are fixed, with deterministic interleaving tests. A
+12-session desktop lifecycle run completed 144 application lifetimes without
+surviving GUI workers or growing heap usage. Native staged-log checks also found
+that the console formatter lacked signed decimal support: temperatures and
+trackpad coordinates now consume and print their signed 64-bit arguments,
+including INT64_MIN, without shifting subsequent fields.
+
+The USB ECM VM completed a 30-minute run with 1,245 UDP echoes, DHCP/ICMP/HTTP,
+concurrent USB keyboard input and expected quarantine after disconnect. Parser
+tests include 20,000 malformed descriptors under ASan/UBSan. HDA tests model the
+captured CS4208 capabilities, speaker/headphone routing, GPIO preservation,
+power/command/DMA failures, Stop priority and 1,000 service reuse cycles. Sound
+controls, System tabs, syscall boundaries, isolated AML evaluation, production
+build and the core host suite passed their targeted checks. The long audio soak
+and final staged-image validation are recorded below when complete.
+
+The combined Sound/USB-write trial exposed a compositor throughput limit under
+VM load: only one queued input event was forwarded per client per service pass,
+so sustained typing could fill the ordered queue and close Terminal. Service now
+forwards up to eight ordered packets per client, stopping on transport pressure.
+Host tests verify the budget, partial queue capacity, exact ordering and retry.
+With batching, the VM passed normal-rate command typing, two captured tones
+during a deliberately throttled USB write, verified 1 MiB contents and clean
+guest/host filesystem checks. This improves throughput; the finite queue and
+existing unresponsive-client policy remain bounded.
+
+The eight-window limit remains: fixed compositor caches consume about 79 MiB,
+with separate kernel queue/surface limits. It is a software allocation policy,
+not a MacBook limitation. Demand-sized buffers and coordinated resource limits
+are the appropriate follow-up; increasing one constant is not this milestone.

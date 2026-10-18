@@ -82,6 +82,16 @@ class InstallTests(unittest.TestCase):
         self.assertIn("srvros.laptop-services=probe",cfg)
         self.assertNotIn("laptop-services",boot.limine_config("0123456789abcdef","ram-usb-v17-desktop-37d8c5d0"))
 
+    def test_audio_profile(self):
+        version="ram-usb-v21-desktop-37d8c5d0"
+        cfg=boot.limine_config("0123456789abcdef",version)
+        self.assertIn('srvros.audio=hda',cfg)
+        for flag in ('srvros.aml=probe','srvros.usb-network=ecm','srvros.sensors=cpu','srvros.smc=read-only'):self.assertIn(flag,cfg)
+        self.assertIn('srvros.laptop-services=brightness',cfg)
+        self.assertIn('srvros.desktop-release=0123456789abcdef',cfg)
+        self.assertIsNotNone(boot.DESKTOP_RE.fullmatch(version))
+        self.assertNotIn('srvros.audio=',boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0"))
+
     def test_brightness_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v20-desktop-37d8c5d0")
         self.assertIn('srvros.laptop-services=brightness',cfg)

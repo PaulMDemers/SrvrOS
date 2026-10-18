@@ -8,12 +8,16 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/timer.h>
+#include <srvros/audio.h>
+#include <srvros/audio_abi.h>
+#include <srvros/thermal.h>
+#include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
 static char directory[128],path[160],snapshot[65536];
 static bool enabled,started,busy,healthy;
 static unsigned checkpoint;
-static uint64_t last_total,due;
+static uint64_t due;
 static struct scheduler_wait_queue wake;
 static uint64_t lock(void) {
 #ifdef SRVROS_WORKSPACE_LOG_HOST_TEST
@@ -38,7 +42,22 @@ static bool begin(uint64_t *flags) {
     return true;
 }
 static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
+/* Cached queries only: logging must not issue codec commands or sensor I/O. */
+static void device_checkpoint(void) {
+    uint64_t sampled=timer_monotonic_us();
+    struct srv_audio_status audio;struct srv_thermal_status thermal;
+    struct srv_smc_status fan;smc_status(&fan);
+    console_printf("workspace-devices: smc_state=%u flags=%x fan_millirpm=%u sample_us=%u samples=%u failures=%u error=%u monotonic_us=%u\n",
+        (uint64_t)fan.state,(uint64_t)fan.flags,(uint64_t)fan.fan_millirpm,fan.sampled_us,fan.samples,fan.failures,(uint64_t)fan.error,sampled);
+    audio_status(&audio);thermal_status(&thermal);
+    console_printf("workspace-devices: audio_state=%u error=%u output=%u volume=%u pending=%u started=%u completed=%u headphones=%u caps=%x monotonic_us=%u\n",
+        (uint64_t)audio.state,(uint64_t)audio.error,(uint64_t)audio.output,(uint64_t)audio.volume,
+        (uint64_t)audio.pending,audio.tests_started,audio.tests_completed,(uint64_t)audio.headphone_present,(uint64_t)audio.capabilities,sampled);
+    console_printf("workspace-devices: thermal_state=%u flags=%x core_mc=%d package_mc=%d sample_us=%u samples=%u monotonic_us=%u\n",
+        (uint64_t)thermal.state,(uint64_t)thermal.flags,(int64_t)thermal.core_mc,(int64_t)thermal.package_mc,thermal.sampled_us,thermal.samples,sampled);
+}
 static bool save(const char *name) {
+    device_checkpoint();
     console_printf("workspace-log: snapshot=%s monotonic_us=%u total_before=%u tail_limit=65536\n",name,timer_monotonic_us(),bootlog_total());
     uint64_t total,count=bootlog_snapshot(snapshot,sizeof(snapshot),&total),flags;
     unsigned at=copy(path,directory);path[at++]='/';copy(path+at,name);
@@ -52,8 +71,7 @@ static bool save(const char *name) {
     if(node && data) vfs_release_data(node,data);
     end(flags);
     if(ok) ok=workspace_sync();
-    if(ok) last_total=total;
-    else console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
+    if(!ok) console_printf("workspace-log: SAVE FAILED path=%s; previous checkpoint retained\n",path);
     return ok;
 }
 static bool ready(void *arg) { (void)arg;return enabled && timer_ticks()>=due; }
@@ -65,7 +83,7 @@ static void worker(void *arg) {
         if(!enabled) { scheduler_wait(&wake,activated,NULL);continue; }
         if(!ready(NULL)) { scheduler_wait_timeout(&wake,ready,NULL,due);continue; }
         busy=true;
-        if(bootlog_total()!=last_total) healthy=save(checkpoint++&1?"session-b.log":"session-a.log");
+        healthy=save(checkpoint++&1?"session-b.log":"session-a.log");
         if(!healthy) enabled=false;
         due=timer_ticks()+1000;busy=false;scheduler_wake_all(&wake);
     }

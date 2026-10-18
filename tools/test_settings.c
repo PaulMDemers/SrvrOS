@@ -19,7 +19,7 @@ int main(void) {
     desk_ui_init(&t.ui);assert(!desk_text_buffer_init(&t.name_text,t.name_store[0],t.name_store[1],128));
     desk_edit_init(&t.name,&t.name_text,0);tool_settings_init(&t);tool_layout(&t);
     assert(t.checks[0].checked && !t.checks[1].checked && t.checks[2].checked && t.checks[3].checked);
-    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==918);
+    assert(!strcmp(t.name_text.data,"+00:00") && t.settings_scroll.content==1222);
     tool_settings_action(&t,(struct desk_action){2,DESK_WIDGET_ACTIVATED});
     assert(sends==1 && mask==DESK_PREF_TEXT && requested.text_size==20 && t.body_size==20 && t.checks[1].checked && !t.checks[0].checked);
     t.checks[2].checked=0;tool_settings_action(&t,(struct desk_action){3,DESK_WIDGET_ACTIVATED});
@@ -41,7 +41,7 @@ int main(void) {
     tool_settings_receive(&t,&p);assert(!strcmp(t.name_text.data,"+05:30"));
     fail=1;tool_settings_action(&t,(struct desk_action){1,DESK_WIDGET_ACTIVATED});assert(sends==before && t.preferences.text_size==20);fail=0;
     tool_settings_scroll(&t,68);assert(t.settings_scroll.offset==68 && t.checks[6].button.enabled);
-    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==990);
+    t.window.width=280;t.window.height=240;tool_layout(&t);assert(t.settings_scroll.content==1294);
     tool_settings_scroll(&t,312);assert(t.checks[4].button.enabled && t.checks[5].button.enabled && t.checks[6].button.enabled);
     for(int i=4;i<7;i++) assert(t.checks[i].button.frame.x==24 && t.checks[i].button.frame.w==92);
     struct desk_rect thumb=desk_scrollbar_geometry(&t.settings_scroll).thumb;
@@ -82,5 +82,21 @@ int main(void) {
     assert(t.brightness_percent==40);brightness_send_fail=1;t.brightness.value=50;
     tool_settings_action(&t,(struct desk_action){SETTINGS_BRIGHTNESS,DESK_WIDGET_CHANGED});
     assert(!t.brightness_pending && t.brightness_percent==-1);brightness_send_fail=0;
+    /* Audio replies are serial-checked and do not cancel an active slider drag. */
+    t.audio_pending=0;t.audio_queued_op=0;t.brightness_pending=0;t.brightness_serial=99;
+    t.brightness_refresh=0;t.audio_serial=0;t.window.width=560;t.window.height=600;
+    tool_settings_tick(&t);assert(t.audio_pending && brightness_sent.type==DESK_AUDIO);
+    struct desk_packet ap=brightness_sent;struct srv_audio_status audio={.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25};
+    memcpy(ap.text,&audio,sizeof(audio));tool_settings_audio(&t,&ap);assert(!t.audio_pending && t.audio.volume==25);
+    tool_settings_scroll(&t,10000);assert(t.audio_volume.enabled && !t.checks[12].button.enabled);
+    t.audio_volume.value=60;t.audio_volume.dragging=1;
+    tool_settings_action(&t,(struct desk_action){SETTINGS_AUDIO_VOLUME,DESK_WIDGET_CHANGED});tool_settings_tick(&t);
+    assert(t.audio_pending && brightness_sent.value==SRV_AUDIO_VOLUME && brightness_sent.width==60);
+    ap.serial--;tool_settings_audio(&t,&ap);assert(t.audio_pending);
+    ap=brightness_sent;memcpy(ap.text,&audio,sizeof(audio));ap.value=0;tool_settings_audio(&t,&ap);
+    assert(!t.audio_pending && t.audio_volume.dragging && t.audio_volume.value==60);
+    t.audio_pending=1;tool_settings_action(&t,(struct desk_action){SETTINGS_AUDIO_STOP,DESK_WIDGET_ACTIVATED});
+    assert(t.audio_queued_op==SRV_AUDIO_STOP);t.audio_pending=0;tool_settings_tick(&t);
+    assert(brightness_sent.value==SRV_AUDIO_STOP);
     puts("settings: PASS grouped choices, partial field requests, offset validation, draft retention, send failure, narrow scrolling and capture cancellation");
 }

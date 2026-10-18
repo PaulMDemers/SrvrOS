@@ -194,7 +194,7 @@ def main():
         "log /fat/var/log/webd.log",
         "netcheck: ok",
         "10.0.2.15:80",
-        "e1000: flags=UP,RUNNING",
+        "net0: flags=UP,RUNNING",
         "52:55:0a:00:02:",
     ]:
         if marker not in text:

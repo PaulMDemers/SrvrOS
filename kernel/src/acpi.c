@@ -82,7 +82,7 @@ static struct acpi_ioapic_info ioapic_info;
 static struct acpi_interrupt_source_override irq_overrides[16];
 static struct acpi_table_info tables[ACPI_MAX_TABLES];
 static uint64_t table_count;
-static struct acpi_mcfg_allocation mcfg_allocations[ACPI_MAX_MCFG_ALLOCATIONS];
+static struct srv_acpi_mcfg_allocation mcfg_allocations[ACPI_MAX_MCFG_ALLOCATIONS];
 static uint64_t mcfg_allocation_count;
 static uint32_t input_summary_offsets[ACPI_INPUT_DEVICE_SUMMARY_MAX];
 static uint64_t input_summaries_printed;
@@ -220,7 +220,7 @@ static void parse_mcfg(struct mcfg *mcfg) {
             continue;
         }
 
-        mcfg_allocations[mcfg_allocation_count++] = (struct acpi_mcfg_allocation) {
+        mcfg_allocations[mcfg_allocation_count++] = (struct srv_acpi_mcfg_allocation) {
             .present = true,
             .base_address = entry[i].base_address,
             .pci_segment = entry[i].pci_segment,
@@ -832,7 +832,7 @@ uint64_t acpi_mcfg_allocation_count(void) {
     return mcfg_allocation_count;
 }
 
-const struct acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t index) {
+const struct srv_acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t index) {
     if (index >= mcfg_allocation_count) {
         return NULL;
     }
@@ -851,7 +851,7 @@ void acpi_print_status(void) {
     }
 
     for (uint64_t i = 0; i < mcfg_allocation_count; i++) {
-        const struct acpi_mcfg_allocation *entry = &mcfg_allocations[i];
+        const struct srv_acpi_mcfg_allocation *entry = &mcfg_allocations[i];
         console_printf("  mcfg[%u] base=%x segment=%u buses=%u-%u\n",
             i,
             entry->base_address,

@@ -11,9 +11,10 @@
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
+#include <srvros/audio_abi.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE,TOOL_INFO,TOOL_COPY_PATH,TOOL_REPLACE,TOOL_REPLACEMENT };
-enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK,SYSTEM_DIAGNOSTICS };
-enum { SETTINGS_POINTER_SPEED=100,SETTINGS_POINTER_ACCELERATION,SETTINGS_BRIGHTNESS,SETTINGS_DISABLE_WHILE_TYPING,SETTINGS_TAP_CLICK,SETTINGS_TWO_FINGER_TAP };
+enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK,SYSTEM_DIAGNOSTICS,SYSTEM_DEVICES,SYSTEM_DEVICE_TABLE,SYSTEM_SENSORS,SYSTEM_SENSOR_TABLE };
+enum { SETTINGS_POINTER_SPEED=100,SETTINGS_POINTER_ACCELERATION,SETTINGS_BRIGHTNESS,SETTINGS_DISABLE_WHILE_TYPING,SETTINGS_TAP_CLICK,SETTINGS_TWO_FINGER_TAP,SETTINGS_AUDIO_VOLUME,SETTINGS_AUDIO_SPEAKERS,SETTINGS_AUDIO_HEADPHONES,SETTINGS_AUDIO_TEST,SETTINGS_AUDIO_STOP };
 enum { CALC_EVALUATE=70,CALC_CLEAR,CALC_USE,CALC_COPY,CALC_HISTORY,CALC_KEY_FIRST=300 };
 #define CALC_HISTORY_LIMIT 16
 #define CALC_EXPRESSION_BYTES 256
@@ -40,8 +41,12 @@ struct tool {
     struct desk_file_picker picker;
     int picker_mode,picker_job;
     struct desk_button buttons[32];
-    struct desk_check checks[11];
-    struct desk_slider pointer_speed,brightness;
+    struct desk_check checks[13];
+    struct desk_slider pointer_speed,brightness,audio_volume;
+    struct srv_audio_status audio;
+    uint64_t audio_serial,audio_at;
+    int audio_pending,audio_requested,audio_wanted_volume;
+    unsigned audio_queued_op,audio_queued_value,audio_watch_op;
     int brightness_percent,brightness_pending,brightness_refresh;
     uint64_t brightness_serial,brightness_at;
     struct desk_scrollbar settings_scroll;
@@ -69,6 +74,16 @@ struct tool {
     struct desk_table_row network_rows[16];
     char network_values[16][80];
     int network_valid;
+    struct desk_table device_table;
+    struct desk_table_row device_rows[160];
+    char device_values[160][4][64];
+    unsigned device_count,device_pci_count,device_usb_count;
+    int devices_valid;
+    struct desk_table sensor_table;
+    struct desk_table_row sensor_rows[9];
+    char sensor_values[9][64];
+    struct srv_thermal_status thermal;
+    int thermal_valid,thermal_fresh,smc_fresh;
     int process_count,system_paused,system_memory_valid;
     struct desk_list_item items[DESK_FILE_ENTRIES];
     struct desk_file_entry entries[DESK_FILE_ENTRIES];
@@ -98,6 +113,7 @@ void tool_system_refresh(struct tool *tool,int force);
 void tool_system_draw(struct tool *tool,struct desk_canvas *canvas);
 void tool_system_action(struct tool *tool,struct desk_action action);
 void tool_settings_tick(struct tool *t);
+void tool_settings_audio(struct tool *t,const struct desk_packet *p);
 void tool_settings_brightness(struct tool *t,const struct desk_packet *p);
 void tool_settings_init(struct tool *tool);
 void tool_settings_layout(struct tool *tool);

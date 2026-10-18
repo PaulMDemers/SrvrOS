@@ -1,4 +1,8 @@
 #include <srvros/ahci.h>
+#include <srvros/audio.h>
+#include <srvros/thermal.h>
+#include <srvros/smc.h>
+#include <srvros/audio_abi.h>
 #include <srvros/arch.h>
 #include <srvros/latency.h>
 #include <srvros/fpu.h>
@@ -500,7 +504,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
 }
@@ -1099,6 +1103,19 @@ static void run_command(char *line) {
         render_benchmark(streq(args, "serial"));
     } else if (streq(command, "xhci") || streq(command, "usb")) {
         xhci_print_status();
+    } else if (streq(command, "smc")) {
+        smc_print_status();
+    } else if (streq(command, "thermal")) {
+        thermal_print_status();
+    } else if (streq(command, "audio")) {
+        unsigned op=0,value=0;
+        if(streq(args,"test")) op=SRV_AUDIO_TEST;
+        else if(streq(args,"stop")) op=SRV_AUDIO_STOP;
+        else if(streq(args,"headphones")) { op=SRV_AUDIO_OUTPUT;value=1; }
+        else if(streq(args,"speakers")) op=SRV_AUDIO_OUTPUT;
+        if(op) console_printf("audio: request %s\n",audio_request(op,value)?"rejected (unavailable or busy)":"queued");
+        else if(*args) console_write("audio: usage: audio [test|stop|speakers|headphones]\n");
+        audio_print_status();
     } else if (streq(command, "net")) {
         command_net(args);
     } else if (streq(command, "ps")) {

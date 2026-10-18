@@ -4,6 +4,9 @@
 int gui_register_server(void) {
     return (int)srv_syscall0(SYS_GUI_REGISTER);
 }
+int gui_audio(unsigned operation,unsigned value,struct srv_audio_status *status) {
+    return (int)srv_syscall4(SYS_AUDIO,operation,value,(long)status,sizeof(*status));
+}
 int gui_brightness(unsigned percent) { return (int)srv_syscall1(SYS_GUI_BRIGHTNESS,percent); }
 int gui_pointer_config(unsigned speed,unsigned options) {
     return (int)srv_syscall2(SYS_GUI_POINTER_CONFIG,speed,options);

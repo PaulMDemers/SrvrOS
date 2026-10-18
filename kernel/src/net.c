@@ -1,5 +1,5 @@
 #include <srvros/console.h>
-#include <srvros/e1000.h>
+#include <srvros/net_device.h>
 #include <srvros/heap.h>
 #include <srvros/net.h>
 #include <srvros/process.h>
@@ -367,7 +367,7 @@ static uint16_t udp_checksum(uint32_t src_ip, uint32_t dst_ip, const uint8_t *ud
 }
 
 static bool send_ethernet(uint8_t *frame, uint16_t length) {
-    if (e1000_send_frame(frame, length)) {
+    if (net_device_send(frame, length)) {
         tx_frames++;
         return true;
     }
@@ -562,7 +562,7 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
             copy_bytes(mac_out, arp_resolved_mac, 6);
             return true;
         }
-        (void)e1000_poll(32, false);
+        (void)net_device_poll(32, false);
         scheduler_yield();
     }
     arp_waiting = false;
@@ -2139,7 +2139,7 @@ static void net_worker(void *arg) {
     (void)arg;
 
     for (;;) {
-        uint64_t received = e1000_poll(32, false);
+        uint64_t received = net_device_poll(32, false);
         rx_worker_polls++;
         if (received != 0) {
             rx_worker_packets += received;
@@ -2152,15 +2152,17 @@ static void net_worker(void *arg) {
 
 void net_init(void) {
     set_local_ip_bytes(local_ip_bytes);
-    local_mac = e1000_mac();
+    net_device_select();
+    local_mac = net_device_mac();
 
     if (local_mac == 0) {
-        console_write("net: no e1000 link, stack idle\n");
+        console_write("net: no supported network device, stack idle\n");
         initialized = false;
         return;
     }
 
     initialized = true;
+    console_printf("net: provider=%s\n",net_device_name());
     console_printf("net: static ipv4=%u.%u.%u.%u tcp=:80 icmp=on dhcp=available\n",
         local_ip_bytes[0],
         local_ip_bytes[1],
@@ -2211,7 +2213,7 @@ int64_t net_dhcp_request(void) {
         if (dhcp_configured) {
             return (int64_t)local_ip;
         }
-        (void)e1000_poll(32, false);
+        (void)net_device_poll(32, false);
         if (dhcp_have_offer && !dhcp_request_sent) {
             (void)send_dhcp_message(DHCP_REQUEST, dhcp_offered_ip_bytes, dhcp_server_ip_bytes);
         }
@@ -2265,7 +2267,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
             if (dns_response_done) {
                 break;
             }
-            (void)e1000_poll(32, false);
+            (void)net_device_poll(32, false);
             scheduler_yield();
         }
         dns_waiting = false;
@@ -2500,9 +2502,9 @@ int64_t net_status_info(struct srv_net_status_info *info) {
     info->abi_version = SRV_NET_ABI_VERSION;
     info->struct_size = sizeof(*info);
     info->initialized = initialized ? 1 : 0;
-    struct e1000_link_info link;
-    if(initialized && e1000_link_info(&link)) {
-        info->link_flags=SRV_NET_LINK_KNOWN|(link.up?SRV_NET_LINK_UP:0)|(link.full_duplex?SRV_NET_LINK_FULL_DUPLEX:0);
+    struct net_device_link link;
+    if(initialized && net_device_link(&link)) {
+        info->link_flags=SRV_NET_LINK_KNOWN|(link.up?SRV_NET_LINK_UP:0)|(link.full_duplex?SRV_NET_LINK_FULL_DUPLEX:0)|(link.duplex_known?SRV_NET_LINK_DUPLEX_KNOWN:0);
         info->link_speed_mbps=link.speed_mbps;
     }
     info->worker_started = worker_started ? 1 : 0;
@@ -2620,7 +2622,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
             }
             return 0;
         }
-        (void)e1000_poll(32, false);
+        (void)net_device_poll(32, false);
         scheduler_yield();
     }
 
@@ -2817,7 +2819,7 @@ int64_t net_udp_recvfrom(uint64_t socket_id,
             return (int64_t)copied;
         }
 
-        e1000_poll(32, false);
+        net_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3002,7 +3004,7 @@ int64_t net_connect(uint32_t remote_ip, uint16_t remote_port, bool nonblock) {
             return -SRV_NETERR_TIMEDOUT;
         }
 
-        e1000_poll(32, false);
+        net_device_poll(32, false);
         if (!scheduler_wait_timeout(&connect_wait_queue, connect_ready, &wait, deadline)) {
             scheduler_yield();
         }
@@ -3075,7 +3077,7 @@ int64_t net_accept(uint64_t listener_id,
             }
         }
 
-        e1000_poll(32, false);
+        net_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3165,7 +3167,7 @@ static int64_t net_read_common(uint64_t connection_id, char *buffer, uint64_t le
             return -1;
         }
 
-        e1000_poll(32, false);
+        net_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3256,7 +3258,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
                     return sent == 0 ? -1 : (int64_t)sent;
                 }
                 sent += chunk;
-                e1000_poll(16, false);
+                net_device_poll(16, false);
                 scheduler_yield();
                 if (sent == length) {
                     return (int64_t)sent;
@@ -3271,7 +3273,7 @@ int64_t net_respond(uint64_t connection_id, const char *buffer, uint64_t length,
             return (int64_t)sent;
         }
 
-        e1000_poll(32, false);
+        net_device_poll(32, false);
         if (nonblock) {
             return SRV_ERR_AGAIN;
         }
@@ -3289,7 +3291,7 @@ uint16_t net_poll_events(uint64_t handle, uint16_t events) {
         return SRV_POLLNVAL;
     }
 
-    e1000_poll(32, false);
+    net_device_poll(32, false);
 
     if (handle_type(handle) == NET_HANDLE_LISTENER) {
         struct net_listener *listener = find_listener(handle);

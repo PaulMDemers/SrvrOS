@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <srvros/key_event.h>
 #include <srvros/pointer_config.h>
+#include <srvros/audio_abi.h>
 
 #define GUI_TEXT_MAX 192
 
@@ -50,6 +51,7 @@ struct gui_message {
 };
 
 int gui_register_server(void);
+int gui_audio(unsigned operation,unsigned value,struct srv_audio_status *status);
 int gui_brightness(unsigned percent); /* 0 query; 5..100 set; server only. */
 int gui_pointer_config(unsigned speed,unsigned options);
 int gui_keyboard_mode(int enabled);

@@ -326,7 +326,7 @@ def main():
         "webd: serving /fat/www on 10.0.2.15:80",
         "webd: stats accepted=",
         "10.0.2.15:80",
-        "e1000: flags=UP,RUNNING",
+        "net0: flags=UP,RUNNING",
     ]:
         if marker not in text:
             missing.append(marker)

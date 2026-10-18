@@ -773,6 +773,31 @@ srv> fsck /fat
 
 - The smoke tests use temporary copies of the exFAT disk image where mutation is
   expected.
-- Network tests require QEMU user networking and the e1000 device.
+- Most network tests use QEMU user networking and e1000. `usb_ecm_smoke.py`
+  instead tests the USB CDC ECM provider with no PCI network adapter.
 - A fatal exception line fails the harness unless it is the intentional boot-time
   breakpoint test.
+
+
+## Device support checks
+
+```sh
+tools/host-env.sh make -j2 all test-core
+tools/host-env.sh make test-acpi-namespace
+tools/host-env.sh python3 tools/aml_probe_smoke.py
+tools/host-env.sh python3 tools/audio_smoke.py
+tools/host-env.sh python3 tools/audio_smoke.py --controller ich9-intel-hda --codec hda-duplex --soak-seconds 2400
+tools/host-env.sh python3 tools/audio_settings_smoke.py
+tools/host-env.sh python3 tools/usb_ecm_smoke.py --soak-seconds 1800
+tools/host-env.sh python3 tools/desktop_system_smoke.py --network
+tools/host-env.sh python3 tools/sysabi_smoke.py
+python3 -m unittest discover -s tools -p test_capture_device_details.py
+```
+
+The audio harness validates captured PCM rather than claiming physical sound.
+CPU sensor tests cover decoding and unavailable/stale UI states; QEMU does not
+validate the laptop's thermal MSRs or SMC fan readings. SMC host tests cover the
+read-only transport and its actual worker, including failure invalidation.
+AML and SBS host tests do not establish live
+EC ownership. All VM storage is disposable. The staged GRUB/EFI desktop check
+should follow the build before installing a hardware candidate.

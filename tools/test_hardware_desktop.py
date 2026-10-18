@@ -4,6 +4,20 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_device_summary_order_and_attention(self):
+        newer="workspace-devices: audio_state=4 error=3 started=2 completed=1 monotonic_us=200"
+        older="workspace-devices: audio_state=2 error=0 started=1 completed=1 monotonic_us=100"
+        self.assertEqual(desktop.device_summaries(newer+"\n"+older)["audio"]["monotonic_us"],200)
+        self.assertTrue(desktop.needs_attention(newer))
+        self.assertFalse(desktop.needs_attention(older))
+        self.assertTrue(desktop.needs_attention("smc: state=4 flags=0 error=1"))
+        self.assertFalse(desktop.needs_attention("smc: state=1 flags=0 error=0"))
+        critical="workspace-devices: thermal_state=2 flags=0x0000000000000008 core_mc=-1000 monotonic_us=300"
+        self.assertTrue(desktop.needs_attention(critical))
+        self.assertEqual(desktop.device_snapshot(critical)[1]["core_mc"],-1000)
+        for bad in ("workspace-devices: audio_state=4 monotonic_us=oops","workspace-devices: audio_state=4","audio_state=4 monotonic_us=1"):
+            self.assertIsNone(desktop.device_snapshot(bad))
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

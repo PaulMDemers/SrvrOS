@@ -3,6 +3,10 @@
 #include <srvros/workspace.h>
 #include <srvros/workspace_log.h>
 #include <srvros/laptop_probe.h>
+#include <srvros/audio.h>
+#include <srvros/thermal.h>
+#include <srvros/smc.h>
+#include <srvros/aml_probe.h>
 #include <srvros/trackpad_test.h>
 #include <srvros/ahci.h>
 #include <srvros/arch.h>
@@ -437,6 +441,7 @@ void kmain(void) {
     xhci_set_trackpad_gestures(gestures);
     xhci_set_trackpad_pointer(gestures || cmdline_has_token(cmdline, "srvros.trackpad=pointer"));
     xhci_set_trackpad_capture(cmdline_has_token(cmdline, "srvros.trackpad=capture"));
+    xhci_set_network_enabled(cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -456,6 +461,7 @@ void kmain(void) {
         xhci_print_status();
     }
     intel_gfx_init();
+    if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {
@@ -549,6 +555,9 @@ void kmain(void) {
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
+    if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
+    if(cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+    if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
     if(automatic_probe) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
@@ -574,6 +583,9 @@ void kmain(void) {
             console_printf("desktop-trial: boot options=%s\n",cmdline);
             (void)workspace_log_start();
             bool exited = process_run_elf_args("/fat/bin/deskd", "--hardware-trial");
+            audio_print_status();
+            thermal_print_status();
+            smc_print_status();
             xhci_print_input_summary(); /* Include gesture counters in the saved exit snapshot. */
             bool logs_saved=workspace_log_stop();
             console_printf("desktop-trial: diagnostics saved=%s\n",logs_saved?"yes":"NO");

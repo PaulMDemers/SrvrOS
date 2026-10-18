@@ -1,0 +1,55 @@
+# uACPI namespace evaluation
+
+Upstream: https://github.com/uACPI/uACPI
+Version: 7.0.0, commit `686a9a52d9ad72690406d7cada82801377d5e2fa`
+License: MIT (retained in `ports/upstream/uacpi/LICENSE`).
+Tarball: https://api.github.com/repos/uACPI/uACPI/tarball/686a9a52d9ad72690406d7cada82801377d5e2fa
+Downloaded archive SHA-256: `26fc8f2fd7fedac1356732d9aa3f58620142d3aa9b1da69c6817293040e732fd`.
+Only unmodified `include/`, `source/`, LICENSE and README.md are vendored.
+
+The first adapter is `tools/acpi_namespace_probe.c`, a single-threaded offline
+host tool. It builds synthetic RSDP/XSDT/FADT pointers around explicitly supplied
+DSDT/SSDT copies, validates their checksums and evaluates selected objects.
+Physical mappings are limited to these owned buffers and explicit snapshots. SystemIO accesses and uncaptured PCI/MMIO accesses are denied; there is no
+`/dev/mem`, port I/O or host firmware access. `--region ADDRESS:FILE` and
+`--pci SEG:BUS:DEV.FN:FILE` explicitly provide private copies of previously
+captured memory/configuration state. Writes change those in-memory copies only;
+the files and hardware are never modified.
+`UACPI_REDUCED_HARDWARE` compiles out fixed-register/event machinery and
+`UACPI_NATIVE_MMIO` prevents operation-region access through table mappings.
+These are restrictions of the offline adapter, not claims about laptop hardware.
+
+The tool loads module-level AML, but does not call namespace initialization,
+enter ACPI mode, install an EC handler or run `_REG`/all `_INI` methods. Its
+Darwin profile disables other vendor `_OSI` strings; selecting it is an explicit
+probe option, not yet native OS policy. Each evaluated object is named on the
+command line. Loop depth/time and host runtime are bounded. A denied access is
+reported as incomplete; values from a denied access must not be treated as hardware readings.
+
+Native SCI/GPE ownership, scheduler synchronization, EC query dispatch and the
+battery provider remain separate work. Offline resource evaluation cannot prove
+that battery sampling, suspend, power-off or firmware initialization works.
+
+## Isolated native probe
+
+`ports/srvros/uacpi/kernel/probe.c` is linked with the same upstream interpreter
+and the same reduced-hardware/native-MMIO restrictions. `srvros.aml=probe` opts
+into a single boot-time run. It copies known ACPI tables, lazily snapshots only
+firmware-described ACPI reclaimable/NVS ranges, and copies registered PCI
+configuration data on first use. Every AML memory/PCI write targets a private
+copy. Arbitrary physical mappings and all SystemIO are denied. Copy and
+interpreter heaps each have a 4 MiB budget; each copy is at most 1 MiB. Allocation
+headers count toward the interpreter budget and preserve heap alignment.
+
+This is a single-threaded probe adapter, not the eventual native ACPI runtime.
+Blocking semaphores, long sleeps and asynchronous work are explicitly unsupported
+and make the result incomplete. It does not call namespace initialization,
+register an EC handler, enable SCI/GPEs or enter ACPI mode. It evaluates the
+known MacBook resource paths and `PINI` only in the isolated namespace; changes
+to GNVS/PCI copies are discarded. Diagnostic error/denial/leak counts accompany
+the result. Firmware snapshots and the interpreter are released afterwards.
+
+Host tests compile our own ASL fixture and cover resource values, `_OSI`, private
+snapshot writes, missing objects, bad checksums, denied I/O and loop deadlines.
+`tools/aml_probe_smoke.py` runs the native adapter in QEMU; `--fixture` adds our
+synthetic EC/SMBus resource contract. Neither test proves a physical battery read.

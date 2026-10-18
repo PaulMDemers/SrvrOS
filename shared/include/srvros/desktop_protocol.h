@@ -2,9 +2,9 @@
 #define SRVROS_DESKTOP_PROTOCOL_H
 #include <stdint.h>
 
-/* Fixed-size v9 packet carried in gui_message.text. The kernel supplies the
+/* Fixed-size v11 packet carried in gui_message.text. The kernel supplies the
  * envelope source PID. Unknown versions/types are rejected, never guessed. */
-#define DESK_PROTOCOL_VERSION 10
+#define DESK_PROTOCOL_VERSION 11
 #define DESK_TRANSPORT_MESSAGE 300
 #define DESK_SURFACE_STREAM 1
 /* Bounded surfaces cover the initial 1440x900 laptop target. */
@@ -16,7 +16,7 @@ enum desk_packet_type {
     DESK_CLOSE, DESK_TEXT, DESK_FOCUS, DESK_SCROLL, DESK_POINTER,
     DESK_KEY, DESK_CLOSE_REQUEST, DESK_CANCEL_CLOSE, DESK_TITLE, DESK_LAUNCH,
     DESK_PREFERENCES_SET, DESK_PREFERENCES,
-    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS
+    DESK_CLIPBOARD_SET, DESK_CLIPBOARD_GET, DESK_CLIPBOARD_ACK, DESK_CLIPBOARD_DATA, DESK_MENU_SET, DESK_MENU_ACTION, DESK_NOTIFY, DESK_NOTIFY_ACK, DESK_CONTEXT, DESK_BRIGHTNESS, DESK_AUDIO
 };
 enum desk_application { DESK_APP_FILES=1, DESK_APP_TEXT, DESK_APP_CALCULATOR,
     DESK_APP_SYSTEM, DESK_APP_SETTINGS, DESK_APP_TERMINAL, DESK_APP_PREVIEW, DESK_APP_HELP, DESK_APP_CLOCK, DESK_APP_SKETCH, DESK_APP_NETWORK, DESK_APP_FIND, DESK_APP_COUNT=12 };
@@ -60,6 +60,11 @@ _Static_assert(sizeof(struct desk_packet) == 160, "desktop wire layout");
  * BRIGHTNESS: client serial identifies a request; value=0 query or 5..100 set.
  * Only focused Settings may set. Server echoes serial and returns value=0..100
  * or UINT32_MAX unavailable/error. Replies are retried; requests do not persist.
+ * AUDIO: serial identifies request, value=SRV_AUDIO_* operation, width=argument.
+ * Only focused Settings may mutate audio; any registered client may query.
+ * Reply echoes serial, value=0 accepted or 1 rejected, text=srv_audio_status.
+ * Acceptance queues work; query state/pending to observe completion. No PCM or
+ * codec commands are accepted from an application through this protocol.
  * PREFERENCES_SET: value=DESK_PREF_* field mask, text=desk_preferences.
  * Only focused Settings may update. PREFERENCES broadcasts the complete value
  * in text, value=persistence status, serial=revision, including new windows.

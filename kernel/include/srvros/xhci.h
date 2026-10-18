@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <srvros/apple_trackpad.h>
 
+struct srv_device_info;
+int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out);
+
 #define XHCI_TRACKPAD_SAMPLES 5
 struct xhci_trackpad_sample {
     uint32_t length;
@@ -24,6 +27,7 @@ struct xhci_trackpad_capture {
 void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out);
 void xhci_trackpad_reset_capture(void);
 
+void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);
 void xhci_set_trackpad_pointer(bool enabled);

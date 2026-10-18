@@ -12,6 +12,45 @@ SESSION = re.compile(r"session-[0-9a-f]{16}-[0-9a-f]{2}")
 FILES = ("boot.log", "session-a.log", "session-b.log", "exit.log")
 
 
+def device_snapshot(line):
+    if not line.startswith("workspace-devices: "):
+        return None
+    fields={}
+    for token in line.split()[1:]:
+        key,sep,value=token.partition("=")
+        if not sep or not re.fullmatch(r"(?:-?[0-9]{1,20}|0x[0-9a-fA-F]{1,16})",value):
+            return None
+        fields[key]=int(value,16 if value.startswith("0x") else 10)
+    for kind in ("audio","thermal","smc"):
+        if kind+"_state" in fields and fields.get("monotonic_us",-1)>=0:
+            return kind,fields
+    return None
+
+
+def device_summaries(text):
+    latest={}
+    for line in text.splitlines():
+        parsed=device_snapshot(line)
+        if parsed:
+            kind,fields=parsed
+            if kind not in latest or fields["monotonic_us"]>=latest[kind]["monotonic_us"]:
+                latest[kind]=fields
+    return latest
+
+
+def needs_attention(line):
+    if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
+        return True
+    if line.startswith("deskd: brightness requested=") and "result=-1" in line:
+        return True
+    if re.match(r"(?:audio|smc): state=4(?: |$)",line):
+        return True
+    parsed=device_snapshot(line)
+    if not parsed:return False
+    kind,fields=parsed
+    return (kind in ("audio","smc") and fields[kind+"_state"]==4) or (kind=="thermal" and fields.get("flags",0)&8)!=0
+
+
 def collect(mount, volume, output):
     workspace = mount / "srvros-work"
     marker = workspace / ".workspace"
@@ -64,8 +103,8 @@ def collect(mount, volume, output):
             "files": {key: hashlib.sha256(data).hexdigest() for key, data in payload.items()},
             "exit_snapshot_present": "exit.log" in payload,
             "desktop_exit_seen": "deskd: exited" in text,
-            "attention": sorted(set(line for line in text.splitlines()
-                                    if any(token in line for token in ("SAVE FAILED", "deskd: FAIL", "reason=", "exception:")) or (line.startswith("deskd: brightness requested=") and "result=-1" in line))),
+            "attention": sorted(set(line for line in text.splitlines() if needs_attention(line))),
+            "devices": device_summaries(text),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),
         })

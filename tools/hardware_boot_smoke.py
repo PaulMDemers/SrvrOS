@@ -116,6 +116,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
+    parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -132,6 +133,8 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith("ram-usb-v21-")):
+        parser.error("--audio-check requires a v21 desktop stage")
     workspace=desktop or probe
     logs = boot.ROOT / "build/review"
     logs.mkdir(parents=True, exist_ok=True)
@@ -157,6 +160,9 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if args.audio_check:
+            command += ["-device","ich9-intel-hda","-device","hda-duplex,audiodev=capture",
+                "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'}"]
         if workspace and not args.probe_missing_workspace:
             from exfat_test_image import ExfatFixture, check_clean_image
             volume=temp/"workspace.exfat";stick=temp/"workspace.img"
@@ -209,7 +215,7 @@ def main():
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith("ram-usb-v20-"))
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-")))
                     before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                     wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
@@ -245,6 +251,12 @@ def main():
                     first_session=re.search(r"workspace-log: directory=(/work/[^ ]+) ",serial.read_text(errors="replace"))[1]
                     assert b"laptop-probe: unsupported chipset" in stored.read(first_session.removeprefix("/work/")+"/boot.log")
                     assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
+                    if args.audio_check:
+                        assert b"workspace-devices: audio_state=2" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
+                    if manifest.get("config_version", "").startswith("ram-usb-v21-"):
+                        boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log").decode()
+                        assert "smc: state=1" in boot_log and "thermal: state=1" in boot_log
+                        assert re.search(r"aml-probe: completed .*errors=0 denied=0 .*heap_remaining=0",boot_log)
                     ui.stream.close();ui.sock.close()
                 text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
                 for marker in ("SRVROS_GRUB_CHAINLOAD_TEST", "srvros: entering kernel",
@@ -260,6 +272,14 @@ def main():
                     qmp_command(qmp, {"execute": "qmp_capabilities"})
                     send_qmp_text(qmp, "echo grub-usb-ok\n", 0.08)
                     text = wait_for(serial, lambda s: "\ngrub-usb-ok\n" in s, process, 20)
+                    if args.audio_check:
+                        assert "audio: state=2" in text and "tests_started=0 tests_completed=0" in text
+                        offset=len(text)
+                        send_qmp_text(qmp,"audio test\n",0.08)
+                        wait_for(serial,lambda s:"audio: request queued" in s[offset:],process,20)
+                        time.sleep(1.5)
+                        send_qmp_text(qmp,"audio\n",0.08)
+                        text=wait_for(serial,lambda s:"tests_started=1 tests_completed=1" in s[offset:] and s.endswith("srv> "),process,20)
                     if args.kernel_check:
                         send_qmp_text(qmp, "fpustress\n", 0.08)
                         text = wait_for(serial, lambda s: "fpustress: PASS" in s and s.endswith("srv> "), process, 30)
@@ -357,6 +377,19 @@ def main():
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait()
+            if args.audio_check:
+                import wave
+                from array import array
+                captured=logs/"hardware-grub-tone.wav"
+                first_capture=logs/"hardware-grub-tone-first.wav"
+                first_capture.write_bytes(captured.read_bytes())
+                with wave.open(str(first_capture),"rb") as wav:
+                    assert wav.getnchannels()==2 and wav.getsampwidth()==2
+                    rate=wav.getframerate();samples=array("h",wav.readframes(wav.getnframes()))
+                left=samples[::2];assert left==samples[1::2]
+                active=[i for i,v in enumerate(left) if abs(v)>20]
+                assert active and .45<(active[-1]-active[0])/rate<.6
+                assert max(abs(v) for v in left)==1200 and all(v==0 for v in left[-rate//10:])
             if args.desktop_check:
                 # A new VM has a fresh RAM root. Only the USB workspace survives.
                 first_serial=logs/"hardware-grub-first-serial.log"
@@ -366,7 +399,7 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith("ram-usb-v20-"))
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-")))
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
@@ -391,6 +424,13 @@ def main():
                     destination,report=collect(recovered,desktop[1],logs/"desktop-collections")
                     assert len(report["sessions"])==2
                     assert all(item["exit_snapshot_present"] and item["desktop_exit_seen"] and not item["attention"] for item in report["sessions"])
+                    if manifest.get("config_version", "").startswith("ram-usb-v21-"):
+                        for session in report["sessions"]:
+                            devices=session["devices"]
+                            assert set(devices)=={"audio","thermal","smc"}
+                            assert all(value["monotonic_us"]>0 for value in devices.values())
+                            assert devices["thermal"]["thermal_state"]==1 and devices["smc"]["smc_state"]==1
+                            if args.audio_check: assert devices["audio"]["audio_state"]==2
                     print(f"desktop diagnostics: two sessions collected and verified: {destination}")
                     (logs/"workspace-final.exfat").write_bytes(volume.read_bytes())
                     ui.stream.close();ui.sock.close()
@@ -405,6 +445,7 @@ def main():
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     if args.desktop_check:
         print("Native desktop trial: checklist, USB keyboard editing, verified GUI save, default USB documents/screenshots, durable session logs, preferences across fresh VM boot and two clean unmounts passed.")
+    if args.audio_check: print("Staged audio: PASS HDA initialization, saved device status, 500 ms stereo PCM at default volume and silent tail")
     print(f"Serial log: {serial}")
 
 

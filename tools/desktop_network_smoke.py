@@ -97,9 +97,9 @@ def main():
                 # A retained DHCP address is not a connected cable. System reads
                 # the device's current STATUS, and Network Utility refuses Run.
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready")
-                click(634,228);wait(b"system-page=network");time.sleep(.5)
+                click(370,228);wait(b"system-page=network");time.sleep(.5)
                 qmp.call("set_link",{"name":"nic0","up":False});shortcut("f5")
-                wait(b"link=1 speed=0");shot("network-disconnected-system")
+                wait(b"link=9 speed=0");shot("network-disconnected-system") # Known link/duplex, link down.
                 launch_network();wait(b"launcher window=");shortcut("ctrl-ret");wait(b"desknet: disconnected");shot("network-disconnected")
                 qmp.call("set_link",{"name":"nic0","up":True})
                 shortcut("ctrl-l");type_text("10.0.2.2");shortcut("ctrl-ret");wait(b"desknet: started mode=ping target=10.0.2.2");wait(b"desknet: finished result=1 exit=0")

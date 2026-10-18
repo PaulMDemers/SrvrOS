@@ -4,7 +4,7 @@
 #define SRVROS_WORKSPACE_LOG_HOST_TEST
 #include "../kernel/src/workspace_log.c"
 static struct item { char path[160];struct vfs_node node;unsigned char bytes[65536]; } files[24];
-static unsigned count,depth,writes,flushes;
+static unsigned count,depth,writes,flushes,device_reads;
 static bool mounted=true,io_ok=true,sync_ok=true,corrupt,open_file;
 static uint64_t ticks=10,total=100;
 static struct item *find(const char *p) { for(unsigned i=0;i<count;i++) if(!strcmp(p,files[i].path)) return &files[i];return NULL; }
@@ -33,11 +33,15 @@ uint64_t timer_monotonic_us(void) { return ticks*10000; }
 int64_t timer_realtime_us(void) { return 123456789; }
 uint64_t bootlog_total(void) { return total; }
 uint64_t bootlog_snapshot(char *out,uint64_t capacity,uint64_t *seq) { assert(capacity>=8);memcpy(out,"test log",8);*seq=total;return 8; }
+void smc_status(struct srv_smc_status *out) { assert(!depth);*out=(struct srv_smc_status){.version=SRV_SMC_VERSION}; }
+void audio_status(struct srv_audio_status *out) { assert(!depth);device_reads++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.tests_started=2,.tests_completed=2}; }
+void thermal_status(struct srv_thermal_status *out) { assert(!depth);device_reads++;*out=(struct srv_thermal_status){.version=SRV_THERMAL_VERSION,.state=SRV_THERMAL_UNAVAILABLE}; }
 void console_printf(const char *fmt,...) { (void)fmt;total++; }
 void console_write(const char *text) { (void)text;total++; }
 int main(void) {
     mounted=false;assert(!workspace_log_start() && !writes);mounted=true;
     assert(workspace_log_start() && enabled && healthy && writes==1 && flushes==1);
+    assert(device_reads==2);
     char first[128];strcpy(first,directory);assert(!workspace_log_start());
     assert(!ready(NULL) && activated(NULL));ticks=due;assert(ready(NULL));
     assert(save("session-a.log"));assert(find(path) && find(path)->node.size==8);

@@ -5,6 +5,10 @@
 #include "../userspace/deskd/deskd.c"
 #undef main
 
+static unsigned audio_calls;
+int gui_audio(unsigned op,unsigned value,struct srv_audio_status *out) {
+    (void)value;if(op) audio_calls++;*out=(struct srv_audio_status){.version=SRV_AUDIO_VERSION,.state=SRV_AUDIO_READY,.volume=25};return 0;
+}
 static unsigned brightness_calls;
 int gui_brightness(unsigned percent) { brightness_calls++;return percent?(int)percent:14; }
 static unsigned pointer_options;
@@ -13,6 +17,8 @@ void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
 static uint32_t sent[128];
+static uint64_t sent_serials[128];
+static int send_allow=-1;
 static long execute_result=-1;
 static char executed_path[160],executed_role[32],executed_argument[160];
 long srv_exec(const struct srv_exec_request *request) {
@@ -37,8 +43,9 @@ struct desk_packet desk_packet_new(uint32_t type) {
 }
 int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
-    if (queue_full) return -1;
-    assert(sends<128); sent[sends++]=p->type; return 0;
+    if (queue_full || !send_allow) return -1;
+    if(send_allow>0) send_allow--;
+    assert(sends<128);sent_serials[sends]=p->serial;sent[sends++]=p->type; return 0;
 }
 int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uint32_t *p,uint64_t stride) {
     assert(id==7 && !x && !y && stride==w);
@@ -96,8 +103,7 @@ int main(void) {
     assert(s.scene.focus==1 && s.clients[0].input_count==2);
     assert(s.clients[0].input[0].y==160 && s.clients[0].input[1].y==-20);
     service(&s); assert(s.clients[0].input_count==2);
-    queue_full=0; service(&s); assert(s.clients[0].input_count==1);
-    service(&s); assert(!s.clients[0].input_count && sent[sends-1]==DESK_SCROLL);
+    queue_full=0; service(&s); assert(!s.clients[0].input_count && sent[sends-1]==DESK_SCROLL);
     /* Reproduce the former scroll/hover alternation while the client cannot
      * accept IPC. The app must survive and later receive its ordered release. */
     s.scene.apps=1;queue_full=1;
@@ -154,6 +160,16 @@ int main(void) {
     assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
     queue_input(&s,0,p);
     assert(s.clients[0].closing && !s.pointer_pid && s.pointer_blocked);
+    /* Slow rendering still drains an ordered batch. Partial IPC capacity keeps
+     * the first unsent edge at the head, without duplication or reordering. */
+    memset(&s,0,sizeof(s));s.clients[0].pid=42;sends=0;
+    for(unsigned i=0;i<24;i++) { p=desk_packet_new(DESK_KEY);p.serial=i+1;queue_input(&s,0,p); }
+    service(&s);assert(sends==DESK_INPUT_BATCH&&s.clients[0].input_count==24-DESK_INPUT_BATCH);
+    send_allow=3;service(&s);assert(sends==DESK_INPUT_BATCH+3);
+    unsigned blocked_count=s.clients[0].input_count;service(&s);assert(s.clients[0].input_count==blocked_count);
+    send_allow=-1;while(s.clients[0].input_count) service(&s);
+    assert(sends==24&&!s.clients[0].closing);
+    for(unsigned i=0;i<24;i++) assert(sent[i]==DESK_KEY&&sent_serials[i]==i+1);
     memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
     s.clients[0].pid=42;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
     s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};
@@ -194,6 +210,15 @@ int main(void) {
     queue_full=0;service(&s);assert(!s.clients[0].brightness_reply.type);
     s.clients[0].configure=was_configuring;
     s.clients[0].brightness_reply.type=0;s.scene.windows[0].application=old_app;s.scene.focus=old_focus;
+    p=desk_packet_new(DESK_AUDIO);p.serial=4;p.value=SRV_AUDIO_TEST;
+    incoming(&s,42,&p);assert(!audio_calls && s.clients[0].audio_reply.value==1);
+    s.scene.windows[0].application=DESK_APP_SETTINGS;s.scene.focus=0;
+    incoming(&s,42,&p);assert(audio_calls==1 && !s.clients[0].audio_reply.value);
+    s.scene.focus=-1;incoming(&s,42,&p);assert(audio_calls==1);
+    p.value=SRV_AUDIO_QUERY;incoming(&s,42,&p);assert(audio_calls==1);
+    s.clients[0].configure=0;queue_full=1;service(&s);assert(s.clients[0].audio_reply.type==DESK_AUDIO);
+    queue_full=0;service(&s);assert(!s.clients[0].audio_reply.type);
+    s.clients[0].configure=was_configuring;s.scene.windows[0].application=old_app;s.scene.focus=old_focus;
     p=desk_packet_new(DESK_PREFERENCES_SET);p.value=DESK_PREF_TEXT;
     struct desk_preferences changed=desk_preferences_default();changed.text_size=20;memcpy(p.text,&changed,sizeof(changed));
     incoming(&s,42,&p);assert(s.preferences.value.text_size==16);

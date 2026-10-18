@@ -336,8 +336,10 @@ KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
-KERNEL_OBJ := $(KERNEL_C:%.c=build/%.c.o) $(KERNEL_S:%.S=build/%.S.o)
-KERNEL_DEP := $(KERNEL_C:%.c=build/%.c.d) $(KERNEL_S:%.S=build/%.S.d)
+UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c
+UACPI_KERNEL_OBJ := $(UACPI_KERNEL_SRC:%.c=build/kernel/%.c.o)
+KERNEL_OBJ := $(KERNEL_C:%.c=build/%.c.o) $(KERNEL_S:%.S=build/%.S.o) $(UACPI_KERNEL_OBJ)
+KERNEL_DEP := $(KERNEL_C:%.c=build/%.c.d) $(KERNEL_S:%.S=build/%.S.d) $(UACPI_KERNEL_OBJ:.o=.d)
 
 USER_INIT_C := $(shell find userspace/init -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 USER_INIT_S := $(shell find userspace/init -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
@@ -1887,9 +1889,9 @@ hardware-smoke: hardware-stage test-core
 test-xhci: build/tests/xhci-host$(HOST_EXE)
 	$< tools/fixtures/apple-05ac-0291-config.bin
 
-build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< kernel/src/drivers/apple_trackpad.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/usb_ecm.c -Wl,--gc-sections -o $@
 
 .PHONY: a1466-rehearsal
 a1466-rehearsal: $(USB_IMAGE)
@@ -2898,7 +2900,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/workspace_log.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -2935,6 +2937,78 @@ build/tests/backlight-host$(HOST_EXE): tools/test_backlight.c kernel/src/drivers
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_backlight.c kernel/src/drivers/backlight.c -o $@
 
+.PHONY: test-hda
+test-core: test-hda
+test-hda: build/tests/hda-host$(HOST_EXE)
+	$<
+build/tests/hda-host$(HOST_EXE): tools/test_hda.c kernel/src/drivers/hda_core.c kernel/src/drivers/hda_codec.c kernel/include/srvros/hda_core.h kernel/include/srvros/hda_codec.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_hda.c kernel/src/drivers/hda_core.c kernel/src/drivers/hda_codec.c -o $@
+
+.PHONY: test-pci-config
+test-core: test-pci-config
+test-pci-config: build/tests/pci-config-host$(HOST_EXE)
+	$<
+build/tests/pci-config-host$(HOST_EXE): tools/test_pci_config.c kernel/src/arch/x86_64/pci.c kernel/include/srvros/pci.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include tools/test_pci_config.c -Wl,--gc-sections -o $@
+
+.PHONY: test-devices
+test-core: test-devices
+test-devices: build/tests/devices-host$(HOST_EXE)
+	$<
+build/tests/devices-host$(HOST_EXE): tools/test_devices.c kernel/src/drivers/devices.c kernel/include/srvros/devices.h shared/include/srvros/device_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_devices.c kernel/src/drivers/devices.c -o $@
+
+UACPI_SRC := $(wildcard ports/upstream/uacpi/source/*.c)
+UACPI_HEADERS := $(shell find ports/upstream/uacpi/include -type f)
+.PHONY: acpi-namespace
+acpi-namespace: build/tools/acpi-namespace$(HOST_EXE)
+build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c $(UACPI_SRC) $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO $< $(UACPI_SRC) -o $@
+
+.PHONY: test-acpi-namespace
+test-acpi-namespace: acpi-namespace
+	$(PYTHON) tools/test_acpi_namespace.py
+
+build/kernel/ports/%.c.o: ports/%.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO -c $< -o $@
+
+.PHONY: test-net-device
+test-core: test-net-device
+test-net-device: build/tests/net-device-host$(HOST_EXE)
+	$<
+build/tests/net-device-host$(HOST_EXE): tools/test_net_device.c kernel/src/net_device.c kernel/include/srvros/net_device.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-usb-ecm
+test-core: test-usb-ecm
+test-usb-ecm: build/tests/usb-ecm-host$(HOST_EXE)
+	$<
+build/tests/usb-ecm-host$(HOST_EXE): tools/test_usb_ecm.c kernel/src/drivers/usb_ecm.c kernel/include/srvros/usb_ecm.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_usb_ecm.c kernel/src/drivers/usb_ecm.c -o $@
+
+.PHONY: test-sbs
+test-core: test-sbs
+test-sbs: build/tests/sbs-host$(HOST_EXE)
+	$<
+build/tests/sbs-host$(HOST_EXE): tools/test_sbs.c kernel/src/drivers/sbs_sample.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/ec_transport.c kernel/include/srvros/sbs_sample.h kernel/include/srvros/ec_smbus.h kernel/include/srvros/ec_transport.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_sbs.c kernel/src/drivers/sbs_sample.c kernel/src/drivers/ec_smbus.c kernel/src/drivers/ec_transport.c -o $@
+
+.PHONY: test-thermal
+test-core: test-thermal
+test-thermal: build/tests/thermal-host$(HOST_EXE)
+	$<
+build/tests/thermal-host$(HOST_EXE): tools/test_thermal.c kernel/src/drivers/thermal_core.c kernel/include/srvros/thermal.h shared/include/srvros/thermal_abi.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include tools/test_thermal.c kernel/src/drivers/thermal_core.c -o $@
+
 .PHONY: test-process-loader
 test-core: test-process-loader
 test-process-loader: build/tests/process-loader-host$(HOST_EXE)
@@ -2943,3 +3017,30 @@ build/tests/process-loader-host$(HOST_EXE): tools/test_process_loader.c kernel/s
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 
+.PHONY: test-aml-boundary
+test-core: test-aml-boundary
+test-aml-boundary: build/tests/aml-boundary-host$(HOST_EXE)
+	$<
+build/tests/aml-boundary-host$(HOST_EXE): tools/test_aml_probe_boundary.c ports/srvros/uacpi/kernel/probe.c $(KERNEL_HEADERS) $(UACPI_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO -I ports/upstream/uacpi/include -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-audio-service
+test-core: test-audio-service
+test-audio-service: build/tests/audio-service-host$(HOST_EXE)
+	$<
+build/tests/audio-service-host$(HOST_EXE): tools/test_audio_service.c kernel/src/drivers/audio.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-smc
+test-core: test-smc
+test-smc: build/tests/smc-host$(HOST_EXE) build/tests/smc-service-host$(HOST_EXE)
+	build/tests/smc-host$(HOST_EXE)
+	build/tests/smc-service-host$(HOST_EXE)
+build/tests/smc-host$(HOST_EXE): tools/test_smc.c tools/smc_model.h kernel/src/drivers/smc_transport.c kernel/include/srvros/smc_transport.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_smc.c kernel/src/drivers/smc_transport.c -o $@
+build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_model.h kernel/src/drivers/smc.c kernel/src/drivers/smc_transport.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@

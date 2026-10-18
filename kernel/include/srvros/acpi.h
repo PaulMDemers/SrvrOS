@@ -26,7 +26,7 @@ struct acpi_table_info {
     uint8_t revision;
 };
 
-struct acpi_mcfg_allocation {
+struct srv_acpi_mcfg_allocation {
     bool present;
     uint64_t base_address;
     uint16_t pci_segment;
@@ -40,7 +40,7 @@ const struct acpi_interrupt_source_override *acpi_irq_override(uint8_t source_ir
 uint64_t acpi_table_count(void);
 const struct acpi_table_info *acpi_table_at(uint64_t index);
 uint64_t acpi_mcfg_allocation_count(void);
-const struct acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t index);
+const struct srv_acpi_mcfg_allocation *acpi_mcfg_allocation_at(uint64_t index);
 void acpi_print_status(void);
 void acpi_print_input_diagnostics(void);
 

@@ -90,14 +90,20 @@ def main():
                 shortcut("f6");shortcut("end");shot("system-sorted")
                 click(660,163);wait(b"system-paused=1")
                 shortcut("f5");wait(b"system-refresh processes=");shot("system-paused")
-                click(610,204);wait(b"system-page=network");shot("system-network")
+                click(340,204);wait(b"system-page=network");shot("system-network")
                 if args.network:
                     readings=re.findall(rb"network-refresh valid=1 initialized=1 ip=167772687 rx=(\d+) tx=(\d+)",output)
                     if not readings or not all(int(value)>0 for value in readings[-1]):
                         raise RuntimeError("Missing configured address or DHCP traffic counters")
                 elif b"network-refresh valid=1 initialized=0 ip=" not in output:
                     raise RuntimeError("Missing no-adapter state")
-                shortcut("left");wait(b"system-page=processes")
+                shortcut("right");wait(b"system-page=devices");shot("system-devices")
+                inventories=re.findall(rb"devices-refresh valid=1 pci=(\d+) usb=(\d+)",output)
+                if not inventories or int(inventories[-1][0])<5 or int(inventories[-1][1])<1:
+                    raise RuntimeError("Missing PCI and active USB inventory")
+                shortcut("right");wait(b"system-page=sensors");shot("system-sensors")
+                if b"sensors-refresh valid=1 fresh=0" not in output:raise RuntimeError("Missing honest unsupported VM sensor state")
+                shortcut("left");wait(b"system-page=devices");shortcut("left");wait(b"system-page=network");shortcut("left");wait(b"system-page=processes")
                 # Resize while paused; rows remain keyboard/scroll accessible.
                 qmp.mouse(813-pointer[0],628-pointer[1]);pointer[:]=[813,628]
                 qmp.mouse(0,0,1);qmp.mouse(-160,-120,1);qmp.mouse(0,0,0);pointer[0]-=160;pointer[1]-=120;time.sleep(.5)
@@ -114,7 +120,7 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, RAM and process ABI compatibility. Evidence: {out}")
+    print(f"desktop-system: PASS shared table sorting/keyboard/resize, pause/refresh/menu controls, network tabs/address/traffic or no-adapter state, PCI/USB inventory, RAM and process ABI compatibility. Evidence: {out}")
 
 
 if __name__=="__main__": main()

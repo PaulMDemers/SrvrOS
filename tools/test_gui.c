@@ -6,6 +6,7 @@
 #include "../kernel/src/gui.c"
 
 static unsigned brightness_calls;
+int audio_request(unsigned op,unsigned value) { return op==1 && value==0?0:-1; }
 int backlight_percent(unsigned value) { brightness_calls++;return value?(int)value:14; }
 static uint64_t current_pid=1;
 static bool keyboard_events;
@@ -30,6 +31,7 @@ static struct gui_message packet_message(unsigned type, uint64_t target,
 static void protocol_tests(void) {
     for (unsigned i=0;i<GUI_MAX_QUEUES;i++) gui_process_cleanup(i+10);
     current_pid=1; assert(gui_register_server()==0);
+    assert(gui_audio_request(1,0)==0 && gui_audio_request(0x100000001ull,0)==-1);
     assert(gui_brightness(0)==14 && gui_brightness(50)==50 && brightness_calls==2);
     assert(gui_brightness(1)==-1 && gui_brightness(101)==-1 && brightness_calls==2);
     struct srv_key_event key;
@@ -41,6 +43,7 @@ static void protocol_tests(void) {
     assert(gui_pointer_config(5,1)==0 && pointer_accel && !pointer_typing);
     assert(gui_pointer_config(5,SRV_POINTER_FLAGS)==0 && pointer_flags==SRV_POINTER_FLAGS);
     current_pid=2;
+    assert(gui_audio_request(1,0)==-1);
     assert(gui_brightness(50)==-1 && brightness_calls==2);
     assert(gui_pointer_config(1,0)==-1 && pointer_speed==5 && pointer_accel);
     assert(gui_keyboard_mode(0)==-1 && gui_keyboard_read(&key)==-1 && keyboard_events);

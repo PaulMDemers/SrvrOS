@@ -66,11 +66,96 @@ static void network_refresh(struct tool *t,int force) {
         int known=(n.link_flags&SRV_NET_LINK_KNOWN)!=0,up=(n.link_flags&SRV_NET_LINK_UP)!=0;
         snprintf(t->network_values[12],80,"%s",known?(up?"Connected":"Disconnected"):"Not available");
         if(known && up && n.link_speed_mbps) snprintf(t->network_values[13],80,"%llu Mb/s",(unsigned long long)n.link_speed_mbps);
-        snprintf(t->network_values[14],80,"%s",known && up?(n.link_flags&SRV_NET_LINK_FULL_DUPLEX?"Full duplex":"Half duplex"):"—");
+        snprintf(t->network_values[14],80,"%s",known && up && (n.link_flags&SRV_NET_LINK_DUPLEX_KNOWN)?(n.link_flags&SRV_NET_LINK_FULL_DUPLEX?"Full duplex":"Half duplex"):"—");
     }
     desk_table_rows(&t->network_table,t->network_rows,count);
     if(force) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d link=%llu speed=%llu\n",t->network_valid,
         (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused,(unsigned long long)t->network.link_flags,(unsigned long long)t->network.link_speed_mbps);
+}
+static const char *device_name(const struct srv_device_info *d) {
+    if(d->bus_kind==SRV_DEVICE_USB) {
+        if((d->flags&(SRV_DEVICE_KEYBOARD|SRV_DEVICE_TRACKPAD))==(SRV_DEVICE_KEYBOARD|SRV_DEVICE_TRACKPAD)) return "Keyboard and trackpad";
+        if(d->flags&SRV_DEVICE_TRACKPAD) return "Trackpad";
+        if(d->flags&SRV_DEVICE_KEYBOARD) return "Keyboard";
+        if(d->flags&SRV_DEVICE_POINTER) return "Pointer";
+        if(d->flags&SRV_DEVICE_NETWORK) return "USB Ethernet";
+        if(d->flags&SRV_DEVICE_STORAGE) return "USB storage";
+        if(d->class_code==9) return "USB hub";
+        if(d->class_code==3) return "USB input device";
+        if(d->class_code==2) return "USB communication";
+        if(d->class_code==14) return "USB video";
+        if(d->class_code==1) return "USB audio";
+        return "USB device";
+    }
+    if(d->class_code==1) return "Storage controller";
+    if(d->class_code==2) return "Network controller";
+    if(d->class_code==3) return "Display controller";
+    if(d->class_code==4&&d->subclass==3) return "HD audio controller";
+    if(d->class_code==4) return "Multimedia controller";
+    if(d->class_code==6) return "PCI bridge";
+    if(d->class_code==12&&d->subclass==3) return "USB controller";
+    if(d->class_code==12&&d->subclass==5) return "SMBus controller";
+    return "PCI device";
+}
+static void devices_refresh(struct tool *t,int force) {
+    unsigned count=0;t->devices_valid=1;t->device_pci_count=t->device_usb_count=0;
+    for(unsigned kind=SRV_DEVICE_PCI;kind<=SRV_DEVICE_USB;kind++) {
+        uint64_t index=0;
+        for(unsigned attempts=0;attempts<160;attempts++) {
+            struct srv_device_info d;long next=srv_device_list(kind,index,&d);
+            if(!next) break;
+            if(next<0 || (uint64_t)next<=index || d.version!=SRV_DEVICE_VERSION || d.size!=sizeof(d) || d.bus_kind!=kind || count>=160) {
+                t->devices_valid=0;break;
+            }
+            index=(uint64_t)next;
+            char (*values)[64]=t->device_values[count];
+            snprintf(values[0],64,"%s",device_name(&d));
+            snprintf(values[1],64,"%04x:%04x",d.vendor_id,d.product_id);
+            if(kind==SRV_DEVICE_PCI) { snprintf(values[2],64,"%02x:%02x.%u",d.bus,d.device,d.function);t->device_pci_count++; }
+            else { snprintf(values[2],64,"USB %u · %u",d.port,d.device);t->device_usb_count++; }
+            const char *state="Detected";
+            if(kind==SRV_DEVICE_USB) {
+                unsigned active=SRV_DEVICE_KEYBOARD|SRV_DEVICE_POINTER|SRV_DEVICE_TRACKPAD|SRV_DEVICE_STORAGE|SRV_DEVICE_HUB|SRV_DEVICE_NETWORK;
+                state=(d.flags&SRV_DEVICE_FAILED)?"Device error":(d.flags&active)?"Driver active":
+                    (d.flags&SRV_DEVICE_CONFIGURED)?"Configured":"No active driver";
+            }
+            snprintf(values[3],64,"%s",state);
+            t->device_rows[count]=(struct desk_table_row){.id=((uint64_t)kind<<32)|((uint64_t)d.index+1),.cells={values[0],values[1],values[2],values[3]}};
+            count++;
+        }
+    }
+    t->device_count=count;desk_table_rows(&t->device_table,t->device_rows,count);
+    if(force) desk_log("desktools: devices-refresh valid=%d pci=%u usb=%u\n",t->devices_valid,t->device_pci_count,t->device_usb_count);
+}
+static void sensor_temperature(char *out,int32_t mc) {
+    int64_t value=mc;snprintf(out,64,"%s%lld.%01lld °C",value<0?"-":"",(long long)((value<0?-value:value)/1000),(long long)((value<0?-value:value)%1000/100));
+}
+static void sensors_refresh(struct tool *t,int force) {
+    struct srv_thermal_status s={0};long now=srv_monotonic_us();
+    t->thermal_valid=srv_thermal_status(&s)==0 && s.version==SRV_THERMAL_VERSION && s.state<=SRV_THERMAL_ACTIVE;
+    t->thermal=s;t->thermal_fresh=t->thermal_valid && s.state==SRV_THERMAL_ACTIVE && s.samples && now>=0 && (uint64_t)now>=s.sampled_us && (uint64_t)now-s.sampled_us<=3000000;
+    static const char *names[]={"CPU core (boot CPU)","CPU package","Temperature reference","Thermal limit active","Critical temperature","CPU sample age","Battery and AC","Fan speed","Fan sample age"};
+    for(unsigned i=0;i<9;i++) { snprintf(t->sensor_values[i],64,"Not available");t->sensor_rows[i]=(struct desk_table_row){.id=i+1,.cells={names[i],t->sensor_values[i]}}; }
+    if(t->thermal_fresh) {
+        if(s.flags&SRV_THERMAL_CORE_VALID) sensor_temperature(t->sensor_values[0],s.core_mc);
+        if(s.flags&SRV_THERMAL_PACKAGE_VALID) sensor_temperature(t->sensor_values[1],s.package_mc);
+        if(s.flags&SRV_THERMAL_TARGET_VALID) {
+            sensor_temperature(t->sensor_values[2],s.target_mc);
+            snprintf(t->sensor_values[3],64,"%s",s.flags&SRV_THERMAL_THROTTLING?"Yes":"No");
+            snprintf(t->sensor_values[4],64,"%s",s.flags&SRV_THERMAL_CRITICAL?"Yes":"No");
+        }
+    }
+    if(t->thermal_valid && s.samples && now>=0 && (uint64_t)now>=s.sampled_us)
+        snprintf(t->sensor_values[5],64,"%llu ms%s",(unsigned long long)(((uint64_t)now-s.sampled_us)/1000),t->thermal_fresh?"":" · stale");
+    struct srv_smc_status fan={0};t->smc_fresh=0;
+    if(!srv_smc_status(&fan) && fan.version==SRV_SMC_VERSION && fan.samples && now>=0 && (uint64_t)now>=fan.sampled_us) {
+        uint64_t age=(uint64_t)now-fan.sampled_us;
+        int fresh=t->smc_fresh=fan.state==SRV_SMC_ACTIVE && (fan.flags&SRV_SMC_FAN_VALID) && age<=3000000;
+        snprintf(t->sensor_values[8],64,"%llu ms%s",(unsigned long long)(age/1000),fresh?"":" · stale");
+        if(fresh)snprintf(t->sensor_values[7],64,"%u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100);
+    }
+    desk_table_rows(&t->sensor_table,t->sensor_rows,9);
+    if(force) desk_log("desktools: sensors-refresh valid=%d fresh=%d state=%u flags=%u samples=%llu\n",t->thermal_valid,t->thermal_fresh,s.state,s.flags,(unsigned long long)s.samples);
 }
 void tool_system_refresh(struct tool *t,int force) {
     uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;t->refresh_tick=now;
@@ -79,18 +164,24 @@ void tool_system_refresh(struct tool *t,int force) {
         p.name[sizeof(p.name)-1]=0;p.state[sizeof(p.state)-1]=0;t->processes[count++]=p;
     }
     if(force) desk_log("desktools: system-refresh processes=%d paused=%d\n",count,t->system_paused);
-    t->process_count=count;t->system_memory_valid=srv_meminfo(&t->system_memory)==0;rows(t);network_refresh(t,force);
-    if(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK) snprintf(t->status,sizeof(t->status),"%s · %s",t->system_paused?"Paused":"Updates every second","F5 refreshes");
+    t->process_count=count;t->system_memory_valid=srv_meminfo(&t->system_memory)==0;rows(t);network_refresh(t,force);devices_refresh(t,force);sensors_refresh(t,force);
+    if(desk_tabs_selected(&t->system_tabs)!=SYSTEM_PROCESSES) snprintf(t->status,sizeof(t->status),"%s · %s",t->system_paused?"Paused":"Updates every second","F5 refreshes");
     else if(index<0) tool_status(t,"Process list unavailable. Press Refresh to try again.");
     else snprintf(t->status,sizeof(t->status),"%d processes%s · F6 selects headings · F5 refreshes",count,t->system_paused?" · Paused":"");
 }
 void tool_system_init(struct tool *t) {
     desk_tabs_init(&t->system_tabs);
-    const struct desk_tab tabs[]={{SYSTEM_PROCESSES,"Processes",0},{SYSTEM_NETWORK,"Network",0}};
-    desk_tabs_items(&t->system_tabs,tabs,2);
+    const struct desk_tab tabs[]={{SYSTEM_PROCESSES,"Processes",0},{SYSTEM_NETWORK,"Network",0},{SYSTEM_DEVICES,"Devices",0},{SYSTEM_SENSORS,"Sensors",0}};
+    desk_tabs_items(&t->system_tabs,tabs,4);
+    desk_table_init(&t->device_table);
+    static const struct desk_table_column device_columns[]={{"Device",0,0,0},{"Vendor:product",132,0,0},{"Location",112,0,0},{"State",160,0,0}};
+    desk_table_columns(&t->device_table,device_columns,4);
+    desk_ui_add(&t->ui,SYSTEM_DEVICE_TABLE,DESK_CONTROL_TABLE,&t->device_table,NULL);
     desk_table_init(&t->network_table);
     static const struct desk_table_column network_columns[]={{"Property",0,0,0},{"Value",0,0,0}};
     desk_table_columns(&t->network_table,network_columns,2);
+    desk_table_init(&t->sensor_table);desk_table_columns(&t->sensor_table,network_columns,2);
+    desk_ui_add(&t->ui,SYSTEM_SENSOR_TABLE,DESK_CONTROL_TABLE,&t->sensor_table,NULL);
     desk_ui_add(&t->ui,SYSTEM_TABS,DESK_CONTROL_TABS,&t->system_tabs,NULL);
     desk_ui_add(&t->ui,SYSTEM_NETWORK_TABLE,DESK_CONTROL_TABLE,&t->network_table,NULL);
     desk_table_init(&t->table);desk_table_columns(&t->table,columns,5);desk_table_sort_indicator(&t->table,1,0);
@@ -106,8 +197,10 @@ void tool_system_layout(struct tool *t) {
     desk_button_configure(&t->buttons[1],(struct desk_rect){w-104,18,88,28},1);
     desk_button_configure(&t->buttons[2],w>=500?(struct desk_rect){w-324,18,116,28}:(struct desk_rect){0},w>=500);
     desk_tabs_configure(&t->system_tabs,(struct desk_rect){16,56,w-32,32},1);
-    int network=desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK;
-    desk_table_configure(&t->table,network?(struct desk_rect){0}:(struct desk_rect){16,158,w-32,h>232?h-232:0},!network);
+    int page=desk_tabs_selected(&t->system_tabs),network=page==SYSTEM_NETWORK,devices=page==SYSTEM_DEVICES;
+    desk_table_configure(&t->sensor_table,page==SYSTEM_SENSORS?(struct desk_rect){16,132,w-32,h>206?h-206:0}:(struct desk_rect){0},page==SYSTEM_SENSORS);
+    desk_table_configure(&t->device_table,devices?(struct desk_rect){16,132,w-32,h>206?h-206:0}:(struct desk_rect){0},devices);
+    desk_table_configure(&t->table,page!=SYSTEM_PROCESSES?(struct desk_rect){0}:(struct desk_rect){16,158,w-32,h>232?h-232:0},page==SYSTEM_PROCESSES);
     desk_table_configure(&t->network_table,network?(struct desk_rect){16,132,w-32,h>176?h-176:0}:(struct desk_rect){0},network);
 }
 void tool_system_action(struct tool *t,struct desk_action a) {
@@ -115,10 +208,10 @@ void tool_system_action(struct tool *t,struct desk_action a) {
         rows(t);desk_log("desktools: system-sort column=%d descending=%d\n",t->table.sort_column,t->table.descending);
     }
     if(!(a.flags&DESK_WIDGET_ACTIVATED)) return;
-    if(a.id==SYSTEM_PROCESSES || a.id==SYSTEM_NETWORK) { desk_tabs_select(&t->system_tabs,a.id);a.id=SYSTEM_TABS; }
+    if(a.id==SYSTEM_PROCESSES || a.id==SYSTEM_NETWORK || a.id==SYSTEM_DEVICES || a.id==SYSTEM_SENSORS) { desk_tabs_select(&t->system_tabs,a.id);a.id=SYSTEM_TABS; }
     if(a.id==SYSTEM_TABS) {
         tool_system_layout(t);desk_ui_layout_changed(&t->ui);tool_system_refresh(t,1);
-        desk_log("desktools: system-page=%s\n",desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?"network":"processes");
+        desk_log("desktools: system-page=%s\n",desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?"network":desk_tabs_selected(&t->system_tabs)==SYSTEM_DEVICES?"devices":desk_tabs_selected(&t->system_tabs)==SYSTEM_SENSORS?"sensors":"processes");
     }
     if(a.id==SYSTEM_DIAGNOSTICS) tool_launch(t,DESK_APP_NETWORK,"");
     if(a.id==SYSTEM_REFRESH) tool_system_refresh(t,1);
@@ -134,7 +227,17 @@ void tool_system_draw(struct tool *t,struct desk_canvas *c) {
     if(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK) {
         desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,network_state(t),theme->text);return;
     }
+    if(desk_tabs_selected(&t->system_tabs)==SYSTEM_SENSORS) {
+        const char *state=(t->thermal_fresh || t->smc_fresh)?"Sensors · updates every second":t->thermal_valid&&t->thermal.samples?"Sensor readings are stale":"No active sensor provider";
+        desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,state,theme->text);
+        desk_label_draw(c,(struct desk_rect){16,c->height-64,c->width-32,24},theme->body,"Read-only readings. Fan and power management are not enabled.",theme->muted);return;
+    }
     char label[128];
+    if(desk_tabs_selected(&t->system_tabs)==SYSTEM_DEVICES) {
+        snprintf(label,sizeof(label),"%u PCI functions · %u USB devices%s",t->device_pci_count,t->device_usb_count,t->devices_valid?"":" · incomplete inventory");
+        desk_label_draw(c,(struct desk_rect){16,98,c->width-32,26},theme->body,label,theme->text);
+        desk_label_draw(c,(struct desk_rect){16,c->height-64,c->width-32,24},theme->body,"Detected hardware may still need a driver. Inventory reflects this boot.",theme->muted);return;
+    }
     if(t->system_memory_valid) {
         struct srv_meminfo *m=&t->system_memory;
         snprintf(label,sizeof(label),"Memory: %llu MiB used · %llu MiB free · %llu MiB RAM",

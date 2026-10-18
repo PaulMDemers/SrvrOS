@@ -86,6 +86,8 @@ void tool_menu_refresh(struct tool *t) {
         append(items,&count,0,"",NULL,DESK_MENU_SEPARATOR);
         append(items,&count,SYSTEM_PROCESSES,"Processes",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_PROCESSES?DESK_MENU_CHECKED:0));
         append(items,&count,SYSTEM_NETWORK,"Network",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_NETWORK?DESK_MENU_CHECKED:0));
+        append(items,&count,SYSTEM_DEVICES,"Devices",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_DEVICES?DESK_MENU_CHECKED:0));
+        append(items,&count,SYSTEM_SENSORS,"Sensors",NULL,blocked|(desk_tabs_selected(&t->system_tabs)==SYSTEM_SENSORS?DESK_MENU_CHECKED:0));
     } else if(t->role==DESK_APP_SETTINGS) {
         append(items,&count,0,"View",NULL,DESK_MENU_HEADING);
         append(items,&count,MENU_STANDARD,"Standard text",NULL,blocked|(t->body_size==16?DESK_MENU_CHECKED:0));

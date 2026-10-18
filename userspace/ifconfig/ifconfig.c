@@ -37,7 +37,7 @@ int main(int argc, char **argv) {
         return 1;
     }
 
-    printf("e1000: flags=%s,%s dhcp=%s\n",
+    printf("net0: flags=%s,%s dhcp=%s\n",
         info.initialized != 0 ? "UP" : "DOWN",
         info.worker_started != 0 ? "RUNNING" : "NO-CARRIER",
         info.dhcp_configured != 0 ? "yes" : "no");

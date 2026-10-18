@@ -177,6 +177,52 @@ static int check_gfx(void) {
     return 0;
 }
 
+static int check_devices(void) {
+    struct { struct srv_device_info info;uint64_t canary; } probe={.canary=SYSABI_CANARY};
+    long index=0;unsigned count=0;
+    while((index=srv_device_list(SRV_DEVICE_PCI,index,&probe.info))>0) {
+        if(++count>128 || probe.info.version!=SRV_DEVICE_VERSION || probe.info.size!=sizeof(probe.info) ||
+           probe.info.bus_kind!=SRV_DEVICE_PCI || probe.canary!=SYSABI_CANARY) return fail("device-list");
+    }
+    if(index<0 || !count || srv_device_list(0,0,&probe.info)!=-1 ||
+       srv_syscall4(SYS_DEVICE_LIST,SRV_DEVICE_PCI,0,0,sizeof(probe.info))!=-1 ||
+       srv_syscall4(SYS_DEVICE_LIST,SRV_DEVICE_PCI,0,(long)&probe.info,sizeof(probe.info)-1)!=-1 ||
+       srv_device_list(SRV_DEVICE_USB,UINT64_MAX,&probe.info)!=0 || probe.canary!=SYSABI_CANARY) return fail("device-arguments");
+    return 0;
+}
+
+static int check_smc(void) {
+    struct { struct srv_smc_status value;uint64_t canary; } p={.canary=SYSABI_CANARY};
+    if(srv_smc_status(&p.value) || p.value.version!=SRV_SMC_VERSION || p.canary!=SYSABI_CANARY) return fail("smc-query");
+    if(srv_syscall2(SYS_SMC_STATUS,(long)&p.value,sizeof(p.value)-1)!=-1 ||
+       srv_syscall2(SYS_SMC_STATUS,0,sizeof(p.value))!=-1 ||
+       srv_syscall2(SYS_SMC_STATUS,-1,sizeof(p.value))!=-1 || p.canary!=SYSABI_CANARY) return fail("smc-buffer");
+    return 0;
+}
+
+static int check_thermal(void) {
+    struct { struct srv_thermal_status value;uint64_t canary; } p={.canary=SYSABI_CANARY};
+    if(srv_thermal_status(&p.value) || p.value.version!=SRV_THERMAL_VERSION || p.canary!=SYSABI_CANARY) return fail("thermal-query");
+    if(srv_syscall2(SYS_THERMAL_STATUS,(long)&p.value,sizeof(p.value)-1)!=-1 ||
+       srv_syscall2(SYS_THERMAL_STATUS,0,sizeof(p.value))!=-1 ||
+       srv_syscall2(SYS_THERMAL_STATUS,-1,sizeof(p.value))!=-1 || p.canary!=SYSABI_CANARY) return fail("thermal-buffer");
+    return 0;
+}
+
+static int check_audio(void) {
+    struct { struct srv_audio_status status;uint64_t canary; } probe={.canary=SYSABI_CANARY};
+    if(gui_audio(SRV_AUDIO_QUERY,0,&probe.status) || probe.status.version!=SRV_AUDIO_VERSION ||
+       probe.status.volume>100 || probe.canary!=SYSABI_CANARY) return fail("audio-query");
+    uint64_t started=probe.status.tests_started;
+    if(gui_audio(SRV_AUDIO_TEST,0,&probe.status)!=-1 || probe.status.tests_started!=started ||
+       probe.canary!=SYSABI_CANARY) return fail("audio-owner");
+    if(srv_syscall4(SYS_AUDIO,SRV_AUDIO_QUERY,0,(long)&probe.status,sizeof(probe.status)-1)!=-1 ||
+       srv_syscall4(SYS_AUDIO,SRV_AUDIO_QUERY,0,0,sizeof(probe.status))!=-1 ||
+       srv_syscall4(SYS_AUDIO,SRV_AUDIO_QUERY,0,(long)-1,sizeof(probe.status))!=-1) return fail("audio-buffer");
+    if(gui_audio(SRV_AUDIO_QUERY,1,&probe.status)!=-1 || probe.canary!=SYSABI_CANARY) return fail("audio-argument");
+    return 0;
+}
+
 static int check_gui(void) {
     if (gui_register_server() != 0) {
         return fail("gui-register");
@@ -236,6 +282,10 @@ int main(void) {
         check_process() != 0 ||
         check_console() != 0 ||
         check_gfx() != 0 ||
+        check_devices() != 0 ||
+        check_audio() != 0 ||
+        check_thermal() != 0 ||
+        check_smc() != 0 ||
         check_gui() != 0) {
         return 1;
     }

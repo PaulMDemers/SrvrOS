@@ -312,7 +312,7 @@ def main():
         "webd: access POST / 405",
         "Proto State",
         "10.0.2.15:80",
-        "e1000: flags=UP,RUNNING",
+        "net0: flags=UP,RUNNING",
         "inet 10.0.2.15",
     ]
     expected_response = [

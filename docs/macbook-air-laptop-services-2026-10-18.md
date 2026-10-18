@@ -233,3 +233,36 @@ there is no automatic restore from disk and no new suspend/lid policy.
 Register definitions were checked against the pinned MIT-licensed Intel header
 linked above. This implementation does not copy Linux's brightness-mode-switching
 code. Battery/AC reporting still requires ACPI initialization and event handling.
+
+## Isolated AML evaluation and SBS sampling foundation
+
+The next device session vendors MIT-licensed uACPI 7.0.0 unchanged, with a narrow
+SrvrOS adapter. See [the port boundaries](../ports/srvros/uacpi/PORT.md).
+`srvros.aml=probe` evaluates firmware in private copies: ACPI tables and permitted
+ACPI NVS/reclaimable regions are copied, PCI configuration writes affect a private
+snapshot, and System I/O and arbitrary physical memory are denied. It does not
+enter ACPI mode, initialize device namespaces, call EC `_REG`, enable SCI/GPEs or
+access EC data ports. It is discovery evidence, not an active battery driver.
+
+The complete captured DSDT plus eight SSDTs now load and evaluate the target EC
+resources, SMBus presence/configuration and SBS declaration successfully in the
+host adapter. Explicit GNVS, PNVS and PCI snapshots supply the firmware inputs.
+The recorded run executed 3,566 AML operations, made four private snapshot
+writes, reported no denied accesses/errors and released all interpreter
+allocations. Synthetic namespace tests and native QEMU probe tests cover the
+adapter separately. The exact laptop-native probe remains a hardware gate.
+
+`sbs_sample.c` adds a host-tested read-word sampler over the existing EC SMBus
+engine. Fifteen words bracket capacity mode, scaling and status around the
+measurement. A mode/scale change rejects the sample. Failed transactions retain
+last-good values with an invalid-current flag and timestamp; partial samples
+are never published. Signed current, voltage, charge/energy capacity units,
+unknown time estimates, reported state of charge and gauge initialization/error
+state remain distinct. Tests include delayed transport, cancellation, timeout,
+clock rollback, stale samples and scaling limits. No live caller is bound yet.
+
+The next battery milestone is still ACPI mode/SCI/query ownership and serialized
+EC access, followed by a scheduled cached provider. Do not bypass that boundary
+by reading the bank directly from the desktop. References are the official
+[SBS data specification](https://sbs-forum.org/specs/sbdat110.pdf) and its
+[1.1 errata](https://sbs-forum.org/specs/errata_sbdat110a.pdf).

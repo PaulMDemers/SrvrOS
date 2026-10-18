@@ -2,6 +2,7 @@
 #include <srvros/console.h>
 #include <srvros/pci.h>
 #include <srvros/vmm.h>
+#include <srvros/timer.h>
 
 #include "io.h"
 
@@ -18,33 +19,38 @@ static uint64_t device_count;
 static bool ecam_available;
 static uint64_t ecam_virtual_base[8];
 
+static uint64_t config_lock(void) {
+#ifdef SRVROS_PCI_HOST_TEST
+    return 0;
+#else
+    uint64_t flags;__asm__ volatile("pushfq; popq %0; cli":"=r"(flags)::"memory");return flags;
+#endif
+}
+static void config_unlock(uint64_t flags) {
+#ifdef SRVROS_PCI_HOST_TEST
+    (void)flags;
+#else
+    if(flags&(1ull<<9)) __asm__ volatile("sti":::"memory");
+#endif
+}
+static uint32_t legacy_address(uint8_t bus,uint8_t device,uint8_t function,uint8_t offset) {
+    return (1u<<31)|((uint32_t)bus<<16)|((uint32_t)device<<11)|((uint32_t)function<<8)|(offset&0xfc);
+}
 static uint32_t pci_legacy_read32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
-    uint32_t address =
-        (1u << 31) |
-        ((uint32_t)bus << 16) |
-        ((uint32_t)device << 11) |
-        ((uint32_t)function << 8) |
-        (offset & 0xfc);
-
-    outl(PCI_CONFIG_ADDRESS, address);
-    return inl(PCI_CONFIG_DATA);
+    uint64_t flags=config_lock();
+    outl(PCI_CONFIG_ADDRESS,legacy_address(bus,device,function,offset));
+    uint32_t value=inl(PCI_CONFIG_DATA);config_unlock(flags);return value;
 }
 
 static void pci_legacy_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint32_t value) {
-    uint32_t address =
-        (1u << 31) |
-        ((uint32_t)bus << 16) |
-        ((uint32_t)device << 11) |
-        ((uint32_t)function << 8) |
-        (offset & 0xfc);
-
-    outl(PCI_CONFIG_ADDRESS, address);
-    outl(PCI_CONFIG_DATA, value);
+    uint64_t flags=config_lock();
+    outl(PCI_CONFIG_ADDRESS,legacy_address(bus,device,function,offset));
+    outl(PCI_CONFIG_DATA,value);config_unlock(flags);
 }
 
 static volatile uint32_t *pci_ecam_config32(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
     for (uint64_t i = 0; i < acpi_mcfg_allocation_count(); i++) {
-        const struct acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
+        const struct srv_acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
         if (mcfg == 0 || !mcfg->present || ecam_virtual_base[i] == 0 ||
             bus < mcfg->start_bus || bus > mcfg->end_bus) {
             continue;
@@ -83,11 +89,13 @@ static void pci_write32(uint8_t bus, uint8_t device, uint8_t function, uint8_t o
 }
 
 static void pci_write16_raw(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset, uint16_t value) {
-    uint32_t aligned = pci_read32(bus, device, function, offset);
-    uint32_t shift = (offset & 2) * 8;
-    aligned &= ~(0xffffu << shift);
-    aligned |= (uint32_t)value << shift;
-    pci_write32(bus, device, function, offset, aligned);
+    /* A dword read/modify/write would acknowledge adjacent W1C status bits
+     * when changing Command or PMCSR. Issue a real halfword transaction. */
+    volatile uint32_t *ecam=ecam_available?pci_ecam_config32(bus,device,function,offset):0;
+    if(ecam) { *(volatile uint16_t *)((volatile uint8_t *)ecam+(offset&2))=value;return; }
+    uint64_t flags=config_lock();
+    outl(PCI_CONFIG_ADDRESS,legacy_address(bus,device,function,offset));
+    outw(PCI_CONFIG_DATA+(offset&2),value);config_unlock(flags);
 }
 
 static uint8_t pci_read8(uint8_t bus, uint8_t device, uint8_t function, uint8_t offset) {
@@ -201,7 +209,7 @@ static bool map_ecam_windows(void) {
     uint64_t count = acpi_mcfg_allocation_count();
     bool any_mapped = false;
     for (uint64_t i = 0; i < count && i < sizeof(ecam_virtual_base) / sizeof(ecam_virtual_base[0]); i++) {
-        const struct acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
+        const struct srv_acpi_mcfg_allocation *mcfg = acpi_mcfg_allocation_at(i);
         if (mcfg == 0 || !mcfg->present) {
             continue;
         }
@@ -395,4 +403,42 @@ void pci_write_config16(const struct pci_device *device, uint8_t offset, uint16_
     }
 
     pci_write16_raw(device->bus, device->device, device->function, offset, value);
+}
+
+
+bool pci_power_d0(const struct pci_device *device) {
+    if(!device) return false;
+    if(!(pci_read_config16(device,6)&0x10)) return true;
+    uint8_t at=pci_read_config32(device,0x34)&255;uint64_t visited=0;
+    while(at) {
+        if(at<0x40 || (at&3) || (visited&(1ull<<(at/4)))) return false;
+        visited|=1ull<<(at/4);
+        uint16_t header=pci_read_config16(device,at);
+        if((header&255)==1) {
+            if(at>0xf8) return false;
+            unsigned version=pci_read_config16(device,at+2)&7;
+            if(!version || version>3) return false;
+            uint16_t pm=pci_read_config16(device,at+4);
+            if(!(pm&3)) return true;
+            /* PME_Status is W1C. Preserve it by writing zero, not its value. */
+            pci_write_config16(device,at+4,pm&~0x8003u);
+            if(!timer_delay_us(10000)) return false;
+            return (pci_read_config16(device,at+4)&3)==0;
+        }
+        at=header>>8;
+    }
+    return true;
+}
+
+uint8_t pci_read_config8(const struct pci_device *device,uint8_t offset) {
+    if(!device) return 255;
+    return pci_read8(device->bus,device->device,device->function,offset);
+}
+void pci_write_config8(const struct pci_device *device,uint8_t offset,uint8_t value) {
+    if(!device) return;
+    volatile uint32_t *ecam=ecam_available?pci_ecam_config32(device->bus,device->device,device->function,offset):0;
+    if(ecam) { *((volatile uint8_t *)ecam+(offset&3))=value;return; }
+    uint64_t flags=config_lock();
+    outl(PCI_CONFIG_ADDRESS,legacy_address(device->bus,device->device,device->function,offset));
+    outb(PCI_CONFIG_DATA+(offset&3),value);config_unlock(flags);
 }

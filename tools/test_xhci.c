@@ -296,7 +296,8 @@ static void test_root_ports(void) {
 static unsigned test_pointer_options,tap_injected;static uint8_t last_tap;
 void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) { *speed=3;*options=test_pointer_options; }
 uint64_t mouse_overflow_count(void) { return 0; }
-static unsigned injected, pointer_injected;
+static unsigned injected, pointer_injected, net_wakeups;
+void net_notify_rx(void) { net_wakeups++; }
 static struct trackpad_motion last_pointer;
 void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
     pointer_injected++; last_pointer=(struct trackpad_motion){.dx=x,.dy=y,.buttons=buttons};
@@ -572,8 +573,82 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }
 
+static void test_network_transport(void) {
+    reset_test();test_time=0;test_time_step=1;complete_device=NULL;
+    xhci.op_base=0x100;xhci.db_off=0x3000;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=XHCI_PORTSC_CCS;
+    struct xhci_network n={.ready=true};
+    struct xhci_device d={.network=&n,.slot_id=1,.port_id=1};
+    struct xhci_trb rings[3][XHCI_TRB_COUNT];uint8_t buffers[3][4096];
+    memset(rings,0,sizeof(rings));memset(buffers,0,sizeof(buffers));
+    for(unsigned i=0;i<3;i++) {
+        n.ep[i].hw=(struct xhci_bulk_endpoint){.dci=(uint8_t)(i+2),.packet=64,
+            .ring=rings[i],.ring_phys=(uint64_t)rings[i],.cycle=true};
+        n.ep[i].buffer=buffers[i];n.ep[i].buffer_phys=(uint64_t)buffers[i];
+        write_link_trb(rings[i],(uint64_t)rings[i],true);
+    }
+    network_service(&d);assert(n.ep[1].pending && n.ep[2].pending && !n.ep[0].pending);
+    uint8_t frame[1514];memset(frame,0x5a,sizeof(frame));
+    assert(!network_send(&d,frame,13) && !network_send(&d,frame,1515));
+    for(unsigned i=0;i<XHCI_NET_QUEUE;i++) assert(network_send(&d,frame,64));
+    assert(!network_send(&d,frame,64));frame[0]=0; /* Queue owns a copy. */
+    uint64_t wakes=net_wakeups;
+    assert(!network_event(&d,3,n.ep[1].trb+16,1,0));
+    assert(!network_event(&d,4,n.ep[1].trb,1,0));
+    assert(network_event(&d,3,n.ep[1].trb,13,4096-60));
+    assert(net_wakeups==wakes+1 && network_complete(&d,1));
+    n.ep[1].done=false;
+    for(unsigned i=0;i<300;i++) { /* Cross the link TRB repeatedly with ZLPs. */
+        network_service(&d);assert(n.ep[0].pending && n.ep[0].requested==64);
+        assert(n.ep[0].buffer[0]==0x5a && n.tx_zero);
+        uint64_t original=n.ep[0].trb;
+        assert(network_event(&d,2,original,1,0));
+        network_service(&d);assert(n.ep[0].pending && !n.ep[0].requested && !n.tx_zero);
+        assert(n.tx_packets==i && !network_event(&d,2,original,1,0));
+        assert(network_event(&d,2,n.ep[0].trb,1,0));
+        network_service(&d);assert(n.tx_packets==i+1);
+        frame[0]=0x5a;assert(network_send(&d,frame,64));
+    }
+    n.count=0; /* Finish the in-flight frame before exercising a short frame. */
+    assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
+    assert(n.ep[0].pending && !n.ep[0].requested);
+    assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
+    uint64_t count=n.tx_packets;
+    assert(network_send(&d,frame,65));network_service(&d);
+    assert(n.ep[0].requested==65 && !n.tx_zero);
+    assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
+    assert(n.tx_packets==count+1 && !n.ep[0].pending);
+    /* Malformed residue quarantines; pending receive buffers remain owned. */
+    assert(network_event(&d,3,n.ep[1].trb,13,4097));network_service(&d);
+    assert(n.failed && !n.ready && n.errors==1 && !freed);
+    assert(!network_send(&d,frame,64));
+    n.failed=false;n.ready=true;n.link.known=false;n.ep[1].done=false;
+    assert(network_send(&d,frame,64));network_service(&d);
+    test_time+=2000000;network_service(&d);assert(n.failed && n.errors==2 && !freed);
+    n.failed=false;n.ready=true;
+    *(uint32_t *)(registers+xhci.op_base+XHCI_OP_PORTS)=0;
+    network_service(&d);assert(n.failed && n.errors==3 && !freed);
+    puts("xhci-network: PASS owned TX queue, ZLP framing, ring wrap, stale events, RX wakeup, residue errors, deadlines and disconnect quarantine");
+}
+
+static void test_device_inventory(void) {
+    memset(&xhci,0,sizeof(xhci));
+    struct xhci_device *d=&xhci.devices[3];
+    d->present=true;d->configured=true;d->slot_id=7;d->port_id=5;d->vendor_id=0x05ac;d->product_id=0x0291;
+    d->hid_keyboard=true;d->interrupt_ready=true;d->trackpad.ready=true;d->hid_reports=14;d->trackpad.reports=25;
+    d->first_interface_class=3;struct srv_device_info info;
+    assert(xhci_device_snapshot(0,&info)==4 && info.index==3 && info.bus_kind==SRV_DEVICE_USB);
+    assert(info.vendor_id==0x05ac && info.product_id==0x0291 && info.port==5 && info.reports==39);
+    assert((info.flags&(SRV_DEVICE_KEYBOARD|SRV_DEVICE_TRACKPAD))==(SRV_DEVICE_KEYBOARD|SRV_DEVICE_TRACKPAD));
+    d->trackpad.ready=false;d->interrupt_ready=false;d->bulk_failed=true;
+    assert(xhci_device_snapshot(3,&info)==4 && !(info.flags&(SRV_DEVICE_KEYBOARD|SRV_DEVICE_TRACKPAD)) && (info.flags&SRV_DEVICE_FAILED));
+    assert(!xhci_device_snapshot(4,&info) && !xhci_device_snapshot(UINT64_MAX,&info));
+}
+
 int main(int argc, char **argv) {
     assert(argc == 2);
+    test_network_transport();
+    test_device_inventory();
     test_storage();
     test_root_ports();
     test_scratchpads();

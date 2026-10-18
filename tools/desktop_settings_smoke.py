@@ -87,7 +87,7 @@ def main():
                 shortcut("pgdn");shot("settings-scrolled");click(225,231)
                 wait(b"text=20 offset=-240 flags=0 wallpaper=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1");shot("settings-saved")
-                # The bottom of the longer settings viewport contains native
+                # The middle of the longer settings viewport contains native
                 # trackpad controls. They must save without disturbing clock/color.
                 click(545,336);wait(b"pointer_speed=5 acceleration=1")
                 click(110,384);wait(b"pointer_speed=5 acceleration=0")
@@ -96,7 +96,11 @@ def main():
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1")
                 click(110,504);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=1")
-                shortcut("pgdn");click(110,362);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
+                # The last checkbox straddles the viewport edge; reveal it
+                # with the scrollbar before attempting to activate it.
+                qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
+                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
+                click(110,480);wait(b"disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=1 tap_to_click=0 two_finger_tap=0")
                 shot("trackpad-settings")
                 assert b"desktools: brightness percent=-1" in output
@@ -119,7 +123,9 @@ def main():
                 wait(b"pointer_speed=5 acceleration=0 disable_while_typing=0")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0")
                 click(110,504);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=0")
-                shortcut("pgdn");click(110,362);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
+                qmp.mouse(590-pointer[0],360-pointer[1]);pointer[:]=[590,360]
+                qmp.mouse(0,0,1);qmp.mouse(0,20,1);qmp.mouse(0,0,0);pointer[1]+=20
+                click(110,480);wait(b"disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 wait(b"status=1 text=20 offset=-240 flags=0 wallpaper=1 pointer_speed=5 acceleration=0 disable_while_typing=0 tap_to_click=1 two_finger_tap=1")
                 shot("tap-settings-restored")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")

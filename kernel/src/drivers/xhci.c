@@ -1,3 +1,8 @@
+#include <srvros/device_abi.h>
+#include <srvros/heap.h>
+#include <srvros/net_device.h>
+#include <srvros/net.h>
+#include <srvros/usb_ecm.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -173,6 +178,27 @@ struct xhci_bulk_endpoint {
     bool cycle;
 };
 
+#define XHCI_NET_QUEUE 8
+struct xhci_network_endpoint {
+    struct xhci_bulk_endpoint hw;
+    uint64_t buffer_phys,trb;
+    uint8_t *buffer;
+    uint32_t requested,remaining;
+    uint8_t completion;
+    bool pending,done;
+};
+struct xhci_network {
+    struct usb_ecm_config config;
+    struct usb_ecm_link link;
+    struct xhci_network_endpoint ep[3]; /* TX, RX, notifications */
+    bool ready,failed,polling,tx_zero;
+    uint8_t mac[6];
+    unsigned head,count;
+    uint16_t length[XHCI_NET_QUEUE];
+    uint8_t queue[XHCI_NET_QUEUE][NET_DEVICE_FRAME_MAX];
+    uint64_t tx_started,tx_packets,rx_packets,drops,errors,notifications;
+};
+
 /* Independent endpoint on the same physical USB slot as the keyboard.
  * Capture only until real reports validate the transport and contact model. */
 struct xhci_trackpad_endpoint {
@@ -263,6 +289,7 @@ struct xhci_device {
     uint64_t bulk_elapsed_us, bulk_spins;
     uint32_t bulk_length;
     struct usb_storage storage;
+    struct xhci_network *network;
     uint8_t previous_report[8];
     struct keyboard_hid_state keyboard_state;
     uint16_t previous_absolute_x;
@@ -342,6 +369,9 @@ struct xhci_state {
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
 
+static bool network_enabled;
+static uint64_t network_count;
+void xhci_set_network_enabled(bool enabled) { network_enabled=enabled; }
 static bool storage_writable;
 void xhci_set_storage_writable(bool writable) { storage_writable = writable; }
 static bool trackpad_capture,trackpad_pointer_enabled,trackpad_gestures;
@@ -1801,6 +1831,8 @@ static void cancel_trackpad_pointer(struct xhci_trackpad_endpoint *t) {
     t->pointer_cancels++;
 }
 
+#include "xhci_network.inc"
+
 /* Every event-ring consumer routes unrelated transfers here. All callers
  * hold IRQs disabled, including the keyboard service running during disk I/O. */
 static void dispatch_transfer_event(const struct xhci_trb *event) {
@@ -1814,6 +1846,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.last_slot_id = slot;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(network_event(device,dci,pointer,completion,remaining)) return;
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (t->pending && dci==t->dci && pointer==t->trb) {
         t->pending=false; t->last_completion=completion;
@@ -1898,6 +1931,7 @@ static void poll_hid_events_once(void) {
     struct xhci_trb event;
     /* Bound work even if a malfunctioning device floods events. */
     for (unsigned i=0; i<XHCI_EVENT_TRB_COUNT && poll_event(&event); i++) dispatch_transfer_event(&event);
+    for(unsigned i=0;i<XHCI_MAX_DEVICES;i++) if(xhci.devices[i].network) network_service(&xhci.devices[i]);
     event_irq_restore(flags);
 }
 
@@ -1909,7 +1943,7 @@ static bool xhci_io_service_ready(void *arg) {
 static void xhci_poll_worker(void *arg) {
     (void)arg;
     for (;;) {
-        if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
+        if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
             poll_hid_events_once();
             uint64_t now = timer_monotonic_us();
             latency_input_poll(now);
@@ -2245,6 +2279,7 @@ static bool enumerate_device(struct xhci_device *device) {
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
+        if (!hub_like && network_enabled && enumerate_network(device,total_length)) return true;
         if (hub_like) {
             xhci.hubs_seen++;
             return enumerate_hub(device, configuration);
@@ -2341,7 +2376,7 @@ static void enumerate_connected_ports(void) {
     for (uint64_t i = 0; i < count; i++) {
         (void)enumerate_port(i);
     }
-    if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0) {
+    if (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count) {
         if (!scheduler_spawn_io_service("xhci-hid", xhci_poll_worker, 0, xhci_io_service_ready)) {
             console_write("xhci: hid poll worker failed\n");
         }
@@ -2478,7 +2513,7 @@ void xhci_probe_input(uint64_t wait_ticks) {
     while (timer_ticks() - start < wait_ticks &&
            rdtsc() - start_tsc < tsc_wait &&
            spins < XHCI_INPUT_PROBE_SPIN_LIMIT) {
-        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0)) {
+        if (xhci.operational && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
             poll_hid_events_once();
         }
         for (uint64_t i = 0; i < 5000; i++) {
@@ -2644,6 +2679,12 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
+        if(device->network) {
+            const struct xhci_network *n=device->network;
+            console_printf("xhci-network: slot=%u ready=%u link=%s tx=%u rx=%u drops=%u errors=%u notifications=%u queued=%u\n",
+                (uint64_t)device->slot_id,(uint64_t)n->ready,n->link.known?(n->link.up?"up":"down"):"unknown",
+                n->tx_packets,n->rx_packets,n->drops,n->errors,n->notifications,(uint64_t)n->count);
+        }
         if (device->bulk_ep[0].dci) {
             const struct usb_storage *s=&device->storage;
             console_printf("xhci: storage slot=%u stage=%s disk=%s out=%u in=%u packet=%u/%u burst=%u/%u commands=%u errors=%u offline=%u\n",
@@ -2718,4 +2759,33 @@ void xhci_print_boot_diagnostic(void) {
             d->interrupt_success, d->hid_reports, d->interrupt_errors);
     }
     console_write("Expected internal keyboard: 05ac:0291, port 5, iface 1, dci 5.\n");
+}
+
+
+int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
+    if(!out) return -1;
+    uint64_t flags=event_irq_save();
+    for(uint64_t i=index;i<XHCI_MAX_DEVICES;i++) {
+        const struct xhci_device *d=&xhci.devices[i];
+        if(!d->present) continue;
+        unsigned bound=SRV_DEVICE_PRESENT;
+        if(d->configured) bound|=SRV_DEVICE_CONFIGURED;
+        if(d->interrupt_ready && d->hid_keyboard) bound|=SRV_DEVICE_KEYBOARD;
+        if(d->interrupt_ready && d->hid_mouse) bound|=SRV_DEVICE_POINTER;
+        if(d->trackpad.ready) bound|=SRV_DEVICE_TRACKPAD;
+        if(d->storage.block) bound|=SRV_DEVICE_STORAGE;
+        if(d->hub_ports) bound|=SRV_DEVICE_HUB;
+        if(d->network && d->network->ready) bound|=SRV_DEVICE_NETWORK;
+        if(d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
+        *out=(struct srv_device_info){.version=SRV_DEVICE_VERSION,.size=sizeof(*out),.bus_kind=SRV_DEVICE_USB,
+            .index=i,.vendor_id=d->vendor_id,.product_id=d->product_id,.revision=d->device_bcd,
+            .class_code=d->device_class?d->device_class:d->first_interface_class,
+            .subclass=d->device_class?d->device_subclass:d->first_interface_subclass,
+            .protocol=d->device_class?d->device_protocol:d->first_interface_protocol,
+            .device=d->slot_id,.port=d->port_id,.parent=d->parent_slot_id,.function=d->hub_port_id,.flags=bound,
+            .reports=d->hid_reports+d->mouse_reports+d->trackpad.reports+(d->network?d->network->rx_packets:0),
+            .errors=d->interrupt_errors+d->trackpad.errors+d->storage.errors+(d->network?d->network->errors:0)};
+        event_irq_restore(flags);return (int64_t)i+1;
+    }
+    event_irq_restore(flags);return 0;
 }

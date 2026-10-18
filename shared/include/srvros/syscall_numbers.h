@@ -129,6 +129,10 @@
 #define SYS_FILE_CHANGE 123
 #define SYS_GUI_POINTER_CONFIG 124
 #define SYS_GUI_BRIGHTNESS 125
+#define SYS_AUDIO 126
+#define SYS_DEVICE_LIST 127
+#define SYS_THERMAL_STATUS 128
+#define SYS_SMC_STATUS 129
 
 #define SRV_ABI_VERSION 1
 
@@ -302,6 +306,7 @@ struct srv_net_info {
 #define SRV_NET_LINK_KNOWN 1u
 #define SRV_NET_LINK_UP 2u
 #define SRV_NET_LINK_FULL_DUPLEX 4u
+#define SRV_NET_LINK_DUPLEX_KNOWN 8u
 struct srv_net_status_info {
     uint64_t abi_version;
     uint64_t struct_size;
