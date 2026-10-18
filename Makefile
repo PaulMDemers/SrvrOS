@@ -2360,3 +2360,11 @@ test-line-terminal: build/tests/line-terminal-host$(HOST_EXE)
 build/tests/line-terminal-host$(HOST_EXE): tools/test_line_terminal.c ports/srvros/linenoise.c
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/linenoise -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+
+.PHONY: test-wait-ownership
+test-core: test-wait-ownership
+test-wait-ownership: build/tests/wait-ownership-host$(HOST_EXE)
+	$<
+build/tests/wait-ownership-host$(HOST_EXE): tools/test_wait_ownership.c kernel/src/process.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@

@@ -192,3 +192,17 @@ The first Terminal harness expected a console exit log for a killed command.
 The screen correctly showed status 130; the harness now checks the shell's
 persisted `$?` value. This was an assertion issue, not a Ctrl-C failure. These
 remain VM/host results; the accepted hardware checkpoint is unchanged.
+
+## Parent-owned waits and orphan cleanup
+
+Reviewing Terminal lifecycle exposed a pre-existing race: the system init's
+periodic `wait(0, NOHANG)` could reap another live application's child. A new
+host regression reproduced the incorrect behavior before the fix. Wait targets
+are now restricted to the calling parent. The designated system reaper can
+adopt children only after their parent exits; kernel-owned hardware autotest
+processes remain reserved for their kernel waiter. Legacy monitor background
+launches are explicitly assigned to init.
+
+The host regression and full core suite pass. The guest PTY probe now delays
+its wait through multiple init polling cycles and still receives status 37;
+it also creates an orphan and confirms init removes it. This passed in QEMU.

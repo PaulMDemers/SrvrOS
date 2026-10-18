@@ -44,6 +44,11 @@ static int child_main(void) {
 }
 int main(int argc,char **argv) {
     if(argc>1 && !strcmp(argv[1],"--child")) return child_main();
+    if(argc>1 && !strcmp(argv[1],"--status37")) return 37;
+    if(argc>1 && !strcmp(argv[1],"--orphan")) {
+        int64_t leaf=srv_spawn_bg_args("/fat/bin/ptyprobe","--status37");
+        CHECK(leaf>0 && srv_write(1,&leaf,sizeof(leaf))==sizeof(leaf));return 0;
+    }
     int a[2],b[2];CHECK(srv_pty_create(a)==0 && srv_pty_create(b)==0);
     CHECK(srv_fcntl(a[0],SRV_F_SETFL,SRV_FD_NONBLOCK)==0);
     CHECK(srv_fcntl(b[0],SRV_F_SETFL,SRV_FD_NONBLOCK)==0);
@@ -69,6 +74,17 @@ int main(int argc,char **argv) {
     CHECK(srv_ioctl(b[0],SRV_TIOCSWINSZ,&size)==0);used=0;captured[0]=0;
     pid=child(b[1]);CHECK(pid>0);CHECK(srv_close(b[1])==0);CHECK(capture(b[0],"CHILD-READY"));
     CHECK(srv_close(b[0])==0);CHECK(srv_wait(pid,&status,0)==pid && status==128+SIGHUP);
-    puts("ptyprobe: PASS isolated attributes/raw bytes, canonical EOF, stdio inheritance, winsize, char stat, foreground Ctrl-C and close hangup");
+    /* Init runs every second. A live parent must retain its finished child's
+     * wait result even when it deliberately waits through several reap cycles. */
+    pid=srv_spawn_bg_args("/fat/bin/ptyprobe","--status37");CHECK(pid>0);
+    srv_sleep_ticks(250);CHECK(srv_wait(pid,&status,0)==pid && status==37);
+    int channel[2];CHECK(srv_pipe(channel)==0);
+    pid=srv_spawn_bg_args_fds("/fat/bin/ptyprobe","--orphan",-1,channel[1]);CHECK(pid>0);
+    srv_close(channel[1]);int64_t orphan=0;size_t received=0;
+    while(received<sizeof(orphan)) { long n=srv_read(channel[0],(char *)&orphan+received,sizeof(orphan)-received);CHECK(n>0);received+=n; }
+    srv_close(channel[0]);CHECK(orphan>0 && srv_wait(pid,&status,0)==pid && !status);
+    srv_sleep_ticks(250);struct srv_process_info info;long index=0;
+    while((index=srv_proc_list(index,&info))>0) CHECK(info.pid!=(uint64_t)orphan);
+    puts("ptyprobe: PASS isolated attributes/raw bytes, canonical EOF, stdio inheritance, winsize, char stat, foreground Ctrl-C, close hangup, parent wait ownership and orphan reaping");
     return 0;
 }

@@ -330,8 +330,8 @@ static void service(struct session *s) {
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
         uint64_t status;
         long waited=srv_wait(s->children[i],&status,SRV_WAIT_NOHANG);
-        /* Background children can be reaped by another system waiter. A
-         * negative wait result alone isn't proof of death (e.g. interruption). */
+        /* An interrupted wait is not proof of death. Init only adopts a
+         * child after its parent exits; live clients retain their own results. */
         if (waited==(long)s->children[i] || (waited<0 && !desk_process_alive(s->children[i])))
             s->children[i]=0;
     }

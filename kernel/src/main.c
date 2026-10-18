@@ -512,6 +512,7 @@ void kmain(void) {
     bool init_ready = false;
     int64_t init_pid = process_spawn_background_elf_args_quiet("/init", "--system");
     if (init_pid >= 0) {
+        (void)process_set_reaper((uint64_t)init_pid);
         console_printf("init: started pid=%u\n", (uint64_t)init_pid);
         uint64_t init_start = timer_monotonic_us();
         bool ready = timer_running && process_wait_startup((uint64_t)init_pid, 300);

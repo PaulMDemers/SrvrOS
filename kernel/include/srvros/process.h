@@ -96,6 +96,8 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
     int64_t stdin_fd,
     int64_t stdout_fd);
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
+/* Kernel-designated init may reap children whose userspace parent has exited. */
+bool process_set_reaper(uint64_t pid);
 bool process_exit_status(uint64_t pid, uint64_t *status_out);
 bool process_start_background(const char *path);
 uint64_t process_list(uint64_t start_index,

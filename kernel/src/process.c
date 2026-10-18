@@ -292,6 +292,7 @@ uint64_t gdt_default_kernel_stack_top(void);
 void gdt_set_kernel_stack(uint64_t stack_top);
 
 static struct process processes[PROCESS_MAX_PROCESSES];
+static uint64_t system_reaper_pid;
 static struct process_write_file write_files[PROCESS_MAX_WRITE_FILES];
 static struct process_read_file read_files[PROCESS_MAX_READ_FILES];
 static struct process_pipe pipes[PROCESS_MAX_PIPES];
@@ -1796,6 +1797,7 @@ bool process_start_background(const char *path) {
         return false;
     }
 
+    if(!process->parent_pid && system_reaper_pid) process->parent_pid=system_reaper_pid;
     if (!allocate_kernel_stack(process)) {
         release_process(process);
         return false;
@@ -2181,67 +2183,61 @@ int64_t process_spawn_background_elf(const char *path) {
     return process_spawn_background_elf_args(path, "");
 }
 
-static struct process *find_reapable_process(uint64_t pid) {
-    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
-        if (!processes[i].allocated || !processes[i].detached || !processes[i].reapable) {
-            continue;
-        }
-        if (pid == 0 || processes[i].pid == pid) {
-            return &processes[i];
-        }
-    }
-    return NULL;
-}
-
-static bool has_wait_target(uint64_t pid) {
-    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
-        if (!processes[i].allocated || !processes[i].detached) {
-            continue;
-        }
-        if (pid == 0 || processes[i].pid == pid) {
-            return true;
-        }
+struct process_wait_request { uint64_t pid,owner; };
+bool process_set_reaper(uint64_t pid) {
+    if(!pid) return false;
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated && processes[i].active && processes[i].pid==pid) {
+        system_reaper_pid=pid;return true;
     }
     return false;
 }
-
-static bool process_wait_ready(void *arg) {
-    uint64_t pid = arg != NULL ? *(uint64_t *)arg : 0;
-    return process_signal_pending_current() ||
-        find_reapable_process(pid) != NULL ||
-        !has_wait_target(pid);
+static bool process_wait_owned(const struct process *candidate,uint64_t owner) {
+    if(candidate->parent_pid==owner) return true;
+    if(!owner || owner!=system_reaper_pid || candidate->pid==owner || !candidate->parent_pid) return false;
+    /* Parent zero denotes a kernel-owned task, such as a hardware autotest.
+     * Init must not consume its result. Ordinary orphaned userspace children
+     * remain eligible for init without touching a still-running worker. */
+    for(unsigned i=0;i<PROCESS_MAX_PROCESSES;i++) if(processes[i].allocated &&
+        processes[i].pid==candidate->parent_pid && processes[i].active) return false;
+    return true;
 }
-
+static struct process *find_reapable_process(const struct process_wait_request *request) {
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        struct process *process=&processes[i];
+        if(process->allocated && process->detached && process->reapable &&
+           (!request->pid || process->pid==request->pid) && process_wait_owned(process,request->owner)) return process;
+    }
+    return NULL;
+}
+static bool has_wait_target(const struct process_wait_request *request) {
+    for (uint64_t i = 0; i < PROCESS_MAX_PROCESSES; i++) {
+        struct process *process=&processes[i];
+        if(process->allocated && process->detached && (!request->pid || process->pid==request->pid) &&
+           process_wait_owned(process,request->owner)) return true;
+    }
+    return false;
+}
+static bool process_wait_ready(void *arg) {
+    const struct process_wait_request *request=arg;
+    return process_signal_pending_current() || find_reapable_process(request)!=NULL || !has_wait_target(request);
+}
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang) {
+    struct process_wait_request request={.pid=pid,.owner=process_pid(process_current())};
     for (;;) {
-        struct process *process = find_reapable_process(pid);
+        struct process *process = find_reapable_process(&request);
         if (process != NULL) {
-            uint64_t waited_pid = process->pid;
-            uint64_t status = process->exit_status;
-            if (status_out != NULL) {
-                *status_out = status;
-            }
+            uint64_t waited_pid = process->pid,status = process->exit_status;
+            if (status_out != NULL) *status_out = status;
             process_record_exit_status(waited_pid, status);
             release_process(process);
-            if (find_reapable_process(0) == NULL) {
-                process_clear_current_signal(SRV_SIGNAL_CHLD);
-            }
+            struct process_wait_request any={.owner=request.owner};
+            if (find_reapable_process(&any) == NULL) process_clear_current_signal(SRV_SIGNAL_CHLD);
             return (int64_t)waited_pid;
         }
-
-        if (!has_wait_target(pid)) {
-            return -1;
-        }
-        if (process_signal_pending_current()) {
-            return SRV_ERR_INTR;
-        }
-        if (nohang) {
-            return 0;
-        }
-
-        if (!scheduler_wait(&process_wait_queue, process_wait_ready, &pid)) {
-            scheduler_yield();
-        }
+        if (!has_wait_target(&request)) return -1;
+        if (process_signal_pending_current()) return SRV_ERR_INTR;
+        if (nohang) return 0;
+        if (!scheduler_wait(&process_wait_queue, process_wait_ready, &request)) scheduler_yield();
     }
 }
 
