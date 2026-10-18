@@ -54,6 +54,8 @@ quarantines the provider. There is no speculative reset, extra-data draining,
 key-write operation or fan-mode/speed command. Last-good samples retain their
 timestamp and become unavailable on failure or age expiry. Diagnostic snapshots
 record state, errors and sample counters every ten seconds during a trial.
+Failures retain the queried fan key, transaction stage, byte counts and first
+six response bytes; exit diagnostics repeat them for firmware mismatch diagnosis.
 
 Host tests cover the target gate, metadata mismatch, unsupported fan count,
 busy/extra/missing data, signed clock movement, cancellation, sample invalidation

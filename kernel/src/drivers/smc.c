@@ -109,4 +109,14 @@ void smc_print_status(void) {
     struct srv_smc_status s;smc_status(&s);
     console_printf("smc: state=%u flags=%x fans=%u fan_millirpm=%u sample_us=%u samples=%u transactions=%u failures=%u error=%u phase=%u status=%x; fan control disabled, native fan reading NOT_TESTED\n",
         (uint64_t)s.state,(uint64_t)s.flags,(uint64_t)s.fan_count,(uint64_t)s.fan_millirpm,s.sampled_us,s.samples,s.transactions,s.failures,(uint64_t)s.error,(uint64_t)s.phase,(uint64_t)s.last_status);
+    if(s.state==SRV_SMC_FAULT) {
+        /* A failed worker is quarantined, so this retained reply is stable.
+         * Repeat it at desktop exit in case the original failure scrolled out
+         * of the bounded boot log. Only FNum/F0Ac are queried by this service. */
+        uint64_t bytes=0;char key[5]={0};
+        for(unsigned i=0;i<4;i++)key[i]=transport.key[i]>=32&&transport.key[i]<=126?transport.key[i]:'?';
+        for(unsigned i=0;i<transport.received && i<6;i++)bytes|=(uint64_t)transport.result[i]<<(i*8);
+        console_printf("smc: failed-key=%s stage=%u command=%x requested=%u received=%u first_bytes_le=%x\n",
+            key,(uint64_t)stage,(uint64_t)transport.command,(uint64_t)transport.length,(uint64_t)transport.received,bytes);
+    }
 }
