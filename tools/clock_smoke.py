@@ -40,12 +40,15 @@ def main():
                 serial.sendall(b'run /fat/bin/clockprobe --files\n')
                 wait(b'clockprobe: PASS',60)
                 wait(b'clockprobe: UTC=2026-10-18 12:34:',5)
+                wait(b'clockprobe: formatted=2026-10-18 12:34',5)
                 wait(b'UTC file timestamps and explicit utime PASS',5)
                 memory=re.search(rb'memory_total=(\d+)',output)
                 assert memory and 450*1024*1024<int(memory[1])<=512*1024*1024, 'RAM must exclude physical address holes'
                 wait(b'process: exited status=0',15)
                 serial.sendall(b'run /fat/bin/date\n')
                 wait(b' UTC\r\n',15)
+                serial.sendall(b'run /fat/bin/date +%a_%F_%H:%M\n')
+                wait(b'Sun_2026-10-18_12:34\r\n',15)
                 serial.close()
             finally:
                 stop_process(process);(out/'serial.log').write_bytes(output)

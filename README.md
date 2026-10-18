@@ -15,7 +15,10 @@ not an implemented native desktop.
 
 The current native desktop has a global menu bar, dock, independent application
 windows, a shared widget toolkit, and Files, Text, Calculator, System, Settings
-and Terminal. Start it with `run /fat/bin/deskd`. The
+and Terminal. Files supports sortable details, rename, verified duplication of
+files up to 64 KiB, and confirmed permanent deletion. System shows live process
+and memory information; Settings saves text, color and clock preferences.
+Start it with `run /fat/bin/deskd`. The
 [development journal](docs/desktop-progress-2026-10-18.md) records implemented
 behavior, VM checks and remaining limitations. The accepted MacBook Air input/I/O
 checkpoint is preserved separately; these new application changes are being

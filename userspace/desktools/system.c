@@ -31,9 +31,9 @@ static void rows(struct tool *t) {
         snprintf(t->process_numbers[i][0],24,"%llu",(unsigned long long)p->pid);
         snprintf(t->process_numbers[i][1],24,"%llu",(unsigned long long)p->parent_pid);
         snprintf(t->process_numbers[i][2],24,"%llu KiB",(unsigned long long)(p->user_mapped_bytes/1024));
-        t->process_rows[i]=(struct desk_table_row){.id=p->pid,.cells={p->name,t->process_numbers[i][0],t->process_numbers[i][1],p->state,t->process_numbers[i][2]}};
+        t->table_rows[i]=(struct desk_table_row){.id=p->pid,.cells={p->name,t->process_numbers[i][0],t->process_numbers[i][1],p->state,t->process_numbers[i][2]}};
     }
-    desk_table_rows(&t->table,t->process_rows,t->process_count);t->window.dirty=1;
+    desk_table_rows(&t->table,t->table_rows,t->process_count);t->window.dirty=1;
 }
 void tool_system_refresh(struct tool *t,int force) {
     uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;t->refresh_tick=now;

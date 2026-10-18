@@ -5,20 +5,21 @@
 
 int main(int argc, char **argv) {
     if (argc > 1 && cli_is_help_arg(argv[1])) {
-        cli_puts("usage: date [-u]\nDisplay the hardware-seeded UTC clock.\n");
+        cli_puts("usage: date [-u] [+FORMAT]\nDisplay the hardware-seeded UTC clock using C-locale calendar formats.\n");
         return 0;
     }
-    if (argc > 2 || (argc == 2 && strcmp(argv[1],"-u") != 0)) {
-        cli_puts("usage: date [-u]\n"); return 1;
-    }
+    int index=1;if(index<argc && !strcmp(argv[index],"-u")) index++;
+    const char *format="%F %T UTC";
+    if(index<argc && argv[index][0]=='+') format=argv[index++]+1;
+    if(index!=argc) { cli_puts("usage: date [-u] [+FORMAT]\n");return 1; }
     time_t now = time(NULL);
     struct tm utc;
     if (now == (time_t)-1 || !gmtime_r(&now,&utc)) {
         cli_puts("date: UTC clock unavailable\n"); return 1;
     }
-    char text[64];
-    snprintf(text,sizeof(text),"%04d-%02d-%02d %02d:%02d:%02d UTC\n",
-        utc.tm_year+1900,utc.tm_mon+1,utc.tm_mday,utc.tm_hour,utc.tm_min,utc.tm_sec);
-    cli_puts(text);
-    return 0;
+    char text[512];
+    if(!strftime(text,sizeof(text),format,&utc) && *format) {
+        cli_puts("date: unsupported format or output too long\n");return 1;
+    }
+    cli_puts(text);cli_puts("\n");return 0;
 }

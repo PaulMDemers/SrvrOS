@@ -51,5 +51,11 @@ int main(void) {
     reset();assert(!desk_file_job_start(&job,DESK_FILE_READ,"/fat/text",NULL,0,0,0));alive=0;assert(finish()<0);
     reset();assert(desk_file_job_start(&job,DESK_FILE_READ,"relative",NULL,0,0,0)<0);
     assert(desk_file_job_start(&job,DESK_FILE_READ,"/fat/text",data,1,0,0)<0);
+    reset();struct desk_file_change change={.inode=71};strcpy(change.destination,"/fat/new");
+    assert(desk_file_job_start(&job,DESK_FILE_RENAME,"/fat/old",&change,1,0,0)<0);
+    assert(desk_file_job_start(&job,DESK_FILE_RENAME,"/fat/old",&change,sizeof(change),1,0)<0);
+    assert(!desk_file_job_start(&job,DESK_FILE_RENAME,"/fat/old",&change,sizeof(change),0,0));
+    change.inode=99;assert(((struct desk_file_change *)job.outgoing)->inode==71);
+    response(DESK_FILE_CHANGED,NULL,0);assert(finish()==1 && job.response.status==DESK_FILE_CHANGED);
     puts("file-job: PASS partial reads/writes, EAGAIN/EINTR retry, snapshot isolation, response integrity, worker death, request bounds");
 }

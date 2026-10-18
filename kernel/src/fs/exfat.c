@@ -1263,6 +1263,17 @@ static void load_mount_metadata(struct exfat_mount *mount) {
     }
 
     metadata_syncing = true;
+    /* Registration time is not a file modification date. Until native exFAT
+     * timestamp/UTC-offset decoding is implemented, imported entries without
+     * our persisted metadata have unknown dates. New mutations still get UTC. */
+    for(uint64_t i=0;i<vfs_count();i++) {
+        const struct vfs_node *node=vfs_node_at(i);
+        if(node && find_mount_for_path(node->path)==mount) {
+            struct vfs_metadata metadata=node->metadata;
+            metadata.atime=metadata.mtime=metadata.ctime=0;
+            (void)vfs_set_metadata(node->path,&metadata);
+        }
+    }
     if (parse_metadata_file(mount, temp_path, false)) {
         (void)parse_metadata_file(mount, temp_path, true);
         if (vfs_lookup(path) != NULL) {

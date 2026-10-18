@@ -24,7 +24,8 @@ void *kmalloc(uint64_t n) { return malloc(n); }
 void *kcalloc(uint64_t n, uint64_t size) { return calloc(n,size); }
 void kfree(void *p) { free(p); }
 uint64_t timer_ticks(void) { return 100; }
-int64_t timer_realtime_us(void) { return 1792326896000000LL; }
+static int64_t mock_realtime=1792326896000000LL;
+int64_t timer_realtime_us(void) { return mock_realtime; }
 void console_write(const char *s) { (void)s; }
 void console_printf(const char *fmt, ...) { (void)fmt; }
 uint64_t block_device_size(const struct block_device *d) { return d->block_size*d->block_count; }
@@ -83,6 +84,20 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"timestamps")) {
+        assert(vfs_lookup("/vol")->metadata.mtime==0);
+        assert(exfat_write_file("/vol/dated.txt",(const uint8_t *)"date",4));
+        uint64_t created=vfs_lookup("/vol/dated.txt")->metadata.mtime;
+        assert(created==(uint64_t)mock_realtime/1000000);
+        assert(exfat_create_directory("/vol/dated-dir"));
+        assert(vfs_lookup("/vol/dated-dir")->metadata.mtime==created);
+        mock_realtime+=86400000000LL;
+        assert(exfat_unmount("/vol") && exfat_mount_block_device("/vol",&d));
+        assert(vfs_lookup("/vol")->metadata.mtime==0);
+        assert(vfs_lookup("/vol/dated.txt")->metadata.mtime==created);
+        assert(vfs_lookup("/vol/dated-dir")->metadata.mtime==created);
+        assert(fsync(fd)==0);close(fd);puts("unknown imported dates and persisted UTC creation dates across remount PASS");return 0;
+    }
     if(!strcmp(argv[2],"capacity")) {
         assert(exfat_write_file("/vol/keep.txt",(const uint8_t *)"original",8));
         uint64_t available=vfs_free_nodes();

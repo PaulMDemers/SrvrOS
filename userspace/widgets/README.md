@@ -252,3 +252,14 @@ its sort. Tab continues normal control traversal. Fixed-width columns and
 remaining-space columns share one clipped viewport; narrow layouts clip trailing
 columns. The shared list navigation and scrollbar provide scrolling, double-click
 activation and capture cancellation without embedding a data source in the UI.
+
+## Text prompts
+
+`desk_prompt.h` composes the shared dialog, editor and focus router into an owned,
+bounded single-line prompt. Opening selects the initial text; Enter submits the
+field, Escape cancels, and Tab reaches Cancel/Accept. Outside clicks preserve
+focus, while focus loss and resize cancel captures. Clipboard requests identify
+the field so the application can apply the existing revision/selection guards.
+Name validation, overwrite policy and the resulting operation stay in the app.
+Files uses this for Rename and Duplicate, and the shared safe-default dialog for
+permanent deletion.

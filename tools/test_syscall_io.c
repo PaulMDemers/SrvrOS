@@ -19,7 +19,7 @@ int main(void) {
     frame.rax=SYS_WRITE;frame.rdi=1;assert(syscall_io_safe(&frame));
     console_fd=false;assert(!syscall_io_safe(&frame));
     const uint64_t blocked[]={SYS_OPEN,SYS_CLOSE,SYS_FS_WRITE,SYS_SYNC,SYS_EXIT,
-        SYS_KILL,SYS_SPAWN,SYS_POLL,SYS_MMAP,SYS_MUNMAP,UINT64_MAX};
+        SYS_KILL,SYS_SPAWN,SYS_POLL,SYS_MMAP,SYS_MUNMAP,SYS_FILE_CHANGE,UINT64_MAX};
     for(unsigned i=0;i<sizeof(blocked)/sizeof(*blocked);i++) {
         frame.rax=blocked[i];assert(!syscall_io_safe(&frame));
     }

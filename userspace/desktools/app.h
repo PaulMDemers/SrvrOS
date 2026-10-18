@@ -3,12 +3,13 @@
 #include <srvros/desk_app.h>
 #include <srvros/desk_ui.h>
 #include <srvros/desk_dialog.h>
+#include <srvros/desk_prompt.h>
 #include <srvros/desk_file_picker.h>
 #include <srvros/desk_clipboard.h>
 #include <srvros/desk_file_job.h>
 #include <srvros/desk_preferences.h>
 #include <srvros/sys.h>
-enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME };
+enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT };
 enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH };
 enum tool_pending { TOOL_PENDING_NONE,TOOL_PENDING_NEW,TOOL_PENDING_OPEN,TOOL_PENDING_CLOSE };
 struct tool {
@@ -16,6 +17,10 @@ struct tool {
     struct desk_app window;
     struct desk_ui ui;
     struct desk_dialog dialog;
+    struct desk_prompt prompt;
+    int prompt_mode;
+    struct desk_file_entry file_selected;
+    char file_source[DESK_FILE_PATH],file_select_name[96],file_notice[80];
     struct desk_file_picker picker;
     int picker_mode,picker_job;
     struct desk_button buttons[32];
@@ -29,14 +34,14 @@ struct tool {
     char path_store[2][DESK_FILE_PATH],body_store[2][DESK_FILE_BYTES+1],name_store[2][128];
     struct desk_table table;
     struct srv_process_info processes[DESK_TABLE_MAX_ROWS];
-    struct desk_table_row process_rows[DESK_TABLE_MAX_ROWS];
+    struct desk_table_row table_rows[DESK_TABLE_MAX_ROWS];
     char process_numbers[DESK_TABLE_MAX_ROWS][3][24];
     struct srv_meminfo system_memory;
     int process_count,system_paused,system_memory_valid;
-    struct desk_list list;
     struct desk_list_item items[DESK_FILE_ENTRIES];
     struct desk_file_entry entries[DESK_FILE_ENTRIES];
-    char details[DESK_FILE_ENTRIES][32];
+    char details[DESK_FILE_ENTRIES][32],file_dates[DESK_FILE_ENTRIES][24];
+    int file_count;
     struct desk_file_job job;
     char status[160],saved_path[DESK_FILE_PATH],pending_path[DESK_FILE_PATH];
     char saved_data[DESK_FILE_BYTES+1],clipboard[DESK_FILE_BYTES+1];
@@ -82,6 +87,8 @@ void tool_text_action(struct tool *tool,struct desk_action action);
 void tool_text_finish(struct tool *tool,int result);
 void tool_text_request(struct tool *tool,int pending);
 void tool_text_dialog(struct tool *tool,unsigned id);
+void tool_files_prompt(struct tool *tool,struct desk_action action);
+void tool_files_dialog(struct tool *tool,unsigned id);
 void tool_files_init(struct tool *tool,const char *path);
 void tool_files_action(struct tool *tool,struct desk_action action);
 void tool_files_finish(struct tool *tool,int result);

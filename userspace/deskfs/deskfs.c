@@ -32,6 +32,36 @@ static unsigned read_file(const char *path,unsigned char *data,uint32_t *length)
     }
     return close(fd)?DESK_FILE_IO:DESK_FILE_OK;
 }
+static unsigned change_file(const struct desk_file_request *q) {
+    struct desk_file_change change;memcpy(&change,input,sizeof(change));
+    if(!change.inode || change.directory>1 || change.reserved || !memchr(change.destination,0,sizeof(change.destination)) ||
+        (q->operation!=DESK_FILE_DELETE && change.destination[0]!='/')) return DESK_FILE_INVALID;
+    struct srv_file_change request={.abi_version=SRV_ABI_VERSION,.struct_size=sizeof(request),
+        .operation=q->operation==DESK_FILE_RENAME?SRV_FILE_RENAME:q->operation==DESK_FILE_DELETE?SRV_FILE_DELETE:SRV_FILE_COPY,
+        .expected_inode=change.inode,.expected_size=change.size,.expected_mtime=change.modified,.expected_type=change.directory,
+        .path=q->path,.destination=change.destination};
+    if(q->operation==DESK_FILE_COPY) {
+        if(change.directory || change.size>DESK_FILE_BYTES) return DESK_FILE_TOO_LARGE;
+        uint32_t length=0;unsigned status=read_file(q->path,output,&length);if(status) return status;
+        request.data=output;request.length=length;
+    }
+    long result=srv_file_change(&request);
+    if(result==SRV_FILE_CHANGED) return DESK_FILE_CHANGED;
+    if(result==SRV_FILE_EXISTS) return DESK_FILE_EXISTS;
+    if(result==SRV_FILE_BUSY) return DESK_FILE_BUSY;
+    if(result==SRV_FILE_LIMIT) return DESK_FILE_TOO_LARGE;
+    if(result==SRV_FILE_INVALID) return DESK_FILE_INVALID;
+    if(result || srv_sync()) return DESK_FILE_IO;
+    struct stat st;
+    if(q->operation==DESK_FILE_DELETE) return stat(q->path,&st)<0 && errno==ENOENT?DESK_FILE_OK:DESK_FILE_IO;
+    if(stat(change.destination,&st) || (uint64_t)st.st_size!=change.size || !!S_ISDIR(st.st_mode)!=!!change.directory) return DESK_FILE_IO;
+    if(q->operation==DESK_FILE_RENAME && !(stat(q->path,&st)<0 && errno==ENOENT)) return DESK_FILE_IO;
+    if(q->operation==DESK_FILE_COPY) {
+        uint32_t expected=desk_file_crc(output,request.length),length=0;
+        if(read_file(change.destination,output,&length) || length!=request.length || desk_file_crc(output,length)!=expected) return DESK_FILE_IO;
+    }
+    return DESK_FILE_OK;
+}
 static void perform(const struct desk_file_request *q,struct desk_file_response *r) {
     *r=(struct desk_file_response){.magic=DESK_FILE_MAGIC,.id=q->id};
     if(q->operation==DESK_FILE_READ) r->status=read_file(q->path,output,&r->length);
@@ -74,12 +104,13 @@ static void perform(const struct desk_file_request *q,struct desk_file_response 
                 struct stat st;if(stat(path,&st)) { r->status=DESK_FILE_IO;break; }
                 struct desk_file_entry *out=&entries[r->count++];*out=(struct desk_file_entry){0};
                 size_t len=strlen(entry->d_name);if(len>=sizeof(out->name)) { r->status=DESK_FILE_INVALID;break; }
-                memcpy(out->name,entry->d_name,len);out->directory=S_ISDIR(st.st_mode);out->size=st.st_size;
+                memcpy(out->name,entry->d_name,len);out->directory=S_ISDIR(st.st_mode);out->size=st.st_size;out->inode=st.st_ino;out->modified=st.st_mtime;
             }
             if(closedir(dir)) r->status=DESK_FILE_IO;
             r->length=r->count*sizeof(*entries);
         }
-    } else r->status=DESK_FILE_INVALID;
+    } else if(q->operation>=DESK_FILE_RENAME && q->operation<=DESK_FILE_COPY) r->status=change_file(q);
+    else r->status=DESK_FILE_INVALID;
     if(r->status) r->length=r->count=0;
     r->crc=desk_file_crc(output,r->length);
 }
@@ -89,8 +120,7 @@ int main(void) {
         struct desk_file_request q;
         if(transfer(0,&q,sizeof(q),0)) return 0;
         if(q.magic!=DESK_FILE_MAGIC || q.length>DESK_FILE_BYTES || q.path[0]!='/' ||
-           !memchr(q.path,0,sizeof(q.path)) || q.operation<DESK_FILE_READ || q.operation>DESK_FILE_MKDIR ||
-           (q.operation!=DESK_FILE_WRITE && q.length) || q.flags>DESK_FILE_EXPECT_EXISTING) return 1;
+           !memchr(q.path,0,sizeof(q.path)) || !desk_file_payload_valid(q.operation,q.length,q.flags)) return 1;
         if(q.length && transfer(0,input,q.length,0)) return 1;
         struct desk_file_response r;perform(&q,&r);
         if(transfer(1,&r,sizeof(r),1) || (r.length && transfer(1,output,r.length,1))) return 0;

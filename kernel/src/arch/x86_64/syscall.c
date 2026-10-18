@@ -1130,6 +1130,28 @@ static int64_t syscall_rename(const char *user_old_path, const char *user_new_pa
     return exfat_rename(old_path, new_path) ? 0 : -1;
 }
 
+/* The syscall gate serializes filesystem continuations on this single-core
+ * kernel. No yielding call separates the VFS guard from entering the existing
+ * exFAT mutation scope; owned I/O keeps other namespace mutations gated. */
+static int64_t syscall_file_change(const struct srv_file_change *user_request) {
+    struct srv_file_change q;char path[MAX_PATH_LENGTH],destination[MAX_PATH_LENGTH];
+    if(abi_user_struct_size(user_request,sizeof(q),SRV_ABI_VERSION)!=sizeof(q) ||
+        !copy_from_user(&q,user_request,sizeof(q)) || q.operation<SRV_FILE_RENAME || q.operation>SRV_FILE_COPY ||
+        !q.expected_inode || q.expected_type>VFS_NODE_DIRECTORY || !copy_user_string(q.path,path,sizeof(path)) || path[0]!='/') return SRV_FILE_INVALID;
+    if(q.operation!=SRV_FILE_DELETE && (!copy_user_string(q.destination,destination,sizeof(destination)) || destination[0]!='/')) return SRV_FILE_INVALID;
+    if(q.operation==SRV_FILE_COPY && (q.expected_type!=VFS_NODE_FILE || q.length!=q.expected_size || q.length>MAX_SYSCALL_COPY)) return SRV_FILE_LIMIT;
+    const struct vfs_node *node=vfs_lookup(path);
+    if(!node || node->metadata.inode!=q.expected_inode || node->size!=q.expected_size ||
+        node->metadata.mtime!=q.expected_mtime || (uint64_t)node->type!=q.expected_type) return SRV_FILE_CHANGED;
+    if(q.operation!=SRV_FILE_DELETE && vfs_lookup(destination)) return SRV_FILE_EXISTS;
+    if(process_has_open_vfs_prefix(path) || (q.operation!=SRV_FILE_DELETE && process_has_open_vfs_prefix(destination))) return SRV_FILE_BUSY;
+    if(q.operation==SRV_FILE_RENAME) return exfat_rename(path,destination)?0:-1;
+    if(q.operation==SRV_FILE_DELETE) return (q.expected_type==VFS_NODE_DIRECTORY?exfat_delete_directory(path):exfat_delete_file(path))?0:-1;
+    uint8_t *data=q.length?kmalloc(q.length):NULL;
+    if(q.length && (!data || !copy_from_user(data,q.data,q.length))) { kfree(data);return -1; }
+    bool ok=exfat_write_file(destination,data,q.length);kfree(data);return ok?0:-1;
+}
+
 static int64_t syscall_seek(uint64_t fd, int64_t offset, uint64_t whence) {
     return process_file_seek(process_current(), fd, offset, whence);
 }
@@ -2576,6 +2598,9 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_MKDIR:
         frame->rax = (uint64_t)syscall_mkdir((const char *)frame->rdi);
         return;
+    case SYS_FILE_CHANGE:
+        frame->rax=(uint64_t)syscall_file_change((const struct srv_file_change *)frame->rdi);
+        break;
     case SYS_RENAME:
         frame->rax = (uint64_t)syscall_rename((const char *)frame->rdi, (const char *)frame->rsi);
         return;

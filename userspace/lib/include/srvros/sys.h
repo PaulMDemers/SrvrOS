@@ -137,6 +137,7 @@ long srv_unlink(const char *path);
 long srv_mkdir(const char *path);
 long srv_rmdir(const char *path);
 long srv_rename(const char *old_path, const char *new_path);
+long srv_file_change(const struct srv_file_change *request);
 long srv_list(uint64_t index, char *path_buffer, size_t path_capacity, uint64_t *size_out);
 long srv_spawn(const char *path);
 long srv_spawn_args(const char *path, const char *args);

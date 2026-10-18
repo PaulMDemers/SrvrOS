@@ -50,5 +50,10 @@ int main(void) {
     desk_text_buffer_select(&t->body_text,0,t->body_text.length);
     tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_CUT});t->picker_mode=DESK_PICKER_SAVE;copy_done(0);
     assert(!strcmp(t->body_text.data,"new text")); /* Opening picker isolates the document as well. */
+    t->picker_mode=0;t->role=DESK_APP_FILES;desk_prompt_init(&t->prompt);
+    assert(!desk_prompt_open(&t->prompt,"Rename","Name","kept.txt","Rename"));desk_prompt_configure(&t->prompt,(struct desk_rect){0,0,640,480});t->prompt_mode=DESK_FILE_RENAME;
+    tool_clipboard_action(t,(struct desk_action){TOOL_PROMPT,DESK_EDIT_CUT});t->prompt_mode=0;copy_done(0);assert(!strcmp(t->prompt.text.data,"kept.txt"));
+    tool_clipboard_action(t,(struct desk_action){TOOL_BODY,DESK_EDIT_CUT});t->prompt_mode=DESK_FILE_RENAME;copy_done(0);assert(!strcmp(t->body_text.data,"new text"));
+    tool_clipboard_action(t,(struct desk_action){TOOL_PROMPT,DESK_EDIT_CUT});copy_done(0);assert(!t->prompt.text.length);
     puts("tool-clipboard: PASS acknowledged cut, failure retention, revision guard, undo, paste, single-line/UTF-8 validation and modal isolation");
 }

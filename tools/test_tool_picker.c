@@ -18,7 +18,7 @@ void tool_text_save_path(struct tool *tool,const char *path) { (void)tool;saved+
 void tool_text_open_path(struct tool *tool,const char *path) { (void)tool;opened++;strcpy(destination,path); }
 void tool_clipboard_action(struct tool *tool,struct desk_action a) { (void)tool;clipboard_target=a.id; }
 static void response(void) {
-    const struct desk_file_entry entries[]={ {.name="notes.txt",.size=7}, {.name="Folder",.directory=1} };
+    const struct desk_file_entry entries[]={ {.name="notes.txt",.size=7,.inode=1}, {.name="Folder",.directory=1,.inode=2} };
     memcpy(t.job.incoming,entries,sizeof(entries));t.job.response=(struct desk_file_response){.length=sizeof(entries),.count=2};t.job.busy=0;
     tool_picker_finish(&t,1);
 }

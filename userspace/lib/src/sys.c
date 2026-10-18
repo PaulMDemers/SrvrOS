@@ -287,6 +287,10 @@ long srv_rmdir(const char *path) {
     return srv_syscall1(SYS_RMDIR, (long)srv_make_path(path, full, sizeof(full)));
 }
 
+long srv_file_change(const struct srv_file_change *request) {
+    return srv_syscall1(SYS_FILE_CHANGE,(long)request);
+}
+
 long srv_rename(const char *old_path, const char *new_path) {
     char old_full[CLI_PATH_MAX];
     char new_full[CLI_PATH_MAX];

@@ -21,8 +21,7 @@ int desk_file_job_init(struct desk_file_job *j) {
 int desk_file_job_start(struct desk_file_job *j,unsigned operation,const char *path,
     const void *data,size_t length,unsigned flags,uint32_t expected_crc) {
     if(j->busy || j->broken || !j->pid || !path || path[0]!='/' || strlen(path)>=DESK_FILE_PATH ||
-       operation<DESK_FILE_READ || operation>DESK_FILE_MKDIR || length>DESK_FILE_BYTES ||
-       (length && !data) || (operation!=DESK_FILE_WRITE && length) || flags>DESK_FILE_EXPECT_EXISTING) return -1;
+       length>DESK_FILE_BYTES || (length && !data) || !desk_file_payload_valid(operation,(unsigned)length,flags)) return -1;
     j->request=(struct desk_file_request){.magic=DESK_FILE_MAGIC,.id=++j->next_id,
         .operation=operation,.length=length,.flags=flags,.expected_crc=expected_crc};
     strcpy(j->request.path,path);
@@ -59,7 +58,7 @@ int desk_file_job_poll(struct desk_file_job *j) {
         if(j->received==sizeof(j->response)) {
             if(j->response.magic!=DESK_FILE_MAGIC || j->response.id!=j->request.id ||
                j->response.length>DESK_FILE_BYTES || j->response.count>DESK_FILE_ENTRIES ||
-               j->response.status>DESK_FILE_NOT_FOUND || j->response.truncated>1 ||
+               j->response.status>DESK_FILE_BUSY || j->response.truncated>1 ||
                (j->request.operation==DESK_FILE_LIST && j->response.length!=j->response.count*sizeof(struct desk_file_entry))) goto failed;
         }
     }

@@ -126,12 +126,31 @@
 #define SYS_GUI_KEYBOARD_READ 120
 #define SYS_PTY_CREATE 121
 #define SYS_REALTIME_US 122
+#define SYS_FILE_CHANGE 123
 
 #define SRV_ABI_VERSION 1
 
 struct srv_abi_header {
     uint64_t abi_version;
     uint64_t struct_size;
+};
+
+/* Guarded namespace changes used by file managers. A successful copy creates a
+ * new destination from the supplied bounded snapshot; it never replaces one. */
+#define SRV_FILE_RENAME 1
+#define SRV_FILE_DELETE 2
+#define SRV_FILE_COPY 3
+#define SRV_FILE_CHANGED -2
+#define SRV_FILE_EXISTS -3
+#define SRV_FILE_BUSY -4
+#define SRV_FILE_INVALID -5
+#define SRV_FILE_LIMIT -6
+struct srv_file_change {
+    uint64_t abi_version,struct_size,operation;
+    uint64_t expected_inode,expected_size,expected_mtime,expected_type;
+    const char *path,*destination;
+    const void *data;
+    uint64_t length;
 };
 
 #define SRV_OPEN_READ 0x01

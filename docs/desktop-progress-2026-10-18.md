@@ -399,3 +399,55 @@ suites passed. A 512 MiB QEMU workflow passed heading clicks/keyboard sorting,
 pause/manual refresh/resume, resize/row navigation, global View commands, and a
 libc probe covering new process fields, old record bounds and invalid ABI input.
 Screenshots were inspected; the Parent column was widened after that review.
+
+### Files details and guarded file actions
+
+Files now uses the table for Name, Kind, Size and Modified UTC, with folder-first
+sorting and stable selection across refreshes. The worker listing includes inode
+and modification metadata. A reusable `desk_prompt` supplies editable Rename and
+Duplicate panels, including focus/clipboard/cancel behavior. Files also offers
+permanent Delete with Cancel initially focused and an explicit no-Trash warning.
+F2 renames, Delete confirms deletion, and the File menu exposes the same commands.
+Secondary toolbar actions move to the menu when the window is narrow.
+
+A new guarded namespace syscall validates the selected inode, size, modification
+time and node type in the same serialized continuation as rename/delete/copy.
+Destinations are never overwritten. Open items are refused, and the existing
+exFAT mutation/flush boundaries remain responsible for disk changes. The worker
+syncs and verifies results; duplicate also checks the copied bytes. Duplicate is
+currently limited to individual files up to 64 KiB, while directory rename and
+delete require an empty directory. Metadata guards use second-resolution dates;
+they are not a general content-version or multi-writer transaction API.
+
+Validation includes shared prompt/controller tests, deferred clipboard isolation,
+worker fragmentation/snapshot/error tests, kernel ABI/identity/collision/open-file
+checks, and prompt ASan/UBSan. The QEMU workflow passed actual rename, verified
+copy, default-cancel and confirmed delete, collision preservation, folder creation
+and empty-directory rename. It reads the surviving document back through the
+console after the desktop closes.
+
+Visual review caught a pre-existing libc stub: `strftime` returned question marks
+for every calendar field. A standalone C-locale formatter now handles common
+calendar names, numeric fields, compound formats, ISO week years, numeric padding,
+and UTC labels; unsupported formats fail instead of fabricating text. It passed
+367,070 comparisons across 1900–2100 against the host C library, including ISO
+week boundaries. Guest clock tests now assert formatted output, and `date` accepts
+`[-u] [+FORMAT]`. Format meanings were checked against the
+[POSIX strftime reference](https://pubs.opengroup.org/onlinepubs/9699919799.2018edition/functions/strftime.html).
+Locale/timezone databases and extended field-width rules for compound formats
+remain unsupported.
+
+A second review found mount-time timestamps masquerading as modification dates.
+Imported exFAT entries now start with unknown dates before persisted SrvrOS
+metadata is applied. Native exFAT timestamp/UTC-offset fields are not yet decoded;
+unknown dates display a dash. New mutations still receive UTC timestamps, and a
+remount test advances the mock clock to prove persisted dates are retained.
+
+Final checks for this slice: the complete exFAT fault/power-cut suite passes with
+unknown imported dates and persisted UTC remount checks. The final Files workflow
+passes with that change, as does saved Settings across a fresh desktop session
+using the revised worker protocol. The fixed-RTC clock guest verifies both libc
+calendar formatting and `date +FORMAT`. File-date rendering bounds malformed
+metadata to the supported year range before calendar conversion.
+Screenshots: `native-desktop-files.png`, `native-desktop-rename.png`, and
+`native-desktop-system.png` under `docs/assets/screenshots/`.

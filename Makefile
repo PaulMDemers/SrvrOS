@@ -2471,3 +2471,35 @@ build/tests/system-host$(HOST_EXE): tools/test_system.c userspace/desktools/syst
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_system.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
 test-desktop: test-system
+
+.PHONY: test-prompt
+test-prompt: build/tests/prompt-host$(HOST_EXE)
+	$<
+build/tests/prompt-host$(HOST_EXE): tools/test_prompt.c $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_prompt.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-widgets: test-prompt
+
+.PHONY: test-file-change
+test-file-change: build/tests/file-change-host$(HOST_EXE)
+	$<
+build/tests/file-change-host$(HOST_EXE): tools/test_file_change.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-file-change
+
+.PHONY: test-files
+test-files: build/tests/files-host$(HOST_EXE)
+	$<
+build/tests/files-host$(HOST_EXE): tools/test_files.c userspace/desktools/files_app.c userspace/desktools/app.h $(DESK_WIDGETS_SRC) $(DESK_WIDGETS_HEADERS) shared/include/srvros/desktop_file.h
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -idirafter userspace/lib/include -I shared/include -I userspace/widgets/include tools/test_files.c $(DESK_WIDGETS_SRC) userspace/lib/src/desk_render.c userspace/lib/src/desk_font.c -o $@
+test-desktop: test-files
+
+.PHONY: test-strftime
+test-strftime: build/tests/strftime-host$(HOST_EXE)
+	$<
+build/tests/strftime-host$(HOST_EXE): tools/test_strftime.c userspace/lib/src/posix_strftime.c
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+test-core: test-strftime

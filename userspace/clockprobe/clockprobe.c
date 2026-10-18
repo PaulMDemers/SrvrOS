@@ -30,6 +30,10 @@ int main(int argc,char **argv) {
     CHECK(gmtime_r(&seconds,&utc)==&utc);
     CHECK(mktime(&utc)==seconds);
     CHECK(utc.tm_year>=100 && utc.tm_year<8100);
+    char formatted[64],expected[64];
+    snprintf(expected,sizeof(expected),"%04d-%02d-%02d %02d:%02d",utc.tm_year+1900,utc.tm_mon+1,utc.tm_mday,utc.tm_hour,utc.tm_min);
+    CHECK(strftime(formatted,sizeof(formatted),"%F %R",&utc)==16 && !strcmp(formatted,expected));
+    printf("clockprobe: formatted=%s\n",formatted);
     printf("clockprobe: UTC=%04d-%02d-%02d %02d:%02d:%02d epoch=%ld monotonic=%ld\n",
         utc.tm_year+1900,utc.tm_mon+1,utc.tm_mday,utc.tm_hour,utc.tm_min,utc.tm_sec,(long)seconds,(long)mono.tv_sec);
     CHECK(!usleep(100000));
