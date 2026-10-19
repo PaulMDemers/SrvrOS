@@ -93,3 +93,21 @@ workspace rehearsal halts without reboot. The physical diagnostic is next;
 it requires no commands and does not claim working keyboard support.
 Preserve the previous console payload and Ubuntu default; collect the exact new
 release on return before changing the driver or preparing another boot.
+
+## Native diagnostic failure and current fix scope
+
+Release `bfc0b7492f2677b7` halted without a saved USB session. The user's
+photograph is archived locally. It shows the port-12 device stopped at the
+device-descriptor stage and no keyboard registered. The captured Linux device
+descriptor reports EP0 size 8; the driver initializes full speed at 64 and never
+evaluates the endpoint context after learning its actual packet size.
+
+The attached exFAT partition is on GPT. USB attachment only registers MBR
+partitions, explaining why the workspace cannot be selected even when the
+flash device is found. No reformat or partition-table mutation is planned.
+
+Bounded shared changes now owned here: xHCI EP0 enumeration/packet-size update
+and their host tests; validated GPT discovery for USB storage and block-layer
+regressions. Existing Air fixture and MBR paths must keep passing. Air EC/AML
+work remains separate. These are implementation findings, not physical fixes
+accepted on this machine. Collect-before-restage is complete for the failed run.
