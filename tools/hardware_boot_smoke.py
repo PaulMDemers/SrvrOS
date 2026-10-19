@@ -144,6 +144,7 @@ def main():
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
+    aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -196,7 +197,7 @@ def main():
                         return
                     text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                     assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not idle_capture: assert "laptop-probe: unsupported chipset; no register access" in text
+                    if not (idle_capture or aml_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if idle_capture:
                         measured=re.search(r"idle-capture: elapsed_us=(\d+) sampled_ticks=(\d+) idle_ticks=(\d+).*completed=yes",text)
                         assert measured and int(measured[1])>=59000000
@@ -211,9 +212,13 @@ def main():
                     for filename in ("boot.log","exit.log"):
                         contents=stored.read(folder+"/"+filename)
                         assert release.encode() in contents
-                        if not idle_capture: assert b"laptop-probe: unsupported chipset" in contents
+                        if not (idle_capture or aml_capture): assert b"laptop-probe: unsupported chipset" in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if aml_capture:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"aml-capture: returned=yes clean=yes" in exit_log
+                        assert re.search(rb"aml-probe: completed .*errors=0 denied=0 .*heap_remaining=0",exit_log)
                     if idle_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"idle-capture: elapsed_us=" in exit_log and b"completed=yes" in exit_log
@@ -224,7 +229,7 @@ def main():
                             (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "probe":True,"idle_capture":idle_capture,"saved":True,"unmounted":True,
+                        "probe":True,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT, automatic reset")

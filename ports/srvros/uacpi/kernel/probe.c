@@ -133,6 +133,7 @@ uacpi_u##bits uacpi_kernel_mmio_read##bits(void *p) { uacpi_u##bits v=0;if(regio
 void uacpi_kernel_mmio_write##bits(void *p,uacpi_u##bits v) { if(region_access(p,sizeof(v))) { bytes_copy(p,&v,sizeof(v));writes++; } }
 SNAPSHOT_MMIO(8) SNAPSHOT_MMIO(16) SNAPSHOT_MMIO(32) SNAPSHOT_MMIO(64)
 static void evaluate(const char *path) {
+    console_printf("aml-probe: evaluating %s start_us=%u\n",path,timer_monotonic_us());
     uacpi_object *object=NULL;uacpi_status st=uacpi_eval_simple(NULL,path,&object);
     console_printf("aml-probe: %s = ",path);
     if(st) { console_printf("%s\n",uacpi_status_to_string(st));errors++;return; }
@@ -147,8 +148,8 @@ static void evaluate(const char *path) {
     } else console_printf("type=%s\n",uacpi_object_type_to_string(uacpi_object_get_type(object)));
     if(object) uacpi_object_unref(object);
 }
-void aml_probe_run(void *rsdp,struct limine_memmap_response *map) {
-    if(ran || !rsdp || !map || !timer_reference_ready()) return;
+bool aml_probe_run(void *rsdp,struct limine_memmap_response *map) {
+    if(ran || !rsdp || !map || !timer_reference_ready()) return false;
     ran=true;memory_map=map;
     console_write("aml-probe: isolated uACPI 7.0.0; private firmware/PCI snapshots, no EC/SCI or hardware writes\n");
     uint64_t started=timer_monotonic_us();
@@ -158,15 +159,19 @@ void aml_probe_run(void *rsdp,struct limine_memmap_response *map) {
         const struct acpi_table_info *table=acpi_table_at(i);
         if(!copy_memory(table->physical_address,table->length,false,pmm_phys_to_virt(table->physical_address))) { errors++;goto done; }
     }
+    console_printf("aml-probe: stage=initialize copied_bytes=%u copies=%u start_us=%u\n",(uint64_t)copy_bytes,(uint64_t)copy_count,timer_monotonic_us());
     uacpi_status st=uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE|UACPI_FLAG_BAD_CSUM_FATAL|UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL|UACPI_FLAG_PROACTIVE_TBL_CSUM);
     if(st) { console_printf("aml-probe: initialize=%s\n",uacpi_status_to_string(st));errors++;goto reset; }
+    console_printf("aml-probe: stage=initialized heap_bytes=%u elapsed_us=%u\n",(uint64_t)heap_bytes,timer_monotonic_us()-started);
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
     /* Explicitly select only the Apple firmware branch for this probe. This
      * does not initialize native ACPI services or make it general OS policy. */
     uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR);
     uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR);
+    console_write("aml-probe: stage=namespace-load\n");
     st=uacpi_namespace_load();
     if(st) { console_printf("aml-probe: load=%s\n",uacpi_status_to_string(st));errors++;goto reset; }
+    console_printf("aml-probe: stage=namespace-loaded heap_bytes=%u elapsed_us=%u\n",(uint64_t)heap_bytes,timer_monotonic_us()-started);
     uacpi_namespace_node *node=NULL;
     if(uacpi_namespace_node_find(NULL,"\\_SB.PCI0.LPCB.EC",&node)==UACPI_STATUS_OK) {
         static const char *const paths[]={"\\PINI","\\OSDW","\\_SB.PCI0.LPCB.EC._HID","\\_SB.PCI0.LPCB.EC._CRS",
@@ -175,10 +180,12 @@ void aml_probe_run(void *rsdp,struct limine_memmap_response *map) {
         for(size_t i=0;i<sizeof(paths)/sizeof(*paths);i++) evaluate(paths[i]);
     } else console_write("aml-probe: MacBook EC namespace absent; no battery provider\n");
 reset:
+    console_write("aml-probe: stage=reset\n");
     uacpi_state_reset();
 done:
     console_printf("aml-probe: completed elapsed_us=%u copied_bytes=%u errors=%u denied=%u snapshot_writes=%u heap_remaining=%u; physical battery NOT_TESTED\n",
         timer_monotonic_us()-started,(uint64_t)copy_bytes,errors,denied,writes,(uint64_t)heap_bytes);
     for(size_t i=0;i<copy_count;i++) kfree(copies[i].data);
     copy_count=copy_bytes=0;memory_map=NULL;
+    return errors==0 && denied==0 && heap_bytes==0;
 }

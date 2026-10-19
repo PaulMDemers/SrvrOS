@@ -554,19 +554,24 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
-    if(cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+    if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe || automatic_idle) {
+    if(automatic_probe || automatic_idle || automatic_aml) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle;
+        bool sampled=!automatic_idle && !automatic_aml;
+        if(automatic_aml && started && init_ready && timer_running) {
+            sampled=aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("aml-capture: returned=yes clean=%s; isolated snapshot probe only\n",sampled?"yes":"NO");
+        }
         if(automatic_idle && started && init_ready && timer_running) {
             struct scheduler_stats before,after;
             static struct scheduler_wait_queue idle_capture_wait;

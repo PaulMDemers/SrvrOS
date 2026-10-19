@@ -149,6 +149,18 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(idle_capture=True)
         with self.assertRaises(ValueError): boot.stage(idle_capture=True,laptop_probe_volume='37d8c5d0',desktop_volume='37d8c5d0')
 
+    def test_aml_capture_is_explicit_and_separate(self):
+        version="ram-usb-v24-laptop-probe-37d8c5d0"
+        release=self.payload("aml",version)
+        path=self.stage/release/"manifest.json"
+        manifest=json.loads(path.read_text());manifest["config_version"]=version
+        path.write_text(json.dumps(manifest));boot.install(release)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.capture=aml',cfg);self.assertIn('srvros.aml=probe',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg);self.assertNotIn('srvros.audio=hda',cfg)
+        with self.assertRaises(ValueError): boot.stage(aml_capture=True)
+        with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',aml_capture=True,idle_capture=True)
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

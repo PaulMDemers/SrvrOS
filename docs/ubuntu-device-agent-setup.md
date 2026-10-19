@@ -222,6 +222,14 @@ coarse occupancy evidence, not a wattmeter or proof of desktop responsiveness.
 Use the same recorded recovery/one-shot installation sequence below; keep the
 accepted previous desktop when the current payload is only an automated test.
 
+For explicit investigation of the unresolved AML stall, the separate v24
+profile uses `--laptop-probe-volume "$SRVROS_USB_UUID" --aml-capture` and the
+same `--probe-check` VM rehearsal. It starts USB logging before the snapshot-only
+probe and returns only after clean completion and save/unmount. This is not a
+normal desktop profile or a battery service. A kernel/interpreter stall can
+still require manual recovery; only run it in an authorized recovery window.
+Never silently substitute it for the idle capture or ordinary desktop.
+
 The desktop VM harness uses disposable disks, tests two fresh boots, USB saves,
 preferences and logs, and checks emulated audio. It reads `latest`, so do not
 stage anything between the candidate and its rehearsal. In particular,
