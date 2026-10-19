@@ -1,6 +1,6 @@
 # Ubuntu setup for an on-device SrvrOS agent
 
-Current workflow, 2026-10-18. Each Mac runs Ubuntu as its development/recovery
+Current workflow, 2026-10-19. Each Mac runs Ubuntu as its development/recovery
 OS, has its own repository checkout and agent, and uses a plugged-in exFAT USB
 drive for SrvrOS documents and diagnostics. Build and run disposable VMs on
 that Mac; reboot it into SrvrOS for physical acceptance. Ubuntu is the normal
@@ -112,9 +112,11 @@ expansion plan.
 Record CPU, memory, GPU(s), screen, firmware revision, original/replaced storage,
 USB input and audio identities in the machine record. On Pro11,3, preserve the
 firmware-selected graphics route; do not guess GMUX or discrete-GPU power writes.
-The current desktop surface limit is 1440x900. Retina 2880x1800 scaling and buffer
-limits are pending work; booting a framebuffer does not establish usable Retina
-support. Do not copy the Air's firmware hash, register offsets or codec quirks to
+Desktop client surfaces remain bounded to 1440x900 logical pixels. An explicit
+`deskd --scale=2` path now passes 2880x1800 VM checks; ordinary staging remains
+1×. See [display scale](native-desktop.md#display-scale) for the launch and capture
+contract. This is integer pixel expansion, not native-density text or accepted
+Retina hardware support. Do not copy the Air's firmware hash, register offsets or codec quirks to
 another model just to make a probe succeed.
 
 ## 4. Select the mounted exFAT flash drive

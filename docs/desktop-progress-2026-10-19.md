@@ -391,3 +391,37 @@ endpoint isolation, missing endpoints and invalid timeouts. All three VM suites
 passed with private serial endpoints. The next immutable soak manifest hashes
 all copied tool/fixture/boot dependencies as well as its selected kernel. A fresh
 full-duration soak remains required. No native ACPI runtime is enabled.
+
+
+## EC disconnect ownership and failure containment
+
+Extending the modeled EC's `_REG` disconnect to sleep and perform EC I/O
+reproduced a lifecycle error: removal ran on the monitor thread, outside the
+controller's owning worker. The access was refused. The pinned interpreter
+logged the AML error but still returned success from handler removal; the old
+adapter then freed the namespace. Both clean-controller and poisoned-controller
+reproductions are preserved under `build/overnight-20261018/`.
+
+The fixture now closes external admission before draining existing work. It
+removes notifications on the lifecycle caller (upstream waits for deferred work),
+then schedules address-space removal on the owning worker. A finite drain and
+explicit read/write disconnect handshake gate namespace destruction. The VM
+passed two clean sample/query lifetimes plus teardown during delayed setup,
+with sleeping disconnect I/O and zero remaining allocations. A fourth lifetime
+verified last-good sample retention after a transport stall, retry refusal and
+an intentional teardown halt retaining interpreter state. This is an
+expected negative VM test, not a native failure or battery acceptance.
+
+A second negative variant leaves disconnect AML sleeping past the five-second
+drain deadline and requires a halt before namespace reset. Its first attempt
+correctly exposed the interpreter's two-second cap on a single Sleep, so the
+fixture now uses seven consecutive one-second sleeps. A loop-based attempt
+hit the adapter's one-second AML loop guard first, as intended by that guard.
+Both early attempts remain local evidence and are not counted as worker-deadline
+passes. Neither interpreter guard was weakened.
+
+Worker/queue, EC, SMBus and SBS host regressions and the full runtime SCI/mutex
+regression passed. No native port gate or
+ordinary boot profile changed. General firmware still needs explicit ownership,
+initialization and error propagation policy; the synthetic handshake cannot be
+assumed for arbitrary AML.

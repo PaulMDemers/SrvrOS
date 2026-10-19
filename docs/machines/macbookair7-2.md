@@ -63,7 +63,9 @@ physical acceptance. Timer samples measure CPU0 scheduler occupancy, not energy.
 The generalized Linux collector completed with zero partial reads on this host.
 Additional IRQ, semaphore and deferred-worker foundations now pass host/VM tests.
 A separate full-uACPI Q35 kernel passes real SCI, contended AML mutex/sleep and
-teardown tests; it is not the installed payload or a native EC/battery provider.
+teardown tests, including worker-owned EC disconnect I/O and halting with
+state retained on a poisoned controller or a disconnect deadline. It is not the
+installed payload or a native EC/battery provider.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.

@@ -13,7 +13,7 @@
 
 static struct {
     struct acpi_work_worker *worker;
-    struct acpi_work_item setup_item, query_item, sample_item;
+    struct acpi_work_item setup_item, query_item, sample_item, stop_item;
     struct ec_transport transport;
     struct sbs_sampler sampler;
     uacpi_namespace_node *node;
@@ -24,6 +24,7 @@ static struct {
     uint64_t blocked_callers, queued_during_sample, samples_failed;
     bool obf, ready, query_scheduled, sample_scheduled, inject, stalled;
     bool region_installed, notify_installed, setup_scheduled, setup_delay;
+    bool stopping, stop_done, stop_ok, disconnect_delay;
 } ec;
 
 enum { LEASE_NONE, LEASE_BYTE, LEASE_QUERY, LEASE_SAMPLE };
@@ -193,7 +194,7 @@ static void query_work(void *context) {
 }
 bool acpi_ec_fixture_signal(uint8_t query) {
     uint64_t flags = irq_save();
-    if (!ec.ready || ec.transport.poisoned || !query || ec.count == 64) {
+    if (ec.stopping || !ec.ready || ec.transport.poisoned || !query || ec.count == 64) {
         irq_restore(flags); return false;
     }
     ec.query[(ec.head + ec.count) % 64] = query; ec.count++;
@@ -229,19 +230,46 @@ void acpi_ec_fixture_reset(struct acpi_work_worker *worker) {
     ec.words[8] = 2981; ec.words[18] = 120; ec.words[19] = 65535; ec.words[22] = 0xc0;
     ec_transport_init(&ec.transport, (struct ec_io){NULL, model_status, model_read, model_command, model_write});
 }
+static void disconnect_work(void *context) {
+    (void)context;
+    bool ok = worker_context() && !ec.lease && !ec.sampler.active;
+    if (ok && ec.disconnect_delay) ok = !uacpi_execute_simple(ec.node, "DLYS");
+    if (ok && ec.region_installed) {
+        /* Upstream may log _REG errors without returning them from uninstall.
+         * Verify the fixture's completion handshake before releasing state. */
+        ok = !uacpi_uninstall_address_space_handler(ec.node,
+            UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler);
+        if (ok) {
+            ec.region_installed = false;
+            uint64_t reg = 1, value = 0;
+            ok = !uacpi_eval_simple_integer(ec.node, "REGC", &reg) && !reg &&
+                !uacpi_eval_simple_integer(ec.node, "DVAL", &value) && value == 0x42 &&
+                ec.memory[0x11] == 0x5a && !ec.transport.poisoned;
+        }
+    }
+    ec.stop_ok = ok;
+    ec.stop_done = true;
+}
 bool acpi_ec_fixture_prepare_stop(void) {
-    /* Sources are already masked. Disconnect while _REG's namespace still
-     * exists; generic namespace destruction may remove its names first. */
+    /* Sources are masked by the owner. Close external admission before draining
+     * existing setup/sample/query work; _REG disconnect can sleep and use EC IO. */
+    uint64_t flags = irq_save();
+    ec.stopping = true;
+    irq_restore(flags);
     if (!ec.node && !ec.setup_scheduled) return true;
     if (!acpi_worker_drain(ec.worker, 5000)) return false;
     if (ec.notify_installed) {
+        /* Upstream removal calls wait_for_work_completion: keep this on the
+         * lifecycle caller, otherwise the worker would wait for itself. */
         if (uacpi_uninstall_notify_handler(ec.node, notify_handler)) return false;
         ec.notify_installed = false;
     }
-    if (ec.region_installed) {
-        if (uacpi_uninstall_address_space_handler(ec.node, UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler)) return false;
-        ec.region_installed = false;
-    }
+    if (!acpi_worker_enqueue(ec.worker, &ec.stop_item, UACPI_WORK_NOTIFICATION,
+        disconnect_work, NULL) || !acpi_worker_drain(ec.worker, 5000)) return false;
+    bool ok = ec.stop_done && ec.stop_ok;
+    console_printf("acpi-ec: disconnect=%s worker=yes io=%s\n",
+        ok ? "complete" : "FAILED", ok ? "verified" : "unverified");
+    if (!ok) return false; /* Caller halts with namespace/worker still owned. */
     ec.ready = false;
     return true;
 }
@@ -253,7 +281,7 @@ bool acpi_ec_fixture_retired(void) {
 void acpi_ec_fixture_command(const char *args) {
     if (equal(args, "start") || equal(args, "start-slow")) {
         uint64_t flags = irq_save();
-        bool ok = !ec.node && !ec.setup_scheduled && ec.worker;
+        bool ok = !ec.stopping && !ec.node && !ec.setup_scheduled && ec.worker;
         if (ok) {
             ec.setup_scheduled = true;
             ec.setup_delay = equal(args, "start-slow");
@@ -264,7 +292,7 @@ void acpi_ec_fixture_command(const char *args) {
         console_printf("acpi-ec: setup=%s\n", ok ? "queued" : "REFUSED");
     } else if (equal(args, "sample") || equal(args, "poison")) {
         uint64_t flags = irq_save();
-        bool ok = ec.ready && !ec.sample_scheduled && !ec.transport.poisoned;
+        bool ok = !ec.stopping && ec.ready && !ec.sample_scheduled && !ec.transport.poisoned;
         if (ok) {
             ec.stalled = equal(args, "poison"); ec.inject = !ec.stalled;
             ec.sample_scheduled = true;
@@ -273,6 +301,10 @@ void acpi_ec_fixture_command(const char *args) {
         }
         irq_restore(flags);
         console_printf("acpi-ec: sample=%s\n", ok ? "queued" : "REFUSED");
+    } else if (equal(args, "disconnect-slow")) {
+        bool ok = ec.ready && !ec.stopping;
+        if (ok) ec.disconnect_delay = true;
+        console_printf("acpi-ec: disconnect-delay=%s\n", ok ? "armed" : "REFUSED");
     } else if (equal(args, "foreign")) {
         uint8_t value = 0;
         bool ok = transfer(false, 0x10, &value);

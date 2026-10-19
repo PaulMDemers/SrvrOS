@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic EC through real uACPI regions, query methods and SBS transport."""
+import argparse
 import os
 from pathlib import Path
 from vm_sockets import connect_unix
@@ -13,8 +14,12 @@ from displayd_frame_smoke import stop_process
 
 
 def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--disconnect-timeout', action='store_true',
+                        help='leave disconnect AML asleep past the finite drain deadline')
+    args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    out = root / 'build/review/acpi-ec'
+    out = root / 'build/review' / ('acpi-ec-disconnect-timeout' if args.disconnect_timeout else 'acpi-ec')
     out.mkdir(parents=True, exist_ok=True)
     output = bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-ec-') as directory:
@@ -80,19 +85,40 @@ def main():
                     snapshot(3, 2, 16)
                     request('acpiruntime ec queries', rb'acpi-ec: queries=queued')
                     snapshot(35, 18, 32)
-                    request('acpiruntime ec poison', rb'acpi-ec: sample=queued')
-                    snapshot(35, 18, 32, current=0, failed=1, poisoned=1)
-                    request('acpiruntime ec sample', rb'acpi-ec: sample=REFUSED')
                     request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
                 request('acpiruntime start', rb'acpi-runtime: READY')
                 request('acpiruntime ec start-slow', rb'acpi-ec: setup=queued')
                 request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
+                # A failed disconnect must retain the namespace, not report a
+                # clean reset after upstream swallowed an AML _REG failure.
+                request('acpiruntime start', rb'acpi-runtime: READY')
+                request('acpiruntime ec start', rb'acpi-ec: setup=queued')
+                snapshot(0, 0, 0, generation=0, current=0)
+                request('acpiruntime ec foreign', rb'acpi-ec: foreign=REFUSED')
+                request('acpiruntime ec sample', rb'acpi-ec: sample=queued')
+                snapshot(2, 1, 16)
+                if args.disconnect_timeout:
+                    request('acpiruntime ec disconnect-slow', rb'acpi-ec: disconnect-delay=armed')
+                else:
+                    request('acpiruntime ec poison', rb'acpi-ec: sample=queued')
+                    snapshot(2, 1, 16, current=0, failed=1, poisoned=1)
+                    request('acpiruntime ec sample', rb'acpi-ec: sample=REFUSED')
+                stop_started = time.monotonic()
+                stop_offset = len(output)
+                halted = request('acpiruntime stop', rb'acpi-runtime: HALTED unsafe teardown: EC disconnect failed heap=(\d+)')
+                assert int(halted[1]) > 0
+                if args.disconnect_timeout:
+                    assert 4.5 <= time.monotonic() - stop_started < 8, time.monotonic() - stop_started
+                tail = boot.read_for(serial, .3)
+                output.extend(tail)
+                assert b'stopped=yes' not in output[stop_offset:] and b'retired=yes' not in output[stop_offset:]
                 qmp.call('quit')
                 process.wait(timeout=10)
             finally:
                 stop_process(process)
                 (out / 'serial.txt').write_bytes(output)
-    print('acpi-ec: PASS two lifetimes, _REG read/write, single-worker ownership, SCI-triggered queries/Notify, 32-query batches, deferred queries during full SBS samples, poison/last-good retention delayed-setup teardown and detached/leak-free reset')
+    print('acpi-ec: negative teardown=' + ('AML timeout' if args.disconnect_timeout else 'poisoned transport'))
+    print('acpi-ec: PASS two lifetimes, _REG read/write, single-worker ownership, SCI-triggered queries/Notify, 32-query batches, deferred queries during full SBS samples, worker-owned disconnect IO, delayed-setup teardown, detached/leak-free reset and failed disconnect halt with state retained')
 
 
 if __name__ == '__main__':

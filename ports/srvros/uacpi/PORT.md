@@ -253,15 +253,21 @@ also injects 32 queries, processes at most eight per work invocation, and yields
 between batches. The real emulated fixed SCI supplies one query notification;
 its EC status/reply bytes are modeled. This is not an emulated physical EC GPE.
 
-`tools/acpi_ec_smoke.py` passed two full EC lifetimes plus stop during delayed
-setup. Each full lifetime verified `_REG`, rejected a foreign caller before I/O,
-completed the 15-word SBS sample, deferred two queries injected during the sample,
-ran 35 total query methods and 18 notification callbacks, and preserved the
-last successful sample after an injected EC stall. The stalled sample cleared
-current validity, poisoned the transport and refused retry. Values such as 86%
-and 12 V are deliberately synthetic, not laptop readings. A detached handler
-and zero interpreter allocations were required at every reset. The original
-full-runtime SCI/mutex/failed-drain suite also passed after EC integration.
+`tools/acpi_ec_smoke.py` passes two full clean EC lifetimes plus stop during
+delayed setup. Each full lifetime verifies `_REG`, rejects a foreign caller
+before I/O, completes the 15-word SBS sample, defers two queries injected during
+the sample, and runs 35 query methods and 18 notification callbacks. Clean
+disconnect executes a sleeping AML method with an EC write/read handshake on
+the owning worker, then requires a detached handler and zero interpreter
+allocations. A final separate lifetime injects a stalled sample: current validity
+is cleared, the transport is poisoned, retries are refused and the last good
+sample survives. The ensuing failed disconnect must halt with the namespace
+retained. The `--disconnect-timeout` variant instead leaves `_REG` sleeping
+beyond the five-second drain deadline and requires a bounded halt without
+namespace reset. It uses seven consecutive one-second sleeps because the pinned
+interpreter caps an individual Sleep at two seconds and the adapter bounds
+AML loops to one second. Neither guard is changed by this test. Values such as 86% and
+12 V are synthetic, not laptop readings.
 
 The first EC reset exposed an ordering defect in relying solely on generic
 namespace destruction: `_REG` disconnect tried to access names already removed.
@@ -270,8 +276,21 @@ handler and explicitly disconnects the region while its namespace still exists,
 then resets uACPI. Delayed setup remains owned until completion, so stop cannot
 miss a handler that is being installed. The failed capture is retained locally.
 
-Native work still needs an audited initialization owner/worker handoff, real
-ECDT/resource binding, `_OSI` and Global Lock policy, live GPE/query ownership,
-register permissions and hardware acceptance. Native disconnect methods may
-perform EC I/O and must run under that ownership policy; the synthetic disconnect
-only updates an AML name. Do not widen this VM fixture's port gate to boot a Mac.
+A subsequent fixture made disconnect perform EC I/O. It reproduced a second
+teardown defect: the lifecycle caller was outside the owning worker and its
+access was denied. Upstream logs `_REG` execution errors but can still return
+success from handler removal; blindly freeing the namespace would hide that
+failure. Teardown now closes external admission, drains existing work, removes
+the notification handler on the lifecycle caller, and schedules region removal
+on the EC worker. Notification removal stays outside that worker because the
+pinned upstream implementation waits for all deferred work. A bounded drain
+then verifies the fixture's disconnect handshake before namespace reset. A
+poisoned controller fails verification and halts with state retained; it is
+never silently reset to make the test pass.
+
+The handshake is a synthetic assertion, not a general firmware completion
+contract. Native work still needs an audited initialization owner/worker handoff,
+real ECDT/resource binding, `_OSI` and Global Lock policy, live GPE/query ownership,
+register permissions and hardware acceptance. Native `_REG` errors and worker
+timeouts must remain visible, including where upstream returns success after
+logging an AML error. Do not widen this VM fixture's port gate to boot a Mac.
