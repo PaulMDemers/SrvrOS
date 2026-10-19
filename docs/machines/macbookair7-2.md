@@ -20,19 +20,19 @@ device work uses separate branches based on `main`.
 - Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
   worker/IRQ ownership and battery interfaces require explicit coordination.
   No new native EC/SCI enablement is part of the power capture.
-- Integration baseline: `main` merge `1d44cee`; Terminal fix and agent rules merged.
+- Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: early EC handler binding and namespace-load
-  ownership in the separate Q35 runtime fixture. Scope is
-  `ports/srvros/uacpi/runtime/{qemu_adapter,ec_fixture}.*`, synthetic ACPI tables
-  and VM harnesses; no ordinary-kernel/native EC gate changes. Dependencies:
-  existing worker/transport lifetime contracts and pinned uACPI initialization.
-- VM checkpoint: module-level AML EC access before namespace initialization,
-  refusal/cleanup on failed access, bounded load timeout containment and repeated
-  teardown now pass. PR #3 publishes this work; it is not native EC acceptance.
-- Next dependency: audit native ECDT/resource and initialization-owner policy,
-  including interpreter-initiated reset, before enabling any laptop EC/SCI path.
+- Current bounded implementation: generic ECDT/FADT resource decoding and native
+  Air resource/firmware audit, plus initialization ownership policy. Scope:
+  `kernel/{include/srvros,src/drivers}/acpi_ec_resources.*`, host fixtures,
+  laptop preflight diagnostics and the uACPI port guide. No native EC/SCI
+  activation or changes to sibling model gates.
+- Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
+  captured Air firmware, legacy/extended address consistency, namespace resource
+  agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
+- Next checkpoint: captured-table replay and negative resource cases; publish
+  audited initialization/permission requirements for a separate native adapter.
 
 ## Accepted scope and open items
 
