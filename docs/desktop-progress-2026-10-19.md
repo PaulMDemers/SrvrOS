@@ -461,3 +461,33 @@ binding, firmware initialization policy and AML GPE finalization remain open.
 The positive initialization, generated-namespace refusal, initialized disconnect
 deadline, ordinary EC and full SCI/mutex regression suites passed. The normal
 restricted AML probe was tested separately to preserve build isolation.
+
+
+## Trackpad faults cancel interaction without discarding typing
+
+A transport regression reproduced a faulty distinction: the driver converted a
+failed held trackpad press into an ordinary button release. Palm suppression did
+the same. A widget that activates on release could therefore treat interrupted
+input as a click. This is a separately identified risk, not proof of the cause
+of an earlier physical window closure.
+
+Transport faults and held-press palm suppression now emit `MOUSE_CANCEL`, discard
+uncertain queued pointer actions and preserve an external mouse's physical button
+state. The gesture engine still refuses rearming until physical release. A
+second host regression reproduced that the compositor's cancellation path erased
+queued keyboard/text packets as well as pointer input. It now removes only
+pointer/scroll packets and keeps one pending cancellation outside the bounded
+input queue. Cancellation uses the existing bounded control-delivery path, so
+even a full 64-packet keyboard queue can recover without losing typing or closing
+a healthy client. Duplicate cancellation coalesces.
+
+Host cases cover endpoint failure, palm interruption, held-press suppression and
+fresh release, external button ownership, queued-motion cancellation, all 64
+key/text packets delivered in order after backpressure, and wrapped mixed queues.
+The original assertion failures are retained in `pointer-cancel-reproduction.txt`
+and `pointer-cancel-keyboard-reproduction.txt` under the overnight evidence folder.
+
+Full core/desktop host checks and the normal OS build passed. VM context-menu
+and System/network regressions passed. These checks preserve the distinction
+between injected fault coverage, normal VM interaction and pending physical
+trackpad acceptance.

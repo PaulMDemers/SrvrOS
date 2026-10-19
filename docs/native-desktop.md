@@ -155,6 +155,14 @@ generic mice. The default desktop starts at speed 3 with acceleration on;
 console/legacy trial input retains fixed scaling. The final feel awaits the
 next MacBook Air trial.
 
+A malformed trackpad report, endpoint failure or palm suppression during a held
+press now cancels that interaction instead of sending an ordinary release that
+could activate a widget. Cancellation discards uncertain queued pointer actions,
+preserves an external mouse's held-button state, and requires a fresh trackpad
+release before another physical press. The compositor preserves queued text and
+keys while delivering cancellation ahead of subsequent pointer input. These
+fault paths have host coverage; physical acceptance remains pending.
+
 The prepared laptop trial saves preferences in
 `/work/srvros-work/desktop.conf` using the existing verified background writer.
 Normal desktop sessions use `/fat/home/desktop.conf`; if `/fat` is RAM-backed,

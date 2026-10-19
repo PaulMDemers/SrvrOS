@@ -47,5 +47,19 @@ int main(void) {
     mouse_inject_trackpad_tap(2);e=next(0,0,0);
     assert((e.flags&MOUSE_CANCEL) && !mouse_scan(&e));
     mouse_inject_trackpad_tap(2);next(0,0,2);next(0,0,0);
+    /* A device/palm cancellation must not look like release-to-activate.
+     * Discard pending pointer work but retain an external held button. */
+    mouse_inject_event(0,0,1);next(0,0,1);
+    mouse_cancel_trackpad();assert(!mouse_scan(&e));
+    mouse_inject_trackpad(0,0,2);mouse_inject_trackpad(10,20,2);
+    uint64_t overflow_before=mouse_overflow_count();
+    mouse_cancel_trackpad();e=next(0,0,1);
+    assert((e.flags&MOUSE_CANCEL) && !mouse_scan(&e) && mouse_overflow_count()==overflow_before);
+    mouse_inject_trackpad(0,0,0);assert(!mouse_scan(&e));
+    mouse_inject_event(0,0,0);e=next(0,0,0);assert(!(e.flags&MOUSE_CANCEL));
+    mouse_inject_trackpad(0,0,1);next(0,0,1);
+    mouse_cancel_trackpad();e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
+    mouse_cancel_trackpad();assert(!mouse_scan(&e));
+    mouse_inject_trackpad_tap(2);next(0,0,2);next(0,0,0);
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }

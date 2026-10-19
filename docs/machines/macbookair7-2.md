@@ -87,3 +87,8 @@ Read-only [package-energy and CPU0 active-frequency telemetry](../power-telemetr
 now has host arithmetic/service tests and VM refusal evidence. It remains opt-in
 and physically unaccepted. The Linux MSR capture confirms register availability
 on this host but is not an SrvrOS power result. No CPU power controls have changed.
+
+Trackpad transport/palm faults now cancel a held interaction rather than deliver
+an ordinary release. The compositor also preserves queued typing on pointer
+cancellation. Host fault tests cover both paths; native acceptance is pending,
+and this is not claimed as the cause of earlier unexplained window closures.

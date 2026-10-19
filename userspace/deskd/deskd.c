@@ -31,7 +31,7 @@ struct client {
     uint64_t input_since;
     int input_blocked;
     uint64_t control_since;
-    int control_blocked,close_sent;
+    int control_blocked,close_sent,pointer_cancel_pending;
     struct desk_menu_store menus;
     char launch_path[160];
     unsigned launch_length,launch_application;
@@ -148,12 +148,17 @@ static void pointer_cancel(struct session *s) {
 static void cancel_input(struct session *s,unsigned buttons) {
     s->pointer_pid=0; s->pointer_blocked=(buttons&MOUSE_LEFT)!=0;
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid) {
-        /* A queued release may not have reached the client yet. Cancel every
-         * client when discarding input, even if server capture already ended. */
-        s->clients[i].input_count=0;
-        struct desk_packet p=desk_packet_new(DESK_POINTER);
-        p.value=DESK_POINTER_CANCEL; p.generation=s->clients[i].generation;
-        queue_input(s,i,p);
+        /* Drop uncertain pointer actions, retaining ordered text/keys and other
+         * input. Keep cancellation outside the bounded queue so a full keyboard
+         * queue can still be canceled without data loss or closing the client. */
+        struct client *c=&s->clients[i];
+        unsigned kept=0;
+        for(unsigned n=0;n<c->input_count;n++) {
+            struct desk_packet p=c->input[(c->input_head+n)%DESK_INPUT_QUEUE];
+            if(p.type==DESK_POINTER || p.type==DESK_SCROLL) continue;
+            c->input[(c->input_head+kept++)%DESK_INPUT_QUEUE]=p;
+        }
+        c->input_count=kept;c->input_blocked=0;c->pointer_cancel_pending=1;
     }
 }
 static void damage_window(struct session *s,int i) {
@@ -832,6 +837,12 @@ static void service(struct session *s) {
             p.width=s->scene.windows[i].frame.w-2; p.height=s->scene.windows[i].frame.h-45;
             if(!control_send(s,i,&p)) continue;
             c->configure=0;
+        }
+        if(c->pointer_cancel_pending && !c->closing) {
+            struct desk_packet p=desk_packet_new(DESK_POINTER);
+            p.value=DESK_POINTER_CANCEL;p.generation=c->generation;
+            if(!control_send(s,i,&p)) continue;
+            c->pointer_cancel_pending=0;
         }
         if ((c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
             desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
