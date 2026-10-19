@@ -2,7 +2,7 @@
 """Full uACPI VM adapter: real SCI, deferred AML waits, rollback and reset."""
 import os
 from pathlib import Path
-import re
+from serial_records import search_complete, complete_lines
 import subprocess
 import tempfile
 import time
@@ -46,8 +46,8 @@ def main():
                     match = None
                     while not match and time.monotonic() < until:
                         part.extend(boot.read_for(serial, .02))
-                        match = re.search(pattern, part)
-                        if b'HALTED' in part or b'panic' in part:
+                        match = search_complete(pattern, part)
+                        if b'HALTED' in complete_lines(part) or b'panic' in complete_lines(part):
                             break
                     output.extend(part)
                     (out / 'serial.txt').write_bytes(output)

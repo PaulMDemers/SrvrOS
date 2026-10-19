@@ -2,7 +2,7 @@
 """Exercise Q35 level SCI assertion, deferred clear, shared dispatch and removal."""
 import os
 from pathlib import Path
-import re
+from serial_records import search_complete
 import subprocess
 import tempfile
 import time
@@ -44,7 +44,7 @@ def main():
                     match = None
                     while not match and time.monotonic() < until:
                         part.extend(boot.read_for(serial, .1))
-                        match = re.search(pattern, part)
+                        match = search_complete(pattern, part)
                     output.extend(part)
                     assert match, bytes(part)
                     return match

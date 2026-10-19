@@ -262,3 +262,29 @@ firmware mode selection, external monitors or Retina input calibration.
 
 Evidence: `build/review/desktop-scaling-{2880x1800-2,1440x900-1}/` and the
 `scaling-*` records under `build/overnight-20261018/`.
+
+## Unattended desktop idle capture and serial-record correction
+
+Source `e6fd681` adds a read-only CPU0 scheduler snapshot ABI and separate v25
+`--desktop-idle-capture` profile. It waits for Text's first committed frame and
+startup settling, measures 60 seconds, saves a workspace screenshot, then exits.
+The kernel returns only after successful process completion, log save and unmount.
+Ordinary desktop trials retain manual exit. Host syscall checks, desktop tests
+and 65 hardware-tool tests passed. Exact-stage VM release `06c646455f08555e`
+completed 59.96 seconds/6,000 timer samples, 98.27% idle, one damaged-frame
+presentation, and an offline-decodable saved BMP before a clean reset. Missing
+workspace halted as intended. This is VM evidence; native acceptance is pending.
+
+The separate 30-minute frozen ACPI soak stopped after 21 complete runtime/EC
+rounds (42 successful suite runs), at about 20 minutes. Preserve this as a failed
+soak: its next runtime harness matched `elapsed_us=2` from an unfinished serial
+line, before the rest of the numeric value arrived. The guest had reported
+`race=PASS value=10 waits=1`; the host compared a truncated time to the minimum.
+All three ACPI harnesses now match only complete lines. Unit tests exercise every
+byte split of single- and multi-line numeric records, including a partial halt
+record. Runtime, EC and shared-SCI VM suites pass again with this reader. A new
+full soak remains required; the interrupted soak is not promoted to a pass.
+
+The failed immutable bundle is retained outside `build` under
+`~/.local/share/srvros/vm-soaks/20261019-runtime-3099e1fe/rounds/0021/runtime/`.
+No native SCI/EC service was enabled by either the test or its collector fix.

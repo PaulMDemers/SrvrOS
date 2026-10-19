@@ -3198,3 +3198,8 @@ build/tests/scheduler-status-host$(HOST_EXE): tools/test_scheduler_status.c kern
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-scheduler-status
+
+.PHONY: test-serial-records
+test-serial-records:
+	$(PYTHON) -m unittest discover -s tools -p test_serial_records.py
+test-core: test-serial-records
