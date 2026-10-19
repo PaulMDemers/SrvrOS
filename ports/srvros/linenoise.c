@@ -189,7 +189,10 @@ static void refresh_line(const char *prompt,
             ln_write(" ");
         }
     }
-    if (position == length) {
+    /* Clearing a shortened line leaves the output cursor at the old end.
+     * Restore it even when the edit cursor is at the new end, since the next
+     * append writes directly there without redrawing the whole line. */
+    if (position == length && *rendered_length <= total) {
         *rendered_length = total;
         return;
     }

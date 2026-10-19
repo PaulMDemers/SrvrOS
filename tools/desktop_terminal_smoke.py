@@ -7,6 +7,7 @@ import socket
 import subprocess
 import tempfile
 import time
+from PIL import Image
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
 from displayd_resolution_smoke import build_iso
 from desktop_foundation_smoke import QMP
@@ -69,6 +70,19 @@ def main():
                 type_text("echo from-clipboard > /fat/terminal-paste.txt")
                 shortcut("ctrl-a");shortcut("ctrl-c");wait(b"clipboard role=2 action=8")
                 click(890,750);wait(b"deskterm: ready");time.sleep(1);shot("terminal-prompt")
+                # Reproduce the physical stray-slash report. Verify pixels,
+                # not merely the command buffer (which was already correct).
+                type_text("abc");qmp.key("backspace");type_text("/")
+                for _ in range(3): qmp.key("backspace")
+                shot("backspace-cleared")
+                # Fixed initial terminal geometry and /fat/home $ prompt:
+                # exclude its blinking caret at x=195, compare the remaining
+                # input row (the stale slash appears around x=225).
+                with Image.open(out/"terminal-prompt.ppm") as before, Image.open(out/"backspace-cleared.ppm") as after:
+                    assert before.size==after.size==(1280,800)
+                    area=(200,210,830,232)
+                    assert before.crop(area).getextrema()==((249,249),(247,247),(241,241)), "Unexpected initial input-row geometry"
+                    assert before.crop(area).tobytes()==after.crop(area).tobytes(), "Backspace left stale terminal pixels"
                 shortcut("ctrl-shift-v");wait(b"deskterm: clipboard pasted");qmp.key("ret");time.sleep(1)
                 type_text("echo terminal-one > /fat/terminal-one.txt\n");time.sleep(1)
                 type_text("echo ac");qmp.key("left");type_text("b");qmp.key("end")
@@ -94,8 +108,10 @@ def main():
                 click(490,750);shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/terminal-clipboard-source.txt")
                 shortcut("ctrl-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 shortcut("f10");shortcut("end");shortcut("ret");wait(b"deskd: exited",60);wait(b"srv> ")
+                # 820x500 client + 180x50 drag, minus terminal insets 54x98,
+                # with current 10x22 cells: 94 columns and 20 rows.
                 for name,contents in [("paste","from-clipboard"),("one","terminal-one"),("two","terminal-two"),
-                                      ("survived","survived"),("first-alive","first-alive"),("interrupted","130"),("size","20 90"),("edited","abc")]:
+                                      ("survived","survived"),("first-alive","first-alive"),("interrupted","130"),("size","20 94"),("edited","abc")]:
                     serial.sendall(f"cat /fat/terminal-{name}.txt\n".encode())
                     wait((contents+"\r\n").encode());wait(b"srv> ")
                 if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
@@ -103,6 +119,6 @@ def main():
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:
                 stop_process(process);(out/"serial.log").write_bytes(output)
-    print(f"desktop-terminal: PASS real shells, clipboard paste, scrollback, two sessions, Ctrl-C isolation, close cancel, exit and persisted command output. Evidence: {out}")
+    print(f"desktop-terminal: PASS backspace pixel clearing, real shells, clipboard paste, scrollback, two sessions, Ctrl-C isolation, close cancel, exit and persisted command output. Evidence: {out}")
 
 if __name__=="__main__": main()

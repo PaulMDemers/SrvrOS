@@ -563,3 +563,53 @@ commands, shell editing, syscall ABI, UEFI USB input and legacy displayd), and
 the new three-image gallery with clean exit. Current GitHub results must be read
 from the matching commit; a local pass is not a remote CI pass. No physical boot,
 installation, firmware write or acceptance upgrade was part of this cleanup.
+
+## Interactive hardware return and Terminal backspace correction
+
+The user-authorized v22 round `fed370ffbe33d554` used source `c6e50ec`,
+whose tree matches merged baseline `e2d172b`. The exact-stage two-boot
+UEFI desktop/audio rehearsal passed before installation. Recovery remained
+`b427b78f21644bd2`, with Ubuntu the normal default.
+
+After return, session `session-00065e37230cc95f-00` matched the staged release
+and was absent from the preflight session list. All four logs were copied and
+hash-verified, with a saved exit snapshot, clean desktop process exit and no
+collector attention flags. Two BMP screenshots were copied and hash-verified.
+The user reported generally good behavior but intermittent stray Terminal
+characters after backspacing; the first screenshot shows a slash to the right
+of an otherwise cleared prompt. The second shows System Sensors with fresh
+67 C CPU readings and 1,209 RPM. Logs show completed PCM playback of 1,152,000
+bytes with zero underruns, a completed tone test, brightness changes, and no
+System/Help/Terminal failure at exit. This is not individual confirmation of
+headphone routing, audible channel separation or every secondary-click gesture;
+the final secondary-tap counter was zero. Offline read-only exFAT checking was
+clean (163 directories, 818 files). The one-shot selection was consumed.
+
+The Terminal artifact reproduced in both the actual linenoise editor feeding
+the terminal cell model and the desktop VM. After shortening a line, the editor
+writes spaces to erase its old tail but used to return without restoring the
+cursor when the edit position equaled the new end. Its fast append then wrote
+past the remembered extent, leaving a slash that later refreshes did not erase.
+The correction also restores the cursor after that tail-clearing case, while
+retaining the fast path for unchanged/growing lines. This is an editor output
+position bug, not missing compositor repaint damage.
+
+Host regressions check both returned commands and displayed cells after repeated
+backspace, delete, Ctrl-K/U/W, shorter history recall and appended slashes.
+The desktop harness compares the actual erased input-row pixels. Saved old-build
+captures fail that check; the first corrected-build comparison also included the
+blinking caret because the fixture prompt is now `/fat/home $ `. The comparison
+now checks the empty region after that caret, asserts the initial geometry, and
+still rejects the saved old-build slash. Raw before/after evidence is local under
+`build/native-desktop-trials/fed370ffbe33d554/`.
+
+The correction is not in the installed hardware payload; a physical backspace
+retest remains open. No new boot is armed and the unattended automation remains
+stopped.
+
+Final validation passed: `make -j2 all test-core test-desktop`, the full native
+Terminal VM (including exact pixel clearing, clipboard, two sessions, Ctrl-C,
+resize, close cancellation and saved output), the console shell-edit smoke test,
+and `make check-docs`. The terminal harness's old `20 90` resize expectation was
+also corrected to `20 94`: its 1000×550 client, 54×98 terminal insets and current
+10×22 cells yield 94 columns and 20 rows. No production geometry changed.

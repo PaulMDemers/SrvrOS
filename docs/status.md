@@ -32,7 +32,10 @@ acceleration, tap gestures and suppression while typing; suppression defaults
 to off. Recent changes latch a physical two-finger press as secondary click,
 cancel interrupted trackpad presses, preserve queued typing on pointer
 cancellation, and correct compositor input/control delivery deadlines. Host/VM
-regressions pass; the corresponding physical acceptance is still pending.
+regressions pass. The latest physical round reported generally good behavior,
+with no recorded timeout or app failure; individual secondary-click/cancellation
+cases are not all confirmed. A Terminal backspace display defect found in that
+round is corrected in source, pending physical retest.
 Earlier unexpected app closures are not conclusively explained by these fixes.
 
 Current limits include eight client windows, software rendering and bounded
@@ -47,7 +50,7 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md).
 | exFAT / USB workspace | Repeated physical read/write/flush/remount and shell workflows passed; no journal or power-loss durability guarantee |
 | Internal storage | AHCI available in VM; laptop test profiles use a RAM boot image and USB workspace, not an internal-disk installation |
 | Networking | e1000 and small IPv4 stack exercised in QEMU; CDC ECM USB driver has VM coverage, physical adapter pending |
-| Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback/headphone workflows need specific physical acceptance |
+| Audio | HDA speaker volume/tone behavior confirmed on the Air; PCM file playback completed on hardware with zero reported underruns; audible channel separation/headphones still need confirmation |
 | Brightness / sensors | Panel adjustment and live CPU temperature/fan readings confirmed; no automatic fan-control service |
 | Battery / AC / suspend | No live native battery/AC service or accepted suspend/resume |
 | Wi-Fi / Bluetooth / NVMe | Not available as accepted device support |
