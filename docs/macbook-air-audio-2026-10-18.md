@@ -198,6 +198,7 @@ an underrun in the guest DMA ring.
 The stream harness now records this trace and supports `--codec-timer off` for
 sample-exact capture through QEMU's callback-driven codec. It still fails any
 waveform mismatch; neither backend errors nor guest underruns are silently
-ignored. The exact staged boot test continues to use QEMU's default timer codec.
+ignored. The staged boot harness also defaults to callback mode for reproducible capture;
+`--audio-codec-timer on` selects QEMU's timer codec with overrun tracing.
 These tests establish separate emulator and driver observations, not physical
 audio acceptance.

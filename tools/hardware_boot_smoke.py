@@ -120,6 +120,7 @@ def main():
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
+    parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -164,7 +165,7 @@ def main():
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         if args.audio_check:
-            command += ["-device","ich9-intel-hda","-device","hda-duplex,audiodev=capture",
+            command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
         if workspace and not args.probe_missing_workspace:
             from exfat_test_image import ExfatFixture, check_clean_image
