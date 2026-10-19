@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from audio_fixture import channel_test_wav
 import struct
 import sys
 from pack_runtime_elf import runtime_elf
@@ -254,7 +255,7 @@ def main():
             b"ln sync test [ cksum sum comm paste join split od hexdump strings file tty\n"
             b"stty time timeout nohup nice stat chmod ps kill which env pwd true false\n"
             b"sleep date touch mktemp basename dirname uname hostname uptime hello svscan\n"
-            b"webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck\n"
+            b"webd httpget udpdns udpecho netstat ifconfig route arp ping host netcheck playwav\n"
             b"netabi tcpstress sysabi spin fpdemo desktop displayd gui surfacedemo\n"
             b"gui2demo calc notes textedit paint posixdemo threadstress ttydemo jsondemo\n"
             b"inidemo linedemo sqlitedemo zlibdemo lua uvdemo libuvdemo\n"),
@@ -354,7 +355,7 @@ def main():
             b"/fat/etc/profile.d. The generated profile sets PATH, TMPDIR, HOME, PS1,\n"
             b"EDITOR, PAGER, and a small ll alias.\n"),
     ]
-    example_files = [
+    example_files = [("stereo.wav", channel_test_wav()),
         ("hello.sh",
             b"#!/fat/bin/sh\n"
             b"echo hello from srvros\n"

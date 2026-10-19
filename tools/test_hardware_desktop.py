@@ -23,6 +23,9 @@ class CollectionTests(unittest.TestCase):
         self.assertTrue(desktop.needs_attention("smc: state=4 flags=0 error=1"))
         self.assertFalse(desktop.needs_attention("smc: state=1 flags=0 error=0"))
         critical="workspace-devices: thermal_state=2 flags=0x0000000000000008 core_mc=-1000 monotonic_us=300"
+        self.assertTrue(desktop.needs_attention("workspace-devices: pcm_state=6 underruns=0 monotonic_us=500"))
+        self.assertTrue(desktop.needs_attention("workspace-devices: pcm_state=4 underruns=1 monotonic_us=500"))
+        self.assertFalse(desktop.needs_attention("workspace-devices: pcm_state=4 underruns=0 monotonic_us=500"))
         self.assertTrue(desktop.needs_attention(critical))
         self.assertEqual(desktop.device_snapshot(critical)[1]["core_mc"],-1000)
         for bad in ("workspace-devices: audio_state=4 monotonic_us=oops","workspace-devices: audio_state=4","audio_state=4 monotonic_us=1"):

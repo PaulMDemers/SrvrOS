@@ -35,7 +35,7 @@ def device_snapshot(line):
         if not sep or not re.fullmatch(r"(?:-?[0-9]{1,20}|0x[0-9a-fA-F]{1,16})",value):
             return None
         fields[key]=int(value,16 if value.startswith("0x") else 10)
-    for kind in ("audio","thermal","smc"):
+    for kind in ("audio","thermal","smc","pcm"):
         if kind+"_state" in fields and fields.get("monotonic_us",-1)>=0:
             return kind,fields
     return None
@@ -62,6 +62,7 @@ def needs_attention(line):
     parsed=device_snapshot(line)
     if not parsed:return False
     kind,fields=parsed
+    if kind=="pcm":return fields["pcm_state"]==6 or fields.get("underruns",0)>0
     return (kind in ("audio","smc") and fields[kind+"_state"]==4) or (kind=="thermal" and fields.get("flags",0)&8)!=0
 
 

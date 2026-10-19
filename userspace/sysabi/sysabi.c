@@ -1,6 +1,7 @@
 #include <srvros/conio.h>
 #include <srvros/gfx.h>
 #include <srvros/gui.h>
+#include <srvros/audio.h>
 #include <srvros/sys.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -223,6 +224,32 @@ static int check_audio(void) {
     return 0;
 }
 
+static int check_audio_stream(void) {
+    struct { struct srv_pcm_status status;uint64_t canary; } probe={.canary=SYSABI_CANARY};
+    if(srv_syscall4(SYS_AUDIO_STREAM,UINT64_MAX,0,0,0)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_OPEN,1,0,0)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_WRITE,0,0,4)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_WRITE,0,(long)-1,4)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_WRITE,0,(long)&probe,3)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_QUERY,0,(long)&probe.status,sizeof(probe.status)-1)!=-1 ||
+       srv_syscall4(SYS_AUDIO_STREAM,SRV_PCM_QUERY,0,(long)-1,sizeof(probe.status))!=-1)
+        return fail("pcm-invalid-request");
+    for(unsigned token=1;token<=8;token++) {
+        if(srv_pcm_query(token,&probe.status)!=-1 ||
+           srv_pcm_write(token,&probe.canary,4)!=-1 || srv_pcm_close(token)!=-1)
+            return fail("pcm-foreign-owner");
+    }
+    long handle=srv_pcm_open();
+    if(handle>0) {
+        if(srv_pcm_query(handle,&probe.status) || probe.status.version!=SRV_PCM_VERSION ||
+           probe.status.state!=SRV_PCM_BUFFERING || probe.status.rate!=48000 ||
+           probe.status.handle!=(uint64_t)handle || probe.canary!=SYSABI_CANARY ||
+           srv_pcm_query(handle+1,&probe.status)!=-1 || srv_pcm_open()!=-1 || srv_pcm_close(handle))
+            return fail("pcm-owner-snapshot");
+    }
+    return probe.canary==SYSABI_CANARY?0:fail("pcm-canary");
+}
+
 static int check_gui(void) {
     if (gui_register_server() != 0) {
         return fail("gui-register");
@@ -284,6 +311,7 @@ int main(void) {
         check_gfx() != 0 ||
         check_devices() != 0 ||
         check_audio() != 0 ||
+        check_audio_stream() != 0 ||
         check_thermal() != 0 ||
         check_smc() != 0 ||
         check_gui() != 0) {

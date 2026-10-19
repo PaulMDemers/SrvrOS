@@ -101,3 +101,60 @@ The USB-I/O variant uses a freshly formatted disposable exFAT volume and a
 bandwidth-limited writer. Both test tones must occur before the writer finishes;
 the harness verifies the full 1 MiB output, guest unmount and host read-only fsck.
 Captured audio must contain two complete stereo tones at the requested gains.
+
+## Sustained PCM output and WAV player
+
+The evening follow-up adds `SYS_AUDIO_STREAM` (130), a bounded, exclusive PCM
+output lease owned by the calling process. The format is 48 kHz, signed
+little-endian 16-bit stereo. Open returns a nonzero generation handle; writes
+accept at most 16 KiB and return the accepted byte count or a retry result.
+Finish seals and drains the stream; Close or process cleanup requests silence
+and releases ownership. Another process cannot query, write, finish or close
+that lease. The compositor's existing Stop control can cancel it.
+
+The same retained four-second HDA DMA allocation serves tones and files. There
+is no per-write allocation and no userspace DMA pointer. The producer copies
+only into available ring space, with a half-second guard covering the maximum
+16-bit FIFO size and the permitted age of a cached playback position. A normal
+stream starts after one second is queued; Finish starts shorter files directly.
+The worker clears consumed bytes to silence, counts starvation/gap insertions,
+and stops on stalled, implausible or ambiguous position movement. It accepts the
+specification's inclusive end-of-buffer position and clears complete frames only.
+A service gap of one second is a fault, before a four-second wrap can become
+ambiguous. As before, uncertain DMA memory is retained and silenced.
+
+Settings disables volume/output/Test while a file owns sound; Stop remains
+available. Gain and route are chosen before playback. This is deliberately a
+single-stream implementation: no mixing, resampling, seeking, pause or microphone
+capture is provided. Cached stream state, ownership, submitted/queued/position
+bytes and underrun counts are included in periodic and exit diagnostics.
+
+`playwav FILE.wav` checks the RIFF/chunk bounds and exact PCM format before
+opening audio. It streams bounded reads, handles backpressure, drains the final
+samples and reports underruns. Malformed, incomplete and unsupported files are
+rejected. Ctrl-C or process termination uses the same kernel ownership cleanup.
+The bundled `/fat/share/examples/stereo.wav` lasts six seconds, with left-only,
+right-only and distinct stereo sections separated by silence. From Terminal:
+
+```sh
+playwav /fat/share/examples/stereo.wav
+```
+
+Set a low output volume in Settings first. Type in Text or move a window during
+playback; Settings Stop should cancel it. Physical audible quality and channel
+routing still require the laptop round.
+
+Validation commands:
+
+```sh
+tools/host-env.sh make test-audio-stream test-wav test-settings
+tools/host-env.sh python3 tools/audio_stream_smoke.py
+tools/host-env.sh python3 tools/audio_stream_smoke.py --lifecycle
+tools/host-env.sh python3 tools/audio_stream_smoke.py --seconds 60 --repeat 10
+```
+
+The waveform checker streams the capture and compares both channels against the
+source, including across DMA-ring wraps. Lifecycle coverage checks foreign-owner
+syscalls, competing players, keyboard input during background playback, killed
+players and subsequent reuse. These results are recorded separately from the
+earlier test-tone soak and do not establish physical sound acceptance.

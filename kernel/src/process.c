@@ -1,3 +1,4 @@
+#include <srvros/audio.h>
 #include <srvros/console.h>
 #include <srvros/exfat.h>
 #include <srvros/fpu.h>
@@ -5778,6 +5779,7 @@ void process_exit(uint64_t status) {
         process->user_threads[i].used = false;
         process->user_threads[i].active = false;
     }
+    audio_process_cleanup(process->pid);
     process->exit_status = finish_process_files(process, status);
     process_record_exit_status(process->pid, process->exit_status);
     gui_process_cleanup(process->pid);

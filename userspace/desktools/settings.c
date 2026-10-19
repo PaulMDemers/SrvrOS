@@ -38,9 +38,10 @@ void tool_settings_audio(struct tool *t,const struct desk_packet *p) {
         tool_status(t,"Sound controller returned an invalid reply.");return;
     }
     int old_available=audio_available(t),changed=memcmp(&next,&t->audio,sizeof(next))!=0;
-    int route_changed=t->audio.output!=next.output;t->audio=next;
+    int route_changed=t->audio.output!=next.output;
+    int ownership_changed=(t->audio.capabilities^next.capabilities)&SRV_AUDIO_CAP_PCM_BUSY;t->audio=next;
     if(t->audio_requested==SRV_AUDIO_QUERY && !t->audio_volume.dragging && t->audio_wanted_volume<0) desk_slider_set(&t->audio_volume,next.volume);
-    if(old_available!=audio_available(t)) tool_layout(t);
+    if(old_available!=audio_available(t) || ownership_changed) tool_layout(t);
     t->checks[11].checked=next.output==SRV_AUDIO_SPEAKERS;t->checks[12].checked=next.output==SRV_AUDIO_HEADPHONES;
     if(changed || route_changed) t->window.dirty=1;
     if(!t->audio_requested && t->audio_watch_op && !next.pending) {
@@ -132,11 +133,11 @@ void tool_settings_layout(struct tool *t) {
             visible(t,row,32),t->preferences.wallpaper==(unsigned)i,1);
     }
     int py=y+(w>=372?460:532);
-    int sound=py+420,available=audio_available(t);
-    desk_slider_configure(&t->audio_volume,(struct desk_rect){24,sound+76,w-72,32},available && visible(t,sound+76,32));
-    desk_check_configure(&t->checks[11],(struct desk_rect){24,sound+120,120,32},available && visible(t,sound+120,32),t->audio.output==0,1);
-    desk_check_configure(&t->checks[12],(struct desk_rect){156,sound+120,w-200,32},available && (t->audio.capabilities&SRV_AUDIO_CAP_HEADPHONES) && visible(t,sound+120,32),t->audio.output==1,1);
-    desk_button_configure(&t->buttons[16],(struct desk_rect){24,sound+164,128,32},available && visible(t,sound+164,32));
+    int sound=py+420,available=audio_available(t),controls=available && !(t->audio.capabilities&SRV_AUDIO_CAP_PCM_BUSY);
+    desk_slider_configure(&t->audio_volume,(struct desk_rect){24,sound+76,w-72,32},controls && visible(t,sound+76,32));
+    desk_check_configure(&t->checks[11],(struct desk_rect){24,sound+120,120,32},controls && visible(t,sound+120,32),t->audio.output==0,1);
+    desk_check_configure(&t->checks[12],(struct desk_rect){156,sound+120,w-200,32},controls && (t->audio.capabilities&SRV_AUDIO_CAP_HEADPHONES) && visible(t,sound+120,32),t->audio.output==1,1);
+    desk_button_configure(&t->buttons[16],(struct desk_rect){24,sound+164,128,32},controls && visible(t,sound+164,32));
     desk_button_configure(&t->buttons[17],(struct desk_rect){164,sound+164,80,32},available && visible(t,sound+164,32));
     desk_slider_configure(&t->pointer_speed,(struct desk_rect){24,py+40,w-72,32},visible(t,py+40,32));
     desk_slider_set(&t->pointer_speed,t->preferences.pointer_speed);
@@ -167,11 +168,11 @@ void tool_settings_draw(struct tool *t,struct desk_canvas *c) {
     desk_label_draw(c,(struct desk_rect){24,py+296,c->width-64,28},theme->body,label,theme->text);
     desk_label_draw(c,(struct desk_rect){24,py+372,c->width-64,28},theme->body,"5–100% · applies to this session",theme->muted);
     int sound=py+420;
-    static const char *states[]={"Sound · not enabled","Sound · unavailable","Sound · ready","Sound · playing test tone","Sound · device error"};
+    static const char *states[]={"Sound · not enabled","Sound · unavailable","Sound · ready","Sound · playing","Sound · device error"};
     desk_label_draw(c,(struct desk_rect){24,sound,c->width-64,28},theme->body,states[t->audio.state<=SRV_AUDIO_FAULT?t->audio.state:SRV_AUDIO_FAULT],theme->text);
     snprintf(label,sizeof(label),"Output volume: %d%%",t->audio_volume.value);
     desk_label_draw(c,(struct desk_rect){24,sound+40,c->width-64,28},theme->body,label,theme->text);
-    desk_label_draw(c,(struct desk_rect){24,sound+212,c->width-64,28},theme->body,"A short, quiet test tone",theme->muted);
+    desk_label_draw(c,(struct desk_rect){24,sound+212,c->width-64,28},theme->body,(t->audio.capabilities&SRV_AUDIO_CAP_PCM_BUSY)?"Stop playback to change sound settings.":"A short, quiet test tone",theme->muted);
     desk_label_draw(c,(struct desk_rect){24,sound+248,c->width-64,28},theme->body,(t->audio.capabilities&SRV_AUDIO_CAP_JACK_SENSE)?(t->audio.headphone_present?"Headphones connected.":"No headphones detected."):(t->audio.capabilities&SRV_AUDIO_CAP_HEADPHONES)?"Choose headphones after plugging them in.":audio_available(t)?"Speaker output only.":"Sound output is unavailable in this session.",theme->muted);
     desk_ui_draw(c,&t->ui,theme);c->clip=old;
     if(desk_scrollbar_limit(&t->settings_scroll)>0) desk_scrollbar_draw(c,&t->settings_scroll,theme);

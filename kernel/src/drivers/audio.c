@@ -1,5 +1,6 @@
 #include <srvros/audio.h>
 #include <srvros/audio_abi.h>
+#include <srvros/audio_stream_abi.h>
 #include <srvros/hda_codec.h>
 #include <srvros/console.h>
 #include <srvros/pci.h>
@@ -76,6 +77,7 @@ static bool stop(void) {
     bool muted=!controller.ready || hda_codec_mute(&codec,true);
     return stopped && muted;
 }
+#include "audio_stream.inc"
 static bool test_tone(void) {
     if(!stop() || !controller.ready) return false;
     silence();
@@ -94,12 +96,12 @@ static bool test_tone(void) {
     started_us=timer_monotonic_us();status.tests_started++;return true;
 }
 static bool jack_due(void) { return codec.apple && codec.available && timer_ticks()>=next_jack_tick; }
-static bool eligible(void *arg) { (void)arg;return pending_op || (controller.playing && codec.available) || jack_due(); }
+static bool eligible(void *arg) { (void)arg;return pending_op || stream_ready() || (controller.playing && codec.available) || jack_due(); }
 static bool requested(void *arg) { (void)arg;return pending_op!=0; }
 static void service(void) {
     uint64_t f=lock();unsigned op=pending_op,value=pending_value;pending_op=0;active_op=op;unlock(f);
     bool ok=true;
-    if(op==SRV_AUDIO_STOP) ok=stop();
+    if(op==SRV_AUDIO_STOP) { if(stream_owner)stream_cancel(false);else ok=stop(); }
     else if(op==SRV_AUDIO_TEST) ok=test_tone();
     else if(op==SRV_AUDIO_VOLUME) {
         /* Volume changes take effect immediately by stopping a current
@@ -109,7 +111,8 @@ static void service(void) {
     } else if(op==SRV_AUDIO_OUTPUT) {
         ok=stop() && hda_codec_route(&codec,(enum hda_output)value);
     }
-    if(ok && controller.playing) {
+    if(ok && stream_owner) { stream_service();ok=codec.available; }
+    else if(ok && controller.playing) {
         uint32_t position;ok=hda_core_position(&controller,&position);
         uint64_t elapsed=timer_monotonic_us()-started_us;
         if(ok && elapsed>=750000) {
@@ -190,13 +193,13 @@ void audio_init(void) {
     if(!worker_started) { controller.error=HDA_WORKER;codec.available=false; }
     publish();audio_print_status();
 }
-void audio_status(struct srv_audio_status *out) { if(out) { uint64_t f=lock();*out=status;out->pending=pending_op?pending_op:active_op;unlock(f); } }
+void audio_status(struct srv_audio_status *out) { if(out) { uint64_t f=lock();*out=status;if(stream_owner)out->capabilities|=SRV_AUDIO_CAP_PCM_BUSY;out->pending=pending_op?pending_op:active_op;unlock(f); } }
 int audio_request(unsigned op,unsigned value) {
     if(op<SRV_AUDIO_TEST||op>SRV_AUDIO_OUTPUT||
        (op==SRV_AUDIO_VOLUME&&value>100)||(op==SRV_AUDIO_OUTPUT&&value>1)||
        ((op==SRV_AUDIO_TEST||op==SRV_AUDIO_STOP)&&value)) return -1;
     uint64_t f=lock();
-    if(!worker_started || !codec.available || !controller.ready ||
+    if((stream_owner && op!=SRV_AUDIO_STOP) || !worker_started || !codec.available || !controller.ready ||
        (op==SRV_AUDIO_OUTPUT && value==1&&!codec.apple) || (pending_op&&op!=SRV_AUDIO_STOP)) { unlock(f);return -1; }
     pending_op=op;pending_value=value;scheduler_wake_all(&wake);unlock(f);return 0;
 }
@@ -209,6 +212,8 @@ void audio_print_status(void) {
         (uint64_t)controller.codecs,(uint64_t)controller.inputs,(uint64_t)controller.outputs,(uint64_t)controller.stream,
         (uint64_t)controller.dma64,(uint64_t)controller.last_command,(uint64_t)controller.last_response);
     if(s.capabilities&SRV_AUDIO_CAP_JACK_SENSE) console_printf("audio: headphones=%s (manual output selection)\n",s.headphone_present?"connected":"disconnected");
+    if(stream.handle) console_printf("audio-pcm: state=%u owner=%u handle=%u submitted=%u position=%u queued=%u underruns=%u\n",
+        (uint64_t)stream.state,stream_owner,stream.handle,stream.submitted_bytes,stream.position_bytes,stream.queued_bytes,stream.underruns);
     console_printf("audio: commands=%u tests_started=%u tests_completed=%u position=%u; physical sound NOT_TESTED\n",
         s.commands,s.tests_started,s.tests_completed,(uint64_t)s.last_position);
 }

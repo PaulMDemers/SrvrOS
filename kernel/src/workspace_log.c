@@ -10,6 +10,7 @@
 #include <srvros/timer.h>
 #include <srvros/audio.h>
 #include <srvros/audio_abi.h>
+#include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
 #include <stddef.h>
@@ -49,6 +50,9 @@ static void device_checkpoint(void) {
     struct srv_smc_status fan;smc_status(&fan);
     console_printf("workspace-devices: smc_state=%u flags=%x fan_millirpm=%u sample_us=%u samples=%u failures=%u error=%u monotonic_us=%u\n",
         (uint64_t)fan.state,(uint64_t)fan.flags,(uint64_t)fan.fan_millirpm,fan.sampled_us,fan.samples,fan.failures,(uint64_t)fan.error,sampled);
+    struct srv_pcm_status pcm;uint64_t owner;audio_stream_snapshot(&pcm,&owner);
+    console_printf("workspace-devices: pcm_state=%u owner=%u handle=%u submitted=%u position=%u queued=%u underruns=%u monotonic_us=%u\n",
+        (uint64_t)pcm.state,owner,pcm.handle,pcm.submitted_bytes,pcm.position_bytes,pcm.queued_bytes,pcm.underruns,sampled);
     audio_status(&audio);thermal_status(&thermal);
     console_printf("workspace-devices: audio_state=%u error=%u output=%u volume=%u pending=%u started=%u completed=%u headphones=%u caps=%x monotonic_us=%u\n",
         (uint64_t)audio.state,(uint64_t)audio.error,(uint64_t)audio.output,(uint64_t)audio.volume,

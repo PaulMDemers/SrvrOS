@@ -98,5 +98,10 @@ int main(void) {
     t.audio_pending=1;tool_settings_action(&t,(struct desk_action){SETTINGS_AUDIO_STOP,DESK_WIDGET_ACTIVATED});
     assert(t.audio_queued_op==SRV_AUDIO_STOP);t.audio_pending=0;tool_settings_tick(&t);
     assert(brightness_sent.value==SRV_AUDIO_STOP);
+    ap=brightness_sent;audio.capabilities=SRV_AUDIO_CAP_PCM_BUSY;memcpy(ap.text,&audio,sizeof(audio));
+    tool_settings_audio(&t,&ap);tool_settings_layout(&t);
+    assert(!t.audio_volume.enabled && !t.checks[11].button.enabled && !t.buttons[16].enabled && t.buttons[17].enabled);
+    t.audio_pending=1;ap.serial=t.audio_serial;audio.capabilities=0;memcpy(ap.text,&audio,sizeof(audio));tool_settings_audio(&t,&ap);tool_settings_layout(&t);
+    assert(t.audio_volume.enabled && t.buttons[16].enabled && t.buttons[17].enabled);
     puts("settings: PASS grouped choices, partial field requests, offset validation, draft retention, send failure, narrow scrolling and capture cancellation");
 }

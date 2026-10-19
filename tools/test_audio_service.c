@@ -55,4 +55,5 @@ int main(void) {
     jack_ok=false;clock_us+=500000;service();assert(status.state==SRV_AUDIO_FAULT && !(status.capabilities&SRV_AUDIO_CAP_JACK_SENSE));silent();
     for(unsigned i=0;i<1000;i++) { setup();assert(!audio_request(SRV_AUDIO_TEST,0));service();assert(!audio_request(SRV_AUDIO_STOP,0));service();silent(); }
     free(pcm);puts("audio-service: PASS queued ownership, Stop priority, ramped stereo/tail, zero gain, DMA progress deadline, failed start/stop/jack and 1000 reuse cycles");
+    return 0;
 }

@@ -3,6 +3,7 @@
 #include <srvros/smc.h>
 #include <srvros/audio.h>
 #include <srvros/audio_abi.h>
+#include <srvros/audio_stream_abi.h>
 #include "isr_frame.h"
 
 #include <srvros/block.h>
@@ -2392,7 +2393,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * Process listing and memory counters are read-only snapshots.
      * Mapping/spawn/kill remain gated. */
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
-    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_SMC_STATUS:
+    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
@@ -2428,6 +2429,19 @@ static int64_t syscall_device_list(uint64_t kind,uint64_t index,struct srv_devic
     return copy_to_user(out,&info,sizeof(info))?next:-1;
 }
 
+static int64_t syscall_audio_stream(uint64_t op,uint64_t handle,void *data,uint64_t length) {
+    if(op<SRV_PCM_OPEN || op>SRV_PCM_CLOSE)return -1;
+    if(op==SRV_PCM_WRITE) {
+        if(!length || length>SRV_PCM_MAX_WRITE || (length&3) || !user_buffer_ok(data,length,false))return -1;
+    } else if(op==SRV_PCM_QUERY) {
+        if(length!=sizeof(struct srv_pcm_status) || !user_buffer_ok(data,length,true))return -1;
+        struct srv_pcm_status value;
+        int64_t result=audio_stream_request(process_pid(process_current()),(unsigned)op,handle,&value,sizeof(value));
+        if(result<0)return result;
+        return copy_to_user(data,&value,sizeof(value))?0:-1;
+    } else if(data || length)return -1;
+    return audio_stream_request(process_pid(process_current()),(unsigned)op,handle,data,length);
+}
 static int64_t syscall_audio(uint64_t operation,uint64_t value,struct srv_audio_status *out,uint64_t size) {
     if(size!=sizeof(*out) || !user_buffer_ok(out,sizeof(*out),true)) return -1;
     int64_t result=operation==SRV_AUDIO_QUERY?(value?-1:0):gui_audio_request(operation,value);
@@ -2593,6 +2607,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_DEVICE_LIST:
         frame->rax=(uint64_t)syscall_device_list(frame->rdi,frame->rsi,(struct srv_device_info *)frame->rdx,frame->rcx);
+        return;
+    case SYS_AUDIO_STREAM:
+        frame->rax=(uint64_t)syscall_audio_stream(frame->rdi,frame->rsi,(void *)frame->rdx,frame->rcx);
         return;
     case SYS_AUDIO:
         frame->rax=(uint64_t)syscall_audio(frame->rdi,frame->rsi,(struct srv_audio_status *)frame->rdx,frame->rcx);
