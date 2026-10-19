@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import io
 import hashlib
+import json
 from pathlib import Path
 import shutil
 import struct
@@ -30,11 +31,23 @@ def main():
     parser.add_argument('--qemu', default='qemu-system-x86_64')
     parser.add_argument('--ovmf', default=default_ovmf_path())
     parser.add_argument('--stress', action='store_true')
+    parser.add_argument('--release', help='Rehearse this exact staged v8/v9 release on disposable VM media')
     args = parser.parse_args()
-    members = test.batch_runs(RUN, 5 if args.stress else 1)
+    run=RUN;exact_source=None;exact_manifest=None
+    if args.release:
+        if not test.RUN_RE.fullmatch(args.release):parser.error('Invalid release ID')
+        exact_source=boot.STAGE/args.release;exact_manifest=boot.verify(exact_source)
+        profile=boot.AUTOTEST_RE.fullmatch(exact_manifest.get('config_version',''))
+        if not profile or not profile[0].startswith(('ram-usb-v8-','ram-usb-v9-')):
+            parser.error('--release requires a current v8/v9 automated-test stage')
+        stress=profile[0].startswith('ram-usb-v9-')
+        if args.stress and not stress:parser.error('--stress conflicts with the staged one-round profile')
+        args.stress=stress;run=profile[2]
+    members = test.batch_runs(run, 5 if args.stress else 1)
     root = Path(__file__).resolve().parents[1]
     logs = root / 'build/review'
     logs.mkdir(exist_ok=True)
+    (logs/'autotest-cycle-result.json').unlink(missing_ok=True)
     serial = logs / 'autotest-cycle-serial.log'
     serial.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix='srvros-auto-cycle-') as name:
@@ -45,15 +58,20 @@ def main():
         with volume_image.open('wb') as out:
             out.truncate(128 * 1024 * 1024)
         subprocess.run(['/usr/sbin/mkfs.exfat', '-c', '128K', str(volume_image)], check=True)
+        if exact_source:
+            subprocess.run(['/usr/sbin/tune.exfat','-I','0x'+profile[1],str(volume_image)],check=True)
         fixture = ExfatFixture(volume_image.read_bytes())
         volume = f'{fixture.u32(100):08x}'
         fixture.add_directory_files('srvros-tests', {f'{member}.req': f'SRVROS-AUTOTEST-V3 {member}\n'.encode() for member in members})
         volume_image.write_bytes(fixture.data)
         print(check_clean_image(volume_image), end='', flush=True)
-        with patch.object(boot, 'STAGE', temp / 'stage'), contextlib.redirect_stdout(io.StringIO()):
-            release = boot.stage(autotest_volume=volume, run_id=RUN, repeat=len(members))
-        source = temp / 'stage' / release
-        assert fixture.read(f'srvros-tests/{RUN}.req') == f'SRVROS-AUTOTEST-V3 {RUN}\n'.encode()
+        if exact_source:
+            source=exact_source;release=args.release
+        else:
+            with patch.object(boot, 'STAGE', temp / 'stage'), contextlib.redirect_stdout(io.StringIO()):
+                release = boot.stage(autotest_volume=volume, run_id=run, repeat=len(members))
+            source = temp / 'stage' / release
+        assert fixture.read(f'srvros-tests/{run}.req') == f'SRVROS-AUTOTEST-V3 {run}\n'.encode()
         disk = temp / 'scratch.img'
         mbr = bytearray(512)
         mbr[450] = 7
@@ -149,16 +167,16 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
             result = ExfatFixture(stream.read())
         volume_image.write_bytes(result.data)
         print(check_clean_image(volume_image), end='', flush=True)
-        data = result.read(f'srvros-tests/{RUN}.txt')
-        done = result.read(f'srvros-tests/{RUN}.done')
-        metadata = {'run': RUN, 'release': release, 'volume': volume, 'suite': test.SUITE}
+        data = result.read(f'srvros-tests/{run}.txt')
+        done = result.read(f'srvros-tests/{run}.done')
+        metadata = {'run': run, 'release': release, 'volume': volume, 'suite': test.SUITE}
         fields = test.validate_result(metadata, data, done)
         assert fields['status'] == 'PASS'
-        assert result.read(f'srvros-tests/{RUN}.probe') == test.PROBE_BYTES
-        assert result.read(f'srvros-tests/{RUN}.req') == f'STARTED {RUN}\n'.encode()
+        assert result.read(f'srvros-tests/{run}.probe') == test.PROBE_BYTES
+        assert result.read(f'srvros-tests/{run}.req') == f'STARTED {run}\n'.encode()
         (logs / 'autotest-cycle-report.txt').write_bytes(data)
         (logs / 'autotest-cycle-completion.txt').write_bytes(done)
-        base = f'srvros-tests/{RUN}.files'
+        base = f'srvros-tests/{run}.files'
         def listing(relative):
             path = base + ('/' + relative if relative else '')
             return {name: 'directory' if entry[4] & 0x10 else 'file'
@@ -166,7 +184,7 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         verified = verify_tree(lambda name, size: result.read(base + '/' + name), listing)
         assert len(verified) == 6
         print('hardware-test-smoke: persisted file-operation tree PASS', flush=True)
-        shell_base = f'srvros-tests/{RUN}.shell'
+        shell_base = f'srvros-tests/{run}.shell'
         hardware_shell_workload.verify(lambda name: result.read(shell_base+'/'+name))
         print('hardware-test-smoke: persisted shell/editor/history/settings PASS',flush=True)
         for member in members[1:]:
@@ -196,7 +214,7 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         raw = bytes(result.data)
         for defect in defects:
             broken = bytearray(raw)
-            item = recovered['entries'][f'srvros-tests/{RUN}.txt']
+            item = recovered['entries'][f'srvros-tests/{run}.txt']
             off = item['offset']
             length = len(bytes.fromhex(item['raw_hex']))
             if defect == 'name-hash': struct.pack_into('<H', broken, off+36, 0)
@@ -229,6 +247,14 @@ menuentry 'SrvrOS automated test' --id srvros-test {{
         boot_guest('write-failure', readonly=True)
         if hashlib.sha256(disk.read_bytes()).hexdigest() != before:
             raise RuntimeError('Read-only failure changed the disk')
+        manifest=boot.verify(source)
+        if exact_manifest is not None and manifest!=exact_manifest:
+            raise RuntimeError('Staged payload changed during rehearsal')
+        (logs/'autotest-cycle-result.json').write_text(json.dumps({
+            'status':'PASS','release':release,'run':run,'rounds':len(members),
+            'exact_staged_release':exact_source is not None,'manifest':manifest,
+            'report_crc_and_contents':True,'default_return':True,'replay_halts':True,'readonly_failure_halts':True,
+        },indent=2)+'\n')
         print(data.decode(), end='')
         print('hardware-test-smoke: PASS (one-shot GRUB, persisted report CRC, successful default return, failures remain halted)')
 

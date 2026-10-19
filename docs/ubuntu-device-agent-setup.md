@@ -329,6 +329,8 @@ Once boot/input and the workspace work on that machine, use a fresh request:
 ```sh
 python3 tools/hardware_test.py prepare --uuid "$SRVROS_USB_UUID" --stress
 SRVROS_RUN=$(cat build/hardware-tests/latest)
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/hardware_test_smoke.py --release "$SRVROS_RELEASE"
 # Record the printed run/release and preserve the accepted recovery first.
 python3 tools/hardware_test.py run --run "$SRVROS_RUN"
 # After returning to Ubuntu and remounting the drive:
@@ -344,6 +346,11 @@ marker is incomplete, even if the machine returned automatically or a file exist
 Collection also checks retained file contents. These tests do not establish
 physical key latency, right-click behavior or audible sound. See
 [automated hardware tests](automated-hardware-tests.md).
+
+The exact-release VM rehearsal uses disposable requests and a matching UUID;
+the physical requests remain unused. Confirm its `autotest-cycle-result.json`
+matches the intended release, and archive that evidence before another harness
+run replaces it.
 
 ## 9. Agent handoff and integration contract
 
