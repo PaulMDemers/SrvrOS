@@ -1,16 +1,17 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-19. State: **initial Linux inventory captured; physical SrvrOS tests pending**.
+Updated: 2026-10-19. State: **first physical boot reached console; built-in keyboard failed**.
 
 ## Ownership and scope
 
 Local on-device agent, branch `device/macbookpro11-2/bringup`, starting from
 `main` at `db40ed510636847d9aad2c7d38fea9976de43252`.
-The bounded objective is host provisioning, Linux inventory, baseline build/VM
-validation and preparation of the first console/workspace candidate. Changes
-are limited to this machine record and local setup/evidence. No shared driver
-changes are underway. Open PR #4 owns the Air EC/AML audit; this work does not
-duplicate that scope. Follow the [device setup guide](../ubuntu-device-agent-setup.md).
+Current objective: diagnose and enable the built-in `05ac:0262` keyboard.
+Scope: captured descriptor fixtures and xHCI host regression coverage first;
+collect unattended native USB/controller diagnostics before choosing any driver
+change. The first trial has no persisted USB log, so the failure layer is unknown.
+PR #4 remains the Air EC/AML owner's scope; no overlapping implementation is
+planned. Baseline `origin/main` remains `db40ed5` as fetched after this trial.
 
 ## Observed configuration
 
@@ -41,17 +42,18 @@ ignored `build/hardware/` storage.
 
 ## Acceptance and recovery
 
-All native SrvrOS capabilities remain **not tested on this unit**, including
-boot, keyboard/trackpad, scaled display, USB persistence, audio, brightness,
-sensors, power and networking. Linux device visibility does not accept a driver.
-Keep optional AML probing out of ordinary startup and preserve model gates.
+Physical release `a5b5ae578027e8c0` reached the console, confirmed by the user.
+The built-in keyboard **failed**. No result file or log session was created;
+USB persistence, trackpad, scaled display, audio, brightness, sensors, power and
+networking remain untested. Boot visibility does not accept these providers.
+The consumed one-shot has been checked after return; Ubuntu remains recovery.
+No physically accepted SrvrOS recovery release exists. Optional AML stays off.
 
-Ubuntu remains the recovery OS. No reboot is authorized or armed by this setup
-request, and no physically accepted SrvrOS recovery release exists for this unit.
-System build/VM/diagnostic packages and all pinned submodules are installed.
-Privileged inspection confirmed no existing SrvrOS installation, an empty GRUB
-environment (no pending one-shot), verified Ubuntu default, and about 1 GiB free
-on the ESP. Secure Boot is unsupported on this firmware.
+For future trials, prefer an unattended boot/check/save/unmount/return cycle.
+If manual commands are necessary, display them in the boot environment or wait
+for the user's confirmation before triggering reboot. This is the user's standing
+instruction; do not require keyboard commands for diagnostic collection when
+keyboard support itself is under investigation.
 
 ## Host and VM validation
 
@@ -75,11 +77,8 @@ VM candidate, not an accepted physical recovery release.
 
 ## Next checkpoint
 
-Release `a5b5ae578027e8c0` is installed and hash-verified on the ESP;
-GRUB syntax and Ubuntu default checks pass. No previous SrvrOS release exists.
-No one-shot boot is armed, and the firmware boot order is unchanged.
-Schedule the first physical console/input/workspace trial. The ignored local checkpoint retains
-UUID, exact manifest, recovery/installed state and intended checks. Do not arm a
-reboot until the user's work is saved and a reboot window is authorized. On
-return, collect the matching session before staging another candidate. Physical
-audio/SMC enablement and Retina desktop acceptance remain future work.
+First console trial is collected as a keyboard failure. Add the actual Pro
+configuration to host tests, then use a separately staged and VM-rehearsed v19
+unattended diagnostic capture to distinguish enumeration/setup/report failures.
+Preserve the previous console payload and Ubuntu default; collect the exact new
+release on return before changing the driver or preparing another boot.
