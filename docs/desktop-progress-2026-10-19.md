@@ -112,5 +112,11 @@ The staged VM verified the full measurement, multiple durable checkpoints, a
 clean exFAT image and automatic reset; a separate missing-drive run stayed
 halted. The collector exposes a validated measurement from `exit.log` without
 calling it physical power or desktop acceptance. Installer tests also cover the
-separate profile and normal hyphenated exFAT UUID arguments. Physical sampling
-is the next step; the five-round suite above did not measure idle power.
+separate profile and normal hyphenated exFAT UUID arguments. Native release `1fe693c9889f131f` (source `b3f0e31`) subsequently completed
+59,988,181 us with 6,000 timer samples, 5,673 in idle (94.55%). The saved session
+`session-00065e29979b3f87-00` contains all four logs with no attention flags;
+package temperature fell from 80 C to 75 C and the final fan reading was
+1,206 RPM. All 63 SMC samples completed without errors. The machine returned
+to Ubuntu, the one-shot entry was consumed and an offline read-only exFAT check
+was clean. This is a console sample after prior host activity, not an equilibrium
+temperature or power measurement, and it does not accept desktop idle behavior.

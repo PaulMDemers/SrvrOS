@@ -48,14 +48,17 @@ from `main` at `3b0b43a`: physical click latching, compositor delivery deadlines
 idle/sleep scheduling and console polling. The [October 19 journal](../desktop-progress-2026-10-19.md)
 records host/VM evidence. Native automated batch `54a944ae1f7849ac`
 (source `686edd8`) passed all five filesystem/shell rounds with retained files
-verified and a clean offline exFAT check. Current boot payload is that automated
-release; previous retains accepted desktop `b427b78f21644bd2`. Interactive
-input and desktop idle behavior still need physical acceptance.
+verified and a clean offline exFAT check. The following bounded console-idle capture `1fe693c9889f131f`
+(source `b3f0e31`) saved 60 seconds of samples: 94.55% idle, package 80→75 C,
+1,206 RPM final fan, no SMC errors. It returned automatically with a clean
+offline exFAT check. Current boot payload is that idle capture; previous retains
+accepted desktop `b427b78f21644bd2`. Interactive input, desktop idle and power
+consumption still need physical acceptance.
 The generalized Linux collector completed with zero partial reads on this host.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.
-3. Physically validate idle/sleep changes after VM regression, retaining USB/input responsiveness.
+3. Extend the accepted console idle/sleep measurements to desktop activity and actual power/frequency evidence, retaining USB/input responsiveness.
 4. Battery/AC runtime, headphone route acceptance and actual USB networking.
 5. Shared inventory/profile/scaling work for the other model agents, coordinated
    through the [expansion plan](../apple-hardware-expansion-plan.md).
