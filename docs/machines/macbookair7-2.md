@@ -21,7 +21,7 @@ device work uses separate branches based on `main`.
 | Temperature and fan sampling | Live output confirmed | Fresh screenshot readings 83 C / 1202 RPM; logs reached 85 C, no SMC errors; calibration/power behavior not accepted |
 | Two-finger physical right-click | Implemented; physical acceptance pending | Press role latches from initial contact count; one-finger press plus later steering finger remains primary |
 | Context menu from trackpad taps | Physical acceptance open | Exit counts 5 primary and 1 secondary tap; user reported no visible right-click result |
-| System window stability | Failure recorded | `input-timeout queue=5` closed System pid14 in the latest trial |
+| System window stability | Failure recorded; host/VM fixes awaiting physical acceptance | `input-timeout queue=5` closed System pid14; delivery-first input/control deadlines now pass host regressions, live System/network VM and 36 app lifetimes |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
 | Battery/AC and suspend/resume | Not implemented as live services | ACPI/EC foundations exist; runtime ownership and tests remain |
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |

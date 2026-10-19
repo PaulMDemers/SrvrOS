@@ -350,3 +350,27 @@ returned no power measurement. Missing-workspace rehearsal halted without reset.
 All 68 hardware-tool tests and desktop/workspace host tests passed. Evidence and
 an explicitly **not installed/not armed** record are saved under
 `build/native-desktop-trials/e03c015569fd2283/`.
+
+## Client control delivery deadlines
+
+A new host regression reproduced a second queue-age failure: after the compositor
+paused for more than five seconds, it killed a healthy client before attempting
+to deliver its pending surface release. Configure/close requests had the same
+attribution problem. This is a reproduced independent failure, not proof that it
+caused the earlier physical System-window closure.
+
+Control packets now get a delivery attempt first. Repeated blocked sends have a
+bounded five-second deadline, and the client's response deadline starts at
+successful delivery. Control traffic resets an interrupted input-delivery wait.
+Forced close is sent once; a client that ignores it is still killed after the
+response deadline. The host regression verifies delayed release/configure/close,
+recovery after backpressure, control/input interleaving and genuinely stuck
+clients. The original failing evidence remains in
+`build/overnight-20261018/control-timeout-reproduction.txt`.
+
+Full desktop host tests/build and the live System/network VM passed. A separate
+three-session GUI soak passed 36 app lifetimes with repeated arranging, loading,
+searching and closing. Heap use remained 4,096 bytes after each session; physical
+frame use plateaued exactly after the first. No GUI workers remained. The soak
+now explicitly rejects unexpected client/input/control timeout closures instead
+of counting retirement alone as success. Physical acceptance is still pending.

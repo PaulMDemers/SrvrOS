@@ -134,7 +134,8 @@ def main():
                     raise RuntimeError(f"Physical memory did not plateau within 128 frames: {frame_counts}")
                 if max(steady)-min(steady)>65536:
                     raise RuntimeError(f"Heap did not plateau within 64 KiB: {steady}")
-                if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output:
+                if b"failure=1" in output or b"deskd: FAIL" in output or b"exception:" in output or \
+                   any(marker in output for marker in (b"reason=client-timeout",b"reason=control-timeout",b"reason=input-timeout",b"reason=ordered-input-overflow",b"reason=surface-copy",b"reason=unreleased-buffer")):
                     raise RuntimeError("Guest failure; see serial.log")
                 serial.close();qmp.stream.close();qmp.sock.close()
             finally:

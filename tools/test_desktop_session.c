@@ -54,6 +54,43 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
     for (uint64_t i=w*h/2;i<w*h;i++) p[i]=0x123456;
     return 0;
 }
+static void delayed_control_delivery(void) {
+    static struct session s;
+    memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
+    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);
+    now+=601;service(&s);
+    assert(alive && s.clients[0].pid==42 && !s.clients[0].release.type);
+
+    queue_full=1;queue_input(&s,0,desk_packet_new(DESK_KEY));service(&s);
+    assert(s.clients[0].input_blocked);
+    now+=601;queue_full=0;send_allow=1;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);service(&s);
+    assert(alive && !s.clients[0].closing && s.clients[0].input_count==1 && s.clients[0].input_since==now);
+    send_allow=-1;service(&s);assert(!s.clients[0].input_count);
+
+    s.clients[0].configure=s.clients[0].awaiting=1;s.clients[0].progress=now;
+    s.scene.windows[0].frame=(struct desk_rect){0,0,402,345};
+    now+=601;service(&s);assert(alive && !s.clients[0].configure);
+    now+=400;service(&s);assert(alive);
+    now+=101;service(&s);assert(!alive && !s.clients[0].pid);
+
+    memset(&s,0,sizeof(s));alive=1;queue_full=1;
+    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);
+    now+=601;service(&s);assert(alive && s.clients[0].release.type);
+    now+=400;service(&s);assert(alive);
+    queue_full=0;now+=200;service(&s);assert(alive && !s.clients[0].release.type);
+
+    s.clients[0].configure=s.clients[0].awaiting=1;s.clients[0].progress=now;
+    queue_full=1;service(&s);now+=501;service(&s);assert(!alive && !s.clients[0].pid);
+
+    memset(&s,0,sizeof(s));alive=1;queue_full=0;
+    s.clients[0].pid=42;close_client(&s,0);now+=601;
+    int before=sends;service(&s);assert(alive && sends==before+1 && sent[sends-1]==DESK_CLOSE);
+    now+=400;service(&s);assert(alive && sends==before+1); /* No close-message flood. */
+    now+=101;service(&s);assert(!alive && !s.clients[0].pid);
+}
 int main(void) {
     struct session s={.scene={.focus=-1},.children={42}};
     assert(cache_init(&s)==0 && allocations==2*DESKD_WINDOWS);
@@ -336,6 +373,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"could not be opened"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    delayed_control_delivery();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

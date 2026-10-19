@@ -30,6 +30,8 @@ struct client {
     unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
     int input_blocked;
+    uint64_t control_since;
+    int control_blocked,close_sent;
     struct desk_menu_store menus;
     char launch_path[160];
     unsigned launch_length,launch_application;
@@ -679,6 +681,7 @@ static void close_client(struct session *s,int i) {
     }
     if (!s->clients[i].closing) {
         s->clients[i].closing=1;
+        s->clients[i].close_sent=0;
         s->clients[i].progress=srv_ticks();
     }
 }
@@ -790,27 +793,50 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if (s->trace && (!s->scene.apps || first_frame)) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
 }
+/* Queue age also includes time the compositor could not run. RELEASE and
+ * CONFIGURE must get a delivery attempt before timeout attribution, just like
+ * input. Start the response deadline only once the client can see the request. */
+static int control_send(struct session *s,int i,const struct desk_packet *p) {
+    struct client *c=&s->clients[i];
+    c->input_blocked=0; /* Control traffic interrupted input delivery attempts. */
+    if(!desk_send(c->pid,p)) {
+        c->control_blocked=0;c->progress=srv_ticks();return 1;
+    }
+    uint64_t tick=srv_ticks();
+    if(!c->control_blocked) { c->control_blocked=1;c->control_since=tick; }
+    else if(tick-c->control_since>500) {
+        desk_log("deskd: killing pid=%llu reason=control-timeout type=%u blocked_ticks=%llu\n",
+            (unsigned long long)c->pid,p->type,(unsigned long long)(tick-c->control_since));
+        srv_kill((int64_t)c->pid);forget(s,i);
+    }
+    return 0;
+}
 static void service(struct session *s) {
     for (int i=0;i<DESKD_WINDOWS;i++) {
         struct client *c=&s->clients[i];
         if (!c->pid) continue;
         if (!desk_process_alive(c->pid)) { forget(s,i); continue; }
-        if ((c->release.type || c->configure || c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
-            desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
-                (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
-            srv_kill((int64_t)c->pid); forget(s,i); continue;
-        }
         if (c->release.type) {
-            if (desk_send(c->pid,&c->release)!=0) continue;
-            c->release.type=0; c->progress=srv_ticks();
+            if (!control_send(s,i,&c->release)) continue;
+            c->release.type=0;
         }
         if (c->closing) {
-            struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
+            if(!c->close_sent) {
+                struct desk_packet p=desk_packet_new(DESK_CLOSE);
+                if(!control_send(s,i,&p)) continue;
+                c->close_sent=1;
+            }
         } else if (c->configure) {
             struct desk_packet p=desk_packet_new(DESK_CONFIGURE);
             p.generation=c->generation;
             p.width=s->scene.windows[i].frame.w-2; p.height=s->scene.windows[i].frame.h-45;
-            if (desk_send(c->pid,&p)==0) c->configure=0;
+            if(!control_send(s,i,&p)) continue;
+            c->configure=0;
+        }
+        if ((c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
+            desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
+                (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
+            srv_kill((int64_t)c->pid); forget(s,i); continue;
         }
         if(c->notice_ack_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;

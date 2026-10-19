@@ -12,7 +12,10 @@ Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The latest v22 trial accepted desktop boot, brightness/volume changes
 and live sensor display. Physical two-finger pressing now selects secondary click at press;
 this new behavior awaits physical acceptance. Secondary tapping is separate. A System app input-timeout closure
-remains open. See the [machine record](machines/macbookair7-2.md) for precise
+remains open for physical acceptance. Host regressions now cover input and control
+packet delivery deadlines; clients get a delivery attempt before queued time is
+blamed on them, and genuinely unresponsive clients still have bounded cleanup.
+See the [machine record](machines/macbookair7-2.md) for precise
 acceptance and the [development journal](desktop-progress-2026-10-18.md) for history.
 New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-setup.md).
 
