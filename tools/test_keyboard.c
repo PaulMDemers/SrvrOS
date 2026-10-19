@@ -9,6 +9,7 @@ static bool foreground;
 static unsigned signals;
 uint64_t timer_monotonic_us(void) { return now; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { (void)q; }
+void process_file_poll_wake(void) {}
 bool process_interrupt_foreground(uint64_t signal) { assert(signal == SRV_SIGNAL_INT); signals++; return foreground; }
 static void report(struct keyboard_hid_state *state, uint8_t mods, uint8_t key) {
     uint8_t bytes[8] = {mods, 0, key};

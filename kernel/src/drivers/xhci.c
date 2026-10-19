@@ -1940,8 +1940,11 @@ static bool xhci_io_service_ready(void *arg) {
     return xhci.operational && !xhci_input_probe_active;
 }
 
+static bool input_poll_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
+
 static void xhci_poll_worker(void *arg) {
     (void)arg;
+    struct scheduler_wait_queue wake={0};
     for (;;) {
         if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
             poll_hid_events_once();
@@ -1964,10 +1967,11 @@ static void xhci_poll_worker(void *arg) {
                 }
             }
         }
-        for (uint64_t i = 0; i < 10000; i++) {
-            __asm__ volatile ("pause");
-        }
-        scheduler_yield();
+        /* The controller is still polled, at most one timer tick apart when
+         * otherwise idle. Storage waits continue dispatching transfer events
+         * directly; they do not depend on this sleep finishing. */
+        uint64_t due=timer_ticks()+1;
+        if(!scheduler_wait_timeout(&wake,input_poll_due,&due,due)) scheduler_yield();
     }
 }
 

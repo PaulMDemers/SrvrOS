@@ -2028,6 +2028,30 @@ build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-io-scheduler
 
+.PHONY: test-syscall-sleep
+test-syscall-sleep: build/tests/syscall-sleep-host$(HOST_EXE)
+	$<
+build/tests/syscall-sleep-host$(HOST_EXE): tools/test_syscall_sleep.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-sleep
+
+.PHONY: test-syscall-poll
+test-syscall-poll: build/tests/syscall-poll-host$(HOST_EXE)
+	$<
+build/tests/syscall-poll-host$(HOST_EXE): tools/test_syscall_poll.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-poll
+
+.PHONY: test-net-worker
+test-net-worker: build/tests/net-worker-host$(HOST_EXE)
+	$<
+build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-net-worker
+
 .PHONY: test-syscall-cancel
 test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
 	$<

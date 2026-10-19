@@ -20,6 +20,7 @@
 #include <srvros/process.h>
 #include <srvros/pty.h>
 #include <srvros/scheduler.h>
+#include <srvros/serial.h>
 #include <srvros/syscall_numbers.h>
 #include <srvros/timer.h>
 #include <srvros/vfs.h>
@@ -159,15 +160,23 @@ static bool console_winsize_set;
 static uint64_t random_state;
 
 static uint64_t irq_save(void) {
+#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+    return 0;
+#else
     uint64_t flags;
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
     return flags;
+#endif
 }
 
 static void irq_restore(uint64_t flags) {
+#ifdef SRVROS_SYSCALL_POLL_HOST_TEST
+    (void)flags;
+#else
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#endif
 }
 
 static bool user_buffer_ok(const void *buffer, uint64_t length, bool writable) {
@@ -1369,19 +1378,29 @@ static int64_t syscall_meminfo(struct srv_meminfo *info) {
 }
 
 static int64_t poll_once(struct process *process, struct syscall_pollfd *fds, uint64_t nfds) {
+    uint64_t flags=irq_save();
     int64_t ready = 0;
     for (uint64_t i = 0; i < nfds; i++) {
         fds[i].revents = 0;
         if (fds[i].fd < 0) {
             continue;
         }
-        uint16_t revents = process_file_poll(process, fds[i].fd, (uint16_t)fds[i].events);
+        uint16_t revents;
+        if(process_fd_is_console(process,fds[i].fd,true))
+            revents=(keyboard_buffered_count() || serial_has_char())?fds[i].events&SRV_POLLIN:0;
+        else revents = process_file_poll(process, fds[i].fd, (uint16_t)fds[i].events);
         fds[i].revents = (int16_t)revents;
         if (revents != 0) {
             ready++;
         }
     }
-    return ready;
+    irq_restore(flags);return ready;
+}
+
+static bool poll_console_only(struct process *process,const struct syscall_pollfd *fds,uint64_t nfds) {
+    for(uint64_t i=0;i<nfds;i++) if(fds[i].fd>=0 &&
+        ((fds[i].events&~SRV_POLLIN) || !process_fd_is_console(process,fds[i].fd,true))) return false;
+    return true;
 }
 
 struct syscall_poll_wait {
@@ -1395,6 +1414,10 @@ static bool poll_wait_ready(void *arg) {
     return wait == NULL ||
         process_should_exit_current() ||
         process_signal_pending_current() ||
+        /* A sibling may redirect/replace a descriptor while we sleep. Wake
+         * into the gate instead of examining a newly non-console handle
+         * inside someone else's storage operation. */
+        (scheduler_io_busy() && !poll_console_only(wait->process,wait->fds,wait->nfds)) ||
         poll_once(wait->process, wait->fds, wait->nfds) != 0;
 }
 
@@ -1417,6 +1440,9 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
     }
 
     struct process *process = process_current();
+    /* Admit only the copied, immutable console request during owned I/O. Never
+     * classify a mutable userspace array and then read it again after yielding.
+     * Everything else retains the original filesystem/process lifetime gate. */
     uint64_t start = timer_ticks();
     uint64_t timeout_ticks = poll_timeout_ticks(timeout_ms);
     uint64_t deadline_ticks = timeout_ms > 0 ? start + timeout_ticks : 0;
@@ -1425,7 +1451,9 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
         .fds = fds,
         .nfds = nfds,
     };
+#ifndef SRVROS_SYSCALL_POLL_HOST_TEST
     __asm__ volatile ("sti" : : : "memory");
+#endif
 
     for (;;) {
         if (process_should_exit_current()) {
@@ -1435,7 +1463,12 @@ static int64_t syscall_poll(struct syscall_pollfd *user_fds, uint64_t nfds, int6
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? 0 : -1;
         }
 
+        uint64_t flags=irq_save();
+        if(!poll_console_only(process,fds,nfds)) {
+            scheduler_io_set_user_safe(false);scheduler_io_wait();
+        }
         int64_t ready = poll_once(process, fds, nfds);
+        irq_restore(flags);
         if (ready != 0 || timeout_ms == 0) {
             return copy_to_user(user_fds, fds, nfds * sizeof(*user_fds)) ? ready : -1;
         }
@@ -2314,9 +2347,19 @@ static int64_t syscall_exepath(char *buffer, uint64_t capacity) {
     return copy_to_user(buffer, path, length + 1) ? (int64_t)length : -1;
 }
 
+struct sleep_wait { uint64_t start,ticks; };
+static bool sleep_finished(void *arg) {
+    const struct sleep_wait *wait=arg;
+    return timer_ticks()-wait->start>=wait->ticks || process_should_exit_current() || process_signal_pending_current();
+}
+
 static int64_t syscall_sleep_ticks(uint64_t ticks) {
     uint64_t start = timer_ticks();
+    if(ticks>UINT64_MAX-start) return -1;
+    struct sleep_wait wait={start,ticks};
+#ifndef SRVROS_SYSCALL_SLEEP_HOST_TEST
     __asm__ volatile ("sti" : : : "memory");
+#endif
     while (timer_ticks() - start < ticks) {
         if (process_should_exit_current()) {
             return -1;
@@ -2324,7 +2367,11 @@ static int64_t syscall_sleep_ticks(uint64_t ticks) {
         if (process_signal_pending_current()) {
             return SRV_ERR_INTR;
         }
-        scheduler_yield();
+        /* Signals and cancellation already wake file-poll waiters. Reuse that
+         * queue so a long sleep can be interrupted immediately; unrelated I/O
+         * wakeups simply recheck the deadline without completing the sleep. */
+        if(!scheduler_wait_timeout(process_file_poll_wait_queue(),sleep_finished,&wait,start+ticks))
+            scheduler_yield();
     }
     return 0;
 }
@@ -2391,9 +2438,11 @@ static bool io_snapshot_read(uint64_t fd,uint64_t length) {
 
 /* Only paths with no filesystem or process-lifetime mutations may
  * overlap owned I/O. Default-deny also covers future syscalls. Do not admit
- * poll by inspecting a mutable userspace fd array before the actual copy. */
+ * poll by inspecting a mutable userspace fd array before the actual copy. Poll
+ * enters only its copy/validation prelude here, then gates non-console work. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
+    case SYS_POLL: return true;
     case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;

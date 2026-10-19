@@ -71,7 +71,8 @@ static struct scheduler_wait_queue io_waiters;
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
 static uint64_t sampled_ticks;
-static volatile uint64_t demo_counter;
+static uint64_t context_switches;
+static uint64_t idle_thread=SCHEDULER_MAX_THREADS;
 
 static uint64_t irq_save(void) {
 #ifdef SRVROS_SCHEDULER_HOST_TEST
@@ -319,6 +320,22 @@ bool scheduler_spawn_io_service(const char *name, scheduler_thread_fn entry,
     return spawn_thread(name, entry, arg, eligible);
 }
 
+static uint64_t next_ready_thread(uint64_t old_index) {
+    for (uint64_t i = 1; i <= SCHEDULER_MAX_THREADS; i++) {
+        uint64_t candidate = (old_index + i) % SCHEDULER_MAX_THREADS;
+        if (candidate != old_index && threads[candidate].state == THREAD_RUNNING) {
+            threads[candidate].state = THREAD_READY;
+        }
+        if (candidate!=idle_thread && threads[candidate].state == THREAD_READY && io_thread_allowed(candidate))
+            return candidate;
+    }
+    /* Idle is a fallback, never a peer that steals a runnable worker's turn. */
+    if(old_index!=idle_thread && threads[old_index].state==THREAD_RUNNING) return old_index;
+    if(idle_thread<SCHEDULER_MAX_THREADS &&
+       (threads[idle_thread].state==THREAD_READY || threads[idle_thread].state==THREAD_RUNNING)) return idle_thread;
+    return old_index;
+}
+
 void scheduler_yield(void) {
     uint64_t flags = irq_save();
     if (!initialized || switching) {
@@ -327,18 +344,7 @@ void scheduler_yield(void) {
     }
 
     uint64_t old_index = current_thread;
-    uint64_t next_index = old_index;
-
-    for (uint64_t i = 1; i <= SCHEDULER_MAX_THREADS; i++) {
-        uint64_t candidate = (old_index + i) % SCHEDULER_MAX_THREADS;
-        if (candidate != old_index && threads[candidate].state == THREAD_RUNNING) {
-            threads[candidate].state = THREAD_READY;
-        }
-        if (threads[candidate].state == THREAD_READY && io_thread_allowed(candidate)) {
-            next_index = candidate;
-            break;
-        }
-    }
+    uint64_t next_index = next_ready_thread(old_index);
 
     if (next_index == old_index) {
         irq_restore(flags);
@@ -357,6 +363,7 @@ void scheduler_yield(void) {
     }
     next->state = THREAD_RUNNING;
     next->switches++;
+    context_switches++;
     current_thread = next_index;
 
     if (old->address_space != next->address_space) {
@@ -621,10 +628,6 @@ uint64_t scheduler_preemptions(void) {
     return preemption_count;
 }
 
-uint64_t scheduler_demo_counter(void) {
-    return demo_counter;
-}
-
 void scheduler_print_status(void) {
     /* Copy with IRQs masked, then print outside the critical section. These
      * timer samples show where the boot CPU spends time, not process CPU time
@@ -634,24 +637,47 @@ void scheduler_print_status(void) {
     for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) sample[i]=(struct sample){
         threads[i].name,threads[i].state,threads[i].sampled_ticks,threads[i].switches};
     irq_restore(flags);
-    console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u sampled_ticks=%u\n",
-        scheduler_thread_count(),preemptions,demo_counter,total);
+    console_printf("scheduler: threads=%u preemptions=%u sampled_ticks=%u\n",
+        scheduler_thread_count(),preemptions,total);
     for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) if(sample[i].state!=THREAD_UNUSED)
         console_printf("scheduler: thread=%u name=%s state=%u sampled_ticks=%u switches=%u\n",
             (uint64_t)i,sample[i].name?sample[i].name:"unknown",(uint64_t)sample[i].state,
             sample[i].ticks,sample[i].switches);
 }
 
-static void demo_worker(void *arg) {
-    (void)arg;
+void scheduler_snapshot(struct scheduler_stats *out) {
+    if(!out) return;
+    uint64_t flags=irq_save();
+    *out=(struct scheduler_stats){sampled_ticks,
+        idle_thread<SCHEDULER_MAX_THREADS?threads[idle_thread].sampled_ticks:0,
+        context_switches,preemption_count};
+    irq_restore(flags);
+}
 
+static bool idle_eligible(void *arg) { (void)arg;return true; }
+
+static void idle_worker(void *arg) {
+    (void)arg;
     for (;;) {
-        demo_counter++;
-        scheduler_yield();
+        uint64_t flags=irq_save();
+        if(has_ready_thread_except(current_thread)) {
+            irq_restore(flags);scheduler_yield();continue;
+        }
+        /* STI's interrupt shadow makes the readiness check + HLT atomic with
+         * respect to interrupt wakeups. The idle thread touches no I/O state
+         * and can also run while a storage owner is waiting for service. */
+#ifndef SRVROS_SCHEDULER_HOST_TEST
+        __asm__ volatile("sti; hlt; cli":::"memory");
+#endif
+        irq_restore(flags);
     }
 }
 
-bool scheduler_start_demo_worker(void);
-bool scheduler_start_demo_worker(void) {
-    return scheduler_spawn("demo-worker", demo_worker, NULL);
+bool scheduler_start_idle_worker(void) {
+    if(idle_thread<SCHEDULER_MAX_THREADS) return true;
+    if(!scheduler_spawn_io_service("idle",idle_worker,NULL,idle_eligible)) return false;
+    for(uint64_t i=1;i<SCHEDULER_MAX_THREADS;i++) if(threads[i].entry==idle_worker) {
+        idle_thread=i;return true;
+    }
+    return false;
 }

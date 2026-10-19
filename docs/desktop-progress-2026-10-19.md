@@ -50,3 +50,44 @@ zero missing reads. It confirms two Apple HID descriptors (26 and 182 bytes),
 Intel `8086:1626` as boot VGA and the connected 1440x900 eDP panel. Raw capture
 remains under ignored `build/overnight-20261018/linux-inventory`; no sibling
 machine has been tested by this change.
+
+## Idle scheduling and console input under storage load
+
+Measurements found a demonstration worker running continuously, a busy USB
+poll loop and a sleep syscall which merely yielded while remaining runnable.
+The scheduler now has a fallback-only idle worker using an interrupt-safe HLT
+sequence. It never takes a runnable worker's turn. Sleeping applications block
+until their deadline or a signal; USB polling waits one timer tick (nominally
+10 ms), while the storage transfer path still services HID completions directly.
+Network polling wakes on receive notifications with a one-tick fallback.
+
+Before these changes, disposable QEMU runs used approximately 100% of one host
+CPU at both console and desktop idle. Initial comparisons used 7–22% at the
+console and 21–33% at desktop idle, depending on network configuration. These
+are host CPU observations, not physical power/temperature measurements. The
+`workers` command and periodic USB logs now retain scheduler samples and switch
+counts. Timer sampling is coarse and can miss short runnable work.
+
+The heavy typing regression exposed a second issue: linenoise uses `poll()` for
+escape continuations, and even console polling waited behind owned filesystem
+I/O. Two failing runs retained keys in the kernel while the shell waited at the
+I/O gate. Poll now copies/validates its bounded request before classification,
+admits console input only, and rechecks descriptor bindings after waits. Other
+descriptors retain the gate. Console readiness reflects buffered keyboard/serial
+input, and input arrival wakes poll waiters. A bare Escape can therefore time
+out instead of blocking on an unconditional readable result.
+
+Validation so far:
+
+- `all test-core`, scheduler/sleep/poll race and admission host checks pass.
+- USB ECM passes DHCP, ICMP, 160 UDP echoes, TCP, keyboard overlap and disconnect.
+- System with e1000 networking and the complete threadstress suite pass.
+- Desktop audio during USB writes verifies 810,997 PCM frames exactly, zero
+  underruns, input-file bytes, stop/cancel and subsequent tone playback.
+- The repaired USB latency workload retains exact mixed-case/punctuation/edit/
+  repeat text, concurrent file contents and cancellation cleanup; exFAT is clean.
+  Key-to-serial echo samples were 8–25 ms idle, 5–16 ms during writes and 32 ms
+  during output. These are VM host-wall-clock samples, not physical key latency.
+
+Hardware installation and acceptance remain pending. Raw comparison, failure
+diagnostics and repaired-run evidence are under `build/overnight-20261018/`.

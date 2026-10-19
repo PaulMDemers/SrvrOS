@@ -466,7 +466,7 @@ static bool send_ipv4_packet_from(const uint8_t *dst_mac,
     uint8_t frame[1514];
     uint16_t total_length = 20 + payload_length;
 
-    if (total_length + ETH_HEADER_SIZE > sizeof(frame)) {
+    if ((size_t)total_length + ETH_HEADER_SIZE > sizeof(frame)) {
         return false;
     }
 
@@ -2135,10 +2135,13 @@ void net_timer_tick(void) {
     scheduler_wake_all(&rx_wait_queue);
 }
 
+static bool rx_signaled(void *arg) { return rx_signal_generation!=*(uint64_t *)arg; }
+
 static void net_worker(void *arg) {
     (void)arg;
 
     for (;;) {
+        uint64_t generation=rx_signal_generation;
         uint64_t received = net_device_poll(32, false);
         rx_worker_polls++;
         if (received != 0) {
@@ -2146,7 +2149,10 @@ static void net_worker(void *arg) {
             continue;
         }
         rx_worker_empty_polls++;
-        scheduler_yield();
+        /* Receive IRQs/USB completions wake the worker. A short deadline also
+         * services providers without reliable IRQ delivery; checking the
+         * generation under the scheduler lock avoids a lost empty-poll wake. */
+        if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,timer_ticks()+1)) scheduler_yield();
     }
 }
 

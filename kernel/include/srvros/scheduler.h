@@ -13,6 +13,10 @@ struct scheduler_wait_queue {
     uint64_t waiters;
 };
 
+struct scheduler_stats {
+    uint64_t sampled_ticks, idle_ticks, switches, preemptions;
+};
+
 void scheduler_init(void);
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg);
 /* Service callbacks must not access storage, VFS or user mappings, or wait for
@@ -56,8 +60,8 @@ void scheduler_set_user_thread_context(void *context);
 void *scheduler_current_user_thread_context(void);
 uint64_t scheduler_thread_count(void);
 uint64_t scheduler_preemptions(void);
-uint64_t scheduler_demo_counter(void);
 void scheduler_print_status(void);
-bool scheduler_start_demo_worker(void);
+void scheduler_snapshot(struct scheduler_stats *out);
+bool scheduler_start_idle_worker(void);
 
 #endif

@@ -86,6 +86,18 @@ int main(void) {
     scheduler_io_wait();
     assert(switches==1 && !io_depth && threads[4].blocked_queue==NULL);
     scheduler_io_wait();assert(switches==1); /* Uncontended calls do not sleep. */
+    memset(threads,0,sizeof(threads));idle_thread=1;current_thread=3;
+    threads[1].state=THREAD_READY;threads[1].io_eligible=idle_eligible;
+    threads[3].state=THREAD_RUNNING;threads[4].state=THREAD_READY;
+    assert(next_ready_thread(3)==4); /* Idle cannot steal a normal turn. */
+    threads[4].state=THREAD_BLOCKED;assert(next_ready_thread(3)==3);
+    threads[3].state=THREAD_BLOCKED;assert(next_ready_thread(3)==1);
+    assert(has_ready_thread_except(3)); /* Last ordinary worker may sleep. */
+    assert(scheduler_io_begin() && io_thread_allowed(1));
+    threads[4].state=THREAD_READY;assert(next_ready_thread(3)==1); /* Unsafe during I/O. */
+    threads[3].state=THREAD_READY;current_thread=1;threads[1].state=THREAD_RUNNING;
+    assert(next_ready_thread(1)==3); /* I/O owner resumes before idle. */
+    current_thread=3;scheduler_io_end();
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
 

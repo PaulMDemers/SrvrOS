@@ -46,6 +46,9 @@ static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
     uint64_t sampled=timer_monotonic_us();
+    struct scheduler_stats cpu;scheduler_snapshot(&cpu);
+    console_printf("workspace-scheduler: sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u monotonic_us=%u\n",
+        cpu.sampled_ticks,cpu.idle_ticks,cpu.switches,cpu.preemptions,sampled);
     struct srv_audio_status audio;struct srv_thermal_status thermal;
     struct srv_smc_status fan;smc_status(&fan);
     console_printf("workspace-devices: smc_state=%u flags=%x fan_millirpm=%u sample_us=%u samples=%u failures=%u error=%u monotonic_us=%u\n",

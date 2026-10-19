@@ -180,6 +180,21 @@ def main():
                         "for i in range(int(gdb.parse_and_eval('sizeof(threads)/sizeof(threads[0])'))):\n"+
                         " t=ts[i]\n"+
                         " if int(t['state']): print(i, {k:str(t[k]) for k in ['state','name','user_context','io_user_safe','context','blocked_queue','switches']})\n"+
+                        "end\npython\n"+
+                        "regs=['rbx','rbp','r12','r13','r14','r15','rsp','rip']\n"+
+                        "saved={r:int(gdb.parse_and_eval('$'+r)) for r in regs}\n"+
+                        "t=gdb.parse_and_eval('threads[0]')\n"+
+                        "try:\n"+
+                        " for r in regs: gdb.execute('set $'+r+' = '+str(int(t['context'][r])))\n"+
+                        " gdb.execute('bt 8')\n"+
+                        " f=gdb.newest_frame()\n"+
+                        " for i in range(8):\n"+
+                        "  if f is None: break\n"+
+                        "  if f.name()=='dispatch_syscall_with_cancellation':\n"+
+                        "   frame=f.read_var('frame').dereference();print('blocked syscall', {r:int(frame[r]) for r in ['rax','rdi','rsi','rdx']});break\n"+
+                        "  f=f.older()\n"+
+                        "finally:\n"+
+                        " for r in regs: gdb.execute('set $'+r+' = '+str(saved[r]))\n"+
                         "end\np xhci.devices[0]\np xhci.event_dequeue\np xhci.event_cycle\n"+
                         "p 'keyboard.c'::read_index\np 'keyboard.c'::write_index\np 'keyboard.c'::dropped_count\n"+
                         "detach\nquit\n")

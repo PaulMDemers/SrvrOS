@@ -173,6 +173,7 @@ static void push_char(char c) {
     write_index = next;
     pushed_count++;
     scheduler_wake_all(&keyboard_wait_queue);
+    process_file_poll_wake();
     keyboard_irq_restore(flags);
 }
 
@@ -405,6 +406,7 @@ void keyboard_handle_irq(void) {
 
 void keyboard_wake_waiters(void) {
     scheduler_wake_all(&keyboard_wait_queue);
+    process_file_poll_wake();
 }
 
 void keyboard_inject_char(char c) {

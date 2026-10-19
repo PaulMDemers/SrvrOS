@@ -1,6 +1,6 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-18. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-19. State: **active reference machine; partial device acceptance**.
 
 ## Identity and ownership
 
@@ -43,9 +43,15 @@ The local trial record marks this run returned/reviewed, not armed for reboot.
 
 ## Next actions
 
+Current shared-code work is on `device/macbookair7-2/reliability-input-power`
+from `main` at `3b0b43a`: physical click latching, compositor delivery deadlines,
+idle/sleep scheduling and console polling. The [October 19 journal](../desktop-progress-2026-10-19.md)
+records host/VM evidence; these changes have not yet been physically accepted.
+The generalized Linux collector completed with zero partial reads on this host.
+
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
-2. Reproduce and fix the System input timeout.
-3. Measure idle/polling/load behavior before selecting power optimizations.
+2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.
+3. Physically validate idle/sleep changes after VM regression, retaining USB/input responsiveness.
 4. Battery/AC runtime, headphone route acceptance and actual USB networking.
 5. Shared inventory/profile/scaling work for the other model agents, coordinated
    through the [expansion plan](../apple-hardware-expansion-plan.md).

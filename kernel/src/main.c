@@ -408,8 +408,8 @@ void kmain(void) {
     test_heap();
     scheduler_init();
     workqueue_init();
-    if (!scheduler_start_demo_worker()) {
-        console_write("scheduler: demo worker failed\n");
+    if (!scheduler_start_idle_worker()) {
+        console_write("scheduler: idle worker failed\n");
     }
     vmm_init();
     timer_reference_init();

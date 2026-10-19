@@ -31,12 +31,15 @@ def main():
     out = args.output.resolve(); out.mkdir(parents=True, exist_ok=True)
     output = b''; consumed = 0; metrics = {'seconds': args.seconds, 'network': args.network,
         'source': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip(),
+        'worktree_dirty': bool(subprocess.check_output(['git','status','--porcelain'],cwd=root,text=True).strip()),
         'kernel_sha256': hashlib.sha256((root/'build/kernel/srvros.elf').read_bytes()).hexdigest()}
     port = choose_port(30001, 38000)
     with tempfile.TemporaryDirectory(prefix='srvros-idle-') as directory:
         tmp = Path(directory)
         shutil.copyfile(root/'build/srvros.exfat', tmp/'disk.exfat')
         iso = build_iso(str(root), str(tmp), 1280, 800, os.environ.copy())
+        metrics['boot_kernel_sha256']=hashlib.sha256((tmp/'iso_root_1280x800/boot/srvros.elf').read_bytes()).hexdigest()
+        assert metrics['boot_kernel_sha256']==metrics['kernel_sha256'], 'Stale boot tree; run make all first'
         command = ['qemu-system-x86_64', '-M', 'q35', '-m', '512M', '-cdrom', str(iso), '-boot', 'd',
             '-drive', f'if=none,id=disk,file={tmp/"disk.exfat"},format=raw',
             '-device', 'ich9-ahci,id=ahci', '-device', 'ide-hd,drive=disk,bus=ahci.0',
