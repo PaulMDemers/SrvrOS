@@ -195,3 +195,40 @@ This fixture follows QEMU's [ICH9 power event wiring](https://github.com/qemu/qe
 and [fixed-event status/enable behavior](https://github.com/qemu/qemu/blob/master/hw/acpi/core.c).
 The full event-enabled uACPI kernel adapter is still not linked into the normal
 OS. Native SCI/EC ownership and battery sampling remain unaccepted.
+
+## Separate full-runtime VM kernel
+
+`make acpi-runtime-vm-kernel` links the full, event-enabled upstream sources and
+`runtime/qemu_adapter.c` into **build/acpi-runtime/srvros.elf**. It does not replace
+the normal kernel, ISO or hardware staging input. The normal kernel retains its
+reduced-hardware probe and a weak `acpiruntime` refusal stub. The separate image
+replaces that stub and refuses isolated-probe invocation. Verify both builds;
+`tools/acpi_runtime_smoke.py` copies the alternate ELF only into its disposable
+ISO. Ordinary hardware profiles do not start this runtime.
+
+The adapter requires the strict Q35 fixture identity/register gate, then maps
+only inventoried ACPI tables, RSDP and the fixture's FACS. Port mappings are
+limited to the known Q35 PM/GPE/SMI ranges; PCI configuration and operation-region
+MMIO are denied. It binds CPU0 IRQ registration, semaphores, stable thread IDs,
+IRQ-preserving locks and the deferred worker. Interpreter allocations have an
+8 MiB budget and leak accounting. It starts with `NO_ACPI_MODE`, loads the
+namespace, installs a fixed power event and enters ACPI mode explicitly. It
+**does not run namespace initialization, EC `_REG` or finalize AML GPE users**.
+This is a bounded integration fixture, not the laptop runtime adapter.
+
+The VM test passed three clean lifetimes plus failed IRQ-install rollback on
+each. Thirty QMP power events caused deferred evaluation of a synthetic AML
+method with a mutex and blocking sleep. Concurrent monitor evaluation contended
+for that AML mutex (one contended semaphore wait per round) and produced ordered
+counter results. Stop while work was pending drained it before freeing the
+namespace. Each clean reset had zero errors, denials or remaining interpreter
+allocations, restored masked routing/mode, and accepted no post-stop callback.
+An intentional permanently blocked worker then exercised failure: teardown
+halted with 162,283 bytes retained instead of freeing live state. This expected
+negative VM result must never be reported as a native halt acceptance.
+
+Run the normal `aml_probe_smoke.py --fixture` separately to preserve isolation.
+The next runtime work is synthetic EC operation-region/query/SMBus integration,
+then firmware-specific ownership and initialization policy. An ordinary kernel
+worker is deliberately not exempt from the storage ownership gate. Battery/AC
+values, native Global Lock policy and suspend remain unimplemented services.

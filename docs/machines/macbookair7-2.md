@@ -57,6 +57,9 @@ payload is that explicit diagnostic; previous retains
 accepted desktop `b427b78f21644bd2`. Interactive input, desktop idle and power
 consumption still need physical acceptance.
 The generalized Linux collector completed with zero partial reads on this host.
+Additional IRQ, semaphore and deferred-worker foundations now pass host/VM tests.
+A separate full-uACPI Q35 kernel passes real SCI, contended AML mutex/sleep and
+teardown tests; it is not the installed payload or a native EC/battery provider.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.

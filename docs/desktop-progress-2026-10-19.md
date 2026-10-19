@@ -208,3 +208,19 @@ cleanup after mode entry, restored masked routing and no post-stop callbacks
 passed. Host profile/refusal and masked restoration checks passed. This fixture
 runs no AML and enables nothing on native laptop profiles; the full uACPI
 adapter and EC ownership still need integration.
+
+## Full event-enabled uACPI in a separate VM build
+
+The alternate `build/acpi-runtime/srvros.elf` now binds the upstream full runtime
+to the tested IRQ/semaphore/thread/worker primitives. Normal builds retain the
+restricted probe, and hardware staging continues to consume the normal kernel.
+Only Q35's validated PM/GPE/SMI ranges and inventoried firmware tables are exposed;
+PCI/MMIO operation regions remain denied. Namespace initialization and EC/GPE
+method activation are not performed.
+
+The final VM passed three lifetimes, each with failed-install cleanup, ten SCI
+power events and competing AML mutex/sleep evaluations. A stop with pending work
+drained before namespace reset; all clean lifetimes ended with zero errors,
+denials and interpreter allocations. A deliberately wedged worker then caused
+the expected teardown halt retaining live allocations. This verifies failure
+containment in the VM and does not authorize native battery/EC activation.

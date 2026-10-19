@@ -85,13 +85,15 @@ def make_limine_conf(width, height):
     )
 
 
-def build_iso(root, temp_dir, width, height, env):
+def build_iso(root, temp_dir, width, height, env, kernel_path=None):
     source = os.path.join(root, "build", "iso_root")
     iso_root = os.path.join(temp_dir, f"iso_root_{width}x{height}")
     iso = os.path.join(temp_dir, f"srvros-{width}x{height}.iso")
     iso_root_arg = os.path.relpath(iso_root, root).replace(os.sep, "/")
     iso_arg = os.path.relpath(iso, root).replace(os.sep, "/")
     shutil.copytree(source, iso_root)
+    if kernel_path is not None:
+        shutil.copy2(kernel_path, os.path.join(iso_root, "boot", "srvros.elf"))
     conf = make_limine_conf(width, height)
     limine_conf = os.path.join(iso_root, "boot", "limine", "limine.conf")
     with open(limine_conf, "w", encoding="utf-8", newline="\n") as handle:

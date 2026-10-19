@@ -19,17 +19,17 @@ int main(void) {
     table.pm1_evt_len=4; table.pm1_cnt_len=2; table.smi_cmd=0xb2;
     table.acpi_enable=0xf1; table.acpi_disable=0xf0;
     table.gpe0_blk=0x620; table.gpe0_blk_len=16;
-    assert(q35_fadt()==&table);
-    devices[0].device_id=0x1604; assert(!q35_fadt()); devices[0].device_id=0x29c0;
-    devices[1].device_id=0x9cc3; assert(!q35_fadt()); devices[1].device_id=0x2918;
-    table.hdr.oemid[0]='A'; assert(!q35_fadt()); table.hdr.oemid[0]='B';
-    table_info.length=115; assert(!q35_fadt()); table_info.length=sizeof(table);
-#define REJECT(field, value) do { typeof(table.field) saved=table.field; table.field=(value); assert(!q35_fadt()); table.field=saved; } while(0)
+    assert(acpi_q35_fixture_fadt()==&table);
+    devices[0].device_id=0x1604; assert(!acpi_q35_fixture_fadt()); devices[0].device_id=0x29c0;
+    devices[1].device_id=0x9cc3; assert(!acpi_q35_fixture_fadt()); devices[1].device_id=0x2918;
+    table.hdr.oemid[0]='A'; assert(!acpi_q35_fixture_fadt()); table.hdr.oemid[0]='B';
+    table_info.length=115; assert(!acpi_q35_fixture_fadt()); table_info.length=sizeof(table);
+#define REJECT(field, value) do { typeof(table.field) saved=table.field; table.field=(value); assert(!acpi_q35_fixture_fadt()); table.field=saved; } while(0)
     REJECT(sci_int, 10); REJECT(pm1a_evt_blk, 0x1800); REJECT(pm1a_cnt_blk, 0x1804);
     REJECT(pm1b_evt_blk, 0x700); REJECT(pm1b_cnt_blk, 0x704);
     REJECT(pm1_evt_len, 8); REJECT(pm1_cnt_len, 4); REJECT(smi_cmd, 0xb3);
     REJECT(acpi_enable, 0); REJECT(acpi_disable, 0);
     REJECT(gpe0_blk, 0x1820); REJECT(gpe0_blk_len, 32); REJECT(gpe1_blk, 0x720);
-    assert(q35_fadt()==&table);
+    assert(acpi_q35_fixture_fadt()==&table);
     puts("sci-gate: PASS Q35 identity/firmware/register contract; physical and mismatched profiles refused before I/O");
 }

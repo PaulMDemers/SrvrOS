@@ -1,5 +1,6 @@
 /* Explicit QEMU Q35 fixture. No AML, EC access or physical-machine policy. */
 #include "work_worker.h"
+#include "q35_fixture.h"
 #include <srvros/acpi.h>
 #include <srvros/acpi_work_test.h>
 #include <srvros/console.h>
@@ -40,7 +41,7 @@ static bool bytes_equal(const void *a, const char *b, unsigned size) {
     for (unsigned i = 0; i < size; i++) if (p[i] != (uint8_t)b[i]) return false;
     return true;
 }
-static const struct acpi_fadt *q35_fadt(void) {
+const struct acpi_fadt *acpi_q35_fixture_fadt(void) {
     bool host = false, lpc = false;
     for (uint64_t i = 0; i < pci_device_count(); i++) {
         const struct pci_device *device = pci_device_at(i);
@@ -133,7 +134,7 @@ static bool stop_fixture(void) {
 }
 static bool arm_fixture(bool fail_after_prepare) {
     if (fixture.engaged || !timer_reference_ready()) return false;
-    const struct acpi_fadt *fadt = q35_fadt();
+    const struct acpi_fadt *fadt = acpi_q35_fixture_fadt();
     if (!fadt || inw(0x602)) return false; /* No other fixed-event owner. */
     for (uint16_t port = 0x628; port < 0x630; port++) if (inb(port)) return false;
     const struct acpi_ioapic_info *controller = acpi_ioapic();

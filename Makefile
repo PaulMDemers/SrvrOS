@@ -3169,3 +3169,16 @@ test-sci-gate: build/tests/sci-gate-host$(HOST_EXE)
 build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/runtime/sci_test.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+# Explicit, separate VM-only runtime kernel. Never substitutes build/kernel/srvros.elf.
+UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c
+UACPI_VM_OBJ := $(UACPI_VM_SRC:%.c=build/acpi-runtime/%.c.o)
+UACPI_WORK_NATIVE_OBJ := $(filter %/runtime/work_queue.c.o %/runtime/work_worker.c.o %/runtime/work_worker_test.c.o %/runtime/sci_test.c.o,$(UACPI_KERNEL_OBJ))
+.PHONY: acpi-runtime-vm-kernel
+acpi-runtime-vm-kernel: build/acpi-runtime/srvros.elf
+build/acpi-runtime/srvros.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_VM_OBJ) kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-runtime/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
+-include $(UACPI_VM_OBJ:.o=.d)

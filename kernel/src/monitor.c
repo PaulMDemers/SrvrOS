@@ -16,6 +16,7 @@
 #include <srvros/heap.h>
 #include <srvros/semaphore.h>
 #include <srvros/acpi_work_test.h>
+#include <srvros/acpi_runtime_test.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
@@ -1061,6 +1062,8 @@ static void run_command(char *line) {
         acpi_work_test_run();
     } else if (streq(command, "scitest")) {
         acpi_sci_test_command(args);
+    } else if (streq(command, "acpiruntime")) {
+        acpi_runtime_test_command(args);
     } else if (streq(command, "workers")) {
         scheduler_print_status();
         workqueue_print_status();

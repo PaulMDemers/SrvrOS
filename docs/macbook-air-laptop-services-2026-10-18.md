@@ -369,11 +369,14 @@ sampling is enabled.
    first, then pending/in-flight work, including work scheduled by callbacks.
    Host and synthetic-IRQ VM tests now cover this worker and teardown; hardware
    level assertion and actual uACPI callback binding remain separate checks.
-4. **Separate live adapter and initialization.** The current native interpreter
+4. **Separate live adapter and initialization.** A separate full-runtime Q35 VM
+   kernel now passes SCI, deferred AML mutex/sleep, failed-install rollback and
+   reset tests; normal hardware staging still uses the restricted probe. The native interpreter
    is compiled with `UACPI_REDUCED_HARDWARE`; changing its runtime flags cannot
    restore the omitted event machinery. Use a separate full-hardware build
    configuration/adapter, initially mutually exclusive with the isolated probe,
-   rather than linking two copies with colliding global symbols. Keep both build
+   rather than linking two copies with colliding global symbols. The separate VM
+   target now implements this build separation; it is not a native provider. Keep both build
    paths tested. In the pinned sources `uacpi_initialize` normally enters ACPI
    mode, `uacpi_namespace_load` installs event handling, namespace initialization
    runs `_REG`/`_STA`/`_INI`, and finalizing GPEs enables AML event users. Therefore
