@@ -169,6 +169,36 @@ transactions, native ACPI mode or GPE dispatch. The separate Q35 adapter uses
 this common owner while retaining its strict Q35/SCI-9/GSI-9 gate; accepting a
 remapped GSI in the host fixture is not physical machine acceptance.
 
+## Bounded EC query draining
+
+`runtime/ec_query_budget` accounts for one notified drain from initial admission
+through every worker batch. The separate Q35 EC fixture uses a maximum of 128
+query attempts and two seconds per drain, with eight attempts per worker turn.
+Another interrupt or a rescheduled batch does not reset either budget. Queued
+time behind a complete SBS sample counts too. Limits are diagnostic policy for
+this fixture, not accepted latency/throughput limits for the native Air EC.
+
+The worker releases the EC transaction lease before invoking `_Qxx`. It checks
+the budget before a transaction, after the transaction, after AML, and before
+rescheduling or declaring completion. A zero reply with the model's event still
+asserted retries within the same budget. A quiet source cannot erase a missed
+deadline. Clock regression, exhausted attempts, expired time, transport/AML
+failure or scheduling failure retain the first fault and reject reuse.
+
+This is a cooperative deadline: it detects time spent inside AML when that call
+returns; it does not interrupt or cancel an executing method. The lifecycle's
+independent worker-drain deadline is still required for a method that does not
+return. On query failure the disposable VM fixture stops admitting EC work and
+halts visibly with interrupts disabled and its worker/namespace retained. It
+does not fabricate a clean disconnect or reset the transport.
+
+There is no native GPE binding in this fixture. A native owner must suspend the
+selected source while draining, acknowledge according to its trigger semantics,
+and close the pending-event/rearm race under serialization. Budget success
+alone cannot authorize those register accesses or claim a quiescent controller.
+The fixture's source-pending check and drain completion are serialized on CPU0;
+its synthetic event flag must not be substituted for hardware GPE/EC status.
+
 ## Next adapter and acceptance sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the

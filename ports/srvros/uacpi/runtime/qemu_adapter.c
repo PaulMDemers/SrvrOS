@@ -54,6 +54,7 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     __asm__ volatile("cli" ::: "memory");
     halt_forever();
 }
+void acpi_runtime_fixture_halt(const char *reason) { unsafe(reason); }
 static bool equal(const char *a, const char *b) {
     while (*a && *a == *b) { a++; b++; }
     return *a == *b;

@@ -32,8 +32,20 @@ jobs:
         run: |
           set -o pipefail
           make smoke 2>&1 | tee build/review/smoke.log
+      - name: Separate ACPI runtime ownership and query containment
+        run: |
+          set -o pipefail
+          make -j2 acpi-runtime-vm-kernel 2>&1 | tee build/review/acpi-runtime-build.log
+          python3 tools/acpi_runtime_smoke.py 2>&1 | tee build/review/acpi-runtime.log
+          python3 tools/acpi_ec_smoke.py --early-load 2>&1 | tee build/review/acpi-ec-early.log
+          for fault in storm zero-storm slow; do
+            python3 tools/acpi_ec_smoke.py --early-load --query-fault "$fault" 2>&1 | tee "build/review/acpi-ec-query-$fault.log"
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: baseline-logs
-          path: build/review/*.log
+          path: |
+            build/review/*.log
+            build/review/acpi-*/serial.txt
+            build/review/acpi-*/qemu.txt

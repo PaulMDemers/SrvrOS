@@ -3193,6 +3193,14 @@ build/tests/acpi-worker-host$(HOST_EXE): tools/test_acpi_worker.c ports/srvros/u
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I ports/upstream/uacpi/include tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_queue.c -o $@
 
 test-core: test-sci-owner
+test-core: test-ec-query-budget
+.PHONY: test-ec-query-budget
+test-ec-query-budget: build/tests/ec-query-budget-host$(HOST_EXE)
+	$<
+build/tests/ec-query-budget-host$(HOST_EXE): tools/test_ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.c -o $@
+
 .PHONY: test-sci-owner
 test-sci-owner: build/tests/sci-owner-host$(HOST_EXE)
 	$<
@@ -3209,7 +3217,7 @@ build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/r
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
 
 # Explicit, separate VM-only runtime kernel. Never substitutes build/kernel/srvros.elf.
-UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c ports/srvros/uacpi/runtime/sci_owner.c
+UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/ec_query_budget.c
 UACPI_VM_OBJ := $(UACPI_VM_SRC:%.c=build/acpi-runtime/%.c.o)
 UACPI_WORK_NATIVE_OBJ := $(filter %/runtime/work_queue.c.o %/runtime/work_worker.c.o %/runtime/work_worker_test.c.o %/runtime/sci_test.c.o,$(UACPI_KERNEL_OBJ))
 .PHONY: acpi-runtime-vm-kernel

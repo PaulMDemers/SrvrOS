@@ -419,3 +419,30 @@ after hardware mutation and refusal to reuse poisoned state. The Q35 failed
 install now occurs after route preparation, so the runtime VM verifies real
 IO-APIC rollback. Normal/native boot does not link this adapter, and its Q35
 identity/SCI-9/GSI-9 gate remains unchanged.
+
+## EC query-drain containment
+
+The EC fixture now uses `runtime/ec_query_budget` across notifications and
+worker rescheduling. It admits at most 128 query attempts in two seconds,
+including queue delay and AML execution time, in batches of eight. Zero replies
+while the synthetic source stays asserted consume the same budget. Failure
+retains its cause, worker and namespace and halts with interrupts disabled.
+The elapsed-time check is cooperative; an executing AML method is not canceled.
+The lifecycle drain deadline remains responsible for a worker that cannot return.
+See [query ownership limits](../../../docs/native-ec-runtime.md#bounded-ec-query-draining)
+before binding this to a native GPE.
+
+Run after rebuilding `acpi-runtime-vm-kernel`, sequentially:
+
+```sh
+make test-ec-query-budget
+python3 tools/acpi_ec_smoke.py --early-load
+python3 tools/acpi_ec_smoke.py --early-load --query-fault storm
+python3 tools/acpi_ec_smoke.py --early-load --query-fault zero-storm
+python3 tools/acpi_ec_smoke.py --early-load --query-fault slow
+```
+
+The fault modes check the exact retained reason/count, nonzero live allocation,
+absence of retirement/reset, and the halted CPU interrupt flag. The slow query
+executes three one-second AML sleeps, then fails the two-second budget even
+though the synthetic source has become quiet.

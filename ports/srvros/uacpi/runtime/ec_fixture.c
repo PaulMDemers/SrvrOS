@@ -2,6 +2,7 @@
  * No native port binding. All EC/AML/battery work belongs to one worker;
  * per-byte locking alone would not exclude an AML SMBus bank transaction. */
 #include "ec_fixture.h"
+#include "ec_query_budget.h"
 #include "qemu_adapter.h"
 #include <srvros/console.h>
 #include <srvros/ec_transport.h>
@@ -16,6 +17,7 @@ static struct {
     struct acpi_work_worker *worker;
     struct acpi_work_item setup_item, query_item, sample_item, stop_item;
     struct ec_transport transport;
+    struct ec_query_budget query_budget;
     struct sbs_sampler sampler;
     uacpi_namespace_node *node, *handler_node;
     uint8_t memory[256], query[64], mode, address, output;
@@ -27,6 +29,7 @@ static struct {
     bool region_installed, notify_installed, setup_scheduled, setup_delay;
     bool stopping, stop_done, stop_ok, disconnect_delay, namespace_init;
     bool early, deny_early_io, reg_connected;
+    unsigned query_storm;
 } ec;
 
 enum { LEASE_NONE, LEASE_BYTE, LEASE_QUERY, LEASE_SAMPLE };
@@ -56,7 +59,7 @@ static void pace(unsigned polls) {
 }
 static uint8_t model_status(void *context) {
     (void)context;
-    return (ec.stalled ? 2 : 0) | (ec.obf ? 1 : 0) | (ec.count ? 32 : 0);
+    return (ec.stalled ? 2 : 0) | (ec.obf ? 1 : 0) | ((ec.count || ec.query_storm) ? 32 : 0);
 }
 static uint8_t model_read(void *context) {
     (void)context;
@@ -71,7 +74,7 @@ static void model_command(void *context, uint8_t command) {
     ec.step = 0;
     if (command == 0x84) {
         uint64_t flags = irq_save();
-        ec.output = ec.count ? ec.query[ec.head] : 0;
+        ec.output = ec.query_storm == 2 ? 0 : ec.count ? ec.query[ec.head] : ec.query_storm ? 0x20 : 0;
         if (ec.count) { ec.head = (ec.head + 1) % 64; ec.count--; }
         ec.obf = true;
         irq_restore(flags);
@@ -202,10 +205,23 @@ static void setup_work(void *context) {
     setup_impl(context);
     ec.setup_scheduled = false;
 }
+static __attribute__((noreturn)) void query_failed(enum ec_query_fault reason) {
+    ec_query_budget_fail(&ec.query_budget, reason);
+    ec.errors++;
+    ec.ready = false;
+    ec.stopping = true;
+    console_printf("acpi-ec: query-failed reason=%s attempts=%u queries=%u active=%u\n",
+        ec_query_fault_name(ec.query_budget.fault), (uint64_t)ec.query_budget.attempts,
+        ec.queries, (uint64_t)ec.query_budget.active);
+    /* This disposable fixture has no native GPE to mask. Halt the whole VM
+     * with interrupts off, retaining its worker/namespace and controller state. */
+    acpi_runtime_fixture_halt("EC query drain failed");
+}
 static void query_work(void *context) {
     (void)context;
-    if (!worker_context() || ec.lease || ec.sampler.active) { ec.errors++; return; }
+    if (!worker_context() || ec.lease || ec.sampler.active) query_failed(EC_QUERY_CONTEXT);
     for (unsigned batch = 0; batch < 8; batch++) {
+        if (!ec_query_budget_take(&ec.query_budget, timer_monotonic_us())) query_failed(EC_QUERY_CONTEXT);
         ec.lease = LEASE_QUERY;
         bool ok = ec_transport_begin_query(&ec.transport, timer_monotonic_us(), 100000);
         int result = 0;
@@ -215,21 +231,33 @@ static void query_work(void *context) {
         }
         uint8_t code = ec.transport.result;
         ec.lease = LEASE_NONE; /* _Qxx may access EC/SMBus: release before AML. */
-        if (!ok || result != 1) { ec.errors++; break; }
-        if (!code) break;
+        if (!ok || result != 1) query_failed(EC_QUERY_TRANSPORT);
+        if (!ec_query_budget_check(&ec.query_budget, timer_monotonic_us())) query_failed(EC_QUERY_CONTEXT);
+        if (!code) {
+            /* Zero is a valid spurious reply. If SCI_EVT stays asserted, retry
+             * within the same budget rather than silently completing/rearming. */
+            if (ec.count || ec.query_storm) continue;
+            break;
+        }
         char method[] = "_Q00";
         static const char hex[] = "0123456789ABCDEF";
         method[2] = hex[code >> 4]; method[3] = hex[code & 15];
-        if (uacpi_execute_simple(ec.node, method)) ec.errors++;
+        if (uacpi_execute_simple(ec.node, method)) query_failed(EC_QUERY_AML);
         uint64_t count = 0, value = 0;
         if (uacpi_eval_simple_integer(ec.node, "QNUM", &count) || count != ec.queries + 1 ||
-            uacpi_eval_simple_integer(ec.node, "QVAL", &value) || value != (code == 0x20 ? 0x42 : 12000)) ec.errors++;
+            uacpi_eval_simple_integer(ec.node, "QVAL", &value) || value != (code == 0x20 ? 0x42 : 12000)) query_failed(EC_QUERY_AML);
         ec.queries++;
+        if (!ec_query_budget_check(&ec.query_budget, timer_monotonic_us())) query_failed(EC_QUERY_CONTEXT);
     }
     uint64_t flags = irq_save();
-    if (ec.count && !ec.transport.poisoned) {
-        if (!acpi_worker_enqueue(ec.worker, &ec.query_item, UACPI_WORK_GPE_EXECUTION, query_work, NULL)) ec.errors++;
-    } else ec.query_scheduled = false;
+    if (!ec_query_budget_check(&ec.query_budget, timer_monotonic_us())) query_failed(EC_QUERY_CONTEXT);
+    if (ec.count || ec.query_storm) {
+        if (!acpi_worker_enqueue(ec.worker, &ec.query_item, UACPI_WORK_GPE_EXECUTION, query_work, NULL))
+            query_failed(EC_QUERY_SCHEDULE);
+    } else {
+        if (!ec_query_budget_finish(&ec.query_budget, timer_monotonic_us())) query_failed(EC_QUERY_CONTEXT);
+        ec.query_scheduled = false;
+    }
     irq_restore(flags);
 }
 bool acpi_ec_fixture_signal(uint8_t query) {
@@ -241,9 +269,11 @@ bool acpi_ec_fixture_signal(uint8_t query) {
     if (ec.sampler.active) ec.queued_during_sample++;
     bool ok = true;
     if (!ec.query_scheduled) {
+        if (!ec_query_budget_begin(&ec.query_budget, timer_monotonic_us(), 128, 2000000))
+            query_failed(EC_QUERY_CONTEXT);
         ec.query_scheduled = true;
         ok = acpi_worker_enqueue(ec.worker, &ec.query_item, UACPI_WORK_GPE_EXECUTION, query_work, NULL);
-        if (!ok) { ec.query_scheduled = false; ec.errors++; }
+        if (!ok) query_failed(EC_QUERY_SCHEDULE);
     }
     irq_restore(flags); return ok;
 }
@@ -314,7 +344,8 @@ bool acpi_ec_fixture_prepare_stop(void) {
     return true;
 }
 bool acpi_ec_fixture_retired(void) {
-    bool ok = ec.attached == ec.detached && !ec.lease && !ec.setup_scheduled && !ec.query_scheduled && !ec.sample_scheduled;
+    bool ok = ec.attached == ec.detached && !ec.lease && !ec.setup_scheduled && !ec.query_scheduled &&
+        !ec.query_budget.active && !ec.query_budget.fault && !ec.sample_scheduled;
     if (ec.handler_node) console_printf("acpi-ec: retired=%s attached=%u detached=%u\n", ok ? "yes" : "NO", ec.attached, ec.detached);
     return ok;
 }
@@ -350,6 +381,15 @@ void acpi_ec_fixture_command(const char *args) {
         uint8_t value = 0;
         bool ok = transfer(false, 0x10, &value);
         console_printf("acpi-ec: foreign=%s\n", ok ? "UNSAFE" : "REFUSED");
+    } else if (equal(args, "query-storm") || equal(args, "query-zero-storm") || equal(args, "query-slow")) {
+        bool ok = ec.ready && !ec.stopping && !ec.query_scheduled && !ec.sample_scheduled;
+        if (ok) {
+            /* Inject model state; the resulting query AML runs on the worker. */
+            ec.query_storm = equal(args, "query-zero-storm") ? 2 : equal(args, "query-storm") ? 1 : 0;
+            if (equal(args, "query-slow")) ec.memory[0x12] = 1;
+            ok = acpi_ec_fixture_signal(0x20);
+        }
+        console_printf("acpi-ec: query-fault=%s\n", ok ? "queued" : "REFUSED");
     } else if (equal(args, "queries")) {
         bool ok = true;
         for (unsigned i = 0; i < 32; i++) ok = acpi_ec_fixture_signal(i & 1 ? 0x21 : 0x20) && ok;

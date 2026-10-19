@@ -18,6 +18,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--disconnect-timeout', action='store_true',
                         help='leave disconnect AML asleep past the finite drain deadline')
+    parser.add_argument('--query-fault', choices=('storm', 'zero-storm', 'slow'),
+                        help='verify query-budget failure halts with live state retained')
     namespace = parser.add_mutually_exclusive_group()
     namespace.add_argument('--namespace-init', action='store_true',
                         help='initialize the namespace after the EC handler connects')
@@ -28,6 +30,9 @@ def main():
     namespace.add_argument('--early-timeout', action='store_true', help='retain state when namespace worker misses deadline')
     namespace.add_argument('--early-fail', action='store_true', help='contain interpreter self-reset from namespace worker')
     args = parser.parse_args()
+    if args.query_fault and (args.disconnect_timeout or args.namespace_denied or
+                            args.early_denied or args.early_timeout or args.early_fail):
+        parser.error('--query-fault requires a successful runtime setup')
     early = args.early_load or args.early_denied or args.early_timeout or args.early_fail
     if early:
         args.namespace_init = True
@@ -35,6 +40,8 @@ def main():
     out = root / 'build/review' / ('acpi-ec-initialize-denied' if args.namespace_denied else 'acpi-ec-initialize' if args.namespace_init else 'acpi-ec-disconnect-timeout' if args.disconnect_timeout else 'acpi-ec')
     if early:
         out = root / 'build/review' / ('acpi-ec-early-denied' if args.early_denied else 'acpi-ec-early-timeout' if args.early_timeout else 'acpi-ec-early-fail' if args.early_fail else 'acpi-ec-early-load')
+    if args.query_fault:
+        out = root / 'build/review' / ('acpi-ec-query-' + args.query_fault)
     out.mkdir(parents=True, exist_ok=True)
     output = bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-ec-') as directory:
@@ -143,6 +150,34 @@ def main():
                     qmp.call('quit')
                     process.wait(timeout=10)
                     print('acpi-ec: PASS refused namespace initialization despite API success; no ready service or sampling, clean bounded teardown, no widened permissions')
+                    return
+
+                if args.query_fault:
+                    request('acpiruntime start-early' if early else 'acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                    request('acpiruntime ec initialize' if args.namespace_init else 'acpiruntime ec start', rb'acpi-ec: setup=queued')
+                    snapshot(0, 0, 0, generation=0, current=0)
+                    start = time.monotonic()
+                    # Inspect both records in one request: the worker can halt
+                    # immediately after the command without another serial turn.
+                    halted = request('acpiruntime ec query-' + args.query_fault,
+                                     rb'acpi-runtime: HALTED unsafe teardown: EC query drain failed heap=(\d+)')
+                    assert int(halted[1]) > 0
+                    fault = search_complete(rb'acpi-ec: query-failed reason=(\w+) attempts=(\d+) queries=(\d+) active=1', output)
+                    assert fault, bytes(output)
+                    reason, attempts, queries = fault.groups()
+                    expected = (b'deadline', 1, 1) if args.query_fault == 'slow' else (b'limit', 128, 0 if args.query_fault == 'zero-storm' else 128)
+                    assert (reason, int(attempts), int(queries)) == expected, fault.groups()
+                    if args.query_fault == 'slow':
+                        assert 2.5 <= time.monotonic() - start < 8
+                    tail = boot.read_for(serial, .3)
+                    output.extend(tail)
+                    assert b'retired=yes' not in output and b'stopped=yes' not in output
+                    assert b'query-failed' not in tail  # No recurring worker behind the halt.
+                    registers = qmp.call('human-monitor-command', {'command-line': 'info registers'})
+                    flags = re.search(r'RFL=([0-9a-fA-F]+)', registers)
+                    assert flags and not (int(flags[1], 16) & 0x200), registers
+                    qmp.call('quit'); process.wait(timeout=10)
+                    print('acpi-ec: PASS query ' + args.query_fault + ' bounded across worker batches; halted with interrupts disabled and live state retained')
                     return
 
                 for _ in range(2):

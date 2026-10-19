@@ -38,6 +38,15 @@ device work uses separate branches based on `main`.
   SBS samples and disconnect cleanup. Blocked-worker and interpreter self-reset
   cases halt visibly with live state retained. These are VM/host results only;
   native source ownership and live mappings remain pending.
+- Query containment checkpoint: a drain now retains its attempt/time budget
+  across worker batches and additional notifications. Host/sanitizer cases pass
+  for finite/repeated drains, queued and AML time, clock regression and sticky
+  faults. The early-load VM regression passes; continuous and zero-reply storms
+  each halt at 128 attempts, and a three-second AML query fails its two-second
+  cooperative budget after returning. All retain live state with interrupts off.
+  CI now runs the separate SCI/early-EC and query-fault VMs sequentially and saves
+  their serial evidence. Native GPE masking/rearm and a worker that cannot return
+  still need the external ownership/lifecycle path; no physical result is claimed.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
