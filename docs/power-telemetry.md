@@ -1,7 +1,7 @@
 # Read-only CPU power telemetry
 
 Status, 2026-10-19: implemented for an explicit diagnostic boot; **native SrvrOS
-acceptance pending**. The installed desktop-idle release predates this provider.
+acceptance pending**. The installed interactive desktop does not enable this provider.
 Ordinary desktop staging does not enable it. This is measurement groundwork
 before changing CPU frequency or idle-state policy.
 

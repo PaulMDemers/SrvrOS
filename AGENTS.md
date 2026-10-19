@@ -4,6 +4,9 @@ This repository is developed by agents working locally on separate Ubuntu Macs.
 Start with `docs/ubuntu-device-agent-setup.md`, `docs/machines/README.md` and the
 record for this host's actual model. The reference machine is MacBookAir7,2;
 Air7,1, Pro11,2, Pro11,3 and Mini7,1 are planned targets, not accepted siblings.
+Read `docs/agent-coordination.md` before shared work. Fetch and inspect the actual
+integration baseline, relevant PRs and other machines' active scope; publish your
+bounded objective, touched subsystems and dependencies in your own unit record.
 
 - Confirm the local model, source branch/commit, USB UUID and installed recovery
   before physical tests. Do not copy another host's UUID, credentials, firmware
@@ -23,8 +26,9 @@ Air7,1, Pro11,2, Pro11,3 and Mini7,1 are planned targets, not accepted siblings.
 - Update the machine record and relevant current guides when behavior changes.
   Preserve dated journals as history. Raw images/logs belong in local ignored
   build/evidence storage; accepted backups must survive `make distclean`.
-- Keep optional AML probing out of ordinary desktop startup while its native
-  stall is unresolved. Match device profiles to captured evidence; do not widen
+- Keep optional AML probing out of ordinary desktop startup. A successful
+  isolated probe or Q35 runtime fixture does not accept native EC/SCI ownership.
+  Match device profiles to captured evidence; do not widen
   register/codec/firmware gates merely to make a sibling model initialize.
 
 This entry point does not request parallel subagents or authorize contacting

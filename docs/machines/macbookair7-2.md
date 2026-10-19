@@ -11,23 +11,81 @@ are in the linked device guides. The shared integration baseline is now `main`,
 including the completed `codex/linux-development-baseline` work. Subsequent
 device work uses separate branches based on `main`.
 
+## Active work and shared dependencies
+
+- Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
+- Objective: read-only desktop power/frequency baseline, then bounded native
+  battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
+  measurement and separate acceptance.
+- Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
+  worker/IRQ ownership and battery interfaces require explicit coordination.
+  No new native EC/SCI enablement is part of the power capture.
+- Integration baseline: `main` merge `e2d172b`; device commits `c6e5538`,
+  `dad7aa8`, `caa3b15` add the physically accepted Terminal fix and records.
+- Next checkpoint: exact-stage v26 VM/missing-workspace rehearsals, then a
+  60-second automated physical capture. Local volatile records are under
+  `build/power-baseline-20261019/`; record the actual release before reboot.
+
 ## Accepted scope and open items
 
 | Capability | State | Evidence / limit |
 | --- | --- | --- |
 | Desktop boot, rendering, keyboard, trackpad, USB documents | Physically exercised | User rounds and durable workspace history in the development journal |
+| Terminal backspace redraw | User validated | `5282cfde546ea2b5`, fix `c6e5538`; reported stray characters no longer appear |
+| Text Ctrl+C / Ctrl+V / Ctrl+A | User validated | `5282cfde546ea2b5`; copy, paste and select-all explicitly checked |
 | Held-click second-finger steering | User accepted | `d61e60a82a295d84`; counters do not independently prove every handoff |
 | Brightness and audible volume adjustment | User accepted | `b427b78f21644bd2`; requested brightness 16/83 applied, three tone tests completed |
 | Temperature and fan sampling | Live output confirmed | Fresh screenshot readings 83 C / 1202 RPM; logs reached 85 C, no SMC errors; calibration/power behavior not accepted |
 | Two-finger physical right-click | Implemented; physical acceptance pending | Press role latches from initial contact count; one-finger press plus later steering finger remains primary |
 | Context menu from trackpad taps | Physical acceptance open | Exit counts 5 primary and 1 secondary tap; user reported no visible right-click result |
-| System window stability | Failure recorded; host/VM fixes awaiting physical acceptance | `input-timeout queue=5` closed System pid14; delivery-first input/control deadlines now pass host regressions, live System/network VM and 36 app lifetimes |
+| System window stability | No recurrence in latest physical round | `fed370ffbe33d554`: System and Help exited cleanly, no collector attention flags; earlier timeout cause remains unproven |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
 | Battery/AC and suspend/resume | Not implemented as live services | ACPI/EC foundations exist; runtime ownership and tests remain |
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
 ## Latest interactive physical record
+
+Release `5282cfde546ea2b5`, v22, source `dad7aa8`, contains the Terminal cursor
+correction `c6e5538`. The user reports that the character artifact appears
+resolved and explicitly validated Ctrl+C, Ctrl+V and Ctrl+A in Text. Those two
+workflows are now physically accepted on this Air.
+
+Matching session `session-00065e37be14b48c-00` has four verified logs, a saved
+exit snapshot, clean desktop process exit and no collector attention flags.
+There were no new screenshots in this round. Offline read-only exFAT checking
+was clean (164 directories, 822 files). Evidence and the run record are local
+under `build/native-desktop-trials/5282cfde546ea2b5/`.
+
+Current installed is `5282cfde546ea2b5`, previous remains accepted recovery
+`b427b78f21644bd2`, and no one-shot boot is armed. Secondary press/tap cases were
+not individually confirmed in the report; power telemetry was not enabled.
+
+## Earlier October 19 interactive round
+
+Release `fed370ffbe33d554`, v22, source `c6e50ec` (same tree as merged baseline
+`e2d172b`), was exercised on October 19. The user reported generally good
+behavior, with a new Terminal backspace display defect. Session
+`session-00065e37230cc95f-00` has four verified logs, a clean desktop process exit
+and no collector attention flags. Two saved screenshots are retained locally in
+`build/native-desktop-trials/fed370ffbe33d554/physical-after/`.
+
+System and Help remained present in the screenshots and exited without failure.
+PCM playback completed 1,152,000 bytes with zero reported underruns; the user did
+not separately confirm channel separation or headphones. The Sensors screenshot
+shows 67 C core/package and 1,209 RPM with fresh sample ages. The offline exFAT
+check was clean (163 directories, 818 files). General success does not establish
+every gesture case: the final two-finger tap counter was zero, so specific
+secondary-tap acceptance stays open.
+
+At that checkpoint installed was `fed370ffbe33d554`; previous remained accepted recovery
+`b427b78f21644bd2`. The one-shot boot selection was consumed and no next boot is
+armed. The Terminal screenshot's stray slash was reproduced in the host editor
+and actual desktop VM: erasing padding left the output cursor beyond the edited
+line. The source correction restores that cursor; the subsequent physical
+retest above accepts that correction. See the [journal](../desktop-progress-2026-10-19.md).
+
+## Earlier interactive physical record
 
 Release `b427b78f21644bd2`, v22, built from source `5b1ed05`.
 Session `session-00065e281812e807-00` has saved logs and clean desktop exit.
@@ -56,9 +114,10 @@ completed cleanly in 5.13 seconds and returned with clean exFAT. Unattended
 desktop capture `06c646455f08555e` (source `e6fd681`) subsequently measured
 60 seconds with Text open: 94.15% CPU0 idle samples, one frame presentation and
 76,384 framebuffer bytes during the measurement. All four logs and the 1440×900
-BMP were verified, with clean automatic return and offline exFAT. Current boot
-payload is that explicit desktop-idle diagnostic; previous retains accepted
-desktop `b427b78f21644bd2`. Interactive input and power consumption still need
+BMP were verified, with clean automatic return and offline exFAT. At that earlier checkpoint the current boot
+payload was the desktop-idle diagnostic, with accepted desktop
+`b427b78f21644bd2` retained as previous. The newer interactive record above
+supersedes that installed-state snapshot; power consumption still needs
 physical acceptance. Timer samples measure CPU0 scheduler occupancy, not energy.
 The generalized Linux collector completed with zero partial reads on this host.
 Additional IRQ, semaphore and deferred-worker foundations now pass host/VM tests.

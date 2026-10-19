@@ -11,8 +11,11 @@ run /fat/bin/deskd
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
 and live sensor display. Physical two-finger pressing now selects secondary click at press;
-this new behavior awaits physical acceptance. Secondary tapping is separate. A System app input-timeout closure
-remains open for physical acceptance. Host regressions now cover input and control
+specific gesture cases still need confirmation. Secondary tapping is separate.
+The October 19 interactive round reported generally good behavior and recorded
+no recurrence of the earlier System input-timeout closure. That earlier cause
+is not conclusively established. The Terminal backspace correction passed its subsequent hardware
+retest, alongside explicit Text Ctrl+C/V/A validation. Host regressions now cover input and control
 packet delivery deadlines; clients get a delivery attempt before queued time is
 blamed on them, and genuinely unresponsive clients still have bounded cleanup.
 See the [machine record](machines/macbookair7-2.md) for precise

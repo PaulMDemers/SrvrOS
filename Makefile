@@ -2422,9 +2422,9 @@ build/tests/conio-terminal-host$(HOST_EXE): tools/test_conio_terminal.c userspac
 test-core: test-line-terminal
 test-line-terminal: build/tests/line-terminal-host$(HOST_EXE)
 	$<
-build/tests/line-terminal-host$(HOST_EXE): tools/test_line_terminal.c ports/srvros/linenoise.c
+build/tests/line-terminal-host$(HOST_EXE): tools/test_line_terminal.c ports/srvros/linenoise.c userspace/widgets/src/terminal.c userspace/widgets/include/srvros/desk_terminal.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/linenoise -idirafter userspace/lib/include -I shared/include $< -Wl,--gc-sections -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I ports/upstream/linenoise -I userspace/widgets/include -idirafter userspace/lib/include -I shared/include $< userspace/widgets/src/terminal.c -Wl,--gc-sections -o $@
 
 .PHONY: test-wait-ownership
 test-core: test-wait-ownership

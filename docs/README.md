@@ -24,6 +24,8 @@ record earlier decisions and may describe superseded behavior.
 
 ## Work on a physical machine
 
+- [Agent coordination](agent-coordination.md) — ownership, shared changes, integration and checkpoints.
+
 - [Ubuntu device setup](ubuntu-device-agent-setup.md) — complete build, exFAT,
   recovery, one-shot boot and evidence workflow.
 - [Machine records](machines/README.md) — per-model observations and acceptance.
