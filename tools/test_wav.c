@@ -8,14 +8,17 @@ static void valid(unsigned char *p) {
     p[20]=1;p[22]=2;put32(p+24,48000);put32(p+28,192000);p[32]=4;p[34]=16;
     memcpy(p+36,"data",4);put32(p+40,4);p[44]=123;
 }
-static int parse(const unsigned char *p,unsigned n) {
+static int parse_format(const unsigned char *p,unsigned n,unsigned rate,unsigned channels) {
     FILE *f=tmpfile();assert(f);assert(fwrite(p,1,n,f)==n);
     struct wav_info info;int result=wav_open_data(f,&info);
-    if(!result) {assert(info.bytes==4 && info.rate==48000 && info.channels==2 && info.bits==16);assert(fgetc(f)==123);}
+    if(!result) {assert(info.bytes==4 && info.rate==rate && info.channels==channels && info.bits==16);assert(fgetc(f)==123);}
     fclose(f);return result;
 }
+static int parse(const unsigned char *p,unsigned n) {return parse_format(p,n,48000,2);}
 int main(void) {
     unsigned char p[128];valid(p);assert(!parse(p,48));
+    valid(p);p[22]=1;p[32]=2;put32(p+24,44100);put32(p+28,88200);assert(!parse_format(p,48,44100,1));
+    valid(p);
     for(unsigned n=0;n<48;n++)assert(parse(p,n)<0);
     const unsigned bad[]={0,8,20,22,24,28,32,34,36};
     for(unsigned i=0;i<sizeof(bad)/sizeof(bad[0]);i++) {valid(p);p[bad[i]]^=1;assert(parse(p,48)<0);}

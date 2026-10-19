@@ -53,9 +53,14 @@ int main(void) {
     tick_stream(1920,10000);assert(stream.underruns==1);silent();
     assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,sizeof(samples))>0);
     for(unsigned i=0;i<PCM_GUARD/2;i++)assert(!pcm[(dma_position/2+i)%(PCM_BYTES/2)]);
-    assert(!audio_request(SRV_AUDIO_STOP,0));service();assert(stream.state==SRV_PCM_CANCELED);silent();
+    assert(!audio_request(SRV_AUDIO_STOP,0));service();assert(stream.state==SRV_PCM_CANCELED && !stream_owner);silent();
     assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)<0);
-    audio_process_cleanup(12);service();assert(!stream_owner);
+    /* Stop releases ownership even before a stalled application acknowledges.
+     * A replacement may open immediately; the old token cannot cancel it. */
+    long replacement=open_stream(13);assert(replacement>h);
+    assert(audio_stream_request(12,SRV_PCM_CLOSE,h,0,0)<0);
+    audio_process_cleanup(12);assert(stream_owner==13);
+    audio_process_cleanup(13);service();assert(!stream_owner);
 
     reset_stream();h=open_stream(12);assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)==4);
     audio_process_cleanup(12);service();assert(!starts && !stream_owner);silent();
@@ -69,5 +74,44 @@ int main(void) {
         assert(stream.state==SRV_PCM_FAULT && !codec.available);silent();
         audio_process_cleanup(12);service();assert(!stream_owner);
     }
+    /* Stale handles cannot revive a lease, including after the owner PID is reused. */
+    reset_stream();h=open_stream(12);audio_process_cleanup(12);service();
+    long next=open_stream(12);assert(next>h);
+    assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)<0);
+    assert(audio_stream_request(12,SRV_PCM_CLOSE,h,0,0)<0);
+    assert(stream_owner==12 && stream.handle==(uint64_t)next);
+    audio_process_cleanup(12);service();
+    stream_sequence=INT64_MAX;assert(open_stream(12)<0 && !stream_owner);
+
+    /* All ambiguous hardware outcomes must mute, retain the allocation and
+     * refuse a new owner, even if hardware still claims DMA is running. */
+    for(unsigned fault=0;fault<5;fault++) {
+        reset_stream();h=open_stream(12);
+        for(unsigned i=0;i<12;i++)assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,sizeof(samples))>0);
+        service();assert(controller.playing);
+        if(fault==0) { dma_position=PCM_BYTES+4;clock_us+=10000; }
+        if(fault==1) { dma_position=192000;clock_us+=10000; }
+        if(fault==2)clock_us--;
+        if(fault==3)position_ok=false;
+        if(fault==4) { stop_ok=false;assert(!audio_stream_request(12,SRV_PCM_CLOSE,h,0,0)); }
+        int16_t *retained=pcm;service();
+        assert(stream.state==SRV_PCM_FAULT && !codec.available && pcm==retained);silent();
+        audio_process_cleanup(12);service();assert(!stream_owner && open_stream(13)<0);
+    }
+
+    /* An aged cached cursor cannot authorize a ring write; the worker must
+     * refresh it first. FINISH seals further writes, including during drain. */
+    reset_stream();h=open_stream(12);
+    for(unsigned i=0;i<12;i++)assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,sizeof(samples))>0);
+    service();clock_us+=100000;
+    uint64_t submitted=stream.submitted_bytes;
+    assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)==SRV_PCM_AGAIN);
+    assert(stream.submitted_bytes==submitted);
+    dma_position=19200;service();assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)==4);
+    assert(!audio_stream_request(12,SRV_PCM_FINISH,h,0,0));
+    assert(audio_stream_request(12,SRV_PCM_FINISH,h,0,0)<0);
+    assert(audio_stream_request(12,SRV_PCM_WRITE,h,samples,4)<0);
+    assert(!audio_request(SRV_AUDIO_STOP,0));service();assert(stream.state==SRV_PCM_CANCELED && !stream_owner);silent();
+    audio_process_cleanup(12);service();assert(!stream_owner);
     free(pcm);puts("audio-stream: PASS ownership, bounded writes, 12-second multi-wrap stereo continuity, drain/tail, underrun silence, Stop/exit cancellation and DMA deadlines");
 }

@@ -101,11 +101,19 @@ static bool requested(void *arg) { (void)arg;return pending_op!=0; }
 static void service(void) {
     uint64_t f=lock();unsigned op=pending_op,value=pending_value;pending_op=0;active_op=op;unlock(f);
     bool ok=true;
-    if(op==SRV_AUDIO_STOP) { if(stream_owner)stream_cancel(false);else ok=stop(); }
+    if(op==SRV_AUDIO_STOP) {
+        if(stream_owner) {
+            /* Revoke the lease immediately after silence/stop. The old owner
+             * may be blocked in unrelated file I/O and cannot acknowledge yet.
+             * Its generation handle never authorizes a replacement stream. */
+            f=lock();stream_close=true;unlock(f);stream_cancel(false);
+            ok=codec.available;
+        } else ok=stop();
+    }
     else if(op==SRV_AUDIO_TEST) ok=test_tone();
     else if(op==SRV_AUDIO_VOLUME) {
         /* Volume changes take effect immediately by stopping a current
-         * tone. Future PCM streams will own per-stream gain. */
+         * tone. PCM gain is fixed while its exclusive lease is held. */
         if(controller.playing) ok=stop();
         status.volume=value;
     } else if(op==SRV_AUDIO_OUTPUT) {

@@ -34,7 +34,11 @@ int main(void) {
     pipe_file.flags=SRV_FD_NONBLOCK; assert(syscall_io_safe(&frame));
     busy=true; user_safe=true; assert(io_defer_pipe_read(10) && user_safe);
     busy=false; assert(!io_defer_pipe_read(10) && !user_safe);
-    pipe_file.type=PROCESS_FILE_VFS; assert(!syscall_io_safe(&frame));
+    pipe_file.type=PROCESS_FILE_VFS;frame.rdx=16384;assert(syscall_io_safe(&frame));
+    frame.rdx=16385;assert(!syscall_io_safe(&frame));frame.rdx=UINT64_MAX;assert(!syscall_io_safe(&frame));
+    frame.rdx=0;assert(syscall_io_safe(&frame));
+    assert(!io_snapshot_read(0,16) && !io_snapshot_read(1,16) && !io_snapshot_read(2,16));
+    pipe_file.type=PROCESS_FILE_VFS_WRITE;assert(!syscall_io_safe(&frame));
     pipe_file.type=PROCESS_FILE_NET_CONNECTION; assert(!syscall_io_safe(&frame));
     frame.rax=SYS_WRITE;pipe_file.type=PROCESS_FILE_PIPE_WRITE;pipe_file.flags=0;
     assert(!syscall_io_safe(&frame));pipe_file.flags=SRV_FD_NONBLOCK;assert(syscall_io_safe(&frame));
@@ -53,5 +57,5 @@ int main(void) {
     frame.rax=SYS_FUTEX_WAIT;assert(!syscall_io_safe(&frame));
     frame.rax=SYS_KEY_SCAN;assert(syscall_io_safe(&frame));
     frame.rax=SYS_TTY_GETATTR;assert(syscall_io_safe(&frame));
-    puts("syscall-io-host: PASS (bounded desktop admission, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
+    puts("syscall-io-host: PASS (bounded desktop admission, bounded retained-snapshot reads, nonblocking pipe deferral, redirected I/O/lifecycle/mapping/filesystem/default-deny)");
 }

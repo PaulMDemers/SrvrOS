@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Capture sustained stereo PCM from the real guest WAV player and HDA driver."""
 import argparse
+import hashlib
 from array import array
 import io
 import json
+import math
 import os
 from pathlib import Path
 import shutil
@@ -30,7 +32,18 @@ def fixture(seconds=12):
     return output.getvalue(),samples
 
 
-def analyze_repeated(path,source,repeats):
+def mono_fixture(seconds):
+    samples=array('h',(int(3840*math.sin(2*math.pi*500*n/44100)) if n<(seconds*44100-11025) else 0 for n in range(seconds*44100)))
+    expected=array('h')
+    for n in range(seconds*48000):
+        value=int(3840*math.sin(2*math.pi*500*n/48000)) if n<(seconds*48000-12000) else 0
+        expected.extend((value,value))
+    output=io.BytesIO()
+    with wave.open(output,'wb') as w:w.setparams((1,2,44100,0,'NONE',''));w.writeframes(samples.tobytes())
+    return output.getvalue(),expected
+
+
+def analyze_repeated(path,source,repeats,tolerance=2):
     expected=array('h',(int(n/4) for n in source))
     first=next(n for n in range(len(expected)//2) if max(abs(expected[2*n]),abs(expected[2*n+1]))>20)
     last=max(n for n in range(len(expected)//2) if max(abs(expected[2*n]),abs(expected[2*n+1]))>20)
@@ -47,7 +60,7 @@ def analyze_repeated(path,source,repeats):
                     assert index<len(expected)//2,'unexpected extra samples'
                     error=max(abs(left-expected[index*2]),abs(right-expected[index*2+1]))
                     maximum_error=max(maximum_error,error)
-                    assert error<=2,('waveform mismatch',len(segments),position,error)
+                    assert error<=tolerance,('waveform mismatch',len(segments),position,error)
                     if level>20:last_active=position
                     if position-last_active>=4800:
                         assert abs((last_active-active)-(last-first))<=2,'missing/truncated signal'
@@ -69,10 +82,10 @@ def analyze_prefix(path,expected):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seconds',type=int,default=12);parser.add_argument('--lifecycle',action='store_true');parser.add_argument('--repeat',type=int,default=1);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seconds',type=int,default=12);parser.add_argument('--lifecycle',action='store_true');parser.add_argument('--repeat',type=int,default=1);parser.add_argument('--mono-44100',action='store_true');parser.add_argument('--codec-timer',choices=['on','off'],default='on');parser.add_argument('--output',type=Path);args=parser.parse_args()
     assert 5<=args.seconds<=60 and 1<=args.repeat<=30 and not (args.lifecycle and args.repeat!=1)
-    root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-stream-lifecycle' if args.lifecycle else 'build/review/audio-stream-soak' if args.repeat>1 else 'build/review/audio-stream');out.mkdir(parents=True,exist_ok=True)
-    payload,expected=fixture(args.seconds);(out/'source.wav').write_bytes(payload)
+    root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-stream-lifecycle' if args.lifecycle else 'build/review/audio-stream-soak' if args.repeat>1 else 'build/review/audio-stream-44100' if args.mono_44100 else 'build/review/audio-stream');out=args.output or out;out=out.resolve();out.mkdir(parents=True,exist_ok=True)
+    payload,expected=(mono_fixture(args.seconds) if args.mono_44100 else fixture(args.seconds));(out/'source.wav').write_bytes(payload)
     original=boot.make_limine_conf;boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.audio=hda\n'
     output=b'';consumed=0
     with tempfile.TemporaryDirectory(prefix='srvros-pcm-') as directory:
@@ -80,9 +93,12 @@ def main():
         iso=boot.build_iso(str(root),str(tmp),1280,800,os.environ.copy());port=boot.choose_port(30001,38000)
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d',
             '-drive',f'if=none,id=disk,file={tmp}/disk.exfat,format=raw','-device','ich9-ahci,id=ahci','-device','ide-hd,drive=disk,bus=ahci.0',
-            '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-device','ich9-intel-hda','-device','hda-duplex,audiodev=capture',
+            '-device','qemu-xhci,id=xhci','-device','usb-kbd,bus=xhci.0','-device','ich9-intel-hda','-device',f'hda-duplex,audiodev=capture,use-timer={args.codec_timer}',
+            '-trace','enable=hda_audio_overrun',
             '-audiodev',f'wav,id=capture,path={out}/capture.wav,out.frequency=48000',
             '-serial',f'tcp:127.0.0.1:{port},server=on,wait=off','-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+        provenance={'commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'codec_timer':args.codec_timer,'seconds':args.seconds,'repeat':args.repeat,'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [root/'build/kernel/srvros.elf',root/'build/srvros.exfat',root/'build/userspace/playwav.elf']}}
+        (out/'provenance.json').write_text(json.dumps(provenance,indent=2)+'\n')
         with (out/'qemu.txt').open('w') as log:
             process=subprocess.Popen(command,stdout=log,stderr=log)
             try:
@@ -101,7 +117,7 @@ def main():
                 for round_number in range(args.repeat):
                     sock.sendall(b'run /fat/bin/playwav /fat/audio-test/stereo.wav\n');wait(b'playwav: playing ')
                     for c in 'echo pcm-input\n':q.key({' ':'spc','-':'minus','\n':'ret'}.get(c,c))
-                    wait(f'playwav: complete bytes={len(payload)-44} underruns=0'.encode(),args.seconds+60)
+                    wait(f'playwav: complete bytes={len(expected)*2} underruns=0'.encode(),args.seconds+60)
                     wait(b'\npcm-input');wait(b'srv> ')
                     print(f'audio-stream: complete round {round_number+1}/{args.repeat}',flush=True)
                 sock.sendall(b'audio\n');wait(b'audio: state=2');wait(b'srv> ')
@@ -122,7 +138,7 @@ def main():
                 assert b'exception:' not in output and b'audio: state=4' not in output
                 q.call('quit');process.wait(timeout=10)
             finally:stop_process(process);(out/'serial.txt').write_bytes(output)
-    report=analyze_prefix(out/'capture.wav',expected) if args.lifecycle else analyze_repeated(out/'capture.wav',expected,args.repeat);report.update(seconds=args.seconds,repeat=args.repeat,usb_input_retained=True,syscall_boundaries='PASS',lifecycle=args.lifecycle)
+    report=analyze_prefix(out/'capture.wav',expected) if args.lifecycle else analyze_repeated(out/'capture.wav',expected,args.repeat,4 if args.mono_44100 else 2);report.update(seconds=args.seconds,repeat=args.repeat,usb_input_retained=True,syscall_boundaries='PASS',lifecycle=args.lifecycle,mono_44100=args.mono_44100,codec_timer=args.codec_timer,distinct_stereo=not args.mono_44100)
     (out/'result.json').write_text(json.dumps(report,indent=2)+'\n');print(json.dumps(report,indent=2))
 
 if __name__=='__main__':main()

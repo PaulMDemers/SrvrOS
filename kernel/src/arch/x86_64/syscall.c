@@ -2379,12 +2379,22 @@ static int64_t syscall_sync(void) {
     return result;
 }
 
-/* Only paths with no filesystem/shared-file/process-lifetime mutations may
+/* Already-open read-only files own a retained memory snapshot. Their read
+ * path only copies bytes and advances the shared cursor under IRQ exclusion;
+ * it does not resolve a path, touch a block device, allocate, or close a ref.
+ * Keep this narrow: no redirected stdio, writable handles, or unbounded copy. */
+static bool io_snapshot_read(uint64_t fd,uint64_t length) {
+    if(fd<3 || length>16384)return false;
+    struct process_file *file=process_file_at(process_current(),fd);
+    return file && file->type==PROCESS_FILE_VFS;
+}
+
+/* Only paths with no filesystem or process-lifetime mutations may
  * overlap owned I/O. Default-deny also covers future syscalls. Do not admit
  * poll by inspecting a mutable userspace fd array before the actual copy. */
 bool syscall_io_safe(const struct isr_frame *frame) {
     switch (frame->rax) {
-    case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi);
+    case SYS_READ: return process_fd_is_console(process_current(),frame->rdi,true) || io_try_pipe_read(frame->rdi) || io_snapshot_read(frame->rdi,frame->rdx);
     case SYS_WRITE: return process_fd_is_console(process_current(),frame->rdi,false) || io_try_pipe_write(frame->rdi);
     case SYS_WAIT: return frame->rdx==SRV_WAIT_NOHANG;
     case SYS_CONSOLE_INFO: case SYS_CONSOLE_CLEAR: case SYS_CONSOLE_GOTOXY:

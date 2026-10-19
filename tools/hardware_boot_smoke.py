@@ -118,7 +118,7 @@ def main():
     parser.add_argument("--boot-wait", type=float, default=180)
     parser.add_argument("--qemu", default="qemu-system-x86_64")
     parser.add_argument("--desktop-check", action="store_true")
-    parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone")
+    parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -164,7 +164,7 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device","hda-duplex,audiodev=capture",
-                "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'}"]
+                "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
         if workspace and not args.probe_missing_workspace:
             from exfat_test_image import ExfatFixture, check_clean_image
             volume=temp/"workspace.exfat";stick=temp/"workspace.img"
@@ -282,6 +282,11 @@ def main():
                         time.sleep(1.5)
                         send_qmp_text(qmp,"audio\n",0.08)
                         text=wait_for(serial,lambda s:"tests_started=1 tests_completed=1" in s[offset:] and s.endswith("srv> "),process,20)
+                        offset=len(text)
+                        send_qmp_text(qmp,"run /fat/bin/playwav /fat/share/examples/stereo.wav\n",0.08)
+                        text=wait_for(serial,lambda s:"playwav: complete bytes=1152000 underruns=0" in s[offset:] and s.endswith("srv> "),process,30)
+                        send_qmp_text(qmp,"audio\n",0.08)
+                        text=wait_for(serial,lambda s:"audio-pcm: state=4 owner=0" in s[offset:] and s.endswith("srv> "),process,20)
                     if args.kernel_check:
                         send_qmp_text(qmp, "fpustress\n", 0.08)
                         text = wait_for(serial, lambda s: "fpustress: PASS" in s and s.endswith("srv> "), process, 30)
@@ -388,10 +393,16 @@ def main():
                 with wave.open(str(first_capture),"rb") as wav:
                     assert wav.getnchannels()==2 and wav.getsampwidth()==2
                     rate=wav.getframerate();samples=array("h",wav.readframes(wav.getnframes()))
-                left=samples[::2];assert left==samples[1::2]
+                # The first 650 ms contain the half-second test and a quiet tail.
+                assert rate==48000
+                tone=samples[:int(rate*.65)*2]
+                left=tone[::2];assert left==tone[1::2]
                 active=[i for i,v in enumerate(left) if abs(v)>20]
                 assert active and .45<(active[-1]-active[0])/rate<.6
                 assert max(abs(v) for v in left)==1200 and all(v==0 for v in left[-rate//10:])
+                from audio_fixture import verify_channel_capture
+                pcm_result=verify_channel_capture(samples,rate,start_frame=int(rate*.65))
+                (logs/"hardware-grub-pcm.json").write_text(json.dumps(pcm_result,indent=2)+"\n")
             if args.desktop_check:
                 # A new VM has a fresh RAM root. Only the USB workspace survives.
                 first_serial=logs/"hardware-grub-first-serial.log"
@@ -429,7 +440,7 @@ def main():
                     if manifest.get("config_version", "").startswith("ram-usb-v21-"):
                         for session in report["sessions"]:
                             devices=session["devices"]
-                            assert set(devices)=={"audio","thermal","smc"}
+                            assert set(devices)=={"audio","thermal","smc","pcm"}
                             assert all(value["monotonic_us"]>0 for value in devices.values())
                             assert devices["thermal"]["thermal_state"]==1 and devices["smc"]["smc_state"]==1
                             if args.audio_check: assert devices["audio"]["audio_state"]==2
@@ -447,7 +458,7 @@ def main():
         print("responsiveness: PASS (USB input under output load, timer progress, latency samples, Escape, userspace Ctrl-C)")
     if args.desktop_check:
         print("Native desktop trial: checklist, USB keyboard editing, verified GUI save, default USB documents/screenshots, durable session logs, preferences across fresh VM boot and two clean unmounts passed.")
-    if args.audio_check: print("Staged audio: PASS HDA initialization, saved device status, 500 ms stereo PCM at default volume and silent tail")
+    if args.audio_check: print("Staged audio: PASS HDA initialization, saved device status, 500 ms tone, six-second channel WAV, zero underruns and silent tails")
     print(f"Serial log: {serial}")
 
 

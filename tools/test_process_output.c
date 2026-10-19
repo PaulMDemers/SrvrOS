@@ -83,7 +83,28 @@ static void pipe_regression(void) {
     pipe_wait_mode=4;assert(process_file_pipe_write(&subject,4,input,10)==-1);
     assert(process_file_close(&subject,3)==0 && process_file_close(&subject,4)==0 && !pipes[0].used);
 }
+static void snapshot_read_regression(void) {
+    static uint8_t data[32777],out[16386];
+    for(unsigned i=0;i<sizeof(data);i++)data[i]=(uint8_t)(i*37);
+    memset(&subject,0,sizeof(subject));memset(read_files,0,sizeof(read_files));
+    read_files[0]=(struct process_read_file){.used=true,.refs=2,.data=data,.size=sizeof(data)};
+    subject.files[0]=(struct process_file){.used=true,.type=PROCESS_FILE_VFS,.handle=1};
+    subject.files[1]=subject.files[0];
+    memset(out,0xa5,sizeof(out));
+    assert(process_file_read(&subject,3,out+1,16384)==16384);
+    assert(out[0]==0xa5 && out[16385]==0xa5 && !memcmp(out+1,data,16384));
+    assert(process_file_read(&subject,4,out+1,16384)==16384);
+    assert(!memcmp(out+1,data+16384,16384) && read_files[0].offset==32768);
+    read_file_close(1);assert(read_files[0].used && read_files[0].refs==1);
+    assert(process_file_read(&subject,4,out+1,16384)==9 && !memcmp(out+1,data+32768,9));
+    assert(!process_file_read(&subject,4,out+1,16384));
+    read_files[0].offset=UINT64_MAX;assert(!process_file_read(&subject,4,out+1,16));
+    read_files[0].used=false;assert(process_file_read(&subject,4,out+1,16)==-1);
+    assert(process_file_read(&subject,5,out+1,16)==-1);
+    memset(read_files,0,sizeof(read_files));memset(&subject,0,sizeof(subject));
+}
 int main(void) {
+    snapshot_read_regression();
     pipe_regression();
     setup(2); /* Parent retains a duplicate until wait returns. */
     for(unsigned i=0;i<1000;i++) assert(process_output_write(&subject,1,(const uint8_t *)"x",1)==1);

@@ -110,7 +110,9 @@ little-endian 16-bit stereo. Open returns a nonzero generation handle; writes
 accept at most 16 KiB and return the accepted byte count or a retry result.
 Finish seals and drains the stream; Close or process cleanup requests silence
 and releases ownership. Another process cannot query, write, finish or close
-that lease. The compositor's existing Stop control can cancel it.
+that lease. The compositor's existing Stop control silences DMA and revokes the
+lease without waiting for the old process to finish filesystem cleanup. Stale
+handles cannot affect a replacement stream.
 
 The same retained four-second HDA DMA allocation serves tones and files. There
 is no per-write allocation and no userspace DMA pointer. The producer copies
@@ -125,12 +127,16 @@ ambiguous. As before, uncertain DMA memory is retained and silenced.
 
 Settings disables volume/output/Test while a file owns sound; Stop remains
 available. Gain and route are chosen before playback. This is deliberately a
-single-stream implementation: no mixing, resampling, seeking, pause or microphone
+single-stream implementation: no mixing, seeking, pause or microphone
 capture is provided. Cached stream state, ownership, submitted/queued/position
 bytes and underrun counts are included in periodic and exit diagnostics.
 
 `playwav FILE.wav` checks the RIFF/chunk bounds and exact PCM format before
-opening audio. It streams bounded reads, handles backpressure, drains the final
+opening audio. It accepts 16-bit PCM at 44.1 or 48 kHz in mono or stereo.
+A bounded userspace converter duplicates mono channels and uses integer linear
+interpolation for 44.1 kHz sources; the kernel format remains fixed. Compressed,
+extensible and other bit-depth/rate formats are rejected. It streams bounded
+reads, handles backpressure, drains the final
 samples and reports underruns. Malformed, incomplete and unsupported files are
 rejected. Ctrl-C or process termination uses the same kernel ownership cleanup.
 The bundled `/fat/share/examples/stereo.wav` lasts six seconds, with left-only,
@@ -147,9 +153,11 @@ routing still require the laptop round.
 Validation commands:
 
 ```sh
-tools/host-env.sh make test-audio-stream test-wav test-settings
+tools/host-env.sh make test-audio-stream test-wav test-pcm-convert test-settings
 tools/host-env.sh python3 tools/audio_stream_smoke.py
 tools/host-env.sh python3 tools/audio_stream_smoke.py --lifecycle
+tools/host-env.sh python3 tools/audio_stream_smoke.py --mono-44100
+tools/host-env.sh python3 tools/audio_desktop_stream_smoke.py
 tools/host-env.sh python3 tools/audio_stream_smoke.py --seconds 60 --repeat 10
 ```
 
@@ -158,3 +166,17 @@ source, including across DMA-ring wraps. Lifecycle coverage checks foreign-owner
 syscalls, competing players, keyboard input during background playback, killed
 players and subsequent reuse. These results are recorded separately from the
 earlier test-tone soak and do not establish physical sound acceptance.
+
+### Playback during storage work
+
+A USB-write overlap test exposed unnecessary scheduler gating of already-open,
+read-only file snapshots. `SYS_READ` now admits explicit descriptors >=3 for at
+most 16 KiB when their type is `PROCESS_FILE_VFS`. That path only copies from a
+retained memory snapshot and advances the shared cursor under IRQ exclusion.
+Opening, closing, writable-file reads, redirected stdio, larger reads and all
+filesystem mutations keep their existing ownership gate. This is not concurrent
+block-device access. The WAV player's file-close runs after audio release.
+
+The existing filesystem loads read-only file contents when opening them; bounded
+player buffers do not remove that underlying whole-file snapshot limit. Future
+large-media support needs paged/streaming filesystem reads and asynchronous I/O.

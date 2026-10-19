@@ -3047,10 +3047,10 @@ build/tests/smc-service-host$(HOST_EXE): tools/test_smc_service.c tools/smc_mode
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include tools/test_smc_service.c kernel/src/drivers/smc_transport.c -Wl,--gc-sections -o $@
 
-$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o $(USER_LIB_OBJ) userspace/app.ld
+$(USER_PLAYWAV): $(ZIG) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) userspace/app.ld
 	mkdir -p $(dir $@)
-	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o $(USER_LIB_OBJ) -o $@
--include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d
+	$(LD) $(USER_APP_LDFLAGS) $(USER_CRT0_OBJ) build/userspace/playwav/playwav.c.o build/userspace/playwav/wav.c.o build/userspace/playwav/convert.c.o $(USER_LIB_OBJ) -o $@
+-include build/userspace/playwav/playwav.c.d build/userspace/playwav/wav.c.d build/userspace/playwav/convert.c.d
 
 .PHONY: test-audio-stream
 test-core: test-audio-stream
@@ -3067,3 +3067,10 @@ test-wav: build/tests/wav-host$(HOST_EXE)
 build/tests/wav-host$(HOST_EXE): tools/test_wav.c userspace/playwav/wav.c userspace/playwav/wav.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_wav.c userspace/playwav/wav.c -o $@
+.PHONY: test-pcm-convert
+test-core: test-pcm-convert
+test-pcm-convert: build/tests/pcm-convert-host$(HOST_EXE)
+	$<
+build/tests/pcm-convert-host$(HOST_EXE): tools/test_pcm_convert.c userspace/playwav/convert.c userspace/playwav/convert.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_pcm_convert.c userspace/playwav/convert.c -o $@
