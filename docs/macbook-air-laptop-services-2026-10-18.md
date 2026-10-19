@@ -18,17 +18,18 @@ reads in `capture.json`; an unread table is not evidence that it is absent.
 
 The sections below preserve the bring-up sequence; earlier statements about
 unavailable controls describe those earlier stages. Candidate
-**0620ce5e026b2f32** now includes manual brightness, HDA test-tone output,
+**fe119d1c99070b18** includes manual brightness, HDA test tones and PCM/WAV playback,
 read-only CPU/fan providers, device inventory, CDC ECM networking and isolated
 AML discovery. Their implementation/VM results are recorded in the
 [device progress](desktop-progress-2026-10-18.md#device-support-block-audio-usb-networking-and-sensors).
 The new audio and sensor providers still need physical acceptance. Battery/AC,
-recording, media playback, fan control, lid policy and suspend remain unfinished.
+recording, mixing, richer media formats, fan control, lid policy and suspend remain unfinished.
 
 After the physical round, advance device support in this order:
 
 1. Resolve any audio route, sensor or tap failures from the preserved session
-   diagnostics. Keep those fixes separate from adding continuous playback.
+   diagnostics. The PCM/WAV path is now implemented and VM-tested, including
+   storage overlap; the speaker/headphone routes still need a listening test.
 2. Match an actual USB adapter's captured identifiers/descriptors to its driver
    requirements. The October 18 evening inventory still has no Ethernet adapter;
    CDC ECM VM success does not establish support for an arbitrary purchase.
@@ -40,9 +41,11 @@ After the physical round, advance device support in this order:
    with age/error state and preserve charge versus energy units. Exercise delayed
    replies, query contention, removal and failed initialization before enabling
    the provider in the normal laptop profile.
-5. Add bounded PCM streaming to the accepted audio route, with explicit buffer
-   ownership, underrun silence, cancellation and per-client cleanup. Test streams
-   during USB writes and app termination before adding a media player.
+5. After the audio route is accepted, add a GUI player using the shared file
+   picker and asynchronous worker/job library. Decide the live-volume/mute and
+   media-key policy before enabling those shortcuts: the current PCM gain is
+   fixed at Open, and changing queued samples is not an instantaneous master
+   volume control. Mixing, pause/seek and additional formats are separate work.
 
 Power-off and suspend/resume each need their own storage-flush and device-state
 acceptance work. Neither should be inferred from working sensors or battery data.
