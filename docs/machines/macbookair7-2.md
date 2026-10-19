@@ -76,3 +76,9 @@ Shared desktop preparation now includes explicit integer 2× scaling. UEFI VM
 checks passed at 2880×1800/2× and the Air's 1440×900/1×, including exact capture
 pixels and input/window geometry. The installed Air capture exercised the default 1× path; the additional Pro
 models still require their own framebuffer and input acceptance.
+
+
+Read-only [package-energy and CPU0 active-frequency telemetry](../power-telemetry.md)
+now has host arithmetic/service tests and VM refusal evidence. It remains opt-in
+and physically unaccepted. The Linux MSR capture confirms register availability
+on this host but is not an SrvrOS power result. No CPU power controls have changed.

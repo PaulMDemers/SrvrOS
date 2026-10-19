@@ -1,0 +1,83 @@
+# Read-only CPU power telemetry
+
+Status, 2026-10-19: implemented for an explicit diagnostic boot; **native SrvrOS
+acceptance pending**. The installed desktop-idle release predates this provider.
+Ordinary desktop staging does not enable it. This is measurement groundwork
+before changing CPU frequency or idle-state policy.
+
+## Scope and gate
+
+`srvros.power=read-only` starts a one-second scheduled service. The monitor's
+`power` command only reads its cached snapshot; it cannot enable the service or
+write CPU controls. Workspace checkpoints save the same cached values, and
+`hardware_desktop.py` includes them under `devices.power`. Disabled boots perform
+no power MSR reads. Unsupported CPUs report unavailable without reading any MSR.
+
+The first profile requires GenuineIntel family 6/model 0x3d, no hypervisor bit,
+MSR support, CPUID.06H:ECX[0] feedback support and a working monotonic clock.
+It reads only RAPL units (0x606), platform info (0xce), package energy (0x611),
+APERF (0xe8) and MPERF (0xe7). The observed energy exponent must be 14; the
+platform non-turbo ratio must be nonzero and at most 64. No other model is
+implicitly enabled, including the planned Haswell Macs. There are no MSR writes,
+ACPI mode changes, fan controls or power-limit changes.
+
+The initial Linux capture on this Air confirms those five registers are readable,
+units `0xa0e03`, and a nominal 2,200 MHz reference. It was taken during development
+load; its derived 6,010 mW / 1,424 MHz interval is a decoder fixture, not a SrvrOS
+idle result or an OS comparison.
+
+## Meaning and validity
+
+`package_uj` is energy consumed during the interval; `package_mw` is average
+package power over that interval. This excludes the rest of the laptop and must
+not be labeled battery power. `active_mhz` uses nominal MHz times the delta
+APERF/MPERF ratio for the boot logical CPU while active. It is neither instantaneous
+frequency nor frequency averaged over idle time or all cores.
+
+State 0 is disabled, 1 unavailable, 2 sampling. Flag 1 validates energy/power;
+flag 2 independently validates active frequency. Flag 4 marks a stale snapshot.
+The first read is only a baseline, so it has no valid measurements. Zero MPERF
+delta means frequency unavailable. An observed zero energy delta is retained as
+zero, without claiming the sensor independently proves zero consumption.
+
+Sampling accepts intervals from 100 ms through 5 seconds. Clock discontinuities,
+long gaps, reserved energy bits and backwards performance counters invalidate
+the affected measurements and rebaseline. A modulo-32-bit energy delta handles
+ordinary rollover. A 100 W sanity bound rejects implausible energy jumps on this
+mobile package; a 6 GHz bound rejects implausible frequency ratios. These are
+validation ceilings, not hardware limits. Multiplication is bounded before use.
+Neither a small counter reset near rollover nor sensor calibration can be proven
+from two raw values alone. Values older than three seconds have their valid
+flags and derived numbers cleared. Raw samples, time, interval and rejection
+count remain visible. Collection flags stale/rejected samples for review.
+
+## Validation and next physical trial
+
+`make test-power` exercises actual driver sampling with injected CPUID/MSR reads,
+unsupported profiles (zero reads), worker failure, cadence and cached expiry.
+Arithmetic tests cover the captured Linux interval, energy rollover, resets,
+time discontinuities, integer overflow, missing active counts and recovery.
+`tools/power_smoke.py` verifies ordinary VM boot stays disabled and an explicitly
+requested Broadwell VM refuses telemetry. VM refusal cannot validate native
+energy readings. Host/VM evidence is recorded in the October 19 journal.
+
+Before physical enablement, extend the immutable hardware-stage profile and its
+exact-stage rehearsal to carry the explicit option. Retain the accepted recovery
+payload and collect a bounded console/desktop interval with raw counters and a
+clean automatic return. Compare matched workload, display brightness, adapter
+state, wall-clock duration and CPU0 idle counters; do not infer energy savings
+from scheduler idle percentage. Frequency controls and deeper idle entry need
+separate wake/input/storage regressions after a measured baseline exists.
+
+## Primary references
+
+- [Intel SDM Volume 4](https://cdrdv2-public.intel.com/929363/335592-093-sdm-vol-4.pdf),
+  revision 093: §2.15 lists Broadwell 06_3D inherited register tables; Table 2-20
+  provides platform ratio and package RAPL registers; Table 2-2 specifies the
+  APERF/MPERF feature gate and paired reset behavior.
+- [Intel SDM Volume 3B](https://cdrdv2-public.intel.com/929360/253669-093-sdm-vol-3b.pdf),
+  §17.2 describes active-state performance feedback; §17.10 describes RAPL units,
+  domain scope and the 32-bit package energy register.
+
+Local source copies and raw Linux capture live in ignored
+`build/overnight-20261018/`; no firmware dumps or personal inventory are committed.

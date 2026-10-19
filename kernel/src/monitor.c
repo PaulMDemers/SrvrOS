@@ -1,6 +1,7 @@
 #include <srvros/ahci.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
+#include <srvros/power.h>
 #include <srvros/smc.h>
 #include <srvros/audio_abi.h>
 #include <srvros/arch.h>
@@ -507,7 +508,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
 }
@@ -1112,6 +1113,8 @@ static void run_command(char *line) {
         smc_print_status();
     } else if (streq(command, "thermal")) {
         thermal_print_status();
+    } else if (streq(command, "power")) {
+        power_print_status();
     } else if (streq(command, "audio")) {
         unsigned op=0,value=0;
         if(streq(args,"test")) op=SRV_AUDIO_TEST;

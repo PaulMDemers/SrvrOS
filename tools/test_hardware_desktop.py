@@ -50,6 +50,14 @@ class CollectionTests(unittest.TestCase):
         for bad in ("workspace-devices: audio_state=4 monotonic_us=oops","workspace-devices: audio_state=4","audio_state=4 monotonic_us=1"):
             self.assertIsNone(desktop.device_snapshot(bad))
 
+    def test_power_samples_remain_diagnostic(self):
+        good="workspace-devices: power_state=2 flags=3 package_mw=6010 active_mhz=1424 rejected=0 monotonic_us=200"
+        stale=good.replace("flags=3","flags=4").replace("monotonic_us=200","monotonic_us=300")
+        self.assertFalse(desktop.needs_attention(good))
+        self.assertTrue(desktop.needs_attention(stale))
+        self.assertTrue(desktop.needs_attention(good.replace("rejected=0","rejected=1")))
+        self.assertEqual(desktop.device_summaries(stale+"\n"+good)["power"]["flags"],4)
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

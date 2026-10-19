@@ -306,3 +306,23 @@ check was clean (162 directories, 810 files). Ubuntu remains default with no
 one-shot armed, and accepted desktop `b427b78f21644bd2` remains previous.
 Evidence: `build/native-desktop-trials/06c646455f08555e/physical-after/`.
 The automated physical window is now closed; remaining work is host/VM only.
+
+## Read-only package energy and active-frequency groundwork
+
+Added an explicit `srvros.power=read-only` diagnostic provider for the observed
+Broadwell-U CPU. It samples package energy and CPU0 APERF/MPERF once per second,
+with independent validity, bounded interval/arithmetic checks and stale expiry.
+The `power` monitor command and workspace collector expose cached results.
+Ordinary boot stays disabled, and unsupported CPUs/hypervisors issue no provider
+MSR reads. No frequency, idle-state, fan or power-limit controls were changed.
+See [scope, gates and Intel primary references](power-telemetry.md).
+
+Full host tests/build passed, along with ASan/UBSan arithmetic tests, six desktop
+collector tests and both VM boots: default disabled and explicit opt-in refusing
+an emulated Broadwell CPU. The Linux read-only fixture decodes to 6,010 mW package
+power and 1,424 MHz active frequency during development load; this is not SrvrOS
+energy acceptance. Physical enablement requires a future explicitly staged trial.
+The physical reboot window has closed, so this change was not installed.
+
+The corrected ACPI soak has restarted in an independent immutable bundle from
+`99a1d728`; its final result remains pending. The earlier failed bundle is retained.

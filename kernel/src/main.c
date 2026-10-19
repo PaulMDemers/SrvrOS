@@ -5,6 +5,7 @@
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
+#include <srvros/power.h>
 #include <srvros/smc.h>
 #include <srvros/aml_probe.h>
 #include <srvros/trackpad_test.h>
@@ -464,6 +465,7 @@ void kmain(void) {
     }
     intel_gfx_init();
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
+    if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {
