@@ -28,6 +28,15 @@ device work uses separate branches based on `main`.
   `ports/srvros/uacpi/runtime/sci_owner.*`, Q35 adapter binding, host failure
   injection, VM lifecycle checks and runtime guides. Preserve the Q35 identity
   gate and ordinary native startup. Base `bcea808`; draft PR #4 owns the scope.
+- SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
+  route, registers its callback, enables delivery, and retires/restores the
+  route with bounded rollback. Host fault tests and ASan/UBSan pass, including
+  immediate delivery, partial writes and poisoned-state retention. The separate
+  Q35 runtime passes three SCI lifetimes and failed-install rollback after
+  actual route preparation; early EC load passes two lifetimes with queries,
+  SBS samples and disconnect cleanup. Blocked-worker and interpreter self-reset
+  cases halt visibly with live state retained. These are VM/host results only;
+  native source ownership and live mappings remain pending.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.

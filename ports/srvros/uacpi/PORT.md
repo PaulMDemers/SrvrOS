@@ -401,3 +401,21 @@ containment. Existing `--namespace-init`, `--namespace-denied`,
 `--disconnect-timeout` and `acpi_runtime_smoke.py` remain regression paths.
 Ordinary hardware images do not link this adapter; native ECDT resource binding,
 permissions, `_OSI`, Global Lock and GPE ownership still require separate work.
+
+## Shared SCI route owner
+
+The Q35 adapter now uses `runtime/sci_owner` for masked preparation, callback
+registration, enablement, masking, retirement and saved-route restoration.
+Failed partial preparation or callback registration restores the saved masked
+route. A failed enable is remasked; failed masking/removal/restoration poisons
+the owner and requires a halt with state retained. The caller still owns source
+quiescence, worker draining and CPU0 lifecycle serialization. See the
+[native runtime gate](../../../docs/native-ec-runtime.md#sci-route-ownership-implementation)
+for the supported topology subset and limits.
+
+Host fault injection includes immediate interrupt delivery during unmask,
+remapped GSIs, bad firmware flags, invalid/live/pending saved routes, failures
+after hardware mutation and refusal to reuse poisoned state. The Q35 failed
+install now occurs after route preparation, so the runtime VM verifies real
+IO-APIC rollback. Normal/native boot does not link this adapter, and its Q35
+identity/SCI-9/GSI-9 gate remains unchanged.
