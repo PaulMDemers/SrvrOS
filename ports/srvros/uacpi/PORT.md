@@ -30,6 +30,19 @@ Native SCI/GPE ownership, scheduler synchronization, EC query dispatch and the
 battery provider remain separate work. Offline resource evaluation cannot prove
 that battery sampling, suspend, power-off or firmware initialization works.
 
+## Offline ECDT/namespace agreement
+
+`--ec-contract ECDT.dat FACP.dat` validates the supported resource layout and,
+after explicitly requested methods, compares the ECDT device path, HID, UID,
+GPE and CRS with the loaded namespace. It also reports optional Global Lock
+requirements. No controller access is added. The
+[native EC runtime gate](../../../docs/native-ec-runtime.md) records the supported
+subset, captured Air result, initialization side effects and remaining ownership
+work. `make test-acpi-ec-resources test-acpi-namespace` covers malformed tables,
+namespace disagreements, type errors and private snapshot behavior. Logged AML
+errors during evaluation now contribute to failure, including APIs that return
+success. Ordinary desktop startup and the restricted native probe are unchanged.
+
 ## Isolated native probe
 
 `ports/srvros/uacpi/kernel/probe.c` is linked with the same upstream interpreter

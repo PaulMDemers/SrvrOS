@@ -1,9 +1,11 @@
 /* Offline AML evaluation only. No kernel/host hardware access is permitted. */
 #define _POSIX_C_SOURCE 200809L
+#include <srvros/acpi_ec_resources.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/acpi.h>
 #include <uacpi/context.h>
 #include <uacpi/osi.h>
+#include <uacpi/namespace.h>
 #include <uacpi/tables.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -126,14 +128,71 @@ static void display(uacpi_object *object,unsigned depth) {
     default:printf("<%s>",uacpi_object_type_to_string(uacpi_object_get_type(object)));break;
     }
 }
+static unsigned char *read_contract_table(const char *path,size_t *length) {
+    FILE *f=fopen(path,"rb");if(!f) fatal("cannot open EC contract table");
+    if(fseek(f,0,SEEK_END)) fatal("cannot size EC contract table");
+    long n=ftell(f);rewind(f);
+    if(n<36||n>1024*1024) fatal("invalid EC contract table size");
+    unsigned char *p=malloc(n);
+    if(!p||fread(p,1,n,f)!=(size_t)n||fclose(f)) fatal("cannot read EC contract table");
+    *length=n;return p;
+}
+static bool audit_contract(const struct acpi_ec_resources *r) {
+    const char *names[]={"_HID","_UID","_GPE","_CRS","_GLK"};
+    uacpi_object *objects[5]={0};bool glk_absent=false;
+    uacpi_namespace_node *node=NULL;uacpi_object_type type=UACPI_OBJECT_UNINITIALIZED;
+    bool ok=!uacpi_namespace_node_find(NULL,r->path,&node)&&
+        !uacpi_namespace_node_type(node,&type)&&type==UACPI_OBJECT_DEVICE;
+    if(!ok) printf("ec-contract: path does not resolve to a device\n");
+    for(unsigned i=0;i<5;i++) {
+        char path[140];snprintf(path,sizeof(path),"%s.%s",r->path,names[i]);
+        uacpi_status st=UACPI_STATUS_OK;
+        if(i==4) {
+            uacpi_namespace_node *glk_node=NULL;
+            st=uacpi_namespace_node_find(NULL,path,&glk_node);
+            glk_absent=st==UACPI_STATUS_NOT_FOUND;
+        }
+        if(!st) st=uacpi_eval_simple(NULL,path,&objects[i]);
+        printf("ec-contract: %s = ",path);
+        if(glk_absent) printf("<absent>");
+        else if(st||!objects[i]) { ok=false;printf("ERROR %s",st?uacpi_status_to_string(st):"no return"); }
+        else display(objects[i],0);
+        putchar('\n');
+    }
+    uacpi_u64 hid=0,uid=0,gpe=0,glk=0;uacpi_data_view crs={0},text={0};
+    if(ok) {
+        bool identity=(!uacpi_object_get_integer(objects[0],&hid)&&hid==0x090cd041)||
+            (!uacpi_object_get_string(objects[0],&text)&&text.length==8&&!memcmp(text.text,"PNP0C09",8));
+        ok=identity&&!uacpi_object_get_integer(objects[1],&uid)&&
+            !uacpi_object_get_integer(objects[2],&gpe)&&!uacpi_object_get_buffer(objects[3],&crs)&&
+            acpi_ec_namespace_matches(r,uid,gpe,crs.bytes,crs.length)&&
+            (glk_absent||(!uacpi_object_get_integer(objects[4],&glk)&&glk<=1));
+    }
+    ok=ok&&!aml_errors&&!denied;
+    for(unsigned i=0;i<5;i++) if(objects[i]) uacpi_object_unref(objects[i]);
+    printf("ec-contract: %s path=%s data=%x command=%x sci=%u gpe=%x status=%x enable=%x mask=%x global_lock=%s hardware_access=none\n",
+        ok?"MATCH":"REFUSED",r->path,r->data,r->command,r->sci,r->gpe,r->gpe_status,r->gpe_enable,r->gpe_mask,
+        !ok?"unresolved":glk_absent?"absent":glk?"required":"not-requested");
+    return ok;
+}
 int main(int argc,char **argv) {
     /* The independent wall clock also bounds AML outside While loops. */
     alarm(15);setvbuf(stdout,NULL,_IOLBF,0);
     int separator=0,darwin=0;
+    bool contract=false;struct acpi_ec_resources ec_contract={0};
     void *tables[MAX_TABLES];size_t table_count=0;
     for(int a=1;a<argc;a++) {
         if(!strcmp(argv[a],"--")) { separator=a+1;break; }
         if(!strcmp(argv[a],"--darwin")) { darwin=1;continue; }
+        if(!strcmp(argv[a],"--ec-contract")) {
+            if(contract||a+2>=argc) fatal("expected one --ec-contract ECDT.dat FACP.dat");
+            size_t en,fn;unsigned char *ec=read_contract_table(argv[++a],&en);
+            unsigned char *fa=read_contract_table(argv[++a],&fn);
+            enum acpi_ec_resource_result result=acpi_ec_resources_parse(&ec_contract,ec,en,fa,fn);
+            free(ec);free(fa);
+            if(result) { fprintf(stderr,"probe: EC contract table refusal=%u\n",result);return 1; }
+            contract=true;continue;
+        }
         if(!strcmp(argv[a],"--pci")) {
             unsigned seg,bus,dev,fn;int n=0;
             if(++a==argc||pci_count==16||sscanf(argv[a],"%x:%x:%x.%x:%n",&seg,&bus,&dev,&fn,&n)!=4||!n||seg>65535||bus>255||dev>31||fn>7) fatal("expected hex SEG:BUS:DEV.FN:FILE PCI snapshot");
@@ -163,7 +222,7 @@ int main(int argc,char **argv) {
         unsigned sum=0;for(long i=0;i<size;i++) sum+=((unsigned char *)h)[i];if(sum&255) fatal("bad table checksum");
         add_mapping(h,size);tables[table_count++]=h;
     }
-    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--darwin] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--darwin] [--ec-contract ECDT.dat FACP.dat] DSDT.dat [SSDT.dat ...] -- PATH ...");
     struct acpi_fadt fadt={0};header(&fadt.hdr,"FACP",sizeof(fadt));fadt.x_dsdt=(uintptr_t)tables[0];
     checksum(&fadt,sizeof(fadt),9);add_mapping(&fadt,sizeof(fadt));
     size_t xsdt_size=sizeof(struct acpi_sdt_hdr)+8*table_count;
@@ -177,13 +236,14 @@ int main(int argc,char **argv) {
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
     if(darwin) { check(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR),"disable vendor interfaces");check(uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR),"Darwin interface"); }
     check(uacpi_namespace_load(),"namespace load");
-    unsigned failed=(unsigned)aml_errors;
+    unsigned failed=0;
     for(int a=separator;a<argc;a++) {
         uacpi_object *object=NULL;uacpi_status st=uacpi_eval_simple(NULL,argv[a],&object);
         printf("%s = ",argv[a]);if(st) { printf("ERROR %s",uacpi_status_to_string(st));failed++; }else if(object) display(object,0);else printf("<no return>");putchar('\n');
         if(object) uacpi_object_unref(object);
     }
-    uacpi_state_reset();printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
+    if(contract&&!audit_contract(&ec_contract)) failed++;
+    uacpi_state_reset();failed+=(unsigned)aml_errors;printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
     for(size_t i=0;i<table_count;i++) free(tables[i]);
     free(xsdt);
     for(size_t i=0;i<region_count;i++) free(regions[i].bytes);

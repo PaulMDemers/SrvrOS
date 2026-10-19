@@ -31,8 +31,16 @@ device work uses separate branches based on `main`.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
-- Next checkpoint: captured-table replay and negative resource cases; publish
-  audited initialization/permission requirements for a separate native adapter.
+- Resource checkpoint: [offline EC contract audit](../native-ec-runtime.md)
+  matches captured ECDT/FADT to the loaded EC Device/HID/UID/GPE/CRS, with absent
+  `_GLK`, zero errors/denials/leaks and private snapshots only. Generic table
+  and namespace refusal tests pass. A separate PCI0 `_INI` replay refuses the
+  GPIO mapping at `0x800`; native initialization needs that additional audit.
+  This is not controller ownership acceptance. The production build passes and
+  its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
+- Next checkpoint: implement the separate opt-in native adapter's audited
+  mappings, Darwin initialization and SCI/EC owner lifecycle; test failures
+  before a logged physical battery trial. No new trial is armed.
 
 ## Accepted scope and open items
 

@@ -2924,6 +2924,14 @@ test-widgets: test-widget-boundary
 test-widget-boundary: $(HOST_DESK_WIDGETS_A)
 	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
 
+test-core: test-acpi-ec-resources
+.PHONY: test-acpi-ec-resources
+test-acpi-ec-resources: build/tests/acpi-ec-resources-host$(HOST_EXE)
+	$<
+build/tests/acpi-ec-resources-host$(HOST_EXE): tools/test_acpi_ec_resources.c kernel/src/drivers/acpi_ec_resources.c kernel/include/srvros/acpi_ec_resources.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_acpi_ec_resources.c kernel/src/drivers/acpi_ec_resources.c -o $@
+
 .PHONY: test-ec-transport
 test-core: test-ec-transport
 test-ec-transport: build/tests/ec-transport-host$(HOST_EXE)
@@ -3002,9 +3010,9 @@ UACPI_SRC := $(wildcard ports/upstream/uacpi/source/*.c)
 UACPI_HEADERS := $(shell find ports/upstream/uacpi/include -type f)
 .PHONY: acpi-namespace
 acpi-namespace: build/tools/acpi-namespace$(HOST_EXE)
-build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c $(UACPI_SRC) $(UACPI_HEADERS)
+build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c kernel/src/drivers/acpi_ec_resources.c kernel/include/srvros/acpi_ec_resources.h $(UACPI_SRC) $(UACPI_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO $< $(UACPI_SRC) -o $@
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -I kernel/include -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO $< kernel/src/drivers/acpi_ec_resources.c $(UACPI_SRC) -o $@
 
 .PHONY: test-acpi-namespace
 test-acpi-namespace: acpi-namespace
