@@ -10,11 +10,19 @@ Only unmodified `include/`, `source/`, LICENSE and README.md are vendored.
 The first adapter is `tools/acpi_namespace_probe.c`, a single-threaded offline
 host tool. It builds synthetic RSDP/XSDT/FADT pointers around explicitly supplied
 DSDT/SSDT copies, validates their checksums and evaluates selected objects.
-Physical mappings are limited to these owned buffers and explicit snapshots. SystemIO accesses and uncaptured PCI/MMIO accesses are denied; there is no
+Physical mappings are limited to these owned buffers and explicit snapshots.
+SystemIO accesses without an explicit private byte model and uncaptured
+PCI/MMIO accesses are denied; there is no
 `/dev/mem`, port I/O or host firmware access. `--region ADDRESS:FILE` and
 `--pci SEG:BUS:DEV.FN:FILE` explicitly provide private copies of previously
 captured memory/configuration state. Writes change those in-memory copies only;
-the files and hardware are never modified.
+the files and hardware are never modified. `--io-model ADDRESS:FILE` supplies
+private SystemIO bytes and traces every access. `--io-set-model ADDRESS:MASK:FILE`
+restricts a one-byte model to setting the specified bits, using the shared pure
+`acpi_io_rule` predicate. Mapping a broader AML region does not admit neighboring
+accesses; each access is checked against the explicit model. Models are bounded
+and overlapping ones are refused; more than 4,096 accesses aborts the process.
+They emulate bytes, not EC/controller protocols or hardware ownership.
 `UACPI_REDUCED_HARDWARE` compiles out fixed-register/event machinery and
 `UACPI_NATIVE_MMIO` prevents operation-region access through table mappings.
 These are restrictions of the offline adapter, not claims about laptop hardware.
@@ -23,7 +31,7 @@ The tool loads module-level AML, but does not call namespace initialization,
 enter ACPI mode, install an EC handler or run `_REG`/all `_INI` methods. Its
 Darwin profile disables other vendor `_OSI` strings; selecting it is an explicit
 probe option, not yet native OS policy. Each evaluated object is named on the
-command line. Loop depth/time and host runtime are bounded. A denied access is
+command line, except the explicit EC contract audit described below. Loop depth/time and host runtime are bounded. A denied access is
 reported as incomplete; values from a denied access must not be treated as hardware readings.
 
 Native SCI/GPE ownership, scheduler synchronization, EC query dispatch and the

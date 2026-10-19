@@ -55,9 +55,11 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=()):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
+        for address,path in models: args+=['--io-model',f'{address}:{path}']
+        for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
         if contract: args+=['--ec-contract',*[str(p) for p in contract]]
         if snapshot: args+=['--region',f'0x100000:{self.snapshot}']
         args += [str(aml or self.aml),'--',*paths]
@@ -120,6 +122,79 @@ class NamespaceTests(unittest.TestCase):
         self.assertEqual(r.returncode,1)
         self.assertIn('EC contract table refusal',r.stderr)
         self.assertNotIn('\\READ =',r.stdout)
+
+    def test_io_model_preserve_and_private_file(self):
+        model=self.folder/'gpio.bin'
+        for value in [0,0x08,0xa5,0xff]:
+            with self.subTest(value=value):
+                model.write_bytes(bytes([value]))
+                r=self.probe('\\GINI','\\GCLR',models=[('0xb90',model)])
+                self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+                self.assertIn(f'write port=0xb90 width=8 before=0x{value:x} value=0x{value|8:x}',r.stdout)
+                self.assertIn(f'write port=0xb90 width=8 before=0x{value|8:x} value=0x{value&~8:x}',r.stdout)
+                self.assertIn('denied=0',r.stdout)
+                self.assertIn('remaining_allocated=0',r.stdout)
+                self.assertEqual(model.read_bytes(),bytes([value]))
+
+    def test_io_model_accesses_remain_bounded(self):
+        model=self.folder/'gpio.bin';model.write_bytes(b'\xa5')
+        for method in ['\\GOUT','\\GWID']:
+            with self.subTest(method=method):
+                r=self.probe(method,models=[('0xb90',model)])
+                self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+                self.assertIn('SystemIO access denied',r.stderr)
+                self.assertIn('remaining_allocated=0',r.stdout)
+                self.assertNotIn('io-model: write',r.stdout)
+                self.assertEqual(model.read_bytes(),b'\xa5')
+
+    def test_io_set_model_limits_changes(self):
+        model=self.folder/'gpio.bin';model.write_bytes(bytes([0xa5]))
+        r=self.probe('\\GINI',set_models=[('0xb90','8',model)])
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('write port=0xb90 width=8 before=0xa5 value=0xad',r.stdout)
+        r=self.probe('\\GINI','\\GCLR',set_models=[('0xb90','8',model)])
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertEqual(r.stdout.count('io-model: write'),1)
+        self.assertIn('SystemIO access denied',r.stderr)
+        self.assertIn('remaining_allocated=0',r.stdout)
+        r=self.probe('\\GINI',set_models=[('0xb90','4',model)])
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertNotIn('io-model: write',r.stdout)
+        self.assertEqual(model.read_bytes(),bytes([0xa5]))
+        for mask in ['0','256','-1','x']:
+            r=self.probe('\\GINI',set_models=[('0xb90',mask,model)])
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        model.write_bytes(bytes(2))
+        r=self.probe('\\GINI',set_models=[('0xb90','8',model)])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+
+    def test_io_model_word_endianness(self):
+        model=self.folder/'word.bin';model.write_bytes(bytes(4))
+        r=self.probe('\\GWID',models=[('0xb90',model)])
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('write port=0xb90 width=32 before=0x0 value=0x12345678',r.stdout)
+        self.assertIn('\\GWID = 0x12345678',r.stdout)
+        self.assertEqual(model.read_bytes(),bytes(4))
+
+    def test_io_model_invalid_layout(self):
+        model=self.folder/'gpio.bin';model.write_bytes(bytes(2))
+        for models in [[('0xffff',model)],[('0xb90',model),('0xb91',model)],[('-1',model)]]:
+            with self.subTest(models=models):
+                r=self.probe('\\GINI',models=models)
+                self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+                self.assertNotIn('io-model:',r.stdout)
+
+    def test_io_model_access_budget(self):
+        model=self.folder/'gpio.bin';model.write_bytes(b'\0')
+        r=self.probe('\\GBUD',models=[('0xb90',model)])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        self.assertIn('SystemIO model access budget exceeded',r.stderr)
+        self.assertEqual(r.stdout.count('io-model:'),4096)
+
+    def test_darwin_policy_excludes_other_vendor_interfaces(self):
+        r=self.probe('\\OPOL',darwin=True)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('\\OPOL = 0x1',r.stdout)
 
     def test_snapshot_writes_are_private(self):
         before=self.snapshot.read_bytes()

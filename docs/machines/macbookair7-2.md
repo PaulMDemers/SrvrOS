@@ -26,8 +26,9 @@ device work uses separate branches based on `main`.
 - Current bounded implementation: audit the GPIO access made by PCI0 `_INI`,
   add explicit private SystemIO models/trace to the offline namespace tool and
   derive a tested native permission boundary from the observed access. Scope:
-  `tools/acpi_namespace_probe.c`, namespace fixtures/tests, native resource
-  policy and runtime guides. No native EC/SCI activation or sibling gate changes.
+  `tools/acpi_namespace_probe.c`, namespace fixtures/tests, `acpi_io_rule`,
+  runtime guides and CI coverage of the offline audit. No native EC/SCI
+  activation or sibling gate changes.
   Base `3f4fb57` on `main` merge `db40ed5`; draft PR #4 owns this shared scope.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
@@ -36,7 +37,11 @@ device work uses separate branches based on `main`.
   matches captured ECDT/FADT to the loaded EC Device/HID/UID/GPE/CRS, with absent
   `_GLK`, zero errors/denials/leaks and private snapshots only. Generic table
   and namespace refusal tests pass. A separate PCI0 `_INI` replay refuses the
-  GPIO mapping at `0x800`; native initialization needs that additional audit.
+  GPIO mapping at `0x800`. The follow-up private byte replay completes PCI0
+  `_INI` with one read/write at `0xb90`, setting only bit 3. The same replay
+  passes a set-only bit-3 rule and rejects a wrong mask; native GPIO effects
+  and ownership still need acceptance. Eighteen namespace tests and the pure
+  per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
   This is not controller ownership acceptance. The production build passes and
   its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
 - Next checkpoint: implement the separate opt-in native adapter's audited

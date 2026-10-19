@@ -95,6 +95,56 @@ Three initialization details matter:
   owner must dispatch `_Qxx` after releasing the byte/bank transaction lease.
   Dropping queries or running them inside a battery transaction is insufficient.
 
+## GPIO initialization replay and per-access constraint
+
+The next offline replay supplied a one-byte private model at `0xb90`, initially
+`0xa5`, and evaluated `PINI`, PCI0 `_INI` and `OSDW` under Darwin-only vendor
+interfaces. PCI0 `_INI` completed with exactly one 8-bit read followed by one
+8-bit write, `0xa5` → `0xad`. The eight private memory writes, EC contract match,
+zero errors/denials/leaks and unchanged model file are recorded locally.
+This removes the earlier *offline* mapping blocker; it does not accept a live
+GPIO write or full namespace initialization.
+
+The captured field is `GI82`, bit 3 at `GPIO + 0x390`. The upstream Intel-authored
+[Linux Lynxpoint pinctrl driver](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/pinctrl/intel/pinctrl-lynxpoint.c)
+describes per-pin configuration at `0x100 + 8 * pin` and bit 3 as interrupt
+trigger inversion. That agrees with pin 82's offset. This identifies an interrupt
+polarity effect, not a harmless scratch variable; the Mac's wiring, current pin
+mode, event state and native ownership still require validation. No Linux driver
+code was copied into SrvrOS.
+
+The offline tool supports:
+
+```sh
+# Any modeled writes remain in process memory; the input file is unchanged.
+build/tools/acpi-namespace --io-model ADDRESS:FILE ...
+# One-byte model: only SET_MASK bits may change, and only from zero to one.
+build/tools/acpi-namespace --io-set-model ADDRESS:SET_MASK:FILE ...
+```
+
+For the captured Air initialization replay, `--io-set-model 0xb90:8:FILE`
+admits the observed GPIO access. The declared 1 KiB operation region may be
+mapped as an opaque handle, but each access must fit inside the explicit byte
+model. Adjacent bytes and wider accesses remain denied. A 4,096-access budget
+bounds trace size; exhausting it fails the offline process. No host port or
+memory device is opened. Unmodeled SystemIO remains denied by default.
+
+`acpi_io_rule` is the reusable pure predicate behind the restricted model. It
+checks exact port and access width, valid masks, unchanged protected bits and
+set-only bits. Tests enumerate all 65,536 before/after byte combinations and
+cover invalid rules, read-only rules, 16/32-bit values and address overflow.
+This predicate is a constraint on an access already admitted by a native owner,
+not evidence of ownership or a hardware binding. A future adapter must obtain a
+fresh before value under its serialization policy, validate the exact firmware
+and live register description, and only use this rule for audited ordinary R/W
+registers. It must not apply read/modify/write rules to W1C, command/status or
+read-side-effect registers. Native startup links no caller of this predicate.
+
+The synthetic AML suite checks preservation, a denied clear, denied other-bit
+changes, outside/wide accesses, private files, malformed models, access budgets
+and a Darwin policy that excludes Linux/Windows vendor responses. The captured
+Air also succeeds with the set-only bit-3 rule and refuses a wrong bit-2 rule.
+
 ## Next adapter and acceptance sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the
