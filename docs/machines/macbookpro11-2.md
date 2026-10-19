@@ -53,11 +53,33 @@ Privileged inspection confirmed no existing SrvrOS installation, an empty GRUB
 environment (no pending one-shot), verified Ubuntu default, and about 1 GiB free
 on the ESP. Secure Boot is unsupported on this firmware.
 
+## Host and VM validation
+
+At source `7fff5cc` (inventory-only change over `db40ed5`):
+
+- `make check-host`: PASS, including all pinned submodules and OVMF.
+- `make -j2 all usb-image test-core`: PASS; Zig 0.15.2 verified by bootstrap.
+- `make smoke`: PASS (syscall ABI, 481-command shell regression, shell editing,
+  UEFI USB keyboard and displayd). Final shell filesystem check reported no
+  errors or leaks.
+- `make check-docs`: PASS.
+- Prepared the existing exFAT workspace without formatting or replacing files.
+- Exact console release `a5b5ae578027e8c0`, v7 workspace profile:
+  `hardware_boot_smoke.py --console-check` PASS (GRUB chainload, RAM filesystem,
+  USB input, case/Caps/repeat and renderbench). This rehearsal does not attach
+  the physical workspace and does not establish physical persistence.
+
+The candidate and Linux/VM evidence have a durable local archive outside
+`build`; its path is recorded in `build/bringup/checkpoint.json`. It is a tested
+VM candidate, not an accepted physical recovery release.
+
 ## Next checkpoint
 
-Finish pinned submodules and host tools, run build/core tests and sequential
-baseline VM smoke, prepare the exFAT workspace and rehearse the exact console
-candidate. Record results and installed state in `build/bringup/checkpoint.json`
-before any physical trial. Obtain a reboot window after the candidate and recovery
-checks are concrete. On return from any future trial, collect its matching USB
-session before staging another candidate.
+Release `a5b5ae578027e8c0` is installed and hash-verified on the ESP;
+GRUB syntax and Ubuntu default checks pass. No previous SrvrOS release exists.
+No one-shot boot is armed, and the firmware boot order is unchanged.
+Schedule the first physical console/input/workspace trial. The ignored local checkpoint retains
+UUID, exact manifest, recovery/installed state and intended checks. Do not arm a
+reboot until the user's work is saved and a reboot window is authorized. On
+return, collect the matching session before staging another candidate. Physical
+audio/SMC enablement and Retina desktop acceptance remain future work.
