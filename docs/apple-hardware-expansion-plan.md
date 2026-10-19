@@ -25,9 +25,13 @@ Apple identifies [Air7,1](https://support.apple.com/en-us/102869) and gives its
 The [Mini identification](https://support.apple.com/en-us/102852) and
 [specifications](https://support.apple.com/en-ca/111931) establish its variants.
 
-Suggested bring-up order is Air7,1, Pro11,2, Mini7,1, then Pro11,3. This is an
-engineering estimate based on likely reuse and display complexity; availability
-may change the order. Inventory all four before implementing model quirks.
+Each machine will have its own agent developing on-device under Ubuntu, with
+an exFAT USB workspace. Use the [setup/handoff guide](ubuntu-device-agent-setup.md)
+and [per-machine records](machines/README.md). Agents can inventory and develop
+independently; coordinate changes to common code through the integration owner.
+Air7,1, Pro11,2, Mini7,1, then Pro11,3 is an estimated integration order based
+on reuse/display complexity, not a requirement to wait for another agent's
+machine. Capture each target before implementing its model quirks.
 
 ## Current work and shared dependencies
 
@@ -56,8 +60,8 @@ sudo python3 tools/capture_linux_hardware.py --output build/hardware/<model>-<da
 Replace the placeholders and use a new directory. Preserve `capture.json` and
 its missing/partial-read list. Record model/year, firmware revision, CPU, RAM,
 display/connection, original versus replaced storage, and attached peripherals.
-No machine serial number is needed. These captures have not yet been requested
-from or performed on the additional machines.
+No machine serial number is needed. Each local agent should collect its own
+inventory during setup; none has yet been supplied for the additional machines.
 
 Before calling captures complete, extend the collector in these specific ways:
 

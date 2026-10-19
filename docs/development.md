@@ -1,7 +1,9 @@
 # Development setup
 
-For the laptop's GRUB build/reboot loop and Linux device captures, see
-[hardware development](hardware-development.md).
+For a new Ubuntu machine and its local agent, use the complete
+[Ubuntu device-agent setup](ubuntu-device-agent-setup.md), including the current
+development branch, exFAT drive and recovery workflow. The dated
+[hardware development](hardware-development.md) page retains original Air evidence.
 
 The base OS builds on x86_64 Linux and MSYS2 UCRT64. Zig 0.15.2 is downloaded
 into `build/tooling/zig`, verified against the release SHA-256, and used for
@@ -13,7 +15,7 @@ commits in the Makefile. The Linux build compiles Limine's host utility with
 
 ```sh
 sudo apt-get update
-sudo apt-get install -y --no-install-recommends build-essential git python3 xorriso qemu-system-x86 qemu-system-gui ovmf acpica-tools
+sudo apt-get install -y --no-install-recommends build-essential git python3 python3-pil xorriso qemu-system-x86 qemu-system-gui ovmf acpica-tools
 # From the repository root:
 git submodule update --init --recursive
 make check-host
@@ -68,10 +70,9 @@ unit tests, and runs these QEMU harnesses sequentially:
 5. The displayd desktop smoke.
 
 The baseline allows up to 180 seconds for boot (`SMOKE_BOOT_WAIT` overrides
-this). The default entry performs automatic hardware diagnostics; on this
-laptop the original 45-second ABI-test timeout expired during init. The kernel
-uses a fixed LAPIC initial count rather than calibrating ticks against a
-reference clock, so timing is also a separate bring-up concern.
+this). The original 45-second timeout predates the console/timing work. The
+current kernel calibrates its LAPIC timer against the ACPI PM reference; a
+reference/calibration failure on another machine still needs explicit diagnosis.
 
 `make libc-audit` checks declared libc functions against exported symbols.
 The GitHub Actions workflow runs the base Linux build and smoke suite on

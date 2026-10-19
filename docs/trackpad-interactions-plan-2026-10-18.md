@@ -3,6 +3,11 @@
 Status: physical held-click two-finger dragging accepted by the user on hardware.
 One-finger primary and two-finger secondary taps implemented; physical tap
 acceptance pending. Tap dragging and three-finger gestures remain planned.
+The v22 physical round recorded five primary taps and one secondary tap, but
+the user reported no visible right-click result when physically pressing with
+two fingers. Physical secondary press is not yet implemented; it still produces
+primary click. Adding it while preserving held-click steering is the next input
+task. See the [machine record](machines/macbookair7-2.md).
 Target: MacBookAir7,2 built-in Apple 05ac:0291 Type 3 trackpad. This is a plan for
 SrvrOS behavior, not a claim of macOS compatibility or physical acceptance.
 
@@ -47,7 +52,8 @@ must not silently turn a two-finger scroll into a drag.
 
 The first implementation uses a small two-contact tracker within pointer policy.
 Its selection/handoff thresholds are provisional 32/64 raw units (2/4 pixels at
-base gain), with a 2048-unit continuity bound. Hardware feel is still unverified.
+base gain), with a 2048-unit continuity bound. The user accepted held-click
+steering on hardware; individual handoff counters remain limited evidence.
 Saved exit diagnostics include held-drag frames, rebases and handoffs; rebases
 include the deliberate waiting-for-motion phase, not only ambiguous matches.
 For later tap and thumb recognition, extend the tracker between decoder and policy. Match

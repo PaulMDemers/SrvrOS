@@ -48,7 +48,13 @@ Settings keeps a single request in flight, coalesces volume changes, queues Stop
 rejects stale responses and does not cancel slider capture on acknowledgement.
 Volume and output selection are session-only.
 
-## Physical acceptance still required
+## Physical acceptance checkpoint (2026-10-18)
+
+The user confirmed audible volume changes in native release
+`b427b78f21644bd2`. Saved logs show three test tones started/completed, volume
+ending at 7 and no audio error. Basic speaker output/volume is accepted for this
+Air; channel balance, PCM file playback, headphone routing and sustained native
+playback still need specific confirmation. Other Mac models remain untested.
 
 QEMU output validates sample production and routing through its own codec model;
 it does not prove the MacBook speaker amplifier sequence, headphone route, volume
@@ -58,7 +64,9 @@ input responsiveness, and optional wired-headphone checks. Output selection is
 manual for this first round. Do not infer a passing physical test from enumerating
 the codec or advancing the DMA position.
 
-No laptop reboot is performed during the user's VM-only development block.
+The earlier VM-only block is complete. The failed v21 boot stalled in optional
+AML probing before the desktop; v22 omits that probe and reached this listening
+round. See the [machine record](machines/macbookair7-2.md).
 
 ## References
 

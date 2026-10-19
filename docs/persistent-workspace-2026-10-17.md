@@ -1,5 +1,10 @@
 # Persistent USB workspace
 
+For setup on a new Ubuntu host, follow the
+[device-agent guide](ubuntu-device-agent-setup.md). UUID/release values below are
+reference-Air examples, not defaults to copy to other machines. This page
+describes the v7 console workspace; v22 desktop staging is a separate step.
+
 The optional workspace profile keeps the boot filesystem at `/fat` in RAM and
 mounts one explicitly selected exFAT USB volume at `/work`. Documents and shell
 scripts go in `/work/srvros-work`. The whole selected volume becomes writable;

@@ -13,6 +13,12 @@ replacement UI architecture and its quiet, refined visual direction; the
 [interactive design study](docs/design/desktop-study.html) is a browser prototype,
 not an implemented native desktop.
 
+For an agent developing locally on an Ubuntu Mac, start with the
+[Ubuntu device-agent setup guide](docs/ubuntu-device-agent-setup.md). It covers
+the repository branch, build tools, exFAT USB workspace, GRUB one-shot boots,
+recovery and evidence collection. [Per-machine records](docs/machines/README.md)
+track the reference Air and planned Air7,1, Pro11,2/11,3 and Mini7,1 targets.
+
 The current native desktop has a global menu bar, dock, launcher, independent
 application windows and a shared widget toolkit. Its twelve apps cover Files,
 Text, Terminal, Preview, Sketch, Find Files, Calculator, System, Network Utility,
@@ -25,15 +31,19 @@ covers workflows, shortcuts and current limits; the
 [widget library guide](userspace/widgets/README.md) documents reusable controls and
 application boundaries. The [development journal](docs/desktop-progress-2026-10-18.md)
 records implementation and VM checks. The accepted MacBook Air input/I/O
-checkpoint is preserved separately; the current device candidate is validated
-in disposable VMs and ready for its next physical test.
+checkpoint is preserved separately. The latest Air7,2 desktop/device trial
+`b427b78f21644bd2` booted successfully; its partial acceptance and remaining
+failures are recorded in the [machine record](docs/machines/macbookair7-2.md).
 
 Device work adds manual panel brightness, configurable trackpad gestures,
 CPU/fan readings, CDC ECM USB networking and HDA sound output. The new
 [`playwav` player](docs/macbook-air-audio-2026-10-18.md) supports 16-bit mono/stereo
 PCM WAV at 44.1 or 48 kHz, including playback during USB storage work. Speaker
-and headphone sound, sensor freshness and an actual network adapter still need
-physical acceptance. Battery/AC reporting awaits the live SCI/EC runtime; its
+volume changes and fresh CPU/fan readings were confirmed on the reference Air;
+PCM file playback, headphone routing and an actual network adapter still need
+specific physical acceptance. Physical two-finger right-click and a System app
+input timeout remain open. The optional AML probe is excluded from the current
+v22 desktop profile after a native boot stall. Battery/AC reporting awaits the live SCI/EC runtime; its
 tested foundations and next steps are in the
 [laptop-service notes](docs/macbook-air-laptop-services-2026-10-18.md).
 

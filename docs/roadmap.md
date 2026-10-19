@@ -1,5 +1,9 @@
 # srvros Roadmap
 
+Each target will have an agent developing locally under Ubuntu. The
+[setup and handoff guide](ubuntu-device-agent-setup.md) defines the common
+workflow; [machine records](machines/README.md) track independent acceptance.
+
 The [Apple hardware expansion plan](apple-hardware-expansion-plan.md) adds
 MacBookAir7,1, MacBookPro11,2, MacBookPro11,3 and Macmini7,1 as planned targets.
 It retains the current Air's input, desktop timeout and idle-power fixes first,

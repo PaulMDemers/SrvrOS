@@ -1,5 +1,11 @@
 # USB-backed hardware test cycle
 
+For per-machine Ubuntu/USB setup and recovery, start with the
+[device-agent guide](ubuntu-device-agent-setup.md). Always pass that machine's
+own `--uuid` when preparing a run; the historical values below belong to Air7,2.
+The test launcher installs and immediately reboots, promoting the old current
+release to previous; preserve an accepted recovery independently beforehand.
+
 New preparations use v3 (`ram-usb-v8-autotest-…`). In addition to the v2
 [USB file workload](usb-file-workload-2026-10-17.md), they run the real userspace
 shell and `ed` in a fresh `srvros-tests/<run>.shell` directory. They edit/save,

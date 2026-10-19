@@ -5,7 +5,7 @@ preferred provider when both it and a USB adapter are present. `net0` is the
 userspace interface name. There is no live failover or re-enumeration yet.
 
 `srvros.usb-network=ecm` enables the first USB provider: CDC Ethernet Control
-Model (ECM). It is enabled in the v21 laptop desktop profile. It discovers the
+Model (ECM). It is enabled in the v21 and current v22 desktop profiles. It discovers the
 control/data interfaces, validates their descriptors, reads the advertised MAC,
 sets the data alternate setting and packet filter, and uses asynchronous xHCI
 bulk transfers. Receive, transmit and notification buffers remain owned by the

@@ -1,5 +1,10 @@
 # Develop and reboot on the MacBook Air
 
+For the current end-to-end procedure, use the
+[Ubuntu device-agent setup guide](ubuntu-device-agent-setup.md) and
+[machine records](machines/README.md). The baseline sections below preserve
+the October 16 bring-up sequence; their then-current limitations are historical.
+
 Additional planned models and inventory requirements are tracked in the
 [Apple hardware expansion plan](apple-hardware-expansion-plan.md). These targets
 are not yet physically validated; this document's baseline refers to Air7,2.

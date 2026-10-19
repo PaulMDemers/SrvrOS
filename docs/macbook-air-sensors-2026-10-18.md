@@ -1,9 +1,15 @@
 # MacBook Air processor sensors — 2026-10-18
 
+Physical update: `b427b78f21644bd2` produced fresh CPU/package and fan readings
+in the user's screenshots and saved session. The sensor screenshot shows 83 C,
+1202 RPM and subsecond sample ages; logs reached 85 C with no SMC failures.
+This confirms live telemetry on Air7,2, not calibration, idle-power behavior or
+support for another model. See the [machine record](machines/macbookair7-2.md).
+
 The opt-in `srvros.sensors=cpu` backend reads Intel digital temperature registers
 on the initial target only: GenuineIntel family 6, model `0x3d`, with MSR and
 DTS capability. Hypervisors are rejected. No fan controller, power limit, thermal
-threshold or MSR is written. The v21 desktop profile enables the backend.
+threshold or MSR is written. The v21 and current v22 desktop profiles enable the backend.
 
 A dedicated worker samples the boot CPU's core and package every second and
 publishes a versioned 72-byte snapshot. The System app's Sensors tab queries the
@@ -22,7 +28,8 @@ Read-only Ubuntu captures confirmed the CPU model and readable target/core/
 package registers. Host tests cover that fixture, unsupported CPUs and virtual
 machines, target offset rejection, invalid core readings, negative temperatures,
 current versus sticky flags and UI stale-data behavior. The VM must display an
-unavailable sensor provider. Actual SrvrOS readings need the laptop test.
+unavailable sensor provider. Native live readings were subsequently confirmed
+in the physical update above.
 
 Battery/AC remains unavailable. Neither this backend
 nor a temperature reading establishes suspend/resume, thermal policy or fan
@@ -35,7 +42,7 @@ no kernel driver was copied.
 
 ## Read-only SMC fan provider
 
-`srvros.smc=read-only` adds fan telemetry in the v21 desktop profile. Binding
+`srvros.smc=read-only` adds fan telemetry in the v21/v22 desktop profiles. Binding
 requires the captured DSDT's exact checksum/hash identity and the target GPU/LPC
 IDs. Its APP0001 resource template declares ports `0x300..0x31f`, MMIO and IRQ 6;
 this provider uses only the data and command/status ports, without MMIO or IRQs.
@@ -60,7 +67,7 @@ six response bytes; exit diagnostics repeat them for firmware mismatch diagnosis
 Host tests cover the target gate, metadata mismatch, unsupported fan count,
 busy/extra/missing data, signed clock movement, cancellation, sample invalidation
 and zero/maximum RPM decoding. The generic VM verifies an unavailable provider;
-physical SMC sampling is pending the laptop round.
+physical SMC sampling was subsequently confirmed in the v22 laptop round.
 
 Protocol/register references: pinned [Linux Apple SMC](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/hwmon/applesmc.c)
 and [QEMU Apple SMC](https://raw.githubusercontent.com/qemu/qemu/v9.2.0/hw/misc/applesmc.c).

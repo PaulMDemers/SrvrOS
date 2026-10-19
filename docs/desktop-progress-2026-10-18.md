@@ -1937,3 +1937,26 @@ and the process exited with status 0. The timeout cause is unresolved and should
 be investigated alongside the gesture change. This round is partial acceptance,
 not an unconditional hardware pass. The AML diagnostic remains disabled in the
 normal desktop profile and its native stall remains unresolved.
+
+## On-device agents: shared setup and current status documentation
+
+The additional Macs will each have an agent developing locally under Ubuntu.
+The [setup guide](ubuntu-device-agent-setup.md) now covers the shared source
+branch, host dependencies, read-only inventory, per-host exFAT UUID/marker,
+console versus desktop staging, exact-artifact VM testing, GRUB installation and
+one-shot boot, recovery preservation, post-return collection and failure halts.
+It distinguishes desktop manual return from automatic five-round filesystem
+runs, and warns that `latest` paths and VM output are shared within a checkout.
+No new physical trial or host installation was performed for this documentation.
+
+[Machine records](machines/README.md) establish Air7,2's partial acceptance and
+separate untested records for Air7,1, Pro11,2, Pro11,3 and Mini7,1. The agent entry
+point and handoff template keep source/release identity, local recovery, reboot
+state and human observations durable. Current README/development/device guides
+now reflect brightness/volume/live-sensor acceptance, physical secondary-click
+and System-timeout gaps, calibrated timing and the v22 AML omission. Older dated
+bring-up records remain history rather than being rewritten as current results.
+
+Validation: local documentation links and setup shell syntax checked; `check-host`
+passed; 23 boot-installer, six workspace and three desktop-collector tests passed.
+These checks do not claim the setup has been performed on any additional Mac.

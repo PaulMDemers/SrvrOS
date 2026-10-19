@@ -14,22 +14,28 @@ battery serial numbers or input events. Values retain Linux units and are not
 an atomic snapshot. The unprivileged capture records unavailable ACPI-table
 reads in `capture.json`; an unread table is not evidence that it is absent.
 
-## Current checkpoint: evening device candidate
+## Current checkpoint: returned physical device trial
 
 The sections below preserve the bring-up sequence; earlier statements about
 unavailable controls describe those earlier stages. Candidate
-**fe119d1c99070b18** includes manual brightness, HDA test tones and PCM/WAV playback,
-read-only CPU/fan providers, device inventory, CDC ECM networking and isolated
-AML discovery. Their implementation/VM results are recorded in the
+**fe119d1c99070b18** stalled during optional AML probing. Replacement
+**b427b78f21644bd2** (v22) omits that probe and successfully reached the desktop.
+The user confirmed brightness and audible volume changes and live sensor output.
+PCM file playback, headphone routing and an actual network adapter still need
+specific physical acceptance. Implementation/VM results are recorded in the
 [device progress](desktop-progress-2026-10-18.md#device-support-block-audio-usb-networking-and-sensors).
-The new audio and sensor providers still need physical acceptance. Battery/AC,
-recording, mixing, richer media formats, fan control, lid policy and suspend remain unfinished.
+The [machine record](machines/macbookair7-2.md) records the exact accepted scope.
+Physical secondary clicking is missing and System had an input-timeout closure.
+Battery/AC, recording, mixing, richer media formats, fan control, lid policy and
+suspend remain unfinished. New model agents start with the
+[Ubuntu guide](ubuntu-device-agent-setup.md), not the Air's firmware/UUID values.
 
-After the physical round, advance device support in this order:
+Next work follows the [shared priorities](apple-hardware-expansion-plan.md#current-work-and-shared-dependencies):
 
-1. Resolve any audio route, sensor or tap failures from the preserved session
-   diagnostics. The PCM/WAV path is now implemented and VM-tested, including
-   storage overlap; the speaker/headphone routes still need a listening test.
+1. Implement physical two-finger secondary click, investigate the System timeout
+   and measure idle/polling behavior. The PCM/WAV path is implemented and
+   VM-tested, including storage overlap; file playback and headphone routing
+   still need specific physical checks.
 2. Match an actual USB adapter's captured identifiers/descriptors to its driver
    requirements. The October 18 evening inventory still has no Ethernet adapter;
    CDC ECM VM success does not establish support for an arbitrary purchase.

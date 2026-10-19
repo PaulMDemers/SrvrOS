@@ -8,12 +8,13 @@ historical prototypes. Start the current desktop from the SrvrOS monitor:
 run /fat/bin/deskd
 ```
 
-Automated evidence is from disposable QEMU VMs. The first expanded MacBook Air
-trial was generally successful, with two intermittent window closures under
-investigation. Scroll-pressure protection and adjustable trackpad acceleration
-are VM/host-tested and queued for the next physical trial. The accepted input/I/O checkpoint
-is preserved independently; the expanded app set has not replaced it. See the [development journal](desktop-progress-2026-10-18.md) for
-implementation and verification details.
+Automated evidence is from disposable QEMU VMs, with repeated physical trials
+on Air7,2. The latest v22 trial accepted desktop boot, brightness/volume changes
+and live sensor display. Physical two-finger pressing still sends primary click;
+secondary tapping is implemented separately. A System app input-timeout closure
+remains open. See the [machine record](machines/macbookair7-2.md) for precise
+acceptance and the [development journal](desktop-progress-2026-10-18.md) for history.
+New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-setup.md).
 
 ![Native Text windows at 1440×900, arranged side by side](assets/screenshots/native-desktop-arranged.png)
 
@@ -190,6 +191,11 @@ The next laptop-service work is grounded in a
 including the observed ACPI SBS path and hardware acceptance order.
 
 ## Opt-in laptop acceptance trial
+
+The UUID examples below belong to the reference Air. On another machine use
+its own prepared USB UUID. Current staging produces v22 and omits the optional
+AML probe after its native stall. Audio and sensors remain device-gated; a
+desktop boot does not imply all providers support the machine.
 
 `python3 tools/hardware_boot.py stage --desktop-volume 37d8c5d0` stages the
 interactive trial for the prepared USB workspace on this laptop. It enables
