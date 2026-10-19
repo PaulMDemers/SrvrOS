@@ -1635,13 +1635,7 @@ static int64_t syscall_gfx_fill_rect(uint64_t x, uint64_t y, uint64_t width, uin
     return ok ? 0 : -1;
 }
 
-static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_request) {
-    struct srv_gfx_blit_rect request;
-    if (abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
-        !copy_from_user(&request, user_request, sizeof(request))) {
-        return -1;
-    }
-
+static int64_t syscall_gfx_blit_copy(struct srv_gfx_blit_rect request, uint64_t scale) {
     uint64_t x = request.x;
     uint64_t y = request.y;
     uint64_t width = request.width;
@@ -1649,7 +1643,8 @@ static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_reques
     uint64_t stride = request.stride;
     const uint32_t *pixels = request.pixels;
 
-    if (width == 0 || height == 0 || stride < width ||
+    if ((scale != 1 && scale != 2) || width == 0 || height == 0 || stride < width ||
+        x > UINT64_MAX - 4096 * scale || y > UINT64_MAX - 4096 * scale ||
         width > 4096 || height > 4096 ||
         height - 1 > UINT64_MAX / stride ||
         (height - 1) * stride > UINT64_MAX - width ||
@@ -1692,7 +1687,7 @@ static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_reques
         if (kernel != 0 && previous != kernel) {
             vmm_switch_address_space(kernel);
         }
-        ok = console_blit_rgb(x, y + row, width, rows, copy, width);
+        ok = console_blit_rgb_scaled(x, y + row * scale, width, rows, copy, width, scale);
         if (kernel != 0 && previous != kernel) {
             vmm_switch_address_space(previous);
         }
@@ -1704,6 +1699,20 @@ static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_reques
 
     kfree(copy);
     return 0;
+}
+
+static int64_t syscall_gfx_blit_rect(const struct srv_gfx_blit_rect *user_request) {
+    struct srv_gfx_blit_rect request;
+    if (abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) return -1;
+    return syscall_gfx_blit_copy(request, 1);
+}
+
+static int64_t syscall_gfx_blit_scaled_rect(const struct srv_gfx_blit_scaled_rect *user_request) {
+    struct srv_gfx_blit_scaled_rect request;
+    if (abi_user_struct_size(user_request, sizeof(request), SRV_ABI_VERSION) != sizeof(request) ||
+        !copy_from_user(&request, user_request, sizeof(request))) return -1;
+    return syscall_gfx_blit_copy(request.source, request.scale);
 }
 
 static int64_t syscall_gfx_console_mute(uint64_t muted) {
@@ -2455,7 +2464,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
-    case SYS_GFX_BLIT_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
+    case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -2910,6 +2919,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GFX_BLIT_RECT:
         frame->rax = (uint64_t)syscall_gfx_blit_rect((const struct srv_gfx_blit_rect *)frame->rdi);
+        return;
+    case SYS_GFX_BLIT_SCALED_RECT:
+        frame->rax = (uint64_t)syscall_gfx_blit_scaled_rect((const struct srv_gfx_blit_scaled_rect *)frame->rdi);
         return;
     case SYS_GFX_CONSOLE_MUTE:
         frame->rax = (uint64_t)syscall_gfx_console_mute(frame->rdi);

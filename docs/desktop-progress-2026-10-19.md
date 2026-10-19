@@ -239,3 +239,26 @@ by `_REG` disconnect. The adapter now explicitly disconnects while the namespace
 is intact; the failure evidence is retained. No physical EC register is exposed
 by this work, and the sample values remain synthetic. The full-runtime SCI,
 mutex-contention and failed-drain suite passed after integration.
+
+## Explicit integer desktop scale
+
+Added `deskd --scale=2` with a bounded scaled-blit syscall. Coordinates, window
+surfaces and damage stay logical; the kernel expands directly into the physical
+framebuffer. The existing eight-window caches do not grow. Default remains 1×;
+this is integer raster enlargement, not native-density glyph rasterization.
+Saved BMPs retain logical dimensions and remain within Preview's input budget.
+
+The full host suite passed, including real syscall validation/chunk-copy/error
+cleanup and guarded padded-framebuffer tests for clipping, color layout and
+invalid arithmetic. UEFI VM trials passed at 2880×1800/2× and 1440×900/1×:
+mixed-case text persisted exactly, titlebar maximize/restore matched logical
+geometry, every physical 2×2 block matched, and saved logical BMPs expanded to
+exact screen pixels. Both exited cleanly. Visual inspection confirmed the
+maximized Retina layout. BIOS initially fell back to 1024×768; the harness now
+uses UEFI and asserts actual mode selection. A subsequent harness attempt left
+unsaved text open; it now saves and verifies that document before requesting exit.
+Neither failure was counted as a pass. This does not accept physical Pro GPUs,
+firmware mode selection, external monitors or Retina input calibration.
+
+Evidence: `build/review/desktop-scaling-{2880x1800-2,1440x900-1}/` and the
+`scaling-*` records under `build/overnight-20261018/`.

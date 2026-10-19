@@ -964,6 +964,14 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
     if (!(buttons&MOUSE_LEFT)) s->pointer_pid=0;
 }
 int main(int argc,char **argv) {
+    unsigned scale=1;
+    for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
+        if (!strcmp(argv[i],"--scale=1")) scale=1;
+        else if (!strcmp(argv[i],"--scale=2")) scale=2;
+        else { srv_puts("deskd: scale must be 1 or 2\n"); return 1; }
+        for (int j=i;j<argc;j++) argv[j]=argv[j+1];
+        argc--; i--;
+    }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
     int hardware_trial=argc==2 && !strcmp(argv[1],"--hardware-trial");
     int apps=hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
@@ -973,15 +981,19 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    uint32_t *pixels=desk_pixels_alloc(info.width,info.height);
+    uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
+    if (width<640 || height<480) { srv_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
+    desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
+        (unsigned long long)info.width,(unsigned long long)info.height,width,height,scale);
+    uint32_t *pixels=desk_pixels_alloc(width,height);
     struct desk_canvas canvas;
-    if (!pixels || desk_canvas_init(&canvas,pixels,info.width,info.height,info.width)!=0) return 1;
+    if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.home=hardware_trial?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
-    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,info.width,info.height);
+    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_GRID,DESK_CONTROL_CALENDAR,&s.scene.calendar,NULL);
@@ -989,14 +1001,14 @@ int main(int argc,char **argv) {
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_CLOSE,DESK_CONTROL_BUTTON,&s.scene.calendar_close,"Close");
     desk_ui_window_focus(&s.scene.calendar_ui,0);
     if(apps && gui_keyboard_mode(1)!=0) { gfx_console_mute(0);return 1; }
-    if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,info.width,info.height); return 1; }
+    if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,width,height); return 1; }
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
-    desk_damage_init(&s.damage,info.width,info.height);
+    desk_damage_init(&s.damage,width,height);
     if(apps) { desktop_preferences_init_path(&s.preferences,hardware_trial?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
-    desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
+    desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     int io_started=0,io_ready=0,stop_warning=0;
@@ -1310,8 +1322,11 @@ int main(int argc,char **argv) {
         long render_start=io_mode && s.damage.count?srv_monotonic_us():0;
         for (unsigned n=0;n<s.damage.count;n++) {
             struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
-            if (blitrect(r.x,r.y,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride)!=0) failed=1;
-            bytes+=(uint64_t)r.w*r.h*4;
+            if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
+            uint64_t physical_w=(uint64_t)r.w*scale,physical_h=(uint64_t)r.h*scale;
+            if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;
+            if(physical_h>info.height-(uint64_t)r.y*scale) physical_h=info.height-(uint64_t)r.y*scale;
+            bytes+=physical_w*physical_h*4;
         }
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
@@ -1338,7 +1353,7 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);
-    desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);
+    desk_pixels_free(pixels,width,height); gfx_console_mute(0);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:0;

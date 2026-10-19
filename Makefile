@@ -3182,3 +3182,11 @@ build/acpi-runtime/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) Makefile
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
 -include $(UACPI_VM_OBJ:.o=.d)
+
+.PHONY: test-gfx-blit
+test-gfx-blit: build/tests/gfx-blit-host$(HOST_EXE)
+	$<
+build/tests/gfx-blit-host$(HOST_EXE): tools/test_gfx_blit.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-gfx-blit

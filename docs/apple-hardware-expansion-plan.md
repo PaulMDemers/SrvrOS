@@ -104,7 +104,10 @@ Discover backlight and EC resources per model; do not reuse 7,2 register offsets
 firmware hashes, SMC keys or battery namespace paths simply because it is a Mac.
 Missing optional providers must leave a usable desktop with unavailable status.
 
-Start each machine with the firmware/Limine framebuffer. For Retina, test
+Start each machine with the firmware/Limine framebuffer. The compositor now has
+an explicit `--scale=2` path; see the [desktop guide](native-desktop.md#display-scale).
+It retains logical-sized surfaces and saves logical-sized screenshots. This
+does not change the default or accept another model’s firmware/display. For Retina, test
 2880x1800, padded pitch, damage copying, allocation limits and readable scaled
 controls; increasing font size alone is not complete HiDPI support. Test all
 dialogs at 1366x768 as well. The fixed eight-window cache allocation should be

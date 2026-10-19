@@ -67,3 +67,8 @@ teardown tests; it is not the installed payload or a native EC/battery provider.
 4. Battery/AC runtime, headphone route acceptance and actual USB networking.
 5. Shared inventory/profile/scaling work for the other model agents, coordinated
    through the [expansion plan](../apple-hardware-expansion-plan.md).
+
+Shared desktop preparation now includes explicit integer 2× scaling. UEFI VM
+checks passed at 2880×1800/2× and the Air's 1440×900/1×, including exact capture
+pixels and input/window geometry. The installed Air payload is unchanged; the
+additional Pro models still require their own framebuffer and input acceptance.

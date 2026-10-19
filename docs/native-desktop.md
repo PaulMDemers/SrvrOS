@@ -18,6 +18,30 @@ New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-se
 
 ![Native Text windows at 1440×900, arranged side by side](assets/screenshots/native-desktop-arranged.png)
 
+## Display scale
+
+The default remains 1× on every machine. An explicit integer scale can be selected
+when starting the desktop:
+
+```text
+run /fat/bin/deskd --scale=2
+```
+
+At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
+controls, pointer movement, hit testing and damage use logical pixels; the final
+copy expands each pixel to a 2×2 block. Client surfaces and the eight-window
+cache allocation stay the same size. This is integer enlargement of the existing
+raster toolkit, not new higher-resolution font rendering or GPU acceleration.
+The mode requires at least 640×480 logical pixels; other scales are rejected.
+`--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
+trial mode. There is no automatic DPI inference or persistent scale setting yet.
+
+Saved screenshots contain the logical canvas (1440×900 at the example mode),
+including its cursor. Expanding that BMP by 2× reproduces the displayed pixels.
+This keeps captures within Preview's current 8 MiB file limit. Serial diagnostics
+record physical dimensions, logical dimensions and scale. VM evidence does not
+accept the firmware-selected display or GPU on an additional physical Mac.
+
 ## Desktop controls
 
 The top bar contains the SrvrOS menu, the focused application's menus, Arrange,

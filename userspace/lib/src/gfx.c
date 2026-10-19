@@ -39,3 +39,14 @@ int gfx_console_mute(int muted) {
 int gfx_console_muted(void) {
     return (int)srv_syscall0(SYS_GFX_CONSOLE_MUTED);
 }
+
+int blitrect_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+    const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale) {
+    if (scale == 1) return blitrect(x,y,width,height,rgb_pixels,stride);
+    struct srv_gfx_blit_scaled_rect request = {
+        .source = {.abi_version=SRV_ABI_VERSION, .struct_size=sizeof(request),
+            .x=x,.y=y,.width=width,.height=height,.stride=stride,.pixels=rgb_pixels},
+        .scale=scale,
+    };
+    return (int)srv_syscall1(SYS_GFX_BLIT_SCALED_RECT,(long)&request);
+}
