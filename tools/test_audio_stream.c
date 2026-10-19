@@ -74,6 +74,18 @@ int main(void) {
         assert(stream.state==SRV_PCM_FAULT && !codec.available);silent();
         audio_process_cleanup(12);service();assert(!stream_owner);
     }
+    /* Fixed stream gain preserves signed extrema and independent channels. */
+    static const unsigned gains[]={0,1,25,100};
+    static const unsigned char limits[]={0,0x80,0xff,0x7f,0xff,0xff,1,0};
+    for(unsigned g=0;g<sizeof(gains)/sizeof(*gains);g++) {
+        reset_stream();status.volume=gains[g];h=open_stream(12);
+        assert(audio_stream_request(12,SRV_PCM_WRITE,h,(void *)limits,sizeof(limits))==sizeof(limits));
+        assert(!audio_stream_request(12,SRV_PCM_FINISH,h,0,0));service();
+        assert(pcm[0]==-32768*(int)gains[g]/100 && pcm[1]==32767*(int)gains[g]/100);
+        assert(pcm[2]==-(int)gains[g]/100 && pcm[3]==(int)gains[g]/100);
+        assert(!audio_request(SRV_AUDIO_STOP,0));service();assert(!stream_owner);silent();
+    }
+
     /* Stale handles cannot revive a lease, including after the owner PID is reused. */
     reset_stream();h=open_stream(12);audio_process_cleanup(12);service();
     long next=open_stream(12);assert(next>h);

@@ -1776,3 +1776,61 @@ complete release options in boot-option records. Three focused collection tests
 passed, and replay against both final VM sessions and the accepted physical
 held-drag baseline identified their distinct releases correctly. This is a
 host-tool-only follow-up; the installed candidate is unchanged.
+
+## Evening extension: sustained audio and storage overlap
+
+The extended device block adds a process-owned PCM stream and `/fat/bin/playwav`.
+The player accepts 16-bit PCM WAV files in mono or stereo at 44.1 or 48 kHz;
+conversion is bounded userspace integer interpolation, and kernel output stays
+48 kHz stereo. A quiet six-second left/right/both-channel sample is bundled at
+`/fat/share/examples/stereo.wav`. Settings locks volume/output/Test while a stream
+owns sound, keeps Stop available, and the persistent Help checklist explains the
+file-playback test. There is no mixer, recording, pause/seek or GUI player yet.
+
+Storage overlap testing found two issues and drove concrete fixes. Stop now
+revokes the canceled audio lease after silencing/stopping DMA, without waiting
+for a player blocked on filesystem cleanup. Stale handles cannot affect a new
+owner. Small reads from already-open read-only memory snapshots are admitted
+during storage service windows; filesystem operations and writable handles stay
+gated. The player's refill loop avoids unrelated gated stdio/signal queries and
+uses bounded snapshot reads, PCM calls and tick sleeps directly. Default process
+termination still runs at syscall boundaries.
+
+The resulting desktop test captured 832,501 frames (over 17 seconds) with exact
+stereo samples and zero underruns during an 8 MiB throttled USB write. Keyboard
+input produced the expected file; Stop released ownership, Test sound worked
+again, and the full USB output plus guest and host filesystem checks passed.
+The final player also passed 44.1 kHz mono conversion (maximum sample error 1),
+foreign-owner rejection, process termination and repeated reopen/drain tests.
+Host checks cover stale generations, failed/implausible/stalled DMA, conservative
+ring guards, cursor freshness, shared snapshot cursors, gain limits and randomized
+resampling boundaries. Core tests and targeted ASan/UBSan checks passed.
+
+A ten-minute 48 kHz stereo soak completed ten one-minute files with zero guest
+underruns and an exact captured waveform. It used the preserved pre-snapshot-read
+image; the DMA engine is the same. The final candidate's extended conversion soak
+is recorded below after completion.
+
+Some timer-backed QEMU captures failed despite clean guest counters. The first
+lost exactly 2,048 frames; a follow-up reproduced the discontinuity alongside
+QEMU's `hda_audio_overrun` trace. The emulator drops its own 8,192-byte codec buffer
+in that condition. Those captures remain failures in the evidence. Sample-exact
+soaks and staged boot checks use QEMU's callback codec, with strict waveform
+comparison and overrun tracing; the harness still offers timer mode explicitly.
+See the [audio notes](macbook-air-audio-2026-10-18.md) for the distinction.
+
+Candidate **fe119d1c99070b18** was staged from clean source commit `c9217fb`.
+Its exact GRUB/EFI image passed two fresh desktop boots, document/screenshot
+persistence, preferences, saved device diagnostics, two clean USB unmounts,
+the test tone and all three bundled WAV channel sections. The channel capture
+matched exactly with a quiet tail. Later commits update test coverage and notes.
+Evidence is being retained under
+`build/native-desktop-trials/fe119d1c99070b18/vm-pcm/`.
+
+Physical speaker amplification, audible quality, headphone routing, tap gestures,
+sensor freshness and the actual USB adapter remain hardware acceptance items.
+Battery/AC still needs live ACPI/SCI/EC ownership; no speculative EC access was
+added. The eight-window allocation limit is unchanged. The next audio step is
+the laptop listening/input round, followed by a GUI player and richer formats
+once output is accepted. Large-media support also needs an alternative to the
+filesystem's current whole-file read snapshots.

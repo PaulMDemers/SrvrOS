@@ -82,7 +82,7 @@ def analyze_prefix(path,expected):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seconds',type=int,default=12);parser.add_argument('--lifecycle',action='store_true');parser.add_argument('--repeat',type=int,default=1);parser.add_argument('--mono-44100',action='store_true');parser.add_argument('--codec-timer',choices=['on','off'],default='on');parser.add_argument('--output',type=Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--seconds',type=int,default=12);parser.add_argument('--lifecycle',action='store_true');parser.add_argument('--repeat',type=int,default=1);parser.add_argument('--mono-44100',action='store_true');parser.add_argument('--codec-timer',choices=['on','off'],default='off');parser.add_argument('--output',type=Path);args=parser.parse_args()
     assert 5<=args.seconds<=60 and 1<=args.repeat<=30 and not (args.lifecycle and args.repeat!=1)
     root=Path(__file__).resolve().parents[1];out=root/('build/review/audio-stream-lifecycle' if args.lifecycle else 'build/review/audio-stream-soak' if args.repeat>1 else 'build/review/audio-stream-44100' if args.mono_44100 else 'build/review/audio-stream');out=args.output or out;out=out.resolve();out.mkdir(parents=True,exist_ok=True)
     payload,expected=(mono_fixture(args.seconds) if args.mono_44100 else fixture(args.seconds));(out/'source.wav').write_bytes(payload)

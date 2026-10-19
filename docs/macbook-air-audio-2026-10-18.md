@@ -195,8 +195,9 @@ discards its 8,192-byte buffer when the output callback finds it full; at this
 format that is 2,048 frames. This can occur under competing host VM load without
 an underrun in the guest DMA ring.
 
-The stream harness now records this trace and supports `--codec-timer off` for
-sample-exact capture through QEMU's callback-driven codec. It still fails any
+The stream harness now records this trace and defaults to `--codec-timer off` for
+sample-exact capture through QEMU's callback-driven codec. `--codec-timer on`
+selects the timer codec for separate diagnostic runs. It still fails any
 waveform mismatch; neither backend errors nor guest underruns are silently
 ignored. The staged boot harness also defaults to callback mode for reproducible capture;
 `--audio-codec-timer on` selects QEMU's timer codec with overrun tracing.
