@@ -90,3 +90,12 @@ uACPI kernel callbacks and `memcmp`/`memcpy`/`memmove`/`memset`; no unexpected
 compiler runtime dependency appeared. This is a compile feasibility check,
 not a linked OS adapter or a runtime test. Its log and symbol inventory are
 retained under `build/review/acpi-runtime-*`.
+
+## Physical probe limitation
+
+The MacBook's first combined-device trial stopped after the native probe's
+FADT-length compatibility warning, before workspace logging or desktop startup.
+The warning is not itself fatal; the stall location after it is unresolved.
+Normal desktop profiles from v22 omit `srvros.aml=probe`. Keep native probe
+execution explicit until this failure is diagnosed with stage-level evidence.
+Host and synthetic-QEMU success do not establish completion on this firmware.

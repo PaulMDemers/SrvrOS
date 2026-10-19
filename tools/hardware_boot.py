@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v19-laptop-probe-([0-9a-f]{8})")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -51,9 +51,13 @@ def limine_config(release, version=CONFIG_VERSION):
     elif desktop:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
                    "srvros.trackpad=gestures srvros.desktop=trial")
-        if version.startswith(("ram-usb-v18-","ram-usb-v20-","ram-usb-v21-")):
-            cmdline += f" srvros.desktop-release={release} srvros.laptop-services=" + ("brightness" if version.startswith(("ram-usb-v20-","ram-usb-v21-")) else "probe")
+        if version.startswith(("ram-usb-v18-","ram-usb-v20-","ram-usb-v21-","ram-usb-v22-")):
+            cmdline += f" srvros.desktop-release={release} srvros.laptop-services=" + ("brightness" if version.startswith(("ram-usb-v20-","ram-usb-v21-","ram-usb-v22-")) else "probe")
         if version.startswith("ram-usb-v21-"): cmdline += " srvros.audio=hda srvros.aml=probe srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only"
+        # The optional synchronous AML probe stalled on the physical MacBook
+        # before workspace logging/desktop startup. Keep diagnostics opt-in;
+        # preserve v21's exact recipe so installed images remain verifiable.
+        if version.startswith("ram-usb-v22-"): cmdline += " srvros.audio=hda srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only"
     elif trackpad:
         volume, run = trackpad.groups()
         mode="gestures" if version.startswith(("ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
@@ -135,7 +139,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v21-desktop-{desktop_volume}"
+        version = f"ram-usb-v22-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:

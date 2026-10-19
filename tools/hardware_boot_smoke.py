@@ -141,8 +141,8 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith("ram-usb-v21-")):
-        parser.error("--audio-check requires a v21 desktop stage")
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
+        parser.error("--audio-check requires a v21/v22 desktop stage")
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -221,7 +221,7 @@ def main():
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
-                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-")))
+                    workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
                     before=len(serial.read_text(errors="replace"))
                     shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                     wait_for(serial,lambda s:"window=1" in s[before:] and "desktools: starting role=text" in s[before:],process,30)
@@ -259,10 +259,13 @@ def main():
                     assert b"deskd: exited" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
                     if args.audio_check:
                         assert b"workspace-devices: audio_state=2" in stored.read(first_session.removeprefix("/work/")+"/exit.log")
-                    if manifest.get("config_version", "").startswith("ram-usb-v21-"):
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
                         boot_log=stored.read(first_session.removeprefix("/work/")+"/boot.log").decode()
                         assert "smc: state=1" in boot_log and "thermal: state=1" in boot_log
-                        assert re.search(r"aml-probe: completed .*errors=0 denied=0 .*heap_remaining=0",boot_log)
+                        if manifest["config_version"].startswith("ram-usb-v21-"):
+                            assert re.search(r"aml-probe: completed .*errors=0 denied=0 .*heap_remaining=0",boot_log)
+                        else:
+                            assert "aml-probe:" not in boot_log
                     ui.stream.close();ui.sock.close()
                 text = wait_for(serial, lambda s: s.endswith("srv> "), process, args.boot_wait)
                 for marker in ("SRVROS_GRUB_CHAINLOAD_TEST", "srvros: entering kernel",
@@ -416,7 +419,7 @@ def main():
                 try:
                     wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
-                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-")))
+                    workspace_preferences(ui,serial,process,logs,restored=True,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
                     for keys in ("f10","end","ret"):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
@@ -441,7 +444,7 @@ def main():
                     destination,report=collect(recovered,desktop[1],logs/"desktop-collections")
                     assert len(report["sessions"])==2
                     assert all(item["exit_snapshot_present"] and item["desktop_exit_seen"] and not item["attention"] for item in report["sessions"])
-                    if manifest.get("config_version", "").startswith("ram-usb-v21-"):
+                    if manifest.get("config_version", "").startswith(("ram-usb-v21-", "ram-usb-v22-")):
                         for session in report["sessions"]:
                             devices=session["devices"]
                             assert set(devices)=={"audio","thermal","smc","pcm"}

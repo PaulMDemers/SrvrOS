@@ -1872,3 +1872,25 @@ added. The eight-window allocation limit is unchanged. The next audio step is
 the laptop listening/input round, followed by a GUI player and richer formats
 once output is accepted. Large-media support also needs an alternative to the
 filesystem's current whole-file read snapshots.
+
+## Physical device trial: AML probe blocks startup
+
+The physical **fe119d1c99070b18** trial stopped before the desktop. The photo
+shows the HDA controller ready (`state=2`, `error=none`), then the isolated AML
+probe's FADT-length/revision warning, with no subsequent progress. This does not
+establish the warning as the cause: upstream treats it as a compatibility
+adjustment and continues. The precise stall remains unresolved. No sound or
+sensor acceptance can be claimed from this boot.
+
+The probe runs synchronously before `workspace_boot`, so no new flash session
+was created. The photo and failure record are retained in
+`build/native-desktop-trials/fe119d1c99070b18/physical-boot-failure/`; the post-boot
+collection contains only the same three earlier physical sessions.
+
+The v22 desktop recipe removes only the optional `srvros.aml=probe` option from
+v21. Audio, brightness, gestures, USB networking, CPU sensors, SMC readings and
+workspace logging stay enabled. Existing v21 recipes remain byte-for-byte
+verifiable. Dedicated AML diagnostics retain their explicit probe option; their
+native stall needs separate investigation, including progress markers before
+initialization, namespace loading and evaluation. VM success is not evidence
+that the MacBook probe is safe to include in ordinary startup.

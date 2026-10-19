@@ -98,6 +98,21 @@ class InstallTests(unittest.TestCase):
         self.assertIn('srvros.desktop=trial',cfg)
         self.assertNotIn('probe-autoreboot',cfg)
 
+    def test_desktop_excludes_optional_aml_probe(self):
+        release="0123456789abcdef"
+        old=boot.limine_config(release,"ram-usb-v21-desktop-37d8c5d0")
+        new=boot.limine_config(release,"ram-usb-v22-desktop-37d8c5d0")
+        self.assertEqual(new,old.replace(" srvros.aml=probe",""))
+        for name in ('limine-binary/BOOTX64.EFI','kernel/srvros.elf','initramfs.tar'):
+            path=self.root/'build'/name
+            path.parent.mkdir(parents=True,exist_ok=True)
+            path.write_bytes(b'test desktop payload')
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['test-revision\n','']):
+            staged=boot.stage(desktop_volume="37d8c5d0")
+        manifest=boot.verify(self.stage/staged)
+        self.assertEqual(manifest['config_version'],'ram-usb-v22-desktop-37d8c5d0')
+        self.assertNotIn('srvros.aml=',(self.stage/staged/'limine.conf').read_text())
+
     def test_automatic_laptop_probe_profile(self):
         version="ram-usb-v19-laptop-probe-37d8c5d0"
         release=self.payload("probe",version)
