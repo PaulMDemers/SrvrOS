@@ -3119,3 +3119,11 @@ build/acpi-runtime-check/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) ports/srvros/uacpi/r
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
 -include $(UACPI_RUNTIME_CHECK_OBJ:.o=.d)
+
+.PHONY: test-heap
+test-core: test-heap
+test-heap: build/tests/heap-host$(HOST_EXE)
+	$<
+build/tests/heap-host$(HOST_EXE): tools/test_heap.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

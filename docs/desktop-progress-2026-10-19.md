@@ -120,3 +120,23 @@ package temperature fell from 80 C to 75 C and the final fan reading was
 to Ubuntu, the one-shot entry was consumed and an offline read-only exFAT check
 was clean. This is a console sample after prior host activity, not an equilibrium
 temperature or power measurement, and it does not accept desktop idle behavior.
+
+## Heap validation exposed by firmware replay
+
+Replaying captured DSDT/SSDT tables alongside QEMU firmware reproduced a halt:
+`heap: corrupt cycle where=kmalloc-exit`. The heap checker stopped after 4,096
+blocks even when the address-sorted list was valid. Its existing strict
+ascending `next` check already rejects cycles, so the arbitrary count ceiling
+has been removed. This is a demonstrated replay failure; the original native
+stall is not yet confirmed to have the same cause.
+
+The allocator's 40-byte metadata header also broke its intended 16-byte payload
+alignment. The header is now aligned/padded to 48 bytes. Allocation requests
+which would overflow size rounding/header/page arithmetic are rejected before
+changing heap state. A regression uses the actual allocator with 6,000 live
+allocations, fragmented reuse, zeroed allocations, large allocations, exhaustion,
+overflow and a genuine corrupt cycle. Normal and ASan/UBSan runs pass, as does
+the complete core suite. The captured-table replay now returns in about 2.1 s
+with no interpreter allocations left. QEMU firmware/uncaptured regions produce
+errors in that replay, so it is not a complete or physically faithful firmware
+result. The synthetic native AML fixture passes without errors/denials/leaks.
