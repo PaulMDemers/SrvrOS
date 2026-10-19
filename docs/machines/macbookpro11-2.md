@@ -47,7 +47,7 @@ sensors, power and networking. Linux device visibility does not accept a driver.
 Keep optional AML probing out of ordinary startup and preserve model gates.
 
 Ubuntu remains the recovery OS. No reboot is authorized or armed by this setup
-request, and no SrvrOS recovery payload has yet been verified on this unit.
+request, and no physically accepted SrvrOS recovery release exists for this unit.
 System build/VM/diagnostic packages and all pinned submodules are installed.
 Privileged inspection confirmed no existing SrvrOS installation, an empty GRUB
 environment (no pending one-shot), verified Ubuntu default, and about 1 GiB free
