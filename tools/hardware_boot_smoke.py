@@ -144,7 +144,8 @@ def main():
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
-    desktop_idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v25-"))
+    desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
+    power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
@@ -235,6 +236,13 @@ def main():
                     if desktop_idle_capture:
                         exit_log=stored.read(folder+"/exit.log").decode()
                         assert desktop_idle_sample(exit_log) is not None
+                        if power_telemetry:
+                            from hardware_desktop import power_idle_sample,device_summaries
+                            power=device_summaries(exit_log)["power"]
+                            assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
+                            assert "srvros.power=read-only" in exit_log
+                            assert "desktop-idle-window: start_us=" in exit_log
+                            assert power_idle_sample(exit_log) is None # Refused VM is never a power measurement.
                         capture=re.findall(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",exit_log)
                         assert len(capture)==1
                         image=stored.read(capture[0].removeprefix("/work/"))
@@ -246,7 +254,7 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "probe":True,"desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT, automatic reset")

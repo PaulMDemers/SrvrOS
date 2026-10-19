@@ -326,3 +326,18 @@ The physical reboot window has closed, so this change was not installed.
 
 The corrected ACPI soak has restarted in an independent immutable bundle from
 `99a1d728`; its final result remains pending. The earlier failed bundle is retained.
+
+## Staged power-capture preparation
+
+The new explicit v26 profile adds power telemetry only to a desktop idle capture;
+older profile recipes remain immutable. Desktop logs now identify the measurement
+window. The collector derives energy and active-frequency averages only from
+valid checkpoints inside that window, reports the actual covered duration and
+excludes screenshot-writing activity. Missing/refused/stale/inconsistent counters
+produce no power result. Host tests cover rollover, duplicate/conflicting samples,
+resets, stale readings and coverage/completion requirements.
+
+The exact-stage VM must report power unavailable with zero samples while checking
+the ordinary desktop screenshot/save/unmount/return workflow. This deliberately
+separates successful capture mechanics from power acceptance. The profile is
+being prepared for a later physical window; nothing is installed or armed.

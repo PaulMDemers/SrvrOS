@@ -65,8 +65,8 @@ static void device_checkpoint(void) {
         (uint64_t)thermal.state,(uint64_t)thermal.flags,(int64_t)thermal.core_mc,(int64_t)thermal.package_mc,thermal.sampled_us,thermal.samples,sampled);
     struct power_snapshot power;power_status(&power);
     if(power.state!=POWER_DISABLED)
-        console_printf("workspace-devices: power_state=%u flags=%u package_mw=%u active_mhz=%u nominal_mhz=%u package_uj=%u sample_us=%u interval_us=%u samples=%u rejected=%u energy=%u aperf=%u mperf=%u monotonic_us=%u\n",
-            (uint64_t)power.state,(uint64_t)power.flags,power.package_mw,power.active_mhz,(uint64_t)power.nominal_mhz,
+        console_printf("workspace-devices: power_state=%u flags=%u energy_shift=%u package_mw=%u active_mhz=%u nominal_mhz=%u package_uj=%u sample_us=%u interval_us=%u samples=%u rejected=%u energy=%u aperf=%u mperf=%u monotonic_us=%u\n",
+            (uint64_t)power.state,(uint64_t)power.flags,(uint64_t)power.energy_shift,power.package_mw,power.active_mhz,(uint64_t)power.nominal_mhz,
             power.package_uj,power.sampled_us,power.interval_us,power.samples,power.rejected,power.raw.energy,power.raw.aperf,power.raw.mperf,sampled);
 }
 static bool save(const char *name) {

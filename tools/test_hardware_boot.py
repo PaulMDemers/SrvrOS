@@ -144,6 +144,20 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_idle_capture=True)
         with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',desktop_idle_capture=True,idle_capture=True)
 
+    def test_power_telemetry_requires_explicit_desktop_idle(self):
+        version='ram-usb-v26-laptop-probe-37d8c5d0'
+        release=self.payload('power',version)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=version;path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)['release'],release)
+        config=boot.limine_config(release,version)
+        for flag in ('srvros.capture=desktop-idle','srvros.power=read-only','srvros.smc=read-only'):self.assertIn(flag,config)
+        self.assertNotIn('srvros.aml=',config)
+        for v in (23,24,25):self.assertNotIn('srvros.power=',boot.limine_config(release,f'ram-usb-v{v}-laptop-probe-37d8c5d0'))
+        for options in ({},{'idle_capture':True},{'aml_capture':True},{'desktop_volume':'37d8c5d0'}):
+            with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
+        with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
+
     def test_idle_capture_profile_is_separate_and_has_no_aml(self):
         version="ram-usb-v23-laptop-probe-37d8c5d0"
         release=self.payload("idle",version)

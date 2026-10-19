@@ -239,6 +239,18 @@ caret/clock updates and periodic USB/device logs. It measures scheduler occupanc
 not energy consumption, CPU frequency, equilibrium temperature or interactive
 input acceptance. Keep the physical result separate from the console-idle sample.
 
+For explicit read-only package energy and CPU0 active-frequency diagnostics,
+add `--power-telemetry` to `--desktop-idle-capture` (separate immutable v26 profile).
+It is refused for other capture types and does not enable AML or CPU controls.
+Use the same exact-stage VM and missing-workspace rehearsals. An emulated CPU
+reports power unavailable and the VM result explicitly records that limitation;
+success of the capture/save/return workflow is not power measurement acceptance.
+On hardware, require a non-null `power_idle_sample`, inspect its covered duration
+and raw checkpoints, and review attention flags before accepting telemetry. The
+covered interval lies inside the desktop measurement and excludes screenshot
+writes. Missing, stale, rejected or refused readings produce no power result.
+See [power telemetry](power-telemetry.md) for model gates, units and limitations.
+
 Use the same recorded recovery/one-shot installation sequence below; keep the
 accepted previous desktop when the current payload is only an automated test.
 

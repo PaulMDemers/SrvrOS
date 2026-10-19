@@ -61,10 +61,25 @@ time discontinuities, integer overflow, missing active counts and recovery.
 requested Broadwell VM refuses telemetry. VM refusal cannot validate native
 energy readings. Host/VM evidence is recorded in the October 19 journal.
 
-Before physical enablement, extend the immutable hardware-stage profile and its
-exact-stage rehearsal to carry the explicit option. Retain the accepted recovery
-payload and collect a bounded console/desktop interval with raw counters and a
-clean automatic return. Compare matched workload, display brightness, adapter
+The immutable v26 hardware-stage profile adds `--power-telemetry` to
+`--desktop-idle-capture --laptop-probe-volume <local-UUID>`. Exact-stage rehearsal
+checks that the VM reports unavailable with zero samples, then completes the
+normal desktop screenshot/log/save/return workflow. It does not fabricate power
+values to make the VM pass. A missing workspace must still halt. Ordinary v25
+and interactive profiles retain their original command lines.
+
+The collector's optional `power_idle_sample` uses only valid cached checkpoints
+inside the logged desktop measurement window. It requires at least three points
+covering 20 seconds, validates counter continuity and rejects stale, conflicting,
+reset or implausible records. It reports the actual covered time separately from
+the full desktop window. This excludes the later screenshot write, whose USB
+activity would otherwise distort an idle measurement. Unsupported or incomplete
+samples yield no power result; completion of the overall diagnostic only accepts
+the capture/save/return workflow.
+
+For physical acceptance, retain the accepted recovery payload and collect a
+bounded desktop interval with raw counters, a non-null covered power result and
+a clean automatic return. Compare matched workload, display brightness, adapter
 state, wall-clock duration and CPU0 idle counters; do not infer energy savings
 from scheduler idle percentage. Frequency controls and deeper idle entry need
 separate wake/input/storage regressions after a measured baseline exists.

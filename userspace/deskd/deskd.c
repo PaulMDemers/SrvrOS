@@ -1369,6 +1369,8 @@ int main(int argc,char **argv) {
                         (unsigned long long)(after.switches-idle_before.switches),
                         (unsigned long long)(after.preemptions-idle_before.preemptions),
                         (unsigned long long)(frames-idle_frames),(unsigned long long)(bytes-idle_bytes));
+                    desk_log("desktop-idle-window: start_us=%llu end_us=%llu\n",
+                        (unsigned long long)idle_before.monotonic_us,(unsigned long long)after.monotonic_us);
                     idle_phase=2;idle_deadline=now+3000;idle_capture_serial=s.capture_finished;
                     capture_request(&s);
                 }
