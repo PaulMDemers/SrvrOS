@@ -25,7 +25,7 @@ extern volatile struct limine_rsdp_request rsdp_request;
 #define HEAP_LIMIT (8u * 1024u * 1024u)
 static struct {
     struct acpi_work_worker worker;
-    struct acpi_work_item event_item, wedge_item;
+    struct acpi_work_item event_item, wedge_item, load_item;
     struct kernel_semaphore wedge_gate;
     uacpi_interrupt_handler irq_fn;
     uacpi_handle irq_context;
@@ -35,6 +35,8 @@ static struct {
     uint16_t original_control;
     uint8_t disable_command;
     bool engaged, initialized, stopping, work_scheduled, fault_install;
+    bool loading, load_done, load_deny;
+    uacpi_status load_result;
 } runtime;
 
 static uint64_t irq_save(void) {
@@ -47,6 +49,8 @@ static void irq_restore(uint64_t flags) {
 }
 static __attribute__((noreturn)) void unsafe(const char *reason) {
     console_printf("acpi-runtime: HALTED unsafe teardown: %s heap=%u\n", reason, runtime.heap);
+    console_sync();
+    __asm__ volatile("cli" ::: "memory");
     halt_forever();
 }
 static bool equal(const char *a, const char *b) {
@@ -162,6 +166,8 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
     uint64_t flags = irq_save();
     if (!(flags & (1ull << 9))) unsafe("drain with interrupts disabled");
     irq_restore(flags);
+    if (runtime.loading && runtime.worker.identity == scheduler_current_thread_id())
+        unsafe("namespace load reset requires lifecycle owner");
     if (!acpi_worker_drain(&runtime.worker, 5000)) unsafe("work did not drain");
     return UACPI_STATUS_OK;
 }
@@ -310,7 +316,20 @@ static uacpi_table_installation_disposition fixture_table(struct acpi_sdt_hdr *h
     *override = runtime.fixture_dsdt;
     return UACPI_TABLE_INSTALLATION_DISPOSITION_PHYSICAL_OVERRIDE;
 }
-static bool start_runtime(bool fail_install, bool fixture) {
+static void load_namespace_work(void *context) {
+    (void)context;
+    if (!acpi_ec_fixture_bind_early(runtime.load_deny)) {
+        runtime.load_result = UACPI_STATUS_DENIED;
+    } else {
+        uint64_t errors = runtime.errors, denied = runtime.denied;
+        runtime.load_result = uacpi_namespace_load();
+        if (!runtime.load_result && (runtime.errors != errors || runtime.denied != denied))
+            runtime.load_result = UACPI_STATUS_DENIED;
+    }
+    console_printf("acpi-runtime: namespace worker returned status=%u\n", (uint64_t)runtime.load_result);
+    runtime.load_done = true;
+}
+static bool start_runtime(bool fail_install, bool fixture, bool early, bool deny) {
     if (runtime.engaged || !timer_reference_ready() || !rsdp_request.response) return false;
     const struct acpi_fadt *fadt = acpi_q35_fixture_fadt();
     if (!fadt || inw(0x602)) return false;
@@ -333,7 +352,18 @@ static bool start_runtime(bool fail_install, bool fixture) {
     if (result) goto failed;
     uacpi_context_set_loop_timeout(1);
     uacpi_context_set_max_call_stack_depth(32);
-    result = uacpi_namespace_load();
+    if (early) {
+        runtime.loading = true; runtime.load_deny = deny;
+        if (!acpi_worker_enqueue(&runtime.worker, &runtime.load_item, UACPI_WORK_NOTIFICATION,
+                                load_namespace_work, NULL)) {
+            runtime.loading = false; result = UACPI_STATUS_DENIED; goto failed;
+        }
+        if (!acpi_worker_drain(&runtime.worker, 5000)) unsafe("namespace load deadline; state retained");
+        runtime.loading = false;
+        result = runtime.load_done ? runtime.load_result : UACPI_STATUS_INTERNAL_ERROR;
+        console_printf("acpi-runtime: early-load=%s worker=yes status=%u\n",
+                       result ? "FAILED" : "complete", (uint64_t)result);
+    } else result = uacpi_namespace_load();
     if (result) goto failed;
     result = uacpi_install_fixed_event_handler(UACPI_FIXED_EVENT_POWER_BUTTON, power_handler, NULL);
     if (result) goto failed;
@@ -366,8 +396,12 @@ static void wedged_work(void *context) {
     unsafe("unexpected wedge wake");
 }
 void acpi_runtime_test_command(const char *args) {
-    if (equal(args, "start") || equal(args, "start-fail") || equal(args, "start-fixture")) {
-        bool ok = start_runtime(equal(args, "start-fail"), equal(args, "start-fixture"));
+    bool early = equal(args, "start-early") || equal(args, "start-early-denied") ||
+        equal(args, "start-early-fail");
+    if (early || equal(args, "start") || equal(args, "start-fail") || equal(args, "start-fixture")) {
+        bool ok = start_runtime(equal(args, "start-fail") || equal(args, "start-early-fail"),
+            early || equal(args, "start-fixture"), early,
+            equal(args, "start-early-denied"));
         console_printf("acpi-runtime: %s\n", ok ? "READY" : "REFUSED");
     } else if (equal(args, "stop")) {
         uint64_t flags = irq_save();

@@ -636,3 +636,46 @@ Terminal backspace redraw and Text copy/paste/select-all are physically accepted
 for this machine. This report does not separately establish secondary press/tap
 behavior, cancellation fault paths or power telemetry. No further reboot is
 armed.
+
+## Native power baseline collected
+
+The v26 capture `ed93e03b2585dcaf` (source `0f2038a`, same tree as merged
+`1d44cee`) returned with session `session-00065e38449c2146-00`. Its six valid
+power checkpoints cover 52.999 seconds: 342.298 J package energy, 6.458 W average
+package power and 2,083 MHz CPU0 active frequency. The full 60.003-second desktop
+interval was 94.10% scheduler-idle, one presentation / 76,384 framebuffer bytes.
+No rejected/stale readings or collector attention appeared. Screenshot and four
+logs verify; offline exFAT was clean (165 directories, 827 files), and the GRUB
+one-shot was consumed. Full local evidence is backed up outside `build`.
+This accepts the read-only capture on Air7,2, not whole-laptop power, CPU policy,
+thermal equilibrium or battery services. Native brightness remained 14%; Linux
+preflight observed AC connected. The [power guide](power-telemetry.md) records
+conditions. Next work targets early EC binding and namespace-load ownership in
+the separate synthetic Q35 runtime; ordinary desktop AML remains disabled.
+
+## Early namespace-load EC fixture
+
+The separate Q35 runtime can now bind its synthetic EC handler before namespace
+loading and run that load on the EC worker. Module-level AML verifies reads and
+writes before `_REG`; `_REG`, `_STA`/`_INI`, queries and SBS samples then use the
+same worker. The root handler and its EC device node have distinct identities,
+so registration and removal target the actual handler scope. An initial VM run
+caught an incorrect device-scope registration call; the failed evidence was
+preserved before correcting it.
+
+The new denial test catches logged AML errors even when namespace loading returns
+success, refuses readiness and verifies balanced detach/zero heap cleanup.
+Module-level repeated sleeps exercise the five-second lifecycle deadline.
+An injected SCI installation failure exercises the interpreter's internal reset;
+reset on its own worker halts before namespace teardown rather than self-wait.
+Failure halts now flush the console and disable interrupts. The test waits past
+the stalled AML duration, verifies no worker completion and reads CPU flags to
+check interrupts are disabled. This is containment, not native recovery policy.
+
+Positive early-load tests retain repeated init/sample/query/teardown coverage.
+Existing namespace-init, denied-init, disconnect-timeout and SCI/mutex runtime
+suites also pass, as do host EC transport/SMBus/SBS and worker/queue tests. The
+[port guide](../ports/srvros/uacpi/PORT.md#early-ec-binding-during-namespace-load-q35-only)
+lists commands and remaining boundaries. Ordinary kernel and installed hardware
+payloads are unchanged. No native EC/SCI enablement or physical battery claim is
+part of this fixture. Work is published in PR #3 on the existing device branch.

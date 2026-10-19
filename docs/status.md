@@ -10,7 +10,7 @@ there is no supported stable binary release yet.
 | Target | Evidence | Remaining work |
 | --- | --- | --- |
 | QEMU q35 | Repeatable boot, CLI, filesystem, network and desktop regressions | Emulator coverage cannot validate physical controllers or firmware |
-| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | New input fixes, power readings, audio routes and network adapter acceptance |
+| MacBookAir7,2 / A1466 | Active reference machine; boot, built-in input, desktop, exFAT workspace, brightness, speaker volume and sensors exercised | New input fixes, battery/AC, audio routes and network adapter acceptance |
 | MacBookAir7,1 / A1465 | Planned | Capture this model and run its own acceptance cycle |
 | MacBookPro11,2 / A1398 | Planned | Inventory, Retina display/input and device bring-up |
 | MacBookPro11,3 / A1398 | Planned | Separate GPU/firmware inventory; no assumed graphics switching support |
@@ -70,8 +70,9 @@ or Retina Mac acceptance. See the [desktop guide](native-desktop.md).
 - A separate Q35 full-uACPI fixture passed a verified **30-minute, 100-suite**
   soak covering SCI/mutex, EC, namespace initialization and teardown/refusal
   cases. It is not a native EC or battery driver.
-- Read-only package-energy/active-frequency telemetry has host and VM refusal
-  coverage, but no accepted SrvrOS physical energy sample yet.
+- Read-only native telemetry now measures **6.458 W average package power** and
+  **2,083 MHz CPU0 active frequency** over 52.999 seconds inside a 60-second
+  desktop capture. This excludes whole-laptop power and does not change CPU policy.
 
 Exact source/payload identities, evidence locations and negative tests are in
 the [October 19 journal](desktop-progress-2026-10-19.md) and

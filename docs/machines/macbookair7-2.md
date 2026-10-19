@@ -20,11 +20,19 @@ device work uses separate branches based on `main`.
 - Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
   worker/IRQ ownership and battery interfaces require explicit coordination.
   No new native EC/SCI enablement is part of the power capture.
-- Integration baseline: `main` merge `e2d172b`; device commits `c6e5538`,
-  `dad7aa8`, `caa3b15` add the physically accepted Terminal fix and records.
-- Next checkpoint: exact-stage v26 VM/missing-workspace rehearsals, then a
-  60-second automated physical capture. Local volatile records are under
-  `build/power-baseline-20261019/`; record the actual release before reboot.
+- Integration baseline: `main` merge `1d44cee`; Terminal fix and agent rules merged.
+- Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
+  telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
+- Current bounded implementation: early EC handler binding and namespace-load
+  ownership in the separate Q35 runtime fixture. Scope is
+  `ports/srvros/uacpi/runtime/{qemu_adapter,ec_fixture}.*`, synthetic ACPI tables
+  and VM harnesses; no ordinary-kernel/native EC gate changes. Dependencies:
+  existing worker/transport lifetime contracts and pinned uACPI initialization.
+- VM checkpoint: module-level AML EC access before namespace initialization,
+  refusal/cleanup on failed access, bounded load timeout containment and repeated
+  teardown now pass. PR #3 publishes this work; it is not native EC acceptance.
+- Next dependency: audit native ECDT/resource and initialization-owner policy,
+  including interpreter-initiated reset, before enabling any laptop EC/SCI path.
 
 ## Accepted scope and open items
 
@@ -40,6 +48,7 @@ device work uses separate branches based on `main`.
 | Context menu from trackpad taps | Physical acceptance open | Exit counts 5 primary and 1 secondary tap; user reported no visible right-click result |
 | System window stability | No recurrence in latest physical round | `fed370ffbe33d554`: System and Help exited cleanly, no collector attention flags; earlier timeout cause remains unproven |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
+| Package power / CPU0 active frequency | Physical diagnostic accepted | `ed93e03b2585dcaf`; bounded Text idle capture, no CPU controls or whole-laptop power |
 | Battery/AC and suspend/resume | Not implemented as live services | ACPI/EC foundations exist; runtime ownership and tests remain |
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
@@ -57,7 +66,7 @@ There were no new screenshots in this round. Offline read-only exFAT checking
 was clean (164 directories, 822 files). Evidence and the run record are local
 under `build/native-desktop-trials/5282cfde546ea2b5/`.
 
-Current installed is `5282cfde546ea2b5`, previous remains accepted recovery
+At that interactive checkpoint installed was `5282cfde546ea2b5`; previous remained accepted recovery
 `b427b78f21644bd2`, and no one-shot boot is armed. Secondary press/tap cases were
 not individually confirmed in the report; power telemetry was not enabled.
 
@@ -143,8 +152,8 @@ models still require their own framebuffer and input acceptance.
 
 
 Read-only [package-energy and CPU0 active-frequency telemetry](../power-telemetry.md)
-now has host arithmetic/service tests and VM refusal evidence. It remains opt-in
-and physically unaccepted. The Linux MSR capture confirms register availability
+has host arithmetic/service tests, VM refusal evidence and the accepted
+October 19 v26 native capture. It remains opt-in. The Linux MSR capture confirms register availability
 on this host but is not an SrvrOS power result. No CPU power controls have changed.
 
 Trackpad transport/palm faults now cancel a held interaction rather than deliver
@@ -158,3 +167,18 @@ four `intel_cpufreq`/`schedutil` policies with 500–3,200 MHz limits. CPU0 list
 POLL through C10 as enabled. These are Linux policy observations, not SrvrOS
 energy or deeper-idle acceptance. The [power guide](../power-telemetry.md)
 documents units, non-atomic capture and missing-field semantics.
+
+## Latest automated power record
+
+Release `ed93e03b2585dcaf`, source `0f2038a`, session
+`session-00065e38449c2146-00` completed its 60-second Text idle capture and returned
+to Ubuntu. Valid power checkpoints cover 52.999 seconds: 6.458 W average package
+power and 2,083 MHz CPU0 active frequency, with 94.10% scheduler-idle samples over
+the full desktop interval. See [power telemetry](../power-telemetry.md#accepted-air72-desktop-baseline)
+for units, conditions and limits. Four logs and the screenshot verify; no collector
+attention or rejected power samples; offline exFAT clean (165 directories,
+827 files). Evidence is backed up under `~/.local/share/srvros/evidence/ed93e03b2585dcaf`.
+
+Current installed is this automated diagnostic; previous remains accepted
+`b427b78f21644bd2`. The one-shot is consumed. Interactive `5282cfde546ea2b5`
+is independently backed up. No additional physical trial is armed.
