@@ -491,3 +491,14 @@ Full core/desktop host checks and the normal OS build passed. VM context-menu
 and System/network regressions passed. These checks preserve the distinction
 between injected fault coverage, normal VM interaction and pending physical
 trackpad acceptance.
+
+
+The expanded immutable ACPI bundle `42c64df7` also completed its full duration:
+1,811.90 seconds, 20 rounds and 100 successful suite executions. Each round
+covered runtime SCI/mutex behavior, ordinary EC, initialized synthetic namespace,
+initialized disconnect timeout, and generated-namespace denial. All frozen input
+hashes and 100 logs were verified after completion. Expected poisoned/timeout
+halts remain negative containment cases. Evidence is retained outside `build`
+at `~/.local/share/srvros/vm-soaks/20261019-runtime-42c64df7/`. This is VM ACPI
+acceptance for that artifact; the later pointer fix and native firmware require
+their own evidence.
