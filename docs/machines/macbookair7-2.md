@@ -7,8 +7,9 @@ Updated: 2026-10-18. State: **active reference machine; partial device acceptanc
 Development host: Ubuntu on the 13-inch Air, Broadwell-U, Intel HD Graphics 6000
 `8086:1626`, xHCI `8086:9cb1`, Apple topcase `05ac:0291`, HDA `8086:9ca0` /
 CS4208 `1013:4208` subsystem `106b:7e00`. Firmware, descriptors and routing evidence
-are in the linked device guides. Shared development branch at this checkpoint:
-`codex/linux-development-baseline`; other machines use separate device branches.
+are in the linked device guides. The shared integration baseline is now `main`,
+including the completed `codex/linux-development-baseline` work. Subsequent
+device work uses separate branches based on `main`.
 
 ## Accepted scope and open items
 

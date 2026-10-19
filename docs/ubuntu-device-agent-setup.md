@@ -13,16 +13,16 @@ what was true at each checkpoint, including failed candidates. The
 
 ## 1. One checkout and agent per machine
 
-Use the shared development branch containing this guide, not the old `main`
-checkpoint. At this checkpoint that branch is `codex/linux-development-baseline`.
-Use a coordinator-selected commit from it, record that commit, and create a
+Use `main`, the shared integration baseline. The completed work from
+`codex/linux-development-baseline` has been promoted into it. Use a
+coordinator-selected commit from `main`, record that commit, and create a
 machine branch. For example, on the Pro11,2:
 
 If Git is not installed yet, install the packages in section 2 first; run its
 repository commands after cloning.
 
 ```sh
-git clone --branch codex/linux-development-baseline --recurse-submodules \
+git clone --branch main --recurse-submodules \
   https://github.com/PaulMDemers/SrvrOS.git
 cd SrvrOS
 git rev-parse HEAD

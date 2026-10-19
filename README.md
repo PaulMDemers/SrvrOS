@@ -18,6 +18,7 @@ For an agent developing locally on an Ubuntu Mac, start with the
 the repository branch, build tools, exFAT USB workspace, GRUB one-shot boots,
 recovery and evidence collection. [Per-machine records](docs/machines/README.md)
 track the reference Air and planned Air7,1, Pro11,2/11,3 and Mini7,1 targets.
+`main` is the shared baseline; create device branches from it for new work.
 
 The current native desktop has a global menu bar, dock, launcher, independent
 application windows and a shared widget toolkit. Its twelve apps cover Files,
