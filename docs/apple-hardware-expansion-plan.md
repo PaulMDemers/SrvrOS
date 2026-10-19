@@ -63,13 +63,13 @@ display/connection, original versus replaced storage, and attached peripherals.
 No machine serial number is needed. Each local agent should collect its own
 inventory during setup; none has yet been supplied for the additional machines.
 
-Before calling captures complete, extend the collector in these specific ways:
+The collector now covers the following evidence. Inspect it on each new machine
+before calling a capture complete; a collected descriptor is not driver support:
 
-- Replace the `05ac:0291`-only verbose USB/HID capture with enumeration of Apple
-  input interfaces, preserving IDs, interface/endpoint descriptors and HID
-  report descriptors. Its existing generic USB descriptor capture already
-  helps, but does not replace missing HID evidence. Never capture keystrokes.
-- Add board model identifiers (without serials/UUIDs), DRM connector modes,
+- Enumerate Apple HID interfaces across product IDs, preserving HID IDs and
+  report descriptors alongside the generic USB interface/endpoint descriptors.
+  Missing report reads are explicit partial captures. Never capture keystrokes.
+- Record board model identifiers (without serials/UUIDs), DRM connector modes,
   EDID and driver associations, and read-only GPU boot-display association.
 - Preserve all HDA codec dumps and subsystem IDs, distinguish analog audio
   from HDMI/DisplayPort audio, and inventory every exposed fan channel.
@@ -80,6 +80,11 @@ Before calling captures complete, extend the collector in these specific ways:
 - Capture Ethernet PCI IDs and Linux driver bindings on the Mini, plus actual
   USB network adapter descriptors. Do not infer an Ethernet driver from the
   presence of an RJ-45 connector or reuse QEMU's e1000 assumption.
+
+The generalized collector passed synthetic multi-product/topology tests and a
+read-only Air7,2 capture on 2026-10-19 with no unavailable reads: two `05ac:0291`
+HID reports, the Intel `8086:1626` boot display, a connected 1440x900 eDP panel,
+and internal/USB block topology. No sibling inventory or acceptance is implied.
 
 Capture files stay local under `build/hardware/`. Publish concise inventories
 and sanitized replay fixtures in the repo when evidence is available. Decoder

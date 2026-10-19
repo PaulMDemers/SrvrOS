@@ -25,14 +25,16 @@ PCM file playback, headphone routing and an actual network adapter still need
 specific physical acceptance. Implementation/VM results are recorded in the
 [device progress](desktop-progress-2026-10-18.md#device-support-block-audio-usb-networking-and-sensors).
 The [machine record](machines/macbookair7-2.md) records the exact accepted scope.
-Physical secondary clicking is missing and System had an input-timeout closure.
+Physical secondary clicking is implemented with native acceptance pending, and
+System had an input-timeout closure. The [October 19 work](desktop-progress-2026-10-19.md)
+records the input fix, timeout investigation and subsequent validation.
 Battery/AC, recording, mixing, richer media formats, fan control, lid policy and
 suspend remain unfinished. New model agents start with the
 [Ubuntu guide](ubuntu-device-agent-setup.md), not the Air's firmware/UUID values.
 
 Next work follows the [shared priorities](apple-hardware-expansion-plan.md#current-work-and-shared-dependencies):
 
-1. Implement physical two-finger secondary click, investigate the System timeout
+1. Physically accept two-finger secondary click, investigate the System timeout
    and measure idle/polling behavior. The PCM/WAV path is implemented and
    VM-tested, including storage overlap; file playback and headphone routing
    still need specific physical checks.

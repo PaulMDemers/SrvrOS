@@ -4,6 +4,7 @@ import argparse
 import datetime
 import json
 from pathlib import Path
+import re
 import subprocess
 
 
@@ -99,6 +100,58 @@ def capture_device_details(output, errors, sys_root=Path("/sys"), proc_root=Path
     (output/"device-details.json").write_text(json.dumps(result,indent=2)+"\n")
 
 
+def capture_machine_topology(output, errors, sys_root=Path("/sys")):
+    """Model-independent capabilities; no event, raw disk or control nodes."""
+    def read(path, binary=False):
+        try: return path.read_bytes() if binary else path.read_text().strip()
+        except OSError as error:
+            errors.append(f"{path}: {error}");return None
+    def properties(node, names):
+        return {name: read(node/name) for name in names if (node/name).is_file()}
+    def driver(node):
+        return (node/'driver').resolve().name if (node/'driver').exists() else None
+    def blob(node, relative):
+        data=read(node,True)
+        if data is None:return None
+        (output/relative).parent.mkdir(parents=True,exist_ok=True)
+        (output/relative).write_bytes(data);return str(relative)
+    hid=[]
+    for node in sorted((sys_root/'bus/hid/devices').glob('*')):
+        event=read(node/'uevent')
+        if event is None:continue
+        fields=dict(line.split('=',1) for line in event.splitlines() if '=' in line)
+        identity=re.fullmatch(r'([0-9a-fA-F]+):([0-9a-fA-F]+):([0-9a-fA-F]+)',fields.get('HID_ID',''))
+        if not identity or int(identity[2],16)!=0x05ac:continue
+        hid.append({'path':node.name,'sysfs_path':str(node.resolve()),'driver':driver(node),
+            'hid_id':fields['HID_ID'],'modalias':fields.get('MODALIAS'),
+            'report_descriptor':blob(node/'report_descriptor',Path('hid')/node.name/'report_descriptor.bin')})
+    graphics=[]
+    for node in sorted((sys_root/'class/drm').glob('card*')):
+        if re.fullmatch(r'card[0-9]+',node.name):
+            graphics.append({'name':node.name,'kind':'card','device_path':str((node/'device').resolve()),
+                'driver':driver(node/'device'),'properties':properties(node/'device',
+                    ('vendor','device','subsystem_vendor','subsystem_device','class','boot_vga'))})
+        elif (node/'status').exists():
+            item={'name':node.name,'kind':'connector','properties':properties(node,('status','enabled','modes','dpms'))}
+            if (node/'edid').exists():item['edid']=blob(node/'edid',Path('drm')/node.name/'edid.bin')
+            graphics.append(item)
+    pci=[]
+    for node in sorted((sys_root/'bus/pci/devices').glob('*')):
+        pci.append({'address':node.name,'sysfs_path':str(node.resolve()),'driver':driver(node),
+            'properties':properties(node,('vendor','device','subsystem_vendor','subsystem_device','class','revision','boot_vga'))})
+    disks=[]
+    for node in sorted((sys_root/'class/block').glob('*')):
+        if re.match(r'(?:loop|ram|zram)[0-9]+$',node.name):continue
+        disks.append({'name':node.name,'sysfs_path':str(node.resolve()),
+            'device_path':str((node/'device').resolve()) if (node/'device').exists() else None,
+            'driver':driver(node/'device'),'properties':properties(node,('size','ro','removable','partition','start')),
+            'queue':properties(node/'queue',('logical_block_size','physical_block_size','rotational'))})
+    result={'apple_hid':hid,'graphics':graphics,'pci':pci,'block':disks,
+        'board':properties(sys_root/'class/dmi/id',('board_vendor','board_name','board_version')),
+        'note':'Read-only topology and capabilities. No input events, HID unique strings, DMI serials, raw disks, EDID overrides or control writes. Raw EDID may identify a monitor; keep captures local. Missing reads are recorded in capture.json; no provider support is inferred.'}
+    (output/'machine-topology.json').write_text(json.dumps(result,indent=2)+'\n')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
@@ -112,7 +165,6 @@ def main():
         "pci-resources.txt": ["lspci", "-nnvv"],
         "usb.txt": ["lsusb"],
         "usb-tree.txt": ["lsusb", "-t"],
-        "apple-usb.txt": ["lsusb", "-v", "-d", "05ac:0291"],
         "disks.txt": ["lsblk", "-o", "NAME,TYPE,SIZE,FSTYPE,MOUNTPOINTS"],
     }.items():
         try:
@@ -134,14 +186,12 @@ def main():
     for name in ("sys_vendor", "product_name", "product_version", "bios_vendor", "bios_version", "bios_date"):
         copy(Path("/sys/class/dmi/id") / name, f"dmi/{name}")
     copy(Path("/proc/bus/input/devices"), "input-devices.txt")
-    for device in Path("/sys/bus/hid/devices").glob("*:05AC:0291.*"):
-        copy(device / "report_descriptor", f"hid/{device.name}/report_descriptor.bin")
-        copy(device / "uevent", f"hid/{device.name}/uevent.txt")
     for table in Path("/sys/firmware/acpi/tables").glob("*"):
         if table.is_file():
             copy(table, f"acpi/{table.name}.dat")
     capture_laptop_state(output, errors)
     capture_device_details(output, errors)
+    capture_machine_topology(output, errors)
     (output / "capture.json").write_text(json.dumps({
         "utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "missing_or_partial": errors,

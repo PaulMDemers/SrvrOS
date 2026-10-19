@@ -101,10 +101,13 @@ sudo python3 tools/capture_linux_hardware.py
 
 The collector creates `build/hardware/<timestamp>/`. Read `capture.json`; missing
 reads are not absent devices. It includes PCI/USB, ACPI tables, power/backlight,
-CPU, sensors and audio codec dumps without consuming input events. Its detailed
-Apple HID/verbose capture currently targets `05ac:0291`; the generic USB
-inventory covers other IDs, but agents must add descriptor evidence for their
-actual topcase before calling the capture complete. See the expansion plan.
+CPU, sensors and audio codec dumps without consuming input events. Apple HID
+report capture enumerates vendor `05ac` across product IDs and records missing
+descriptors explicitly. `machine-topology.json` adds board model, PCI bindings,
+DRM connectors/modes/EDID, boot-display flags and block-device ancestry. Raw EDID
+may identify a monitor; retain raw captures locally. Inspect the actual topcase
+descriptors and missing-read list before calling the capture complete. See the
+expansion plan.
 
 Record CPU, memory, GPU(s), screen, firmware revision, original/replaced storage,
 USB input and audio identities in the machine record. On Pro11,3, preserve the

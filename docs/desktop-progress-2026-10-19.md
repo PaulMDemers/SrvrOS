@@ -34,3 +34,19 @@ continues refusing input. `all test-desktop`, context-menu and System VM checks
 pass. This fixes a demonstrated timeout error but does not prove it caused the
 System closure in the previous physical session. Frame/configuration lifecycle
 deadlines remain in place; native follow-up is required.
+
+## Portable machine inventory
+
+The Linux collector no longer selects only `05ac:0291`. It enumerates Apple HID
+report descriptors across product IDs without capturing input events or HID
+unique strings. A structured topology file covers board model identifiers, DRM
+cards/connectors/modes/raw EDID, PCI identities/driver bindings and block-device
+ancestry. This supports comparing sibling Macs without widening driver gates.
+
+Four host tests pass, including multiple Apple products, unsupported vendors,
+missing reports, Retina-sized modes, storage partitions and excluded control/
+serial properties. A read-only privileged capture on this Air7,2 completed with
+zero missing reads. It confirms two Apple HID descriptors (26 and 182 bytes),
+Intel `8086:1626` as boot VGA and the connected 1440x900 eDP panel. Raw capture
+remains under ignored `build/overnight-20261018/linux-inventory`; no sibling
+machine has been tested by this change.
