@@ -42,8 +42,8 @@ This keeps captures within Preview's current 8 MiB file limit. Serial diagnostic
 record physical dimensions, logical dimensions and scale. VM evidence does not
 accept the firmware-selected display or GPU on an additional physical Mac.
 
-The unattended `--idle-capture` mode is reserved for the v25 hardware diagnostic
-profile. It uses the prepared USB workspace, samples 60 seconds after startup,
+The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagnostic
+profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
 saves a screenshot and exits. Normal launches and the interactive hardware trial
 retain their existing manual exit behavior. See the [device-agent guide](ubuntu-device-agent-setup.md).
 

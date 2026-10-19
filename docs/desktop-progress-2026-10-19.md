@@ -341,3 +341,12 @@ The exact-stage VM must report power unavailable with zero samples while checkin
 the ordinary desktop screenshot/save/unmount/return workflow. This deliberately
 separates successful capture mechanics from power acceptance. The profile is
 being prepared for a later physical window; nothing is installed or armed.
+
+
+V26 release `e03c015569fd2283`, source `854b737`, passed exact-stage UEFI/GRUB
+rehearsal: complete desktop sample, saved/decoded BMP, clean exFAT and reset.
+Power was correctly unavailable with zero samples in the VM; the collector
+returned no power measurement. Missing-workspace rehearsal halted without reset.
+All 68 hardware-tool tests and desktop/workspace host tests passed. Evidence and
+an explicitly **not installed/not armed** record are saved under
+`build/native-desktop-trials/e03c015569fd2283/`.
