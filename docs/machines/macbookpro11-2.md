@@ -79,8 +79,17 @@ VM candidate, not an accepted physical recovery release.
 
 ## Next checkpoint
 
-First console trial is collected as a keyboard failure. Add the actual Pro
-configuration to host tests, then use a separately staged and VM-rehearsed v19
-unattended diagnostic capture to distinguish enumeration/setup/report failures.
+First console trial is collected as a keyboard failure. The captured Pro
+configuration now passes the actual xHCI parser and endpoint-context tests:
+interface 0, endpoint 0x83/DCI 7, packet size 10, interval 8. The Air fixture still
+passes. This disproves a simple missing product-ID selection rule; physical
+transport/report handling remain unresolved.
+
+At `38ad189`, the v19 unattended profile explicitly saves controller/input
+diagnostics even when PS/2 appears ready. Build, xHCI/keyboard host tests and
+documentation checks pass. Exact release `bfc0b7492f2677b7` passes VM capture,
+offline saved-byte verification, clean exFAT and automatic reset. Its missing
+workspace rehearsal halts without reboot. The physical diagnostic is next;
+it requires no commands and does not claim working keyboard support.
 Preserve the previous console payload and Ubuntu default; collect the exact new
 release on return before changing the driver or preparing another boot.
