@@ -3006,7 +3006,12 @@ build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c $(UACPI_SRC)
 test-acpi-namespace: acpi-namespace
 	$(PYTHON) tools/test_acpi_namespace.py
 
-build/kernel/ports/%.c.o: ports/%.c
+.PHONY: test-make-bootstrap
+test-make-bootstrap:
+	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py
+test-core: test-make-bootstrap
+
+build/kernel/ports/%.c.o: ports/%.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(UACPI_HEADERS) Makefile
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO -c $< -o $@
 
