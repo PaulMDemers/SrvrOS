@@ -554,6 +554,16 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
             assert(tap_injected==before+1 && last_tap==contacts && !last_pointer.buttons && d->bulk_pending);
         }
         assert(t->tap_primary==1 && t->tap_secondary==1);test_pointer_options=0;test_time_step=1000;
+        /* Physical secondary press survives one finger lifting, even with
+         * tapping disabled, while bulk transport remains active. */
+        buffer[23]=1;buffer[54]=buffer[82]=10;
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-94);
+        dispatch_transfer_event(&e);assert(last_pointer.buttons==2 && d->bulk_pending);
+        buffer[23]=1;buffer[54]=10;buffer[40]=64;
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
+        dispatch_transfer_event(&e);assert(t->pointer.buttons==2 && !t->pointer.tap_armed);
+        buffer[23]=0;e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38);
+        dispatch_transfer_event(&e);assert(!last_pointer.buttons && tap_injected==2);
     }
     e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
@@ -561,9 +571,9 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
     struct xhci_trackpad_capture capture;
     xhci_trackpad_snapshot(&capture);
-    assert(capture.found && capture.max_contacts==2 && capture.lifts==(gestures?4u:1u) && capture.errors==1);
+    assert(capture.found && capture.max_contacts==2 && capture.lifts==(gestures?5u:1u) && capture.errors==1);
     assert(capture.tap_primary==(gestures?1u:0u) && capture.tap_secondary==(gestures?1u:0u));
-    assert(capture.drag_frames==(gestures?3u:0u) && capture.drag_rebases==(gestures?2u:0u));
+    assert(capture.drag_frames==(gestures?4u:0u) && capture.drag_rebases==(gestures?3u:0u));
     assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);

@@ -10,8 +10,8 @@ run /fat/bin/deskd
 
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
 on Air7,2. The latest v22 trial accepted desktop boot, brightness/volume changes
-and live sensor display. Physical two-finger pressing still sends primary click;
-secondary tapping is implemented separately. A System app input-timeout closure
+and live sensor display. Physical two-finger pressing now selects secondary click at press;
+this new behavior awaits physical acceptance. Secondary tapping is separate. A System app input-timeout closure
 remains open. See the [machine record](machines/macbookair7-2.md) for precise
 acceptance and the [development journal](desktop-progress-2026-10-18.md) for history.
 New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-setup.md).

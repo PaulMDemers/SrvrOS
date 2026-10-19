@@ -19,7 +19,7 @@ device work uses separate branches based on `main`.
 | Held-click second-finger steering | User accepted | `d61e60a82a295d84`; counters do not independently prove every handoff |
 | Brightness and audible volume adjustment | User accepted | `b427b78f21644bd2`; requested brightness 16/83 applied, three tone tests completed |
 | Temperature and fan sampling | Live output confirmed | Fresh screenshot readings 83 C / 1202 RPM; logs reached 85 C, no SMC errors; calibration/power behavior not accepted |
-| Two-finger physical right-click | Missing | Physical press still maps to primary; tap-secondary is a separate implemented path |
+| Two-finger physical right-click | Implemented; physical acceptance pending | Press role latches from initial contact count; one-finger press plus later steering finger remains primary |
 | Context menu from trackpad taps | Physical acceptance open | Exit counts 5 primary and 1 secondary tap; user reported no visible right-click result |
 | System window stability | Failure recorded | `input-timeout queue=5` closed System pid14 in the latest trial |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
@@ -43,7 +43,7 @@ The local trial record marks this run returned/reviewed, not armed for reboot.
 
 ## Next actions
 
-1. Physical two-finger secondary click while preserving established primary drag.
+1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Reproduce and fix the System input timeout.
 3. Measure idle/polling/load behavior before selecting power optimizations.
 4. Battery/AC runtime, headphone route acceptance and actual USB networking.

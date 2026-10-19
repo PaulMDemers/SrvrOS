@@ -103,7 +103,13 @@ static bool frame(struct trackpad_pointer *s,const struct apple_trackpad_frame *
             return release;
         }
     }
-    out->buttons=f->button && !s->blocked;
+    /* Choose a physical button once, at the press. Adding a steering finger
+     * to a primary drag must not turn it into a secondary click; lifting one
+     * contact from a secondary press must not turn it into a primary click.
+     * Cancellation/palm suppression blocks rearming until physical release.
+     * This is independent of tap preferences and preserves legacy pointer mode. */
+    out->buttons=!f->button || s->blocked?0:
+        s->buttons?s->buttons:(gestures && f->count==2?2:1);
     bool changed=out->buttons!=s->buttons;
     s->buttons=out->buttons;
     bool two_drag=gestures && f->count==2 && out->buttons;
