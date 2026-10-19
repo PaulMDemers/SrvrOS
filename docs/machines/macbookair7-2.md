@@ -92,3 +92,10 @@ Trackpad transport/palm faults now cancel a held interaction rather than deliver
 an ordinary release. The compositor also preserves queued typing on pointer
 cancellation. Host fault tests cover both paths; native acceptance is pending,
 and this is not claimed as the cause of earlier unexplained window closures.
+
+The generalized Linux inventory now includes `cpu-policy.json`. The October 19
+capture had no partial reads: four online logical CPUs, `intel_idle`/`menu`, and
+four `intel_cpufreq`/`schedutil` policies with 500–3,200 MHz limits. CPU0 listed
+POLL through C10 as enabled. These are Linux policy observations, not SrvrOS
+energy or deeper-idle acceptance. The [power guide](../power-telemetry.md)
+documents units, non-atomic capture and missing-field semantics.

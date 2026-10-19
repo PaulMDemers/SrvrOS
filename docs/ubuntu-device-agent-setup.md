@@ -109,6 +109,16 @@ may identify a monitor; retain raw captures locally. Inspect the actual topcase
 descriptors and missing-read list before calling the capture complete. See the
 expansion plan.
 
+`cpu-policy.json` records Linux CPU topology, online sets, idle driver/governor
+and per-CPU states, plus each frequency policy's membership, governor and limits.
+It reads an explicit attribute allowlist without changing policy. Missing
+optional fields are omitted; failed reads are null and listed in `capture.json`.
+The snapshot has start/end times and an online-set recheck; it is not atomic or
+an energy measurement. Capture it with power baselines, and retain the raw file
+locally. See [CPU power telemetry](power-telemetry.md#linux-policy-baseline).
+`make test-linux-inventory` runs portable fixture checks without privileged
+hardware access and is included in `test-core`.
+
 Record CPU, memory, GPU(s), screen, firmware revision, original/replaced storage,
 USB input and audio identities in the machine record. On Pro11,3, preserve the
 firmware-selected graphics route; do not guess GMUX or discrete-GPU power writes.

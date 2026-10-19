@@ -2113,6 +2113,11 @@ hardware-test-smoke: $(IMAGE) test-core
 	$(PYTHON) -m unittest discover -s tools -p 'test_hardware*.py'
 	$(PYTHON) tools/hardware_test_smoke.py --qemu $(QEMU)
 
+.PHONY: test-linux-inventory
+test-linux-inventory:
+	$(PYTHON) -m unittest discover -s tools -p 'test_capture_*.py'
+test-core: test-linux-inventory
+
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
 	$<

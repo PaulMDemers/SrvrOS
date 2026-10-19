@@ -502,3 +502,22 @@ halts remain negative containment cases. Evidence is retained outside `build`
 at `~/.local/share/srvros/vm-soaks/20261019-runtime-42c64df7/`. This is VM ACPI
 acceptance for that artifact; the later pointer fix and native firmware require
 their own evidence.
+
+## Portable Linux CPU policy inventory
+
+The read-only collector now saves `cpu-policy.json`: CPU topology/online sets,
+idle driver/governor and per-CPU states, and frequency policy membership,
+governor, limits and available feedback. It preserves raw units and distinguishes
+absent optional attributes, failed reads and unknown directory availability.
+An online-set recheck flags observed hotplug without claiming atomicity. It does
+not read MSRs or write CPU controls, and does not infer SrvrOS device support.
+
+Ten inventory fixture tests passed, including six CPU-policy cases for grouped
+policies, numeric ordering, allowlist preservation, absent subsystems, denied
+reads/enumeration, disappearing states/fields and changed online membership.
+The tests now have a `test-linux-inventory` Make target included in `test-core`.
+A complete fresh Linux capture had zero partial reads; raw evidence stays under
+`build/hardware/20261019-cpu-policy/`. Four logical CPUs use `intel_idle`/`menu`
+and `intel_cpufreq`/`schedutil` with 500–3,200 MHz policy limits. CPU0 exposes
+POLL through C10. This records Linux policy, not measured residency or energy.
+Installed payloads and recovery were unchanged; no physical boot was requested.

@@ -84,6 +84,39 @@ state, wall-clock duration and CPU0 idle counters; do not infer energy savings
 from scheduler idle percentage. Frequency controls and deeper idle entry need
 separate wake/input/storage regressions after a measured baseline exists.
 
+## Linux policy baseline
+
+`tools/capture_linux_hardware.py` now saves `cpu-policy.json` alongside the
+ordinary hardware inventory. It enumerates CPU and policy numbers rather than
+assuming the Air's topology. It captures driver/governor names, policy membership,
+frequency limits, CPU topology and idle-state attributes using read-only sysfs
+access. No MSR device, input stream or power control is opened by this addition.
+
+Frequency values retain kHz; transition latency uses ns. Idle exit latency,
+target residency and accumulated time use microseconds. Idle counters describe
+kernel requests/accounting, not independently measured hardware residency or
+energy. `scaling_cur_freq` also need not equal instantaneous hardware frequency.
+See the Linux [CPUIdle](https://www.kernel.org/doc/html/latest/admin-guide/pm/cpuidle.html)
+and [CPUFreq](https://www.kernel.org/doc/html/latest/admin-guide/pm/cpufreq.html)
+documentation for these interfaces.
+
+Values remain raw strings. An unsupported optional field is omitted; an observed
+field that fails to read is null with an error in `capture.json`. Directory
+availability is true, false for absent, or null for an enumeration failure. A
+directory disappearing after enumeration is recorded as partial. CPU0 lacking
+an `online` attribute is not interpreted as offline. Before/after online sets
+can expose hotplug, but matching sets do not prove the snapshot was stable.
+Start/end UTC and monotonic duration bound the observation, not a workload.
+
+The reference Air's October 19 Linux snapshot completed in 33 ms with no partial
+reads: four online logical CPUs, `intel_idle`/`menu`, and four `intel_cpufreq`
+policies using `schedutil` with 500–3,200 MHz limits. CPU0 exposed POLL through
+C10, all enabled in this snapshot. These are Linux settings, not new SrvrOS
+capabilities or evidence that the hardware entered those states. Repeat the
+capture for another machine or changed Linux configuration; never copy these
+values into sibling profiles. Raw evidence is in
+`build/hardware/20261019-cpu-policy/`.
+
 ## Primary references
 
 - [Intel SDM Volume 4](https://cdrdv2-public.intel.com/929363/335592-093-sdm-vol-4.pdf),
