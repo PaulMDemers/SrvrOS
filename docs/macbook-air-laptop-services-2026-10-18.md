@@ -408,3 +408,22 @@ The implementation contracts above come from the vendored upstream
 [`event.c`](../ports/upstream/uacpi/source/event.c), alongside SrvrOS's
 [`irq.c`](../kernel/src/arch/x86_64/irq.c) and
 [`ioapic.c`](../kernel/src/arch/x86_64/ioapic.c).
+
+
+### October 19 integration checkpoint
+
+The separate full-uACPI Q35 kernel now has a synthetic EC operation-region,
+query and battery pipeline. `_REG` read/write, SCI-to-query work, `_Qxx` EC and
+SMBus reads, notifications, query batching, full SBS samples, timeout quarantine
+and explicit disconnect/reset pass in the VM. Its controller bytes and battery
+values are modeled; this does not accept the laptop's EC/GPE path.
+
+Captured firmware's `SMB0.SMTX` covers whole SMBus operations. The tested approach
+runs all EC/battery/firmware work on one ordinary worker, so queries queued during
+a sample wait until its bank transaction ends. Foreign EC callers are rejected.
+A native adapter must define the initialization owner and hand off to this worker
+before enabling other EC users. Per-byte mutual exclusion alone is insufficient.
+The first VM reset found that generic namespace destruction can remove names
+needed by `_REG` disconnect; explicitly disconnect handlers with their namespace
+intact, under the correct EC ownership, before generic reset. See the current
+[uACPI port record](../ports/srvros/uacpi/PORT.md) for tests and remaining gates.

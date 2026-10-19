@@ -3171,7 +3171,7 @@ build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/r
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
 
 # Explicit, separate VM-only runtime kernel. Never substitutes build/kernel/srvros.elf.
-UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c
+UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c
 UACPI_VM_OBJ := $(UACPI_VM_SRC:%.c=build/acpi-runtime/%.c.o)
 UACPI_WORK_NATIVE_OBJ := $(filter %/runtime/work_queue.c.o %/runtime/work_worker.c.o %/runtime/work_worker_test.c.o %/runtime/sci_test.c.o,$(UACPI_KERNEL_OBJ))
 .PHONY: acpi-runtime-vm-kernel

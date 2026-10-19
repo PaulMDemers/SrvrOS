@@ -2,6 +2,7 @@
  * Not included in the normal kernel, stages or installed hardware profiles. */
 #include "work_worker.h"
 #include "q35_fixture.h"
+#include "ec_fixture.h"
 #include <srvros/acpi.h>
 #include <srvros/acpi_runtime_test.h>
 #include <srvros/aml_probe.h>
@@ -249,6 +250,7 @@ static void power_work(void *context) {
 static uacpi_interrupt_ret power_handler(uacpi_handle context) {
     (void)context;
     runtime.power_events++;
+    (void)acpi_ec_fixture_signal(0x20);
     if (!runtime.work_scheduled) {
         runtime.work_scheduled = true;
         uacpi_kernel_schedule_work(UACPI_WORK_NOTIFICATION, &runtime.event_item, power_work, NULL);
@@ -261,8 +263,10 @@ static bool stop_runtime(void) {
     outw(0x602, 0);
     for (uint16_t port = 0x628; port < 0x630; port++) outb(port, 0);
     if (!ioapic_mask_gsi(9, true)) unsafe("SCI mask failed");
+    if (!acpi_ec_fixture_prepare_stop()) unsafe("EC disconnect failed");
     uacpi_state_reset();
     runtime.initialized = false;
+    if (!acpi_ec_fixture_retired()) unsafe("EC state retained after reset");
     if (runtime.irq_token) unsafe("SCI retained after reset");
     if (!acpi_worker_drain(&runtime.worker, 1000) || !acpi_worker_stop(&runtime.worker, 1000)) unsafe("worker stop failed");
     bool restored = ioapic_restore_masked_gsi(9, runtime.original_low, runtime.original_high);
@@ -289,6 +293,7 @@ static bool start_runtime(bool fail_install) {
         .facs = fadt->firmware_ctrl, .fault_install = fail_install,
     };
     if (!acpi_worker_start(&runtime.worker)) { runtime.engaged = false; return false; }
+    acpi_ec_fixture_reset(&runtime.worker);
     uacpi_status result = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE | UACPI_FLAG_BAD_CSUM_FATAL | UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL);
     if (result) goto failed;
     uacpi_context_set_loop_timeout(1);
@@ -322,6 +327,8 @@ void acpi_runtime_test_command(const char *args) {
         bool ok = stop_runtime();
         console_printf("acpi-runtime: stopped=%s heap=%u errors=%u denied=%u pending=%u\n",
             ok ? "yes" : "NO", runtime.heap, runtime.errors, runtime.denied, (uint64_t)pending);
+    } else if (args[0] == 'e' && args[1] == 'c' && args[2] == ' ' && runtime.initialized) {
+        acpi_ec_fixture_command(args + 3);
     } else if (equal(args, "wedge") && runtime.initialized) {
         semaphore_init(&runtime.wedge_gate, 0);
         uacpi_kernel_schedule_work(UACPI_WORK_NOTIFICATION, &runtime.wedge_item, wedged_work, NULL);

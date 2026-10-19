@@ -232,3 +232,46 @@ The next runtime work is synthetic EC operation-region/query/SMBus integration,
 then firmware-specific ownership and initialization policy. An ordinary kernel
 worker is deliberately not exempt from the storage ownership gate. Battery/AC
 values, native Global Lock policy and suspend remain unimplemented services.
+
+## Synthetic EC, queries and SBS integration
+
+The separate VM kernel now includes `runtime/ec_fixture.c` and a synthetic AML
+EC device. Its in-memory controller implements the byte protocol consumed by
+the real `ec_transport`, `ec_smbus` and `sbs_sample` engines. It has no native
+port binding. `_REG` connects the real uACPI EmbeddedControl region handler and
+performs a read/write handshake. The handler rejects callers outside the chosen
+ordinary worker or with interrupts masked. Query exchange releases its controller
+lease before invoking `_Qxx`; a query method can therefore read the EC or execute
+a complete AML SMBus transaction without recursive controller ownership.
+
+The fixture queues queries while a complete SBS sample owns the controller and
+runs them after that sample finishes. All EC methods, query methods, notification
+callbacks and sampling run on one worker. This matters because captured Air
+firmware holds `SMB0.SMTX` across several EC accesses: merely locking each byte
+would let a direct driver corrupt an in-progress AML bank transaction. The VM
+also injects 32 queries, processes at most eight per work invocation, and yields
+between batches. The real emulated fixed SCI supplies one query notification;
+its EC status/reply bytes are modeled. This is not an emulated physical EC GPE.
+
+`tools/acpi_ec_smoke.py` passed two full EC lifetimes plus stop during delayed
+setup. Each full lifetime verified `_REG`, rejected a foreign caller before I/O,
+completed the 15-word SBS sample, deferred two queries injected during the sample,
+ran 35 total query methods and 18 notification callbacks, and preserved the
+last successful sample after an injected EC stall. The stalled sample cleared
+current validity, poisoned the transport and refused retry. Values such as 86%
+and 12 V are deliberately synthetic, not laptop readings. A detached handler
+and zero interpreter allocations were required at every reset. The original
+full-runtime SCI/mutex/failed-drain suite also passed after EC integration.
+
+The first EC reset exposed an ordering defect in relying solely on generic
+namespace destruction: `_REG` disconnect tried to access names already removed.
+The adapter now masks sources, drains scheduled work, removes the notification
+handler and explicitly disconnects the region while its namespace still exists,
+then resets uACPI. Delayed setup remains owned until completion, so stop cannot
+miss a handler that is being installed. The failed capture is retained locally.
+
+Native work still needs an audited initialization owner/worker handoff, real
+ECDT/resource binding, `_OSI` and Global Lock policy, live GPE/query ownership,
+register permissions and hardware acceptance. Native disconnect methods may
+perform EC I/O and must run under that ownership policy; the synthetic disconnect
+only updates an AML name. Do not widen this VM fixture's port gate to boot a Mac.

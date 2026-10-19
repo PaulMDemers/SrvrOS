@@ -224,3 +224,18 @@ drained before namespace reset; all clean lifetimes ended with zero errors,
 denials and interpreter allocations. A deliberately wedged worker then caused
 the expected teardown halt retaining live allocations. This verifies failure
 containment in the VM and does not authorize native battery/EC activation.
+
+## Synthetic EC and battery pipeline
+
+The VM now connects real uACPI EmbeddedControl handlers to a modeled controller
+using the existing EC/SMBus/SBS engines. Two full lifetimes passed `_REG` I/O,
+foreign-caller refusal, complete SBS samples, queries deferred during samples,
+35 query methods and 18 notifications per lifetime, and timeout quarantine with
+last-good retention. A third delayed-setup teardown also passed. All clean
+resets detached their handler and left zero interpreter allocations.
+
+An initial reset failed when generic namespace destruction removed names needed
+by `_REG` disconnect. The adapter now explicitly disconnects while the namespace
+is intact; the failure evidence is retained. No physical EC register is exposed
+by this work, and the sample values remain synthetic. The full-runtime SCI,
+mutex-contention and failed-drain suite passed after integration.
