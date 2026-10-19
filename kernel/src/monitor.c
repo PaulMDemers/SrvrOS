@@ -555,10 +555,7 @@ static void command_hwdiag(void) {
         heap_free_bytes(),
         heap_used_bytes());
     console_write("== scheduler ==\n");
-    console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u\n",
-        scheduler_thread_count(),
-        scheduler_preemptions(),
-        scheduler_demo_counter());
+    scheduler_print_status();
     workqueue_print_status();
     console_write("== network ==\n");
     e1000_print_status();
@@ -1057,10 +1054,7 @@ static void run_command(char *line) {
     } else if (streq(command, "ticks")) {
         console_printf("ticks: %u\n", timer_ticks());
     } else if (streq(command, "workers")) {
-        console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u\n",
-            scheduler_thread_count(),
-            scheduler_preemptions(),
-            scheduler_demo_counter());
+        scheduler_print_status();
         workqueue_print_status();
     } else if (streq(command, "block")) {
         block_print_status();

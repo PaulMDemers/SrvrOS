@@ -57,6 +57,7 @@ void *scheduler_current_user_thread_context(void);
 uint64_t scheduler_thread_count(void);
 uint64_t scheduler_preemptions(void);
 uint64_t scheduler_demo_counter(void);
+void scheduler_print_status(void);
 bool scheduler_start_demo_worker(void);
 
 #endif

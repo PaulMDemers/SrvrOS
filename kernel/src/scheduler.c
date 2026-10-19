@@ -54,6 +54,7 @@ struct thread {
     struct scheduler_wait_queue *blocked_queue;
     uint64_t blocked_deadline_ticks;
     uint64_t switches;
+    uint64_t sampled_ticks;
 };
 
 void scheduler_context_switch(struct scheduler_context *old_context, struct scheduler_context *new_context);
@@ -69,6 +70,7 @@ static uint64_t io_owner, io_depth, io_service_at;
 static struct scheduler_wait_queue io_waiters;
 static uint64_t preempt_tick_accumulator;
 static uint64_t preemption_count;
+static uint64_t sampled_ticks;
 static volatile uint64_t demo_counter;
 
 static uint64_t irq_save(void) {
@@ -514,6 +516,9 @@ void scheduler_preempt_tick(void) {
         return;
     }
 
+    sampled_ticks++;
+    threads[current_thread].sampled_ticks++;
+
     wake_expired_waits();
 
     if (io_depth == 0 && process_should_exit_current()) {
@@ -618,6 +623,23 @@ uint64_t scheduler_preemptions(void) {
 
 uint64_t scheduler_demo_counter(void) {
     return demo_counter;
+}
+
+void scheduler_print_status(void) {
+    /* Copy with IRQs masked, then print outside the critical section. These
+     * timer samples show where the boot CPU spends time, not process CPU time
+     * or an energy estimate. Short tasks can fall between samples. */
+    struct sample { const char *name; unsigned state; uint64_t ticks, switches; } sample[SCHEDULER_MAX_THREADS];
+    uint64_t flags=irq_save(),total=sampled_ticks,preemptions=preemption_count;
+    for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) sample[i]=(struct sample){
+        threads[i].name,threads[i].state,threads[i].sampled_ticks,threads[i].switches};
+    irq_restore(flags);
+    console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u sampled_ticks=%u\n",
+        scheduler_thread_count(),preemptions,demo_counter,total);
+    for(unsigned i=0;i<SCHEDULER_MAX_THREADS;i++) if(sample[i].state!=THREAD_UNUSED)
+        console_printf("scheduler: thread=%u name=%s state=%u sampled_ticks=%u switches=%u\n",
+            (uint64_t)i,sample[i].name?sample[i].name:"unknown",(uint64_t)sample[i].state,
+            sample[i].ticks,sample[i].switches);
 }
 
 static void demo_worker(void *arg) {
