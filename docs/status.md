@@ -34,8 +34,9 @@ cancel interrupted trackpad presses, preserve queued typing on pointer
 cancellation, and correct compositor input/control delivery deadlines. Host/VM
 regressions pass. The latest physical round reported generally good behavior,
 with no recorded timeout or app failure; individual secondary-click/cancellation
-cases are not all confirmed. A Terminal backspace display defect found in that
-round is corrected in source, pending physical retest.
+cases are not all confirmed. The Terminal backspace correction passed its physical retest on
+`5282cfde546ea2b5`; Text copy/paste/select-all shortcuts were explicitly
+validated in the same round.
 Earlier unexpected app closures are not conclusively explained by these fixes.
 
 Current limits include eight client windows, software rendering and bounded

@@ -14,8 +14,8 @@ and live sensor display. Physical two-finger pressing now selects secondary clic
 specific gesture cases still need confirmation. Secondary tapping is separate.
 The October 19 interactive round reported generally good behavior and recorded
 no recurrence of the earlier System input-timeout closure. That earlier cause
-is not conclusively established. A Terminal backspace artifact from the new
-round is corrected in source and awaits hardware retest. Host regressions now cover input and control
+is not conclusively established. The Terminal backspace correction passed its subsequent hardware
+retest, alongside explicit Text Ctrl+C/V/A validation. Host regressions now cover input and control
 packet delivery deadlines; clients get a delivery attempt before queued time is
 blamed on them, and genuinely unresponsive clients still have bounded cleanup.
 See the [machine record](machines/macbookair7-2.md) for precise

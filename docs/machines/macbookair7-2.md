@@ -16,6 +16,8 @@ device work uses separate branches based on `main`.
 | Capability | State | Evidence / limit |
 | --- | --- | --- |
 | Desktop boot, rendering, keyboard, trackpad, USB documents | Physically exercised | User rounds and durable workspace history in the development journal |
+| Terminal backspace redraw | User validated | `5282cfde546ea2b5`, fix `c6e5538`; reported stray characters no longer appear |
+| Text Ctrl+C / Ctrl+V / Ctrl+A | User validated | `5282cfde546ea2b5`; copy, paste and select-all explicitly checked |
 | Held-click second-finger steering | User accepted | `d61e60a82a295d84`; counters do not independently prove every handoff |
 | Brightness and audible volume adjustment | User accepted | `b427b78f21644bd2`; requested brightness 16/83 applied, three tone tests completed |
 | Temperature and fan sampling | Live output confirmed | Fresh screenshot readings 83 C / 1202 RPM; logs reached 85 C, no SMC errors; calibration/power behavior not accepted |
@@ -28,6 +30,23 @@ device work uses separate branches based on `main`.
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
 ## Latest interactive physical record
+
+Release `5282cfde546ea2b5`, v22, source `dad7aa8`, contains the Terminal cursor
+correction `c6e5538`. The user reports that the character artifact appears
+resolved and explicitly validated Ctrl+C, Ctrl+V and Ctrl+A in Text. Those two
+workflows are now physically accepted on this Air.
+
+Matching session `session-00065e37be14b48c-00` has four verified logs, a saved
+exit snapshot, clean desktop process exit and no collector attention flags.
+There were no new screenshots in this round. Offline read-only exFAT checking
+was clean (164 directories, 822 files). Evidence and the run record are local
+under `build/native-desktop-trials/5282cfde546ea2b5/`.
+
+Current installed is `5282cfde546ea2b5`, previous remains accepted recovery
+`b427b78f21644bd2`, and no one-shot boot is armed. Secondary press/tap cases were
+not individually confirmed in the report; power telemetry was not enabled.
+
+## Earlier October 19 interactive round
 
 Release `fed370ffbe33d554`, v22, source `c6e50ec` (same tree as merged baseline
 `e2d172b`), was exercised on October 19. The user reported generally good
@@ -44,12 +63,12 @@ check was clean (163 directories, 818 files). General success does not establish
 every gesture case: the final two-finger tap counter was zero, so specific
 secondary-tap acceptance stays open.
 
-Current installed is `fed370ffbe33d554`; previous remains accepted recovery
+At that checkpoint installed was `fed370ffbe33d554`; previous remained accepted recovery
 `b427b78f21644bd2`. The one-shot boot selection was consumed and no next boot is
 armed. The Terminal screenshot's stray slash was reproduced in the host editor
 and actual desktop VM: erasing padding left the output cursor beyond the edited
-line. The source correction restores that cursor; it is not yet installed or
-physically accepted. See the [journal](../desktop-progress-2026-10-19.md).
+line. The source correction restores that cursor; the subsequent physical
+retest above accepts that correction. See the [journal](../desktop-progress-2026-10-19.md).
 
 ## Earlier interactive physical record
 

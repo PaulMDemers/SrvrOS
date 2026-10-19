@@ -613,3 +613,26 @@ resize, close cancellation and saved output), the console shell-edit smoke test,
 and `make check-docs`. The terminal harness's old `20 90` resize expectation was
 also corrected to `20 94`: its 1000×550 client, 54×98 terminal insets and current
 10×22 cells yield 94 columns and 20 rows. No production geometry changed.
+
+
+## Terminal correction physically accepted
+
+Follow-up v22 release `5282cfde546ea2b5` was built from `dad7aa8`, including
+`c6e5538` and a focused opening Help checklist. The first exact-stage VM attempt
+stopped because concurrent serial messages split `deskterm: exited failure=0`;
+a separate compositor child-exit record showed status zero. That failed attempt
+was preserved. The unchanged candidate then passed the complete two-boot desktop,
+persistence, unmount and audio rehearsal before installation.
+
+The user reports that the Terminal character issue appears resolved and
+explicitly validated Ctrl+C, Ctrl+V and Ctrl+A in Text. Matching physical session
+`session-00065e37be14b48c-00` was collected after return: four hash-verified logs,
+saved exit snapshot, clean desktop process exit and zero collector attention
+flags. No new screenshots were present. The offline read-only exFAT check was
+clean (164 directories, 822 files). The one-shot boot selection was consumed;
+current is `5282cfde546ea2b5` and accepted previous remains `b427b78f21644bd2`.
+
+Terminal backspace redraw and Text copy/paste/select-all are physically accepted
+for this machine. This report does not separately establish secondary press/tap
+behavior, cancellation fault paths or power telemetry. No further reboot is
+armed.
