@@ -124,6 +124,8 @@ static void test_gpt(void) {
     d->write=fake_write;assert(block_enable_partition_writes(p));byte=0x71;
     assert(block_write(p,0,&byte,1) && medium[40*512]==0x71);
     assert(!block_write(p,8*512,&byte,1));
+    gpt_fixture();put32(medium+458,UINT32_MAX);block_init();assert(block_register_gpt_partitions(gpt_disk())==1);
+    gpt_fixture();put32(medium+458,126);reject_gpt();
     gpt_fixture();medium[512+16]^=1;reject_gpt(); /* Header CRC. */
     gpt_fixture();medium[1024+100]^=1;reject_gpt(); /* Entry table CRC. */
     gpt_fixture();mbr_entry(1,7,40,8);reject_gpt(); /* Hybrid protective MBR. */

@@ -337,7 +337,11 @@ uint64_t block_register_gpt_partitions(struct block_device *device) {
         }
         uint64_t sectors = device->block_count - 1;
         if (sectors > UINT32_MAX) sectors = UINT32_MAX;
-        if (p[0] || p[4] != 0xee || read_le32(p + 8) != 1 || read_le32(p + 12) != sectors) return 0;
+        /* Some formatters saturate the protective length even on small disks.
+         * This entry is never exposed; all actual extents come from checked GPT. */
+        uint32_t protective_size = read_le32(p + 12);
+        if (p[0] || p[4] != 0xee || read_le32(p + 8) != 1 ||
+            (protective_size != sectors && protective_size != UINT32_MAX)) return 0;
         protective++;
     }
     if (protective != 1 || !block_read(device, device->block_size, header, 512)) return 0;

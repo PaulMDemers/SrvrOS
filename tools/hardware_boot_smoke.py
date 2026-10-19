@@ -199,7 +199,8 @@ def main():
                     uuid.uuid4(), 2048, last, "Workspace")
                 crc, guid = binascii.crc32(entries) & 0xffffffff, uuid.uuid4()
                 mbr[450] = 0xee
-                struct.pack_into("<II", mbr, 454, 1, backup)
+                # Match the saturated protective length captured on the Pro USB.
+                struct.pack_into("<II", mbr, 454, 1, 0xffffffff)
                 with stick.open("wb") as stream:
                     stream.write(mbr)
                     stream.write(gpt_header(1, backup, 34, last, 2, 128, crc, guid))
