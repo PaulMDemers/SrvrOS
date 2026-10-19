@@ -3,6 +3,7 @@
 #include <srvros/vmm.h>
 
 #include "ioapic.h"
+#include "irq.h"
 
 #define IOAPIC_DEFAULT_PHYS 0xfec00000u
 #define IOAPIC_VIRTUAL_BASE 0xffffc000fec00000ull
@@ -20,14 +21,40 @@ static volatile uint32_t *ioapic;
 static uint32_t gsi_base;
 static uint32_t max_redirection_entry;
 
+static uint64_t lock(void) {
+#ifdef SRVROS_IOAPIC_HOST_TEST
+    return 0;
+#else
+    uint64_t f;__asm__ volatile("pushfq;popq %0;cli":"=r"(f)::"memory");return f;
+#endif
+}
+static void unlock(uint64_t f) {
+#ifdef SRVROS_IOAPIC_HOST_TEST
+    (void)f;
+#else
+    if(f&(1ull<<9))__asm__ volatile("sti":::"memory");
+#endif
+}
+#ifdef SRVROS_IOAPIC_HOST_TEST
+uint32_t ioapic_test_read(uint8_t reg);
+void ioapic_test_write(uint8_t reg,uint32_t value);
+#endif
 static uint32_t read_reg(uint8_t reg) {
+#ifdef SRVROS_IOAPIC_HOST_TEST
+    return ioapic_test_read(reg);
+#else
     ioapic[IOAPIC_REGSEL / sizeof(uint32_t)] = reg;
     return ioapic[IOAPIC_WINDOW / sizeof(uint32_t)];
+#endif
 }
 
 static void write_reg(uint8_t reg, uint32_t value) {
+#ifdef SRVROS_IOAPIC_HOST_TEST
+    ioapic_test_write(reg,value);
+#else
     ioapic[IOAPIC_REGSEL / sizeof(uint32_t)] = reg;
     ioapic[IOAPIC_WINDOW / sizeof(uint32_t)] = value;
+#endif
 }
 
 static uint32_t redirection_flags(uint16_t acpi_flags) {
@@ -62,8 +89,12 @@ static bool route_gsi(uint8_t irq, uint32_t gsi, uint8_t vector, uint16_t acpi_f
     uint32_t low = vector | redirection_flags(acpi_flags);
     uint32_t high = 0;
 
-    write_reg(IOAPIC_REDTBL_BASE + index * 2 + 1, high);
-    write_reg(IOAPIC_REDTBL_BASE + index * 2, low);
+    uint64_t saved=lock();
+    uint8_t reg=IOAPIC_REDTBL_BASE+index*2;
+    write_reg(reg,read_reg(reg)|IOAPIC_REDIR_MASKED);
+    write_reg(reg+1,high);
+    write_reg(reg,low);
+    unlock(saved);
 
     console_printf("ioapic: irq=%u gsi=%u vector=%u flags=%x\n",
         (uint64_t)irq,
@@ -94,6 +125,9 @@ bool ioapic_init(void) {
 
     ioapic = (volatile uint32_t *)IOAPIC_VIRTUAL_BASE;
     max_redirection_entry = (read_reg(IOAPIC_VER) >> 16) & 0xff;
+    if(max_redirection_entry>119) {
+        console_write("ioapic: unsupported redirection register range\n");ioapic=0;return false;
+    }
 
     console_printf("ioapic: id=%u max_redir=%u phys=%x gsi_base=%u\n",
         (uint64_t)((read_reg(IOAPIC_ID) >> 24) & 0xf),
@@ -128,4 +162,31 @@ bool ioapic_route_pci_irq(uint8_t irq, uint8_t vector) {
     }
 
     return route_gsi(irq, irq, vector, 0x000f);
+}
+
+static bool gsi_register(uint32_t gsi,uint8_t *reg) {
+    if(!ioapic || gsi<gsi_base || gsi-gsi_base>max_redirection_entry || gsi-gsi_base>119)return false;
+    *reg=IOAPIC_REDTBL_BASE+2*(gsi-gsi_base);return true;
+}
+bool ioapic_read_gsi(uint32_t gsi,uint32_t *low,uint32_t *high) {
+    uint8_t reg;if(!low || !high || !gsi_register(gsi,&reg))return false;
+    uint64_t f=lock();*low=read_reg(reg);*high=read_reg(reg+1);unlock(f);return true;
+}
+bool ioapic_prepare_gsi(uint32_t gsi,uint8_t vector,bool active_low,bool level) {
+    uint8_t reg;if(vector<IRQ_VECTOR_BASE || vector>=IRQ_VECTOR_BASE+IRQ_COUNT || !gsi_register(gsi,&reg))return false;
+    uint64_t f=lock();uint32_t old=read_reg(reg);
+    if(!(old&IOAPIC_REDIR_MASKED) || (old&((1u<<12)|(1u<<14)))) { unlock(f);return false; }
+    uint32_t low=vector|IOAPIC_REDIR_MASKED|(active_low?IOAPIC_REDIR_ACTIVE_LOW:0)|(level?IOAPIC_REDIR_TRIGGER_LEVEL:0);
+    write_reg(reg,old|IOAPIC_REDIR_MASKED);write_reg(reg+1,0);write_reg(reg,low);
+    bool ok=(read_reg(reg)&(0xfff|IOAPIC_REDIR_MASKED|IOAPIC_REDIR_ACTIVE_LOW|IOAPIC_REDIR_TRIGGER_LEVEL))==low && read_reg(reg+1)==0;
+    unlock(f);return ok;
+}
+bool ioapic_mask_gsi(uint32_t gsi,bool masked) {
+    uint8_t reg;if(!gsi_register(gsi,&reg))return false;
+    uint64_t f=lock();uint32_t low=read_reg(reg);
+    if(!masked && ((low&0xff)<IRQ_VECTOR_BASE || (low&0xff)>=IRQ_VECTOR_BASE+IRQ_COUNT)) { unlock(f);return false; }
+    write_reg(reg,masked?low|IOAPIC_REDIR_MASKED:low&~IOAPIC_REDIR_MASKED);
+    bool ok=((read_reg(reg)&IOAPIC_REDIR_MASKED)!=0)==masked;
+    if(!ok)write_reg(reg,read_reg(reg)|IOAPIC_REDIR_MASKED);
+    unlock(f);return ok;
 }

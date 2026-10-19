@@ -341,19 +341,20 @@ Review of the actual kernel and pinned uACPI 7.0 sources identifies these next
 implementation blocks. They are prerequisites, not a claim that live battery
 sampling is enabled.
 
-1. **Interrupt lifecycle.** `irq.c` dispatches hard-coded legacy lines and one
-   e1000 handler; it has no handler registration/unregistration interface.
-   `ioapic.c` installs routes already unmasked, while `irq_disable_line` changes
-   only the legacy PIC mask. Add a registered, synchronized handler lifecycle
-   and explicit IO-APIC mask/unmask first. Resolve the FADT SCI through the
+1. **Interrupt lifecycle.** CPU0 shared handler registration/removal and masked
+   IO-APIC preparation/readback are now implemented and host-tested. Legacy
+   timer/keyboard/serial/mouse dispatch stays reserved; e1000 still receives its
+   existing callback. `irq_disable_line` changes only the legacy PIC mask.
+   The new route APIs do not establish source ownership. Resolve the FADT SCI through the
    platform interrupt topology, retain polarity/trigger information, and reject
    unsupported controllers/routes. SCI must not inherit the default ISA edge
    policy. Test masked installation, repeated level assertion, shared handlers,
    failed setup and removal before exposing the uACPI IRQ callbacks. Never print
    an unbounded stream of unhandled SCI messages from interrupt context.
-2. **Scheduler adapter.** Supply stable nonzero kernel-thread identities,
-   counting semaphores with zero/finite/infinite timeout semantics, IRQ-safe
-   signaling, and spinlocks that restore the caller's prior interrupt state.
+2. **Scheduler adapter.** Stable nonzero kernel-thread lifetime identities and
+   CPU0 counting semaphores with zero/finite/infinite waits, IRQ-safe signaling
+   and closed-state teardown now pass host and real worker VM checks. Bind them
+   to the live adapter along with locks that restore prior interrupt state.
    The existing wait queues provide a starting point; the isolated probe's
    single-threaded callbacks do not satisfy this runtime contract. Test wakeup
    races, timeout rounding, overflow and shutdown before binding them. Start AML

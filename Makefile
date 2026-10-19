@@ -3135,3 +3135,19 @@ test-semaphore: build/tests/semaphore-host$(HOST_EXE)
 build/tests/semaphore-host$(HOST_EXE): tools/test_semaphore.c kernel/src/semaphore.c kernel/include/srvros/semaphore.h kernel/include/srvros/scheduler.h kernel/include/srvros/timer.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-irq-handlers
+test-core: test-irq-handlers
+test-irq-handlers: build/tests/irq-handlers-host$(HOST_EXE)
+	$<
+build/tests/irq-handlers-host$(HOST_EXE): tools/test_irq_handlers.c kernel/src/irq_handlers.c kernel/include/srvros/irq_handlers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-ioapic
+test-core: test-ioapic
+test-ioapic: build/tests/ioapic-host$(HOST_EXE)
+	$<
+build/tests/ioapic-host$(HOST_EXE): tools/test_ioapic.c kernel/src/arch/x86_64/ioapic.c kernel/src/arch/x86_64/ioapic.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@

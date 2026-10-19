@@ -172,3 +172,15 @@ timeout, shutdown, counter overflow and unavailable-clock/scheduler cases. A
 VM ran the actual `semaphoretest` four times with distinct worker IDs, blocked
 signal/close wakeups, no premature timeout and drained teardown.
 The complete threadstress VM suite also passes after the scheduler changes.
+
+## Shared IRQ lifecycle foundation
+
+Added CPU0 shared IRQ registration/removal with unique lifetime tokens,
+reserved-line and duplicate refusal, and dispatch-time mutation exclusion.
+I/O APIC masked preparation now validates the installed vector range, rejects
+live/pending routes, specifies polarity/trigger mode, and checks readback.
+Existing legacy route programming masks before changing destination; no new
+source is enabled. Unhandled IRQ messages are bounded to the first occurrence.
+Host registry/routing fault tests and the e1000 desktop/System VM regression
+passed. SCI topology ownership, level-trigger fixture testing and runtime
+adapter teardown remain; this is not a live SCI or battery acceptance.

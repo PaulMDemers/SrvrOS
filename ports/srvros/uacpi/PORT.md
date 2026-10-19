@@ -142,3 +142,22 @@ The explicit `semaphoretest` monitor diagnostic and `tools/semaphore_smoke.py`
 exercise real blocked workers, timeout and four successive worker lifetimes.
 These primitives are not yet bound to a live uACPI adapter; the isolated probe's
 single-threaded callbacks and hardware restrictions remain unchanged.
+
+## Shared interrupt foundation
+
+CPU0 now has a fixed-capacity shared IRQ callback registry. It rejects duplicate
+registrations, reserved legacy lines, stale removal tokens and mutation inside
+dispatch. Callbacks run with IRQs masked and cannot sleep or yield; all handlers
+on a shared line run even after one claims it. Removing a handler does not mask
+hardware: the owner must first disable its source and mask its route. No SCI
+handler is registered by this change. Unknown IRQ logging is bounded to its first
+occurrence per line; this prevents a log flood, not an interrupt storm.
+
+The I/O APIC now exposes checked masked preparation, readback and mask/unmask
+operations for installed legacy IRQ vectors. Preparation refuses active or
+pending routes, uses explicit polarity/trigger mode and stays masked. Selector
+and window accesses are protected from local IRQ preemption. Register range,
+write order, readback failure, alternate GSI bases and existing legacy routes
+are host-tested. Source ownership, FADT/MADT SCI resolution, repeated level
+assertion and full initialization rollback remain adapter work. No new route
+is enabled at startup.

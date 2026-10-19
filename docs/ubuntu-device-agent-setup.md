@@ -194,7 +194,7 @@ cat build/review/hardware-grub-result.json
 
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
-models. It excludes the optional `srvros.aml=probe`, which stalled on Air7,2.
+models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.
 Do not re-enable that probe in routine desktop startup. The separate v19
 `--laptop-probe-volume` profile is a bounded preflight capture; it is not the
 isolated AML interpreter diagnostic.
@@ -222,7 +222,7 @@ coarse occupancy evidence, not a wattmeter or proof of desktop responsiveness.
 Use the same recorded recovery/one-shot installation sequence below; keep the
 accepted previous desktop when the current payload is only an automated test.
 
-For explicit investigation of the unresolved AML stall, the separate v24
+For explicit AML diagnostics, the separate v24
 profile uses `--laptop-probe-volume "$SRVROS_USB_UUID" --aml-capture` and the
 same `--probe-check` VM rehearsal. It starts USB logging before the snapshot-only
 probe and returns only after clean completion and save/unmount. This is not a
