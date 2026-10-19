@@ -52,10 +52,14 @@ verified and a clean offline exFAT check. The following bounded console-idle cap
 (source `b3f0e31`) saved 60 seconds of samples: 94.55% idle, package 80→75 C,
 1,206 RPM final fan, no SMC errors. It returned automatically with a clean
 offline exFAT check. Subsequent isolated AML capture `4e5f438c4069752b` (source `17c6ed3`)
-completed cleanly in 5.13 seconds and returned with clean exFAT. Current boot
-payload is that explicit diagnostic; previous retains
-accepted desktop `b427b78f21644bd2`. Interactive input, desktop idle and power
-consumption still need physical acceptance.
+completed cleanly in 5.13 seconds and returned with clean exFAT. Unattended
+desktop capture `06c646455f08555e` (source `e6fd681`) subsequently measured
+60 seconds with Text open: 94.15% CPU0 idle samples, one frame presentation and
+76,384 framebuffer bytes during the measurement. All four logs and the 1440×900
+BMP were verified, with clean automatic return and offline exFAT. Current boot
+payload is that explicit desktop-idle diagnostic; previous retains accepted
+desktop `b427b78f21644bd2`. Interactive input and power consumption still need
+physical acceptance. Timer samples measure CPU0 scheduler occupancy, not energy.
 The generalized Linux collector completed with zero partial reads on this host.
 Additional IRQ, semaphore and deferred-worker foundations now pass host/VM tests.
 A separate full-uACPI Q35 kernel passes real SCI, contended AML mutex/sleep and
@@ -63,12 +67,12 @@ teardown tests; it is not the installed payload or a native EC/battery provider.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.
-3. Extend the accepted console idle/sleep measurements to desktop activity and actual power/frequency evidence, retaining USB/input responsiveness.
+3. Extend the accepted console and unattended desktop idle measurements to interactive activity and actual power/frequency evidence, retaining USB/input responsiveness.
 4. Battery/AC runtime, headphone route acceptance and actual USB networking.
 5. Shared inventory/profile/scaling work for the other model agents, coordinated
    through the [expansion plan](../apple-hardware-expansion-plan.md).
 
 Shared desktop preparation now includes explicit integer 2× scaling. UEFI VM
 checks passed at 2880×1800/2× and the Air's 1440×900/1×, including exact capture
-pixels and input/window geometry. The installed Air payload is unchanged; the
-additional Pro models still require their own framebuffer and input acceptance.
+pixels and input/window geometry. The installed Air capture exercised the default 1× path; the additional Pro
+models still require their own framebuffer and input acceptance.

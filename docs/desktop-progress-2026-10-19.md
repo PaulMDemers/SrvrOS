@@ -288,3 +288,21 @@ full soak remains required; the interrupted soak is not promoted to a pass.
 The failed immutable bundle is retained outside `build` under
 `~/.local/share/srvros/vm-soaks/20261019-runtime-3099e1fe/rounds/0021/runtime/`.
 No native SCI/EC service was enabled by either the test or its collector fix.
+
+## Native desktop idle result
+
+Release `06c646455f08555e` returned automatically. The new session
+`session-00065e2b0ab4fabc-00` contains all four verified logs, no attention
+markers, completed measurement/screenshot and clean desktop-return markers.
+The 59,998,087 μs measurement has 6,000 timer samples, 5,649 idle (94.15%),
+24,559 switches and 3,000 preemptions. Only one frame and 76,384 framebuffer
+bytes were presented during the sample. These are CPU0 scheduler/render
+measurements, not package energy or interactive responsiveness acceptance.
+
+The saved 1440×900 BMP was copied, hash-checked, decoded and visually reviewed:
+Text, global menu, dock and test notice were intact. Final temperature was 74 C
+and fan 1,223 RPM, with 81 SMC samples and no errors. Offline read-only exFAT
+check was clean (162 directories, 810 files). Ubuntu remains default with no
+one-shot armed, and accepted desktop `b427b78f21644bd2` remains previous.
+Evidence: `build/native-desktop-trials/06c646455f08555e/physical-after/`.
+The automated physical window is now closed; remaining work is host/VM only.
