@@ -81,3 +81,12 @@ The queue is intentionally absent from native build inputs. The probe's denied
 asynchronous-work callbacks remain unchanged. SCI registration, scheduler-backed
 semaphores, thread identities, EC ownership and runtime initialization are still
 required; see the [integration plan](../../../docs/macbook-air-laptop-services-2026-10-18.md#live-acpi-runtime-integration-plan).
+
+`make check-acpi-runtime-build` separately compiles the full, event-enabled
+upstream sources plus the queue with SrvrOS's freestanding x86-64 flags, then
+combines them with a relocatable link. It passes without changing native kernel
+inputs. The combined object's remaining undefined symbols are the expected
+uACPI kernel callbacks and `memcmp`/`memcpy`/`memmove`/`memset`; no unexpected
+compiler runtime dependency appeared. This is a compile feasibility check,
+not a linked OS adapter or a runtime test. Its log and symbol inventory are
+retained under `build/review/acpi-runtime-*`.

@@ -3082,3 +3082,16 @@ test-acpi-work: build/tests/acpi-work-host$(HOST_EXE)
 build/tests/acpi-work-host$(HOST_EXE): tools/test_acpi_work_queue.c ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_queue.h $(UACPI_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I ports/upstream/uacpi/include tools/test_acpi_work_queue.c ports/srvros/uacpi/runtime/work_queue.c -o $@
+
+# Compile-only feasibility check for the future live adapter. These objects are
+# never linked into KERNEL_OBJ and never replace the isolated probe objects.
+UACPI_RUNTIME_CHECK_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/work_queue.c
+UACPI_RUNTIME_CHECK_OBJ := $(UACPI_RUNTIME_CHECK_SRC:%.c=build/acpi-runtime-check/%.c.o)
+.PHONY: check-acpi-runtime-build
+check-acpi-runtime-build: build/acpi-runtime-check/combined.o
+build/acpi-runtime-check/combined.o: $(UACPI_RUNTIME_CHECK_OBJ)
+	$(LD) -m elf_x86_64 -r $(UACPI_RUNTIME_CHECK_OBJ) -o $@
+build/acpi-runtime-check/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) ports/srvros/uacpi/runtime/work_queue.h Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
+-include $(UACPI_RUNTIME_CHECK_OBJ:.o=.d)

@@ -1855,6 +1855,16 @@ and hash-verified under `~/.local/share/srvros/boot-archive/` before its EFI cop
 was removed to make space. The flash workspace marker and previous physical
 session baseline were checked. No reboot was requested or armed.
 
+The final ACPI groundwork adds a host/sanitizer-tested intrusive work queue that
+handles callback-owned requeue/free and accounts for in-flight work during
+drain. It remains outside the native image. A separate freestanding compile and
+relocatable link of the full event-enabled uACPI sources also passed; its missing
+symbols are the expected OS callbacks and four memory primitives. The concrete
+next work is registered/maskable SCI interrupts, scheduler-backed synchronization,
+and a separate live runtime adapter, followed by serialized EC/query/SBS access.
+The [laptop-services plan](macbook-air-laptop-services-2026-10-18.md#live-acpi-runtime-integration-plan)
+records the initialization and acceptance gates.
+
 Physical speaker amplification, audible quality, headphone routing, tap gestures,
 sensor freshness and the actual USB adapter remain hardware acceptance items.
 Battery/AC still needs live ACPI/SCI/EC ownership; no speculative EC access was
