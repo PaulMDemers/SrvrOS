@@ -127,6 +127,28 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',**options)
         with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='bad')
 
+    def test_cli_accepts_standard_exfat_uuid(self):
+        self.assertEqual(boot.compact_volume_uuid("37D8-C5D0"),"37d8c5d0")
+        self.assertEqual(boot.compact_volume_uuid("37d8c5d0"),"37d8c5d0")
+        for bad in ("-37d8c5d0","37d8--c5d0","37d8c5d00","not-a-uuid"):
+            with self.assertRaises(boot.argparse.ArgumentTypeError): boot.compact_volume_uuid(bad)
+
+    def test_idle_capture_profile_is_separate_and_has_no_aml(self):
+        version="ram-usb-v23-laptop-probe-37d8c5d0"
+        release=self.payload("idle",version)
+        path=self.stage/release/"manifest.json"
+        manifest=json.loads(path.read_text());manifest["config_version"]=version
+        path.write_text(json.dumps(manifest))
+        boot.install(release)
+        cfg=boot.limine_config(release,version)
+        for flag in ('srvros.capture=idle','srvros.sensors=cpu','srvros.smc=read-only','srvros.audio=hda'):
+            self.assertIn(flag,cfg)
+        self.assertNotIn('srvros.aml=probe',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg)
+        self.assertNotIn('srvros.capture=idle',boot.limine_config(release,'ram-usb-v19-laptop-probe-37d8c5d0'))
+        with self.assertRaises(ValueError): boot.stage(idle_capture=True)
+        with self.assertRaises(ValueError): boot.stage(idle_capture=True,laptop_probe_volume='37d8c5d0',desktop_volume='37d8c5d0')
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

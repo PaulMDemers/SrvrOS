@@ -360,6 +360,8 @@ static void persist_bootlog(void) {
     }
 }
 
+static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -552,6 +554,7 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
@@ -559,11 +562,35 @@ void kmain(void) {
     if(cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe) {
+    if(automatic_probe || automatic_idle) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
+        bool sampled=!automatic_idle;
+        if(automatic_idle && started && init_ready && timer_running) {
+            struct scheduler_stats before,after;
+            static struct scheduler_wait_queue idle_capture_wait;
+            scheduler_snapshot(&before);
+            uint64_t start=timer_monotonic_us(),deadline=timer_ticks()+6000;
+            console_write("idle-capture: measuring 60 seconds; no user input required\n");
+            /* Block the bootstrap thread; yielding here would measure our own
+             * busy loop instead of the otherwise idle system. */
+            bool waited=true;
+            while(timer_ticks()<deadline) {
+                if(!scheduler_wait_timeout(&idle_capture_wait,idle_capture_due,&deadline,deadline)) {
+                    waited=false;break;
+                }
+            }
+            uint64_t elapsed=timer_monotonic_us()-start;
+            scheduler_snapshot(&after);
+            sampled=waited && elapsed>=59000000 && after.sampled_ticks>before.sampled_ticks;
+            console_printf("idle-capture: elapsed_us=%u sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u completed=%s\n",
+                elapsed,after.sampled_ticks-before.sampled_ticks,after.idle_ticks-before.idle_ticks,
+                after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();audio_print_status();
+        }
         bool saved=started && workspace_log_stop();
+        saved=saved && sampled;
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         if(saved && unmounted) {

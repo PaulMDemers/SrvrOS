@@ -98,3 +98,19 @@ key latency, gestures, sound and idle temperature remain untested by this batch.
 The previous boot entry retains accepted desktop `b427b78f21644bd2`. Raw
 comparison, failure diagnostics and repaired-run evidence are under
 `build/overnight-20261018/`.
+
+## Bounded idle capture
+
+A separate v23 diagnostic profile samples 60 seconds of console idle with the
+v22 device services and periodic USB logging. The bootstrap thread blocks until
+the deadline. Cached sensor and scheduler snapshots are preserved every ten
+seconds; completion records elapsed time and scheduler deltas. Only successful
+sampling, log save/flush and unmount permit automatic return to Ubuntu. Missing
+workspace or failed completion stays halted. AML remains disabled.
+
+The staged VM verified the full measurement, multiple durable checkpoints, a
+clean exFAT image and automatic reset; a separate missing-drive run stayed
+halted. The collector exposes a validated measurement from `exit.log` without
+calling it physical power or desktop acceptance. Installer tests also cover the
+separate profile and normal hyphenated exFAT UUID arguments. Physical sampling
+is the next step; the five-round suite above did not measure idle power.

@@ -14,6 +14,15 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(desktop.session_releases(text),[release])
         self.assertEqual(desktop.session_releases("desktop started\n"),[])
 
+    def test_idle_measurement_requires_complete_exit_record(self):
+        record="idle-capture: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5700 switches=12000 preemptions=25 completed=yes"
+        self.assertEqual(desktop.idle_sample(record)["idle_sample_percent"],95)
+        for bad in (record.replace("60000000","1000"),record.replace("sampled_ticks=6000","sampled_ticks=0"),
+                    record.replace("idle_ticks=5700","idle_ticks=6001"),record.replace("completed=yes","completed=NO"),
+                    "terminal: "+record, record+"\n"+record, ""):
+            self.assertIsNone(desktop.idle_sample(bad))
+        self.assertEqual(desktop.session_releases("laptop-capture: boot options=srvros.desktop-release=0123456789abcdef"),["0123456789abcdef"])
+
     def test_device_summary_order_and_attention(self):
         newer="workspace-devices: audio_state=4 error=3 started=2 completed=1 monotonic_us=200"
         older="workspace-devices: audio_state=2 error=0 started=1 completed=1 monotonic_us=100"

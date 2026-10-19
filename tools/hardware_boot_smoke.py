@@ -143,6 +143,7 @@ def main():
         parser.error("Automatic laptop probe stages require --probe-check")
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
+    idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -195,7 +196,12 @@ def main():
                         return
                     text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                     assert "laptop-capture: saved=yes unmounted=yes" in text
-                    assert "laptop-probe: unsupported chipset; no register access" in text
+                    if not idle_capture: assert "laptop-probe: unsupported chipset; no register access" in text
+                    if idle_capture:
+                        measured=re.search(r"idle-capture: elapsed_us=(\d+) sampled_ticks=(\d+) idle_ticks=(\d+).*completed=yes",text)
+                        assert measured and int(measured[1])>=59000000
+                        assert 0<int(measured[3])<=int(measured[2])
+                        assert "srvros.aml=probe" not in text
                     assert not has_fatal_exception(text)
                     assert process.wait(timeout=30)==0 # -no-reboot exits only after guest reset.
                     with stick.open("rb") as stream:
@@ -204,9 +210,22 @@ def main():
                     folder=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1].removeprefix("/work/")
                     for filename in ("boot.log","exit.log"):
                         contents=stored.read(folder+"/"+filename)
-                        assert release.encode() in contents and b"laptop-probe: unsupported chipset" in contents
+                        assert release.encode() in contents
+                        if not idle_capture: assert b"laptop-probe: unsupported chipset" in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if idle_capture:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"idle-capture: elapsed_us=" in exit_log and b"completed=yes" in exit_log
+                        assert exit_log.count(b"workspace-scheduler:")>=5
+                        for filename in ("session-a.log","session-b.log"):
+                            contents=stored.read(folder+"/"+filename)
+                            assert b"workspace-scheduler:" in contents
+                            (logs/("laptop-capture-"+filename)).write_bytes(contents)
+                    (logs/"hardware-grub-result.json").write_text(json.dumps({
+                        "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
+                        "probe":True,"idle_capture":idle_capture,"saved":True,"unmounted":True,
+                        "physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT, automatic reset")
                     return

@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v19-laptop-probe-([0-9a-f]{8})")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23)-laptop-probe-([0-9a-f]{8})")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -48,6 +48,11 @@ def limine_config(release, version=CONFIG_VERSION):
     if probe:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                    f"srvros.desktop-release={release} srvros.laptop-services=probe-autoreboot")
+        if version.startswith("ram-usb-v23-"):
+            cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
+                       f"srvros.desktop-release={release} srvros.capture=idle "
+                       "srvros.laptop-services=brightness srvros.trackpad=gestures "
+                       "srvros.audio=hda srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only")
     elif desktop:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
                    "srvros.trackpad=gestures srvros.desktop=trial")
@@ -118,7 +123,9 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False):
+    if idle_capture and laptop_probe_volume is None:
+        raise ValueError("Idle capture requires a laptop probe volume")
     gestures=gestures or desktop_io
     pointer=pointer or gestures
     if pointer and trackpad_run is None:
@@ -143,7 +150,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v19-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
@@ -324,15 +331,24 @@ def install(release=None, keep_previous=False):
         print("Guest root filesystem/log changes are held in RAM.")
 
 
+def compact_volume_uuid(value):
+    if not re.fullmatch(r"(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{4}-[0-9a-fA-F]{4})",value):
+        raise argparse.ArgumentTypeError("Expected an eight-digit exFAT UUID, optionally hyphenated")
+    return value.replace("-", "").lower()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=("stage", "install"))
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
     parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
-    parser.add_argument("--desktop-volume", help="stage an interactive native desktop trial for this compact USB UUID")
-    parser.add_argument("--laptop-probe-volume", help="stage unattended laptop diagnostics on this prepared USB UUID")
+    parser.add_argument("--desktop-volume", type=compact_volume_uuid, help="stage an interactive native desktop trial for this compact USB UUID")
+    parser.add_argument("--laptop-probe-volume", type=compact_volume_uuid, help="stage unattended laptop diagnostics on this prepared USB UUID")
+    parser.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
     args = parser.parse_args()
+    if args.idle_capture and (args.action != "stage" or not args.laptop_probe_volume):
+        parser.error("--idle-capture requires stage --laptop-probe-volume")
     if args.laptop_probe_volume and args.action != "stage":
         parser.error("--laptop-probe-volume applies only to stage")
     if args.keep_previous and args.action != "install":
@@ -345,7 +361,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

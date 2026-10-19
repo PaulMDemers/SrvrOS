@@ -16,7 +16,7 @@ def session_releases(text):
     """Use boot-option records, not commands or app text echoed into the log."""
     releases = set()
     for line in text.splitlines():
-        record = next((p for p in ("cmdline: ", "desktop-trial: boot options=") if line.startswith(p)), None)
+        record = next((p for p in ("cmdline: ", "desktop-trial: boot options=", "laptop-capture: boot options=") if line.startswith(p)), None)
         if record is None:
             continue
         for token in line[len(record):].split():
@@ -50,6 +50,16 @@ def device_summaries(text):
             if kind not in latest or fields["monotonic_us"]>=latest[kind]["monotonic_us"]:
                 latest[kind]=fields
     return latest
+
+
+def idle_sample(exit_text):
+    records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
+    if len(records)!=1:return None
+    elapsed,total,idle,switches,preemptions=map(int,records[0])
+    if elapsed<59000000 or total==0 or idle>total:return None
+    return {"elapsed_us":elapsed,"sampled_ticks":total,"idle_ticks":idle,
+            "idle_sample_percent":round(100*idle/total,2),"switches":switches,
+            "preemptions":preemptions,"scope":"console with periodic device and USB logging; not power or desktop acceptance"}
 
 
 def needs_attention(line):
@@ -125,6 +135,7 @@ def collect(mount, volume, output):
             "desktop_exit_seen": "deskd: exited" in text,
             "attention": attention,
             "devices": device_summaries(text),
+            "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),
         })

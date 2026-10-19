@@ -199,6 +199,29 @@ Do not re-enable that probe in routine desktop startup. The separate v19
 `--laptop-probe-volume` profile is a bounded preflight capture; it is not the
 isolated AML interpreter diagnostic.
 
+For a bounded unattended idle sample after the basic workspace is accepted:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --idle-capture
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+This distinct v23 profile initializes the same gated device services as v22,
+leaves the console idle for 60 seconds, and saves periodic cached scheduler,
+thermal, fan and audio status. It blocks the calling thread while waiting;
+logging and device sampling still create some activity. It does not launch the
+desktop or play audio and never enables AML. Success saves/flushes the exit log,
+unmounts the USB workspace and returns to Ubuntu. Missing workspace, incomplete
+sampling or failed save/unmount halts. Rehearse the missing-drive failure with
+`--probe-check --probe-missing-workspace`; that failure rehearsal does not replace
+the successful exact-stage result. Collect using `hardware_desktop.py` and require
+this release's exit log containing `idle-capture: ... completed=yes`, plus a healthy
+collected session and verified unmount. Scheduler timer samples are
+coarse occupancy evidence, not a wattmeter or proof of desktop responsiveness.
+Use the same recorded recovery/one-shot installation sequence below; keep the
+accepted previous desktop when the current payload is only an automated test.
+
 The desktop VM harness uses disposable disks, tests two fresh boots, USB saves,
 preferences and logs, and checks emulated audio. It reads `latest`, so do not
 stage anything between the candidate and its rehearsal. In particular,
