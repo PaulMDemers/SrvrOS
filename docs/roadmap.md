@@ -1,5 +1,10 @@
 # srvros Roadmap
 
+The [Apple hardware expansion plan](apple-hardware-expansion-plan.md) adds
+MacBookAir7,1, MacBookPro11,2, MacBookPro11,3 and Macmini7,1 as planned targets.
+It retains the current Air's input, desktop timeout and idle-power fixes first,
+and defines inventory, driver reuse and per-model acceptance work.
+
 Current product direction and desktop completion criteria are in the
 [MacBook Air desktop plan](desktop-plan-2026-10-17.md). Desktop work is now active;
 server capabilities and headless boot remain supported. Earlier foundation work

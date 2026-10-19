@@ -1,5 +1,9 @@
 # Develop and reboot on the MacBook Air
 
+Additional planned models and inventory requirements are tracked in the
+[Apple hardware expansion plan](apple-hardware-expansion-plan.md). These targets
+are not yet physically validated; this document's baseline refers to Air7,2.
+
 The current host is a MacBookAir7,2 running Ubuntu through UEFI GRUB. Linux
 can supply the PCI/USB inventory, USB descriptors, HID report descriptors and
 ACPI tables while we edit, build and test SrvrOS here. Rebooting into SrvrOS is
