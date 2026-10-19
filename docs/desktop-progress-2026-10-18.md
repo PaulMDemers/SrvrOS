@@ -1907,3 +1907,33 @@ The replacement is installed and hash-verified, with recovery
 **f05dfcc01c28dc85**, Ubuntu's default and firmware boot order preserved.
 Physical acceptance remains pending. This isolates the optional probe from the
 desktop trial; it does not resolve the native interpreter stall.
+
+## Physical v22 return: device controls accepted, input follow-up
+
+The user reports successful desktop operation, brightness and audible volume
+changes, and apparently working sensors for **b427b78f21644bd2**. The collected
+session `session-00065e281812e807-00` has a clean desktop exit and preserved
+snapshots. Three sound tests started and completed with no audio error; volume
+ended at 7. Brightness requests 16 and 83 were applied. This does not separately
+accept PCM file playback, headphone routing or USB networking.
+
+Three screenshots were copied and decoded under the release's
+`physical-after/screenshots/`. Sensors shows fresh 83 C core/package readings
+and 1202 RPM fan speed; logs reach 85 C at exit with continuing samples and no
+SMC failures. These establish live readings, not calibration or power-management
+acceptance. Investigate idle/load behavior before choosing power-management work.
+
+The reported right-click attempt was a physical two-finger press. Current code
+maps physical presses to primary regardless of contact count; only two-finger
+*taps* produce secondary clicks. The exit counters show five primary taps and
+one secondary tap, but do not establish visible context-menu acceptance. Next:
+add physical secondary clicks with button identity latched at press, preserving
+one-finger press followed by second-finger drag steering; retain independent tap
+settings and add regression coverage for release/contact-count changes.
+
+The collector also found `deskd: closing pid=14 reason=input-timeout queue=5`.
+This was the System app after Sensors/Devices navigation; a stale commit followed
+and the process exited with status 0. The timeout cause is unresolved and should
+be investigated alongside the gesture change. This round is partial acceptance,
+not an unconditional hardware pass. The AML diagnostic remains disabled in the
+normal desktop profile and its native stall remains unresolved.
