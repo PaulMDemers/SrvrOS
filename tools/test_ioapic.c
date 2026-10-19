@@ -40,6 +40,13 @@ int main(void) {
     assert(ioapic_route_isa_irq(9,41));assert(registers[0x38]==(41|IOAPIC_REDIR_ACTIVE_LOW|IOAPIC_REDIR_TRIGGER_LEVEL));
     assert(ioapic_route_pci_irq(11,43));assert(registers[0x26]==(43|IOAPIC_REDIR_ACTIVE_LOW|IOAPIC_REDIR_TRIGGER_LEVEL));
     assert(!ioapic_route_pci_irq(16,48));
+    assert(ioapic_mask_gsi(9,true));
+    assert(!ioapic_restore_masked_gsi(9,41,0));
+    assert(!ioapic_restore_masked_gsi(9,IOAPIC_REDIR_MASKED|(1u<<14),0));
+    assert(!ioapic_restore_masked_gsi(9,IOAPIC_REDIR_MASKED,1));
+    assert(ioapic_restore_masked_gsi(9,IOAPIC_REDIR_MASKED,0));
+    assert(registers[0x22]==IOAPIC_REDIR_MASKED && registers[0x23]==0);
+    assert(!ioapic_mask_gsi(9,false));
     info.gsi_base=32;written=0;assert(ioapic_init());assert(!ioapic_prepare_gsi(9,41,true,true));assert(ioapic_prepare_gsi(41,41,true,true));
     registers[IOAPIC_VER]=255<<16;assert(!ioapic_init());assert(!ioapic_mask_gsi(41,false));
     puts("ioapic: PASS masked prepare/order, explicit polarity/trigger, live/pending-route refusal, register bounds, readback failure and legacy routing");

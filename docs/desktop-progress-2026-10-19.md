@@ -198,3 +198,13 @@ lifetimes, each with eight actual software-interrupt entries, duplicate pending
 refusal, a blocked callback and drain timeout, 1,000 self-reschedules, self-free
 and successful stop. This tests the ISR/worker path, not hardware SCI assertion.
 Live uACPI completion still needs interrupt-producer synchronization before drain.
+
+## Real emulated SCI lifecycle
+
+The Q35-only SCI fixture passed three lifetimes and 24 power events. Every event
+was intentionally left asserted for its first EOI and delivered a second IRQ,
+then deferred work cleared and re-enabled it. Shared dispatch, failed-start
+cleanup after mode entry, restored masked routing and no post-stop callbacks
+passed. Host profile/refusal and masked restoration checks passed. This fixture
+runs no AML and enables nothing on native laptop profiles; the full uACPI
+adapter and EC ownership still need integration.

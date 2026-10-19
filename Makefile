@@ -339,7 +339,7 @@ KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C s
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
 UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c \
     ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_worker.c \
-    ports/srvros/uacpi/runtime/work_worker_test.c
+    ports/srvros/uacpi/runtime/work_worker_test.c ports/srvros/uacpi/runtime/sci_test.c
 UACPI_KERNEL_OBJ := $(UACPI_KERNEL_SRC:%.c=build/kernel/%.c.o)
 KERNEL_OBJ := $(KERNEL_C:%.c=build/%.c.o) $(KERNEL_S:%.S=build/%.S.o) $(UACPI_KERNEL_OBJ)
 KERNEL_DEP := $(KERNEL_C:%.c=build/%.c.d) $(KERNEL_S:%.S=build/%.S.d) $(UACPI_KERNEL_OBJ:.o=.d)
@@ -3161,3 +3161,11 @@ test-acpi-worker: build/tests/acpi-worker-host$(HOST_EXE)
 build/tests/acpi-worker-host$(HOST_EXE): tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_worker.c ports/srvros/uacpi/runtime/work_worker.h ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_queue.h $(UACPI_HEADERS) $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I ports/upstream/uacpi/include tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_queue.c -o $@
+
+.PHONY: test-sci-gate
+test-core: test-sci-gate
+test-sci-gate: build/tests/sci-gate-host$(HOST_EXE)
+	$<
+build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/runtime/sci_test.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@

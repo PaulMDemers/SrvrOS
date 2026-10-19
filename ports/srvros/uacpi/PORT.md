@@ -169,3 +169,29 @@ write order, readback failure, alternate GSI bases and existing legacy routes
 are host-tested. Source ownership, FADT/MADT SCI resolution, repeated level
 assertion and full initialization rollback remain adapter work. No new route
 is enabled at startup.
+
+## QEMU SCI fixture
+
+`scitest arm|arm-fail|status|stop` and `tools/acpi_sci_smoke.py` exercise a real
+emulated level-triggered SCI, separate from uACPI. The fixture requires the Q35
+host bridge/LPC IDs, BOCHS FADT, SCI 9 and the expected PM/GPE register layout;
+it refuses other identities before port I/O. It also refuses pre-owned enabled
+fixed/GPE sources or an active route. It is never invoked by normal startup and
+cannot match the MacBook's hardware profile. This is a VM test, not a portable
+ACPI mode policy.
+
+QMP power-down requests set the emulated fixed power-button event. The first
+IRQ deliberately leaves the level asserted through EOI; the second delivery
+quiesces the source and queues its clear/re-enable on the worker. A second
+registered observer confirms shared dispatch. Three lifetimes each passed eight
+power events with exactly sixteen IRQs and zero errors. Each lifetime also
+injects a failed start after preparation/mode entry and verifies cleanup before
+restarting. Stop disables the source, masks the route, removes callbacks, drains
+and stops work, restores the saved masked route and original ACPI mode. A later
+power event causes no callback. Host checks cover the identity gate and masked
+route restoration, including unsafe snapshot refusal.
+
+This fixture follows QEMU's [ICH9 power event wiring](https://github.com/qemu/qemu/blob/master/hw/acpi/ich9.c)
+and [fixed-event status/enable behavior](https://github.com/qemu/qemu/blob/master/hw/acpi/core.c).
+The full event-enabled uACPI kernel adapter is still not linked into the normal
+OS. Native SCI/EC ownership and battery sampling remain unaccepted.

@@ -190,3 +190,23 @@ bool ioapic_mask_gsi(uint32_t gsi,bool masked) {
     if(!ok)write_reg(reg,read_reg(reg)|IOAPIC_REDIR_MASKED);
     unlock(f);return ok;
 }
+
+bool ioapic_restore_masked_gsi(uint32_t gsi, uint32_t low, uint32_t high) {
+    uint8_t reg;
+    const uint32_t pending = (1u << 12) | (1u << 14);
+    if (!gsi_register(gsi, &reg) || !(low & IOAPIC_REDIR_MASKED) ||
+        (low & pending) || (high & 0x00ffffff)) return false;
+    uint64_t flags = lock();
+    uint32_t current = read_reg(reg);
+    if (!(current & IOAPIC_REDIR_MASKED) || (current & pending)) {
+        unlock(flags);
+        return false;
+    }
+    write_reg(reg, current | IOAPIC_REDIR_MASKED);
+    write_reg(reg + 1, high);
+    write_reg(reg, low);
+    bool ok = read_reg(reg) == low && read_reg(reg + 1) == high;
+    if (!ok) write_reg(reg, read_reg(reg) | IOAPIC_REDIR_MASKED);
+    unlock(flags);
+    return ok;
+}
