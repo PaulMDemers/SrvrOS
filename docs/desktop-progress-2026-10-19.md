@@ -156,3 +156,19 @@ clears the isolated native probe's stall gate after the heap fixes; it does not
 prove which heap defect caused the original screenshot's stall. Ordinary desktop
 and idle profiles still omit the diagnostic. No ACPI mode/SCI/EC ownership,
 live battery transaction, lid policy or suspend behavior is accepted here.
+
+## Synchronization for future live ACPI
+
+CPU0 counting semaphores now provide nonblocking, finite and infinite waits,
+IRQ-safe signal, close/wakeup and drained teardown. Deadline checks use the
+monotonic clock with upward timer rounding. They are for ordinary kernel
+workers; cancellable userspace and SMP need additional lifetime/locking work.
+Scheduler workers receive lifetime IDs which are not reused with their slots;
+spawn publication is serialized against local preemption. These changes do not
+bind or initialize a live ACPI adapter.
+
+Host tests pass signal/accounting, the check-to-sleep race, spurious wakeups,
+timeout, shutdown, counter overflow and unavailable-clock/scheduler cases. A
+VM ran the actual `semaphoretest` four times with distinct worker IDs, blocked
+signal/close wakeups, no premature timeout and drained teardown.
+The complete threadstress VM suite also passes after the scheduler changes.

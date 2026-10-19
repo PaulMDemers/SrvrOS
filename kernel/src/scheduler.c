@@ -37,6 +37,7 @@ struct scheduler_context {
 struct thread {
     enum thread_state state;
     const char *name;
+    uint64_t identity;
     scheduler_thread_fn entry;
     scheduler_wait_condition_fn io_eligible;
     void *arg;
@@ -63,6 +64,7 @@ void gdt_set_kernel_stack(uint64_t stack_top);
 
 static struct thread threads[SCHEDULER_MAX_THREADS];
 static uint64_t current_thread;
+static uint64_t next_identity=2;
 static bool initialized;
 static bool switching;
 static bool io_services_enabled;
@@ -245,6 +247,8 @@ void scheduler_init(void) {
     current_thread = 0;
     threads[0].state = THREAD_RUNNING;
     threads[0].name = "bootstrap";
+    threads[0].identity = 1;
+    next_identity = 2;
     fpu_init_state(&threads[0].kernel_fpu);
     fpu_set_current_kernel_state(&threads[0].kernel_fpu);
     initialized = true;
@@ -265,6 +269,8 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
         return false;
     }
 
+    uint64_t flags=irq_save();
+    if(next_identity==UINT64_MAX) { irq_restore(flags);return false; }
     for (uint64_t i = 1; i < SCHEDULER_MAX_THREADS; i++) {
         if (threads[i].state == THREAD_UNUSED || threads[i].state == THREAD_DEAD) {
             if (threads[i].state == THREAD_DEAD && threads[i].stack_physical != 0) {
@@ -277,7 +283,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
                 SCHEDULER_STACK_MIN_PHYSICAL,
                 PMM_FRAME_KERNEL_STACK);
             if (stack_physical == 0) {
-                return false;
+                irq_restore(flags);return false;
             }
             uint8_t *stack = pmm_phys_to_virt(stack_physical);
 
@@ -285,6 +291,7 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
             threads[i] = (struct thread) {
                 .state = THREAD_READY,
                 .name = name,
+                .identity = next_identity++,
                 .entry = entry,
                 .io_eligible = io_eligible,
                 .arg = arg,
@@ -303,11 +310,11 @@ static bool spawn_thread(const char *name, scheduler_thread_fn entry, void *arg,
                 .switches = 0,
             };
             fpu_init_state(&threads[i].kernel_fpu);
-            return true;
+            irq_restore(flags);return true;
         }
     }
 
-    return false;
+    irq_restore(flags);return false;
 }
 
 bool scheduler_spawn(const char *name, scheduler_thread_fn entry, void *arg) {
@@ -680,4 +687,11 @@ bool scheduler_start_idle_worker(void) {
         idle_thread=i;return true;
     }
     return false;
+}
+
+/* Monotonic lifetime identity; a recycled worker slot receives a fresh ID. */
+uint64_t scheduler_current_thread_id(void) {
+    uint64_t flags=irq_save();
+    uint64_t id=initialized?threads[current_thread].identity:0;
+    irq_restore(flags);return id;
 }

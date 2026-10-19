@@ -3127,3 +3127,11 @@ test-heap: build/tests/heap-host$(HOST_EXE)
 build/tests/heap-host$(HOST_EXE): tools/test_heap.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-semaphore
+test-core: test-semaphore
+test-semaphore: build/tests/semaphore-host$(HOST_EXE)
+	$<
+build/tests/semaphore-host$(HOST_EXE): tools/test_semaphore.c kernel/src/semaphore.c kernel/include/srvros/semaphore.h kernel/include/srvros/scheduler.h kernel/include/srvros/timer.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@

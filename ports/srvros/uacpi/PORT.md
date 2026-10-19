@@ -123,3 +123,22 @@ resource evaluation succeeded and the logged capture returned to Ubuntu with
 clean exFAT. This clears the isolated probe stall gate after the heap fixes;
 it does not enable live runtime ownership or accept battery readings. Normal
 desktop startup continues to omit this diagnostic.
+
+## Kernel synchronization foundation
+
+`kernel/src/semaphore.c` now provides CPU0 counting semaphores with IRQ-safe,
+allocation-free signal; nonblocking/finite/infinite waits; monotonic timeout
+checks; closed-state wakeup and explicit drained teardown. Owners must exclude
+new callers before freeing storage. Waits are ordinary kernel-worker work, not
+an I/O service or cancellable userspace path. This is not an SMP lock. The
+current 100 Hz timer governs scheduling granularity; finite waits round upward
+and never report timeout before the monotonic deadline.
+
+The scheduler supplies nonzero lifetime identities, including distinct IDs when
+a worker slot is reused. Worker publication/identity allocation is protected
+against local IRQ preemption. Host checks cover lost-wakeup boundaries, IRQ flag
+restoration, counter/deadline overflow, spurious wakes, failure and close/drain.
+The explicit `semaphoretest` monitor diagnostic and `tools/semaphore_smoke.py`
+exercise real blocked workers, timeout and four successive worker lifetimes.
+These primitives are not yet bound to a live uACPI adapter; the isolated probe's
+single-threaded callbacks and hardware restrictions remain unchanged.

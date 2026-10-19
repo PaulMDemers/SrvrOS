@@ -4,6 +4,16 @@
 #define SRVROS_SCHEDULER_HOST_TEST
 #include "../kernel/src/scheduler.c"
 static uint64_t actual_space=1,clock_us;
+static _Alignas(16) uint8_t fake_stack[SCHEDULER_STACK_SIZE];
+static unsigned frees;
+uint64_t pmm_alloc_frames_above_tagged(uint64_t count,uint64_t minimum,enum pmm_frame_tag tag) {
+    assert(count==SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE && minimum==SCHEDULER_STACK_MIN_PHYSICAL && tag==PMM_FRAME_KERNEL_STACK);return 4096;
+}
+void pmm_free_frame_range(uint64_t physical,uint64_t count) { assert(physical==4096 && count==SCHEDULER_STACK_SIZE/PMM_FRAME_SIZE);frees++; }
+void *pmm_phys_to_virt(uint64_t physical) { assert(physical==4096);return fake_stack; }
+void fpu_init_state(struct fpu_state *state) {(void)state;}
+static void empty_worker(void *arg) {(void)arg;}
+
 uint64_t timer_monotonic_us(void) { return clock_us; }
 uint64_t vmm_current_address_space(void) { return actual_space; }
 uint64_t vmm_kernel_address_space(void) { return 1; }
@@ -28,6 +38,7 @@ int main(void) {
     _Alignas(16) uint8_t stack[64];
     uint64_t rsp=initial_thread_stack((uint64_t)stack+sizeof(stack));
     assert((rsp&15)==8 && rsp==(uint64_t)stack+56 && *(uint64_t *)rsp==0);
+    assert(!scheduler_current_thread_id());
     assert(!scheduler_io_begin());
     initialized = true;
     assert(!scheduler_io_begin()); /* Early boot must not enable IRQs. */
@@ -98,6 +109,14 @@ int main(void) {
     threads[3].state=THREAD_READY;current_thread=1;threads[1].state=THREAD_RUNNING;
     assert(next_ready_thread(1)==3); /* I/O owner resumes before idle. */
     current_thread=3;scheduler_io_end();
+    memset(threads,0,sizeof(threads));current_thread=0;threads[0].state=THREAD_RUNNING;threads[0].identity=1;next_identity=2;
+    assert(scheduler_current_thread_id()==1);
+    assert(scheduler_spawn("first",empty_worker,NULL) && threads[1].identity==2);
+    current_thread=1;assert(scheduler_current_thread_id()==2);current_thread=0;
+    threads[1].state=THREAD_DEAD;
+    assert(scheduler_spawn("reused",empty_worker,NULL) && threads[1].identity==3 && frees==1);
+    current_thread=1;assert(scheduler_current_thread_id()==3);current_thread=0;
+    next_identity=UINT64_MAX;assert(!scheduler_spawn("exhausted",empty_worker,NULL));
     puts("io-scheduler-host: PASS (boot gating, owner/nesting, service eligibility, task isolation)");
 }
 

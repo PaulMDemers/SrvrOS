@@ -58,6 +58,8 @@ void scheduler_clear_user_context(void);
 void *scheduler_current_user_context(void);
 void scheduler_set_user_thread_context(void *context);
 void *scheduler_current_user_thread_context(void);
+/* Nonzero boot-lifetime identity; zero before scheduler initialization. */
+uint64_t scheduler_current_thread_id(void);
 uint64_t scheduler_thread_count(void);
 uint64_t scheduler_preemptions(void);
 void scheduler_print_status(void);
