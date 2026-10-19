@@ -3,6 +3,7 @@
 #include "work_worker.h"
 #include "q35_fixture.h"
 #include "ec_fixture.h"
+#include "qemu_adapter.h"
 #include <srvros/acpi.h>
 #include <srvros/acpi_runtime_test.h>
 #include <srvros/aml_probe.h>
@@ -15,6 +16,7 @@
 #include <srvros/timer.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/context.h>
+#include <uacpi/tables.h>
 #include <uacpi/event.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
 #include "../../../../kernel/src/arch/x86_64/ioapic.h"
@@ -27,7 +29,7 @@ static struct {
     struct kernel_semaphore wedge_gate;
     uacpi_interrupt_handler irq_fn;
     uacpi_handle irq_context;
-    uint64_t irq_token, rsdp, facs, heap, peak, errors, denied;
+    uint64_t irq_token, rsdp, facs, heap, peak, errors, denied, fixture_dsdt;
     uint64_t interrupts, power_events, work_events, last_value, contended_waits;
     uint32_t original_low, original_high;
     uint16_t original_control;
@@ -279,10 +281,41 @@ static bool stop_runtime(void) {
     if (restored && !runtime.heap) runtime.engaged = false;
     return restored && !runtime.heap;
 }
-static bool start_runtime(bool fail_install) {
+static bool bytes_equal(const char *a, const char *b, unsigned length) {
+    for (unsigned i = 0; i < length; i++) if (a[i] != b[i]) return false;
+    return true;
+}
+static uint64_t find_fixture_dsdt(void) {
+    uint64_t found = 0;
+    for (uint64_t i = 0; i < acpi_table_count(); i++) {
+        const struct acpi_table_info *table = acpi_table_at(i);
+        if (!equal(table->signature, "DSDT") || table->length < 36 || table->length > 4096) continue;
+        const uint8_t *data = pmm_phys_to_virt(table->physical_address);
+        if (!bytes_equal((const char *)data + 10, "SRVROS", 6) ||
+            !bytes_equal((const char *)data + 16, "INITTEST", 8)) continue;
+        uint8_t sum = 0;
+        for (unsigned j = 0; j < table->length; j++) sum += data[j];
+        if (sum || found) return 0;
+        found = table->physical_address;
+    }
+    return found;
+}
+static uacpi_table_installation_disposition fixture_table(struct acpi_sdt_hdr *header,
+    uacpi_u64 *override) {
+    if (!bytes_equal(header->signature, "DSDT", 4)) return UACPI_TABLE_INSTALLATION_DISPOSITION_ALLOW;
+    /* QEMU appends user tables, while FADT still points at its generated DSDT.
+     * Override only in explicit start-fixture mode. Never modify either table. */
+    if (bytes_equal(header->oem_table_id, "INITTEST", 8))
+        return UACPI_TABLE_INSTALLATION_DISPOSITION_DENY; /* Already installed via FADT override. */
+    *override = runtime.fixture_dsdt;
+    return UACPI_TABLE_INSTALLATION_DISPOSITION_PHYSICAL_OVERRIDE;
+}
+static bool start_runtime(bool fail_install, bool fixture) {
     if (runtime.engaged || !timer_reference_ready() || !rsdp_request.response) return false;
     const struct acpi_fadt *fadt = acpi_q35_fixture_fadt();
     if (!fadt || inw(0x602)) return false;
+    uint64_t fixture_dsdt = fixture ? find_fixture_dsdt() : 0;
+    if (fixture && !fixture_dsdt) return false;
     for (uint16_t port = 0x628; port < 0x630; port++) if (inb(port)) return false;
     uint32_t low, high;
     if (!ioapic_read_gsi(9, &low, &high) || !(low & (1u<<16)) || (low & ((1u<<12)|(1u<<14)))) return false;
@@ -290,11 +323,13 @@ static bool start_runtime(bool fail_install) {
         .engaged = true, .original_low = low, .original_high = high,
         .original_control = inw(0x604), .disable_command = fadt->acpi_disable,
         .rsdp = (uintptr_t)rsdp_request.response->address - pmm_hhdm_offset(),
-        .facs = fadt->firmware_ctrl, .fault_install = fail_install,
+        .facs = fadt->firmware_ctrl, .fault_install = fail_install, .fixture_dsdt = fixture_dsdt,
     };
     if (!acpi_worker_start(&runtime.worker)) { runtime.engaged = false; return false; }
     acpi_ec_fixture_reset(&runtime.worker);
-    uacpi_status result = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE | UACPI_FLAG_BAD_CSUM_FATAL | UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL);
+    uacpi_status result = fixture ? uacpi_set_table_installation_handler(fixture_table) : UACPI_STATUS_OK;
+    if (result) goto failed;
+    result = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE | UACPI_FLAG_BAD_CSUM_FATAL | UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL);
     if (result) goto failed;
     uacpi_context_set_loop_timeout(1);
     uacpi_context_set_max_call_stack_depth(32);
@@ -310,6 +345,20 @@ failed:
     console_printf("acpi-runtime: initialization failed status=%s cleanup=%s\n", uacpi_status_to_string(result), stop_runtime() ? "yes" : "NO");
     return false;
 }
+bool acpi_runtime_fixture_initialize_namespace(void) {
+    uint64_t flags = irq_save();
+    bool allowed = (flags & (1ull << 9)) && runtime.initialized && !runtime.stopping &&
+        runtime.worker.identity && scheduler_current_thread_id() == runtime.worker.identity;
+    irq_restore(flags);
+    if (!allowed) return false;
+    uint64_t errors = runtime.errors, denied = runtime.denied;
+    uacpi_status status = uacpi_namespace_initialize();
+    bool ok = !status && runtime.errors == errors && runtime.denied == denied;
+    console_printf("acpi-runtime: namespace=%s status=%u errors=%u denied=%u\n",
+        ok ? "initialized" : "FAILED", (uint64_t)status,
+        runtime.errors - errors, runtime.denied - denied);
+    return ok;
+}
 static void wedged_work(void *context) {
     (void)context;
     console_write("acpi-runtime: wedge-blocked\n");
@@ -317,8 +366,8 @@ static void wedged_work(void *context) {
     unsafe("unexpected wedge wake");
 }
 void acpi_runtime_test_command(const char *args) {
-    if (equal(args, "start") || equal(args, "start-fail")) {
-        bool ok = start_runtime(equal(args, "start-fail"));
+    if (equal(args, "start") || equal(args, "start-fail") || equal(args, "start-fixture")) {
+        bool ok = start_runtime(equal(args, "start-fail"), equal(args, "start-fixture"));
         console_printf("acpi-runtime: %s\n", ok ? "READY" : "REFUSED");
     } else if (equal(args, "stop")) {
         uint64_t flags = irq_save();

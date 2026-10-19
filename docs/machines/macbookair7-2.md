@@ -65,7 +65,10 @@ Additional IRQ, semaphore and deferred-worker foundations now pass host/VM tests
 A separate full-uACPI Q35 kernel passes real SCI, contended AML mutex/sleep and
 teardown tests, including worker-owned EC disconnect I/O and halting with
 state retained on a poisoned controller or a disconnect deadline. It is not the
-installed payload or a native EC/battery provider.
+installed payload or a native EC/battery provider. Its immutable `6b7c2bc8`
+artifact passed a verified 30-minute, 37-round runtime/EC soak. Later explicit
+synthetic namespace initialization checks worker ownership and refuses readiness
+when firmware methods log denied accesses even if the API returns success.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
 2. Follow up the System timeout after the delivery fix; the native cause is not yet proven.

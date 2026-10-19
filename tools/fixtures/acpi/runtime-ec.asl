@@ -1,5 +1,6 @@
 DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
 {
+    External (\INIT, IntObj)
     Scope (\_SB)
     {
         Device (ECT0)
@@ -9,6 +10,9 @@ DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
             Name (RVAL, Zero)
             Name (DVAL, Zero)
             Name (DLYM, Zero)
+            Name (INIC, Zero)
+            Name (IVAL, Zero)
+            Name (SVAL, Zero)
             Name (QNUM, Zero)
             Name (QVAL, Zero)
             Mutex (SMTX, 0)
@@ -36,6 +40,11 @@ DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
                 }
             }
             Method (DLYS, 0, NotSerialized) { DLYM = 7 }
+            Method (_STA, 0, NotSerialized) { SVAL = EVAL; Return (0x0F) }
+            Method (_INI, 0, NotSerialized) {
+                If (\INIT != 2 || REGC != One || SVAL != 0x42) { Return () }
+                Sleep (10); IVAL = EVAL; Increment (INIC)
+            }
             Method (RD00, 0, NotSerialized) { Return (EVAL) }
             Method (_Q20, 0, NotSerialized)
             {

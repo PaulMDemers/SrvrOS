@@ -17,9 +17,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--disconnect-timeout', action='store_true',
                         help='leave disconnect AML asleep past the finite drain deadline')
+    namespace = parser.add_mutually_exclusive_group()
+    namespace.add_argument('--namespace-init', action='store_true',
+                        help='initialize the namespace after the EC handler connects')
+    namespace.add_argument('--namespace-denied', action='store_true',
+                           help='verify generated Q35 firmware initialization is refused without wider IO permissions')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
-    out = root / 'build/review' / ('acpi-ec-disconnect-timeout' if args.disconnect_timeout else 'acpi-ec')
+    out = root / 'build/review' / ('acpi-ec-initialize-denied' if args.namespace_denied else 'acpi-ec-initialize' if args.namespace_init else 'acpi-ec-disconnect-timeout' if args.disconnect_timeout else 'acpi-ec')
     out.mkdir(parents=True, exist_ok=True)
     output = bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-ec-') as directory:
@@ -27,13 +32,17 @@ def main():
         subprocess.run(['iasl', '-p', str(tmp/'worker'), str(root/'tools/fixtures/acpi/runtime-worker.asl')],
                        check=True, stdout=subprocess.DEVNULL)
         subprocess.run(['iasl', '-p', str(tmp/'ec'), str(root/'tools/fixtures/acpi/runtime-ec.asl')], check=True, stdout=subprocess.DEVNULL)
+        extra_tables = []
+        if args.namespace_init:
+            subprocess.run(['iasl', '-p', str(tmp/'init'), str(root/'tools/fixtures/acpi/runtime-init.asl')], check=True, stdout=subprocess.DEVNULL)
+            extra_tables = ['-acpitable', f'file={tmp}/init.aml']
         iso = boot.build_iso(str(root), str(tmp), 1280, 800, os.environ.copy(), root/'build/acpi-runtime/srvros.elf')
 
         command = ['qemu-system-x86_64', '-M', 'q35', '-m', '512M', '-cdrom', iso,
                    '-boot', 'd', '-nic', 'none', '-acpitable', f'file={tmp}/worker.aml', '-acpitable', f'file={tmp}/ec.aml',
                    '-serial', f'unix:{tmp}/serial,server=on,wait=off', '-qmp',
                    f'unix:{tmp}/qmp,server=on,wait=off', '-display', 'none',
-                   '-monitor', 'none', '-no-reboot']
+                   '-monitor', 'none', '-no-reboot'] + extra_tables
         with (out / 'qemu.txt').open('w') as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
@@ -74,9 +83,32 @@ def main():
                             return
                     raise AssertionError(('EC did not complete', v))
 
-                for _ in range(2):
+                if args.namespace_denied:
                     request('acpiruntime start', rb'acpi-runtime: READY')
-                    request('acpiruntime ec start', rb'acpi-ec: setup=queued')
+                    failure = request('acpiruntime ec initialize', rb'acpi-runtime: namespace=FAILED status=0 errors=(\d+) denied=(\d+)')
+                    errors, denied = map(int, failure.groups())
+                    assert errors > 0 and denied > 0
+                    # The API returned success, but unsupported region accesses
+                    # must not publish a ready EC/battery service.
+                    until = time.monotonic() + 5
+                    while True:
+                        state = request('acpiruntime ec status', rb'acpi-ec: ready=(\d+) queries=0 notify=0 queued_in_sample=0 errors=(\d+) foreign=0 attached=1 detached=0 pending=(\d+)')
+                        ready, failures, pending = map(int, state.groups())
+                        assert ready == 0
+                        if failures == 1 and pending == 0:
+                            break
+                        assert time.monotonic() < until
+                    request('acpiruntime ec sample', rb'acpi-ec: sample=REFUSED')
+                    stopped = request('acpiruntime stop', rb'acpi-runtime: stopped=yes heap=0 errors=(\d+) denied=(\d+)')
+                    assert tuple(map(int, stopped.groups())) == (errors, denied)
+                    qmp.call('quit')
+                    process.wait(timeout=10)
+                    print('acpi-ec: PASS refused namespace initialization despite API success; no ready service or sampling, clean bounded teardown, no widened permissions')
+                    return
+
+                for _ in range(2):
+                    request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                    request('acpiruntime ec initialize' if args.namespace_init else 'acpiruntime ec start', rb'acpi-ec: setup=queued')
                     snapshot(0, 0, 0, generation=0, current=0)
                     request('acpiruntime ec foreign', rb'acpi-ec: foreign=REFUSED')
                     request('acpiruntime ec sample', rb'acpi-ec: sample=queued')
@@ -86,13 +118,13 @@ def main():
                     request('acpiruntime ec queries', rb'acpi-ec: queries=queued')
                     snapshot(35, 18, 32)
                     request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
-                request('acpiruntime start', rb'acpi-runtime: READY')
+                request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
                 request('acpiruntime ec start-slow', rb'acpi-ec: setup=queued')
                 request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
                 # A failed disconnect must retain the namespace, not report a
                 # clean reset after upstream swallowed an AML _REG failure.
-                request('acpiruntime start', rb'acpi-runtime: READY')
-                request('acpiruntime ec start', rb'acpi-ec: setup=queued')
+                request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                request('acpiruntime ec initialize' if args.namespace_init else 'acpiruntime ec start', rb'acpi-ec: setup=queued')
                 snapshot(0, 0, 0, generation=0, current=0)
                 request('acpiruntime ec foreign', rb'acpi-ec: foreign=REFUSED')
                 request('acpiruntime ec sample', rb'acpi-ec: sample=queued')
@@ -117,6 +149,9 @@ def main():
             finally:
                 stop_process(process)
                 (out / 'serial.txt').write_bytes(output)
+    if args.namespace_init:
+        assert complete_lines(output).count(b'namespace=initialized status=0 errors=0 denied=0') == 3
+        print('acpi-ec: PASS worker-owned namespace initialization, root/SB/EC ordering, _STA/_INI EC reads and sleep')
     print('acpi-ec: negative teardown=' + ('AML timeout' if args.disconnect_timeout else 'poisoned transport'))
     print('acpi-ec: PASS two lifetimes, _REG read/write, single-worker ownership, SCI-triggered queries/Notify, 32-query batches, deferred queries during full SBS samples, worker-owned disconnect IO, delayed-setup teardown, detached/leak-free reset and failed disconnect halt with state retained')
 

@@ -425,3 +425,39 @@ regression passed. No native port gate or
 ordinary boot profile changed. General firmware still needs explicit ownership,
 initialization and error propagation policy; the synthetic handshake cannot be
 assumed for arbitrary AML.
+
+
+## Completed ACPI runtime soak
+
+The immutable `6b7c2bc8` artifact bundle completed 1,821.58 seconds: 37 full
+runtime/EC rounds, 74 successful suite executions. After completion, every frozen
+input hash and all 74 suite logs were verified. The bundle is retained outside
+`build` at `~/.local/share/srvros/vm-soaks/20261019-runtime-6b7c2bc8/`.
+Its normal lifetimes require zero errors/denials/leaks; intentionally wedged
+teardown is an expected negative case. The two earlier incomplete soaks remain
+failures and are not included in this pass. This accepts the tested VM artifact,
+not native ACPI or the later `81e523d` disconnect extension.
+
+
+## Worker-owned namespace initialization
+
+The separate VM adapter now tests namespace initialization after connecting the
+modeled EC on its owning worker. An explicit `start-fixture` selects a validated
+synthetic DSDT only for the interpreter; generated tables and I/O permissions
+are unchanged. After EC connection, root and system-bus initialization, `_STA`
+and sleeping `_INI` are checked before readiness. Two full lifetimes then exercise
+queries, notifications, SBS sampling and clean disconnect; poison containment
+remains a negative case.
+
+The first attempt against QEMU's normal DSDT was refused because its HPET and
+hotplug methods require regions outside the allowlist. This exposed another
+important API distinction: namespace initialization can return success while
+logging method failures. Error/denial deltas now make the fixture refuse readiness
+in that case. The negative VM requires no ready service, refused sampling and
+clean teardown. The positive test uses our small synthetic namespace; no register
+permissions were widened to make unrelated firmware initialize. Native early-EC
+binding, firmware initialization policy and AML GPE finalization remain open.
+
+The positive initialization, generated-namespace refusal, initialized disconnect
+deadline, ordinary EC and full SCI/mutex regression suites passed. The normal
+restricted AML probe was tested separately to preserve build isolation.

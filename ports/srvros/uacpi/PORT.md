@@ -294,3 +294,38 @@ real ECDT/resource binding, `_OSI` and Global Lock policy, live GPE/query owners
 register permissions and hardware acceptance. Native `_REG` errors and worker
 timeouts must remain visible, including where upstream returns success after
 logging an AML error. Do not widen this VM fixture's port gate to boot a Mac.
+
+
+## Namespace initialization on the EC worker
+
+The explicit `acpiruntime start-fixture` mode requires a checksummed, uniquely
+identified `SRVROS/INITTEST` DSDT in the Q35 table inventory. It uses the pinned
+uACPI table-installation callback to replace only the interpreter's DSDT view.
+Neither firmware tables nor the ordinary kernel are modified. Missing fixtures
+are refused. Normal `start` retains the generated Q35 namespace and all previous
+I/O restrictions. QEMU [appends user tables while its FADT references the generated
+DSDT](https://github.com/qemu/qemu/blob/v10.0.0/hw/i386/acpi-build.c); merely passing
+another DSDT on its command line does not replace that FADT reference.
+
+`acpiruntime ec initialize` explicitly connects the modeled EC on its worker,
+then calls `uacpi_namespace_initialize` on that same worker. The synthetic DSDT
+and EC methods verify that EC `_REG` has connected before initialization, then
+root `_INI` precedes `_SB._INI` and EC `_STA` precedes EC `_INI`. The latter methods read the controller and sleep before
+publishing readiness. Sampling and query/Notify work then use the established
+worker ownership. This does not finalize AML GPE users or initialize native
+Mac firmware; it is an isolated initialization contract test.
+
+`tools/acpi_ec_smoke.py --namespace-init` covers two clean initialized lifetimes,
+query/SBS overlap, delayed setup teardown and poisoned disconnect containment.
+The `--namespace-denied` variant deliberately keeps QEMU's generated DSDT. Its
+HPET/hotplug initialization needs regions outside this adapter's allowlist. The
+API still returns success after logging method failures, so the adapter checks
+error/denial deltas and refuses to publish a ready service. The VM verifies
+sampling refusal and clean teardown without widening permissions. The original
+SCI/mutex/failure suite also verifies `start-fixture` rejects an absent fixture.
+
+Before native use, namespace loading itself still needs an early EC binding and
+initialization-owner policy, not just worker ownership after loading. Native
+permissions, `_OSI`, Global Lock, GPE finalization and watchdog/rollback policy
+remain unresolved. Do not infer a native initialization pass from this small
+synthetic namespace.

@@ -2,6 +2,7 @@
  * No native port binding. All EC/AML/battery work belongs to one worker;
  * per-byte locking alone would not exclude an AML SMBus bank transaction. */
 #include "ec_fixture.h"
+#include "qemu_adapter.h"
 #include <srvros/console.h>
 #include <srvros/ec_transport.h>
 #include <srvros/sbs_sample.h>
@@ -24,7 +25,7 @@ static struct {
     uint64_t blocked_callers, queued_during_sample, samples_failed;
     bool obf, ready, query_scheduled, sample_scheduled, inject, stalled;
     bool region_installed, notify_installed, setup_scheduled, setup_delay;
-    bool stopping, stop_done, stop_ok, disconnect_delay;
+    bool stopping, stop_done, stop_ok, disconnect_delay, namespace_init;
 } ec;
 
 enum { LEASE_NONE, LEASE_BYTE, LEASE_QUERY, LEASE_SAMPLE };
@@ -155,7 +156,18 @@ static void setup_impl(void *context) {
     if (uacpi_eval_simple_integer(ec.node, "REGC", &reg) || reg != 1 ||
         uacpi_eval_simple_integer(ec.node, "RVAL", &value) || value != 0x42 || ec.memory[0x11] != 0xa5)
         ec.errors++;
-    else ec.ready = true;
+    else {
+        if (ec.namespace_init) {
+            uint64_t count = 0, ini = 0, sta = 0;
+            if (!acpi_runtime_fixture_initialize_namespace() ||
+                uacpi_eval_simple_integer(ec.node, "INIC", &count) || count != 1 ||
+                uacpi_eval_simple_integer(ec.node, "IVAL", &ini) || ini != 0x42 ||
+                uacpi_eval_simple_integer(ec.node, "SVAL", &sta) || sta != 0x42) {
+                ec.errors++; return;
+            }
+        }
+        ec.ready = true;
+    }
 }
 static void setup_work(void *context) {
     if (ec.setup_delay) timer_wait_ticks(10);
@@ -279,12 +291,13 @@ bool acpi_ec_fixture_retired(void) {
     return ok;
 }
 void acpi_ec_fixture_command(const char *args) {
-    if (equal(args, "start") || equal(args, "start-slow")) {
+    if (equal(args, "start") || equal(args, "start-slow") || equal(args, "initialize")) {
         uint64_t flags = irq_save();
         bool ok = !ec.stopping && !ec.node && !ec.setup_scheduled && ec.worker;
         if (ok) {
             ec.setup_scheduled = true;
             ec.setup_delay = equal(args, "start-slow");
+            ec.namespace_init = equal(args, "initialize");
             ok = acpi_worker_enqueue(ec.worker, &ec.setup_item, UACPI_WORK_NOTIFICATION, setup_work, NULL);
             if (!ok) ec.setup_scheduled = false;
         }
