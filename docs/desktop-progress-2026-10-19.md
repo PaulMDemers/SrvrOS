@@ -89,5 +89,12 @@ Validation so far:
   Key-to-serial echo samples were 8–25 ms idle, 5–16 ms during writes and 32 ms
   during output. These are VM host-wall-clock samples, not physical key latency.
 
-Hardware installation and acceptance remain pending. Raw comparison, failure
-diagnostics and repaired-run evidence are under `build/overnight-20261018/`.
+Native automated acceptance: release `54a944ae1f7849ac`, source `686edd8`,
+completed all five filesystem/shell rounds and returned to Ubuntu. Collection
+validated each completed report and retained file set; an unmounted read-only
+exFAT check was clean (159 directories, 799 files). Render elapsed time was
+4,161–4,260 us for 1,000 lines; shell rounds took 11.2–14.1 seconds. Physical
+key latency, gestures, sound and idle temperature remain untested by this batch.
+The previous boot entry retains accepted desktop `b427b78f21644bd2`. Raw
+comparison, failure diagnostics and repaired-run evidence are under
+`build/overnight-20261018/`.

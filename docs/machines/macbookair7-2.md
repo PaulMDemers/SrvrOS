@@ -46,7 +46,11 @@ The local trial record marks this run returned/reviewed, not armed for reboot.
 Current shared-code work is on `device/macbookair7-2/reliability-input-power`
 from `main` at `3b0b43a`: physical click latching, compositor delivery deadlines,
 idle/sleep scheduling and console polling. The [October 19 journal](../desktop-progress-2026-10-19.md)
-records host/VM evidence; these changes have not yet been physically accepted.
+records host/VM evidence. Native automated batch `54a944ae1f7849ac`
+(source `686edd8`) passed all five filesystem/shell rounds with retained files
+verified and a clean offline exFAT check. Current boot payload is that automated
+release; previous retains accepted desktop `b427b78f21644bd2`. Interactive
+input and desktop idle behavior still need physical acceptance.
 The generalized Linux collector completed with zero partial reads on this host.
 
 1. Physically accept two-finger secondary click while preserving established primary drag; host/transport tests precede this check.
