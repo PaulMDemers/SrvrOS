@@ -27,7 +27,7 @@ device work uses separate branches based on `main`.
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
-## Latest physical record
+## Latest interactive physical record
 
 Release `b427b78f21644bd2`, v22, built from source `5b1ed05`.
 Session `session-00065e281812e807-00` has saved logs and clean desktop exit.

@@ -16,6 +16,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends build-essential python3 xorriso qemu-system-x86 ovmf
       - name: Check prerequisites
         run: make check-host
+      - name: Check documentation and screenshot manifest
+        run: make check-docs
       - name: Build BIOS and UEFI images
         run: |
           mkdir -p build/review

@@ -521,3 +521,45 @@ A complete fresh Linux capture had zero partial reads; raw evidence stays under
 and `intel_cpufreq`/`schedutil` with 500–3,200 MHz policy limits. CPU0 exposes
 POLL through C10. This records Linux policy, not measured residency or energy.
 Installed payloads and recovery were unchanged; no physical boot was requested.
+
+## Public repository readiness
+
+The README is now a short project introduction with a Linux/QEMU quick start,
+current desktop screenshot and explicit support boundaries. Current architecture,
+status, roadmap and documentation-index pages replace the mixed historical
+inventories; the original overviews are retained under `docs/history/`.
+Contribution/security guidance, issue/PR templates and a third-party notice index
+make the repository easier to navigate and contribute to. Dated test journals
+remain historical evidence.
+
+`tools/desktop_gallery.py` opens real Text, Files, Settings and Preview apps in a
+disposable 1440×900 QEMU guest, using synthetic documents and the existing color
+fixture. Three unretouched PNGs were visually inspected. Its manifest records
+source/payload hashes, fixture/generator identity, environment and image hashes.
+A clean desktop exit and lossless pixel conversion are checked before publication.
+The final gallery uses source `d9f5ce2`; later test/docs changes do not alter the
+pictured kernel/userspace. The fixed guest clock is labeled as a fixture.
+
+`make check-docs` checks local inline Markdown destinations and gallery hashes/
+dimensions, including in CI. It does not check remote URLs or heading anchors.
+The local check passed 340 file destinations, and a deliberate missing-link
+fixture was rejected. A limited tracked-working-tree credential-pattern scan
+found no matches; this was not a Git-history or comprehensive security audit.
+
+The remote clean build exposed a missing compiler dependency for native ACPI
+objects: parallel compilation could start before Zig's initial download completed.
+Commit `d9f5ce2` fixes the Make dependency and adds an isolated delayed-bootstrap
+regression across the three ACPI object families. The next remote run built both
+images successfully, then exposed a GCC 13 diagnostic in the scheduler-status
+host fixture. Commit `57ae640` keeps the mock VMM boundary out of line, as in the
+real separately compiled kernel; kernel code and warning flags are unchanged.
+The warning was reproduced with a locally unpacked GCC 13 and the corrected
+fixture passed with GCC 13 and GCC 15. The symlink-based bootstrap fixture skips
+Windows rather than requiring privileged symlink creation there.
+
+Local validation passed: normal OS build, core/desktop host tests, a forced host
+test rebuild with GCC 13, the full baseline smoke suite (including all 481 CLI
+commands, shell editing, syscall ABI, UEFI USB input and legacy displayd), and
+the new three-image gallery with clean exit. Current GitHub results must be read
+from the matching commit; a local pass is not a remote CI pass. No physical boot,
+installation, firmware write or acceptance upgrade was part of this cleanup.

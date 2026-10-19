@@ -1,0 +1,41 @@
+{
+  "schema": "srvros-desktop-gallery-v1",
+  "source_commit": "d9f5ce2e01ff74bf2f669a295735e78f770ae0b4",
+  "worktree_dirty": true,
+  "generator_sha256": "45664c208059afa5f5b97763bc129556dcf4d954fe67fbd4397b5c164b46b047",
+  "initial_fixture_disk_sha256": "d3f0185b92113c539d73aecbace686436974f31072f7a13f49b41f3c16f6740f",
+  "captured_utc": "2026-10-19T08:50:42.636405+00:00",
+  "command": "tools/host-env.sh python3 tools/desktop_gallery.py",
+  "environment": "QEMU q35, 512 MiB, BIOS, 1440x900, 1x, disposable exFAT, no network",
+  "guest_clock": "Fixed 2026-10-19T12:34:00 base; not the capture wall clock",
+  "qemu_version": "QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.2)",
+  "artifacts_sha256": {
+    "build/iso_root/boot/srvros.elf": "066cdc7510a7b258a65728aa4805d5f1fa302c214eee613b9c5df6b2339e8ee5",
+    "build/iso_root/boot/initramfs.tar": "e0249a11aca621061a0e0524d01bced7d7ed01b68519ac47afbaf78566398fb0",
+    "build/srvros.exfat": "68298b38e6ad532cc30e752f5717171a939f53e6c5c9959505e97c3e08595866"
+  },
+  "images": [
+    {
+      "file": "desktop-files-text.png",
+      "caption": "Text and Files, tiled using shared window controls.",
+      "width": 1440,
+      "height": 900,
+      "sha256": "13f49a327b923439f908cdc049cf16a2b3561290683609036a567b8128fb9d40"
+    },
+    {
+      "file": "desktop-settings.png",
+      "caption": "Settings with the shared native widget toolkit.",
+      "width": 1440,
+      "height": 900,
+      "sha256": "ae1f81cdb4b11ae2a426ae978ad3eb72e5fb1949bcca26639fcafead7809e18e"
+    },
+    {
+      "file": "desktop-preview.png",
+      "caption": "Preview displaying a generated color-grid fixture.",
+      "width": 1440,
+      "height": 900,
+      "sha256": "fc40a2843e964f07427ab47f64a9a329e988c966d05d498afa1f56f4f83be065"
+    }
+  ],
+  "note": "Actual guest framebuffer captures, lossless PPM-to-PNG conversion. Synthetic documents and color fixture. VM evidence only; no physical hardware acceptance."
+}

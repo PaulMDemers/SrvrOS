@@ -46,6 +46,25 @@ run package installation scripts or modify system packages. The wrapper sets
 local binary/library/firmware paths only for the invoked command. It is an
 Ubuntu/Debian convenience, not a portable substitute for a package manager.
 
+## First-build troubleshooting
+
+If a download is interrupted, inspect the named staging/output directory before
+retrying. The Zig bootstrap verifies its archive hash and version and refuses an
+already-existing incomplete output; move that incomplete directory aside rather
+than disabling verification. Do not delete all of `build` if it contains needed
+hardware evidence or recovery artifacts.
+
+A clean parallel-build ordering bug in the ACPI object rule was corrected on
+2026-10-19: those objects now wait for the compiler and protocol headers instead
+of racing the toolchain download. `make test-make-bootstrap` reproduces that
+ordering with a delayed disposable compiler across native and alternate ACPI
+object rules. It does not remove or alter the installed host toolchain.
+
+If QEMU reports no usable graphical display on a headless host, use the documented
+hidden VM harnesses rather than `make run`, which opens a window. For UEFI tests,
+install OVMF or set `OVMF_CODE` to the actual firmware path. Do not substitute a
+physical disk for a test image to work around a VM setup error.
+
 ## MSYS2 UCRT64
 
 Use the original UCRT64 development tools (`make`, Git, Python 3, `xorriso`,
@@ -58,6 +77,13 @@ installation does not expose `python3`.
 `make check-host` checks prerequisite programs, UEFI firmware, and submodule
 checkout presence. A `CHECK` prefix on an initialized submodule means its HEAD
 differs from the gitlink; inspect it before committing. It never resets files.
+
+`make check-docs` checks repository Markdown file destinations and the current
+screenshot manifest without accessing the network. It does not check remote
+URLs or heading anchors. To regenerate actual native desktop images after a
+build, run `python3 tools/desktop_gallery.py`; see [the gallery](screenshots.md)
+for review and publication steps. Pillow is needed for that capture tool, not
+for the ordinary kernel build.
 
 `make smoke` builds both images, checks serial-harness synchronization with
 unit tests, and runs these QEMU harnesses sequentially:

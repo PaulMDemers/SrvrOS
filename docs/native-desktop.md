@@ -9,17 +9,21 @@ run /fat/bin/deskd
 ```
 
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
-on Air7,2. The latest v22 trial accepted desktop boot, brightness/volume changes
+on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
 and live sensor display. Physical two-finger pressing now selects secondary click at press;
 this new behavior awaits physical acceptance. Secondary tapping is separate. A System app input-timeout closure
 remains open for physical acceptance. Host regressions now cover input and control
 packet delivery deadlines; clients get a delivery attempt before queued time is
 blamed on them, and genuinely unresponsive clients still have bounded cleanup.
 See the [machine record](machines/macbookair7-2.md) for precise
-acceptance and the [development journal](desktop-progress-2026-10-18.md) for history.
+acceptance and the [development journal](desktop-progress-2026-10-19.md) for history.
 New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-setup.md).
 
-![Native Text windows at 1440×900, arranged side by side](assets/screenshots/native-desktop-arranged.png)
+![Native Text and Files at 1440×900, arranged side by side](assets/screenshots/current/desktop-files-text.png)
+
+[Current gallery and capture provenance](screenshots.md). Later unattended native
+captures measured idle behavior and diagnostics; they do not replace interactive
+acceptance of new input changes.
 
 ## Display scale
 

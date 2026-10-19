@@ -2118,6 +2118,10 @@ test-linux-inventory:
 	$(PYTHON) -m unittest discover -s tools -p 'test_capture_*.py'
 test-core: test-linux-inventory
 
+.PHONY: check-docs
+check-docs:
+	$(PYTHON) tools/check_docs.py
+
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
 	$<
