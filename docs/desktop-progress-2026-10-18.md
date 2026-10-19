@@ -1894,3 +1894,16 @@ verifiable. Dedicated AML diagnostics retain their explicit probe option; their
 native stall needs separate investigation, including progress markers before
 initialization, namespace loading and evaluation. VM success is not evidence
 that the MacBook probe is safe to include in ordinary startup.
+
+Replacement **b427b78f21644bd2** (v22, source **5b1ed05**) passed 23 installer
+unit tests and the exact staged GRUB-to-desktop VM test: two fresh boots, saved
+files/preferences, durable logs, clean unmounts, and HDA tone/WAV capture with
+zero underruns and exact stereo samples. Its kernel load segments, initramfs and
+EFI loader match the failed trial; only the runtime probe option was removed
+(apart from the release identity). Evidence is retained under
+`build/native-desktop-trials/b427b78f21644bd2/vm-validation/`.
+
+The replacement is installed and hash-verified, with recovery
+**f05dfcc01c28dc85**, Ubuntu's default and firmware boot order preserved.
+Physical acceptance remains pending. This isolates the optional probe from the
+desktop trial; it does not resolve the native interpreter stall.
