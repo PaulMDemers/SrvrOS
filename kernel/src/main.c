@@ -573,6 +573,13 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
+    if (automatic_probe) {
+        /* Capture enumeration/setup failures even if firmware left a misleading
+         * PS/2-ready flag. This unattended profile must not require typing. */
+        xhci_print_boot_diagnostic();
+        xhci_print_status();
+        xhci_print_input_summary();
+    }
     if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();

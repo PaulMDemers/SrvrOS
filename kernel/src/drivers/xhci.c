@@ -2764,7 +2764,7 @@ void xhci_print_boot_diagnostic(void) {
         console_printf("  polls=%u reports=%u errors=%u\n",
             d->interrupt_success, d->hid_reports, d->interrupt_errors);
     }
-    console_write("Expected internal keyboard: 05ac:0291, port 5, iface 1, dci 5.\n");
+    console_write("Match vendor/product, port, interface and endpoint against this machine's captured descriptors.\n");
 }
 
 

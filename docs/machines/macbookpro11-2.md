@@ -9,7 +9,9 @@ Local on-device agent, branch `device/macbookpro11-2/bringup`, starting from
 Current objective: diagnose and enable the built-in `05ac:0262` keyboard.
 Scope: captured descriptor fixtures and xHCI host regression coverage first;
 collect unattended native USB/controller diagnostics before choosing any driver
-change. The first trial has no persisted USB log, so the failure layer is unknown.
+change. The v19 capture path in `kernel/src/main.c` will explicitly print xHCI
+controller/endpoint state into its saved snapshot; the diagnostic text will no
+longer label every keyboard as the Air fixture. The first trial has no persisted USB log, so the failure layer is unknown.
 PR #4 remains the Air EC/AML owner's scope; no overlapping implementation is
 planned. Baseline `origin/main` remains `db40ed5` as fetched after this trial.
 

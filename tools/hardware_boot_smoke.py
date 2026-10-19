@@ -244,7 +244,12 @@ def main():
                     for filename in ("boot.log","exit.log"):
                         contents=stored.read(folder+"/"+filename)
                         assert release.encode() in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert b"laptop-probe: unsupported chipset" in contents
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture):
+                            assert b"laptop-probe: unsupported chipset" in contents
+                            assert b"USB INPUT DIAGNOSTIC" in contents
+                            assert b"xhci: vendor=" in contents
+                            assert b"input-usb: dev slot=" in contents
+                            assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
                     if battery_capture:
