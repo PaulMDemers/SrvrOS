@@ -23,11 +23,12 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: generic ECDT/FADT resource decoding and native
-  Air resource/firmware audit, plus initialization ownership policy. Scope:
-  `kernel/{include/srvros,src/drivers}/acpi_ec_resources.*`, host fixtures,
-  laptop preflight diagnostics and the uACPI port guide. No native EC/SCI
-  activation or changes to sibling model gates.
+- Current bounded implementation: audit the GPIO access made by PCI0 `_INI`,
+  add explicit private SystemIO models/trace to the offline namespace tool and
+  derive a tested native permission boundary from the observed access. Scope:
+  `tools/acpi_namespace_probe.c`, namespace fixtures/tests, native resource
+  policy and runtime guides. No native EC/SCI activation or sibling gate changes.
+  Base `3f4fb57` on `main` merge `db40ed5`; draft PR #4 owns this shared scope.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
