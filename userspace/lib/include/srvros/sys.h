@@ -6,6 +6,7 @@
 #include <srvros/device_abi.h>
 #include <srvros/thermal_abi.h>
 #include <srvros/smc_abi.h>
+#include <srvros/scheduler_abi.h>
 
 #include <srvros/syscall_numbers.h>
 
@@ -85,6 +86,7 @@ struct srv_spawn_file_action {
     int64_t new_fd;
 };
 
+long srv_scheduler_status(struct srv_scheduler_status *out);
 long srv_smc_status(struct srv_smc_status *out);
 long srv_thermal_status(struct srv_thermal_status *out);
 long srv_device_list(unsigned kind,uint64_t index,struct srv_device_info *info);

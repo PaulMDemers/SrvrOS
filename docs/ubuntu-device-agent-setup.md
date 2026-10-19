@@ -1,6 +1,6 @@
 # Ubuntu setup for an on-device SrvrOS agent
 
-Current workflow, 2026-10-18. Each Mac runs Ubuntu as its development/recovery
+Current workflow, 2026-10-19. Each Mac runs Ubuntu as its development/recovery
 OS, has its own repository checkout and agent, and uses a plugged-in exFAT USB
 drive for SrvrOS documents and diagnostics. Build and run disposable VMs on
 that Mac; reboot it into SrvrOS for physical acceptance. Ubuntu is the normal
@@ -101,17 +101,32 @@ sudo python3 tools/capture_linux_hardware.py
 
 The collector creates `build/hardware/<timestamp>/`. Read `capture.json`; missing
 reads are not absent devices. It includes PCI/USB, ACPI tables, power/backlight,
-CPU, sensors and audio codec dumps without consuming input events. Its detailed
-Apple HID/verbose capture currently targets `05ac:0291`; the generic USB
-inventory covers other IDs, but agents must add descriptor evidence for their
-actual topcase before calling the capture complete. See the expansion plan.
+CPU, sensors and audio codec dumps without consuming input events. Apple HID
+report capture enumerates vendor `05ac` across product IDs and records missing
+descriptors explicitly. `machine-topology.json` adds board model, PCI bindings,
+DRM connectors/modes/EDID, boot-display flags and block-device ancestry. Raw EDID
+may identify a monitor; retain raw captures locally. Inspect the actual topcase
+descriptors and missing-read list before calling the capture complete. See the
+expansion plan.
+
+`cpu-policy.json` records Linux CPU topology, online sets, idle driver/governor
+and per-CPU states, plus each frequency policy's membership, governor and limits.
+It reads an explicit attribute allowlist without changing policy. Missing
+optional fields are omitted; failed reads are null and listed in `capture.json`.
+The snapshot has start/end times and an online-set recheck; it is not atomic or
+an energy measurement. Capture it with power baselines, and retain the raw file
+locally. See [CPU power telemetry](power-telemetry.md#linux-policy-baseline).
+`make test-linux-inventory` runs portable fixture checks without privileged
+hardware access and is included in `test-core`.
 
 Record CPU, memory, GPU(s), screen, firmware revision, original/replaced storage,
 USB input and audio identities in the machine record. On Pro11,3, preserve the
 firmware-selected graphics route; do not guess GMUX or discrete-GPU power writes.
-The current desktop surface limit is 1440x900. Retina 2880x1800 scaling and buffer
-limits are pending work; booting a framebuffer does not establish usable Retina
-support. Do not copy the Air's firmware hash, register offsets or codec quirks to
+Desktop client surfaces remain bounded to 1440x900 logical pixels. An explicit
+`deskd --scale=2` path now passes 2880x1800 VM checks; ordinary staging remains
+1×. See [display scale](native-desktop.md#display-scale) for the launch and capture
+contract. This is integer pixel expansion, not native-density text or accepted
+Retina hardware support. Do not copy the Air's firmware hash, register offsets or codec quirks to
 another model just to make a probe succeed.
 
 ## 4. Select the mounted exFAT flash drive
@@ -191,10 +206,73 @@ cat build/review/hardware-grub-result.json
 
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
-models. It excludes the optional `srvros.aml=probe`, which stalled on Air7,2.
+models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.
 Do not re-enable that probe in routine desktop startup. The separate v19
 `--laptop-probe-volume` profile is a bounded preflight capture; it is not the
 isolated AML interpreter diagnostic.
+
+For a bounded unattended idle sample after the basic workspace is accepted:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --idle-capture
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+This distinct v23 profile initializes the same gated device services as v22,
+leaves the console idle for 60 seconds, and saves periodic cached scheduler,
+thermal, fan and audio status. It blocks the calling thread while waiting;
+logging and device sampling still create some activity. It does not launch the
+desktop or play audio and never enables AML. Success saves/flushes the exit log,
+unmounts the USB workspace and returns to Ubuntu. Missing workspace, incomplete
+sampling or failed save/unmount halts. Rehearse the missing-drive failure with
+`--probe-check --probe-missing-workspace`; that failure rehearsal does not replace
+the successful exact-stage result. Collect using `hardware_desktop.py` and require
+this release's exit log containing `idle-capture: ... completed=yes`, plus a healthy
+collected session and verified unmount. Scheduler timer samples are
+coarse occupancy evidence, not a wattmeter or proof of desktop responsiveness.
+For a real desktop sample, use the separate v25 profile after desktop boot and
+USB saving are known to work:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --desktop-idle-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+It opens Text, allows startup to settle, samples CPU0 scheduler counters for
+60 seconds, saves a screenshot to the selected workspace and closes the desktop.
+Clean log save/unmount then returns to Ubuntu; failure halts. Leave input alone
+during this measurement. This is an explicit unattended diagnostic, not a timed
+exit added to ordinary desktop use. The collector's `desktop_idle_sample` requires
+the complete measurement, screenshot success and clean process return. The
+exact-stage VM rehearsal also reads and decodes the saved BMP from the disk image.
+The sample excludes startup and screenshot writing, but includes normal Text
+caret/clock updates and periodic USB/device logs. It measures scheduler occupancy,
+not energy consumption, CPU frequency, equilibrium temperature or interactive
+input acceptance. Keep the physical result separate from the console-idle sample.
+
+For explicit read-only package energy and CPU0 active-frequency diagnostics,
+add `--power-telemetry` to `--desktop-idle-capture` (separate immutable v26 profile).
+It is refused for other capture types and does not enable AML or CPU controls.
+Use the same exact-stage VM and missing-workspace rehearsals. An emulated CPU
+reports power unavailable and the VM result explicitly records that limitation;
+success of the capture/save/return workflow is not power measurement acceptance.
+On hardware, require a non-null `power_idle_sample`, inspect its covered duration
+and raw checkpoints, and review attention flags before accepting telemetry. The
+covered interval lies inside the desktop measurement and excludes screenshot
+writes. Missing, stale, rejected or refused readings produce no power result.
+See [power telemetry](power-telemetry.md) for model gates, units and limitations.
+
+Use the same recorded recovery/one-shot installation sequence below; keep the
+accepted previous desktop when the current payload is only an automated test.
+
+For explicit AML diagnostics, the separate v24
+profile uses `--laptop-probe-volume "$SRVROS_USB_UUID" --aml-capture` and the
+same `--probe-check` VM rehearsal. It starts USB logging before the snapshot-only
+probe and returns only after clean completion and save/unmount. This is not a
+normal desktop profile or a battery service. A kernel/interpreter stall can
+still require manual recovery; only run it in an authorized recovery window.
+Never silently substitute it for the idle capture or ordinary desktop.
 
 The desktop VM harness uses disposable disks, tests two fresh boots, USB saves,
 preferences and logs, and checks emulated audio. It reads `latest`, so do not
@@ -326,6 +404,8 @@ Once boot/input and the workspace work on that machine, use a fresh request:
 ```sh
 python3 tools/hardware_test.py prepare --uuid "$SRVROS_USB_UUID" --stress
 SRVROS_RUN=$(cat build/hardware-tests/latest)
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/hardware_test_smoke.py --release "$SRVROS_RELEASE"
 # Record the printed run/release and preserve the accepted recovery first.
 python3 tools/hardware_test.py run --run "$SRVROS_RUN"
 # After returning to Ubuntu and remounting the drive:
@@ -341,6 +421,11 @@ marker is incomplete, even if the machine returned automatically or a file exist
 Collection also checks retained file contents. These tests do not establish
 physical key latency, right-click behavior or audible sound. See
 [automated hardware tests](automated-hardware-tests.md).
+
+The exact-release VM rehearsal uses disposable requests and a matching UUID;
+the physical requests remain unused. Confirm its `autotest-cycle-result.json`
+matches the intended release, and archive that evidence before another harness
+run replaces it.
 
 ## 9. Agent handoff and integration contract
 

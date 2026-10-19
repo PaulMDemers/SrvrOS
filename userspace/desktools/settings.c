@@ -110,7 +110,7 @@ void tool_settings_init(struct tool *t) {
     desk_ui_add(&t->ui,SETTINGS_POINTER_ACCELERATION,DESK_CONTROL_CHECK,&t->checks[7],"Accelerate fast swipes");
     desk_ui_add(&t->ui,SETTINGS_DISABLE_WHILE_TYPING,DESK_CONTROL_CHECK,&t->checks[8],"Disable while typing");
     desk_ui_add(&t->ui,SETTINGS_TAP_CLICK,DESK_CONTROL_CHECK,&t->checks[9],"Tap to click");
-    desk_ui_add(&t->ui,SETTINGS_TWO_FINGER_TAP,DESK_CONTROL_CHECK,&t->checks[10],"Two-finger right-click");
+    desk_ui_add(&t->ui,SETTINGS_TWO_FINGER_TAP,DESK_CONTROL_CHECK,&t->checks[10],"Two-finger tap to right-click");
     desk_ui_add(&t->ui,TOOL_NAME,DESK_CONTROL_EDIT,&t->name,NULL);
     desk_ui_add(&t->ui,8,DESK_CONTROL_BUTTON,&t->buttons[0],"Apply");
     desk_ui_add(&t->ui,9,DESK_CONTROL_BUTTON,&t->buttons[1],"UTC");

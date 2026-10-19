@@ -25,14 +25,16 @@ PCM file playback, headphone routing and an actual network adapter still need
 specific physical acceptance. Implementation/VM results are recorded in the
 [device progress](desktop-progress-2026-10-18.md#device-support-block-audio-usb-networking-and-sensors).
 The [machine record](machines/macbookair7-2.md) records the exact accepted scope.
-Physical secondary clicking is missing and System had an input-timeout closure.
+Physical secondary clicking is implemented with native acceptance pending, and
+System had an input-timeout closure. The [October 19 work](desktop-progress-2026-10-19.md)
+records the input fix, timeout investigation and subsequent validation.
 Battery/AC, recording, mixing, richer media formats, fan control, lid policy and
 suspend remain unfinished. New model agents start with the
 [Ubuntu guide](ubuntu-device-agent-setup.md), not the Air's firmware/UUID values.
 
 Next work follows the [shared priorities](apple-hardware-expansion-plan.md#current-work-and-shared-dependencies):
 
-1. Implement physical two-finger secondary click, investigate the System timeout
+1. Physically accept two-finger secondary click, investigate the System timeout
    and measure idle/polling behavior. The PCM/WAV path is implemented and
    VM-tested, including storage overlap; file playback and headphone routing
    still need specific physical checks.
@@ -339,38 +341,42 @@ Review of the actual kernel and pinned uACPI 7.0 sources identifies these next
 implementation blocks. They are prerequisites, not a claim that live battery
 sampling is enabled.
 
-1. **Interrupt lifecycle.** `irq.c` dispatches hard-coded legacy lines and one
-   e1000 handler; it has no handler registration/unregistration interface.
-   `ioapic.c` installs routes already unmasked, while `irq_disable_line` changes
-   only the legacy PIC mask. Add a registered, synchronized handler lifecycle
-   and explicit IO-APIC mask/unmask first. Resolve the FADT SCI through the
+1. **Interrupt lifecycle.** CPU0 shared handler registration/removal and masked
+   IO-APIC preparation/readback are now implemented and host-tested. Legacy
+   timer/keyboard/serial/mouse dispatch stays reserved; e1000 still receives its
+   existing callback. `irq_disable_line` changes only the legacy PIC mask.
+   The new route APIs do not establish source ownership. Resolve the FADT SCI through the
    platform interrupt topology, retain polarity/trigger information, and reject
    unsupported controllers/routes. SCI must not inherit the default ISA edge
    policy. Test masked installation, repeated level assertion, shared handlers,
    failed setup and removal before exposing the uACPI IRQ callbacks. Never print
    an unbounded stream of unhandled SCI messages from interrupt context.
-2. **Scheduler adapter.** Supply stable nonzero kernel-thread identities,
-   counting semaphores with zero/finite/infinite timeout semantics, IRQ-safe
-   signaling, and spinlocks that restore the caller's prior interrupt state.
+2. **Scheduler adapter.** Stable nonzero kernel-thread lifetime identities and
+   CPU0 counting semaphores with zero/finite/infinite waits, IRQ-safe signaling
+   and closed-state teardown now pass host and real worker VM checks. Bind them
+   to the live adapter along with locks that restore prior interrupt state.
    The existing wait queues provide a starting point; the isolated probe's
    single-threaded callbacks do not satisfy this runtime contract. Test wakeup
    races, timeout rounding, overflow and shutdown before binding them. Start AML
    work as an ordinary scheduler worker. Admission during storage ownership
    needs a separate dependency audit; an AML worker must not be declared an
    I/O service merely to reduce latency.
-3. **Deferred work.** The new host-only `runtime/work_queue.c` supplies the
-   allocation-free enqueue/dequeue foundation. The pinned API explicitly allows
+3. **Deferred work.** `runtime/work_queue.c` and `work_worker.c` now provide
+   allocation-free enqueue/dequeue and a CPU0 worker with drain/stop semantics. The pinned API explicitly allows
    callbacks to reschedule or free their own work item, so a detached invocation
-   is essential. A CPU0 worker should execute both GPE and notification work
-   outside queue locks. Completion waits must synchronize in-flight interrupts
+   is essential. The worker executes both GPE and notification work outside
+   queue locks and yields after every callback. Completion waits must synchronize in-flight interrupts
    first, then pending/in-flight work, including work scheduled by callbacks.
-   Test the complete adapter with interrupt producers and teardown; queue tests
-   alone do not establish those guarantees.
-4. **Separate live adapter and initialization.** The current native interpreter
+   Host and synthetic-IRQ VM tests now cover this worker and teardown; hardware
+   level assertion and actual uACPI callback binding remain separate checks.
+4. **Separate live adapter and initialization.** A separate full-runtime Q35 VM
+   kernel now passes SCI, deferred AML mutex/sleep, failed-install rollback and
+   reset tests; normal hardware staging still uses the restricted probe. The native interpreter
    is compiled with `UACPI_REDUCED_HARDWARE`; changing its runtime flags cannot
    restore the omitted event machinery. Use a separate full-hardware build
    configuration/adapter, initially mutually exclusive with the isolated probe,
-   rather than linking two copies with colliding global symbols. Keep both build
+   rather than linking two copies with colliding global symbols. The separate VM
+   target now implements this build separation; it is not a native provider. Keep both build
    paths tested. In the pinned sources `uacpi_initialize` normally enters ACPI
    mode, `uacpi_namespace_load` installs event handling, namespace initialization
    runs `_REG`/`_STA`/`_INI`, and finalizing GPEs enables AML event users. Therefore
@@ -402,3 +408,22 @@ The implementation contracts above come from the vendored upstream
 [`event.c`](../ports/upstream/uacpi/source/event.c), alongside SrvrOS's
 [`irq.c`](../kernel/src/arch/x86_64/irq.c) and
 [`ioapic.c`](../kernel/src/arch/x86_64/ioapic.c).
+
+
+### October 19 integration checkpoint
+
+The separate full-uACPI Q35 kernel now has a synthetic EC operation-region,
+query and battery pipeline. `_REG` read/write, SCI-to-query work, `_Qxx` EC and
+SMBus reads, notifications, query batching, full SBS samples, timeout quarantine
+and explicit disconnect/reset pass in the VM. Its controller bytes and battery
+values are modeled; this does not accept the laptop's EC/GPE path.
+
+Captured firmware's `SMB0.SMTX` covers whole SMBus operations. The tested approach
+runs all EC/battery/firmware work on one ordinary worker, so queries queued during
+a sample wait until its bank transaction ends. Foreign EC callers are rejected.
+A native adapter must define the initialization owner and hand off to this worker
+before enabling other EC users. Per-byte mutual exclusion alone is insufficient.
+The first VM reset found that generic namespace destruction can remove names
+needed by `_REG` disconnect; explicitly disconnect handlers with their namespace
+intact, under the correct EC ownership, before generic reset. See the current
+[uACPI port record](../ports/srvros/uacpi/PORT.md) for tests and remaining gates.

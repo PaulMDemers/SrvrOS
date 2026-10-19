@@ -85,10 +85,23 @@ For a bounded heavier confidence run, prepare with `--stress`:
 
 ```sh
 python3 tools/hardware_test.py prepare --uuid 37D8-C5D0 --stress
-python3 tools/hardware_test.py run --run latest
+SRVROS_RUN=$(cat build/hardware-tests/latest)
+SRVROS_RELEASE=$(cat build/hardware-boot/latest)
+tools/host-env.sh python3 tools/hardware_test_smoke.py --release "$SRVROS_RELEASE"
+python3 tools/hardware_test.py run --run "$SRVROS_RUN"
 # After the automatic return to Ubuntu:
-python3 tools/hardware_test.py collect --run latest
+python3 tools/hardware_test.py collect --run "$SRVROS_RUN"
 ```
+
+The `--release` rehearsal loads the exact staged kernel, initramfs and profile
+onto disposable VM media with a matching volume identity and independent test
+requests. It does not consume the physical flash drive's requests. It checks
+the one-shot return, file contents/CRC, consumed-request replay halt and a
+read-only write-failure halt. Verify `build/review/autotest-cycle-result.json`
+records PASS for the intended release before installation. The v8/v9 profile
+selects one/five rounds; `--stress` remains available for a standalone temporary
+VM stage. Save the run and release in the on-disk reboot record; shell variables
+do not survive a reboot.
 
 This uses a v9 boot profile to run five complete v3 suites in one boot. Each
 round has an independent, pre-created single-use request, file directories,

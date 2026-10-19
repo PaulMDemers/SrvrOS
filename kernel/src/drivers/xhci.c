@@ -1827,7 +1827,7 @@ static void submit_interrupt_poll(struct xhci_device *device) {
 static void cancel_trackpad_pointer(struct xhci_trackpad_endpoint *t) {
     if (!trackpad_pointer_enabled) return;
     struct trackpad_motion motion;
-    if (trackpad_pointer_cancel(&t->pointer,&motion)) mouse_inject_trackpad(0,0,0);
+    if (trackpad_pointer_cancel(&t->pointer,&motion)) mouse_cancel_trackpad();
     t->pointer_cancels++;
 }
 
@@ -1874,7 +1874,9 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
                 t->drag_frames+=motion.two_finger_drag;t->drag_rebases+=motion.drag_rebased;
                 t->drag_handoffs+=motion.drag_handoff;
                 if (changed) {
-                    mouse_inject_trackpad_scroll(motion.dx,motion.dy,motion.wheel_x,motion.wheel_y,motion.buttons);
+                    if(buttons && motion.palm_suppressed) {
+                        mouse_cancel_trackpad();t->pointer_cancels++;
+                    } else mouse_inject_trackpad_scroll(motion.dx,motion.dy,motion.wheel_x,motion.wheel_y,motion.buttons);
                     if(motion.tap_buttons) {
                         mouse_inject_trackpad_tap(motion.tap_buttons);
                         t->tap_primary+=motion.tap_buttons==1;t->tap_secondary+=motion.tap_buttons==2;
@@ -1940,8 +1942,11 @@ static bool xhci_io_service_ready(void *arg) {
     return xhci.operational && !xhci_input_probe_active;
 }
 
+static bool input_poll_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
+
 static void xhci_poll_worker(void *arg) {
     (void)arg;
+    struct scheduler_wait_queue wake={0};
     for (;;) {
         if (xhci.operational && !xhci_input_probe_active && (xhci.hid_keyboards != 0 || xhci.hid_mice != 0 || network_count)) {
             poll_hid_events_once();
@@ -1964,10 +1969,11 @@ static void xhci_poll_worker(void *arg) {
                 }
             }
         }
-        for (uint64_t i = 0; i < 10000; i++) {
-            __asm__ volatile ("pause");
-        }
-        scheduler_yield();
+        /* The controller is still polled, at most one timer tick apart when
+         * otherwise idle. Storage waits continue dispatching transfer events
+         * directly; they do not depend on this sleep finishing. */
+        uint64_t due=timer_ticks()+1;
+        if(!scheduler_wait_timeout(&wake,input_poll_due,&due,due)) scheduler_yield();
     }
 }
 

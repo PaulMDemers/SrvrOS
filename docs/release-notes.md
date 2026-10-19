@@ -1,5 +1,33 @@
 # Release Notes
 
+## 2026-10-19 desktop and reliability development checkpoint
+
+This is a source checkpoint, not a stable binary release. The current desktop
+is `deskd`, with twelve apps, a shared widget library, global menus/dock/launcher,
+window tiling and maximize, clipboard, contextual actions and persistent USB
+workspace workflows. [Current screenshots](screenshots.md) show the native VM
+implementation; [status](status.md) separates implementation from acceptance.
+
+The reference Air has working built-in input and desktop workflows, brightness,
+speaker volume and live sensor readings. Overnight work adds physical-click
+role latching, pointer-fault cancellation without lost typing, delivery-first
+input/control deadlines, scheduler/polling improvements and read-only inventory.
+Recent input changes still need physical acceptance. Five native filesystem
+rounds and a bounded desktop-idle capture passed; 94.15% CPU0 idle occupancy is
+not an energy or battery-life claim.
+
+Separate Q35-only uACPI fixtures passed a verified 30-minute/100-suite soak with
+EC/namespace/teardown failure coverage. An isolated native AML resource probe
+also completed, but native battery/AC services and suspend/resume remain future
+work. Opt-in energy telemetry and 2× desktop scaling have host/VM coverage;
+physical power and additional Retina-machine acceptance remain pending.
+
+The repository now has a Linux/QEMU quick start, current architecture/support
+and roadmap pages, contribution/security guidance, dependency notices and a
+reproducible screenshot gallery. Detailed evidence and source identities are
+in the [October 19 journal](desktop-progress-2026-10-19.md). Older entries below
+are historical and can describe superseded defaults or unreproduced ports.
+
 ## 2026-10-17 kernel interrupt state and allocation
 
 Candidate `88a84edb13220e8b` preserves kernel SSE/x87/MXCSR state across

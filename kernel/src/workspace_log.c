@@ -12,6 +12,7 @@
 #include <srvros/audio_abi.h>
 #include <srvros/audio_stream_abi.h>
 #include <srvros/thermal.h>
+#include <srvros/power.h>
 #include <srvros/smc.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -46,6 +47,9 @@ static void end(uint64_t flags) { scheduler_io_end();unlock(flags); }
 /* Cached queries only: logging must not issue codec commands or sensor I/O. */
 static void device_checkpoint(void) {
     uint64_t sampled=timer_monotonic_us();
+    struct scheduler_stats cpu;scheduler_snapshot(&cpu);
+    console_printf("workspace-scheduler: sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u monotonic_us=%u\n",
+        cpu.sampled_ticks,cpu.idle_ticks,cpu.switches,cpu.preemptions,sampled);
     struct srv_audio_status audio;struct srv_thermal_status thermal;
     struct srv_smc_status fan;smc_status(&fan);
     console_printf("workspace-devices: smc_state=%u flags=%x fan_millirpm=%u sample_us=%u samples=%u failures=%u error=%u monotonic_us=%u\n",
@@ -59,6 +63,11 @@ static void device_checkpoint(void) {
         (uint64_t)audio.pending,audio.tests_started,audio.tests_completed,(uint64_t)audio.headphone_present,(uint64_t)audio.capabilities,sampled);
     console_printf("workspace-devices: thermal_state=%u flags=%x core_mc=%d package_mc=%d sample_us=%u samples=%u monotonic_us=%u\n",
         (uint64_t)thermal.state,(uint64_t)thermal.flags,(int64_t)thermal.core_mc,(int64_t)thermal.package_mc,thermal.sampled_us,thermal.samples,sampled);
+    struct power_snapshot power;power_status(&power);
+    if(power.state!=POWER_DISABLED)
+        console_printf("workspace-devices: power_state=%u flags=%u energy_shift=%u package_mw=%u active_mhz=%u nominal_mhz=%u package_uj=%u sample_us=%u interval_us=%u samples=%u rejected=%u energy=%u aperf=%u mperf=%u monotonic_us=%u\n",
+            (uint64_t)power.state,(uint64_t)power.flags,(uint64_t)power.energy_shift,power.package_mw,power.active_mhz,(uint64_t)power.nominal_mhz,
+            power.package_uj,power.sampled_us,power.interval_us,power.samples,power.rejected,power.raw.energy,power.raw.aperf,power.raw.mperf,sampled);
 }
 static bool save(const char *name) {
     device_checkpoint();

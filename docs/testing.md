@@ -2,8 +2,9 @@
 
 On-device agents should use the [Ubuntu setup and hardware-test cycle](ubuntu-device-agent-setup.md)
 and update their [machine record](machines/README.md). A VM pass is not physical
-acceptance on any of the additional models. The desktop v22 profile excludes
-the optional AML probe; its Air7,2 stall remains unresolved.
+acceptance on any of the additional models. Ordinary desktop profiles exclude
+the optional AML probe. A later isolated Air7,2 resource probe completed cleanly;
+live native SCI/EC/battery service remains unaccepted. See [current status](status.md).
 
 srvros has host tests for console/input/clock/storage logic and QEMU boot smoke tests. Each harness starts a fresh QEMU
 instance, connects to the serial console, drives monitor or shell commands, and

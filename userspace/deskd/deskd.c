@@ -29,6 +29,9 @@ struct client {
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
+    int input_blocked;
+    uint64_t control_since;
+    int control_blocked,close_sent,pointer_cancel_pending;
     struct desk_menu_store menus;
     char launch_path[160];
     unsigned launch_length,launch_application;
@@ -53,7 +56,8 @@ struct session {
     unsigned modifiers;
     struct io_trial io;
     struct desk_capture_job capture;
-    int capture_pending;
+    int capture_pending,capture_success;
+    unsigned capture_finished;
     uint64_t capture_serial;
     uint32_t *cache[DESKD_WINDOWS][2];
 };
@@ -126,7 +130,7 @@ static void queue_input(struct session *s,int i,struct desk_packet p) {
             close_client(s,i); return;
         }
     }
-    if (!c->input_count) c->input_since=srv_ticks();
+    if (!c->input_count) { c->input_since=srv_ticks(); c->input_blocked=0; }
     c->input[(c->input_head+c->input_count++)%DESK_INPUT_QUEUE]=p;
 }
 static void pointer_cancel(struct session *s) {
@@ -144,12 +148,17 @@ static void pointer_cancel(struct session *s) {
 static void cancel_input(struct session *s,unsigned buttons) {
     s->pointer_pid=0; s->pointer_blocked=(buttons&MOUSE_LEFT)!=0;
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->clients[i].pid) {
-        /* A queued release may not have reached the client yet. Cancel every
-         * client when discarding input, even if server capture already ended. */
-        s->clients[i].input_count=0;
-        struct desk_packet p=desk_packet_new(DESK_POINTER);
-        p.value=DESK_POINTER_CANCEL; p.generation=s->clients[i].generation;
-        queue_input(s,i,p);
+        /* Drop uncertain pointer actions, retaining ordered text/keys and other
+         * input. Keep cancellation outside the bounded queue so a full keyboard
+         * queue can still be canceled without data loss or closing the client. */
+        struct client *c=&s->clients[i];
+        unsigned kept=0;
+        for(unsigned n=0;n<c->input_count;n++) {
+            struct desk_packet p=c->input[(c->input_head+n)%DESK_INPUT_QUEUE];
+            if(p.type==DESK_POINTER || p.type==DESK_SCROLL) continue;
+            c->input[(c->input_head+kept++)%DESK_INPUT_QUEUE]=p;
+        }
+        c->input_count=kept;c->input_blocked=0;c->pointer_cancel_pending=1;
     }
 }
 static void damage_window(struct session *s,int i) {
@@ -637,6 +646,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=desk_capture_job_poll(&s->capture);
     if(result) {
         int success=result>0 && !s->capture.response.status;
+        s->capture_success=success;s->capture_finished++;
         const char *name=strrchr(s->capture.request.path,'/');
         capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
         desk_log("deskd: screenshot %s status=%u path=%s\n",success?"saved":"failed",s->capture.response.status,s->capture.request.path);
@@ -648,7 +658,9 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     time_t seconds=us<0?0:us/1000000;struct tm utc;
     if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
     snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
-    if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) capture_notice(s,0,"The capture worker could not start.");
+    if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) {
+        s->capture_success=0;s->capture_finished++;capture_notice(s,0,"The capture worker could not start.");
+    }
     else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
     global_menu_rebuild(s);
 }
@@ -674,6 +686,7 @@ static void close_client(struct session *s,int i) {
     }
     if (!s->clients[i].closing) {
         s->clients[i].closing=1;
+        s->clients[i].close_sent=0;
         s->clients[i].progress=srv_ticks();
     }
 }
@@ -785,31 +798,56 @@ static void incoming(struct session *s,uint64_t pid,struct desk_packet *p) {
     if (s->trace && (!s->scene.apps || first_frame)) desk_log("deskd: commit pid=%llu generation=%llu size=%ux%u\n",
         (unsigned long long)pid,(unsigned long long)p->generation,p->width,p->height);
 }
+/* Queue age also includes time the compositor could not run. RELEASE and
+ * CONFIGURE must get a delivery attempt before timeout attribution, just like
+ * input. Start the response deadline only once the client can see the request. */
+static int control_send(struct session *s,int i,const struct desk_packet *p) {
+    struct client *c=&s->clients[i];
+    c->input_blocked=0; /* Control traffic interrupted input delivery attempts. */
+    if(!desk_send(c->pid,p)) {
+        c->control_blocked=0;c->progress=srv_ticks();return 1;
+    }
+    uint64_t tick=srv_ticks();
+    if(!c->control_blocked) { c->control_blocked=1;c->control_since=tick; }
+    else if(tick-c->control_since>500) {
+        desk_log("deskd: killing pid=%llu reason=control-timeout type=%u blocked_ticks=%llu\n",
+            (unsigned long long)c->pid,p->type,(unsigned long long)(tick-c->control_since));
+        srv_kill((int64_t)c->pid);forget(s,i);
+    }
+    return 0;
+}
 static void service(struct session *s) {
     for (int i=0;i<DESKD_WINDOWS;i++) {
         struct client *c=&s->clients[i];
         if (!c->pid) continue;
         if (!desk_process_alive(c->pid)) { forget(s,i); continue; }
-        if ((c->release.type || c->configure || c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
-            desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
-                (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
-            srv_kill((int64_t)c->pid); forget(s,i); continue;
-        }
         if (c->release.type) {
-            if (desk_send(c->pid,&c->release)!=0) continue;
-            c->release.type=0; c->progress=srv_ticks();
-        }
-        if (c->input_count && (uint64_t)srv_ticks()-c->input_since>500) {
-            if(!c->closing) desk_log("deskd: closing pid=%llu reason=input-timeout queue=%u\n",(unsigned long long)c->pid,c->input_count);
-            close_client(s,i);
+            if (!control_send(s,i,&c->release)) continue;
+            c->release.type=0;
         }
         if (c->closing) {
-            struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
+            if(!c->close_sent) {
+                struct desk_packet p=desk_packet_new(DESK_CLOSE);
+                if(!control_send(s,i,&p)) continue;
+                c->close_sent=1;
+            }
         } else if (c->configure) {
             struct desk_packet p=desk_packet_new(DESK_CONFIGURE);
             p.generation=c->generation;
             p.width=s->scene.windows[i].frame.w-2; p.height=s->scene.windows[i].frame.h-45;
-            if (desk_send(c->pid,&p)==0) c->configure=0;
+            if(!control_send(s,i,&p)) continue;
+            c->configure=0;
+        }
+        if(c->pointer_cancel_pending && !c->closing) {
+            struct desk_packet p=desk_packet_new(DESK_POINTER);
+            p.value=DESK_POINTER_CANCEL;p.generation=c->generation;
+            if(!control_send(s,i,&p)) continue;
+            c->pointer_cancel_pending=0;
+        }
+        if ((c->awaiting || c->closing) && (uint64_t)srv_ticks()-c->progress>500) {
+            desk_log("deskd: killing pid=%llu reason=client-timeout closing=%d awaiting=%d configure=%d release=%u tick=%llu\n",
+                (unsigned long long)c->pid,c->closing,c->awaiting,c->configure,c->release.type,(unsigned long long)srv_ticks());
+            srv_kill((int64_t)c->pid); forget(s,i); continue;
         }
         if(c->notice_ack_pending && !c->closing) {
             struct desk_packet p=desk_packet_new(DESK_NOTIFY_ACK);p.serial=c->notice_ack_serial;p.value=c->notice_ack_result;
@@ -827,10 +865,24 @@ static void service(struct session *s) {
         /* Input throughput must not be limited to the render-loop rate. Keep
          * a per-client budget so one busy window cannot monopolize service. */
         for(unsigned delivered=0;delivered<DESK_INPUT_BATCH && c->input_count && !c->configure && !c->closing;delivered++) {
-            if(desk_send(c->pid,&c->input[c->input_head])!=0) break;
+            if(desk_send(c->pid,&c->input[c->input_head])!=0) {
+                /* Queued age includes time the compositor was not scheduled or
+                 * was copying/drawing. Try delivery before blaming the client.
+                 * Only a sustained series of blocked sends starts this timer. */
+                uint64_t tick=srv_ticks();
+                if(!c->input_blocked) { c->input_blocked=1;c->input_since=tick; }
+                else if(tick-c->input_since>500) {
+                    desk_log("deskd: closing pid=%llu reason=input-timeout queue=%u blocked_ticks=%llu type=%u awaiting=%d progress_age=%llu\n",
+                        (unsigned long long)c->pid,c->input_count,(unsigned long long)(tick-c->input_since),
+                        c->input[c->input_head].type,c->awaiting,(unsigned long long)(tick-c->progress));
+                    close_client(s,i);
+                }
+                break;
+            }
             c->input_head=(c->input_head+1)%DESK_INPUT_QUEUE; c->input_count--;
-            c->input_since=srv_ticks();
+            c->input_since=srv_ticks();c->input_blocked=0;
         }
+        if(!c->input_count || c->configure || c->closing) c->input_blocked=0;
         if(s->scene.apps && !c->closing) desk_clipboard_service(&clipboard,c->pid,srv_ticks());
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
@@ -953,24 +1005,37 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
     if (!(buttons&MOUSE_LEFT)) s->pointer_pid=0;
 }
 int main(int argc,char **argv) {
+    unsigned scale=1;
+    for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
+        if (!strcmp(argv[i],"--scale=1")) scale=1;
+        else if (!strcmp(argv[i],"--scale=2")) scale=2;
+        else { srv_puts("deskd: scale must be 1 or 2\n"); return 1; }
+        for (int j=i;j<argc;j++) argv[j]=argv[j+1];
+        argc--; i--;
+    }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
     int hardware_trial=argc==2 && !strcmp(argv[1],"--hardware-trial");
-    int apps=hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
+    int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    uint32_t *pixels=desk_pixels_alloc(info.width,info.height);
+    uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
+    if (width<640 || height<480) { srv_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
+    desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
+        (unsigned long long)info.width,(unsigned long long)info.height,width,height,scale);
+    uint32_t *pixels=desk_pixels_alloc(width,height);
     struct desk_canvas canvas;
-    if (!pixels || desk_canvas_init(&canvas,pixels,info.width,info.height,info.width)!=0) return 1;
+    if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.home=hardware_trial?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+    struct session s={.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+        .trace=idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
-    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,info.width,info.height);
+    desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
     desk_calendar_init(&s.scene.calendar);desk_ui_init(&s.scene.calendar_ui);
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_GRID,DESK_CONTROL_CALENDAR,&s.scene.calendar,NULL);
@@ -978,16 +1043,21 @@ int main(int argc,char **argv) {
     desk_ui_add(&s.scene.calendar_ui,CALENDAR_CLOSE,DESK_CONTROL_BUTTON,&s.scene.calendar_close,"Close");
     desk_ui_window_focus(&s.scene.calendar_ui,0);
     if(apps && gui_keyboard_mode(1)!=0) { gfx_console_mute(0);return 1; }
-    if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,info.width,info.height); return 1; }
+    if(cache_init(&s)!=0) { gfx_console_mute(0); desk_pixels_free(pixels,width,height); return 1; }
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
-    desk_damage_init(&s.damage,info.width,info.height);
-    if(apps) { desktop_preferences_init_path(&s.preferences,hardware_trial?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
+    desk_damage_init(&s.damage,width,height);
+    if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
-    desk_damage_add(&s.damage,(struct desk_rect){0,0,info.width,info.height});
+    desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
+    if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
+    int idle_phase=0;
+    unsigned idle_capture_serial=0;
+    uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
+    struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
@@ -1299,8 +1369,11 @@ int main(int argc,char **argv) {
         long render_start=io_mode && s.damage.count?srv_monotonic_us():0;
         for (unsigned n=0;n<s.damage.count;n++) {
             struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
-            if (blitrect(r.x,r.y,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride)!=0) failed=1;
-            bytes+=(uint64_t)r.w*r.h*4;
+            if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
+            uint64_t physical_w=(uint64_t)r.w*scale,physical_h=(uint64_t)r.h*scale;
+            if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;
+            if(physical_h>info.height-(uint64_t)r.y*scale) physical_h=info.height-(uint64_t)r.y*scale;
+            bytes+=physical_w*physical_h*4;
         }
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
@@ -1308,8 +1381,49 @@ int main(int argc,char **argv) {
         if (s.damage.count) frames++;
         s.damage.count=0;
         if(apps && !failed) capture_tick(&s,pixels);
+        if(idle_capture && !failed) {
+            uint64_t now=srv_ticks();
+            if(idle_phase && !s.clients[0].generation) failed=1;
+            if(!idle_phase && now-start>=500) {
+                if(!s.clients[0].generation) { if(now-start>=3000) failed=1; }
+                else if(srv_scheduler_status(&idle_before) || idle_before.version!=SRV_SCHEDULER_VERSION) failed=1;
+                else {
+                    idle_phase=1;idle_deadline=now+6000;idle_frames=frames;idle_bytes=bytes;
+                    desk_log("desktop-idle: measuring 60 seconds with Text open; no user input required\n");
+                }
+            } else if(idle_phase==1 && now>=idle_deadline) {
+                struct srv_scheduler_status after={0};
+                if(srv_scheduler_status(&after) || after.version!=SRV_SCHEDULER_VERSION ||
+                   after.monotonic_us<idle_before.monotonic_us+59000000 ||
+                   after.sampled_ticks<=idle_before.sampled_ticks || after.idle_ticks<idle_before.idle_ticks ||
+                   after.idle_ticks-idle_before.idle_ticks>after.sampled_ticks-idle_before.sampled_ticks ||
+                   after.switches<idle_before.switches || after.preemptions<idle_before.preemptions) failed=1;
+                else {
+                    desk_log("desktop-idle: elapsed_us=%llu sampled_ticks=%llu idle_ticks=%llu switches=%llu preemptions=%llu frames=%llu fb_bytes=%llu measured=yes\n",
+                        (unsigned long long)(after.monotonic_us-idle_before.monotonic_us),
+                        (unsigned long long)(after.sampled_ticks-idle_before.sampled_ticks),
+                        (unsigned long long)(after.idle_ticks-idle_before.idle_ticks),
+                        (unsigned long long)(after.switches-idle_before.switches),
+                        (unsigned long long)(after.preemptions-idle_before.preemptions),
+                        (unsigned long long)(frames-idle_frames),(unsigned long long)(bytes-idle_bytes));
+                    desk_log("desktop-idle-window: start_us=%llu end_us=%llu\n",
+                        (unsigned long long)idle_before.monotonic_us,(unsigned long long)after.monotonic_us);
+                    idle_phase=2;idle_deadline=now+3000;idle_capture_serial=s.capture_finished;
+                    capture_request(&s);
+                }
+            } else if(idle_phase==2) {
+                if(s.capture_finished>idle_capture_serial) {
+                    if(!s.capture_success) failed=1;
+                    else { idle_phase=3;quit=1; }
+                } else if(now>=idle_deadline) failed=1;
+            }
+        }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         srv_sleep_ticks(1);
+    }
+    if(idle_capture) {
+        if(idle_phase!=3) failed=1;
+        desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");
     }
     if (io_trial_finish(&s.io)!=0) failed=1;
     /* Bound shutdown even when a client stopped reading. Only kill children
@@ -1327,7 +1441,7 @@ int main(int argc,char **argv) {
         desk_capture_job_close(&s.capture);
     }
     cache_free(&s);
-    desk_pixels_free(pixels,info.width,info.height); gfx_console_mute(0);
+    desk_pixels_free(pixels,width,height); gfx_console_mute(0);
     desk_log("deskd: %s frames=%llu fb_bytes=%llu\n",failed?"FAIL":"exited",
         (unsigned long long)frames,(unsigned long long)bytes);
     return failed?1:0;

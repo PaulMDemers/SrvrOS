@@ -145,7 +145,34 @@ static void test_serial_irq_state(void) {
     assert(!test_irqs);
     test_irqs = expected_serial_irqs = true;
 }
+static void test_scaled_blit(void) {
+    setup(false);
+    uint32_t source[]={0x112233,0x445566,0xdeadbeef,0x778899,0xaabbcc,0xdeadbeef};
+    assert(console_blit_rgb_scaled(3,5,2,2,source,3,2));
+    for(unsigned y=0;y<4;y++) for(unsigned x=0;x<4;x++)
+        assert(storage[1+(5+y)*STRIDE+3+x]==source[(y/2)*3+x/2]);
+    /* Odd clipping must not touch padded pitch or read the unused source column. */
+    assert(console_blit_rgb_scaled(W-3,H-3,2,2,source,3,2));
+    for(unsigned y=0;y<3;y++) for(unsigned x=0;x<3;x++)
+        assert(storage[1+(H-3+y)*STRIDE+W-3+x]==source[(y/2)*3+x/2]);
+    check_guards();
+    frame.red_mask_shift=0;frame.blue_mask_shift=16;
+    assert(console_blit_rgb_scaled(0,0,1,1,source,1,2));
+    assert(storage[1]==0x332211 && storage[2]==0x332211 && storage[1+STRIDE]==0x332211);
+    assert(console_blit_rgb_scaled(5,5,2,2,source,3,1));
+    assert(storage[1+5*STRIDE+5]==0x332211);
+    uint32_t before[STRIDE*H+2];memcpy(before,storage,sizeof(before));
+    assert(!console_blit_rgb_scaled(0,0,1,1,source,1,0));
+    assert(!console_blit_rgb_scaled(0,0,1,1,source,1,3));
+    assert(!console_blit_rgb_scaled(UINT64_MAX,0,1,1,source,1,2));
+    assert(!console_blit_rgb_scaled(0,0,UINT64_MAX,1,source,UINT64_MAX,2));
+    assert(!console_blit_rgb_scaled(0,0,1,UINT64_MAX,source,1,2));
+    assert(!console_blit_rgb_scaled(0,0,2,2,source,UINT64_MAX,2));
+    assert(!console_blit_rgb_scaled(0,0,2,2,NULL,3,2));
+    assert(!memcmp(before,storage,sizeof(before)));check_guards();
+}
 int main(void) {
+    test_scaled_blit();
     test_serial_irq_state();
     test_font_and_bytes(); test_chunking_and_scroll(); test_batch_counters(); test_formats_and_invalid(); test_emergency(); test_muted_output();
     puts("console-host-test: PASS (95 glyphs, mixed case, ANSI, chunking, scroll, coalescing, guards, formats)");

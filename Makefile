@@ -337,7 +337,9 @@ KERNEL_HEADERS := $(shell find shared/include kernel/include -type f 2>/dev/null
 
 KERNEL_C := $(shell find kernel/src -type f -name '*.c' 2>/dev/null | LC_ALL=C sort)
 KERNEL_S := $(shell find kernel/src -type f -name '*.S' 2>/dev/null | LC_ALL=C sort)
-UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c
+UACPI_KERNEL_SRC := $(wildcard ports/upstream/uacpi/source/*.c) ports/srvros/uacpi/kernel/probe.c \
+    ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_worker.c \
+    ports/srvros/uacpi/runtime/work_worker_test.c ports/srvros/uacpi/runtime/sci_test.c
 UACPI_KERNEL_OBJ := $(UACPI_KERNEL_SRC:%.c=build/kernel/%.c.o)
 KERNEL_OBJ := $(KERNEL_C:%.c=build/%.c.o) $(KERNEL_S:%.S=build/%.S.o) $(UACPI_KERNEL_OBJ)
 KERNEL_DEP := $(KERNEL_C:%.c=build/%.c.d) $(KERNEL_S:%.S=build/%.S.d) $(UACPI_KERNEL_OBJ:.o=.d)
@@ -2028,6 +2030,30 @@ build/tests/io-scheduler-host$(HOST_EXE): tools/test_io_scheduler.c kernel/src/s
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-io-scheduler
 
+.PHONY: test-syscall-sleep
+test-syscall-sleep: build/tests/syscall-sleep-host$(HOST_EXE)
+	$<
+build/tests/syscall-sleep-host$(HOST_EXE): tools/test_syscall_sleep.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-sleep
+
+.PHONY: test-syscall-poll
+test-syscall-poll: build/tests/syscall-poll-host$(HOST_EXE)
+	$<
+build/tests/syscall-poll-host$(HOST_EXE): tools/test_syscall_poll.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-syscall-poll
+
+.PHONY: test-net-worker
+test-net-worker: build/tests/net-worker-host$(HOST_EXE)
+	$<
+build/tests/net-worker-host$(HOST_EXE): tools/test_net_worker.c kernel/src/net.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-net-worker
+
 .PHONY: test-syscall-cancel
 test-syscall-cancel: build/tests/syscall-cancel-host$(HOST_EXE)
 	$<
@@ -2086,6 +2112,15 @@ test-core: test-autotest
 hardware-test-smoke: $(IMAGE) test-core
 	$(PYTHON) -m unittest discover -s tools -p 'test_hardware*.py'
 	$(PYTHON) tools/hardware_test_smoke.py --qemu $(QEMU)
+
+.PHONY: test-linux-inventory
+test-linux-inventory:
+	$(PYTHON) -m unittest discover -s tools -p 'test_capture_*.py'
+test-core: test-linux-inventory
+
+.PHONY: check-docs
+check-docs:
+	$(PYTHON) tools/check_docs.py
 
 .PHONY: test-exfat-entries
 test-exfat-entries: build/tests/exfat-entries-host$(HOST_EXE)
@@ -2902,7 +2937,7 @@ test-core: test-workspace-log
 test-workspace-log: build/tests/workspace-log-host$(HOST_EXE) build/tests/bootlog-host$(HOST_EXE)
 	build/tests/workspace-log-host$(HOST_EXE)
 	build/tests/bootlog-host$(HOST_EXE)
-build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
+build/tests/workspace-log-host$(HOST_EXE): tools/test_workspace_log.c kernel/src/workspace_log.c kernel/include/srvros/power.h kernel/include/srvros/workspace_log.h kernel/include/srvros/audio.h kernel/include/srvros/thermal.h shared/include/srvros/audio_abi.h shared/include/srvros/thermal_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I shared/include -I kernel/include $< -o $@
 build/tests/bootlog-host$(HOST_EXE): tools/test_bootlog.c kernel/src/bootlog.c kernel/include/srvros/bootlog.h
@@ -2975,7 +3010,12 @@ build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c $(UACPI_SRC)
 test-acpi-namespace: acpi-namespace
 	$(PYTHON) tools/test_acpi_namespace.py
 
-build/kernel/ports/%.c.o: ports/%.c
+.PHONY: test-make-bootstrap
+test-make-bootstrap:
+	$(PYTHON) -m unittest discover -s tools -p test_make_bootstrap.py
+test-core: test-make-bootstrap
+
+build/kernel/ports/%.c.o: ports/%.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(UACPI_HEADERS) Makefile
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO -c $< -o $@
 
@@ -3095,3 +3135,102 @@ build/acpi-runtime-check/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) ports/srvros/uacpi/r
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
 -include $(UACPI_RUNTIME_CHECK_OBJ:.o=.d)
+
+.PHONY: test-heap
+test-core: test-heap
+test-heap: build/tests/heap-host$(HOST_EXE)
+	$<
+build/tests/heap-host$(HOST_EXE): tools/test_heap.c kernel/src/memory/heap.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-semaphore
+test-core: test-semaphore
+test-semaphore: build/tests/semaphore-host$(HOST_EXE)
+	$<
+build/tests/semaphore-host$(HOST_EXE): tools/test_semaphore.c kernel/src/semaphore.c kernel/include/srvros/semaphore.h kernel/include/srvros/scheduler.h kernel/include/srvros/timer.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-irq-handlers
+test-core: test-irq-handlers
+test-irq-handlers: build/tests/irq-handlers-host$(HOST_EXE)
+	$<
+build/tests/irq-handlers-host$(HOST_EXE): tools/test_irq_handlers.c kernel/src/irq_handlers.c kernel/include/srvros/irq_handlers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+
+.PHONY: test-ioapic
+test-core: test-ioapic
+test-ioapic: build/tests/ioapic-host$(HOST_EXE)
+	$<
+build/tests/ioapic-host$(HOST_EXE): tools/test_ioapic.c kernel/src/arch/x86_64/ioapic.c kernel/src/arch/x86_64/ioapic.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+
+.PHONY: test-acpi-worker
+test-core: test-acpi-worker
+test-acpi-worker: build/tests/acpi-worker-host$(HOST_EXE)
+	$<
+build/tests/acpi-worker-host$(HOST_EXE): tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_worker.c ports/srvros/uacpi/runtime/work_worker.h ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_queue.h $(UACPI_HEADERS) $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I ports/upstream/uacpi/include tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_queue.c -o $@
+
+.PHONY: test-sci-gate
+test-core: test-sci-gate
+test-sci-gate: build/tests/sci-gate-host$(HOST_EXE)
+	$<
+build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/runtime/sci_test.c $(UACPI_HEADERS) $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
+
+# Explicit, separate VM-only runtime kernel. Never substitutes build/kernel/srvros.elf.
+UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c
+UACPI_VM_OBJ := $(UACPI_VM_SRC:%.c=build/acpi-runtime/%.c.o)
+UACPI_WORK_NATIVE_OBJ := $(filter %/runtime/work_queue.c.o %/runtime/work_worker.c.o %/runtime/work_worker_test.c.o %/runtime/sci_test.c.o,$(UACPI_KERNEL_OBJ))
+.PHONY: acpi-runtime-vm-kernel
+acpi-runtime-vm-kernel: build/acpi-runtime/srvros.elf
+build/acpi-runtime/srvros.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_VM_OBJ) kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-runtime/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
+-include $(UACPI_VM_OBJ:.o=.d)
+
+.PHONY: test-gfx-blit
+test-gfx-blit: build/tests/gfx-blit-host$(HOST_EXE)
+	$<
+build/tests/gfx-blit-host$(HOST_EXE): tools/test_gfx_blit.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-gfx-blit
+
+.PHONY: test-scheduler-status
+test-scheduler-status: build/tests/scheduler-status-host$(HOST_EXE)
+	$<
+build/tests/scheduler-status-host$(HOST_EXE): tools/test_scheduler_status.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-scheduler-status
+
+.PHONY: test-serial-records
+test-serial-records:
+	$(PYTHON) -m unittest discover -s tools -p test_serial_records.py
+test-core: test-serial-records
+
+.PHONY: test-power
+test-core: test-power
+test-power: build/tests/power-host$(HOST_EXE) build/tests/power-service-host$(HOST_EXE)
+	build/tests/power-host$(HOST_EXE)
+	build/tests/power-service-host$(HOST_EXE)
+build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_power.c kernel/src/drivers/power_core.c -o $@
+build/tests/power-service-host$(HOST_EXE): tools/test_power_service.c kernel/src/drivers/power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
+
+.PHONY: test-vm-sockets
+test-core: test-vm-sockets
+test-vm-sockets:
+	$(PYTHON) tools/test_vm_sockets.py

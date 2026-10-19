@@ -611,3 +611,7 @@ void srv_yield(void) {
 
 long srv_monotonic_us(void) { return srv_syscall0(SYS_MONOTONIC_US); }
 long srv_realtime_us(void) { return srv_syscall0(SYS_REALTIME_US); }
+
+long srv_scheduler_status(struct srv_scheduler_status *out) {
+    return srv_syscall2(SYS_SCHEDULER_STATUS,(long)out,sizeof(*out));
+}

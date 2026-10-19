@@ -5,9 +5,10 @@ One-finger primary and two-finger secondary taps implemented; physical tap
 acceptance pending. Tap dragging and three-finger gestures remain planned.
 The v22 physical round recorded five primary taps and one secondary tap, but
 the user reported no visible right-click result when physically pressing with
-two fingers. Physical secondary press is not yet implemented; it still produces
-primary click. Adding it while preserving held-click steering is the next input
-task. See the [machine record](machines/macbookair7-2.md).
+two fingers. That trial predates physical secondary press support. The new policy latches
+right-click when two contacts are present at press, and preserves the chosen
+button until release. A one-finger primary press retains its role when another
+finger joins. Physical acceptance of this change remains pending. See the [machine record](machines/macbookair7-2.md).
 Target: MacBookAir7,2 built-in Apple 05ac:0291 Type 3 trackpad. This is a plan for
 SrvrOS behavior, not a claim of macOS compatibility or physical acceptance.
 
@@ -120,7 +121,9 @@ drag lock off, each with a visible setting.
 The two-finger tap portion is implemented with the shared tap recognizer above.
 It sends the existing right-button input to the desktop context-menu path;
 Files, editable fields and the desktop already support contextual actions.
-Physical secondary clicks and resting-thumb classification remain future work.
+Physical secondary press is now implemented independently of tap preferences;
+resting-thumb classification remains future work. The Settings switch is named
+Two-finger tap to right-click to distinguish it from physical pressing.
 
 A short, low-movement two-finger tap invokes the existing secondary-click/context
 menu path. A moving pair remains scrolling. Decide the gesture before emitting a

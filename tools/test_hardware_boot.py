@@ -127,6 +127,65 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',**options)
         with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='bad')
 
+    def test_cli_accepts_standard_exfat_uuid(self):
+        self.assertEqual(boot.compact_volume_uuid("37D8-C5D0"),"37d8c5d0")
+        self.assertEqual(boot.compact_volume_uuid("37d8c5d0"),"37d8c5d0")
+        for bad in ("-37d8c5d0","37d8--c5d0","37d8c5d00","not-a-uuid"):
+            with self.assertRaises(boot.argparse.ArgumentTypeError): boot.compact_volume_uuid(bad)
+
+    def test_desktop_idle_profile_is_separate(self):
+        version="ram-usb-v25-laptop-probe-37d8c5d0"
+        self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertIn("srvros.capture=desktop-idle",config)
+        self.assertIn("srvros.smc=read-only",config)
+        self.assertNotIn("srvros.aml=probe",config)
+        self.assertNotIn("srvros.desktop=trial",config)
+        with self.assertRaises(ValueError): boot.stage(desktop_idle_capture=True)
+        with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',desktop_idle_capture=True,idle_capture=True)
+
+    def test_power_telemetry_requires_explicit_desktop_idle(self):
+        version='ram-usb-v26-laptop-probe-37d8c5d0'
+        release=self.payload('power',version)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=version;path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)['release'],release)
+        config=boot.limine_config(release,version)
+        for flag in ('srvros.capture=desktop-idle','srvros.power=read-only','srvros.smc=read-only'):self.assertIn(flag,config)
+        self.assertNotIn('srvros.aml=',config)
+        for v in (23,24,25):self.assertNotIn('srvros.power=',boot.limine_config(release,f'ram-usb-v{v}-laptop-probe-37d8c5d0'))
+        for options in ({},{'idle_capture':True},{'aml_capture':True},{'desktop_volume':'37d8c5d0'}):
+            with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
+        with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
+
+    def test_idle_capture_profile_is_separate_and_has_no_aml(self):
+        version="ram-usb-v23-laptop-probe-37d8c5d0"
+        release=self.payload("idle",version)
+        path=self.stage/release/"manifest.json"
+        manifest=json.loads(path.read_text());manifest["config_version"]=version
+        path.write_text(json.dumps(manifest))
+        boot.install(release)
+        cfg=boot.limine_config(release,version)
+        for flag in ('srvros.capture=idle','srvros.sensors=cpu','srvros.smc=read-only','srvros.audio=hda'):
+            self.assertIn(flag,cfg)
+        self.assertNotIn('srvros.aml=probe',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg)
+        self.assertNotIn('srvros.capture=idle',boot.limine_config(release,'ram-usb-v19-laptop-probe-37d8c5d0'))
+        with self.assertRaises(ValueError): boot.stage(idle_capture=True)
+        with self.assertRaises(ValueError): boot.stage(idle_capture=True,laptop_probe_volume='37d8c5d0',desktop_volume='37d8c5d0')
+
+    def test_aml_capture_is_explicit_and_separate(self):
+        version="ram-usb-v24-laptop-probe-37d8c5d0"
+        release=self.payload("aml",version)
+        path=self.stage/release/"manifest.json"
+        manifest=json.loads(path.read_text());manifest["config_version"]=version
+        path.write_text(json.dumps(manifest));boot.install(release)
+        cfg=boot.limine_config(release,version)
+        self.assertIn('srvros.capture=aml',cfg);self.assertIn('srvros.aml=probe',cfg)
+        self.assertNotIn('srvros.desktop=trial',cfg);self.assertNotIn('srvros.audio=hda',cfg)
+        with self.assertRaises(ValueError): boot.stage(aml_capture=True)
+        with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',aml_capture=True,idle_capture=True)
+
     def test_three_updates_keep_current_and_previous(self):
         releases = []
         for version in ("one", "two", "three"):

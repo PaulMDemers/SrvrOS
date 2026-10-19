@@ -130,6 +130,8 @@
 #define SYS_GUI_POINTER_CONFIG 124
 #define SYS_GUI_BRIGHTNESS 125
 #define SYS_AUDIO_STREAM 130
+#define SYS_GFX_BLIT_SCALED_RECT 131
+#define SYS_SCHEDULER_STATUS 132
 #define SYS_AUDIO 126
 #define SYS_DEVICE_LIST 127
 #define SYS_THERMAL_STATUS 128
@@ -427,6 +429,13 @@ struct srv_gfx_blit_rect {
     uint64_t height;
     uint64_t stride;
     const uint32_t *pixels;
+};
+
+/* Destination x/y are physical pixels; source dimensions/stride are logical.
+ * Only integer scales 1 and 2 are supported. Existing blit ABI is unchanged. */
+struct srv_gfx_blit_scaled_rect {
+    struct srv_gfx_blit_rect source;
+    uint64_t scale;
 };
 
 struct srv_gui_surface_create {

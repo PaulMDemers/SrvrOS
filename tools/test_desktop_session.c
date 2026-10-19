@@ -16,7 +16,7 @@ int gui_pointer_config(unsigned speed,unsigned options) { (void)speed;pointer_op
 void srv_puts(const char *text) { fputs(text,stdout); }
 static uint64_t now=1;
 static int alive=1,queue_full,copy_failure,allocations,frees,killed,sends,reaped,alloc_fail;
-static uint32_t sent[128];
+static uint32_t sent[128],sent_values[128];
 static uint64_t sent_serials[128];
 static int send_allow=-1;
 static long execute_result=-1;
@@ -45,7 +45,7 @@ int desk_send(uint64_t target,const struct desk_packet *p) {
     assert(target==42);
     if (queue_full || !send_allow) return -1;
     if(send_allow>0) send_allow--;
-    assert(sends<128);sent_serials[sends]=p->serial;sent[sends++]=p->type; return 0;
+    assert(sends<128);sent_serials[sends]=p->serial;sent_values[sends]=p->value;sent[sends++]=p->type; return 0;
 }
 int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uint32_t *p,uint64_t stride) {
     assert(id==7 && !x && !y && stride==w);
@@ -54,7 +54,73 @@ int gui_surface_copy(uint64_t id,uint64_t x,uint64_t y,uint64_t w,uint64_t h,uin
     for (uint64_t i=w*h/2;i<w*h;i++) p[i]=0x123456;
     return 0;
 }
+static void delayed_control_delivery(void) {
+    static struct session s;
+    memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
+    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);
+    now+=601;service(&s);
+    assert(alive && s.clients[0].pid==42 && !s.clients[0].release.type);
+
+    queue_full=1;queue_input(&s,0,desk_packet_new(DESK_KEY));service(&s);
+    assert(s.clients[0].input_blocked);
+    now+=601;queue_full=0;send_allow=1;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);service(&s);
+    assert(alive && !s.clients[0].closing && s.clients[0].input_count==1 && s.clients[0].input_since==now);
+    send_allow=-1;service(&s);assert(!s.clients[0].input_count);
+
+    s.clients[0].configure=s.clients[0].awaiting=1;s.clients[0].progress=now;
+    s.scene.windows[0].frame=(struct desk_rect){0,0,402,345};
+    now+=601;service(&s);assert(alive && !s.clients[0].configure);
+    now+=400;service(&s);assert(alive);
+    now+=101;service(&s);assert(!alive && !s.clients[0].pid);
+
+    memset(&s,0,sizeof(s));alive=1;queue_full=1;
+    s.clients[0].pid=42;s.clients[0].progress=now;
+    s.clients[0].release=desk_packet_new(DESK_RELEASE);
+    now+=601;service(&s);assert(alive && s.clients[0].release.type);
+    now+=400;service(&s);assert(alive);
+    queue_full=0;now+=200;service(&s);assert(alive && !s.clients[0].release.type);
+
+    s.clients[0].configure=s.clients[0].awaiting=1;s.clients[0].progress=now;
+    queue_full=1;service(&s);now+=501;service(&s);assert(!alive && !s.clients[0].pid);
+
+    memset(&s,0,sizeof(s));alive=1;queue_full=0;
+    s.clients[0].pid=42;close_client(&s,0);now+=601;
+    int before=sends;service(&s);assert(alive && sends==before+1 && sent[sends-1]==DESK_CLOSE);
+    now+=400;service(&s);assert(alive && sends==before+1); /* No close-message flood. */
+    now+=101;service(&s);assert(!alive && !s.clients[0].pid);
+}
+static void pointer_cancel_keeps_keyboard(void) {
+    static struct session s;
+    memset(&s,0,sizeof(s));alive=1;queue_full=0;sends=0;send_allow=-1;
+    s.clients[0].pid=42;s.clients[0].generation=1;
+    for(unsigned i=0;i<DESK_INPUT_QUEUE;i++) {
+        struct desk_packet p=desk_packet_new(i&1?DESK_TEXT:DESK_KEY);
+        p.serial=i+1;queue_input(&s,0,p);
+    }
+    cancel_input(&s,0);
+    assert(s.clients[0].input_count==DESK_INPUT_QUEUE && !s.clients[0].closing);
+    queue_full=1;service(&s);now+=400;service(&s);
+    assert(alive && s.clients[0].input_count==DESK_INPUT_QUEUE && !sends);
+    queue_full=0;
+    while(s.clients[0].input_count) service(&s);
+    assert(sends==DESK_INPUT_QUEUE+1 && sent[0]==DESK_POINTER && sent_values[0]==DESK_POINTER_CANCEL);
+    for(unsigned i=0;i<DESK_INPUT_QUEUE;i++) {
+        assert(sent[i+1]==(i&1?DESK_TEXT:DESK_KEY));
+        assert(sent_serials[i+1]==i+1);
+    }
+    sends=0;s.clients[0].input_head=63;
+    struct desk_packet key=desk_packet_new(DESK_KEY);key.serial=91;
+    queue_input(&s,0,key);queue_input(&s,0,desk_packet_new(DESK_POINTER));
+    queue_input(&s,0,desk_packet_new(DESK_SCROLL));key.serial=92;queue_input(&s,0,key);
+    cancel_input(&s,0);cancel_input(&s,0);service(&s);
+    assert(sends==3 && sent_values[0]==DESK_POINTER_CANCEL);
+    assert(sent_serials[1]==91 && sent_serials[2]==92);
+    sends=0;now=1;
+}
 int main(void) {
+    pointer_cancel_keeps_keyboard();
     struct session s={.scene={.focus=-1},.children={42}};
     assert(cache_init(&s)==0 && allocations==2*DESKD_WINDOWS);
     desk_damage_init(&s.damage,800,600);
@@ -140,8 +206,7 @@ int main(void) {
     queue_full=0; service(&s); service(&s); service(&s); assert(!s.clients[0].input_count);
     pointer_at(&s,400,200,MOUSE_LEFT,1); pointer_at(&s,400,200,0,0);
     cancel_input(&s,0);
-    assert(!s.pointer_pid && s.clients[0].input_count==1);
-    assert(s.clients[0].input[s.clients[0].input_head].value==DESK_POINTER_CANCEL);
+    assert(!s.pointer_pid && !s.clients[0].input_count && s.clients[0].pointer_cancel_pending);
     service(&s);
     pointer_at(&s,400,200,MOUSE_LEFT,1); focus(&s,-1);
     assert(!s.pointer_pid && s.pointer_blocked && s.clients[0].input_count==2);
@@ -170,6 +235,23 @@ int main(void) {
     send_allow=-1;while(s.clients[0].input_count) service(&s);
     assert(sends==24&&!s.clients[0].closing);
     for(unsigned i=0;i<24;i++) assert(sent[i]==DESK_KEY&&sent_serials[i]==i+1);
+    /* Reproduce a compositor pause longer than the old queue-age timeout.
+     * A healthy client can accept this ordered key and must not be closed. */
+    memset(&s,0,sizeof(s));s.clients[0].pid=42;sends=0;
+    p=desk_packet_new(DESK_KEY);p.serial=101;queue_input(&s,0,p);
+    now+=601;service(&s);
+    assert(sends==1 && sent[0]==DESK_KEY && sent_serials[0]==101 && !s.clients[0].closing);
+    /* First failed attempt after a long server pause gets a fresh deadline.
+     * Partial progress also resets the deadline, preserving ordered edges. */
+    queue_full=1;queue_input(&s,0,p);now+=601;service(&s);
+    assert(s.clients[0].input_blocked && !s.clients[0].closing);
+    now+=400;service(&s);assert(!s.clients[0].closing);
+    queue_full=0;now+=200;service(&s);
+    assert(!s.clients[0].input_count && !s.clients[0].input_blocked && !s.clients[0].closing);
+    /* A client which really refuses input across repeated service attempts
+     * still reaches the bounded close path; the change is not an infinite wait. */
+    queue_full=1;queue_input(&s,0,p);service(&s);now+=501;service(&s);
+    assert(s.clients[0].closing);queue_full=0;
     memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
     s.clients[0].pid=42;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
     s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};
@@ -319,6 +401,7 @@ int main(void) {
     assert(!failed.children[4] && strstr(failed.scene.notice,"could not be opened"));
     execute_result=42;spawn_app(&failed,DESK_APP_TEXT,"");
     assert(failed.children[4]==42 && failed.child_apps[4]==DESK_APP_TEXT && !failed.scene.notice[0]);
+    delayed_control_delivery();
     puts("desktop-session: PASS stale resize release, queue retry, partial-copy isolation, dead/unresponsive/already-reaped client cleanup");
     return 0;
 }

@@ -1,6 +1,7 @@
 #include <srvros/ahci.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
+#include <srvros/power.h>
 #include <srvros/smc.h>
 #include <srvros/audio_abi.h>
 #include <srvros/arch.h>
@@ -14,6 +15,9 @@
 #include <srvros/elf.h>
 #include <srvros/exfat.h>
 #include <srvros/heap.h>
+#include <srvros/semaphore.h>
+#include <srvros/acpi_work_test.h>
+#include <srvros/acpi_runtime_test.h>
 #include <srvros/intel_gfx.h>
 #include <srvros/keyboard.h>
 #include <srvros/lpss_spi.h>
@@ -504,7 +508,7 @@ static void render_stress(void) {
 }
 
 static void print_help(void) {
-    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc net ps bg kill echo ls [dir] cat write elf run [args]\n");
+    console_write("commands: help clear bootinfo hwdiag dmesg mem memstat ticks renderstat renderbench [serial] renderstress fpustress latency [reset|off] heap workers semaphoretest acpiworktest scitest [arm|status|stop] block mount unmount workspace fsck pci gpu spi spiregs acpiinput xhci audio [test|stop|speakers|headphones] thermal smc power net ps bg kill echo ls [dir] cat write elf run [args]\n");
     console_write("workspace: status | mount <UUID> | shell | sync | unmount\n");
     console_write("reboot: flush storage and return through the normal boot entry\n");
 }
@@ -555,10 +559,7 @@ static void command_hwdiag(void) {
         heap_free_bytes(),
         heap_used_bytes());
     console_write("== scheduler ==\n");
-    console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u\n",
-        scheduler_thread_count(),
-        scheduler_preemptions(),
-        scheduler_demo_counter());
+    scheduler_print_status();
     workqueue_print_status();
     console_write("== network ==\n");
     e1000_print_status();
@@ -1056,11 +1057,16 @@ static void run_command(char *line) {
             heap_used_bytes());
     } else if (streq(command, "ticks")) {
         console_printf("ticks: %u\n", timer_ticks());
+    } else if (streq(command, "semaphoretest")) {
+        semaphore_test_run();
+    } else if (streq(command, "acpiworktest")) {
+        acpi_work_test_run();
+    } else if (streq(command, "scitest")) {
+        acpi_sci_test_command(args);
+    } else if (streq(command, "acpiruntime")) {
+        acpi_runtime_test_command(args);
     } else if (streq(command, "workers")) {
-        console_printf("scheduler: threads=%u preemptions=%u demo_counter=%u\n",
-            scheduler_thread_count(),
-            scheduler_preemptions(),
-            scheduler_demo_counter());
+        scheduler_print_status();
         workqueue_print_status();
     } else if (streq(command, "block")) {
         block_print_status();
@@ -1107,6 +1113,8 @@ static void run_command(char *line) {
         smc_print_status();
     } else if (streq(command, "thermal")) {
         thermal_print_status();
+    } else if (streq(command, "power")) {
+        power_print_status();
     } else if (streq(command, "audio")) {
         unsigned op=0,value=0;
         if(streq(args,"test")) op=SRV_AUDIO_TEST;

@@ -1,6 +1,7 @@
 #include <srvros/console.h>
 #include <srvros/e1000.h>
 #include <srvros/keyboard.h>
+#include <srvros/irq_handlers.h>
 #include <srvros/mouse.h>
 #include <srvros/net.h>
 #include <srvros/scheduler.h>
@@ -22,6 +23,7 @@
 #define ICW4_8086 0x01
 
 static uint16_t irq_mask = 0xffff;
+static uint64_t unhandled_count[IRQ_COUNT];
 
 static void pic_write_mask(void) {
     outb(PIC1_DATA, irq_mask & 0xff);
@@ -83,6 +85,7 @@ void irq_send_eoi(uint8_t irq) {
 }
 
 void irq_dispatch(uint64_t vector) {
+    if(vector<IRQ_VECTOR_BASE || vector>=IRQ_VECTOR_BASE+IRQ_COUNT)return;
     uint8_t irq = (uint8_t)(vector - IRQ_VECTOR_BASE);
 
     switch (irq) {
@@ -101,13 +104,19 @@ void irq_dispatch(uint64_t vector) {
     case 12:
         mouse_handle_irq();
         break;
-    default:
+    default: {
+        bool claimed=irq_handlers_dispatch(irq);
         if (e1000_irq_line() == irq) {
             e1000_handle_interrupt();
-            break;
+            claimed=true;
         }
-        console_printf("irq: unhandled line=%u vector=%u\n", (uint64_t)irq, vector);
+        if(!claimed) {
+            if(unhandled_count[irq]!=UINT64_MAX)unhandled_count[irq]++;
+            if(unhandled_count[irq]==1)
+                console_printf("irq: unhandled line=%u vector=%u; further occurrences counted\n",(uint64_t)irq,vector);
+        }
         break;
+    }
     }
 
     irq_send_eoi(irq);

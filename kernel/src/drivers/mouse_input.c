@@ -101,3 +101,14 @@ void mouse_inject_trackpad_tap(uint8_t button) {
     }
     unlock(flags);
 }
+
+void mouse_cancel_trackpad(void) {
+    uint64_t flags=lock();
+    if(source_buttons[1]) {
+        source_buttons[1]=blocked[1]=0;
+        head=0;count=1;
+        uint8_t buttons=source_buttons[0]&~blocked[0];
+        queue[0]=(struct mouse_event){.buttons=buttons,.flags=MOUSE_CANCEL|buttons};
+    }
+    unlock(flags);
+}

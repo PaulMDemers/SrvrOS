@@ -9,14 +9,50 @@ run /fat/bin/deskd
 ```
 
 Automated evidence is from disposable QEMU VMs, with repeated physical trials
-on Air7,2. The latest v22 trial accepted desktop boot, brightness/volume changes
-and live sensor display. Physical two-finger pressing still sends primary click;
-secondary tapping is implemented separately. A System app input-timeout closure
-remains open. See the [machine record](machines/macbookair7-2.md) for precise
-acceptance and the [development journal](desktop-progress-2026-10-18.md) for history.
+on Air7,2. The latest interactive v22 trial accepted desktop boot, brightness/volume changes
+and live sensor display. Physical two-finger pressing now selects secondary click at press;
+this new behavior awaits physical acceptance. Secondary tapping is separate. A System app input-timeout closure
+remains open for physical acceptance. Host regressions now cover input and control
+packet delivery deadlines; clients get a delivery attempt before queued time is
+blamed on them, and genuinely unresponsive clients still have bounded cleanup.
+See the [machine record](machines/macbookair7-2.md) for precise
+acceptance and the [development journal](desktop-progress-2026-10-19.md) for history.
 New machine agents should follow the [Ubuntu setup guide](ubuntu-device-agent-setup.md).
 
-![Native Text windows at 1440×900, arranged side by side](assets/screenshots/native-desktop-arranged.png)
+![Native Text and Files at 1440×900, arranged side by side](assets/screenshots/current/desktop-files-text.png)
+
+[Current gallery and capture provenance](screenshots.md). Later unattended native
+captures measured idle behavior and diagnostics; they do not replace interactive
+acceptance of new input changes.
+
+## Display scale
+
+The default remains 1× on every machine. An explicit integer scale can be selected
+when starting the desktop:
+
+```text
+run /fat/bin/deskd --scale=2
+```
+
+At a 2880×1800 boot framebuffer this gives a 1440×900 logical desktop. Windows,
+controls, pointer movement, hit testing and damage use logical pixels; the final
+copy expands each pixel to a 2×2 block. Client surfaces and the eight-window
+cache allocation stay the same size. This is integer enlargement of the existing
+raster toolkit, not new higher-resolution font rendering or GPU acceleration.
+The mode requires at least 640×480 logical pixels; other scales are rejected.
+`--scale=1` selects the existing behavior. It can accompany `--apps-trace` or a
+trial mode. There is no automatic DPI inference or persistent scale setting yet.
+
+Saved screenshots contain the logical canvas (1440×900 at the example mode),
+including its cursor. Expanding that BMP by 2× reproduces the displayed pixels.
+This keeps captures within Preview's current 8 MiB file limit. Serial diagnostics
+record physical dimensions, logical dimensions and scale. VM evidence does not
+accept the firmware-selected display or GPU on an additional physical Mac.
+
+The unattended `--idle-capture` mode is reserved for the v25/v26 hardware diagnostic
+profiles. It uses the prepared USB workspace, samples 60 seconds after startup,
+saves a screenshot and exits. Normal launches and the interactive hardware trial
+retain their existing manual exit behavior. See the [device-agent guide](ubuntu-device-agent-setup.md).
 
 ## Desktop controls
 
@@ -122,6 +158,14 @@ is independent. This policy currently applies to the Apple trackpad path, not
 generic mice. The default desktop starts at speed 3 with acceleration on;
 console/legacy trial input retains fixed scaling. The final feel awaits the
 next MacBook Air trial.
+
+A malformed trackpad report, endpoint failure or palm suppression during a held
+press now cancels that interaction instead of sending an ordinary release that
+could activate a widget. Cancellation discards uncertain queued pointer actions,
+preserves an external mouse's held-button state, and requires a fresh trackpad
+release before another physical press. The compositor preserves queued text and
+keys while delivering cancellation ahead of subsequent pointer input. These
+fault paths have host coverage; physical acceptance remains pending.
 
 The prepared laptop trial saves preferences in
 `/work/srvros-work/desktop.conf` using the existing verified background writer.

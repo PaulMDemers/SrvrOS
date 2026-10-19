@@ -5,6 +5,7 @@
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
+#include <srvros/power.h>
 #include <srvros/smc.h>
 #include <srvros/aml_probe.h>
 #include <srvros/trackpad_test.h>
@@ -360,6 +361,8 @@ static void persist_bootlog(void) {
     }
 }
 
+static bool idle_capture_due(void *arg) { return timer_ticks()>=*(uint64_t *)arg; }
+
 void kmain(void) {
     serial_init();
     console_write("\n\nsrvros: entering kernel\n");
@@ -408,8 +411,8 @@ void kmain(void) {
     test_heap();
     scheduler_init();
     workqueue_init();
-    if (!scheduler_start_demo_worker()) {
-        console_write("scheduler: demo worker failed\n");
+    if (!scheduler_start_idle_worker()) {
+        console_write("scheduler: idle worker failed\n");
     }
     vmm_init();
     timer_reference_init();
@@ -462,6 +465,7 @@ void kmain(void) {
     }
     intel_gfx_init();
     if(cmdline_has_token(cmdline,"srvros.sensors=cpu")) thermal_init();
+    if(cmdline_has_token(cmdline,"srvros.power=read-only")) power_init();
     if (cmdline_has_token(cmdline, "srvros.storage=ram")) {
         console_write("storage: RAM-only mode; AHCI disabled\n");
     } else {
@@ -552,18 +556,54 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
+    bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
+    bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
-    if(cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+    if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle;
+        if(automatic_desktop_idle && started && init_ready && timer_running) {
+            sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
+            console_printf("desktop-idle-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();audio_print_status();
+        }
+        if(automatic_aml && started && init_ready && timer_running) {
+            sampled=aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("aml-capture: returned=yes clean=%s; isolated snapshot probe only\n",sampled?"yes":"NO");
+        }
+        if(automatic_idle && started && init_ready && timer_running) {
+            struct scheduler_stats before,after;
+            static struct scheduler_wait_queue idle_capture_wait;
+            scheduler_snapshot(&before);
+            uint64_t start=timer_monotonic_us(),deadline=timer_ticks()+6000;
+            console_write("idle-capture: measuring 60 seconds; no user input required\n");
+            /* Block the bootstrap thread; yielding here would measure our own
+             * busy loop instead of the otherwise idle system. */
+            bool waited=true;
+            while(timer_ticks()<deadline) {
+                if(!scheduler_wait_timeout(&idle_capture_wait,idle_capture_due,&deadline,deadline)) {
+                    waited=false;break;
+                }
+            }
+            uint64_t elapsed=timer_monotonic_us()-start;
+            scheduler_snapshot(&after);
+            sampled=waited && elapsed>=59000000 && after.sampled_ticks>before.sampled_ticks;
+            console_printf("idle-capture: elapsed_us=%u sampled_ticks=%u idle_ticks=%u switches=%u preemptions=%u completed=%s\n",
+                elapsed,after.sampled_ticks-before.sampled_ticks,after.idle_ticks-before.idle_ticks,
+                after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();audio_print_status();
+        }
         bool saved=started && workspace_log_stop();
+        saved=saved && sampled;
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
         if(saved && unmounted) {

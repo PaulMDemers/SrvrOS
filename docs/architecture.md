@@ -1,727 +1,145 @@
-# srvros Architecture Notes
-
-This document describes the current srvros architecture at the initial public
-repo milestone. The system is intentionally small and direct: most subsystems are
-single-purpose, static-capacity, and easy to inspect.
-
-## Boot Flow
-
-1. Limine loads the higher-half ELF kernel and `build/initramfs.tar`.
-2. The kernel initializes serial logging, the boot-log ring, the framebuffer
-   console, GDT, IDT, memory management, scheduler structures, ACPI/MADT,
-   APIC/IOAPIC routing, PS/2 devices, PCI/PCIe, xHCI discovery, block devices,
-   AHCI, exFAT, e1000, and the monitor.
-3. The initramfs is mounted through VFS and also carries `srvros.exfat`.
-4. If an AHCI disk with the generated exFAT image is present, it becomes `/fat`.
-   Otherwise `/fat` falls back to a memory-backed block device over the image
-   embedded in initramfs.
-5. The monitor waits at `srv>` and can launch ring-3 ELF programs from VFS.
-
-The default Limine entry currently boots with `srvros.log=quiet
-srvros.a1466.capture=1` while MacBook Air A1466 hardware bring-up is active. In
-quiet mode the kernel still mirrors all bootstrap output to serial and the
-in-memory boot log, but the framebuffer console is muted after it is initialized
-and cleared back to a short boot-complete banner before the monitor starts. The
-`srvros.a1466.capture=1` option then runs the A1466 SPI/topcase capture
-automatically, before keyboard input is required. The `/srvrosnocapture` entry
-keeps the quiet boot without the automatic dump. The `/srvrosdebug` Limine
-entry passes `srvros.log=debug`, which leaves framebuffer bootstrap diagnostics
-visible for real-hardware bring-up. The same full log is available from `dmesg`
-and is persisted to `/fat/var/log/boot.log` after `/fat` mounts and again after
-the automatic capture.
-
-## Kernel Shape
-
-The kernel is freestanding C with small x86_64 assembly entry points for
-interrupts, syscalls, usermode entry, and context switching.
-
-Important pieces:
-
-- `kernel/src/main.c`: bootstrap sequence.
-- `kernel/src/bootlog.c`: in-memory boot log, `dmesg` source, and
-  `/fat/var/log/boot.log` persistence.
-- `kernel/src/arch/x86_64`: descriptor tables, interrupts, APIC, IOAPIC, PCI,
-  serial, keyboard, mouse, and syscall dispatch.
-- `kernel/src/memory`: physical frames, heap, and virtual memory mapping.
-- `kernel/src/process.c`: process table, ELF loading, fd ownership, cleanup.
-- `kernel/src/scheduler.c`: preemptive scheduler and wait queues.
-- `kernel/src/vfs.c`: stable VFS node registry.
-- `kernel/src/block.c`: block-device registry and write-through cache.
-- `kernel/src/fs/exfat.c`: exFAT mount/read/write/directory operations.
-- `kernel/src/drivers/xhci.c`: xHCI PCI discovery, MMIO mapping, controller
-  reset, command/event rings, USB device addressing/configuration, descriptor
-  walking, USB2 hub port power/reset routing, HID boot keyboard/mouse and
-  generic absolute pointer interrupt endpoint setup, and connected root-port
-  diagnostics for real-hardware USB bring-up.
-- `kernel/src/net.c`: e1000-facing ARP, ICMP, DHCP, DNS, TCP, and fd handoff.
-- `kernel/src/gui.c`: fixed-size GUI IPC queues for the desktop experiment.
-
-## Memory Management
-
-Physical memory is discovered from Limine's memory map. The PMM tracks frames
-with a bitmap and supports single/contiguous allocation. The kernel heap is a
-simple allocator used by VFS, process, networking, and filesystem code.
-
-The kernel runs higher-half. Processes get separate page tables with user pages
-for ELF text/data/stack plus propagated kernel mappings. Syscalls validate user
-buffers and strings against present user-accessible mappings before copying.
-
-Current tradeoffs:
-
-- There is no demand paging.
-- Userspace `mmap` currently covers eager private mappings owned by the
-  process: zero-filled anonymous regions and file-backed regular-fd snapshots.
-  `mprotect` can change page permissions, `PROT_NONE` guard pages are modeled by
-  clearing user access on present pages, `msync` validates private mmap-owned
-  ranges as a no-op, `munmap` frees pages, and process exit cleans up any
-  remaining mappings. Demand paging, shared mappings, writeback,
-  replacement-style `MAP_FIXED`, and signal-delivered page-fault recovery are
-  still future work.
-- Kernel heap and static subsystem limits are still intentionally conservative.
-
-## Scheduling And Processes
-
-srvros can run kernel threads and ring-3 processes. The local APIC timer drives
-preemption. Process state includes address-space ownership, kernel trap stack,
-fd table, GUI queue state, network handle ownership, and exit status. The
-process table and VMM address-space tracker currently have 64 slots, and the
-scheduler has 32 kernel-thread slots for boot services, foreground processes,
-detached jobs, and pipeline stages. Dead scheduler-thread stacks are returned to
-the PMM before slot reuse.
-
-The shell supports foreground jobs, foreground/background pipeline groups,
-`jobs`, `jobs -l`, `wait`, `fg`/`bg`, `%+`/`%-` job references, and built-in
-`kill` for process ids or job references. Sleeping syscalls use wait queues for
-keyboard input, network accept/read readiness, and descriptor readiness in
-`poll`/`select`, so a blocked process does not busy-spin.
-
-Each process carries a process-group id and a session id. New children inherit
-their parent's group/session unless an exec request or `posix_spawn` attribute
-asks for a new process group. The console tracks one foreground process group
-for Ctrl-C delivery and exposes the current group/session state through the
-small libc `getpgrp`/`setpgid`/`getsid`/`setsid` and
-`tcgetpgrp`/`tcsetpgrp` surface.
-
-## Syscall ABI
-
-Userspace calls the kernel through `int 0x80`. Shared syscall numbers live in
-`shared/include/srvros/syscall_numbers.h`; userspace wrappers live under
-`userspace/lib/src`.
-
-The ABI currently covers:
-
-- Basic fd I/O: `open`, `open_mode`, `read`, `write`, `seek`, `close`.
-- Filesystem mutation: `fs_write`, `fs_append`, `unlink`, `mkdir`, `rmdir`,
-  `rename`, `stat`, `list`.
-- Process control: `spawn`, `spawn_args`, `spawn_bg`, redirected spawn, process
-  list, kill, wait, yield, exit.
-- Network: DHCP, status, DNS, listen, accept, connect.
-- Console/graphics/input: console info, clear, cursor positioning, a small
-  framebuffer-side ANSI CSI subset for common cursor/erase sequences, key scan,
-  framebuffer info/pixels/rects/blits, mouse scan.
-- Memory mapping: `mmap`, `munmap`, `mprotect`, `msync`.
-- GUI IPC: register server, send message, receive message.
-
-Appendable output structs use a small ABI header (`abi_version` and
-`struct_size`) at the front of the caller buffer. The userspace wrappers fill
-that header before entering the kernel, and the kernel copies back only the
-caller-declared size after validating the version. This covers process listing,
-file and filesystem status, console/graphics info, mouse events, GUI messages,
-and the network enumeration/status/ARP structs.
-
-## VFS And Filesystems
-
-The VFS is a stable node registry keyed by path. Filesystems register nodes with
-read callbacks and optional release hooks. Stable slots keep open file pointers
-valid while unrelated mounts are deregistered.
-
-exFAT is the primary filesystem. It supports:
-
-- Mount from memory block device or writable AHCI block device.
-- Recursive directory scanning.
-- Root and nested file reads.
-- File create, overwrite, append, delete, rename.
-- Directory create and empty directory removal.
-- Empty directory rename.
-- Runtime mount/unmount with busy checks.
-- Allocation bitmap management, contiguous no-FAT-chain extents, and
-  fragmented FAT-chain allocation/read/write fallback.
-- A consistency checker exposed as `fsck /fat`, including bitmap ownership
-  checks for system structures, directories, files, duplicate clusters, and
-  leaked allocated clusters, plus FAT entries that remain attached to
-  bitmap-free clusters.
-- VFS-level Unix-like metadata: inode ids, mode bits, uid/gid placeholders,
-  block counts, and tick-derived access/modify/change timestamps.
-- A srvros-managed metadata sidecar at `/fat/.srvros/meta` on writable exFAT
-  mounts. The sidecar restores inode ids, modes, uid/gid placeholders, and
-  timestamps when the same AHCI-backed image is mounted after reboot. Updates
-  are staged through `/fat/.srvros/meta.tmp`; mount recovery promotes a valid
-  temp sidecar or discards a malformed one before applying metadata.
-
-Writable regular-file handles are staged in kernel memory until `fsync`, `sync`,
-or close, with a 16 MiB per-handle cap. exFAT mount state tracks up to 128
-directories and the VFS registry has 1024 node slots.
-
-Create, rename, and delete paths snapshot the affected directory-entry run
-before mutation. If entry writing, in-memory registration, VFS rename
-registration, or VFS unregister fails, srvros restores the previous entry bytes
-and path bookkeeping where possible instead of leaving a half-created,
-half-renamed, or half-deleted entry behind.
-
-The generated test image reserves multi-cluster directory tables for the root
-directory and `/fat/bin`, with fail-fast overflow checks in the image builder so
-adding more bundled programs does not silently corrupt directory entries.
-
-The current root namespace keeps the primary exFAT volume mounted at `/fat`,
-with generated applications under `/fat/bin`, writable defaults under
-`/fat/tmp` and `/fat/home`, and service/config data under `/fat/etc`. That is
-intentionally simple while srvros has one primary writable volume. The next
-namespace cleanup should formalize whether additional host/drive-style mounts
-use WSL-like stable names such as `/c/users/paul`, Unix-like mountpoints such as
-`/mnt/sdb1`, or both, with block devices exposed separately through `/dev/*`.
-
-Current filesystem caveats:
-
-- Directory rename is intentionally limited to empty directories.
-- There is no general journaling or transaction rollback.
-- Crash consistency is not guaranteed if QEMU exits during arbitrary mutation,
-  though metadata sidecar replacement has a small temp-file recovery path.
-- Long-name support exists for the current ASCII subset, but broader crash-time
-  recovery around directory-entry updates is still being hardened.
-- Unix-like metadata is persisted by srvros in a sidecar file rather than in
-  native exFAT directory entries.
-
-## Block And Storage
-
-`kernel/src/block.c` provides a generic block-device table and a small
-write-through cache. Devices expose byte-offset read/write callbacks and fixed
-block geometry.
-
-Implemented devices:
-
-- Memory-backed initramfs exFAT image.
-- AHCI SATA disks using IDENTIFY, READ DMA EXT, and WRITE DMA EXT.
-- GPT partition views over block devices, used by the UEFI USB image to expose
-  the ESP and exFAT data partitions as `ahci0p1`/`ahci0p2`.
-
-The Makefile can boot with one or two AHCI-attached exFAT images. This lets the
-same filesystem code run against both an embedded image and a real block path.
-
-## Real-Hardware Diagnostics
-
-All console output is mirrored into a fixed-size boot-log ring. The monitor
-`dmesg [bytes]` command dumps the full log or a trailing byte window, and the
-kernel writes `/fat/var/log/boot.log` after `/fat` mounts. Fatal exceptions clear
-the framebuffer to a panic page, print register/mapping context, and include the
-recent boot log so real-machine failures are readable without serial.
-
-Quiet framebuffer boot does not reduce diagnostic coverage: serial output and
-the boot-log ring remain verbose. Use the `/srvrosdebug` boot entry when a
-photo of early framebuffer diagnostics is more useful than a clean prompt.
-
-The `bootinfo` command summarizes display mode, ACPI tables, PCI config backend,
-Intel graphics discovery, xHCI capability registers, and block devices. The
-`hwdiag` command bundles that with full PCI inventory, memory/workqueue/process
-state, network status, mounts, `/fat` fsck, and a boot-log tail for real-machine
-capture. The `xhci` monitor command prints the USB controller inventory,
-command/event ring state, command completion counters, root-port
-connection/reset status, addressed USB hubs and routed HID
-keyboard/mouse/tablet devices, interrupt poll counts, input report counts, and
-descriptor class/vendor/product summaries for unsupported or hub-like devices.
-
-## Networking
-
-The e1000 driver configures descriptor rings and uses IOAPIC-routed interrupts.
-The IRQ path acknowledges device causes and schedules bottom-half work so packet
-draining happens outside interrupt context. A low-rate timer wake prevents a lost
-interrupt from stranding RX frames.
-
-The network stack includes:
-
-- Ethernet frame parsing.
-- ARP replies and ARP lookup for outbound traffic.
-- IPv4 packet handling.
-- Incoming IPv4 checksum validation plus TCP/UDP checksum validation before
-  packets are dispatched to protocol state.
-- ICMP echo replies.
-- UDP for DHCP, DNS, and userspace datagram sockets.
-- DHCP address/router/DNS configuration.
-- DNS A-record lookup over UDP/53.
-- DNS server selection prefers DHCP DNS, then userspace `DNS_SERVER` or
-  `/fat/etc/resolv.conf` fallback where applicable, then QEMU's default DNS.
-- A compact TCP implementation sufficient for poll-driven static HTTP serving.
-- Client-side TCP connect for simple outbound HTTP over QEMU user networking.
-- A 32-slot TCP connection table, sized for the current low-traffic web-server
-  milestone so short `TIME_WAIT` bursts do not starve outbound client connects.
-- TCP table-pressure accounting tracks capacity, current `TIME_WAIT` entries,
-  full-table drops, reclaimed `TIME_WAIT` entries, and close timer values in
-  the network status ABI.
-- Network enumeration/status/ARP structs carry a version and caller-declared
-  size prefix. The kernel validates that header and copies back only the bytes
-  the caller says it can accept, so future status fields can be appended without
-  overwriting older userspace buffers.
-- Under table pressure, expired `TIME_WAIT` entries are reaped first; if the
-  table is still full, the oldest `TIME_WAIT` slot can be reclaimed so fresh
-  web traffic and outbound client connects do not stall behind closed sockets.
-- TCP socket lifecycle tracking for process-owned connections, including
-  FIN-on-close, kernel-backed read/write `shutdown` state, and compact
-  `FIN_WAIT`/`CLOSE_WAIT`/`LAST_ACK`/`TIME_WAIT` cleanup states.
-- Per-connection socket error reporting for resets, refused connects,
-  timeouts, and in-progress nonblocking connects, exposed to userspace through
-  `getsockopt(SO_ERROR)`.
-- Segmented TCP writes from userspace buffers larger than one payload-sized
-  frame, covered by `webd` serving a multi-kilobyte static response.
-- A small per-connection TCP transmit history that retires SYN, FIN, and data
-  frames on ACK and retransmits them from the network timer when needed.
-- Bounded TCP send backpressure: connection writes only send while there is
-  transmit-history/window space, nonblocking writes report `EAGAIN`, and
-  `POLLOUT` follows actual send availability.
-- Peer-advertised TCP window tracking, so payload sends are bounded by both the
-  local outstanding-send limit and the remote receive window advertised in ACKs.
-- Dynamic advertised receive windows based on unread connection-buffer space,
-  window-update ACKs after userspace reads, and a small zero-window persist
-  timer so blocked peers can discover reopened receive windows.
-- Idle established-connection cleanup so abandoned TCP clients do not occupy the
-  small fixed connection table indefinitely.
-- TCP reset responses for closed ports, missing connections, and full
-  connection-table SYN attempts, so clients fail promptly instead of waiting for
-  retransmission timeouts.
-- In-order TCP receive validation: duplicate or out-of-order data/FIN segments
-  are acknowledged at the current receive point instead of being appended twice
-  or advancing the stream prematurely.
-- Userspace IPv4 UDP sockets with `sendto`/`recvfrom`, nonblocking readiness,
-  local datagram delivery, and `/fat/bin/udpdns` plus `/fat/bin/udpecho`
-  coverage.
-- Kernel socket-table enumeration for `/fat/bin/netstat`, covering TCP
-  listeners, active TCP connections, UDP sockets, owning PIDs, queue depths,
-  send-window availability, peer windows, error state, and compact TCP flags.
-- Kernel network status/config reporting for `/fat/bin/ifconfig`,
-  `/fat/bin/route`, and `/fat/bin/arp`, including e1000 MAC/IP, DHCP route/DNS
-  details, protocol counters, socket counts, worker counters, and the current
-  ARP resolution.
-- A small fixed ARP cache plus kernel-backed ICMP echo requests for
-  `/fat/bin/ping`.
-- `/fat/bin/netcheck`, a compact guest-side network health check covering DHCP,
-  DNS, ping, UDP loopback, outbound TCP HTTP, `TCP_NODELAY`, TCP `MSG_PEEK`,
-  and nonblocking connect readiness through `poll`/`SO_ERROR`.
-- `/fat/bin/netabi`, a regression probe for the size-versioned network structs
-  that passes deliberately truncated buffers and checks canaries after them.
-
-Network file descriptors are process-owned and cleaned up on process exit.
-`webd` listens on port 80, polls the listener plus active connection fds, and
-serves files from `/fat/www`. It supports nested static asset paths, GET/HEAD,
-query-stripped static lookups, directory index fallback, content lengths, basic
-MIME/cache headers, idle partial-client cleanup, clear malformed-request
-responses, and a small runtime-limited active-client table.
-
-The shell service manager reads `/fat/etc/services/*.svc` files and uses them
-to start, stop, restart, and inspect persistent userspace daemons. The generated
-exFAT image ships `/fat/etc/services/webd.svc`, and the kernel starts
-`/init --system` after mounts/network setup. System init runs
-`/fat/etc/init.sh` through a quiet redirected shell and stores startup output
-in `/fat/var/log/init.log`; the monitor console receives only concise init
-status. The init script launches `svscan &`. `/fat/bin/svscan` continuously
-scans enabled service configs, starts missing daemons, and restarts configs
-marked `restart=always`, recording supervisor events in
-`/fat/var/log/svscan.log`. Service configs can declare `requires=network`,
-`health=listen:<port>`, and `max_log=<bytes>`; `svscan` waits for declared
-dependencies, restarts unhealthy listeners, and rotates oversized daemon logs.
-Service stdout is redirected to live append logs such as
-`/fat/var/log/webd.log`, and `service list` reports process state with
-enabled/restart/dependency/health/log metadata. `service enable <name>` and
-`service disable <name>` rewrite the service config, and `service reload`
-touches `/fat/run/svscan.reload` so `svscan` logs and consumes an explicit
-rescan request. `service <name> log`, `service <name> tail [lines]`,
-`service <name> check`, `service <name> check-config`, and
-`service <name> rotate-log` cover basic operations, while
-`service set <name> <key> <value>` and `service unset <name> <key>` edit
-configs in-place. `service restart <name> --wait` asks the supervisor to bring
-the service back and waits for the declared health check. `service supervise
-[cycles]` keeps the same restart policy available as a bounded diagnostic loop.
-`svscan` logs start counts and stop statuses for restart forensics. `webd` adds
-compact access lines containing method, URL, status, and body bytes, periodic
-`webd: stats` snapshots, and a plain-text `/__status` endpoint exposing the
-same connection, response, error, active-client, high-water, and byte counters.
-
-Service files are simple `key=value` records. Supported keys are `command`,
-`args`, `process`, `log`, `requires`, `health`, `max_log`, `enabled`, and
-`restart`. `requires=network` waits for the network stack, `health=listen:80`
-checks for a TCP listener owned by the service process, `max_log` bounds daemon
-log size, and `restart` currently accepts `always` or `never`.
-
-Current networking caveats:
-
-- TCP is intentionally minimal and not a general-purpose implementation yet.
-- TCP congestion control, window scaling, SACK, delayed ACK tuning,
-  out-of-order receive queues, and full TIME_WAIT/state-machine handling are
-  still future work.
-  Current close states are deliberately compact and timer-reaped rather than a
-  complete RFC-level lifecycle.
-- No IPv6.
-- UDP sockets are IPv4-only and use a small bounded receive queue.
-- DNS currently resolves A records only.
-
-## Userspace
-
-Each userspace program is a static freestanding ELF linked with the small srvros
-support library and shared `userspace/lib/crt0.S` startup object. There is no
-external libc dependency, and adding a normal app no longer needs a copied
-per-directory `start.S`.
-
-The generated `/fat/bin` command set is tracked in
-[`docs/tool-inventory.md`](tool-inventory.md). In broad groups it includes:
-
-- Shell/core commands: `sh`, `hello`, `cat`, `more`, `echo`, `write`, `clear`,
-  `ps`, `kill`, `which`, `env`, `pwd`, `true`, `false`, `sleep`, `date`,
-  `touch`, `mktemp`, `basename`, `dirname`, `uname`, `hostname`, `uptime`,
-  `id`, and `whoami`.
-- File and text tools: `ls`, `stat`, `chmod`, `cp`, `rm`, `mkdir`, `mv`, `du`,
-  `df`, `realpath`, `readlink`, `wc`, `grep`, `head`, `tail`, `tee`, `tap`,
-  `sort`, `uniq`, `cut`, `xargs`, `seq`, `cmp`, `yes`, `diff`, `patch`,
-  `sed`, `expr`, `printf`, `tr`, `dd`, and the shared POSIX utility applet
-  names `ln`, `sync`, `test`, `[`, `cksum`, `sum`, `comm`, `paste`, `join`,
-  `split`, `od`, `hexdump`, `strings`, `file`, `tty`, `stty`, `time`,
-  `timeout`, `nohup`, and `nice`.
-- Archive/build/porting tools: `install`, `tar`, `gzip`, `gunzip`, `minizip`,
-  `miniunz`, `make`, `byacc`, `zlibdemo`, `jsondemo`, `inidemo`, `linedemo`,
-  `sqlitedemo`, `uvdemo`, and `lua`.
-- Networking tools: `webd`, `httpget`, `udpdns`, `udpecho`, `netstat`,
-  `ifconfig`, `route`, `arp`, `ping`, `host`, `netcheck`, and `netabi`.
-- GUI/demo/regression tools: `ui`, `desktop`, `displayd`, `surfacedemo`,
-  `gui2demo`, `calc`, `notes`, `textedit`, `paint`, `sysabi`, `spin`,
-  `fpdemo`, `posixdemo`,
-  `threadstress`, `execdemo`, `fdprobe`, `lockprobe`, and `ttydemo`.
-
-The shell has PATH lookup for `/fat/bin` and `/`, sourceable scripts,
-non-interactive `sh -c command` and `sh script` modes, stdin/stdout/stderr
-redirection, multi-stage pipelines, foreground/background jobs, `$VAR`/`${VAR}`
-including default/assign/alternate/error parameter forms, `${#VAR}`,
-prefix/suffix trims, `$?`/`$$`/`$!`, positional parameters (`$0`, `$1`, `$#`,
-`$@`), `$(command)` command substitution, `$((expr))` integer arithmetic
-expansion, unquoted `*`/`?` globbing, unmatched quote/block
-diagnostics, Ctrl-C prompt recovery, `&&`/`||`, compound-command tail chaining,
-command-local `NAME=value`, comments, script line continuations, simple
-here-docs, current-shell `{ ...; }` grouping,
-`if`/`then`/`else`/`fi`, `for`/`in`/`do`/`done`, `while`/`do`/`done`,
-`case`/`in`/`esac`,
-shell functions with `return`, `shift`, loop `break`/`continue`,
-login profile loading from `/fat/etc/profile` plus immediate
-`/fat/etc/profile.d/*.sh` snippets, `PS1` prompt expansion for `\w`,
-`test`/`[`, `set -e`/`set +e`, `read`, `alias`, `type`, `command`,
-`unset`, `TMPDIR`,
-`cd -` with directory validation, `jobs`/`jobs -l`/`wait`/`fg`/`bg`/`kill`,
-`%+`/`%-` job references, config-backed `service` commands,
-DHCP/status/DNS builtins, `env`/`export`/`which`, `env NAME=value command`,
-`exec`, and basic filesystem
-builtins. Interactive `srvsh` uses the srvros linenoise adapter for editable
-input, persistent `/fat/.srvsh_history`, and tab completion for builtins,
-aliases, functions, PATH commands, and filesystem paths.
-
-The generated exFAT image also ships `/fat/share/help/*.txt` topic files for
-the shell, builtins, bundled commands, syntax, expansion, redirection,
-services, networking, files, web serving, CLI conventions, profiles, and the
-pager. The `help` builtin prints a compact summary, `help -l` lists topics,
-`help <topic>` and `man <topic>` read those files directly from the mounted
-filesystem, and `apropos <word>` searches topic names and content.
-`/fat/bin/more` provides a small page-at-a-time reader with `--plain` for
-non-interactive scripts. The image also includes `/fat/share/examples`,
-`/fat/tmp`, and `/fat/home` so scripts have predictable defaults on first boot.
-The table-stakes command set follows the same short-help convention: `-h` and
-`--help` print usage and exit successfully, and common file/text tools accept
-`--` to stop option parsing.
-
-Userspace path handling now canonicalizes relative paths against the inherited
-`PWD`, including repeated separators plus `.` and `..` components. The syscall
-wrapper layer and POSIX path helpers share the same normalization behavior, so
-shell commands, libc callers, and spawned processes see consistent paths.
-
-The terminal signal path handles Ctrl-C from serial or PS/2 keyboard input. The
-kernel routes it to the active foreground process group, including every member
-of a shell pipeline, instead of the root interactive shell. It marks matching
-processes for `SIGINT`, wakes blocking pipe/poll/network I/O where possible,
-and exits them with the conventional `128 + signal` status. `kill` uses the
-same process signal machinery with POSIX-style targets: positive pids, `0` for
-the caller's process group, negative process-group ids, and signal `0` probes.
-Processes can also opt into the small catch/poll signal path used by libuv:
-caught `SIGINT`, `SIGQUIT`, `SIGUSR1`, `SIGUSR2`, `SIGPIPE`, `SIGALRM`,
-`SIGTERM`, and `SIGCHLD` values are queued as pending signals, wake blocking
-poll/fd waits, and are consumed by userspace instead of forcing process exit.
-The kernel exposes both consuming and non-consuming pending-signal probes; libc
-uses those to provide first-pass `sigaction`, `sigprocmask`,
-`pthread_sigmask`, `sigpending`, and `sigwait` compatibility. Signal masks now
-live in kernel process/thread state: new pthreads inherit the creator's current
-mask, `sigwait` can consume a specific pending signal, and `posix_spawn`
-forwards stored signal-mask/default attributes through the native exec request.
-When a detached child becomes reapable, the kernel queues observable
-`SIGCHLD` to the active parent; default unblocked `SIGCHLD` remains
-non-terminating, while blocked or caught `SIGCHLD` can be observed with the
-same pending/sigwait path. libc dispatches unblocked caught pending signals at
-cooperative interruption points such as `waitpid`, `poll`/`select`, sleeps, and
-`sched_yield`; this is enough for child watchers and libuv-style signal handles,
-but it is not yet full asynchronous POSIX signal-frame delivery. `sigsuspend`
-temporarily swaps the thread mask and returns `EINTR` after dispatching a caught
-signal; blocking `waitpid`, `poll`/`select`, sleeps, pipe I/O, console input,
-Unix-domain accept, TCP accept/connect/read/write, UDP receive, and blocking
-file-lock waits also surface `EINTR` when a caught signal interrupts their wait.
-libc honors `SA_RESTART` for restartable blocking calls such as fd I/O,
-`waitpid`, blocking file locks, and socket accept/connect/receive paths by
-dispatching the caught handler and then retrying the underlying syscall.
-
-The first text-tool compatibility passes cover common script-facing flags:
-`grep -i/-n/-v/-c/-q/-o/-l/-L`, shared libc regex matching with fixed-string fallback,
-`wc -l/-w/-c`, compact `head -1`/`tail -1` aliases for
-line counts, `find -type f|d`, `ls -a/-l` with multiple paths, and a literal
-`sed` subset with `-n`, `-e`, `s`, `p`, `d`, line-number addresses,
-regex `/pattern/` addresses, and regex substitutions with numbered capture
-replacement. Shell `test`/`[` covers boolean `-a`/`-o`/`!`, common
-file probes, mtime comparisons, and same-file checks. `/fat/bin/seq` covers
-integer ranges, `id`/`whoami` provide a fixed root identity, `cmp` compares
-files, `yes` feeds simple pipeline prompts, `xargs` can batch with `-n` and skip
-empty input with `-r`, `install` copies files into build-style destination trees,
-`diff` reports quiet or simple unified differences, `tar` can create/list/extract
-uncompressed ustar archives, `gzip`/`gunzip` handle gzip-framed streams backed
-by the pinned zlib port, `minizip`/`miniunz` cover zip archives, `patch`
-applies simple unified diffs, `make` runs small dependency/recipe graphs
-through the shell, `byacc` generates C parsers from small yacc grammars, and
-`realpath` plus
-`readlink -f` normalize checked paths for porting scripts.
-`/fat/bin/expr` covers simple integer arithmetic,
-comparisons, string length/substr/index, and literal-prefix `:` matching for
-script glue. `/fat/bin/printf` supports common `%s`/numeric formatting and
-escapes; `/fat/bin/tr` supports simple set translation, ranges, and deletion.
-Additional POSIX utility compatibility is provided by one shared applet binary
-installed under multiple names: `ln`, `sync`, external `test`/`[`, `cksum`,
-`sum`, `comm`, `paste`, `join`, `split`, `od`, `hexdump`, `strings`, `file`,
-`tty`, `stty`, `time`, `timeout`, `nohup`, and `nice`. `ln` currently reports
-that links are unsupported because srvros has not grown hard-link or symlink
-metadata yet; the other applet entry points cover the common build-script and
-inspection cases needed by the current shell/ports milestone.
-
-The generated exFAT image builder deduplicates identical applet payloads by
-source ELF, so aliases share the same cluster chain instead of consuming a full
-copy per name on the small default disk image.
-
-The current `date` tool reports monotonic uptime because srvros does not yet
-have RTC or network time plumbing.
-
-New launches use the native `SYS_EXEC` request path. It copies a path, argv
-vector, envp vector, background flag, optional standard fd overrides, and an
-in-place replacement flag from userspace. Spawn requests build a fresh child
-ring-3 stack; replacement requests first load the new image into a temporary
-kernel-owned process image, then swap the current process to the new address
-space and enter the new program with the same pid while closing any fds marked
-close-on-exec. The POSIX
-compatibility layer maps this to `posix_spawn`, `posix_spawnp`, `waitpid`,
-standard-fd dup/open/close spawn file actions, ordered non-stdio spawn file
-actions, `POSIX_SPAWN_SETPGROUP`, cwd-aware spawn setup, and process-replacing
-`execve`.
-
-The ELF loader maps static `PT_LOAD` images and consumes `PT_TLS` for
-thread-local storage. It captures the TLS initialization template, maps an
-initial TLS block for the main user thread, allocates a fresh block for each
-spawned user thread, and asks the scheduler to preserve x86_64 `FS.base` across
-context switches. If a large static executable would collide with the original
-compact user stack window, the loader moves that program to a higher stack
-below the mmap arena.
-
-## POSIX Compatibility
-
-The first POSIX-compat layer is implemented in userspace on top of srvros
-syscalls. It exposes common headers such as `unistd.h`, `fcntl.h`, `errno.h`,
-`dirent.h`, `pthread.h`, `sched.h`, `sys/stat.h`, `sys/ioctl.h`,
-`sys/socket.h`, `netdb.h`, and `time.h`.
-
-This layer currently covers basic file I/O, `O_RDWR` regular-file descriptors,
-`stat`/`fstat` with VFS-managed metadata, `chmod`/`fchmod`, `umask`,
-`dup`/`dup2` for standard streams, pipes including full-duplex pipe-pair
-endpoints, writable regular files, and
-read-only regular files, `poll`/`select` readiness, blocking pipes,
-`O_NONBLOCK`/`fcntl` status flags, `F_GETFD`/`F_SETFD` descriptor flags,
-`FD_CLOEXEC`, `F_DUPFD`/`F_DUPFD_CLOEXEC`, permission-aware `access`,
-`isatty`, `fsync`, process-wide
-`sync`,
-`truncate`/`ftruncate`, `statvfs`, minimal terminal `tcgetattr`/`tcsetattr`
-plus `ioctl` window-size queries, directory iteration, path/cwd state, `sbrk`-backed
-malloc-family allocation, kernel-backed `brk`/`sbrk`, anonymous and
-file-backed private `mmap`/`munmap`, `mprotect`, small buffered `stdio`,
-simple time functions including `nanosleep`, `getpagesize`/`sysconf`,
-`readv`/`writev`/`preadv`/`pwritev`, `sendmsg`/`recvmsg` with scatter/gather
-data and bounded local-socketpair `SCM_RIGHTS` fd passing, pathname
-`AF_UNIX` stream sockets with kernel-backed bind/listen/connect/accept queues,
-same-address-space `pthread_create`/`pthread_join`/`pthread_detach`,
-pthread mutex/condition/once/TLS primitives, common
-formatted-output width/precision/flag forms,
-`scanf`/`sscanf` basics including scansets, `system()` via shell spawn,
-`popen`/`pclose`, `getpid`/`getppid`, `waitpid`, `posix_spawn`, `posix_spawnp`,
-standard-fd and ordered non-stdio spawn file actions with dynamic userspace
-storage up to the native spawn ABI limit, `POSIX_SPAWN_SETPGROUP`,
-reset-id/signal-mask/default attr storage, process-replacing `execve`, IPv4 formatting and
-parsing, userspace UDP DNS-backed `getaddrinfo`, a TCP server socket flow mapped
-onto srvros listener/connection fds, client-side `connect`, and socket name
-queries. The kernel additions
-for this slice are intentionally narrow: fd metadata/duplication, shared regular-file open
-descriptions, fd readiness checks, nonblocking read/accept/write returns, child
-stdio fd overrides plus inherited parent stdio redirects, seek, fd
-flush/truncate, fd-0 writes when stdin is redirected to a writable/duplex
-descriptor, process heap growth, `getpid`/`getppid`, executable-path queries,
-raw timer ticks,
-sleep-by-ticks syscalls, a shared fd readiness wait queue,
-timer-backed scheduler wait deadlines, kernel random bytes through `SYS_RANDOM`
-and libc `getrandom`, and runtime VFS inode/mode/timestamp metadata with exFAT
-sidecar persistence. `utime`/`futime` update VFS timestamps directly; writable
-fds flush pending data before applying explicit times so close-time writeback
-does not overwrite them. `open(..., O_CREAT, mode)` applies the requested mode
-through the active umask, `open(O_CLOEXEC)` applies close-on-exec during
-creation, and `open(O_CREAT|O_EXCL)` refuses existing paths for temporary-file
-callers. `pipe2`, `dup3`, and the `fcntl` fd-duplication commands are
-implemented in libc on top of the native pipe, dup2, and fd-flag calls, giving
-source ports the common `O_CLOEXEC`/`O_NONBLOCK` setup paths without widening
-the kernel ABI yet. `mkstemp` and `mkostemp` provide the first temporary-file
-creation helpers for configure scripts and small ports.
-The native exec setup keeps argv compact and accepts up to 64 environment
-entries, enough for profile variables plus command-local shell environments in
-longer CLI sessions.
-
-User pthreads are backed by a compact native thread syscall set. The libc shim
-allocates a stack with `mmap`, enters the requested routine in the same process
-address space, and `pthread_join` collects the returned pointer-sized value.
-Each spawned user thread has its own scheduler kernel trap stack, user FPU
-state, and ELF TLS block while sharing the owning process fd table, mappings,
-and heap. Detached
-pthread stacks are tracked by libc and reclaimed through a hidden join after
-`SYS_THREAD_STATUS` reports completion. If one user thread exits the whole
-process, the kernel marks the process exiting, wakes blocked file/pipe/network
-waiters, and retires sibling user-thread scheduler contexts before address-space
-teardown. `SYS_FUTEX_WAIT`/`SYS_FUTEX_WAKE` provide the first process-local
-address-keyed wait primitive; pthread mutexes and condition variables use it to
-sleep on shared userspace words instead of spin-yielding. The userspace heap
-allocator also uses a process-local futex-backed lock, and `pthread_once` now
-tracks unstarted/running/complete states so contending threads wait for the
-initializer to finish before returning. Caught signals wake futex waiters with
-`SRV_ERR_INTR`; libc pthread internals dispatch the signal and keep waiting
-where POSIX requires mutexes, condition waits, and `pthread_once` not to surface
-`EINTR`, while timed condition waits recompute their remaining deadline after
-each signal wake. `pthread_join` also wakes for caught signals and retries after
-dispatch, and `pthread_kill` is provided as a process-local compatibility shim
-that validates known pthread ids before using the current process signal path.
-The scheduler updates the TSS from each thread's effective kernel trap stack
-when switching between user threads, and the native thread launch path preserves
-the exact userspace stack alignment chosen by libc so SSE-using code keeps the
-SysV ABI alignment it expects.
-Regular-file `read`/`write`/`seek` offset updates are serialized in the kernel
-under preemption, and libc stdio streams have recursive futex-backed locks for
-shared `FILE *` use from pthreads. `/fat/bin/threadstress` plus
-`tools/thread_smoke.py` cover the current threading contract in QEMU.
-
-The native executable format remains static ELF64. Common Makefile rules link
-each program with the shared crt startup object, keeping each app as a single
-self-contained executable while leaving room for a userspace `.srvapp` bundle
-format later.
-
-The support library also exports a first newlib-facing syscall layer (`_open`,
-`_read`, `_write`, `_lseek`, `_fstat`, `_sbrk`, and friends). Existing srvros
-apps still link the local libc-shaped implementation, but the ABI now has the
-core hooks a real libc port expects.
-
-The compatibility boundary is intentionally in userspace. Unsupported POSIX
-features return `ENOSYS` or a narrow error instead of expanding the kernel ABI
-prematurely.
-
-## GUI
-
-The GUI layer is experimental, with `/fat/bin/gui` now serving as the normal
-entry point. It execs `/fat/bin/displayd` and forwards arguments so users and
-smokes have a stable GUI launcher while `displayd` remains the compositor
-binary. The older `/fat/bin/desktop` path remains available as a
-regression/compatibility tool for the first fixed-widget GUI IPC model, where
-clients send fixed-size messages for window creation, labels, buttons, text
-updates, and events.
-
-`displayd` runs as a separate userspace GUI server, allocates its root
-backbuffer dynamically from the current framebuffer dimensions, derives
-panel/dock/status metrics from the resolution, presents damaged rectangles
-through `gfx_blit_rect`, and has hidden-QEMU smoke coverage. It now also accepts
-the first GUI protocol v2 messages for client-owned surfaces: apps create
-kernel-managed pixel surfaces, blit damaged rectangles into them, announce a
-surface window, and the compositor copies the surface into its root backbuffer.
-`displayd` also owns compositor-side window frame behavior for those surfaces:
-z-order raise on focus, title-bar dragging, close buttons, and minimize buttons
-that hide the client surface while leaving the frame visible. Its left dock can
-launch v2 GUI apps as separate processes, clamps new windows into the current
-resolution-aware work area, and staggers duplicate app instances so they remain
-visible. Its bottom taskbar lists running GUI clients and lets the user
-raise/focus normal windows or restore minimized windows. Bottom-right resize
-grips update compositor geometry and send configure events; GUI2 apps recreate
-their current kernel-managed backing surface and redraw at the new size. It
-routes v2 configure, focus, pointer, and key events back to clients so apps can
-react from their own process, and uses the existing close event for compositor
-close requests. The dock also has an on-screen Exit control that requests close
-from every mapped client, reaps cooperative exits, and escalates lingering
-clients before returning to the shell. The app-side `gui2` library wraps that
-  protocol with window open/close, resize, surface present/damage, event polling,
-  theme/layout helpers, shared widget dispatch, and early button/textbox/canvas
-widgets. It also provides reusable confirm/progress dialogs and a shared file
-open/save dialog with directory browsing, parent navigation, filename entry,
- Open/Save/Cancel actions, and shared Tab focus traversal for lists, text fields,
- text areas, and buttons.
-`/fat/bin/surfacedemo` uses `gui2` for the raw-surface path, and
-`/fat/bin/gui2demo` exercises the first app-owned widget path. `/fat/bin/notes`
-is a two-pane GUI2 note manager backed by individual files under
-`/fat/home/notes`, with a note list, multiline editor, title field,
-rename/delete/save/reload controls, dirty-state feedback, and discard-change
-prompts plus find-next within the selected note body. `/fat/bin/calc` is a
-resizable integer calculator with app-owned
-buttons and configure-driven surface recreation. `/fat/bin/textedit` uses the
-same GUI2 path for resize-aware document display, line entry, save/reload/clear
-controls, document path/status chrome, line/column/byte status, dirty-state
-prompts, basic control-key shortcuts, shared Open/Save As file dialogs, and
-case-insensitive find-next over the current document.
-`/fat/bin/paint` is a GUI2 BMP image editor using the shared toolkit canvas
-control for its app-owned pixel buffer, palette buttons, clear/save controls,
-shared Open/Save As dialogs, and BMP decoding/encoding through the shared
-userspace image helper. The GUI2 canvas supports a source viewport, and Paint
-uses it for zoom, pan, fit, pointer-to-image-coordinate mapping, and visible
-image/view dimensions. The current paint canvas is fixed at 160x120 pixels, so
-the first BMP open path accepts exact 160x120 images.
-
-The userspace UI library provides buffered elements, parent/child composition,
-dirty marking, mouse hit testing, keyboard events, cursor refresh, and basic
-controls. This is enough for calculator, notes, text editor, and BMP image
-editor experiments. `gui2` reuses the pixel/text drawing pieces while moving
-window ownership and event handling to app-side surfaces.
-
-The next GUI architecture replaces the fixed-pixel desktop with a display
-server/compositor model. Apps should own drawable surfaces, the compositor
-should own z-order/decorations/input routing, and rendering should be driven by
-damage rectangles plus resolution-aware logical units. The design and hardware
-bring-up plan are tracked in `docs/a1466-gui-roadmap.md`. The application
-polish track is broken out in `docs/gui-applications-plan.md`.
-
-The graphics ABI now carries accelerator metadata beside the framebuffer
-geometry. Intel integrated graphics discovery is initialized during boot and is
-visible through the monitor `gpu` command plus `gfx_info` flags, allowing the
-future compositor to choose software, Intel blitter, or Intel render backends
-without changing app-facing surface semantics. `gfx_blit_rect` gives that path
-a bulk dirty-rectangle present primitive, while the GUI surface syscalls provide
-the first app-to-compositor pixel transfer path before true shared framebuffer
-mappings exist.
-
-## Testing Strategy
-
-The test harnesses boot QEMU, connect to the serial console, run monitor/shell
-commands, and detect fatal exceptions. They exercise real kernel paths rather
-than mocking subsystems. See `docs/testing.md`.
-
-## Near-Term Architecture Goals
-
-- Strengthen exFAT mutation with better rollback and sync semantics.
-- Broaden the userspace socket API, readiness behavior, and TCP edge-case
-  handling.
-- Strengthen UDP/DNS resolver compatibility now that userspace datagram sockets
-  and DNS-over-UDP probes exist.
-- Add NVMe as a second storage backend.
-- Grow the support library toward a small libc-shaped layer.
-- Move GUI clients toward shared pixel buffers and damage rectangles.
-- Add a real-hardware boot artifact and USB/HID path for the MacBook Air A1466.
-- Add a FUSE-like userspace filesystem interface once fd passing and server
-  process supervision are stronger.
+# Architecture
+
+Current overview, 2026-10-19. SrvrOS is a freestanding C/x86_64 kernel with
+assembly entry points and ring-3 applications. It uses Limine for boot and
+selected upstream libraries for ports, decoding, fonts and ACPI. The system is
+still small, with explicit resource ceilings and incomplete isolation.
+
+## Boot and storage layout
+
+1. Limine loads the higher-half kernel and USTAR initramfs.
+2. The kernel establishes memory management, descriptor tables, interrupts,
+   scheduler, clock, framebuffer console and enabled device paths.
+3. VFS exposes the initramfs and mounts the generated exFAT image at `/fat`,
+   from an attached supported disk or the RAM-backed image in initramfs.
+4. System init runs startup scripts/services; the monitor can launch programs
+   such as `/fat/bin/sh` or `/fat/bin/deskd`.
+
+The regular ISO and staged physical profiles have different command lines.
+Physical laptop trials use the [hardware workflow](ubuntu-device-agent-setup.md),
+with a RAM boot image, a separately identified exFAT USB workspace and a retained
+Ubuntu recovery path. They do not install SrvrOS over the laptop's internal disk.
+Boot diagnostics remain available through serial, `dmesg` and persisted logs;
+quiet framebuffer output does not mean diagnostics were discarded.
+
+## Kernel and process model
+
+Physical frames come from the Limine memory map. The heap manages kernel
+allocations; processes have their own page tables, ELF mappings, stacks and
+file descriptors. Syscalls validate user buffers against mapped access rights.
+Private anonymous/file-snapshot mappings exist; demand paging, general shared
+file mappings and a production security model do not.
+
+The scheduler preempts ring-3 processes and kernel threads. Wait queues and
+bounded workers let eligible tasks sleep and resume. FPU/SSE state is preserved
+across supported transitions. The current scheduler and synchronization work is
+CPU0-oriented; it is not a claim of full multicore operation. Frame/heap/process
+counters and lifetime regressions help detect leaks and stale ownership.
+
+The `int 0x80` ABI and common structures live in `shared/include/`. Version/size
+headers permit bounded copy-back for structured results. Changes to those
+structures must update both kernel and userspace and preserve truncation tests.
+See [executable format](executable-format.md) and [porting](ports.md).
+
+## Filesystem and I/O ownership
+
+The VFS and block registry sit above memory-backed images, AHCI and USB mass
+storage. exFAT implements file/directory traversal and mutation, allocation,
+flush, mount/unmount and consistency checks. It is not journaled and does not
+provide crash-atomic transactions.
+
+Storage operations retain explicit ownership while bounded service windows allow
+eligible input and console work. This improves responsiveness without claiming
+general parallel filesystem mutation. USB transfer errors have bounded deadlines
+and quarantine/diagnostic paths. Tests independently read back persisted content;
+a successful write return alone is not the hardware acceptance criterion.
+
+Desktop applications delegate blocking file/image work to separate workers.
+They report completion back to their event loops instead of waiting synchronously
+inside input handlers. Exit/cancellation must preserve ownership until in-flight
+operations can safely complete or be refused.
+
+## Native desktop
+
+`userspace/deskd/` is the current compositor. It owns global menus, dock, launcher,
+window frames, focus, arrangement, pointer routing, clipboard, notifications and
+presentation. Applications own their content and send frames through the desktop
+client protocol and kernel-managed surfaces. The compositor caches accepted
+frames and presents damage to the linear framebuffer in software.
+
+`userspace/widgets/` provides shared models/controllers and rendering primitives:
+buttons, edits, lists/tables, scrollbars, menus, dialogs and other reusable
+controls. App code builds workflows from those controls; global desktop behavior
+belongs in the compositor. See the [toolkit guide](../userspace/widgets/README.md)
+and [native desktop guide](native-desktop.md).
+
+The native apps are Files, Text, Terminal, Preview, Sketch, Find Files, Calculator,
+System, Network Utility, Settings, Clock and Help. Terminal uses a PTY-backed
+shell. Preview delegates bounded PNG/JPEG/BMP decoding to an image worker;
+Sketch and screenshot saves also use workers. Preferences and documents can be
+saved on the persistent USB workspace.
+
+Input queues, client response deadlines and surface generations are bounded.
+An interrupted pointer interaction sends cancellation rather than a normal click
+release; cancellation must preserve unrelated keyboard packets. Pending input
+and control packets get a delivery attempt before response timeouts are applied.
+These contracts have host/VM regressions, with recent physical acceptance pending.
+
+Current limits are eight client windows, 1440×900 logical client surfaces and
+software rendering. Explicit 2× output expands the logical pixels without changing
+app geometry. GPU discovery is not GPU rendering acceleration. The older
+`gui`/`displayd`/`gui2` stack remains for historical regressions and is not the
+current desktop entry point; its [archived architecture](history/architecture-before-native-desktop.md#gui)
+is retained for reference.
+
+## Networking and services
+
+The network stack provides Ethernet/IPv4, ARP, ICMP, DHCP, DNS A lookups, UDP and
+a small TCP implementation. e1000 is the standard QEMU path; CDC ECM USB
+networking has separate VM coverage. User processes use network file descriptors,
+readiness calls and bounded socket tables. `webd` serves static files, while
+init scripts and `svscan` provide service startup, logging and restart policies.
+This is useful experimental infrastructure, not an internet-facing production
+network stack. Full Linux/POSIX compatibility is not an objective already met.
+
+## Device and ACPI boundaries
+
+Drivers are selected from observed model/controller/descriptor evidence. The
+reference Air's USB topcase is not assumed to be an SPI device, nor are other
+Macs automatically covered by the Air's register and codec gates.
+
+Native brightness, HDA audio and temperature/fan sampling have distinct provider
+and diagnostic boundaries. Read-only CPU energy telemetry is opt-in and awaits
+physical acceptance. Native battery/AC reporting is not implemented as a service.
+
+There are two deliberately separate ACPI paths:
+
+- A restricted, isolated resource probe with bounded execution and private
+  snapshots; ordinary desktop startup omits it.
+- A separate Q35-only full-uACPI VM kernel exercising real SCI, worker ownership,
+  EC/SMBus/SBS fixtures, namespace initialization and teardown failures. It does
+  not enable native firmware regions, GPEs or battery support on the laptop.
+
+See the [uACPI port](../ports/srvros/uacpi/PORT.md) and
+[power telemetry guide](power-telemetry.md) for exact gates and remaining work.
+
+## Source map and validation
+
+| Source | Responsibility |
+| --- | --- |
+| `kernel/src/main.c` | Bootstrap and selected diagnostic flows |
+| `kernel/src/arch/x86_64/` | Traps, syscalls, CPU/platform and interrupt plumbing |
+| `kernel/src/memory/` | Frames, heap and virtual memory |
+| `kernel/src/process.c`, `kernel/src/scheduler.c` | Process lifetime, scheduling and waits |
+| `kernel/src/drivers/` | USB, storage, input and laptop providers |
+| `kernel/src/fs/exfat.c`, `kernel/src/vfs.c`, `kernel/src/block.c` | Filesystem and block paths |
+| `kernel/src/gui.c`, `userspace/deskd/`, `userspace/widgets/` | Desktop transport, compositor and toolkit |
+| `userspace/lib/`, `ports/srvros/` | Userspace support and upstream adapters |
+| `tools/` | Host tests, QEMU harnesses and hardware evidence collection |
+
+Host tests exercise actual portable subsystem code and injected failures. VM
+harnesses exercise kernel/user transitions and workflows in disposable guests.
+Physical tests validate only the matching machine, payload and observed actions.
+See [testing](testing.md) and [current status](status.md). The
+[earlier detailed architecture](history/architecture-before-native-desktop.md)
+contains historical CLI/libc inventories; it is not the current support contract.

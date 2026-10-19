@@ -16,23 +16,32 @@ struct heap_block {
     bool free;
     struct heap_block *prev;
     struct heap_block *next;
-};
+} __attribute__((aligned(HEAP_ALIGNMENT)));
+_Static_assert(sizeof(struct heap_block)%HEAP_ALIGNMENT==0,"heap payload alignment");
 
 static struct heap_block *head;
 static uint64_t total_bytes;
 
 static uint64_t irq_save(void) {
     uint64_t flags;
+#ifdef SRVROS_HEAP_HOST_TEST
+    flags=0;
+#else
     __asm__ volatile ("pushfq; popq %0; cli" : "=r"(flags) : : "memory");
+#endif
     latency_enter(LATENCY_HEAP);
     return flags;
 }
 
 static void irq_restore(uint64_t flags) {
     latency_leave(LATENCY_HEAP);
+#ifndef SRVROS_HEAP_HOST_TEST
     if ((flags & (1ull << 9)) != 0) {
         __asm__ volatile ("sti" : : : "memory");
     }
+#else
+    (void)flags;
+#endif
 }
 
 static uint64_t align_up_u64(uint64_t value, uint64_t alignment) {
@@ -53,7 +62,11 @@ static bool block_is_valid(struct heap_block *block) {
 
 static bool heap_pointer_looks_kernel(void *ptr) {
     uint64_t value = (uint64_t)ptr;
+#ifdef SRVROS_HEAP_HOST_TEST
+    return value!=0;
+#else
     return (value >> 47) == 0x1ffff;
+#endif
 }
 
 static void heap_validate_locked(const char *where) {
@@ -98,12 +111,8 @@ static void heap_validate_locked(const char *where) {
         }
         previous = block;
         blocks++;
-        if (blocks > 4096) {
-            console_printf("heap: corrupt cycle where=%s block=%x\n",
-                where,
-                (uint64_t)block);
-            halt_forever();
-        }
+        /* The strict ascending next-address check above rejects every cycle.
+         * A fixed allocation count would reject legitimate large namespaces. */
     }
 }
 
@@ -227,7 +236,8 @@ void heap_init(void) {
 }
 
 void *kmalloc(size_t size) {
-    if (size == 0) {
+    if (size == 0 || size > SIZE_MAX - sizeof(struct heap_block) -
+            (PMM_FRAME_SIZE - 1) - (HEAP_ALIGNMENT - 1)) {
         return NULL;
     }
 

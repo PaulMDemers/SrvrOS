@@ -1,0 +1,59 @@
+#include <srvros/power.h>
+
+bool power_cpu_supported(uint32_t b,uint32_t d,uint32_t c,uint32_t sig,
+                         uint32_t fc,uint32_t fd,uint32_t tc) {
+    /* Reject extended-family signatures as well as sibling models. */
+    return b==0x756e6547 && d==0x49656e69 && c==0x6c65746e &&
+        ((sig>>8)&15)==6 && !((sig>>20)&255) &&
+        (((sig>>4)&15)|((sig>>12)&0xf0))==0x3d &&
+        !(fc&(1u<<31)) && (fd&(1u<<5)) && (tc&1);
+}
+
+bool power_configure(struct power_snapshot *s,uint64_t units,uint64_t platform) {
+    *s=(struct power_snapshot){.state=POWER_UNAVAILABLE,.raw_units=units,.raw_platform=platform};
+    /* Energy units 2^-14 J are captured on this host. Other units must be
+     * deliberately validated, not inferred from a different Intel model. */
+    unsigned shift=(units>>8)&31,ratio=(platform>>8)&255;
+    if(shift!=14 || !ratio || ratio>64) return false;
+    s->energy_shift=shift;s->nominal_mhz=ratio*100;
+    return true;
+}
+
+void power_sample(struct power_sampler *p,struct power_snapshot *s,struct power_raw r) {
+    struct power_raw old=p->previous;
+    bool had=p->have_previous;p->previous=r;p->have_previous=true;
+    s->raw=r;s->sampled_us=r.us;s->samples++;s->flags=0;
+    s->interval_us=0;s->package_uj=0;s->package_mw=0;s->active_mhz=0;
+    if(!had) return;
+    /* Rebaseline discontinuities. Long gaps cannot safely infer counter wraps. */
+    if(r.us<=old.us || r.us-old.us<100000 || r.us-old.us>5000000 ||
+       s->energy_shift!=14 || !s->nominal_mhz || s->nominal_mhz>6400) {
+        s->rejected++;return;
+    }
+    uint64_t dt=r.us-old.us;s->interval_us=dt;
+    if(!(r.energy>>32) && !(old.energy>>32)) {
+        uint32_t ticks=(uint32_t)r.energy-(uint32_t)old.energy;
+        uint64_t uj=((uint64_t)ticks*1000000)>>s->energy_shift;
+        uint64_t mw=uj*1000/dt; /* Bounded 32-bit delta keeps both products in u64. */
+        /* A generous 100 W ceiling detects resets/backward jumps on this
+         * mobile package. It is a sanity bound, never a power-limit write. */
+        if(mw<=100000) { s->package_uj=uj;s->package_mw=mw;s->flags|=POWER_ENERGY_VALID; }
+        else s->rejected++;
+    } else s->rejected++;
+    /* Both architectural counters clear when either overflows. Do not treat
+     * backwards motion as an ordinary unsigned 64-bit wrap. */
+    if(r.aperf<old.aperf || r.mperf<old.mperf) { s->rejected++;return; }
+    uint64_t a=r.aperf-old.aperf,m=r.mperf-old.mperf;
+    if(!m) return; /* No C0 reference counts: frequency is unavailable, not zero. */
+    if(a>UINT64_MAX/s->nominal_mhz) { s->rejected++;return; }
+    uint64_t mhz=a*s->nominal_mhz/m;
+    if(mhz>6000 || !mhz) { s->rejected++;return; }
+    s->active_mhz=mhz;s->flags|=POWER_FREQUENCY_VALID;
+}
+
+void power_expire(struct power_snapshot *s,uint64_t now) {
+    if(s->state==POWER_ACTIVE && s->samples &&
+       (now<s->sampled_us || now-s->sampled_us>3000000)) {
+        s->flags=POWER_STALE;s->package_uj=s->package_mw=s->active_mhz=0;
+    }
+}

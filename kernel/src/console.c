@@ -749,10 +749,10 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
 
     uint64_t copy_width = width;
     uint64_t copy_height = height;
-    if (x + copy_width > fb->width) {
+    if (copy_width > fb->width - x) {
         copy_width = fb->width - x;
     }
-    if (y + copy_height > fb->height) {
+    if (copy_height > fb->height - y) {
         copy_height = fb->height - y;
     }
 
@@ -769,6 +769,34 @@ bool console_blit_rgb(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
         for (uint64_t px = 0; px < copy_width; px++) {
             destination[px] = direct_rgb ? source[px] : rgb_color(source[px]);
         }
+    }
+    return true;
+}
+
+/* Expand directly into the write-only framebuffer. Keep application surfaces
+ * logical-sized; neither a physical backbuffer nor framebuffer reads are needed. */
+bool console_blit_rgb_scaled(uint64_t x, uint64_t y, uint64_t width, uint64_t height,
+    const uint32_t *rgb_pixels, uint64_t stride, uint64_t scale) {
+    if ((scale != 1 && scale != 2) || fb == NULL || rgb_pixels == NULL ||
+        !width || !height || stride < width || x >= fb->width || y >= fb->height ||
+        width > UINT64_MAX / scale || height > UINT64_MAX / scale ||
+        width > UINT64_MAX / sizeof(uint32_t) ||
+        height - 1 > (UINT64_MAX / sizeof(uint32_t) - width) / stride) return false;
+    if (scale == 1) return console_blit_rgb(x,y,width,height,rgb_pixels,stride);
+    uint64_t copy_width = width * scale, copy_height = height * scale;
+    if (copy_width > fb->width - x) copy_width = fb->width - x;
+    if (copy_height > fb->height - y) copy_height = fb->height - y;
+    volatile uint32_t *pixels = fb->address;
+    uint64_t fb_stride = fb->pitch / 4;
+    bool direct_rgb = fb->bpp == 32 &&
+        fb->red_mask_size == 8 && fb->red_mask_shift == 16 &&
+        fb->green_mask_size == 8 && fb->green_mask_shift == 8 &&
+        fb->blue_mask_size == 8 && fb->blue_mask_shift == 0;
+    for (uint64_t py=0; py<copy_height; py++) {
+        volatile uint32_t *destination = pixels + (y+py)*fb_stride+x;
+        const uint32_t *source = rgb_pixels + (py/2)*stride;
+        for (uint64_t px=0; px<copy_width; px++)
+            destination[px] = direct_rgb ? source[px/2] : rgb_color(source[px/2]);
     }
     return true;
 }

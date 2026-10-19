@@ -296,12 +296,13 @@ static void test_root_ports(void) {
 static unsigned test_pointer_options,tap_injected;static uint8_t last_tap;
 void mouse_trackpad_get_settings(unsigned *speed,unsigned *options) { *speed=3;*options=test_pointer_options; }
 uint64_t mouse_overflow_count(void) { return 0; }
-static unsigned injected, pointer_injected, net_wakeups;
+static unsigned injected, pointer_injected, pointer_canceled, net_wakeups;
 void net_notify_rx(void) { net_wakeups++; }
 static struct trackpad_motion last_pointer;
 void mouse_inject_trackpad(int32_t x,int32_t y,uint8_t buttons) {
     pointer_injected++; last_pointer=(struct trackpad_motion){.dx=x,.dy=y,.buttons=buttons};
 }
+void mouse_cancel_trackpad(void) { pointer_canceled++;mouse_inject_trackpad(0,0,0); }
 void keyboard_inject_hid_report(const uint8_t report[8], struct keyboard_hid_state *state) {
     (void)state; assert(report[2]==4); injected++;
 }
@@ -428,7 +429,7 @@ static void test_storage(void) {
 
 static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     xhci_set_trackpad_gestures(false);
-    xhci_set_trackpad_pointer(false); pointer_injected=0;
+    xhci_set_trackpad_pointer(false); pointer_injected=0;pointer_canceled=0;
     reset_test();
     uint8_t descriptor[84];
     FILE *file=fopen(fixture,"rb"); assert(file);
@@ -554,21 +555,50 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
             assert(tap_injected==before+1 && last_tap==contacts && !last_pointer.buttons && d->bulk_pending);
         }
         assert(t->tap_primary==1 && t->tap_secondary==1);test_pointer_options=0;test_time_step=1000;
+        /* Physical secondary press survives one finger lifting, even with
+         * tapping disabled, while bulk transport remains active. */
+        buffer[23]=1;buffer[54]=buffer[82]=10;
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-94);
+        dispatch_transfer_event(&e);assert(last_pointer.buttons==2 && d->bulk_pending);
+        buffer[23]=1;buffer[54]=10;buffer[40]=64;
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
+        dispatch_transfer_event(&e);assert(t->pointer.buttons==2 && !t->pointer.tap_armed);
+        buffer[23]=0;e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38);
+        dispatch_transfer_event(&e);assert(!last_pointer.buttons && tap_injected==2);
     }
     e.parameter_low=(uint32_t)t->trb; e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX+1);
     dispatch_transfer_event(&e); assert(t->errors==1 && !t->ready && !t->pending);
     if (pointer) assert(!last_pointer.buttons && t->pointer_cancels==2 && t->pointer_motion==(gestures?2u:1u));
+    if(pointer && !gestures) assert(pointer_canceled==1); /* Fault is not a normal release. */
     submit_trackpad_poll(d); assert(!t->pending); /* Error doesn't become a retry storm. */
     struct xhci_trackpad_capture capture;
     xhci_trackpad_snapshot(&capture);
-    assert(capture.found && capture.max_contacts==2 && capture.lifts==(gestures?4u:1u) && capture.errors==1);
+    assert(capture.found && capture.max_contacts==2 && capture.lifts==(gestures?5u:1u) && capture.errors==1);
     assert(capture.tap_primary==(gestures?1u:0u) && capture.tap_secondary==(gestures?1u:0u));
-    assert(capture.drag_frames==(gestures?3u:0u) && capture.drag_rebases==(gestures?2u:0u));
+    assert(capture.drag_frames==(gestures?4u:0u) && capture.drag_rebases==(gestures?3u:0u));
     assert(capture.samples[2].length==94 && capture.samples[1].data[40]==123);
     xhci_trackpad_reset_capture(); xhci_trackpad_snapshot(&capture);
     assert(capture.found && !capture.reports && !capture.samples[1].length && capture.errors==1);
     assert(!capture.drag_frames && !capture.drag_rebases && !capture.drag_handoffs && !capture.tap_primary && !capture.tap_secondary);
     if (pointer) assert(capture.pointer_enabled && capture.pointer_cancels==0);
+    if(gestures) {
+        /* A broad contact interrupting a held press is cancellation, not a
+         * widget-activating release. Do not rearm while the pad stays pressed. */
+        t->ready=true;t->pointer=(struct trackpad_pointer){0};submit_trackpad_poll(d);
+        buffer[23]=1;buffer[54]=10;buffer[55]=0;
+        e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
+        dispatch_transfer_event(&e);assert(last_pointer.buttons==1);
+        unsigned canceled=pointer_canceled;
+        buffer[54]=601&255;buffer[55]=601>>8;e.parameter_low=(uint32_t)t->trb;
+        dispatch_transfer_event(&e);assert(pointer_canceled==canceled+1 && !last_pointer.buttons);
+        buffer[54]=10;buffer[55]=0;e.parameter_low=(uint32_t)t->trb;
+        dispatch_transfer_event(&e);assert(!t->pointer.buttons && pointer_canceled==canceled+1);
+        buffer[23]=0;e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38);
+        dispatch_transfer_event(&e);
+        buffer[23]=1;e.parameter_low=(uint32_t)t->trb;e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-66);
+        dispatch_transfer_event(&e);assert(last_pointer.buttons==1);
+        cancel_trackpad_pointer(t);assert(pointer_canceled==canceled+2);
+    }
     xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }
