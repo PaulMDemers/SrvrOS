@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the Sound controls against the real HDA worker in a disposable VM."""
 import os
+import hashlib
 import argparse
 from pathlib import Path
 import shutil
@@ -46,6 +47,7 @@ def main():
             with usb_disk.open('wb') as target,source.open('rb') as content:
                 target.write(mbr);target.seek(2048*512);shutil.copyfileobj(content,target)
             command+=['-drive',f'if=none,id=stick,file={usb_disk},format=raw','-device','usb-storage,drive=stick,bus=xhci.0']
+        (out/'provenance.json').write_text(json.dumps({'commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip(),'codec_timer':args.codec_timer,'sha256':{str(p.relative_to(root)):hashlib.sha256(p.read_bytes()).hexdigest() for p in [root/'build/kernel/srvros.elf',root/'build/srvros.exfat',root/'build/userspace/playwav.elf']}},indent=2)+'\n')
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(command,stdout=errors,stderr=errors)
             try:

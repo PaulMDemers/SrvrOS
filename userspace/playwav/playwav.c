@@ -3,14 +3,14 @@
 #include <srvros/audio.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
+#include <srvros/sys.h>
 static int16_t buffer[SRV_PCM_MAX_WRITE/2];
-static struct source { FILE *file;unsigned channels;uint32_t remaining;size_t at,size;unsigned char bytes[16384]; } source;
+static struct source { int fd;unsigned channels;uint32_t remaining;size_t at,size;unsigned char bytes[16384]; } source;
 static int read_frame(void *context,int16_t samples[2]) {
     struct source *s=context;unsigned frame=s->channels*2;
     if(s->at==s->size) {
         size_t n=s->remaining<sizeof(s->bytes)?s->remaining:sizeof(s->bytes);
-        if(!n || fread(s->bytes,1,n,s->file)!=n)return -1;
+        if(!n || srv_read(s->fd,s->bytes,n)!=(long)n)return -1;
         s->size=n;s->at=0;s->remaining-=(uint32_t)n;
     }
     if(s->size-s->at<frame)return -1;
@@ -18,7 +18,11 @@ static int read_frame(void *context,int16_t samples[2]) {
     samples[0]=(int16_t)((unsigned)p[0]|((unsigned)p[1]<<8));
     samples[1]=s->channels==1?samples[0]:(int16_t)((unsigned)p[2]|((unsigned)p[3]<<8));return 0;
 }
-static int pause_tick(void) { const struct timespec delay={0,10000000};return nanosleep(&delay,0); }
+/* The realtime loop uses only bounded snapshot reads, PCM requests and sleep.
+ * General stdio/POSIX wrappers also query thread/signal state; those remain
+ * gated during storage ownership. Default termination is still handled at
+ * every syscall boundary by the kernel. */
+static int pause_tick(void) { return srv_sleep_ticks(1)<0?-1:0; }
 int main(int argc,char **argv) {
     if(argc==2 && (!strcmp(argv[1],"--help") || !strcmp(argv[1],"-h"))) {
         puts("usage: playwav FILE.wav\nPlays 44100/48000 Hz, 16-bit mono/stereo PCM WAV. One player at a time.\nSet volume/output in Settings before playback; Stop cancels it.");return 0;
@@ -27,7 +31,9 @@ int main(int argc,char **argv) {
     FILE *f=fopen(argv[1],"rb");struct wav_info info;
     if(!f) { perror("playwav");return 1; }
     if(wav_open_data(f,&info)) { fputs("playwav: expected a complete 44100/48000 Hz, 16-bit mono/stereo PCM WAV\n",stderr);fclose(f);return 1; }
-    source=(struct source){.file=f,.channels=info.channels,.remaining=info.bytes};
+    long offset=ftell(f);
+    if(offset<0 || fseek(f,offset,SEEK_SET)) { fclose(f);return 1; }
+    source=(struct source){.fd=fileno(f),.channels=info.channels,.remaining=info.bytes};
     struct pcm_convert converter;
     if(pcm_convert_init(&converter,info.rate,info.bytes/(info.channels*2),read_frame,&source)) {
         fputs("playwav: incomplete PCM data\n",stderr);fclose(f);return 1;

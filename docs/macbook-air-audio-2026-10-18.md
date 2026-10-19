@@ -175,7 +175,10 @@ most 16 KiB when their type is `PROCESS_FILE_VFS`. That path only copies from a
 retained memory snapshot and advances the shared cursor under IRQ exclusion.
 Opening, closing, writable-file reads, redirected stdio, larger reads and all
 filesystem mutations keep their existing ownership gate. This is not concurrent
-block-device access. The WAV player's file-close runs after audio release.
+block-device access. The WAV player's file-close runs after audio release. Its refill loop uses
+raw bounded snapshot reads and tick sleeps: general stdio/POSIX wrappers query
+thread/signal state through other gated syscalls. Default termination is still
+handled at each syscall boundary.
 
 The existing filesystem loads read-only file contents when opening them; bounded
 player buffers do not remove that underlying whole-file snapshot limit. Future
