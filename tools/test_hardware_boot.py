@@ -133,6 +133,17 @@ class InstallTests(unittest.TestCase):
         for bad in ("-37d8c5d0","37d8--c5d0","37d8c5d00","not-a-uuid"):
             with self.assertRaises(boot.argparse.ArgumentTypeError): boot.compact_volume_uuid(bad)
 
+    def test_desktop_idle_profile_is_separate(self):
+        version="ram-usb-v25-laptop-probe-37d8c5d0"
+        self.assertIsNotNone(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config("0123456789abcdef",version)
+        self.assertIn("srvros.capture=desktop-idle",config)
+        self.assertIn("srvros.smc=read-only",config)
+        self.assertNotIn("srvros.aml=probe",config)
+        self.assertNotIn("srvros.desktop=trial",config)
+        with self.assertRaises(ValueError): boot.stage(desktop_idle_capture=True)
+        with self.assertRaises(ValueError): boot.stage(laptop_probe_volume='37d8c5d0',desktop_idle_capture=True,idle_capture=True)
+
     def test_idle_capture_profile_is_separate_and_has_no_aml(self):
         version="ram-usb-v23-laptop-probe-37d8c5d0"
         release=self.payload("idle",version)

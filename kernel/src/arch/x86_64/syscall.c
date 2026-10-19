@@ -1,6 +1,7 @@
 #include <srvros/devices.h>
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
+#include <srvros/scheduler_abi.h>
 #include <srvros/audio.h>
 #include <srvros/audio_abi.h>
 #include <srvros/audio_stream_abi.h>
@@ -2465,6 +2466,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
+    case SYS_SCHEDULER_STATUS:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -2476,6 +2478,15 @@ bool syscall_io_safe(const struct isr_frame *frame) {
         return true;
     default: return false;
     }
+}
+
+static int64_t syscall_scheduler_status(struct srv_scheduler_status *out,uint64_t size) {
+    if(size!=sizeof(*out) || !user_buffer_ok(out,sizeof(*out),true)) return -1;
+    struct scheduler_stats stats;scheduler_snapshot(&stats);
+    struct srv_scheduler_status value={.version=SRV_SCHEDULER_VERSION,
+        .monotonic_us=timer_monotonic_us(),.sampled_ticks=stats.sampled_ticks,
+        .idle_ticks=stats.idle_ticks,.switches=stats.switches,.preemptions=stats.preemptions};
+    return copy_to_user(out,&value,sizeof(value))?0:-1;
 }
 
 static int64_t syscall_smc(struct srv_smc_status *out,uint64_t size) {
@@ -2666,6 +2677,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_GUI_REGISTER:
         frame->rax = (uint64_t)syscall_gui_register();
+        return;
+    case SYS_SCHEDULER_STATUS:
+        frame->rax=(uint64_t)syscall_scheduler_status((struct srv_scheduler_status *)frame->rdi,frame->rsi);
         return;
     case SYS_SMC_STATUS:
         frame->rax=(uint64_t)syscall_smc((struct srv_smc_status *)frame->rdi,frame->rsi);

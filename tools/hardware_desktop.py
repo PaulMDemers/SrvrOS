@@ -62,6 +62,18 @@ def idle_sample(exit_text):
             "preemptions":preemptions,"scope":"console with periodic device and USB logging; not power or desktop acceptance"}
 
 
+def desktop_idle_sample(exit_text):
+    records=re.findall(r"^desktop-idle: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) frames=([0-9]{1,20}) fb_bytes=([0-9]{1,20}) measured=yes$",exit_text,re.M)
+    if len(records)!=1 or exit_text.splitlines().count("desktop-idle: completed=yes screenshot=yes")!=1 or \
+       "desktop-idle-capture: returned=yes clean=yes" not in exit_text.splitlines() or "deskd: FAIL" in exit_text:return None
+    elapsed,total,idle,switches,preemptions,frames,fb_bytes=map(int,records[0])
+    if elapsed<59000000 or not total or idle>total:return None
+    return {"elapsed_us":elapsed,"sampled_ticks":total,"idle_ticks":idle,
+            "idle_sample_percent":round(100*idle/total,2),"switches":switches,
+            "preemptions":preemptions,"frames":frames,"framebuffer_bytes":fb_bytes,
+            "scope":"CPU0 scheduler samples with Text open and periodic device/USB logs; not energy or interactive acceptance"}
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
@@ -135,6 +147,7 @@ def collect(mount, volume, output):
             "desktop_exit_seen": "deskd: exited" in text,
             "attention": attention,
             "devices": device_summaries(text),
+            "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),

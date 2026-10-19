@@ -555,6 +555,7 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
+    bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
@@ -563,11 +564,16 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe || automatic_idle || automatic_aml) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle;
+        if(automatic_desktop_idle && started && init_ready && timer_running) {
+            sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
+            console_printf("desktop-idle-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();audio_print_status();
+        }
         if(automatic_aml && started && init_ready && timer_running) {
             sampled=aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
             console_printf("aml-capture: returned=yes clean=%s; isolated snapshot probe only\n",sampled?"yes":"NO");

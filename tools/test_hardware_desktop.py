@@ -23,6 +23,16 @@ class CollectionTests(unittest.TestCase):
             self.assertIsNone(desktop.idle_sample(bad))
         self.assertEqual(desktop.session_releases("laptop-capture: boot options=srvros.desktop-release=0123456789abcdef"),["0123456789abcdef"])
 
+    def test_desktop_idle_requires_saved_capture_and_successful_return(self):
+        line="desktop-idle: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5400 switches=12000 preemptions=25 frames=120 fb_bytes=9000 measured=yes"
+        tail="\ndesktop-idle: completed=yes screenshot=yes\ndesktop-idle-capture: returned=yes clean=yes"
+        record=line+tail
+        self.assertEqual(desktop.desktop_idle_sample(record)["idle_sample_percent"],90)
+        for bad in (line,record.replace("clean=yes","clean=NO"),record.replace("screenshot=yes","screenshot=NO"),
+                    record.replace("60000000","1000"),record.replace("idle_ticks=5400","idle_ticks=6001"),
+                    record+"\n"+line,record+"\ndeskd: FAIL", "terminal: "+record):
+            self.assertIsNone(desktop.desktop_idle_sample(bad))
+
     def test_device_summary_order_and_attention(self):
         newer="workspace-devices: audio_state=4 error=3 started=2 completed=1 monotonic_us=200"
         older="workspace-devices: audio_state=2 error=0 started=1 completed=1 monotonic_us=100"

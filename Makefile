@@ -3190,3 +3190,11 @@ build/tests/gfx-blit-host$(HOST_EXE): tools/test_gfx_blit.c kernel/src/arch/x86_
 	mkdir -p build/tests
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
 test-core: test-gfx-blit
+
+.PHONY: test-scheduler-status
+test-scheduler-status: build/tests/scheduler-status-host$(HOST_EXE)
+	$<
+build/tests/scheduler-status-host$(HOST_EXE): tools/test_scheduler_status.c kernel/src/arch/x86_64/syscall.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	mkdir -p build/tests
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include -I $(LIMINE_PROTOCOL_DIR)/include $< -Wl,--gc-sections -o $@
+test-core: test-scheduler-status

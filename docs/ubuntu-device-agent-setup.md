@@ -219,6 +219,26 @@ the successful exact-stage result. Collect using `hardware_desktop.py` and requi
 this release's exit log containing `idle-capture: ... completed=yes`, plus a healthy
 collected session and verified unmount. Scheduler timer samples are
 coarse occupancy evidence, not a wattmeter or proof of desktop responsiveness.
+For a real desktop sample, use the separate v25 profile after desktop boot and
+USB saving are known to work:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --desktop-idle-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+It opens Text, allows startup to settle, samples CPU0 scheduler counters for
+60 seconds, saves a screenshot to the selected workspace and closes the desktop.
+Clean log save/unmount then returns to Ubuntu; failure halts. Leave input alone
+during this measurement. This is an explicit unattended diagnostic, not a timed
+exit added to ordinary desktop use. The collector's `desktop_idle_sample` requires
+the complete measurement, screenshot success and clean process return. The
+exact-stage VM rehearsal also reads and decodes the saved BMP from the disk image.
+The sample excludes startup and screenshot writing, but includes normal Text
+caret/clock updates and periodic USB/device logs. It measures scheduler occupancy,
+not energy consumption, CPU frequency, equilibrium temperature or interactive
+input acceptance. Keep the physical result separate from the console-idle sample.
+
 Use the same recorded recovery/one-shot installation sequence below; keep the
 accepted previous desktop when the current payload is only an automated test.
 

@@ -54,7 +54,8 @@ struct session {
     unsigned modifiers;
     struct io_trial io;
     struct desk_capture_job capture;
-    int capture_pending;
+    int capture_pending,capture_success;
+    unsigned capture_finished;
     uint64_t capture_serial;
     uint32_t *cache[DESKD_WINDOWS][2];
 };
@@ -638,6 +639,7 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     int result=desk_capture_job_poll(&s->capture);
     if(result) {
         int success=result>0 && !s->capture.response.status;
+        s->capture_success=success;s->capture_finished++;
         const char *name=strrchr(s->capture.request.path,'/');
         capture_notice(s,success,success?(name?name+1:s->capture.request.path):"Save or verification failed. Check Files.");
         desk_log("deskd: screenshot %s status=%u path=%s\n",success?"saved":"failed",s->capture.response.status,s->capture.request.path);
@@ -649,7 +651,9 @@ static void capture_tick(struct session *s,const uint32_t *pixels) {
     time_t seconds=us<0?0:us/1000000;struct tm utc;
     if(us>=0 && gmtime_r(&seconds,&utc)) strftime(date,sizeof(date),"%Y%m%d-%H%M%S",&utc);
     snprintf(path,sizeof(path),"%s/Screenshots/Screen-%s-%llu-%u.bmp",s->home?s->home:DESK_RAM_HOME,date,(unsigned long long)srv_getpid(),s->capture.next_id+1);
-    if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) capture_notice(s,0,"The capture worker could not start.");
+    if(desk_capture_job_start(&s->capture,pixels,s->damage.width,s->damage.height,path)) {
+        s->capture_success=0;s->capture_finished++;capture_notice(s,0,"The capture worker could not start.");
+    }
     else if(s->trace) desk_log("deskd: screenshot captured path=%s width=%d height=%d\n",path,s->damage.width,s->damage.height);
     global_menu_rebuild(s);
 }
@@ -973,8 +977,9 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
     int hardware_trial=argc==2 && !strcmp(argv[1],"--hardware-trial");
-    int apps=hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
+    int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
     int lifecycle=argc==2 && strcmp(argv[1],"--lifecycle-smoke")==0,phase=0;
@@ -990,8 +995,8 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.home=hardware_trial?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+    struct session s={.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+        .trace=idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
@@ -1005,12 +1010,17 @@ int main(int argc,char **argv) {
     s.scene.trackpad_trial=io_mode?3:argc==2 && strcmp(argv[1],"--gesture-test")==0?2:
         (argc==2 && strcmp(argv[1],"--trackpad-test")==0);
     desk_damage_init(&s.damage,width,height);
-    if(apps) { desktop_preferences_init_path(&s.preferences,hardware_trial?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
+    if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
     if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
+    if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
+    int idle_phase=0;
+    unsigned idle_capture_serial=0;
+    uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
+    struct srv_scheduler_status idle_before={0};
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
@@ -1334,8 +1344,47 @@ int main(int argc,char **argv) {
         if (s.damage.count) frames++;
         s.damage.count=0;
         if(apps && !failed) capture_tick(&s,pixels);
+        if(idle_capture && !failed) {
+            uint64_t now=srv_ticks();
+            if(idle_phase && !s.clients[0].generation) failed=1;
+            if(!idle_phase && now-start>=500) {
+                if(!s.clients[0].generation) { if(now-start>=3000) failed=1; }
+                else if(srv_scheduler_status(&idle_before) || idle_before.version!=SRV_SCHEDULER_VERSION) failed=1;
+                else {
+                    idle_phase=1;idle_deadline=now+6000;idle_frames=frames;idle_bytes=bytes;
+                    desk_log("desktop-idle: measuring 60 seconds with Text open; no user input required\n");
+                }
+            } else if(idle_phase==1 && now>=idle_deadline) {
+                struct srv_scheduler_status after={0};
+                if(srv_scheduler_status(&after) || after.version!=SRV_SCHEDULER_VERSION ||
+                   after.monotonic_us<idle_before.monotonic_us+59000000 ||
+                   after.sampled_ticks<=idle_before.sampled_ticks || after.idle_ticks<idle_before.idle_ticks ||
+                   after.idle_ticks-idle_before.idle_ticks>after.sampled_ticks-idle_before.sampled_ticks ||
+                   after.switches<idle_before.switches || after.preemptions<idle_before.preemptions) failed=1;
+                else {
+                    desk_log("desktop-idle: elapsed_us=%llu sampled_ticks=%llu idle_ticks=%llu switches=%llu preemptions=%llu frames=%llu fb_bytes=%llu measured=yes\n",
+                        (unsigned long long)(after.monotonic_us-idle_before.monotonic_us),
+                        (unsigned long long)(after.sampled_ticks-idle_before.sampled_ticks),
+                        (unsigned long long)(after.idle_ticks-idle_before.idle_ticks),
+                        (unsigned long long)(after.switches-idle_before.switches),
+                        (unsigned long long)(after.preemptions-idle_before.preemptions),
+                        (unsigned long long)(frames-idle_frames),(unsigned long long)(bytes-idle_bytes));
+                    idle_phase=2;idle_deadline=now+3000;idle_capture_serial=s.capture_finished;
+                    capture_request(&s);
+                }
+            } else if(idle_phase==2) {
+                if(s.capture_finished>idle_capture_serial) {
+                    if(!s.capture_success) failed=1;
+                    else { idle_phase=3;quit=1; }
+                } else if(now>=idle_deadline) failed=1;
+            }
+        }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         srv_sleep_ticks(1);
+    }
+    if(idle_capture) {
+        if(idle_phase!=3) failed=1;
+        desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");
     }
     if (io_trial_finish(&s.io)!=0) failed=1;
     /* Bound shutdown even when a client stopped reading. Only kill children
