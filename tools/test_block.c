@@ -90,6 +90,62 @@ static void test_mbr(void) {
     mbr_entry(0,5,1,4); assert(block_register_mbr_partitions(mbr_disk())==0);
     mbr_entry(0,7,1,4); medium[510]=0; assert(block_register_mbr_partitions(mbr_disk())==0);
 }
+static void put32(uint8_t *p, uint32_t n) { for (unsigned i=0;i<4;i++) p[i]=n>>(8*i); }
+static void put64(uint8_t *p, uint64_t n) { for (unsigned i=0;i<8;i++) p[i]=n>>(8*i); }
+static void gpt_checksums(void) {
+    uint8_t *h=medium+512;
+    put32(h+88,~gpt_crc32(UINT32_MAX,medium+1024,128*128));
+    put32(h+16,0);put32(h+16,~gpt_crc32(UINT32_MAX,h,92));
+}
+static void gpt_fixture(void) {
+    memset(medium,0,sizeof(medium));medium[510]=0x55;medium[511]=0xaa;
+    mbr_entry(0,0xee,1,127);
+    uint8_t *h=medium+512;memcpy(h,"EFI PART",8);put32(h+8,0x10000);put32(h+12,92);
+    put64(h+24,1);put64(h+32,127);put64(h+40,34);put64(h+48,94);
+    put64(h+72,2);put32(h+80,128);put32(h+84,128);
+    uint8_t *e=medium+1024;e[0]=1;e[16]=2;put64(e+32,40);put64(e+40,47);
+    gpt_checksums();
+}
+static struct block_device *gpt_disk(void) {
+    block_init();return block_register("usb0",512,128,fake_read,NULL,NULL);
+}
+static void reject_gpt(void) {
+    assert(block_register_gpt_partitions(gpt_disk())==0);
+    assert(partition_count==0 && device_count==1);
+}
+static void test_gpt(void) {
+    assert(~gpt_crc32(UINT32_MAX,(const uint8_t *)"123456789",9)==0xcbf43926u);
+    gpt_fixture(); struct block_device *d=gpt_disk();
+    assert(block_register_gpt_partitions(d)==1);
+    struct block_device *p=block_find("usb0p1");assert(p && p->block_count==8 && !p->write);
+    uint8_t byte;medium[40*512]=0x5a;assert(block_read(p,0,&byte,1) && byte==0x5a);
+    assert(block_register_gpt_partitions(d)==0 && partition_count==1);
+    assert(block_register_gpt_partitions(p)==0);
+    d->write=fake_write;assert(block_enable_partition_writes(p));byte=0x71;
+    assert(block_write(p,0,&byte,1) && medium[40*512]==0x71);
+    assert(!block_write(p,8*512,&byte,1));
+    gpt_fixture();medium[512+16]^=1;reject_gpt(); /* Header CRC. */
+    gpt_fixture();medium[1024+100]^=1;reject_gpt(); /* Entry table CRC. */
+    gpt_fixture();mbr_entry(1,7,40,8);reject_gpt(); /* Hybrid protective MBR. */
+    gpt_fixture();put64(medium+1024+32,1);gpt_checksums();reject_gpt();
+    gpt_fixture();put64(medium+1024+40,UINT64_MAX);gpt_checksums();reject_gpt();
+    gpt_fixture();put64(medium+512+72,UINT64_MAX);gpt_checksums();reject_gpt();
+    gpt_fixture();put32(medium+512+80,UINT32_MAX);gpt_checksums();reject_gpt();
+    gpt_fixture();put32(medium+512+84,129);gpt_checksums();reject_gpt();
+    gpt_fixture();put64(medium+512+40,2);gpt_checksums();reject_gpt();
+    gpt_fixture();put64(medium+512+48,126);gpt_checksums();reject_gpt();
+    gpt_fixture();put64(medium+1024+48,1ull<<60);gpt_checksums();reject_gpt();
+    gpt_fixture();memcpy(medium+1152,medium+1024,128);medium[1152+16]=3;
+    put64(medium+1152+32,47);put64(medium+1152+40,50);gpt_checksums();reject_gpt();
+    /* Late invalid entry must not publish the earlier valid partition. */
+    gpt_fixture();memcpy(medium+1024+127*128,medium+1024,128);gpt_checksums();reject_gpt();
+    gpt_fixture();memcpy(medium+1152,medium+1024,128);medium[1152+16]=3;
+    put64(medium+1152+32,64);put64(medium+1152+40,71);gpt_checksums();
+    assert(block_register_gpt_partitions(gpt_disk())==2);
+    gpt_fixture();fail_read=true;reject_gpt();fail_read=false;
+    puts("gpt-host: PASS CRCs, bounded map, metadata exclusion, overlap/duplicate rejection, no partial publication and partition I/O");
+}
+
 static void test_batches(void) {
     static uint8_t input[sizeof(medium)], output[sizeof(medium)], expected[sizeof(medium)];
     const unsigned offsets[]={0,1,510,512,4095,4096};
@@ -147,6 +203,7 @@ static void test_batches(void) {
 }
 int main(void) {
     test_batches(); service_yields=0;
+    test_gpt();
     test_mbr();
     block_init(); memset(medium,'a',sizeof(medium));
     struct block_device *d=block_register("disk",512,8,fake_read,fake_write,NULL);
