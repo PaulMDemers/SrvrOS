@@ -23,11 +23,12 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: reusable SCI route/callback ownership for the
-  native adapter, exercised first through the separate Q35 runtime. Scope:
-  `ports/srvros/uacpi/runtime/sci_owner.*`, Q35 adapter binding, host failure
-  injection, VM lifecycle checks and runtime guides. Preserve the Q35 identity
-  gate and ordinary native startup. Base `bcea808`; draft PR #4 owns the scope.
+- Current bounded implementation: contain EC query storms before native GPE
+  binding. Scope: reusable query-drain budget, separate Q35 EC worker/fixture,
+  host fault tests, VM storm/deadline tests and runtime guides. Budgets must
+  survive worker rescheduling and fail without releasing live namespace state.
+  Base `14bf47a`; draft PR #4 owns this ACPI work. The Pro11,2 branch/PR #5
+  owns its USB/input diagnosis; no implementation overlap is planned.
 - SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
   route, registers its callback, enables delivery, and retires/restores the
   route with bounded rollback. Host fault tests and ASan/UBSan pass, including
