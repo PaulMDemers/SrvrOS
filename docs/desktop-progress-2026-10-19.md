@@ -140,3 +140,19 @@ the complete core suite. The captured-table replay now returns in about 2.1 s
 with no interpreter allocations left. QEMU firmware/uncaptured regions produce
 errors in that replay, so it is not a complete or physically faithful firmware
 result. The synthetic native AML fixture passes without errors/denials/leaks.
+
+## Native isolated AML completion
+
+Release `4e5f438c4069752b` (source `17c6ed3`) completed on the Air7,2 and
+returned to Ubuntu. The matching session `session-00065e29c90512da-00`
+preserves a clean exit: 5,125,724 us, zero interpreter errors/denials, four
+private snapshot writes and zero remaining interpreter allocations. Namespace
+loading took about 3.59 seconds. EC resources resolved to ports 0x62/0x66, GPE
+0x4e, SMBus `_EC` 0x2010 and one SBS battery declaration. The FADT revision
+warning still appears, followed immediately by successful initialization.
+
+An offline read-only exFAT check was clean (161 directories, 805 files). This
+clears the isolated native probe's stall gate after the heap fixes; it does not
+prove which heap defect caused the original screenshot's stall. Ordinary desktop
+and idle profiles still omit the diagnostic. No ACPI mode/SCI/EC ownership,
+live battery transaction, lid policy or suspend behavior is accepted here.

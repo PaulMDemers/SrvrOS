@@ -24,7 +24,7 @@ device work uses separate branches based on `main`.
 | System window stability | Failure recorded | `input-timeout queue=5` closed System pid14 in the latest trial |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
 | Battery/AC and suspend/resume | Not implemented as live services | ACPI/EC foundations exist; runtime ownership and tests remain |
-| Optional AML probe | Native stall | `fe119d1c99070b18`; v22 omits the probe, root cause unresolved |
+| Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
 ## Latest physical record
@@ -51,7 +51,9 @@ records host/VM evidence. Native automated batch `54a944ae1f7849ac`
 verified and a clean offline exFAT check. The following bounded console-idle capture `1fe693c9889f131f`
 (source `b3f0e31`) saved 60 seconds of samples: 94.55% idle, package 80→75 C,
 1,206 RPM final fan, no SMC errors. It returned automatically with a clean
-offline exFAT check. Current boot payload is that idle capture; previous retains
+offline exFAT check. Subsequent isolated AML capture `4e5f438c4069752b` (source `17c6ed3`)
+completed cleanly in 5.13 seconds and returned with clean exFAT. Current boot
+payload is that explicit diagnostic; previous retains
 accepted desktop `b427b78f21644bd2`. Interactive input, desktop idle and power
 consumption still need physical acceptance.
 The generalized Linux collector completed with zero partial reads on this host.

@@ -103,7 +103,7 @@ Host and synthetic-QEMU success do not establish completion on this firmware.
 The October 19 investigation adds stage and per-object entry markers. Captured
 DSDT/SSDT injection in QEMU reproduced a false heap-corruption halt at 4,096
 blocks; removing that arbitrary ceiling lets the diagnostic return. The native
-stall is still unconfirmed. `tools/aml_probe_smoke.py --tables <capture>/acpi`
+stall cause was not yet confirmed by the replay alone. `tools/aml_probe_smoke.py --tables <capture>/acpi`
 validates input checksums and records table hashes, phase output and failure
 registers. QEMU's generated tables and unavailable firmware memory make this a
 stress/replay diagnostic, not a faithful machine model or successful battery
@@ -116,3 +116,10 @@ halts for inspection. This is explicitly requested diagnostic execution and
 remains absent from v22 desktop and v23 idle profiles. Progress markers improve
 stall localization but are not a watchdog: a kernel fault or stalled interpreter
 can still require manual recovery. No live ACPI/EC/SCI ownership is added.
+
+The subsequent native v24 capture `4e5f438c4069752b` completed in 5.13 seconds
+with zero errors/denials/leaks and four private snapshot writes. EC/SMBus/SBS
+resource evaluation succeeded and the logged capture returned to Ubuntu with
+clean exFAT. This clears the isolated probe stall gate after the heap fixes;
+it does not enable live runtime ownership or accept battery readings. Normal
+desktop startup continues to omit this diagnostic.
