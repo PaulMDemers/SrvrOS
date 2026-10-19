@@ -374,3 +374,20 @@ searching and closing. Heap use remained 4,096 bytes after each session; physica
 frame use plateaued exactly after the first. No GUI workers remained. The soak
 now explicitly rejects unexpected client/input/control timeout closures instead
 of counting retirement alone as success. Physical acceptance is still pending.
+
+## Isolated VM serial endpoints
+
+The second full ACPI soak stopped after 26 complete runtime/EC rounds plus one
+runtime suite (53 completed suites), at 1,438.69 seconds. The next QEMU never
+started its guest: its stderr reports the selected TCP serial port was already
+in use. The harness then timed out connecting to that VM's absent QMP endpoint.
+This is preserved as a failed soak, not a kernel failure or a completed run, in
+`~/.local/share/srvros/vm-soaks/20261019-runtime-99a1d728/rounds/0026/ec/`.
+
+The runtime, EC and SCI fixtures now use a private Unix serial socket in each
+fixture's temporary directory, avoiding the free-TCP-port selection race. A
+bounded connection helper has real-socket tests for delayed listening, unrelated
+endpoint isolation, missing endpoints and invalid timeouts. All three VM suites
+passed with private serial endpoints. The next immutable soak manifest hashes
+all copied tool/fixture/boot dependencies as well as its selected kernel. A fresh
+full-duration soak remains required. No native ACPI runtime is enabled.

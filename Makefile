@@ -3215,3 +3215,8 @@ build/tests/power-host$(HOST_EXE): tools/test_power.c kernel/src/drivers/power_c
 build/tests/power-service-host$(HOST_EXE): tools/test_power_service.c kernel/src/drivers/power.c kernel/src/drivers/power_core.c kernel/include/srvros/power.h $(KERNEL_HEADERS)
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_power_service.c kernel/src/drivers/power_core.c -o $@
+
+.PHONY: test-vm-sockets
+test-core: test-vm-sockets
+test-vm-sockets:
+	$(PYTHON) tools/test_vm_sockets.py

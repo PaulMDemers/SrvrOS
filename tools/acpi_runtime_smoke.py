@@ -2,6 +2,7 @@
 """Full uACPI VM adapter: real SCI, deferred AML waits, rollback and reset."""
 import os
 from pathlib import Path
+from vm_sockets import connect_unix
 from serial_records import search_complete, complete_lines
 import subprocess
 import tempfile
@@ -21,16 +22,16 @@ def main():
         subprocess.run(['iasl', '-p', str(tmp/'worker'), str(root/'tools/fixtures/acpi/runtime-worker.asl')],
                        check=True, stdout=subprocess.DEVNULL)
         iso = boot.build_iso(str(root), str(tmp), 1280, 800, os.environ.copy(), root/'build/acpi-runtime/srvros.elf')
-        port = boot.choose_port(30001, 38000)
+
         command = ['qemu-system-x86_64', '-M', 'q35', '-m', '512M', '-cdrom', iso,
                    '-boot', 'd', '-nic', 'none', '-acpitable', f'file={tmp}/worker.aml',
-                   '-serial', f'tcp:127.0.0.1:{port},server=on,wait=off', '-qmp',
+                   '-serial', f'unix:{tmp}/serial,server=on,wait=off', '-qmp',
                    f'unix:{tmp}/qmp,server=on,wait=off', '-display', 'none',
                    '-monitor', 'none', '-no-reboot']
         with (out / 'qemu.txt').open('w') as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
             try:
-                serial = boot.connect_serial(port, 20)
+                serial = connect_unix(tmp / 'serial', 20)
                 serial.settimeout(.05)
                 qmp = QMP(tmp / 'qmp')
                 start = time.monotonic()
