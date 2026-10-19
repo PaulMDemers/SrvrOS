@@ -25,6 +25,7 @@ def main():
 
     args=parser.parse_args();args.usb_io=True
     root=Path(__file__).resolve().parents[1];out=root/'build/review/audio-desktop-stream';out.mkdir(parents=True,exist_ok=True)
+    (out/'result.json').unlink(missing_ok=True)
     original=boot.make_limine_conf
     boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.audio=hda'+(' srvros.usb-storage=rw' if args.usb_io else '')+'\n'
     output=b'';consumed=0

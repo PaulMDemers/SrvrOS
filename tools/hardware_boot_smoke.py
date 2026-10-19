@@ -128,6 +128,10 @@ def main():
     parser.add_argument("--responsiveness-check", action="store_true")
     parser.add_argument("--ovmf", default=default_ovmf_path())
     args = parser.parse_args()
+    logs = boot.ROOT / "build/review"
+    logs.mkdir(parents=True, exist_ok=True)
+    (logs/"hardware-grub-result.json").unlink(missing_ok=True)
+    (logs/"hardware-grub-pcm.json").unlink(missing_ok=True)
     release = (boot.STAGE / "latest").read_text().strip()
     source = boot.STAGE / release
     manifest=boot.verify(source)
@@ -140,8 +144,6 @@ def main():
     if args.audio_check and (not desktop or not manifest["config_version"].startswith("ram-usb-v21-")):
         parser.error("--audio-check requires a v21 desktop stage")
     workspace=desktop or probe
-    logs = boot.ROOT / "build/review"
-    logs.mkdir(parents=True, exist_ok=True)
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory(prefix="srvros-grub-") as tmp:
@@ -453,6 +455,13 @@ def main():
                     process.terminate()
                     try: process.wait(timeout=5)
                     except subprocess.TimeoutExpired: process.kill();process.wait()
+    (logs/"hardware-grub-result.json").write_text(json.dumps({
+        "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
+        "desktop":args.desktop_check,"audio":args.audio_check,
+        "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
+        "console":args.console_check,"kernel":args.kernel_check,
+        "responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
+    },indent=2)+"\n")
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
     if args.kernel_check:
         print("kernel: PASS (nested register preservation, timer/preemption, RAM fsck, cache service windows)")
