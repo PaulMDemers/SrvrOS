@@ -5,7 +5,10 @@
 static struct srv_scheduler_status output;
 static bool mapped=true;
 static unsigned reads;
-bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
+/* Keep the test mapping boundary opaque like the separately compiled VMM.
+ * GCC 13 otherwise folds this narrow fixture into unrelated, discarded
+ * syscall paths and diagnoses their unreachable user copies. */
+__attribute__((noinline)) bool vmm_user_range_mapped(uint64_t address,uint64_t length,bool writable) {
     assert(writable);
     return mapped && address==(uint64_t)&output && length==sizeof(output);
 }

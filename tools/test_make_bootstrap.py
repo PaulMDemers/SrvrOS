@@ -1,5 +1,6 @@
 """Exercise real Make rules with a delayed, disposable compiler bootstrap."""
 from pathlib import Path
+import os
 import shlex
 import subprocess
 import sys
@@ -8,6 +9,7 @@ import unittest
 
 
 class BootstrapOrderTest(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'Isolated fixture uses unprivileged Unix directory symlinks')
     def test_parallel_acpi_compile_waits_for_toolchain(self):
         root = Path(__file__).resolve().parents[1]
         for target in (
