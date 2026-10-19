@@ -25,8 +25,17 @@ covers workflows, shortcuts and current limits; the
 [widget library guide](userspace/widgets/README.md) documents reusable controls and
 application boundaries. The [development journal](docs/desktop-progress-2026-10-18.md)
 records implementation and VM checks. The accepted MacBook Air input/I/O
-checkpoint is preserved separately; the expanded app set is being validated in
-disposable VMs before another hardware test.
+checkpoint is preserved separately; the current device candidate is validated
+in disposable VMs and ready for its next physical test.
+
+Device work adds manual panel brightness, configurable trackpad gestures,
+CPU/fan readings, CDC ECM USB networking and HDA sound output. The new
+[`playwav` player](docs/macbook-air-audio-2026-10-18.md) supports 16-bit mono/stereo
+PCM WAV at 44.1 or 48 kHz, including playback during USB storage work. Speaker
+and headphone sound, sensor freshness and an actual network adapter still need
+physical acceptance. Battery/AC reporting awaits the live SCI/EC runtime; its
+tested foundations and next steps are in the
+[laptop-service notes](docs/macbook-air-laptop-services-2026-10-18.md).
 
 ## Screenshots
 
@@ -184,6 +193,9 @@ preferences (QEMU development build):
   and `scanf` surfaces.
 - `/fat/bin/fpdemo` stress-tests userspace double math across foreground and
   background preemption.
+- `/fat/bin/playwav` plays supported PCM WAV files through the process-owned
+  audio stream. `/fat/share/examples/stereo.wav` provides a short channel test;
+  choose volume/output in Settings before playback and use Stop to cancel it.
 - `/fat/bin/tap` splits an input stream to stdout and a secondary file, and is
   covered in the shell pipeline smoke path.
 - The native launch path accepts an argv vector, an envp vector, background

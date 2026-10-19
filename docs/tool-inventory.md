@@ -29,6 +29,17 @@ touch mktemp basename dirname uname hostname uptime id whoami
 The current `date` command reports monotonic uptime-style time because srvros
 does not yet have RTC or network wall-clock plumbing.
 
+## Audio
+
+`playwav FILE.wav` plays 16-bit PCM WAV files at 44.1 or 48 kHz in mono or stereo
+through the HDA output driver. One process owns sound at a time; choose volume
+and output in Settings before starting, and use Stop to cancel playback.
+`playwav --help` prints the accepted format. A short left/right/stereo sample is
+installed at `/fat/share/examples/stereo.wav`. Compressed formats, mixing,
+recording and pause/seek are not implemented. See the
+[audio bring-up notes](macbook-air-audio-2026-10-18.md) for hardware acceptance
+and VM validation.
+
 ## File And Filesystem Commands
 
 File, directory, metadata, and disk-use commands:
