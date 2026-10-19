@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise the staged GRUB -> Limine -> kernel path on a disposable QEMU ESP."""
 import argparse
+import json
 import binascii
 import re
 from pathlib import Path

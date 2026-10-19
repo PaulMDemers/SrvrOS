@@ -183,3 +183,21 @@ handled at each syscall boundary.
 The existing filesystem loads read-only file contents when opening them; bounded
 player buffers do not remove that underlying whole-file snapshot limit. Future
 large-media support needs paged/streaming filesystem reads and asynchronous I/O.
+
+### Emulator capture distinction
+
+The initial ten-minute PCM run completed ten files with zero guest underruns,
+but its sixth captured waveform lost exactly 2,048 frames. It is retained as a
+failed waveform check, not a passing soak. A later captured run reproduced a
+waveform discontinuity with QEMU's `hda_audio_overrun` trace. QEMU 10.2.1's
+[timer-backed codec](https://raw.githubusercontent.com/qemu/qemu/v10.2.1/hw/audio/hda-codec.c)
+discards its 8,192-byte buffer when the output callback finds it full; at this
+format that is 2,048 frames. This can occur under competing host VM load without
+an underrun in the guest DMA ring.
+
+The stream harness now records this trace and supports `--codec-timer off` for
+sample-exact capture through QEMU's callback-driven codec. It still fails any
+waveform mismatch; neither backend errors nor guest underruns are silently
+ignored. The exact staged boot test continues to use QEMU's default timer codec.
+These tests establish separate emulator and driver observations, not physical
+audio acceptance.
