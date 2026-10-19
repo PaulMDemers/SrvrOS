@@ -636,3 +636,19 @@ Terminal backspace redraw and Text copy/paste/select-all are physically accepted
 for this machine. This report does not separately establish secondary press/tap
 behavior, cancellation fault paths or power telemetry. No further reboot is
 armed.
+
+## Native power baseline collected
+
+The v26 capture `ed93e03b2585dcaf` (source `0f2038a`, same tree as merged
+`1d44cee`) returned with session `session-00065e38449c2146-00`. Its six valid
+power checkpoints cover 52.999 seconds: 342.298 J package energy, 6.458 W average
+package power and 2,083 MHz CPU0 active frequency. The full 60.003-second desktop
+interval was 94.10% scheduler-idle, one presentation / 76,384 framebuffer bytes.
+No rejected/stale readings or collector attention appeared. Screenshot and four
+logs verify; offline exFAT was clean (165 directories, 827 files), and the GRUB
+one-shot was consumed. Full local evidence is backed up outside `build`.
+This accepts the read-only capture on Air7,2, not whole-laptop power, CPU policy,
+thermal equilibrium or battery services. Native brightness remained 14%; Linux
+preflight observed AC connected. The [power guide](power-telemetry.md) records
+conditions. Next work targets early EC binding and namespace-load ownership in
+the separate synthetic Q35 runtime; ordinary desktop AML remains disabled.

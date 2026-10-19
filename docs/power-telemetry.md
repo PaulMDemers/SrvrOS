@@ -1,7 +1,7 @@
 # Read-only CPU power telemetry
 
-Status, 2026-10-19: implemented for an explicit diagnostic boot; **native SrvrOS
-acceptance pending**. The installed interactive desktop does not enable this provider.
+Status, 2026-10-19: **native read-only telemetry accepted on the reference Air7,2**
+for the bounded desktop capture below. Interactive desktop profiles do not enable this provider.
 Ordinary desktop staging does not enable it. This is measurement groundwork
 before changing CPU frequency or idle-state policy.
 
@@ -83,6 +83,36 @@ a clean automatic return. Compare matched workload, display brightness, adapter
 state, wall-clock duration and CPU0 idle counters; do not infer energy savings
 from scheduler idle percentage. Frequency controls and deeper idle entry need
 separate wake/input/storage regressions after a measured baseline exists.
+
+## Accepted Air7,2 desktop baseline
+
+Release `ed93e03b2585dcaf`, source `0f2038a` (same tree as integration
+`1d44cee`), saved session `session-00065e38449c2146-00` on October 19.
+Text was open without user interaction. The 60.003-second desktop window had
+94.10% CPU0 idle samples, one presentation and 76,384 framebuffer bytes.
+Six valid raw checkpoints covered 52.999 seconds inside that window:
+
+| Measurement | Result |
+| --- | --- |
+| Package energy over covered interval | 342.298 J |
+| Average package power | 6.458 W |
+| CPU0 active-frequency ratio | 2,083 MHz |
+| Rejected samples / collector attention | 0 / 0 |
+
+The checkpoint values retained energy and frequency validity without stale
+flags; raw counters advanced continuously. Package temperature fell from 68 to
+66 C across those checkpoints. The saved 1440×900 screenshot shows the idle Text
+window. Four logs and the BMP were copied and hash-verified; desktop completion
+and clean process return were recorded. Ubuntu returned with the one-shot entry
+consumed, and offline read-only exFAT checking was clean (165 directories,
+827 files). Full evidence is retained locally outside `build`.
+
+Linux preflight observed AC connected; SrvrOS retained its firmware backlight
+level of 14%. Linux's pre-reboot brightness setting is not the native level.
+There is no live SrvrOS AC/battery observation yet. This short post-boot sample
+includes periodic device/USB logging and is not thermal equilibrium, whole-laptop
+power, battery life or an energy-saving claim. The later screenshot write lies
+outside the measured window. No CPU policy or native EC/SCI settings changed.
 
 ## Linux policy baseline
 
