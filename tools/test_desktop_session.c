@@ -170,6 +170,23 @@ int main(void) {
     send_allow=-1;while(s.clients[0].input_count) service(&s);
     assert(sends==24&&!s.clients[0].closing);
     for(unsigned i=0;i<24;i++) assert(sent[i]==DESK_KEY&&sent_serials[i]==i+1);
+    /* Reproduce a compositor pause longer than the old queue-age timeout.
+     * A healthy client can accept this ordered key and must not be closed. */
+    memset(&s,0,sizeof(s));s.clients[0].pid=42;sends=0;
+    p=desk_packet_new(DESK_KEY);p.serial=101;queue_input(&s,0,p);
+    now+=601;service(&s);
+    assert(sends==1 && sent[0]==DESK_KEY && sent_serials[0]==101 && !s.clients[0].closing);
+    /* First failed attempt after a long server pause gets a fresh deadline.
+     * Partial progress also resets the deadline, preserving ordered edges. */
+    queue_full=1;queue_input(&s,0,p);now+=601;service(&s);
+    assert(s.clients[0].input_blocked && !s.clients[0].closing);
+    now+=400;service(&s);assert(!s.clients[0].closing);
+    queue_full=0;now+=200;service(&s);
+    assert(!s.clients[0].input_count && !s.clients[0].input_blocked && !s.clients[0].closing);
+    /* A client which really refuses input across repeated service attempts
+     * still reaches the bounded close path; the change is not an infinite wait. */
+    queue_full=1;queue_input(&s,0,p);service(&s);now+=501;service(&s);
+    assert(s.clients[0].closing);queue_full=0;
     memset(&s,0,sizeof(s));s.scene.apps=1;s.scene.focus=0;desk_damage_init(&s.damage,1280,800);
     s.clients[0].pid=42;s.scene.windows[0].visible=1;s.scene.windows[0].application=DESK_APP_TEXT;
     s.scene.windows[0].frame=(struct desk_rect){32,64,602,365};

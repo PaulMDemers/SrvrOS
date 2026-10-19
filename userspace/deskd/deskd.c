@@ -29,6 +29,7 @@ struct client {
     struct desk_packet input[DESK_INPUT_QUEUE];
     unsigned input_head,input_count,input_dropped;
     uint64_t input_since;
+    int input_blocked;
     struct desk_menu_store menus;
     char launch_path[160];
     unsigned launch_length,launch_application;
@@ -126,7 +127,7 @@ static void queue_input(struct session *s,int i,struct desk_packet p) {
             close_client(s,i); return;
         }
     }
-    if (!c->input_count) c->input_since=srv_ticks();
+    if (!c->input_count) { c->input_since=srv_ticks(); c->input_blocked=0; }
     c->input[(c->input_head+c->input_count++)%DESK_INPUT_QUEUE]=p;
 }
 static void pointer_cancel(struct session *s) {
@@ -799,10 +800,6 @@ static void service(struct session *s) {
             if (desk_send(c->pid,&c->release)!=0) continue;
             c->release.type=0; c->progress=srv_ticks();
         }
-        if (c->input_count && (uint64_t)srv_ticks()-c->input_since>500) {
-            if(!c->closing) desk_log("deskd: closing pid=%llu reason=input-timeout queue=%u\n",(unsigned long long)c->pid,c->input_count);
-            close_client(s,i);
-        }
         if (c->closing) {
             struct desk_packet p=desk_packet_new(DESK_CLOSE); desk_send(c->pid,&p);
         } else if (c->configure) {
@@ -827,10 +824,24 @@ static void service(struct session *s) {
         /* Input throughput must not be limited to the render-loop rate. Keep
          * a per-client budget so one busy window cannot monopolize service. */
         for(unsigned delivered=0;delivered<DESK_INPUT_BATCH && c->input_count && !c->configure && !c->closing;delivered++) {
-            if(desk_send(c->pid,&c->input[c->input_head])!=0) break;
+            if(desk_send(c->pid,&c->input[c->input_head])!=0) {
+                /* Queued age includes time the compositor was not scheduled or
+                 * was copying/drawing. Try delivery before blaming the client.
+                 * Only a sustained series of blocked sends starts this timer. */
+                uint64_t tick=srv_ticks();
+                if(!c->input_blocked) { c->input_blocked=1;c->input_since=tick; }
+                else if(tick-c->input_since>500) {
+                    desk_log("deskd: closing pid=%llu reason=input-timeout queue=%u blocked_ticks=%llu type=%u awaiting=%d progress_age=%llu\n",
+                        (unsigned long long)c->pid,c->input_count,(unsigned long long)(tick-c->input_since),
+                        c->input[c->input_head].type,c->awaiting,(unsigned long long)(tick-c->progress));
+                    close_client(s,i);
+                }
+                break;
+            }
             c->input_head=(c->input_head+1)%DESK_INPUT_QUEUE; c->input_count--;
-            c->input_since=srv_ticks();
+            c->input_since=srv_ticks();c->input_blocked=0;
         }
+        if(!c->input_count || c->configure || c->closing) c->input_blocked=0;
         if(s->scene.apps && !c->closing) desk_clipboard_service(&clipboard,c->pid,srv_ticks());
     }
     for (int i=0;i<DESKD_WINDOWS;i++) if (s->children[i]) {
