@@ -100,7 +100,7 @@ def workspace_preferences(ui, serial, process, logs, restored=False, expanded=Fa
 def verify_workspace(stick, volume, acceleration):
     from exfat_test_image import ExfatFixture, check_clean_image
     with stick.open("rb") as stream:
-        stream.seek(2048*512);saved=stream.read()
+        stream.seek(2048*512);saved=stream.read(128*1024*1024)
     volume.write_bytes(saved);check_clean_image(volume)
     fixture=ExfatFixture(saved)
     expected=("srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
@@ -121,6 +121,7 @@ def main():
     parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
+    parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -190,7 +191,24 @@ def main():
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
             struct.pack_into("<II",mbr,454,2048,len(fixture.data)//512);mbr[510:]=b"\x55\xaa"
-            with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
+            if args.workspace_table == "gpt":
+                last = 2048 + len(fixture.data)//512 - 1
+                backup = last + 33
+                entries = bytearray(128*128)
+                entries[:128] = gpt_entry(uuid.UUID("ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"),
+                    uuid.uuid4(), 2048, last, "Workspace")
+                crc, guid = binascii.crc32(entries) & 0xffffffff, uuid.uuid4()
+                mbr[450] = 0xee
+                struct.pack_into("<II", mbr, 454, 1, backup)
+                with stick.open("wb") as stream:
+                    stream.write(mbr)
+                    stream.write(gpt_header(1, backup, 34, last, 2, 128, crc, guid))
+                    stream.write(entries)
+                    stream.seek(2048*512);stream.write(fixture.data)
+                    stream.write(entries)
+                    stream.write(gpt_header(backup, 1, 34, last, backup-32, 128, crc, guid))
+            else:
+                with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
             command += ["-drive",f"if=none,id=stick,format=raw,file={stick}","-device","usb-storage,drive=stick,bus=xhci.0"]
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
@@ -226,6 +244,8 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if args.workspace_table == "gpt":
+                        assert "block: registered GPT partition usb0p1" in text
                     if idle_capture:
                         measured=re.search(r"idle-capture: elapsed_us=(\d+) sampled_ticks=(\d+) idle_ticks=(\d+).*completed=yes",text)
                         assert measured and int(measured[1])>=59000000
@@ -238,7 +258,7 @@ def main():
                     assert not has_fatal_exception(text)
                     assert process.wait(timeout=30)==0 # -no-reboot exits only after guest reset.
                     with stick.open("rb") as stream:
-                        stream.seek(2048*512);volume.write_bytes(stream.read())
+                        stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
                     check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
                     folder=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1].removeprefix("/work/")
                     for filename in ("boot.log","exit.log"):
@@ -297,7 +317,7 @@ def main():
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
-                        "physical_acceptance":"pending"},indent=2)+"\n")
+                        "workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
                     return
@@ -554,7 +574,7 @@ def main():
         "desktop":args.desktop_check,"audio":args.audio_check,
         "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
         "console":args.console_check,"kernel":args.kernel_check,
-        "responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
+        "workspace_table":args.workspace_table,"responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
     },indent=2)+"\n")
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
     if args.kernel_check:
