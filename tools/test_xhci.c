@@ -158,6 +158,55 @@ static void test_handoff(void) {
     assert(!claim_firmware_ownership());
 }
 
+static void test_ep0_packet(void) {
+    assert(default_ep0_packet_for_speed(1) == 8); /* Pro 0262, full speed. */
+    assert(default_ep0_packet_for_speed(2) == 8);
+    assert(default_ep0_packet_for_speed(3) == 64);
+    assert(default_ep0_packet_for_speed(4) == 512);
+    for (unsigned wide = 0; wide < 2; wide++) {
+        for (unsigned failed = 0; failed < 2; failed++) {
+            reset_test(); xhci.hcc_params1 = wide ? 4 : 0;
+            uint8_t input[4096] = {0}, output[4096] = {0};
+            uint8_t descriptor[18] = {18, USB_DESC_DEVICE}; descriptor[7] = 64;
+            struct xhci_trb commands[64] = {0}, events[64] = {0};
+            xhci.command_ring = commands; xhci.command_ring_phys = (uintptr_t)commands;
+            xhci.command_cycle = true; xhci.event_ring = events; xhci.event_cycle = true;
+            xhci.rt_base = 0x2000; xhci.db_base = 0x1000;
+            events[0] = (struct xhci_trb){.parameter_low = (uint32_t)(uintptr_t)commands,
+                .parameter_high = (uint32_t)((uintptr_t)commands >> 32),
+                .status = (failed ? 17u : 1u) << 24,
+                .control = 1 | (XHCI_TRB_TYPE_COMMAND_COMPLETION << 10) | (3u << 24)};
+            struct xhci_device d = {.speed = 1, .slot_id = 3, .ep0_max_packet = 8,
+                .input_context = input, .input_context_phys = (uintptr_t)input,
+                .output_context = output, .descriptor_buffer = descriptor};
+            context_write32(output, 1, 0, 0x10001); /* Preserve interval, clear EP state. */
+            context_write32(output, 1, 1, (8u << 16) | 0x26);
+            context_write32(output, 1, 2, 0x12345031); /* Live dequeue, not ring start. */
+            context_write32(output, 1, 3, 0x12);
+            assert(update_ep0_packet(&d) == !failed);
+            assert(d.ep0_max_packet == (failed ? 8 : 64));
+            assert(context_read32(input, 0, 0) == 0 && context_read32(input, 0, 1) == 2);
+            assert(context_read32(input, 1, 0) == 0); /* No slot reconfiguration. */
+            assert(context_read32(input, 2, 0) == 0x10000);
+            assert(context_read32(input, 2, 1) == ((64u << 16) | 0x26));
+            assert(context_read32(input, 2, 2) == 0x12345031 && context_read32(input, 2, 3) == 0x12);
+            assert(((commands[0].control >> 10) & 63) == XHCI_TRB_TYPE_EVALUATE_CONTEXT);
+            assert(context_read32(output, 1, 1) >> 16 == 8); /* Driver never writes output context. */
+            unsigned queued = xhci.command_enqueue;
+            descriptor[7] = 12; assert(!update_ep0_packet(&d));
+            descriptor[0] = 0; descriptor[7] = 8; assert(!update_ep0_packet(&d));
+            descriptor[0] = 18; descriptor[1] = USB_DESC_CONFIGURATION; assert(!update_ep0_packet(&d));
+            descriptor[1] = USB_DESC_DEVICE; d.speed = 2; descriptor[7] = 64; assert(!update_ep0_packet(&d));
+            d.speed = 3; descriptor[7] = 8; assert(!update_ep0_packet(&d));
+            d.speed = 4; descriptor[7] = 0; assert(!update_ep0_packet(&d));
+            descriptor[7] = 9; d.ep0_max_packet = 512; assert(update_ep0_packet(&d));
+            d.speed = 1; descriptor[7] = 8; d.ep0_max_packet = 8; assert(update_ep0_packet(&d));
+            assert(xhci.command_enqueue == queued);
+        }
+    }
+    puts("xhci-ep0: PASS full-speed prefix sizing, live-context update, rejection, both context sizes and SuperSpeed encoding");
+}
+
 static void test_keyboard_context(const char *fixture, uint8_t interface, uint8_t dci, uint16_t packet) {
     reset_test();
     uint8_t descriptor[4096] = {0};
@@ -677,6 +726,7 @@ static void test_device_inventory(void) {
 
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_ep0_packet();
     test_network_transport();
     test_device_inventory();
     test_storage();

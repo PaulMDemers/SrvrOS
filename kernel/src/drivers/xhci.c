@@ -240,7 +240,7 @@ struct xhci_device {
     uint8_t hub_ports;
     uint8_t slot_type;
     uint8_t speed;
-    uint8_t ep0_max_packet;
+    uint16_t ep0_max_packet;
     uint8_t device_class;
     uint8_t device_subclass;
     uint8_t device_protocol;
@@ -556,12 +556,12 @@ static uint32_t port_speed(uint32_t portsc) {
     return (portsc >> 10) & 0xfu;
 }
 
-static uint8_t default_ep0_packet_for_speed(uint8_t speed) {
-    if (speed == 2) {
+static uint16_t default_ep0_packet_for_speed(uint8_t speed) {
+    if (speed == 1 || speed == 2) {
         return 8;
     }
     if (speed == 4) {
-        return 0;
+        return 512;
     }
     return 64;
 }
@@ -1437,7 +1437,7 @@ static void setup_address_input_context(struct xhci_device *device) {
     context_write32(device->input_context, 1, 2, slot2);
 
     uint32_t ep0_info = (3u << 1) | (4u << 3);
-    uint32_t ep0_packet = ((uint32_t)(device->ep0_max_packet == 0 ? 512 : device->ep0_max_packet) << 16);
+    uint32_t ep0_packet = ((uint32_t)device->ep0_max_packet << 16);
     context_write32(device->input_context, 2, 1, ep0_info | ep0_packet);
     context_write32(device->input_context, 2, 2, (uint32_t)(device->ep0_ring_phys | 1u));
     context_write32(device->input_context, 2, 3, (uint32_t)(device->ep0_ring_phys >> 32));
@@ -2237,6 +2237,42 @@ static bool enumerate_storage(struct xhci_device *d) {
     return true;
 }
 
+/* Read only the first eight descriptor bytes before choosing EP0's packet
+ * size. In particular, full-speed Apple 0262 uses eight, not sixty-four.
+ * Update the controller's live context before any multi-packet request. */
+static bool update_ep0_packet(struct xhci_device *device) {
+    const uint8_t *header = device->descriptor_buffer;
+    uint16_t packet = header[7];
+    if (header[0] != 18 || header[1] != USB_DESC_DEVICE) return false;
+    if (device->speed == 4) {
+        if (packet != 9) return false; /* SuperSpeed encodes log2(512). */
+        packet = 512;
+    } else if (device->speed == 3) {
+        if (packet != 64) return false;
+    } else if (device->speed == 2) {
+        if (packet != 8) return false;
+    } else if (device->speed == 1) {
+        if (packet != 8 && packet != 16 && packet != 32 && packet != 64) return false;
+    } else return false;
+    if (packet == device->ep0_max_packet) return true;
+    zero_bytes(device->input_context, PMM_FRAME_SIZE);
+    context_write32(device->input_context, 0, 1, 1u << 1);
+    copy_bytes(device->input_context + 2 * context_size(),
+        device->output_context + context_size(), context_size());
+    context_write32(device->input_context, 2, 0,
+        context_read32(device->input_context, 2, 0) & ~7u);
+    context_write32(device->input_context, 2, 1,
+        (context_read32(device->input_context, 2, 1) & 0xffffu) | ((uint32_t)packet << 16));
+    struct xhci_trb command = {
+        .parameter_low = (uint32_t)device->input_context_phys,
+        .parameter_high = (uint32_t)(device->input_context_phys >> 32),
+        .control = (XHCI_TRB_TYPE_EVALUATE_CONTEXT << 10) | ((uint32_t)device->slot_id << 24),
+    };
+    if (!submit_command_trb(&command, XHCI_TRB_TYPE_EVALUATE_CONTEXT, 0)) return false;
+    device->ep0_max_packet = packet;
+    return true;
+}
+
 static bool enumerate_device(struct xhci_device *device) {
     if (device == 0) {
         return false;
@@ -2254,15 +2290,23 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    device->stage = "device-descriptor-prefix";
+    zero_bytes(device->descriptor_buffer, 18);
+    if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 8)) return false;
+    device->stage = "ep0-packet";
+    if (!update_ep0_packet(device)) return false;
     device->stage = "device-descriptor";
+    zero_bytes(device->descriptor_buffer, 18);
     if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 18)) {
         console_printf("xhci: slot=%u device descriptor failed\n", (uint64_t)device->slot_id);
         return false;
     }
+    /* Refuse a changed/malformed size instead of changing an active endpoint
+     * again after a potentially truncated full descriptor. */
+    uint16_t encoded = device->speed == 4 ? 9 : device->ep0_max_packet;
+    if (device->descriptor_buffer[0] != 18 || device->descriptor_buffer[1] != USB_DESC_DEVICE ||
+        device->descriptor_buffer[7] != encoded) return false;
     parse_device_descriptor(device);
-    if (device->descriptor_buffer[7] != 0) {
-        device->ep0_max_packet = device->descriptor_buffer[7];
-    }
 
     device->stage = "config-descriptor";
     if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, 9)) {
