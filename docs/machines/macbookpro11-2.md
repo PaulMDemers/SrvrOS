@@ -111,3 +111,25 @@ and their host tests; validated GPT discovery for USB storage and block-layer
 regressions. Existing Air fixture and MBR paths must keep passing. Air EC/AML
 work remains separate. These are implementation findings, not physical fixes
 accepted on this machine. Collect-before-restage is complete for the failed run.
+
+## EP0 and GPT candidate
+
+Source `dd5ba7e` corrects full-speed EP0 initialization to 8 bytes, reads the
+8-byte descriptor prefix, and evaluates the live endpoint context when a larger
+packet is advertised. Both Air and Pro descriptor fixtures pass; malformed
+sizes and failed context commands are rejected. USB storage now registers
+validated GPT partitions. The physical drive has a saturated protective-MBR
+length; this is explicitly covered without trusting it as a writable extent.
+
+Validation: full build/USB image and core tests PASS; focused xHCI, block/AHCI and
+USB storage tests PASS; block tests under ASan/UBSan PASS; UEFI USB input/boot
+regression PASS. Initial release `ad01d8a08f9b70eb` passes missing-workspace,
+MBR capture and GPT capture rehearsals. Final release `fe8e4d3e22ba97eb`
+adds saturated protective-MBR coverage and passes the exact GPT capture,
+offline saved-log verification, clean exFAT and automatic reset rehearsal.
+
+Next physical run uses final v19 release `fe8e4d3e22ba97eb`, with no manual
+commands or optional AML. It must establish keyboard enumeration and saved GPT
+workspace diagnostics before input acceptance. Actual typing and trackpad
+behavior remain unaccepted. Retain the original console as previous and Ubuntu
+as recovery; collect the matching session after return before another stage.

@@ -144,6 +144,16 @@ workspace workflow.
 lsblk -o NAME,PATH,TYPE,TRAN,SIZE,FSTYPE,UUID,MOUNTPOINTS,MODEL
 ```
 
+USB storage discovers validated primary GPT maps as well as primary MBR
+partitions. GPT discovery checks both primary checksums, usable ranges, duplicate
+GUIDs and overlaps before publishing partitions. It accepts a saturated
+protective-MBR length but rejects hybrid maps, unsupported read-only attributes,
+tables over 64 KiB and more than 32 used entries. It does not repair GPT or fall
+back to its backup header. Rehearse the actual layout with
+`hardware_boot_smoke.py --probe-check --workspace-table gpt` for a staged
+unattended probe (omit the option for the default MBR fixture). A VM pass is not
+physical USB persistence acceptance.
+
 Identify the intended **partition**, its USB ancestry, and UUID. Set the UUID
 from that output in the current shell (replace the example text):
 
