@@ -17,6 +17,8 @@ Create a focused branch from the integration baseline. Keep unrelated changes
 separate and preserve local work. One device agent owns one local checkout;
 shared-code work needs coordination, not concurrent staging or VM harnesses in
 the same checkout. Many tools reuse `build/review` and `latest` pointers.
+Follow the [agent coordination guide](docs/agent-coordination.md) for ownership,
+dependencies, integration and evidence across machines.
 
 ## Implementation expectations
 

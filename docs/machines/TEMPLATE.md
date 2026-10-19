@@ -13,6 +13,18 @@ acceptance / accepted for stated scope / blocked by recorded failure.
 - PCI/USB/subsystem IDs, audio codecs, topcase report layout:
 - Inventory capture reference and missing/partial reads:
 
+## Active work and shared dependencies
+
+- Bounded objective and explicit scope:
+- Shared subsystems/files being changed; implementation owner for overlaps:
+- Work branch/PR, integration base and required upstream commits/PRs:
+- Latest checkpoint date and next concrete step:
+- Local run/checkpoint reference (no credentials or raw inventory):
+
+Publish this section with the work branch before overlapping implementation;
+follow the [coordination guide](../agent-coordination.md). It is a notice, not
+an exclusive lock. Keep another unit's work and acceptance separate.
+
 ## Capability ledger
 
 | Capability | State | Evidence/release | Remaining work |

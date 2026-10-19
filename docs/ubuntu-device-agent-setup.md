@@ -11,6 +11,9 @@ what was true at each checkpoint, including failed candidates. The
 [hardware plan](apple-hardware-expansion-plan.md) describes model differences;
 [machine records](machines/README.md) distinguish tested support from plans.
 
+Read the [coordination guide](agent-coordination.md) for ownership, overlapping
+changes, PR integration and checkpoints across machines.
+
 ## 1. One checkout and agent per machine
 
 Use `main`, the shared integration baseline. The completed work from
@@ -428,6 +431,9 @@ matches the intended release, and archive that evidence before another harness
 run replaces it.
 
 ## 9. Agent handoff and integration contract
+
+Use the [coordination guide](agent-coordination.md) alongside this prompt; publish
+the new unit's bounded scope and dependencies before shared implementation.
 
 Use this starting prompt, filling in the machine and the scope:
 

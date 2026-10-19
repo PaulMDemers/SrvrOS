@@ -11,6 +11,21 @@ are in the linked device guides. The shared integration baseline is now `main`,
 including the completed `codex/linux-development-baseline` work. Subsequent
 device work uses separate branches based on `main`.
 
+## Active work and shared dependencies
+
+- Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
+- Objective: read-only desktop power/frequency baseline, then bounded native
+  battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
+  measurement and separate acceptance.
+- Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
+  worker/IRQ ownership and battery interfaces require explicit coordination.
+  No new native EC/SCI enablement is part of the power capture.
+- Integration baseline: `main` merge `e2d172b`; device commits `c6e5538`,
+  `dad7aa8`, `caa3b15` add the physically accepted Terminal fix and records.
+- Next checkpoint: exact-stage v26 VM/missing-workspace rehearsals, then a
+  60-second automated physical capture. Local volatile records are under
+  `build/power-baseline-20261019/`; record the actual release before reboot.
+
 ## Accepted scope and open items
 
 | Capability | State | Evidence / limit |

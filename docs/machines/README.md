@@ -1,5 +1,8 @@
 # Per-machine development records
 
+Follow the [coordination guide](../agent-coordination.md) for shared ownership,
+PR integration and handoff checkpoints.
+
 One agent develops locally on each Ubuntu machine. Start with the
 [Ubuntu device-agent guide](../ubuntu-device-agent-setup.md), then update the
 matching record before the first physical trial. The
