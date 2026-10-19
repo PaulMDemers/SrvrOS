@@ -158,7 +158,7 @@ static void test_handoff(void) {
     assert(!claim_firmware_ownership());
 }
 
-static void test_keyboard_context(const char *fixture) {
+static void test_keyboard_context(const char *fixture, uint8_t interface, uint8_t dci, uint16_t packet) {
     reset_test();
     uint8_t descriptor[4096] = {0};
     FILE *file = fopen(fixture, "rb");
@@ -172,8 +172,8 @@ static void test_keyboard_context(const char *fixture) {
         .input_context = input, .output_context = output, .interrupt_ring_phys = 0x12345000};
     assert(parse_hid_input_config(&device, length, &config));
     assert(config == 1 && device.interface_count == 3);
-    assert(device.interface_number == 1 && device.interrupt_dci == 5);
-    assert(device.interrupt_max_packet == 64 && device.interrupt_interval == 8);
+    assert(device.interface_number == interface && device.interrupt_dci == dci);
+    assert(device.interrupt_max_packet == packet && device.interrupt_interval == 8);
     assert(device.hid_boot_keyboard && !device.hid_mouse);
     assert(interrupt_interval_exponent(1, 8) == 6); /* 8ms = 64 microframes. */
     assert(interrupt_interval_exponent(2, 10) == 6);
@@ -185,12 +185,12 @@ static void test_keyboard_context(const char *fixture) {
         xhci.hcc_params1 = context64 ? 1u << 2 : 0;
         context_write32(output, 0, 2, 0x0203); /* Preserve TT hub and port. */
         setup_interrupt_input_context(&device);
-        assert(context_read32(input, 0, 1) == ((1u << 0) | (1u << 5)));
+        assert(context_read32(input, 0, 1) == ((1u << 0) | (1u << dci)));
         assert(context_read32(input, 1, 2) == 0x0203);
-        assert(context_read32(input, 6, 0) == 6u << 16);
-        assert(context_read32(input, 6, 1) >> 16 == 64);
-        assert(context_read32(input, 6, 4) == (64u | (64u << 16)));
-        assert(context_read32(input, 6, 2) == 0x12345001);
+        assert(context_read32(input, dci + 1, 0) == 6u << 16);
+        assert(context_read32(input, dci + 1, 1) >> 16 == packet);
+        assert(context_read32(input, dci + 1, 4) == (packet | ((uint32_t)packet << 16)));
+        assert(context_read32(input, dci + 1, 2) == 0x12345001);
     }
     /* Configured interrupt TRBs request short packet events, e.g. 8 bytes
      * returned from a 64-byte Apple endpoint. Failed endpoint setup must not poll. */
@@ -207,7 +207,7 @@ static void test_keyboard_context(const char *fixture) {
     submit_interrupt_poll(&device);
     assert(device.interrupt_pending);
     assert((ring[0].control & (XHCI_TRB_ISP | XHCI_TRB_IOC)) == (XHCI_TRB_ISP | XHCI_TRB_IOC));
-    assert(ring[0].status == 64);
+    assert(ring[0].status == packet);
 }
 
 static void setup_port_model(uint32_t connect_at) {
@@ -676,14 +676,15 @@ static void test_device_inventory(void) {
 }
 
 int main(int argc, char **argv) {
-    assert(argc == 2);
+    assert(argc == 3);
     test_network_transport();
     test_device_inventory();
     test_storage();
     test_root_ports();
     test_scratchpads();
     test_handoff();
-    test_keyboard_context(argv[1]);
+    test_keyboard_context(argv[1], 1, 5, 64);
+    test_keyboard_context(argv[2], 0, 7, 10);
     test_trackpad(argv[1],false,false);
     test_trackpad(argv[1],true,false);
     test_trackpad(argv[1],true,true);

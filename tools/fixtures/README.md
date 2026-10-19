@@ -33,3 +33,12 @@ checksums and pointer/keyboard measurements. User confirmation of typing,
 clicking, dragging and resizing is recorded in the
 [pointer trial result](../../docs/trackpad-pointer-2026-10-17.md#physical-result--2026-10-17).
 The report counters alone do not establish pointer feel or window behavior.
+
+`apple-05ac-0262-config.bin` is the 84-byte configuration from the privileged
+MacBookPro11,2 Linux capture on 2026-10-19, USB root port 12. Device descriptor
+and strings are excluded. Interface 0 is the boot keyboard (endpoint 0x83,
+10-byte maximum packet, interval 8); interface 1 is non-boot vendor HID and
+interface 2 is boot mouse/trackpad. The shared host test verifies keyboard
+selection, both endpoint context sizes and poll length against this fixture as
+well as the Air fixture. This passes on the existing driver; it does not explain
+the reported native keyboard failure or accept physical transport/reports.

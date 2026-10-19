@@ -1891,7 +1891,7 @@ hardware-smoke: hardware-stage test-core
 
 .PHONY: test-xhci
 test-xhci: build/tests/xhci-host$(HOST_EXE)
-	$< tools/fixtures/apple-05ac-0291-config.bin
+	$< tools/fixtures/apple-05ac-0291-config.bin tools/fixtures/apple-05ac-0262-config.bin
 
 build/tests/xhci-host$(HOST_EXE): tools/test_xhci.c kernel/src/drivers/xhci.c kernel/src/drivers/xhci_network.inc kernel/src/drivers/usb_ecm.c kernel/src/drivers/trackpad_pointer.c kernel/src/drivers/apple_trackpad.c $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	mkdir -p build/tests
