@@ -17,7 +17,7 @@ static struct {
     struct acpi_work_item setup_item, query_item, sample_item, stop_item;
     struct ec_transport transport;
     struct sbs_sampler sampler;
-    uacpi_namespace_node *node;
+    uacpi_namespace_node *node, *handler_node;
     uint8_t memory[256], query[64], mode, address, output;
     uint16_t words[32];
     unsigned step, busy, head, count, lease;
@@ -26,6 +26,7 @@ static struct {
     bool obf, ready, query_scheduled, sample_scheduled, inject, stalled;
     bool region_installed, notify_installed, setup_scheduled, setup_delay;
     bool stopping, stop_done, stop_ok, disconnect_delay, namespace_init;
+    bool early, deny_early_io, reg_connected;
 } ec;
 
 enum { LEASE_NONE, LEASE_BYTE, LEASE_QUERY, LEASE_SAMPLE };
@@ -126,10 +127,23 @@ static uacpi_status region_handler(uacpi_region_op op, uacpi_handle data) {
     uacpi_region_rw_data *rw = data;
     if (rw->handler_context != &ec || rw->region_context != &ec || rw->byte_width != 1 || rw->address > 255)
         return UACPI_STATUS_INVALID_ARGUMENT;
+    if (ec.deny_early_io && uacpi_get_current_init_level() < UACPI_INIT_LEVEL_NAMESPACE_LOADED)
+        return UACPI_STATUS_DENIED;
     uint8_t value = rw->value;
     if (!transfer(op == UACPI_REGION_OP_WRITE, rw->address, &value)) return UACPI_STATUS_DENIED;
     if (op == UACPI_REGION_OP_READ) rw->value = value;
     return UACPI_STATUS_OK;
+}
+bool acpi_ec_fixture_bind_early(bool deny_io) {
+    if (!worker_context() || ec.region_installed ||
+        uacpi_get_current_init_level() != UACPI_INIT_LEVEL_SUBSYSTEM_INITIALIZED) return false;
+    ec.early = true;
+    ec.deny_early_io = deny_io;
+    ec.handler_node = uacpi_namespace_root();
+    if (uacpi_install_address_space_handler(ec.handler_node,
+        UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler, &ec)) return false;
+    ec.region_installed = true;
+    return true;
 }
 static uacpi_status notify_handler(uacpi_handle context, uacpi_namespace_node *node, uacpi_u64 value) {
     if (context != &ec || node != ec.node || value != 0x80 || !worker_context() || ec.lease) {
@@ -145,13 +159,27 @@ static void setup_impl(void *context) {
     if (!worker_context() || uacpi_namespace_node_find(NULL, "\\_SB.ECT0", &ec.node)) {
         ec.errors++; return;
     }
-    if (uacpi_install_address_space_handler(ec.node, UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler, &ec)) {
-        ec.errors++; return;
+    if (ec.early) {
+        uint64_t value = 0, reg = 1;
+        if (!ec.region_installed ||
+            uacpi_eval_simple_integer(ec.node, "LVAL", &value) || value != 0x42 ||
+            uacpi_eval_simple_integer(ec.node, "LREG", &reg) || reg || ec.memory[0x11] != 0x3c) {
+            ec.errors++; return;
+        }
+        console_write("acpi-ec: early-load verified read=66 write=60 reg=0 worker=yes\n");
+    } else {
+        ec.handler_node = ec.node;
+        /* Installation after load may itself invoke _REG. */
+        ec.reg_connected = true;
+        if (uacpi_install_address_space_handler(ec.handler_node, UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler, &ec)) {
+            ec.errors++; return;
+        }
+        ec.region_installed = true;
     }
-    ec.region_installed = true;
     if (uacpi_install_notify_handler(ec.node, notify_handler, &ec)) { ec.errors++; return; }
     ec.notify_installed = true;
-    if (uacpi_reg_all_opregions(ec.node, UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER)) { ec.errors++; return; }
+    ec.reg_connected = true;
+    if (uacpi_reg_all_opregions(ec.handler_node, UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER)) { ec.errors++; return; }
     uint64_t reg = 0, value = 0;
     if (uacpi_eval_simple_integer(ec.node, "REGC", &reg) || reg != 1 ||
         uacpi_eval_simple_integer(ec.node, "RVAL", &value) || value != 0x42 || ec.memory[0x11] != 0xa5)
@@ -249,12 +277,12 @@ static void disconnect_work(void *context) {
     if (ok && ec.region_installed) {
         /* Upstream may log _REG errors without returning them from uninstall.
          * Verify the fixture's completion handshake before releasing state. */
-        ok = !uacpi_uninstall_address_space_handler(ec.node,
+        ok = !uacpi_uninstall_address_space_handler(ec.handler_node,
             UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER, region_handler);
         if (ok) {
             ec.region_installed = false;
             uint64_t reg = 1, value = 0;
-            ok = !uacpi_eval_simple_integer(ec.node, "REGC", &reg) && !reg &&
+            if (ec.reg_connected) ok = !uacpi_eval_simple_integer(ec.node, "REGC", &reg) && !reg &&
                 !uacpi_eval_simple_integer(ec.node, "DVAL", &value) && value == 0x42 &&
                 ec.memory[0x11] == 0x5a && !ec.transport.poisoned;
         }
@@ -268,7 +296,7 @@ bool acpi_ec_fixture_prepare_stop(void) {
     uint64_t flags = irq_save();
     ec.stopping = true;
     irq_restore(flags);
-    if (!ec.node && !ec.setup_scheduled) return true;
+    if (!ec.handler_node && !ec.setup_scheduled) return true;
     if (!acpi_worker_drain(ec.worker, 5000)) return false;
     if (ec.notify_installed) {
         /* Upstream removal calls wait_for_work_completion: keep this on the
@@ -280,14 +308,14 @@ bool acpi_ec_fixture_prepare_stop(void) {
         disconnect_work, NULL) || !acpi_worker_drain(ec.worker, 5000)) return false;
     bool ok = ec.stop_done && ec.stop_ok;
     console_printf("acpi-ec: disconnect=%s worker=yes io=%s\n",
-        ok ? "complete" : "FAILED", ok ? "verified" : "unverified");
+        ok ? "complete" : "FAILED", ok ? (ec.reg_connected ? "verified" : "not-connected") : "unverified");
     if (!ok) return false; /* Caller halts with namespace/worker still owned. */
     ec.ready = false;
     return true;
 }
 bool acpi_ec_fixture_retired(void) {
     bool ok = ec.attached == ec.detached && !ec.lease && !ec.setup_scheduled && !ec.query_scheduled && !ec.sample_scheduled;
-    if (ec.node) console_printf("acpi-ec: retired=%s attached=%u detached=%u\n", ok ? "yes" : "NO", ec.attached, ec.detached);
+    if (ec.handler_node) console_printf("acpi-ec: retired=%s attached=%u detached=%u\n", ok ? "yes" : "NO", ec.attached, ec.detached);
     return ok;
 }
 void acpi_ec_fixture_command(const char *args) {

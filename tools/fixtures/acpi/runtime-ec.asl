@@ -22,6 +22,21 @@ DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
                 Offset (0x10), EVAL, 8, EACK, 8,
                 Offset (0x20), SPTR, 8, SSTS, 8, SADR, 8, SCMD, 8, SDAT, 16
             }
+#ifdef SRVROS_EARLY_LOAD
+            // Module-level access must work before _REG or namespace _INI.
+            Name (LVAL, Zero)
+            Name (LREG, One)
+            LVAL = EVAL
+            EACK = 0x3C
+            LREG = REGC
+            Sleep (10)
+#ifdef SRVROS_EARLY_SLOW
+            // Exercise the lifecycle deadline while actually interpreting AML.
+            // Each Sleep remains below the interpreter's individual sleep cap.
+            Sleep (1000); Sleep (1000); Sleep (1000); Sleep (1000)
+            Sleep (1000); Sleep (1000); Sleep (1000)
+#endif
+#endif
             Method (_REG, 2, NotSerialized)
             {
                 If (Arg0 == 3) {

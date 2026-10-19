@@ -68,6 +68,7 @@ def main():
                     raise AssertionError(('work did not complete', values))
 
                 request('acpiruntime start-fixture', rb'acpi-runtime: REFUSED')
+                request('acpiruntime start-early', rb'acpi-runtime: REFUSED')
                 for _ in range(3):
                     request('acpiruntime start-fail', rb'acpi-runtime: initialization failed status=the requested action has been denied cleanup=yes\r?\nacpi-runtime: REFUSED')
                     request('acpiruntime start', rb'acpi-runtime: READY')

@@ -2,6 +2,7 @@
 """Synthetic EC through real uACPI regions, query methods and SBS transport."""
 import argparse
 import os
+import re
 from pathlib import Path
 from vm_sockets import connect_unix
 from serial_records import search_complete, complete_lines
@@ -22,16 +23,25 @@ def main():
                         help='initialize the namespace after the EC handler connects')
     namespace.add_argument('--namespace-denied', action='store_true',
                            help='verify generated Q35 firmware initialization is refused without wider IO permissions')
+    namespace.add_argument('--early-load', action='store_true', help='bind EC before module-level AML on its worker')
+    namespace.add_argument('--early-denied', action='store_true', help='refuse module-level EC IO and verify cleanup')
+    namespace.add_argument('--early-timeout', action='store_true', help='retain state when namespace worker misses deadline')
+    namespace.add_argument('--early-fail', action='store_true', help='contain interpreter self-reset from namespace worker')
     args = parser.parse_args()
+    early = args.early_load or args.early_denied or args.early_timeout or args.early_fail
+    if early:
+        args.namespace_init = True
     root = Path(__file__).resolve().parents[1]
     out = root / 'build/review' / ('acpi-ec-initialize-denied' if args.namespace_denied else 'acpi-ec-initialize' if args.namespace_init else 'acpi-ec-disconnect-timeout' if args.disconnect_timeout else 'acpi-ec')
+    if early:
+        out = root / 'build/review' / ('acpi-ec-early-denied' if args.early_denied else 'acpi-ec-early-timeout' if args.early_timeout else 'acpi-ec-early-fail' if args.early_fail else 'acpi-ec-early-load')
     out.mkdir(parents=True, exist_ok=True)
     output = bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-ec-') as directory:
         tmp = Path(directory)
         subprocess.run(['iasl', '-p', str(tmp/'worker'), str(root/'tools/fixtures/acpi/runtime-worker.asl')],
                        check=True, stdout=subprocess.DEVNULL)
-        subprocess.run(['iasl', '-p', str(tmp/'ec'), str(root/'tools/fixtures/acpi/runtime-ec.asl')], check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(['iasl'] + (['-D', 'SRVROS_EARLY_LOAD'] if early else []) + (['-D', 'SRVROS_EARLY_SLOW'] if args.early_timeout else []) + ['-p', str(tmp/'ec'), str(root/'tools/fixtures/acpi/runtime-ec.asl')], check=True, stdout=subprocess.DEVNULL)
         extra_tables = []
         if args.namespace_init:
             subprocess.run(['iasl', '-p', str(tmp/'init'), str(root/'tools/fixtures/acpi/runtime-init.asl')], check=True, stdout=subprocess.DEVNULL)
@@ -83,6 +93,35 @@ def main():
                             return
                     raise AssertionError(('EC did not complete', v))
 
+                if args.early_denied:
+                    request('acpiruntime start-early-denied', rb'acpi-runtime: initialization failed status=the requested action has been denied cleanup=yes\r?\nacpi-runtime: REFUSED')
+                    state = request('acpiruntime status', rb'acpi-runtime: active=0 irq=0 events=0 work=0 value=0 errors=(\d+) denied=0 heap=0')
+                    assert int(state[1]) > 0
+                    assert b'acpi-runtime: READY' not in output
+                    assert b'acpi-ec: retired=yes attached=1 detached=1' in complete_lines(output)
+                    qmp.call('quit'); process.wait(timeout=10)
+                    print('acpi-ec: PASS module-level EC denial prevents readiness and cleans partial load with balanced detach/zero heap')
+                    return
+                if args.early_timeout or args.early_fail:
+                    started = time.monotonic()
+                    reason = b'namespace load deadline; state retained' if args.early_timeout else b'namespace load reset requires lifecycle owner'
+                    halt = request('acpiruntime start-early' if args.early_timeout else 'acpiruntime start-early-fail',
+                                   rb'acpi-runtime: HALTED unsafe teardown: ' + reason + rb' heap=(\d+)')
+                    assert int(halt[1]) > 0
+                    if args.early_timeout:
+                        assert 4.5 <= time.monotonic() - started < 8
+                    assert b'acpi-runtime: READY' not in output and b'cleanup=yes' not in output
+                    # Pass the seven-second AML sleep: an interrupt-enabled hlt
+                    # could let the worker continue after the printed halt.
+                    output.extend(boot.read_for(serial, 3.5 if args.early_timeout else .3))
+                    assert b'namespace worker returned' not in output
+                    registers = qmp.call('human-monitor-command', {'command-line': 'info registers'})
+                    flags = re.search(r'RFL=([0-9a-fA-F]+)', registers)
+                    assert flags and not (int(flags[1], 16) & 0x200), registers
+                    qmp.call('quit'); process.wait(timeout=10)
+                    print('acpi-ec: PASS early-load ' + ('deadline' if args.early_timeout else 'self-reset') + ' halted visibly with live state retained')
+                    return
+
                 if args.namespace_denied:
                     request('acpiruntime start', rb'acpi-runtime: READY')
                     failure = request('acpiruntime ec initialize', rb'acpi-runtime: namespace=FAILED status=0 errors=(\d+) denied=(\d+)')
@@ -107,7 +146,7 @@ def main():
                     return
 
                 for _ in range(2):
-                    request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                    request('acpiruntime start-early' if early else 'acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
                     request('acpiruntime ec initialize' if args.namespace_init else 'acpiruntime ec start', rb'acpi-ec: setup=queued')
                     snapshot(0, 0, 0, generation=0, current=0)
                     request('acpiruntime ec foreign', rb'acpi-ec: foreign=REFUSED')
@@ -118,12 +157,12 @@ def main():
                     request('acpiruntime ec queries', rb'acpi-ec: queries=queued')
                     snapshot(35, 18, 32)
                     request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
-                request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                request('acpiruntime start-early' if early else 'acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
                 request('acpiruntime ec start-slow', rb'acpi-ec: setup=queued')
                 request('acpiruntime stop', rb'acpi-ec: retired=yes attached=1 detached=1\r?\nacpi-runtime: stopped=yes heap=0 errors=0 denied=0')
                 # A failed disconnect must retain the namespace, not report a
                 # clean reset after upstream swallowed an AML _REG failure.
-                request('acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
+                request('acpiruntime start-early' if early else 'acpiruntime start-fixture' if args.namespace_init else 'acpiruntime start', rb'acpi-runtime: READY')
                 request('acpiruntime ec initialize' if args.namespace_init else 'acpiruntime ec start', rb'acpi-ec: setup=queued')
                 snapshot(0, 0, 0, generation=0, current=0)
                 request('acpiruntime ec foreign', rb'acpi-ec: foreign=REFUSED')
@@ -149,6 +188,9 @@ def main():
             finally:
                 stop_process(process)
                 (out / 'serial.txt').write_bytes(output)
+    if args.early_load:
+        assert complete_lines(output).count(b'early-load verified read=66 write=60 reg=0 worker=yes') == 4
+        print('acpi-ec: PASS module-level read/write before _REG, inherited early handler and worker ownership')
     if args.namespace_init:
         assert complete_lines(output).count(b'namespace=initialized status=0 errors=0 denied=0') == 3
         print('acpi-ec: PASS worker-owned namespace initialization, root/SB/EC ordering, _STA/_INI EC reads and sleep')

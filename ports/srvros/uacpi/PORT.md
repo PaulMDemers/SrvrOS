@@ -329,3 +329,54 @@ initialization-owner policy, not just worker ownership after loading. Native
 permissions, `_OSI`, Global Lock, GPE finalization and watchdog/rollback policy
 remain unresolved. Do not infer a native initialization pass from this small
 synthetic namespace.
+
+
+## Early EC binding during namespace load (Q35 only)
+
+`acpiruntime start-early` requires the explicit `SRVROS/INITTEST` fixture DSDT
+and runs namespace loading on the same ordinary worker used for EC transactions.
+Before loading, it installs the modeled EC handler at the namespace root, so the
+synthetic EC region inherits it as the table is interpreted. The test SSDT's
+module-level code reads `0x42`, writes `0x3c`, observes `_REG` still disconnected
+and sleeps. Subsequent `ec initialize` verifies those results, runs `_REG` from
+the handler's actual root scope, then initializes `_STA`/`_INI` on that worker.
+Queries and complete SBS transactions keep their existing ownership after load.
+The handler's scope and the EC device node are tracked separately for registration
+and teardown. This root binding is a synthetic mechanism test, not a native
+resource match or authorization to bind every laptop EC region.
+
+The lifecycle caller waits at most five seconds for the load worker. It publishes
+runtime readiness only after the call and logged error/denial checks succeed;
+EC/battery readiness additionally requires the fixture's early-access and
+initialization assertions. Access denial can return API success after an AML
+error, so that path is refused and the partial namespace is cleaned up with
+balanced region detach and no heap retained.
+
+A deadline is not cancellation. The timeout fixture sleeps repeatedly in
+module-level AML past the deadline and halts visibly with the live namespace/worker
+retained. `start-early-fail` refuses SCI installation; the pinned interpreter
+then invokes reset internally. Reset's wait-for-work callback recognizes that
+it is running on the loading worker and halts before namespace teardown rather
+than wait for itself or pretend cleanup completed. Failure halts flush the
+console and disable interrupts before halting, so another worker cannot continue
+behind a frozen monitor. The timeout test waits past the injected AML sleep and
+checks both the absence of worker completion and the CPU interrupt flag.
+This is failure containment,
+not recovery from every interpreter failure. Native integration still needs a
+lifecycle design that can handle interpreter-initiated reset safely.
+
+Reproduce in disposable VMs, sequentially after `make acpi-runtime-vm-kernel`:
+
+```sh
+python3 tools/acpi_ec_smoke.py --early-load
+python3 tools/acpi_ec_smoke.py --early-denied
+python3 tools/acpi_ec_smoke.py --early-timeout
+python3 tools/acpi_ec_smoke.py --early-fail
+```
+
+The positive mode also exercises two initialized lifetimes, SCI queries, SBS
+samples, foreign-caller refusal, delayed setup teardown and poisoned-disconnect
+containment. Existing `--namespace-init`, `--namespace-denied`,
+`--disconnect-timeout` and `acpi_runtime_smoke.py` remain regression paths.
+Ordinary hardware images do not link this adapter; native ECDT resource binding,
+permissions, `_OSI`, Global Lock and GPE ownership still require separate work.

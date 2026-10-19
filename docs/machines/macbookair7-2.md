@@ -23,13 +23,16 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `1d44cee`; Terminal fix and agent rules merged.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Next bounded implementation: early EC handler binding and namespace-load
+- Current bounded implementation: early EC handler binding and namespace-load
   ownership in the separate Q35 runtime fixture. Scope is
   `ports/srvros/uacpi/runtime/{qemu_adapter,ec_fixture}.*`, synthetic ACPI tables
   and VM harnesses; no ordinary-kernel/native EC gate changes. Dependencies:
   existing worker/transport lifetime contracts and pinned uACPI initialization.
-- Next checkpoint: module-level AML EC access before namespace initialization,
-  refusal on failed access, bounded load timeout containment and safe teardown.
+- VM checkpoint: module-level AML EC access before namespace initialization,
+  refusal/cleanup on failed access, bounded load timeout containment and repeated
+  teardown now pass. PR #3 publishes this work; it is not native EC acceptance.
+- Next dependency: audit native ECDT/resource and initialization-owner policy,
+  including interpreter-initiated reset, before enabling any laptop EC/SCI path.
 
 ## Accepted scope and open items
 
