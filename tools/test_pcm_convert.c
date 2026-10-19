@@ -32,6 +32,29 @@ int main(void) {
     setup(input,4);source.fail=0;assert(pcm_convert_init(&c,48000,4,read_frame,0)==-1);
     assert(pcm_convert_init(&c,96000,4,read_frame,0)==-1 && pcm_convert_init(&c,48000,UINT64_MAX,read_frame,0)==-1);
     assert(pcm_convert_init(&c,48000,0,read_frame,0)==-1);
-    puts("pcm-convert: PASS exact 48k copy, rational 44.1k interpolation across chunk boundaries, signed extrema, short/end frames and read failures");
+    /* Independent closed-form reference, randomized values and refill sizes,
+     * including many crossings of the 147/160 rational rate period. */
+    static int16_t noise[20003*2];uint32_t seed=0x4208;
+    for(unsigned i=0;i<sizeof(noise)/sizeof(*noise);i++) {seed=seed*1664525+1013904223;noise[i]=(int16_t)(seed>>16);}
+    for(unsigned mode=0;mode<2;mode++) {
+        unsigned rate=mode?44100:48000;uint64_t produced=0;
+        setup(noise,20003);assert(!pcm_convert_init(&c,rate,20003,read_frame,0));
+        for(;;) {
+            seed=seed*1664525+1013904223;
+            long count=pcm_convert_read(&c,out,1+(seed%4096));assert(count>=0);
+            if(!count)break;
+            for(long n=0;n<count;n++) {
+                uint64_t numerator=(produced+(uint64_t)n)*rate,index=numerator/48000,fraction=numerator%48000;
+                uint64_t following=index+1<20003?index+1:index;
+                for(unsigned ch=0;ch<2;ch++) {
+                    int64_t value=((int64_t)noise[index*2+ch]*(int64_t)(48000-fraction)+(int64_t)noise[following*2+ch]*(int64_t)fraction)/48000;
+                    assert(out[n*2+ch]==value);
+                }
+            }
+            produced+=(uint64_t)count;
+        }
+        assert(produced==(20003ull*48000+rate-1)/rate && source.at==20003);
+    }
+    puts("pcm-convert: PASS exact 48k copy, rational 44.1k interpolation across chunk boundaries, signed extrema, randomized rational-period/refill coverage, short/end frames and read failures");
     return 0;
 }
