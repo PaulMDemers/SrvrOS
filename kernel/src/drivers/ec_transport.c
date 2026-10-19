@@ -1,6 +1,7 @@
 #include <srvros/ec_transport.h>
 #define EC_OBF 1u
 #define EC_IBF 2u
+#define EC_SCI_EVT 32u
 #define EC_MAX_POLLS 4096u
 static int fail(struct ec_transport *t,enum ec_error error) {
     t->failed_phase=t->phase;t->phase=EC_FAILED;t->error=error;t->poisoned=true;return -1;
@@ -12,9 +13,13 @@ bool ec_transport_begin(struct ec_transport *t,bool write,uint8_t address,uint8_
     uint64_t now,uint64_t timeout) {
     if(!t || t->poisoned || (t->phase!=EC_IDLE && t->phase!=EC_DONE) || !timeout || timeout>1000000 ||
         !t->io.status || !t->io.read_data || !t->io.write_command || !t->io.write_data) return false;
-    t->phase=EC_COMMAND;t->failed_phase=EC_IDLE;t->error=EC_OK;t->write=write;
+    t->phase=EC_COMMAND;t->failed_phase=EC_IDLE;t->error=EC_OK;t->write=write;t->query=false;
     t->address=address;t->value=value;t->result=0;t->last_status=0;t->polls=0;
     t->started_us=t->last_us=now;t->timeout_us=timeout;return true;
+}
+bool ec_transport_begin_query(struct ec_transport *t,uint64_t now,uint64_t timeout) {
+    if(!ec_transport_begin(t,false,0,0,now,timeout))return false;
+    t->query=true;return true;
 }
 int ec_transport_poll(struct ec_transport *t,uint64_t now) {
     if(!t || t->phase==EC_IDLE || t->phase==EC_FAILED) return -1;
@@ -30,7 +35,9 @@ int ec_transport_poll(struct ec_transport *t,uint64_t now) {
     if(status&EC_IBF) return 0;
     switch(t->phase) {
     case EC_COMMAND:
-        t->io.write_command(t->io.context,t->write?0x81:0x80);t->phase=EC_ADDRESS;break;
+        if(t->query && !(status&EC_SCI_EVT)) { t->phase=EC_DONE;return 1; }
+        t->io.write_command(t->io.context,t->query?0x84:t->write?0x81:0x80);
+        t->phase=t->query?EC_READ_RESULT:EC_ADDRESS;break;
     case EC_ADDRESS:
         t->io.write_data(t->io.context,t->address);t->phase=t->write?EC_VALUE:EC_READ_RESULT;break;
     case EC_VALUE:

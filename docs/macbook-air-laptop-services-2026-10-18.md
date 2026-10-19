@@ -302,3 +302,27 @@ EC access, followed by a scheduled cached provider. Do not bypass that boundary
 by reading the bank directly from the desktop. References are the official
 [SBS data specification](https://sbs-forum.org/specs/sbdat110.pdf) and its
 [1.1 errata](https://sbs-forum.org/specs/errata_sbdat110a.pdf).
+
+## Event-query transport prerequisite
+
+`ec_transport_begin_query` adds the ACPI QR_EC exchange to the existing bounded
+byte transport. Once the input buffer is available, it checks SCI_EVT and sends
+`0x84` only when an event is pending. It then waits for one output byte without
+writing an address. A cleared event before submission or a zero reply completes
+as “no event”; clearing SCI_EVT after submission does not discard the pending
+reply. Existing timeout, stale-output, cancellation and poisoned-transport rules
+still apply. This follows [ACPI 6.5 §12.3.5 and §12.6.2](https://uefi.org/specs/ACPI/6.5/12_Embedded_Controller_Interface_Specification.html#query-embedded-controller-qr-ec-0x84).
+
+The query operation does not acquire ownership, drain an event queue, acknowledge
+a GPE or run `_Qxx` methods. The future runtime must serialize it with AML access
+and the complete SMBus register-bank transaction, then dispatch returned events
+outside that ownership scope. No live caller or new port access is enabled.
+
+Host tests cover all 256 reply values, delayed IBF/OBF, event clearing, ordinary
+read reuse, overlapping requests, stale output, timeout and cancellation before
+a late reply. Existing SMBus and SBS tests plus transport/SMBus ASan/UBSan runs
+passed. Production compilation passed; the rebuilt kernel's PT_LOAD segments
+match the staged **fe119d1c99070b18** image exactly because the unbound transport
+is removed from the native image by section garbage collection. The physical
+candidate therefore remains the validated audio/device build. Evidence is in
+`build/review/ec-query-*`.
