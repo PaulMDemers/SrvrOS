@@ -53,3 +53,29 @@ Host tests compile our own ASL fixture and cover resource values, `_OSI`, privat
 snapshot writes, missing objects, bad checksums, denied I/O and loop deadlines.
 `tools/aml_probe_smoke.py` runs the native adapter in QEMU; `--fixture` adds our
 synthetic EC/SMBus resource contract. Neither test proves a physical battery read.
+
+## Live-runtime foundations (not linked or enabled)
+
+`runtime/work_queue.c` implements the intrusive queue needed by the pinned
+uACPI 7.0 deferred-work contract. Items are allocated before scheduling, so
+enqueue/dequeue take constant time and allocate nothing. Taking an invocation
+detaches and clears its item before the callback runs: the callback may requeue
+or free that item. Completion touches only queue state, and idleness includes
+in-flight callbacks as well as pending work. Duplicate scheduling, including
+placing one pending item on another queue, is rejected without changing either
+queue. GPE/notification work types and callback contexts remain attached to
+their individual invocations.
+
+This is a host-tested component, not an implementation of the kernel callbacks
+yet. The future adapter must hold one IRQ-safe lock around every queue access,
+run callbacks outside that lock on a CPU0 worker, and synchronize interrupt
+producers before waiting for work completion. It must not free pending items or
+silently drop work if its adapter violates the enqueue contract. Host checks
+cover FIFO order, duplicate refusal, in-flight drain, reuse with a changed
+context, and a callback that reschedules itself 999 times before freeing its
+item; ASan/UBSan cover that final free. Run `make test-acpi-work`.
+
+The queue is intentionally absent from native build inputs. The probe's denied
+asynchronous-work callbacks remain unchanged. SCI registration, scheduler-backed
+semaphores, thread identities, EC ownership and runtime initialization are still
+required; see the [integration plan](../../../docs/macbook-air-laptop-services-2026-10-18.md#live-acpi-runtime-integration-plan).

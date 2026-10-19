@@ -3074,3 +3074,11 @@ test-pcm-convert: build/tests/pcm-convert-host$(HOST_EXE)
 build/tests/pcm-convert-host$(HOST_EXE): tools/test_pcm_convert.c userspace/playwav/convert.c userspace/playwav/convert.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_pcm_convert.c userspace/playwav/convert.c -o $@
+
+.PHONY: test-acpi-work
+test-core: test-acpi-work
+test-acpi-work: build/tests/acpi-work-host$(HOST_EXE)
+	$<
+build/tests/acpi-work-host$(HOST_EXE): tools/test_acpi_work_queue.c ports/srvros/uacpi/runtime/work_queue.c ports/srvros/uacpi/runtime/work_queue.h $(UACPI_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I ports/upstream/uacpi/include tools/test_acpi_work_queue.c ports/srvros/uacpi/runtime/work_queue.c -o $@

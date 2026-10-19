@@ -326,3 +326,73 @@ match the staged **fe119d1c99070b18** image exactly because the unbound transpor
 is removed from the native image by section garbage collection. The physical
 candidate therefore remains the validated audio/device build. Evidence is in
 `build/review/ec-query-*`.
+
+## Live ACPI runtime integration plan
+
+Review of the actual kernel and pinned uACPI 7.0 sources identifies these next
+implementation blocks. They are prerequisites, not a claim that live battery
+sampling is enabled.
+
+1. **Interrupt lifecycle.** `irq.c` dispatches hard-coded legacy lines and one
+   e1000 handler; it has no handler registration/unregistration interface.
+   `ioapic.c` installs routes already unmasked, while `irq_disable_line` changes
+   only the legacy PIC mask. Add a registered, synchronized handler lifecycle
+   and explicit IO-APIC mask/unmask first. Resolve the FADT SCI through the
+   platform interrupt topology, retain polarity/trigger information, and reject
+   unsupported controllers/routes. SCI must not inherit the default ISA edge
+   policy. Test masked installation, repeated level assertion, shared handlers,
+   failed setup and removal before exposing the uACPI IRQ callbacks. Never print
+   an unbounded stream of unhandled SCI messages from interrupt context.
+2. **Scheduler adapter.** Supply stable nonzero kernel-thread identities,
+   counting semaphores with zero/finite/infinite timeout semantics, IRQ-safe
+   signaling, and spinlocks that restore the caller's prior interrupt state.
+   The existing wait queues provide a starting point; the isolated probe's
+   single-threaded callbacks do not satisfy this runtime contract. Test wakeup
+   races, timeout rounding, overflow and shutdown before binding them. Start AML
+   work as an ordinary scheduler worker. Admission during storage ownership
+   needs a separate dependency audit; an AML worker must not be declared an
+   I/O service merely to reduce latency.
+3. **Deferred work.** The new host-only `runtime/work_queue.c` supplies the
+   allocation-free enqueue/dequeue foundation. The pinned API explicitly allows
+   callbacks to reschedule or free their own work item, so a detached invocation
+   is essential. A CPU0 worker should execute both GPE and notification work
+   outside queue locks. Completion waits must synchronize in-flight interrupts
+   first, then pending/in-flight work, including work scheduled by callbacks.
+   Test the complete adapter with interrupt producers and teardown; queue tests
+   alone do not establish those guarantees.
+4. **Separate live adapter and initialization.** The current native interpreter
+   is compiled with `UACPI_REDUCED_HARDWARE`; changing its runtime flags cannot
+   restore the omitted event machinery. Use a separate full-hardware build
+   configuration/adapter, initially mutually exclusive with the isolated probe,
+   rather than linking two copies with colliding global symbols. Keep both build
+   paths tested. In the pinned sources `uacpi_initialize` normally enters ACPI
+   mode, `uacpi_namespace_load` installs event handling, namespace initialization
+   runs `_REG`/`_STA`/`_INI`, and finalizing GPEs enables AML event users. Therefore
+   use an explicit staged initialization policy and `NO_ACPI_MODE` until SCI and
+   EC prerequisites are ready. That flag is not a read-only guarantee: full
+   initialization also touches event registers. Preserve failure diagnostics and
+   mask/disable owned event sources before teardown; do not free a callback's
+   state while interrupts or work can still reference it.
+5. **EC and battery ownership.** Install the EC address-space/query path before
+   firmware methods need it. Resolve the Global Lock and `_OSI` policy from the
+   captured firmware; the probe's Darwin selection is not yet a native policy.
+   Serialize AML EC access, queries and each complete SMBus bank transaction.
+   Dispatch `_Qxx` after releasing the EC transaction owner, so methods that use
+   EC/SMBus cannot deadlock it. Bound query draining and expose pending, timeout,
+   stale and poisoned states. Then bind the existing SBS sampler and publish a
+   versioned cached power snapshot; the desktop only reads that snapshot.
+
+Acceptance should proceed from host fault injection to a synthetic QEMU
+SCI/EC fixture, then an opt-in laptop runtime trial. The synthetic fixture must
+cover query storms, delayed replies, `_REG` access, self-rescheduling work,
+teardown and failures during initialization. The laptop round should check AC
+connect/disconnect, fresh battery values, input under file I/O, and saved event
+counters. Lid policy and suspend remain separate milestones. The installed
+**fe119d1c99070b18** candidate enables none of this new live runtime machinery.
+
+The implementation contracts above come from the vendored upstream
+[`kernel_api.h`](../ports/upstream/uacpi/include/uacpi/kernel_api.h),
+[`uacpi.c`](../ports/upstream/uacpi/source/uacpi.c) and
+[`event.c`](../ports/upstream/uacpi/source/event.c), alongside SrvrOS's
+[`irq.c`](../kernel/src/arch/x86_64/irq.c) and
+[`ioapic.c`](../kernel/src/arch/x86_64/ioapic.c).
