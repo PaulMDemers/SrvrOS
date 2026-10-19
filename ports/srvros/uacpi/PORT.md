@@ -69,7 +69,9 @@ their individual invocations.
 This is a host-tested component, not an implementation of the kernel callbacks
 yet. The future adapter must hold one IRQ-safe lock around every queue access,
 run callbacks outside that lock on a CPU0 worker, and synchronize interrupt
-producers before waiting for work completion. It must not free pending items or
+producers before waiting for work completion. The worker must yield between
+bounded batches so self-rescheduling or an event storm cannot monopolize it.
+It must not free pending items or
 silently drop work if its adapter violates the enqueue contract. Host checks
 cover FIFO order, duplicate refusal, in-flight drain, reuse with a changed
 context, and a callback that reschedules itself 999 times before freeing its

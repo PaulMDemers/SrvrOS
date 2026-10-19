@@ -1806,10 +1806,22 @@ Host checks cover stale generations, failed/implausible/stalled DMA, conservativ
 ring guards, cursor freshness, shared snapshot cursors, gain limits and randomized
 resampling boundaries. Core tests and targeted ASan/UBSan checks passed.
 
+Guest format checks also cover 44.1 kHz stereo and 48 kHz mono, completing all
+four supported rate/channel combinations. Converted stereo stayed within two
+sample values of the independent reference; 48 kHz mono matched exactly, both
+with zero underruns. Truncated, unsupported-rate and missing files exited with
+failure before subsequent valid playback, cancellation and repeated reopen
+passed. Audio harnesses now record their actual boot-tree/ISO/disk inputs,
+source hashes and revision/dirty state; a stale boot-tree kernel is rejected
+before launching QEMU.
+
 A ten-minute 48 kHz stereo soak completed ten one-minute files with zero guest
 underruns and an exact captured waveform. It used the preserved pre-snapshot-read
 image; the DMA engine is the same. The final candidate's extended conversion soak
-is recorded below after completion.
+also completed ten one-minute 44.1 kHz mono files: 28,802,117 captured frames,
+maximum sample error 1, and zero guest underruns. Its kernel/player hashes match
+the final candidate. The retained lifecycle run also covers foreign-owner
+rejection, killing the player and reopening sound three times.
 
 Some timer-backed QEMU captures failed despite clean guest counters. The first
 lost exactly 2,048 frames; a follow-up reproduced the discontinuity alongside
@@ -1824,8 +1836,24 @@ Its exact GRUB/EFI image passed two fresh desktop boots, document/screenshot
 persistence, preferences, saved device diagnostics, two clean USB unmounts,
 the test tone and all three bundled WAV channel sections. The channel capture
 matched exactly with a quiet tail. Later commits update test coverage and notes.
-Evidence is being retained under
+Evidence is retained under
 `build/native-desktop-trials/fe119d1c99070b18/vm-pcm/`.
+
+A final staged rerun passed two further fresh boots and the same audio and
+persistence checks. `validation.json` indexes the pass results, `checksums.json`
+hashes the retained evidence, and `diagnostic-history/` preserves failed attempts
+with their explanations. The evidence includes exact candidate manifests,
+waveforms, serial logs, screenshots, workspace images and the installation
+audit. The host-only EC query and deferred-work foundations are recorded
+separately; they do not enable new physical accesses.
+
+Candidate **fe119d1c99070b18** is installed for the next hardware round. Verification
+confirmed current/recovery file hashes, valid GRUB syntax, unchanged Ubuntu
+default and EFI boot order, and an empty one-shot boot entry. Recovery remains
+**f05dfcc01c28dc85**. The obsolete, unreferenced **a91913d3db4219e8** was archived
+and hash-verified under `~/.local/share/srvros/boot-archive/` before its EFI copy
+was removed to make space. The flash workspace marker and previous physical
+session baseline were checked. No reboot was requested or armed.
 
 Physical speaker amplification, audible quality, headphone routing, tap gestures,
 sensor freshness and the actual USB adapter remain hardware acceptance items.

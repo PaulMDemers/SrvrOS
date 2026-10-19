@@ -157,6 +157,8 @@ tools/host-env.sh make test-audio-stream test-wav test-pcm-convert test-settings
 tools/host-env.sh python3 tools/audio_stream_smoke.py
 tools/host-env.sh python3 tools/audio_stream_smoke.py --lifecycle
 tools/host-env.sh python3 tools/audio_stream_smoke.py --mono-44100
+tools/host-env.sh python3 tools/audio_stream_smoke.py --format stereo-44100
+tools/host-env.sh python3 tools/audio_stream_smoke.py --format mono-48000
 tools/host-env.sh python3 tools/audio_desktop_stream_smoke.py
 tools/host-env.sh python3 tools/audio_stream_smoke.py --seconds 60 --repeat 10
 ```
@@ -164,7 +166,11 @@ tools/host-env.sh python3 tools/audio_stream_smoke.py --seconds 60 --repeat 10
 The waveform checker streams the capture and compares both channels against the
 source, including across DMA-ring wraps. Lifecycle coverage checks foreign-owner
 syscalls, competing players, keyboard input during background playback, killed
-players and subsequent reuse. These results are recorded separately from the
+players and subsequent reuse. It also rejects truncated, unsupported-rate and
+missing files before confirming that valid playback still works. Provenance
+records the actual ISO, copied boot kernel/initramfs/configuration and initial
+guest filesystem hashes, plus source revision and dirty-worktree state. A stale
+boot-tree kernel fails before the VM starts. These results are recorded separately from the
 earlier test-tone soak and do not establish physical sound acceptance.
 
 ### Playback during storage work
