@@ -145,6 +145,30 @@ changes, outside/wide accesses, private files, malformed models, access budgets
 and a Darwin policy that excludes Linux/Windows vendor responses. The captured
 Air also succeeds with the set-only bit-3 rule and refuses a wrong bit-2 rule.
 
+## SCI route ownership implementation
+
+`runtime/sci_owner` separates the route/callback lifetime from the Q35 adapter.
+It resolves the supported ISA SCI description, including an explicit remapped
+GSI, and treats conforming SCI flags as active-low/level. Invalid/edge flags,
+reserved IRQ stubs and mismatched override sources are refused. The IO-APIC
+backend must separately validate the GSI's actual topology and write readback.
+
+Preparation requires a masked route with no delivery/remote-IRR pending state.
+It saves the route, prepares it while masked, then registers the callback.
+Enablement happens separately, so an interrupt delivered immediately on unmask
+has a valid callback and context. A failed partial prepare or registration rolls
+back through a verified mask and route restoration. A failed unmask is masked
+again before it can be retired. Removal masks first, removes the callback, then
+restores the saved masked route. Mask/remove/restore failure poisons the owner:
+its state is retained, subsequent reuse is refused, and the adapter must halt.
+
+This owns the interrupt route and callback only. The lifecycle caller still
+owns firmware matching, source configuration/quiescence, CPU0 serialization and
+worker draining before freeing context. It does not provide Global Lock, EC
+transactions, native ACPI mode or GPE dispatch. The separate Q35 adapter uses
+this common owner while retaining its strict Q35/SCI-9/GSI-9 gate; accepting a
+remapped GSI in the host fixture is not physical machine acceptance.
+
 ## Next adapter and acceptance sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the

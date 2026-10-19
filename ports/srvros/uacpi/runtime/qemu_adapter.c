@@ -3,6 +3,7 @@
 #include "work_worker.h"
 #include "q35_fixture.h"
 #include "ec_fixture.h"
+#include "sci_owner.h"
 #include "qemu_adapter.h"
 #include <srvros/acpi.h>
 #include <srvros/acpi_runtime_test.h>
@@ -29,9 +30,9 @@ static struct {
     struct kernel_semaphore wedge_gate;
     uacpi_interrupt_handler irq_fn;
     uacpi_handle irq_context;
-    uint64_t irq_token, rsdp, facs, heap, peak, errors, denied, fixture_dsdt;
+    uint64_t rsdp, facs, heap, peak, errors, denied, fixture_dsdt;
+    struct sci_owner sci;
     uint64_t interrupts, power_events, work_events, last_value, contended_waits;
-    uint32_t original_low, original_high;
     uint16_t original_control;
     uint8_t disable_command;
     bool engaged, initialized, stopping, work_scheduled, fault_install;
@@ -175,31 +176,49 @@ static bool irq_bridge(void *context) {
     (void)context; runtime.interrupts++;
     return runtime.irq_fn && runtime.irq_fn(runtime.irq_context) == UACPI_INTERRUPT_HANDLED;
 }
+static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
+    (void)ctx; return ioapic_read_gsi(gsi, low, high);
+}
+static bool sci_prepare(void *ctx, uint32_t gsi, uint8_t vector, bool low, bool level) {
+    (void)ctx; return ioapic_prepare_gsi(gsi, vector, low, level);
+}
+static bool sci_mask(void *ctx, uint32_t gsi, bool masked) {
+    (void)ctx; return ioapic_mask_gsi(gsi, masked);
+}
+static bool sci_restore(void *ctx, uint32_t gsi, uint32_t low, uint32_t high) {
+    (void)ctx; return ioapic_restore_masked_gsi(gsi, low, high);
+}
+static uint64_t sci_register(void *ctx, uint8_t line, irq_handler_fn fn, void *context) {
+    (void)ctx;
+    /* Inject after route preparation, so VM failure exercises real rollback. */
+    if (runtime.fault_install) return 0;
+    return irq_handler_register(line, fn, context);
+}
+static bool sci_remove(void *ctx, uint64_t token) { (void)ctx; return irq_handler_remove(token); }
 uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
     uacpi_interrupt_handler handler, uacpi_handle context, uacpi_handle *out) {
-    if (irq != 9 || runtime.irq_token || !handler || runtime.fault_install) return UACPI_STATUS_DENIED;
-    const struct acpi_interrupt_source_override *override = acpi_irq_override(9);
-    bool low = true;
-    if (override) {
-        unsigned polarity = override->flags & 3, trigger = (override->flags >> 2) & 3;
-        if (override->bus || override->gsi != 9 || (override->flags & ~15u) ||
-            polarity == 2 || trigger == 1 || trigger == 2) return UACPI_STATUS_DENIED;
-        low = polarity != 1;
-    }
-    if (!ioapic_prepare_gsi(9, 41, low, true)) return UACPI_STATUS_DENIED;
+    if (irq != 9 || runtime.sci.phase != SCI_OWNER_OFF || !handler)
+        return UACPI_STATUS_DENIED;
+    struct sci_route route;
+    if (!sci_route_resolve(&route, irq, acpi_irq_override(9)) || route.gsi != 9)
+        return UACPI_STATUS_DENIED; /* Preserve this adapter's strict Q35 gate. */
+    struct sci_owner_ops ops = {.read=sci_read, .prepare=sci_prepare, .mask=sci_mask,
+        .restore=sci_restore, .register_irq=sci_register, .remove_irq=sci_remove};
     runtime.irq_fn = handler; runtime.irq_context = context;
-    runtime.irq_token = irq_handler_register(9, irq_bridge, NULL);
-    if (!runtime.irq_token) return UACPI_STATUS_OUT_OF_MEMORY;
-    if (!ioapic_mask_gsi(9, false)) {
-        if (!irq_handler_remove(runtime.irq_token)) unsafe("failed install removal");
-        runtime.irq_token = 0; return UACPI_STATUS_DENIED;
+    bool ok = sci_owner_prepare(&runtime.sci, ops, route, irq_bridge, NULL);
+    if (ok) ok = sci_owner_enable(&runtime.sci);
+    if (!ok) {
+        if (!sci_owner_release(&runtime.sci)) unsafe("SCI install rollback failed");
+        runtime.irq_fn = NULL; runtime.irq_context = NULL;
+        return UACPI_STATUS_DENIED;
     }
     *out = &runtime; return UACPI_STATUS_OK;
 }
 uacpi_status uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler handler, uacpi_handle handle) {
-    if (handle != &runtime || handler != runtime.irq_fn || !runtime.irq_token) return UACPI_STATUS_INVALID_ARGUMENT;
-    if (!ioapic_mask_gsi(9, true) || !irq_handler_remove(runtime.irq_token)) unsafe("IRQ removal failed");
-    runtime.irq_token = 0; runtime.irq_fn = NULL; runtime.irq_context = NULL;
+    if (handle != &runtime || handler != runtime.irq_fn || !runtime.sci.token)
+        return UACPI_STATUS_INVALID_ARGUMENT;
+    if (!sci_owner_release(&runtime.sci)) unsafe("IRQ removal failed");
+    runtime.irq_fn = NULL; runtime.irq_context = NULL;
     return UACPI_STATUS_OK;
 }
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *request) {
@@ -270,14 +289,14 @@ static bool stop_runtime(void) {
     runtime.stopping = true;
     outw(0x602, 0);
     for (uint16_t port = 0x628; port < 0x630; port++) outb(port, 0);
-    if (!ioapic_mask_gsi(9, true)) unsafe("SCI mask failed");
+    if (runtime.sci.phase != SCI_OWNER_OFF && !sci_owner_mask(&runtime.sci)) unsafe("SCI mask failed");
     if (!acpi_ec_fixture_prepare_stop()) unsafe("EC disconnect failed");
     uacpi_state_reset();
     runtime.initialized = false;
     if (!acpi_ec_fixture_retired()) unsafe("EC state retained after reset");
-    if (runtime.irq_token) unsafe("SCI retained after reset");
+    if (runtime.sci.phase != SCI_OWNER_OFF || runtime.sci.token) unsafe("SCI retained after reset");
     if (!acpi_worker_drain(&runtime.worker, 1000) || !acpi_worker_stop(&runtime.worker, 1000)) unsafe("worker stop failed");
-    bool restored = ioapic_restore_masked_gsi(9, runtime.original_low, runtime.original_high);
+    bool restored = true; /* Route restoration belongs to the SCI owner. */
     if (!(runtime.original_control & 1) && (inw(0x604) & 1)) {
         outb(0xb2, runtime.disable_command);
         uint64_t end = timer_monotonic_us() + 1000000;
@@ -339,7 +358,7 @@ static bool start_runtime(bool fail_install, bool fixture, bool early, bool deny
     uint32_t low, high;
     if (!ioapic_read_gsi(9, &low, &high) || !(low & (1u<<16)) || (low & ((1u<<12)|(1u<<14)))) return false;
     runtime = (typeof(runtime)){
-        .engaged = true, .original_low = low, .original_high = high,
+        .engaged = true,
         .original_control = inw(0x604), .disable_command = fadt->acpi_disable,
         .rsdp = (uintptr_t)rsdp_request.response->address - pmm_hhdm_offset(),
         .facs = fadt->firmware_ctrl, .fault_install = fail_install, .fixture_dsdt = fixture_dsdt,
