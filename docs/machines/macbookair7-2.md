@@ -23,13 +23,11 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: audit the GPIO access made by PCI0 `_INI`,
-  add explicit private SystemIO models/trace to the offline namespace tool and
-  derive a tested native permission boundary from the observed access. Scope:
-  `tools/acpi_namespace_probe.c`, namespace fixtures/tests, `acpi_io_rule`,
-  runtime guides and CI coverage of the offline audit. No native EC/SCI
-  activation or sibling gate changes.
-  Base `3f4fb57` on `main` merge `db40ed5`; draft PR #4 owns this shared scope.
+- Current bounded implementation: reusable SCI route/callback ownership for the
+  native adapter, exercised first through the separate Q35 runtime. Scope:
+  `ports/srvros/uacpi/runtime/sci_owner.*`, Q35 adapter binding, host failure
+  injection, VM lifecycle checks and runtime guides. Preserve the Q35 identity
+  gate and ordinary native startup. Base `bcea808`; draft PR #4 owns the scope.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
