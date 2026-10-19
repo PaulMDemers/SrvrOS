@@ -361,14 +361,14 @@ sampling is enabled.
    work as an ordinary scheduler worker. Admission during storage ownership
    needs a separate dependency audit; an AML worker must not be declared an
    I/O service merely to reduce latency.
-3. **Deferred work.** The new host-only `runtime/work_queue.c` supplies the
-   allocation-free enqueue/dequeue foundation. The pinned API explicitly allows
+3. **Deferred work.** `runtime/work_queue.c` and `work_worker.c` now provide
+   allocation-free enqueue/dequeue and a CPU0 worker with drain/stop semantics. The pinned API explicitly allows
    callbacks to reschedule or free their own work item, so a detached invocation
-   is essential. A CPU0 worker should execute both GPE and notification work
-   outside queue locks. Completion waits must synchronize in-flight interrupts
+   is essential. The worker executes both GPE and notification work outside
+   queue locks and yields after every callback. Completion waits must synchronize in-flight interrupts
    first, then pending/in-flight work, including work scheduled by callbacks.
-   Test the complete adapter with interrupt producers and teardown; queue tests
-   alone do not establish those guarantees.
+   Host and synthetic-IRQ VM tests now cover this worker and teardown; hardware
+   level assertion and actual uACPI callback binding remain separate checks.
 4. **Separate live adapter and initialization.** The current native interpreter
    is compiled with `UACPI_REDUCED_HARDWARE`; changing its runtime flags cannot
    restore the omitted event machinery. Use a separate full-hardware build

@@ -54,7 +54,7 @@ snapshot writes, missing objects, bad checksums, denied I/O and loop deadlines.
 `tools/aml_probe_smoke.py` runs the native adapter in QEMU; `--fixture` adds our
 synthetic EC/SMBus resource contract. Neither test proves a physical battery read.
 
-## Live-runtime foundations (not linked or enabled)
+## Deferred-work foundations (no live firmware binding)
 
 `runtime/work_queue.c` implements the intrusive queue needed by the pinned
 uACPI 7.0 deferred-work contract. Items are allocated before scheduling, so
@@ -66,21 +66,29 @@ placing one pending item on another queue, is rejected without changing either
 queue. GPE/notification work types and callback contexts remain attached to
 their individual invocations.
 
-This is a host-tested component, not an implementation of the kernel callbacks
-yet. The future adapter must hold one IRQ-safe lock around every queue access,
-run callbacks outside that lock on a CPU0 worker, and synchronize interrupt
-producers before waiting for work completion. The worker must yield between
-bounded batches so self-rescheduling or an event storm cannot monopolize it.
-It must not free pending items or
-silently drop work if its adapter violates the enqueue contract. Host checks
-cover FIFO order, duplicate refusal, in-flight drain, reuse with a changed
-context, and a callback that reschedules itself 999 times before freeing its
-item; ASan/UBSan cover that final free. Run `make test-acpi-work`.
+`runtime/work_worker.c` now binds this queue to an ordinary CPU0 kernel worker.
+Enqueue is IRQ-safe and allocation-free; callbacks execute outside the lock and
+yield between every invocation. Drain includes pending and in-flight work,
+including callback requeues. Finite monotonic deadlines, worker self-wait refusal,
+idle-only stop admission and explicit stopped publication protect teardown.
+Stop timeout leaves a stop request pending; callers must wait for success before
+freeing worker storage. Lifecycle ownership excludes new producers and waiters.
+This remains separate from the pinned `uacpi_kernel_*` callbacks: the isolated
+probe continues to deny asynchronous work, and ordinary boot starts no worker.
 
-The queue is intentionally absent from native build inputs. The probe's denied
-asynchronous-work callbacks remain unchanged. SCI registration, scheduler-backed
-semaphores, thread identities, EC ownership and runtime initialization are still
-required; see the [integration plan](../../../docs/macbook-air-laptop-services-2026-10-18.md#live-acpi-runtime-integration-plan).
+Host queue/worker fault tests and ASan/UBSan cover duplicate enqueue, finite/zero
+waits, overflow, unavailable scheduler/clock, IRQ flag restoration, callback
+reschedule/free, yielding and stop/restart. `acpiworktest` exercises the actual
+ISR registry using software interrupt 47, eight enqueue attempts with one pending
+item, a blocked callback/drain timeout, 1,000 self-rescheduling callbacks with
+alternating work types, self-free and stopped teardown. `tools/acpi_work_smoke.py`
+runs four successive worker lifetimes in QEMU. This changes no I/O APIC route
+and is not a level-triggered hardware SCI test.
+
+The future uACPI completion callback must first synchronize installed interrupt
+producers, then call drain. Queue idleness alone is not interrupt quiescence.
+SCI ownership, full runtime initialization and EC integration remain required;
+see the [integration plan](../../../docs/macbook-air-laptop-services-2026-10-18.md#live-acpi-runtime-integration-plan).
 
 `make check-acpi-runtime-build` separately compiles the full, event-enabled
 upstream sources plus the queue with SrvrOS's freestanding x86-64 flags, then
@@ -95,10 +103,10 @@ retained under `build/review/acpi-runtime-*`.
 
 The MacBook's first combined-device trial stopped after the native probe's
 FADT-length compatibility warning, before workspace logging or desktop startup.
-The warning is not itself fatal; the stall location after it is unresolved.
-Normal desktop profiles from v22 omit `srvros.aml=probe`. Keep native probe
-execution explicit until this failure is diagnosed with stage-level evidence.
-Host and synthetic-QEMU success do not establish completion on this firmware.
+The warning is not itself fatal; that trial did not localize the stall.
+Normal desktop profiles from v22 omit `srvros.aml=probe`. The subsequent
+explicit native diagnostic completed, as recorded below. Keep this resource
+probe separate from normal desktop startup and live firmware ownership.
 
 The October 19 investigation adds stage and per-object entry markers. Captured
 DSDT/SSDT injection in QEMU reproduced a false heap-corruption halt at 4,096

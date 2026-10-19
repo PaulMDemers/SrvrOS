@@ -184,3 +184,17 @@ source is enabled. Unhandled IRQ messages are bounded to the first occurrence.
 Host registry/routing fault tests and the e1000 desktop/System VM regression
 passed. SCI topology ownership, level-trigger fixture testing and runtime
 adapter teardown remain; this is not a live SCI or battery acceptance.
+
+## Deferred-work worker
+
+The ACPI queue now has an ordinary CPU0 scheduler worker, allocation-free IRQ
+admission, finite drain waits and idle-only stop/restart. Callbacks can reschedule
+or free their own work item; the worker yields after each invocation. Failed
+stop waits never authorize freeing live state. Ordinary startup starts none of
+this machinery and the isolated probe callbacks remain restricted.
+
+Host faults and ASan/UBSan passed. The VM exercised four distinct worker
+lifetimes, each with eight actual software-interrupt entries, duplicate pending
+refusal, a blocked callback and drain timeout, 1,000 self-reschedules, self-free
+and successful stop. This tests the ISR/worker path, not hardware SCI assertion.
+Live uACPI completion still needs interrupt-producer synchronization before drain.
