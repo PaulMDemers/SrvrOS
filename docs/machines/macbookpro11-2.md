@@ -254,3 +254,18 @@ accepted keyboard behavior and explicit AML exclusion. Fetch found integration
 `origin/main=b6075ef` (merged EC/AML PR4); this checkout still builds from its
 recorded db40ed5 ancestry plus device commits, not the new EC code. No overlapping
 trackpad edits were found in that integration delta. Prior typing run is collected.
+
+Trackpad/desktop candidate `c4b7b7bb5eb48b3a`, source `ca645d9`, is v29 at
+explicit 2880x1800/2x scale. Tests cover Type2 synthetic framing/bounds, exact
+Pro interface/DCI and endpoint isolation, feature read/modify/write, outbound
+control setup direction, failed mode switches and actual Type2 dispatch. Existing
+Air fixture, keyboard, pointer and desktop host tests pass. Build and 30 staging
+tests pass. Exact GPT VM trial saves typed Text content, a 1440x900 screenshot,
+matching logs, and cleanly unmounts; the final instruction screen was inspected.
+
+Native trial next: no time limit, on-screen pointer/click/drag/scroll checklist,
+then save and Return to console (F10, End, Return if pointer fails), followed by
+`reboot` after `USB unmounted=yes`. Retain accepted keyboard `29af8019a1737d6e`
+as previous and archive this candidate before arming. Trackpad motion, gestures
+and Retina desktop behavior remain unaccepted until native evidence returns.
+Type2 protocol reference: [Linux bcm5974](https://raw.githubusercontent.com/torvalds/linux/master/drivers/input/mouse/bcm5974.c).

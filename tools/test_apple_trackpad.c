@@ -93,6 +93,6 @@ int main(void) {
     assert(apple_trackpad_decode(NULL,38,&frame)==-1);
     assert(apple_trackpad_decode(p,38,NULL)==-1);
     physical_samples();
-    puts("apple-trackpad: PASS Type 3 framing, signed coordinates, contacts, release, bounds; physical capture fixtures");
+    puts("apple-trackpad: PASS Type 2 synthetic and Type 3 framing, signed coordinates, contacts, release, bounds; physical capture fixtures");
     return 0;
 }

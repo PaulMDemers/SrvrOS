@@ -570,3 +570,20 @@ the current prompt without resetting its deadline; a timeout records FAIL. Compl
 return automatically if storage succeeds. Missing/failed storage still halts.
 Use the built-in keyboard only for its acceptance. A successful VM rehearsal
 or merely enumerating a keyboard is not physical typing acceptance.
+
+### Retina desktop trial
+
+For an explicit 2880x1800 framebuffer and a 1440x900 logical desktop, stage
+`hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" --desktop-scale 2`
+(v29). Rehearse that exact payload with `hardware_boot_smoke.py --desktop-check
+--workspace-table gpt`. This profile enables trackpad gestures and read-only
+laptop diagnostics; it does not enable optional AML, audio or SMC probing.
+The opening Help page displays pointer checks and keyboard-only exit instructions.
+There is no deadline or automatic reboot. Save work, choose Return to console
+(F10, End, Return), and type `reboot` only after `USB unmounted=yes`.
+
+The `05ac:0262` trackpad candidate matches the captured vendor-HID interface 1,
+endpoint 0x81/64-byte packets, interval 2. It uses an explicit Wellspring7 Type2
+decoder and feature mode switch, separate from the Air0291 Type3 profile.
+Synthetic protocol/transport tests do not accept physical gestures. Keep the
+last accepted keyboard payload and collect the native session before proceeding.
