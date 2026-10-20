@@ -43,6 +43,19 @@ port fields; that replay is parser validation only. Native v33 lifecycle
 acceptance, long-lived desktop service and responsiveness under I/O remain
 pending. No battery widget or userspace interface is enabled in this block.
 
+Native candidate **`a9be2dc78d213dee`**, artifact source **`1a12f2d`**, is the
+v33 automatic service trial. Its exact staged native image passes GRUB/UEFI
+rehearsal: unsupported Q35 is refused, the failure log is persisted and verified
+offline, exFAT is clean, and failure remains halted. The hardware test keeps AC
+and USB connected and needs no input; it saves/unmounts and returns only after
+complete retirement. Each initialized lifetime must restore both retained event
+enables, and the collector requires the reader/sample/retirement proofs.
+Accepted v32 `aa976febab59c128`, v31 `13d8083de35b51af` and previous desktop
+`b427b78f21644bd2` remain backed up outside build. The unreferenced v25 payload
+`06c646455f08555e` was archived and hash-verified before reclaiming EFI space.
+Collect the matching v33 session before another candidate; physical result is
+pending, and this does not accept persistent desktop operation.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
