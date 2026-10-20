@@ -675,3 +675,21 @@ Recommended next bounded milestone: read-only native CPU temperature/fan and
 idle/load telemetry matched to this unit's inventory. Keep fan control and
 optional AML out of normal startup. Battery/AC follows its shared runtime
 review and Pro-specific firmware evidence. No next boot has been scheduled.
+
+## Read-only telemetry scope — 2026-10-20
+
+Begin with native CPU temperature/package energy/CPU0 active frequency, then
+separately implement this unit's two-fan readout. Linux CPUID is 0x40661,
+GenuineIntel family 6/model 0x46; leaf 6 EAX=0x77 and ECX=9. CPU0 reads of
+0x606, 0xce, 0x611, 0xe8, 0xe7, 0x1a2, 0x19c and 0x1b1 succeeded. Units are
+0xa0e03, nominal ratio 25, temperature target 100 C with zero TCC offset.
+Linux exposes Left side and Right side fans. Development-load samples are
+fixtures, not an idle baseline or native acceptance.
+
+Bounded first change: explicit 06_46 CPU profile alongside 06_3D in thermal
+and power predicates, captured decoder fixtures and service refusal tests.
+No MSR writes, fan control, EC/AML activation or frequency policy changes.
+Use the existing v26 unattended desktop idle capture; SMC remains unavailable
+on this Pro until an explicit two-fan profile and ABI are validated. Avoid
+PR6 startup/boot-harness files. Refreshed origin/main remains b6075ef; PR6 at
+6db5a12 retains battery/AC runtime ownership. Preserve accepted desktop recovery.
