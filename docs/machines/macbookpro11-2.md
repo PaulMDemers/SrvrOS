@@ -491,3 +491,29 @@ about 15 seconds each. Save and Return to console, then reboot after clean
 unmount; all instructions remain in Help. Preserve sound-confirmed
 `e47dca3a6b30c6c1` as previous. Collect the exact session and compare active
 cadence versus draw/consume durations before selecting any latency fix.
+
+## Native cursor timing result
+
+Release `cae101ddceccbd1d`, session `session-00065e3d2bb52f21-00`, saved
+all four timing aggregates and exited cleanly. Native measurements:
+
+| Software interval | Samples | Mean | Maximum | p95 upper bound |
+| --- | ---: | ---: | ---: | ---: |
+| Pointer poll gap | 32,504 | 9,999 us | 12,650 us | 12,650 us |
+| Consecutive motion poll gap | 5,713 | 9,999 us | 12,191 us | 12,191 us |
+| First consumed event to final blit | 6,035 | 392 us | 2,412 us | 2,000 us |
+| Draw plus blit | 6,098 | 402 us | 3,570 us | 2,000 us |
+
+These results establish the 10 ms compositor sampling cadence and fast drawing
+in this run. They support investigating input scheduling before rendering
+optimization; they do not measure USB arrival, kernel queue age or panel scanout,
+and do not prove the entire subjective 15–45 ms delay is software polling.
+Histogram percentile bounds must not be represented as exact quantiles.
+Trackpad reports total 6,667 with zero malformed reports or transfer errors.
+
+Matching logs and collection metadata are archived outside `build`. Offline
+exFAT is clean, Ubuntu default and consumed one-shot are verified, and no reboot
+is armed. The USB UUID is unchanged but Linux assigned a different device node;
+the local checkpoint now reflects it. Sound-confirmed `e47dca3a6b30c6c1` remains
+installed previous. Next inspect event-driven pointer wake and controller polling
+coordination, retaining timer/idle behavior until affected regressions are covered.
