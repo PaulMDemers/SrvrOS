@@ -328,3 +328,21 @@ tests and documentation checks pass. The exact v19 GPT VM rehearsal verifies
 saved log bytes, clean exFAT, unmount and reset. Physical capture is next, under
 existing automatic-reboot authorization; no user input is required. Collect this
 release on return before implementing a writable provider or staging again.
+
+## Native read-only Pro backlight result
+
+Release `a488fbd08bf01e44`, session `session-00065e3c79b9a84e-00`, completed
+the diagnostic and saved matching boot/exit logs. The exact firmware/chipset
+gate matched. Native registers: CPU control/duty both zero, PCH control
+`0xc0000000`, PCH period/duty `0x07a101f9`: override mode, period 1953,
+duty 505 (about 26%). This matches the independently captured Linux range and
+duty. No brightness writes, provider binding, EC access or audio initialization
+occurred. This accepts discovery only, not brightness adjustment.
+
+Logs, payload and collection metadata are archived outside `build`. The offline
+exFAT check is clean, Ubuntu default and consumed one-shot are verified, and no
+reboot is armed. Installed previous is the accepted desktop `c4b7b7bb5eb48b3a`.
+Next implement an explicit Pro brightness profile using the observed mode and
+period, preserving the Air profile and rejecting changed registers/readback
+failures. Then test its shared Settings path before physical adjustment. Audio
+remains a separate two-speaker-route implementation and acceptance milestone.
