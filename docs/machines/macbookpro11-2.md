@@ -304,3 +304,16 @@ of scope. Refetched `origin/main` remains `b6075ef`; open PR6 changes Air ACPI l
 handling, not these providers. This result still uses the recorded device branch
 ancestry, not merged PR4 code. Collect-before-restage is complete; no new stage
 or physical trial is prepared yet.
+
+## Pro backlight diagnostic implementation scope
+
+Proceeding under the standing bring-up authorization. First add a read-only
+Pro display probe, gated on this unit's captured DSDT and GPU/PCH identities.
+It will read only the four documented CPU/PCH PWM registers, without binding a
+brightness writer or accessing EC ports. Use the existing unattended v19 GPT
+capture/save/unmount/reboot workflow. Touch laptop probe/resource matching and
+host tests; preserve the accepted desktop as previous. Native boot register
+state is required before choosing a brightness control profile. Linux reports
+maximum 1953, distinct from the Air's 2777. Audio evidence also shows two speaker
+pins (0x12 and 0x13), so the Air's single-speaker route is insufficient.
+`origin/main` remains b6075ef and PR6 remains ACPI-only at this scope refresh.
