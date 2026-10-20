@@ -616,3 +616,12 @@ hardware report arrival or display scanout. Touch mouse input/header, xHCI,
 compositor and mouse host fixtures; avoid PR6's startup and harness changes.
 Integration baseline remains b6075ef. Accepted installed payload stays unchanged
 until exact-stage validation of a diagnostic candidate.
+
+The diagnostic implementation restores fixed one-tick desktop sleeping and logs
+that policy explicitly. Queue timestamps exclude mixed sources and synthetic
+cancellation/overflow events. Fixed-size counters reject unavailable/backwards
+clocks and aggregate overflow; no per-event logging is added. Full build,
+USB image, test-core and documentation checks pass. Mouse fixtures cover
+coalescing, mixed sources, backwards clocks, cancellation and overflow; xHCI
+fixtures cover report/rearm samples and lift sequence reset. Native timing
+and perceived response remain untested for this diagnostic build.

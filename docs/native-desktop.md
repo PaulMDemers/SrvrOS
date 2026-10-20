@@ -381,7 +381,7 @@ the cursor. The normal verified preferences writer saves the choice.
 
 ### Bounded pointer wake
 
-The desktop uses `srv_pointer_wait()` (syscall 133) between iterations. It
+The experimental `srv_pointer_wait()` (syscall 133) remains available. It
 returns 1 if the mouse queue is ready, 0 after at most one timer tick, or a
 negative error/interruption. It does not consume an event. The dedicated queue
 is notified when input is enqueued or cancellation replaces queued gestures;
@@ -391,7 +391,18 @@ bounds signal/exit handling. A failed/unavailable call falls back to ordinary
 one-tick sleep. Timer frequency and xHCI polling are unchanged. This is not a
 promise of interrupt-driven USB or sub-tick device sampling.
 
-Hardware-trial exit logs include pointer-ready/timeout/error counts alongside
-the software timing aggregates. Native responsiveness and idle behavior must
-be compared with the previous build; VM input wake checks alone do not accept
-physical latency improvement.
+The Pro11,2 physical comparison reported worse responsiveness. The desktop now
+uses its previous unconditional one-tick sleep; hardware-trial logs identify
+`policy=fixed-one-tick`. The syscall remains for controlled investigation and
+is not an accepted latency fix.
+
+Input summaries include software queue residence for trackpad-only batches:
+`queue-oldest` preserves the first constituent timestamp across coalescing;
+`queue-latest` uses the newest constituent. Mixed mouse/trackpad batches and
+synthetic cancellations are excluded. xHCI reports consecutive contact dispatch
+gaps (lift/malformed frames reset the sequence) and dispatch-to-rearm duration.
+These fixed-size aggregates add monotonic clock reads during trackpad handling;
+they do not measure hardware arrival, USB transaction duration or display
+scanout. Values accumulate since boot, with counts, means and maxima; compare
+matching workloads and inspect sample counts. The event ABI and polling rate
+are unchanged.

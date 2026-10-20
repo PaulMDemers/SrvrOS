@@ -599,7 +599,7 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     if (gestures) assert(t->typing_until>test_time);
     e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(7u<<16);
     e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38); dispatch_transfer_event(&e);
-    assert(t->reports==2 && t->frame.count==0 && !t->frame.button); /* Lift frame. */
+    assert(t->reports==2 && t->frame.count==0 && !t->frame.button && !t->last_contact_us); /* Lift frame. */
     assert(pointer_injected==(pointer?2u:0u));
     if (pointer) assert(!last_pointer.buttons);
     assert(t->lifts==1 && t->max_contacts==1 && t->samples[1].data[40]==123);
@@ -708,6 +708,8 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
         dispatch_transfer_event(&e);assert(last_pointer.buttons==1);
         cancel_trackpad_pointer(t);assert(pointer_canceled==canceled+2);
     }
+    assert(t->rearm_time.count>0);
+    if(gestures) assert(t->contact_gap.count>0);
     xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }

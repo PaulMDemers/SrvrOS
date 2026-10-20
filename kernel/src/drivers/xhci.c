@@ -218,6 +218,8 @@ struct xhci_trackpad_endpoint {
     uint32_t max_touch_major,max_touch_minor;
     uint64_t pointer_motion, pointer_events,pointer_buttons,pointer_cancels;
     uint64_t lifts;
+    uint64_t last_contact_us;
+    struct input_timing contact_gap,rearm_time;
     uint32_t max_contacts;
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
@@ -1871,9 +1873,14 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
         if ((completion!=1 && completion!=13) || remaining>APPLE_TRACKPAD_REPORT_MAX) {
             t->errors++; t->ready=false; cancel_trackpad_pointer(t); return;
         }
+        uint64_t dispatch_us=timer_monotonic_us();
         t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
         uint8_t previous_contacts=t->frame.count;
         int decoded=apple_trackpad_decode_type(t->report_type,t->buffer,t->last_length,&t->frame);
+        if(decoded>0 && t->frame.count) {
+            input_timing_add(&t->contact_gap,t->last_contact_us,dispatch_us);
+            t->last_contact_us=dispatch_us;
+        } else t->last_contact_us=0;
         if (decoded<0) { t->malformed++; trackpad_sample(t,4); cancel_trackpad_pointer(t); }
         if (decoded>0) {
             t->reports++;
@@ -1917,6 +1924,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             if (t->max_contacts<t->frame.count) t->max_contacts=t->frame.count;
         }
         submit_trackpad_poll(device);
+        input_timing_add(&t->rearm_time,dispatch_us,timer_monotonic_us());
         return;
     }
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
@@ -2600,6 +2608,11 @@ void xhci_probe_input(uint64_t wait_ticks) {
     xhci_input_probe_active = false;
 }
 
+static void print_input_timing(const char *name,const struct input_timing *s) {
+    console_printf("input-timing: %s count=%u mean_us=%u max_us=%u\n",name,
+        s->count,s->count?s->total_us/s->count:0,s->max_us);
+}
+
 static void print_trackpad_capture(const struct xhci_device *device) {
     const struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (!device->present || !t->candidate) return;
@@ -2608,6 +2621,11 @@ static void print_trackpad_capture(const struct xhci_device *device) {
         (uint64_t)t->packet,(uint64_t)APPLE_TRACKPAD_REPORT_MAX,(uint64_t)t->last_length,(uint64_t)t->last_completion);
     console_printf("trackpad-capture: reports=%u contact_reports=%u button_reports=%u malformed=%u errors=%u\n",
         t->reports,t->contact_reports,t->button_reports,t->malformed,t->errors);
+    uint64_t flags=event_irq_save();
+    struct input_timing gap=t->contact_gap,rearm=t->rearm_time;
+    event_irq_restore(flags);
+    print_input_timing("contact-dispatch-gap",&gap);
+    print_input_timing("dispatch-to-rearm",&rearm);
     console_printf("trackpad-gesture: policy=taps-v1 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
         t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels,t->tap_primary,t->tap_secondary);
     console_printf("trackpad-capture: current contacts=%u button=%u x=%d y=%d origin=%u\n",
@@ -2616,6 +2634,9 @@ static void print_trackpad_capture(const struct xhci_device *device) {
 }
 
 void xhci_print_input_summary(void) {
+    struct input_timing oldest,latest;mouse_queue_timing(&oldest,&latest);
+    print_input_timing("queue-oldest",&oldest);
+    print_input_timing("queue-latest",&latest);
     if (!xhci.present) {
         console_write("input-usb: xhci=none\n");
         return;

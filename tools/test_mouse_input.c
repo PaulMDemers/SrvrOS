@@ -3,6 +3,8 @@
 #define SRVROS_MOUSE_TEST_HOST
 #include "../kernel/src/drivers/mouse_input.c"
 static unsigned wakes;
+static uint64_t test_us;
+uint64_t timer_monotonic_us(void) { return test_us; }
 void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==mouse_wait_queue());wakes++; }
 static struct mouse_event next(int x,int y,int buttons) {
     struct mouse_event e;
@@ -10,6 +12,20 @@ static struct mouse_event next(int x,int y,int buttons) {
     return e;
 }
 int main(void) {
+    struct input_timing oldest,latest;
+    test_us=100;mouse_inject_trackpad(1,0,0);
+    test_us=200;mouse_inject_trackpad(2,0,0);
+    test_us=500;next(3,0,0);mouse_queue_timing(&oldest,&latest);
+    assert(oldest.count==1 && oldest.total_us==400 && latest.total_us==300);
+    test_us=600;mouse_inject_trackpad(1,0,0);
+    test_us=550;next(1,0,0);mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    test_us=700;mouse_inject_trackpad(1,0,0);mouse_inject_event(1,0,0);
+    test_us=800;next(2,0,0);mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    struct input_timing saturated={.count=UINT64_MAX};
+    input_timing_add(&saturated,1,2);assert(saturated.count==UINT64_MAX && !saturated.total_us);
+    saturated=(struct input_timing){.total_us=UINT64_MAX};
+    input_timing_add(&saturated,1,2);assert(!saturated.count);
+    test_us=0;wakes=0;
     assert(!mouse_pending());
     mouse_inject_trackpad(1,0,0);assert(mouse_pending() && wakes==1);
     mouse_inject_trackpad(1,0,0);assert(wakes==1); /* Existing readiness needs no second notification. */
@@ -67,5 +83,12 @@ int main(void) {
     mouse_cancel_trackpad();e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
     mouse_cancel_trackpad();assert(!mouse_scan(&e));
     mouse_inject_trackpad_tap(2);next(0,0,2);next(0,0,0);
+    test_us=1000;mouse_inject_trackpad(0,0,1);mouse_cancel_trackpad();
+    test_us=2000;e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
+    mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
+    mouse_inject_trackpad(0,0,0);assert(!mouse_scan(&e));
+    for(unsigned i=0;i<65;i++)mouse_inject_trackpad(0,0,(i&1)?0:1);
+    e=next(0,0,0);assert(e.flags&MOUSE_CANCEL);
+    mouse_queue_timing(&oldest,&latest);assert(oldest.count==1);
     puts("mouse-input: PASS ordered edges, click positions, coalescing, source buttons, saturation, overflow cancellation, wrap");
 }
