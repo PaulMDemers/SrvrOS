@@ -55,10 +55,11 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False,read32=()):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False,read32=(),ec_model=None):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
         if initialize: args+=['--initialize']
+        if ec_model: args+=['--ec-model',str(ec_model)]
         for description in read32: args+=['--mmio-read32',description]
         for address,path in models: args+=['--io-model',f'{address}:{path}']
         for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
@@ -67,6 +68,65 @@ class NamespaceTests(unittest.TestCase):
         if snapshot: args+=['--region',f'0x100000:{self.snapshot}']
         args += [str(aml or self.aml),'--',*paths]
         return subprocess.run(args,capture_output=True,text=True,timeout=20)
+
+    def test_connected_ec_lifecycle(self):
+        aml=self.variant('Device (SMB0) {', """
+            Name (REGC, Zero)
+            OperationRegion (ECOR, EmbeddedControl, Zero, 0x100)
+            Field (ECOR, ByteAcc, NoLock, Preserve) { V000, 8 }
+            Method (_REG, 2) {
+                REGC = Arg1
+                If (Arg1) { V000 = 0x42 Notify (EC, 0x80) }
+                Else { V000 = 0x24 }
+            }
+            Method (ECRD, 0) { Return (V000) }
+            Device (SMB0) {
+        """)
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        r=self.probe('\\_SB.EC.ECRD',aml=aml,contract=self.contract(),initialize=True,ec_model=model)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('ec-model: connect=PASS',r.stdout)
+        self.assertIn('ec-model: notify path=\\_SB_.EC__ value=80',r.stdout)
+        self.assertIn('\\_SB.EC.ECRD = 0x42',r.stdout)
+        self.assertIn('ec-model: disconnect=PASS api=0 attached=1 detached=1',r.stdout)
+        self.assertIn('value=24',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+        self.assertEqual(model.read_bytes(),bytes(256))
+
+    def test_ec_model_requires_explicit_contract_and_initialize(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        for options in ({},dict(initialize=True),dict(contract=self.contract())):
+            r=self.probe('\\READ',ec_model=model,**options)
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+            self.assertIn('EC model requires',r.stderr)
+        model.write_bytes(bytes(255))
+        r=self.probe('\\READ',ec_model=model,contract=self.contract(),initialize=True)
+        self.assertEqual(r.returncode,2)
+        self.assertIn('expected 256-byte',r.stderr)
+
+    def test_ec_contract_mismatch_prevents_connection(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        r=self.probe('\\READ',ec_model=model,contract=self.contract(uid=1),initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertNotIn('ec-model: connect=PASS',r.stdout)
+        self.assertIn('namespace-init: SKIPPED',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_ec_model_out_of_bounds_refused(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        aml=self.variant('Device (SMB0) {', """
+            OperationRegion (ECOR, EmbeddedControl, 0xFF, 2)
+            Field (ECOR, ByteAcc, NoLock, Preserve) { DATA, 8 }
+            Method (_REG, 2) { If (Arg1) { DATA = One } }
+            Device (SMB0) {
+        """)
+        r=self.probe('\\READ',aml=aml,ec_model=model,contract=self.contract(),initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('ec-model: connect=REFUSED',r.stdout)
+        self.assertIn('namespace-init: SKIPPED',r.stdout)
+        self.assertNotIn('ec-model: write',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
 
     def test_namespace_initialization_is_opt_in(self):
         aml=self.variant('Method (READ, 0)', 'Method (_INI, 0) { VAL0 = 0x42 } Method (READ, 0)')

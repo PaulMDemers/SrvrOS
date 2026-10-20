@@ -8,6 +8,8 @@
 #include <uacpi/osi.h>
 #include <uacpi/namespace.h>
 #include <uacpi/tables.h>
+#include <uacpi/opregion.h>
+#include <uacpi/notify.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,6 +31,37 @@ struct io_mapping { uint32_t base; size_t size; };
 struct pci_snapshot { uacpi_pci_address address; unsigned char data[256]; };
 static struct pci_snapshot pci[16];static size_t pci_count;
 static struct acpi_rsdp rsdp;
+static unsigned char ec_bytes[256];
+static size_t ec_accesses, ec_attached, ec_detached;
+static bool permit_work;
+struct offline_work { uacpi_work_handler fn;uacpi_handle context;bool pending; };
+static struct offline_work *work[128];
+static size_t work_head,work_count,work_total;
+static uacpi_status trace_notify(uacpi_handle ctx,uacpi_namespace_node *node,uacpi_u64 value) {
+    (void)ctx;
+    const char *path=uacpi_namespace_node_generate_absolute_path(node);
+    printf("ec-model: notify path=%s value=%llx\n",path?path:"<unknown>",(unsigned long long)value);
+    if(path) uacpi_free_absolute_path(path);
+    return UACPI_STATUS_OK;
+}
+static uacpi_status ec_model_handler(uacpi_region_op op,uacpi_handle data) {
+    if(op==UACPI_REGION_OP_ATTACH) {
+        uacpi_region_attach_data *a=data;
+        if(a->handler_context!=ec_bytes||a->generic_info.base>255||!a->generic_info.length||
+           a->generic_info.length>256-a->generic_info.base) { denied++;return UACPI_STATUS_DENIED; }
+        a->out_region_context=ec_bytes;ec_attached++;return UACPI_STATUS_OK;
+    }
+    if(op==UACPI_REGION_OP_DETACH) { ec_detached++;return UACPI_STATUS_OK; }
+    if(op!=UACPI_REGION_OP_READ&&op!=UACPI_REGION_OP_WRITE) { denied++;return UACPI_STATUS_DENIED; }
+    uacpi_region_rw_data *r=data;
+    if(r->handler_context!=ec_bytes||r->region_context!=ec_bytes||r->byte_width!=1||r->address>255||
+       ++ec_accesses>4096) { denied++;return UACPI_STATUS_DENIED; }
+    if(op==UACPI_REGION_OP_WRITE) ec_bytes[r->address]=r->value;
+    else r->value=ec_bytes[r->address];
+    printf("ec-model: %s address=%02llx width=8 value=%02llx\n",op==UACPI_REGION_OP_WRITE?"write":"read",
+        (unsigned long long)r->address,(unsigned long long)r->value);
+    return UACPI_STATUS_OK;
+}
 static void fatal(const char *message) { fprintf(stderr,"probe: %s\n",message);exit(2); }
 static void add_mapping(void *p,size_t size) {
     if(mapping_count==MAX_TABLES+3) fatal("too many mappings");
@@ -80,12 +113,26 @@ uacpi_handle uacpi_kernel_create_spinlock(void) { return (void *)1; }
 void uacpi_kernel_free_spinlock(uacpi_handle h) { (void)h; }
 uacpi_cpu_flags uacpi_kernel_lock_spinlock(uacpi_handle h) { (void)h;return 0; }
 void uacpi_kernel_unlock_spinlock(uacpi_handle h,uacpi_cpu_flags f) { (void)h;(void)f; }
-uacpi_handle uacpi_kernel_create_work_item(void) { return (void *)1; }
-void uacpi_kernel_free_work_item(uacpi_handle h) { (void)h; }
-void uacpi_kernel_schedule_work(uacpi_work_type t,uacpi_handle item,uacpi_work_handler fn,uacpi_handle ctx) {
-    (void)t;(void)item;(void)fn;(void)ctx;fatal("unexpected asynchronous work");
+uacpi_handle uacpi_kernel_create_work_item(void) {
+    struct offline_work *w=uacpi_kernel_alloc(sizeof(*w));if(w) *w=(struct offline_work){0};return w;
 }
-uacpi_status uacpi_kernel_wait_for_work_completion(void) { return UACPI_STATUS_OK; }
+void uacpi_kernel_free_work_item(uacpi_handle h) {
+    if(h&&((struct offline_work *)h)->pending) fatal("free pending offline work");
+    uacpi_kernel_free(h);
+}
+void uacpi_kernel_schedule_work(uacpi_work_type t,uacpi_handle item,uacpi_work_handler fn,uacpi_handle ctx) {
+    struct offline_work *w=item;
+    if(!permit_work||t!=UACPI_WORK_NOTIFICATION||!w||!fn||w->pending||work_count==128||++work_total>4096)
+        fatal("unexpected or excessive asynchronous work");
+    *w=(struct offline_work){fn,ctx,true};work[(work_head+work_count++)%128]=w;
+}
+uacpi_status uacpi_kernel_wait_for_work_completion(void) {
+    while(work_count) {
+        struct offline_work *w=work[work_head];work_head=(work_head+1)%128;work_count--;
+        uacpi_work_handler fn=w->fn;uacpi_handle ctx=w->context;w->pending=false;fn(ctx);
+    }
+    return UACPI_STATUS_OK;
+}
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *r) { (void)r;denied++;return UACPI_STATUS_DENIED; }
 uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,uacpi_interrupt_handler fn,uacpi_handle ctx,uacpi_handle *out) { (void)irq;(void)fn;(void)ctx;(void)out;denied++;return UACPI_STATUS_DENIED; }
 uacpi_status uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler fn,uacpi_handle h) { (void)fn;(void)h;return UACPI_STATUS_DENIED; }
@@ -256,12 +303,18 @@ int main(int argc,char **argv) {
     /* The independent wall clock also bounds AML outside While loops. */
     alarm(15);setvbuf(stdout,NULL,_IOLBF,0);
     int separator=0,darwin=0;
-    bool initialize=false, contract=false;struct acpi_ec_resources ec_contract={0};
+    bool initialize=false, contract=false, ec_model=false;struct acpi_ec_resources ec_contract={0};
     void *tables[MAX_TABLES];size_t table_count=0;
     for(int a=1;a<argc;a++) {
         if(!strcmp(argv[a],"--")) { separator=a+1;break; }
         if(!strcmp(argv[a],"--darwin")) { darwin=1;continue; }
         if(!strcmp(argv[a],"--initialize")) { initialize=true;continue; }
+        if(!strcmp(argv[a],"--ec-model")) {
+            if(ec_model||++a==argc) fatal("expected one --ec-model FILE");
+            FILE *f=fopen(argv[a],"rb");if(!f) fatal("cannot open EC model");
+            if(fread(ec_bytes,1,256,f)!=256||fgetc(f)!=EOF||fclose(f)) fatal("expected 256-byte EC model");
+            ec_model=true;continue;
+        }
         if(!strcmp(argv[a],"--ec-contract")) {
             if(contract||a+2>=argc) fatal("expected one --ec-contract ECDT.dat FACP.dat");
             size_t en,fn;unsigned char *ec=read_contract_table(argv[++a],&en);
@@ -342,7 +395,9 @@ int main(int argc,char **argv) {
         unsigned sum=0;for(long i=0;i<size;i++) sum+=((unsigned char *)h)[i];if(sum&255) fatal("bad table checksum");
         add_mapping(h,size);tables[table_count++]=h;
     }
-    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--initialize] [--darwin] [--mmio-read32 BASE:SIZE:ADDRESS:FILE] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--initialize] [--darwin] [--mmio-read32 BASE:SIZE:ADDRESS:FILE] [--ec-contract ECDT.dat FACP.dat] [--ec-model FILE] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(ec_model&&(!contract||!initialize)) fatal("EC model requires --ec-contract and --initialize");
+    permit_work=ec_model;
     struct acpi_fadt fadt={0};header(&fadt.hdr,"FACP",sizeof(fadt));fadt.x_dsdt=(uintptr_t)tables[0];
     checksum(&fadt,sizeof(fadt),9);add_mapping(&fadt,sizeof(fadt));
     size_t xsdt_size=sizeof(struct acpi_sdt_hdr)+8*table_count;
@@ -357,15 +412,31 @@ int main(int argc,char **argv) {
     if(darwin) { check(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR),"disable vendor interfaces");check(uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR),"Darwin interface"); }
     check(uacpi_namespace_load(),"namespace load");
     unsigned failed=0;
+    uacpi_namespace_node *ec_node=NULL;
+    bool ec_installed=false,notify_installed=false;
+    if(ec_model) {
+        if(aml_errors||aml_warnings||denied||!audit_contract(&ec_contract)) failed++;
+        else {
+            uacpi_status st=uacpi_namespace_node_find(NULL,ec_contract.path,&ec_node);
+            if(!st) {st=uacpi_install_notify_handler(uacpi_namespace_root(),trace_notify,NULL);notify_installed=!st;}
+            if(!st) st=uacpi_install_address_space_handler(ec_node,UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER,ec_model_handler,ec_bytes);
+            uacpi_kernel_wait_for_work_completion();
+            ec_installed=!st;
+            if(st||aml_errors||aml_warnings||denied) failed++;
+            printf("ec-model: connect=%s api=%u errors=%zu warnings=%zu denied=%zu hardware_access=none\n",
+                failed?"REFUSED":"PASS",st,aml_errors,aml_warnings,denied);
+        }
+    }
     if(initialize) {
         /* An API success can hide failed _INI/_STA methods. This strict offline
          * audit also refuses warnings and prior load faults. No event hardware
-         * or EC handler exists in this reduced-hardware process. */
-        if(aml_errors||aml_warnings||denied) {
+         * exists in this reduced-hardware process; the optional EC is private. */
+        if(failed||aml_errors||aml_warnings||denied) {
             failed++;
             printf("namespace-init: SKIPPED prior load errors=%zu warnings=%zu denied=%zu\n",aml_errors,aml_warnings,denied);
         } else {
             uacpi_status st=uacpi_namespace_initialize();
+            uacpi_kernel_wait_for_work_completion();
             if(st||aml_errors||aml_warnings||denied) failed++;
             printf("namespace-init: %s api=%u errors=%zu warnings=%zu denied=%zu hardware_access=none\n",
                 failed?"REFUSED":"PASS",st,aml_errors,aml_warnings,denied);
@@ -377,8 +448,17 @@ int main(int argc,char **argv) {
         uacpi_object *object=NULL;uacpi_status st=uacpi_eval_simple(NULL,argv[a],&object);
         printf("%s = ",argv[a]);if(st) { printf("ERROR %s",uacpi_status_to_string(st));failed++; }else if(object) display(object,0);else printf("<no return>");putchar('\n');
         if(object) uacpi_object_unref(object);
+        uacpi_kernel_wait_for_work_completion();
     }
     if(contract&&!init_refused&&!audit_contract(&ec_contract)) failed++;
+    if(ec_installed) {
+        uacpi_status st=uacpi_uninstall_address_space_handler(ec_node,UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER,ec_model_handler);
+        uacpi_kernel_wait_for_work_completion();
+        if(st||aml_errors||aml_warnings||denied||ec_attached!=ec_detached) failed++;
+        printf("ec-model: disconnect=%s api=%u attached=%zu detached=%zu accesses=%zu\n",
+            st||aml_errors||aml_warnings||denied||ec_attached!=ec_detached?"REFUSED":"PASS",st,ec_attached,ec_detached,ec_accesses);
+    }
+    if(notify_installed&&uacpi_uninstall_notify_handler(uacpi_namespace_root(),trace_notify)) failed++;
     uacpi_state_reset();failed+=(unsigned)aml_errors;printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
     for(size_t i=0;i<table_count;i++) free(tables[i]);
     free(xsdt);
