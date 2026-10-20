@@ -133,19 +133,28 @@ device work uses separate branches based on `main`.
   exit logs were saved and the USB unmounted before the persistent halt.
   No battery samples or native EC/SCI acceptance. The screen's `saved=NO`
   combined diagnostic failure with log saving and did not describe the saved files.
-- Current bounded follow-up: add per-check native preflight refusal evidence
-  and separate capture completion from log-save status. Preserve all admission
-  gates and permissions; use the next exact-stage trial to identify the failed
-  check. Scope: native battery platform, capture reporting and VM assertions.
-  Integration remains `b6075ef`; Pro PR #5 is at `ad8ac0e`, with compositor
-  timing diagnostic scope. Shared startup hunks remain for later reconciliation.
-- Follow-up candidate: source `e4c8d7e`, release `339211cceb5d894d`; native
-  Q35 refusal and exact staged saved-log/exFAT/halt rehearsal pass. The admission
-  rules are unchanged. Hardware result pending; local run record owns install
-  and reboot state.
-- Recovery: current is the refused v31 diagnostic; previous `b427b78f21644bd2`
-  remains installed. Accepted v26 and interactive payloads have verified copies
-  outside build. Ubuntu returned with one-shot consumed; no reboot is armed.
+- Granular native trial `339211cceb5d894d` (source `e4c8d7e`) refused
+  GPE enable byte 12 at `0x189c`, value `0x40` (GPE `0x66`), before EC/runtime
+  ownership. Session `session-00065e3d35a068b6-00` verified; logs saved, USB
+  unmounted, persistent halt photographed. One-shot consumed on return.
+- Current bounded follow-up: preserve the captured graphics/TCO SCI event
+  (`_L66`) while the separate battery diagnostic owns EC GPE `0x4e`. Add an
+  explicit mask/readback/restore lease and protect foreign W1C status, with
+  host fault tests and a VM fixture. Do not dispatch graphics AML or broaden
+  register permissions. Unknown enabled events remain refused. Native handoff
+  and battery readings remain unaccepted; normal desktop unchanged.
+- Handoff implementation: the known graphics event is leased only from legacy
+  mode, its status excluded from uACPI clears, and its original enable restored
+  after clean runtime retirement. Host tests and ASan/UBSan pass; two VM
+  lifetimes retain a pending modeled event. Mask/restore failure and unexpected
+  reenable cases halt; the existing battery fault regressions pass.
+  Native acceptance remains pending; no new physical trial is armed.
+- Integration remains `b6075ef`; Pro PR #5 is at `827d035` with native cursor
+  timing evidence. Battery event lifecycle is this Air branch's scope; shared
+  startup/staging hunks still require reconciliation during integration.
+- Recovery: current is `339211cceb5d894d`; previous `b427b78f21644bd2` remains
+  installed. Accepted v26 and interactive payloads have verified copies outside
+  build. Ubuntu returned with one-shot consumed; no reboot is armed.
 
 ## Accepted scope and open items
 

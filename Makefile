@@ -3276,7 +3276,7 @@ test-vm-sockets:
 	$(PYTHON) tools/test_vm_sockets.py
 
 # Explicit battery diagnostic: full uACPI, never the ordinary desktop payload.
-UACPI_BATTERY_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/battery_runtime.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/event_io.c
+UACPI_BATTERY_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/battery_event_hold.c ports/srvros/uacpi/runtime/battery_runtime.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/event_io.c
 UACPI_BATTERY_OBJ := $(UACPI_BATTERY_SRC:%.c=build/acpi-battery/%.c.o)
 .PHONY: acpi-battery-kernel
 acpi-battery-kernel: build/acpi-battery/srvros.elf
@@ -3298,3 +3298,11 @@ test-battery-native-policy: build/tests/battery-native-policy$(HOST_EXE)
 build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-event-hold
+test-core: test-battery-event-hold
+test-battery-event-hold: build/tests/battery-event-hold$(HOST_EXE)
+	$<
+build/tests/battery-event-hold$(HOST_EXE): tools/test_battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(filter %.c,$^) -o $@

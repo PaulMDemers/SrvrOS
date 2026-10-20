@@ -9,9 +9,9 @@
 static struct battery_platform *platform;
 static uint64_t dsdt;
 static struct {
-    uint8_t memory[256], mode,address,output;
+    uint8_t memory[256], mode,address,output,foreign_status,foreign_enable;
     uint16_t words[32];
-    unsigned step,busy,fault;
+    unsigned step,busy,fault,foreign_reads;
     bool obf,pending;
 } model;
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
@@ -36,6 +36,25 @@ static uacpi_table_installation_disposition install(struct acpi_sdt_hdr *h,uacpi
     if(equal(h->oem_table_id,"BATTEST ",8))return UACPI_TABLE_INSTALLATION_DISPOSITION_DENY;
     *override=dsdt;return UACPI_TABLE_INSTALLATION_DISPOSITION_PHYSICAL_OVERRIDE;
 }
+/* Shadow one Q35 GPE byte to verify real interpreter W1C writes are filtered.
+ * This is not a physical graphics event or native SCI acceptance. */
+static uint8_t foreign_read(void *ctx,uint16_t port) {
+    (void)ctx;
+    if(port==0x62f&&model.fault==10&&++model.foreign_reads==4)model.foreign_enable=0x40;
+    return port==0x627?model.foreign_status:model.foreign_enable;
+}
+static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
+    (void)ctx;
+    if(port==0x627) {
+        if(value&0x40)console_write("battery-vm: ERROR foreign status acknowledged\n");
+        model.foreign_status&=~value;
+    } else {
+        if(model.fault==9&&value==0)return;
+        if(model.fault==8&&value==0x40)return;
+        model.foreign_enable=value;
+        if(value==0x40)console_printf("battery-vm: foreign restored pending=%x\n",(uint64_t)model.foreign_status);
+    }
+}
 bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_memmap_response *map){
     (void)map;dsdt=0;platform=NULL;model=(typeof(model)){0};
     const struct acpi_fadt *f=acpi_q35_fixture_fadt();if(!f||!p||!rsdp)return false;
@@ -43,7 +62,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>6||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>10||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -55,6 +74,11 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     model.words[13]=86;model.words[15]=4300;model.words[16]=5000;model.words[24]=6000;
     model.words[8]=2981;model.words[18]=120;model.words[19]=65535;model.words[22]=0xc0;
     if(uacpi_set_table_installation_handler(install))return false;
+    if(model.fault>=7) {
+        model.foreign_status=0x40;model.foreign_enable=0x40;
+        p->foreign_event=(struct battery_event_hold){.status=0x627,.enable=0x62f,.mask=0x40,.original=0x40};
+        p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
+    }
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;
 }
 void *battery_platform_map(uint64_t a,size_t n){

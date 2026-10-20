@@ -41,13 +41,15 @@ static struct {
 } runtime;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+static void event_write(void *,uint16_t,uint8_t);
+static uint8_t event_read(void *,uint16_t);
 static void mask_sources(void) {
     uint64_t flags=irq_save();
     runtime.stopping=true;
     if(!runtime.engaged){irq_restore(flags);return;}
     outw(runtime.platform.events.resources.pm1_enable,0);
     for(unsigned b=0;b<2;b++)for(unsigned i=0;i<runtime.platform.events.resources.gpe[b].bytes;i++)
-        outb(runtime.platform.events.resources.gpe[b].enable+i,0);
+        event_write(NULL,runtime.platform.events.resources.gpe[b].enable+i,0);
     if(runtime.sci.phase!=SCI_OWNER_OFF)(void)sci_owner_mask(&runtime.sci);
     irq_restore(flags);
 }
@@ -57,6 +59,25 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
         (uint64_t)runtime.transport.error,runtime.queries);
     console_sync();__asm__ volatile("cli":::"memory");halt_forever();
+}
+static bool foreign_port(uint16_t port) {
+    return port==runtime.platform.foreign_event.status||port==runtime.platform.foreign_event.enable;
+}
+static uint8_t event_read(void *ctx,uint16_t port) {
+    (void)ctx;
+    struct battery_event_ops *io=&runtime.platform.foreign_io;
+    if(foreign_port(port)&&io->read)return io->read(io->ctx,port);
+    return inb(port);
+}
+static void event_write(void *ctx,uint16_t port,uint8_t value) {
+    (void)ctx;
+    struct battery_event_ops *io=&runtime.platform.foreign_io;
+    if(foreign_port(port)&&io->write)io->write(io->ctx,port,value);else outb(port,value);
+}
+static const struct battery_event_ops event_ops={.read=event_read,.write=event_write};
+static void check_foreign_event(void) {
+    if(runtime.platform.foreign_event.active&&event_read(NULL,runtime.platform.foreign_event.enable))
+        unsafe("foreign event unexpectedly enabled");
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t size){return size&&p>=a&&p-a<=n&&size<=n-(p-a);}
 static bool worker_context(void){uint64_t f=irq_save();bool ok=(f&(1ull<<9))&&runtime.worker.identity&&scheduler_current_thread_id()==runtime.worker.identity;irq_restore(f);return ok;}
@@ -153,6 +174,7 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
 }
 static bool irq_bridge(void *context) {
     (void)context; runtime.interrupts++;
+    check_foreign_event();
     return runtime.irq_fn && runtime.irq_fn(runtime.irq_context) == UACPI_INTERRUPT_HANDLED;
 }
 static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
@@ -202,8 +224,11 @@ static uacpi_status port_io(struct io_region *r,size_t o,unsigned bits,bool writ
         if(ok)outw(a,*v);irq_restore(flags);if(ok)return UACPI_STATUS_OK;goto denied;
     }
     if(write?acpi_event_io_write(&runtime.platform.events,a,bits,*v):acpi_event_io_read(&runtime.platform.events,a,bits)) {
-        if(write){if(bits==8)outb(a,*v);else if(bits==16)outw(a,*v);else outl(a,*v);}
-        else *v=bits==8?inb(a):bits==16?inw(a):inl(a);
+        if(write){if(bits==8)event_write(NULL,a,battery_event_hold_filter(&runtime.platform.foreign_event,a,true,*v));else if(bits==16)outw(a,*v);else outl(a,*v);}
+        else {
+            *v=bits==8?event_read(NULL,a):bits==16?inw(a):inl(a);
+            if(bits==8)*v=battery_event_hold_filter(&runtime.platform.foreign_event,a,false,*v);
+        }
         return UACPI_STATUS_OK;
     }
     if(battery_platform_io(a,bits,write,v))return UACPI_STATUS_OK;
@@ -356,9 +381,11 @@ static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
     if(!acpi_worker_enqueue(&runtime.worker,&runtime.operation,UACPI_WORK_NOTIFICATION,fn,NULL))unsafe("operation admission");
     uint64_t deadline=timer_monotonic_us()+ms*1000;
     while(!acpi_worker_drain(&runtime.worker,50)) {
+        check_foreign_event();
         if(runtime.budget.active&&!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("independent query deadline");
         if(timer_monotonic_us()>=deadline)unsafe("operation deadline");
     }
+    check_foreign_event();
     if(!runtime.done||!runtime.ok||runtime.errors||runtime.denied||runtime.transport.poisoned)unsafe(phase);
 }
 bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
@@ -371,12 +398,17 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
         console_write("battery: REFUSED SCI route not free/masked\n");return false;
     }
     runtime.engaged=true;
+    if(!battery_event_hold_begin(&runtime.platform.foreign_event,event_ops))unsafe("foreign event mask");
+    if(runtime.platform.foreign_event.active)console_printf("battery: foreign-event held enable=%x original=%x\n",
+        (uint64_t)runtime.platform.foreign_event.enable,(uint64_t)runtime.platform.foreign_event.original);
     if(!acpi_worker_start(&runtime.worker))unsafe("worker start");
     ec_transport_init(&runtime.transport,runtime.platform.io);
     if(uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE|UACPI_FLAG_BAD_CSUM_FATAL|UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL)||runtime.errors||runtime.denied)unsafe("interpreter initialize");
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
     if(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR)||
        uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR)||uacpi_enter_acpi_mode())unsafe("ACPI mode/policy");
+    if(runtime.platform.foreign_event.active&&event_read(NULL,runtime.platform.foreign_event.enable))
+        unsafe("foreign event mode transition");
     runtime.loading=true;operation(setup_work,5000,"namespace/EC connection");runtime.loading=false;
     /* Match the Linux EC raw edge policy; no firmware AML GPE finalization. */
     unsigned bank=runtime.platform.ec.gpe>=runtime.platform.events.resources.gpe[1].first&&runtime.platform.events.resources.gpe[1].bytes?1:0;
@@ -395,11 +427,13 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
             s->remaining_capacity,s->full_capacity,(uint64_t)s->capacity_unit,(int64_t)s->temperature_mc,(uint64_t)s->valid,timer_monotonic_us()-s->completed_us,runtime.ac_sampled_us,s->started_us,s->completed_us);
         for(unsigned tick=0;tick<100;tick++) {
             timer_wait_ticks(1);
+            check_foreign_event();
             uint64_t f=irq_save();if(pending_query())queue_query();
             bool expired=runtime.budget.active&&!ec_query_budget_check(&runtime.budget,timer_monotonic_us());irq_restore(f);
             if(expired)unsafe("independent query deadline");
         }
     }
+    check_foreign_event();
     mask_sources();
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("pre-disconnect drain");
     if(uacpi_mask_gpe(NULL,runtime.platform.ec.gpe)||uacpi_uninstall_gpe_handler(NULL,runtime.platform.ec.gpe,gpe_handler))unsafe("GPE uninstall");runtime.gpe=false;
@@ -415,6 +449,9 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
         while((inw(runtime.platform.ec.pm1_control)&1)&&timer_monotonic_us()<end)timer_delay_us(100);
         if(inw(runtime.platform.ec.pm1_control)&1)unsafe("ACPI mode restore");
     }
+    if(!battery_event_hold_restore(&runtime.platform.foreign_event,event_ops))unsafe("foreign event restore");
+    if(runtime.platform.foreign_event.mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
+        (uint64_t)runtime.platform.foreign_event.enable,(uint64_t)runtime.platform.foreign_event.original,runtime.platform.foreign_event.protected_writes);
     console_printf("battery: PASS samples=5 notifications=%u queries=%u attached=%u detached=%u heap=0 errors=0 denied=0; physical accuracy NOT_TESTED\n",
         runtime.notifications,runtime.queries,runtime.attached,runtime.detached);
     runtime.engaged=false;return true;

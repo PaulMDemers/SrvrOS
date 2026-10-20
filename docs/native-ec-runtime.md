@@ -526,7 +526,7 @@ widen the hardware allowlist. A failed query in the native trial halts.
 a refusal stub. The native adapter requires the captured DSDT and all eight
 SSDT fingerprints, exact Intel GPU/LPC/HDAU/SMBus identities, ECDT/FADT and
 namespace agreement, ACPI-NVS mappings, OpRegion signature/layout, free FACS
-lock, RCBA/HPTC configuration, disabled fixed/GPE enables, idle EC buffer state
+lock, RCBA/HPTC configuration, disabled fixed enables, tightly gated GPE enables, idle EC buffer state
 and a free masked SCI route. A sibling Mac or changed firmware is refused.
 These fingerprints identify a supported profile; they are not a security boundary
 against hostile firmware.
@@ -552,7 +552,39 @@ The selected raw EC GPE uses the
 is suspended and acknowledged before query work, and rechecked when rearmed.
 A drain has at most 128 attempts and two seconds across queued batches. Firmware
 GPE methods are not broadly finalized or enabled. Full initialization does clear
-the initially disabled event status domain; those cleared events cannot be restored.
+the initially disabled owned event status domain; those cleared events cannot be restored.
+The foreign graphics event described below is excluded from those acknowledgements.
+
+#### Retaining the firmware graphics event
+
+Physical trial `339211cceb5d894d` identified the prior refusal: GPE enable byte
+12 (`0x189c`) contained `0x40`, meaning GPE `0x66`. The exact captured DSDT's
+`_L66` routes that source to IGPU `GSCI`, or clears the graphics notification
+fields and TCO `SCIS`. The chipset identity is consistent with coreboot's
+[Broadwell PM register definitions](https://raw.githubusercontent.com/coreboot/coreboot/4.22/src/soc/intel/broadwell/include/soc/pm.h):
+standard GPE bank byte zero is at PMBASE+`0x9c`, bit 6 is `TCOSCI_EN`.
+This event is distinct from the captured EC GPE `0x4e`.
+
+The diagnostic now permits **only** that enabled bit, and only with SCI_EN clear
+at preflight; all other enabled sources remain refused. A separate lease
+rechecks the exact saved enable byte, masks it and verifies readback before
+starting uACPI. The adapter hides its status from the interpreter and strips
+only bit `0x40` from status writes at `0x188c`, including uACPI's initial `0xff`
+clear. It never acknowledges the underlying TCO/graphics source, executes
+`_L66`, or expands graphics register access. An unexpected enable after the mode
+transition, during SCI delivery, worker waits or sampling halts. After worker/interpreter/SCI retirement
+and mode restoration, it restores the exact initial enable byte with readback.
+A failed mask/restore or changed owner halts rather than reporting completion;
+unsafe retirement retains the mask instead of enabling a source behind live work.
+This is a temporary diagnostic handoff, not general graphics-event support.
+
+Host tests cover every byte value for status filtering, exact restoration,
+changed enables, failed writes/readbacks, poisoned leases and replay. The
+native admission predicate exhaustively rejects other byte/mask/mode combinations.
+A separate VM shadow GPE byte starts enabled and pending; two full interpreter
+lifetimes must retain its pending status through the real initialization W1C
+requests and restore its enable. Injected mask/restore failures and a source reenabled during runtime halt.
+That shadow model is not physical GPE/graphics or firmware handoff acceptance.
 
 Five complete samples record AC state, charge, voltage, current, capacity units,
 temperature, validity, age and separate AC/start/completion timestamps. AC and
@@ -568,14 +600,15 @@ is visible; periodic USB logs may precede the final halt and are not completion.
 Q35 platform, never the physical image. The VM cases cover two clean lifetimes,
 five correct samples per lifetime, connection/query notifications, balanced
 attach/detach, zero heap, denied `_REG` access, poisoned transport, query storm,
-setup deadline, independent query deadline and disconnect deadline. The native
+setup deadline, independent query deadline, disconnect deadline and the foreign-event
+lease/failed-mask/failed-restore cases. The native
 image separately refuses Q35 before EC access. These tests do not establish
 physical SCI delivery, real firmware handoff or battery accuracy.
 
 ```sh
 tools/host-env.sh make kernel initramfs acpi-battery-kernel acpi-battery-vm-kernel
-tools/host-env.sh make test-battery-native-policy test-acpi-namespace
-for scenario in normal denied transport storm deadline query-deadline disconnect-deadline native-refusal; do
+tools/host-env.sh make test-battery-native-policy test-battery-event-hold test-acpi-namespace
+for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable native-refusal; do
     tools/host-env.sh python3 tools/acpi_battery_smoke.py --case "$scenario"
 done
 ```
@@ -602,13 +635,15 @@ bytes and clean exFAT, and requires a visible halt without automatic return.
 After a physical run, `hardware_desktop.py --uuid "$SRVROS_USB_UUID"` collects the
 matching release/session. Its `battery_diagnostic` field requires exactly five
 fresh ordered samples, balanced retirement and the clean capture return marker;
-physical accuracy stays `manual-pending`. Missing completion never means pass.
+physical accuracy stays `manual-pending`. If a foreign-event hold is present, the
+collector additionally requires one matching restoration record before PASS, with
+nonzero protected-write count. Missing completion never means pass.
 
 The first Air trial (`cc486bf6b6581626`, source `8dc2408`) refused generic
 platform/resource preflight before runtime initialization. Its verified exit log
 and photographed clean USB unmount establish retained failure evidence, not
-battery acceptance. The next candidate adds granular refusal reporting without
-relaxing any hardware admission check.
+battery acceptance. The granular follow-up above identified the graphics event; the subsequent
+lease has host/VM coverage but native handoff remains pending.
 
 The initial physical trials keep AC connected and change no lid/power policy.
 Unplug/replug, sustained sampling, input/storage responsiveness and UI integration

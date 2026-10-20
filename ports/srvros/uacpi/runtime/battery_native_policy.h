@@ -4,6 +4,12 @@
 #include <stdint.h>
 #define BATTERY_GNVS 0x8ad28a90ull
 #define BATTERY_PNVS 0x8ad2af90ull
+/* Captured GPE66 graphics/TCO SCI source only. The runtime must lease and
+ * restore it without acknowledging its status. Already active ACPI ownership
+ * or any other enabled event is refused. This predicate grants no IO. */
+static inline bool battery_native_gpe_admit(unsigned byte,uint8_t enabled,uint16_t control) {
+    return !enabled||(byte==12&&enabled==0x40&&!(control&1));
+}
 /* Physical addresses, after exact firmware/PCI/NVS admission. HPTC is handled
  * separately as one read-only DWORD; this grants no mapping or ownership. */
 static inline bool battery_native_contains(uint64_t b,uint64_t n,uint64_t a,uint64_t s) {

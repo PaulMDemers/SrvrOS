@@ -16,9 +16,9 @@ from serial_records import complete_lines
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'native-refusal'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'native-refusal'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10}
     root = Path(__file__).resolve().parents[1]
     out = root/'build/review'/('acpi-battery-' + args.case)
     out.mkdir(parents=True, exist_ok=True)
@@ -45,7 +45,7 @@ def main():
                     output.extend(boot.read_for(serial, .2))
                     qmp.boot_if_menu_stalled(output, time.monotonic()-start)
                 assert b'srv> ' in output, bytes(output)
-                for _ in range(2 if args.case == 'normal' else 1):
+                for _ in range(2 if args.case in ('normal','foreign-event') else 1):
                     part = bytearray(); serial.sendall(b'acpiruntime battery\n')
                     start = time.monotonic()
                     while time.monotonic()-start < 100:
@@ -54,16 +54,20 @@ def main():
                         if b'battery: PASS' in lines or b'battery: HALTED' in lines or b'battery: REFUSED' in lines:
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
-                    if args.case == 'normal':
+                    if args.case in ('normal','foreign-event'):
                         assert b'battery: PASS samples=5 notifications=2 queries=1 attached=1 detached=1 heap=0 errors=0 denied=0' in part, bytes(part)
                         samples = re.findall(rb'battery: sample=(\d+) ac_present=1 soc=86 voltage_uv=12000000 current_ua=-250000 capacity=4300000 full=5000000', part)
                         assert list(map(int,samples)) == [1,2,3,4,5], bytes(part)
+                        if args.case == 'foreign-event':
+                            assert b'battery-vm: foreign restored pending=0x0000000000000040' in part, bytes(part)
+                            assert re.search(rb'foreign-event restored .*protected_writes=[1-9][0-9]*',part),bytes(part)
+                            assert b'ERROR foreign' not in part,bytes(part)
                     elif args.case == 'native-refusal':
                         assert b'battery: REFUSED platform/resource ownership preflight' in part, bytes(part)
                         assert b'battery: phase=' not in part
                         assert b'battery-native: REFUSED check=pci-gpu' in part
                     else:
-                        reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline'}
+                        reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline', 'foreign-restore-fail':b'foreign event restore', 'foreign-mask-fail':b'foreign event mask', 'foreign-reenable':b'foreign event unexpectedly enabled'}
                         assert b'battery: HALTED '+reasons[args.case] in part, bytes(part)
                         assert b'battery: PASS' not in part
                         if args.case == 'deadline':

@@ -1,6 +1,7 @@
 #ifndef SRVROS_BATTERY_PLATFORM_H
 #define SRVROS_BATTERY_PLATFORM_H
 #include "event_io.h"
+#include "battery_event_hold.h"
 #include <srvros/ec_transport.h>
 #include <srvros/aml_probe.h>
 #include <uacpi/types.h>
@@ -10,6 +11,10 @@ struct battery_platform {
     struct acpi_ec_resources ec;
     struct acpi_event_io events;
     struct ec_io io;
+    struct battery_event_hold foreign_event;
+    /* Optional shadow registers for the disposable VM model only. Native uses
+     * direct byte IO. Only the configured foreign status/enable pair is routed. */
+    struct battery_event_ops foreign_io;
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

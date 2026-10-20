@@ -59,6 +59,16 @@ def battery_diagnostic(exit_text):
     if lines.count(finish)!=1 or any(line.startswith(("battery: HALTED", "battery: REFUSED")) for line in lines):return None
     complete=re.findall(r"^battery: PASS samples=5 notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; physical accuracy NOT_TESTED$",exit_text,re.M)
     if len(complete)!=1 or complete[0][2]!=complete[0][3] or not int(complete[0][2]):return None
+    held=[line for line in lines if line.startswith('battery: foreign-event held')]
+    restored=[line for line in lines if line.startswith('battery: foreign-event restored')]
+    handoff=None
+    if held or restored:
+        if len(held)!=1 or len(restored)!=1:return None
+        h=re.fullmatch(r"battery: foreign-event held enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16})",held[0])
+        r=re.fullmatch(r"battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=([0-9]{1,20})",restored[0])
+        if not h or not r or h.groups()!=r.groups()[:2] or not int(r[3]):return None
+        if not lines.index(held[0])<lines.index(restored[0])<next(i for i,line in enumerate(lines) if line.startswith('battery: PASS'))<lines.index(finish):return None
+        handoff={'enable_port':int(h[1],16),'original_enable':int(h[2],16),'protected_writes':int(r[3]),'restored':True}
     pattern=(r"^battery: sample=(?P<generation>[0-9]{1,20}) ac_present=(?P<ac>[01]) soc=(?P<soc>[0-9]{1,3}) "
              r"voltage_uv=(?P<voltage_uv>[0-9]{1,20}) current_ua=(?P<current_ua>-?[0-9]{1,20}) "
              r"capacity=(?P<capacity>[0-9]{1,20}) full=(?P<full>[0-9]{1,20}) unit=(?P<unit>[12]) "
@@ -74,7 +84,7 @@ def battery_diagnostic(exit_text):
         samples.append(sample)
     if len(samples)!=5 or sum(line.startswith('battery: sample=') for line in lines)!=5:return None
     return {'runtime_complete':True,'physical_accuracy':'manual-pending','samples':samples,
-            'queries':int(complete[0][1]),'notifications':int(complete[0][0])}
+            'queries':int(complete[0][1]),'notifications':int(complete[0][0]),'foreign_event':handoff}
 
 
 def idle_sample(exit_text):
