@@ -84,8 +84,16 @@ read-overlap and injected-reset cases, and existing service/reset regressions.
 The modeled overlap issued 83,547 real USB read commands, with 57 reads while
 sampling and five generation-progress bursts; all bytes matched. Whole-disk
 hashes were unchanged and exFAT clean after both overlap and injected reset.
-This is VM evidence only. The next action is exact-stage Q35 refusal/reset and
-missing-workspace validation before installation and one-shot physical boot.
+This is VM evidence only. Candidate `b73c1ae3e4643dc9`, artifact `0cb9f2e`,
+passed exact-stage Q35 native refusal with saved failed result, clean exFAT,
+unmount and reset; missing-workspace automatic return also passed. The physical
+trial is prepared for one-shot boot with automatic return and no human input.
+Keep `a5281d842c8b6160` and previous desktop recovery. The unreferenced EFI copy
+of old power capture `ed93e03b2585dcaf` may be removed only after verifying its
+durable payload backup to make room; acceptance evidence remains preserved.
+Collect the matching v34 session before further work and require
+`battery_usb_read` plus full service, SCI retirement and completion evidence.
+Native read-overlap acceptance remains pending.
 
 
 ### Battery scheduling repair — October 20
