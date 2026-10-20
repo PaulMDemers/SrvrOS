@@ -919,3 +919,12 @@ Installed/recovery hashes, Ubuntu default and consumed one-shot were verified;
 offline exFAT is clean. Current is the interactive sensor desktop, previous
 remains sound-confirmed `e47dca3a6b30c6c1`; no reboot is armed. Shared integration
 review and Pro-specific battery/AC groundwork are the next outstanding areas.
+
+## Battery work deferred by user — 2026-10-20
+
+The user explicitly deferred battery/charger work because another laptop is
+handling it. Do not begin Pro battery/AC implementation or physical trials in
+this workstream for now. Retain the unavailable status and consume reviewed
+shared work later when requested. Next work should focus on shared integration
+review and remaining non-battery acceptance; trackpad latency also remains
+deferred under the earlier instruction. No reboot or new trial is scheduled.
