@@ -374,13 +374,31 @@ def main():
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP
-                    wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
+                    wait_for(serial,lambda s:("deskterm: ready" if network_desktop else "deskhelp: page=laptop-trial") in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
                     def shortcut(keys):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                    if network_desktop:
+                        # Each saved phase is displayed by cat before its next gate.
+                        def phase_cats(count):
+                            wait_for(serial,lambda s:s.count('/fat/bin/cat entry=')>=count,process,90)
+                            time.sleep(2)
+                        phase_cats(1)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-unplug.ppm')})
+                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==0
+                        ui.call('set_link',{'name':'usbnet','up':False});ui.key('ret')
+                        phase_cats(2)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-reconnect.ppm')})
+                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==1
+                        ui.call('set_link',{'name':'usbnet','up':True});ui.key('ret')
+                        wait_for(serial,lambda s:'deskterm: shell exited status=0' in s,process,90)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-complete.ppm')})
+                        shortcut('meta_l-w')
+                        shortcut('meta_l-spc');type_text('Help new app');ui.key('ret')
+                        wait_for(serial,lambda s:'deskhelp: starting' in s,process,30)
                     if scaled_desktop:
                         text=serial.read_text(errors="replace")
                         assert "physical=2880x1800 logical=1440x900 scale=2" in text
@@ -414,6 +432,14 @@ def main():
                         check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
                         assert stored.read("srvros-work/Untitled.txt")==b"Pro scaled desktop USB test."
                         if network_desktop: assert b"sent=4 received=4 lost=0" in stored.read("srvros-work/network-ping.txt")
+                        if network_desktop:
+                            assert stored.read('srvros-work/network-trial.txt')==b'started\ncompleted\n'
+                            assert b'disconnected-dhcp-status=1' in stored.read('srvros-work/network-down.txt')
+                            for phase in ('before','after'):
+                                report=stored.read('srvros-work/network-'+phase+'.txt')
+                                assert b'dhcp-status=0' in report and b'Network check complete' in report
+                                (logs/('network-auto-'+phase+'.txt')).write_bytes(report)
+
                         bitmap=stored.read(shot.removeprefix("/work/"))
                         assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==(1440,900)
                         folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")

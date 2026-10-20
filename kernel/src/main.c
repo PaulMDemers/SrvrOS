@@ -716,7 +716,11 @@ void kmain(void) {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
             console_printf("desktop-trial: boot options=%s\n",cmdline);
             (void)workspace_log_start();
-            bool exited = process_run_elf_args("/fat/bin/deskd", cmdline_has_token(cmdline,"srvros.desktop-scale=2") ? "--hardware-trial --scale=2" : "--hardware-trial");
+            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm");
+            bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
+            bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
+                (scaled?"--network-trial --scale=2":"--network-trial") :
+                (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
             audio_print_status();
             thermal_print_status();
             smc_print_status();

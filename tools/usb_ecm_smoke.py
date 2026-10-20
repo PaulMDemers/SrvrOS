@@ -100,6 +100,22 @@ def main():
                     report=output[start:].replace(b'\r',b'')
                     for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',b'Network check complete',body):
                         assert marker in report,marker
+                    command_line('export HOME=/fat')
+                    serial.sendall(f'sh /fat/share/examples/network-trial.sh localhost 10.0.2.2 {http.server_port}\n'.encode())
+                    wait(b'UNPLUG the Ethernet cable ONLY, then press Enter here.')
+                    time.sleep(2)
+                    q.call('set_link',{'name':'usbnet','up':False})
+                    serial.sendall(b'\n')
+                    wait(b'RECONNECT the Ethernet cable, then press Enter here.',60)
+                    time.sleep(2)
+                    q.call('set_link',{'name':'usbnet','up':True})
+                    serial.sendall(b'\n')
+                    wait(b'Then type reboot and press Enter. There is no timer.',60)
+                    wait(b' $ ')
+                    command_line('touch /fat/network-empty.txt')
+                    command_line("sh -c 'read EOF_GATE' < /fat/network-empty.txt")
+                    start=len(output);command_line('echo eof-status=$?')
+                    assert b'eof-status=1' in output[start:]
                     for invalid in ('0','65536','12x','999999999999999'):
                         start=len(output);command_line(f'httpget 10.0.2.2 / {invalid}')
                         assert b'usage: httpget' in output[start:]
@@ -178,6 +194,13 @@ def main():
                 report=fixture.read('network-check.txt')
                 assert body in report and b'http-status=0' in report
                 (out/'network-check.txt').write_bytes(report)
+                for name in ('network-before.txt','network-after.txt'):
+                    report=fixture.read(name)
+                    for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',body):assert marker in report
+                    (out/name).write_bytes(report)
+                assert b'disconnected-dhcp-status=1' in fixture.read('network-down.txt')
+                assert fixture.read('network-trial.txt')==b'started\ncompleted\n'
+
     finally:
         stop.set();worker.join(timeout=2);udp.close()
         http.shutdown();http.server_close();http_worker.join(timeout=2)

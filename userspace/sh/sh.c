@@ -4263,7 +4263,7 @@ static uint64_t read_command(const char *args) {
         char c;
         long count = srv_read(SRV_STDIN, &c, 1);
         if (count <= 0) {
-            break;
+            return 1; /* EOF must not acknowledge an interactive trial gate. */
         }
         if (c == '\r') {
             continue;

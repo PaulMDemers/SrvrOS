@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from audio_fixture import channel_test_wav
+from pathlib import Path
 import struct
 import sys
 from pack_runtime_elf import runtime_elf
@@ -356,6 +357,7 @@ def main():
             b"EDITOR, PAGER, and a small ll alias.\n"),
     ]
     example_files = [("stereo.wav", channel_test_wav()),
+        ("network-trial.sh", (Path(__file__).resolve().parents[1]/"userspace/examples/network-trial.sh").read_bytes()),
         ("network-check.sh",
             b"#!/fat/bin/sh\n"
             b"echo Network check starting\n"

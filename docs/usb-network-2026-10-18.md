@@ -168,3 +168,21 @@ that flag, including a corrected descriptor with otherwise identical IDs.
 Notification type, length and value checks stay strict. Host fixtures cover the
 captured bytes, down/up transitions and retaining pending DMA across a cable
 outage longer than the live-link deadline. Native reconnect acceptance is pending.
+
+## Prompted native cable trial
+
+A USB-ECM desktop hardware trial opens Terminal in an explicit `network-trial`
+mode. Ordinary Terminal windows still open an interactive shell. The bundled
+`network-trial.sh` runs connected diagnostics automatically, then waits without
+a deadline for Ethernet-unplug/Enter and Ethernet-reconnect/Enter. Each gate
+uses terminal stdin; EOF aborts instead of acknowledging the prompt. Five-second
+settling intervals follow acknowledgements. No commands need typing during the
+checks. System and Network Utility remain available afterward; the result does
+not claim UI timing automatically.
+
+Reports in desktop Home are `network-before.txt`, `network-down.txt`, and
+`network-after.txt`. The script removes old down/after reports at startup and
+replaces the sequence marker with `started`; only a finished sequence appends
+`completed`. Report statuses and actual HTTP responses remain the acceptance
+criteria, not that marker. Terminal displays each report and the clean-return
+instructions. Re-running replaces these reports, so collect each session first.

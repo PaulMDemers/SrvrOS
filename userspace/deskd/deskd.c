@@ -1022,7 +1022,8 @@ int main(int argc,char **argv) {
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
-    int hardware_trial=argc==2 && !strcmp(argv[1],"--hardware-trial");
+    int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
+    int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
@@ -1062,7 +1063,8 @@ int main(int argc,char **argv) {
         pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-    if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
+    if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
+    else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     int idle_phase=0;

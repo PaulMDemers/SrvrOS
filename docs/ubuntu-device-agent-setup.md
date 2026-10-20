@@ -629,3 +629,14 @@ endpoint 0x81/64-byte packets, interval 2. It uses an explicit Wellspring7 Type2
 decoder and feature mode switch, separate from the Air0291 Type3 profile.
 Synthetic protocol/transport tests do not accept physical gestures. Keep the
 last accepted keyboard payload and collect the native session before proceeding.
+
+### Prompted Ethernet cable checks
+
+With `--desktop-network`, the hardware desktop opens the automated Terminal
+trial. Connected diagnostics and report saving start automatically. Unplug only
+the Ethernet cable when prompted, press Enter, then reconnect and press Enter at
+the next prompt. Both gates wait indefinitely. Leave USB devices connected.
+Reports are saved in Home (`network-before.txt`, `network-down.txt`,
+`network-after.txt`, sequence state in `network-trial.txt`). Inspect statuses,
+HTTP responses and System/Network Utility behavior; completion alone is not a
+pass. The final screen gives the clean console-return and reboot instructions.
