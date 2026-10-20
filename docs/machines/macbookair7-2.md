@@ -2,6 +2,15 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+Latest accepted bounded run: **`a5281d842c8b6160`** / artifact **`6938813`**,
+session **`session-00065e497cc34d56-00`**. Five fresh samples and clean lifecycle
+retirement passed again: 48,768 cached reads, 9,728 during sampling, maximum
+observed read time 18 microseconds. SCI accounting measured 12 deliveries:
+six handled and six unclaimed, all during active operation. There were no setup
+or retirement callbacks and none in flight at retirement. This establishes the
+warning's count and phase for this run, not its cause. The main desktop integration
+blocker remains the reproduced transport timeout under storage exclusion.
+
 Current unattended-test policy (user correction October 20): announce required
 human actions before boot; tests requiring no input must return to Ubuntu on
 handled failures as well as success. The `-auto-return` capture checkpoints and
@@ -30,9 +39,10 @@ has VM evidence, not a physical fault-injection result.
 Acceptance is deliberately bounded: USB logging was parked during runtime.
 Long-lived desktop use, concurrent storage/input responsiveness and gauge
 calibration remain pending. An unhandled SCI line 9/vector 41 warning appeared
-after the first setup; its count/cause remain unresolved. Do not hide that warning
+after the first setup; that initial run did not establish its count or cause.
+The later counter capture above quantifies deliveries. Do not hide that warning
 or infer a fault-free interrupt path from the runtime's zero error counters.
-The next block is SCI accounting and scheduling/USB coexistence validation before
+The remaining block is scheduling/USB coexistence validation before
 enabling an ordinary desktop provider. Battery values remain relative SOC:
 the capture's 98% is not acceptance of agreement with Ubuntu's 86% display.
 
@@ -82,17 +92,28 @@ extend deadlines or add a blanket ACPI storage exemption.
 Native/VM/ordinary builds, SCI-owner/IRQ-registry/cache host tests, 44
 staging/collector checks and all seven targeted VM cases pass: the three new
 fixtures, normal service, stale recovery, contained automatic reset and native
-refusal. The next physical capture repeats the accepted parked-USB service test
-with counters; it needs no human input and returns on handled failure. It will
-measure the native warning, not exercise the known-failing storage interleave.
+refusal. The physical capture repeated the accepted parked-USB service test
+with counters; it needed no human input and used automatic failure return.
+It measured the native warning, not the known-failing storage interleave.
 
-Candidate **`a5281d842c8b6160`**, artifact **`6938813`**, is installed for that
-unattended capture. Exact-stage UEFI/GRUB rehearsal passed native Q35 refusal,
+Release **`a5281d842c8b6160`**, artifact **`6938813`**, completed that unattended
+capture. Exact-stage UEFI/GRUB rehearsal passed native Q35 refusal,
 saved failed-report byte verification, clean exFAT, unmount and actual reset.
 The prior accepted service payload and previous desktop are preserved; the
 unreferenced failed `a3df674e8d6e5c65` payload was archived and hash-verified before
-EFI space was reclaimed. Collect this candidate's matching session before any
-new trial. Native SCI counts and behavior of this artifact remain pending.
+EFI space was reclaimed.
+
+The matching native session `session-00065e497cc34d56-00` has a completed exit and
+strict service proof: 48,768 reads/9,728 during sampling, maximum 18 microseconds,
+five fresh samples and clean retirement of both initialized lifetimes. Epoch 2
+recorded ten active SCI deliveries (five handled/five unclaimed); epoch 3 recorded
+two (one/one). All setup/retirement and final in-flight counters were zero.
+Setup took 3.999/3.978 seconds. Both event restores, balanced attach/detach and
+zero runtime errors/denials/heap were preserved. The new Ubuntu boot, consumed
+one-shot and clean exFAT (177 directories/855 files) were verified. Payload and
+36 hashed evidence files are backed up outside `build`. No new boot is armed.
+Unclaimed interrupts remain unexplained; no continuous desktop or concurrent
+storage acceptance follows from this parked-USB run.
 
 ### Cached battery service block — October 20
 

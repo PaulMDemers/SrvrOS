@@ -154,6 +154,15 @@ uACPI's claim result and performs no new event-register access or logging.
 An interrupt that faults inside its callback remains counted as in-flight.
 These counters cover the installed bridge, not interrupts arriving after removal.
 
+Native capture `a5281d842c8b6160` / `6938813`, session
+`session-00065e497cc34d56-00`, passed the bounded service test with these counters.
+Epoch 2 recorded ten active deliveries (five handled/five unclaimed), and epoch 3
+recorded two (one handled/one unclaimed). All setup and retirement counters were
+zero; no callbacks remained in flight. Cached readers reached 48,768 calls with
+an observed maximum of 18 microseconds, and both lifetimes retired cleanly.
+This narrows the warning to active operation in this run; it does not establish
+why those deliveries were unclaimed or guarantee behavior over a longer run.
+
 The disposable `service-sci-unclaimed` VM fixture delivers software interrupts
 through vector 41 without setting a hardware source. It verifies repeated
 unclaimed deliveries remain visible in the counters although the generic IRQ
