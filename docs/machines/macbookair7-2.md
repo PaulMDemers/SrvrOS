@@ -30,6 +30,19 @@ Reserve **v33 laptop-probe** for a bounded automatic service-lifecycle capture
 after those checks pass, including exact-stage refusal rehearsal and strict
 collection. It exercises cached readers and stop/restart, not desktop acceptance.
 
+Implementation checkpoint: the pure cache and asynchronous lifecycle are in
+place; [service contract](../battery-service.md) documents freshness, retirement
+and ownership. Host cache checks also pass ASan/UBSan; native, VM and ordinary
+kernel builds pass. All 21 battery VM scenarios pass, including cached readers
+during sampling, invalid/incoherent update recovery, repeated lifetimes,
+in-flight stop, native refusal, independent deadline containment and the earlier
+transition timeout/reentry regression. The 31 staging and 11 collector tests,
+375 local documentation links and whitespace checks pass. The collector also
+accepts the modeled service transcript after explicitly translating fixture
+port fields; that replay is parser validation only. Native v33 lifecycle
+acceptance, long-lived desktop service and responsiveness under I/O remain
+pending. No battery widget or userspace interface is enabled in this block.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow

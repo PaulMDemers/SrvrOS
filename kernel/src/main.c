@@ -558,7 +558,8 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     bool guided_battery=cmdline_has_token(cmdline,"srvros.capture=battery-transitions");
-    bool automatic_battery=guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool service_battery=cmdline_has_token(cmdline,"srvros.capture=battery-service");
+    bool automatic_battery=service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
@@ -575,8 +576,8 @@ void kmain(void) {
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery;
         if(automatic_battery && started && init_ready && timer_running) {
-            sampled=(guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
-            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
+            sampled=(service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
         }
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");

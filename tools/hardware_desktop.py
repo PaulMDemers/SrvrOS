@@ -142,6 +142,54 @@ def battery_transitions(exit_text):
             'samples':samples,'queries':queries,'notifications':notifications,'phases':phases}
 
 
+def battery_service_result(exit_text):
+    """v33 bounded native reader/lifecycle proof, not desktop acceptance."""
+    lines=exit_text.splitlines()
+    finish='battery-service-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: REFUSED',
+        'battery-service-test: FAIL','battery-service-capture: returned=yes clean=NO')) for row in lines):return None
+    passes=[row for row in lines if row.startswith('battery-service-test: PASS')]
+    if len(passes)!=1:return None
+    m=re.fullmatch(r'battery-service-test: PASS reads=(\d{1,20}) busy_reads=(\d{1,20}) max_read_us=(\d{1,20}) stale=0 recovered=0 stop_timeout=([01]) epochs=3; retired=yes',passes[0])
+    if not m or lines.index(passes[0])>=lines.index(finish):return None
+    reads,busy,maximum,timed_out=map(int,m.groups())
+    if not 1000<=reads<2**64 or not 0<busy<=reads or maximum>=2**64:return None
+    leases={};retired=[];retired_at={};summary_at=lines.index(passes[0])
+    for i,row in enumerate(lines):
+        if row.startswith('battery: foreign-event restored'):
+            m=re.fullmatch(r'battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=(\d{1,20})',row)
+            if not m:return None
+            port,original,writes=int(m[1],16),int(m[2],16),int(m[3])
+            masks={0x189c:0x40,0x189e:4}
+            if i>=summary_at or port not in masks or port in leases or original not in (0,masks[port]) or not 0<writes<2**64:return None
+            leases[port]=original
+        if row.startswith('battery-service: retired'):
+            m=re.fullmatch(r'battery-service: retired epoch=(\d{1,20}) attempts=(\d{1,20}) rejected=0 queries=(\d{1,20}) notifications=(\d{1,20}) attached=(\d{1,20}) detached=(\d{1,20}) heap=0 errors=0 denied=0',row)
+            if not m or i>=summary_at or set(leases)!={0x189c,0x189e}:return None
+            epoch,attempts,queries,notifications,attached,detached=map(int,m.groups())
+            if any(n>=2**64 for n in (epoch,attempts,queries,notifications,attached,detached)) or not attached or attached!=detached:return None
+            retired.append(dict(epoch=epoch,attempts=attempts,queries=queries,notifications=notifications))
+            retired_at[epoch]=i
+            leases={}
+    if leases or [r['epoch'] for r in retired] not in ([2,3],[1,2,3]):return None
+    samples=[row for row in lines if row.startswith('battery-service-test: sample ')]
+    if len(samples)!=1 or lines.index(samples[0])>=retired_at[2]:return None
+    values={}
+    for token in samples[0].removeprefix('battery-service-test: sample ').split():
+        key,sep,value=token.partition('=')
+        if not sep or key in values or not re.fullmatch(r'-?\d{1,20}',value):return None
+        values[key]=int(value)
+    if set(values)!={'epoch','generation','flags','age_us','ac_us','start_us','end_us','relative_soc','voltage_uv','current_ua','capacity','full','design','unit','valid'}:return None
+    if any(not 0<=v<2**64 for k,v in values.items() if k!='current_ua') or not -2**63<=values['current_ua']<2**63:return None
+    if values['epoch']!=2 or not 5<=values['generation']<=retired[-2]['attempts']:return None
+    if values['flags']&3!=3 or values['flags']&4 or values['flags']&~31 or values['age_us']>6000000:return None
+    if not 0<values['ac_us']<=values['start_us']<=values['end_us']:return None
+    if values['relative_soc']>100 or not values['voltage_uv'] or not values['full'] or values['unit'] not in (1,2) or values['valid']&15!=15:return None
+    return dict(runtime_complete=True,reader_complete=True,reads=reads,busy_reads=busy,
+                max_read_us=maximum,stop_wait_timed_out=bool(timed_out),lifetimes=retired,
+                sample=values,physical_accuracy='manual-pending',desktop_acceptance='pending')
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -216,7 +264,8 @@ def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("battery: HALTED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
-                        "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO")):return True
+                        "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
+                        "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
         return True
     if re.match(r"(?:audio|smc): state=4(?: |$)",line):
@@ -293,6 +342,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_service": battery_service_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),

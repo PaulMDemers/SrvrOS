@@ -3314,3 +3314,11 @@ test-battery-transition: build/tests/battery-transition$(HOST_EXE)
 build/tests/battery-transition$(HOST_EXE): tools/test_battery_transition.c ports/srvros/uacpi/runtime/battery_transition.h kernel/include/srvros/sbs_sample.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+
+.PHONY: test-battery-cache
+test-core: test-battery-cache
+test-battery-cache: build/tests/battery-cache$(HOST_EXE)
+	$<
+build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/drivers/battery_cache.c kernel/include/srvros/battery_cache.h kernel/include/srvros/battery_service.h kernel/include/srvros/sbs_sample.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $(filter %.c,$^) -o $@

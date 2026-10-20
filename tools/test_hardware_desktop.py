@@ -142,6 +142,36 @@ class CollectionTests(unittest.TestCase):
                     text.replace('PASS phases=3','INCOMPLETE phases=1'),text.replace(tail[1],'')):
             self.assertIsNone(desktop.battery_transitions(bad),bad)
 
+    def test_service_requires_reader_sample_and_each_retired_lifetime(self):
+        sample='battery-service-test: sample epoch=2 generation=5 flags=11 age_us=20 ac_us=1000 start_us=1001 end_us=1500 relative_soc=98 voltage_uv=8300000 current_ua=0 capacity=6100000 full=6300000 design=7150000 unit=1 valid=63'
+        restore=['battery: foreign-event restored enable=0x189c original=0x40 protected_writes=1',
+                 'battery: foreign-event restored enable=0x189e original=0x04 protected_writes=1']
+        retired=lambda epoch,attempts:f'battery-service: retired epoch={epoch} attempts={attempts} rejected=0 queries=75 notifications=76 attached=1 detached=1 heap=0 errors=0 denied=0'
+        summary='battery-service-test: PASS reads=66000 busy_reads=14000 max_read_us=100 stale=0 recovered=0 stop_timeout=1 epochs=3; retired=yes'
+        finish='battery-service-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+        text='\n'.join([sample]+restore+[retired(2,5)]+restore+[retired(3,0),summary,finish])
+        result=desktop.battery_service_result(text)
+        self.assertTrue(result['reader_complete']);self.assertTrue(result['stop_wait_timed_out'])
+        self.assertEqual(result['sample']['generation'],5)
+        self.assertTrue(desktop.battery_service_result('\n'.join(restore+[retired(1,0)])+'\n'+text))
+        for bad in (text.replace(sample,''),text.replace(restore[1],'',1),
+                    text.replace(retired(3,0),''),text.replace('heap=0','heap=1'),
+                    text.replace('detached=1','detached=0'),text.replace('rejected=0','rejected=1'),
+                    text.replace('reads=66000','reads=999'),text.replace('busy_reads=14000','busy_reads=0'),
+                    text.replace('flags=11','flags=13'),text.replace('age_us=20','age_us=6000001'),
+                    text.replace('epoch=3','epoch=4'),text.replace('attempts=5','attempts=4'),
+                    text.replace('end_us=1500','end_us=999'),text.replace('valid=63','valid=7'),
+                    text.replace('relative_soc=98','relative_soc=101'),text.replace('unit=1','unit=0'),
+                    text.replace('full=6300000','full=0'),text.replace('retired=yes','retired=NO'),
+                    text.replace('protected_writes=1','protected_writes=0'),
+                    text.replace(sample,'')+'\n'+sample,text+'\n'+summary,text.replace(finish,''),
+                    text+'\nbattery: HALTED live state retained',
+                    text+'\n'+finish.replace('clean=yes','clean=NO'),
+                    text.replace('reads=66000',f'reads={2**64}')):
+            self.assertIsNone(desktop.battery_service_result(bad),bad)
+        self.assertTrue(desktop.needs_attention('battery-service-test: FAIL sample deadline'))
+        self.assertTrue(desktop.needs_attention('battery-service-capture: returned=yes clean=NO'))
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'

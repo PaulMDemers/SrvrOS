@@ -331,6 +331,13 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The **v33 laptop-probe** `--battery-service` profile runs a bounded automatic
+cached-reader/start/stop test with AC and USB left connected. Follow the
+[service guide](battery-service.md) and the same exact-stage/install/one-shot
+sequence. It saves and returns only after retirement; failures halt. Its
+`battery_service` collection field does not accept desktop responsiveness or a
+permanent background service.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,

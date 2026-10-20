@@ -757,6 +757,11 @@ earlier attempts. The bounded transition milestone is accepted on this unit;
 the earlier incomplete session remains historical evidence, not a pass.
 A long-running desktop provider and calibrated accuracy remain separate work.
 
+The next opt-in [cached service](battery-service.md) adds asynchronous lifecycle
+ownership and nonblocking status reads. Its separate v33 capture checks readers
+and stop/restart before ordinary desktop integration; the accepted v31/v32
+diagnostics remain available.
+
 ### Integration sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the
