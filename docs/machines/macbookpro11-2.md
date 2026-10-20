@@ -945,3 +945,12 @@ configurations byte-for-byte; focused tests cover shared-number separation and
 conflicting capture-mode refusal. Existing boot manifests and installed recovery
 remain historical artifacts; rebasing source does not physically accept a new
 build. No physical install or reboot is part of this rebase task.
+
+Rebase validation passes: full OS/USB build and test-core; 40 installer/profile
+checks, 12 desktop collector checks, load worker/parser fixtures, and docs links.
+Exact GPT VM rehearsals pass for sensor desktop `8d8b85e8a68d1042` (Retina,
+System startup, audio and USB save/unmount), load refusal `ea1a686c92c4fdce`
+(saved failure and automatic return), and guided keyboard `896a375f17a793c4`
+(wrong-key retries followed by all ten steps and saved return). These images
+are VM-only. Installed accepted desktop/recovery are unchanged, and no reboot
+is armed. Rebased history is published using an exact remote-head lease.
