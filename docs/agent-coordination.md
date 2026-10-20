@@ -114,9 +114,10 @@ Air hardware accepts bounded cached-service lifecycle and USB **read** overlap.
 The first v36 scratch write trial failed allocation preflight before native
 runtime entry; ordinary offline fsck reported clean. Later independent traversal
 confirmed eight orphan allocations; rehearsed recovery preserved all existing and
-orphan data. Use both checks in the Ubuntu guide before future trials. Write
-overlap, sustained desktop/input
-coexistence, gauge calibration and the unclaimed SCI cause remain open. See the
+orphan data. Use both checks in the Ubuntu guide before future trials. The subsequent retry
+accepts bounded scratch transport write/flush overlap. Ordinary filesystem
+metadata updates, sustained desktop/input coexistence, gauge calibration and
+the unclaimed SCI cause remain open. See the
 [service contract](battery-service.md) and [Air record](machines/macbookair7-2.md).
 
 Pro11,2 [PR #5](https://github.com/PaulMDemers/SrvrOS/pull/5) was inspected at
@@ -128,6 +129,8 @@ automatic-return policy; do not resolve overlapping files wholesale with one
 branch's version. Fetch the actual merged `origin/main`, rebuild matched artifacts,
 and rerun affected staging/collector and VM checks before a Pro hardware trial.
 Each machine retains its own UUID, recovery payload and acceptance ledger.
+On the later inspection, Pro PR #5 at `3b3b66a` already uses `d72d2af` as its
+base, consuming the merged PR #6 baseline; its local validation remains its own.
 
 ## Evidence and checkpoints
 

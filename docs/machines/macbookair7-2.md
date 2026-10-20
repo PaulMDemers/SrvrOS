@@ -2,7 +2,30 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted bounded run: **`b73c1ae3e4643dc9`** / artifact **`0cb9f2e`**,
+Latest accepted bounded **scratch write/flush overlap**: release
+**`5792b6ece45b85dc`** / artifact **`e2d779b`**, retry checkpoint **`d4a21cb`**,
+session **`session-00065e4c30fcddac-00`**. It completed 1,894 write/flush/readback
+cycles (5,682 transport commands), including 62 cycles during sampling and three
+sample-generation advances inside 55 I/O scopes (maximum 349,839 microseconds).
+Five fresh samples and 5,414 cached reads completed, 574 during sampling, maximum
+read time 18 microseconds. Cancellation, restart, in-flight stop and a short stop
+timeout followed by clean retirement passed. Both initialized lifetimes restored
+retained enables, balanced attachments and ended with zero heap/errors/denials.
+SCI recorded six handled and six unclaimed active deliveries, none during setup
+or retirement and none in flight afterward; the unclaimed cause remains open.
+
+The exclusive scratch capability was revoked before remount. Collection verified
+the final 4096-byte payload against the cycle count and preserved its bytes/hash.
+Completed exit, new Ubuntu boot, consumed one-shot and installed/recovery hashes
+were verified. Offline fsck reports clean (181 directories, 871 files); SrvrOS's
+allocation checker accounts for 1,512 clusters with zero leaks or FAT mismatches.
+The accepted payload and 47 hashed evidence files are backed up outside `build`.
+The earlier failed attempt of this same release remains separate evidence.
+This accepts bounded transport writes/flushes during sampling, not ordinary
+filesystem metadata mutation, human input, sustained desktop operation or gauge
+accuracy. No new reboot is armed; ordinary desktop battery access stays disabled.
+
+Latest accepted bounded **read** run: **`b73c1ae3e4643dc9`** / artifact **`0cb9f2e`**,
 session **`session-00065e4a0a43b75e-00`**. Battery sampling progressed during
 103,094 uncached USB reads; all 4096-byte reads matched their baseline. Five
 sample-generation advances occurred inside storage I/O scopes, with 153 reads
@@ -84,8 +107,8 @@ byte-for-byte identical. Five `LOST+FOUND` files preserve all eight orphan
 clusters, also copied into the durable evidence archive. The recovered volume
 passes the real SrvrOS allocation checker: 867 files, 1,507 accounted clusters,
 zero leaks/FAT mismatches/errors. Offline fsck reports 180 directories, 867 files.
-The workspace is remounted. A retry of the unchanged automatic v36 payload
-`5792b6ece45b85dc` is being prepared; no human input is required.
+The workspace was remounted and the unchanged automatic v36 payload
+`5792b6ece45b85dc` subsequently passed the bounded trial summarized above.
 
 Evidence is under `~/.local/share/srvros/failed-evidence/exfat-orphans-20261020`.
 The snapshot contains boot/FAT and allocated data; unallocated bytes were not
@@ -94,7 +117,7 @@ USB partition. Disposable 4 KiB/128 KiB fixtures exercise orphan refusal,
 byte-preserving rescue and renewed scratch eligibility; the kernel guard remains
 unchanged. Scratch/entry tests, the full filesystem hardening suite (including
 write/flush/power-cut boundaries), wrapper selection and documentation checks
-pass. Native write/flush overlap still requires another automatic trial.
+pass. The later successful retry accepts bounded scratch write/flush overlap.
 See the [offline workflow](../ubuntu-device-agent-setup.md#7-test-return-and-collect).
 
 ### Native scratch write/flush overlap — October 20 (preflight failed)

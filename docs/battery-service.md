@@ -334,6 +334,20 @@ exFAT check reports clean. A later independent scan confirmed eight actual orpha
 1.3.2 ordinary read-only checking did not report them. Rehearsed orphan recovery
 preserved every existing file and all orphan bytes, and the unchanged SrvrOS
 checker now passes. The guard was correct. Native write/flush overlap remains
-untested until a new hardware trial; the accepted
-bounded read-overlap result is unchanged. Evidence and recovery details are in
+untested by that failed attempt; the accepted bounded read-overlap result was
+unchanged. The subsequent successful retry is described below. Evidence and recovery details are in
 the [Air unit record](machines/macbookair7-2.md).
+
+After recovery, the same immutable release passed on Air7,2 in session
+`session-00065e4c30fcddac-00`: 1,894 write/flush/readback cycles, 5,682 commands,
+62 cycles during sampling, and three sample-generation advances inside I/O
+scopes. Five fresh samples and 5,414 cached reads completed (574 during sampling,
+maximum 18 microseconds). The service retired cleanly through cancellation,
+restart and short stop-timeout coverage; the scratch capability was revoked.
+The collector verified the final 4096-byte file against the reported sequence.
+A completed exit, new Ubuntu boot, consumed one-shot and payload/recovery hashes
+were verified. Both offline checks passed: fsck clean, and the SrvrOS checker
+reported zero leaks/FAT mismatches/errors. This accepts bounded native transport
+write/flush coexistence. It does not accept ordinary filesystem metadata updates,
+human input or sustained desktop operation. Six active SCI deliveries remained
+unclaimed; none occurred during setup/retirement or remained in flight.
