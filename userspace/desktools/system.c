@@ -152,7 +152,10 @@ static void sensors_refresh(struct tool *t,int force) {
         uint64_t age=(uint64_t)now-fan.sampled_us;
         int fresh=t->smc_fresh=fan.state==SRV_SMC_ACTIVE && (fan.flags&SRV_SMC_FAN_VALID) && age<=3000000;
         snprintf(t->sensor_values[8],64,"%llu ms%s",(unsigned long long)(age/1000),fresh?"":" · stale");
-        if(fresh)snprintf(t->sensor_values[7],64,"%u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100);
+        if(fresh) {
+            if(fan.fan_count==2)snprintf(t->sensor_values[7],64,"L %u.%u / R %u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100,fan.fan1_millirpm/1000,(fan.fan1_millirpm%1000)/100);
+            else snprintf(t->sensor_values[7],64,"%u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100);
+        }
     }
     desk_table_rows(&t->sensor_table,t->sensor_rows,9);
     if(force) desk_log("desktools: sensors-refresh valid=%d fresh=%d state=%u flags=%u samples=%llu\n",t->thermal_valid,t->thermal_fresh,s.state,s.flags,(unsigned long long)s.samples);

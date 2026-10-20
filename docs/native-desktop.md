@@ -412,3 +412,17 @@ saved BMP within the existing 8 MiB capture limit: 1x when it fits, otherwise
 2x when that fits. A 2880x1800 framebuffer therefore captures 1440x900. Explicit
 `--scale=1`/`--scale=2` remains authoritative, and ordinary desktop launch does
 not auto-scale. Logs record both framebuffer and logical dimensions.
+
+The SMC status ABI is version 2 (72 bytes), appending `fan1_millirpm` and a zero
+reserved field. `fan_millirpm` retains its F0Ac meaning. Matched kernel/userspace
+images are required; the syscall rejects old-size buffers. The exact captured
+Pro11,2 GPU/PCH/DSDT profile requires FNum=2 and readable fpe2 metadata for both
+F0Ac/F1Ac. A snapshot is published only after both reads complete. Failure of
+either transaction invalidates the pair and quarantines the worker. The original
+Air profile still requires one fan and returns zero for the second value.
+System displays left/right RPM for the Pro; stale/faulted snapshots are not shown
+as current. Diagnostic `smc-fans` lines retain both values and their shared sample
+age; older workspace summary fields retain F0Ac for compatibility. Fan control,
+SMC MMIO, IRQ6 and other keys remain unused. Resource/key references are the
+captured DSDT/Linux sysfs evidence and Linux's
+[Apple SMC driver](https://github.com/torvalds/linux/blob/v6.12/drivers/hwmon/applesmc.c).

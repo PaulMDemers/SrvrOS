@@ -750,3 +750,11 @@ ABI v2 appends a second fan value; all kernel/userspace callers build together.
 Air remains exactly one fan. Quarantine either fan's transport failure and
 invalidate the whole pair. Shared Air PR6 at 09b48ac does not touch these files;
 origin/main remains b6075ef. CPU capture is collected before any new staging.
+
+Two-fan implementation passes full build/USB image/test-core and focused SMC
+host tests. Tests retain Air single-fan behavior, require exact Pro identities,
+reject count mismatch and bad second-key metadata, verify F0/F1 read command
+keys, publish only a complete pair (including valid zero RPM), and invalidate
+both on a second-fan timeout. Protocol fixtures reject control-write commands.
+The matched ABI v2 build updates System to display both speeds. Native readout
+and the visible two-fan System presentation are not yet physically accepted.
