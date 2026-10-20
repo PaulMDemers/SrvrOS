@@ -91,6 +91,18 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Isolated filesystem hardware preparation — October 20
+
+PR #7 passed CI and merged as `76508bf`; this device branch consumes that baseline.
+Pro PR #5 inspected at `304bc55`. Air scope: exclusive exFAT file-extent admission,
+a diagnostic bounded block view over a prepared disposable filesystem image,
+workspace lease exclusion, battery workload and VM/host isolation verification.
+Avoid Pro's partition-parser and CPU-load changes. The outer workspace must be
+unmounted with public writes revoked throughout the lease; all test allocations
+remain inside the image's proven data extent. Validate interrupted inner writes,
+byte-for-byte preservation outside that extent, lease revocation and refusal paths
+before adding a native capture. Ordinary desktop startup remains unchanged.
+
 ### Sustained filesystem coexistence — October 20 (VM-first)
 
 Base `d72d2af`, host/CI follow-up PR #7 at `dd4245d`; Pro PR #5 inspected at
