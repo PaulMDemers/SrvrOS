@@ -23,7 +23,37 @@ static uint32_t pwm_read(void *context,unsigned reg) {
 static void pwm_write(void *context,uint32_t value) {
     *(volatile uint32_t *)((uintptr_t)context+4096+0x254)=value;
 }
+static bool pro_display_probe(void) {
+    const struct pci_device *display=NULL;uint16_t pch=0;
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->vendor_id!=0x8086) continue;
+        if(p->device_id==0x0d26 && p->class_code==3) display=p;
+        if(p->device_id==0x8c4b && p->class_code==6 && p->subclass==1) pch=p->device_id;
+    }
+    if(!display) return false;
+    size_t n;const uint8_t *d=find("DSDT",&n);
+    if(!laptop_pro_display_match(display->device_id,pch,d,n)) {
+        console_write("pro-backlight: identity mismatch; no register access\n");return true;
+    }
+    uint32_t bar=display->bar[0];uint64_t base=bar&0xfffffff0u;
+    if((bar&7)==4) base|=(uint64_t)display->bar[1]<<32;
+    else if(bar&7) return true;
+    if(!base || base>0x000ffffffff00000ull || !(pci_read_config16(display,4)&2)) return true;
+    const uint64_t va=0xffffc001f3100000ull;
+    if(!vmm_map_page(va,base+0x48000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE) ||
+       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) {
+        console_write("pro-backlight: mapping unavailable\n");return true;
+    }
+    uint32_t cpu=*(volatile uint32_t *)(va+0x250),cd=*(volatile uint32_t *)(va+0x254);
+    uint32_t pchctl=*(volatile uint32_t *)(va+4096+0x250),pd=*(volatile uint32_t *)(va+4096+0x254);
+    struct laptop_backlight b=laptop_backlight_decode(cpu,cd,pchctl,pd);
+    console_printf("pro-backlight: read-only cpu_ctl=%x cpu_duty=%x pch_ctl=%x pch_duty=%x mode=%u duty=%u period=%u\n",
+        (uint64_t)cpu,(uint64_t)cd,(uint64_t)pchctl,(uint64_t)pd,(uint64_t)b.mode,(uint64_t)b.duty,(uint64_t)b.period);
+    console_write("pro-backlight: no PWM writes, provider binding or EC access\n");return true;
+}
 static void inspect(bool brightness) {
+    if(pro_display_probe()) return;
     const struct pci_device *display=NULL;bool chipset=false;
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *p=pci_device_at(i);
