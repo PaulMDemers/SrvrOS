@@ -14,11 +14,34 @@ from vm_sockets import connect_unix
 from serial_records import complete_lines
 
 
+
+def check_sci_records(part):
+    rows=[]
+    pattern=rb"battery-sci: snapshot=(ready|retired|fault) epoch=(\d+) phase=(setup|active|retire) delivered=(\d+) handled=(\d+) unclaimed=(\d+) in_flight=(\d+) first_unclaimed_us=(\d+) last_unclaimed_us=(\d+)"
+    keys=('snapshot','epoch','phase','delivered','handled','unclaimed','in_flight','first','last')
+    for match in re.findall(pattern,part):
+        row={k:(v.decode() if k in ('snapshot','phase') else int(v)) for k,v in zip(keys,match)}
+        assert row['delivered']==row['handled']+row['unclaimed']+row['in_flight'],row
+        if row['snapshot']=='retired':assert row['in_flight']==0,row
+        if row['unclaimed']:assert 0<row['first']<=row['last'],row
+        else:assert row['first']==row['last']==0,row
+        rows.append(row)
+    return rows
+
+
+def check_io_hold(part,duration):
+    records=re.findall(rb'battery-vm: io-hold admitted=1 sampling=1 requested_us=(\d+) elapsed_us=(\d+) reads=(\d+) max_read_us=(\d+)',part)
+    assert len(records)==1,bytes(part)
+    requested,elapsed,reads,maximum=map(int,records[0])
+    assert requested==duration and elapsed>=duration and reads>0 and maximum<=elapsed,records
+    assert b'battery-vm: ERROR' not in part,bytes(part)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-deadline'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-deadline':22}
     transitions=args.case in ('transitions','transition-timeout')
     service=args.case.startswith('service')
     root = Path(__file__).resolve().parents[1]
@@ -66,6 +89,7 @@ def main():
                         if b'battery-transition: PASS' in lines or b'battery-transition: INCOMPLETE' in lines or b'battery: PASS' in lines or b'battery: HALTED' in lines or b'battery: REFUSED' in lines:
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
+                    sci=check_sci_records(part)
                     if args.case=='service-auto-deadline':
                         assert b'battery: FAILED operation deadline' in part,bytes(part)
                         assert b'returning to Ubuntu without live-runtime cleanup' in part,bytes(part)
@@ -73,7 +97,7 @@ def main():
                         assert process.wait(timeout=10)==0
                         print('acpi-battery: PASS service-auto-deadline (contained fault resets; VM only)')
                         return
-                    if service and args.case!='service-query-deadline':
+                    if service and args.case not in ('service-query-deadline','service-io-deadline'):
                         assert b'battery-service-test: PASS' in part and b'battery-service-test: FAIL' not in part,bytes(part)
                         assert b'battery: HALTED' not in part and b'ERROR foreign' not in part,bytes(part)
                         if args.case=='service-refusal':
@@ -81,6 +105,12 @@ def main():
                         else:
                             assert b'busy_reads=0 ' not in part and b'; retired=yes' in part,bytes(part)
                             assert part.count(b'battery-service: retired ')>=2,bytes(part)
+                            assert sum(row['snapshot']=='retired' for row in sci)>=6,bytes(part)
+                            if args.case=='service-sci-unclaimed':
+                                active=[r for r in sci if r['snapshot']=='retired' and r['phase']=='active']
+                                assert sum(r['unclaimed'] for r in active)>=5,bytes(part)
+                                assert part.count(b'irq: unhandled line=9 vector=41')==1,bytes(part)
+                            if args.case=='service-io-short':check_io_hold(part,20000)
                             assert part.count(b'battery: foreign-event restored ')>=4,bytes(part)
                             if args.case=='service-setup-load':
                                 work=re.findall(rb'battery-vm: setup-work active_us=(\d+) elapsed_us=(\d+)',part)
@@ -124,8 +154,9 @@ def main():
                         assert b'battery: phase=' not in part
                         assert b'battery-native: REFUSED check=pci-gpu' in part
                     else:
-                        reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline', 'foreign-restore-fail':b'foreign event restore', 'foreign-mask-fail':b'foreign event mask', 'foreign-reenable':b'foreign event unexpectedly enabled', 'mode-unexpected':b'unexpected post-mode fixed enable', 'service-query-deadline':b'independent query deadline'}
+                        reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline', 'foreign-restore-fail':b'foreign event restore', 'foreign-mask-fail':b'foreign event mask', 'foreign-reenable':b'foreign event unexpectedly enabled', 'mode-unexpected':b'unexpected post-mode fixed enable', 'service-query-deadline':b'independent query deadline', 'service-io-deadline':b'sample'}
                         assert b'battery: HALTED '+reasons[args.case] in part, bytes(part)
+                        if args.case=='service-io-deadline':check_io_hold(part,250000)
                         assert b'battery: PASS' not in part
                         assert b'ERROR foreign' not in part
                         if args.case == 'mode-unexpected':

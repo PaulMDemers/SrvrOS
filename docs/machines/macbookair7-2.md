@@ -68,6 +68,24 @@ again before work; no overlapping native EC scope was found. Preserve accepted
 and whether storage exclusion can exhaust the existing operation/query budgets.
 A modeled scheduling hold is not physical USB or desktop responsiveness evidence.
 
+Implementation: ready/retired/fault SCI records now separate setup, active and
+retirement callbacks, preserving claimed/unclaimed results and timestamps without
+new event-register access. The VM unclaimed-dispatch fixture counts five active
+deliveries in the first sampled lifetime and one after restart, while the generic
+warning prints once. A 20.311 ms scheduler I/O exclusion permits full service
+completion; a 250.234 ms exclusion at a transport read reproduces a sample timeout
+(EC error 1) with live state retained. Cached readers work during both holds.
+The latter is containment evidence, not a coexistence pass. Ordinary desktop
+enablement remains blocked on an explicit worker/owner scheduling audit; do not
+extend deadlines or add a blanket ACPI storage exemption.
+
+Native/VM/ordinary builds, SCI-owner/IRQ-registry/cache host tests, 44
+staging/collector checks and all seven targeted VM cases pass: the three new
+fixtures, normal service, stale recovery, contained automatic reset and native
+refusal. The next physical capture repeats the accepted parked-USB service test
+with counters; it needs no human input and returns on handled failure. It will
+measure the native warning, not exercise the known-failing storage interleave.
+
 ### Cached battery service block — October 20
 
 Following acceptance of the latest v32 transition round, this Air branch owns

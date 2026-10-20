@@ -27,6 +27,9 @@
 #include "../../../../kernel/src/arch/x86_64/io.h"
 #include "../../../../kernel/src/arch/x86_64/ioapic.h"
 #define HEAP_LIMIT (8u*1024u*1024u)
+struct sci_counts {
+    uint64_t delivered,handled,unclaimed,in_flight,first_unclaimed_us,last_unclaimed_us;
+};
 static struct {
     struct battery_platform platform;
     struct acpi_work_worker worker;
@@ -39,6 +42,7 @@ static struct {
     struct ec_query_budget budget;
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
+    struct sci_counts sci_counts[3]; /* setup, active, retirement; CPU0 only */
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
     bool ac_present,ac_coherent,transition_mode,service_mode;
     uint64_t ac_sampled_us;
@@ -58,6 +62,17 @@ static struct {
 } service;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+static void sci_report(const char *snapshot) {
+    struct sci_counts counts[3];
+    uint64_t f=irq_save(),epoch=owner==OWNER_SERVICE?service.cache.value.epoch:0;
+    for(unsigned i=0;i<3;i++)counts[i]=runtime.sci_counts[i];
+    irq_restore(f);
+    static const char *phases[]={"setup","active","retire"};
+    for(unsigned i=0;i<3;i++)
+        console_printf("battery-sci: snapshot=%s epoch=%u phase=%s delivered=%u handled=%u unclaimed=%u in_flight=%u first_unclaimed_us=%u last_unclaimed_us=%u\n",
+            snapshot,epoch,phases[i],counts[i].delivered,counts[i].handled,
+            counts[i].unclaimed,counts[i].in_flight,counts[i].first_unclaimed_us,counts[i].last_unclaimed_us);
+}
 static bool claim_diagnostic(void) {
     uint64_t f=irq_save();
     bool ok=owner==OWNER_NONE&&(f&(1ull<<9))&&scheduler_current_thread_id();
@@ -92,6 +107,7 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
     }
     mask_sources();
+    sci_report("fault");
     console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
         runtime.setup_stage?runtime.setup_stage:"not-started",
         runtime.setup_started_us?timer_monotonic_us()-runtime.setup_started_us:0,
@@ -230,8 +246,22 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
 }
 static bool irq_bridge(void *context) {
     (void)context; runtime.interrupts++;
+    struct sci_counts *counts=&runtime.sci_counts[runtime.stopping?2:runtime.ready?1:0];
+    if(counts->delivered!=UINT64_MAX)counts->delivered++;
+    counts->in_flight++;
     check_foreign_event();
-    return runtime.irq_fn && runtime.irq_fn(runtime.irq_context) == UACPI_INTERRUPT_HANDLED;
+    bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
+    counts->in_flight--;
+    uint64_t *total=handled?&counts->handled:&counts->unclaimed;
+    if(*total!=UINT64_MAX)(*total)++;
+    if(!handled) {
+        uint64_t now=timer_monotonic_us();
+        if(counts->unclaimed==1)counts->first_unclaimed_us=now;
+        counts->last_unclaimed_us=now;
+    }
+    /* Preserve the callback's claim result. No added event-register access or
+     * logging in the IRQ path; a delivered interrupt is not necessarily ours. */
+    return handled;
 }
 static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
     (void)ctx; return ioapic_read_gsi(gsi, low, high);
@@ -512,6 +542,7 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(uacpi_install_gpe_handler_raw(NULL,runtime.platform.ec.gpe,UACPI_GPE_TRIGGERING_EDGE,gpe_handler,NULL)||
        uacpi_enable_gpe(NULL,runtime.platform.ec.gpe))unsafe("EC GPE install");
     runtime.gpe=true;runtime.ready=true;
+    sci_report("ready");
     return true;
 }
 static void runtime_close(void) {
@@ -538,6 +569,7 @@ static void runtime_close(void) {
             (uint64_t)h->enable,(uint64_t)h->original,h->protected_writes);
     }
     runtime.engaged=false;
+    sci_report("retired");
 }
 static bool stop_requested(void *arg) {(void)arg;return service.stop;}
 static void service_finish(enum battery_service_state state,enum battery_service_error error) {

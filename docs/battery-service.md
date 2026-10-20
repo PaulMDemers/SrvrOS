@@ -142,3 +142,43 @@ the blocking reader fix when USB logging also changed.
 The physical success path is accepted for this bounded test. Automatic return
 after a contained fault remains VM-tested only. Gauge calibration, continuous
 operation and userspace/UI integration are still pending.
+
+### Interrupt accounting and storage exclusion
+
+The runtime now emits `battery-sci` snapshots at ready, retirement and fault.
+Each snapshot separates setup, active operation and retirement, with delivered,
+handled, unclaimed and in-flight callback counts. First/last unclaimed timestamps
+are monotonic microseconds. Counters reset with each runtime lifetime and carry
+the service epoch (zero for the direct diagnostic). The IRQ bridge preserves
+uACPI's claim result and performs no new event-register access or logging.
+An interrupt that faults inside its callback remains counted as in-flight.
+These counters cover the installed bridge, not interrupts arriving after removal.
+
+The disposable `service-sci-unclaimed` VM fixture delivers software interrupts
+through vector 41 without setting a hardware source. It verifies repeated
+unclaimed deliveries remain visible in the counters although the generic IRQ
+warning prints once. This tests accounting, not the cause of a native SCI.
+
+Two VM fixtures interleave a separate thread at an EC transport status read.
+That thread holds the real scheduler I/O scope, yields through its normal service
+windows, and reads the battery cache. They do not access a disk or flash drive:
+
+| Fixture | Exclusion | Expected behavior |
+| --- | --- | --- |
+| `service-io-short` | 20 ms | Sampling resumes; five samples and lifecycle retirement pass |
+| `service-io-deadline` | 250 ms | EC transport expires; containment retains live state, no service pass |
+
+Both behaviors were reproduced. The short hold measured 20.311 ms; the long hold
+measured 250.234 ms and ended with transport deadline error 1. Cache reads worked
+inside both scopes. The failing case is a regression test for truthful
+containment, **not** acceptance of battery/storage coexistence. The current
+scheduler excludes the ordinary EC worker during storage ownership; a paused
+transaction still consumes its wall-clock deadline.
+
+Desktop enablement therefore needs a separate scheduling design. Before granting
+any I/O eligibility, audit the worker and owner across setup, sampling, queries
+and retirement: allocator/mapping use, console logging, blocking dependencies
+and all platform callbacks. The shared ACPI worker also serves other runtime
+fixtures; do not make every caller eligible as a shortcut. Preserve deadlines
+and storage isolation, then require progress and clean retirement under the
+same long-hold reproducer followed by actual USB I/O and input testing.

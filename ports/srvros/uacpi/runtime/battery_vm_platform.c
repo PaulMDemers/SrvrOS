@@ -6,6 +6,8 @@
 #include <srvros/console.h>
 #include <srvros/timer.h>
 #include <srvros/battery_diagnostic.h>
+#include <srvros/battery_service.h>
+#include <srvros/scheduler.h>
 #include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
@@ -17,11 +19,47 @@ static struct {
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation;
     unsigned ac_reads;
-    bool obf,pending;
+    bool obf,pending,io_started,io_done;
 } model;
+static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
+static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+static void io_hold(void *arg) {
+    (void)arg;
+    uint64_t duration=model.fault==21?20000:250000;
+    uint64_t f=irq_save(),start=timer_monotonic_us(),reads=0,max_read_us=0;
+    bool admitted=scheduler_io_begin(),sampling=false;
+    if(admitted) {
+        do {
+            struct battery_service_status s;
+            uint64_t before=timer_monotonic_us();
+            battery_service_status(&s);
+            uint64_t elapsed=timer_monotonic_us()-before;
+            if(elapsed>max_read_us)max_read_us=elapsed;
+            reads++;sampling|=(s.flags&BATTERY_CACHE_SAMPLING)!=0;
+            (void)scheduler_io_yield();
+        } while(timer_monotonic_us()-start<duration);
+        scheduler_io_end();
+    }
+    uint64_t elapsed=timer_monotonic_us()-start;
+    model.io_done=true;irq_restore(f);
+    console_printf("battery-vm: io-hold admitted=%u sampling=%u requested_us=%u elapsed_us=%u reads=%u max_read_us=%u\n",
+        (uint64_t)admitted,(uint64_t)sampling,duration,elapsed,reads,max_read_us);
+}
+static void interleave_io(void) {
+    if(model.io_started||model.generation!=2||(model.fault!=21&&model.fault!=22))return;
+    model.io_started=true;
+    /* Stop the worker at a transport status read while a different thread
+     * holds the real scheduler IO exclusion. No emulated device busy delay,
+     * filesystem access or IO-service exemption is introduced. */
+    scheduler_enable_io_services();
+    if(!scheduler_spawn("battery-vm-io",io_hold,NULL)) {
+        console_write("battery-vm: ERROR io-hold spawn\n");return;
+    }
+    while(!model.io_done)scheduler_yield();
+}
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
 static bool equal(const void *a,const char *b,unsigned n){const char *p=a;for(unsigned i=0;i<n;i++)if(p[i]!=b[i])return false;return true;}
-static uint8_t status(void *c){(void)c;return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
+static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
 static uint8_t read_data(void *c){(void)c;model.obf=false;return model.output;}
 static void command(void *c,uint8_t v){(void)c;model.mode=v;model.step=0;if(v==0x84){model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;}}
 static void write_data(void *c,uint8_t v){
@@ -68,6 +106,9 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
 }
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
+    /* Deliver a deliberately unclaimed SCI through the real dispatcher. This
+     * verifies accounting without inventing hardware status or claiming it. */
+    if(model.fault==20)__asm__ volatile("int $41":::"memory");
     bool discharging=(model.fault==13&&generation>=4&&generation<=6)||
         (model.fault>=15&&generation>=3&&generation<=4);
     model.memory[0x60]=discharging?1:3;
@@ -110,7 +151,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>19||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>22||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
