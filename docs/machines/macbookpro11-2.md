@@ -561,3 +561,36 @@ Next native run repeats continuous movement and dragging, compares perceived
 response, and collects wait counts/timing. Keep sound-confirmed e47dca3a6b30c6c1
 as previous rather than promoting the timing-only candidate. No timer-rate or
 xHCI changes are in this release; remaining transport/scanout delay is separate.
+
+
+## Native pointer wake result
+
+Release `9ae804d340bee2cb`, source `98fac37`, session
+`session-00065e3d67ca2723-00` returned with a clean desktop exit. The bounded
+wait recorded 4,130 input-ready returns, 62,866 timeouts and zero errors.
+Trackpad capture recorded 4,466 reports, zero malformed reports and zero
+transfer errors. No audio tone was exercised in this run; the earlier audible
+acceptance remains separate.
+
+| Software interval | Samples | Mean | Maximum | p95 upper bound |
+| --- | ---: | ---: | ---: | ---: |
+| Pointer poll gap | 66,995 | 9,968 us | 12,494 us | 12,494 us |
+| Consecutive motion poll gap | 3,820 | 9,854 us | 11,541 us | 11,541 us |
+| First consumed event to final blit | 4,129 | 599 us | 3,962 us | 2,000 us |
+| Draw plus blit | 4,162 | 601 us | 3,960 us | 2,000 us |
+
+The input-ready path ran successfully, but active cadence remains close to
+10 ms (previous mean 9,999 us). These differing manual workloads do not establish
+a statistically significant improvement. Drawing remains below 1 ms on average;
+USB arrival, kernel queue residence and scanout remain outside these intervals.
+Subjective response comparison is pending; do not mark the reported delay fixed.
+Next diagnostic scope is controller delivery and queue residence, if the delay
+remains, before choosing another scheduling or transport change.
+
+Matching evidence is archived outside `build`; offline exFAT is clean, installed
+payload hashes and Ubuntu default are verified, and the one-shot is consumed.
+No reboot is armed. Current is the pointer-wake candidate; sound-confirmed
+`e47dca3a6b30c6c1` remains previous and independently archived. Refreshed
+`origin/main` is still `b6075ef`; Air PR6 at `0038ff4` owns the native battery
+work and does not alter this input implementation. This return changes only
+this machine's evidence record, not shared driver behavior.
