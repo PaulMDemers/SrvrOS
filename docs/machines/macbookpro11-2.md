@@ -636,3 +636,42 @@ requests continuous circles over desktop/Text and window dragging for about
 sound-confirmed `e47dca3a6b30c6c1` as previous. Next collect this exact session
 before any further stage, compare queue and dispatch intervals, and ask whether
 response returned to the earlier baseline.
+
+## Final input diagnostic and remaining bring-up — 2026-10-20
+
+Release `ad6d1b9700372be6`, session `session-00065e3db88dea73-00`, returned
+with desktop exit 0, fixed-one-tick policy, 2,590 trackpad reports and zero
+malformed/transfer errors. Queue residence: 2,375 samples, oldest mean 358 us
+(max 10,460), newest mean 247 us (max 8,040). Consecutive contact dispatch gaps:
+2,551 samples, mean 9,829 us, max 26,009. Dispatch-to-rearm: 2,590 samples,
+mean 2 us, max 6. Consecutive motion polls averaged 10,000 us; consumed-event
+to final blit averaged 77 us. These are software intervals, not finger-to-pixel
+latency; this run does not prove a subjective improvement.
+
+The user completed testing and requested moving on after this round. Further
+trackpad latency work is deferred, not marked fixed. The failed pointer-wake
+behavior remains disabled. Evidence is independently archived, offline exFAT
+is clean, installed hashes/Ubuntu default are verified and no reboot is armed.
+Current payload is this diagnostic; sound-confirmed `e47dca3a6b30c6c1` remains
+previous and independently archived.
+
+Current capability ledger and suggested next order:
+
+| Area | Local status / remaining work |
+| --- | --- |
+| Boot/recovery, scaled internal display, keyboard, desktop apps, USB workspace | Exercised successfully; broaden cold/warm boot and storage-load regression coverage |
+| Trackpad | Functional; latency investigation deferred; gesture combinations need separate exhaustive acceptance |
+| Brightness | User confirmed full offered 5–100% range |
+| Audio | User confirmed sound; headphone isolation, individual channel/route checks and microphone remain separate |
+| CPU/thermal/fan telemetry | Linux inventory exists; native model-specific read-only validation pending; fan control not accepted |
+| Battery and charger | Native Pro ACPI/EC ownership and live battery/AC reporting not accepted; reuse reviewed shared groundwork, not Air firmware assumptions |
+| Networking | No accepted physical network path; validate supported wired USB hardware first; internal Broadcom Wi-Fi is separate driver work |
+| Power behavior | Lid events, orderly power-off and suspend/resume each need implementation/acceptance review; idle/load power baseline pending |
+| Additional hardware | External displays/hotplug, Bluetooth, camera, SD and Thunderbolt peripherals remain separate later milestones |
+| Storage policy | RAM root and USB workspace remain intentional; native internal-disk writes require a separate scope |
+| Integration | Device changes published in PR5; review/integration and regressions on the shared baseline still required |
+
+Recommended next bounded milestone: read-only native CPU temperature/fan and
+idle/load telemetry matched to this unit's inventory. Keep fan control and
+optional AML out of normal startup. Battery/AC follows its shared runtime
+review and Pro-specific firmware evidence. No next boot has been scheduled.
