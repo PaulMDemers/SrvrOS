@@ -55,10 +55,11 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False,read32=()):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
         if initialize: args+=['--initialize']
+        for description in read32: args+=['--mmio-read32',description]
         for address,path in models: args+=['--io-model',f'{address}:{path}']
         for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
         for address,path in pci: args+=['--pci',f'{address}:{path}']
@@ -107,6 +108,33 @@ class NamespaceTests(unittest.TestCase):
         self.assertIn('namespace-init: REFUSED api=0',r.stdout)
         self.assertNotIn('\\READ =',r.stdout)
         self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_exact_read32_model(self):
+        model=self.folder/'read32.bin';model.write_bytes(b'\x80\0\0\0')
+        aml=self.variant('Method (READ, 0)',
+            'Field (SNAP, DWordAcc, NoLock, Preserve) { Offset (4), CONF, 32 } '
+            'Field (SNAP, WordAcc, NoLock, Preserve) { Offset (4), HALF, 16 } '
+            'Method (RHAF, 0) { Return (HALF) } '
+            'Method (RCFG, 0) { Return (CONF) } Method (WCFG, 0) { CONF = One } Method (READ, 0)')
+        description=f'0x100000:16:0x100004:{model}'
+        r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[description])
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('memory-model: read address=0x100004 width=32 before=0x80 value=0x80',r.stdout)
+        for method in ['\\READ','\\RHAF','\\WR64','\\WCFG']:
+            r=self.probe(method,snapshot=False,aml=aml,read32=[description])
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+            self.assertIn('MMIO outside exact read-only 32-bit model denied',r.stderr)
+        self.assertEqual(model.read_bytes(),b'\x80\0\0\0')
+        for desc in [f'0x100000:16:0x100001:{model}',f'0x100000:16:0x100010:{model}',
+                     f'0x100000:3:0x100000:{model}',f'0xfffffffffffffff0:32:0xfffffffffffffff0:{model}']:
+            r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[desc])
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        r=self.probe('\\RCFG',aml=aml,read32=[description])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        self.assertIn('overlapping regions',r.stderr)
+        model.write_bytes(bytes(5))
+        r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[description])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
 
     def test_resources_and_osi(self):
         r=self.probe('\\_SB.EC._HID','\\_SB.EC._CRS','\\_SB.EC.SMB0._STA','\\_SB.EC.SMB0._EC',darwin=True)

@@ -20,7 +20,7 @@
 #define MAX_BYTES (4u*1024*1024)
 static struct { void *p; size_t size; } mappings[MAX_TABLES+3];
 static size_t mapping_count, allocation_bytes, denied, local_writes;
-static struct { uintptr_t address; unsigned char *bytes; size_t size; } regions[16];
+static struct { uintptr_t address; unsigned char *bytes; size_t size; bool read32_only; size_t read_offset; } regions[16];
 static size_t region_count, aml_errors, aml_warnings, snapshot_accesses;
 /* Explicit byte models only. Never backed by /dev/port or host I/O. */
 static struct { uint32_t base; unsigned char *bytes; size_t size; bool guarded; struct acpi_io_rule rule; } io_models[16];
@@ -170,6 +170,8 @@ static void snapshot_memory(void *p,size_t size,void *value,bool write) {
     for(size_t i=0;i<region_count;i++) {
         uintptr_t base=(uintptr_t)regions[i].bytes;
         if(address>=base && address-base<=regions[i].size && size<=regions[i].size-(address-base)) {
+            if(regions[i].read32_only && (write || size!=4 || address-base!=regions[i].read_offset))
+                fatal("MMIO outside exact read-only 32-bit model denied");
             uint64_t before=0,after=0;
             memcpy(&before,p,size);
             if(write) { memcpy(p,value,size);local_writes++; }
@@ -298,6 +300,26 @@ int main(int argc,char **argv) {
             io_models[io_model_count++]=(typeof(io_models[0])){
                 .base=base,.bytes=bytes,.size=size,.guarded=guarded,.rule={base,8,mask,mask}};continue;
         }
+        if(!strcmp(argv[a],"--mmio-read32")) {
+            if(++a==argc||region_count==16) fatal("expected BASE:SIZE:ADDRESS:FILE read32 model");
+            char *end;const char *part=argv[a];
+            unsigned long long values[3];
+            for(unsigned i=0;i<3;i++) {
+                values[i]=strtoull(part,&end,0);
+                if(end==part||*end!=':') fatal("invalid read32 model description");
+                part=end+1;
+            }
+            uint64_t base=values[0],size=values[1],address=values[2];
+            if(!base||size<4||size>65536||base>UINTPTR_MAX-size||address<base||
+                address-base>size-4||(address&3)) fatal("invalid read32 model bounds");
+            for(size_t i=0;i<region_count;i++)
+                if(base<regions[i].address+regions[i].size && regions[i].address<base+size) fatal("overlapping regions");
+            unsigned char *bytes=calloc(1,size);if(!bytes) fatal("allocation failed");
+            FILE *file=fopen(part,"rb");if(!file) fatal("cannot open read32 model");
+            if(fread(bytes+(address-base),1,4,file)!=4||fgetc(file)!=EOF||fclose(file)) fatal("expected four-byte read32 model");
+            regions[region_count++]=(typeof(regions[0])){.address=base,.bytes=bytes,.size=size,
+                .read32_only=true,.read_offset=address-base};continue;
+        }
         if(!strcmp(argv[a],"--region")) {
             if(++a==argc||region_count==16) fatal("expected ADDRESS:FILE region snapshot");
             char *end=NULL;unsigned long long address=strtoull(argv[a],&end,0);
@@ -307,7 +329,7 @@ int main(int argc,char **argv) {
             long size=ftell(file);rewind(file);if(size<=0||size>65536||address>UINTPTR_MAX-(size_t)size) fatal("invalid region size");
             unsigned char *bytes=malloc(size);if(!bytes||fread(bytes,1,size,file)!=(size_t)size||fclose(file)) fatal("cannot read region snapshot");
             for(size_t i=0;i<region_count;i++) if(address<regions[i].address+regions[i].size && regions[i].address<address+(size_t)size) fatal("overlapping regions");
-            regions[region_count++]=(typeof(regions[0])){address,bytes,size};continue;
+            regions[region_count++]=(typeof(regions[0])){.address=address,.bytes=bytes,.size=size};continue;
         }
         if(table_count==MAX_TABLES) fatal("too many tables");
         FILE *f=fopen(argv[a],"rb");if(!f) fatal("cannot open table");
@@ -320,7 +342,7 @@ int main(int argc,char **argv) {
         unsigned sum=0;for(long i=0;i<size;i++) sum+=((unsigned char *)h)[i];if(sum&255) fatal("bad table checksum");
         add_mapping(h,size);tables[table_count++]=h;
     }
-    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--initialize] [--darwin] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--initialize] [--darwin] [--mmio-read32 BASE:SIZE:ADDRESS:FILE] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
     struct acpi_fadt fadt={0};header(&fadt.hdr,"FACP",sizeof(fadt));fadt.x_dsdt=(uintptr_t)tables[0];
     checksum(&fadt,sizeof(fadt),9);add_mapping(&fadt,sizeof(fadt));
     size_t xsdt_size=sizeof(struct acpi_sdt_hdr)+8*table_count;
