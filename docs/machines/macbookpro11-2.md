@@ -1047,3 +1047,17 @@ network desktop with on-screen DHCP/diagnostic/return instructions. Validate
 parser mutations, old recipes, full build and exact-stage USB networking VM
 before an authorized native trial. Shared main remains d72d2af; Air PR7 has no
 network overlap. Ubuntu and accepted desktop/recovery remain protected.
+
+Candidate `debb2ddf3e9f4243`, source `1b2afb0`, passes exact v37 GPT VM
+rehearsal: emulated USB ECM DHCP, saved successful router ping, 2880x1800/2x
+Text/screenshot persistence, audio and clean return/unmount. The host ECM
+fixture validates the captured configuration, all truncations, altered-byte and
+sibling identity refusal; xHCI transport regressions and 41 boot-profile tests
+pass. Two earlier rehearsals exposed Terminal close-confirmation/shortcut
+requirements; retain their logs and use the corrected on-screen exit sequence.
+
+Prepare one untimed native run with the adapter and cable attached. Opening Help
+requests Terminal dhcp/ifconfig, exit and Command-W, then System/Network Utility
+router ping/DNS and screenshot, followed by clean manual return. Preserve Ubuntu,
+accepted current desktop archive and previous sound-confirmed recovery. Collect
+the exact new session before any next trial; physical ECM support remains pending.
