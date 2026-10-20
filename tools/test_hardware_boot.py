@@ -159,7 +159,7 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
 
     def test_keyboard_capture_profile(self):
-        version="ram-usb-v27-laptop-probe-37d8c5d0"
+        version="ram-usb-v28-laptop-probe-37d8c5d0"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
         cfg=boot.limine_config("0123456789abcdef",version)
         self.assertIn("srvros.capture=keyboard",cfg)

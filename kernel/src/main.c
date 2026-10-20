@@ -77,31 +77,41 @@ static void keyboard_capture(void) {
     console_clear();
     console_write("SRVROS KEYBOARD TEST - use the built-in keyboard only\n"
         "Follow one instruction at a time. Release each key promptly.\n"
-        "No shell commands needed. Each step allows 30 seconds.\n"
-        "Wrong input or timeout records FAIL and returns to Ubuntu.\n"
+        "No shell commands needed. Each step allows 90 seconds.\n"
+        "Wrong key? Try again. Only a timeout ends the test.\n"
         "Results are saved automatically; do not power off.\n\n");
     char c;
     while (keyboard_try_read_char(&c)) {}
     uint64_t dropped = keyboard_dropped_count();
     unsigned passed = 0;
+    uint64_t retries = 0;
     bool ok = timer_reference_ready();
     for (unsigned i = 0; ok && i < sizeof(steps)/sizeof(steps[0]); i++) {
         console_printf("keyboard-test: step=%u %s\n", (uint64_t)i + 1, steps[i].prompt);
         console_sync();
-        uint64_t deadline = timer_monotonic_us() + 30000000;
+        uint64_t deadline = timer_monotonic_us() + 90000000;
         unsigned n = 0;
         while (steps[i].expected[n] && timer_monotonic_us() < deadline) {
             if (keyboard_try_read_char(&c)) {
-                if (c != steps[i].expected[n]) { ok = false; break; }
-                n++;
+                if (c != steps[i].expected[n]) {
+                    retries++;
+                    console_printf("keyboard-test: retry step=%u received=%u; %s\n",
+                        (uint64_t)i + 1, (uint64_t)(uint8_t)c, steps[i].prompt);
+                    /* Restart escape-sequence matching, retaining a new ESC. */
+                    n = c == steps[i].expected[0] ? 1 : 0;
+                } else n++;
             } else scheduler_yield();
         }
-        if (steps[i].expected[n]) ok = false;
+        if (steps[i].expected[n]) {
+            ok = false;
+            console_printf("keyboard-test: timeout step=%u limit_seconds=90\n", (uint64_t)i + 1);
+        }
         if (ok) { passed++; console_write("keyboard-test: step PASS\n"); }
     }
     ok = ok && passed == sizeof(steps)/sizeof(steps[0]) && keyboard_dropped_count() == dropped;
     console_printf("keyboard-test: result=%s passed=%u total=10 dropped=%u\n",
         ok ? "PASS" : "FAIL", (uint64_t)passed, keyboard_dropped_count() - dropped);
+    console_printf("keyboard-test: retries=%u\n", retries);
     xhci_print_input_summary();
     console_write("Keyboard test finished. Saving results and returning to Ubuntu...\n");
 }

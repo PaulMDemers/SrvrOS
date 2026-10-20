@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|31|32|33|34|36)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|36)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -66,7 +66,7 @@ def limine_config(release, version=CONFIG_VERSION):
             if version.startswith("ram-usb-v34-"): cmdline += "-usb-read"
             if version.startswith("ram-usb-v36-"): cmdline += "-usb-write"
         if probe[2]: cmdline += " srvros.capture-failure=reboot"
-        if version.startswith("ram-usb-v27-"): cmdline += " srvros.capture=keyboard"
+        if version.startswith(("ram-usb-v27-","ram-usb-v28-")): cmdline += " srvros.capture=keyboard"
     elif desktop:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
                    "srvros.trackpad=gestures srvros.desktop=trial")
@@ -174,7 +174,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v{27 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and not battery_transitions and not keyboard_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
@@ -346,8 +346,8 @@ def install(release=None, keep_previous=False):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
     elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
-    elif verify(source).get("config_version", "").startswith("ram-usb-v27-"):
-        print("Guided keyboard test: on-screen prompts, 30 seconds per step, save result and return; halt if saving fails.")
+    elif verify(source).get("config_version", "").startswith(("ram-usb-v27-","ram-usb-v28-")):
+        print("Guided keyboard test: on-screen prompts, up to 90 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):

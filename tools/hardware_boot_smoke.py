@@ -123,7 +123,7 @@ def main():
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
     parser.add_argument("--keyboard-timeout", action="store_true", help="send no keys and verify the guided trial deadline")
-    parser.add_argument("--keyboard-fail", action="store_true", help="inject a wrong key in the guided typing rehearsal")
+    parser.add_argument("--keyboard-fail", action="store_true", help="inject wrong keys before correct keys in the guided typing rehearsal")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -146,9 +146,10 @@ def main():
         parser.error("Automatic laptop probe stages require --probe-check")
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
-    keyboard_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v27-"))
+    keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
-    keyboard_negative=args.keyboard_fail or args.keyboard_timeout
+    keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
+    keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
@@ -239,10 +240,13 @@ def main():
                             qmp_command(qmp, {"execute":"screendump", "arguments":{"filename":str(logs/"keyboard-instructions.ppm")}})
                             keys=[("a",False),("a",True),("a",False),("a",False),("backspace",False),
                                   ("ret",False),("up",False),("down",False),("left",False),("right",False)]
-                            if args.keyboard_fail: send_qmp_key(qmp,"b")
+                            if args.keyboard_fail and not keyboard_retry: send_qmp_key(qmp,"b")
                             elif not args.keyboard_timeout:
                                 for i,(key,shift) in enumerate(keys,1):
                                     wait_for(serial,lambda s: f"keyboard-test: step={i} " in s,process,40)
+                                    if args.keyboard_fail and keyboard_retry:
+                                        send_qmp_key(qmp,"b");time.sleep(.2)
+                                        wait_for(serial,lambda s:f"keyboard-test: retry step={i} " in s,process,10)
                                     time.sleep(.2) # Release the previous HID report before the next step.
                                     if i in (3,4):
                                         send_qmp_key(qmp,"caps_lock");time.sleep(.2)
@@ -267,6 +271,8 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
+                    if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
                         assert ("keyboard-test: result=FAIL passed=0" if keyboard_negative else "keyboard-test: result=PASS passed=10") in text
                     if args.workspace_table == "gpt":
