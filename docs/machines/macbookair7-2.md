@@ -174,6 +174,10 @@ device work uses separate branches based on `main`.
   Host/sanitizer mapping/read boundaries, connected captured-firmware replay,
   9 collector and 29 staging tests pass. Missing exit snapshots now receive an
   explicit incomplete-session flag. Read-only USB fsck after this halt was clean.
+  Follow-up v31 `13d8083de35b51af` / source `57de926` passes the exact staged
+  GRUB/UEFI Q35 rehearsal (expected native refusal, saved log bytes, clean
+  exFAT, persistent halt). Next physical trial remains AC-connected and requires
+  complete samples, both event restorations and clean capture/unmount.
 - Recovery before this candidate: current `c0f2c3af0dbacc66`, previous
   `b427b78f21644bd2`; accepted power and interactive backups are verified outside
   build. Retain that previous release when installing the next candidate; the
