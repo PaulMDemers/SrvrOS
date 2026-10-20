@@ -1153,3 +1153,12 @@ path. On a confirmed cable-down indication, retain the submitted TX/DMA and
 suspend its deadline; on up, restore the normal two-second budget. Do not extend
 unknown-link timeouts or recycle a live ring. Add capture-derived and ownership
 fixtures before a native retry; raw interrupt-only capture stays local.
+
+Cable-fix candidate `1212d33f6ccf6bd4` (source `f7bb195`) passes the full
+build/test-core, capture-derived notification/ownership fixtures, two-adapter
+ECM regression and exact v37 GPT desktop/audio rehearsal. Saved files/logs,
+clean unmount and the readable opening Help were verified; documentation has
+385 valid local links. Native cable status timing/recovery remains pending.
+The next untimed retry saves fresh before/after reports and checks both UI
+transitions with only the Ethernet cable unplugged. Retain Ubuntu default and
+previous `e47dca3a6b30c6c1`; archive capture, payload and run state outside build.
