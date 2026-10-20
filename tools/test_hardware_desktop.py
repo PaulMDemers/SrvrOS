@@ -38,6 +38,13 @@ class CollectionTests(unittest.TestCase):
                     with_event.replace('protected_writes=1','protected_writes=0'),
                     with_event.replace(restored,'')+'\n'+restored):
             self.assertIsNone(desktop.battery_diagnostic(bad),bad)
+        held2=held.replace('0x189c','0x189e').replace('0x40','0x04')
+        restored2=restored.replace('0x189c','0x189e').replace('0x40','0x04')
+        multiple='\n'.join([held,held2]+rows+[restored,restored2]+tail)
+        self.assertEqual(len(desktop.battery_diagnostic(multiple)['foreign_events']),2)
+        for bad in (multiple.replace(restored2,''),multiple.replace(held2,held),
+                    multiple.replace(restored2,restored),multiple.replace(restored2,restored2.replace('0x04','0x40'))):
+            self.assertIsNone(desktop.battery_diagnostic(bad),bad)
         self.assertTrue(desktop.needs_attention('battery: HALTED operation deadline'))
         self.assertTrue(desktop.needs_attention('battery: REFUSED platform/resource ownership preflight'))
 

@@ -5,7 +5,7 @@ int main(void) {
     for(unsigned byte=0;byte<32;byte++)for(unsigned enabled=0;enabled<256;enabled++)
         for(unsigned mode=0;mode<2;mode++)
             assert(battery_native_gpe_admit(byte,enabled,mode)==
-                (!enabled||(byte==12&&enabled==0x40&&!mode)));
+                (!enabled||(!mode&&((byte==12&&enabled==0x40)||(byte==14&&enabled==4)))));
     uint64_t ig=0x8ad03190,fa=0x8ad10000;
     const unsigned widths[]={0,1,8,16,24,32,64,128};
     for(unsigned region=0;region<4;region++) {

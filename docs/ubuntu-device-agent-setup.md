@@ -305,7 +305,9 @@ The staged native image must refuse Q35, save the refusal, unmount and halt;
 the synthetic positive lifecycle uses another kernel and cannot grant physical
 acceptance. On the matched Air it takes five battery/AC samples, retires the
 runtime, saves and returns automatically only on success. Keep AC connected for
-the first trial. On failure, photograph the persistent halt before restarting.
+the initial trials. The current diagnostic preserves the two observed firmware
+graphics/wake-alarm events while it owns the battery event; unknown enabled
+sources still refuse, with the full event snapshot saved for diagnosis. On failure, photograph the persistent halt before restarting.
 Read the [runtime gate](native-ec-runtime.md#explicit-native-battery-diagnostic),
 retain recovery, record the exact run and collect its matching session first
 on return. The collector reports complete runtime evidence separately from

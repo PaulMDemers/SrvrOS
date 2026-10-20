@@ -137,26 +137,25 @@ device work uses separate branches based on `main`.
   GPE enable byte 12 at `0x189c`, value `0x40` (GPE `0x66`), before EC/runtime
   ownership. Session `session-00065e3d35a068b6-00` verified; logs saved, USB
   unmounted, persistent halt photographed. One-shot consumed on return.
-- Current bounded follow-up: preserve the captured graphics/TCO SCI event
-  (`_L66`) while the separate battery diagnostic owns EC GPE `0x4e`. Add an
-  explicit mask/readback/restore lease and protect foreign W1C status, with
-  host fault tests and a VM fixture. Do not dispatch graphics AML or broaden
-  register permissions. Unknown enabled events remain refused. Native handoff
-  and battery readings remain unaccepted; normal desktop unchanged.
-- Handoff implementation: the known graphics event is leased only from legacy
-  mode, its status excluded from uACPI clears, and its original enable restored
-  after clean runtime retirement. Host tests and ASan/UBSan pass; two VM
-  lifetimes retain a pending modeled event. Mask/restore failure and unexpected
-  reenable cases halt; the existing battery fault regressions pass.
-  Candidate `c0f2c3af0dbacc66` (source `8dc82e7`) passed exact GRUB/UEFI
-  Q35 refusal, saved log-byte verification and clean exFAT. Native acceptance
-  remains pending; the local release run record owns installation/reboot state.
-- Integration remains `b6075ef`; Pro PR #5 is at `827d035` with native cursor
-  timing evidence. Battery event lifecycle is this Air branch's scope; shared
-  startup/staging hunks still require reconciliation during integration.
-- Recovery: current is `339211cceb5d894d`; previous `b427b78f21644bd2` remains
-  installed. Accepted v26 and interactive payloads have verified copies outside
-  build. Ubuntu returned with one-shot consumed; no reboot is armed.
+- Second enabled-event refusal: `c0f2c3af0dbacc66` (source `8dc82e7`),
+  session `session-00065e3d7491a8fe-00`, refused GPE enable byte 14 at `0x189e`,
+  value `0x04` (GPE `0x72`), with PM1 control zero. Logs verified and USB
+  unmounted before halt. The GPE66 lease and battery runtime did not start.
+- Current bounded scope: capture the complete fixed/GPE enable and status
+  snapshot before admission; audit the second source (chipset wake-alarm timer)
+  and extend the existing exact-source preservation mechanism only with evidence.
+  All 12 battery VM cases pass, including two-source preservation and partial
+  mask/retirement failures. Host admission/lease checks pass with sanitizers;
+  collector (8) and staging (29) tests pass. Runtime, platform, collector and tests are this Air branch's scope; normal desktop unchanged.
+- Existing handoff implementation passed host/sanitizer and full-runtime VM
+  pending-status preservation, failed mask/restore and unexpected reenable
+  containment. Those are model results; neither native handoff nor battery
+  readings are accepted yet. No trial is currently armed.
+- Integration remains `b6075ef`; Pro PR #5 is at `92b277b` with pointer-wake
+  rehearsal and idle comparison. Shared startup/staging hunks require later
+  integration reconciliation, not concurrent changes to the battery mechanism.
+- Recovery: current `c0f2c3af0dbacc66`, previous `b427b78f21644bd2`; accepted
+  power and interactive backups are verified outside build. One-shot consumed.
 
 ## Accepted scope and open items
 

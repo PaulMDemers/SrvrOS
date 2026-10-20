@@ -144,31 +144,44 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     if(!(hptc&0x80))return refuse("hptc-enable",hptc,0x80);
     p->rsdp=(uintptr_t)rsdp-pmm_hhdm_offset();p->original_control=inw(p->ec.pm1_control);
     p->events.fixed_enable_mask=1u<<5;
-    /* The captured _L66 is the IGPU/TCO SCI notification, not EC _GPE 0x4e.
-     * Only this byte may have its known bit enabled, and only in legacy mode.
-     * The runtime leases its enable and preserves its W1C status throughout. */
+    /* Read the full event state before deciding: later enabled bytes must not
+     * cost another physical round just to discover them. Reads do not ack W1C. */
+    uint8_t enabled[16],pending[16];
+    if(p->events.resources.gpe[0].bytes!=16)return refuse("gpe-byte-count",p->events.resources.gpe[0].bytes,16);
     uint16_t fixed=inw(p->events.resources.pm1_enable);
+    uint8_t ec=inb(p->ec.command);
+    console_printf("battery-native: events control=%x fixed-enable=%x fixed-status=%x ec-status=%x\n",
+        (uint64_t)p->original_control,(uint64_t)fixed,(uint64_t)inw(p->events.resources.pm1_status),(uint64_t)ec);
+    for(unsigned i=0;i<16;i++) {
+        enabled[i]=inb(p->events.resources.gpe[0].enable+i);
+        pending[i]=inb(p->events.resources.gpe[0].status+i);
+    }
+    for(unsigned i=0;i<16;i+=4) {
+        uint32_t en=0,st=0;
+        for(unsigned j=0;j<4;j++){en|=(uint32_t)enabled[i+j]<<(8*j);st|=(uint32_t)pending[i+j]<<(8*j);}
+        console_printf("battery-native: events first-gpe=%u enable=%x status=%x\n",(uint64_t)(i*8),(uint64_t)en,(uint64_t)st);
+    }
     if(fixed)return refuse("pm1-enabled",fixed,0);
-    for(unsigned i=0;i<p->events.resources.gpe[0].bytes;i++) {
-        uint8_t enabled=inb(p->events.resources.gpe[0].enable+i);
-        if(!battery_native_gpe_admit(i,enabled,p->original_control)) {
+    /* Known GPE66 graphics/TCO SCI and GPE72 wake alarm only, from legacy mode.
+     * Neither source's AML or device registers are owned by this diagnostic. */
+    for(unsigned i=0;i<16;i++) {
+        if(!battery_native_gpe_admit(i,enabled[i],p->original_control)) {
             console_printf("battery-native: preflight GPE enable port=%x index=%u\n",
                 (uint64_t)(p->events.resources.gpe[0].enable+i),(uint64_t)i);
-            console_printf("battery-native: preflight PM1 control=%x\n",(uint64_t)p->original_control);
-            return refuse("gpe-enabled",enabled,0);
+            return refuse("gpe-enabled",enabled[i],0);
         }
     }
-    p->foreign_event=(struct battery_event_hold){.status=0x188c,.enable=0x189c,
-        .mask=0x40,.original=inb(0x189c)};
-    if(p->foreign_event.original && (p->foreign_event.original!=0x40 || (p->original_control&1)))
-        return refuse("foreign-event-recheck",p->foreign_event.original,0x40);
-    uint8_t status=inb(p->ec.command);
-    if(status&3)return refuse("ec-busy",status,0); /* No stale output or in-flight command. */
+    p->foreign_events[0]=(struct battery_event_hold){.status=0x188c,.enable=0x189c,.mask=0x40,.original=enabled[12]};
+    p->foreign_events[1]=(struct battery_event_hold){.status=0x188e,.enable=0x189e,.mask=4,.original=enabled[14]};
+    if(ec&3)return refuse("ec-busy",ec,0);
     p->io=(struct ec_io){p,ec_status,ec_read,ec_command,ec_write};platform=p;
-    console_printf("battery-native: matched Air7,2 EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; foreign GPE66 retained\n",
+    console_printf("battery-native: matched Air7,2 EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; foreign GPE66/GPE72 retained\n",
         (uint64_t)p->ec.data,(uint64_t)p->ec.command,(uint64_t)p->ec.sci,(uint64_t)p->ec.gpe,igdm,(uint64_t)(p->original_control&1));
-    console_printf("battery-native: foreign-event status=%x enable=%x original=%x; temporary mask, no acknowledgement\n",
-        (uint64_t)p->foreign_event.status,(uint64_t)p->foreign_event.enable,(uint64_t)p->foreign_event.original);
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
+        const struct battery_event_hold *h=&p->foreign_events[i];
+        console_printf("battery-native: foreign-event status=%x enable=%x original=%x; temporary mask, no acknowledgement\n",
+            (uint64_t)h->status,(uint64_t)h->enable,(uint64_t)h->original);
+    }
     return true;
 }
 void *battery_platform_map(uint64_t a,size_t n) {

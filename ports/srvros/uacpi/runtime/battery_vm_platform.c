@@ -9,9 +9,9 @@
 static struct battery_platform *platform;
 static uint64_t dsdt;
 static struct {
-    uint8_t memory[256], mode,address,output,foreign_status,foreign_enable;
+    uint8_t memory[256], mode,address,output,foreign_status[2],foreign_enable[2];
     uint16_t words[32];
-    unsigned step,busy,fault,foreign_reads;
+    unsigned step,busy,fault,foreign_reads[2];
     bool obf,pending;
 } model;
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
@@ -36,23 +36,24 @@ static uacpi_table_installation_disposition install(struct acpi_sdt_hdr *h,uacpi
     if(equal(h->oem_table_id,"BATTEST ",8))return UACPI_TABLE_INSTALLATION_DISPOSITION_DENY;
     *override=dsdt;return UACPI_TABLE_INSTALLATION_DISPOSITION_PHYSICAL_OVERRIDE;
 }
-/* Shadow one Q35 GPE byte to verify real interpreter W1C writes are filtered.
- * This is not a physical graphics event or native SCI acceptance. */
+/* Two shadow GPE bytes exercise the interpreter's W1C requests and partial
+ * lease/restore failures. They are not physical graphics/alarm sources. */
+static unsigned foreign_index(uint16_t port){return port==0x626||port==0x62e?1:0;}
 static uint8_t foreign_read(void *ctx,uint16_t port) {
-    (void)ctx;
-    if(port==0x62f&&model.fault==10&&++model.foreign_reads==4)model.foreign_enable=0x40;
-    return port==0x627?model.foreign_status:model.foreign_enable;
+    (void)ctx;unsigned i=foreign_index(port);
+    if(port>=0x628&&model.fault==10&&i==0&&++model.foreign_reads[i]==4)model.foreign_enable[i]=0x40;
+    return port<0x628?model.foreign_status[i]:model.foreign_enable[i];
 }
 static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
-    (void)ctx;
-    if(port==0x627) {
-        if(value&0x40)console_write("battery-vm: ERROR foreign status acknowledged\n");
-        model.foreign_status&=~value;
+    (void)ctx;unsigned i=foreign_index(port);uint8_t mask=i?4:0x40;
+    if(port<0x628) {
+        if(value&mask)console_write("battery-vm: ERROR foreign status acknowledged\n");
+        model.foreign_status[i]&=~value;
     } else {
-        if(model.fault==9&&value==0)return;
-        if(model.fault==8&&value==0x40)return;
-        model.foreign_enable=value;
-        if(value==0x40)console_printf("battery-vm: foreign restored pending=%x\n",(uint64_t)model.foreign_status);
+        if(model.fault==9&&i==1&&value==0)return;
+        if(model.fault==8&&i==1&&value==mask)return;
+        model.foreign_enable[i]=value;
+        if(value==mask)console_printf("battery-vm: foreign restored enable=%x pending=%x\n",(uint64_t)port,(uint64_t)model.foreign_status[i]);
     }
 }
 bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_memmap_response *map){
@@ -75,8 +76,10 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     model.words[8]=2981;model.words[18]=120;model.words[19]=65535;model.words[22]=0xc0;
     if(uacpi_set_table_installation_handler(install))return false;
     if(model.fault>=7) {
-        model.foreign_status=0x40;model.foreign_enable=0x40;
-        p->foreign_event=(struct battery_event_hold){.status=0x627,.enable=0x62f,.mask=0x40,.original=0x40};
+        model.foreign_status[0]=model.foreign_enable[0]=0x40;
+        model.foreign_status[1]=model.foreign_enable[1]=4;
+        p->foreign_events[0]=(struct battery_event_hold){.status=0x627,.enable=0x62f,.mask=0x40,.original=0x40};
+        p->foreign_events[1]=(struct battery_event_hold){.status=0x626,.enable=0x62e,.mask=4,.original=4};
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;

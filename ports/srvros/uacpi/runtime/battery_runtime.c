@@ -61,7 +61,16 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     console_sync();__asm__ volatile("cli":::"memory");halt_forever();
 }
 static bool foreign_port(uint16_t port) {
-    return port==runtime.platform.foreign_event.status||port==runtime.platform.foreign_event.enable;
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
+        const struct battery_event_hold *h=&runtime.platform.foreign_events[i];
+        if(h->mask&&(port==h->status||port==h->enable))return true;
+    }
+    return false;
+}
+static uint8_t filter_foreign_event(uint16_t port,bool write,uint8_t value) {
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++)
+        value=battery_event_hold_filter(&runtime.platform.foreign_events[i],port,write,value);
+    return value;
 }
 static uint8_t event_read(void *ctx,uint16_t port) {
     (void)ctx;
@@ -76,8 +85,10 @@ static void event_write(void *ctx,uint16_t port,uint8_t value) {
 }
 static const struct battery_event_ops event_ops={.read=event_read,.write=event_write};
 static void check_foreign_event(void) {
-    if(runtime.platform.foreign_event.active&&event_read(NULL,runtime.platform.foreign_event.enable))
-        unsafe("foreign event unexpectedly enabled");
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
+        const struct battery_event_hold *h=&runtime.platform.foreign_events[i];
+        if(h->active&&event_read(NULL,h->enable))unsafe("foreign event unexpectedly enabled");
+    }
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t size){return size&&p>=a&&p-a<=n&&size<=n-(p-a);}
 static bool worker_context(void){uint64_t f=irq_save();bool ok=(f&(1ull<<9))&&runtime.worker.identity&&scheduler_current_thread_id()==runtime.worker.identity;irq_restore(f);return ok;}
@@ -224,10 +235,10 @@ static uacpi_status port_io(struct io_region *r,size_t o,unsigned bits,bool writ
         if(ok)outw(a,*v);irq_restore(flags);if(ok)return UACPI_STATUS_OK;goto denied;
     }
     if(write?acpi_event_io_write(&runtime.platform.events,a,bits,*v):acpi_event_io_read(&runtime.platform.events,a,bits)) {
-        if(write){if(bits==8)event_write(NULL,a,battery_event_hold_filter(&runtime.platform.foreign_event,a,true,*v));else if(bits==16)outw(a,*v);else outl(a,*v);}
+        if(write){if(bits==8)event_write(NULL,a,filter_foreign_event(a,true,*v));else if(bits==16)outw(a,*v);else outl(a,*v);}
         else {
             *v=bits==8?event_read(NULL,a):bits==16?inw(a):inl(a);
-            if(bits==8)*v=battery_event_hold_filter(&runtime.platform.foreign_event,a,false,*v);
+            if(bits==8)*v=filter_foreign_event(a,false,*v);
         }
         return UACPI_STATUS_OK;
     }
@@ -398,17 +409,18 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
         console_write("battery: REFUSED SCI route not free/masked\n");return false;
     }
     runtime.engaged=true;
-    if(!battery_event_hold_begin(&runtime.platform.foreign_event,event_ops))unsafe("foreign event mask");
-    if(runtime.platform.foreign_event.active)console_printf("battery: foreign-event held enable=%x original=%x\n",
-        (uint64_t)runtime.platform.foreign_event.enable,(uint64_t)runtime.platform.foreign_event.original);
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
+        struct battery_event_hold *h=&runtime.platform.foreign_events[i];
+        if(!battery_event_hold_begin(h,event_ops))unsafe("foreign event mask");
+        if(h->active)console_printf("battery: foreign-event held enable=%x original=%x\n",(uint64_t)h->enable,(uint64_t)h->original);
+    }
     if(!acpi_worker_start(&runtime.worker))unsafe("worker start");
     ec_transport_init(&runtime.transport,runtime.platform.io);
     if(uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE|UACPI_FLAG_BAD_CSUM_FATAL|UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL)||runtime.errors||runtime.denied)unsafe("interpreter initialize");
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
     if(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR)||
        uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR)||uacpi_enter_acpi_mode())unsafe("ACPI mode/policy");
-    if(runtime.platform.foreign_event.active&&event_read(NULL,runtime.platform.foreign_event.enable))
-        unsafe("foreign event mode transition");
+    check_foreign_event();
     runtime.loading=true;operation(setup_work,5000,"namespace/EC connection");runtime.loading=false;
     /* Match the Linux EC raw edge policy; no firmware AML GPE finalization. */
     unsigned bank=runtime.platform.ec.gpe>=runtime.platform.events.resources.gpe[1].first&&runtime.platform.events.resources.gpe[1].bytes?1:0;
@@ -449,9 +461,12 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
         while((inw(runtime.platform.ec.pm1_control)&1)&&timer_monotonic_us()<end)timer_delay_us(100);
         if(inw(runtime.platform.ec.pm1_control)&1)unsafe("ACPI mode restore");
     }
-    if(!battery_event_hold_restore(&runtime.platform.foreign_event,event_ops))unsafe("foreign event restore");
-    if(runtime.platform.foreign_event.mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
-        (uint64_t)runtime.platform.foreign_event.enable,(uint64_t)runtime.platform.foreign_event.original,runtime.platform.foreign_event.protected_writes);
+    for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
+        struct battery_event_hold *h=&runtime.platform.foreign_events[i];
+        if(!battery_event_hold_restore(h,event_ops))unsafe("foreign event restore");
+        if(h->mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
+            (uint64_t)h->enable,(uint64_t)h->original,h->protected_writes);
+    }
     console_printf("battery: PASS samples=5 notifications=%u queries=%u attached=%u detached=%u heap=0 errors=0 denied=0; physical accuracy NOT_TESTED\n",
         runtime.notifications,runtime.queries,runtime.attached,runtime.detached);
     runtime.engaged=false;return true;

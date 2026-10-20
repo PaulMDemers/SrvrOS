@@ -59,7 +59,10 @@ def main():
                         samples = re.findall(rb'battery: sample=(\d+) ac_present=1 soc=86 voltage_uv=12000000 current_ua=-250000 capacity=4300000 full=5000000', part)
                         assert list(map(int,samples)) == [1,2,3,4,5], bytes(part)
                         if args.case == 'foreign-event':
-                            assert b'battery-vm: foreign restored pending=0x0000000000000040' in part, bytes(part)
+                            assert b'battery-vm: foreign restored enable=0x000000000000062f pending=0x0000000000000040' in part, bytes(part)
+                            assert b'battery-vm: foreign restored enable=0x000000000000062e pending=0x0000000000000004' in part, bytes(part)
+                            assert part.count(b'battery: foreign-event held ')==2,bytes(part)
+                            assert len(re.findall(rb'battery: foreign-event restored .*protected_writes=[1-9][0-9]*',part))==2,bytes(part)
                             assert re.search(rb'foreign-event restored .*protected_writes=[1-9][0-9]*',part),bytes(part)
                             assert b'ERROR foreign' not in part,bytes(part)
                     elif args.case == 'native-refusal':
@@ -70,6 +73,12 @@ def main():
                         reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline', 'foreign-restore-fail':b'foreign event restore', 'foreign-mask-fail':b'foreign event mask', 'foreign-reenable':b'foreign event unexpectedly enabled'}
                         assert b'battery: HALTED '+reasons[args.case] in part, bytes(part)
                         assert b'battery: PASS' not in part
+                        assert b'ERROR foreign' not in part
+                        if args.case == 'foreign-restore-fail':
+                            assert part.count(b'battery: foreign-event restored ')==1,bytes(part)
+                            assert b'battery-vm: foreign restored enable=0x000000000000062f pending=0x0000000000000040' in part,bytes(part)
+                        if args.case == 'foreign-mask-fail':
+                            assert part.count(b'battery: foreign-event held ')==1 and b'battery: phase=' not in part,bytes(part)
                         if args.case == 'deadline':
                             assert 4.5 <= time.monotonic()-start < 9
                         output.extend(boot.read_for(serial, 3 if args.case in ('deadline','query-deadline','disconnect-deadline') else .3))

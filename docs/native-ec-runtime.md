@@ -553,9 +553,9 @@ is suspended and acknowledged before query work, and rechecked when rearmed.
 A drain has at most 128 attempts and two seconds across queued batches. Firmware
 GPE methods are not broadly finalized or enabled. Full initialization does clear
 the initially disabled owned event status domain; those cleared events cannot be restored.
-The foreign graphics event described below is excluded from those acknowledgements.
+The foreign graphics and wake-alarm events below are excluded from those acknowledgements.
 
-#### Retaining the firmware graphics event
+#### Retaining firmware graphics and wake-alarm events
 
 Physical trial `339211cceb5d894d` identified the prior refusal: GPE enable byte
 12 (`0x189c`) contained `0x40`, meaning GPE `0x66`. The exact captured DSDT's
@@ -565,25 +565,41 @@ fields and TCO `SCIS`. The chipset identity is consistent with coreboot's
 standard GPE bank byte zero is at PMBASE+`0x9c`, bit 6 is `TCOSCI_EN`.
 This event is distinct from the captured EC GPE `0x4e`.
 
-The diagnostic now permits **only** that enabled bit, and only with SCI_EN clear
-at preflight; all other enabled sources remain refused. A separate lease
-rechecks the exact saved enable byte, masks it and verifies readback before
+The next physical trial, `c0f2c3af0dbacc66`, reached a second enabled byte:
+`0x189e=0x04` (GPE `0x72`), with PM1 control zero. It refused before starting
+any lease or the interpreter. The same Broadwell definitions identify standard
+GPE bit 18 as the wake-alarm timer. Intel's
+[I/O datasheet, sections 10.7.3.13 and 10.7.3.17](https://www.intel.com/content/dam/www/public/us/en/documents/datasheets/core-m-processor-platform-i-o-datasheet.pdf)
+describes its status as W1C and enable as read/write; timer registers are separate.
+The retained source is therefore the observed byte-14 bit-2 event, not a grant
+to program wake alarms. The captured DSDT has no `_L72`/`_E72` handler.
+
+Preflight now reads all 16 enable/status bytes plus PM1 control/status/enables
+and EC status before admission. Four records each pack four adjacent bytes
+little-endian, labeled by first GPE number (0, 32, 64, 96). These reads do not
+acknowledge status, and the complete snapshot is retained even if any source
+is refused. This avoids discovering one enabled byte per physical trial.
+
+The diagnostic permits **only** GPE66 and GPE72 as pre-enabled sources, and only with SCI_EN clear
+at preflight; all other enabled sources remain refused. Each source has a lease
+that rechecks its exact saved enable byte, masks it and verifies readback before
 starting uACPI. The adapter hides its status from the interpreter and strips
-only bit `0x40` from status writes at `0x188c`, including uACPI's initial `0xff`
-clear. It never acknowledges the underlying TCO/graphics source, executes
-`_L66`, or expands graphics register access. An unexpected enable after the mode
+bit `0x40` from status writes at `0x188c` and bit `0x04` at `0x188e`, including
+uACPI's initial `0xff` clears. It never acknowledges the underlying sources,
+executes their handlers, changes timer values, or expands graphics register access. An unexpected enable after the mode
 transition, during SCI delivery, worker waits or sampling halts. After worker/interpreter/SCI retirement
-and mode restoration, it restores the exact initial enable byte with readback.
+and mode restoration, it restores each exact initial enable byte with readback.
 A failed mask/restore or changed owner halts rather than reporting completion;
 unsafe retirement retains the mask instead of enabling a source behind live work.
-This is a temporary diagnostic handoff, not general graphics-event support.
+This is a temporary diagnostic handoff, not general graphics-event or wake-alarm support.
 
 Host tests cover every byte value for status filtering, exact restoration,
 changed enables, failed writes/readbacks, poisoned leases and replay. The
 native admission predicate exhaustively rejects other byte/mask/mode combinations.
-A separate VM shadow GPE byte starts enabled and pending; two full interpreter
-lifetimes must retain its pending status through the real initialization W1C
-requests and restore its enable. Injected mask/restore failures and a source reenabled during runtime halt.
+Two separate VM shadow GPE bytes start enabled and pending; two full interpreter
+lifetimes must retain both pending bits through real initialization W1C requests
+and restore both enables. Injected failures on the second mask and second restore
+exercise partial progress; a source reenabled during runtime also halts.
 That shadow model is not physical GPE/graphics or firmware handoff acceptance.
 
 Five complete samples record AC state, charge, voltage, current, capacity units,
@@ -636,8 +652,8 @@ After a physical run, `hardware_desktop.py --uuid "$SRVROS_USB_UUID"` collects t
 matching release/session. Its `battery_diagnostic` field requires exactly five
 fresh ordered samples, balanced retirement and the clean capture return marker;
 physical accuracy stays `manual-pending`. If a foreign-event hold is present, the
-collector additionally requires one matching restoration record before PASS, with
-nonzero protected-write count. Missing completion never means pass.
+collector additionally requires a unique matching restoration for every held
+source before PASS, each with a nonzero protected-write count. Missing completion never means pass.
 
 The first Air trial (`cc486bf6b6581626`, source `8dc2408`) refused generic
 platform/resource preflight before runtime initialization. Its verified exit log

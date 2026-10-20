@@ -7,13 +7,14 @@
 #include <uacpi/types.h>
 /* Explicit diagnostic only. A successful open validates a platform contract;
  * the runtime still owns mode/source/worker lifetime before issuing EC IO. */
+#define BATTERY_FOREIGN_EVENTS 2
 struct battery_platform {
     struct acpi_ec_resources ec;
     struct acpi_event_io events;
     struct ec_io io;
-    struct battery_event_hold foreign_event;
+    struct battery_event_hold foreign_events[BATTERY_FOREIGN_EVENTS];
     /* Optional shadow registers for the disposable VM model only. Native uses
-     * direct byte IO. Only the configured foreign status/enable pair is routed. */
+     * direct byte IO. Only the configured foreign status/enable pairs are routed. */
     struct battery_event_ops foreign_io;
     uint64_t rsdp,facs;
     uint16_t original_control;
