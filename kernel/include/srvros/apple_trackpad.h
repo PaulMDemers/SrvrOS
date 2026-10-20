@@ -19,9 +19,13 @@ struct apple_trackpad_frame {
     struct apple_trackpad_contact contacts[APPLE_TRACKPAD_CONTACTS];
 };
 
-/* Wellspring 8 / Type 3 only: e.g. 05ac:0291 interface 2.
+/* Wellspring 8 / Type 3 wrapper: e.g. 05ac:0291 interface 2.
  * Returns 1 for a frame, 0 for a two-byte control response, -1 for malformed
  * input. On 0/-1 the caller's previous frame is left intact. */
 int apple_trackpad_decode(const uint8_t *report, size_t length,
+    struct apple_trackpad_frame *frame);
+/* Explicit wire format: 2 for captured Wellspring7, 3 for Wellspring8.
+ * Unknown formats fail without modifying the caller's frame. */
+int apple_trackpad_decode_type(unsigned type, const uint8_t *report, size_t length,
     struct apple_trackpad_frame *frame);
 #endif

@@ -61,7 +61,17 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
+static struct xhci_device *mode_device;
+static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if (mode_device && offset==xhci.db_base+4 && value==1) {
+        if (!mode_doorbells) for (unsigned i=0;i<8;i++) mode_device->descriptor_buffer[i]=0x80+i;
+        else {
+            assert(mode_device->descriptor_buffer[0]==1);
+            for (unsigned i=1;i<8;i++) assert(mode_device->descriptor_buffer[i]==0x80+i);
+        }
+        mode_doorbells++;
+    }
     if (port_model.active && offset == xhci.op_base + XHCI_OP_PORTS) {
         assert(!(value & XHCI_PORTSC_PED)); /* Would disable the port. */
         port_model.state = (port_model.state & ~XHCI_PORTSC_RWS) | (value & XHCI_PORTSC_RWS);
@@ -476,6 +486,56 @@ static void test_storage(void) {
     test_time_step=1000;
 }
 
+static void test_pro_trackpad(const char *fixture) {
+    reset_test();
+    uint8_t descriptor[4096]={0},input[4096]={0},output[4096]={0};
+    FILE *file=fopen(fixture,"rb");assert(file && fread(descriptor,1,84,file)==84);fclose(file);
+    struct xhci_device d={.present=true,.slot_id=1,.vendor_id=0x05ac,.product_id=0x0262,.speed=1,
+        .descriptor_buffer=descriptor,.descriptor_buffer_phys=(uintptr_t)descriptor,
+        .input_context=input,.output_context=output};
+    xhci_set_trackpad_capture(true);
+    assert(parse_trackpad_config(&d,84));
+    assert(d.trackpad.dci==3 && d.trackpad.report_type==2 && d.trackpad.packet==64 && d.trackpad.interval==2);
+    d.product_id=0x0263;assert(!parse_trackpad_config(&d,84));d.product_id=0x0262;
+    descriptor[54]=0x82;assert(!parse_trackpad_config(&d,84));descriptor[54]=0x81;
+    descriptor[56]=32;assert(!parse_trackpad_config(&d,84));descriptor[56]=64;
+    for(unsigned wide=0;wide<2;wide++) {
+        xhci.hcc_params1=wide?4:0;
+        context_write32(output,0,0,7u<<27);setup_trackpad_input_context(&d);
+        assert(context_read32(input,0,1)==(1u|(1u<<3)));
+        assert(context_read32(input,1,0)>>27==7 && context_read32(input,8,1)==0);
+        assert(context_read32(input,4,1)>>16==64);
+    }
+    for(unsigned fail=0;fail<3;fail++) {
+        struct xhci_trb ring[64]={0},events[64]={0};
+        d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_enqueue=0;d.ep0_cycle=true;
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;xhci.event_dequeue=0;
+        for(unsigned i=0;i<2;i++) events[i]=(struct xhci_trb){.parameter_low=0x9020+48*i,
+            .status=((fail==i+1)?6u:1u)<<24,.control=(32u<<10)|(1u<<24)|(1u<<16)|1};
+        mode_device=&d;mode_doorbells=0;
+        assert(enable_trackpad_mode(&d)==(fail==0));
+        assert(mode_doorbells==(fail==1?1u:2u));
+        assert(((ring[0].control>>16)&3)==3 && (ring[1].control&XHCI_DATA_DIR_IN));
+        if(fail!=1) {
+            assert(((ring[3].control>>16)&3)==2 && !(ring[4].control&XHCI_DATA_DIR_IN));
+            assert(ring[5].control&XHCI_STATUS_DIR_IN);
+            assert(ring[3].parameter_low==0x03000921);
+        }
+        mode_device=NULL;
+    }
+    xhci_set_trackpad_capture(false);
+    struct xhci_trb input_ring[64]={0};uint8_t report[APPLE_TRACKPAD_REPORT_MAX]={0};
+    xhci.devices[0]=d;struct xhci_trackpad_endpoint *t=&xhci.devices[0].trackpad;
+    t->ready=true;t->pending=true;t->trb=0xa000;t->ring=input_ring;t->ring_phys=0xb000;
+    t->cycle=true;t->buffer=report;t->buffer_phys=(uintptr_t)report;
+    report[15]=1;report[30]=4;report[32]=123;report[34]=45;report[46]=10;
+    struct xhci_trb event={.parameter_low=0xa000,.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-58),
+        .control=(32u<<10)|(1u<<24)|(3u<<16)};
+    dispatch_transfer_event(&event);
+    assert(t->reports==1 && t->frame.count==1 && t->frame.button && t->frame.contacts[0].x==123);
+    puts("pro-trackpad: PASS exact interface/DCI, keyboard preservation, feature read/modify/write and failures");
+}
+
 static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     xhci_set_trackpad_gestures(false);
     xhci_set_trackpad_pointer(false); pointer_injected=0;pointer_canceled=0;
@@ -735,6 +795,7 @@ int main(int argc, char **argv) {
     test_handoff();
     test_keyboard_context(argv[1], 1, 5, 64);
     test_keyboard_context(argv[2], 0, 7, 10);
+    test_pro_trackpad(argv[2]);
     test_trackpad(argv[1],false,false);
     test_trackpad(argv[1],true,false);
     test_trackpad(argv[1],true,true);

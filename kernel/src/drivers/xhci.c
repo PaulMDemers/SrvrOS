@@ -95,6 +95,7 @@
 #define XHCI_TRB_IOC (1u << 5)
 #define XHCI_TRB_ISP (1u << 2)
 #define XHCI_TRB_IDT (1u << 6)
+#define XHCI_SETUP_TRT_OUT (2u << 16)
 #define XHCI_SETUP_TRT_IN (3u << 16)
 #define XHCI_SETUP_TRT_NONE (0u << 16)
 #define XHCI_DATA_DIR_IN (1u << 16)
@@ -203,7 +204,7 @@ struct xhci_network {
  * Capture only until real reports validate the transport and contact model. */
 struct xhci_trackpad_endpoint {
     bool candidate,ready,pending,cycle;
-    uint8_t dci,interval;
+    uint8_t dci,interval,report_type;
     uint16_t packet;
     uint64_t ring_phys,buffer_phys,enqueue,trb;
     struct xhci_trb *ring;
@@ -1202,7 +1203,7 @@ static bool control_transfer(struct xhci_device *device,
         .status = 8,
         .control = (XHCI_TRB_TYPE_SETUP_STAGE << 10) |
             XHCI_TRB_IDT |
-            (length == 0 ? XHCI_SETUP_TRT_NONE : XHCI_SETUP_TRT_IN),
+            (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
     (void)ring_push(device->ep0_ring,
         device->ep0_ring_phys,
@@ -1475,8 +1476,9 @@ static bool address_device(struct xhci_device *device) {
 }
 
 static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
-    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || device->product_id!=0x0291 ||
+    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || (device->product_id!=0x0291 && device->product_id!=0x0262) ||
         device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
+    bool pro=device->product_id==0x0262;
     bool interface=false,found=false;
     uint8_t interval=0;
     for (uint16_t offset=0;offset<length;) {
@@ -1484,18 +1486,19 @@ static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
         if (length-offset<2 || p[0]<2 || p[0]>length-offset) return false;
         if (p[1]==USB_DESC_INTERFACE) {
             if (p[0]<9) return false;
-            interface=p[2]==2 && p[3]==0 && p[4]==1 && p[5]==USB_CLASS_HID &&
-                p[6]==USB_HID_SUBCLASS_BOOT && p[7]==USB_HID_PROTOCOL_MOUSE;
+            interface=p[2]==(pro?1:2) && p[3]==0 && p[4]==1 && p[5]==USB_CLASS_HID &&
+                p[6]==(pro?0:USB_HID_SUBCLASS_BOOT) && p[7]==(pro?0:USB_HID_PROTOCOL_MOUSE);
         } else if (p[1]==USB_DESC_ENDPOINT && interface) {
-            if (p[0]<7 || found || p[2]!=0x83 || (p[3]&3)!=USB_ENDPOINT_INTERRUPT ||
-                p[4]!=64 || p[5]!=0 || !p[6]) return false;
+            if (p[0]<7 || found || p[2]!=(pro?0x81:0x83) || (p[3]&3)!=USB_ENDPOINT_INTERRUPT ||
+                p[4]!=64 || p[5]!=0 || p[6]!=(pro?2:1)) return false;
             found=true; interval=p[6];
         }
         offset+=p[0];
     }
     if (!found) return false;
     device->trackpad.candidate=true;
-    device->trackpad.dci=7; device->trackpad.packet=64; device->trackpad.interval=interval;
+    device->trackpad.report_type=pro?2:3;
+    device->trackpad.dci=pro?3:7; device->trackpad.packet=64; device->trackpad.interval=interval;
     return true;
 }
 
@@ -1684,6 +1687,20 @@ static void setup_trackpad_input_context(struct xhci_device *device) {
     context_write32(device->input_context,ep,4,APPLE_TRACKPAD_REPORT_MAX|((uint32_t)t->packet<<16));
 }
 
+/* Wellspring7 requires its documented eight-byte feature mode switch.
+ * Read/modify/write preserves opaque bytes. Type3 has no mode switch. */
+static bool enable_trackpad_mode(struct xhci_device *device) {
+    if (device->trackpad.report_type==3) return true;
+    if (device->vendor_id!=0x05ac || device->product_id!=0x0262 ||
+        !device->trackpad.candidate || device->trackpad.report_type!=2) return false;
+    struct usb_setup_packet setup={.request_type=0xa1,.request=1,.value=0x300,.index=0,.length=8};
+    zero_bytes(device->descriptor_buffer,8);
+    if (!control_transfer(device,&setup,device->descriptor_buffer_phys,8,true)) return false;
+    device->descriptor_buffer[0]=1;
+    setup.request_type=0x21;setup.request=9;
+    return control_transfer(device,&setup,device->descriptor_buffer_phys,8,false);
+}
+
 static bool configure_trackpad_endpoint(struct xhci_device *device) {
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     void *virt;
@@ -1856,7 +1873,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
         }
         t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
         uint8_t previous_contacts=t->frame.count;
-        int decoded=apple_trackpad_decode(t->buffer,t->last_length,&t->frame);
+        int decoded=apple_trackpad_decode_type(t->report_type,t->buffer,t->last_length,&t->frame);
         if (decoded<0) { t->malformed++; trackpad_sample(t,4); cancel_trackpad_pointer(t); }
         if (decoded>0) {
             t->reports++;
@@ -2373,9 +2390,9 @@ static bool enumerate_device(struct xhci_device *device) {
     }
     device->interrupt_ready = true;
     if (device->trackpad.candidate) {
-        bool ready=configure_trackpad_endpoint(device);
-        console_printf("xhci: trackpad slot=%u dci=7 ready=%s request=%u pointer=%s\n",
-            (uint64_t)device->slot_id,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX,trackpad_pointer_enabled?"yes":"no");
+        bool ready=enable_trackpad_mode(device) && configure_trackpad_endpoint(device);
+        console_printf("xhci: trackpad slot=%u dci=%u ready=%s request=%u pointer=%s\n",
+            (uint64_t)device->slot_id,(uint64_t)device->trackpad.dci,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX,trackpad_pointer_enabled?"yes":"no");
     }
     device->stage = "ready";
     if (device->hid_keyboard) {
