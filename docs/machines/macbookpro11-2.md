@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-19. State: **native desktop, keyboard, trackpad and brightness exercised successfully; audio pending**.
+Updated: 2026-10-19. State: **native desktop, input, brightness and sound exercised; trackpad latency reported**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -429,3 +429,28 @@ build. No concurrent harness ran. Next install preserves accepted brightness
 low volume, optional wired headphones with speaker isolation, and the bundled
 stereo WAV from the on-screen guide. Startup remains silent and this manual
 trial has no deadline. Collect the exact session on return before another stage.
+
+## Native audio result and trackpad latency report
+
+Release `e47dca3a6b30c6c1`, session `session-00065e3cc8a4f706-00`, has
+matching boot/exit logs and a clean desktop exit. The user reports sound worked
+well. The exact CS4208/5e00 codec is ready with no error, two tone tests completed,
+and PCM playback submitted 1,152,000 bytes with zero underruns. Final route is
+speakers at 25%. Audible output is user-confirmed; headphone isolation and
+individual main/bass output balance were not separately confirmed.
+
+Trackpad telemetry records 3,020 reports, zero malformed frames and zero transfer
+errors. The user reports noticeably slower cursor response than Ubuntu, estimated
+at 15–45 ms. Preserve this as a subjective observation, not a measured bound or
+a proven USB transport fault. Code inspection finds an input polling worker
+waiting one timer tick and a compositor loop sleeping one tick, with a calibrated
+100 Hz timer (10 ms ticks). Their scheduling plus rendering/scanout may contribute;
+existing logs cannot apportion the end-to-end delay.
+
+The matching evidence and sound-confirmed payload are archived outside `build`.
+Offline exFAT is clean, Ubuntu default and consumed one-shot are verified, and
+no reboot is armed. Accepted brightness `c7dd411a4ea31af4` remains previous.
+Next bounded investigation: measure input polling, queue consumption and cursor
+presentation timing under the scaled desktop, then choose a change supported by
+the measurements. Inspect shared input/compositor/scheduler scope on origin
+before editing; avoid a global timer-rate increase without affected regressions.

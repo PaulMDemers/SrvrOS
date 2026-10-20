@@ -13,7 +13,7 @@ records own observed configuration and acceptance for each model/unit.
 | --- | --- | --- |
 | MacBookAir7,2 / A1466 | [macbookair7-2](macbookair7-2.md) | Active reference machine; partial device acceptance |
 | MacBookAir7,1 / A1465 | [macbookair7-1](macbookair7-1.md) | Planned; no local inventory or physical results |
-| MacBookPro11,2 / A1398 | [macbookpro11-2](macbookpro11-2.md) | Native apps, keyboard, trackpad and 5–100% brightness exercised; USB logs verified; audio pending |
+| MacBookPro11,2 / A1398 | [macbookpro11-2](macbookpro11-2.md) | Native apps, input, 5–100% brightness and sound exercised; trackpad latency reported |
 | MacBookPro11,3 / A1398 | [macbookpro11-3](macbookpro11-3.md) | Planned; no local inventory or physical results |
 | Macmini7,1 / A1347 | [macmini7-1](macmini7-1.md) | Planned; no local inventory or physical results |
 
