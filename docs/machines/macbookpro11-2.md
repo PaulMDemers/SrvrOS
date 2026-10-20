@@ -542,3 +542,22 @@ arrival at the wait boundary, arrival while blocked, timeout, signal/exit,
 early-scheduler fallback and storage-safe syscall admission. The xHCI worker
 still samples at the original rate, so this change can remove an extra desktop
 wait but cannot by itself guarantee sub-10 ms USB sampling or total latency.
+
+Candidate `9ae804d340bee2cb` (source `98fac37`, implementation `58884d6`)
+passes the exact v31 GPT desktop/audio rehearsal. Twelve injected VM pointer
+samples are saved, with ten pointer-ready returns, 1,264 timeouts and zero wait
+errors. Document/screenshot/log persistence, clean unmount and captured tone
+also pass. Emulated pointer delivery does not accept native USB responsiveness.
+
+Matched 10-second idle checks use the archived pre-change timing release
+`cae101ddceccbd1d` in an isolated image tree and the new build. Host QEMU desktop
+CPU is 10.88% before versus 10.08% after; console CPU is 5.99% in both. Both
+checks verify subsequent keyboard entry and saved file bytes. These short VM
+observations show no busy-wait increase in the check, not a physical energy
+measurement or statistically established CPU reduction. Preserve raw metrics
+and baseline script with the candidate.
+
+Next native run repeats continuous movement and dragging, compares perceived
+response, and collects wait counts/timing. Keep sound-confirmed e47dca3a6b30c6c1
+as previous rather than promoting the timing-only candidate. No timer-rate or
+xHCI changes are in this release; remaining transport/scanout delay is separate.
