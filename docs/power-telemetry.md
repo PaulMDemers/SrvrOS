@@ -179,3 +179,11 @@ Hypervisors, missing CPU features, unexpected energy units and invalid sample
 intervals remain refused; no CPU control writes are added. Native Pro acceptance
 requires its own complete v26 capture. The existing SMC profile remains Air-only;
 Pro two-fan support is a separate step.
+
+Pro11,2 native v26 release `de341a3cfcaa7acb` now has a completed capture:
+52.993 seconds of valid energy intervals inside a 59.992-second desktop window,
+9.161 W package average and 3,466 MHz CPU0 active frequency. Scheduler idle
+samples are 93.85%. Zero rejected power samples; thermal service is active with
+fresh valid readings. Screenshot/save/unmount/return succeeded. This accepts
+read-only telemetry on this unit, not thermal equilibrium, battery power, fan
+support or a comparison against Linux's development-load fixture.

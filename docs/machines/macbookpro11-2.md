@@ -724,3 +724,29 @@ receipts are retained separately. The physical trial is unattended: leave input
 alone for the idle interval; it saves/unmounts and returns automatically on
 success. Keep sound-confirmed e47dca3a6b30c6c1 as recovery and collect the exact
 release before starting fan implementation or another stage.
+
+## Native CPU telemetry result and two-fan scope — 2026-10-20
+
+Release de341a3cfcaa7acb, session session-00065e3debdfd870-00, completed the
+59.992-second Text idle capture. Six valid power checkpoints cover 52.993 seconds:
+9,161 mW package average, 3,466 MHz CPU0 active frequency, and 93.85% scheduler
+idle samples. No rejected power samples. Thermal samples remained valid; initial
+CPU/package was 81 C, final 66 C after screenshot work (100 C target). These
+short-run readings are not equilibrium, whole-laptop power or a load baseline.
+The screenshot is 1440x900, copied with matching hash. Logs and independent
+archive verified; offline exFAT clean; Ubuntu default/consumed one-shot verified.
+
+Next bounded change: Pro two-fan readout, preserving Air behavior. Captured
+DSDT APP0001 at _SB.PCI0.LPCB.SMC declares I/O 0x300..0x31f, MMIO 0xfef00000
+and IRQ6; use only the proven bounded I/O read protocol, no MMIO/IRQ ownership.
+Linux-driver-mediated reads show FNum ui8 length1=02, F0Ac/F1Ac fpe2 length2
+(raw 23a0 and 2120 at capture). Only those three keys were captured; the Linux
+key selector was restored. No control keys or firmware mutations.
+
+Touch SMC service, its host fixtures, versioned SMC status ABI and System fan
+formatting. Exact Pro GPU/PCH plus existing captured DSDT identity gates access;
+validate count=2 and both key metadata before publishing a complete fan pair.
+ABI v2 appends a second fan value; all kernel/userspace callers build together.
+Air remains exactly one fan. Quarantine either fan's transport failure and
+invalidate the whole pair. Shared Air PR6 at 09b48ac does not touch these files;
+origin/main remains b6075ef. CPU capture is collected before any new staging.
