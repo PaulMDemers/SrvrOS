@@ -446,3 +446,25 @@ The fault modes check the exact retained reason/count, nonzero live allocation,
 absence of retirement/reset, and the halted CPU interrupt flag. The slow query
 executes three one-second AML sleeps, then fails the two-second budget even
 though the synthetic source has become quiet.
+
+## Event register permissions
+
+The Q35 runtime now decodes the complete supported FADT event layout and uses
+`runtime/event_io` for exact-width maps and per-access checks. Status registers
+remain W1C; fixed-event enables are limited to Global Lock and power button,
+and no GPE enable bit is allowed in this fixture. PM control/timer writes,
+SMI reads, other mode commands and unrelated ports are refused. This replaces
+the former broad IO-range permission; Q35 identity gates are unchanged.
+
+Initialization checks error/denial counters as well as API status. The runtime
+smoke injects one denied PM1-enable write: upstream reports successful early
+initialization, but SrvrOS refuses readiness and cleans up with zero heap. A
+following normal start must still work. Native status-domain ownership remains
+unimplemented: uACPI clears every GPE status byte while setting up the blocks,
+and those pending bits cannot be restored from a snapshot. See the
+[event ownership audit](../../../docs/native-ec-runtime.md#event-register-ownership-audit).
+
+`make test-acpi-event-io` covers malformed/conflicting/overlapping layouts,
+register width/direction, all 16-bit fixed-enable values and all byte GPE-enable
+values. An optional FADT file argument to the host binary audits a captured
+layout without accessing hardware.

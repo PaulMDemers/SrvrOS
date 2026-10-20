@@ -69,6 +69,9 @@ def main():
 
                 request('acpiruntime start-fixture', rb'acpi-runtime: REFUSED')
                 request('acpiruntime start-early', rb'acpi-runtime: REFUSED')
+                request('acpiruntime start-io-fail', rb'acpi-runtime: initialization failed status=the requested action has been denied cleanup=yes\r?\nacpi-runtime: REFUSED')
+                assert b'initialize API=success refused errors=0 denied=1' in complete_lines(output)
+                request('acpiruntime status', rb'acpi-runtime: active=0 irq=0 events=0 work=0 value=0 errors=0 denied=1 heap=0')
                 for _ in range(3):
                     request('acpiruntime start-fail', rb'acpi-runtime: initialization failed status=the requested action has been denied cleanup=yes\r?\nacpi-runtime: REFUSED')
                     request('acpiruntime start', rb'acpi-runtime: READY')

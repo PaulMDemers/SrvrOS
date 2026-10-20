@@ -201,6 +201,49 @@ its synthetic event flag must not be substituted for hardware GPE/EC status.
 
 ## Next adapter and acceptance sequence
 
+### Event-register ownership audit
+
+The pinned full uACPI runtime touches more than the selected EC event. In
+`source/event.c`, `initialize_fixed_events` disables each supported fixed-event
+enable field. `create_gpe_block` writes zero to every GPE enable byte and `0xff`
+to every GPE status byte before SCI installation. `uacpi_initialize_events`
+also installs/enables the fixed Global Lock handler. `NO_ACPI_MODE` does not
+suppress this initialization. Some fixed-event initialization write results are
+discarded by upstream, so adapter denial/error counters must gate readiness as
+well as API status. No upstream code has been modified.
+
+`acpi_event_resources_parse` now validates the complete supported FADT SystemIO
+layout separately from the earlier EC-address contract: 16-bit PM1 status and
+enable halves, 16-bit PM1 control, optional 8-bit PM2 control, optional 32-bit
+timer, SMI command and both GPE blocks. It checks bounded tables/checksums,
+legacy/extended agreement, address ranges, widths and overlapping domains.
+PM1B and reduced-hardware layouts remain unsupported. The captured Air decodes
+to PM1 status/enable `0x1800/0x1802`, control `0x1804`, PM2 `0x1850`, timer
+`0x1808`, and 16 GPE status/enable bytes at `0x1880/0x1890`, with no GPE1.
+This is offline layout evidence only. The native adapter must additionally
+cross-check these domains against EC ports and its other live mappings.
+
+`runtime/event_io` is a pure access policy built from this validated layout.
+Mappings/accesses must match one register at its exact width; a broad range
+does not admit narrower, wider or neighboring accesses. Status writes are
+treated as write-one-to-clear, without an ordinary-memory read/modify/write
+predicate. Enable writes may set only explicitly allowed bits. PM1 control,
+PM2 control and timer writes are denied, as are SMI reads and commands other
+than the decoded enter/leave values. Reset/sleep registers and unrelated IO
+are not mapped.
+
+The Q35 adapter uses this policy with only fixed Global Lock and power-button
+enable bits, no GPE enable bits, and exclusive ownership of its disposable,
+initially disabled event domain. Ordinary native startup has no binding. A
+future native owner must establish ownership of the **whole status domain**
+before allowing uACPI's initialization clears, even if it later enables only
+the EC GPE. Masking just that GPE is insufficient. Pending status cleared during
+initialization cannot be restored from a snapshot; it must not be advertised as
+reversible rollback. FACS Global Lock access and AML NVS/PCI/GPIO permissions
+remain separate unresolved gates.
+
+### Integration sequence
+
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the
    actual firmware/profile and validate resources before granting access. Audit
    every live table/NVS/FACS/register mapping needed by the selected namespace;

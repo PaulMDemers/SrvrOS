@@ -20,6 +20,15 @@ enum acpi_ec_resource_result {
     ACPI_EC_RESOURCES_LAYOUT, ACPI_EC_RESOURCES_GPE,
     ACPI_EC_RESOURCES_OVERLAP
 };
+/* Complete supported legacy event IO domain. Parsing describes addresses,
+ * not ownership: uACPI initialization can clear every GPE status byte. */
+struct acpi_event_resources {
+    uint16_t pm1_status, pm1_enable, pm1_control, pm2_control, timer, smi_command, sci;
+    uint8_t acpi_enable, acpi_disable;
+    struct { uint16_t status, enable; uint8_t bytes, first; } gpe[2];
+};
+enum acpi_ec_resource_result acpi_event_resources_parse(struct acpi_event_resources *,
+    const uint8_t *fadt, size_t size);
 /* Exact table sizes, checksums and bounded names required. On failure the
  * output is cleared, including when a previously valid output is reused. */
 enum acpi_ec_resource_result acpi_ec_resources_parse(struct acpi_ec_resources *,

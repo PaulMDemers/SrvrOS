@@ -64,6 +64,40 @@ bool acpi_ec_namespace_matches(const struct acpi_ec_resources *r, uint64_t uid,
 static bool overlap(struct range a, struct range b) {
     return a.base && b.base && a.base < b.base + b.size && b.base < a.base + a.size;
 }
+enum acpi_ec_resource_result acpi_event_resources_parse(struct acpi_event_resources *out,
+    const uint8_t *f, size_t n) {
+    if (!out) return ACPI_EC_RESOURCES_TABLE;
+    *out = (struct acpi_event_resources){0};
+    if (!table(f, n, "FACP", 116) || (n != 116 && n < 244)) return ACPI_EC_RESOURCES_TABLE;
+    if ((u32(f + 112) & (1u << 20)) || !u16(f + 46) || f[88] != 4 || f[89] != 2 ||
+        (f[90] && f[90] != 1) || (f[91] && f[91] != 4) || u32(f + 60) || u32(f + 68) ||
+        (n >= 244 && (u64(f + 164) || u64(f + 188)))) return ACPI_EC_RESOURCES_LAYOUT;
+    unsigned n0 = f[92], n1 = f[93], first1 = f[94];
+    if ((n0 & 1) || (n1 & 1) || n0 > 64 || n1 > 64 || first1 + n1 * 4 > 256 ||
+        (n0 && n1 && first1 < n0 * 4)) return ACPI_EC_RESOURCES_GPE;
+    uint32_t event, control, pm2, timer, gpe0, gpe1, smi = u32(f + 48);
+    if (!block(f,n,56,148,4,3,false,&event) || !event ||
+        !block(f,n,64,172,2,2,false,&control) || !control ||
+        !block(f,n,72,196,f[90],1,false,&pm2) ||
+        !block(f,n,76,208,f[91],3,false,&timer) ||
+        !block(f,n,80,220,n0,1,true,&gpe0) || !block(f,n,84,232,n1,1,true,&gpe1) ||
+        (smi && !port_range(smi,1))) return ACPI_EC_RESOURCES_ADDRESS;
+    if ((!gpe0 != !n0) || (!gpe1 != !n1)) return ACPI_EC_RESOURCES_GPE;
+    if ((!pm2 != !f[90]) || (!timer != !f[91]) ||
+        (!smi && (f[52] || f[53])) || (smi && (!f[52] || !f[53] || f[52] == f[53])))
+        return ACPI_EC_RESOURCES_LAYOUT;
+    struct range ranges[] = {{event,4},{control,2},{pm2,f[90]},{timer,f[91]},
+        {smi,1},{gpe0,n0},{gpe1,n1}};
+    for (unsigned i = 0; i < sizeof(ranges)/sizeof(*ranges); i++)
+        for (unsigned j = 0; j < i; j++)
+            if (overlap(ranges[i],ranges[j])) return ACPI_EC_RESOURCES_OVERLAP;
+    *out = (struct acpi_event_resources){.pm1_status=event,.pm1_enable=event+2,
+        .pm1_control=control,.pm2_control=pm2,.timer=timer,.smi_command=smi,
+        .sci=u16(f+46),.acpi_enable=f[52],.acpi_disable=f[53],
+        .gpe={{gpe0,gpe0 ? gpe0+n0/2 : 0,n0/2,0},
+              {gpe1,gpe1 ? gpe1+n1/2 : 0,n1/2,first1}}};
+    return ACPI_EC_RESOURCES_OK;
+}
 enum acpi_ec_resource_result acpi_ec_resources_parse(struct acpi_ec_resources *out,
     const uint8_t *ec, size_t en, const uint8_t *fa, size_t fn) {
     if (!out) return ACPI_EC_RESOURCES_TABLE;
