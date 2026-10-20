@@ -2,12 +2,18 @@
 #include <stdio.h>
 #define SRVROS_MOUSE_TEST_HOST
 #include "../kernel/src/drivers/mouse_input.c"
+static unsigned wakes;
+void scheduler_wake_all(struct scheduler_wait_queue *q) { assert(q==mouse_wait_queue());wakes++; }
 static struct mouse_event next(int x,int y,int buttons) {
     struct mouse_event e;
     assert(mouse_scan(&e)); assert(e.dx==x && e.dy==y && e.buttons==buttons && !e.reserved);
     return e;
 }
 int main(void) {
+    assert(!mouse_pending());
+    mouse_inject_trackpad(1,0,0);assert(mouse_pending() && wakes==1);
+    mouse_inject_trackpad(1,0,0);assert(wakes==1); /* Existing readiness needs no second notification. */
+    next(2,0,0);assert(!mouse_pending());
     unsigned speed,options;
     mouse_trackpad_get_settings(&speed,&options);assert(speed==3 && options==0);
     mouse_trackpad_settings(5,15);mouse_trackpad_get_settings(&speed,&options);assert(speed==5 && options==15);

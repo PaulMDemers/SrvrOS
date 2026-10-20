@@ -1,11 +1,14 @@
 #include <srvros/mouse.h>
 #include <limits.h>
+#include <srvros/scheduler.h>
 
 /* One CPU currently owns input. IRQ exclusion also covers producers reached
  * from storage service hooks. Keep button edges even if userspace is delayed. */
 #define MOUSE_QUEUE_SIZE 64
 static struct mouse_event queue[MOUSE_QUEUE_SIZE];
 static unsigned head,count;
+static struct scheduler_wait_queue input_waiters;
+struct scheduler_wait_queue *mouse_wait_queue(void) { return &input_waiters; }
 static uint64_t overflows;
 static uint8_t source_buttons[2],blocked[2];
 static uint64_t lock(void) {
@@ -55,16 +58,21 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         head=0; count=1;
         blocked[0]=source_buttons[0]; blocked[1]=source_buttons[1];
         queue[0]=(struct mouse_event){.flags=MOUSE_CANCEL};
+        scheduler_wake_all(&input_waiters);
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
         .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,.flags=buttons,
         .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
     count++;
+    scheduler_wake_all(&input_waiters);
     unlock(flags);
 }
 void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
 void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,0,0,buttons); }
+bool mouse_pending(void) {
+    uint64_t flags=lock();bool pending=count!=0;unlock(flags);return pending;
+}
 bool mouse_scan(struct mouse_event *out) {
     if (!out) return false;
     uint64_t flags=lock();
@@ -109,6 +117,7 @@ void mouse_cancel_trackpad(void) {
         head=0;count=1;
         uint8_t buttons=source_buttons[0]&~blocked[0];
         queue[0]=(struct mouse_event){.buttons=buttons,.flags=MOUSE_CANCEL|buttons};
+        scheduler_wake_all(&input_waiters);
     }
     unlock(flags);
 }

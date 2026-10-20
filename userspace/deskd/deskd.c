@@ -1068,6 +1068,7 @@ int main(int argc,char **argv) {
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
     struct desktop_input_timing timing={0};
+    uint64_t pointer_wakes=0,pointer_timeouts=0,pointer_wait_errors=0;
     uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
@@ -1437,7 +1438,12 @@ int main(int argc,char **argv) {
             }
         }
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
-        srv_sleep_ticks(1);
+        if(apps) {
+            long ready=srv_pointer_wait();
+            if(ready>0) pointer_wakes++;
+            else if(!ready) pointer_timeouts++;
+            else { pointer_wait_errors++;srv_sleep_ticks(1); }
+        } else srv_sleep_ticks(1);
     }
     if(idle_capture) {
         if(idle_phase!=3) failed=1;
@@ -1445,6 +1451,8 @@ int main(int argc,char **argv) {
     }
     if(hardware_trial) {
         desk_log("cursor-timing: software-only; excludes USB arrival and display scanout; percentile bounds are histogram buckets\n");
+        desk_log("cursor-wait: ready=%llu timeout=%llu errors=%llu\n",(unsigned long long)pointer_wakes,
+            (unsigned long long)pointer_timeouts,(unsigned long long)pointer_wait_errors);
         timing_print("poll-gap",&timing.poll_gap);timing_print("consecutive-motion-gap",&timing.active_gap);
         timing_print("consume-to-final-blit",&timing.consume_to_blit);timing_print("draw-blit",&timing.draw_blit);
     }

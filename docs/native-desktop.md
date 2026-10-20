@@ -378,3 +378,20 @@ remains independent. External mice and keyboards do not participate in this
 paired internal-device policy. Turning the setting off clears a suppression latch
 on the next trackpad frame and rebases motion so suppressed travel cannot jump
 the cursor. The normal verified preferences writer saves the choice.
+
+### Bounded pointer wake
+
+The desktop uses `srv_pointer_wait()` (syscall 133) between iterations. It
+returns 1 if the mouse queue is ready, 0 after at most one timer tick, or a
+negative error/interruption. It does not consume an event. The dedicated queue
+is notified when input is enqueued or cancellation replaces queued gestures;
+readiness is rechecked under scheduler IRQ exclusion before blocking. The
+one-tick deadline retains service of keyboard, client messages and clocks and
+bounds signal/exit handling. A failed/unavailable call falls back to ordinary
+one-tick sleep. Timer frequency and xHCI polling are unchanged. This is not a
+promise of interrupt-driven USB or sub-tick device sampling.
+
+Hardware-trial exit logs include pointer-ready/timeout/error counts alongside
+the software timing aggregates. Native responsiveness and idle behavior must
+be compared with the previous build; VM input wake checks alone do not accept
+physical latency improvement.
