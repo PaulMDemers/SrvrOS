@@ -91,6 +91,35 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Sustained filesystem coexistence — October 20 (VM-first)
+
+Base `d72d2af`, host/CI follow-up PR #7 at `dd4245d`; Pro PR #5 inspected at
+`fec1a41` with the merged battery baseline. Scope: the disposable Q35 battery
+model and smoke harness, exercising a minute of actual filesystem allocation,
+grow/shrink, rename, deletion and flushes during sampling, plus a write-failure
+case. Keep native profiles and ordinary desktop startup unchanged. Validate
+sample progress inside storage scopes, clean retirement, offline file contents
+and allocation accounting. Failure must retain the previous committed file and
+block further writes; recovery is rehearsed only on the disposable image.
+The failure fixture also exposed an overly strict shared exFAT checker: it
+mistook nonzero FAT entries of bitmap-free clusters for allocation mismatches.
+Scope now includes correcting that check against the exFAT allocation-bitmap
+contract, with stale-free-FAT admission and actual orphan/missing-allocation
+refusal regressions. This does not change allocation or repair on-disk bytes.
+A real workspace trial needs a separate crash/recovery contract before enabling
+concurrent filesystem metadata mutation on hardware.
+
+Final disposable VM validation completed 134 filesystem cycles in 60,539,284
+microseconds, with sample generation advancing from 1 to 25 inside the I/O
+scope. The service completed 8,320 cached reads (1,472 during sampling), maximum
+603 microseconds, and retired cleanly. Offline payload/tree checks, fsck and the
+kernel allocation checker passed (five files, 12 clusters, zero errors/leaks).
+The injected write failure preserved the old payload before and after recovery,
+refused later writes, advanced sampling and retired with zero errors/denials/heap.
+Recovery was performed only on a disposable VM image; the failed image is retained.
+These results do not extend native acceptance beyond the v36 scratch range.
+
+
 ### Allocation-check discrepancy — October 20 (resolved)
 
 Base `d72d2af` (merged PR #6), Pro PR #5 inspected at `7c9372b`.
