@@ -355,3 +355,18 @@ binding, Pro probe mapping, host coverage, an opt-in scaled brightness desktop
 profile and its VM harness. Keep sound and EC/AML disabled in this trial. Add
 on-screen Settings instructions for deliberate brightness adjustment and exit.
 The prior capture is collected; origin/main is still b6075ef and PR6 owns ACPI.
+
+Brightness candidate `c7dd411a4ea31af4`, source `1f2d677`, uses v30 scaled
+desktop with brightness enabled and audio/AML/SMC off. Startup binds the exact
+Pro profile without changing duty. Host tests exercise both period profiles,
+wrong-profile refusal, all 5–100% requests, drift quarantine and failed readback;
+Settings message/response tests and 31 boot-profile checks pass. Full build and
+exact GPT VM desktop rehearsal pass (typed document, screenshot and matching
+logs saved; clean unmount). The initial guide was visually inspected: brightness
+steps and console/reboot instructions are visible without scrolling.
+
+Next physical check: adjust Settings to 25/50/75%, confirm visible panel changes
+and responsive input, restore a comfortable level, then Return to console and
+reboot after USB unmounted=yes. No deadline or automatic reboot in this desktop
+trial. Retain accepted desktop c4b7b7bb5eb48b3a as previous; archive the candidate
+and run record before arming. Brightness adjustment remains physically pending.

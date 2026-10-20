@@ -230,6 +230,14 @@ not enable brightness or sound and does not access EC ports. Use the v19
 `--laptop-probe-volume` profile and exact GPT rehearsal for its unattended
 save/unmount/return capture; retain the accepted desktop as recovery.
 
+After the Pro's native read-only capture, its explicit brightness trial uses
+`--desktop-volume "$SRVROS_USB_UUID" --desktop-scale 2 --desktop-brightness`.
+This v30 profile preserves 2880x1800/2x, enables the exact matched brightness
+provider and leaves audio/AML/SMC off. Rehearse with `--desktop-check` and the
+actual workspace partition-table type. Startup does not adjust the panel;
+Settings offers 5–100% only when the captured mode and period still match.
+Physical visible adjustment remains a separate acceptance check.
+
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
 models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.
