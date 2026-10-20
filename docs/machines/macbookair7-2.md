@@ -86,6 +86,14 @@ refusal. The next physical capture repeats the accepted parked-USB service test
 with counters; it needs no human input and returns on handled failure. It will
 measure the native warning, not exercise the known-failing storage interleave.
 
+Candidate **`a5281d842c8b6160`**, artifact **`6938813`**, is installed for that
+unattended capture. Exact-stage UEFI/GRUB rehearsal passed native Q35 refusal,
+saved failed-report byte verification, clean exFAT, unmount and actual reset.
+The prior accepted service payload and previous desktop are preserved; the
+unreferenced failed `a3df674e8d6e5c65` payload was archived and hash-verified before
+EFI space was reclaimed. Collect this candidate's matching session before any
+new trial. Native SCI counts and behavior of this artifact remain pending.
+
 ### Cached battery service block — October 20
 
 Following acceptance of the latest v32 transition round, this Air branch owns
