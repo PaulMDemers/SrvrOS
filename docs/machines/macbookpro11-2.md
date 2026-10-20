@@ -860,3 +860,26 @@ worker load, 30 seconds recovery, then save/unmount/return. A thermal/sensor
 refusal may return earlier and must be collected as failure. No commands are
 required. Preserve sound-confirmed recovery; inspect the exact new session before
 any retry. System's visible two-fan presentation remains a separate check.
+
+## Native bounded load capture — 2026-10-20
+
+Release `9b7ff9eb6ebc3535`, session `session-00065e4a3e439b0a-00`, completed
+all three console phases and returned successfully. Idle/load/recovery lasted
+30.006/30.000/30.010 seconds; load completed 573,820 integer work chunks.
+No thermal/sensor stop occurred. Logged core/package temperature peaked at
+81 C during load; the last recovery sample was 60/62 C. Both fan readings
+remained available, with 90 complete pairs and zero SMC errors at exit.
+
+Three valid energy checkpoints cover 22.000 seconds inside load: 27,190 mW
+package average and 3,500 MHz CPU0 active frequency. Recovery checkpoints cover
+21.000 seconds: 9,293 mW and 3,462 MHz active frequency. Initial idle power is
+unavailable: its two eligible checkpoints span 9,999,904 us, below the collector's
+10-second minimum. Preserve that refusal rather than relaxing acceptance to
+fit the result. Short console/single-worker data is not whole-machine energy,
+thermal equilibrium, all-core stress or a desktop workload comparison.
+
+Matching logs are copied and independently archived. Installed and accepted
+recovery hashes, Ubuntu default and consumed one-shot are verified. Offline
+exFAT is clean. No reboot is armed; current is the load diagnostic and previous
+remains sound-confirmed `e47dca3a6b30c6c1`. The native visible System fan check,
+shared integration review, and battery/AC dependencies remain open.

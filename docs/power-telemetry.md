@@ -228,3 +228,10 @@ computes energy only from fresh checkpoints wholly within each phase. At least
 two checkpoints spanning ten seconds are required per phase; unavailable power
 remains null. Console phase measurements are separate from the Text idle baseline.
 Shared integration of the proposal remains pending review against PR6.
+
+The Pro11,2 native v35 run `9b7ff9eb6ebc3535` completed all three phases.
+Its covered load interval measured 27.190 W package power over 22.000 seconds,
+and recovery 9.293 W over 21.000 seconds. Initial idle power remains unavailable
+because eligible checkpoints cover less than ten seconds. Logged temperature
+peaked at 81 C; no diagnostic stop occurred. See the machine record for the
+session and limits; this is a short single-worker console result.
