@@ -693,3 +693,10 @@ Use the existing v26 unattended desktop idle capture; SMC remains unavailable
 on this Pro until an explicit two-fan profile and ABI are validated. Avoid
 PR6 startup/boot-harness files. Refreshed origin/main remains b6075ef; PR6 at
 6db5a12 retains battery/AC runtime ownership. Preserve accepted desktop recovery.
+
+Preflight found that v26 launches idle capture without explicit scale, while
+this Pro may supply 2880x1800 and the screenshot protocol caps BMPs at 8 MiB.
+Extend scope to compositor idle-capture scale selection and capture host tests:
+when no scale is supplied and the full framebuffer exceeds capture limits,
+select 2x if its logical dimensions fit. Explicit scale and ordinary desktop
+remain unchanged. This avoids editing PR6's startup/boot-profile paths.
