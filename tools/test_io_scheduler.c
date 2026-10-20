@@ -33,6 +33,7 @@ void scheduler_context_switch(struct scheduler_context *old,struct scheduler_con
     threads[3].state=THREAD_READY;threads[4].state=THREAD_RUNNING;
     current_thread=4;switches++;
 }
+static bool retired_context(void *arg) { (void)arg;assert(!"retired eligibility callback");return false; }
 static bool ready(void *arg) { return arg != NULL; }
 int main(void) {
     _Alignas(16) uint8_t stack[64];
@@ -77,6 +78,11 @@ int main(void) {
     assert(has_ready_thread_except(3));
     threads[4].arg = NULL;
     assert(!has_ready_thread_except(3));
+    /* Context may be freed as soon as an I/O worker has retired. */
+    threads[2].state=THREAD_DEAD;threads[2].io_eligible=retired_context;
+    assert(!has_ready_thread_except(3));
+    assert(next_ready_thread(3)==3);
+    threads[2]=(struct thread){0};
     assert(scheduler_io_begin() && io_depth == 2);
     current_thread = 4;
     assert(scheduler_io_busy());
