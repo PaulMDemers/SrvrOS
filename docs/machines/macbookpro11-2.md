@@ -209,3 +209,11 @@ after boot and the last report contains slash, so the existing 30-second step
 deadline cannot explain this recorded failure. Automatic return is user-confirmed.
 For a retry, improve the guided test with more time and recoverable unexpected
 input rather than treating this as a proven Return-key driver defect.
+
+## Forgiving guided retry scope
+
+User authorized the retry. Extend the guided capture to 90 seconds per step,
+keep unexpected keys within the same step, and explicitly log retries/timeouts.
+Touch only startup capture, versioned staging, VM coverage and these guides.
+Retain the successful diagnostic as previous. Prior native evidence is collected;
+Enter and arrows remain pending. Existing EC/AML work is outside this scope.
