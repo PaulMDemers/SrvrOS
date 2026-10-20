@@ -707,3 +707,13 @@ the existing Air fixtures; unsupported sibling model IDs, hypervisors and
 missing features remain refused. Capture tests cover Air/full-HD 1x, Retina/4K
 2x and over-limit dimensions. The compositor preserves explicit scale choices.
 No native Pro sensor acceptance is claimed before the unattended capture.
+
+Candidate `de341a3cfcaa7acb`, source `f58dee1`, passes the exact v26 GPT
+rehearsal at 2880x1800: automatic 2x logical desktop, 60-second idle window,
+1440x900 saved screenshot, persisted logs, clean unmount and automatic reset.
+VM power/thermal providers correctly report unavailable, with zero readings;
+this validates the workflow and refusal, not native sensor values. Separate
+power smoke verifies default-disabled and opt-in hypervisor refusal. Native
+acceptance requires valid fresh thermal samples and a non-null continuous
+power window within the idle measurement. SMC remains intentionally unavailable
+on this Pro; two-fan support and controlled load measurements follow separately.
