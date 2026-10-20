@@ -4,6 +4,9 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "AMLTEST", 1)
     Field (SNAP, ByteAcc, NoLock, Preserve) { VAL0, 8 }
     Method (READ, 0) { Return (VAL0) }
     Method (WRIT, 0) { VAL0 = 0x37 Return (VAL0) }
+    Field (SNAP, QWordAcc, NoLock, Preserve) { Offset (8), VAL8, 64 }
+    Method (WR64, 0) { VAL8 = 0xFEDCBA9876543210 Return (VAL8) }
+    Method (MBUD, 0) { While (One) { VAL0 = 0x37 } }
     OperationRegion (PORT, SystemIO, 0x62, 1)
     Field (PORT, ByteAcc, NoLock, Preserve) { IOV0, 8 }
     Method (BADR, 0) { Return (IOV0) }
@@ -29,6 +32,18 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "AMLTEST", 1)
     }
     Scope (\_SB)
     {
+        Device (PCI0) {
+            Name (_HID, EisaId ("PNP0A08"))
+            Name (_SEG, Zero)
+            Name (_BBN, Zero)
+            Device (DEV0) {
+                Name (_ADR, 0x001F0003)
+                OperationRegion (CONF, PCI_Config, Zero, 0x100)
+                Field (CONF, ByteAcc, NoLock, Preserve) { Offset (0x40), CFG0, 8 }
+                Method (PWR0, 0) { CFG0 = 0xA5 Return (CFG0) }
+                Method (PBUD, 0) { While (One) { CFG0 = 0xA5 } }
+            }
+        }
         Device (EC)
         {
             Name (_HID, EisaId ("PNP0C09"))

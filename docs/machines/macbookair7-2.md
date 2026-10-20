@@ -23,16 +23,22 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: resolve the older POSIX pipe-restart CI
-  race before extending native mappings. Scope: posixdemo sender/reader test
-  protocol, focused VM repeat coverage and CI. The helper currently can consume
-  its own process-wide signal during sched_yield; isolate it with its signal
-  mask without weakening read/handler/join assertions. Base `00869bd`, PR #4.
-  Native ACPI work remains this branch's scope; Pro11,2 PR #5 owns USB/storage.
-- Parallel-independent edit scope in this same work block (no concurrent
-  harness/build): extend the offline namespace probe's private memory/PCI access
-  trace and bounded audit tests, then replay captured initialization. No live
-  mappings or hardware permission changes. Raw access traces stay local.
+- Current bounded implementation: offline native memory/PCI/GPIO permission
+  audit, alongside isolating the POSIX pipe-restart regression. Shared scope:
+  namespace probe/fixtures, posixdemo test protocol, focused VM coverage and CI.
+  No live mappings or hardware permissions change. Pro11,2 PR #5 owns USB/storage.
+- Pipe-restart checkpoint (`3e70395`): the sending helper blocks its process-wide
+  test signal so its own yields cannot consume it. The probe verifies the handler
+  ran on the reader; 256 rounds with varied yields and the full 481-command CLI
+  suite pass, with clean exFAT. This corrects the test protocol, not the broader
+  POSIX signal implementation. The previously failing old-head CI passed on
+  retry; the new repeated regression is retained in CI.
+- Memory audit checkpoint: private memory/PCI access traces and budgets pass
+  21 namespace tests normally and under ASan/UBSan. Captured initialization's eight writes only change OSYS;
+  one PCI read and the constrained GPIO access are recorded. Separate `_SB._INI`
+  correctly refuses an additional GPIO read at `0xa74` for `GN46`; its live
+  meaning/ownership remain unaccepted. Input captures remain unchanged. See the
+  [runtime guide](../native-ec-runtime.md) for exact scope and counts.
 - SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
   route, registers its callback, enables delivery, and retires/restores the
   route with bounded rollback. Host fault tests and ASan/UBSan pass, including

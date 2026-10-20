@@ -21,7 +21,7 @@
 static struct { void *p; size_t size; } mappings[MAX_TABLES+3];
 static size_t mapping_count, allocation_bytes, denied, local_writes;
 static struct { uintptr_t address; unsigned char *bytes; size_t size; } regions[16];
-static size_t region_count, aml_errors;
+static size_t region_count, aml_errors, snapshot_accesses;
 /* Explicit byte models only. Never backed by /dev/port or host I/O. */
 static struct { uint32_t base; unsigned char *bytes; size_t size; bool guarded; struct acpi_io_rule rule; } io_models[16];
 static size_t io_model_count, io_accesses;
@@ -134,9 +134,29 @@ denied_access:
     fprintf(stderr,"probe: SystemIO access denied base=%x offset=%zu width=%u write=%u\n",map?map->base:0,offset,width*8,write);
     denied++;return UACPI_STATUS_DENIED;
 }
+static void snapshot_budget(void) {
+    if (++snapshot_accesses>4096) fatal("memory/PCI snapshot access budget exceeded");
+}
+static uacpi_status snapshot_pci(uacpi_handle h,size_t offset,size_t size,void *value,bool write) {
+    snapshot_budget();
+    for(size_t i=0;i<pci_count;i++) {
+        if(h!=&pci[i]) continue;
+        if(offset>256-size) break;
+        uint64_t before=0,after=0;
+        memcpy(&before,pci[i].data+offset,size);
+        if(write) { memcpy(pci[i].data+offset,value,size);local_writes++; }
+        else memcpy(value,pci[i].data+offset,size);
+        memcpy(&after,value,size);
+        printf("pci-model: %s device=%x:%x:%x.%x offset=0x%zx width=%zu before=0x%llx value=0x%llx\n",
+            write?"write":"read",pci[i].address.segment,pci[i].address.bus,pci[i].address.device,
+            pci[i].address.function,offset,size*8,(unsigned long long)before,(unsigned long long)after);
+        return UACPI_STATUS_OK;
+    }
+    denied++;return UACPI_STATUS_DENIED;
+}
 #define SNAPSHOT_PCI(bits) \
-uacpi_status uacpi_kernel_pci_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { if(o>256-sizeof(*v)) { denied++;return UACPI_STATUS_DENIED; }memcpy(v,((struct pci_snapshot *)h)->data+o,sizeof(*v));return UACPI_STATUS_OK; } \
-uacpi_status uacpi_kernel_pci_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { if(o>256-sizeof(v)) { denied++;return UACPI_STATUS_DENIED; }memcpy(((struct pci_snapshot *)h)->data+o,&v,sizeof(v));local_writes++;return UACPI_STATUS_OK; }
+uacpi_status uacpi_kernel_pci_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { return snapshot_pci(h,o,sizeof(*v),v,false); } \
+uacpi_status uacpi_kernel_pci_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { return snapshot_pci(h,o,sizeof(v),&v,true); }
 SNAPSHOT_PCI(8) SNAPSHOT_PCI(16) SNAPSHOT_PCI(32)
 #define MODEL_IO(bits) \
 uacpi_status uacpi_kernel_io_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { \
@@ -144,17 +164,28 @@ uacpi_status uacpi_kernel_io_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bit
 uacpi_status uacpi_kernel_io_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { \
     uint32_t value=v;return model_io(h,o,sizeof(v),&value,true); }
 MODEL_IO(8) MODEL_IO(16) MODEL_IO(32)
-static void *region_access(void *p,size_t size) {
+static void snapshot_memory(void *p,size_t size,void *value,bool write) {
+    snapshot_budget();
     uintptr_t address=(uintptr_t)p;
     for(size_t i=0;i<region_count;i++) {
         uintptr_t base=(uintptr_t)regions[i].bytes;
-        if(address>=base && address-base<=regions[i].size && size<=regions[i].size-(address-base)) return p;
+        if(address>=base && address-base<=regions[i].size && size<=regions[i].size-(address-base)) {
+            uint64_t before=0,after=0;
+            memcpy(&before,p,size);
+            if(write) { memcpy(p,value,size);local_writes++; }
+            else memcpy(value,p,size);
+            memcpy(&after,value,size);
+            printf("memory-model: %s address=0x%llx width=%zu before=0x%llx value=0x%llx\n",
+                write?"write":"read",(unsigned long long)(regions[i].address+address-base),size*8,
+                (unsigned long long)before,(unsigned long long)after);
+            return;
+        }
     }
-    fatal("MMIO outside explicit snapshot denied");return NULL;
+    fatal("MMIO outside explicit snapshot denied");
 }
 #define SNAPSHOT_MMIO(bits) \
-uacpi_u##bits uacpi_kernel_mmio_read##bits(void *p) { uacpi_u##bits v;memcpy(&v,region_access(p,sizeof(v)),sizeof(v));return v; } \
-void uacpi_kernel_mmio_write##bits(void *p,uacpi_u##bits v) { memcpy(region_access(p,sizeof(v)),&v,sizeof(v));local_writes++; }
+uacpi_u##bits uacpi_kernel_mmio_read##bits(void *p) { uacpi_u##bits v=0;snapshot_memory(p,sizeof(v),&v,false);return v; } \
+void uacpi_kernel_mmio_write##bits(void *p,uacpi_u##bits v) { snapshot_memory(p,sizeof(v),&v,true); }
 SNAPSHOT_MMIO(8) SNAPSHOT_MMIO(16) SNAPSHOT_MMIO(32) SNAPSHOT_MMIO(64)
 static void checksum(void *p,size_t n,size_t at) { unsigned char *b=p;b[at]=0;unsigned sum=0;for(size_t i=0;i<n;i++) sum+=b[i];b[at]=(unsigned char)-sum; }
 static void header(struct acpi_sdt_hdr *h,const char *sig,size_t len) {

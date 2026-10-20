@@ -55,11 +55,12 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=()):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=()):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
         for address,path in models: args+=['--io-model',f'{address}:{path}']
         for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
+        for address,path in pci: args+=['--pci',f'{address}:{path}']
         if contract: args+=['--ec-contract',*[str(p) for p in contract]]
         if snapshot: args+=['--region',f'0x100000:{self.snapshot}']
         args += [str(aml or self.aml),'--',*paths]
@@ -204,6 +205,33 @@ class NamespaceTests(unittest.TestCase):
         self.assertIn('\\WRIT = 0x37',r.stdout)
         self.assertIn('\\READ = 0x37',r.stdout)
         self.assertEqual(self.snapshot.read_bytes(),before)
+        self.assertIn('memory-model: read address=0x100000 width=8 before=0x21 value=0x21',r.stdout)
+        self.assertIn('memory-model: write address=0x100000 width=8 before=0x21 value=0x37',r.stdout)
+
+    def test_wide_memory_trace(self):
+        before=self.snapshot.read_bytes()
+        r=self.probe('\\WR64')
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('memory-model: write address=0x100008 width=64 before=0x0 value=0xfedcba9876543210',r.stdout)
+        self.assertIn('memory-model: read address=0x100008 width=64 before=0xfedcba9876543210 value=0xfedcba9876543210',r.stdout)
+        self.assertEqual(self.snapshot.read_bytes(),before)
+
+    def test_pci_trace_is_private(self):
+        p=self.folder/'pci.bin';before=bytes(256);p.write_bytes(before)
+        r=self.probe('\\_SB.PCI0.DEV0.PWR0',pci=[('0:0:1f.3',p)])
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('pci-model: write device=0:0:1f.3 offset=0x40 width=8 before=0x0 value=0xa5',r.stdout)
+        self.assertIn('pci-model: read device=0:0:1f.3 offset=0x40 width=8 before=0xa5 value=0xa5',r.stdout)
+        self.assertEqual(p.read_bytes(),before)
+
+    def test_snapshot_trace_budget(self):
+        p=self.folder/'pci.bin';p.write_bytes(bytes(256))
+        for method,kind in [('\\MBUD','memory'),('\\_SB.PCI0.DEV0.PBUD','pci')]:
+            with self.subTest(method=method):
+                r=self.probe(method,pci=[('0:0:1f.3',p)])
+                self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+                self.assertIn('memory/PCI snapshot access budget exceeded',r.stderr)
+                self.assertEqual(r.stdout.count(kind+'-model:'),4096)
 
     def test_unmapped_memory_and_io_are_denied(self):
         for name,snapshot in [('\\READ',False),('\\BADR',True)]:

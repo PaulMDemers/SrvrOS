@@ -145,6 +145,39 @@ changes, outside/wide accesses, private files, malformed models, access budgets
 and a Darwin policy that excludes Linux/Windows vendor responses. The captured
 Air also succeeds with the set-only bit-3 rule and refuses a wrong bit-2 rule.
 
+## Memory/PCI trace and remaining system initialization
+
+The offline probe now traces each private SystemMemory and PCI access with its
+firmware address/device, width, prior value and resulting/read value. The two
+snapshot types share a 4,096-access limit; exhaustion fails the process. This is
+separate from the SystemIO limit. Synthetic tests cover byte/64-bit memory,
+private PCI writes, unchanged input files and runaway memory/PCI methods. No
+host physical memory, PCI configuration or port device is opened.
+
+Replaying the same captured nine tables with `PINI`, PCI0 `_INI` and `OSDW`
+produced 53 byte memory reads, eight byte memory writes, one 32-bit PCI read and
+the previously audited byte GPIO read/write. All eight memory writes were the
+low/high bytes of `OSYS` at GNVS offsets 0 and 1: each method first selects
+`0x07dc`, then Darwin `0x2710`. The PCI read was device `0:0:1f.3`, offset `0x20`.
+PNVS was read but not written on this path. These counts include table loading
+and the explicit evaluations, not an exhaustive list of future runtime accesses.
+The EC contract matched with zero errors/denials/remaining allocations, and all
+captured input files were unchanged.
+
+A separate `_SB._INI` replay with the same permissions fails at an 8-bit read
+of GPIO offset `0x274` (port `0xa74`). Captured AML sets field `GN46`, bit 2 of
+that byte, after `PINI` and `DSPI` on the Darwin path. Its preserve write first
+needs that read; no write was admitted. Four private OSYS byte writes precede
+the refusal, so a failed initialization is not necessarily side-effect-free.
+The GPIO field's live meaning, ownership and lifecycle still require an audit;
+the probe does not admit this byte merely because it shares the GPIO region.
+
+These traces narrow the native permission plan but do not authorize it. A
+snapshot cannot establish live NVS ownership or substitute for the FACS Global
+Lock. In particular, captured PNVS fields request `Lock`, regardless of the
+absence of EC `_GLK`. Full namespace initialization, EC `_REG`, query methods
+and teardown must be audited separately from the explicit methods above.
+
 ## SCI route ownership implementation
 
 `runtime/sci_owner` separates the route/callback lifetime from the Q35 adapter.
