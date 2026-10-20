@@ -65,6 +65,20 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Battery scheduling repair — October 20
+
+Scope: audit and grant explicit I/O-service eligibility only to the separate
+cached battery service's owner/worker while its validated runtime is engaged.
+The generic ACPI worker remains ordinary by default; other adapters must not
+inherit eligibility. Touches battery runtime, an opt-in worker admission API,
+worker host tests, and VM overlap fixtures. Base `b6075ef` and Pro PR #5
+`8fc3e1c` were fetched unchanged. No desktop startup, native resource gate,
+transport deadline or scheduler-wide policy change is part of this block.
+Preflight mappings precede engagement; service callbacks use kernel mappings,
+serialized heap/PCI/console/queue operations and runtime-owned wait dependencies.
+The next checkpoint requires the same long I/O hold to permit transport progress,
+plus lifecycle/deadline regressions; physical USB/input acceptance stays separate.
+
 ### SCI accounting and storage scheduling block — October 20
 
 The Air agent owns the next bounded runtime change: phase-scoped SCI delivery,
