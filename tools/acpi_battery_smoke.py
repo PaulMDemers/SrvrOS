@@ -56,21 +56,35 @@ def verify_scratch_disk(stick,before,offset,path,volume,out,cycles):
     print('acpi-battery: scratch data verified offline; all other disk bytes unchanged; exFAT clean')
 
 
+def verify_filesystem_tree(data, cycles):
+    from exfat_test_image import ExfatFixture
+    fs = ExfatFixture(data)
+    folder = 'srvros-work/fs-proof'
+    assert {name for name, _ in fs.entries(fs.read(folder))} == {'payload.bin', 'empty.bin'}
+    assert fs.read(folder+'/payload.bin') == bytes((i*37+(i>>8)+cycles-1)&255 for i in range(262181))
+    assert fs.read(folder+'/empty.bin') == b''
+    assert fs.read('srvros-work/anchor.txt') == b'Unchanged battery filesystem anchor\n'
+    assert fs.read('srvros-work/.workspace') == b'SRVROS-WORKSPACE-V1 51525354\n'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io', 'service-usb-read', 'service-usb-read-auto-deadline', 'service-usb-write', 'service-usb-write-auto-deadline'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io', 'service-usb-read', 'service-usb-read-auto-deadline', 'service-usb-write', 'service-usb-write-auto-deadline','service-filesystem','service-filesystem-write-failure'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24, 'service-usb-read':15, 'service-usb-read-auto-deadline':19,'service-usb-write':15,'service-usb-write-auto-deadline':19}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24, 'service-usb-read':15, 'service-usb-read-auto-deadline':19,'service-usb-write':15,'service-usb-write-auto-deadline':19,'service-filesystem':25,'service-filesystem-write-failure':26}
     transitions=args.case in ('transitions','transition-timeout')
     service=args.case.startswith('service')
     readonly=args.case in ('service-usb-read','service-usb-read-auto-deadline')
     scratch=args.case in ('service-usb-write','service-usb-write-auto-deadline')
     auto_deadline=args.case in ('service-auto-deadline','service-usb-read-auto-deadline','service-usb-write-auto-deadline')
-    usb=args.case=='service-usb-io' or readonly or scratch
+    filesystem=args.case in ('service-filesystem','service-filesystem-write-failure')
+    fs_failure=args.case=='service-filesystem-write-failure'
+    usb=args.case=='service-usb-io' or readonly or scratch or filesystem
     root = Path(__file__).resolve().parents[1]
     out = root/'build/review'/('acpi-battery-' + args.case)
     out.mkdir(parents=True, exist_ok=True)
     output = bytearray()
+    if filesystem:subprocess.run(['make','build/tests/exfat-driver'],cwd=root,check=True)
     with tempfile.TemporaryDirectory(prefix='srvros-battery-') as directory:
         tmp = Path(directory)
         source = (root/'tools/fixtures/acpi/battery-runtime.asl').read_text()
@@ -90,7 +104,7 @@ def main():
             subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
             subprocess.run(['/usr/sbin/tune.exfat','-I','0x51525354',str(volume)],check=True,stdout=subprocess.DEVNULL)
             fixture=ExfatFixture(volume.read_bytes())
-            fixture.add_directory_file('srvros-work','.workspace',b'SRVROS-WORKSPACE-V1 51525354\n')
+            fixture.add_directory_files('srvros-work', {'.workspace':b'SRVROS-WORKSPACE-V1 51525354\n', 'anchor.txt':b'Unchanged battery filesystem anchor\n'})
             mbr=bytearray(512);mbr[450]=7
             struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
             with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
@@ -177,8 +191,8 @@ def main():
                                 active=[r for r in sci if r['snapshot']=='retired' and r['phase']=='active']
                                 assert sum(r['unclaimed'] for r in active)>=5,bytes(part)
                                 assert part.count(b'irq: unhandled line=9 vector=41')==1,bytes(part)
-                            if args.case in ('service-io-short','service-io-long','service-io-sustained','service-usb-io'):
-                                check_io_hold(part,{'service-io-short':20000,'service-io-long':250000,'service-io-sustained':5000000,'service-usb-io':5000000}[args.case])
+                            if args.case in ('service-io-short','service-io-long','service-io-sustained','service-usb-io','service-filesystem','service-filesystem-write-failure'):
+                                check_io_hold(part,{'service-io-short':20000,'service-io-long':250000,'service-io-sustained':5000000,'service-usb-io':5000000,'service-filesystem':60000000,'service-filesystem-write-failure':5000000}[args.case])
                             assert part.count(b'battery: foreign-event restored ')>=4,bytes(part)
                             if args.case=='service-setup-load':
                                 work=re.findall(rb'battery-vm: setup-work active_us=(\d+) elapsed_us=(\d+)',part)
@@ -239,9 +253,21 @@ def main():
                         registers = qmp.call('human-monitor-command', {'command-line': 'info registers'})
                         flags = re.search(r'RFL=([0-9a-fA-F]+)', registers)
                         assert flags and not(int(flags[1],16)&0x200), registers
-                if usb and not readonly and not scratch:
-                    proof=re.findall(rb'battery-vm: usb-io writes=(\d+) file_ok=1 bytes=4096',output)
-                    assert len(proof)==1 and int(proof[0])>1,bytes(output)
+                if filesystem:
+                    fs_records=re.findall(rb'battery-vm: filesystem mode=(sustained|write-failure) cycles=(\d+) file_ok=1 bytes=262181',output)
+                    assert len(fs_records)==1,bytes(output)
+                    fs_cycles=int(fs_records[0][1])
+                    assert fs_cycles >= (1 if fs_failure else 2),fs_records
+                    assert fs_records[0][0] == (b'write-failure' if fs_failure else b'sustained')
+                    if fs_failure:
+                        assert b'battery-vm: fs-failure injected=1 calls=3 blocked=1 preserved=1' in output,bytes(output)
+                    else:
+                        holds=re.findall(rb'first_gen=(\d+) last_gen=(\d+)',output)
+                        assert len(holds)==1 and int(holds[0][1])-int(holds[0][0])>=10,holds
+                if usb and not readonly and not scratch and not fs_failure:
+                    if not filesystem:
+                        proof=re.findall(rb'battery-vm: usb-io writes=(\d+) file_ok=1 bytes=4096',output)
+                        assert len(proof)==1 and int(proof[0])>1,bytes(output)
                     serial.sendall(b'workspace unmount\n')
                     unmounted=bytearray();until=time.monotonic()+30
                     while b'workspace: unmounted; USB writes disabled' not in unmounted and time.monotonic()<until:
@@ -251,8 +277,25 @@ def main():
                 qmp.call('quit'); process.wait(timeout=10)
                 if usb:
                     with stick.open('rb') as stream:stream.seek(2048*512);volume.write_bytes(stream.read())
+                    if fs_failure:
+                        dirty=struct.unpack_from('<H',volume.read_bytes(),106)[0]&2
+                        assert dirty, 'Failed metadata write did not retain dirty flag'
+                        verify_filesystem_tree(volume.read_bytes(),fs_cycles)
+                        # Retain the failure image and exercise offline rescue on a copy.
+                        (out/'usb-failed.exfat').write_bytes(volume.read_bytes())
+                        report=subprocess.run(['/usr/sbin/fsck.exfat','-n',str(volume)],capture_output=True,text=True)
+                        (out/'usb-failure-fsck.txt').write_text(report.stdout+report.stderr)
+                        repair=subprocess.run(['/usr/sbin/fsck.exfat','-y','-s',str(volume)],capture_output=True,text=True)
+                        (out/'usb-recovery.txt').write_text(repair.stdout+repair.stderr)
+                        assert repair.returncode in (0,1),repair.stdout+repair.stderr
                     (out/'usb-fsck.txt').write_text(check_clean_image(volume))
-                    if scratch:
+                    if filesystem:
+                        verify_filesystem_tree(volume.read_bytes(),fs_cycles)
+                        allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
+                        (out/'usb-allocation.txt').write_text(allocation.stdout+allocation.stderr)
+                        assert allocation.returncode==0,allocation.stdout+allocation.stderr
+                        print('acpi-battery: filesystem tree verified offline; allocation graph clean' + (' after disposable recovery' if fs_failure else ''))
+                    elif scratch:
                         from hardware_desktop import battery_usb_write_result
                         proof=battery_usb_write_result(output.decode(errors='replace'),require_service=False)
                         assert proof,bytes(output)

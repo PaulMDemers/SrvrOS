@@ -2339,6 +2339,7 @@ static void check_cluster_allocation(struct exfat_check_result *result,
     bool allow_duplicate) {
     uint64_t bit_index = cluster - 2;
     if (bit_index >= bitmap_bits || !bitmap_bit_is_set(bitmap, bit_index)) {
+        result->fat_bitmap_mismatches++;
         check_file_error(result, mount, path, "cluster not marked allocated in bitmap");
     }
     if (!mark_checked_cluster(seen, seen_bytes, bit_index) && !allow_duplicate) {
@@ -2534,43 +2535,11 @@ static void check_bitmap_leaks(struct exfat_check_result *result,
     }
 }
 
-static void check_fat_bitmap_agreement(struct exfat_check_result *result,
-    const struct exfat_mount *mount,
-    const uint8_t *bitmap,
-    uint64_t bitmap_bits) {
-    uint64_t mismatch_count = 0;
-    uint64_t first_cluster = 0;
-    uint32_t first_value = 0;
-    uint64_t limit = mount->volume.cluster_count < bitmap_bits ? mount->volume.cluster_count : bitmap_bits;
-    for (uint64_t bit = 0; bit < limit; bit++) {
-        if (bitmap_bit_is_set(bitmap, bit)) {
-            continue;
-        }
-        uint32_t cluster = (uint32_t)(bit + 2);
-        uint32_t value = 0;
-        if (!next_cluster(&mount->volume, cluster, &value)) {
-            check_error(result, mount->mountpoint, "could not read FAT for bitmap agreement");
-            return;
-        }
-        if (value != 0) {
-            if (mismatch_count == 0) {
-                first_cluster = cluster;
-                first_value = value;
-            }
-            mismatch_count++;
-        }
-    }
-    if (mismatch_count != 0) {
-        result->fat_bitmap_mismatches += mismatch_count;
-        result->errors++;
-        console_printf("exfat-check: %s: free clusters with FAT entries=%u first=%u value=%x\n",
-            mount != NULL ? mount->mountpoint : "?",
-            mismatch_count,
-            first_cluster,
-            first_value);
-    }
-}
-
+/* exFAT 5.1/7.1.5: the allocation bitmap, not the FAT, defines whether
+ * a cluster is allocated. Linux deletion and exfatprogs recovery can leave
+ * stale FAT entries in bitmap-free clusters. Validate every referenced cluster
+ * against the bitmap above, and detect unreferenced allocated clusters below;
+ * do not interpret an unreferenced free cluster's old FAT value as ownership. */
 static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *result) {
     struct exfat_volume *volume = &mount->volume;
     uint64_t bitmap_offset = 0;
@@ -2635,7 +2604,6 @@ static bool check_mount(struct exfat_mount *mount, struct exfat_check_result *re
         }
     }
     check_bitmap_leaks(result, mount, bitmap, bitmap_bits, seen, seen_bytes);
-    check_fat_bitmap_agreement(result, mount, bitmap, bitmap_bits);
 
     ok = result->errors == 0;
 

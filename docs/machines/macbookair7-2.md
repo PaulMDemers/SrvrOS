@@ -2,7 +2,30 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted bounded run: **`b73c1ae3e4643dc9`** / artifact **`0cb9f2e`**,
+Latest accepted bounded **scratch write/flush overlap**: release
+**`5792b6ece45b85dc`** / artifact **`e2d779b`**, retry checkpoint **`d4a21cb`**,
+session **`session-00065e4c30fcddac-00`**. It completed 1,894 write/flush/readback
+cycles (5,682 transport commands), including 62 cycles during sampling and three
+sample-generation advances inside 55 I/O scopes (maximum 349,839 microseconds).
+Five fresh samples and 5,414 cached reads completed, 574 during sampling, maximum
+read time 18 microseconds. Cancellation, restart, in-flight stop and a short stop
+timeout followed by clean retirement passed. Both initialized lifetimes restored
+retained enables, balanced attachments and ended with zero heap/errors/denials.
+SCI recorded six handled and six unclaimed active deliveries, none during setup
+or retirement and none in flight afterward; the unclaimed cause remains open.
+
+The exclusive scratch capability was revoked before remount. Collection verified
+the final 4096-byte payload against the cycle count and preserved its bytes/hash.
+Completed exit, new Ubuntu boot, consumed one-shot and installed/recovery hashes
+were verified. Offline fsck reports clean (181 directories, 871 files); SrvrOS's
+allocation checker accounts for 1,512 clusters with zero leaks or FAT mismatches.
+The accepted payload and 47 hashed evidence files are backed up outside `build`.
+The earlier failed attempt of this same release remains separate evidence.
+This accepts bounded transport writes/flushes during sampling, not ordinary
+filesystem metadata mutation, human input, sustained desktop operation or gauge
+accuracy. No new reboot is armed; ordinary desktop battery access stays disabled.
+
+Latest accepted bounded **read** run: **`b73c1ae3e4643dc9`** / artifact **`0cb9f2e`**,
 session **`session-00065e4a0a43b75e-00`**. Battery sampling progressed during
 103,094 uncached USB reads; all 4096-byte reads matched their baseline. Five
 sample-generation advances occurred inside storage I/O scopes, with 153 reads
@@ -68,6 +91,64 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Sustained filesystem coexistence — October 20 (VM-first)
+
+Base `d72d2af`, host/CI follow-up PR #7 at `dd4245d`; Pro PR #5 inspected at
+`fec1a41` with the merged battery baseline. Scope: the disposable Q35 battery
+model and smoke harness, exercising a minute of actual filesystem allocation,
+grow/shrink, rename, deletion and flushes during sampling, plus a write-failure
+case. Keep native profiles and ordinary desktop startup unchanged. Validate
+sample progress inside storage scopes, clean retirement, offline file contents
+and allocation accounting. Failure must retain the previous committed file and
+block further writes; recovery is rehearsed only on the disposable image.
+The failure fixture also exposed an overly strict shared exFAT checker: it
+mistook nonzero FAT entries of bitmap-free clusters for allocation mismatches.
+Scope now includes correcting that check against the exFAT allocation-bitmap
+contract, with stale-free-FAT admission and actual orphan/missing-allocation
+refusal regressions. This does not change allocation or repair on-disk bytes.
+A real workspace trial needs a separate crash/recovery contract before enabling
+concurrent filesystem metadata mutation on hardware.
+
+Final disposable VM validation completed 134 filesystem cycles in 60,539,284
+microseconds, with sample generation advancing from 1 to 25 inside the I/O
+scope. The service completed 8,320 cached reads (1,472 during sampling), maximum
+603 microseconds, and retired cleanly. Offline payload/tree checks, fsck and the
+kernel allocation checker passed (five files, 12 clusters, zero errors/leaks).
+The injected write failure preserved the old payload before and after recovery,
+refused later writes, advanced sampling and retired with zero errors/denials/heap.
+Recovery was performed only on a disposable VM image; the failed image is retained.
+These results do not extend native acceptance beyond the v36 scratch range.
+
+
+### Allocation-check discrepancy — October 20 (resolved)
+
+Base `d72d2af` (merged PR #6), Pro PR #5 inspected at `7c9372b`.
+Independent read-only allocation traversal and the actual SrvrOS checker both
+found orphan clusters 114, 159, 162, 210–213 and 606. The kernel guard was correct;
+`fsck.exfat -n` (1.3.2) reported clean without resolving those orphan allocations.
+Their originating write or interruption is unknown. No kernel or native battery
+policy change was needed.
+
+Preserved boot/FAT and all 1,506 allocated clusters in a sparse snapshot outside
+`build`. Recovery was rehearsed on a copy, verified against the unchanged device,
+then applied with exfatprogs orphan rescue. All 862 existing files remained
+byte-for-byte identical. Five `LOST+FOUND` files preserve all eight orphan
+clusters, also copied into the durable evidence archive. The recovered volume
+passes the real SrvrOS allocation checker: 867 files, 1,507 accounted clusters,
+zero leaks/FAT mismatches/errors. Offline fsck reports 180 directories, 867 files.
+The workspace was remounted and the unchanged automatic v36 payload
+`5792b6ece45b85dc` subsequently passed the bounded trial summarized above.
+
+Evidence is under `~/.local/share/srvros/failed-evidence/exfat-orphans-20261020`.
+The snapshot contains boot/FAT and allocated data; unallocated bytes were not
+captured. New host tooling exposes read-only allocation checking on an unmounted
+USB partition. Disposable 4 KiB/128 KiB fixtures exercise orphan refusal,
+byte-preserving rescue and renewed scratch eligibility; the kernel guard remains
+unchanged. Scratch/entry tests, the full filesystem hardening suite (including
+write/flush/power-cut boundaries), wrapper selection and documentation checks
+pass. The later successful retry accepts bounded scratch write/flush overlap.
+See the [offline workflow](../ubuntu-device-agent-setup.md#7-test-return-and-collect).
+
 ### Native scratch write/flush overlap — October 20 (preflight failed)
 
 Bounded objective: extend coexistence testing to USB writes and cache flushes
@@ -113,8 +194,8 @@ installed/recovery hashes were verified. No new reboot is armed.
 
 The failed report and 45 hashed evidence files are retained outside `build` at
 `~/.local/share/srvros/failed-evidence/5792b6ece45b85dc`. The accepted b73 read
-baseline is unchanged. Next investigate the allocation-check discrepancy without
-bypassing the guard; do not repeat the write trial until its cause is understood.
+baseline is unchanged. The later recovery above resolves this preflight refusal without bypassing the
+guard. It does not accept native writes or identify the historical orphan source.
 Both full CI baseline runs passed at `800d84e`, which contains the exact scratch
 implementation. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36)
 and [integration handoff](../agent-coordination.md#october-20-battery-baseline-handoff).
