@@ -40,6 +40,9 @@ def main():
         offset = fs.offset(start_cluster)
         entry_at = baseline.index(entry, fs.offset(fs.root))
         volume.write_bytes(baseline)
+        extent_check=command(DRIVER,volume,'image-range')
+        assert f'image-range: PASS offset={offset} bytes={SIZE}' in extent_check
+        assert volume.read_bytes()==baseline
         output = command(IMAGE_DRIVER, volume, 'workload')
         total = int(re.search(r'writes=(\d+)', output)[1])
         total_flushes = int(re.search(r'flushes=(\d+)', output)[1])
@@ -80,6 +83,7 @@ def main():
                 changed[at] &= ~(1<<(bit%8))
             volume.write_bytes(changed)
             command(IMAGE_DRIVER,volume,'refuse')
+            if fault!='inner-dirty':command(DRIVER,volume,'image-range',codes=(1,))
             assert volume.read_bytes() == changed,fault
         print('image admission: dirty/length/alias/fragmentation/bitmap refusals PASS',flush=True)
         for mode in (('flush-failure',) if args.flush_only else ('failure','power-cut','flush-failure')):

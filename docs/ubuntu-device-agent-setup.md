@@ -348,6 +348,11 @@ connected; the trial needs no input and returns automatically. Follow the
 [isolation and recovery contract](battery-service.md#isolated-filesystem-image-trial-v38-acceptance-pending)
 and retain both outer-volume preflight checks. Pro desktop v37 is a separate
 profile; do not replace or renumber it when merging these staging changes.
+With the selected partition unmounted, also run
+`sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --battery-image`
+to reject a fragmented, aliased or incompletely initialized outer file before
+reboot. This checks the outer extent; the kernel separately validates the inner
+filesystem identity, marker and allocation graph before enabling its view.
 
 The separate **v36 laptop-probe** `--battery-usb-write` profile adds bounded
 scratch-data writes/flushes during battery sampling. It allocates and validates

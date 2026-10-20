@@ -44,6 +44,8 @@ def select_partition(inventory, volume):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--uuid', required=True)
+    parser.add_argument('--battery-image', action='store_true',
+                        help='also require the exclusive contiguous 16 MiB battery-fs.img extent')
     args = parser.parse_args()
     try:
         volume = volume_id(args.uuid)
@@ -57,7 +59,8 @@ def main():
             if not stat.S_ISBLK(os.fstat(stream.fileno()).st_mode):
                 raise ValueError('Expected a block device')
             Reader(stream, volume)  # Independently verify on-disk UUID and geometry.
-        return subprocess.run([str(driver), str(device), 'allocation-check']).returncode
+        return subprocess.run([str(driver), str(device),
+                               'image-range' if args.battery_image else 'allocation-check']).returncode
     except (ValueError, OSError, subprocess.CalledProcessError) as error:
         print(f'allocation-check: NOT CHECKED: {error}')
         return 2
