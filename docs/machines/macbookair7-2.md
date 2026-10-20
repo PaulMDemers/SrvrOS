@@ -127,15 +127,21 @@ device work uses separate branches based on `main`.
   per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
   This is not controller ownership acceptance. The production build passes and
   its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
-- Hardware-ready checkpoint: source `8dc2408`, v31 release `cc486bf6b6581626`
-  is staged, not installed or armed. Exact GRUB/UEFI Q35 rehearsal saved the
-  expected platform refusal, verified log bytes and clean exFAT, then halted.
-  Missing-workspace refusal also passed on its preceding candidate. Local frozen
-  evidence is `build/native-battery-20261019/native-candidate-cc486bf6b6581626/`.
-- Next checkpoint: run the first bounded AC-connected native battery capture. Retain the installed v26 payload,
-  previous diagnostic and independent interactive backup until installation is
-  explicitly recorded. Collect the matching release/session before any follow-up.
-  A refusal or visible halt is incomplete hardware evidence, not a pass.
+- First native battery trial: v31 `cc486bf6b6581626`, source `8dc2408`,
+  refused platform/resource preflight before runtime initialization. Session
+  `session-00065e3d0d7c3f18-00` was copied and hash-verified after return;
+  exit logs were saved and the USB unmounted before the persistent halt.
+  No battery samples or native EC/SCI acceptance. The screen's `saved=NO`
+  combined diagnostic failure with log saving and did not describe the saved files.
+- Current bounded follow-up: add per-check native preflight refusal evidence
+  and separate capture completion from log-save status. Preserve all admission
+  gates and permissions; use the next exact-stage trial to identify the failed
+  check. Scope: native battery platform, capture reporting and VM assertions.
+  Integration remains `b6075ef`; Pro PR #5 is at `ad8ac0e`, with compositor
+  timing diagnostic scope. Shared startup hunks remain for later reconciliation.
+- Recovery: current is the refused v31 diagnostic; previous `b427b78f21644bd2`
+  remains installed. Accepted v26 and interactive payloads have verified copies
+  outside build. Ubuntu returned with one-shot consumed; no reboot is armed.
 
 ## Accepted scope and open items
 

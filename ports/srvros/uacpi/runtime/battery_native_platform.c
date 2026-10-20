@@ -51,6 +51,26 @@ static void ec_write(void *p,uint8_t v){outb(((struct battery_platform *)p)->ec.
 static uint64_t fingerprint(const uint8_t *p,size_t n) {
     uint64_t h=14695981039346656037ull;for(size_t i=0;i<n;i++)h=(h^p[i])*1099511628211ull;return h;
 }
+/* Print the first refusal before the runtime's generic summary. Values are
+ * bounded register/table metadata, never arbitrary memory contents. */
+static bool refuse(const char *check,uint64_t observed,uint64_t expected) {
+    console_printf("battery-native: REFUSED check=%s observed=%x expected=%x\n",check,observed,expected);
+    return false;
+}
+static bool require_nvs(const char *check,uint64_t address,size_t length) {
+    if(nvs(address,length))return true;
+    console_printf("battery-native: REFUSED check=%s address=%x bytes=%u; no containing ACPI_NVS range\n",
+        check,address,(uint64_t)length);
+    return false;
+}
+static uint32_t pci_identity(unsigned dev,unsigned fn) {
+    for(uint64_t i=0;i<pci_device_count();i++) {
+        const struct pci_device *p=pci_device_at(i);
+        if(p->bus==0&&p->device==dev&&p->function==fn)
+            return (uint32_t)p->device_id<<16|p->vendor_id;
+    }
+    return UINT32_MAX;
+}
 static bool aml_tables_match(void) {
     /* Exact captured SSDT set, including addresses used by its AML. */
     static const uint64_t hashes[]={
@@ -67,46 +87,77 @@ static bool aml_tables_match(void) {
     for(uint64_t i=0;i<acpi_table_count();i++) {
         const struct acpi_table_info *t=acpi_table_at(i);
         if(!bytes(t->signature,"SSDT",4))continue;
-        if(t->length<36||t->length>65536)return false;
+        if(t->length<36||t->length>65536)return refuse("ssdt-length",t->length,65536);
         uint64_t h=fingerprint(pmm_phys_to_virt(t->physical_address),t->length);
         unsigned j=0;while(j<8&&hashes[j]!=h)j++;
-        if(j==8||(seen&(1u<<j)))return false;seen|=1u<<j;
+        if(j==8)return refuse("ssdt-fingerprint",h,0);
+        if(seen&(1u<<j))return refuse("ssdt-duplicate",j,seen);
+        seen|=1u<<j;
     }
-    return seen==255;
+    return seen==255?true:refuse("ssdt-set",seen,255);
 }
 bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_memmap_response *m) {
     const struct pci_device *gpu=device(2,0,0x1626),*lpc=device(31,0,0x9cc3);
-    if(!p||!rsdp||!gpu||!lpc||!device(3,0,0x160c)||!device(31,3,0x9ca2))return false;
+    if(!p||!rsdp)return refuse("arguments",(p?1u:0u)|(rsdp?2u:0u),3);
+    if(!gpu)return refuse("pci-gpu",pci_identity(2,0),0x16268086);
+    if(!lpc)return refuse("pci-lpc",pci_identity(31,0),0x9cc38086);
+    if(!device(3,0,0x160c))return refuse("pci-hdau",pci_identity(3,0),0x160c8086);
+    if(!device(31,3,0x9ca2))return refuse("pci-smbus",pci_identity(31,3),0x9ca28086);
     size_t dn,en,fn;const uint8_t *d=table("DSDT",&dn),*e=table("ECDT",&en),*f=table("FACP",&fn);
-    if(!laptop_firmware_match(d,dn)||!aml_tables_match()||
-       acpi_ec_resources_parse(&p->ec,e,en,f,fn)||acpi_event_resources_parse(&p->events.resources,f,fn))return false;
+    if(!laptop_firmware_match(d,dn))return refuse("dsdt",d&&dn==35034?fingerprint(d,dn):0,0xe0f810cb41f75c0bull);
+    if(!aml_tables_match())return false; /* Helper already printed the failed table check. */
+    enum acpi_ec_resource_result result=acpi_ec_resources_parse(&p->ec,e,en,f,fn);
+    if(result)return refuse("ec-resources",result,ACPI_EC_RESOURCES_OK);
+    result=acpi_event_resources_parse(&p->events.resources,f,fn);
+    if(result)return refuse("event-resources",result,ACPI_EC_RESOURCES_OK);
     struct laptop_resources exact;
-    if(!laptop_resources_parse(&exact,e,en,f,fn)||p->ec.sci!=9||p->events.resources.gpe[1].bytes||
-       p->events.resources.pm1_status!=0x1800||p->events.resources.pm1_enable!=0x1802||
-       p->events.resources.pm2_control!=0x1850||p->events.resources.timer!=0x1808)return false;
+    if(!laptop_resources_parse(&exact,e,en,f,fn))return refuse("air-resources",0,1);
+    if(p->ec.sci!=9)return refuse("sci",p->ec.sci,9);
+    if(p->events.resources.gpe[1].bytes)return refuse("gpe1-bytes",p->events.resources.gpe[1].bytes,0);
+    if(p->events.resources.pm1_status!=0x1800)return refuse("pm1-status-port",p->events.resources.pm1_status,0x1800);
+    if(p->events.resources.pm1_enable!=0x1802)return refuse("pm1-enable-port",p->events.resources.pm1_enable,0x1802);
+    if(p->events.resources.pm2_control!=0x1850)return refuse("pm2-port",p->events.resources.pm2_control,0x1850);
+    if(p->events.resources.timer!=0x1808)return refuse("timer-port",p->events.resources.timer,0x1808);
     map=m;
-    if(!nvs(GNVS,0x282)||!nvs(PNVS,53))return false;
+    if(!require_nvs("gnvs",GNVS,0x282)||!require_nvs("pnvs",PNVS,53))return false;
     igdm=*(const uint32_t *)pmm_phys_to_virt(GNVS+0x130);
-    if(!igdm||(igdm&3)||igdm!=pci_read_config32(gpu,0xfc)||!nvs(igdm,8192))return false;
+    if(!igdm||(igdm&3))return refuse("igdm-address",igdm,0);
+    uint32_t asls=pci_read_config32(gpu,0xfc);
+    if(igdm!=asls)return refuse("igdm-asls",igdm,asls);
+    if(!require_nvs("igdm-nvs",igdm,8192))return false;
     const uint8_t *ig=pmm_phys_to_virt(igdm);
-    if(!bytes(ig,"IntelGraphicsMem",16)||*(const uint32_t *)(ig+16)!=8||
-       *(const uint32_t *)(ig+20)!=0x02000000||!(*(const uint32_t *)(ig+88)&1))return false;
+    if(!bytes(ig,"IntelGraphicsMem",16))return refuse("igdm-signature",0,1);
+    if(*(const uint32_t *)(ig+16)!=8)return refuse("igdm-size",*(const uint32_t *)(ig+16),8);
+    if(*(const uint32_t *)(ig+20)!=0x02000000)return refuse("igdm-version",*(const uint32_t *)(ig+20),0x02000000);
+    if(!(*(const uint32_t *)(ig+88)&1))return refuse("igdm-mailboxes",*(const uint32_t *)(ig+88),1);
     const struct acpi_fadt *fa=(const void *)f;
     p->facs=fa->x_firmware_ctrl?fa->x_firmware_ctrl:fa->firmware_ctrl;
-    if(!nvs(p->facs,64))return false;
+    if(!require_nvs("facs-nvs",p->facs,64))return false;
     const struct acpi_facs *facs=pmm_phys_to_virt(p->facs);
-    if(!bytes(facs->signature,"FACS",4)||facs->length!=64||(facs->global_lock&3))return false;
-    if(pci_read_config32(lpc,0xf0)!=0xfed1c001)return false;
-    if(!vmm_map_page(HPTC_VA,0xfed1f000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return false;
-    if(!(*(volatile uint32_t *)(HPTC_VA+0x404)&0x80))return false;
+    if(!bytes(facs->signature,"FACS",4))return refuse("facs-signature",0,1);
+    if(facs->length!=64)return refuse("facs-length",facs->length,64);
+    if(facs->global_lock&3)return refuse("facs-lock",facs->global_lock,0);
+    uint32_t rcba=pci_read_config32(lpc,0xf0);
+    if(rcba!=0xfed1c001)return refuse("rcba",rcba,0xfed1c001);
+    if(!vmm_map_page(HPTC_VA,0xfed1f000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE))return refuse("hptc-map",0,1);
+    uint32_t hptc=*(volatile uint32_t *)(HPTC_VA+0x404);
+    if(!(hptc&0x80))return refuse("hptc-enable",hptc,0x80);
     p->rsdp=(uintptr_t)rsdp-pmm_hhdm_offset();p->original_control=inw(p->ec.pm1_control);
     p->events.fixed_enable_mask=1u<<5;
     /* No enabled firmware event user may be silently displaced. Initialization
      * owns the disabled domain and deliberately clears pending status. */
-    if(inw(p->events.resources.pm1_enable))return false;
-    for(unsigned i=0;i<p->events.resources.gpe[0].bytes;i++)
-        if(inb(p->events.resources.gpe[0].enable+i))return false;
-    if(inb(p->ec.command)&3)return false; /* No stale output or in-flight command. */
+    uint16_t fixed=inw(p->events.resources.pm1_enable);
+    if(fixed)return refuse("pm1-enabled",fixed,0);
+    for(unsigned i=0;i<p->events.resources.gpe[0].bytes;i++) {
+        uint8_t enabled=inb(p->events.resources.gpe[0].enable+i);
+        if(enabled) {
+            console_printf("battery-native: preflight GPE enable port=%x index=%u\n",
+                (uint64_t)(p->events.resources.gpe[0].enable+i),(uint64_t)i);
+            return refuse("gpe-enabled",enabled,0);
+        }
+    }
+    uint8_t status=inb(p->ec.command);
+    if(status&3)return refuse("ec-busy",status,0); /* No stale output or in-flight command. */
     p->io=(struct ec_io){p,ec_status,ec_read,ec_command,ec_write};platform=p;
     console_printf("battery-native: matched Air7,2 EC=%x/%x SCI=%u GPE=%x IGDM=%x mode=%u; status domain initially disabled\n",
         (uint64_t)p->ec.data,(uint64_t)p->ec.command,(uint64_t)p->ec.sci,(uint64_t)p->ec.gpe,igdm,(uint64_t)(p->original_control&1));

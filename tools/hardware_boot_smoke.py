@@ -202,7 +202,9 @@ def main():
                         text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
                         assert "battery: REFUSED platform/resource ownership preflight" in text
                         assert "battery-capture: returned=yes clean=NO" in text
-                        assert "laptop-capture: saved=NO unmounted=yes" in text
+                        assert "laptop-capture: saved=yes unmounted=yes" in text
+                        assert "laptop-capture: completed=NO" in text
+                        assert "battery-native: REFUSED check=pci-gpu" in text
                         assert "laptop-capture: returning" not in text and "battery: phase=" not in text
                         from desktop_foundation_smoke import QMP
                         ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)

@@ -609,10 +609,10 @@ void kmain(void) {
             thermal_print_status();smc_print_status();audio_print_status();
         }
         bool saved=started && workspace_log_stop();
-        saved=saved && sampled;
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        if(saved && unmounted) {
+        console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
+        if(saved && sampled && unmounted) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);arch_reboot();
         }

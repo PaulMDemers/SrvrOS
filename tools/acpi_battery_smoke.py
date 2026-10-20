@@ -61,6 +61,7 @@ def main():
                     elif args.case == 'native-refusal':
                         assert b'battery: REFUSED platform/resource ownership preflight' in part, bytes(part)
                         assert b'battery: phase=' not in part
+                        assert b'battery-native: REFUSED check=pci-gpu' in part
                     else:
                         reasons = {'denied': b'namespace/EC connection', 'transport': b'namespace/EC connection', 'storm': b'query limit', 'deadline': b'operation deadline', 'query-deadline':b'independent query deadline', 'disconnect-deadline':b'operation deadline'}
                         assert b'battery: HALTED '+reasons[args.case] in part, bytes(part)

@@ -586,7 +586,10 @@ staging changes. `--battery-capture` always selects the native diagnostic ELF,
 not the normal kernel or VM model. It mounts the locally selected prepared
 workspace, starts logging, runs the diagnostic, saves `exit.log`, unmounts and
 returns to Ubuntu only after a clean result. Refusal saves diagnostics and halts;
-unsafe live-runtime failures halt immediately. Existing desktop/recovery payloads
+unsafe live-runtime failures halt immediately. Native preflight prints the first
+failed check and bounded observed/expected metadata before the generic refusal.
+A saved refusal is reported as `saved=yes`, `completed=NO`; log saving is
+independent of diagnostic success, and incomplete runs still halt. Existing desktop/recovery payloads
 are independent. Follow the normal device run-record and exact-stage sequence:
 
 ```sh
@@ -601,7 +604,13 @@ matching release/session. Its `battery_diagnostic` field requires exactly five
 fresh ordered samples, balanced retirement and the clean capture return marker;
 physical accuracy stays `manual-pending`. Missing completion never means pass.
 
-The first physical trial keeps AC connected and changes no lid/power policy.
+The first Air trial (`cc486bf6b6581626`, source `8dc2408`) refused generic
+platform/resource preflight before runtime initialization. Its verified exit log
+and photographed clean USB unmount establish retained failure evidence, not
+battery acceptance. The next candidate adds granular refusal reporting without
+relaxing any hardware admission check.
+
+The initial physical trials keep AC connected and change no lid/power policy.
 Unplug/replug, sustained sampling, input/storage responsiveness and UI integration
 remain later acceptance. No battery widget or background native service is enabled.
 
