@@ -1162,3 +1162,12 @@ clean unmount and the readable opening Help were verified; documentation has
 The next untimed retry saves fresh before/after reports and checks both UI
 transitions with only the Ethernet cable unplugged. Retain Ubuntu default and
 previous `e47dca3a6b30c6c1`; archive capture, payload and run state outside build.
+
+Prompted automation scope: user requests automatic network checks/report saving,
+with untimed unplug/Enter and reconnect/Enter gates. Touch desktop trial launch,
+Terminal's explicit trial mode, bundled script, Help and VM fixtures. Main is
+now `09207b0` (PR8 battery isolation), not yet consumed here; Air PR9 concerns
+filesystem exclusion latency, not these network/terminal changes. Collected
+`1212d33f6ccf6bd4`, session `00065e4e19aee836-00`, normal exit and no attention
+markers: startup down/up notifications now parse; full cable recovery remains
+unaccepted. No new trial starts before the automated flow is validated.
