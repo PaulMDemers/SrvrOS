@@ -1,6 +1,7 @@
 /* Bounded battery/AC diagnostic. Full runtime, linked separately from the
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
+#include "battery_transition.h"
 #include "work_worker.h"
 #include "sci_owner.h"
 #include "ec_query_budget.h"
@@ -36,7 +37,7 @@ static struct {
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
-    bool ac_present;
+    bool ac_present,ac_coherent,transition_mode;
     uint64_t ac_sampled_us;
 } runtime;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
@@ -286,7 +287,7 @@ denied:runtime.denied++;return UACPI_STATUS_DENIED;
 static uacpi_status notify_handler(uacpi_handle ctx,uacpi_namespace_node *node,uacpi_u64 v) {
     (void)ctx;(void)node;
     if(!worker_context())unsafe("Notify outside worker");
-    runtime.notifications++;console_printf("battery: Notify value=%x count=%u\n",v,runtime.notifications);
+    runtime.notifications++;if(!runtime.transition_mode)console_printf("battery: Notify value=%x count=%u\n",v,runtime.notifications);
     return UACPI_STATUS_OK; /* Sampling is periodic; callbacks never nest EC bank IO. */
 }
 static bool contract(void) {
@@ -347,7 +348,7 @@ static void query_work(void *ctx) {
         if(!transfer(false,0,&code,true))unsafe("query transport");
         if(code) {
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
-            console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
+            if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
             if(uacpi_execute_simple(runtime.node,method)||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
         }
         if(!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("query deadline");
@@ -368,7 +369,9 @@ static void query_work(void *ctx) {
 static void sample_work(void *ctx) {
     (void)ctx;runtime.ok=false;
     if(!worker_context()||runtime.lease)unsafe("sample ownership");
+    if(runtime.platform.model_sample_begin)runtime.platform.model_sample_begin(runtime.sampler.sample.generation+1);
     uint8_t state=0;
+    runtime.ac_coherent=true;
     if(!transfer(false,0x60,&state,false))goto done;
     runtime.ac_present=(state&2)!=0;runtime.ac_sampled_us=timer_monotonic_us();
     runtime.lease=true;
@@ -377,6 +380,11 @@ static void sample_work(void *ctx) {
     runtime.lease=false;
     runtime.ok=begun&&result==1&&sbs_sample_fresh(&runtime.sampler,timer_monotonic_us(),1000000)&&
         (runtime.sampler.sample.valid&(SBS_VALID_SOC|SBS_VALID_VOLTAGE|SBS_VALID_CAPACITY))==(SBS_VALID_SOC|SBS_VALID_VOLTAGE|SBS_VALID_CAPACITY);
+    if(runtime.ok&&runtime.transition_mode) {
+        uint8_t after=0;
+        if(!transfer(false,0x60,&after,false))runtime.ok=false;
+        else runtime.ac_coherent=runtime.ac_present==((after&2)!=0);
+    }
 done:runtime.done=true;
 }
 static void disconnect_work(void *ctx) {
@@ -388,7 +396,7 @@ done:runtime.done=true;
 }
 static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
     runtime.done=false;runtime.ok=false;
-    console_printf("battery: phase=%s\n",phase);
+    if(!runtime.transition_mode||fn!=sample_work)console_printf("battery: phase=%s\n",phase);
     if(!acpi_worker_enqueue(&runtime.worker,&runtime.operation,UACPI_WORK_NOTIFICATION,fn,NULL))unsafe("operation admission");
     uint64_t deadline=timer_monotonic_us()+ms*1000;
     while(!acpi_worker_drain(&runtime.worker,50)) {
@@ -399,9 +407,9 @@ static void operation(uacpi_work_handler fn,uint64_t ms,const char *phase) {
     check_foreign_event();
     if(!runtime.done||!runtime.ok||runtime.errors||runtime.denied||runtime.transport.poisoned)unsafe(phase);
 }
-bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+static bool run_battery(void *rsdp,struct limine_memmap_response *map,bool transitions) {
     if(runtime.engaged||!timer_reference_ready())return false;
-    runtime=(typeof(runtime)){0};
+    runtime=(typeof(runtime)){.transition_mode=transitions};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
     struct sci_route route;uint32_t lo,hi;
     if(!sci_route_resolve(&route,runtime.platform.ec.sci,acpi_irq_override(runtime.platform.ec.sci))||
@@ -443,13 +451,29 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     if(uacpi_install_gpe_handler_raw(NULL,runtime.platform.ec.gpe,UACPI_GPE_TRIGGERING_EDGE,gpe_handler,NULL)||
        uacpi_enable_gpe(NULL,runtime.platform.ec.gpe))unsafe("EC GPE install");
     runtime.gpe=true;runtime.ready=true;
-    for(unsigned sample=0;sample<5;sample++) {
+    struct battery_transition trial={.phase_started=timer_monotonic_us()};
+    struct transition_proof {struct sbs_snapshot sample;uint64_t first_generation,first_us,ac_us;} proof[3]={0};
+    bool complete=!transitions;
+    static const char *instructions[]={"Keep AC CONNECTED; collecting baseline", "UNPLUG AC now; leave the USB drive connected", "RECONNECT AC now; leave the USB drive connected"};
+    for(unsigned sample=0;transitions?trial.phase<3&&!trial.failed:sample<5;sample++) {
+        if(transitions) {
+            console_printf("\nBATTERY TEST %u/3: %s\n",(uint64_t)trial.phase+1,instructions[trial.phase]);
+            console_write("Each phase needs 3 stable samples within 120 seconds. Failure stays on screen.\n");console_sync();
+        }
         uint64_t flags=irq_save();if(pending_query())queue_query();irq_restore(flags);
         operation(sample_work,25000,"sample");
         const struct sbs_snapshot *s=&runtime.sampler.sample;
-        console_printf("battery: sample=%u ac_present=%u soc=%u voltage_uv=%u current_ua=%d capacity=%u full=%u unit=%u temp_mc=%d valid=%x age_us=%u ac_us=%u start_us=%u end_us=%u\n",
+        if(!transitions)console_printf("battery: sample=%u ac_present=%u soc=%u voltage_uv=%u current_ua=%d capacity=%u full=%u unit=%u temp_mc=%d valid=%x age_us=%u ac_us=%u start_us=%u end_us=%u\n",
             s->generation,(uint64_t)runtime.ac_present,(uint64_t)s->relative_soc,s->voltage_uv,s->current_ua,
             s->remaining_capacity,s->full_capacity,(uint64_t)s->capacity_unit,(int64_t)s->temperature_mc,(uint64_t)s->valid,timer_monotonic_us()-s->completed_us,runtime.ac_sampled_us,s->started_us,s->completed_us);
+        if(transitions) {
+            unsigned before=trial.phase;
+            int result=battery_transition_step(&trial,s,runtime.ac_present,runtime.ac_coherent,runtime.ac_sampled_us,timer_monotonic_us());
+            console_printf("battery-transition: phase=%u ac=%u coherent=%u relative_soc=%u current_ua=%d stable=%u\n",
+                (uint64_t)before,(uint64_t)runtime.ac_present,(uint64_t)runtime.ac_coherent,(uint64_t)s->relative_soc,s->current_ua,(uint64_t)trial.stable);
+            if(trial.phase!=before)proof[before]=(struct transition_proof){*s,trial.first_generation,trial.first_us,runtime.ac_sampled_us};
+            if(result) {complete=result>0;break;}
+        }
         for(unsigned tick=0;tick<100;tick++) {
             timer_wait_ticks(1);
             check_foreign_event();
@@ -480,16 +504,29 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
         if(h->mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
             (uint64_t)h->enable,(uint64_t)h->original,h->protected_writes);
     }
-    console_printf("battery: PASS samples=5 notifications=%u queries=%u attached=%u detached=%u heap=0 errors=0 denied=0; physical accuracy NOT_TESTED\n",
+    if(transitions) {
+        /* Repeat compact accepted-phase evidence at the end so bounded log tails
+         * retain the whole result even after a long wait for the user. */
+        for(unsigned i=0;i<trial.phase;i++) {
+            const struct transition_proof *p=&proof[i];const struct sbs_snapshot *s=&p->sample;
+            console_printf("battery-transition: accepted=%u stable=3 first_gen=%u last_gen=%u first_us=%u ac_us=%u start_us=%u end_us=%u relative_soc=%u voltage_uv=%u current_ua=%d capacity=%u full=%u design=%u unit=%u valid=%x\n",
+                (uint64_t)i,p->first_generation,s->generation,p->first_us,p->ac_us,s->started_us,s->completed_us,(uint64_t)s->relative_soc,s->voltage_uv,s->current_ua,s->remaining_capacity,s->full_capacity,s->design_capacity,(uint64_t)s->capacity_unit,(uint64_t)s->valid);
+        }
+        console_printf("battery-transition: %s phases=%u samples=%u notifications=%u queries=%u attached=%u detached=%u heap=0 errors=0 denied=0; retired=yes\n",
+            complete?"PASS":"INCOMPLETE",(uint64_t)trial.phase,runtime.sampler.sample.generation,runtime.notifications,runtime.queries,runtime.attached,runtime.detached);
+    } else console_printf("battery: PASS samples=5 notifications=%u queries=%u attached=%u detached=%u heap=0 errors=0 denied=0; physical accuracy NOT_TESTED\n",
         runtime.notifications,runtime.queries,runtime.attached,runtime.detached);
-    runtime.engaged=false;return true;
+    runtime.engaged=false;return complete;
 }
+bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map){return run_battery(rsdp,map,false);}
+bool battery_transition_diagnostic_run(void *rsdp,struct limine_memmap_response *map){return run_battery(rsdp,map,true);}
+
 bool aml_probe_run(void *rsdp,struct limine_memmap_response *map){(void)rsdp;(void)map;console_write("aml-probe: unavailable in battery diagnostic kernel\n");return false;}
 extern volatile struct limine_rsdp_request rsdp_request;
 extern volatile struct limine_memmap_request memmap_request;
+static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
-    static const char command[]="battery";unsigned i=0;
-    while(command[i]&&command[i]==args[i])i++;
-    if(command[i]||args[i]){console_write("battery diagnostic: acpiruntime battery\n");return;}
-    (void)battery_diagnostic_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+    bool transitions=command_is(args,"battery-transitions");
+    if(!transitions&&!command_is(args,"battery")){console_write("battery diagnostic: acpiruntime battery | battery-transitions\n");return;}
+    (void)run_battery(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,transitions);
 }

@@ -191,12 +191,25 @@ capture, with three fresh consistent samples per phase, bounded waits, clean
 retirement even when the user misses a phase, durable phase summaries and strict
 collection. Scope: battery diagnostic/runtime, a pure phase checker, v32 staging,
 VM fixtures, collector and guides. Preserve accepted v31 and ordinary desktop.
-Baseline remains `b6075ef`; Pro PR #5 at `5e92fd0` now uses desktop v31 as well
+Baseline remains `b6075ef`; Pro PR #5 at `522c36a` now uses desktop v31 as well
 as its prior profiles. The recipe prefixes remain distinct; do not rewrite
 installed v31 recipes. Reserve **v32 laptop-probe** for this Air transition test;
 shared main/staging integration still needs reconciliation. No new physical
 acceptance or reboot is implied by source changes. Next checkpoint is host/VM
 validation and an exact-stage rehearsal, then a guided physical round.
+
+The v32 implementation brackets each battery sample with AC reads and requires
+three consecutive coherent observations per phase. Unplugged acceptance requires
+negative battery current; connected phases require nonnegative current. Each
+phase has a 120-second deadline. Timeout retires normally, saves an incomplete
+report and halts; hardware faults retain immediate containment. Final phase
+proofs survive a bounded log tail, and collection requires both exact event
+restorations and balanced teardown. Host phase tests (including ASan/UBSan),
+30 staging tests, 10 collector tests and documentation links pass. Modeled
+transitions and a real missed-unplug timeout followed by successful runtime
+reentry pass. All 16 battery VM scenarios pass, including existing transport,
+query, event-restoration and mode-entry containment. The exact staged rehearsal
+precedes physical testing; none of these results accepts actual AC changes.
 
 ## First completed native battery diagnostic — October 20
 

@@ -201,6 +201,27 @@ class InstallTests(unittest.TestCase):
             staged = boot.stage(battery_capture=True,laptop_probe_volume='37d8c5d0')
         self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
 
+    def test_battery_transitions_preserve_v31_recipe(self):
+        v31='ram-usb-v31-laptop-probe-37d8c5d0';v32='ram-usb-v32-laptop-probe-37d8c5d0'
+        a=self.payload('battery',v31);b=self.payload('battery',v32)
+        for release,version in ((a,v31),(b,v32)):
+            path=self.stage/release/'manifest.json'
+            manifest=json.loads(path.read_text());manifest['config_version']=version
+            path.write_text(json.dumps(manifest))
+        self.assertNotEqual(a,b)
+        self.assertIn('srvros.capture=battery-transitions',boot.limine_config(b,v32))
+        self.assertNotIn('battery-transitions',boot.limine_config(a,v31))
+        boot.verify(self.stage/a);boot.verify(self.stage/b)
+        with self.assertRaises(ValueError):boot.stage(battery_transitions=True)
+        for other in ('battery_capture','idle_capture','aml_capture','desktop_idle_capture'):
+            with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',battery_transitions=True,**{other:True})
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/acpi-battery/vm.elf':b'model','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_transitions=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+
     def test_aml_capture_is_explicit_and_separate(self):
         version="ram-usb-v24-laptop-probe-37d8c5d0"
         release=self.payload("aml",version)

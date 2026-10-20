@@ -4,3 +4,7 @@ __attribute__((weak)) bool battery_diagnostic_run(void *rsdp,struct limine_memma
     (void)rsdp;(void)map;
     console_write("battery: REFUSED separate diagnostic kernel required\n");return false;
 }
+
+__attribute__((weak)) bool battery_transition_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}

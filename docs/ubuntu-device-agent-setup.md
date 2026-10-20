@@ -311,8 +311,25 @@ sources still refuse, with the full event snapshot saved for diagnosis. On failu
 Read the [runtime gate](native-ec-runtime.md#explicit-native-battery-diagnostic),
 retain recovery, record the exact run and collect its matching session first
 on return. The collector reports complete runtime evidence separately from
-physical battery accuracy. Pro11,2 profiles v27–v30 remain reserved on its
+physical battery accuracy. Pro11,2 desktop profiles v27–v31 remain reserved on its
 work branch; do not reuse a profile number or alter an installed recipe.
+
+After the bounded AC-connected diagnostic, the separate **v32 laptop-probe**
+profile adds a guided transition trial:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-transitions
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+Start with AC connected and leave USB plugged in throughout. Follow the persistent
+instructions to unplug AC and then reconnect it. Each phase needs three coherent
+readings within 120 seconds; a missed phase saves an incomplete result and halts.
+Successful retirement, save and unmount return automatically. Collect the exact
+release/session and inspect `battery_transitions`, both event restorations and
+attention items before claiming acceptance. Preserve the accepted v31 diagnostic
+and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
+for sample validity, current signs and the distinction between VM and hardware evidence.
 
 ## 6. Install alongside Ubuntu and select one boot
 

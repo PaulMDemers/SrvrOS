@@ -1,9 +1,9 @@
 # Native EC and battery runtime gate
 
-Updated 2026-10-19. This is the implementation boundary for the next opt-in
-MacBookAir7,2 battery/AC diagnostic. The separate diagnostic now has a native
-binding; live battery readings remain **unaccepted on hardware** and absent
-from the ordinary desktop.
+Updated 2026-10-20. This is the implementation boundary for the opt-in
+MacBookAir7,2 battery/AC diagnostic. One bounded AC-connected lifecycle has
+completed on this unit, as recorded below. AC transitions and a persistent
+provider remain pending; battery readings are absent from the ordinary desktop.
 The existing desktop, isolated AML probe, brightness profile and Q35 adapter
 retain their current hardware permissions. Other Macs need independent evidence.
 
@@ -662,14 +662,14 @@ physical SCI delivery, real firmware handoff or battery accuracy.
 
 ```sh
 tools/host-env.sh make kernel initramfs acpi-battery-kernel acpi-battery-vm-kernel
-tools/host-env.sh make test-battery-native-policy test-battery-event-hold test-acpi-namespace
-for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable native-refusal; do
+tools/host-env.sh make test-battery-native-policy test-battery-event-hold test-battery-transition test-acpi-namespace
+for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal; do
     tools/host-env.sh python3 tools/acpi_battery_smoke.py --case "$scenario"
 done
 ```
 
-The explicit **v31** staging profile is reserved for this diagnostic. Pro11,2's
-unmerged PR5 occupies v27–v30; preserve those recipes when reconciling shared
+The explicit **v31 laptop-probe** staging profile is reserved for this diagnostic. Pro11,2's
+unmerged PR5 occupies v27–v31 desktop profiles; preserve those recipes when reconciling shared
 staging changes. `--battery-capture` always selects the native diagnostic ELF,
 not the normal kernel or VM model. It mounts the locally selected prepared
 workspace, starts logging, runs the diagnostic, saves `exit.log`, unmounts and
@@ -698,11 +698,52 @@ The first Air trial (`cc486bf6b6581626`, source `8dc2408`) refused generic
 platform/resource preflight before runtime initialization. Its verified exit log
 and photographed clean USB unmount establish retained failure evidence, not
 battery acceptance. The granular follow-up above identified the graphics event; the subsequent
-lease has host/VM coverage but native handoff remains pending.
+lease subsequently completed in the bounded AC-connected run documented above.
 
-The initial physical trials keep AC connected and change no lid/power policy.
-Unplug/replug, sustained sampling, input/storage responsiveness and UI integration
-remain later acceptance. No battery widget or background native service is enabled.
+The original v31 trials keep AC connected and change no lid/power policy.
+Sustained sampling, input/storage responsiveness and UI integration remain later
+acceptance. No battery widget or background native service is enabled.
+
+### Guided AC transition capture
+
+The separate **v32 laptop-probe** recipe selects the same native diagnostic
+image with `srvros.capture=battery-transitions`; v31's recipe is unchanged:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-transitions
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+Start connected to AC, keep the prepared USB attached, and follow the repeated
+on-screen instructions: connected baseline, unplug AC, then reconnect AC.
+Each phase requires three consecutive fresh samples within 120 seconds.
+Discharge requires AC absent and negative battery current; connected phases
+require AC present and nonnegative current. AC is read before and after each
+15-word battery sample; disagreement resets the consecutive-sample streak.
+This brackets the sample but cannot prove there was no unobserved transient.
+Gauge output is explicitly relative SOC, with full/design capacities and units;
+it does not replace relative SOC with Linux's absolute percentage.
+
+A phase timeout or invalid sample sequence uses normal retirement, saves an
+incomplete result, unmounts and halts for a photograph. A transport, AML or
+ownership fault retains the existing immediate containment halt. A complete
+three-phase result returns to Ubuntu only after retirement, log saving and
+unmount. Human waits do not extend the firmware access allowlist, query budget,
+operation deadlines or foreign-event policy.
+
+Compact accepted-phase proofs are repeated after retirement so the bounded
+exit-log tail retains them even after a long wait. The collector's
+`battery_transitions` field requires all three ordered proofs, three consecutive
+generations per phase, valid timestamps/units/current signs, both exact native
+event restorations, balanced attachment/retirement and a clean capture marker.
+Incomplete results are attention items. Physical accuracy remains separately
+`manual-pending`; a runtime result is not gauge calibration.
+
+The VM fixture models the successful nine-sample sequence and a real 120-second
+missed-unplug timeout followed by a fresh diagnostic lifetime. Host tests cover
+incoherent AC, wrong current sign, stale/replayed samples and deadline boundaries.
+The exact staged native image must still refuse Q35, save its refusal and halt.
+These checks do not establish physical AC transitions or desktop-service safety.
 
 ### Integration sequence
 

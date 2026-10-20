@@ -146,7 +146,9 @@ def main():
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
-    battery_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v31-"))
+    battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
+    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-")))
+    battery_marker="battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
@@ -201,7 +203,7 @@ def main():
                     if battery_capture:
                         text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
                         assert "battery: REFUSED platform/resource ownership preflight" in text
-                        assert "battery-capture: returned=yes clean=NO" in text
+                        assert battery_marker+": returned=yes clean=NO" in text
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                         assert "laptop-capture: completed=NO" in text
                         assert "battery-native: REFUSED check=pci-gpu" in text
@@ -235,7 +237,7 @@ def main():
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
                     if battery_capture:
                         exit_log=stored.read(folder+"/exit.log")
-                        assert b"battery-capture: returned=yes clean=NO" in exit_log
+                        assert (battery_marker+": returned=yes clean=NO").encode() in exit_log
                         assert b"battery: REFUSED platform/resource ownership preflight" in exit_log
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
@@ -270,7 +272,7 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "battery_capture":battery_capture,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
+                        "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())

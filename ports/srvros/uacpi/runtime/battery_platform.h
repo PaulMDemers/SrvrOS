@@ -19,6 +19,8 @@ struct battery_platform {
     /* Disposable VM may reproduce firmware changing fixed enables on entry.
      * Native leaves this NULL; runtime checks actual registers in both cases. */
     void (*model_mode_entered)(void);
+    /* VM transition fixture only; native never synthesizes AC or current. */
+    void (*model_sample_begin)(uint64_t generation);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

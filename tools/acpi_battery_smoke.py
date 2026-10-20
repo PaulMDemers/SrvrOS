@@ -16,9 +16,10 @@ from serial_records import complete_lines
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'native-refusal'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14}
+    transitions=args.case in ('transitions','transition-timeout')
     root = Path(__file__).resolve().parents[1]
     out = root/'build/review'/('acpi-battery-' + args.case)
     out.mkdir(parents=True, exist_ok=True)
@@ -45,16 +46,35 @@ def main():
                     output.extend(boot.read_for(serial, .2))
                     qmp.boot_if_menu_stalled(output, time.monotonic()-start)
                 assert b'srv> ' in output, bytes(output)
-                for _ in range(2 if args.case in ('normal','foreign-event','mode-button') else 1):
-                    part = bytearray(); serial.sendall(b'acpiruntime battery\n')
+                for iteration in range(2 if args.case in ('normal','foreign-event','mode-button','transition-timeout') else 1):
+                    # After a human timeout the ownership lifetime must be reusable.
+                    reentry=args.case=='transition-timeout' and iteration==1
+                    part = bytearray(); serial.sendall(b'acpiruntime battery-transitions\n' if transitions and not reentry else b'acpiruntime battery\n')
                     start = time.monotonic()
-                    while time.monotonic()-start < 100:
+                    while time.monotonic()-start < (155 if transitions else 100):
                         part.extend(boot.read_for(serial, .1))
                         lines = complete_lines(part)
-                        if b'battery: PASS' in lines or b'battery: HALTED' in lines or b'battery: REFUSED' in lines:
+                        if b'battery-transition: PASS' in lines or b'battery-transition: INCOMPLETE' in lines or b'battery: PASS' in lines or b'battery: HALTED' in lines or b'battery: REFUSED' in lines:
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
-                    if args.case in ('normal','foreign-event','mode-button'):
+                    if reentry:
+                        assert re.search(rb'battery: PASS samples=5 notifications=\d+ queries=\d+ attached=1 detached=1 heap=0 errors=0 denied=0',part),bytes(part)
+                        assert part.count(b'battery: foreign-event restored ')==2,bytes(part)
+                        assert b'battery: HALTED' not in part and b'ERROR foreign' not in part,bytes(part)
+                    elif transitions:
+                        expected=b'PASS phases=3' if args.case=='transitions' else b'INCOMPLETE phases=1'
+                        assert b'battery-transition: '+expected in part,bytes(part)
+                        assert b'heap=0 errors=0 denied=0; retired=yes' in part,bytes(part)
+                        assert part.count(b'battery: foreign-event restored ')==2,bytes(part)
+                        assert b'battery: HALTED' not in part and b'ERROR foreign' not in part,bytes(part)
+                        if args.case=='transitions':
+                            assert b'samples=9 ' in part,bytes(part)
+                            assert part.count(b'battery-transition: accepted=')==3,bytes(part)
+                            assert b'UNPLUG AC now' in part and b'RECONNECT AC now' in part,bytes(part)
+                        else:
+                            assert time.monotonic()-start>=120,bytes(part)
+                            assert b'RECONNECT AC now' not in part,bytes(part)
+                    elif args.case in ('normal','foreign-event','mode-button'):
                         assert b'battery: PASS samples=5 notifications=2 queries=1 attached=1 detached=1 heap=0 errors=0 denied=0' in part, bytes(part)
                         samples = re.findall(rb'battery: sample=(\d+) ac_present=1 soc=86 voltage_uv=12000000 current_ua=-250000 capacity=4300000 full=5000000', part)
                         assert list(map(int,samples)) == [1,2,3,4,5], bytes(part)

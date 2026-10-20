@@ -3306,3 +3306,11 @@ test-battery-event-hold: build/tests/battery-event-hold$(HOST_EXE)
 build/tests/battery-event-hold$(HOST_EXE): tools/test_battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(filter %.c,$^) -o $@
+
+.PHONY: test-battery-transition
+test-core: test-battery-transition
+test-battery-transition: build/tests/battery-transition$(HOST_EXE)
+	$<
+build/tests/battery-transition$(HOST_EXE): tools/test_battery_transition.c ports/srvros/uacpi/runtime/battery_transition.h kernel/include/srvros/sbs_sample.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@

@@ -98,6 +98,50 @@ def battery_diagnostic(exit_text):
             'queries':int(complete[0][1]),'notifications':int(complete[0][0]),'foreign_event':handoffs[0] if len(handoffs)==1 else None,'foreign_events':handoffs}
 
 
+def battery_transitions(exit_text):
+    """Compact end-of-run proof survives a long human wait and bounded log tail."""
+    lines=exit_text.splitlines()
+    finish='battery-transition-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: REFUSED','battery-transition: INCOMPLETE','battery-transition-capture: returned=yes clean=NO')) for row in lines):return None
+    passes=[row for row in lines if row.startswith('battery-transition: PASS')]
+    if len(passes)!=1:return None
+    match=re.fullmatch(r'battery-transition: PASS phases=3 samples=([0-9]{1,20}) notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; retired=yes',passes[0])
+    if not match:return None
+    samples,notifications,queries,attached,detached=map(int,match.groups())
+    if any(value>=2**64 for value in (samples,notifications,queries,attached,detached)):return None
+    if samples<9 or not attached or attached!=detached or not lines.index(passes[0])<lines.index(finish):return None
+    # v32 is the native image, with precisely these two configured leases. The
+    # initial held records can age out; final exact restoration records cannot.
+    restored=[row for row in lines if row.startswith('battery: foreign-event restored')]
+    expected={0x189c:0x40,0x189e:4}
+    if len(restored)!=2:return None
+    for row in restored:
+        m=re.fullmatch(r'battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=([0-9]{1,20})',row)
+        if not m:return None
+        port,original=int(m[1],16),int(m[2],16)
+        if port not in expected or original not in (0,expected.pop(port)) or not int(m[3]) or lines.index(row)>lines.index(passes[0]):return None
+    phases=[]
+    keys={'accepted','stable','first_gen','last_gen','first_us','ac_us','start_us','end_us','relative_soc','voltage_uv','current_ua','capacity','full','design','unit','valid'}
+    for row in (line for line in lines if line.startswith('battery-transition: accepted=')):
+        tokens=row[len('battery-transition: '):].split();values={}
+        for token in tokens:
+            key,sep,value=token.partition('=')
+            if not sep or key in values or not re.fullmatch(r'-?[0-9]{1,20}|0x[0-9a-f]{1,16}',value):return None
+            values[key]=int(value,16 if value.startswith('0x') else 10)
+        if set(values)!=keys or values['accepted']!=len(phases) or values['stable']!=3:return None
+        if any(not 0<=v<2**64 for k,v in values.items() if k!='current_ua') or not -2**63<=values['current_ua']<2**63:return None
+        if not 1<=values['first_gen'] or values['last_gen']!=values['first_gen']+2 or values['last_gen']>samples:return None
+        if not 0<values['first_us']<=values['ac_us']<=values['start_us']<=values['end_us']:return None
+        if values['relative_soc']>100 or values['valid']&15!=15 or values['unit'] not in (1,2) or not values['voltage_uv'] or not values['full']:return None
+        if (values['accepted']==1 and values['current_ua']>=0) or (values['accepted']!=1 and values['current_ua']<0):return None
+        if phases and (values['first_gen']<=phases[-1]['last_gen'] or values['first_us']<=phases[-1]['end_us']):return None
+        if lines.index(row)>lines.index(passes[0]):return None
+        phases.append(values)
+    if len(phases)!=3:return None
+    return {'runtime_complete':True,'transition_complete':True,'physical_accuracy':'manual-pending',
+            'samples':samples,'queries':queries,'notifications':notifications,'phases':phases}
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -171,7 +215,8 @@ def power_idle_sample(exit_text):
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
-    if line.startswith(("battery: HALTED", "battery: REFUSED", "battery-capture: returned=yes clean=NO")):return True
+    if line.startswith(("battery: HALTED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
+                        "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
         return True
     if re.match(r"(?:audio|smc): state=4(?: |$)",line):
@@ -247,6 +292,7 @@ def collect(mount, volume, output):
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),

@@ -47,6 +47,8 @@ class CollectionTests(unittest.TestCase):
             self.assertIsNone(desktop.battery_diagnostic(bad),bad)
         self.assertTrue(desktop.needs_attention('battery: HALTED operation deadline'))
         self.assertTrue(desktop.needs_attention('battery: REFUSED platform/resource ownership preflight'))
+        self.assertTrue(desktop.needs_attention('battery-transition: INCOMPLETE phases=1'))
+        self.assertTrue(desktop.needs_attention('battery-transition-capture: returned=yes clean=NO'))
 
     def test_idle_measurement_requires_complete_exit_record(self):
         record="idle-capture: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5700 switches=12000 preemptions=25 completed=yes"
@@ -117,6 +119,28 @@ class CollectionTests(unittest.TestCase):
                     text+two.replace('energy=1638144','energy=3'),text.replace('mperf=20000000100','mperf=1'),
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
+
+    def test_transition_summary_requires_all_phases_and_retirement(self):
+        rows=[]
+        for phase in range(3):
+            g=phase*3+1;t=g*2000000
+            rows.append(f'battery-transition: accepted={phase} stable=3 first_gen={g} last_gen={g+2} first_us={t} ac_us={t+4000000} start_us={t+4000001} end_us={t+4000100} relative_soc=86 voltage_uv=12000000 current_ua={-250000 if phase==1 else 0} capacity=4300000 full=5000000 design=6000000 unit=1 valid=0x1f')
+        restore=['battery: foreign-event restored enable=0x189c original=0x40 protected_writes=1',
+                 'battery: foreign-event restored enable=0x189e original=0x04 protected_writes=1']
+        tail=['battery-transition: PASS phases=3 samples=9 notifications=10 queries=9 attached=1 detached=1 heap=0 errors=0 denied=0; retired=yes',
+              'battery-transition-capture: returned=yes clean=yes; physical accuracy NOT_TESTED']
+        text='\n'.join(restore+rows+tail)
+        self.assertTrue(desktop.battery_transitions(text)['transition_complete'])
+        for bad in (text.replace(rows[1],''),text.replace(restore[1],''),text.replace(restore[1],restore[0]),
+                    text.replace('stable=3','stable=2'),text.replace('last_gen=6','last_gen=5'),
+                    text.replace('current_ua=-250000','current_ua=0'),text.replace('first_us=8000000','first_us=1'),
+                    text.replace('relative_soc=86','relative_soc=101'),text.replace('valid=0x1f','valid=0x0b'),
+                    text.replace('samples=9','samples=8'),text.replace('clean=yes','clean=NO'),
+                    text.replace('samples=9',f'samples={2**64}'),
+                    text+'\n'+tail[1].replace('clean=yes','clean=NO'),
+                    text.replace('detached=1','detached=0'),text+'\n'+tail[0],text+'\nbattery: HALTED test',
+                    text.replace('PASS phases=3','INCOMPLETE phases=1'),text.replace(tail[1],'')):
+            self.assertIsNone(desktop.battery_transitions(bad),bad)
 
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -56,6 +56,12 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
         if(value==mask)console_printf("battery-vm: foreign restored enable=%x pending=%x\n",(uint64_t)port,(uint64_t)model.foreign_status[i]);
     }
 }
+static void model_sample_begin(uint64_t generation) {
+    bool discharging=model.fault==13&&generation>=4&&generation<=6;
+    model.memory[0x60]=discharging?1:3;
+    model.words[10]=discharging?(uint16_t)-250:generation>6?250:0;
+    model.pending=true;
+}
 static void model_mode_entered(void) {
     uint16_t value=model.fault==11?1u<<8:1u<<9;
     outw(0x602,value);
@@ -68,7 +74,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>12||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>14||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -87,13 +93,14 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     model.words[13]=86;model.words[15]=4300;model.words[16]=5000;model.words[24]=6000;
     model.words[8]=2981;model.words[18]=120;model.words[19]=65535;model.words[22]=0xc0;
     if(uacpi_set_table_installation_handler(install))return false;
-    if(model.fault>=7&&model.fault<=10) {
+    if((model.fault>=7&&model.fault<=10)||model.fault==13||model.fault==14) {
         model.foreign_status[0]=model.foreign_enable[0]=0x40;
         model.foreign_status[1]=model.foreign_enable[1]=4;
         p->foreign_events[0]=(struct battery_event_hold){.status=0x627,.enable=0x62f,.mask=0x40,.original=0x40};
         p->foreign_events[1]=(struct battery_event_hold){.status=0x626,.enable=0x62e,.mask=4,.original=4};
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
+    if(model.fault==13||model.fault==14)p->model_sample_begin=model_sample_begin;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;
 }
 void *battery_platform_map(uint64_t a,size_t n){
