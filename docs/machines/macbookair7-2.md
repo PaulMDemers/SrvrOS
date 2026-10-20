@@ -23,13 +23,12 @@ device work uses separate branches based on `main`.
 - Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: audit/validate the complete FADT event IO
-  layout and restrict runtime accesses by register width, direction and allowed
-  enable bits. Scope: resource decoder, shared event IO policy, Q35 binding and
-  host/VM regressions; native mappings remain gated. Base `8b9aa31`, draft PR #4.
-  Pro11,2 PR #5 owns USB enumeration/storage discovery; no overlap is planned.
-  Latest prior CI split pass/fail in the older POSIX pipe restart probe; preserve
-  failure evidence and investigate without weakening the predicate.
+- Current bounded implementation: resolve the older POSIX pipe-restart CI
+  race before extending native mappings. Scope: posixdemo sender/reader test
+  protocol, focused VM repeat coverage and CI. The helper currently can consume
+  its own process-wide signal during sched_yield; isolate it with its signal
+  mask without weakening read/handler/join assertions. Base `00869bd`, PR #4.
+  Native ACPI work remains this branch's scope; Pro11,2 PR #5 owns USB/storage.
 - SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
   route, registers its callback, enables delivery, and retires/restores the
   route with bounded rollback. Host fault tests and ASan/UBSan pass, including
