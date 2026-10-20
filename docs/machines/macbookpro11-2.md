@@ -583,7 +583,8 @@ The input-ready path ran successfully, but active cadence remains close to
 10 ms (previous mean 9,999 us). These differing manual workloads do not establish
 a statistically significant improvement. Drawing remains below 1 ms on average;
 USB arrival, kernel queue residence and scanout remain outside these intervals.
-Subjective response comparison is pending; do not mark the reported delay fixed.
+The user reports that response felt **worse**. This candidate fails perceived
+responsiveness acceptance; clean logs do not override that regression.
 Next diagnostic scope is controller delivery and queue residence, if the delay
 remains, before choosing another scheduling or transport change.
 
@@ -594,3 +595,12 @@ No reboot is armed. Current is the pointer-wake candidate; sound-confirmed
 `origin/main` is still `b6075ef`; Air PR6 at `0038ff4` owns the native battery
 work and does not alter this input implementation. This return changes only
 this machine's evidence record, not shared driver behavior.
+
+
+Following that report, the installed current SrvrOS entry was restored to the
+sound-confirmed `e47dca3a6b30c6c1`. The regressed pointer-wake release is retained
+as previous for diagnosis only, with logs and payload independently archived.
+Ubuntu remains the default; no reboot was requested or armed. Source retains
+the published experimental implementation for review; it is not accepted as a
+latency fix. Next work should measure USB delivery and queue residence and
+isolate scheduling effects before another physical candidate.
