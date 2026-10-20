@@ -154,6 +154,13 @@ back to its backup header. Rehearse the actual layout with
 unattended probe (omit the option for the default MBR fixture). A VM pass is not
 physical USB persistence acceptance.
 
+If SrvrOS mounts the volume but refuses writes, inspect the full output of an
+offline `fsck.exfat -n` check after unmounting it in Ubuntu. A zero exit status
+and a final clean summary can coexist with an invalid bitmap-size diagnostic.
+Back up files and affected filesystem metadata before repairing; verify the
+checker output and existing file hashes afterward. Do not relax the kernel's
+write refusal to bypass a filesystem inconsistency.
+
 Identify the intended **partition**, its USB ancestry, and UUID. Set the UUID
 from that output in the current shell (replace the example text):
 

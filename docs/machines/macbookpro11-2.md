@@ -133,3 +133,23 @@ commands or optional AML. It must establish keyboard enumeration and saved GPT
 workspace diagnostics before input acceptance. Actual typing and trackpad
 behavior remain unaccepted. Retain the original console as previous and Ubuntu
 as recovery; collect the matching session after return before another stage.
+
+## Native EP0/GPT result and workspace repair
+
+The next photograph of `fe8e4d3e22ba97eb` shows the built-in `05ac:0262`
+configured with one keyboard registered, and `/work` mounted from `usb0p1`.
+This establishes enumeration and GPT discovery on this unit, not actual typing.
+The capture still halted without logs: exFAT correctly refused writable access.
+
+Offline inspection found a clean flags field and a single FAT, but the allocation
+bitmap entry declared 59,149 bytes for 473,184 clusters (59,148 required).
+`fsck.exfat -n` reported the invalid size despite returning zero and printing a
+clean summary. After archiving all files and the boot/FAT/root/bitmap metadata,
+`fsck.exfat -p` corrected it. A byte comparison shows only root-directory offset
+24 changed; the boot regions, FAT and bitmap contents are identical. A repeat
+read-only check reports no errors, and all existing file hashes match.
+
+Retry the same exact tested release with this corrected workspace. Save a new
+run record rather than overwriting the failed trial. Ubuntu and the previous
+console payload remain recovery; collect logs before further staging. Keyboard
+reports/typing, trackpad and successful native log persistence remain pending.
