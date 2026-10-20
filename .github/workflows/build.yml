@@ -38,7 +38,7 @@ jobs:
           set -o pipefail
           make -j2 acpi-runtime-vm-kernel 2>&1 | tee build/review/acpi-runtime-build.log
           python3 tools/acpi_runtime_smoke.py 2>&1 | tee build/review/acpi-runtime.log
-          for fault in none block release-denied; do
+          for fault in none block release-denied handoff deadline; do
             python3 tools/acpi_global_lock_smoke.py --fault "$fault" 2>&1 | tee "build/review/acpi-global-lock-$fault.log"
           done
           python3 tools/acpi_ec_smoke.py --early-load 2>&1 | tee build/review/acpi-ec-early.log

@@ -41,7 +41,7 @@ static struct {
     bool loading, load_done, load_deny;
     bool fault_init_io;
     unsigned global_mode;
-    bool global_active;
+    bool global_active, global_waiting, global_event;
     uacpi_status load_result;
 } runtime;
 
@@ -140,10 +140,12 @@ uacpi_status uacpi_kernel_wait_for_semaphore(uacpi_handle handle, uacpi_u16 time
     uint64_t flags = irq_save();
     if (timeout && !((struct kernel_semaphore *)handle)->units) runtime.contended_waits++;
     irq_restore(flags);
-    if (runtime.global_active && runtime.global_mode == 2 && timeout == 0xffff &&
+    if (runtime.global_active && (runtime.global_mode == 2 || runtime.global_mode == 4 || runtime.global_mode == 5) && timeout == 0xffff &&
         scheduler_current_thread_id() == runtime.worker.identity &&
-        !((struct kernel_semaphore *)handle)->units)
+        !((struct kernel_semaphore *)handle)->units) {
+        runtime.global_waiting=true;
         console_write("acpi-global-lock: firmware-wait\n");
+    }
     enum semaphore_result result = semaphore_wait(handle, timeout == 0xffff ? SEMAPHORE_WAIT_FOREVER : timeout);
     return result == SEMAPHORE_OK ? UACPI_STATUS_OK : result == SEMAPHORE_TIMEOUT ?
         UACPI_STATUS_TIMEOUT : UACPI_STATUS_INTERNAL_ERROR;
@@ -246,12 +248,15 @@ void uacpi_kernel_io_unmap(uacpi_handle handle) { uacpi_kernel_free(handle); }
 uacpi_status uacpi_kernel_io_read##bits(uacpi_handle handle, uacpi_size offset, uacpi_u##bits *value) { \
     struct io_region *r = handle; if (!runtime.engaged || !r || !contains(0,r->size,offset,sizeof(*value)) || \
         !acpi_event_io_read(&runtime.event_io,r->base+offset,bits)) { runtime.denied++; return UACPI_STATUS_DENIED; } \
-    *value = input(r->base+offset); return UACPI_STATUS_OK; } \
+    *value = input(r->base+offset); \
+    if(bits==16 && r->base+offset==runtime.event_io.resources.pm1_status && runtime.global_event) *value|=1u<<5; \
+    return UACPI_STATUS_OK; } \
 uacpi_status uacpi_kernel_io_write##bits(uacpi_handle handle, uacpi_size offset, uacpi_u##bits value) { \
     struct io_region *r = handle; if (!runtime.engaged || !r || !contains(0,r->size,offset,sizeof(value)) || \
         !acpi_event_io_write(&runtime.event_io,r->base+offset,bits,value)) { runtime.denied++; return UACPI_STATUS_DENIED; } \
     if (runtime.fault_init_io && r->base+offset==runtime.event_io.resources.pm1_enable) { \
         runtime.fault_init_io=false; runtime.denied++; return UACPI_STATUS_DENIED; } \
+    if(bits==16 && r->base+offset==runtime.event_io.resources.pm1_status && (value & (1u<<5))) runtime.global_event=false; \
     output(r->base+offset,value); return UACPI_STATUS_OK; }
 IO_ACCESS(8,inb,outb) IO_ACCESS(16,inw,outw) IO_ACCESS(32,inl,outl)
 uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address address, uacpi_handle *out) {
@@ -471,7 +476,7 @@ static void global_work(void *context) {
     uint64_t denied=runtime.denied, errors=runtime.errors;
     uacpi_status acquired=uacpi_acquire_global_lock(100,&seq);
     uint32_t held=*global_word();
-    if (acquired || (held & 3) != 2 || !seq || runtime.global_mode==2)
+    if (acquired || (held & 3) != 2 || !seq || (runtime.global_mode==2 || runtime.global_mode==5))
         unsafe("Global Lock acquisition failed");
     if (runtime.global_mode==3) *global_word()=held|1; /* Firmware requests handoff. */
     uacpi_status released=uacpi_release_global_lock(seq);
@@ -495,13 +500,41 @@ static void queue_global(unsigned mode) {
         ok=bytes_equal(facs->signature,"FACS",4) && facs->length>=64 && !(*global_word()&3);
     }
     if (ok) {
-        runtime.global_mode=mode;runtime.global_active=true;
-        if(mode==2) *global_word()|=2; /* Firmware owns lock and never releases. */
+        runtime.global_mode=mode;runtime.global_active=true;runtime.global_waiting=false;
+        if(mode==2 || mode==4 || mode==5) *global_word()|=2; /* Start with firmware ownership; only mode 4 releases it. */
         ok=acpi_worker_enqueue(&runtime.worker,&runtime.global_item,UACPI_WORK_NOTIFICATION,global_work,NULL);
         if(!ok) unsafe("Global Lock fixture queue failed");
     }
     console_printf("acpi-global-lock: %s mode=%u\n",ok?"queued":"REFUSED",(uint64_t)mode);
     irq_restore(flags);
+    if(ok && (mode==4 || mode==5)) {
+        uint64_t end=timer_monotonic_us()+1000000;
+        if(mode==4) {
+            while(!runtime.global_waiting && timer_monotonic_us()<end) scheduler_yield();
+            flags=irq_save();
+            if(!runtime.global_waiting || (*global_word()&3)!=3) unsafe("Global Lock handoff did not wait");
+            /* Model firmware releasing FACS and asserting fixed-event status.
+             * Run the real installed handler; this is not a physical SCI test. */
+            *global_word() &= ~3u;
+            runtime.global_event=true;
+            bool handled=irq_bridge(NULL);
+            bool cleared=!runtime.global_event;
+            console_printf("acpi-global-lock: modeled-handoff handled=%u cleared=%u\n",(uint64_t)handled,(uint64_t)cleared);
+            irq_restore(flags);
+            if(!handled || !cleared) unsafe("Global Lock handoff failed");
+        }
+        if(!acpi_worker_drain(&runtime.worker,1000)) {
+            runtime.stopping=true;
+            outw(runtime.event_io.resources.pm1_enable,0);
+            for(unsigned bank=0;bank<2;bank++)
+                for(unsigned byte=0;byte<runtime.event_io.resources.gpe[bank].bytes;byte++)
+                    outb(runtime.event_io.resources.gpe[bank].enable+byte,0);
+            if(!sci_owner_mask(&runtime.sci)) unsafe("Global Lock deadline mask failed");
+            console_printf("acpi-global-lock: deadline lock=%u sci_phase=%u token=%u active=%u\n",
+                (uint64_t)*global_word(),(uint64_t)runtime.sci.phase,runtime.sci.token,(uint64_t)runtime.global_active);
+            unsafe("Global Lock operation deadline; state retained");
+        }
+    }
 }
 static void wedged_work(void *context) {
     (void)context;
@@ -526,8 +559,10 @@ void acpi_runtime_test_command(const char *args) {
             ok ? "yes" : "NO", runtime.heap, runtime.errors, runtime.denied, (uint64_t)pending);
     } else if (args[0] == 'e' && args[1] == 'c' && args[2] == ' ' && runtime.initialized) {
         acpi_ec_fixture_command(args + 3);
-    } else if (equal(args,"global-lock") || equal(args,"global-lock-block") || equal(args,"global-lock-release-denied")) {
-        queue_global(equal(args,"global-lock-block") ? 2 : equal(args,"global-lock-release-denied") ? 3 : 1);
+    } else if (equal(args,"global-lock") || equal(args,"global-lock-block") || equal(args,"global-lock-release-denied") ||
+               equal(args,"global-lock-handoff") || equal(args,"global-lock-deadline")) {
+        queue_global(equal(args,"global-lock-block") ? 2 : equal(args,"global-lock-release-denied") ? 3 :
+                     equal(args,"global-lock-handoff") ? 4 : equal(args,"global-lock-deadline") ? 5 : 1);
     } else if (equal(args, "wedge") && runtime.initialized) {
         semaphore_init(&runtime.wedge_gate, 0);
         uacpi_kernel_schedule_work(UACPI_WORK_NOTIFICATION, &runtime.wedge_item, wedged_work, NULL);

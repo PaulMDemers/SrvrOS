@@ -236,6 +236,42 @@ for the native case. A bounded ownership/watchdog path, exact release-bit
 semantics and contended firmware handoff tests remain required. The offline
 reduced-hardware build does not exercise this handshake.
 
+### Follow-up chipset evidence and successful offline initialization
+
+A read-only Ubuntu capture on this Air supplied the previously missing 256-byte
+PCI configuration snapshots for `8086:9cc3` at `0:0:1f.0` and `8086:160c` at
+`0:0:3.0`. LPC RCBA was `0xfed1c001`, matching the captured AML base. A single
+32-bit read at `0xfed1f404` returned `0x80`. The
+[pinned Linux HPET quirk](https://raw.githubusercontent.com/torvalds/linux/v6.12/arch/x86/kernel/quirks.c)
+corroborates RCBA offset `0x3404`, DWORD access and HPET enable bit 7. The
+capture did not write configuration or MMIO registers. All nine live DSDT/SSDT
+hashes matched the prior capture; older NVS snapshots and newer register samples
+remain observations from different times, not an atomic live boot state.
+
+The new offline option describes an exact read inside a larger AML region:
+
+```sh
+build/tools/acpi-namespace --mmio-read32 BASE:REGION_SIZE:ADDRESS:FILE ...
+```
+
+The file must contain exactly four bytes. Region size is bounded to 64 KiB;
+addresses, alignment, overflow and overlapping regions are checked. The model
+provides a private backing allocation for the declared region, but its MMIO
+callback admits only a 32-bit read at ADDRESS. Adjacent/narrow/wide accesses and
+all writes fail; padding is not captured hardware data. This is an offline
+model, not a native page mapping or a general access-control boundary for table
+loading. The native adapter must independently enforce its live mappings.
+
+With this exact HPET model and both PCI snapshots, complete offline namespace
+initialization plus `OSDW` and the EC contract now pass: zero errors, warnings,
+denials and remaining interpreter allocations. The trace contains 104 memory
+reads, eight OSYS byte writes, 11 PCI reads and two GPIO read/write pairs.
+Additional PCI reads are vendor-ID bytes 0/1 on `0:0:3.0` and LPC bytes
+`0x60..0x63` / `0x68..0x6b`. There are no PCI writes on this observed path.
+All snapshot/model input files remain unchanged. This replaces the earlier
+missing-model refusal for this replay only; connected EC `_REG`, firmware lock
+arbitration, queries and native teardown remain outside its acceptance.
+
 ## SCI route ownership implementation
 
 `runtime/sci_owner` separates the route/callback lifetime from the Q35 adapter.
@@ -378,6 +414,35 @@ CI retains all three cases plus the existing SCI and EC regressions. Normal
 startup/native adapters are unchanged. Successful contended firmware handoff,
 exact native PM1 release permission, validated FACS/NVS mappings and an
 independent operation deadline remain prerequisites for a native battery trial.
+
+### Modeled firmware handoff and operation deadline
+
+Two additional Q35 cases extend the lock fixture:
+
+- `global-lock-handoff` starts with firmware owning FACS. After the worker sets
+  Pending and reaches its firmware-release wait, the owner models firmware
+  clearing the lock and asserting fixed-event status bit 5. It invokes the
+  installed uACPI SCI handler with interrupts disabled. The handler acknowledges
+  the modeled W1C bit and signals the real lock semaphore; the worker acquires
+  and releases successfully. Two runtime lifetimes finish with zero
+  errors/denials/heap. This exercises handler dispatch and wakeup through a
+  modeled status bit; no physical SCI edge or native firmware is claimed.
+- `global-lock-deadline` keeps firmware ownership asserted. The lifecycle owner
+  independently waits at most one second for worker completion, then disables
+  fixture event sources, masks SCI and halts with Owned/Pending, callback token,
+  active worker and heap retained. No `stop` command is sent. Interrupts are
+  verified disabled, with no fabricated unlock or successful teardown.
+
+The handoff owner bounds waiting for the worker's wait state to one second and
+then bounds completion to another second. These deadlines run outside the
+blocked worker; they do not depend on AML returning. They are explicit fixture
+operation lifetimes, not a general background watchdog. The successful case
+covers firmware-to-OS handoff; OS-to-firmware `GBL_RLS` notification remains
+intentionally denied and tested as a failure. Native implementation still needs
+its own source ownership, register policy and operation owner.
+
+Run the same VM harness with `--fault handoff` and `--fault deadline`.
+CI runs all five lock cases sequentially alongside the SCI/EC regressions.
 
 ### Integration sequence
 
