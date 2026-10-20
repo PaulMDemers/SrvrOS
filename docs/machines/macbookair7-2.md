@@ -29,6 +29,10 @@ device work uses separate branches based on `main`.
   its own process-wide signal during sched_yield; isolate it with its signal
   mask without weakening read/handler/join assertions. Base `00869bd`, PR #4.
   Native ACPI work remains this branch's scope; Pro11,2 PR #5 owns USB/storage.
+- Parallel-independent edit scope in this same work block (no concurrent
+  harness/build): extend the offline namespace probe's private memory/PCI access
+  trace and bounded audit tests, then replay captured initialization. No live
+  mappings or hardware permission changes. Raw access traces stay local.
 - SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
   route, registers its callback, enables delivery, and retires/restores the
   route with bounded rollback. Host fault tests and ASan/UBSan pass, including
