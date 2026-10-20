@@ -66,6 +66,19 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Native read-only USB overlap capture — October 20
+
+Scope: add a distinct v34 automatic battery-service capture that checkpoints and
+unmounts the validated workspace, then repeatedly reads the same USB device with
+writes revoked while sampling. Compare read bytes with a pre-runtime baseline;
+require sample generation progress inside actual scheduler I/O scopes. Save after
+clean retirement/remount; contained faults reset without filesystem reentry.
+Touches the diagnostic, workspace parked-device identity, staging/collector and
+VM fixtures. Base b6075ef and Pro PR #5 at 8fc3e1c remain unchanged. No desktop
+enablement or new firmware permissions. Native write/flush overlap and human input
+acceptance remain separate gates. No human action is required by this trial.
+
+
 ### Battery scheduling repair — October 20
 
 Scope: audit and grant explicit I/O-service eligibility only to the separate
