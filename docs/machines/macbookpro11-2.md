@@ -465,3 +465,29 @@ first consumed pointer event to final framebuffer write. No event ABI, timer,
 scheduler or xHCI behavior changes. Report measurements once at exit, not per
 frame. They exclude device/USB arrival delay and scanout, and are not end-to-end
 latency. Preserve the accepted sound build while measuring the scaled desktop.
+
+The diagnostic records four software intervals in the existing hardware-trial
+mode: each pointer-poll gap; gaps between consecutive polls that both consume
+motion; first consumed pointer event through final successful framebuffer blit;
+and drawing plus blit duration. Histogram percentiles are upper bucket bounds,
+not exact percentiles. A coalesced input batch produces one presentation sample.
+Idle poll gaps are separate from consecutive-motion gaps. Failed draws and
+unavailable/backward clocks produce no duration sample. USB/device delay,
+time already spent in the kernel input queue, and panel scanout are excluded.
+No scheduler, xHCI or event ABI was changed; normal desktop mode has no added
+clock reads. The standalone host test covers batching, gaps, failures and clocks.
+
+Timing candidate `cae101ddceccbd1d`, source `74073ee`, passes build, standalone
+host timing tests and exact v31 GPT desktop/audio rehearsal. A local wrapper
+injects twelve VM pointer movements and verifies the saved timing records;
+consume-to-final-blit has twelve samples. The sparse injected movements do not
+exercise consecutive-motion sampling (zero samples, not a pass for that metric).
+The host test covers its accounting; continuous physical movement is required.
+The VM also saves document/screenshot/logs, cleanly unmounts and verifies a tone.
+VM timing values are emulator observations and must not be used as laptop latency.
+
+Next native run: move continuously over desktop and Text, then drag a window,
+about 15 seconds each. Save and Return to console, then reboot after clean
+unmount; all instructions remain in Help. Preserve sound-confirmed
+`e47dca3a6b30c6c1` as previous. Collect the exact session and compare active
+cadence versus draw/consume durations before selecting any latency fix.
