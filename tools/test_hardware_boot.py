@@ -158,6 +158,14 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
         with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
 
+    def test_network_sensor_desktop_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-v37-desktop-0e535900')
+        for flag in ('resolution: 2880x1800','srvros.desktop-scale=2','srvros.usb-network=ecm','srvros.smc=read-only','srvros.audio=hda'):
+            self.assertIn(flag,cfg)
+        self.assertNotIn('srvros.aml',cfg)
+        self.assertNotIn('srvros.usb-network',boot.limine_config('0123456789abcdef','ram-usb-v36-desktop-0e535900'))
+        with self.assertRaises(ValueError): boot.stage(desktop_network=True)
+
     def test_scaled_desktop_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v29-desktop-37d8c5d0")
         self.assertIn("srvros.desktop-scale=2",cfg)

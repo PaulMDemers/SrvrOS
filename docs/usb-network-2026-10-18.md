@@ -95,3 +95,23 @@ Physical chipset support still requires captured descriptors and native tests.
 The Pro sensor desktop's existing immutable recipe does not enable ECM; prepare
 an explicit network-enabled candidate and exact-stage VM check when hardware is
 available, preserving its accepted desktop recovery.
+
+## Captured 0b95:1790 revision 0200 candidate
+
+The Pro unit's adapter advertises vendor-specific, NCM and ECM configurations.
+Linux selected NCM with a 1000 Mb/s link; SrvrOS targets ECM configuration 3.
+Its SuperSpeed notification companion reports zero bytes per interval despite
+a 16-byte interrupt endpoint. A private parser copy normalizes that field only
+for the exact captured 98-byte configuration, VID/PID/revision and 5 Gb/s USB
+speed. Generic strict parsing remains unchanged. No vendor registers, firmware
+updates or NCM framing are involved. Altered/sibling descriptors remain refused
+unless they independently satisfy the generic ECM contract. Physical operation
+is pending, and the product name alone must not select this compatibility path.
+
+`hardware_boot.py stage --desktop-volume UUID --desktop-scale 2
+--desktop-brightness --desktop-audio --desktop-sensors --desktop-network` creates
+the separate immutable v37 desktop. Rehearse with `hardware_boot_smoke.py
+--desktop-check --audio-check --workspace-table gpt`: the exact payload uses
+emulated USB ECM, obtains DHCP and saves a successful ping report, alongside
+scaled Text/screenshot persistence and clean unmount. On hardware, the opening
+Help includes DHCP, System/Network Utility and manual-return instructions.

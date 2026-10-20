@@ -144,7 +144,7 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-"))):
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
@@ -162,7 +162,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-")))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -188,6 +188,9 @@ def main():
                    "-monitor", "none", "-display", "none", "-no-reboot"]
         if scaled_desktop:
             command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
+        network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
+        if network_desktop:
+            command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
@@ -383,9 +386,16 @@ def main():
                         assert "physical=2880x1800 logical=1440x900 scale=2" in text
                         time.sleep(1)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
-                        if manifest["config_version"].startswith("ram-usb-v36-"):
+                        if manifest["config_version"].startswith(("ram-usb-v36-","ram-usb-v37-")):
                             shortcut("meta_l-spc");type_text("System new app");ui.key("ret")
                             wait_for(serial,lambda s:"desktools: system-ready" in s,process,30)
+                        if network_desktop:
+                            shortcut("meta_l-spc");type_text("Terminal new app");ui.key("ret")
+                            wait_for(serial,lambda s:"deskterm: starting" in s,process,30)
+                            time.sleep(2);type_text("dhcp");ui.key("ret")
+                            wait_for(serial,lambda s:"net: dhcp ipv4=10.0.2.15" in s,process,30)
+                            type_text("ping 10.0.2.2 > /work/srvros-work/network-ping.txt");ui.key("ret")
+                            time.sleep(5)
                         shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                         wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
                         time.sleep(1);type_text("Pro scaled desktop USB test.");shortcut("ctrl-s")
@@ -400,6 +410,7 @@ def main():
                             stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
                         check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
                         assert stored.read("srvros-work/Untitled.txt")==b"Pro scaled desktop USB test."
+                        if network_desktop: assert b"sent=4 received=4 lost=0" in stored.read("srvros-work/network-ping.txt")
                         bitmap=stored.read(shot.removeprefix("/work/"))
                         assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==(1440,900)
                         folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
@@ -421,7 +432,7 @@ def main():
                             from audio_smoke import analyze_tones
                             tone_result=analyze_tones(logs/"hardware-grub-tone.wav",1)
                         (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
-                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"audio":args.audio_check,"tone":tone_result,
+                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"usb_network":network_desktop,"audio":args.audio_check,"tone":tone_result,
                             "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"physical_acceptance":"pending"},indent=2)+"\n")
                         print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
                         return

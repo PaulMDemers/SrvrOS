@@ -1028,3 +1028,22 @@ No native candidate was installed or rebooted. Current physical release stays
 code. Headphone testing awaits hardware access. Next: capture the supplied USB
 adapters' IDs/descriptors, assess chipset support, then stage a network-enabled
 matched image with exact-stage VM validation before physical testing.
+
+## Attached USB Ethernet trial scope — 2026-10-20
+
+Captured adapter 0b95:1790 revision 0200 at SuperSpeed (5000 Mb/s USB).
+Linux binds cdc_ncm to configuration 2 and reports an active 1000 Mb/s link.
+The captured three configurations are vendor-specific, NCM, then ECM. Target
+ECM configuration 3: control interface 0, data interface 1 alternate 1, MAC
+string 5, 1514-byte segments, notification 0x81/16 bytes, bulk IN 0x82/1024
+burst 5 and OUT 0x03/1024 burst 2. This is evidence for this adapter revision,
+not blanket support for all products named AX88179.
+
+Its SuperSpeed notification companion advertises zero bytes per interval, so
+the strict generic ECM parser refuses it. Prepare a narrowly gated parser
+compatibility path for the exact captured descriptor bytes and VID/PID/revision;
+retain generic rejection and all transfer bounds. Add an immutable v37 scaled
+network desktop with on-screen DHCP/diagnostic/return instructions. Validate
+parser mutations, old recipes, full build and exact-stage USB networking VM
+before an authorized native trial. Shared main remains d72d2af; Air PR7 has no
+network overlap. Ubuntu and accepted desktop/recovery remain protected.

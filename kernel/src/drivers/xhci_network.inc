@@ -150,7 +150,7 @@ static bool enumerate_network(struct xhci_device *d,uint16_t length) {
             if(length<9||length>4096||!network_descriptor(d,2,index,0,length)) return false;
         }
         struct usb_ecm_config config;
-        if(!usb_ecm_parse(d->descriptor_buffer,length,d->speed,&config)) continue;
+        if(!usb_ecm_parse_device(d->descriptor_buffer,length,d->speed,d->vendor_id,d->product_id,d->device_bcd,&config)) continue;
         if(!network_configure(d,&config)) {
             if(d->network) network_fail(d,"configuration");
             console_printf("xhci-network: ECM configuration failed slot=%u\n",(uint64_t)d->slot_id);
