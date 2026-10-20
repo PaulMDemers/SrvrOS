@@ -2,10 +2,11 @@
 
 bool power_cpu_supported(uint32_t b,uint32_t d,uint32_t c,uint32_t sig,
                          uint32_t fc,uint32_t fd,uint32_t tc) {
-    /* Reject extended-family signatures as well as sibling models. */
+    /* Captured Broadwell-U 06_3D and Pro Haswell 06_46 profiles only. */
+    unsigned model=((sig>>4)&15)|((sig>>12)&0xf0);
     return b==0x756e6547 && d==0x49656e69 && c==0x6c65746e &&
         ((sig>>8)&15)==6 && !((sig>>20)&255) &&
-        (((sig>>4)&15)|((sig>>12)&0xf0))==0x3d &&
+        (model==0x3d || model==0x46) &&
         !(fc&(1u<<31)) && (fd&(1u<<5)) && (tc&1);
 }
 

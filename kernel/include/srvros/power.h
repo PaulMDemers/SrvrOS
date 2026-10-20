@@ -3,7 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* Read-only, opt-in Broadwell-U telemetry. CPU0 active frequency and package
+/* Read-only, opt-in captured 06_3D and 06_46 CPU telemetry. CPU0 active frequency and package
  * energy have different scopes; neither measures battery or wall power. */
 enum power_state { POWER_DISABLED, POWER_UNAVAILABLE, POWER_ACTIVE };
 enum power_flags { POWER_ENERGY_VALID=1, POWER_FREQUENCY_VALID=2, POWER_STALE=4 };

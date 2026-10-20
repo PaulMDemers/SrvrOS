@@ -45,6 +45,10 @@ int main(void) {
     reset();assert(!desk_capture_job_start(&job,pixels,191,127,path));write_fail=1;assert(desk_capture_job_poll(&job)==-1 && !job.pixels);
     reset();assert(desk_capture_job_start(&job,pixels,4096,4096,path)<0 && !pipe_count);assert(desk_capture_job_start(&job,pixels,191,127,"relative")<0);
     spawn_fail=1;assert(desk_capture_job_start(&job,pixels,191,127,path)<0 && !job.pixels && closes==4);
+    assert(desk_capture_scale(1440,900)==1 && desk_capture_scale(1920,1080)==1);
+    assert(desk_capture_scale(2880,1800)==2 && desk_capture_scale(3840,2160)==2);
+    assert(!desk_capture_scale(4096,4096) && !desk_capture_scale(UINT32_MAX,1));
+    assert(!desk_capture_scale(0,1080));
     assert(desk_capture_bytes(1920,1080)==1920*1080*4 && !desk_capture_bytes(UINT32_MAX,UINT32_MAX));
     puts("capture-job: PASS immutable pixels/path, bounded fragmented transfers, retry, protocol failure, exited worker with buffered reply, EOF and nonblocking reaping without killing writes");
 }

@@ -13,12 +13,12 @@ write CPU controls. Workspace checkpoints save the same cached values, and
 `hardware_desktop.py` includes them under `devices.power`. Disabled boots perform
 no power MSR reads. Unsupported CPUs report unavailable without reading any MSR.
 
-The first profile requires GenuineIntel family 6/model 0x3d, no hypervisor bit,
+The profiles require GenuineIntel family 6/model 0x3d or 0x46, no hypervisor bit,
 MSR support, CPUID.06H:ECX[0] feedback support and a working monotonic clock.
 It reads only RAPL units (0x606), platform info (0xce), package energy (0x611),
 APERF (0xe8) and MPERF (0xe7). The observed energy exponent must be 14; the
-platform non-turbo ratio must be nonzero and at most 64. No other model is
-implicitly enabled, including the planned Haswell Macs. There are no MSR writes,
+platform non-turbo ratio must be nonzero and at most 64. No other CPU model is
+implicitly enabled; CPU telemetry support does not accept a sibling Mac's other devices. There are no MSR writes,
 ACPI mode changes, fan controls or power-limit changes.
 
 The initial Linux capture on this Air confirms those five registers are readable,
@@ -159,3 +159,23 @@ values into sibling profiles. Raw evidence is in
 
 Local source copies and raw Linux capture live in ignored
 `build/overnight-20261018/`; no firmware dumps or personal inventory are committed.
+
+## Pro11,2 CPU profile (native validation pending)
+
+The explicit 06_46 Haswell CPU profile is now admitted alongside 06_3D.
+The Pro11,2 Linux capture has signature 0x40661, CPUID leaf 6 EAX=0x77/ECX=9,
+units 0xa0e03 and platform 0x80838f3011900 (2,500 MHz nominal reference).
+All five power registers and the three thermal registers were readable on CPU0.
+The captured one-second development workload decodes to 33,173 mW package power
+and 3,119 MHz active frequency. This is a decoder fixture, not an idle baseline,
+whole-laptop power reading or native SrvrOS result. Temperature target is 100 C
+with zero TCC offset. Other Haswell model IDs remain refused.
+
+The model identity and register family are cross-checked against the Linux
+[Intel family definitions](https://github.com/torvalds/linux/blob/master/arch/x86/include/asm/intel-family.h)
+and [RAPL driver](https://github.com/torvalds/linux/blob/v6.12/drivers/powercap/intel_rapl_common.c).
+The local readable-register capture supplies this unit's actual constants.
+Hypervisors, missing CPU features, unexpected energy units and invalid sample
+intervals remain refused; no CPU control writes are added. Native Pro acceptance
+requires its own complete v26 capture. The existing SMC profile remains Air-only;
+Pro two-fan support is a separate step.

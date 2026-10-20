@@ -406,3 +406,9 @@ they do not measure hardware arrival, USB transaction duration or display
 scanout. Values accumulate since boot, with counts, means and maxima; compare
 matching workloads and inspect sample counts. The event ABI and polling rate
 are unchanged.
+
+For unattended `--idle-capture` only, an omitted scale is selected to keep the
+saved BMP within the existing 8 MiB capture limit: 1x when it fits, otherwise
+2x when that fits. A 2880x1800 framebuffer therefore captures 1440x900. Explicit
+`--scale=1`/`--scale=2` remains authoritative, and ordinary desktop launch does
+not auto-scale. Logs record both framebuffer and logical dimensions.

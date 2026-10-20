@@ -700,3 +700,10 @@ Extend scope to compositor idle-capture scale selection and capture host tests:
 when no scale is supplied and the full framebuffer exceeds capture limits,
 select 2x if its logical dimensions fit. Explicit scale and ordinary desktop
 remain unchanged. This avoids editing PR6's startup/boot-profile paths.
+
+The CPU profile and idle-capture sizing implementation passes full build,
+USB image, and test-core. Captured Pro thermal/power values are replayed beside
+the existing Air fixtures; unsupported sibling model IDs, hypervisors and
+missing features remain refused. Capture tests cover Air/full-HD 1x, Retina/4K
+2x and over-limit dimensions. The compositor preserves explicit scale choices.
+No native Pro sensor acceptance is claimed before the unattended capture.

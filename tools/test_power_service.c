@@ -44,5 +44,8 @@ int main(void) {
     assert(reads==8&&out.flags==3&&out.package_mw==10000&&out.active_mhz==3300);
     now+=3000001;power_status(&out);assert(reads==8&&out.flags==POWER_STALE&&!out.package_mw);
     assert(snapshot.flags==3); /* Expiry is per-reader; sampling baseline intact. */
+    signature=0x40661;init();assert(reads==5 && spawns==1 && snapshot.state==POWER_ACTIVE);
+    feature_c=1u<<31;init();assert(!reads && !spawns);feature_c=0;
+    signature=0x40651;init();assert(!reads && !spawns);
     puts("power-service: PASS no reads on refused CPUs, exact read-only MSR allowlist, worker failure/idempotence, cadence and cached stale status");
 }

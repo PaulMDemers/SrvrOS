@@ -17,6 +17,12 @@ int main(void) {
     assert(!power_cpu_supported(vb,vd,vc,0x306c3,0,32,1));
     assert(!power_cpu_supported(vb,vd,vc,0x1306d4,0,32,1));
     assert(!power_cpu_supported(0,vd,vc,0x306d4,0,32,1));
+    assert(power_cpu_supported(vb,vd,vc,0x40661,0x7ffafbff,0xbfebfbff,9));
+    assert(!power_cpu_supported(vb,vd,vc,0x40661,1u<<31,32,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40661,0,0,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40661,0,32,0));
+    assert(!power_cpu_supported(vb,vd,vc,0x140661,0,32,1));
+    assert(!power_cpu_supported(vb,vd,vc,0x40651,0,32,1));
     assert(!power_configure(&s,0xa1003,22u<<8));
     assert(!power_configure(&s,0xa0e03,0));assert(!power_configure(&s,0xa0e03,65u<<8));
     struct power_raw a={.us=1000000,.energy=1000000,.aperf=100,.mperf=100};
@@ -48,5 +54,11 @@ int main(void) {
     a=(struct power_raw){5193353430ull,0x27e53c8d,0x32cd90b7940,0x3ac834eee9b};
     b=(struct power_raw){5194354317ull,0x27e6bd98,0x32cf0d76bd1,0x3aca80d53ed};
     pair(a,b);assert(s.flags==3 && s.package_mw==6010 && s.active_mhz==1424);
+    /* Pro11,2 Linux CPU0, development load: captured registers, no idle claim. */
+    assert(power_configure(&s,658947ull,2260840501811456ull));
+    p=(struct power_sampler){0};
+    power_sample(&p,&s,(struct power_raw){196189642ull,111460355ull,482409017462ull,386016201885ull});
+    power_sample(&p,&s,(struct power_raw){197189818ull,112003969ull,484541671259ull,387725480695ull});
+    assert(s.nominal_mhz==2500 && s.flags==3 && s.package_mw==33173 && s.active_mhz==3119);
     puts("power: PASS exact CPU/feature gate, units, energy/frequency scopes, wrap/reset/gap/overflow/stale handling and actual Linux fixture");
 }

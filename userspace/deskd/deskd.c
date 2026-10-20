@@ -1011,8 +1011,9 @@ static void timing_print(const char *name,const struct perf_sample *p) {
         (unsigned long long)p->max,(unsigned long long)perf_percentile(p,95),(unsigned long long)perf_percentile(p,99));
 }
 int main(int argc,char **argv) {
-    unsigned scale=1;
+    unsigned scale=1;int explicit_scale=0;
     for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
+        explicit_scale=1;
         if (!strcmp(argv[i],"--scale=1")) scale=1;
         else if (!strcmp(argv[i],"--scale=2")) scale=2;
         else { srv_puts("deskd: scale must be 1 or 2\n"); return 1; }
@@ -1029,6 +1030,10 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
+    if(idle_capture && !explicit_scale) {
+        scale=desk_capture_scale(info.width,info.height);
+        if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
+    }
     uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
     if (width<640 || height<480) { srv_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
     desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
