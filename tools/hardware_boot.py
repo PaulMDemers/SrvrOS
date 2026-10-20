@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26)-laptop-probe-([0-9a-f]{8})")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|31)-laptop-probe-([0-9a-f]{8})")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -58,6 +58,9 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v24-"):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=aml srvros.aml=probe")
+        if version.startswith("ram-usb-v31-"):
+            cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
+                       f"srvros.desktop-release={release} srvros.capture=battery")
     elif desktop:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
                    "srvros.trackpad=gestures srvros.desktop=trial")
@@ -128,12 +131,12 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False):
     if power_telemetry and not desktop_idle_capture:
         raise ValueError("Power telemetry requires the explicit desktop idle capture")
-    if (idle_capture or aml_capture or desktop_idle_capture) and laptop_probe_volume is None:
+    if (idle_capture or aml_capture or desktop_idle_capture or battery_capture) and laptop_probe_volume is None:
         raise ValueError("Idle/AML capture requires a laptop probe volume")
-    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture)))>1:
+    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture)))>1:
         raise ValueError("Idle and AML captures are separate profiles")
     gestures=gestures or desktop_io
     pointer=pointer or gestures
@@ -159,12 +162,12 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v{26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
         "loader/BOOTX64.EFI": ROOT / "build/limine-binary/BOOTX64.EFI",
-        "srvros.elf": ROOT / "build/kernel/srvros.elf",
+        "srvros.elf": ROOT / ("build/acpi-battery/srvros.elf" if battery_capture else "build/kernel/srvros.elf"),
         "initramfs.tar": ROOT / "build/initramfs.tar",
     }
     STAGE.mkdir(parents=True, exist_ok=True)
@@ -357,10 +360,11 @@ def main():
     parser.add_argument("--power-telemetry",action="store_true",help="opt-in read-only CPU energy/frequency diagnostics during --desktop-idle-capture; completion is not power acceptance")
     capture=parser.add_mutually_exclusive_group()
     capture.add_argument("--desktop-idle-capture",action="store_true",help="measure the desktop for 60 seconds, save screenshot/logs, unmount and return")
+    capture.add_argument("--battery-capture",action="store_true",help="explicit native battery diagnostic kernel; save and return only after clean teardown")
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
     args = parser.parse_args()
-    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture) and (args.action != "stage" or not args.laptop_probe_volume):
+    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture) and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("capture requires stage --laptop-probe-volume")
     if args.power_telemetry and (args.action != "stage" or not args.desktop_idle_capture):
         parser.error("--power-telemetry requires stage --desktop-idle-capture")
@@ -376,7 +380,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

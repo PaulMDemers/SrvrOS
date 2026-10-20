@@ -2,7 +2,7 @@
 #define SRVROS_SBS_SAMPLE_H
 #include <srvros/ec_smbus.h>
 /* Read-only Smart Battery Data sampler. There is deliberately no native
- * binding. The caller must establish EC/SMBus ownership and battery selection,
+ * binding in this module. The caller must establish EC/SMBus ownership and battery selection,
  * serialize this transport with AML/query work, and schedule polls. */
 #define SBS_WORD_COUNT 15
 #define SBS_VALID_SOC 1u

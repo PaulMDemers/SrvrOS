@@ -30,7 +30,21 @@ device work uses separate branches based on `main`.
   durable test reporting. Scope includes runtime/transport, build/staging tests
   and guides. Keep normal desktop startup and accepted recovery unchanged.
   Dependencies: chipset/handoff `a51c4a5`, PM1 notification `2d29126`; integration
-  baseline `b6075ef`. Pro11,2 PR #5 remains `927a7f5` (USB/GPT/input), no overlap.
+  baseline `b6075ef`. Pro11,2 PR #5 has advanced to `203e2d1` with exact Pro
+  brightness and shared staging changes. Its profiles occupy v27–v30; this
+  battery capture reserves **v31**. Native ACPI code does not overlap. Shared
+  staging/test hunks need integration reconciliation without changing existing
+  release recipes; neither branch is silently merged into the other.
+- Native battery candidate: connected captured initialization now passes the
+  offline model, including ECSS, GNVS lid/AC and IGPU CLID effects. The separate
+  Air-only runtime performs five bounded SBS/AC samples, explicit connection,
+  owned SCI/GPE handling and clean retirement; ordinary desktop retains a
+  refusal stub. The same lifecycle passes two Q35 lifetimes and six injected
+  faults (denied region, EC stall, storm, setup/query/disconnect deadlines).
+  The native image refuses Q35 before hardware access. Host memory policy,
+  transport/SBS/event/owner tests and collector/staging tests pass. Physical
+  battery/AC values, actual EC SCI delivery and firmware handoff remain pending.
+  See [native runtime gate](../native-ec-runtime.md#explicit-native-battery-diagnostic).
 - PM1 notification checkpoint: all 65,536 starting words and each single-bit
   command mutation pass host/sanitizer checks. The Q35 release case performs
   exactly one actual emulated PM1 write, refuses permission replay, preserves
@@ -113,10 +127,11 @@ device work uses separate branches based on `main`.
   per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
   This is not controller ownership acceptance. The production build passes and
   its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
-- Next checkpoint: audit the connected EC `_REG` path, including IGPU CLID
-  memory, then bind the separate native adapter's audited mappings, Darwin
-  initialization and SCI/EC owner lifecycle. Exercise failures before a logged
-  physical battery trial. No new trial is armed.
+- Next checkpoint: finish the v31 exact-stage rehearsal, then run the first
+  bounded AC-connected native battery capture. Retain the installed v26 payload,
+  previous diagnostic and independent interactive backup until installation is
+  explicitly recorded. Collect the matching release/session before any follow-up.
+  A refusal or visible halt is incomplete hardware evidence, not a pass.
 
 ## Accepted scope and open items
 

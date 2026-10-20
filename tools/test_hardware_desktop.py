@@ -14,6 +14,23 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual(desktop.session_releases(text),[release])
         self.assertEqual(desktop.session_releases("desktop started\n"),[])
 
+    def test_battery_requires_five_fresh_samples_and_clean_retirement(self):
+        rows=[f"battery: sample={i} ac_present=1 soc=86 voltage_uv=12000000 current_ua=-250000 capacity=4300000 full=5000000 unit=1 temp_mc=24950 valid=0x3f age_us=100 ac_us={i*1000} start_us={i*1000+1} end_us={i*1000+500}" for i in range(1,6)]
+        tail=["battery: PASS samples=5 notifications=2 queries=1 attached=1 detached=1 heap=0 errors=0 denied=0; physical accuracy NOT_TESTED",
+              "battery-capture: returned=yes clean=yes; physical accuracy NOT_TESTED"]
+        text='\n'.join(rows+tail)
+        result=desktop.battery_diagnostic(text)
+        self.assertTrue(result['runtime_complete']);self.assertEqual(result['physical_accuracy'],'manual-pending')
+        self.assertEqual(result['samples'][0]['capacity_unit'],'uAh')
+        for bad in ('\n'.join(rows+tail[:1]),text+'\n'+tail[-1],text.replace('sample=5','sample=4'),
+                    text.replace('age_us=100','age_us=1000001'),text.replace('soc=86','soc=101'),
+                    text.replace('valid=0x3f','valid=0x01'),text.replace('heap=0','heap=1'),
+                    text.replace('detached=1','detached=0'),text.replace('clean=yes','clean=NO'),
+                    text+'\nbattery: HALTED test',text.replace('end_us=1500','end_us=999')):
+            self.assertIsNone(desktop.battery_diagnostic(bad),bad)
+        self.assertTrue(desktop.needs_attention('battery: HALTED operation deadline'))
+        self.assertTrue(desktop.needs_attention('battery: REFUSED platform/resource ownership preflight'))
+
     def test_idle_measurement_requires_complete_exit_record(self):
         record="idle-capture: elapsed_us=60000000 sampled_ticks=6000 idle_ticks=5700 switches=12000 preemptions=25 completed=yes"
         self.assertEqual(desktop.idle_sample(record)["idle_sample_percent"],95)

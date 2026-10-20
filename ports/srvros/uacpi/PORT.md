@@ -478,3 +478,16 @@ run by `tools/acpi_global_lock_smoke.py --fault release` and
 `--fault release-sleep-denied`. See the
 [notification contract](../../../docs/native-ec-runtime.md#owner-scoped-os-to-firmware-notification)
 for the per-access policy, host coverage and acceptance limits.
+
+
+## Native battery diagnostic candidate (2026-10-19)
+
+A separate `acpi-battery-kernel` now links the full runtime and an evidence-gated
+Air7,2 platform. It explicitly connects EC regions before initialization, owns
+SCI/selected GPE and serialized SBS work, and either retires cleanly or halts
+with live state retained. `acpi-battery-vm-kernel` uses the same lifecycle with a
+synthetic controller; it is never staged as the physical image. The normal
+kernel retains its refusal stub and isolated probe. See the
+[connected audit, policy and v31 trial](../../../docs/native-ec-runtime.md#explicit-native-battery-diagnostic)
+for exact permissions, tests and remaining physical acceptance. Earlier sections
+record the incremental fixture work and are not native acceptance claims.

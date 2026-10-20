@@ -292,6 +292,26 @@ run. Keep a durable copy of accepted boot payloads outside `build` before cleanu
 Shell variables do not survive reboot: retain this record and reload UUID/release
 from it on return. Do not rely on an old `latest` pointer as a machine identity.
 
+The Air7,2 native battery candidate uses a separate **v31** profile and kernel:
+
+```sh
+tools/host-env.sh make kernel initramfs acpi-battery-kernel
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+This is an explicit firmware/EC/SCI diagnostic, not ordinary desktop startup.
+The staged native image must refuse Q35, save the refusal, unmount and halt;
+the synthetic positive lifecycle uses another kernel and cannot grant physical
+acceptance. On the matched Air it takes five battery/AC samples, retires the
+runtime, saves and returns automatically only on success. Keep AC connected for
+the first trial. On failure, photograph the persistent halt before restarting.
+Read the [runtime gate](native-ec-runtime.md#explicit-native-battery-diagnostic),
+retain recovery, record the exact run and collect its matching session first
+on return. The collector reports complete runtime evidence separately from
+physical battery accuracy. Pro11,2 profiles v27–v30 remain reserved on its
+work branch; do not reuse a profile number or alter an installed recipe.
+
 ## 6. Install alongside Ubuntu and select one boot
 
 The installer requires UEFI Ubuntu, a separate writable FAT ESP at `/boot/efi`,

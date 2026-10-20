@@ -174,6 +174,33 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(idle_capture=True)
         with self.assertRaises(ValueError): boot.stage(idle_capture=True,laptop_probe_volume='37d8c5d0',desktop_volume='37d8c5d0')
 
+    def test_native_battery_is_explicit_separate_kernel(self):
+        version = "ram-usb-v31-laptop-probe-37d8c5d0"
+        release = self.payload("battery", version)
+        cfg = boot.limine_config(release, version)
+        self.assertIn('srvros.capture=battery', cfg)
+        for flag in ('srvros.aml=', 'srvros.desktop=trial', 'srvros.laptop-services=', 'srvros.smc='):
+            self.assertNotIn(flag, cfg)
+        path = self.stage/release/"manifest.json"
+        manifest = json.loads(path.read_text()); manifest["config_version"] = version
+        path.write_text(json.dumps(manifest))
+        boot.verify(self.stage/release)
+        with self.assertRaises(ValueError): boot.stage(battery_capture=True)
+        for other in ('idle_capture', 'aml_capture', 'desktop_idle_capture'):
+            with self.assertRaises(ValueError):
+                boot.stage(battery_capture=True, laptop_probe_volume='37d8c5d0', **{other:True})
+        # Real staging with temporary payloads proves the special profile cannot
+        # silently take the ordinary kernel (or the synthetic VM binding).
+        for name, data in {'build/limine-binary/BOOTX64.EFI':b'loader',
+                           'build/kernel/srvros.elf':b'normal',
+                           'build/acpi-battery/srvros.elf':b'native',
+                           'build/acpi-battery/vm.elf':b'model',
+                           'build/initramfs.tar':b'initramfs'}.items():
+            path = self.root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged = boot.stage(battery_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+
     def test_aml_capture_is_explicit_and_separate(self):
         version="ram-usb-v24-laptop-probe-37d8c5d0"
         release=self.payload("aml",version)

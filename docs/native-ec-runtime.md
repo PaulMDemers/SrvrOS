@@ -1,7 +1,9 @@
 # Native EC and battery runtime gate
 
 Updated 2026-10-19. This is the implementation boundary for the next opt-in
-MacBookAir7,2 battery/AC diagnostic. Live battery readings are **not enabled**.
+MacBookAir7,2 battery/AC diagnostic. The separate diagnostic now has a native
+binding; live battery readings remain **unaccepted on hardware** and absent
+from the ordinary desktop.
 The existing desktop, isolated AML probe, brightness profile and Q35 adapter
 retain their current hardware permissions. Other Macs need independent evidence.
 
@@ -487,11 +489,121 @@ python3 tools/acpi_global_lock_smoke.py --fault release
 python3 tools/acpi_global_lock_smoke.py --fault release-sleep-denied
 ```
 
-CI runs all seven lock cases sequentially. Native EC binding and source
-ownership are still absent. In particular, connected Air `_REG` writes the
-IGPU OpRegion's CLID field as well as ECSS and GNVS lid/AC state; the earlier
-unconnected initialization replay did not exercise that display-memory mapping.
-It needs a separate captured layout and per-access audit before native binding.
+CI runs all seven lock cases sequentially. The connected audit and explicit
+native diagnostic below build on this boundary; ordinary images do not acquire
+native EC/SCI ownership.
+
+### Connected firmware audit
+
+The offline namespace tool accepts `--ec-model FILE` only with `--initialize`
+and an exact `--ec-contract`. The file must contain exactly 256 bytes. The tool
+connects a private byte-wide EC handler, explicitly runs `_REG`, initializes
+the namespace, drains a bounded notification FIFO, evaluates requested methods,
+and disconnects before resetting. It never accesses EC ports. Contract mismatch,
+invalid access, failed connection, notification overflow or an interpreter error
+prevents a successful result. Thirty synthetic cases pass normally and under
+ASan/UBSan, including connected writes, notifications, detach and denied access.
+
+A read-only Linux i915 OpRegion export supplied the missing IGDM model. ASLS
+from PCI and ASLB from captured GNVS agree; `IntelGraphicsMem`, 8 KiB, version 2,
+mailbox 1 and the CLID DWORD at offset `0x1ac` match the
+[Linux i915 OpRegion layout](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_opregion.c).
+The physical base is 16-byte aligned, not page aligned. Direct `/dev/mem` access
+was refused; no restriction was bypassed. Raw dumps stay in private local evidence.
+
+The complete captured Air initialization with EC connected now passes with
+zero errors, warnings, denials and outstanding allocations. Fourteen memory byte
+writes cover OSYS, GNVS lid/AC values and CLID; ECSS is written and EC byte `0x60`
+is read. Queried methods `_Q10`, `_Q20`, `_Q21`, `_Q40`, `_Q5A`, `_QCE`, `_QCF`
+and `_QD0` complete in that model. `_Q80` reaches an absent discrete-GPU node
+under the captured state; it remains unsupported evidence, not an excuse to
+widen the hardware allowlist. A failed query in the native trial halts.
+
+### Explicit native battery diagnostic
+
+`make acpi-battery-kernel` builds `build/acpi-battery/srvros.elf` with
+`battery_runtime.c` and `battery_native_platform.c`. The ordinary kernel retains
+a refusal stub. The native adapter requires the captured DSDT and all eight
+SSDT fingerprints, exact Intel GPU/LPC/HDAU/SMBus identities, ECDT/FADT and
+namespace agreement, ACPI-NVS mappings, OpRegion signature/layout, free FACS
+lock, RCBA/HPTC configuration, disabled fixed/GPE enables, idle EC buffer state
+and a free masked SCI route. A sibling Mac or changed firmware is refused.
+These fingerprints identify a supported profile; they are not a security boundary
+against hostile firmware.
+
+Memory callbacks admit the audited NVS reads, exact FACS lock DWORD and HPTC
+DWORD. Writes admit only the two OSYS bytes, boolean GNVS lid/AC bytes, and the
+CLID DWORD encoded as four byte writes (upper bytes zero). A pure host test
+checks range edges, all byte values and rejected widths; ASan/UBSan also passes.
+PCI access is read-only and limited to the audited offsets. GPIO access keeps
+the prior byte-width/set-only predicates. Generic PM1 control writes remain
+refused; the serialized AML worker may send the exact Global Lock release
+command through the separate predicate. Unlike the synthetic one-attempt
+fixture, native permission follows the trusted interpreter's implicit firmware
+lock lifetime; firmware reception is not yet physically accepted.
+
+One ordinary worker owns initialization, early EC access, explicit `_REG`, AML
+queries and whole 15-word Smart Battery transactions. No nested notification
+callback performs EC IO. The lifecycle owner has a five-second setup deadline,
+25-second sample bound and three-second disconnect bound; it checks the query
+budget every 50 ms while waiting. EC byte operations have a 100 ms limit.
+The selected raw EC GPE uses the
+[Linux EC edge-triggered policy](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/acpi/ec.c),
+is suspended and acknowledged before query work, and rechecked when rearmed.
+A drain has at most 128 attempts and two seconds across queued batches. Firmware
+GPE methods are not broadly finalized or enabled. Full initialization does clear
+the initially disabled event status domain; those cleared events cannot be restored.
+
+Five complete samples record AC state, charge, voltage, current, capacity units,
+temperature, validity, age and separate AC/start/completion timestamps. AC and
+battery reads span an interval; they are not one atomic physical observation.
+Shutdown masks SCI and GPE sources, hard-masks the selected GPE before removing
+its handler, drains work, executes disconnect while EC access is alive, resets
+uACPI, verifies zero heap, stops the worker and restores the prior ACPI mode.
+Any unquiesced operation halts with interrupts off and live state retained.
+It does not reset the EC or free memory behind a running worker. Failure output
+is visible; periodic USB logs may precede the final halt and are not completion.
+
+`make acpi-battery-vm-kernel` links the **same runtime** with a separate synthetic
+Q35 platform, never the physical image. The VM cases cover two clean lifetimes,
+five correct samples per lifetime, connection/query notifications, balanced
+attach/detach, zero heap, denied `_REG` access, poisoned transport, query storm,
+setup deadline, independent query deadline and disconnect deadline. The native
+image separately refuses Q35 before EC access. These tests do not establish
+physical SCI delivery, real firmware handoff or battery accuracy.
+
+```sh
+tools/host-env.sh make kernel initramfs acpi-battery-kernel acpi-battery-vm-kernel
+tools/host-env.sh make test-battery-native-policy test-acpi-namespace
+for scenario in normal denied transport storm deadline query-deadline disconnect-deadline native-refusal; do
+    tools/host-env.sh python3 tools/acpi_battery_smoke.py --case "$scenario"
+done
+```
+
+The explicit **v31** staging profile is reserved for this diagnostic. Pro11,2's
+unmerged PR5 occupies v27–v30; preserve those recipes when reconciling shared
+staging changes. `--battery-capture` always selects the native diagnostic ELF,
+not the normal kernel or VM model. It mounts the locally selected prepared
+workspace, starts logging, runs the diagnostic, saves `exit.log`, unmounts and
+returns to Ubuntu only after a clean result. Refusal saves diagnostics and halts;
+unsafe live-runtime failures halt immediately. Existing desktop/recovery payloads
+are independent. Follow the normal device run-record and exact-stage sequence:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+The exact-stage Q35 rehearsal expects **refusal**, verifies persisted refusal
+bytes and clean exFAT, and requires a visible halt without automatic return.
+After a physical run, `hardware_desktop.py --uuid "$SRVROS_USB_UUID"` collects the
+matching release/session. Its `battery_diagnostic` field requires exactly five
+fresh ordered samples, balanced retirement and the clean capture return marker;
+physical accuracy stays `manual-pending`. Missing completion never means pass.
+
+The first physical trial keeps AC connected and changes no lid/power policy.
+Unplug/replug, sustained sampling, input/storage responsiveness and UI integration
+remain later acceptance. No battery widget or background native service is enabled.
 
 ### Integration sequence
 

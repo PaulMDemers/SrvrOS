@@ -52,6 +52,31 @@ def device_summaries(text):
     return latest
 
 
+def battery_diagnostic(exit_text):
+    """Complete runtime evidence, never automatic physical-value acceptance."""
+    lines=exit_text.splitlines()
+    finish="battery-capture: returned=yes clean=yes; physical accuracy NOT_TESTED"
+    if lines.count(finish)!=1 or any(line.startswith(("battery: HALTED", "battery: REFUSED")) for line in lines):return None
+    complete=re.findall(r"^battery: PASS samples=5 notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; physical accuracy NOT_TESTED$",exit_text,re.M)
+    if len(complete)!=1 or complete[0][2]!=complete[0][3] or not int(complete[0][2]):return None
+    pattern=(r"^battery: sample=(?P<generation>[0-9]{1,20}) ac_present=(?P<ac>[01]) soc=(?P<soc>[0-9]{1,3}) "
+             r"voltage_uv=(?P<voltage_uv>[0-9]{1,20}) current_ua=(?P<current_ua>-?[0-9]{1,20}) "
+             r"capacity=(?P<capacity>[0-9]{1,20}) full=(?P<full>[0-9]{1,20}) unit=(?P<unit>[12]) "
+             r"temp_mc=(?P<temperature_mc>-?[0-9]{1,12}) valid=(?P<valid>0x[0-9a-f]{1,16}) age_us=(?P<age_us>[0-9]{1,20}) "
+             r"ac_us=(?P<ac_us>[0-9]{1,20}) start_us=(?P<start_us>[0-9]{1,20}) end_us=(?P<end_us>[0-9]{1,20})$")
+    samples=[]
+    for match in re.finditer(pattern,exit_text,re.M):
+        sample={k:int(v,16 if k=='valid' else 10) for k,v in match.groupdict().items()}
+        if sample['generation']!=len(samples)+1 or sample['soc']>100 or sample['valid']&11!=11 or \
+           not 0<=sample['ac_us']<=sample['start_us']<=sample['end_us']<2**64 or \
+           sample['age_us']>1000000 or (samples and sample['ac_us']<=samples[-1]['end_us']):return None
+        sample['capacity_unit']='uAh' if sample['unit']==1 else 'uWh'
+        samples.append(sample)
+    if len(samples)!=5 or sum(line.startswith('battery: sample=') for line in lines)!=5:return None
+    return {'runtime_complete':True,'physical_accuracy':'manual-pending','samples':samples,
+            'queries':int(complete[0][1]),'notifications':int(complete[0][0])}
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -125,6 +150,7 @@ def power_idle_sample(exit_text):
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
+    if line.startswith(("battery: HALTED", "battery: REFUSED", "battery-capture: returned=yes clean=NO")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
         return True
     if re.match(r"(?:audio|smc): state=4(?: |$)",line):
@@ -198,6 +224,7 @@ def collect(mount, volume, output):
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),

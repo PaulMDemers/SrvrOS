@@ -2,6 +2,7 @@
 #include <srvros/autotest.h>
 #include <srvros/workspace.h>
 #include <srvros/workspace_log.h>
+#include <srvros/battery_diagnostic.h>
 #include <srvros/laptop_probe.h>
 #include <srvros/audio.h>
 #include <srvros/thermal.h>
@@ -556,6 +557,7 @@ void kmain(void) {
         console_clear();
         xhci_print_boot_diagnostic();
     }
+    bool automatic_battery=cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
@@ -566,11 +568,15 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery;
+        if(automatic_battery && started && init_ready && timer_running) {
+            sampled=battery_diagnostic_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            console_printf("battery-capture: returned=yes clean=%s; physical accuracy NOT_TESTED\n",sampled?"yes":"NO");
+        }
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
             console_printf("desktop-idle-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
