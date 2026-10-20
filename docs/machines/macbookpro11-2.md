@@ -346,3 +346,12 @@ Next implement an explicit Pro brightness profile using the observed mode and
 period, preserving the Air profile and rejecting changed registers/readback
 failures. Then test its shared Settings path before physical adjustment. Audio
 remains a separate two-speaker-route implementation and acceptance milestone.
+
+## Pro brightness provider scope
+
+Implement the captured 1953-period PCH override profile explicitly, retaining
+Air's 2777-period default and all mode/readback refusal checks. Touch backlight
+binding, Pro probe mapping, host coverage, an opt-in scaled brightness desktop
+profile and its VM harness. Keep sound and EC/AML disabled in this trial. Add
+on-screen Settings instructions for deliberate brightness adjustment and exit.
+The prior capture is collected; origin/main is still b6075ef and PR6 owns ACPI.
