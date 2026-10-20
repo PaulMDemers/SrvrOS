@@ -1,6 +1,9 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-19. State: **first physical boot reached console; built-in keyboard failed**.
+Updated: 2026-10-19. State: **native desktop, keyboard and trackpad exercised successfully; brightness and audio unavailable**.
+
+The sections below retain the dated bring-up sequence. The latest acceptance
+and next scope are recorded at the end; earlier failures are historical.
 
 ## Ownership and scope
 
@@ -269,3 +272,35 @@ then save and Return to console (F10, End, Return if pointer fails), followed by
 as previous and archive this candidate before arming. Trackpad motion, gestures
 and Retina desktop behavior remain unaccepted until native evidence returns.
 Type2 protocol reference: [Linux bcm5974](https://raw.githubusercontent.com/torvalds/linux/master/drivers/input/mouse/bcm5974.c).
+
+## Native desktop and trackpad result
+
+Release `c4b7b7bb5eb48b3a` (source `ca645d9`), session
+`session-00065e3be5f7034d-00`, returned with matching boot/exit logs. The user
+reports that apps, keyboard and trackpad worked, with no brightness control or
+sound. The desktop exited with status 0. The Type2 trackpad recorded 12,163
+reports, 11,860 contact reports, 872 button reports, zero malformed reports and
+zero transfer errors. Gesture telemetry records 2,492 scroll events and two
+primary taps. Keyboard telemetry records 70 reports, zero errors and zero drops.
+This accepts the exercised desktop/input behavior, not every app operation or
+all gestures. The profile requested 2880x1800 at 2x scale.
+
+Native logs are copied and verified in a durable archive outside `build` with
+the exact payload. Offline exFAT is clean, the one-shot is consumed and Ubuntu
+remains default. No reboot is armed. Preserve this accepted desktop payload for
+subsequent recovery; the installed previous payload is the guided keyboard trial.
+
+Brightness and HDA were not enabled in v29. The read-only laptop probe reports
+unsupported chipset, and audio telemetry remains disabled with zero commands.
+The existing brightness path matches Air GPU/PCH/firmware and a fixed PWM period;
+the CS4208 audio path matches Air subsystem `106b:7e00`, whereas this unit captured
+`106b:5e00`. Neither gate may simply be widened to claim Pro support.
+
+Next bounded objective: read-only Pro backlight/register and codec-routing
+evidence, then separate evidence-matched providers and tests. Potential touch
+points are laptop probe/backlight, HDA codec selection and explicit diagnostic
+profiles. Optional AML, EC ownership, fan control and sibling models remain out
+of scope. Refetched `origin/main` remains `b6075ef`; open PR6 changes Air ACPI lock
+handling, not these providers. This result still uses the recorded device branch
+ancestry, not merged PR4 code. Collect-before-restage is complete; no new stage
+or physical trial is prepared yet.
