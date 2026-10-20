@@ -184,6 +184,20 @@ device work uses separate branches based on `main`.
   build. Retain that previous release when installing the next candidate; the
   local run record owns installed/armed state.
 
+## Active transition-test block
+
+Air branch owns a separate guided AC-connected → battery-only → reconnected
+capture, with three fresh consistent samples per phase, bounded waits, clean
+retirement even when the user misses a phase, durable phase summaries and strict
+collection. Scope: battery diagnostic/runtime, a pure phase checker, v32 staging,
+VM fixtures, collector and guides. Preserve accepted v31 and ordinary desktop.
+Baseline remains `b6075ef`; Pro PR #5 at `5e92fd0` now uses desktop v31 as well
+as its prior profiles. The recipe prefixes remain distinct; do not rewrite
+installed v31 recipes. Reserve **v32 laptop-probe** for this Air transition test;
+shared main/staging integration still needs reconciliation. No new physical
+acceptance or reboot is implied by source changes. Next checkpoint is host/VM
+validation and an exact-stage rehearsal, then a guided physical round.
+
 ## First completed native battery diagnostic — October 20
 
 Release `13d8083de35b51af`, artifact source `57de926`, completed five samples
