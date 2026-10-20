@@ -1083,3 +1083,14 @@ Next bounded scope: inventory another supplied adapter, or extend this adapter's
 native DNS/HTTP/link coverage. Multiple-adapter inventory/UI and isolation remain
 VM-tested; only one boot-selected provider owns IP configuration. Battery,
 headphone testing and pointer latency remain deferred as previously agreed.
+
+## Network maturity scope — 2026-10-20
+
+Continue with the accepted adapter: persist DNS/HTTP results, exercise Ethernet
+cable down/up with DHCP reacquisition and usable desktop diagnostics. Main
+`76508bf` (PR7 filesystem fixes) is merged; Air's current published work remains
+power/filesystem evidence with no network overlap. Scope: ECM link transitions
+and queued traffic, HTTP client/local test fixture, USB network VM regression
+and opening Help. Retain submitted DMA ownership and USB-removal quarantine;
+USB hotplug registration and multihoming remain separate work. Rebuild and test
+the merged filesystem baseline before another exact-stage native trial.
