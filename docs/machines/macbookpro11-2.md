@@ -202,3 +202,10 @@ is pending. Do not infer a driver mapping fault or a complete keyboard pass.
 Matching logs and run metadata are archived outside `build`. The consumed
 one-shot and Ubuntu default were verified; offline exFAT reports no errors.
 No new reboot is armed.
+
+The user reports running out of time and the system rebooting. Preserve that
+observation alongside the saved trace: the exit snapshot is at about 24.6 seconds
+after boot and the last report contains slash, so the existing 30-second step
+deadline cannot explain this recorded failure. Automatic return is user-confirmed.
+For a retry, improve the guided test with more time and recoverable unexpected
+input rather than treating this as a proven Return-key driver defect.
