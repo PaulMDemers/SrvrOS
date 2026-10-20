@@ -604,3 +604,15 @@ Ubuntu remains the default; no reboot was requested or armed. Source retains
 the published experimental implementation for review; it is not accepted as a
 latency fix. Next work should measure USB delivery and queue residence and
 isolate scheduling effects before another physical candidate.
+
+## Queue and report timing scope
+
+After the rejected wake trial, restore the compositor's unconditional one-tick
+wait and add bounded aggregate diagnostics to mouse input and xHCI trackpad
+processing. Record oldest/latest coalesced event queue residence, consecutive
+contact report processing gaps, and processing-to-rearm time. No input event
+ABI, controller polling rate or timer change. These timestamps cannot observe
+hardware report arrival or display scanout. Touch mouse input/header, xHCI,
+compositor and mouse host fixtures; avoid PR6's startup and harness changes.
+Integration baseline remains b6075ef. Accepted installed payload stays unchanged
+until exact-stage validation of a diagnostic candidate.
