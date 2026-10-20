@@ -717,3 +717,10 @@ power smoke verifies default-disabled and opt-in hypervisor refusal. Native
 acceptance requires valid fresh thermal samples and a non-null continuous
 power window within the idle measurement. SMC remains intentionally unavailable
 on this Pro; two-fan support and controlled load measurements follow separately.
+
+The same release's missing-workspace VM check also passes: it halts with
+`saved=NO unmounted=NO` and does not reboot. Success and expected-failure
+receipts are retained separately. The physical trial is unattended: leave input
+alone for the idle interval; it saves/unmounts and returns automatically on
+success. Keep sound-confirmed e47dca3a6b30c6c1 as recovery and collect the exact
+release before starting fan implementation or another stage.
