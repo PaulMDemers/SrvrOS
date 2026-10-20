@@ -29,6 +29,12 @@ device work uses separate branches based on `main`.
   Scope: separate runtime adapter, VM harness/CI and native runtime guide.
   Native chipset/PCI permissions remain pending; no live hardware binding.
   Pro11,2 PR #5 owns USB/storage and guided input (inspected `927a7f5`).
+- Global Lock checkpoint: Q35 full-uACPI tests pass two acquire/release
+  lifetimes, firmware-held lock containment and denied PM1 handoff detection.
+  Owner drain now precedes interpreter reset; a stuck worker retains heap,
+  Owned/Pending bits and the masked SCI callback. Exact fixture lock-word reads
+  are allowed, but PM1 control writes remain denied. Native contention/handoff,
+  autonomous operation deadlines and live mappings are still pending.
 - Full initialization checkpoint: offline `--initialize` refuses errors,
   warnings and denied accesses even when uACPI returns success; skips follow-up
   queries on refusal. Twenty-five synthetic tests cover opt-in execution,

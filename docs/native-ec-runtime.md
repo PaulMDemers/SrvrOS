@@ -333,6 +333,52 @@ initialization cannot be restored from a snapshot; it must not be advertised as
 reversible rollback. FACS Global Lock access and AML NVS/PCI/GPIO permissions
 remain separate unresolved gates.
 
+### Global Lock lifecycle fixture
+
+The separate Q35 runtime now exercises the pinned full uACPI Global Lock API.
+`acpiruntime global-lock` queues acquisition/release on the ordinary worker and
+checks FACS Owned/Pending state, API status and adapter error/denial counters.
+Two complete runtime lifetimes return with zero heap/errors/denials. The
+fixture validates its FACS signature/length and an initially free lock, then
+admits only the exact 32-bit lock-word read while that explicit fixture is
+active. Other MMIO reads/writes remain denied. uACPI's lock updates use atomic
+compare/exchange directly; they do not pass through the MMIO write callback.
+This is another reason a native FACS mapping requires its own ownership policy.
+
+Two disposable VM faults cover the boundaries:
+
+- `global-lock-block` models firmware holding Owned before acquisition. The
+  worker sets Pending and blocks on the real uACPI firmware-release semaphore.
+  Shutdown masks event sources/SCI, then times out draining the worker **before**
+  calling interpreter reset. The halt retains the same nonzero heap, lock bits
+  `3` and registered masked SCI owner. Interrupts are verified disabled. This
+  does not simulate a successful firmware notification or accept native SCI.
+- `global-lock-release-denied` sets Pending after acquisition, making release
+  attempt PM1 `GBL_RLS`. The existing control-write policy rejects it. Upstream
+  release still returns success and clears the lock bits; adapter accounting
+  catches the denial and halts with runtime state retained. No safe rollback or
+  completed firmware handoff is claimed, and the policy is not widened.
+
+The lifecycle owner now drains work before `uacpi_state_reset`, because upstream
+retires event machinery before invoking its own work-drain callback. The latter
+remains a defensive check. A timeout does not close the firmware semaphore,
+remove the SCI callback, free live interpreter state or fabricate an unlock.
+This is bounded shutdown containment, not yet an autonomous watchdog for a
+worker stuck during ordinary operation.
+
+Run sequentially after `make acpi-runtime-vm-kernel`:
+
+```sh
+python3 tools/acpi_global_lock_smoke.py
+python3 tools/acpi_global_lock_smoke.py --fault block
+python3 tools/acpi_global_lock_smoke.py --fault release-denied
+```
+
+CI retains all three cases plus the existing SCI and EC regressions. Normal
+startup/native adapters are unchanged. Successful contended firmware handoff,
+exact native PM1 release permission, validated FACS/NVS mappings and an
+independent operation deadline remain prerequisites for a native battery trial.
+
 ### Integration sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the
