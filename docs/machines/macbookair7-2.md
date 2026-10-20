@@ -68,6 +68,27 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Native scratch write/flush overlap — October 20 (in progress)
+
+Bounded objective: extend coexistence testing to USB writes and cache flushes
+without filesystem metadata updates during native battery ownership. Prepare a
+new 4096-byte scratch file, verify its exclusive allocation, flush/unmount the
+workspace, and retain a private write capability for only that file's data range.
+Normal retirement revokes that capability before remount and final collection;
+contained firmware faults may leave scratch contents incomplete but must not
+reenter the filesystem. No general USB write aliases are enabled during runtime.
+
+Touches block range translation/cache invalidation, exFAT allocation inspection,
+workspace scratch lifetime, battery diagnostics and host/VM tests. First gate is
+a tested scratch capability including refusal, partial-write and flush failures;
+then wire the automatic capture with strict offline verification. Base `b6075ef`,
+Pro PR #5 `c0f5fd5` inspected. Its proposed CPU-load capture overlaps shared boot
+staging/startup files: keep its implementation separate and reconcile those hunks
+at integration; do not copy or replace the Pro proposal. Ordinary desktop battery
+access remains disabled. Current accepted b73 read trial is collected; no new
+physical boot is armed.
+
+
 ### Native read-only USB overlap capture — October 20
 
 Scope: add a distinct v34 automatic battery-service capture that checkpoints and
