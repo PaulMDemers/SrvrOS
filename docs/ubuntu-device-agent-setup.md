@@ -560,12 +560,13 @@ never relabel an incomplete test as a pass to advance the milestone.
 ### Guided keyboard acceptance
 
 Stage `hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID"
---keyboard-capture` for the opt-in v27 guided trial. Rehearse with
+--keyboard-capture` for the opt-in v28 guided trial. Rehearse with
 `hardware_boot_smoke.py --probe-check --workspace-table gpt`; add
-`--keyboard-fail` or `--keyboard-timeout` for saved negative-result rehearsals.
+`--keyboard-fail` to exercise wrong-key recovery or `--keyboard-timeout` to
+verify a saved deadline failure.
 The screen prompts for lowercase, Shift, Caps Lock on/off, Backspace, Enter and
-all four arrows. Each step has 30 seconds. Only keyboard input counts; wrong
-input or a timeout records FAIL. Both outcomes save logs, flush/unmount and
+all four arrows. Each step has 90 seconds. Only keyboard input counts. Unexpected input repeats
+the current prompt without resetting its deadline; a timeout records FAIL. Completed and timed-out trials save logs, flush/unmount and
 return automatically if storage succeeds. Missing/failed storage still halts.
 Use the built-in keyboard only for its acceptance. A successful VM rehearsal
 or merely enumerating a keyboard is not physical typing acceptance.

@@ -217,3 +217,11 @@ keep unexpected keys within the same step, and explicitly log retries/timeouts.
 Touch only startup capture, versioned staging, VM coverage and these guides.
 Retain the successful diagnostic as previous. Prior native evidence is collected;
 Enter and arrows remain pending. Existing EC/AML work is outside this scope.
+
+Retry release `29af8019a1737d6e`, source `e8d89f3`, uses v28 with 90-second
+per-step deadlines and recoverable unexpected input. Build, keyboard host tests,
+29 profile tests and documentation checks pass. Exact-stage GPT VM tests prove
+that no input saves FAIL after the full deadline and that ten deliberate wrong
+keys followed by the correct keys save PASS with ten retries and zero drops.
+Both runs verify saved logs, clean exFAT and automatic reset. Physical retry is
+next; retain `fe8e4d3e22ba97eb` as previous and preserve all earlier run evidence.
