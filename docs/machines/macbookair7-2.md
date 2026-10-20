@@ -13,6 +13,20 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Cached battery service block — October 20
+
+Following acceptance of the latest v32 transition round, this Air branch owns
+the cached battery/AC provider. Scope: a pure snapshot/freshness model, an
+asynchronous lifecycle owner around the existing serialized EC/AML worker,
+explicit start/stop and bounded waits, and host/VM lifecycle/reader regressions.
+Preserve the accepted diagnostics and exact native resource gates. Ordinary
+desktop startup remains disabled until service lifetime and responsiveness have
+separate evidence; UI/syscall integration follows this kernel contract.
+Base remains `b6075ef`; Pro PR #5 is `522c36a` (two-fan rehearsal documentation).
+No overlapping native EC implementation or new sibling acceptance is inferred.
+The next checkpoint is a tested cached service with safe retirement, stale
+readings during missed/invalid updates, and repeatable start/stop lifetimes.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
