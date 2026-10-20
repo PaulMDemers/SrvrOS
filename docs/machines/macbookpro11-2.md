@@ -806,3 +806,25 @@ chunks, fresh valid sensors and thermal stop conditions are required. This is
 not a CPU policy or fan-control change. Native automatic profile wiring remains
 a review dependency; do not label the existing idle profile a load capture or
 reboot into a payload without the necessary save/return path.
+
+The opt-in diagnostic is implemented as `threadstress --cpu-load-capture`;
+ordinary threadstress behavior is unchanged. It has fixed 30/30/30-second
+idle/load/recovery phases, one integer worker, 100 ms sensor checks, one-second
+logs, and fail-closed version/state/freshness validation. It refuses load entry
+at 80 C and stops at min(90 C, reference minus 10 C), on throttling/critical
+flags, sensor failure or clock failure. No fan or CPU-policy writes.
+
+Full OS/USB build, System fixtures (including both native fan values, valid zero
+pair and invalid pair), and standalone load fixtures passed. Twelve negative
+fixture scenarios and two successful model-shaped runs passed. Default-disabled
+and opt-in hypervisor VM runs both refused load and returned to the monitor.
+These establish implementation/refusal behavior, not native load performance.
+
+Remaining dependency: a distinct reviewed capture profile and phase-aware power
+collector, touching PR6-owned startup/staging/collection paths. Defer that shared
+integration until ownership is resolved; do not reuse the idle acceptance label
+or alter a staged release. The System display has host-formatting evidence but
+still needs a native visible check. Existing installed fan diagnostic and accepted
+recovery remain unchanged; no reboot is armed. Local test logs are under
+`build/bringup/pro-load-*` and the standalone fixture command is documented in
+`docs/power-telemetry.md`.

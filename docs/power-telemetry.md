@@ -160,7 +160,7 @@ values into sibling profiles. Raw evidence is in
 Local source copies and raw Linux capture live in ignored
 `build/overnight-20261018/`; no firmware dumps or personal inventory are committed.
 
-## Pro11,2 CPU profile (native validation pending)
+## Pro11,2 CPU profile
 
 The explicit 06_46 Haswell CPU profile is now admitted alongside 06_3D.
 The Pro11,2 Linux capture has signature 0x40661, CPUID leaf 6 EAX=0x77/ECX=9,
@@ -177,8 +177,8 @@ and [RAPL driver](https://github.com/torvalds/linux/blob/v6.12/drivers/powercap/
 The local readable-register capture supplies this unit's actual constants.
 Hypervisors, missing CPU features, unexpected energy units and invalid sample
 intervals remain refused; no CPU control writes are added. Native Pro acceptance
-requires its own complete v26 capture. The existing SMC profile remains Air-only;
-Pro two-fan support is a separate step.
+requires its own complete v26 capture. The subsequent exact Pro two-fan profile
+and paired native readout are now accepted in the Pro machine record.
 
 Pro11,2 native v26 release `de341a3cfcaa7acb` now has a completed capture:
 52.993 seconds of valid energy intervals inside a 59.992-second desktop window,
@@ -187,3 +187,32 @@ samples are 93.85%. Zero rejected power samples; thermal service is active with
 fresh valid readings. Screenshot/save/unmount/return succeeded. This accepts
 read-only telemetry on this unit, not thermal equilibrium, battery power, fan
 support or a comparison against Linux's development-load fixture.
+
+## Bounded load diagnostic preparation
+
+`threadstress --cpu-load-capture` is an explicit, separate diagnostic, excluded
+from the normal `threadstress all` suite. It performs 30 seconds idle, 30 seconds
+single-worker integer load, then 30 seconds recovery. It logs monotonic phase
+boundaries, completed work chunks, temperatures and paired fan snapshots. This
+is neither a multi-core stress test nor a power measurement by itself. Package
+energy needs the existing kernel telemetry and a separately reviewed collector
+that delimits these phases; the idle collector must not label it idle data.
+
+Both thermal and fan providers must be active, version-matched, valid and fresh
+within three seconds. Sensor failure, thermal throttling/critical flags, a
+regressing/stalled clock or sleep failure aborts with `completed=NO`. Load entry
+requires core and package below 80 C. Every phase stops at the lower of 90 C
+and ten degrees below the reported thermal reference. Fixed 16,384-iteration
+work chunks keep clock checks outside the arithmetic loop; sensors are checked
+at 100 ms intervals and logs emitted at one-second intervals. These diagnostic
+thresholds are conservative test limits, not a hardware protection mechanism
+or a replacement for firmware protection. CPU policy and fan control are unchanged.
+
+Run host fixtures with `python3 tools/test_cpu_load_capture.py` and, after
+building `all usb-image`, VM refusal checks with
+`tools/host-env.sh python3 tools/cpu_load_smoke.py`. The VM checks disabled and
+explicit-but-unavailable providers both refuse work and return to the monitor.
+Host time/sensor fixtures exercise successful Air/Pro-shaped snapshots and
+thermal, freshness, transport-validity and clock failure exits. They are not
+native load acceptance. Automatic physical capture/profile wiring is pending
+shared boot-path coordination with PR6; no native load trial is armed.

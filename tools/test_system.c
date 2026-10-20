@@ -88,6 +88,9 @@ int main(void) {
     thermal_phase=2;tool_system_refresh(&t,1);assert(!t.thermal_fresh&&!strcmp(t.sensor_values[0],"Not available")&&strstr(t.sensor_values[5],"stale"));
     thermal_phase=3;tool_system_refresh(&t,1);assert(!t.thermal_valid);
     smc_phase=1;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"6501.0 RPM"));
+    smc_phase=4;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"L 2162.0 / R 1991.0 RPM"));
+    smc_phase=5;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"L 0.0 / R 0.0 RPM"));
+    smc_phase=6;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available"));
     smc_phase=2;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available") && strstr(t.sensor_values[8],"stale"));
     smc_phase=3;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available"));
     tool_system_action(&t,(struct desk_action){SYSTEM_DEVICES,DESK_WIDGET_ACTIVATED});
@@ -105,5 +108,8 @@ long srv_smc_status(struct srv_smc_status *out) {
     *out=(struct srv_smc_status){.version=SRV_SMC_VERSION,.state=SRV_SMC_UNAVAILABLE};
     if(smc_phase)*out=(struct srv_smc_status){.version=SRV_SMC_VERSION,.state=smc_phase==3?SRV_SMC_FAULT:SRV_SMC_ACTIVE,
         .flags=SRV_SMC_FAN_VALID,.fan_millirpm=6501000,.samples=1,.sampled_us=smc_phase==2?1000000:4500000};
+    if(smc_phase>=4) { out->fan_count=2;out->fan_millirpm=2162000;out->fan1_millirpm=1991000; }
+    if(smc_phase==5) out->fan_millirpm=out->fan1_millirpm=0;
+    if(smc_phase==6) out->flags=0;
     return 0;
 }
