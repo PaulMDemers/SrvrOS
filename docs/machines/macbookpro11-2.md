@@ -528,3 +528,17 @@ by the scheduler to avoid lost wakes. Signal/cancel checks remain bounded by one
 tick. Touch mouse queue, syscall number/dispatch/wrapper, compositor and existing
 mouse/sleep host tests. Refreshed PR6 does not touch these files; avoid its startup,
 profile and Makefile changes. Native timing baseline remains 9,999 us cadence.
+
+Implementation `58884d6` adds syscall 133 (`srv_pointer_wait`) with a dedicated
+mouse wait queue, one-tick deadline, non-consuming readiness and bounded
+signal/exit checks. Scheduler readiness recheck closes the enqueue-before-block
+race. Enqueue/overflow/cancel paths notify waiters; motion coalescing retains
+existing readiness without redundant notifications. Desktop fallback remains
+one-tick sleep if the new syscall is unavailable or interrupted. Hardware trial
+logs count input-ready returns, timeout returns and errors.
+
+Full build/USB image and `test-core` pass, including mouse order/overflow,
+arrival at the wait boundary, arrival while blocked, timeout, signal/exit,
+early-scheduler fallback and storage-safe syscall admission. The xHCI worker
+still samples at the original rate, so this change can remove an extra desktop
+wait but cannot by itself guarantee sub-10 ms USB sampling or total latency.
