@@ -846,3 +846,17 @@ installer tests, bounded worker fixtures and new phase/profile fixtures.
 Separate phase parsing refuses missing completion, failure markers, zero load
 work and inconsistent boundaries; invalid power is null. Proceed to exact-stage
 VM refusal/save/unmount/reset and missing-workspace checks before installation.
+
+Candidate `9b7ff9eb6ebc3535`, payload source `c0f5fd5`, passes exact v35
+GPT rehearsal: VM sensors/power remain unavailable, worker refuses without load,
+failed result is persisted, exFAT verifies clean, and reset occurs. Separate
+missing-workspace rehearsal halts with saved=NO/unmounted=NO and no reset.
+The successful receipt explicitly records refused load and unavailable VM power;
+it is workflow evidence, not load acceptance. Worker/collector completion checks
+also require a successful process return. Rehearsal evidence is retained separately.
+
+Next physical test is unattended: 30 seconds console idle, 30 seconds single
+worker load, 30 seconds recovery, then save/unmount/return. A thermal/sensor
+refusal may return earlier and must be collected as failure. No commands are
+required. Preserve sound-confirmed recovery; inspect the exact new session before
+any retry. System's visible two-fan presentation remains a separate check.

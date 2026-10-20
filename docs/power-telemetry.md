@@ -214,8 +214,8 @@ building `all usb-image`, VM refusal checks with
 explicit-but-unavailable providers both refuse work and return to the monitor.
 Host time/sensor fixtures exercise successful Air/Pro-shaped snapshots and
 thermal, freshness, transport-validity and clock failure exits. They are not
-native load acceptance. Automatic physical capture/profile wiring is pending
-shared boot-path coordination with PR6; no native load trial is armed.
+native load acceptance. The v35 proposal below supplies automatic capture wiring on the device branch;
+shared integration still requires review against PR6.
 
 The device-branch v35 proposal now stages with `hardware_boot.py stage
 --laptop-probe-volume <local-UUID> --cpu-load-capture`. It enables only RAM/USB,

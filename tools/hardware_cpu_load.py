@@ -62,7 +62,7 @@ def load_result(text):
     failure = re.findall(r'^cpu-load: completed=NO reason=(\S+)$',text,re.M)
     rows = re.findall(r'^cpu-load: phase=(idle|load|recovery) completed=yes elapsed_us=(\d+) start_us=(\d+) end_us=(\d+) chunks=(\d+) checksum=(\d+)$',text,re.M)
     valid = (not failure and text.count('cpu-load: completed=yes\n') == 1 and
-             'cpu-load-capture: returned=yes' in text and [r[0] for r in rows] == ['idle','load','recovery'])
+             'cpu-load-capture: returned=yes process_ok=yes' in text and [r[0] for r in rows] == ['idle','load','recovery'])
     phases = []
     last = None
     for name,elapsed,start,end,chunks,_ in rows:

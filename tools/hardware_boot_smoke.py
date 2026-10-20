@@ -154,7 +154,7 @@ def main():
     cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
-    power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
+    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
@@ -325,6 +325,9 @@ def main():
                         assert "cpu-load: completed=yes" not in exit_log and "cpu-load: phase=load" not in exit_log
                         assert "cpu-load-capture: returned=yes" in exit_log
                         assert "srvros.aml" not in exit_log
+                        from hardware_desktop import device_summaries
+                        power=device_summaries(exit_log)["power"]
+                        assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
                         from hardware_cpu_load import load_result
                         assert load_result(exit_log)["completed"] is False
                     if aml_capture:
