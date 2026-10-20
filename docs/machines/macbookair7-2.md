@@ -26,6 +26,9 @@ Base remains `b6075ef`; Pro PR #5 is `522c36a` (two-fan rehearsal documentation)
 No overlapping native EC implementation or new sibling acceptance is inferred.
 The next checkpoint is a tested cached service with safe retirement, stale
 readings during missed/invalid updates, and repeatable start/stop lifetimes.
+Reserve **v33 laptop-probe** for a bounded automatic service-lifecycle capture
+after those checks pass, including exact-stage refusal rehearsal and strict
+collection. It exercises cached readers and stop/restart, not desktop acceptance.
 
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
