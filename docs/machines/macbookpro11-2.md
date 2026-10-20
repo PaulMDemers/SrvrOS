@@ -883,3 +883,13 @@ recovery hashes, Ubuntu default and consumed one-shot are verified. Offline
 exFAT is clean. No reboot is armed; current is the load diagnostic and previous
 remains sound-confirmed `e47dca3a6b30c6c1`. The native visible System fan check,
 shared integration review, and battery/AC dependencies remain open.
+
+## Visible sensor trial scope — 2026-10-20
+
+Prepare a distinct v36 scaled interactive desktop profile with accepted brightness,
+audio and explicit CPU/SMC readout. Main remains b6075ef; Air PR6 at 41ecb6e
+continues battery/USB work. Keep this small boot-profile proposal on the device
+branch pending shared integration review. Update the opening Help checklist with
+the two-fan check and exit commands. No timeout: user checks System/Sensors,
+Pause/Resume and screenshot, then returns manually using the on-screen steps.
+No AML, battery runtime, fan control or additional CPU load in this profile.

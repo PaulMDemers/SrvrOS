@@ -426,3 +426,12 @@ age; older workspace summary fields retain F0Ac for compatibility. Fan control,
 SMC MMIO, IRQ6 and other keys remain unused. Resource/key references are the
 captured DSDT/Linux sysfs evidence and Linux's
 [Apple SMC driver](https://github.com/torvalds/linux/blob/v6.12/drivers/hwmon/applesmc.c).
+
+The Pro v36 device-branch proposal adds `--desktop-sensors` to the scaled
+`--desktop-brightness --desktop-audio` trial. It enables exact-profile read-only
+CPU/SMC providers, retaining 2880x1800/2x, brightness and audio. It does not enable
+AML, battery runtime or CPU/fan controls. The opening Help page includes the
+System/Sensors two-fan, Pause/Resume, screenshot and manual return checks.
+This is untimed; exit/unmount before reboot. Host formatting and VM boot checks
+are separate from native visible acceptance. Shared profile integration remains
+subject to review against the active Air branch.

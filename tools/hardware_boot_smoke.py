@@ -144,7 +144,7 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-"))):
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
@@ -162,7 +162,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-")))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -383,6 +383,9 @@ def main():
                         assert "physical=2880x1800 logical=1440x900 scale=2" in text
                         time.sleep(1)
                         ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
+                        if manifest["config_version"].startswith("ram-usb-v36-"):
+                            shortcut("meta_l-spc");type_text("System new app");ui.key("ret")
+                            wait_for(serial,lambda s:"desktools: system-ready" in s,process,30)
                         shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                         wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
                         time.sleep(1);type_text("Pro scaled desktop USB test.");shortcut("ctrl-s")
