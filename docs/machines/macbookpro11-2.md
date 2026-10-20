@@ -389,3 +389,15 @@ Logs and the accepted payload are archived outside `build`. Current installed
 release is now accepted for brightness; previous remains `c4b7b7bb5eb48b3a`.
 Preserve this brightness payload when staging audio work next. Sound remains
 disabled in this profile and requires Pro-specific CS4208 routing and tests.
+
+## Pro audio implementation scope
+
+Add exact Intel 8c20 / CS4208 1013:4208 / subsystem 106b:5e00 support.
+Captured outputs are headphone pin10/DAC2, speaker pin12/DAC3 and bass speaker
+pin13/DAC4; all speaker converters must receive the stereo stream and be muted
+when headphones are selected. Captured GPIO0 enables the speaker amplifier.
+Validate Pro revision, pin defaults, connections and capabilities before codec
+mutation. Scope: audio controller selection, codec route model/tests, explicit
+scaled audio trial and on-screen sound checks. Preserve Air and QEMU behavior;
+no HDMI, microphone, EC/AML or sibling support. origin/main remains b6075ef;
+PR6 remains ACPI scope. Accepted brightness release remains recovery.
