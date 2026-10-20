@@ -148,7 +148,9 @@ device work uses separate branches based on `main`.
   after clean runtime retirement. Host tests and ASan/UBSan pass; two VM
   lifetimes retain a pending modeled event. Mask/restore failure and unexpected
   reenable cases halt; the existing battery fault regressions pass.
-  Native acceptance remains pending; no new physical trial is armed.
+  Candidate `c0f2c3af0dbacc66` (source `8dc82e7`) passed exact GRUB/UEFI
+  Q35 refusal, saved log-byte verification and clean exFAT. Native acceptance
+  remains pending; the local release run record owns installation/reboot state.
 - Integration remains `b6075ef`; Pro PR #5 is at `827d035` with native cursor
   timing evidence. Battery event lifecycle is this Air branch's scope; shared
   startup/staging hunks still require reconciliation during integration.
