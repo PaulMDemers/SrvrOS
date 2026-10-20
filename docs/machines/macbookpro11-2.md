@@ -1125,3 +1125,21 @@ new source has no physical acceptance yet. Preserve Ubuntu default, installed
 previous `e47dca3a6b30c6c1`, and the independently archived accepted Ethernet
 payload `debb2ddf3e9f4243`. Collect the matching session and saved reports before
 any further trial; battery, headphones and pointer latency remain deferred.
+
+## Native cable failure — 2026-10-20
+
+Collected `c7bf960edc860376`, session `00065e4dd6afeb55-00`: the saved before
+report confirms DHCP, DNS and HTTP 200 with successful statuses. Two screenshots
+and the report verify by hash; no after report was found. The user reports a
+slow disconnected indication and no reconnect indication. Logs show link state
+unknown initially, no accepted CDC cable notifications, then a transmit-deadline
+quarantine. This is a driver/link failure, not accepted cable recovery or merely
+a repaint delay. Collection has one attention marker; normal desktop exit,
+consumed one-shot, recovery hashes and offline filesystem/allocation checks pass
+(23 directories, 83 files). Evidence is archived outside build; no boot armed.
+
+Next bounded scope: capture this adapter's actual ECM notification format and
+trace pending TX on cable loss before changing notification parsing or recovery.
+Main remains `76508bf`; Air PR8 concerns battery/filesystem isolation. Preserve
+DMA quarantine safety and exact device gates; do not hide failure with a longer
+timeout or a UI-only connected indicator. Battery/headphones/latency stay deferred.
