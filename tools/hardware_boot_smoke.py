@@ -397,7 +397,7 @@ def main():
                             type_text("ping 10.0.2.2 > /work/srvros-work/network-ping.txt");ui.key("ret")
                             time.sleep(5);type_text("exit");ui.key("ret")
                             wait_for(serial,lambda s:"deskterm: shell exited" in s,process,30)
-                            shortcut("ctrl-w")
+                            shortcut("meta_l-w")
                             wait_for(serial,lambda s:"deskterm: exited failure=0" in s,process,30)
                         shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
                         wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
