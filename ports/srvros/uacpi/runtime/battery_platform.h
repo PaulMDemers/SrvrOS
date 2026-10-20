@@ -21,6 +21,8 @@ struct battery_platform {
     void (*model_mode_entered)(void);
     /* VM transition fixture only; native never synthesizes AC or current. */
     void (*model_sample_begin)(uint64_t generation);
+    /* VM-only CPU-bound setup workload; native leaves this NULL. */
+    void (*model_setup_work)(void);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

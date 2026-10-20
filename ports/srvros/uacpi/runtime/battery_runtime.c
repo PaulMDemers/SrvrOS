@@ -40,6 +40,8 @@ static struct {
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
     bool ac_present,ac_coherent,transition_mode,service_mode;
     uint64_t ac_sampled_us;
+    const char *setup_stage;
+    uint64_t setup_started_us;
 } runtime;
 enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
@@ -80,6 +82,10 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     }
     irq_restore(f);
     mask_sources();
+    console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
+        runtime.setup_stage?runtime.setup_stage:"not-started",
+        runtime.setup_started_us?timer_monotonic_us()-runtime.setup_started_us:0,
+        runtime.worker.identity,runtime.worker.completed,runtime.worker.work.in_flight);
     console_printf("battery: HALTED %s errors=%u denied=%u heap=%u ec_phase=%u ec_error=%u queries=%u; live state retained\n",
         reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
         (uint64_t)runtime.transport.error,runtime.queries);
@@ -328,21 +334,34 @@ static bool contract(void) {
     return ok&&!uacpi_eval_simple_integer(runtime.node,"SMB0._EC",&bank)&&bank==0x2010&&
         !uacpi_eval_simple_integer(runtime.node,"SMB0.SBS0._SBS",&sbs)&&sbs==1;
 }
+static void setup_mark(const char *stage) {
+    runtime.setup_stage=stage;
+    console_printf("battery: setup=%s elapsed_us=%u\n",stage,
+        timer_monotonic_us()-runtime.setup_started_us);
+}
 static void setup_work(void *ctx) {
     (void)ctx;runtime.ok=false;
     if(!worker_context())unsafe("setup outside worker");
+    runtime.setup_started_us=timer_monotonic_us();
+    setup_mark("handler");
+    if(runtime.platform.model_setup_work)runtime.platform.model_setup_work();
     /* Root handler before namespace load provides the ECDT controller for
      * module-level AML. Exact firmware was checked before granting IO. */
     runtime.handler_node=uacpi_namespace_root();
     if(uacpi_install_address_space_handler(runtime.handler_node,UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER,region_handler,&runtime))goto done;
     runtime.region=true;
-    if(uacpi_namespace_load()||!contract())goto done;
+    setup_mark("namespace-load");
+    if(uacpi_namespace_load())goto done;
+    setup_mark("contract");
+    if(!contract())goto done;
     if(uacpi_install_notify_handler(uacpi_namespace_root(),notify_handler,NULL))goto done;
     runtime.notify=true;
+    setup_mark("region-connect");
     if(uacpi_reg_all_opregions(runtime.handler_node,UACPI_ADDRESS_SPACE_EMBEDDED_CONTROLLER)||runtime.errors||runtime.denied)goto done;
+    setup_mark("namespace-initialize");
     if(uacpi_namespace_initialize())goto done;
     runtime.ok=!runtime.errors&&!runtime.denied;
-done:runtime.done=true;
+done:if(runtime.ok)setup_mark("complete");runtime.done=true;
 }
 static void query_work(void *ctx);
 static void queue_query(void) {
@@ -686,7 +705,7 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
                 return true;
             }
             if(s.state==BATTERY_SERVICE_ACTIVE||timer_monotonic_us()>=end)goto failed;
-            timer_wait_ticks(1);
+            uacpi_kernel_sleep(10); /* Block this reader; HLT would keep it runnable. */
         } while(true);
     }
     /* Close admission immediately. A zero wait cannot release ownership or
@@ -723,7 +742,7 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
         if((s.flags&BATTERY_CACHE_FRESH)&&s.sample.generation>=5)break;
         failure="sample deadline";
         if(timer_monotonic_us()>=deadline)goto failed;
-        timer_wait_ticks(1);
+        uacpi_kernel_sleep(10); /* Block this reader; HLT would keep it runnable. */
     }
     failure="stale recovery";
     if(refusal||!busy_reads||reads<1000||(stale&&(!saw_stale||!recovered))||(!stale&&s.rejected))goto failed;
@@ -742,7 +761,7 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
     do {
         battery_service_status(&s);
         if(timer_monotonic_us()>=deadline)goto failed;
-        timer_wait_ticks(1);
+        uacpi_kernel_sleep(10); /* Block this reader; HLT would keep it runnable. */
     } while(!(s.flags&BATTERY_CACHE_SAMPLING));
     failure="in-flight stop";
     if(battery_service_stop(0))goto failed;

@@ -71,6 +71,16 @@ duplicate admission, immediate stop, repeated initialization/retirement,
 stopping an executing sample, stale-to-fresh recovery, native platform refusal
 and independent query-deadline containment.
 
+The service reader fixture sleeps through a scheduler-backed timed wait.
+`timer_wait_ticks` uses `HLT` without blocking its thread: using that between
+reader batches kept the bootstrap thread runnable and consumed CPU time needed
+by initialization. A CPU-bound VM setup fixture reproduces the deadline with
+the old reader and completes with blocking waits, under the same five-second
+setup bound. This models scheduling pressure, not native firmware contents.
+Initialization logs its load/contract/region/initialize stages and elapsed time;
+containment also reports the worker's progress. Native confirmation remains a
+separate hardware gate.
+
 The v33 laptop-probe profile provides a bounded automatic service test:
 
 ```sh

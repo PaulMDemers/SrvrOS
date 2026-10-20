@@ -68,6 +68,19 @@ setup progress/timing diagnostics while preserving native deadlines and access
 gates. Pro PR #5 advanced to `8fc3e1c` (accepted paired fan telemetry docs), with
 no overlapping runtime work; integration base remains `b6075ef`.
 
+Repair validation: a VM-only 3.5-second executing setup workload reproduces the
+five-second halt with the old runnable reader. Changing only the reader's waits
+to scheduler-backed sleeps completes that workload in 3.578/3.565 seconds
+across two initialized lifetimes. Final native/VM/ordinary builds and all 12
+affected VM cases pass, including the new load regression, all service modes,
+normal diagnostic, setup/query/disconnect containment and guided transitions.
+The 42 staging/collector checks and 376 local documentation links pass.
+Setup now logs substage timing and containment reports worker progress. Native
+deadlines, firmware gates and storage scheduling eligibility are unchanged.
+The physical explanation and corrected service still require a hardware retry.
+Failed evidence is retained outside build; the local USB is clean after the
+halt (174 directories, 846 files), and the one-shot entry was consumed.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
