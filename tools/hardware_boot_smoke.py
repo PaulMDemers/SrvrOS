@@ -161,7 +161,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v29-"))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)

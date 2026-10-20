@@ -167,6 +167,16 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_scale=2)
         with self.assertRaises(ValueError): boot.stage(desktop_scale=3,desktop_volume="37d8c5d0")
 
+    def test_scaled_brightness_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v30-desktop-37d8c5d0")
+        self.assertIn("srvros.desktop-scale=2",cfg)
+        self.assertIn("srvros.laptop-services=brightness",cfg)
+        self.assertIn("resolution: 2880x1800",cfg)
+        for forbidden in ("srvros.audio=", "srvros.aml=", "srvros.smc="):
+            self.assertNotIn(forbidden,cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_brightness=True)
+        with self.assertRaises(ValueError): boot.stage(desktop_volume="37d8c5d0",desktop_brightness=True)
+
     def test_keyboard_capture_profile(self):
         version="ram-usb-v28-laptop-probe-37d8c5d0"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

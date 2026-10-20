@@ -23,7 +23,7 @@ static uint32_t pwm_read(void *context,unsigned reg) {
 static void pwm_write(void *context,uint32_t value) {
     *(volatile uint32_t *)((uintptr_t)context+4096+0x254)=value;
 }
-static bool pro_display_probe(void) {
+static bool pro_display_probe(bool brightness) {
     const struct pci_device *display=NULL;uint16_t pch=0;
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *p=pci_device_at(i);
@@ -42,7 +42,7 @@ static bool pro_display_probe(void) {
     if(!base || base>0x000ffffffff00000ull || !(pci_read_config16(display,4)&2)) return true;
     const uint64_t va=0xffffc001f3100000ull;
     if(!vmm_map_page(va,base+0x48000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE) ||
-       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE)) {
+       !vmm_map_page(va+4096,base+0xc8000,VMM_PAGE_NO_EXECUTE|VMM_PAGE_CACHE_DISABLE|(brightness?VMM_PAGE_WRITABLE:0))) {
         console_write("pro-backlight: mapping unavailable\n");return true;
     }
     uint32_t cpu=*(volatile uint32_t *)(va+0x250),cd=*(volatile uint32_t *)(va+0x254);
@@ -50,10 +50,14 @@ static bool pro_display_probe(void) {
     struct laptop_backlight b=laptop_backlight_decode(cpu,cd,pchctl,pd);
     console_printf("pro-backlight: read-only cpu_ctl=%x cpu_duty=%x pch_ctl=%x pch_duty=%x mode=%u duty=%u period=%u\n",
         (uint64_t)cpu,(uint64_t)cd,(uint64_t)pchctl,(uint64_t)pd,(uint64_t)b.mode,(uint64_t)b.duty,(uint64_t)b.period);
-    console_write("pro-backlight: no PWM writes, provider binding or EC access\n");return true;
+    if(brightness) {
+        bool ready=backlight_bind_profile((struct backlight_io){(void *)(uintptr_t)va,pwm_read,pwm_write},BACKLIGHT_PRO11_2);
+        console_printf("backlight: Pro11,2 provider=%s initial_percent=%u; panel unchanged\n",ready?"ready":"unavailable",ready?(uint64_t)backlight_percent(0):0);
+    } else console_write("pro-backlight: no PWM writes, provider binding or EC access\n");
+    return true;
 }
 static void inspect(bool brightness) {
-    if(pro_display_probe()) return;
+    if(pro_display_probe(brightness)) return;
     const struct pci_device *display=NULL;bool chipset=false;
     for(uint64_t i=0;i<pci_device_count();i++) {
         const struct pci_device *p=pci_device_at(i);

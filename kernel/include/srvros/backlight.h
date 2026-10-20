@@ -9,6 +9,8 @@ struct backlight_io {
     uint32_t (*read)(void *context,unsigned reg); /* 0 CPU control, 1 PCH control, 2 PCH period/duty */
     void (*write_duty)(void *context,uint32_t value);
 };
+enum backlight_profile { BACKLIGHT_AIR7_2, BACKLIGHT_PRO11_2 };
+bool backlight_bind_profile(struct backlight_io io,enum backlight_profile profile);
 bool backlight_bind(struct backlight_io io);
 /* 0 queries; 5..100 sets. Returns read-back percentage, or -1 unavailable/error.
  * Values outside that range are rejected without touching hardware. */
