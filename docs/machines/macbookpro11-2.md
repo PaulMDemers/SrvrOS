@@ -625,3 +625,14 @@ USB image, test-core and documentation checks pass. Mouse fixtures cover
 coalescing, mixed sources, backwards clocks, cancellation and overflow; xHCI
 fixtures cover report/rearm samples and lift sequence reset. Native timing
 and perceived response remain untested for this diagnostic build.
+
+Diagnostic candidate `ad6d1b9700372be6` (source `6968afb`) passes exact v31
+GPT desktop/audio rehearsal: scaled display, document/screenshot/log persistence,
+clean unmount and a captured tone. The VM verifies fixed-one-tick policy and the
+queue aggregate log format; its emulated mouse supplies zero Apple trackpad
+queue samples, so it does not validate native residence values. On-screen Help
+requests continuous circles over desktop/Text and window dragging for about
+15 seconds each, with untimed manual exit and reboot instructions. Preserve
+sound-confirmed `e47dca3a6b30c6c1` as previous. Next collect this exact session
+before any further stage, compare queue and dispatch intervals, and ask whether
+response returned to the earlier baseline.
