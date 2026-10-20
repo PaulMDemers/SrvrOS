@@ -828,3 +828,15 @@ still needs a native visible check. Existing installed fan diagnostic and accept
 recovery remain unchanged; no reboot is armed. Local test logs are under
 `build/bringup/pro-load-*` and the standalone fixture command is documented in
 `docs/power-telemetry.md`.
+
+## Proposed load capture wiring — 2026-10-20
+
+User requested proceeding after the dependency report. Main remains b6075ef;
+Air PR6 is 556fec5, with v34 battery/USB overlap active. Prepare a distinct v35
+CPU-load proposal on this device branch: a small opt-in startup branch, immutable
+stage profile, exact-stage refusal rehearsal and separate phase-aware collector.
+This overlaps PR6-owned startup/staging files, so defer shared integration and
+resolve those hunks during review. Do not merge or replace the Air implementation.
+The proposed profile runs the bounded standalone worker and saves its result,
+unmounts and returns on handled sensor refusal as well as success. Missing
+workspace/save/unmount remains a halt. No optional AML or EC ownership is added.
