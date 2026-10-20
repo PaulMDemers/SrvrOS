@@ -335,6 +335,17 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v34 laptop-probe** `--battery-usb-read` profile extends the service
+trial with uncached reads of the validated, unmounted USB device while battery
+sampling runs. It leaves USB writes revoked until clean retirement, verifies
+each read against a baseline, and requires sampling progress inside storage
+scopes. It is automatic; keep AC and USB connected. The same exact-stage
+`--probe-check` rehearsal must verify native refusal and automatic return.
+See [the read-overlap contract](battery-service.md#native-read-only-usb-overlap-capture-v34).
+On collection require both `battery_service` and `battery_usb_read` evidence.
+A missing final report remains failure. This does not accept concurrent writes
+or human input responsiveness.
+
 The **v33 laptop-probe** `--battery-service` profile runs a bounded automatic
 cached-reader/start/stop test with AC and USB left connected. Follow the
 [service guide](battery-service.md) and the same exact-stage/install/one-shot

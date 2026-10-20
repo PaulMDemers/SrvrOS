@@ -51,7 +51,7 @@ void vfs_release_data(const struct vfs_node *n,const uint8_t *d) { (void)n;(void
 bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));return busy_files; }
 int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
 static void reset(void) {
-    active=NULL;failed=false;memset(disks,0,sizeof(disks));
+    active=NULL;parked=NULL;failed=false;memset(disks,0,sizeof(disks));
     count=1;enables=disables=flushes=depth=0;
     mounted=busy_files=dirty=bad_marker=missing=foreign=false;
     flush_ok=file_sync_ok=true;
@@ -59,7 +59,7 @@ static void reset(void) {
     marker=(struct vfs_node){.type=VFS_NODE_FILE,.size=sizeof(marker_text)-1};
 }
 int main(void) {
-    reset();workspace_boot("srvros.storage=ram");assert(!active && !enables);
+    reset();assert(!workspace_parked_device());workspace_boot("srvros.storage=ram");assert(!active && !enables);
     workspace_boot("srvros.workspace-volume=37d8c5d0 srvros.workspace-volume=37d8c5d0");assert(!active && !enables);
     assert(!workspace_mount("bad") && !workspace_mount("37d8/c5d0"));
     workspace_boot("srvros.workspace-volume=37d8c5d0");assert(active && mounted && enables==1);
@@ -77,5 +77,11 @@ int main(void) {
     flush_ok=true;assert(!workspace_sync());
     reset();assert(workspace_mount("37d8c5d0"));file_sync_ok=false;
     assert(!workspace_sync() && active && mounted && !flushes);
+    reset();assert(workspace_mount("37d8c5d0"));
+    assert(!workspace_parked_device());assert(workspace_unmount());
+    assert(workspace_parked_device()==disks);
+    disks[0].write=write_stub;assert(!workspace_parked_device());disks[0].write=NULL;
+    disks[0].flush=flush_stub;assert(!workspace_parked_device());disks[0].flush=NULL;
+    assert(workspace_mount("37d8c5d0")&&!workspace_parked_device());
     puts("workspace-host: PASS (UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
 }

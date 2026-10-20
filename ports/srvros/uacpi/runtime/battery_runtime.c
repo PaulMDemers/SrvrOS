@@ -9,6 +9,7 @@
 #include <srvros/battery_cache.h>
 #include <srvros/arch.h>
 #include <srvros/workspace.h>
+#include <srvros/usb_storage.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/halt.h>
@@ -744,12 +745,61 @@ static bool same_sample(const struct sbs_snapshot *a,const struct sbs_snapshot *
     for(unsigned i=0;i<SBS_WORD_COUNT;i++)if(a->raw[i]!=b->raw[i])return false;
     return true;
 }
-static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stale,bool refusal) {
+/* Diagnostic-only real USB traffic. The selected workspace has been flushed,
+ * unmounted and write-revoked before admission. Read the raw parent directly so
+ * the block cache cannot turn this into a memory-only scheduling experiment. */
+static struct {
+    struct block_device *volume,*device;
+    uint8_t baseline[4096],buffer[4096];
+    uint64_t reads,commands,busy,progress,bursts,max_us,max_read_us;
+} usb_read_test;
+static bool usb_read_prepare(void) {
+    usb_read_test=(typeof(usb_read_test)){0};
+    usb_read_test.volume=workspace_parked_device();
+    usb_read_test.device=block_parent(usb_read_test.volume);
+    struct block_device *d=usb_read_test.device;
+    return d && d->read && block_device_size(d)>=4096 &&
+        d->read(d,0,usb_read_test.baseline,4096);
+}
+static bool usb_read_burst(void) {
+    struct block_device *d=usb_read_test.device;
+    if(workspace_parked_device()!=usb_read_test.volume)return false;
+    uint64_t flags=irq_save();
+    if(!scheduler_io_begin()){irq_restore(flags);return false;}
+    struct usb_storage *storage=d->private_data;
+    uint64_t start=timer_monotonic_us(),commands=storage->commands;
+    struct battery_service_status before,after;
+    battery_service_status(&before);after=before;
+    bool ok=true;
+    do {
+        if(!d->read(d,0,usb_read_test.buffer,4096)){ok=false;break;}
+        for(unsigned i=0;i<4096;i++)if(usb_read_test.buffer[i]!=usb_read_test.baseline[i]){ok=false;break;}
+        if(!ok)break;
+        usb_read_test.reads++;
+        uint64_t read_start=timer_monotonic_us();
+        battery_service_status(&after);
+        uint64_t read_us=timer_monotonic_us()-read_start;
+        if(read_us>usb_read_test.max_read_us)usb_read_test.max_read_us=read_us;
+        if(after.flags&BATTERY_CACHE_SAMPLING)usb_read_test.busy++;
+        (void)scheduler_io_yield();
+    } while(timer_monotonic_us()-start<250000);
+    /* Observe progress while exclusion is still held, before releasing it. */
+    battery_service_status(&after);
+    if(after.epoch==before.epoch && after.sample.generation>before.sample.generation)usb_read_test.progress++;
+    usb_read_test.commands+=storage->commands-commands;
+    usb_read_test.bursts++;
+    uint64_t elapsed=timer_monotonic_us()-start;
+    if(elapsed>usb_read_test.max_us)usb_read_test.max_us=elapsed;
+    scheduler_io_end();irq_restore(flags);
+    return ok;
+}
+static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stale,bool refusal,bool usb_reads) {
     uint64_t reads=0,busy_reads=0,max_read_us=0,epoch=0;
     bool saw_stale=false,recovered=false;
     struct battery_service_status s,previous={0};
     const char *failure="start";
     console_write("Battery service test: automatic; keep AC and USB connected. No input required.\n");
+    if(usb_reads&&!usb_read_prepare()){failure="USB read preparation";goto failed;}
     if(!battery_service_start(rsdp,map))goto failed;
     if(refusal) {
         uint64_t end=timer_monotonic_us()+10000000;
@@ -794,11 +844,22 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
             }
             previous=s;
         }
+        if(usb_reads) {
+            failure="USB read overlap";
+            if(!usb_read_burst())goto failed;
+        }
         if(s.state==BATTERY_SERVICE_UNAVAILABLE){failure="unexpected unavailable";goto failed;}
         if((s.flags&BATTERY_CACHE_FRESH)&&s.sample.generation>=5)break;
         failure="sample deadline";
         if(timer_monotonic_us()>=deadline)goto failed;
         uacpi_kernel_sleep(10); /* Block this reader; HLT would keep it runnable. */
+    }
+    if(usb_reads) {
+        reads+=usb_read_test.reads;busy_reads+=usb_read_test.busy;
+        if(usb_read_test.max_read_us>max_read_us)max_read_us=usb_read_test.max_read_us;
+        failure="USB progress proof";
+        if(!usb_read_test.reads || usb_read_test.commands<usb_read_test.reads ||
+           !usb_read_test.busy || !usb_read_test.progress)goto failed;
     }
     failure="stale recovery";
     if(refusal||!busy_reads||reads<1000||(stale&&(!saw_stale||!recovered))||(!stale&&s.rejected))goto failed;
@@ -831,6 +892,9 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
     if(!battery_service_stop(35000))goto failed;
     battery_service_status(&s);
     if(s.state!=BATTERY_SERVICE_STOPPED||s.epoch!=epoch+1||(s.flags&BATTERY_CACHE_FRESH))goto failed;
+    if(usb_reads)console_printf("battery-usb-read: PASS reads=%u commands=%u busy_reads=%u progress_bursts=%u bursts=%u max_burst_us=%u bytes_per_read=4096 writes=0; retired=yes\n",
+        usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,
+        usb_read_test.bursts,usb_read_test.max_us);
     console_printf("battery-service-test: PASS reads=%u busy_reads=%u max_read_us=%u stale=%u recovered=%u stop_timeout=%u epochs=%u; retired=yes\n",
         reads,busy_reads,max_read_us,(uint64_t)saw_stale,(uint64_t)recovered,(uint64_t)!quick,s.epoch);
     return true;
@@ -840,14 +904,18 @@ failed:
     return false;
 }
 bool battery_service_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return service_test(rsdp,map,false,false);
+    return service_test(rsdp,map,false,false,false);
+}
+bool battery_usb_read_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return service_test(rsdp,map,false,false,true);
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
-    bool service_command=command_is(args,"battery-service"),stale=command_is(args,"battery-service-stale"),
+    bool usb_reads=command_is(args,"battery-usb-read");
+    bool service_command=usb_reads||command_is(args,"battery-service"),stale=command_is(args,"battery-service-stale"),
         refusal=command_is(args,"battery-service-refusal");
     if(service_command||stale||refusal) {
-        (void)service_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,stale,refusal);return;
+        (void)service_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,stale,refusal,usb_reads);return;
     }
     bool transitions=command_is(args,"battery-transitions");
     if(!transitions&&!command_is(args,"battery")){console_write("battery diagnostic: acpiruntime battery | battery-transitions | battery-service\n");return;}

@@ -190,6 +190,24 @@ def battery_service_result(exit_text):
                 sample=values,physical_accuracy='manual-pending',desktop_acceptance='pending')
 
 
+def battery_usb_read_result(exit_text,require_service=True):
+    """v34 raw USB reads with writes revoked; never write/input acceptance."""
+    if require_service and battery_service_result(exit_text) is None:return None
+    lines=exit_text.splitlines()
+    rows=[row for row in lines if row.startswith('battery-usb-read:')]
+    if len(rows)!=1:return None
+    match=re.fullmatch(r'battery-usb-read: PASS reads=(\d{1,20}) commands=(\d{1,20}) busy_reads=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) bytes_per_read=4096 writes=0; retired=yes',rows[0])
+    if not match:return None
+    reads,commands,busy,progress,bursts,maximum=map(int,match.groups())
+    if any(n>=2**64 for n in (reads,commands,busy,progress,bursts,maximum)):return None
+    if not 0<busy<=reads<=commands or not 0<progress<=bursts<=reads or maximum<250000:return None
+    summaries=[row for row in lines if row.startswith('battery-service-test: PASS reads=')]
+    if len(summaries)!=1 or lines.index(rows[0])>=lines.index(summaries[0]):return None
+    return dict(read_complete=True,reads=reads,commands=commands,busy_reads=busy,
+                progress_bursts=progress,bursts=bursts,max_burst_us=maximum,
+                bytes_per_read=4096,writes=0,write_acceptance='pending',input_acceptance='pending')
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -342,6 +360,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_usb_read": battery_usb_read_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_service": battery_service_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),

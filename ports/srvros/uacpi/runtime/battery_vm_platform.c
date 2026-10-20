@@ -142,9 +142,8 @@ static void model_mode_entered(void) {
 }
 static void model_setup_work(void) {
     if(model.fault==19) {
-        /* Disposable RAM-only VM: exercise the unattended contained-fault
-         * reset without exposing a native monitor command to arm it. */
-        if(!battery_diagnostic_auto_return(true))return;
+        /* Armed before engagement, so an I/O scope cannot prevent this modeled
+         * deadline from exercising the contained reset path. */
         console_write("battery-vm: unattended setup deadline armed\n");
         uacpi_kernel_sleep(6000);
         return;
@@ -196,6 +195,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_events[1]=(struct battery_event_hold){.status=0x626,.enable=0x62e,.mask=4,.original=4};
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
+    if(model.fault==19&&!battery_diagnostic_auto_return(true))return false;
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
     if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;

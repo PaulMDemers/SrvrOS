@@ -10,7 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-static struct block_device *active;
+static struct block_device *active, *parked;
 static char active_uuid[9];
 static bool failed;
 
@@ -79,6 +79,15 @@ static bool marker_valid(const char uuid[9]) {
     return ok;
 }
 bool workspace_active(void) { return active != NULL; }
+/* CPU0 diagnostic admission only; no mount or I/O side effects. The caller must
+ * keep the workspace unmounted and must not enable writes during the lease. */
+struct block_device *workspace_parked_device(void) {
+    struct block_device *parent=block_parent(parked);
+    return !active && !failed && parked && parent &&
+        usb_storage_is_device(parked) && !parked->write && !parent->write &&
+        !parent->flush ? parked : NULL;
+}
+
 void workspace_status(void) {
     if (!active) console_write("workspace: not mounted\n");
     else console_printf("workspace: UUID=%s path=/work/srvros-work state=%s\n",
@@ -105,7 +114,7 @@ bool workspace_mount(const char *uuid) {
         console_write("workspace: volume cannot be written; check it offline\n");
         usb_storage_disable_volume_writes(device); exfat_unmount("/work"); goto out;
     }
-    active = device; failed = false;
+    active = device; parked = NULL; failed = false;
     for (unsigned i = 0; i < 9; i++) active_uuid[i] = compact[i];
     console_write("workspace: ready at /work/srvros-work\n");
     console_write("workspace: type 'workspace shell' to open your saved environment\n");
@@ -139,7 +148,7 @@ bool workspace_unmount(void) {
     if (!exfat_unmount("/work") || !usb_storage_disable_volume_writes(active)) {
         failed = true; goto out;
     }
-    active = NULL; failed = false;
+    parked = active; active = NULL; failed = false;
     console_write("workspace: unmounted; USB writes disabled\n");
     ok = true;
 out:

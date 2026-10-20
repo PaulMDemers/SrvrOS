@@ -157,6 +157,17 @@ class CollectionTests(unittest.TestCase):
         finish='battery-service-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
         text='\n'.join([sample]+restore+[retired(2,5)]+restore+[retired(3,0),summary,finish])
         result=desktop.battery_service_result(text)
+        proof='battery-usb-read: PASS reads=200 commands=200 busy_reads=50 progress_bursts=4 bursts=40 max_burst_us=270000 bytes_per_read=4096 writes=0; retired=yes'
+        overlap=text.replace(summary,proof+'\n'+summary)
+        self.assertTrue(desktop.battery_usb_read_result(overlap)['read_complete'])
+        for bad in (overlap.replace('progress_bursts=4','progress_bursts=0'),
+                    overlap.replace('commands=200','commands=199'),
+                    overlap.replace('busy_reads=50','busy_reads=201'),
+                    overlap.replace('writes=0','writes=1'),overlap+'\n'+proof,
+                    overlap.replace(proof+'\n','')+'\n'+proof,
+                    overlap.replace('max_burst_us=270000','max_burst_us=249999'),
+                    overlap.replace('reads=200',f'reads={2**64}'),overlap.replace(finish,'')):
+            self.assertIsNone(desktop.battery_usb_read_result(bad),bad)
         self.assertTrue(result['reader_complete']);self.assertTrue(result['stop_wait_timed_out'])
         self.assertEqual(result['sample']['generation'],5)
         self.assertTrue(desktop.battery_service_result('\n'.join(restore+[retired(1,0)])+'\n'+text))

@@ -216,3 +216,35 @@ coexistence, native SCI behavior over sustained operation, or desktop enablement
 The next physical gate needs a bounded concurrent-I/O capture with a durable
 checkpoint and automatic return on handled failure as well as success. The
 existing parked-USB capture must not be relabeled as that test.
+
+
+## Native read-only USB overlap capture (v34)
+
+Use `--battery-usb-read` with `--laptop-probe-volume` to stage the automatic
+read-overlap test. It uses the separate native runtime kernel and cannot be
+combined with the other capture modes or `--hold-on-failure`. Keep AC and USB
+connected; no keypress or AC transition is requested.
+
+The capture first saves a nonfinal checkpoint, unmounts the validated workspace
+and revokes writes on every USB alias. The workspace remembers only the device
+that was successfully validated and unmounted; remounting invalidates that
+parked identity. The diagnostic reads the raw USB parent's first 4096 bytes
+directly, bypassing block caches, and compares every subsequent read against
+that baseline. It does not log the bytes or write during the runtime lifetime.
+
+During the five-sample lifecycle test, the reader holds repeated 250 ms scheduler
+I/O scopes. Cached status and USB command counts are captured inside those
+scopes; passing requires observed sampling, real read commands and sample
+generation advancement before exclusion ends. The final `battery-usb-read`
+record is emitted only after both initialized lifetimes have retired. The
+collector requires this proof and the existing complete service proof.
+
+Normal return remounts the same workspace and saves the result; a contained
+runtime fault resets without filesystem reentry. The VM tests require an
+unchanged whole-disk hash and clean exFAT after both successful overlap and
+injected deadline reset. Exact-stage native Q35 refusal must save a failed
+result and return, and missing-workspace rehearsal must also reset.
+
+This is read-only USB coexistence evidence. Native write/flush coexistence,
+human input latency, sustained SCI behavior and ordinary desktop enablement
+remain separate acceptance gates.

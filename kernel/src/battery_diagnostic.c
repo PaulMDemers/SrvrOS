@@ -16,6 +16,10 @@ __attribute__((weak)) bool battery_service_diagnostic_run(void *rsdp,struct limi
     return battery_diagnostic_run(rsdp,map);
 }
 
+__attribute__((weak)) bool battery_usb_read_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}
+
 __attribute__((weak)) bool battery_service_start(void *rsdp,struct limine_memmap_response *map) {
     (void)rsdp;(void)map;return false;
 }

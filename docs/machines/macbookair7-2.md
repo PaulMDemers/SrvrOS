@@ -78,6 +78,15 @@ VM fixtures. Base b6075ef and Pro PR #5 at 8fc3e1c remain unchanged. No desktop
 enablement or new firmware permissions. Native write/flush overlap and human input
 acceptance remain separate gates. No human action is required by this trial.
 
+Implementation and host/VM checks pass: 45 staging/collector tests, workspace
+identity/write-revocation host coverage, ordinary/native/model builds, new
+read-overlap and injected-reset cases, and existing service/reset regressions.
+The modeled overlap issued 83,547 real USB read commands, with 57 reads while
+sampling and five generation-progress bursts; all bytes matched. Whole-disk
+hashes were unchanged and exFAT clean after both overlap and injected reset.
+This is VM evidence only. The next action is exact-stage Q35 refusal/reset and
+missing-workspace validation before installation and one-shot physical boot.
+
 
 ### Battery scheduling repair — October 20
 

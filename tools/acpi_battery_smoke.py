@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run the battery diagnostic runtime with a disposable Q35 EC model."""
 import argparse
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -42,12 +43,14 @@ def check_io_hold(part,duration):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io', 'service-usb-read', 'service-usb-read-auto-deadline'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24, 'service-usb-read':15, 'service-usb-read-auto-deadline':19}
     transitions=args.case in ('transitions','transition-timeout')
     service=args.case.startswith('service')
-    usb=args.case=='service-usb-io'
+    readonly=args.case in ('service-usb-read','service-usb-read-auto-deadline')
+    auto_deadline=args.case in ('service-auto-deadline','service-usb-read-auto-deadline')
+    usb=args.case=='service-usb-io' or readonly
     root = Path(__file__).resolve().parents[1]
     out = root/'build/review'/('acpi-battery-' + args.case)
     out.mkdir(parents=True, exist_ok=True)
@@ -93,11 +96,19 @@ def main():
                         mounted.extend(boot.read_for(serial,.1))
                     output.extend(mounted)
                     assert b'workspace: ready at /work/srvros-work' in mounted,bytes(mounted)
+                if readonly:
+                    serial.sendall(b'workspace unmount\n')
+                    parked=bytearray();until=time.monotonic()+30
+                    while b'workspace: unmounted; USB writes disabled' not in parked and time.monotonic()<until:
+                        parked.extend(boot.read_for(serial,.1))
+                    output.extend(parked)
+                    assert b'workspace: unmounted; USB writes disabled' in parked,bytes(parked)
+                    before_hash=hashlib.sha256(stick.read_bytes()).hexdigest()
                 for iteration in range(2 if args.case in ('normal','foreign-event','mode-button','transition-timeout') else 1):
                     # After a human timeout the ownership lifetime must be reusable.
                     reentry=args.case=='transition-timeout' and iteration==1
                     part = bytearray()
-                    command=(b'battery-service-refusal' if args.case=='service-refusal' else
+                    command=(b'battery-usb-read' if readonly else b'battery-service-refusal' if args.case=='service-refusal' else
                              b'battery-service-stale' if args.case in ('service-stale','service-incoherent') else
                              b'battery-service' if service else b'battery-transitions' if transitions and not reentry else b'battery')
                     serial.sendall(b'acpiruntime '+command+b'\n')
@@ -105,7 +116,7 @@ def main():
                     while time.monotonic()-start < (155 if transitions else 100):
                         part.extend(boot.read_for(serial, .1))
                         lines = complete_lines(part)
-                        if args.case=='service-auto-deadline' and process.poll() is not None:break
+                        if auto_deadline and process.poll() is not None:break
                         if service:
                             if b'battery-service-test: PASS' in lines or b'battery-service-test: FAIL' in lines or b'battery: HALTED' in lines:break
                             continue
@@ -113,12 +124,16 @@ def main():
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
                     sci=check_sci_records(part)
-                    if args.case=='service-auto-deadline':
+                    if auto_deadline:
                         assert b'battery: FAILED operation deadline' in part,bytes(part)
                         assert b'returning to Ubuntu without live-runtime cleanup' in part,bytes(part)
                         assert b'battery-service-test: PASS' not in part and b'battery: HALTED' not in part,bytes(part)
                         assert process.wait(timeout=10)==0
-                        print('acpi-battery: PASS service-auto-deadline (contained fault resets; VM only)')
+                        if readonly:
+                            assert hashlib.sha256(stick.read_bytes()).hexdigest()==before_hash
+                            with stick.open('rb') as stream:stream.seek(2048*512);volume.write_bytes(stream.read())
+                            (out/'usb-fsck.txt').write_text(check_clean_image(volume))
+                        print('acpi-battery: PASS '+args.case+' (contained fault resets; VM only)')
                         return
                     if service and args.case!='service-query-deadline':
                         assert b'battery-service-test: PASS' in part and b'battery-service-test: FAIL' not in part,bytes(part)
@@ -195,7 +210,7 @@ def main():
                         registers = qmp.call('human-monitor-command', {'command-line': 'info registers'})
                         flags = re.search(r'RFL=([0-9a-fA-F]+)', registers)
                         assert flags and not(int(flags[1],16)&0x200), registers
-                if usb:
+                if usb and not readonly:
                     proof=re.findall(rb'battery-vm: usb-io writes=(\d+) file_ok=1 bytes=4096',output)
                     assert len(proof)==1 and int(proof[0])>1,bytes(output)
                     serial.sendall(b'workspace unmount\n')
@@ -208,10 +223,16 @@ def main():
                 if usb:
                     with stick.open('rb') as stream:stream.seek(2048*512);volume.write_bytes(stream.read())
                     (out/'usb-fsck.txt').write_text(check_clean_image(volume))
-                    stored=ExfatFixture(volume.read_bytes()).read('srvros-work/io-proof')
-                    assert stored==bytes((i+int(proof[0])-1)&255 for i in range(4096))
-                    (out/'usb-proof.bin').write_bytes(stored)
-                    print('acpi-battery: USB payload verified offline and exFAT clean')
+                    if readonly:
+                        from hardware_desktop import battery_usb_read_result
+                        assert battery_usb_read_result(output.decode(errors='replace'),require_service=False),bytes(output)
+                        assert hashlib.sha256(stick.read_bytes()).hexdigest()==before_hash
+                        print('acpi-battery: USB disk unchanged after read overlap; exFAT clean')
+                    else:
+                        stored=ExfatFixture(volume.read_bytes()).read('srvros-work/io-proof')
+                        assert stored==bytes((i+int(proof[0])-1)&255 for i in range(4096))
+                        (out/'usb-proof.bin').write_bytes(stored)
+                        print('acpi-battery: USB payload verified offline and exFAT clean')
             finally:
                 stop_process(process); (out/'serial.txt').write_bytes(output)
     print('acpi-battery: PASS '+args.case+' (VM evidence only)')
