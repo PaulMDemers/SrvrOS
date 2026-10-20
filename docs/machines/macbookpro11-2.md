@@ -454,3 +454,14 @@ Next bounded investigation: measure input polling, queue consumption and cursor
 presentation timing under the scaled desktop, then choose a change supported by
 the measurements. Inspect shared input/compositor/scheduler scope on origin
 before editing; avoid a global timer-rate increase without affected regressions.
+
+## Cursor timing scope
+
+The refreshed Air PR6 now touches startup and boot-profile tools for battery
+work. Avoid those overlapping files for this diagnostic. Add bounded timing
+aggregates to the existing `--hardware-trial` compositor only, using the current
+v31 stage unchanged: pointer-consumption cadence, drawing/blit duration and
+first consumed pointer event to final framebuffer write. No event ABI, timer,
+scheduler or xHCI behavior changes. Report measurements once at exit, not per
+frame. They exclude device/USB arrival delay and scanout, and are not end-to-end
+latency. Preserve the accepted sound build while measuring the scaled desktop.
