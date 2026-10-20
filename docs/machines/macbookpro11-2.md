@@ -241,3 +241,16 @@ are verified. No reboot is armed. This acceptance does not cover every key,
 long-duration repeat, trackpad, desktop interaction or other device providers.
 Next milestone is trackpad and desktop bring-up; retain the successful diagnostic
 as previous and the accepted keyboard payload in the durable archive.
+
+## Trackpad and desktop scope
+
+Begin exact `05ac:0262` Wellspring7 support from this unit's captured configuration:
+keyboard interface0 endpoint83 packet10, vendor-HID interface1 endpoint81 packet64
+interval2, boot mouse interface2 endpoint84 packet8. Type2 contact layout and
+feature mode switch are documented in Linux bcm5974; Air0291 Type3 differs.
+Touch bounded decoder/profile/mode transport tests and desktop trial staging.
+Do not enable sibling IDs or infer physical gestures from fixtures. Preserve
+accepted keyboard behavior and explicit AML exclusion. Fetch found integration
+`origin/main=b6075ef` (merged EC/AML PR4); this checkout still builds from its
+recorded db40ed5 ancestry plus device commits, not the new EC code. No overlapping
+trackpad edits were found in that integration delta. Prior typing run is collected.
