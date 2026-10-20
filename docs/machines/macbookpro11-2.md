@@ -401,3 +401,31 @@ mutation. Scope: audio controller selection, codec route model/tests, explicit
 scaled audio trial and on-screen sound checks. Preserve Air and QEMU behavior;
 no HDMI, microphone, EC/AML or sibling support. origin/main remains b6075ef;
 PR6 remains ACPI scope. Accepted brightness release remains recovery.
+
+The captured Pro codec revision is 0x100300. Main speaker pin12/DAC3 and bass
+pin13/DAC4 receive the same stereo stream at channel offset zero. Headphone
+pin10/DAC2 is separate. All three paths are validated before coefficient/GPIO
+setup; route switches mute and disconnect both speaker converters. GPIO0 is
+updated while preserving unrelated bits. Exact Pro pin defaults are checked;
+Air, unknown subsystem, changed revision or invalid bass connection is refused
+under the Pro profile. Linux's pinned
+[CS4208 board table and GPIO fixup](https://raw.githubusercontent.com/torvalds/linux/v6.12/sound/pci/hda/patch_cirrus.c)
+corroborate subsystem 5e00 and GPIO0; local codec capture supplies the routes.
+The controller uses the existing Intel PCH traffic-class/coherent-DMA setup,
+consistent with the [Linux PCH driver](https://raw.githubusercontent.com/torvalds/linux/v6.12/sound/pci/hda/hda_intel.c).
+
+Candidate `e47dca3a6b30c6c1` (source `240893c`) is the explicit v31 audio,
+brightness and scaled desktop trial. Build, HDA/controller/codec tests, audio
+service/stream tests, Settings tests and 32 profile checks pass. Exact GPT VM
+rehearsal passes saved Text/screenshot/logs and clean USB unmount; the initialized
+codec also produces one captured 500 ms stereo tone with a silent tail (peak
+1200). This emulated codec is not the physical Cirrus device. The initial Help
+shows the sound checks; scroll for full exit and WAV playback instructions.
+Physical speaker/headphone routing, quality and channel balance remain pending.
+
+The separate stereo-48000 streaming VM regression also passes against this
+build. No concurrent harness ran. Next install preserves accepted brightness
+`c7dd411a4ea31af4` as previous. User listening checks use Settings Test/Stop at
+low volume, optional wired headphones with speaker isolation, and the bundled
+stereo WAV from the on-screen guide. Startup remains silent and this manual
+trial has no deadline. Collect the exact session on return before another stage.

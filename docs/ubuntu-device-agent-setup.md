@@ -238,6 +238,15 @@ actual workspace partition-table type. Startup does not adjust the panel;
 Settings offers 5–100% only when the captured mode and period still match.
 Physical visible adjustment remains a separate acceptance check.
 
+The subsequent Pro audio trial adds `--desktop-audio` to that command (v31).
+It retains brightness and scaled display while enabling the exact 8c20/CS4208
+5e00 codec profile, including the main and bass speaker converters. Use
+`--desktop-check --audio-check --workspace-table gpt` for the exact scaled
+rehearsal. That path verifies one captured test tone after desktop exit; it does
+not claim the unscaled harness's two-boot or bundled-WAV coverage. Speakers,
+headphone isolation and audible quality require the on-screen listening checks.
+Startup is silent; no optional AML, EC, SMC or HDMI audio is enabled.
+
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
 models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.
