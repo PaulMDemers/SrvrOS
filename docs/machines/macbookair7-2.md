@@ -24,11 +24,13 @@ device work uses separate branches based on `main`.
   both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: collect this Air's missing PCI/chipset
-  read evidence; extend offline permission modeling only as required. Add a
-  modeled firmware-release event and independent operation deadline to the
-  separate Q35 Global Lock fixture. Scope: probe/runtime/tests/guides; native
-  binding remains gated. Pro11,2 PR #5 owns USB/GPT/guided input (`927a7f5`).
+- Current bounded implementation: add an exact PM1 Global Lock release
+  predicate and an owner-scoped Q35 release path, with positive and unsafe-write
+  refusal tests. Keep generic PM1 writes denied. Scope: runtime event policy,
+  Q35 adapter, host/VM tests and guides; dependency is the completed chipset and
+  firmware-to-OS handoff audit at `a51c4a5`. Native controller binding follows
+  this prerequisite. Baseline remains `b6075ef`; Pro11,2 PR #5 still owns
+  USB/GPT/guided input (`927a7f5`), with no overlapping ACPI work.
 - Chipset/handoff checkpoint: read-only Linux capture confirms missing PCI
   IDs/configuration and RCBA/HPTC; all nine live firmware hashes match. Complete
   offline initialization now passes with an exact read-only DWORD model and
