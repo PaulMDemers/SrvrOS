@@ -928,3 +928,20 @@ this workstream for now. Retain the unavailable status and consume reviewed
 shared work later when requested. Next work should focus on shared integration
 review and remaining non-battery acceptance; trackpad latency also remains
 deferred under the earlier instruction. No reboot or new trial is scheduled.
+
+## Rebase onto merged PR6 — 2026-10-20
+
+At the user's explicit request, rebased the 75 device commits onto main
+`d72d2af` (PR6), overriding the usual merge-without-rewrite preference. Local
+backup `codex/pro-pre-rebase-20261020` preserves the published pre-rebase tip.
+Resolved shared startup/staging/rehearsal conflicts by retaining both the merged
+battery modes and Pro keyboard/load/scaled desktop paths. Battery implementation
+and physical tests on this Pro remain deferred by user request.
+
+Version numbers 31/36 exist in both probe and desktop namespaces. Scope Retina
+resolution to desktop profiles so the merged battery profile recipes remain
+unchanged. A compatibility matrix verifies all 42 historical main/Pro profile
+configurations byte-for-byte; focused tests cover shared-number separation and
+conflicting capture-mode refusal. Existing boot manifests and installed recovery
+remain historical artifacts; rebasing source does not physically accept a new
+build. No physical install or reboot is part of this rebase task.

@@ -515,5 +515,22 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.install(release)
 
 
+class CombinedProfileTests(unittest.TestCase):
+    def test_shared_version_numbers_keep_profile_specific_resolution(self):
+        for version in (31, 36):
+            probe=boot.limine_config("a"*16,f"ram-usb-v{version}-laptop-probe-12345678-auto-return")
+            desktop=boot.limine_config("a"*16,f"ram-usb-v{version}-desktop-12345678")
+            self.assertNotIn("resolution:",probe)
+            self.assertIn("srvros.capture=battery",probe)
+            self.assertIn("srvros.capture-failure=reboot",probe)
+            self.assertIn("resolution: 2880x1800",desktop)
+            self.assertNotIn("srvros.capture=battery",desktop)
+
+    def test_load_and_battery_modes_are_exclusive(self):
+        for mode in ("keyboard_capture", "cpu_load_capture"):
+            with self.assertRaises(ValueError):
+                boot.stage(laptop_probe_volume="12345678",battery_service=True,**{mode:True})
+
+
 if __name__ == "__main__":
     unittest.main()

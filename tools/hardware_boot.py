@@ -107,7 +107,7 @@ def limine_config(release, version=CONFIG_VERSION):
         cmdline = "srvros.log=debug srvros.storage=ram"
         if version == "ram-usb-v3-inputdiag":
             cmdline += " srvros.inputdiag=1"
-    resolution="    resolution: 2880x1800\n" if version.startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-","ram-usb-v36-")) else ""
+    resolution="    resolution: 2880x1800\n" if desktop and version.startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-","ram-usb-v36-")) else ""
     return f"""timeout: 0
 serial: yes
 
