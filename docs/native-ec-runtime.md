@@ -354,7 +354,7 @@ cross-check these domains against EC ports and its other live mappings.
 Mappings/accesses must match one register at its exact width; a broad range
 does not admit narrower, wider or neighboring accesses. Status writes are
 treated as write-one-to-clear, without an ordinary-memory read/modify/write
-predicate. Enable writes may set only explicitly allowed bits. PM1 control,
+predicate. Enable writes may set only explicitly allowed bits. Generic PM1 control,
 PM2 control and timer writes are denied, as are SMI reads and commands other
 than the decoded enter/leave values. Reset/sleep registers and unrelated IO
 are not mapped.
@@ -410,10 +410,10 @@ python3 tools/acpi_global_lock_smoke.py --fault block
 python3 tools/acpi_global_lock_smoke.py --fault release-denied
 ```
 
-CI retains all three cases plus the existing SCI and EC regressions. Normal
-startup/native adapters are unchanged. Successful contended firmware handoff,
-exact native PM1 release permission, validated FACS/NVS mappings and an
-independent operation deadline remain prerequisites for a native battery trial.
+These three cases remain regression checks alongside the later handoff and
+notification cases below. Normal startup/native adapters are unchanged. Native
+PM1 release ownership, validated FACS/NVS mappings and an independent operation
+owner remain prerequisites for a native battery trial.
 
 ### Modeled firmware handoff and operation deadline
 
@@ -437,12 +437,61 @@ The handoff owner bounds waiting for the worker's wait state to one second and
 then bounds completion to another second. These deadlines run outside the
 blocked worker; they do not depend on AML returning. They are explicit fixture
 operation lifetimes, not a general background watchdog. The successful case
-covers firmware-to-OS handoff; OS-to-firmware `GBL_RLS` notification remains
-intentionally denied and tested as a failure. Native implementation still needs
-its own source ownership, register policy and operation owner.
+covers firmware-to-OS handoff. OS-to-firmware `GBL_RLS` notification without an
+explicit owner permission remains denied and tested as a failure; the following
+fixture adds the narrowly scoped positive path. Native implementation still
+needs its own source ownership and operation owner.
 
 Run the same VM harness with `--fault handoff` and `--fault deadline`.
-CI runs all five lock cases sequentially alongside the SCI/EC regressions.
+CI retains these five cases alongside the notification cases below and the
+SCI/EC regressions.
+
+### Owner-scoped OS-to-firmware notification
+
+`acpi_event_io_global_release` is a separate pure predicate for the 16-bit PM1
+control write emitted by uACPI when firmware requested the Global Lock. It
+requires SCI_EN already set, sets only GBL_RLS, clears the write-only SLP_EN bit
+and preserves every other bit from a fresh register read, including SLP_TYP,
+BM_RLD, SCI_EN and reserved/ignored bits. General `acpi_event_io_write` still
+refuses every PM1 control write. This follows the
+[ACPI PM1 control definition](https://uefi.org/specs/ACPI/6.6/04_ACPI_Hardware_Specification.html#pm1-control-registers):
+GBL_RLS notifies firmware; SLP_EN triggers a sleep transition. A readback of a
+write-only bit is not preserved as a requested action.
+
+Only the explicit Q35 `global-lock-release` fixture grants a one-attempt
+permission around the ordinary worker's uACPI release call, after modeling
+firmware's Pending request. The adapter checks worker identity, active runtime
+and operation, exact port/width, and the permission. Under CPU0 IRQ
+serialization it consumes the permission, reads PM1 control, checks the command
+and issues one actual emulated `outw`. A duplicate attempt is refused. It does
+not demand a free FACS lock after release: firmware could already have acquired
+it. This is not a reusable native owner or a grant to arbitrary AML writes.
+
+The VM harness checks two clean lifetimes, one write per release, preserved
+readable control bits, zero errors/denials and zero heap after shutdown. Q35
+reads back GBL_RLS as set; the policy correctly treats it as a command rather
+than persistent state. The fixture models the firmware Pending request and
+does not prove that a real SMM partner received or serviced the notification.
+The existing denied-notification case remains unchanged.
+
+`global-lock-release-sleep-denied` injects SLP_EN into that same callback path.
+The permission is consumed but no register write occurs. Adapter denial
+accounting catches the failure despite uACPI returning success, and the VM
+halts with live state retained and interrupts disabled. Both new operations
+also use the independent one-second worker-drain deadline. Host and sanitizer
+tests cover all 65,536 initial words and every single-bit mutation of the only
+allowed command, plus wrong widths/ports, stale reads and out-of-range values.
+
+```sh
+python3 tools/acpi_global_lock_smoke.py --fault release
+python3 tools/acpi_global_lock_smoke.py --fault release-sleep-denied
+```
+
+CI runs all seven lock cases sequentially. Native EC binding and source
+ownership are still absent. In particular, connected Air `_REG` writes the
+IGPU OpRegion's CLID field as well as ECSS and GNVS lid/AC state; the earlier
+unconnected initialization replay did not exercise that display-memory mapping.
+It needs a separate captured layout and per-access audit before native binding.
 
 ### Integration sequence
 

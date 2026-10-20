@@ -68,6 +68,28 @@ int main(int argc,char **argv) {
     assert(!acpi_event_io_map(&p,0x1800,UINT64_MAX));
     assert(!acpi_event_io_read(&p,0x66,8));
     assert(!acpi_event_io_write(&p,0xcf9,8,6));
+    /* Exhaust every 16-bit starting register, plus every single-bit mutation of
+     * its only admissible command. In particular, never replay SLP_EN, change
+     * SLP_TYP/BM_RLD/SCI_EN/reserved bits, or allow notification in legacy mode. */
+    for (unsigned before=0;before<65536;before++) {
+        unsigned command=(before & ~0x2004u) | 4u;
+        bool enabled=(before&1)!=0;
+        assert(acpi_event_io_global_release(&p,0x1804,16,before,command)==enabled);
+        assert(!acpi_event_io_write(&p,0x1804,16,command));
+        for(unsigned bit=0;bit<16;bit++)
+            assert(!acpi_event_io_global_release(&p,0x1804,16,before,command^(1u<<bit)));
+    }
+    assert(!acpi_event_io_global_release(NULL,0x1804,16,1,5));
+    assert(!acpi_event_io_global_release(&p,0x1805,16,1,5));
+    assert(!acpi_event_io_global_release(&p,0x1802,16,1,5));
+    assert(!acpi_event_io_global_release(&p,0,16,1,5));
+    assert(!acpi_event_io_global_release(&p,UINT64_MAX,16,1,5));
+    for(unsigned bits=0;bits<=64;bits++)
+        assert(acpi_event_io_global_release(&p,0x1804,bits,1,5)==(bits==16));
+    assert(!acpi_event_io_global_release(&p,0x1804,16,0x10001,5));
+    assert(!acpi_event_io_global_release(&p,0x1804,16,1,0x10005));
+    /* A fresh change to readable state invalidates a stale requested value. */
+    assert(!acpi_event_io_global_release(&p,0x1804,16,3,5));
     for (unsigned n=0;n<sizeof(fa);n++)
         assert(acpi_event_resources_parse(&p.resources,fa,n)!=ACPI_EC_RESOURCES_OK);
     fa[9]++;assert(acpi_event_resources_parse(&p.resources,fa,sizeof(fa))==ACPI_EC_RESOURCES_TABLE);

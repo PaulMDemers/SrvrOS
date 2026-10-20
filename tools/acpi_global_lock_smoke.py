@@ -17,7 +17,7 @@ from vm_sockets import connect_unix
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--fault', choices=['none', 'block', 'release-denied', 'handoff', 'deadline'], default='none')
+    parser.add_argument('--fault', choices=['none', 'block', 'release-denied', 'handoff', 'deadline', 'release', 'release-sleep-denied'], default='none')
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
     out = root / 'build/review' / ('acpi-global-lock-' + args.fault)
@@ -58,10 +58,12 @@ def main():
                     assert match, bytes(part)
                     return match
 
-                for _ in range(2 if args.fault in ('none','handoff') else 1):
+                success = args.fault in ('none', 'handoff', 'release')
+                for _ in range(2 if success else 1):
                     request('acpiruntime start', rb'acpi-runtime: READY')
-                    if args.fault in ('none','handoff'):
-                        request('acpiruntime global-lock-handoff' if args.fault=='handoff' else 'acpiruntime global-lock', rb'acpi-global-lock: PASS')
+                    if success:
+                        command = 'acpiruntime global-lock' + ('' if args.fault=='none' else '-'+args.fault)
+                        request(command, rb'acpi-global-lock: PASS')
                         request('acpiruntime stop', rb'acpi-runtime: stopped=yes heap=0 errors=0 denied=0 pending=\d+')
                     elif args.fault == 'block':
                         request('acpiruntime global-lock-block', rb'acpi-global-lock: firmware-wait')
@@ -76,10 +78,18 @@ def main():
                         assert retained and int(retained[1])
                         assert b'acpiruntime stop' not in output
                     else:
-                        halted = request('acpiruntime global-lock-release-denied', rb'acpi-runtime: HALTED unsafe teardown: Global Lock release denied heap=(\d+)')
+                        halted = request('acpiruntime global-lock-'+args.fault, rb'acpi-runtime: HALTED unsafe teardown: Global Lock release denied heap=(\d+)')
                         assert int(halted[1]) > 0
                         assert b'acpi-global-lock: acquire=0 release=0 held=2 after=0 denied=1 errors=0' in complete_lines(output)
-                if args.fault not in ('none','handoff'):
+                if args.fault in ('release', 'release-sleep-denied'):
+                    records = re.findall(rb'acpi-global-lock: pm1-notify attempts=1 writes=(\d+) armed=0 before=(\d+) value=(\d+) after=(\d+)', complete_lines(output))
+                    assert len(records)==(2 if success else 1), records
+                    for record in records:
+                        writes, before, value, after = map(int, record)
+                        assert before & 1 and not ((before ^ after) & ~0x2004)
+                        assert writes == (1 if success else 0)
+                        assert value == ((before & ~0x2004) | (4 if success else 0x2004))
+                if not success:
                     assert b'acpi-global-lock: PASS' not in complete_lines(output)
                     assert b'acpi-runtime: stopped=yes' not in complete_lines(output)
                     regs = qmp.call('human-monitor-command', {'command-line': 'info registers'})

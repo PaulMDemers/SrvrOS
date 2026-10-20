@@ -24,13 +24,20 @@ device work uses separate branches based on `main`.
   both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: add an exact PM1 Global Lock release
-  predicate and an owner-scoped Q35 release path, with positive and unsafe-write
-  refusal tests. Keep generic PM1 writes denied. Scope: runtime event policy,
-  Q35 adapter, host/VM tests and guides; dependency is the completed chipset and
-  firmware-to-OS handoff audit at `a51c4a5`. Native controller binding follows
-  this prerequisite. Baseline remains `b6075ef`; Pro11,2 PR #5 still owns
-  USB/GPT/guided input (`927a7f5`), with no overlapping ACPI work.
+- Current bounded implementation: exact PM1 Global Lock release predicate and
+  owner-scoped Q35 notification path, with successful and unsafe-write refusal
+  tests. Generic PM1 writes stay denied. Scope: runtime event policy, Q35
+  adapter, host/VM tests and guides; dependency is chipset/handoff `a51c4a5`.
+  Baseline remains `b6075ef`; Pro11,2 PR #5 owns USB/GPT/guided input
+  (`927a7f5`), with no overlapping ACPI work.
+- PM1 notification checkpoint: all 65,536 starting words and each single-bit
+  command mutation pass host/sanitizer checks. The Q35 release case performs
+  exactly one actual emulated PM1 write, refuses permission replay, preserves
+  readable control bits and cleans up through two lifetimes. Injected SLP_EN is
+  rejected before any write and halts with state retained. Firmware Pending is
+  modeled; this does not accept native firmware reception. Generic PM1 writes
+  remain denied. Connected Air EC `_REG` additionally writes the IGPU OpRegion's
+  CLID field; its mapping needs a captured layout/per-access audit before binding.
 - Chipset/handoff checkpoint: read-only Linux capture confirms missing PCI
   IDs/configuration and RCBA/HPTC; all nine live firmware hashes match. Complete
   offline initialization now passes with an exact read-only DWORD model and
@@ -38,17 +45,17 @@ device work uses separate branches based on `main`.
   Q35 modeled firmware-to-OS lock notification and an owner-side operation
   deadline pass. This accepts neither native SCI nor OS-to-firmware handoff;
   connected EC `_REG`, native access policy and controller ownership remain.
-- Global Lock checkpoint: Q35 full-uACPI tests pass two acquire/release
+- Earlier Global Lock checkpoint: Q35 full-uACPI tests pass two acquire/release
   lifetimes, firmware-held lock containment and denied PM1 handoff detection.
   Owner drain now precedes interpreter reset; a stuck worker retains heap,
   Owned/Pending bits and the masked SCI callback. Exact fixture lock-word reads
-  are allowed, but PM1 control writes remain denied. Native contention/handoff,
-  autonomous operation deadlines and live mappings are still pending.
-- Full initialization checkpoint: offline `--initialize` refuses errors,
+  are allowed; the later PM1 notification fixture above adds a scoped release.
+  Native contention/handoff, operation ownership and live mappings are pending.
+- Earlier full initialization refusal checkpoint (superseded by chipset replay): offline `--initialize` refuses errors,
   warnings and denied accesses even when uACPI returns success; skips follow-up
   queries on refusal. Twenty-five synthetic tests cover opt-in execution,
   ignored errors, malformed status and prior load faults. Captured Air replay
-  with two private GPIO byte models still fails on HPET chipset memory and
+  with two private GPIO byte models failed on HPET chipset memory and
   missing PCI snapshots (four AML errors / 11 denials / zero remaining
   allocations). GN46 maps to input-sensing disable; native access remains gated.
   Full-runtime FACS contention and PM1 Global Lock release need their own tests.
@@ -105,9 +112,10 @@ device work uses separate branches based on `main`.
   per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
   This is not controller ownership acceptance. The production build passes and
   its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
-- Next checkpoint: implement the separate opt-in native adapter's audited
-  mappings, Darwin initialization and SCI/EC owner lifecycle; test failures
-  before a logged physical battery trial. No new trial is armed.
+- Next checkpoint: audit the connected EC `_REG` path, including IGPU CLID
+  memory, then bind the separate native adapter's audited mappings, Darwin
+  initialization and SCI/EC owner lifecycle. Exercise failures before a logged
+  physical battery trial. No new trial is armed.
 
 ## Accepted scope and open items
 
