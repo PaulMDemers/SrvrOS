@@ -13,7 +13,7 @@ jobs:
       - name: Install host tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential python3 xorriso qemu-system-x86 ovmf acpica-tools
+          sudo apt-get install -y --no-install-recommends build-essential python3 xorriso qemu-system-x86 ovmf acpica-tools exfatprogs
       - name: Check prerequisites
         run: make check-host
       - name: Check documentation and screenshot manifest
@@ -48,10 +48,10 @@ jobs:
       - name: Separate native battery diagnostic and modeled failure containment
         run: |
           set -o pipefail
-          make -j2 acpi-battery-kernel acpi-battery-vm-kernel test-battery-native-policy test-battery-transition test-battery-cache 2>&1 | tee build/review/acpi-battery-build.log
+          make -j2 acpi-battery-kernel acpi-battery-vm-kernel test-io-scheduler test-acpi-worker test-battery-native-policy test-battery-transition test-battery-cache 2>&1 | tee build/review/acpi-battery-build.log
           python3 tools/test_hardware_boot.py
           python3 tools/test_hardware_desktop.py
-          for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal service service-stale service-incoherent service-refusal service-query-deadline service-setup-load service-auto-deadline service-sci-unclaimed service-io-short service-io-deadline; do
+          for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal service service-stale service-incoherent service-refusal service-query-deadline service-setup-load service-auto-deadline service-sci-unclaimed service-io-short service-io-long service-io-sustained service-usb-io; do
             python3 tools/acpi_battery_smoke.py --case "$scenario" 2>&1 | tee "build/review/acpi-battery-$scenario.log"
           done
       - uses: actions/upload-artifact@v4

@@ -8,8 +8,9 @@ retirement passed again: 48,768 cached reads, 9,728 during sampling, maximum
 observed read time 18 microseconds. SCI accounting measured 12 deliveries:
 six handled and six unclaimed, all during active operation. There were no setup
 or retirement callbacks and none in flight at retirement. This establishes the
-warning's count and phase for this run, not its cause. The main desktop integration
-blocker remains the reproduced transport timeout under storage exclusion.
+warning's count and phase for this run, not its cause. The scheduling repair below
+addresses the reproduced storage-exclusion timeout in the VM; native concurrent
+storage/input acceptance remains a desktop integration gate.
 
 Current unattended-test policy (user correction October 20): announce required
 human actions before boot; tests requiring no input must return to Ubuntu on
@@ -71,15 +72,40 @@ Scope: audit and grant explicit I/O-service eligibility only to the separate
 cached battery service's owner/worker while its validated runtime is engaged.
 The generic ACPI worker remains ordinary by default; other adapters must not
 inherit eligibility. Touches battery runtime, an opt-in worker admission API,
-worker host tests, and VM overlap fixtures. Base `b6075ef` and Pro PR #5
+worker host tests, a scheduler readiness-scan lifetime correction, and VM overlap fixtures. Base `b6075ef` and Pro PR #5
 `8fc3e1c` were fetched unchanged. No desktop startup, native resource gate,
 transport deadline or scheduler-wide policy change is part of this block.
 Preflight mappings precede engagement; service callbacks use kernel mappings,
 serialized heap/PCI/console/queue operations and runtime-owned wait dependencies.
-The next checkpoint requires the same long I/O hold to permit transport progress,
-plus lifecycle/deadline regressions; physical USB/input acceptance stays separate.
+The repair permits EC progress before the I/O owner releases its scope. In the
+final VM build the 250 ms hold measured 268.379 ms with 83 EC commands; the
+five-second scope measured 5.017 seconds with 293 commands and sample generation
+1→3. The disposable USB case completed 94 write/flush cycles over 5.524 seconds,
+417 EC commands and generation 1→3. It retired cleanly, unmounted, verified the
+4096-byte final payload offline and passed read-only exFAT checking.
 
-### SCI accounting and storage scheduling block — October 20
+The audit also closed worker reclamation gaps: stopped publication retains
+masked IRQs until the scheduler marks the thread dead, and readiness scans skip
+retired threads before invoking eligibility callbacks. Host regressions cover
+both paths. See the [dependency audit](../battery-service.md#audited-storage-eligibility).
+
+Ordinary/native/VM kernels and scheduler/worker/cache/SCI host tests pass.
+Twelve targeted battery scenarios passed before the final scheduler scan
+correction; long/sustained/actual-USB overlap, query deadline and automatic
+fault reset were rerun on the final build, along with the ordinary ACPI worker
+lifecycle VM. Staging/collection has 44 passing host checks. Evidence is in
+local ignored `build/battery-io-fix-20261020`; the full CI matrix was not rerun
+locally. CI now includes the USB fixture and its exfatprogs dependency.
+
+Native storage/input coexistence and sustained SCI behavior remain pending.
+Installed `a5281d842c8b6160` and previous desktop recovery are unchanged; no
+physical trial was armed. The next gate is a bounded concurrent-I/O capture
+with a durable checkpoint and automatic return on handled failure and success,
+not another parked-USB counter run. Ordinary desktop battery access stays off.
+
+### Earlier SCI accounting and storage scheduling block — October 20
+
+This checkpoint preceded the scheduling repair above.
 
 The Air agent owns the next bounded runtime change: phase-scoped SCI delivery,
 claimed/unclaimed counts and timestamps, plus disposable VM tests of service

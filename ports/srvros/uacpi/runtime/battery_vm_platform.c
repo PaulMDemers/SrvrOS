@@ -8,6 +8,8 @@
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_service.h>
 #include <srvros/scheduler.h>
+#include <srvros/exfat.h>
+#include <srvros/workspace.h>
 #include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
@@ -17,17 +19,21 @@ static struct {
     uint8_t memory[256], mode,address,output,foreign_status[2],foreign_enable[2];
     uint16_t words[32];
     unsigned step,busy,fault,foreign_reads[2];
-    uint64_t generation;
+    uint64_t generation,commands;
     unsigned ac_reads;
-    bool obf,pending,io_started,io_done;
+    bool obf,pending,io_started,io_entered;
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
 static void io_hold(void *arg) {
     (void)arg;
-    uint64_t duration=model.fault==21?20000:250000;
+    uint64_t duration=model.fault==21?20000:model.fault>=23?5000000:250000;
     uint64_t f=irq_save(),start=timer_monotonic_us(),reads=0,max_read_us=0;
     bool admitted=scheduler_io_begin(),sampling=false;
+    uint64_t commands=model.commands,progress=0,first_generation=0,last_generation=0;
+    uint64_t writes=0;bool file_ok=true;
+    uint8_t data[4096];
+    model.io_entered=true;
     if(admitted) {
         do {
             struct battery_service_status s;
@@ -35,33 +41,46 @@ static void io_hold(void *arg) {
             battery_service_status(&s);
             uint64_t elapsed=timer_monotonic_us()-before;
             if(elapsed>max_read_us)max_read_us=elapsed;
+            if(!reads)first_generation=s.sample.generation;
+            last_generation=s.sample.generation;
             reads++;sampling|=(s.flags&BATTERY_CACHE_SAMPLING)!=0;
+            if(model.fault==24) {
+                for(unsigned i=0;i<sizeof(data);i++)data[i]=(uint8_t)(i+writes);
+                if(!exfat_write_file("/work/srvros-work/io-proof",data,sizeof(data))||!workspace_sync()) {
+                    file_ok=false;break;
+                }
+                writes++;
+            }
             (void)scheduler_io_yield();
         } while(timer_monotonic_us()-start<duration);
+        progress=model.commands-commands; /* Capture before releasing exclusion. */
         scheduler_io_end();
     }
     uint64_t elapsed=timer_monotonic_us()-start;
-    model.io_done=true;irq_restore(f);
-    console_printf("battery-vm: io-hold admitted=%u sampling=%u requested_us=%u elapsed_us=%u reads=%u max_read_us=%u\n",
-        (uint64_t)admitted,(uint64_t)sampling,duration,elapsed,reads,max_read_us);
+    irq_restore(f);
+    console_printf("battery-vm: io-hold admitted=%u sampling=%u requested_us=%u elapsed_us=%u reads=%u max_read_us=%u commands=%u first_gen=%u last_gen=%u\n",
+        (uint64_t)admitted,(uint64_t)sampling,duration,elapsed,reads,max_read_us,progress,first_generation,last_generation);
+    if(model.fault==24)console_printf("battery-vm: usb-io writes=%u file_ok=%u bytes=4096\n",writes,(uint64_t)file_ok);
 }
 static void interleave_io(void) {
-    if(model.io_started||model.generation!=2||(model.fault!=21&&model.fault!=22))return;
+    if(model.io_started||model.generation!=2||(model.fault<21||model.fault>24))return;
     model.io_started=true;
     /* Stop the worker at a transport status read while a different thread
-     * holds the real scheduler IO exclusion. No emulated device busy delay,
-     * filesystem access or IO-service exemption is introduced. */
+     * holds the real scheduler IO exclusion. No artificial device delay
+     * is introduced. Case 24 also writes a disposable
+     * USB filesystem; other cases only hold the scheduler scope. Once admitted,
+     * the worker may resume as soon as its scheduler policy allows it. */
     scheduler_enable_io_services();
     if(!scheduler_spawn("battery-vm-io",io_hold,NULL)) {
         console_write("battery-vm: ERROR io-hold spawn\n");return;
     }
-    while(!model.io_done)scheduler_yield();
+    while(!model.io_entered)scheduler_yield();
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
 static bool equal(const void *a,const char *b,unsigned n){const char *p=a;for(unsigned i=0;i<n;i++)if(p[i]!=b[i])return false;return true;}
 static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
 static uint8_t read_data(void *c){(void)c;model.obf=false;return model.output;}
-static void command(void *c,uint8_t v){(void)c;model.mode=v;model.step=0;if(v==0x84){model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;}}
+static void command(void *c,uint8_t v){(void)c;model.commands++;model.mode=v;model.step=0;if(v==0x84){model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;}}
 static void write_data(void *c,uint8_t v){
     (void)c;
     if(!model.step++) {
@@ -151,7 +170,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>22||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>24||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};

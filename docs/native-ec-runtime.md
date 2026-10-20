@@ -559,8 +559,10 @@ command through the separate predicate. Unlike the synthetic one-attempt
 fixture, native permission follows the trusted interpreter's implicit firmware
 lock lifetime; firmware reception is not yet physically accepted.
 
-One ordinary worker owns initialization, early EC access, explicit `_REG`, AML
-queries and whole 15-word Smart Battery transactions. No nested notification
+For the direct diagnostic, one ordinary worker owns initialization, early EC
+access, explicit `_REG`, AML queries and whole 15-word Smart Battery transactions.
+The separate cached service uses [audited, conditional I/O eligibility](battery-service.md#audited-storage-eligibility)
+for its owner and worker. No nested notification
 callback performs EC IO. The lifecycle owner has a five-second setup deadline,
 25-second sample bound and three-second disconnect bound; it checks the query
 budget every 50 ms while waiting. EC byte operations have a 100 ms limit.

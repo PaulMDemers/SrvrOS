@@ -19,8 +19,10 @@ invented readings.
 The owner uses the existing EC/AML worker for namespace setup, battery reads,
 query handling and disconnection. Native firmware/resource gates, Global Lock,
 foreign-event preservation, transport deadlines and query budgets are unchanged.
-The lifecycle owner and EC worker are ordinary kernel threads, not storage
-service exemptions. During idle intervals the owner sleeps and checks the
+The cached-service owner and EC worker are explicitly eligible in storage service
+windows only after platform validation and mapping have completed and while the
+runtime remains engaged. Other ACPI workers and the direct diagnostic retain
+ordinary scheduling. During idle intervals the owner sleeps and checks the
 independent query watchdog at 50 ms intervals.
 
 `battery_service_stop` closes sample publication and requests retirement.
@@ -168,26 +170,49 @@ through vector 41 without setting a hardware source. It verifies repeated
 unclaimed deliveries remain visible in the counters although the generic IRQ
 warning prints once. This tests accounting, not the cause of a native SCI.
 
-Two VM fixtures interleave a separate thread at an EC transport status read.
-That thread holds the real scheduler I/O scope, yields through its normal service
-windows, and reads the battery cache. They do not access a disk or flash drive:
+The original ordinary-thread implementation was reproduced with a separate
+thread holding the scheduler I/O scope at an EC transport status read. A 20 ms
+hold passed; a 250 ms hold paused the worker long enough to expire its 100 ms
+transport deadline. This was containment evidence, not coexistence acceptance.
+The baseline serial log is retained in local scheduling-repair evidence.
 
-| Fixture | Exclusion | Expected behavior |
+### Audited storage eligibility
+
+The service now opts its owner and worker into the existing I/O service windows.
+The predicate requires the service owner, service mode and an engaged runtime.
+It remains active through retirement. Platform preflight runs before engagement.
+The explicit worker API leaves all existing ordinary-worker callers unchanged.
+
+| Dependency | Audited behavior |
+| --- | --- |
+| Page tables and addresses | Native preflight completes HPTC mapping before engagement; runtime uses kernel/HHDM or existing mappings, never user memory |
+| Allocation | Kernel heap operations mask IRQs; interpreter allocation accounting is also serialized |
+| PCI configuration | CF8/CFC transactions have IRQ protection; ECAM uses established mappings |
+| Console and boot log | Serialized kernel paths; deferred console service is already I/O eligible, with no dependency on an application presenter |
+| Queues, semaphores and IRQ registry | IRQ-serialized; runtime waits depend on its eligible owner/worker, IRQs or timer |
+| Platform callbacks | Bounded EC/SBS/AML and exact resource gates; no VFS, filesystem or storage callbacks |
+| Worker retirement | Stopped publication and return to the thread's terminal state retain masked IRQs, preventing reclamation while its eligibility callback can still reference it; readiness scans skip retired threads before calling predicates |
+
+This audit applies to the current CPU0 scheduler. SMP execution would require a
+new synchronization audit. It does not permit arbitrary ACPI callbacks to run
+during storage ownership. Transport, query and setup deadlines are unchanged.
+
+The VM fixtures require progress **before** the I/O owner releases its scope.
+They record cache reads, observed read latency, EC command progress and sample
+generation. The interleave handshake releases the worker once the scope has
+started, so it tests scheduler eligibility rather than forcing the worker to
+wait until the scope ends.
+
+| Fixture | Workload | Required result |
 | --- | --- | --- |
-| `service-io-short` | 20 ms | Sampling resumes; five samples and lifecycle retirement pass |
-| `service-io-deadline` | 250 ms | EC transport expires; containment retains live state, no service pass |
+| `service-io-short` | 20 ms scheduler scope | Five samples and clean lifecycle retirement |
+| `service-io-long` | 250 ms scheduler scope | EC commands advance inside the scope; service passes |
+| `service-io-sustained` | Five-second scheduler scope | EC commands and sample generation advance inside the scope |
+| `service-usb-io` | Five seconds of disposable QEMU USB exFAT writes and flushes | Concurrent sample progress, service retirement, clean unmount, offline exact payload verification and clean exFAT |
 
-Both behaviors were reproduced. The short hold measured 20.311 ms; the long hold
-measured 250.234 ms and ended with transport deadline error 1. Cache reads worked
-inside both scopes. The failing case is a regression test for truthful
-containment, **not** acceptance of battery/storage coexistence. The current
-scheduler excludes the ordinary EC worker during storage ownership; a paused
-transaction still consumes its wall-clock deadline.
-
-Desktop enablement therefore needs a separate scheduling design. Before granting
-any I/O eligibility, audit the worker and owner across setup, sampling, queries
-and retirement: allocator/mapping use, console logging, blocking dependencies
-and all platform callbacks. The shared ACPI worker also serves other runtime
-fixtures; do not make every caller eligible as a shortcut. Preserve deadlines
-and storage isolation, then require progress and clean retirement under the
-same long-hold reproducer followed by actual USB I/O and input testing.
+The USB fixture creates its own image and synthetic workspace identity. It never
+uses the laptop flash drive. VM evidence does not accept native storage/input
+coexistence, native SCI behavior over sustained operation, or desktop enablement.
+The next physical gate needs a bounded concurrent-I/O capture with a durable
+checkpoint and automatic return on handled failure as well as success. The
+existing parked-USB capture must not be relabeled as that test.

@@ -80,6 +80,14 @@ static bool claim_diagnostic(void) {
     irq_restore(f);return ok;
 }
 static void release_owner(void) {uint64_t f=irq_save();owner=OWNER_NONE;irq_restore(f);}
+/* CPU0 scheduling predicate, read with IRQs masked. Platform validation and
+ * page-table setup finish before engaged. The audited service callbacks use
+ * kernel mappings/serialized allocators and never VFS or user memory. Keep both
+ * owner watchdog and worker runnable through teardown; other adapters and the
+ * direct diagnostic retain ordinary-thread scheduling. See battery-service.md. */
+static bool service_io_ready(void *arg) {
+    (void)arg;return owner==OWNER_SERVICE && runtime.engaged && runtime.service_mode;
+}
 bool battery_diagnostic_auto_return(bool enabled) {
     uint64_t f=irq_save();
     bool ok=!enabled||(!workspace_active()&&!scheduler_io_active());
@@ -513,7 +521,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
         if(!battery_event_hold_begin(h,event_ops))unsafe("foreign event mask");
         if(h->active)console_printf("battery: foreign-event held enable=%x original=%x\n",(uint64_t)h->enable,(uint64_t)h->original);
     }
-    if(!acpi_worker_start(&runtime.worker))unsafe("worker start");
+    bool started=service_mode?acpi_worker_start_io(&runtime.worker,service_io_ready,NULL):
+        acpi_worker_start(&runtime.worker);
+    if(!started)unsafe("worker start");
     ec_transport_init(&runtime.transport,runtime.platform.io);
     if(uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE|UACPI_FLAG_BAD_CSUM_FATAL|UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL)||runtime.errors||runtime.denied)unsafe("interpreter initialize");
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
@@ -612,8 +622,8 @@ static void service_main(void *arg) {
             irq_restore(f);
             next_sample=timer_monotonic_us()+BATTERY_SERVICE_INTERVAL_US;
         }
-        /* Ordinary kernel thread, not an IO-service exemption. Retain the
-         * independent query watchdog while sleeping between polls. */
+        /* Retain the independent query watchdog while sleeping between polls.
+         * The engaged owner/worker may run through storage service windows. */
         if(!scheduler_wait_timeout(&service.wake,stop_requested,NULL,timer_ticks()+5))
             timer_wait_ticks(1);
     }
@@ -634,7 +644,7 @@ bool battery_service_start(void *rsdp,struct limine_memmap_response *map) {
     service.stop=false;service.running=true;service.identity=0;service.rsdp=rsdp;service.map=map;
     /* Wait queues retain sleepers from an earlier epoch until they wake. Do
      * not clear their masks when admitting a new lifetime. */
-    bool ok=scheduler_spawn("battery-owner",service_main,NULL);
+    bool ok=scheduler_spawn_io_service("battery-owner",service_main,NULL,service_io_ready);
     if(!ok)service_finish(BATTERY_SERVICE_UNAVAILABLE,BATTERY_SERVICE_SPAWN);
     irq_restore(f);return ok;
 }
