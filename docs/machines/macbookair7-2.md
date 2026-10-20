@@ -2,6 +2,16 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+Current unattended-test policy (user correction October 20): announce required
+human actions before boot; tests requiring no input must return to Ubuntu on
+handled failures as well as success. The corrected v33 run has only a boot log
+in `session-00065e48d76b65bf-00`; the user reports another halt, so it is not
+accepted and the exact latest fault is unknown. Repair scope now covers capture
+return policy, pre-probe USB checkpoint/unmount, reset from contained runtime
+faults without unsafe interpreter cleanup, and VM reset/failed-collection tests.
+Use a distinct `-auto-return` recipe suffix; retain existing recipes unchanged.
+Missing completion remains failure, never an automatic pass after reboot.
+
 ## Identity and ownership
 
 Development host: Ubuntu on the 13-inch Air, Broadwell-U, Intel HD Graphics 6000
