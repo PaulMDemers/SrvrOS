@@ -2,15 +2,17 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted bounded run: **`a5281d842c8b6160`** / artifact **`6938813`**,
-session **`session-00065e497cc34d56-00`**. Five fresh samples and clean lifecycle
-retirement passed again: 48,768 cached reads, 9,728 during sampling, maximum
-observed read time 18 microseconds. SCI accounting measured 12 deliveries:
-six handled and six unclaimed, all during active operation. There were no setup
-or retirement callbacks and none in flight at retirement. This establishes the
-warning's count and phase for this run, not its cause. The scheduling repair below
-addresses the reproduced storage-exclusion timeout in the VM; native concurrent
-storage/input acceptance remains a desktop integration gate.
+Latest accepted bounded run: **`b73c1ae3e4643dc9`** / artifact **`0cb9f2e`**,
+session **`session-00065e4a0a43b75e-00`**. Battery sampling progressed during
+103,094 uncached USB reads; all 4096-byte reads matched their baseline. Five
+sample-generation advances occurred inside storage I/O scopes, with 153 reads
+observed during sampling. The cached service completed five fresh samples and
+106,806 reads (921 during sampling), maximum observed read time 18 microseconds.
+Both initialized lifetimes retired cleanly and restored retained event enables.
+SCI counted six handled and six unclaimed active deliveries, none during setup
+or retirement and none in flight afterward; the unclaimed cause remains open.
+Native read overlap is accepted within this bounded test. Writes, human input,
+continuous desktop operation and gauge accuracy are not accepted by this run.
 
 Current unattended-test policy (user correction October 20): announce required
 human actions before boot; tests requiring no input must return to Ubuntu on
@@ -84,16 +86,34 @@ read-overlap and injected-reset cases, and existing service/reset regressions.
 The modeled overlap issued 83,547 real USB read commands, with 57 reads while
 sampling and five generation-progress bursts; all bytes matched. Whole-disk
 hashes were unchanged and exFAT clean after both overlap and injected reset.
-This is VM evidence only. Candidate `b73c1ae3e4643dc9`, artifact `0cb9f2e`,
-passed exact-stage Q35 native refusal with saved failed result, clean exFAT,
-unmount and reset; missing-workspace automatic return also passed. The physical
-trial is prepared for one-shot boot with automatic return and no human input.
-Keep `a5281d842c8b6160` and previous desktop recovery. The unreferenced EFI copy
-of old power capture `ed93e03b2585dcaf` may be removed only after verifying its
-durable payload backup to make room; acceptance evidence remains preserved.
-Collect the matching v34 session before further work and require
-`battery_usb_read` plus full service, SCI retirement and completion evidence.
-Native read-overlap acceptance remains pending.
+These are VM results. The exact-stage candidate `b73c1ae3e4643dc9`, artifact
+`0cb9f2e`, also passed Q35 native refusal with saved failed result, clean exFAT,
+unmount/reset and missing-workspace return.
+
+The physical trial subsequently passed with no human input. Its 103,094 read
+commands included 153 reads during sampling and five generation-progress bursts
+inside 58 storage scopes, maximum observed duration 289,851 microseconds.
+Immediate cancellation, restart, in-flight stop and short stop timeout followed
+by clean join passed. The two initialized lifetimes handled 90 queries and 92
+notifications, balanced attachments, and ended with zero heap/errors/denials.
+Setup took 3.984 and 3.982 seconds. SCI accounting is summarized above.
+
+The matching exit contains complete service/read proof and `completed=yes`.
+A new Ubuntu boot, consumed one-shot, installed hashes and clean offline exFAT
+(178 directories, 858 files) were verified. The persisted exit precedes final
+unmount/reset; recovery is corroborated by those host checks. Current is `b73c1ae3e4643dc9`,
+previous desktop is `b427b78f21644bd2`, and prior accepted `a5281d842c8b6160`
+remains available. Accepted payload/evidence backups are outside `build`, under
+`~/.local/share/srvros/known-good/b73c1ae3e4643dc9` and
+`~/.local/share/srvros/accepted-evidence/b73c1ae3e4643dc9`.
+The old unreferenced `ed93e03b2585dcaf` EFI duplicate was removed only after its
+durable backup was verified. No new reboot is armed.
+
+At collection, integration remains `b6075ef`; Pro PR #5 was inspected at
+`cdbefc2`. Its isolated load diagnostic changes do not overlap this native battery
+scope. Next is bounded native write/flush coexistence with durable failure
+recovery. Human input, sustained SCI behavior and ordinary desktop enablement
+remain separate gates.
 
 
 ### Battery scheduling repair — October 20
@@ -127,11 +147,9 @@ lifecycle VM. Staging/collection has 44 passing host checks. Evidence is in
 local ignored `build/battery-io-fix-20261020`; the full CI matrix was not rerun
 locally. CI now includes the USB fixture and its exfatprogs dependency.
 
-Native storage/input coexistence and sustained SCI behavior remain pending.
-Installed `a5281d842c8b6160` and previous desktop recovery are unchanged; no
-physical trial was armed. The next gate is a bounded concurrent-I/O capture
-with a durable checkpoint and automatic return on handled failure and success,
-not another parked-USB counter run. Ordinary desktop battery access stays off.
+The subsequent v34 trial above accepts bounded native USB-read coexistence.
+Native writes/input and sustained SCI behavior remain pending. Ordinary desktop
+battery access stays off.
 
 ### Earlier SCI accounting and storage scheduling block — October 20
 

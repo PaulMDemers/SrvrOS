@@ -213,9 +213,9 @@ wait until the scope ends.
 The USB fixture creates its own image and synthetic workspace identity. It never
 uses the laptop flash drive. VM evidence does not accept native storage/input
 coexistence, native SCI behavior over sustained operation, or desktop enablement.
-The next physical gate needs a bounded concurrent-I/O capture with a durable
-checkpoint and automatic return on handled failure as well as success. The
-existing parked-USB capture must not be relabeled as that test.
+The v34 capture below adds native read-overlap evidence. Native writes and
+flushes still need a bounded capture with a durable checkpoint and automatic
+return on handled failure as well as success.
 
 
 ## Native read-only USB overlap capture (v34)
@@ -248,3 +248,28 @@ result and return, and missing-workspace rehearsal must also reset.
 This is read-only USB coexistence evidence. Native write/flush coexistence,
 human input latency, sustained SCI behavior and ordinary desktop enablement
 remain separate acceptance gates.
+
+### Physical acceptance — October 20
+
+MacBookAir7,2 release `b73c1ae3e4643dc9` / artifact `0cb9f2e`, session
+`session-00065e4a0a43b75e-00`, passed the automatic read-overlap capture:
+
+- 103,094 uncached 4096-byte USB reads matched the baseline; 153 occurred while
+  sampling. Five sample-generation advances occurred inside 58 I/O scopes;
+  the maximum observed scope duration was 289,851 microseconds.
+- Five fresh samples, 106,806 cached reads (921 while sampling), maximum observed
+  cached read time 18 microseconds. Immediate cancel, restart, in-flight stop
+  and short stop timeout followed by clean join passed.
+- Both initialized lifetimes restored retained enables and balanced attachments,
+  with zero heap, errors and denied accesses at retirement. SCI recorded 12
+  active deliveries: six handled/six unclaimed, none during setup/retirement or
+  in flight afterward. The unclaimed source remains unresolved.
+- Completed exit, new Ubuntu boot, consumed one-shot and installed hashes were
+  verified. Offline exFAT was clean (178 directories, 858 files). The exit is
+  saved before final unmount/reset; those host checks corroborate return.
+
+Accepted payload and hashed evidence are preserved outside build cleanup.
+This physically validates the scheduling repair for bounded USB reads with the
+workspace unmounted and writes revoked. It does not accept native writes/flushes,
+human input responsiveness, long-running SCI behavior, ordinary desktop service,
+gauge accuracy or suspend/resume.
