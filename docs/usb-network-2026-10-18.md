@@ -42,7 +42,7 @@ keyboard reports and interface quarantine after unplugging. Alternating 64- and
 65-byte Ethernet frames exercise the exact-packet termination case. QEMU's
 `0525:a4a2` gadget advertises RNDIS first and ECM second; configuration selection
 is tested. Its notification interface-index quirk is accepted only for that
-VID/PID. Physical adapter acceptance is pending.
+VID/PID. Physical acceptance for the captured Pro adapter is recorded below.
 
 ## First physical adapter round
 
@@ -92,11 +92,10 @@ e1000 GUI, copied adapter attribution and link changes. ARP/DHCP/DNS/ICMP
 timeout loops block on bounded RX waits so an unreachable peer cannot keep an
 IRQ-masked caller runnable indefinitely and starve timer/UI progress.
 Physical chipset support still requires captured descriptors and native tests.
-The Pro sensor desktop's existing immutable recipe does not enable ECM; prepare
-an explicit network-enabled candidate and exact-stage VM check when hardware is
-available, preserving its accepted desktop recovery.
+The Pro sensor desktop enables ECM only through the explicit v37 network
+recipe below; older immutable recipes remain unchanged.
 
-## Captured 0b95:1790 revision 0200 candidate
+## Captured 0b95:1790 revision 0200 adapter
 
 The Pro unit's adapter advertises vendor-specific, NCM and ECM configurations.
 Linux selected NCM with a 1000 Mb/s link; SrvrOS targets ECM configuration 3.
@@ -105,8 +104,7 @@ a 16-byte interrupt endpoint. A private parser copy normalizes that field only
 for the exact captured 98-byte configuration, VID/PID/revision and 5 Gb/s USB
 speed. Generic strict parsing remains unchanged. No vendor registers, firmware
 updates or NCM framing are involved. Altered/sibling descriptors remain refused
-unless they independently satisfy the generic ECM contract. Physical operation
-is pending, and the product name alone must not select this compatibility path.
+unless they independently satisfy the generic ECM contract. The product name alone must not select this compatibility path.
 
 `hardware_boot.py stage --desktop-volume UUID --desktop-scale 2
 --desktop-brightness --desktop-audio --desktop-sensors --desktop-network` creates
@@ -115,3 +113,11 @@ the separate immutable v37 desktop. Rehearse with `hardware_boot_smoke.py
 emulated USB ECM, obtains DHCP and saves a successful ping report, alongside
 scaled Text/screenshot persistence and clean unmount. On hardware, the opening
 Help includes DHCP, System/Network Utility and manual-return instructions.
+
+Native release `debb2ddf3e9f4243` (source `1b2afb0`) on MacBookPro11,2
+binds this adapter through ECM configuration 3. Session `00065e4d6c789a85-00`
+records DHCP and two successful ping process exits; the user confirms DHCP and
+ping worked. Collection and offline filesystem/allocation checks pass. This
+accepts the captured adapter revision for those operations only. Native DNS,
+HTTP, throughput, cable cycling and simultaneous physical-adapter inventory
+remain untested; multi-adapter VM results do not extend this hardware acceptance.

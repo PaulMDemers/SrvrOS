@@ -1061,3 +1061,25 @@ requests Terminal dhcp/ifconfig, exit and Command-W, then System/Network Utility
 router ping/DNS and screenshot, followed by clean manual return. Preserve Ubuntu,
 accepted current desktop archive and previous sound-confirmed recovery. Collect
 the exact new session before any next trial; physical ECM support remains pending.
+
+## First USB Ethernet acceptance — 2026-10-20
+
+Release `debb2ddf3e9f4243` (payload source `1b2afb0`), session
+`00065e4d6c789a85-00`, physically accepts DHCP and ping for the captured
+`0b95:1790` revision `0200` adapter on this Pro. Native logs confirm ECM
+configuration 3, the active usb-ecm provider, a DHCP lease and two ping processes
+exiting status zero; the user confirms both DHCP and ping worked. No new
+screenshot was recorded, and this run does not accept Network Utility GUI,
+DNS, HTTP, throughput, cable cycling or multiple physical adapters.
+
+Collection verified the matching logs with zero attention markers and a normal
+desktop exit. Offline exFAT and allocation checks are clean (22 directories,
+74 files). The one-shot entry is consumed; Ubuntu remains default. Installed
+payload hashes and the previous sound-confirmed `e47dca3a6b30c6c1` recovery
+match their archived manifests. Run, collection and checks are archived outside
+build. No further boot is armed.
+
+Next bounded scope: inventory another supplied adapter, or extend this adapter's
+native DNS/HTTP/link coverage. Multiple-adapter inventory/UI and isolation remain
+VM-tested; only one boot-selected provider owns IP configuration. Battery,
+headphone testing and pointer latency remain deferred as previously agreed.
