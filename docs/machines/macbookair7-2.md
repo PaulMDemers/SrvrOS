@@ -20,13 +20,16 @@ device work uses separate branches based on `main`.
 - Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
   worker/IRQ ownership and battery interfaces require explicit coordination.
   No new native EC/SCI enablement is part of the power capture.
-- Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
+- Integration baseline: `main` merge `b6075ef`; PR #4 merged after review and
+  both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: offline native memory/PCI/GPIO permission
-  audit, alongside isolating the POSIX pipe-restart regression. Shared scope:
-  namespace probe/fixtures, posixdemo test protocol, focused VM coverage and CI.
-  No live mappings or hardware permissions change. Pro11,2 PR #5 owns USB/storage.
+- Current bounded implementation: extend the offline probe to audit complete
+  namespace initialization, including ignored firmware errors and skipped
+  follow-up evaluations on refusal. Scope: probe, synthetic AML tests and native
+  runtime guide; audit GN46 GPIO semantics and captured initialization paths.
+  No live hardware binding. Pro11,2 PR #5 owns USB/storage and guided typing;
+  its latest published physical keyboard result does not accept the Air.
 - Pipe-restart checkpoint (`3e70395`): the sending helper blocks its process-wide
   test signal so its own yields cannot consume it. The probe verifies the handler
   ran on the reader; 256 rounds with varied yields and the full 481-command CLI
