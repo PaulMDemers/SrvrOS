@@ -224,6 +224,12 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check --audio-c
 cat build/review/hardware-grub-result.json
 ```
 
+On the captured Pro11,2 firmware, the laptop probe now reads only the four
+CPU/PCH PWM registers after exact GPU/HM87/DSDT matching. This diagnostic does
+not enable brightness or sound and does not access EC ports. Use the v19
+`--laptop-probe-volume` profile and exact GPT rehearsal for its unattended
+save/unmount/return capture; retain the accepted desktop as recovery.
+
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
 models. It excludes the optional `srvros.aml=probe`, whose original Air7,2 stall was followed by a clean explicit v24 capture.

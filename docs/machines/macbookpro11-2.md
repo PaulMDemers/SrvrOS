@@ -317,3 +317,14 @@ state is required before choosing a brightness control profile. Linux reports
 maximum 1953, distinct from the Air's 2777. Audio evidence also shows two speaker
 pins (0x12 and 0x13), so the Air's single-speaker route is insufficient.
 `origin/main` remains b6075ef and PR6 remains ACPI-only at this scope refresh.
+
+Diagnostic release `a488fbd08bf01e44`, source `7f2d122`, implements the exact
+Pro DSDT/GPU/HM87 gate and reads PWM offsets 0x48250/0x48254/0xc8250/0xc8254
+through read-only uncached mappings. It binds no writer and bypasses all Air
+EC/resource accesses. Register definitions were checked against
+[Linux v6.12 Intel backlight registers](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_backlight_regs.h).
+Build, existing backlight/resource tests, actual Pro firmware identity/refusal
+tests and documentation checks pass. The exact v19 GPT VM rehearsal verifies
+saved log bytes, clean exFAT, unmount and reset. Physical capture is next, under
+existing automatic-reboot authorization; no user input is required. Collect this
+release on return before implementing a writable provider or staging again.
