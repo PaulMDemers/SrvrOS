@@ -52,6 +52,15 @@ def main():
             bitmap_offset = fs.offset(struct.unpack_from('<I', bitmap, 20)[0])
             bit = next(i for i in range(fs.count)
                        if not baseline[bitmap_offset+i//8] & (1 << (i % 8)))
+            # Allocation comes from the bitmap. Deleted/free clusters may
+            # retain old FAT links, including values which resemble live chains.
+            for stale_fat in (0xffffffff, bit+2, struct.unpack_from('<I', scratch, 52)[0]):
+                stale = bytearray(baseline)
+                struct.pack_into('<I', stale, fs.fat+(bit+2)*4, stale_fat)
+                image.write_bytes(stale)
+                command(DRIVER, image, 'allocation-check')
+                command(DRIVER, image, 'scratch-range')
+                assert image.read_bytes() == stale
             orphan = bytearray(baseline)
             orphan[bitmap_offset+bit//8] |= 1 << (bit % 8)
             struct.pack_into('<I', orphan, fs.fat+(bit+2)*4, 0xffffffff)
@@ -98,6 +107,9 @@ def main():
                     changed[bitmap_offset+bit//8] &= ~(1 << (bit % 8))
                 image.write_bytes(changed)
                 command(DRIVER, image, 'scratch-refuse')
+                if fault == 'bitmap':
+                    check = command(DRIVER, image, 'allocation-check', codes=(1,))
+                    assert 'fat_bitmap_mismatches=1' in check
                 assert image.read_bytes() == changed
             print(f'exfat-scratch: {cluster} extent, refusal, read-only admission and torn-data isolation PASS')
 

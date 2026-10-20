@@ -11,6 +11,8 @@ struct exfat_check_result {
     uint64_t files_checked;
     uint64_t clusters_checked;
     uint64_t leaked_clusters;
+    /* Referenced clusters missing from the allocation bitmap; free clusters
+     * may legally retain old FAT values. */
     uint64_t fat_bitmap_mismatches;
     uint64_t errors;
 };
