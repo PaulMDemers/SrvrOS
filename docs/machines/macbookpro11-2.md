@@ -663,7 +663,7 @@ Current capability ledger and suggested next order:
 | Trackpad | Functional; latency investigation deferred; gesture combinations need separate exhaustive acceptance |
 | Brightness | User confirmed full offered 5–100% range |
 | Audio | User confirmed sound; headphone isolation, individual channel/route checks and microphone remain separate |
-| CPU/thermal/fan telemetry | Linux inventory exists; native model-specific read-only validation pending; fan control not accepted |
+| CPU/thermal/fan telemetry | Native CPU temperature/package energy/active-frequency idle capture accepted below; two-fan readout host/VM tested, native trial pending; fan control not accepted |
 | Battery and charger | Native Pro ACPI/EC ownership and live battery/AC reporting not accepted; reuse reviewed shared groundwork, not Air firmware assumptions |
 | Networking | No accepted physical network path; validate supported wired USB hardware first; internal Broadcom Wi-Fi is separate driver work |
 | Power behavior | Lid events, orderly power-off and suspend/resume each need implementation/acceptance review; idle/load power baseline pending |
@@ -758,3 +758,13 @@ keys, publish only a complete pair (including valid zero RPM), and invalidate
 both on a second-fan timeout. Protocol fixtures reject control-write commands.
 The matched ABI v2 build updates System to display both speeds. Native readout
 and the visible two-fan System presentation are not yet physically accepted.
+
+Two-fan candidate `d2928b8e81f148cd`, source `3604d74`, passes the exact
+v26 GPT/Retina VM capture: 60-second idle window, 1440x900 screenshot, saved
+logs, clean unmount and automatic reset. The VM correctly refuses the native
+SMC profile. A separate missing-workspace rehearsal halts without saving,
+unmounting or rebooting. Receipts are retained separately. The next physical
+run is unattended and must show a fresh complete two-fan pair with no failures,
+as well as the completed idle capture/save/unmount/return. Visible System fan
+formatting remains a separate interactive check. Keep the sound-confirmed
+`e47dca3a6b30c6c1` recovery payload and collect this exact release on return.
