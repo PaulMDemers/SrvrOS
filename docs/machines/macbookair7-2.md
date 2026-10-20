@@ -24,12 +24,13 @@ device work uses separate branches based on `main`.
   both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: exact PM1 Global Lock release predicate and
-  owner-scoped Q35 notification path, with successful and unsafe-write refusal
-  tests. Generic PM1 writes stay denied. Scope: runtime event policy, Q35
-  adapter, host/VM tests and guides; dependency is chipset/handoff `a51c4a5`.
-  Baseline remains `b6075ef`; Pro11,2 PR #5 owns USB/GPT/guided input
-  (`927a7f5`), with no overlapping ACPI work.
+- Current implementation block: complete the connected EC/IGPU access audit,
+  then build an opt-in native battery/AC diagnostic through a separate runtime
+  adapter, serialized EC/SBS worker, owned SCI/GPE path, bounded lifecycle and
+  durable test reporting. Scope includes runtime/transport, build/staging tests
+  and guides. Keep normal desktop startup and accepted recovery unchanged.
+  Dependencies: chipset/handoff `a51c4a5`, PM1 notification `2d29126`; integration
+  baseline `b6075ef`. Pro11,2 PR #5 remains `927a7f5` (USB/GPT/input), no overlap.
 - PM1 notification checkpoint: all 65,536 starting words and each single-bit
   command mutation pass host/sanitizer checks. The Q35 release case performs
   exactly one actual emulated PM1 write, refuses permission replay, preserves
