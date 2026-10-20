@@ -21,7 +21,7 @@
 static struct { void *p; size_t size; } mappings[MAX_TABLES+3];
 static size_t mapping_count, allocation_bytes, denied, local_writes;
 static struct { uintptr_t address; unsigned char *bytes; size_t size; } regions[16];
-static size_t region_count, aml_errors, snapshot_accesses;
+static size_t region_count, aml_errors, aml_warnings, snapshot_accesses;
 /* Explicit byte models only. Never backed by /dev/port or host I/O. */
 static struct { uint32_t base; unsigned char *bytes; size_t size; bool guarded; struct acpi_io_rule rule; } io_models[16];
 static size_t io_model_count, io_accesses;
@@ -47,7 +47,7 @@ void *uacpi_kernel_map(uacpi_phys_addr addr,uacpi_size len) {
     fprintf(stderr,"probe: denied mapping 0x%llx length=%zu\n",(unsigned long long)addr,len);denied++;return UACPI_MAP_FAILED;
 }
 void uacpi_kernel_unmap(void *p,uacpi_size len) { (void)p;(void)len; }
-void uacpi_kernel_log(uacpi_log_level level,const char *text) { if(level==UACPI_LOG_ERROR) aml_errors++;fprintf(stderr,"aml[%u]: %s",level,text); }
+void uacpi_kernel_log(uacpi_log_level level,const char *text) { if(level==UACPI_LOG_ERROR) aml_errors++;if(level==UACPI_LOG_WARN) aml_warnings++;fprintf(stderr,"aml[%u]: %s",level,text); }
 union allocation_header { max_align_t alignment; size_t charged; };
 void *uacpi_kernel_alloc(uacpi_size size) {
     if(!size) size=1;
@@ -254,11 +254,12 @@ int main(int argc,char **argv) {
     /* The independent wall clock also bounds AML outside While loops. */
     alarm(15);setvbuf(stdout,NULL,_IOLBF,0);
     int separator=0,darwin=0;
-    bool contract=false;struct acpi_ec_resources ec_contract={0};
+    bool initialize=false, contract=false;struct acpi_ec_resources ec_contract={0};
     void *tables[MAX_TABLES];size_t table_count=0;
     for(int a=1;a<argc;a++) {
         if(!strcmp(argv[a],"--")) { separator=a+1;break; }
         if(!strcmp(argv[a],"--darwin")) { darwin=1;continue; }
+        if(!strcmp(argv[a],"--initialize")) { initialize=true;continue; }
         if(!strcmp(argv[a],"--ec-contract")) {
             if(contract||a+2>=argc) fatal("expected one --ec-contract ECDT.dat FACP.dat");
             size_t en,fn;unsigned char *ec=read_contract_table(argv[++a],&en);
@@ -319,7 +320,7 @@ int main(int argc,char **argv) {
         unsigned sum=0;for(long i=0;i<size;i++) sum+=((unsigned char *)h)[i];if(sum&255) fatal("bad table checksum");
         add_mapping(h,size);tables[table_count++]=h;
     }
-    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--darwin] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--initialize] [--darwin] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
     struct acpi_fadt fadt={0};header(&fadt.hdr,"FACP",sizeof(fadt));fadt.x_dsdt=(uintptr_t)tables[0];
     checksum(&fadt,sizeof(fadt),9);add_mapping(&fadt,sizeof(fadt));
     size_t xsdt_size=sizeof(struct acpi_sdt_hdr)+8*table_count;
@@ -334,12 +335,28 @@ int main(int argc,char **argv) {
     if(darwin) { check(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR),"disable vendor interfaces");check(uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR),"Darwin interface"); }
     check(uacpi_namespace_load(),"namespace load");
     unsigned failed=0;
-    for(int a=separator;a<argc;a++) {
+    if(initialize) {
+        /* An API success can hide failed _INI/_STA methods. This strict offline
+         * audit also refuses warnings and prior load faults. No event hardware
+         * or EC handler exists in this reduced-hardware process. */
+        if(aml_errors||aml_warnings||denied) {
+            failed++;
+            printf("namespace-init: SKIPPED prior load errors=%zu warnings=%zu denied=%zu\n",aml_errors,aml_warnings,denied);
+        } else {
+            uacpi_status st=uacpi_namespace_initialize();
+            if(st||aml_errors||aml_warnings||denied) failed++;
+            printf("namespace-init: %s api=%u errors=%zu warnings=%zu denied=%zu hardware_access=none\n",
+                failed?"REFUSED":"PASS",st,aml_errors,aml_warnings,denied);
+        }
+    }
+    bool init_refused=initialize&&failed;
+    if(init_refused) printf("probe: follow-up evaluations and EC contract skipped after initialization refusal\n");
+    for(int a=separator;!init_refused&&a<argc;a++) {
         uacpi_object *object=NULL;uacpi_status st=uacpi_eval_simple(NULL,argv[a],&object);
         printf("%s = ",argv[a]);if(st) { printf("ERROR %s",uacpi_status_to_string(st));failed++; }else if(object) display(object,0);else printf("<no return>");putchar('\n');
         if(object) uacpi_object_unref(object);
     }
-    if(contract&&!audit_contract(&ec_contract)) failed++;
+    if(contract&&!init_refused&&!audit_contract(&ec_contract)) failed++;
     uacpi_state_reset();failed+=(unsigned)aml_errors;printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
     for(size_t i=0;i<table_count;i++) free(tables[i]);
     free(xsdt);

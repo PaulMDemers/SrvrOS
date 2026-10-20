@@ -178,6 +178,64 @@ Lock. In particular, captured PNVS fields request `Lock`, regardless of the
 absence of EC `_GLK`. Full namespace initialization, EC `_REG`, query methods
 and teardown must be audited separately from the explicit methods above.
 
+## Complete offline initialization audit
+
+`--initialize` additionally runs `uacpi_namespace_initialize` after table loading
+and before explicit query paths. The default remains load-and-evaluate only.
+Initialization is refused on an API failure, any logged AML error or warning,
+or any denied access, including faults left by table loading. A prior load fault
+skips initialization entirely. A refused initialization skips both follow-up
+queries and the EC contract check, then releases the interpreter and reports
+remaining allocations. Warning refusal is intentionally strict for this audit;
+it does not imply every warning is a hardware fault.
+
+```sh
+# Add to the same explicit, unit-specific snapshot/model arguments above:
+build/tools/acpi-namespace --initialize --darwin ... -- '\OSDW'
+```
+
+This is a reduced-hardware **offline** interpreter. It does not install an EC
+handler, run EC `_REG` as a connected device, exercise FACS firmware arbitration,
+or activate SCI/GPE hardware. Even an offline PASS would not accept those paths.
+The existing wall-clock, AML loop, allocation and per-access limits remain in
+force. Synthetic cases verify opt-in initialization effects, ignored `_INI`
+failure, malformed `_STA`, prior load failures, skipped queries and cleanup.
+
+The Air's `GN46` field corresponds to pin 46's configuration register 2, bit 2:
+`0x104 + 8 * 46 = 0x274`. The Intel-authored
+[Linux Lynxpoint driver](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/pinctrl/intel/pinctrl-lynxpoint.c)
+identifies that bit as disabling input sensing. This is a register-layout
+inference, not evidence of the Mac's board wiring or permission to alter it.
+Captured AML also changes this field in sleep/wake paths. Those methods were
+not executed, and no Linux implementation was copied.
+
+A private one-byte set-only model at `0xa74`, mask `4`, lets the explicit
+`_SB._INI` replay complete: one byte read/write, `0xa1` to `0xa5`, preserving
+all other bits; four private OSYS byte writes; no errors/denials/leaks. The
+model file is unchanged. Supplying both this model and the earlier GI82 model
+then exposes the following dependencies during complete namespace initialization:
+
+| Captured dependency | Result / remaining requirement |
+| --- | --- |
+| HPET `_STA` reads `HPAE` in `RCRB` | Mapping at `0xfed1c000`, length `0x4000`, refused. AML declares a DWord field at offset `0x3404`, bit 7; audit an exact read permission instead of allowing the whole chipset region. |
+| PCI `0:0:3.0` and `0:0:1f.0` | Missing snapshots refused; offsets/directions are not established by a failed device-open. Need evidence before permitting accesses. |
+| OSYS and GPIO | Eight private OSYS byte writes and both constrained GPIO read/writes occurred before the final refusal. Initialization is not transactional. |
+
+The captured full replay returns API status zero but records four AML errors and
+11 denied accesses. The tool reports `REFUSED`, skips `OSDW`/contract evaluation
+and releases all interpreter allocations. There are 101 private memory reads,
+one PCI read, and no input-file changes. This is a useful failed audit, not a
+complete native permission list: missing models and the absent EC handler can
+prevent later paths from running.
+
+The pinned full uACPI Global Lock implementation in `source/mutex.c` also needs
+specific containment before native use: it waits for a firmware release event
+with timeout `0xffff` inside acquisition, and release can write PM1 `GBL_RLS`.
+The existing Q35 policy denies PM1 control writes; it must not simply be widened
+for the native case. A bounded ownership/watchdog path, exact release-bit
+semantics and contended firmware handoff tests remain required. The offline
+reduced-hardware build does not exercise this handshake.
+
 ## SCI route ownership implementation
 
 `runtime/sci_owner` separates the route/callback lifetime from the Q35 adapter.

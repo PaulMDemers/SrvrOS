@@ -30,6 +30,14 @@ device work uses separate branches based on `main`.
   runtime guide; audit GN46 GPIO semantics and captured initialization paths.
   No live hardware binding. Pro11,2 PR #5 owns USB/storage and guided typing;
   its latest published physical keyboard result does not accept the Air.
+- Full initialization checkpoint: offline `--initialize` refuses errors,
+  warnings and denied accesses even when uACPI returns success; skips follow-up
+  queries on refusal. Twenty-five synthetic tests cover opt-in execution,
+  ignored errors, malformed status and prior load faults. Captured Air replay
+  with two private GPIO byte models still fails on HPET chipset memory and
+  missing PCI snapshots (four AML errors / 11 denials / zero remaining
+  allocations). GN46 maps to input-sensing disable; native access remains gated.
+  Full-runtime FACS contention and PM1 Global Lock release need their own tests.
 - Pipe-restart checkpoint (`3e70395`): the sending helper blocks its process-wide
   test signal so its own yields cannot consume it. The probe verifies the handler
   ran on the reader; 256 rounds with varied yields and the full 481-command CLI

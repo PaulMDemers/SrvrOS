@@ -55,9 +55,10 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=()):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
+        if initialize: args+=['--initialize']
         for address,path in models: args+=['--io-model',f'{address}:{path}']
         for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
         for address,path in pci: args+=['--pci',f'{address}:{path}']
@@ -65,6 +66,47 @@ class NamespaceTests(unittest.TestCase):
         if snapshot: args+=['--region',f'0x100000:{self.snapshot}']
         args += [str(aml or self.aml),'--',*paths]
         return subprocess.run(args,capture_output=True,text=True,timeout=20)
+
+    def test_namespace_initialization_is_opt_in(self):
+        aml=self.variant('Method (READ, 0)', 'Method (_INI, 0) { VAL0 = 0x42 } Method (READ, 0)')
+        before=self.snapshot.read_bytes()
+        r=self.probe('\\READ',aml=aml)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('\\READ = 0x21',r.stdout)
+        self.assertNotIn('namespace-init:',r.stdout)
+        r=self.probe('\\READ',aml=aml,initialize=True)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('namespace-init: PASS api=0 errors=0 warnings=0 denied=0',r.stdout)
+        self.assertIn('\\READ = 0x42',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+        self.assertEqual(self.snapshot.read_bytes(),before)
+
+    def test_namespace_initialization_ignored_error_refused(self):
+        aml=self.variant('Method (READ, 0)', 'Method (_INI, 0) { IOV0 = One } Method (READ, 0)')
+        r=self.probe('\\READ',aml=aml,initialize=True,contract=self.contract())
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: REFUSED api=0',r.stdout)
+        self.assertIn('follow-up evaluations and EC contract skipped',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertNotIn('ec-contract: MATCH',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_namespace_initialization_prior_load_fault_refused(self):
+        aml=self.variant('Method (BADR, 0)', 'Name (BOOT, Zero) BOOT = IOV0 Method (BADR, 0)')
+        r=self.probe('\\READ',aml=aml,initialize=True,contract=self.contract())
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: SKIPPED prior load errors=',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertNotIn('ec-contract: MATCH',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_namespace_initialization_bad_status_refused(self):
+        aml=self.variant('Name (_UID, Zero)', 'Name (_UID, Zero) Method (XSTA, 0) { Return (Buffer () {1}) }', (b'XSTA',b'_STA'))
+        r=self.probe('\\READ',aml=aml,initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: REFUSED api=0',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
 
     def test_resources_and_osi(self):
         r=self.probe('\\_SB.EC._HID','\\_SB.EC._CRS','\\_SB.EC.SMB0._STA','\\_SB.EC.SMB0._EC',darwin=True)
