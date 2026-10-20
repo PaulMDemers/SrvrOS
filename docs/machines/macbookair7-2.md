@@ -81,6 +81,16 @@ The physical explanation and corrected service still require a hardware retry.
 Failed evidence is retained outside build; the local USB is clean after the
 halt (174 directories, 846 files), and the one-shot entry was consumed.
 
+Corrected v33 candidate **`a3df674e8d6e5c65`**, artifact source **`c8be037`**,
+passes exact-stage GRUB/UEFI rehearsal with expected native refusal, persisted
+log verification, clean exFAT and persistent halt. It is prepared for the same
+automatic lifecycle trial, with setup timing now visible. Previous desktop
+`b427b78f21644bd2` and all accepted battery/interactive/power backups remain
+verified. The older unreferenced `fed370ffbe33d554` payload was archived and
+hash-verified for EFI space; failed `a9be2dc78d213dee` is preserved separately
+as diagnostic material. Collect this new candidate's session before further
+work. No physical acceptance is implied by the repair's VM results.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
