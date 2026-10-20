@@ -85,8 +85,8 @@ then wire the automatic capture with strict offline verification. Base `b6075ef`
 Pro PR #5 `c0f5fd5` inspected. Its proposed CPU-load capture overlaps shared boot
 staging/startup files: keep its implementation separate and reconcile those hunks
 at integration; do not copy or replace the Pro proposal. Ordinary desktop battery
-access remains disabled. Current accepted b73 read trial is collected; no new
-physical boot is armed.
+access remains disabled. The accepted b73 read trial is collected; its evidence and recovery payload
+remain preserved.
 
 
 The v36 scratch capture is implemented. Block/workspace host checks and disposable
@@ -97,8 +97,17 @@ native and model builds pass. Positive write-overlap and injected automatic
 reset VMs verify clean exFAT and unchanged disk bytes outside scratch data;
 existing service, read overlap and disposable filesystem-write regressions pass.
 Collection independently verifies and copies the final scratch payload.
-Exact-stage rehearsal and physical acceptance are next; no hardware result is
-claimed for scratch writes yet. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36).
+Candidate `5792b6ece45b85dc`, artifact `e2d779b`, passed exact-stage native
+Q35 refusal with saved failed result, scratch revocation, clean exFAT, unmount
+and reset. Physical acceptance remains pending; no hardware result is claimed
+for scratch writes yet. Missing-workspace automatic return also passed.
+The candidate is installed with previous desktop `b427b78f21644bd2` retained;
+accepted read payload `b73c1ae3e4643dc9` remains on EFI. The unreferenced `a528`
+EFI duplicate was removed only after its independent backup/hashes were verified.
+Offline physical exFAT remains clean (178 directories, 858 files). The next
+one-shot run is automatic: keep AC/USB connected, no human action required.
+Collect matching service/write proof and verified scratch payload before more
+work. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36).
 
 ### Native read-only USB overlap capture — October 20
 
@@ -133,13 +142,13 @@ Setup took 3.984 and 3.982 seconds. SCI accounting is summarized above.
 The matching exit contains complete service/read proof and `completed=yes`.
 A new Ubuntu boot, consumed one-shot, installed hashes and clean offline exFAT
 (178 directories, 858 files) were verified. The persisted exit precedes final
-unmount/reset; recovery is corroborated by those host checks. Current is `b73c1ae3e4643dc9`,
+unmount/reset; recovery is corroborated by those host checks. At that checkpoint current was `b73c1ae3e4643dc9`,
 previous desktop is `b427b78f21644bd2`, and prior accepted `a5281d842c8b6160`
 remains available. Accepted payload/evidence backups are outside `build`, under
 `~/.local/share/srvros/known-good/b73c1ae3e4643dc9` and
 `~/.local/share/srvros/accepted-evidence/b73c1ae3e4643dc9`.
 The old unreferenced `ed93e03b2585dcaf` EFI duplicate was removed only after its
-durable backup was verified. No new reboot is armed.
+durable backup was verified. No new reboot was armed at that checkpoint.
 
 At collection, integration remains `b6075ef`; Pro PR #5 was inspected at
 `cdbefc2`. Its isolated load diagnostic changes do not overlap this native battery
