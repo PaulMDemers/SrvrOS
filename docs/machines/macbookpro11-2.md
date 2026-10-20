@@ -517,3 +517,14 @@ is armed. The USB UUID is unchanged but Linux assigned a different device node;
 the local checkpoint now reflects it. Sound-confirmed `e47dca3a6b30c6c1` remains
 installed previous. Next inspect event-driven pointer wake and controller polling
 coordination, retaining timer/idle behavior until affected regressions are covered.
+
+## Pointer wake implementation scope
+
+Add a bounded pointer wait syscall and mouse-queue wake notification. The desktop
+will wait for queued pointer input or one tick, replacing unconditional one-tick
+sleep. Keep the 100 Hz timer, xHCI polling and storage ownership unchanged for a
+controlled comparison. Dedicated queue readiness is rechecked with IRQ exclusion
+by the scheduler to avoid lost wakes. Signal/cancel checks remain bounded by one
+tick. Touch mouse queue, syscall number/dispatch/wrapper, compositor and existing
+mouse/sleep host tests. Refreshed PR6 does not touch these files; avoid its startup,
+profile and Makefile changes. Native timing baseline remains 9,999 us cadence.
