@@ -7,6 +7,8 @@
 #include "ec_query_budget.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
+#include <srvros/arch.h>
+#include <srvros/workspace.h>
 #include <srvros/acpi.h>
 #include <srvros/console.h>
 #include <srvros/halt.h>
@@ -45,6 +47,7 @@ static struct {
 } runtime;
 enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
+static bool auto_return;
 static struct {
     struct battery_cache cache;
     struct scheduler_wait_queue wake,progress;
@@ -62,6 +65,12 @@ static bool claim_diagnostic(void) {
     irq_restore(f);return ok;
 }
 static void release_owner(void) {uint64_t f=irq_save();owner=OWNER_NONE;irq_restore(f);}
+bool battery_diagnostic_auto_return(bool enabled) {
+    uint64_t f=irq_save();
+    bool ok=!enabled||(!workspace_active()&&!scheduler_io_active());
+    if(ok)auto_return=enabled;
+    irq_restore(f);return ok;
+}
 static void event_write(void *,uint16_t,uint8_t);
 static uint8_t event_read(void *,uint16_t);
 static void mask_sources(void) {
@@ -75,20 +84,25 @@ static void mask_sources(void) {
     irq_restore(flags);
 }
 static __attribute__((noreturn)) void unsafe(const char *reason) {
-    uint64_t f=irq_save();
+    /* CPU0 containment is terminal: prevent either runtime thread from running
+     * again while reporting and resetting. No filesystem work is permitted. */
+    (void)irq_save();
     if(owner==OWNER_SERVICE) {
         service.cache.value.state=BATTERY_SERVICE_FAULTED;
         service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
     }
-    irq_restore(f);
     mask_sources();
     console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
         runtime.setup_stage?runtime.setup_stage:"not-started",
         runtime.setup_started_us?timer_monotonic_us()-runtime.setup_started_us:0,
         runtime.worker.identity,runtime.worker.completed,runtime.worker.work.in_flight);
-    console_printf("battery: HALTED %s errors=%u denied=%u heap=%u ec_phase=%u ec_error=%u queries=%u; live state retained\n",
-        reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
+    console_printf("battery: %s %s errors=%u denied=%u heap=%u ec_phase=%u ec_error=%u queries=%u; live state retained\n",
+        auto_return?"FAILED":"HALTED",reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
         (uint64_t)runtime.transport.error,runtime.queries);
+    if(auto_return) {
+        console_write("battery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n");
+        arch_reboot_unattended();
+    }
     console_sync();__asm__ volatile("cli":::"memory");halt_forever();
 }
 static bool foreign_port(uint16_t port) {

@@ -4,6 +4,12 @@ from pathlib import Path
 import hardware_desktop as desktop
 
 class CollectionTests(unittest.TestCase):
+    def test_automatic_return_does_not_clear_failure(self):
+        self.assertTrue(desktop.needs_attention("laptop-capture: completed=NO"))
+        self.assertTrue(desktop.needs_attention("battery: FAILED operation deadline"))
+        self.assertIsNone(desktop.battery_service_result(
+            "laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n"))
+
     def test_release_identity_requires_complete_boot_option(self):
         release="0620ce5e026b2f32"
         text=(f"cmdline: srvros.desktop-release={release}\n"

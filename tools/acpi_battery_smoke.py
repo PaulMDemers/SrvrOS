@@ -16,9 +16,9 @@ from serial_records import complete_lines
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19}
     transitions=args.case in ('transitions','transition-timeout')
     service=args.case.startswith('service')
     root = Path(__file__).resolve().parents[1]
@@ -59,12 +59,20 @@ def main():
                     while time.monotonic()-start < (155 if transitions else 100):
                         part.extend(boot.read_for(serial, .1))
                         lines = complete_lines(part)
+                        if args.case=='service-auto-deadline' and process.poll() is not None:break
                         if service:
                             if b'battery-service-test: PASS' in lines or b'battery-service-test: FAIL' in lines or b'battery: HALTED' in lines:break
                             continue
                         if b'battery-transition: PASS' in lines or b'battery-transition: INCOMPLETE' in lines or b'battery: PASS' in lines or b'battery: HALTED' in lines or b'battery: REFUSED' in lines:
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
+                    if args.case=='service-auto-deadline':
+                        assert b'battery: FAILED operation deadline' in part,bytes(part)
+                        assert b'returning to Ubuntu without live-runtime cleanup' in part,bytes(part)
+                        assert b'battery-service-test: PASS' not in part and b'battery: HALTED' not in part,bytes(part)
+                        assert process.wait(timeout=10)==0
+                        print('acpi-battery: PASS service-auto-deadline (contained fault resets; VM only)')
+                        return
                     if service and args.case!='service-query-deadline':
                         assert b'battery-service-test: PASS' in part and b'battery-service-test: FAIL' not in part,bytes(part)
                         assert b'battery: HALTED' not in part and b'ERROR foreign' not in part,bytes(part)

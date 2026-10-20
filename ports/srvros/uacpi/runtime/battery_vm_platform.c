@@ -5,6 +5,8 @@
 #include <srvros/pmm.h>
 #include <srvros/console.h>
 #include <srvros/timer.h>
+#include <srvros/battery_diagnostic.h>
+#include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
 static struct battery_platform *platform;
@@ -79,6 +81,14 @@ static void model_mode_entered(void) {
     console_printf("battery-vm: injected post-mode fixed-enable=%x\n",(uint64_t)inw(0x602));
 }
 static void model_setup_work(void) {
+    if(model.fault==19) {
+        /* Disposable RAM-only VM: exercise the unattended contained-fault
+         * reset without exposing a native monitor command to arm it. */
+        if(!battery_diagnostic_auto_return(true))return;
+        console_write("battery-vm: unattended setup deadline armed\n");
+        uacpi_kernel_sleep(6000);
+        return;
+    }
     /* Accumulate short executing slices, excluding long gaps when another
      * runnable thread owns the CPU. A reader that HLTs without blocking can
      * double this workload's wall time and exhaust the unchanged setup budget.
@@ -100,7 +110,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>18||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>19||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -127,7 +137,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
-    if(model.fault==18)p->model_setup_work=model_setup_work;
+    if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;
 }
 void *battery_platform_map(uint64_t a,size_t n){

@@ -564,6 +564,7 @@ void kmain(void) {
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
+    bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
     if(cmdline_has_token(cmdline,"srvros.laptop-services=brightness")) laptop_brightness_init();
     if(cmdline_has_token(cmdline,"srvros.audio=hda")) audio_init();
@@ -575,9 +576,22 @@ void kmain(void) {
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery;
-        if(automatic_battery && started && init_ready && timer_running) {
+        bool battery_prepared=true,workspace_parked=false;
+        if(automatic_battery && return_on_failure && started) {
+            console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
+            battery_prepared=workspace_log_pause() && workspace_unmount();
+            workspace_parked=battery_prepared;
+            battery_prepared=battery_prepared && battery_diagnostic_auto_return(true);
+            console_printf("laptop-capture: battery media parked=%s fault-reset=%s\n",
+                workspace_parked?"yes":"NO",battery_prepared?"armed":"NO");
+        }
+        if(automatic_battery && battery_prepared && started && init_ready && timer_running) {
             sampled=(service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
             console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
+        }
+        if(automatic_battery && return_on_failure) {
+            (void)battery_diagnostic_auto_return(false);
+            if(workspace_parked)workspace_boot(cmdline);
         }
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
@@ -610,13 +624,15 @@ void kmain(void) {
                 after.switches-before.switches,after.preemptions-before.preemptions,sampled?"yes":"NO");
             thermal_print_status();smc_print_status();audio_print_status();
         }
+        console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        console_printf("laptop-capture: completed=%s\n",sampled?"yes":"NO");
-        if(saved && sampled && unmounted) {
+        if(return_on_failure || (saved && sampled && unmounted)) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
-            console_sync();timer_delay_us(250000);arch_reboot();
+            console_sync();timer_delay_us(250000);
+            if(return_on_failure)arch_reboot_unattended();
+            arch_reboot();
         }
         console_write("laptop-capture: HALTED - photograph this screen; restart manually\n");
         console_sync();__asm__ volatile("cli":::"memory");halt_forever();

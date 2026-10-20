@@ -228,7 +228,8 @@ thermal, fan and audio status. It blocks the calling thread while waiting;
 logging and device sampling still create some activity. It does not launch the
 desktop or play audio and never enables AML. Success saves/flushes the exit log,
 unmounts the USB workspace and returns to Ubuntu. Missing workspace, incomplete
-sampling or failed save/unmount halts. Rehearse the missing-drive failure with
+sampling or failed save/unmount returns with failed/incomplete evidence in new
+`-auto-return` stages. Older recipes retain their halt behavior. Rehearse the missing-drive failure with
 `--probe-check --probe-missing-workspace`; that failure rehearsal does not replace
 the successful exact-stage result. Collect using `hardware_desktop.py` and require
 this release's exit log containing `idle-capture: ... completed=yes`, plus a healthy
@@ -244,7 +245,8 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
 
 It opens Text, allows startup to settle, samples CPU0 scheduler counters for
 60 seconds, saves a screenshot to the selected workspace and closes the desktop.
-Clean log save/unmount then returns to Ubuntu; failure halts. Leave input alone
+Clean log save/unmount then returns to Ubuntu; new unattended stages also return
+on handled failure. Leave input alone
 during this measurement. This is an explicit unattended diagnostic, not a timed
 exit added to ordinary desktop use. The collector's `desktop_idle_sample` requires
 the complete measurement, screenshot success and clean process return. The
@@ -301,13 +303,15 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
 ```
 
 This is an explicit firmware/EC/SCI diagnostic, not ordinary desktop startup.
-The staged native image must refuse Q35, save the refusal, unmount and halt;
+The newly staged native image must refuse Q35, save the refusal, unmount and reset;
 the synthetic positive lifecycle uses another kernel and cannot grant physical
 acceptance. On the matched Air it takes five battery/AC samples, retires the
-runtime, saves and returns automatically only on success. Keep AC connected for
+runtime, saves and returns automatically, including a failed result. Keep AC connected for
 the initial trials. The current diagnostic preserves the two observed firmware
 graphics/wake-alarm events while it owns the battery event; unknown enabled
-sources still refuse, with the full event snapshot saved for diagnosis. On failure, photograph the persistent halt before restarting.
+sources still refuse. Unattended battery captures checkpoint and unmount USB
+before entering the runtime; a contained fault resets without unsafe cleanup.
+Missing final reports remain failures. The last fault text may not reach USB.
 Read the [runtime gate](native-ec-runtime.md#explicit-native-battery-diagnostic),
 retain recovery, record the exact run and collect its matching session first
 on return. The collector reports complete runtime evidence separately from
@@ -334,9 +338,17 @@ for sample validity, current signs and the distinction between VM and hardware e
 The **v33 laptop-probe** `--battery-service` profile runs a bounded automatic
 cached-reader/start/stop test with AC and USB left connected. Follow the
 [service guide](battery-service.md) and the same exact-stage/install/one-shot
-sequence. It saves and returns only after retirement; failures halt. Its
+sequence. New stages use the `-auto-return` recipe suffix, checkpoint/unmount
+before risky runtime work and return on handled failures as well as success.
+Full final logs are saved after normal retirement; contained faults retain the
+pre-probe checkpoint and reset without touching the filesystem. Its
 `battery_service` collection field does not accept desktop responsiveness or a
 permanent background service.
+
+Announce required human actions before rebooting. Use `--hold-on-failure` only
+for an explicitly attended diagnostic. Existing installed recipes keep their
+original behavior; restage to obtain automatic failure return. The guided v32
+AC transition trial remains attended and must be announced in advance.
 
 ## 6. Install alongside Ubuntu and select one boot
 

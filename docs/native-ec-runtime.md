@@ -790,13 +790,16 @@ diagnostics remain available.
 6. On failure or shutdown, reject new work, mask owned sources, synchronize
    interrupts and drain workers. Disconnect EC handlers while the namespace and
    owner still exist. If a worker or controller cannot be quiesced, retain its
-   storage and halt visibly with durable diagnostics. Do not free live state or
+   storage; an attended diagnostic halts visibly. An unattended battery capture
+   checkpoints/unmounts USB before starting and resets on containment without
+   filesystem reentry; a missing final report remains failure. Do not free live state or
    attempt a blind EC reset. Restore prior routing/mode only where ownership and
    rollback have been established and tested.
 7. Before a native trial, exercise the concrete adapter's initialization, denied
    mapping, `_REG` error, GPE storm and teardown failures in host/VM fixtures.
-   Stage an opt-in exact release with log flush and automatic return on success,
-   visible halt on failure, Ubuntu recovery and independent accepted payload.
+   Stage an opt-in exact release with checkpointing and automatic return for
+   unattended tests, Ubuntu recovery and independent accepted payload. Announce
+   human actions before attended tests; preserve their explicit failure hold.
    First collect a bounded AC-connected sample. Physical AC unplug/replug,
    sensible fresh readings and responsive input/storage remain later explicit
    acceptance; VM or Linux values cannot accept those workflows.

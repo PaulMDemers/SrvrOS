@@ -56,7 +56,7 @@ def battery_diagnostic(exit_text):
     """Complete runtime evidence, never automatic physical-value acceptance."""
     lines=exit_text.splitlines()
     finish="battery-capture: returned=yes clean=yes; physical accuracy NOT_TESTED"
-    if lines.count(finish)!=1 or any(line.startswith(("battery: HALTED", "battery: REFUSED")) for line in lines):return None
+    if lines.count(finish)!=1 or any(line.startswith(("battery: HALTED", "battery: FAILED", "battery: REFUSED")) for line in lines):return None
     complete=re.findall(r"^battery: PASS samples=5 notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; physical accuracy NOT_TESTED$",exit_text,re.M)
     if len(complete)!=1 or complete[0][2]!=complete[0][3] or not int(complete[0][2]):return None
     held=[line for line in lines if line.startswith('battery: foreign-event held')]
@@ -102,7 +102,7 @@ def battery_transitions(exit_text):
     """Compact end-of-run proof survives a long human wait and bounded log tail."""
     lines=exit_text.splitlines()
     finish='battery-transition-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
-    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: REFUSED','battery-transition: INCOMPLETE','battery-transition-capture: returned=yes clean=NO')) for row in lines):return None
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: FAILED','battery: REFUSED','battery-transition: INCOMPLETE','battery-transition-capture: returned=yes clean=NO')) for row in lines):return None
     passes=[row for row in lines if row.startswith('battery-transition: PASS')]
     if len(passes)!=1:return None
     match=re.fullmatch(r'battery-transition: PASS phases=3 samples=([0-9]{1,20}) notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; retired=yes',passes[0])
@@ -146,7 +146,7 @@ def battery_service_result(exit_text):
     """v33 bounded native reader/lifecycle proof, not desktop acceptance."""
     lines=exit_text.splitlines()
     finish='battery-service-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
-    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: REFUSED',
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: FAILED','battery: REFUSED',
         'battery-service-test: FAIL','battery-service-capture: returned=yes clean=NO')) for row in lines):return None
     passes=[row for row in lines if row.startswith('battery-service-test: PASS')]
     if len(passes)!=1:return None
@@ -263,7 +263,7 @@ def power_idle_sample(exit_text):
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
-    if line.startswith(("battery: HALTED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
+    if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:

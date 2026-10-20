@@ -200,6 +200,21 @@ class InstallTests(unittest.TestCase):
         with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
             staged = boot.stage(battery_capture=True,laptop_probe_volume='37d8c5d0')
         self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+        self.assertTrue(boot.verify(self.stage/staged)['config_version'].endswith('-auto-return'))
+        self.assertIn('srvros.capture-failure=reboot',(self.stage/staged/'limine.conf').read_text())
+
+    def test_unattended_recipe_keeps_existing_and_guided_profiles(self):
+        old='ram-usb-v33-laptop-probe-37d8c5d0'
+        self.assertNotIn('srvros.capture-failure',boot.limine_config('0'*16,old))
+        new=old+'-auto-return'
+        release=self.payload('unattended',new)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=new
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)['config_version'],new)
+        self.assertIn('srvros.capture-failure=reboot',boot.limine_config(release,new))
+        self.assertNotIn('srvros.capture-failure',boot.limine_config('0'*16,'ram-usb-v32-laptop-probe-37d8c5d0'))
+        with self.assertRaises(ValueError):boot.stage(hold_on_failure=True)
 
     def test_battery_transitions_preserve_v31_recipe(self):
         v31='ram-usb-v31-laptop-probe-37d8c5d0';v32='ram-usb-v32-laptop-probe-37d8c5d0'

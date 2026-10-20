@@ -12,6 +12,17 @@ faults without unsafe interpreter cleanup, and VM reset/failed-collection tests.
 Use a distinct `-auto-return` recipe suffix; retain existing recipes unchanged.
 Missing completion remains failure, never an automatic pass after reboot.
 
+The new unattended path is implemented: it pauses the logger, saves a nonfinal
+checkpoint and unmounts USB before battery runtime entry. Containment disables
+CPU0 interrupts, retains live runtime state and resets without filesystem
+reentry. Normal returns remount, save the result and reset even on failure.
+The collector flags failed completion and never accepts reset as a pass.
+Ordinary/native/VM builds, workspace pause/remount logging, bootlog, cache,
+autotest/FADT host checks and 44 staging/collector tests pass. VM injection proves
+the unattended setup deadline actually resets; the normal service and explicit
+legacy deadline halt still pass. Native automatic-failure return and the battery
+service itself remain unaccepted pending the next exact-stage trial.
+
 ## Identity and ownership
 
 Development host: Ubuntu on the 13-inch Air, Broadwell-U, Intel HD Graphics 6000

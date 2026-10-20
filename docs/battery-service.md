@@ -30,7 +30,9 @@ with ownership retained; callers may wait again. Waiters follow their captured
 epoch, so an already-retired lifetime is not confused with a new start. STOPPED
 is published only after worker, SCI, interpreter, ACPI mode and retained event
 restoration have completed. Unsafe live-runtime failures keep the existing
-containment halt and retain memory rather than claim successful retirement.
+containment and retain memory rather than claim successful retirement. An
+unattended capture resets the machine after containment; attended diagnostics
+retain the halt.
 
 ## Cached readings
 
@@ -89,11 +91,23 @@ python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --
 tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
 ```
 
-It runs
-cached readers while sampling, stops and restarts the runtime, saves evidence to
-the local prepared USB workspace, and returns only after complete retirement and
-unmount. Exact-stage Q35 uses the native image and must refuse rather than
-substitute a modeled battery. Existing v31/v32 recipes remain unchanged.
+New unattended stages add `-auto-return` to the recipe and
+`srvros.capture-failure=reboot` to the command line. Before risky battery work,
+the capture pauses logging, writes a nonfinal checkpoint and unmounts USB.
+Cached readers then run while sampling, followed by stop/restart. A normal
+return remounts the same workspace, saves the final result and unmounts again,
+including when the result is a failure. A contained live-runtime fault resets
+without interpreter cleanup or new filesystem writes. Its pre-probe checkpoint
+survives; no final report means failure, and the precise last fault may be
+available only in serial output. This capture does not exercise concurrent USB
+logging during the battery service.
+
+Exact-stage Q35 must refuse native access, save that failed result and actually
+reset. An injected VM setup deadline separately verifies the contained reset
+path. Existing recipes without the suffix retain their original behavior.
+`--hold-on-failure` deliberately stages an attended diagnostic; tell the user
+before boot when their input or manual recovery is required. Guided AC
+transitions remain attended by default.
 Collection requires a fresh valid sample, readers observed during sampling, both
 exact event restorations for every initialized lifetime, balanced retirement and
 the final clean capture marker. Read latency is an observed wall-clock maximum

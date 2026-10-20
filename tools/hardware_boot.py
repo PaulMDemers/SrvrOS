@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|31|32|33)-laptop-probe-([0-9a-f]{8})")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|31|32|33)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -63,6 +63,7 @@ def limine_config(release, version=CONFIG_VERSION):
                        f"srvros.desktop-release={release} srvros.capture=battery")
             if version.startswith("ram-usb-v32-"): cmdline += "-transitions"
             if version.startswith("ram-usb-v33-"): cmdline += "-service"
+        if probe[2]: cmdline += " srvros.capture-failure=reboot"
     elif desktop:
         cmdline = (f"srvros.storage=ram srvros.workspace-volume={desktop[1]} "
                    "srvros.trackpad=gestures srvros.desktop=trial")
@@ -133,7 +134,9 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False):
+    if hold_on_failure and laptop_probe_volume is None:
+        raise ValueError("Hold-on-failure requires a laptop probe profile")
     if battery_transitions and battery_capture:
         raise ValueError("Battery sample and transition captures are separate profiles")
     if power_telemetry and not desktop_idle_capture:
@@ -167,6 +170,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
         version=f"ram-usb-v{33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        if not hold_on_failure and not battery_transitions: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
     sources = {
@@ -338,7 +342,7 @@ def install(release=None, keep_previous=False):
     elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
-        print("Automatic laptop diagnostics: USB snapshots, flush/unmount, reboot on success; halt on failure.")
+        print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):
         print("Native desktop trial: on-screen checklist, prepared USB workspace, no timed exit or automatic reboot.")
     elif WORKSPACE_RE.fullmatch(verify(source).get("config_version", "")):
@@ -362,14 +366,17 @@ def main():
     parser.add_argument("--desktop-volume", type=compact_volume_uuid, help="stage an interactive native desktop trial for this compact USB UUID")
     parser.add_argument("--laptop-probe-volume", type=compact_volume_uuid, help="stage unattended laptop diagnostics on this prepared USB UUID")
     parser.add_argument("--power-telemetry",action="store_true",help="opt-in read-only CPU energy/frequency diagnostics during --desktop-idle-capture; completion is not power acceptance")
+    parser.add_argument("--hold-on-failure",action="store_true",help="explicit attended diagnostic: retain failure screen instead of automatic return")
     capture=parser.add_mutually_exclusive_group()
     capture.add_argument("--desktop-idle-capture",action="store_true",help="measure the desktop for 60 seconds, save screenshot/logs, unmount and return")
-    capture.add_argument("--battery-service",action="store_true",help="bounded cached-reader and service start/stop diagnostic; save and return on success")
+    capture.add_argument("--battery-service",action="store_true",help="unattended cached-reader and service start/stop diagnostic; checkpoint and return even on failure")
     capture.add_argument("--battery-transitions",action="store_true",help="guided AC unplug/replug diagnostic; persistent instructions and bounded waits")
     capture.add_argument("--battery-capture",action="store_true",help="explicit native battery diagnostic kernel; save and return only after clean teardown")
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
     args = parser.parse_args()
+    if args.hold_on_failure and (args.action != "stage" or not args.laptop_probe_volume):
+        parser.error("--hold-on-failure requires stage --laptop-probe-volume")
     if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service) and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("capture requires stage --laptop-probe-volume")
     if args.power_telemetry and (args.action != "stage" or not args.desktop_idle_capture):
@@ -386,7 +393,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
