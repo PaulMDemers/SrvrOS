@@ -572,6 +572,28 @@ GPE methods are not broadly finalized or enabled. Full initialization does clear
 the initially disabled owned event status domain; those cleared events cannot be restored.
 The foreign graphics and wake-alarm events below are excluded from those acknowledgements.
 
+#### First physical completion
+
+On October 20, native release `13d8083de35b51af` (`57de926`) completed five
+AC-connected samples on the reference Air7,2. The post-mode fixed enable was
+`0x100`; masking it allowed namespace load and sampling. Exit evidence records
+75 queries, 76 notifications, one attachment/detachment, zero errors/denials/heap,
+both retained event enables restored, and a clean capture return. Linux returned
+with the one-shot consumed and read-only exFAT checking clean. This accepts that
+bounded run, not a persistent service or unrestricted firmware ownership.
+
+The samples reported relative SOC 98%, 8.374 V, 0 A, remaining 6.094 Ah and full
+6.265 Ah; the last four values match Linux before/after snapshots. Linux's 86%
+capacity uses a different denominator: SrvrOS requests `RelativeStateOfCharge`
+(`0x0d`), while [upstream Linux SBS](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/acpi/sbs.c)
+requests `AbsoluteStateOfCharge` (`0x0e`). The
+[SBS specification sections 5.1.14–15](https://sbs-forum.org/specs/sbdat110.pdf)
+defines those against full-charge and design capacity respectively. The host's
+7.150 Ah design capacity is consistent with the difference; direct raw absolute
+SOC comparison is still pending. Preserve clearly named semantics rather than
+substituting one value to match an OS percentage. Calibration, discharge current,
+AC transitions and sustained desktop operation remain unaccepted.
+
 #### Retaining firmware graphics and wake-alarm events
 
 Physical trial `339211cceb5d894d` identified the prior refusal: GPE enable byte

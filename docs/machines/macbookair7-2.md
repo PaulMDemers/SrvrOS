@@ -1,6 +1,6 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-19. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
 ## Identity and ownership
 
@@ -43,7 +43,8 @@ device work uses separate branches based on `main`.
   faults (denied region, EC stall, storm, setup/query/disconnect deadlines).
   The native image refuses Q35 before hardware access. Host memory policy,
   transport/SBS/event/owner tests and collector/staging tests pass. Physical
-  battery/AC values, actual EC SCI delivery and firmware handoff remain pending.
+  Initial VM checkpoint only; the first physical runtime result below supersedes
+  native-startup uncertainty. Battery dynamics and general firmware handoff remain pending.
   See [native runtime gate](../native-ec-runtime.md#explicit-native-battery-diagnostic).
 - PM1 notification checkpoint: all 65,536 starting words and each single-bit
   command mutation pass host/sanitizer checks. The Q35 release case performs
@@ -141,7 +142,7 @@ device work uses separate branches based on `main`.
   session `session-00065e3d7491a8fe-00`, refused GPE enable byte 14 at `0x189e`,
   value `0x04` (GPE `0x72`), with PM1 control zero. Logs verified and USB
   unmounted before halt. The GPE66 lease and battery runtime did not start.
-- Current bounded scope: capture the complete fixed/GPE enable and status
+- Earlier bounded scope: capture the complete fixed/GPE enable and status
   snapshot before admission; audit the second source (chipset wake-alarm timer)
   and extend the existing exact-source preservation mechanism only with evidence.
   All 12 battery VM cases pass, including two-source preservation and partial
@@ -150,7 +151,7 @@ device work uses separate branches based on `main`.
 - Existing handoff implementation passed host/sanitizer and full-runtime VM
   pending-status preservation, failed mask/restore and unexpected reenable
   containment. Those are model results; neither native handoff nor battery
-  readings are accepted yet. Candidate `6a2f90f72a0e4b96` / source `ac033a5`
+  readings were accepted at that checkpoint. Candidate `6a2f90f72a0e4b96` / source `ac033a5`
   passes its exact GRUB/UEFI Q35 rehearsal: expected native refusal, verified
   saved log bytes, clean exFAT and persistent halt. Next is the AC-connected
   physical trial; full event snapshot and both retirement records are required.
@@ -183,6 +184,42 @@ device work uses separate branches based on `main`.
   build. Retain that previous release when installing the next candidate; the
   local run record owns installed/armed state.
 
+## First completed native battery diagnostic — October 20
+
+Release `13d8083de35b51af`, artifact source `57de926`, completed five samples
+in session `session-00065e3de26bb9fa-00`. Three logs were copied and hash-verified;
+the collector reports complete runtime evidence with no attention flags.
+
+- Actual mode entry enabled fixed power-button bit8; the new mask/readback path
+  completed before namespace load. No PNVS mapping denial remained.
+- Five samples: AC present, relative charge 98%, 8.374 V, 0 A, remaining
+  6.094 Ah, full 6.265 Ah, temperature 30.45 C. Voltage/current/charge/full values
+  match Linux snapshots before and after. This is comparison, not calibration.
+- 75 EC queries / 76 notifications; one region attachment and one detachment;
+  zero errors, denials or remaining interpreter heap. Both retained event enables
+  restored with protected-write counts; diagnostic returned cleanly.
+- Ubuntu boot ID changed and the one-shot entry was consumed. Read-only exFAT
+  checking was clean (170 directories, 837 files). Accepted diagnostic payload
+  and full evidence have durable copies outside `build`; previous desktop
+  recovery `b427b78f21644bd2` remains installed.
+
+This accepts the bounded AC-connected initialization/sample/retirement path on
+this unit. It does not accept a long-running desktop service, discharge, AC
+unplug/replug, suspend/resume, independent gauge calibration or other Macs.
+Current installed is the accepted **diagnostic** `13d8083de35b51af`; no new boot
+is armed. Ordinary desktop startup still has no battery runtime.
+
+Linux reports 86% while the diagnostic reports 98%. SrvrOS reads relative SOC
+(command `0x0d`); upstream Linux SBS reads absolute SOC (`0x0e`). These use full
+and design capacity respectively. Linux design capacity is 7.150 Ah, consistent
+with that distinction. Raw absolute SOC has not yet been captured by SrvrOS;
+do not change the relative gauge merely to force equality. Sources and limits
+are in the [native runtime guide](../native-ec-runtime.md#first-physical-completion).
+
+Next bounded block: expose clearly labeled gauge/health data, then exercise a
+battery-only run and AC changes with the user before a cached desktop provider.
+Keep EC work on the serialized worker and preserve the accepted diagnostic.
+
 ## Accepted scope and open items
 
 | Capability | State | Evidence / limit |
@@ -198,7 +235,8 @@ device work uses separate branches based on `main`.
 | System window stability | No recurrence in latest physical round | `fed370ffbe33d554`: System and Help exited cleanly, no collector attention flags; earlier timeout cause remains unproven |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
 | Package power / CPU0 active frequency | Physical diagnostic accepted | `ed93e03b2585dcaf`; bounded Text idle capture, no CPU controls or whole-laptop power |
-| Battery/AC and suspend/resume | Not implemented as live services | ACPI/EC foundations exist; runtime ownership and tests remain |
+| Battery/AC diagnostic | Bounded AC-connected path physically completed | `13d8083de35b51af`: five samples, both event restores and clean runtime retirement; desktop service and AC transitions pending |
+| Suspend/resume | Not implemented | Separate ownership and acceptance milestone |
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
 
