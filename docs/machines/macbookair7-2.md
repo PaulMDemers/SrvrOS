@@ -119,6 +119,26 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Filesystem operation scheduling — October 20
+
+Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
+and its acceptance notes. PR #8 CI remains independent; do not re-push its code
+branch merely to publish this follow-up. Pro scope inspected at `a19ce5c` remains
+Ethernet bring-up; preserve its branch and profiles.
+
+Bounded objective: split the diagnostic filesystem cycle into explicit operations,
+release storage exclusion between them, measure each operation and require a
+complete cycle before accepting its payload. Files: `workspace_image.c`/header,
+battery runtime workload, host fault/continuation tests, VM harness and collector.
+Keep each filesystem mutation atomic under existing exclusion; do not change
+shared exFAT transactions, scheduler admission or ordinary desktop startup.
+Host tests must reject skipped/repeated cycle identities and cover failures and
+revocation between operations; VM checks must prove complete payloads, sampling
+progress, step accounting and automatic fault return. Native latency acceptance
+remains pending; a bounded operation count does not guarantee device completion
+within a fixed time. No new physical test is armed.
+
+
 ### Isolated filesystem coexistence — October 20
 
 PR #7 passed CI and merged as `76508bf`; this device branch consumes that baseline.
