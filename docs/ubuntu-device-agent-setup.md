@@ -335,6 +335,18 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v36 laptop-probe** `--battery-usb-write` profile adds bounded
+scratch-data writes/flushes during battery sampling. It allocates and validates
+a new 4096-byte scratch file before runtime, unmounts the workspace, and retains
+only a private capability to that data extent. General USB write aliases stay
+disabled. Use the same native build, exact-stage `--probe-check`, missing-workspace
+rehearsal and automatic-return installation sequence. Collection must verify
+both `battery_service` and `battery_usb_write`, including the saved scratch
+payload; an incomplete report is failure. Keep AC/USB connected; no input is
+requested. See [the scratch contract](battery-service.md#native-scratch-writeflush-overlap-capture-v36).
+This does not accept concurrent filesystem metadata updates. The Pro11,2 branch
+owns the separate v35 CPU-load proposal; do not reuse its profile number.
+
 The separate **v34 laptop-probe** `--battery-usb-read` profile extends the service
 trial with uncached reads of the validated, unmounted USB device while battery
 sampling runs. It leaves USB writes revoked until clean retirement, verifies

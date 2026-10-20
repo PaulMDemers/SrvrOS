@@ -46,6 +46,11 @@ struct block_device *block_register(const char *name,
     void *private_data);
 struct block_device *block_device_at(uint64_t index);
 struct block_device *block_parent(struct block_device *device);
+/* Resolve a bounded partition-relative range to its raw device. No I/O. */
+bool block_raw_range(struct block_device *device, uint64_t offset, uint64_t length,
+    struct block_device **parent, uint64_t *raw_offset);
+/* Discard clean write-through cache entries for all aliases after bypass I/O. */
+void block_forget(struct block_device *device);
 bool block_enable_partition_writes(struct block_device *device);
 struct block_device *block_find(const char *name);
 uint64_t block_register_mbr_partitions(struct block_device *device);

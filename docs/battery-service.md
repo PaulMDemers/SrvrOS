@@ -273,3 +273,54 @@ This physically validates the scheduling repair for bounded USB reads with the
 workspace unmounted and writes revoked. It does not accept native writes/flushes,
 human input responsiveness, long-running SCI behavior, ordinary desktop service,
 gauge accuracy or suspend/resume.
+
+## Native scratch write/flush overlap capture (v36)
+
+`--battery-usb-write` is a separate automatic laptop-probe profile. Version 35
+is reserved by the Pro11,2 CPU-load proposal. This test exercises USB transport
+writes and SYNCHRONIZE CACHE alongside the battery service; it does not exercise
+filesystem metadata mutations during battery ownership.
+
+Before entering the native runtime, the capture pauses logging and creates a
+new `battery-io-<16 hex digits>.bin` file in the validated workspace. An existing
+name is refused. It flushes the file, checks the filesystem's allocation graph,
+and requires an exclusive single-cluster 4096-byte file. The extent must resolve
+to a bounded, sector-aligned range on that same USB parent. The workspace is then
+flushed/unmounted, and every public USB write alias remains revoked.
+
+A private workspace capability retains only the selected range and transport
+callbacks. Callers cannot supply an offset or length. Each cycle writes a
+sequence-dependent 4096-byte pattern, flushes the device and reads it back
+uncached. Any write, flush or readback failure poisons the capability and blocks
+remount for this boot; a partial write cannot be retried as success. All aliases'
+clean write-through cache entries are invalidated, including on failure. Normal
+service retirement revokes the capability before remount and final logging.
+A contained firmware fault resets without filesystem reentry; it can leave
+incomplete scratch contents, but no filesystem metadata is written during the
+runtime. Missing final evidence remains a failure.
+
+The existing five-sample lifecycle test requires write cycles while sampling
+and generation progress **inside** the storage scopes. Collection requires
+complete service retirement, the scratch preparation/revocation records, at
+least three transport commands per completed cycle, and valid overlap counts.
+The Ubuntu collector also checks the final scratch file against the recorded
+cycle count, saves a verified `battery-scratch.bin` copy, and records its hash.
+Missing, replaced, malformed or mismatched payloads do not produce write proof.
+Scratch files are retained for evidence; they are not user documents or deleted
+automatically.
+
+Host tests cover partition bounds/cache invalidation, exclusive extent refusal,
+existing-file refusal, revoked aliases, partial-write/flush/read/mismatch failures
+and blocked remount. Disposable 4 KiB and 128 KiB cluster images verify malformed
+allocation refusal and unchanged metadata/other files after sector-boundary
+scratch tears. VM success verifies the final pattern, a clean offline filesystem
+and identical disk bytes everywhere outside the 4096-byte range. An injected
+setup deadline exercises automatic reset after writes and checks the same disk
+isolation. These remain VM/host evidence until a matching native run is collected.
+
+Stage with the native kernel and rehearse the exact immutable payload using
+`hardware_boot_smoke.py --probe-check`, including missing-workspace return,
+before installation. Native Q35 refusal must save a failed report and reset.
+Keep AC and USB connected; no human input is requested. Do not infer desktop
+responsiveness, concurrent filesystem updates or sustained native service
+acceptance from this bounded scratch test.

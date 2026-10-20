@@ -5,8 +5,29 @@
 #include "../kernel/src/workspace.c"
 
 static struct block_device disks[2];
-static unsigned count, enables, disables, flushes, depth;
 static bool mounted, busy_files, dirty, bad_marker, missing, flush_ok, file_sync_ok, foreign;
+static unsigned count, enables, disables, flushes, depth, raw_writes, invalidations;
+static bool scratch_file, extent_ok, raw_write_ok, raw_read_ok, mismatch;
+static uint8_t scratch_data[4096];
+uint64_t timer_monotonic_us(void){return 12345;}
+uint64_t block_device_size(const struct block_device *d){(void)d;return 8192;}
+bool block_raw_range(struct block_device *d,uint64_t off,uint64_t len,struct block_device **parent,uint64_t *raw){
+    assert(d==disks&&off==4096&&len==4096);*parent=d;*raw=off;return true;
+}
+void block_forget(struct block_device *d){assert(d==disks);invalidations++;}
+bool exfat_write_file(const char *path,const uint8_t *data,uint64_t size){
+    assert(mounted&&!scratch_file&&strstr(path,"battery-io-")&&size==4096);
+    scratch_file=true;memcpy(scratch_data,data,4096);return true;
+}
+bool exfat_scratch_range(const char *path,struct block_device **d,uint64_t *off){
+    assert(mounted&&scratch_file&&strstr(path,"battery-io-"));
+    if(!extent_ok)return false;
+    *d=disks;*off=4096;return true;
+}
+static bool raw_read(struct block_device *d,uint64_t off,void *data,uint64_t length){
+    assert(d==disks&&off==4096&&length==4096&&!mounted&&!d->write&&!d->flush);
+    memcpy(data,scratch_data,4096);if(mismatch)((uint8_t *)data)[0]^=1;return raw_read_ok;
+}
 static struct vfs_node dir, marker;
 static const char marker_text[] = "SRVROS-WORKSPACE-V1 37d8c5d0\n";
 void console_write(const char *s) { (void)s; }
@@ -23,7 +44,8 @@ bool block_read(struct block_device *d,uint64_t offset,void *data,uint64_t lengt
     b[100]=0xd0;b[101]=0xc5;b[102]=0xd8;b[103]=0x37;return true;
 }
 static bool write_stub(struct block_device *d,uint64_t o,const void *p,uint64_t n) {
-    (void)d;(void)o;(void)p;(void)n;assert(!"workspace control must not write user files");return false;
+    assert(d==disks&&o==4096&&n==4096&&!mounted&&!d->write&&!d->flush);
+    raw_writes++;memcpy(scratch_data,p,raw_write_ok?4096:2048);return raw_write_ok;
 }
 static bool flush_stub(struct block_device *d) { assert(d==disks);flushes++;return flush_ok; }
 bool usb_storage_enable_volume_writes(struct block_device *d) {
@@ -39,6 +61,7 @@ bool exfat_unmount(const char *p) { assert(!strcmp(p,"/work") && mounted);mounte
 bool exfat_is_writable(const char *p) { assert(!strcmp(p,"/work"));return mounted && !dirty && disks[0].write; }
 const struct vfs_node *vfs_lookup(const char *p) {
     if(!mounted)return NULL;
+    if(strstr(p,"battery-io-")&&scratch_file)return &marker;
     if(!strcmp(p,"/work") || !strcmp(p,"/work/srvros-work"))return &dir;
     if(!strcmp(p,"/work/srvros-work/.workspace") && !missing)return &marker;
     return NULL;
@@ -51,8 +74,10 @@ void vfs_release_data(const struct vfs_node *n,const uint8_t *d) { (void)n;(void
 bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));return busy_files; }
 int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
 static void reset(void) {
-    active=NULL;parked=NULL;failed=false;memset(disks,0,sizeof(disks));
-    count=1;enables=disables=flushes=depth=0;
+    active=NULL;parked=NULL;failed=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
+    count=1;enables=disables=flushes=depth=raw_writes=invalidations=0;
+    scratch_file=mismatch=false;extent_ok=raw_write_ok=raw_read_ok=true;
+    disks[0].block_size=512;disks[0].read=raw_read;
     mounted=busy_files=dirty=bad_marker=missing=foreign=false;
     flush_ok=file_sync_ok=true;
     dir=(struct vfs_node){.type=VFS_NODE_DIRECTORY};
@@ -83,5 +108,28 @@ int main(void) {
     disks[0].write=write_stub;assert(!workspace_parked_device());disks[0].write=NULL;
     disks[0].flush=flush_stub;assert(!workspace_parked_device());disks[0].flush=NULL;
     assert(workspace_mount("37d8c5d0")&&!workspace_parked_device());
+    uint8_t data[4096];memset(data,0x72,sizeof(data));
+    reset();assert(!workspace_scratch_prepare()&&!workspace_scratch_cycle(data));
+    assert(workspace_mount("37d8c5d0"));extent_ok=false;
+    assert(!workspace_scratch_prepare()&&mounted&&!raw_writes&&!scratch.open);
+    reset();assert(workspace_mount("37d8c5d0"));scratch_file=true;
+    assert(!workspace_scratch_prepare()&&!raw_writes&&mounted);
+    reset();assert(workspace_mount("37d8c5d0"));
+    assert(workspace_scratch_prepare()&&!mounted&&!disks[0].write&&!disks[0].flush);
+    assert(!workspace_mount("37d8c5d0")&&!workspace_scratch_prepare());
+    assert(workspace_scratch_cycle(data)&&raw_writes==1&&!memcmp(data,scratch_data,4096));
+    assert(workspace_scratch_end()&&!workspace_scratch_cycle(data));
+    assert(workspace_mount("37d8c5d0")&&invalidations>=3);
+    for(unsigned fault=0;fault<4;fault++){
+        reset();assert(workspace_mount("37d8c5d0")&&workspace_scratch_prepare());
+        if(fault==0)raw_write_ok=false;
+        if(fault==1)flush_ok=false;
+        if(fault==2)raw_read_ok=false;
+        if(fault==3)mismatch=true;
+        assert(!workspace_scratch_cycle(data)&&scratch.poisoned&&raw_writes==1);
+        assert(!workspace_scratch_cycle(data)&&raw_writes==1);
+        assert(!workspace_scratch_end()&&!scratch.open&&!scratch.write&&!scratch.flush);
+        assert(!workspace_mount("37d8c5d0")&&!depth&&!disks[0].write);
+    }
     puts("workspace-host: PASS (UUID/marker/duplicate/dirty guards, I/O owner, busy files, flush failure, unmount/revoke)");
 }

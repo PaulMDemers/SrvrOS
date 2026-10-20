@@ -3322,3 +3322,8 @@ test-battery-cache: build/tests/battery-cache$(HOST_EXE)
 build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/drivers/battery_cache.c kernel/include/srvros/battery_cache.h kernel/include/srvros/battery_service.h kernel/include/srvros/sbs_sample.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $(filter %.c,$^) -o $@
+
+.PHONY: test-exfat-scratch
+test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/exfat_scratch_test.py
+test-core: test-exfat-scratch

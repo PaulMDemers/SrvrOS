@@ -89,6 +89,17 @@ access remains disabled. Current accepted b73 read trial is collected; no new
 physical boot is armed.
 
 
+The v36 scratch capture is implemented. Block/workspace host checks and disposable
+exFAT extent tests pass for 4 KiB and 128 KiB clusters, including sector-boundary
+tears, bad allocation/alias refusal, partial writes, flush/read failures and
+poisoned-lease remount refusal. All 46 staging/collector tests pass. Ordinary,
+native and model builds pass. Positive write-overlap and injected automatic
+reset VMs verify clean exFAT and unchanged disk bytes outside scratch data;
+existing service, read overlap and disposable filesystem-write regressions pass.
+Collection independently verifies and copies the final scratch payload.
+Exact-stage rehearsal and physical acceptance are next; no hardware result is
+claimed for scratch writes yet. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36).
+
 ### Native read-only USB overlap capture — October 20
 
 Scope: add a distinct v34 automatic battery-service capture that checkpoints and

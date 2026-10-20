@@ -168,6 +168,30 @@ class CollectionTests(unittest.TestCase):
                     overlap.replace('max_burst_us=270000','max_burst_us=249999'),
                     overlap.replace('reads=200',f'reads={2**64}'),overlap.replace(finish,'')):
             self.assertIsNone(desktop.battery_usb_read_result(bad),bad)
+        prepared='workspace-scratch: prepared path=/work/srvros-work/battery-io-0000000000001234.bin raw_offset=2097152 bytes=4096; unmounted=yes aliases=revoked'
+        revoked='workspace-scratch: revoked clean=yes'
+        write='battery-usb-write: PASS cycles=200 commands=600 busy_cycles=50 progress_bursts=4 bursts=40 max_burst_us=270000 bytes_per_cycle=4096; retired=yes revoked=yes'
+        written=prepared+'\n'+text.replace(summary,revoked+'\n'+write+'\n'+summary)
+        self.assertTrue(desktop.battery_usb_write_result(written)['write_complete'])
+        for bad in (written.replace('commands=600','commands=599'),written.replace('progress_bursts=4','progress_bursts=0'),
+                    written.replace('busy_cycles=50','busy_cycles=201'),written.replace('raw_offset=2097152','raw_offset=0'),
+                    written.replace('raw_offset=2097152','raw_offset=1'),written.replace('clean=yes','clean=NO'),
+                    written.replace('aliases=revoked','aliases=enabled'),written.replace(revoked+'\n',''),
+                    written+'\n'+prepared,written+'\n'+write,written.replace(finish,''),
+                    written.replace('cycles=200',f'cycles={2**64}'),written.replace(prepared+'\n','')+'\n'+prepared):
+            self.assertIsNone(desktop.battery_usb_write_result(bad),bad)
+        with tempfile.TemporaryDirectory() as temp:
+            workspace=Path(temp);proof=desktop.battery_usb_write_result(written)
+            scratch_path=workspace/'battery-io-0000000000001234.bin'
+            with self.assertRaises(ValueError):desktop.verify_battery_scratch(workspace,proof)
+            scratch_path.write_bytes(bytes((i+199)&255 for i in range(4096)))
+            self.assertEqual(len(desktop.verify_battery_scratch(workspace,proof)),4096)
+            scratch_path.write_bytes(bytes(4096))
+            with self.assertRaises(ValueError):desktop.verify_battery_scratch(workspace,proof)
+            scratch_path.write_bytes(b'bad')
+            with self.assertRaises(ValueError):desktop.verify_battery_scratch(workspace,proof)
+            scratch_path.unlink();scratch_path.symlink_to(workspace/'other')
+            with self.assertRaises(ValueError):desktop.verify_battery_scratch(workspace,proof)
         self.assertTrue(result['reader_complete']);self.assertTrue(result['stop_wait_timed_out'])
         self.assertEqual(result['sample']['generation'],5)
         self.assertTrue(desktop.battery_service_result('\n'.join(restore+[retired(1,0)])+'\n'+text))

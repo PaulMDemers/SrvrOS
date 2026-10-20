@@ -208,6 +208,41 @@ def battery_usb_read_result(exit_text,require_service=True):
                 bytes_per_read=4096,writes=0,write_acceptance='pending',input_acceptance='pending')
 
 
+def battery_usb_write_result(exit_text,require_service=True):
+    """Bounded scratch data writes/flushes; no filesystem-mutation acceptance."""
+    if require_service and battery_service_result(exit_text) is None:return None
+    lines=exit_text.splitlines()
+    prepared=[r for r in lines if r.startswith('workspace-scratch: prepared ')]
+    revoked=[r for r in lines if r.startswith('workspace-scratch: revoked ')]
+    rows=[r for r in lines if r.startswith('battery-usb-write:')]
+    summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
+    if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
+    extent=re.fullmatch(r'workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=(\d{1,20}) bytes=4096; unmounted=yes aliases=revoked',prepared[0])
+    proof=re.fullmatch(r'battery-usb-write: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) bytes_per_cycle=4096; retired=yes revoked=yes',rows[0])
+    if not extent or not proof or revoked[0]!='workspace-scratch: revoked clean=yes':return None
+    cycles,commands,busy,progress,bursts,maximum=map(int,proof.groups());offset=int(extent[2])
+    if any(n>=2**64 for n in (cycles,commands,busy,progress,bursts,maximum,offset)):return None
+    if not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts<=cycles or maximum<250000 or not offset or offset%512:return None
+    if not lines.index(prepared[0])<lines.index(revoked[0])<lines.index(rows[0])<lines.index(summaries[0]):return None
+    return dict(write_complete=True,cycles=cycles,commands=commands,busy_cycles=busy,
+                progress_bursts=progress,bursts=bursts,max_burst_us=maximum,
+                path=extent[1],raw_offset=offset,bytes_per_cycle=4096,
+                filesystem_mutation_acceptance='pending',input_acceptance='pending')
+
+
+def verify_battery_scratch(workspace,proof):
+    """Read only the strictly named, fixed-size diagnostic file from this volume."""
+    name=proof['path'].removeprefix('/work/srvros-work/')
+    if not re.fullmatch(r'battery-io-[0-9a-f]{16}\.bin',name):raise ValueError('Invalid scratch filename')
+    source=workspace/name
+    if source.is_symlink() or not source.is_file() or source.stat().st_size!=4096:
+        raise ValueError('Missing or unsafe scratch payload')
+    with source.open('rb') as stream:data=stream.read(4097)
+    if data!=bytes((i+proof['cycles']-1)&255 for i in range(4096)):
+        raise ValueError('Scratch payload does not match completed cycles')
+    return data
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -349,6 +384,18 @@ def collect(mount, volume, output):
             attention.append("collection: missing exit snapshot; session incomplete")
         if len(releases) > 1:
             attention.append("collection: conflicting boot release identities")
+        write_proof=battery_usb_write_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if write_proof:
+            try:
+                data=verify_battery_scratch(workspace,write_proof)
+                scratch_copy=saved/"battery-scratch.bin"
+                scratch_copy.write_bytes(data)
+                if scratch_copy.read_bytes()!=data:raise OSError("Scratch copy verification failed")
+                write_proof['payload_verified']=True
+                write_proof['payload_sha256']=hashlib.sha256(data).hexdigest()
+            except (OSError,ValueError) as error:
+                attention.append("collection: "+str(error))
+                write_proof=None
         records.append({
             "session": name,
             "releases": releases,
@@ -360,6 +407,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_usb_write": write_proof,
             "battery_usb_read": battery_usb_read_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_service": battery_service_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),

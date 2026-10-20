@@ -147,9 +147,10 @@ def main():
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
     auto_return=manifest["config_version"].endswith("-auto-return")
-    battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-")))
+    battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-")))
+    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
+    battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     workspace=desktop or probe
@@ -250,6 +251,12 @@ def main():
                         exit_log=stored.read(folder+"/exit.log")
                         assert (battery_marker+": returned=yes clean=NO").encode() in exit_log
                         assert b"battery: REFUSED platform/resource ownership preflight" in exit_log
+                    if battery_usb_write:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"workspace-scratch: revoked clean=yes" in exit_log
+                        prepared=re.search(rb"workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=\d+ bytes=4096; unmounted=yes aliases=revoked",exit_log)
+                        assert prepared and len(stored.read(prepared[1].decode().removeprefix("/work/")))==4096
+                        assert b"battery-usb-write: PASS" not in exit_log
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log
