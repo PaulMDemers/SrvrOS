@@ -167,6 +167,14 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_scale=2)
         with self.assertRaises(ValueError): boot.stage(desktop_scale=3,desktop_volume="37d8c5d0")
 
+    def test_scaled_audio_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v31-desktop-37d8c5d0")
+        for token in ("srvros.audio=hda","srvros.desktop-scale=2","srvros.laptop-services=brightness","resolution: 2880x1800"):
+            self.assertIn(token,cfg)
+        for token in ("srvros.aml=","srvros.smc=","srvros.usb-network="):
+            self.assertNotIn(token,cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_audio=True)
+
     def test_scaled_brightness_profile(self):
         cfg=boot.limine_config("0123456789abcdef","ram-usb-v30-desktop-37d8c5d0")
         self.assertIn("srvros.desktop-scale=2",cfg)

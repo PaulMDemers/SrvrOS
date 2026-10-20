@@ -144,7 +144,7 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
     if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
@@ -161,7 +161,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
-    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-")))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -393,8 +393,20 @@ def main():
                             (logs/("scaled-desktop-"+name)).write_bytes(data)
                         assert b"deskd: exited" in stored.read(folder+"/exit.log")
                         assert not has_fatal_exception(text)
+                        tone_result=None
+                        if args.audio_check:
+                            assert b"audio: state=2" in stored.read(folder+"/exit.log")
+                            offset=len(text)
+                            type_text("audio test");ui.key("ret")
+                            wait_for(serial,lambda s:"audio: request queued" in s[offset:],process,20)
+                            time.sleep(1.5)
+                            type_text("audio");ui.key("ret")
+                            wait_for(serial,lambda s:"tests_started=1 tests_completed=1" in s[offset:] and s.endswith("srv> "),process,20)
+                            ui.call("quit");process.wait(timeout=10)
+                            from audio_smoke import analyze_tones
+                            tone_result=analyze_tones(logs/"hardware-grub-tone.wav",1)
                         (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
-                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,
+                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"audio":args.audio_check,"tone":tone_result,
                             "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"physical_acceptance":"pending"},indent=2)+"\n")
                         print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
                         return
