@@ -187,3 +187,18 @@ exit log, pass offline exFAT verification and reset automatically. The instructi
 screen was visually inspected. The same payload is next for physical typing;
 no physical keyboard acceptance is claimed yet. Preserve the successful native
 diagnostic as previous, with older payloads retained in the durable archive.
+
+## First native guided typing result
+
+Release `5c3c1f8a0106166c`, session `session-00065e3b9a24480c-00`, saved
+`keyboard-test: result=FAIL passed=5 total=10 dropped=0`. Lowercase, Shift,
+Caps Lock on/off and Backspace passed. At the Enter prompt, the final HID report
+contains usage `0x38` (slash); six characters were pushed, with 17 completed
+keyboard reports, zero transfer errors and zero drops. The test ended before
+its first 30-second deadline, so this is wrong input rather than a timeout.
+Enter and arrows remain unaccepted; clarification of the physical key pressed
+is pending. Do not infer a driver mapping fault or a complete keyboard pass.
+
+Matching logs and run metadata are archived outside `build`. The consumed
+one-shot and Ubuntu default were verified; offline exFAT reports no errors.
+No new reboot is armed.
