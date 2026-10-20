@@ -902,3 +902,20 @@ fan visibility. The opening Help checklist carries the requested actions and
 manual exit commands. Preserve the accepted sound payload as previous, archive
 this candidate, then boot once for the user's untimed Sensors check. Collect
 its matching session and screenshot before any further stage.
+
+## Native System display accepted — 2026-10-20
+
+Release `c30ec628bf5d68aa`, session `session-00065e4a63c1d349-00`, returned
+with a saved 1440x900 screenshot showing Devices and Sensors side by side.
+The user reported saving the devices/fans screenshot. Visual inspection confirms
+readable L 2,161 / R 2,011 RPM, fan sample age 679 ms, core/package 47/51 C,
+and no clipping of the paired values. Keyboard/trackpad and USB storage show
+active drivers. Exit diagnostics show 6,330 paired samples, zero SMC errors,
+and a clean compositor exit. Pause/Resume is unconfirmed in the retained evidence;
+do not infer it from the screenshot. Battery/AC remains unavailable as expected.
+
+Logs and screenshot were copied, hash-verified and independently archived.
+Installed/recovery hashes, Ubuntu default and consumed one-shot were verified;
+offline exFAT is clean. Current is the interactive sensor desktop, previous
+remains sound-confirmed `e47dca3a6b30c6c1`; no reboot is armed. Shared integration
+review and Pro-specific battery/AC groundwork are the next outstanding areas.
