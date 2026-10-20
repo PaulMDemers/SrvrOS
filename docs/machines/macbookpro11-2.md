@@ -991,3 +991,40 @@ The named regression checks are physically accepted on this unit. Next remaining
 non-battery bringup checks are headphone output/isolation and supported wired
 USB networking, preceded by inventory and driver compatibility review. Battery
 and trackpad latency remain deferred.
+
+## Multiple-adapter groundwork scope — 2026-10-20
+
+User is obtaining wired USB hardware; headphone tests are deferred for several
+days. Prepare bounded provider inventory and System/Network Utility UI so every
+registered adapter has a boot-local identity, driver/MAC/link state and explicit
+active/inactive role. Preserve the single boot-selected IP stack and existing
+provider priority; do not imply multihoming, live switching or arbitrary chipset
+support. Touch net_device, the size-negotiated network status ABI, System and
+Network Utility plus host/VM fixtures and current guidance. Main remains d72d2af;
+Air PR7 owns filesystem/battery groundwork, with no network overlap identified.
+No physical reboot is needed for this work. Hardware acceptance follows actual
+adapter inventory. Battery and pointer latency remain deferred.
+
+The first desktop network VM reproduced a hang after starting an unreachable
+LAN ping: successful ping/DNS and report copies had already passed. ARP/DHCP/
+DNS/ICMP timeout loops yield without blocking; the current idle-as-fallback
+scheduler can select the same IRQ-masked caller and starve timer progress.
+Replace these four polling yields with bounded RX wait-queue sleeps. Keep shared
+scheduler/storage policy unchanged; rerun unreachable-target cancellation and
+GUI responsiveness as well as adapter coexistence before accepting the fix.
+
+Groundwork validation passes: full build/USB image/test-core, focused registry,
+System, Network Utility and RX-worker fixtures, and 383 documentation links.
+After the bounded wait fix, the mixed e1000/ECM desktop VM passes Ping/DNS,
+adapter-attributed report copies into Text, typing during an unreachable ping,
+cancellation, link down/up, compact layout, Help and clean exit. Screenshot
+review confirms both adapter identities/roles are readable. The two-ECM VM passes
+DHCP, successful and timed-out ping, 160 UDP echoes with packet-size/ZLP checks,
+HTTP, USB keyboard coexistence, inactive traffic isolation and disconnect without
+failover. Preserve the first failing desktop VM as regression evidence.
+
+No native candidate was installed or rebooted. Current physical release stays
+`8d8b85e8a68d1042`; its earlier acceptance does not cover this new networking
+code. Headphone testing awaits hardware access. Next: capture the supplied USB
+adapters' IDs/descriptors, assess chipset support, then stage a network-enabled
+matched image with exact-stage VM validation before physical testing.

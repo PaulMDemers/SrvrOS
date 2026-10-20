@@ -71,8 +71,9 @@ struct tool {
     struct desk_tabs system_tabs;
     struct desk_table network_table;
     struct srv_net_status_info network;
-    struct desk_table_row network_rows[16];
-    char network_values[16][80];
+    struct desk_table_row network_rows[16+SRV_NET_ADAPTER_MAX*4];
+    char network_labels[SRV_NET_ADAPTER_MAX*4][32];
+    char network_values[16+SRV_NET_ADAPTER_MAX*4][80];
     int network_valid;
     struct desk_table device_table;
     struct desk_table_row device_rows[160];

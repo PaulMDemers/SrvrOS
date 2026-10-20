@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Exercise native network diagnostics, link changes and responsive background jobs in a disposable VM."""
 import os
+import argparse
+import displayd_resolution_smoke as boot
 from pathlib import Path
 import shutil
 import socket
@@ -13,8 +15,16 @@ from desktop_foundation_smoke import QMP
 
 
 def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--with-usb',action='store_true',help='Keep an inactive USB ECM adapter beside the active e1000')
+    args=parser.parse_args()
+    if args.with_usb:
+        original=boot.make_limine_conf
+        boot.make_limine_conf=lambda w,h: original(w,h)+'    cmdline: srvros.usb-network=ecm\n'
+    active_id=2 if args.with_usb else 1
+    adapter_line=f'Adapter: Adapter {active_id} · e1000 · net0\n'.encode()
     root=Path(__file__).resolve().parents[1]
-    out=root/"build/review/desktop-network"
+    out=root/("build/review/desktop-network-multiple" if args.with_usb else "build/review/desktop-network")
     out.mkdir(parents=True,exist_ok=True)
     output=b"";consumed=0
     port=choose_port(30001,38000)
@@ -29,6 +39,8 @@ def main():
             "-netdev","user,id=net0","-device","e1000,netdev=net0,id=nic0",
             "-serial",f"tcp:127.0.0.1:{port},server=on,wait=off",
             "-qmp",f"unix:{tmp/'qmp'},server=on,wait=off","-display","none","-monitor","none","-no-reboot","-rtc","base=2026-10-18T12:34:00,clock=vm"]
+        if args.with_usb:
+            command+=['-netdev','user,id=usbnet,net=10.0.3.0/24','-device','usb-net,netdev=usbnet,bus=xhci.0,id=usbnic,mac=52:54:00:12:34:57']
         with (out/"qemu.log").open("wb") as errors:
             process=subprocess.Popen(command,stdout=errors,stderr=errors)
             try:
@@ -73,6 +85,9 @@ def main():
                 wait(b"srv> ",100)
                 serial.sendall(b"run /fat/bin/sh\n");wait(b" $ ")
                 serial.sendall(b"dhcp\n");wait(b"dhcp: 10.0.2.15");wait(b" $ ")
+                serial.sendall(b"ifconfig\n");wait(b" $ ")
+                assert f'adapter {active_id}: driver=e1000 role=active-net0'.encode() in output
+                if args.with_usb: assert b'adapter 1: driver=usb-ecm role=inactive' in output
                 serial.sendall(b"exit\n");wait(b"srv> ")
                 serial.sendall(b"run /fat/bin/deskd --apps-trace\n")
                 wait(b"desktools: starting role=text");wait(b"deskd: commit")
@@ -98,6 +113,7 @@ def main():
                 # the device's current STATUS, and Network Utility refuses Run.
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready")
                 click(370,228);wait(b"system-page=network");time.sleep(.5)
+                click(400,350);shortcut("end");shot("network-adapters")
                 qmp.call("set_link",{"name":"nic0","up":False});shortcut("f5")
                 wait(b"link=9 speed=0");shot("network-disconnected-system") # Known link/duplex, link down.
                 launch_network();wait(b"launcher window=");shortcut("ctrl-ret");wait(b"desknet: disconnected");shot("network-disconnected")
@@ -120,11 +136,11 @@ def main():
             from exfat_test_image import ExfatFixture
             fixture=ExfatFixture((tmp/"disk.exfat").read_bytes())
             ping=fixture.read("network-ping.txt")
-            assert ping.startswith(b"Ping\nTarget: 10.0.2.2\nStatus: Diagnostic completed.\n\nPING 10.0.2.2 (10.0.2.2)\n"),ping
+            assert ping.startswith(b"Ping\nTarget: 10.0.2.2\n"+adapter_line+b"Status: Diagnostic completed.\n\nPING 10.0.2.2 (10.0.2.2)\n"),ping
             assert ping.endswith(b"ping: sent=4 received=4 lost=0\n"),ping
             assert sum(b"reply from 10.0.2.2: seq=" in line for line in ping.splitlines())==4
             lookup=fixture.read("network-lookup.txt")
-            assert lookup.startswith(b"DNS lookup\nTarget: localhost\nStatus: Diagnostic completed.\n\n"),lookup
+            assert lookup.startswith(b"DNS lookup\nTarget: localhost\n"+adapter_line+b"Status: Diagnostic completed.\n\n"),lookup
             assert lookup.endswith(b"localhost has address 127.0.0.1\n"),lookup
             assert fixture.read("network-input-proof.txt")==b"A"
     print(f"desktop-network: PASS Ping/DNS, clipboard report exports, Text typing during pending job, cancellation, live link down/up, compact/context/Help, close during work and clean exit. Evidence: {out}")

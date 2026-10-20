@@ -68,6 +68,26 @@ static void network_refresh(struct tool *t,int force) {
         if(known && up && n.link_speed_mbps) snprintf(t->network_values[13],80,"%llu Mb/s",(unsigned long long)n.link_speed_mbps);
         snprintf(t->network_values[14],80,"%s",known && up && (n.link_flags&SRV_NET_LINK_DUPLEX_KNOWN)?(n.link_flags&SRV_NET_LINK_FULL_DUPLEX?"Full duplex":"Half duplex"):"—");
     }
+    if(t->network_valid) {
+        for(unsigned i=0;i<n.adapter_count && i<SRV_NET_ADAPTER_MAX;i++) {
+            struct srv_net_adapter_info *a=&n.adapters[i];a->driver[sizeof(a->driver)-1]=0;
+            const char *fields[]={"role","driver","MAC","link"};
+            unsigned base=count;
+            for(unsigned j=0;j<4;j++) {
+                char *label=t->network_labels[i*4+j];
+                snprintf(label,32,"Adapter %u %s",a->id,fields[j]);
+                t->network_rows[count]=(struct desk_table_row){.id=100+i*4+j,.cells={label,t->network_values[count]}};
+                count++;
+            }
+            snprintf(t->network_values[base],80,"%s",a->flags&SRV_NET_ADAPTER_ACTIVE?"Active · net0":"Inactive · no IP configuration");
+            snprintf(t->network_values[base+1],80,"%s",a->driver);
+            snprintf(t->network_values[base+2],80,"%02x:%02x:%02x:%02x:%02x:%02x",a->mac[0],a->mac[1],a->mac[2],a->mac[3],a->mac[4],a->mac[5]);
+            const char *state=!(a->link_flags&SRV_NET_LINK_KNOWN)?"Unknown":a->link_flags&SRV_NET_LINK_UP?"Connected":"Disconnected";
+            if((a->link_flags&SRV_NET_LINK_UP) && a->link_speed_mbps)
+                snprintf(t->network_values[base+3],80,"%s · %llu Mb/s",state,(unsigned long long)a->link_speed_mbps);
+            else snprintf(t->network_values[base+3],80,"%s",state);
+        }
+    }
     desk_table_rows(&t->network_table,t->network_rows,count);
     if(force) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d link=%llu speed=%llu\n",t->network_valid,
         (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused,(unsigned long long)t->network.link_flags,(unsigned long long)t->network.link_speed_mbps);

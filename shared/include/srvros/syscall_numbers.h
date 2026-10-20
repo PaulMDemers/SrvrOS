@@ -311,6 +311,18 @@ struct srv_net_info {
 #define SRV_NET_LINK_UP 2u
 #define SRV_NET_LINK_FULL_DUPLEX 4u
 #define SRV_NET_LINK_DUPLEX_KNOWN 8u
+#define SRV_NET_ADAPTER_MAX 4
+#define SRV_NET_ADAPTER_ACTIVE 1u
+/* Boot-local IDs, not persistent device identities. Link is cached by drivers. */
+struct srv_net_adapter_info {
+    uint32_t id;
+    uint32_t flags;
+    uint64_t link_flags;
+    uint64_t link_speed_mbps;
+    uint8_t mac[6];
+    uint8_t reserved[2];
+    char driver[32];
+};
 struct srv_net_status_info {
     uint64_t abi_version;
     uint64_t struct_size;
@@ -354,6 +366,9 @@ struct srv_net_status_info {
     /* Appended v1 extension: a configured IPv4 address is not proof of link. */
     uint64_t link_flags;
     uint64_t link_speed_mbps; /* Zero when unavailable/down. */
+    /* Size-negotiated extension. Only ACTIVE owns the IP/socket state above. */
+    uint64_t adapter_count;
+    struct srv_net_adapter_info adapters[SRV_NET_ADAPTER_MAX];
 };
 
 struct srv_arp_info {

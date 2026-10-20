@@ -27,7 +27,7 @@ static void print_mac(const uint8_t mac[6]) {
 }
 
 int main(int argc, char **argv) {
-    struct srv_net_status_info info;
+    struct srv_net_status_info info={0};
     if (argc > 1 && (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0)) {
         puts("usage: ifconfig");
         return 0;
@@ -37,6 +37,13 @@ int main(int argc, char **argv) {
         return 1;
     }
 
+    for(unsigned i=0;i<info.adapter_count && i<SRV_NET_ADAPTER_MAX;i++) {
+        const struct srv_net_adapter_info *a=&info.adapters[i];
+        printf("adapter %u: driver=%.31s role=%s link=%s mac=",a->id,a->driver,
+            a->flags&SRV_NET_ADAPTER_ACTIVE?"active-net0":"inactive",
+            !(a->link_flags&SRV_NET_LINK_KNOWN)?"unknown":a->link_flags&SRV_NET_LINK_UP?"up":"down");
+        print_mac(a->mac);printf("\n");
+    }
     printf("net0: flags=%s,%s dhcp=%s\n",
         info.initialized != 0 ? "UP" : "DOWN",
         info.worker_started != 0 ? "RUNNING" : "NO-CARRIER",

@@ -3039,9 +3039,9 @@ build/kernel/ports/%.c.o: ports/%.c $(ZIG) $(LIMINE_PROTOCOL_DIR)/.ready $(UACPI
 test-core: test-net-device
 test-net-device: build/tests/net-device-host$(HOST_EXE)
 	$<
-build/tests/net-device-host$(HOST_EXE): tools/test_net_device.c kernel/src/net_device.c kernel/include/srvros/net_device.h
+build/tests/net-device-host$(HOST_EXE): tools/test_net_device.c kernel/src/net_device.c kernel/include/srvros/net_device.h shared/include/srvros/syscall_numbers.h
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
 
 .PHONY: test-usb-ecm
 test-core: test-usb-ecm

@@ -62,3 +62,36 @@ Protocol reference: the original USB-IF [ECM 1.2 specification](https://home.cod
 The [QEMU 9.2 USB network device](https://raw.githubusercontent.com/qemu/qemu/v9.2.0/hw/usb/dev-network.c)
 provides the VM interoperability reference. No Linux driver implementation was
 copied into this driver.
+
+## Multiple adapters and diagnostics
+
+The registry accepts up to four supported providers before IP initialization.
+Each has a boot-local adapter ID, driver name, MAC and link state exposed through
+an appended, size-negotiated `srv_net_status_info` inventory. System > Network
+lists these below the active connection properties; `ifconfig` prints them too.
+Network Utility names the active adapter in its results and copied report.
+Unclaimed USB devices remain in Devices, not in the supported-provider inventory.
+
+Only the boot-selected provider owns `net0`, addresses, ARP, DHCP and sockets.
+e1000 has priority over ECM; equal priorities retain discovery order. Inactive
+adapters have no IP configuration and are not polled for application traffic.
+Link-up on an inactive adapter is not connectivity through it. Quarantined USB
+adapters report disconnected even if their last notification said connected.
+There is no live failover, adapter switching, simultaneous IP interfaces or
+hotplug re-registration. IDs can change between boots; use MAC and USB topology
+for physical identification. A second e1000 instance is not implemented by its
+singleton driver. Multiple ECM instances can register independently.
+
+Use `tools/host-env.sh python3 tools/usb_ecm_smoke.py --second-usb` for two ECM
+adapters on separate emulated networks. The regression exercises active traffic,
+inactive inventory and zero inactive application traffic, then unplugging the
+active adapter without silently selecting the other one. System/Network Utility
+host fixtures cover multiple adapters and immutable diagnostic report identity.
+`desktop_network_smoke.py --with-usb` covers mixed e1000/ECM inventory, the
+e1000 GUI, copied adapter attribution and link changes. ARP/DHCP/DNS/ICMP
+timeout loops block on bounded RX waits so an unreachable peer cannot keep an
+IRQ-masked caller runnable indefinitely and starve timer/UI progress.
+Physical chipset support still requires captured descriptors and native tests.
+The Pro sensor desktop's existing immutable recipe does not enable ECM; prepare
+an explicit network-enabled candidate and exact-stage VM check when hardware is
+available, preserving its accepted desktop recovery.

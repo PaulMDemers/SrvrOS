@@ -42,6 +42,9 @@ long srv_net_status_info(struct srv_net_status_info *n) {
     if(net_phase==3) n->struct_size=16;
     if(net_phase>=4) n->link_flags=SRV_NET_LINK_KNOWN;
     if(net_phase==5) { n->link_flags|=SRV_NET_LINK_UP|SRV_NET_LINK_FULL_DUPLEX|SRV_NET_LINK_DUPLEX_KNOWN;n->link_speed_mbps=1000; }
+    n->adapter_count=2;
+    n->adapters[0]=(struct srv_net_adapter_info){.id=1,.flags=SRV_NET_ADAPTER_ACTIVE,.link_flags=SRV_NET_LINK_KNOWN|SRV_NET_LINK_UP,.link_speed_mbps=1000,.mac={2,0,0,0,0,1},.driver="e1000"};
+    n->adapters[1]=(struct srv_net_adapter_info){.id=2,.link_flags=SRV_NET_LINK_KNOWN,.mac={2,0,0,0,0,2},.driver="usb-ecm"};
     return 0;
 }
 void tool_status(struct tool *t,const char *text) { snprintf(t->status,sizeof(t->status),"%s",text);t->window.dirty=1; }
@@ -61,6 +64,9 @@ int main(void) {
     phase=2;tool_system_refresh(&t,1);assert(strstr(t.status,"unavailable") && t.process_count==0 && t.table.body.selected==-1);
     phase=0;tool_system_action(&t,(struct desk_action){SYSTEM_PAUSE,DESK_WIDGET_ACTIVATED});assert(!t.system_paused && t.process_count==3);
     assert(t.network_valid && !strcmp(t.network_values[0],"10.0.2.15") && !strcmp(t.network_values[3],"52:54:00:12:34:56"));
+    assert(!strcmp(t.network_values[15],"Active · net0") && !strcmp(t.network_values[16],"e1000"));
+    assert(!strcmp(t.network_values[19],"Inactive · no IP configuration") && !strcmp(t.network_values[20],"usb-ecm"));
+    assert(!strcmp(t.network_values[21],"02:00:00:00:00:02") && !strcmp(t.network_values[22],"Disconnected"));
     assert(!strcmp(t.network_values[5],"123") && !strcmp(t.network_values[8],"3"));
     desk_list_select(&t.table.body,1);uint64_t selected=t.table.navigation[t.table.body.selected].id;
     tool_system_action(&t,(struct desk_action){SYSTEM_NETWORK,DESK_WIDGET_ACTIVATED});

@@ -126,7 +126,7 @@ Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop
 | Sketch | Pen, Line and Box tools; brush size and RGB color panel; undo/redo; import images and save verified BMP copies |
 | Find Files | Background name search under a folder; kind filters; sortable results; open, reveal in Files, and copy paths |
 | Calculator | Expressions, parentheses, keypad, explicit errors, copied results and calculation history |
-| System | Live process and memory information; network interface, address, link state, speed and duplex; open diagnostics |
+| System | Live process and memory information; supported adapter inventory, active interface, address, link state, speed and duplex; open diagnostics |
 | Network Utility | Background Ping and DNS lookup; Stop; copied reports |
 | Settings | Persisted desktop color, document text size, clock display/UTC offset and trackpad speed/acceleration |
 | Clock | Countdown and stopwatch; pause/resume, laps and copied times; completion notification |

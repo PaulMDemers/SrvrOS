@@ -1,6 +1,6 @@
 #include <srvros/net_device.h>
 #include <stddef.h>
-#define PROVIDERS 4
+#define PROVIDERS SRV_NET_ADAPTER_MAX
 static struct net_device_ops providers[PROVIDERS];
 static unsigned provider_count;
 static const struct net_device_ops *selected;
@@ -34,4 +34,24 @@ uint64_t net_device_poll(uint64_t budget,bool verbose) {
 bool net_device_link(struct net_device_link *out) {
     if(!out) return false;
     *out=(struct net_device_link){0};return selected && selected->link(selected->context,out);
+}
+
+unsigned net_device_inventory(struct srv_net_adapter_info *out,unsigned capacity) {
+    if(!out) return 0;
+    unsigned count=provider_count<capacity?provider_count:capacity;
+    for(unsigned i=0;i<count;i++) {
+        const struct net_device_ops *p=&providers[i];
+        out[i]=(struct srv_net_adapter_info){.id=i+1,.flags=p==selected?SRV_NET_ADAPTER_ACTIVE:0};
+        for(unsigned j=0;j<6;j++) out[i].mac[j]=p->mac[j];
+        for(unsigned j=0;j<sizeof(out[i].driver)-1 && p->name[j];j++) out[i].driver[j]=p->name[j];
+        struct net_device_link link={0};
+        if(p->link(p->context,&link)) {
+            out[i].link_flags=SRV_NET_LINK_KNOWN|(link.up?SRV_NET_LINK_UP:0);
+            if(link.up) {
+                out[i].link_flags|=(link.full_duplex?SRV_NET_LINK_FULL_DUPLEX:0)|(link.duplex_known?SRV_NET_LINK_DUPLEX_KNOWN:0);
+                out[i].link_speed_mbps=link.speed_mbps;
+            }
+        }
+    }
+    return count;
 }

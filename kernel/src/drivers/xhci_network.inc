@@ -91,7 +91,9 @@ static uint64_t network_poll(void *context,uint64_t budget,bool verbose) {
 }
 static bool network_link(void *context,struct net_device_link *out) {
     struct xhci_network *n=((struct xhci_device *)context)->network;
-    if(!n||!n->link.known) return false;
+    if(!n) return false;
+    if(!n->ready) { *out=(struct net_device_link){0};return true; }
+    if(!n->link.known) return false;
     uint32_t speed=n->link.downstream_bps/1000000;
     *out=(struct net_device_link){.up=n->link.up,.speed_mbps=speed>65535?0:(uint16_t)speed};return true;
 }
