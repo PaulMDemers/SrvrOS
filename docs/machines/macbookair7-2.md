@@ -139,6 +139,10 @@ device work uses separate branches based on `main`.
   check. Scope: native battery platform, capture reporting and VM assertions.
   Integration remains `b6075ef`; Pro PR #5 is at `ad8ac0e`, with compositor
   timing diagnostic scope. Shared startup hunks remain for later reconciliation.
+- Follow-up candidate: source `e4c8d7e`, release `339211cceb5d894d`; native
+  Q35 refusal and exact staged saved-log/exFAT/halt rehearsal pass. The admission
+  rules are unchanged. Hardware result pending; local run record owns install
+  and reboot state.
 - Recovery: current is the refused v31 diagnostic; previous `b427b78f21644bd2`
   remains installed. Accepted v26 and interactive payloads have verified copies
   outside build. Ubuntu returned with one-shot consumed; no reboot is armed.
