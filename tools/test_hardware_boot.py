@@ -158,6 +158,17 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
         with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
 
+    def test_keyboard_capture_profile(self):
+        version="ram-usb-v27-laptop-probe-37d8c5d0"
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config("0123456789abcdef",version)
+        self.assertIn("srvros.capture=keyboard",cfg)
+        self.assertIn("srvros.laptop-services=probe-autoreboot",cfg)
+        self.assertNotIn("srvros.aml",cfg)
+        self.assertNotIn("srvros.capture=keyboard",boot.limine_config("0123456789abcdef","ram-usb-v19-laptop-probe-37d8c5d0"))
+        with self.assertRaises(ValueError): boot.stage(keyboard_capture=True)
+        with self.assertRaises(ValueError): boot.stage(keyboard_capture=True,idle_capture=True,laptop_probe_volume="37d8c5d0")
+
     def test_idle_capture_profile_is_separate_and_has_no_aml(self):
         version="ram-usb-v23-laptop-probe-37d8c5d0"
         release=self.payload("idle",version)
