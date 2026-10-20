@@ -208,8 +208,20 @@ restorations and balanced teardown. Host phase tests (including ASan/UBSan),
 30 staging tests, 10 collector tests and documentation links pass. Modeled
 transitions and a real missed-unplug timeout followed by successful runtime
 reentry pass. All 16 battery VM scenarios pass, including existing transport,
-query, event-restoration and mode-entry containment. The exact staged rehearsal
-precedes physical testing; none of these results accepts actual AC changes.
+query, event-restoration and mode-entry containment. Exact staged **v32
+`aa976febab59c128`**, artifact source `c25b32c`, passes the GRUB/UEFI rehearsal:
+expected native refusal, saved refusal bytes, clean exFAT and persistent halt.
+None of these results accepts actual AC changes.
+
+That candidate is now installed for the guided round. Start connected to AC;
+unplug and reconnect only when the persistent instructions request it, leaving
+USB attached throughout. Successful retirement/save/unmount returns automatically;
+timeout or fault halts visibly. Previous desktop `b427b78f21644bd2` is retained.
+Accepted bounded diagnostic `13d8083de35b51af`, its evidence, and interactive/power
+recovery copies remain outside `build`. The redundant, unreferenced failed
+`6a2f90f72a0e4b96` EFI payload was archived and hash-verified before removal for
+space. The local run record owns actual armed/reboot state; on return collect
+the matching v32 session before another trial. PR #6 remains draft.
 
 ## First completed native battery diagnostic — October 20
 
@@ -233,8 +245,9 @@ the collector reports complete runtime evidence with no attention flags.
 This accepts the bounded AC-connected initialization/sample/retirement path on
 this unit. It does not accept a long-running desktop service, discharge, AC
 unplug/replug, suspend/resume, independent gauge calibration or other Macs.
-Current installed is the accepted **diagnostic** `13d8083de35b51af`; no new boot
-is armed. Ordinary desktop startup still has no battery runtime.
+That accepted **diagnostic** `13d8083de35b51af` remains a durable recovery copy;
+the later transition block above records the next candidate. Ordinary desktop
+startup still has no battery runtime.
 
 Linux reports 86% while the diagnostic reports 98%. SrvrOS reads relative SOC
 (command `0x0d`); upstream Linux SBS reads absolute SOC (`0x0e`). These use full
