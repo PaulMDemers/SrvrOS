@@ -1099,3 +1099,29 @@ Saved-check review found shell `dhcp` and `dns` always returned success even
 when their syscall failed. Extend this bounded scope to their exit statuses in
 `userspace/sh/sh.c`, with VM failed/successful network checks, so saved reports
 cannot label a failed lease as status zero.
+
+Candidate `c7bf960edc860376` (source `193641e`) passes the exact v37 GPT
+rehearsal: USB ECM DHCP/ping, scaled desktop, Text/screenshot/log persistence,
+audio and clean unmount. Full build/test-core, added xHCI cable/DMA fixtures,
+481 shell commands with a clean final filesystem, Help content/render fixtures
+and 385 documentation links pass. The two-ECM VM passes three traffic outages
+and recoveries, DHCP/DNS failure status, renewed leases, DNS, exact saved HTTP
+response bytes, 160 UDP echoes/ZLP framing, inbound HTTP and keyboard/inactive
+adapter isolation. Active-ECM desktop diagnostics pass saved Ping/DNS reports,
+background typing/cancellation, bounded outage failure and restored ping.
+Screenshots confirm readable adapter attribution, failure state and native Help.
+
+QEMU's USB gadget keeps its CDC connection indication up during virtual cable
+loss; the initial cable-notification rehearsal timed out and is preserved.
+Actual down/up notifications are covered by host fixtures, not claimed as a
+QEMU result. A prior serial-byte comparison failure (CR/LF translation) is also
+retained; final validation compares the saved filesystem response bytes exactly.
+Linux HTTP through the supplied adapter returns a response for the native target.
+
+Next is an untimed native DNS/HTTP/cable trial. Opening Help contains the before
+and after report commands, Ethernet-only unplug/reconnect checks, screenshots
+and manual return instructions. Keep the USB adapter/workspace connected. This
+new source has no physical acceptance yet. Preserve Ubuntu default, installed
+previous `e47dca3a6b30c6c1`, and the independently archived accepted Ethernet
+payload `debb2ddf3e9f4243`. Collect the matching session and saved reports before
+any further trial; battery, headphones and pointer latency remain deferred.
