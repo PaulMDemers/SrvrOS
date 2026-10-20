@@ -378,3 +378,45 @@ the bitmap. Regressions cover stale end markers, self-links and apparent links t
 live files in free clusters, while missing live allocation bits and actual
 orphans still refuse scratch admission. This correction is separate from the
 eight real orphan clusters recovered on the Air: their rejection was correct.
+
+## Isolated filesystem image trial (v38, acceptance pending)
+
+The next native capture uses a 16 MiB exFAT filesystem inside the prepared file
+`/work/srvros-work/battery-fs.img`. This is a disposable volume, not desktop Home.
+`tools/battery_filesystem_image.py` creates it exclusively, with a diagnostic
+identity and marker; it refuses an existing file. Retain each used image with its
+run evidence before preparing another. The kernel refuses an image containing a
+previous workload, so rebooting the same used fixture cannot count as a fresh run.
+
+Admission checks the outer allocation graph, initialized file length, exclusive
+ownership and physical contiguity (either NoFatChain or a contiguous FAT chain).
+The outer workspace is flushed and unmounted, and public USB write aliases stay
+revoked. A private block view maps only the proven file data range. Every callback
+checks its identity, lease state, alignment and bounds; arithmetic overflow and
+out-of-range requests are refused without transport access. An open or poisoned
+lease prevents outer remount. No outer allocation or directory update occurs
+during the battery lifetime. This does not authorize ordinary desktop filesystem
+mutation while native EC/SCI ownership is active.
+
+The workload grows/shrinks and renames files, truncates an empty file, renames and
+deletes directories, verifies contents and flushes for at least 60 seconds while
+the cached service samples. Completion requires at least ten sample generations,
+I/O progress during sampling and clean service retirement before unmounting and
+revoking the image view. The automatic capture then remounts the outer workspace
+to save logs and returns to Ubuntu. Contained native faults reset without trying
+to repair the inner filesystem. Missing completion is failure; a failed transport
+poisons the lease and may prevent saving the final log.
+
+Host tests run the real filesystem and adapter against a disposable image,
+interrupting every write, power-cut and flush boundary. They compare every byte
+outside the image before and after, check the outer allocation graph and rehearse
+inner recovery. The modeled runtime cases `service-isolated-filesystem` and
+`service-isolated-auto-deadline` add USB, battery progress and reset coverage.
+Exact-stage Q35 native refusal must also revoke the image, save an unsuccessful
+report and reset. None of these fixtures accepts physical operation.
+
+Collection copies the completed inner image, verifies its retained payload and
+anchor, and checks the copied filesystem with both exfatprogs and the kernel
+allocation checker. Preserve the original failed image before any offline repair.
+The fixed prepared filename is single-use: collect/archive it before replacing it
+for another run, and do not reinterpret older session logs using a newer image.

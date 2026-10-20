@@ -102,6 +102,14 @@ unmounted with public writes revoked throughout the lease; all test allocations
 remain inside the image's proven data extent. Validate interrupted inner writes,
 byte-for-byte preservation outside that extent, lease revocation and refusal paths
 before adding a native capture. Ordinary desktop startup remains unchanged.
+Air reserves **v38 laptop-probe** for `--battery-filesystem`; preserve Pro's
+v37 desktop network profile during integration. The isolated VM completed 353
+cycles / 265,574 transport commands over 60,312,102 microseconds, with 24 progress
+bursts inside I/O scopes and generation 24 at completion. Service retirement,
+exclusive range revocation, offline image contents/allocation checks and exact
+preservation of every byte outside the image passed. The injected runtime deadline
+reset automatically; outer bytes remained unchanged and a separate copy of the
+interrupted inner image recovered successfully. Physical acceptance is pending.
 
 ### Sustained filesystem coexistence — October 20 (VM-first)
 

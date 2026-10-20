@@ -31,3 +31,7 @@ __attribute__((weak)) void battery_service_status(struct battery_service_status 
 __attribute__((weak)) bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     (void)rsdp;(void)map;console_write("battery: separate native runtime required\n");return false;
 }
+
+__attribute__((weak)) bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}

@@ -19,7 +19,7 @@ permissions:
 jobs:
   baseline:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -63,9 +63,10 @@ jobs:
         run: |
           set -o pipefail
           make -j2 acpi-battery-kernel acpi-battery-vm-kernel test-io-scheduler test-acpi-worker test-battery-native-policy test-battery-transition test-battery-cache 2>&1 | tee build/review/acpi-battery-build.log
+          make test-workspace-image 2>&1 | tee build/review/workspace-image-host.log
           python3 tools/test_hardware_boot.py
           python3 tools/test_hardware_desktop.py
-          for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal service service-stale service-incoherent service-refusal service-query-deadline service-setup-load service-auto-deadline service-sci-unclaimed service-io-short service-io-long service-io-sustained service-usb-io service-usb-read service-usb-read-auto-deadline service-usb-write service-usb-write-auto-deadline service-filesystem service-filesystem-write-failure; do
+          for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal service service-stale service-incoherent service-refusal service-query-deadline service-setup-load service-auto-deadline service-sci-unclaimed service-io-short service-io-long service-io-sustained service-usb-io service-usb-read service-usb-read-auto-deadline service-usb-write service-usb-write-auto-deadline service-filesystem service-filesystem-write-failure service-isolated-filesystem service-isolated-auto-deadline; do
             python3 tools/acpi_battery_smoke.py --case "$scenario" 2>&1 | tee "build/review/acpi-battery-$scenario.log"
           done
       - uses: actions/upload-artifact@v4

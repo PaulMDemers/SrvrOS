@@ -335,6 +335,20 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v38 laptop-probe** `--battery-filesystem` profile exercises an
+isolated disposable filesystem image during battery sampling. Native acceptance
+is pending. Prepare a fresh `battery-fs.img` in this machine's `srvros-work`
+directory with `python3 tools/battery_filesystem_image.py /your/mounted/volume/srvros-work/battery-fs.img`.
+The tool exclusively creates a regular file; it refuses an existing path. Do not
+replace a used image before collecting and archiving its associated session.
+Then stage `--laptop-probe-volume "$SRVROS_USB_UUID" --battery-filesystem` and run
+the exact-stage `tools/hardware_boot_smoke.py --probe-check` before installation.
+Build `build/tests/exfat-driver` for post-return collection. Keep AC and USB
+connected; the trial needs no input and returns automatically. Follow the
+[isolation and recovery contract](battery-service.md#isolated-filesystem-image-trial-v38-acceptance-pending)
+and retain both outer-volume preflight checks. Pro desktop v37 is a separate
+profile; do not replace or renumber it when merging these staging changes.
+
 The separate **v36 laptop-probe** `--battery-usb-write` profile adds bounded
 scratch-data writes/flushes during battery sampling. It allocates and validates
 a new 4096-byte scratch file before runtime, unmounts the workspace, and retains

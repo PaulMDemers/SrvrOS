@@ -1,5 +1,6 @@
 /* One explicit USB workspace. Boot/root files remain in RAM. */
 #include <srvros/workspace.h>
+#include <srvros/workspace_image.h>
 #include <srvros/block.h>
 #include <srvros/console.h>
 #include <srvros/exfat.h>
@@ -109,7 +110,7 @@ bool workspace_mount(const char *uuid) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = false;
-    if (scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
+    if (workspace_image_busy() || scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
     struct block_device *device = find_volume(serial);
     struct block_device *parent = block_parent(device);
     if (!device || !parent || parent->write) {
