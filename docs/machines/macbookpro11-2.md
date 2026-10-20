@@ -225,3 +225,19 @@ that no input saves FAIL after the full deadline and that ten deliberate wrong
 keys followed by the correct keys save PASS with ten retries and zero drops.
 Both runs verify saved logs, clean exFAT and automatic reset. Physical retry is
 next; retain `fe8e4d3e22ba97eb` as previous and preserve all earlier run evidence.
+
+## Native guided keyboard acceptance
+
+Release `29af8019a1737d6e` (source `e8d89f3`), session
+`session-00065e3bb98f1b54-00`, records `PASS passed=10 total=10 dropped=0`
+and `retries=0`. Lowercase, Shift, Caps Lock on/off, Backspace, Enter and all
+four arrows passed on the internal `05ac:0262` keyboard. The final input
+snapshot records 25 completed reports, zero errors and zero dropped input.
+These tested keyboard functions are physically accepted on this unit.
+
+Matching boot/exit logs are verified and archived outside `build`; the
+post-return offline exFAT check is clean. Ubuntu default and consumed one-shot
+are verified. No reboot is armed. This acceptance does not cover every key,
+long-duration repeat, trackpad, desktop interaction or other device providers.
+Next milestone is trackpad and desktop bring-up; retain the successful diagnostic
+as previous and the accepted keyboard payload in the durable archive.
