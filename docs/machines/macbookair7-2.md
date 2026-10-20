@@ -24,12 +24,11 @@ device work uses separate branches based on `main`.
   both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: extend the offline probe to audit complete
-  namespace initialization, including ignored firmware errors and skipped
-  follow-up evaluations on refusal. Scope: probe, synthetic AML tests and native
-  runtime guide; audit GN46 GPIO semantics and captured initialization paths.
-  No live hardware binding. Pro11,2 PR #5 owns USB/storage and guided typing;
-  its latest published physical keyboard result does not accept the Air.
+- Current bounded implementation: Q35 FACS Global Lock acquisition/contention
+  and denied-release fixtures; verify owner drain before interpreter reset.
+  Scope: separate runtime adapter, VM harness/CI and native runtime guide.
+  Native chipset/PCI permissions remain pending; no live hardware binding.
+  Pro11,2 PR #5 owns USB/storage and guided input (inspected `927a7f5`).
 - Full initialization checkpoint: offline `--initialize` refuses errors,
   warnings and denied accesses even when uACPI returns success; skips follow-up
   queries on refusal. Twenty-five synthetic tests cover opt-in execution,
