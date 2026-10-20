@@ -168,3 +168,13 @@ Keyboard reports were zero at the diagnostic snapshot, so actual typing remains
 untested. Trackpad, desktop interaction and other device providers are also not
 accepted by this run. Next milestone is a visible typing test with instructions
 in the boot environment, preserving the standing reboot policy.
+
+## Visible keyboard acceptance scope
+
+Next bounded work adds an opt-in, guided keyboard capture to the existing
+save/unmount/return profile, with per-step deadlines and persistent results.
+Touch kernel startup, boot-profile staging and exact-stage VM harness/tests.
+Test letters, Shift, Caps Lock, Backspace, Enter and all arrows through the
+keyboard character path (not serial injection). VM coverage must exercise both
+correct and incorrect input. A timeout/failure must be recorded as such, then
+return safely when persistence succeeds. Other device scopes remain unchanged.
