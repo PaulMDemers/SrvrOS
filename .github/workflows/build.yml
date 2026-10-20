@@ -31,6 +31,7 @@ jobs:
       - name: Baseline smoke tests
         run: |
           set -o pipefail
+          python3 tools/cli_smoke.py --restart-only 2>&1 | tee build/review/pipe-restart.log
           make smoke 2>&1 | tee build/review/smoke.log
       - name: Separate ACPI runtime ownership and query containment
         run: |
