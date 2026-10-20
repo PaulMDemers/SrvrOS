@@ -121,3 +121,31 @@ ping worked. Collection and offline filesystem/allocation checks pass. This
 accepts the captured adapter revision for those operations only. Native DNS,
 HTTP, throughput, cable cycling and simultaneous physical-adapter inventory
 remain untested; multi-adapter VM results do not extend this hardware acceptance.
+
+## Cable recovery and saved checks
+
+Ethernet cable loss drops unsent queued frames and rejects new transmission
+until a link-up notification. Submitted USB transfers retain ownership until
+completion or the existing deadline; cable changes never free live DMA. Link
+transitions are recorded in session logs. USB removal still quarantines the
+adapter until reboot; it is distinct from unplugging only the Ethernet cable.
+
+`usb_ecm_smoke.py --second-usb` now exercises three emulated traffic outage/recovery cycles,
+DHCP reacquisition, DNS, outbound HTTP to a local fixture, persisted response
+bytes and the existing inactive-adapter/UDP/server/USB-removal checks.
+`desktop_network_smoke.py --usb-only` exercises the active ECM provider's
+System/Network Utility UI, bounded failed ping and restored ping. QEMU's USB
+gadget does not propagate virtual cable state into CDC notifications; actual
+notification transitions have host fixtures and require native cable testing.
+The e1000 desktop fixture separately covers UI disconnect refusal.
+
+The bundled `sh /fat/share/examples/network-check.sh` obtains DHCP, prints
+adapter status, resolves example.com and fetches its plain HTTP page, with
+individual exit codes and a completion marker. Shell `dhcp` and `dns` now
+return nonzero on failure (and `dns` returns 2 for missing arguments). Redirect output to distinct
+`/work/srvros-work/network-before.txt` and `network-after.txt` files around a
+cable cycle. Completion alone is not a pass: inspect each status and HTTP
+response. This is HTTP transport, not TLS or HTTP status validation. The script
+accepts DNS name, HTTP host and port arguments for controlled local fixtures;
+`httpget host [path [port]]` defaults to port 80 and rejects invalid ports.
+Native DNS/HTTP/cable acceptance remains pending the next matched trial.

@@ -356,6 +356,18 @@ def main():
             b"EDITOR, PAGER, and a small ll alias.\n"),
     ]
     example_files = [("stereo.wav", channel_test_wav()),
+        ("network-check.sh",
+            b"#!/fat/bin/sh\n"
+            b"echo Network check starting\n"
+            b"date\n"
+            b"dhcp\n"
+            b"echo dhcp-status=$?\n"
+            b"ifconfig\n"
+            b"host ${1:-example.com}\n"
+            b"echo dns-status=$?\n"
+            b"httpget ${2:-example.com} / ${3:-80}\n"
+            b"echo http-status=$?\n"
+            b"echo Network check complete\n"),
         ("hello.sh",
             b"#!/fat/bin/sh\n"
             b"echo hello from srvros\n"

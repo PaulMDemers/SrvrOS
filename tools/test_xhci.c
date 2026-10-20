@@ -759,6 +759,35 @@ static void test_network_transport(void) {
     assert(n.ep[0].requested==65 && !n.tx_zero);
     assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
     assert(n.tx_packets==count+1 && !n.ep[0].pending);
+    /* Ethernet cable changes preserve USB ownership, drop stale queued TX,
+     * reject new TX while down, and resume on a fresh up notification. */
+    assert(network_send(&d,frame,65));
+    uint8_t down[]={0xa1,0,0,0,0,0,0,0};
+    memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);
+    assert(n.ready && !n.failed && n.link.known && !n.link.up);
+    assert(!n.count && !n.ep[0].pending && n.ep[1].pending);
+    assert(!network_send(&d,frame,65));
+    down[2]=1;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);assert(n.link.up && n.ready);
+    assert(network_send(&d,frame,65));network_service(&d);
+    assert(n.ep[0].pending);
+    assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
+    /* A cable loss with an in-flight transfer must not revoke DMA ownership. */
+    assert(network_send(&d,frame,65));network_service(&d);
+    uint64_t inflight=n.ep[0].trb;
+    assert(network_send(&d,frame,65));
+    down[2]=0;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);
+    assert(n.ready && n.ep[0].pending && n.ep[0].trb==inflight && !n.count && !freed);
+    assert(network_event(&d,2,inflight,1,0));network_service(&d);
+    assert(n.ready && !n.ep[0].pending && n.ep[1].pending);
+    down[2]=1;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);assert(n.ready && n.link.up);
     /* Malformed residue quarantines; pending receive buffers remain owned. */
     assert(network_event(&d,3,n.ep[1].trb,13,4097));network_service(&d);
     assert(n.failed && !n.ready && n.errors==1 && !freed);

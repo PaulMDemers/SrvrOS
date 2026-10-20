@@ -41,12 +41,19 @@ static void network_service(struct xhci_device *d) {
     for(unsigned i=0;i<3;i++) if(n->ep[i].done && !network_complete(d,i)) return;
     struct xhci_network_endpoint *notify=&n->ep[2],*tx=&n->ep[0],*rx=&n->ep[1];
     if(notify->done) {
+        bool was_known=n->link.known,was_up=n->link.up;
         unsigned actual=notify->requested-notify->remaining;
         bool valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.control_interface);
         /* QEMU 9.2's Ethernet gadget reports the data interface in wIndex. */
         if(!valid && d->vendor_id==0x0525 && d->product_id==0xa4a2)
             valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.data_interface);
-        if(valid) n->notifications++;else n->drops++;
+        if(valid) {
+            n->notifications++;
+            if(n->link.known && (!was_known || was_up!=n->link.up)) {
+                console_printf("xhci-network: slot=%u cable=%s\n",(uint64_t)d->slot_id,n->link.up?"up":"down");
+                net_notify_rx();
+            }
+        } else n->drops++;
         notify->done=false;
     }
     if(!notify->pending) network_post(d,2,notify->hw.packet);
@@ -57,6 +64,9 @@ static void network_service(struct xhci_device *d) {
         else n->tx_packets++;
     }
     if(tx->pending && timer_monotonic_us()-n->tx_started>=2000000) { network_fail(d,"transmit-deadline");return; }
+    /* A cable loss invalidates unsent traffic. Keep submitted DMA owned until
+     * completion/deadline; reconnect may send only newly queued frames. */
+    if(n->link.known && !n->link.up) { n->drops+=n->count;n->count=0;n->head=0; }
     if(!tx->pending && n->count) {
         unsigned length=n->length[n->head];copy_bytes(tx->buffer,n->queue[n->head],length);
         n->head=(n->head+1)%XHCI_NET_QUEUE;n->count--;

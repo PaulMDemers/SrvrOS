@@ -10,6 +10,7 @@ import subprocess
 import struct
 import tempfile
 import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import time
 import displayd_resolution_smoke as boot
 from desktop_foundation_smoke import QMP
@@ -34,6 +35,14 @@ def main():
             try:
                 data,peer=udp.recvfrom(2048);messages.append(data);udp.sendto(data,peer)
             except socket.timeout:pass
+    body=b'SrvrOS ECM outbound HTTP fixture\n'+bytes(range(32,127))*80
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200);self.send_header('Content-Length',str(len(body)))
+            self.end_headers();self.wfile.write(body)
+        def log_message(self,*args):pass
+    http=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    http_worker=threading.Thread(target=http.serve_forever,daemon=True);http_worker.start()
     worker=threading.Thread(target=echo,daemon=True);worker.start()
     try:
         with tempfile.TemporaryDirectory(prefix='srvros-ecm-') as directory:
@@ -78,6 +87,45 @@ def main():
                     command_line('ping 10.0.2.2');assert b'sent=4 received=4 lost=0' in output
                     command_line('ping 10.0.2.99',timeout=15)
                     assert b'sent=4 received=0 lost=4' in output
+                    command_line('dns');command_line('echo dns-usage-status=$?')
+                    assert b'dns-usage-status=2' in output
+                    command_line('host localhost')
+                    assert b'localhost has address' in output
+                    # Exercise outbound TCP and file output without a public HTTP service.
+                    command_line(f'httpget 10.0.2.2 / {http.server_port} > /fat/ecm-http.txt')
+                    command_line('cat /fat/ecm-http.txt')
+                    assert b'200 OK' in output and body in output.replace(b'\r',b'')
+                    command_line(f'sh /fat/share/examples/network-check.sh localhost 10.0.2.2 {http.server_port} > /fat/network-check.txt')
+                    start=len(output);command_line('cat /fat/network-check.txt')
+                    report=output[start:].replace(b'\r',b'')
+                    for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',b'Network check complete',body):
+                        assert marker in report,marker
+                    for invalid in ('0','65536','12x','999999999999999'):
+                        start=len(output);command_line(f'httpget 10.0.2.2 / {invalid}')
+                        assert b'usage: httpget' in output[start:]
+                    for cycle in range(3):
+                        q.call('set_link',{'name':'usbnet','up':False})
+                        # QEMU usb-net lacks link_status_changed: traffic stops,
+                        # but its CDC notification remains connected. Real cable
+                        # notifications are covered by the xHCI host fixture.
+                        start=len(output);command_line('ifconfig')
+                        assert b'role=active-net0 link=up' in output[start:]
+                        command_line('ping 10.0.2.2',timeout=15)
+                        assert b'sent=4 received=0 lost=4' in output[start:]
+                        start=len(output);command_line('dhcp');command_line('echo dhcp-outage-status=$?')
+                        assert b'dhcp: failed' in output[start:] and b'dhcp-outage-status=1' in output[start:]
+                        command_line('dns localhost');command_line('echo dns-outage-status=$?')
+                        assert b'dns-outage-status=1' in output[start:]
+                        q.call('set_link',{'name':'usbnet','up':True})
+                        start=len(output)
+                        command_line('dhcp');command_line('ping 10.0.2.2')
+                        assert b'dhcp: 10.0.2.15' in output[start:]
+                        assert b'sent=4 received=4 lost=0' in output[start:]
+                        command_line('host localhost')
+                        assert b'localhost has address' in output[start:]
+                        command_line(f'httpget 10.0.2.2 / {http.server_port} > /fat/ecm-http.txt')
+                        start=len(output);command_line('cat /fat/ecm-http.txt')
+                        assert body in output[start:].replace(b'\r',b'')
                     # 22 + Ethernet/IP/UDP headers (42) = exactly 64 bytes.
                     # Alternate this with 65-byte frames, across repeated TRB wraps.
                     started=time.monotonic();i=0
@@ -124,8 +172,15 @@ def main():
                     q.call('quit');process.wait(timeout=10)
                 finally:
                     stop_process(process);(out/'serial.txt').write_bytes(output)
+                from exfat_test_image import ExfatFixture
+                fixture=ExfatFixture((tmp/'disk.exfat').read_bytes())
+                assert fixture.read('ecm-http.txt').endswith(body)
+                report=fixture.read('network-check.txt')
+                assert body in report and b'http-status=0' in report
+                (out/'network-check.txt').write_bytes(report)
     finally:
         stop.set();worker.join(timeout=2);udp.close()
+        http.shutdown();http.server_close();http_worker.join(timeout=2)
     # Check actual wire framing, not only the application echo result.
     raw=(out/'traffic.pcap').read_bytes();assert raw[:4]==b'\xd4\xc3\xb2\xa1'
     cursor=24;sizes=[]
@@ -135,6 +190,6 @@ def main():
         if len(frame)>=42 and frame[12:14]==b'\x08\x00' and frame[23]==17 and frame[36:38]==udp_port.to_bytes(2,'big'):
             sizes.append(len(frame))
     assert sizes.count(64)==(rounds+1)//2 and sizes.count(65)==rounds//2,sizes
-    print(f'usb-ecm: PASS second configuration selection, DHCP, ICMP, {rounds} UDP echoes including exact-64-byte ZLP frames, repeated ring wraps, TCP web serving, shared USB keyboard and disconnect quarantine')
+    print(f'usb-ecm: PASS second configuration selection, DHCP, DNS, outbound HTTP, three traffic outage/recovery cycles, ICMP, {rounds} UDP echoes including exact-64-byte ZLP frames, repeated ring wraps, TCP web serving, shared USB keyboard and disconnect quarantine')
 
 if __name__=='__main__':main()

@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-19. State: **native desktop, input, brightness and sound exercised; trackpad latency reported**.
+Updated: 2026-10-20. State: **native desktop, input, brightness, sound, CPU/fan telemetry and first USB Ethernet DHCP/ping exercised; extended networking trial in preparation**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -1094,3 +1094,8 @@ and queued traffic, HTTP client/local test fixture, USB network VM regression
 and opening Help. Retain submitted DMA ownership and USB-removal quarantine;
 USB hotplug registration and multihoming remain separate work. Rebuild and test
 the merged filesystem baseline before another exact-stage native trial.
+
+Saved-check review found shell `dhcp` and `dns` always returned success even
+when their syscall failed. Extend this bounded scope to their exit statuses in
+`userspace/sh/sh.c`, with VM failed/successful network checks, so saved reports
+cannot label a failed lease as status zero.
