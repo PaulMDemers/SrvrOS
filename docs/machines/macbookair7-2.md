@@ -24,11 +24,11 @@ device work uses separate branches based on `main`.
   both exact-head CI runs passed at `869cbc7`. Merge tree matches the tested head.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: Q35 FACS Global Lock acquisition/contention
-  and denied-release fixtures; verify owner drain before interpreter reset.
-  Scope: separate runtime adapter, VM harness/CI and native runtime guide.
-  Native chipset/PCI permissions remain pending; no live hardware binding.
-  Pro11,2 PR #5 owns USB/storage and guided input (inspected `927a7f5`).
+- Current bounded implementation: collect this Air's missing PCI/chipset
+  read evidence; extend offline permission modeling only as required. Add a
+  modeled firmware-release event and independent operation deadline to the
+  separate Q35 Global Lock fixture. Scope: probe/runtime/tests/guides; native
+  binding remains gated. Pro11,2 PR #5 owns USB/GPT/guided input (`927a7f5`).
 - Global Lock checkpoint: Q35 full-uACPI tests pass two acquire/release
   lifetimes, firmware-held lock containment and denied PM1 handoff detection.
   Owner drain now precedes interpreter reset; a stuck worker retains heap,
