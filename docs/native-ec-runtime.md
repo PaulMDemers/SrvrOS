@@ -1,9 +1,9 @@
 # Native EC and battery runtime gate
 
 Updated 2026-10-20. This is the implementation boundary for the opt-in
-MacBookAir7,2 battery/AC diagnostic. One bounded AC-connected lifecycle has
-completed on this unit, as recorded below. AC transitions and a persistent
-provider remain pending; battery readings are absent from the ordinary desktop.
+MacBookAir7,2 battery/AC diagnostic. Bounded AC-connected sampling and the guided
+discharge/reconnect round are accepted on this unit, as recorded below. A
+persistent provider remains pending; battery readings are absent from the ordinary desktop.
 The existing desktop, isolated AML probe, brightness profile and Q35 adapter
 retain their current hardware permissions. Other Macs need independent evidence.
 
@@ -592,7 +592,8 @@ defines those against full-charge and design capacity respectively. The host's
 7.150 Ah design capacity is consistent with the difference; direct raw absolute
 SOC comparison is still pending. Preserve clearly named semantics rather than
 substituting one value to match an OS percentage. Calibration, discharge current,
-AC transitions and sustained desktop operation remain unaccepted.
+AC transitions were pending at this checkpoint; the later guided round below
+accepts that bounded sequence. Sustained desktop operation remains unaccepted.
 
 #### Retaining firmware graphics and wake-alarm events
 
@@ -751,9 +752,10 @@ observations per phase, −1.455 A during discharge, 0 A after reconnection, bot
 foreign-event restorations and clean runtime retirement. An earlier session of
 the same release lacks an exit record; its last periodic log was still waiting
 for unplug. The [machine record](machines/macbookair7-2.md#guided-round-collected--october-20)
-tracks that unresolved attempt and return confirmation. Preserve both results;
-one completed session does not erase an incomplete attempt or accept a
-long-running desktop provider.
+records the user's acceptance of the latest round and explicit exclusion of
+earlier attempts. The bounded transition milestone is accepted on this unit;
+the earlier incomplete session remains historical evidence, not a pass.
+A long-running desktop provider and calibrated accuracy remain separate work.
 
 ### Integration sequence
 

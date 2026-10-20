@@ -242,12 +242,18 @@ Two new sessions for `aa976febab59c128` were copied and hash-verified on return:
 
 The Ubuntu boot ID changed, the one-shot was consumed, and read-only exFAT
 checking is clean (172 directories, 844 files). Both sessions and the exact
-payload have hash-verified copies outside `build`. Human confirmation of what
-ended the earlier attempt and whether the latest return was automatic is pending.
-This establishes the latest run's bounded transition evidence, not reliability
-across both attempts, calibrated gauge accuracy or a persistent desktop service.
-No new reboot is armed; the accepted v31 diagnostic and desktop recovery remain
-preserved while the incomplete attempt is reconciled.
+payload have hash-verified copies outside `build`. The user confirmed the latest
+round was good and explicitly excluded earlier attempts from this acceptance.
+The bounded AC-connected → discharge → reconnect milestone is **accepted on this
+unit**, against the latest session only. The incomplete session remains historical
+evidence and is not promoted to a pass. This does not establish calibrated gauge
+accuracy or a persistent desktop service.
+
+The v32 diagnostic payload and accepted evidence are now retained outside
+`build`, alongside the v31 diagnostic and desktop recovery. No new reboot is
+armed. Next is a cached battery/AC provider on the serialized worker, with explicit
+lifetime, stale-data reporting and input/storage responsiveness validation before
+ordinary desktop integration.
 
 ## First completed native battery diagnostic — October 20
 
@@ -282,9 +288,9 @@ with that distinction. Raw absolute SOC has not yet been captured by SrvrOS;
 do not change the relative gauge merely to force equality. Sources and limits
 are in the [native runtime guide](../native-ec-runtime.md#first-physical-completion).
 
-Next bounded block: expose clearly labeled gauge/health data, then exercise a
-battery-only run and AC changes with the user before a cached desktop provider.
-Keep EC work on the serialized worker and preserve the accepted diagnostic.
+The subsequent guided round above completes bounded discharge and AC-change
+acceptance. Next is a cached desktop provider with clearly labeled gauge/health
+data. Keep EC work on the serialized worker and preserve the accepted diagnostics.
 
 ## Accepted scope and open items
 
@@ -301,7 +307,7 @@ Keep EC work on the serialized worker and preserve the accepted diagnostic.
 | System window stability | No recurrence in latest physical round | `fed370ffbe33d554`: System and Help exited cleanly, no collector attention flags; earlier timeout cause remains unproven |
 | PCM files / headphones | VM-tested / physical confirmation incomplete | Volume report does not separately accept these routes/workflows |
 | Package power / CPU0 active frequency | Physical diagnostic accepted | `ed93e03b2585dcaf`; bounded Text idle capture, no CPU controls or whole-laptop power |
-| Battery/AC diagnostic | Bounded AC-connected path physically completed | `13d8083de35b51af`: five samples, both event restores and clean runtime retirement; desktop service and AC transitions pending |
+| Battery/AC diagnostic | Bounded sampling and AC transitions accepted | `13d8083de35b51af`: connected sampling; latest `aa976febab59c128` session: three AC/discharge/reconnect phases, both event restores and clean retirement; persistent desktop service pending |
 | Suspend/resume | Not implemented | Separate ownership and acceptance milestone |
 | Optional isolated AML probe | Native completion accepted | `4e5f438c4069752b`; resource queries, zero errors/denials/leaks; v22 still omits this diagnostic |
 | USB Ethernet | Implemented CDC ECM, VM-tested | No actual adapter accepted |
