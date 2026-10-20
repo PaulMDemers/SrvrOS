@@ -408,7 +408,7 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("pre-reset drain");
     /* Reset retires events before its own wait callback: owner already drained. */
     uacpi_state_reset();
-    if(!acpi_worker_stop(&runtime.worker,1000)||runtime.heap||runtime.sci.phase!=SCI_OWNER_OFF)unsafe("runtime retire");
+    if(!acpi_worker_stop(&runtime.worker,1000)||runtime.heap||runtime.errors||runtime.denied||runtime.sci.phase!=SCI_OWNER_OFF)unsafe("runtime retire");
     if(!(runtime.platform.original_control&1)&&(inw(runtime.platform.ec.pm1_control)&1)) {
         outb(runtime.platform.ec.smi_command,runtime.platform.ec.acpi_disable);
         uint64_t end=timer_monotonic_us()+1000000;
