@@ -122,6 +122,7 @@ def main():
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
     parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
+    parser.add_argument("--keyboard-timeout", action="store_true", help="send no keys and verify the guided trial deadline")
     parser.add_argument("--keyboard-fail", action="store_true", help="inject a wrong key in the guided typing rehearsal")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
@@ -146,7 +147,9 @@ def main():
     if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
     keyboard_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v27-"))
-    if args.keyboard_fail and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
+    if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
+    keyboard_negative=args.keyboard_fail or args.keyboard_timeout
+    if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
@@ -237,7 +240,7 @@ def main():
                             keys=[("a",False),("a",True),("a",False),("a",False),("backspace",False),
                                   ("ret",False),("up",False),("down",False),("left",False),("right",False)]
                             if args.keyboard_fail: send_qmp_key(qmp,"b")
-                            else:
+                            elif not args.keyboard_timeout:
                                 for i,(key,shift) in enumerate(keys,1):
                                     wait_for(serial,lambda s: f"keyboard-test: step={i} " in s,process,40)
                                     time.sleep(.2) # Release the previous HID report before the next step.
@@ -265,7 +268,7 @@ def main():
                         assert "laptop-capture: saved=yes unmounted=yes" in text
                     if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_capture:
-                        assert ("keyboard-test: result=FAIL passed=0" if args.keyboard_fail else "keyboard-test: result=PASS passed=10") in text
+                        assert ("keyboard-test: result=FAIL passed=0" if keyboard_negative else "keyboard-test: result=PASS passed=10") in text
                     if args.workspace_table == "gpt":
                         assert "block: registered GPT partition usb0p1" in text
                     if idle_capture:
@@ -287,7 +290,7 @@ def main():
                         contents=stored.read(folder+"/"+filename)
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
-                            assert (b"keyboard-test: result=FAIL passed=0" if args.keyboard_fail else b"keyboard-test: result=PASS passed=10") in contents
+                            assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
                         if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture):
                             assert b"laptop-probe: unsupported chipset" in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
@@ -341,7 +344,7 @@ def main():
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
-                        "keyboard_capture":keyboard_capture,"keyboard_expected_failure":args.keyboard_fail,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
+                        "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
                     return

@@ -346,6 +346,8 @@ def install(release=None, keep_previous=False):
         print("Automated test profile: matching USB request enables log writes and guest reboot.")
     elif TRACKPAD_RE.fullmatch(verify(source).get("config_version", "")):
         print("Trackpad capture: interactive gestures/keyboard, UUID-selected workspace report, then halt.")
+    elif verify(source).get("config_version", "").startswith("ram-usb-v27-"):
+        print("Guided keyboard test: on-screen prompts, 30 seconds per step, save result and return; halt if saving fails.")
     elif LAPTOP_PROBE_RE.fullmatch(verify(source).get("config_version", "")):
         print("Laptop diagnostics: new unattended stages return on handled failure; guided/held profiles retain the failure screen.")
     elif DESKTOP_RE.fullmatch(verify(source).get("config_version", "")):

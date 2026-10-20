@@ -178,3 +178,12 @@ Test letters, Shift, Caps Lock, Backspace, Enter and all arrows through the
 keyboard character path (not serial injection). VM coverage must exercise both
 correct and incorrect input. A timeout/failure must be recorded as such, then
 return safely when persistence succeeds. Other device scopes remain unchanged.
+
+Guided v27 release `5c3c1f8a0106166c` (kernel source `9238d40`) passes build,
+keyboard host tests, 29 staging/profile tests and three exact-stage GPT VM runs:
+ten prompted keys produce PASS; a wrong key produces FAIL; no input reaches the
+30-second deadline and produces FAIL. All three save the matching result to the
+exit log, pass offline exFAT verification and reset automatically. The instruction
+screen was visually inspected. The same payload is next for physical typing;
+no physical keyboard acceptance is claimed yet. Preserve the successful native
+diagnostic as previous, with older payloads retained in the durable archive.
