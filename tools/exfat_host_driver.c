@@ -52,7 +52,8 @@ static void equal(const char *path, const uint8_t *expected, uint64_t n) {
 }
 int main(int argc, char **argv) {
     assert(argc>=3);
-    bool check_only=!strcmp(argv[2],"allocation-check");
+    bool image_range=!strcmp(argv[2],"image-range");
+    bool check_only=image_range||!strcmp(argv[2],"allocation-check");
     fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
     struct stat st; assert(fstat(fd,&st)==0);
     uint64_t bytes=st.st_size;
@@ -73,9 +74,15 @@ int main(int argc, char **argv) {
         }
         struct exfat_check_result result={0};
         bool ok=exfat_check("/vol",&result);
+        bool graph_ok=ok;
+        if(ok&&image_range) {
+            struct block_device *resolved=NULL;uint64_t offset=0;
+            ok=exfat_exclusive_range("/vol/srvros-work/battery-fs.img",16u*1024u*1024u,&resolved,&offset)&&resolved==&d;
+            printf("image-range: %s offset=%llu bytes=16777216\n",ok?"PASS":"REFUSED",(unsigned long long)offset);
+        }
         assert(!writes && !flushes);
         printf("allocation-check: %s files=%llu clusters=%llu leaked=%llu fat_bitmap_mismatches=%llu errors=%llu\n",
-            ok ? "PASS" : "FAIL",(unsigned long long)result.files_checked,
+            graph_ok ? "PASS" : "FAIL",(unsigned long long)result.files_checked,
             (unsigned long long)result.clusters_checked,(unsigned long long)result.leaked_clusters,
             (unsigned long long)result.fat_bitmap_mismatches,(unsigned long long)result.errors);
         close(fd);return ok ? 0 : 1;

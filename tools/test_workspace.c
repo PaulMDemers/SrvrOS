@@ -5,6 +5,8 @@
 #include "../kernel/src/workspace.c"
 
 static struct block_device disks[2];
+static bool image_busy;
+bool workspace_image_busy(void){return image_busy;}
 static bool mounted, busy_files, dirty, bad_marker, missing, flush_ok, file_sync_ok, foreign;
 static unsigned count, enables, disables, flushes, depth, raw_writes, invalidations;
 static bool scratch_file, extent_ok, raw_write_ok, raw_read_ok, mismatch;
@@ -74,7 +76,7 @@ void vfs_release_data(const struct vfs_node *n,const uint8_t *d) { (void)n;(void
 bool process_has_open_vfs_prefix(const char *p) { assert(!strcmp(p,"/work"));return busy_files; }
 int64_t process_file_sync_all(void) { return file_sync_ok?0:-1; }
 static void reset(void) {
-    active=NULL;parked=NULL;failed=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
+    active=NULL;parked=NULL;failed=image_busy=false;scratch=(__typeof__(scratch)){0};memset(disks,0,sizeof(disks));
     count=1;enables=disables=flushes=depth=raw_writes=invalidations=0;
     scratch_file=mismatch=false;extent_ok=raw_write_ok=raw_read_ok=true;
     disks[0].block_size=512;disks[0].read=raw_read;
@@ -84,6 +86,7 @@ static void reset(void) {
     marker=(struct vfs_node){.type=VFS_NODE_FILE,.size=sizeof(marker_text)-1};
 }
 int main(void) {
+    reset();image_busy=true;assert(!workspace_mount("37d8c5d0")&&!mounted&&!enables);
     reset();assert(!workspace_parked_device());workspace_boot("srvros.storage=ram");assert(!active && !enables);
     workspace_boot("srvros.workspace-volume=37d8c5d0 srvros.workspace-volume=37d8c5d0");assert(!active && !enables);
     assert(!workspace_mount("bad") && !workspace_mount("37d8/c5d0"));

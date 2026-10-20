@@ -180,6 +180,17 @@ class CollectionTests(unittest.TestCase):
                     written+'\n'+prepared,written+'\n'+write,written.replace(finish,''),
                     written.replace('cycles=200',f'cycles={2**64}'),written.replace(prepared+'\n','')+'\n'+prepared):
             self.assertIsNone(desktop.battery_usb_write_result(bad),bad)
+        image_prepared='workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=2097152 bytes=16777216; unmounted=yes aliases=revoked'
+        image_revoked='workspace-image: revoked clean=yes'
+        image_result='battery-filesystem: PASS cycles=200 commands=600 busy_cycles=50 progress_bursts=4 bursts=40 max_burst_us=270000 elapsed_us=60000000; retired=yes revoked=yes'
+        image_text=image_prepared+'\n'+text.replace(summary,image_revoked+'\n'+image_result+'\n'+summary)
+        self.assertTrue(desktop.battery_filesystem_result(image_text)['isolated_complete'])
+        for bad in (image_text.replace('elapsed_us=60000000','elapsed_us=59999999'),
+                    image_text.replace('commands=600','commands=599'),image_text.replace('cycles=200',f'cycles={2**64}'),
+                    image_text.replace('progress_bursts=4','progress_bursts=0'),image_text.replace('busy_cycles=50','busy_cycles=201'),
+                    image_text.replace(image_revoked,'workspace-image: revoked clean=NO'),image_text.replace(finish,''),
+                    image_text+'\n'+image_result,image_text.replace(image_prepared+'\n','')+'\n'+image_prepared):
+            self.assertIsNone(desktop.battery_filesystem_result(bad),bad)
         with tempfile.TemporaryDirectory() as temp:
             workspace=Path(temp);proof=desktop.battery_usb_write_result(written)
             scratch_path=workspace/'battery-io-0000000000001234.bin'

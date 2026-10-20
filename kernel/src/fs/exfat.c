@@ -2617,16 +2617,21 @@ out:
     return ok;
 }
 
-bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
+static bool exclusive_range(const char *path,uint64_t bytes,bool single,
+    struct block_device **device,uint64_t *offset) {
     uint64_t index;
-    if(!path||!device||!offset)return false;
+    if(!path||!device||!offset||!bytes)return false;
     struct exfat_mount *mount=find_mount_and_index_for_file(path,&index);
     if(!mount)return false;
     struct exfat_file *file=&mount->files[index];
     struct exfat_volume *v=&mount->volume;
     if(!v->device||v->image||v->write_blocked||v->mutation_depth||v->flags||
-       file->volume!=v||file->size!=4096||file->allocated_clusters!=1||
-       v->cluster_size<4096||!v->sector_size||4096%v->sector_size)return false;
+       file->volume!=v||file->size!=bytes||!file->allocated_clusters||
+       (single&&(file->allocated_clusters!=1||v->cluster_size<bytes))||
+       !v->sector_size||bytes%v->sector_size)return false;
+    struct exfat_stream_entry stream;
+    if(!volume_read(v,file->stream_entry_offset,&stream,sizeof(stream))||
+       stream.valid_data_length!=bytes||stream.data_length!=bytes)return false;
     /* The general checker permits VFS aliases. A raw scratch lease must not. */
     for(uint64_t i=0;i<mount->file_count;i++)
         if(i!=index&&mount->paths[i][0]&&mount->files[i].first_cluster==file->first_cluster)return false;
@@ -2634,7 +2639,21 @@ bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t 
     uint64_t start;
     if(!check_mount(mount,&result)||!cluster_offset(v,file->first_cluster,&start)||
        start%v->sector_size)return false;
+    if(!file->no_fat_chain) {
+        for(uint64_t i=1;i<file->allocated_clusters;i++) {
+            uint32_t next;
+            if(!next_cluster(v,file->first_cluster+(uint32_t)i-1,&next)||
+               next!=file->first_cluster+i)return false;
+        }
+    }
     *device=v->device;*offset=start;return true;
+}
+bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
+    return exclusive_range(path,4096,true,device,offset);
+}
+bool exfat_exclusive_range(const char *path,uint64_t bytes,
+    struct block_device **device,uint64_t *offset) {
+    return exclusive_range(path,bytes,false,device,offset);
 }
 
 bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {

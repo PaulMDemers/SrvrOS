@@ -91,6 +91,29 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Isolated filesystem hardware preparation — October 20
+
+PR #7 passed CI and merged as `76508bf`; this device branch consumes that baseline.
+Pro PR #5 inspected at `304bc55`. Air scope: exclusive exFAT file-extent admission,
+a diagnostic bounded block view over a prepared disposable filesystem image,
+workspace lease exclusion, battery workload and VM/host isolation verification.
+Avoid Pro's partition-parser and CPU-load changes. The outer workspace must be
+unmounted with public writes revoked throughout the lease; all test allocations
+remain inside the image's proven data extent. Validate interrupted inner writes,
+byte-for-byte preservation outside that extent, lease revocation and refusal paths
+before adding a native capture. Ordinary desktop startup remains unchanged.
+Air reserves **v38 laptop-probe** for `--battery-filesystem`; preserve Pro's
+v37 desktop network profile during integration. The isolated VM completed 332
+cycles / 249,772 transport commands over 60,183,438 microseconds, with 25 progress
+bursts inside I/O scopes and generation 24 at completion. Service retirement,
+exclusive range revocation, offline image contents/allocation checks and exact
+preservation of every byte outside the image passed. Filesystem traffic now waits for ACTIVE runtime ownership. Both the setup and
+active-sample deadline fixtures reset automatically; outer bytes remained unchanged
+and a separate copy of the interrupted inner image recovered successfully.
+All 457 write-failure, 457 power-cut and 72 flush-failure host boundaries passed
+outer isolation and post-recovery inner/outer allocation checks. Physical
+acceptance is pending.
+
 ### Sustained filesystem coexistence — October 20 (VM-first)
 
 Base `d72d2af`, host/CI follow-up PR #7 at `dd4245d`; Pro PR #5 inspected at
