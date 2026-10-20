@@ -20,19 +20,69 @@ device work uses separate branches based on `main`.
 - Shared scope: power telemetry/collector first; subsequent ACPI/EC runtime,
   worker/IRQ ownership and battery interfaces require explicit coordination.
   No new native EC/SCI enablement is part of the power capture.
-- Integration baseline: `main` merge `1d44cee`; Terminal fix and agent rules merged.
+- Integration baseline: `main` merge `db40ed5`; PR #3 and its exact-head CI passed.
 - Power checkpoint: v26 `ed93e03b2585dcaf` accepted for bounded read-only
   telemetry, 6.458 W package average / 2,083 MHz CPU0 active over 52.999 seconds.
-- Current bounded implementation: early EC handler binding and namespace-load
-  ownership in the separate Q35 runtime fixture. Scope is
-  `ports/srvros/uacpi/runtime/{qemu_adapter,ec_fixture}.*`, synthetic ACPI tables
-  and VM harnesses; no ordinary-kernel/native EC gate changes. Dependencies:
-  existing worker/transport lifetime contracts and pinned uACPI initialization.
-- VM checkpoint: module-level AML EC access before namespace initialization,
-  refusal/cleanup on failed access, bounded load timeout containment and repeated
-  teardown now pass. PR #3 publishes this work; it is not native EC acceptance.
-- Next dependency: audit native ECDT/resource and initialization-owner policy,
-  including interpreter-initiated reset, before enabling any laptop EC/SCI path.
+- Current bounded implementation: offline native memory/PCI/GPIO permission
+  audit, alongside isolating the POSIX pipe-restart regression. Shared scope:
+  namespace probe/fixtures, posixdemo test protocol, focused VM coverage and CI.
+  No live mappings or hardware permissions change. Pro11,2 PR #5 owns USB/storage.
+- Pipe-restart checkpoint (`3e70395`): the sending helper blocks its process-wide
+  test signal so its own yields cannot consume it. The probe verifies the handler
+  ran on the reader; 256 rounds with varied yields and the full 481-command CLI
+  suite pass, with clean exFAT. This corrects the test protocol, not the broader
+  POSIX signal implementation. The previously failing old-head CI passed on
+  retry; the new repeated regression is retained in CI.
+- Memory audit checkpoint: private memory/PCI access traces and budgets pass
+  21 namespace tests normally and under ASan/UBSan. Captured initialization's eight writes only change OSYS;
+  one PCI read and the constrained GPIO access are recorded. Separate `_SB._INI`
+  correctly refuses an additional GPIO read at `0xa74` for `GN46`; its live
+  meaning/ownership remain unaccepted. Input captures remain unchanged. See the
+  [runtime guide](../native-ec-runtime.md) for exact scope and counts.
+- SCI ownership checkpoint (`fbdf014`): the reusable owner now prepares a masked
+  route, registers its callback, enables delivery, and retires/restores the
+  route with bounded rollback. Host fault tests and ASan/UBSan pass, including
+  immediate delivery, partial writes and poisoned-state retention. The separate
+  Q35 runtime passes three SCI lifetimes and failed-install rollback after
+  actual route preparation; early EC load passes two lifetimes with queries,
+  SBS samples and disconnect cleanup. Blocked-worker and interpreter self-reset
+  cases halt visibly with live state retained. These are VM/host results only;
+  native source ownership and live mappings remain pending.
+- Query containment checkpoint: a drain now retains its attempt/time budget
+  across worker batches and additional notifications. Host/sanitizer cases pass
+  for finite/repeated drains, queued and AML time, clock regression and sticky
+  faults. The early-load VM regression passes; continuous and zero-reply storms
+  each halt at 128 attempts, and a three-second AML query fails its two-second
+  cooperative budget after returning. All retain live state with interrupts off.
+  CI now runs the separate SCI/early-EC and query-fault VMs sequentially and saves
+  their serial evidence. Native GPE masking/rearm and a worker that cannot return
+  still need the external ownership/lifecycle path; no physical result is claimed.
+- Event-register checkpoint (`843b66c`): complete supported FADT event layout
+  decoding and exact-width/direction IO policy pass host tests and ASan/UBSan,
+  including the captured Air FADT. Q35 now restricts fixed enables to its Global
+  Lock/power button and enables no GPEs. SCI lifecycle and early EC/SBS/teardown
+  regressions pass under the policy. An injected early write denial is refused
+  despite upstream API success, then cleans up with zero heap before a normal
+  start. Full startup clears all GPE status bytes: native ownership must cover
+  that domain, and cleared pending events cannot be rolled back from a snapshot.
+  Live native register/NVS/FACS/PCI/GPIO permissions remain unaccepted.
+- Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
+  captured Air firmware, legacy/extended address consistency, namespace resource
+  agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
+- Resource checkpoint: [offline EC contract audit](../native-ec-runtime.md)
+  matches captured ECDT/FADT to the loaded EC Device/HID/UID/GPE/CRS, with absent
+  `_GLK`, zero errors/denials/leaks and private snapshots only. Generic table
+  and namespace refusal tests pass. A separate PCI0 `_INI` replay refuses the
+  GPIO mapping at `0x800`. The follow-up private byte replay completes PCI0
+  `_INI` with one read/write at `0xb90`, setting only bit 3. The same replay
+  passes a set-only bit-3 rule and rejects a wrong mask; native GPIO effects
+  and ownership still need acceptance. Eighteen namespace tests and the pure
+  per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
+  This is not controller ownership acceptance. The production build passes and
+  its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
+- Next checkpoint: implement the separate opt-in native adapter's audited
+  mappings, Darwin initialization and SCI/EC owner lifecycle; test failures
+  before a logged physical battery trial. No new trial is armed.
 
 ## Accepted scope and open items
 

@@ -10,11 +10,19 @@ Only unmodified `include/`, `source/`, LICENSE and README.md are vendored.
 The first adapter is `tools/acpi_namespace_probe.c`, a single-threaded offline
 host tool. It builds synthetic RSDP/XSDT/FADT pointers around explicitly supplied
 DSDT/SSDT copies, validates their checksums and evaluates selected objects.
-Physical mappings are limited to these owned buffers and explicit snapshots. SystemIO accesses and uncaptured PCI/MMIO accesses are denied; there is no
+Physical mappings are limited to these owned buffers and explicit snapshots.
+SystemIO accesses without an explicit private byte model and uncaptured
+PCI/MMIO accesses are denied; there is no
 `/dev/mem`, port I/O or host firmware access. `--region ADDRESS:FILE` and
 `--pci SEG:BUS:DEV.FN:FILE` explicitly provide private copies of previously
 captured memory/configuration state. Writes change those in-memory copies only;
-the files and hardware are never modified.
+the files and hardware are never modified. `--io-model ADDRESS:FILE` supplies
+private SystemIO bytes and traces every access. `--io-set-model ADDRESS:MASK:FILE`
+restricts a one-byte model to setting the specified bits, using the shared pure
+`acpi_io_rule` predicate. Mapping a broader AML region does not admit neighboring
+accesses; each access is checked against the explicit model. Models are bounded
+and overlapping ones are refused; more than 4,096 accesses aborts the process.
+They emulate bytes, not EC/controller protocols or hardware ownership.
 `UACPI_REDUCED_HARDWARE` compiles out fixed-register/event machinery and
 `UACPI_NATIVE_MMIO` prevents operation-region access through table mappings.
 These are restrictions of the offline adapter, not claims about laptop hardware.
@@ -23,12 +31,25 @@ The tool loads module-level AML, but does not call namespace initialization,
 enter ACPI mode, install an EC handler or run `_REG`/all `_INI` methods. Its
 Darwin profile disables other vendor `_OSI` strings; selecting it is an explicit
 probe option, not yet native OS policy. Each evaluated object is named on the
-command line. Loop depth/time and host runtime are bounded. A denied access is
+command line, except the explicit EC contract audit described below. Loop depth/time and host runtime are bounded. A denied access is
 reported as incomplete; values from a denied access must not be treated as hardware readings.
 
 Native SCI/GPE ownership, scheduler synchronization, EC query dispatch and the
 battery provider remain separate work. Offline resource evaluation cannot prove
 that battery sampling, suspend, power-off or firmware initialization works.
+
+## Offline ECDT/namespace agreement
+
+`--ec-contract ECDT.dat FACP.dat` validates the supported resource layout and,
+after explicitly requested methods, compares the ECDT device path, HID, UID,
+GPE and CRS with the loaded namespace. It also reports optional Global Lock
+requirements. No controller access is added. The
+[native EC runtime gate](../../../docs/native-ec-runtime.md) records the supported
+subset, captured Air result, initialization side effects and remaining ownership
+work. `make test-acpi-ec-resources test-acpi-namespace` covers malformed tables,
+namespace disagreements, type errors and private snapshot behavior. Logged AML
+errors during evaluation now contribute to failure, including APIs that return
+success. Ordinary desktop startup and the restricted native probe are unchanged.
 
 ## Isolated native probe
 
@@ -380,3 +401,70 @@ containment. Existing `--namespace-init`, `--namespace-denied`,
 `--disconnect-timeout` and `acpi_runtime_smoke.py` remain regression paths.
 Ordinary hardware images do not link this adapter; native ECDT resource binding,
 permissions, `_OSI`, Global Lock and GPE ownership still require separate work.
+
+## Shared SCI route owner
+
+The Q35 adapter now uses `runtime/sci_owner` for masked preparation, callback
+registration, enablement, masking, retirement and saved-route restoration.
+Failed partial preparation or callback registration restores the saved masked
+route. A failed enable is remasked; failed masking/removal/restoration poisons
+the owner and requires a halt with state retained. The caller still owns source
+quiescence, worker draining and CPU0 lifecycle serialization. See the
+[native runtime gate](../../../docs/native-ec-runtime.md#sci-route-ownership-implementation)
+for the supported topology subset and limits.
+
+Host fault injection includes immediate interrupt delivery during unmask,
+remapped GSIs, bad firmware flags, invalid/live/pending saved routes, failures
+after hardware mutation and refusal to reuse poisoned state. The Q35 failed
+install now occurs after route preparation, so the runtime VM verifies real
+IO-APIC rollback. Normal/native boot does not link this adapter, and its Q35
+identity/SCI-9/GSI-9 gate remains unchanged.
+
+## EC query-drain containment
+
+The EC fixture now uses `runtime/ec_query_budget` across notifications and
+worker rescheduling. It admits at most 128 query attempts in two seconds,
+including queue delay and AML execution time, in batches of eight. Zero replies
+while the synthetic source stays asserted consume the same budget. Failure
+retains its cause, worker and namespace and halts with interrupts disabled.
+The elapsed-time check is cooperative; an executing AML method is not canceled.
+The lifecycle drain deadline remains responsible for a worker that cannot return.
+See [query ownership limits](../../../docs/native-ec-runtime.md#bounded-ec-query-draining)
+before binding this to a native GPE.
+
+Run after rebuilding `acpi-runtime-vm-kernel`, sequentially:
+
+```sh
+make test-ec-query-budget
+python3 tools/acpi_ec_smoke.py --early-load
+python3 tools/acpi_ec_smoke.py --early-load --query-fault storm
+python3 tools/acpi_ec_smoke.py --early-load --query-fault zero-storm
+python3 tools/acpi_ec_smoke.py --early-load --query-fault slow
+```
+
+The fault modes check the exact retained reason/count, nonzero live allocation,
+absence of retirement/reset, and the halted CPU interrupt flag. The slow query
+executes three one-second AML sleeps, then fails the two-second budget even
+though the synthetic source has become quiet.
+
+## Event register permissions
+
+The Q35 runtime now decodes the complete supported FADT event layout and uses
+`runtime/event_io` for exact-width maps and per-access checks. Status registers
+remain W1C; fixed-event enables are limited to Global Lock and power button,
+and no GPE enable bit is allowed in this fixture. PM control/timer writes,
+SMI reads, other mode commands and unrelated ports are refused. This replaces
+the former broad IO-range permission; Q35 identity gates are unchanged.
+
+Initialization checks error/denial counters as well as API status. The runtime
+smoke injects one denied PM1-enable write: upstream reports successful early
+initialization, but SrvrOS refuses readiness and cleans up with zero heap. A
+following normal start must still work. Native status-domain ownership remains
+unimplemented: uACPI clears every GPE status byte while setting up the blocks,
+and those pending bits cannot be restored from a snapshot. See the
+[event ownership audit](../../../docs/native-ec-runtime.md#event-register-ownership-audit).
+
+`make test-acpi-event-io` covers malformed/conflicting/overlapping layouts,
+register width/direction, all 16-bit fixed-enable values and all byte GPE-enable
+values. An optional FADT file argument to the host binary audits a captured
+layout without accessing hardware.

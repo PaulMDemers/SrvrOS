@@ -19,7 +19,7 @@ DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
             OperationRegion (ER00, EmbeddedControl, Zero, 0x100)
             Field (ER00, ByteAcc, NoLock, Preserve)
             {
-                Offset (0x10), EVAL, 8, EACK, 8,
+                Offset (0x10), EVAL, 8, EACK, 8, QDLY, 8,
                 Offset (0x20), SPTR, 8, SSTS, 8, SADR, 8, SCMD, 8, SDAT, 16
             }
 #ifdef SRVROS_EARLY_LOAD
@@ -63,6 +63,7 @@ DefinitionBlock ("", "SSDT", 2, "SRVROS", "ECTEST", 1)
             Method (RD00, 0, NotSerialized) { Return (EVAL) }
             Method (_Q20, 0, NotSerialized)
             {
+                If (QDLY) { Sleep (1000); Sleep (1000); Sleep (1000) }
                 QVAL = EVAL
                 Increment (QNUM)
                 Notify (ECT0, 0x80)

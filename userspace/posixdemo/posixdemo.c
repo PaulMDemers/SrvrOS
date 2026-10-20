@@ -50,12 +50,15 @@ static void say_u64(uint64_t value) {
 }
 
 static volatile sig_atomic_t demo_signal_count;
+static pthread_t restart_reader;
+static volatile sig_atomic_t restart_handler_on_reader;
 
 int __posix_signal_dispatch_pending(void);
 
 static void demo_signal_handler(int signum) {
     if (signum == SIGTERM || signum == SIGUSR1 || signum == SIGUSR2 || signum == SIGCHLD) {
         demo_signal_count++;
+        if (restart_reader) restart_handler_on_reader = pthread_equal(pthread_self(), restart_reader);
     }
 }
 
@@ -140,18 +143,65 @@ static void *pthread_cond_signal_worker(void *arg) {
 
 struct restart_pipe_arg {
     int fd;
+    unsigned yields;
 };
 
 static void *pthread_restart_pipe_worker(void *arg) {
     struct restart_pipe_arg *pipe_arg = arg;
-    for (int i = 0; i < 8; i++) {
+    /* kill targets the process. Only the reader may consume this signal:
+     * sched_yield/write also dispatch pending signals in this libc. */
+    sigset_t blocked;
+    if (sigemptyset(&blocked) || sigaddset(&blocked, SIGUSR2) ||
+        pthread_sigmask(SIG_BLOCK, &blocked, 0)) {
+        (void)write(pipe_arg->fd, "!", 1);
+        return (void *)0xbad;
+    }
+    for (unsigned i = 0; i < pipe_arg->yields; i++) {
         sched_yield();
     }
-    kill(getpid(), SIGUSR2);
-    for (int i = 0; i < 8; i++) {
+    if (kill(getpid(), SIGUSR2)) {
+        (void)write(pipe_arg->fd, "!", 1);
+        return (void *)0xbad;
+    }
+    for (unsigned i = 0; i < pipe_arg->yields; i++) {
         sched_yield();
     }
     return write(pipe_arg->fd, "R", 1) == 1 ? (void *)0x42 : (void *)0xbad;
+}
+
+static int pipe_restart_probe(unsigned rounds) {
+    struct sigaction action = {.sa_handler=demo_signal_handler,.sa_mask=0,.sa_flags=SA_RESTART};
+    for (unsigned round=0; round<rounds; round++) {
+        int fds[2];
+        if (pipe(fds)) return 24;
+        if (sigemptyset(&action.sa_mask) || sigaction(SIGUSR2,&action,0)) {
+            close(fds[0]); close(fds[1]); return 24;
+        }
+        struct restart_pipe_arg arg = {.fd=fds[1],.yields=(rounds==1 ? 8 : round%4==0 ? 0 : round%4==1 ? 1 : round%4==2 ? 8 : 32)};
+        pthread_t thread;
+        demo_signal_count=0; restart_handler_on_reader=0; restart_reader=pthread_self();
+        int created=pthread_create(&thread,0,pthread_restart_pipe_worker,&arg);
+        if (created) {
+            restart_reader=0; signal(SIGUSR2,SIG_DFL); close(fds[0]); close(fds[1]); return 24;
+        }
+        char byte=0;
+        errno=0;
+        ssize_t n=read(fds[0],&byte,1);
+        int read_errno=errno, count=demo_signal_count, on_reader=restart_handler_on_reader;
+        void *result=0;
+        int joined=pthread_join(thread,&result);
+        int restored=signal(SIGUSR2,SIG_DFL)==SIG_ERR;
+        restart_reader=0;
+        close(fds[0]); close(fds[1]);
+        if (n!=1 || byte!='R' || read_errno==EINTR || count!=1 || !on_reader ||
+            joined || result!=(void *)0x42 || restored) {
+            printf("posixdemo: pipe restart failed round=%u read=%ld byte=%u errno=%d count=%d reader=%d join=%d worker=%lu restore=%d\n",
+                round,(long)n,(unsigned char)byte,read_errno,count,on_reader,joined,(unsigned long)result,restored);
+            return 24;
+        }
+    }
+    demo_signal_count=0;
+    return 0;
 }
 
 static void *pthread_detached_worker(void *arg) {
@@ -450,7 +500,12 @@ static int pthread_check_failed(const char *name) {
     } \
 } while (0)
 
-int main(void) {
+int main(int argc, char **argv) {
+    if (argc==2 && strcmp(argv[1],"--pipe-restart")==0) {
+        int result=pipe_restart_probe(256);
+        if (!result) say("posixdemo: pipe restart repeat PASS rounds=256 handler=reader\n");
+        return result;
+    }
     char cwd[160];
     char buffer[64];
     struct stat st;
@@ -1060,39 +1115,10 @@ int main(void) {
     demo_signal_count = 0;
     say("posixdemo: pipe eintr ok\n");
 
-    struct sigaction restart_action = {
-        .sa_handler = demo_signal_handler,
-        .sa_mask = 0,
-        .sa_flags = SA_RESTART,
-    };
-    char restart_byte = 0;
-    struct restart_pipe_arg restart_arg;
-    if (pipe(intr_pipe) < 0) {
-        say("posixdemo: pipe restart setup failed\n");
-        return 24;
-    }
-    restart_arg.fd = intr_pipe[1];
-    io_signal_value = 0;
-    demo_signal_count = 0;
-    errno = 0;
-    if (sigemptyset(&restart_action.sa_mask) < 0 ||
-        sigaction(SIGUSR2, &restart_action, 0) < 0 ||
-        pthread_create(&io_signal_thread, 0, pthread_restart_pipe_worker, &restart_arg) != 0 ||
-        read(intr_pipe[0], &restart_byte, 1) != 1 ||
-        restart_byte != 'R' ||
-        errno == EINTR ||
-        demo_signal_count != 1 ||
-        pthread_join(io_signal_thread, &io_signal_value) != 0 ||
-        io_signal_value != (void *)0x42 ||
-        signal(SIGUSR2, SIG_DFL) == SIG_ERR) {
+    if (pipe_restart_probe(1)) {
         say("posixdemo: pipe restart failed\n");
-        close(intr_pipe[0]);
-        close(intr_pipe[1]);
         return 24;
     }
-    close(intr_pipe[0]);
-    close(intr_pipe[1]);
-    demo_signal_count = 0;
     say("posixdemo: pipe restart ok\n");
 
     DIR *dir = opendir("/fat/posixdemo");

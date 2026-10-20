@@ -80,6 +80,8 @@ def main():
         help="Maximum wait for the long POSIX signal/thread probe.")
     parser.add_argument("--send-delay", type=float, default=0.003)
     parser.add_argument("--memory", default="512M")
+    parser.add_argument("--restart-only", action="store_true",
+                        help="run 256 isolated pipe-restart rounds instead of the full CLI suite")
     args = parser.parse_args()
 
     root = os.path.abspath(args.root)
@@ -577,6 +579,8 @@ def main():
         "posixdemo\n"
         "\x04"
     )
+    if args.restart_only:
+        script = "posixdemo --pipe-restart\necho restart-status-$?\n\x04"
     with tempfile.TemporaryDirectory(prefix="srvros-cli-") as temp_dir:
         disk = os.path.join(temp_dir, "srvros-cli.exfat")
         shutil.copyfile(source_disk, disk)
@@ -611,7 +615,7 @@ def main():
                 send_serial(sock, line, args.send_delay)
                 if line == "\x04":
                     output += read_until(sock, b"srv> ", max(args.line_wait, 2.0))
-                elif line.strip() == "posixdemo":
+                elif line.strip().startswith("posixdemo"):
                     output += read_until(sock, b" $ ", args.probe_wait)
                 elif line.strip() == "read READVAR":
                     # This command needs the following input line to finish.
@@ -961,6 +965,9 @@ def main():
         "posixdemo: ok",
         "exit",
     ]
+    if args.restart_only:
+        expected = ["posixdemo: pipe restart repeat PASS rounds=256 handler=reader",
+                    "\r\nrestart-status-0\r\n", " errors=0 ok"]
     missing = [marker for marker in expected if marker not in text]
     forbidden = [
         "source: cannot open child-cwd.sh",
@@ -968,6 +975,7 @@ def main():
         "cat: open failed: ./status.txt",
         "cat: open failed: www/../status.txt",
         "ls: not found: ./bin/../etc",
+        "posixdemo: pipe restart failed",
     ]
     present_forbidden = [marker for marker in forbidden if marker in text]
     if has_fatal_exception(text):

@@ -1,9 +1,12 @@
 /* Offline AML evaluation only. No kernel/host hardware access is permitted. */
 #define _POSIX_C_SOURCE 200809L
+#include <srvros/acpi_ec_resources.h>
+#include <srvros/acpi_io_rule.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/acpi.h>
 #include <uacpi/context.h>
 #include <uacpi/osi.h>
+#include <uacpi/namespace.h>
 #include <uacpi/tables.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -18,7 +21,11 @@
 static struct { void *p; size_t size; } mappings[MAX_TABLES+3];
 static size_t mapping_count, allocation_bytes, denied, local_writes;
 static struct { uintptr_t address; unsigned char *bytes; size_t size; } regions[16];
-static size_t region_count, aml_errors;
+static size_t region_count, aml_errors, snapshot_accesses;
+/* Explicit byte models only. Never backed by /dev/port or host I/O. */
+static struct { uint32_t base; unsigned char *bytes; size_t size; bool guarded; struct acpi_io_rule rule; } io_models[16];
+static size_t io_model_count, io_accesses;
+struct io_mapping { uint32_t base; size_t size; };
 struct pci_snapshot { uacpi_pci_address address; unsigned char data[256]; };
 static struct pci_snapshot pci[16];static size_t pci_count;
 static struct acpi_rsdp rsdp;
@@ -88,27 +95,97 @@ uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address a,uacpi_handle *out)
     denied++;return UACPI_STATUS_DENIED;
 }
 void uacpi_kernel_pci_device_close(uacpi_handle h) { (void)h; }
-uacpi_status uacpi_kernel_io_map(uacpi_io_addr base,uacpi_size len,uacpi_handle *out) { (void)out;fprintf(stderr,"probe: SystemIO mapping denied base=%llx len=%zu\n",(unsigned long long)base,len);denied++;return UACPI_STATUS_DENIED; }
-void uacpi_kernel_io_unmap(uacpi_handle h) { (void)h; }
+uacpi_status uacpi_kernel_io_map(uacpi_io_addr base,uacpi_size len,uacpi_handle *out) {
+    *out=NULL;
+    if(base<=65535&&len&&len<=65536-base) {
+        for(size_t i=0;i<io_model_count;i++) {
+            if(base<io_models[i].base+io_models[i].size&&io_models[i].base<base+len) {
+                /* AML can map a broad declared region, but each access below
+                 * must fit entirely in one explicitly supplied byte model. */
+                struct io_mapping *map=uacpi_kernel_alloc(sizeof(*map));
+                if(!map) return UACPI_STATUS_OUT_OF_MEMORY;
+                *map=(struct io_mapping){base,len};*out=map;
+                return UACPI_STATUS_OK;
+            }
+        }
+    }
+    fprintf(stderr,"probe: SystemIO mapping denied base=%llx len=%zu\n",(unsigned long long)base,len);
+    denied++;return UACPI_STATUS_DENIED;
+}
+void uacpi_kernel_io_unmap(uacpi_handle h) { uacpi_kernel_free(h); }
+static uacpi_status model_io(struct io_mapping *map,size_t offset,unsigned width,uint32_t *value,bool write) {
+    if(++io_accesses>4096) fatal("SystemIO model access budget exceeded");
+    if(!map||offset>map->size||width>map->size-offset) goto denied_access;
+    uint32_t address=map->base+offset;
+    for(size_t i=0;i<io_model_count;i++) {
+        if(address<io_models[i].base) continue;
+        size_t at=address-io_models[i].base;
+        if(at>io_models[i].size||width>io_models[i].size-at) continue;
+        if(io_models[i].guarded&&!acpi_io_rule_read(&io_models[i].rule,address,width*8)) goto denied_access;
+        uint32_t old=0;
+        for(unsigned j=0;j<width;j++) old|=(uint32_t)io_models[i].bytes[at+j]<<(8*j);
+        if(write&&io_models[i].guarded&&!acpi_io_rule_write(&io_models[i].rule,address,width*8,old,*value)) goto denied_access;
+        if(write) for(unsigned j=0;j<width;j++) io_models[i].bytes[at+j]=*value>>(8*j);
+        else *value=old;
+        printf("io-model: %s port=0x%x width=%u before=0x%x value=0x%x\n",write?"write":"read",address,width*8,old,*value);
+        return UACPI_STATUS_OK;
+    }
+denied_access:
+    fprintf(stderr,"probe: SystemIO access denied base=%x offset=%zu width=%u write=%u\n",map?map->base:0,offset,width*8,write);
+    denied++;return UACPI_STATUS_DENIED;
+}
+static void snapshot_budget(void) {
+    if (++snapshot_accesses>4096) fatal("memory/PCI snapshot access budget exceeded");
+}
+static uacpi_status snapshot_pci(uacpi_handle h,size_t offset,size_t size,void *value,bool write) {
+    snapshot_budget();
+    for(size_t i=0;i<pci_count;i++) {
+        if(h!=&pci[i]) continue;
+        if(offset>256-size) break;
+        uint64_t before=0,after=0;
+        memcpy(&before,pci[i].data+offset,size);
+        if(write) { memcpy(pci[i].data+offset,value,size);local_writes++; }
+        else memcpy(value,pci[i].data+offset,size);
+        memcpy(&after,value,size);
+        printf("pci-model: %s device=%x:%x:%x.%x offset=0x%zx width=%zu before=0x%llx value=0x%llx\n",
+            write?"write":"read",pci[i].address.segment,pci[i].address.bus,pci[i].address.device,
+            pci[i].address.function,offset,size*8,(unsigned long long)before,(unsigned long long)after);
+        return UACPI_STATUS_OK;
+    }
+    denied++;return UACPI_STATUS_DENIED;
+}
 #define SNAPSHOT_PCI(bits) \
-uacpi_status uacpi_kernel_pci_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { if(o>256-sizeof(*v)) { denied++;return UACPI_STATUS_DENIED; }memcpy(v,((struct pci_snapshot *)h)->data+o,sizeof(*v));return UACPI_STATUS_OK; } \
-uacpi_status uacpi_kernel_pci_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { if(o>256-sizeof(v)) { denied++;return UACPI_STATUS_DENIED; }memcpy(((struct pci_snapshot *)h)->data+o,&v,sizeof(v));local_writes++;return UACPI_STATUS_OK; }
+uacpi_status uacpi_kernel_pci_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { return snapshot_pci(h,o,sizeof(*v),v,false); } \
+uacpi_status uacpi_kernel_pci_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { return snapshot_pci(h,o,sizeof(v),&v,true); }
 SNAPSHOT_PCI(8) SNAPSHOT_PCI(16) SNAPSHOT_PCI(32)
-#define DENIED_IO(bits) \
-uacpi_status uacpi_kernel_io_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { (void)h;(void)o;(void)v;denied++;return UACPI_STATUS_DENIED; } \
-uacpi_status uacpi_kernel_io_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { (void)h;(void)o;(void)v;denied++;return UACPI_STATUS_DENIED; }
-DENIED_IO(8) DENIED_IO(16) DENIED_IO(32)
-static void *region_access(void *p,size_t size) {
+#define MODEL_IO(bits) \
+uacpi_status uacpi_kernel_io_read##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits *v) { \
+    uint32_t value=0;uacpi_status st=model_io(h,o,sizeof(*v),&value,false);if(!st) *v=value;return st; } \
+uacpi_status uacpi_kernel_io_write##bits(uacpi_handle h,uacpi_size o,uacpi_u##bits v) { \
+    uint32_t value=v;return model_io(h,o,sizeof(v),&value,true); }
+MODEL_IO(8) MODEL_IO(16) MODEL_IO(32)
+static void snapshot_memory(void *p,size_t size,void *value,bool write) {
+    snapshot_budget();
     uintptr_t address=(uintptr_t)p;
     for(size_t i=0;i<region_count;i++) {
         uintptr_t base=(uintptr_t)regions[i].bytes;
-        if(address>=base && address-base<=regions[i].size && size<=regions[i].size-(address-base)) return p;
+        if(address>=base && address-base<=regions[i].size && size<=regions[i].size-(address-base)) {
+            uint64_t before=0,after=0;
+            memcpy(&before,p,size);
+            if(write) { memcpy(p,value,size);local_writes++; }
+            else memcpy(value,p,size);
+            memcpy(&after,value,size);
+            printf("memory-model: %s address=0x%llx width=%zu before=0x%llx value=0x%llx\n",
+                write?"write":"read",(unsigned long long)(regions[i].address+address-base),size*8,
+                (unsigned long long)before,(unsigned long long)after);
+            return;
+        }
     }
-    fatal("MMIO outside explicit snapshot denied");return NULL;
+    fatal("MMIO outside explicit snapshot denied");
 }
 #define SNAPSHOT_MMIO(bits) \
-uacpi_u##bits uacpi_kernel_mmio_read##bits(void *p) { uacpi_u##bits v;memcpy(&v,region_access(p,sizeof(v)),sizeof(v));return v; } \
-void uacpi_kernel_mmio_write##bits(void *p,uacpi_u##bits v) { memcpy(region_access(p,sizeof(v)),&v,sizeof(v));local_writes++; }
+uacpi_u##bits uacpi_kernel_mmio_read##bits(void *p) { uacpi_u##bits v=0;snapshot_memory(p,sizeof(v),&v,false);return v; } \
+void uacpi_kernel_mmio_write##bits(void *p,uacpi_u##bits v) { snapshot_memory(p,sizeof(v),&v,true); }
 SNAPSHOT_MMIO(8) SNAPSHOT_MMIO(16) SNAPSHOT_MMIO(32) SNAPSHOT_MMIO(64)
 static void checksum(void *p,size_t n,size_t at) { unsigned char *b=p;b[at]=0;unsigned sum=0;for(size_t i=0;i<n;i++) sum+=b[i];b[at]=(unsigned char)-sum; }
 static void header(struct acpi_sdt_hdr *h,const char *sig,size_t len) {
@@ -126,20 +203,99 @@ static void display(uacpi_object *object,unsigned depth) {
     default:printf("<%s>",uacpi_object_type_to_string(uacpi_object_get_type(object)));break;
     }
 }
+static unsigned char *read_contract_table(const char *path,size_t *length) {
+    FILE *f=fopen(path,"rb");if(!f) fatal("cannot open EC contract table");
+    if(fseek(f,0,SEEK_END)) fatal("cannot size EC contract table");
+    long n=ftell(f);rewind(f);
+    if(n<36||n>1024*1024) fatal("invalid EC contract table size");
+    unsigned char *p=malloc(n);
+    if(!p||fread(p,1,n,f)!=(size_t)n||fclose(f)) fatal("cannot read EC contract table");
+    *length=n;return p;
+}
+static bool audit_contract(const struct acpi_ec_resources *r) {
+    const char *names[]={"_HID","_UID","_GPE","_CRS","_GLK"};
+    uacpi_object *objects[5]={0};bool glk_absent=false;
+    uacpi_namespace_node *node=NULL;uacpi_object_type type=UACPI_OBJECT_UNINITIALIZED;
+    bool ok=!uacpi_namespace_node_find(NULL,r->path,&node)&&
+        !uacpi_namespace_node_type(node,&type)&&type==UACPI_OBJECT_DEVICE;
+    if(!ok) printf("ec-contract: path does not resolve to a device\n");
+    for(unsigned i=0;i<5;i++) {
+        char path[140];snprintf(path,sizeof(path),"%s.%s",r->path,names[i]);
+        uacpi_status st=UACPI_STATUS_OK;
+        if(i==4) {
+            uacpi_namespace_node *glk_node=NULL;
+            st=uacpi_namespace_node_find(NULL,path,&glk_node);
+            glk_absent=st==UACPI_STATUS_NOT_FOUND;
+        }
+        if(!st) st=uacpi_eval_simple(NULL,path,&objects[i]);
+        printf("ec-contract: %s = ",path);
+        if(glk_absent) printf("<absent>");
+        else if(st||!objects[i]) { ok=false;printf("ERROR %s",st?uacpi_status_to_string(st):"no return"); }
+        else display(objects[i],0);
+        putchar('\n');
+    }
+    uacpi_u64 hid=0,uid=0,gpe=0,glk=0;uacpi_data_view crs={0},text={0};
+    if(ok) {
+        bool identity=(!uacpi_object_get_integer(objects[0],&hid)&&hid==0x090cd041)||
+            (!uacpi_object_get_string(objects[0],&text)&&text.length==8&&!memcmp(text.text,"PNP0C09",8));
+        ok=identity&&!uacpi_object_get_integer(objects[1],&uid)&&
+            !uacpi_object_get_integer(objects[2],&gpe)&&!uacpi_object_get_buffer(objects[3],&crs)&&
+            acpi_ec_namespace_matches(r,uid,gpe,crs.bytes,crs.length)&&
+            (glk_absent||(!uacpi_object_get_integer(objects[4],&glk)&&glk<=1));
+    }
+    ok=ok&&!aml_errors&&!denied;
+    for(unsigned i=0;i<5;i++) if(objects[i]) uacpi_object_unref(objects[i]);
+    printf("ec-contract: %s path=%s data=%x command=%x sci=%u gpe=%x status=%x enable=%x mask=%x global_lock=%s hardware_access=none\n",
+        ok?"MATCH":"REFUSED",r->path,r->data,r->command,r->sci,r->gpe,r->gpe_status,r->gpe_enable,r->gpe_mask,
+        !ok?"unresolved":glk_absent?"absent":glk?"required":"not-requested");
+    return ok;
+}
 int main(int argc,char **argv) {
     /* The independent wall clock also bounds AML outside While loops. */
     alarm(15);setvbuf(stdout,NULL,_IOLBF,0);
     int separator=0,darwin=0;
+    bool contract=false;struct acpi_ec_resources ec_contract={0};
     void *tables[MAX_TABLES];size_t table_count=0;
     for(int a=1;a<argc;a++) {
         if(!strcmp(argv[a],"--")) { separator=a+1;break; }
         if(!strcmp(argv[a],"--darwin")) { darwin=1;continue; }
+        if(!strcmp(argv[a],"--ec-contract")) {
+            if(contract||a+2>=argc) fatal("expected one --ec-contract ECDT.dat FACP.dat");
+            size_t en,fn;unsigned char *ec=read_contract_table(argv[++a],&en);
+            unsigned char *fa=read_contract_table(argv[++a],&fn);
+            enum acpi_ec_resource_result result=acpi_ec_resources_parse(&ec_contract,ec,en,fa,fn);
+            free(ec);free(fa);
+            if(result) { fprintf(stderr,"probe: EC contract table refusal=%u\n",result);return 1; }
+            contract=true;continue;
+        }
         if(!strcmp(argv[a],"--pci")) {
             unsigned seg,bus,dev,fn;int n=0;
             if(++a==argc||pci_count==16||sscanf(argv[a],"%x:%x:%x.%x:%n",&seg,&bus,&dev,&fn,&n)!=4||!n||seg>65535||bus>255||dev>31||fn>7) fatal("expected hex SEG:BUS:DEV.FN:FILE PCI snapshot");
             FILE *file=fopen(argv[a]+n,"rb");if(!file) fatal("cannot open PCI snapshot");
             if(fread(pci[pci_count].data,1,256,file)!=256||fgetc(file)!=EOF||fclose(file)) fatal("expected 256-byte PCI snapshot");
             pci[pci_count++].address=(uacpi_pci_address){.segment=seg,.bus=bus,.device=dev,.function=fn};continue;
+        }
+        if(!strcmp(argv[a],"--io-model")||!strcmp(argv[a],"--io-set-model")) {
+            bool guarded=!strcmp(argv[a],"--io-set-model");
+            if(++a==argc||io_model_count==16) fatal("expected ADDRESS:FILE IO model");
+            char *end=NULL;unsigned long long base=strtoull(argv[a],&end,0);
+            if(end==argv[a]||*end!=':'||base>65535) fatal("invalid IO model address");
+            unsigned long mask=0;const char *path=end+1;
+            if(guarded) {
+                mask=strtoul(path,&end,0);
+                if(end==path||*end!=':'||!mask||mask>255) fatal("expected ADDRESS:SET_MASK:FILE byte model");
+                path=end+1;
+            }
+            FILE *f=fopen(path,"rb");if(!f) fatal("cannot open IO model");
+            if(fseek(f,0,SEEK_END)) fatal("cannot size IO model");
+            long size=ftell(f);rewind(f);
+            if(size<=0||(unsigned long)size>65536-base||(guarded&&size!=1)) fatal("invalid IO model size");
+            unsigned char *bytes=malloc(size);
+            if(!bytes||fread(bytes,1,size,f)!=(size_t)size||fclose(f)) fatal("cannot read IO model");
+            for(size_t i=0;i<io_model_count;i++)
+                if(base<io_models[i].base+io_models[i].size&&io_models[i].base<base+(size_t)size) fatal("overlapping IO models");
+            io_models[io_model_count++]=(typeof(io_models[0])){
+                .base=base,.bytes=bytes,.size=size,.guarded=guarded,.rule={base,8,mask,mask}};continue;
         }
         if(!strcmp(argv[a],"--region")) {
             if(++a==argc||region_count==16) fatal("expected ADDRESS:FILE region snapshot");
@@ -163,7 +319,7 @@ int main(int argc,char **argv) {
         unsigned sum=0;for(long i=0;i<size;i++) sum+=((unsigned char *)h)[i];if(sum&255) fatal("bad table checksum");
         add_mapping(h,size);tables[table_count++]=h;
     }
-    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--darwin] DSDT.dat [SSDT.dat ...] -- PATH ...");
+    if(!table_count||!separator||separator==argc) fatal("usage: acpi-namespace [--darwin] [--ec-contract ECDT.dat FACP.dat] [--io-model ADDRESS:FILE] [--io-set-model ADDRESS:MASK:FILE] DSDT.dat [SSDT.dat ...] -- PATH ...");
     struct acpi_fadt fadt={0};header(&fadt.hdr,"FACP",sizeof(fadt));fadt.x_dsdt=(uintptr_t)tables[0];
     checksum(&fadt,sizeof(fadt),9);add_mapping(&fadt,sizeof(fadt));
     size_t xsdt_size=sizeof(struct acpi_sdt_hdr)+8*table_count;
@@ -177,15 +333,17 @@ int main(int argc,char **argv) {
     uacpi_context_set_loop_timeout(1);uacpi_context_set_max_call_stack_depth(32);
     if(darwin) { check(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR),"disable vendor interfaces");check(uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR),"Darwin interface"); }
     check(uacpi_namespace_load(),"namespace load");
-    unsigned failed=(unsigned)aml_errors;
+    unsigned failed=0;
     for(int a=separator;a<argc;a++) {
         uacpi_object *object=NULL;uacpi_status st=uacpi_eval_simple(NULL,argv[a],&object);
         printf("%s = ",argv[a]);if(st) { printf("ERROR %s",uacpi_status_to_string(st));failed++; }else if(object) display(object,0);else printf("<no return>");putchar('\n');
         if(object) uacpi_object_unref(object);
     }
-    uacpi_state_reset();printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
+    if(contract&&!audit_contract(&ec_contract)) failed++;
+    uacpi_state_reset();failed+=(unsigned)aml_errors;printf("probe: tables=%zu denied=%zu snapshot_writes=%zu remaining_allocated=%zu errors=%u\n",table_count,denied,local_writes,allocation_bytes,failed);
     for(size_t i=0;i<table_count;i++) free(tables[i]);
     free(xsdt);
     for(size_t i=0;i<region_count;i++) free(regions[i].bytes);
+    for(size_t i=0;i<io_model_count;i++) free(io_models[i].bytes);
     return failed||denied||allocation_bytes?1:0;
 }

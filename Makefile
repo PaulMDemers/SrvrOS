@@ -2924,6 +2924,22 @@ test-widgets: test-widget-boundary
 test-widget-boundary: $(HOST_DESK_WIDGETS_A)
 	$(PYTHON) tools/check_widget_boundary.py --nm $(HOST_NM) $(HOST_DESK_WIDGETS_A)
 
+test-core: test-acpi-io-rule
+.PHONY: test-acpi-io-rule
+test-acpi-io-rule: build/tests/acpi-io-rule-host$(HOST_EXE)
+	$<
+build/tests/acpi-io-rule-host$(HOST_EXE): tools/test_acpi_io_rule.c kernel/src/drivers/acpi_io_rule.c kernel/include/srvros/acpi_io_rule.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_acpi_io_rule.c kernel/src/drivers/acpi_io_rule.c -o $@
+
+test-core: test-acpi-ec-resources
+.PHONY: test-acpi-ec-resources
+test-acpi-ec-resources: build/tests/acpi-ec-resources-host$(HOST_EXE)
+	$<
+build/tests/acpi-ec-resources-host$(HOST_EXE): tools/test_acpi_ec_resources.c kernel/src/drivers/acpi_ec_resources.c kernel/include/srvros/acpi_ec_resources.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_acpi_ec_resources.c kernel/src/drivers/acpi_ec_resources.c -o $@
+
 .PHONY: test-ec-transport
 test-core: test-ec-transport
 test-ec-transport: build/tests/ec-transport-host$(HOST_EXE)
@@ -3002,9 +3018,9 @@ UACPI_SRC := $(wildcard ports/upstream/uacpi/source/*.c)
 UACPI_HEADERS := $(shell find ports/upstream/uacpi/include -type f)
 .PHONY: acpi-namespace
 acpi-namespace: build/tools/acpi-namespace$(HOST_EXE)
-build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c $(UACPI_SRC) $(UACPI_HEADERS)
+build/tools/acpi-namespace$(HOST_EXE): tools/acpi_namespace_probe.c kernel/src/drivers/acpi_ec_resources.c kernel/include/srvros/acpi_ec_resources.h kernel/src/drivers/acpi_io_rule.c kernel/include/srvros/acpi_io_rule.h $(UACPI_SRC) $(UACPI_HEADERS)
 	@mkdir -p $(@D)
-	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO $< $(UACPI_SRC) -o $@
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -I kernel/include -I ports/upstream/uacpi/include -DUACPI_REDUCED_HARDWARE -DUACPI_NATIVE_MMIO $< kernel/src/drivers/acpi_ec_resources.c kernel/src/drivers/acpi_io_rule.c $(UACPI_SRC) -o $@
 
 .PHONY: test-acpi-namespace
 test-acpi-namespace: acpi-namespace
@@ -3176,6 +3192,30 @@ build/tests/acpi-worker-host$(HOST_EXE): tools/test_acpi_worker.c ports/srvros/u
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I ports/upstream/uacpi/include tools/test_acpi_worker.c ports/srvros/uacpi/runtime/work_queue.c -o $@
 
+test-core: test-sci-owner
+test-core: test-ec-query-budget
+test-core: test-acpi-event-io
+.PHONY: test-acpi-event-io
+test-acpi-event-io: build/tests/acpi-event-io-host$(HOST_EXE)
+	$<
+build/tests/acpi-event-io-host$(HOST_EXE): tools/test_acpi_event_io.c ports/srvros/uacpi/runtime/event_io.c ports/srvros/uacpi/runtime/event_io.h kernel/src/drivers/acpi_ec_resources.c kernel/include/srvros/acpi_ec_resources.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_acpi_event_io.c ports/srvros/uacpi/runtime/event_io.c kernel/src/drivers/acpi_ec_resources.c -o $@
+
+.PHONY: test-ec-query-budget
+test-ec-query-budget: build/tests/ec-query-budget-host$(HOST_EXE)
+	$<
+build/tests/ec-query-budget-host$(HOST_EXE): tools/test_ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror tools/test_ec_query_budget.c ports/srvros/uacpi/runtime/ec_query_budget.c -o $@
+
+.PHONY: test-sci-owner
+test-sci-owner: build/tests/sci-owner-host$(HOST_EXE)
+	$<
+build/tests/sci-owner-host$(HOST_EXE): tools/test_sci_owner.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/sci_owner.h kernel/include/srvros/acpi.h kernel/include/srvros/irq_handlers.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_sci_owner.c ports/srvros/uacpi/runtime/sci_owner.c -o $@
+
 .PHONY: test-sci-gate
 test-core: test-sci-gate
 test-sci-gate: build/tests/sci-gate-host$(HOST_EXE)
@@ -3185,7 +3225,7 @@ build/tests/sci-gate-host$(HOST_EXE): tools/test_sci_gate.c ports/srvros/uacpi/r
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include -I ports/upstream/uacpi/include $< -Wl,--gc-sections -o $@
 
 # Explicit, separate VM-only runtime kernel. Never substitutes build/kernel/srvros.elf.
-UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c
+UACPI_VM_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/qemu_adapter.c ports/srvros/uacpi/runtime/ec_fixture.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/event_io.c
 UACPI_VM_OBJ := $(UACPI_VM_SRC:%.c=build/acpi-runtime/%.c.o)
 UACPI_WORK_NATIVE_OBJ := $(filter %/runtime/work_queue.c.o %/runtime/work_worker.c.o %/runtime/work_worker_test.c.o %/runtime/sci_test.c.o,$(UACPI_KERNEL_OBJ))
 .PHONY: acpi-runtime-vm-kernel

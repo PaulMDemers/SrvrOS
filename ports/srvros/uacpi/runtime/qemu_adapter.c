@@ -3,6 +3,8 @@
 #include "work_worker.h"
 #include "q35_fixture.h"
 #include "ec_fixture.h"
+#include "sci_owner.h"
+#include "event_io.h"
 #include "qemu_adapter.h"
 #include <srvros/acpi.h>
 #include <srvros/acpi_runtime_test.h>
@@ -29,13 +31,15 @@ static struct {
     struct kernel_semaphore wedge_gate;
     uacpi_interrupt_handler irq_fn;
     uacpi_handle irq_context;
-    uint64_t irq_token, rsdp, facs, heap, peak, errors, denied, fixture_dsdt;
+    uint64_t rsdp, facs, heap, peak, errors, denied, fixture_dsdt;
+    struct sci_owner sci;
+    struct acpi_event_io event_io;
     uint64_t interrupts, power_events, work_events, last_value, contended_waits;
-    uint32_t original_low, original_high;
     uint16_t original_control;
     uint8_t disable_command;
     bool engaged, initialized, stopping, work_scheduled, fault_install;
     bool loading, load_done, load_deny;
+    bool fault_init_io;
     uacpi_status load_result;
 } runtime;
 
@@ -53,6 +57,7 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
     __asm__ volatile("cli" ::: "memory");
     halt_forever();
 }
+void acpi_runtime_fixture_halt(const char *reason) { unsafe(reason); }
 static bool equal(const char *a, const char *b) {
     while (*a && *a == *b) { a++; b++; }
     return *a == *b;
@@ -175,43 +180,57 @@ static bool irq_bridge(void *context) {
     (void)context; runtime.interrupts++;
     return runtime.irq_fn && runtime.irq_fn(runtime.irq_context) == UACPI_INTERRUPT_HANDLED;
 }
+static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
+    (void)ctx; return ioapic_read_gsi(gsi, low, high);
+}
+static bool sci_prepare(void *ctx, uint32_t gsi, uint8_t vector, bool low, bool level) {
+    (void)ctx; return ioapic_prepare_gsi(gsi, vector, low, level);
+}
+static bool sci_mask(void *ctx, uint32_t gsi, bool masked) {
+    (void)ctx; return ioapic_mask_gsi(gsi, masked);
+}
+static bool sci_restore(void *ctx, uint32_t gsi, uint32_t low, uint32_t high) {
+    (void)ctx; return ioapic_restore_masked_gsi(gsi, low, high);
+}
+static uint64_t sci_register(void *ctx, uint8_t line, irq_handler_fn fn, void *context) {
+    (void)ctx;
+    /* Inject after route preparation, so VM failure exercises real rollback. */
+    if (runtime.fault_install) return 0;
+    return irq_handler_register(line, fn, context);
+}
+static bool sci_remove(void *ctx, uint64_t token) { (void)ctx; return irq_handler_remove(token); }
 uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,
     uacpi_interrupt_handler handler, uacpi_handle context, uacpi_handle *out) {
-    if (irq != 9 || runtime.irq_token || !handler || runtime.fault_install) return UACPI_STATUS_DENIED;
-    const struct acpi_interrupt_source_override *override = acpi_irq_override(9);
-    bool low = true;
-    if (override) {
-        unsigned polarity = override->flags & 3, trigger = (override->flags >> 2) & 3;
-        if (override->bus || override->gsi != 9 || (override->flags & ~15u) ||
-            polarity == 2 || trigger == 1 || trigger == 2) return UACPI_STATUS_DENIED;
-        low = polarity != 1;
-    }
-    if (!ioapic_prepare_gsi(9, 41, low, true)) return UACPI_STATUS_DENIED;
+    if (irq != 9 || runtime.sci.phase != SCI_OWNER_OFF || !handler)
+        return UACPI_STATUS_DENIED;
+    struct sci_route route;
+    if (!sci_route_resolve(&route, irq, acpi_irq_override(9)) || route.gsi != 9)
+        return UACPI_STATUS_DENIED; /* Preserve this adapter's strict Q35 gate. */
+    struct sci_owner_ops ops = {.read=sci_read, .prepare=sci_prepare, .mask=sci_mask,
+        .restore=sci_restore, .register_irq=sci_register, .remove_irq=sci_remove};
     runtime.irq_fn = handler; runtime.irq_context = context;
-    runtime.irq_token = irq_handler_register(9, irq_bridge, NULL);
-    if (!runtime.irq_token) return UACPI_STATUS_OUT_OF_MEMORY;
-    if (!ioapic_mask_gsi(9, false)) {
-        if (!irq_handler_remove(runtime.irq_token)) unsafe("failed install removal");
-        runtime.irq_token = 0; return UACPI_STATUS_DENIED;
+    bool ok = sci_owner_prepare(&runtime.sci, ops, route, irq_bridge, NULL);
+    if (ok) ok = sci_owner_enable(&runtime.sci);
+    if (!ok) {
+        if (!sci_owner_release(&runtime.sci)) unsafe("SCI install rollback failed");
+        runtime.irq_fn = NULL; runtime.irq_context = NULL;
+        return UACPI_STATUS_DENIED;
     }
     *out = &runtime; return UACPI_STATUS_OK;
 }
 uacpi_status uacpi_kernel_uninstall_interrupt_handler(uacpi_interrupt_handler handler, uacpi_handle handle) {
-    if (handle != &runtime || handler != runtime.irq_fn || !runtime.irq_token) return UACPI_STATUS_INVALID_ARGUMENT;
-    if (!ioapic_mask_gsi(9, true) || !irq_handler_remove(runtime.irq_token)) unsafe("IRQ removal failed");
-    runtime.irq_token = 0; runtime.irq_fn = NULL; runtime.irq_context = NULL;
+    if (handle != &runtime || handler != runtime.irq_fn || !runtime.sci.token)
+        return UACPI_STATUS_INVALID_ARGUMENT;
+    if (!sci_owner_release(&runtime.sci)) unsafe("IRQ removal failed");
+    runtime.irq_fn = NULL; runtime.irq_context = NULL;
     return UACPI_STATUS_OK;
 }
 uacpi_status uacpi_kernel_handle_firmware_request(uacpi_firmware_request *request) {
     (void)request; runtime.denied++; return UACPI_STATUS_DENIED;
 }
 struct io_region { uint16_t base; uint32_t size; };
-static bool io_allowed(uint64_t base, uint64_t size) {
-    return contains(0x600, 4, base, size) || contains(0x604, 2, base, size) ||
-        contains(0x608, 4, base, size) || contains(0x620, 16, base, size) || contains(0xb2, 1, base, size);
-}
 uacpi_status uacpi_kernel_io_map(uacpi_io_addr base, uacpi_size size, uacpi_handle *out) {
-    if (!runtime.engaged || !io_allowed(base, size)) { runtime.denied++; return UACPI_STATUS_DENIED; }
+    if (!runtime.engaged || !acpi_event_io_map(&runtime.event_io, base, size)) { runtime.denied++; return UACPI_STATUS_DENIED; }
     struct io_region *region = uacpi_kernel_alloc(sizeof(*region));
     if (!region) return UACPI_STATUS_OUT_OF_MEMORY;
     *region = (struct io_region){base, size}; *out = region; return UACPI_STATUS_OK;
@@ -219,10 +238,14 @@ uacpi_status uacpi_kernel_io_map(uacpi_io_addr base, uacpi_size size, uacpi_hand
 void uacpi_kernel_io_unmap(uacpi_handle handle) { uacpi_kernel_free(handle); }
 #define IO_ACCESS(bits, input, output) \
 uacpi_status uacpi_kernel_io_read##bits(uacpi_handle handle, uacpi_size offset, uacpi_u##bits *value) { \
-    struct io_region *r = handle; if (!r || !contains(0,r->size,offset,sizeof(*value))) return UACPI_STATUS_DENIED; \
+    struct io_region *r = handle; if (!runtime.engaged || !r || !contains(0,r->size,offset,sizeof(*value)) || \
+        !acpi_event_io_read(&runtime.event_io,r->base+offset,bits)) { runtime.denied++; return UACPI_STATUS_DENIED; } \
     *value = input(r->base+offset); return UACPI_STATUS_OK; } \
 uacpi_status uacpi_kernel_io_write##bits(uacpi_handle handle, uacpi_size offset, uacpi_u##bits value) { \
-    struct io_region *r = handle; if (!r || !contains(0,r->size,offset,sizeof(value))) return UACPI_STATUS_DENIED; \
+    struct io_region *r = handle; if (!runtime.engaged || !r || !contains(0,r->size,offset,sizeof(value)) || \
+        !acpi_event_io_write(&runtime.event_io,r->base+offset,bits,value)) { runtime.denied++; return UACPI_STATUS_DENIED; } \
+    if (runtime.fault_init_io && r->base+offset==runtime.event_io.resources.pm1_enable) { \
+        runtime.fault_init_io=false; runtime.denied++; return UACPI_STATUS_DENIED; } \
     output(r->base+offset,value); return UACPI_STATUS_OK; }
 IO_ACCESS(8,inb,outb) IO_ACCESS(16,inw,outw) IO_ACCESS(32,inl,outl)
 uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address address, uacpi_handle *out) {
@@ -270,14 +293,14 @@ static bool stop_runtime(void) {
     runtime.stopping = true;
     outw(0x602, 0);
     for (uint16_t port = 0x628; port < 0x630; port++) outb(port, 0);
-    if (!ioapic_mask_gsi(9, true)) unsafe("SCI mask failed");
+    if (runtime.sci.phase != SCI_OWNER_OFF && !sci_owner_mask(&runtime.sci)) unsafe("SCI mask failed");
     if (!acpi_ec_fixture_prepare_stop()) unsafe("EC disconnect failed");
     uacpi_state_reset();
     runtime.initialized = false;
     if (!acpi_ec_fixture_retired()) unsafe("EC state retained after reset");
-    if (runtime.irq_token) unsafe("SCI retained after reset");
+    if (runtime.sci.phase != SCI_OWNER_OFF || runtime.sci.token) unsafe("SCI retained after reset");
     if (!acpi_worker_drain(&runtime.worker, 1000) || !acpi_worker_stop(&runtime.worker, 1000)) unsafe("worker stop failed");
-    bool restored = ioapic_restore_masked_gsi(9, runtime.original_low, runtime.original_high);
+    bool restored = true; /* Route restoration belongs to the SCI owner. */
     if (!(runtime.original_control & 1) && (inw(0x604) & 1)) {
         outb(0xb2, runtime.disable_command);
         uint64_t end = timer_monotonic_us() + 1000000;
@@ -329,26 +352,44 @@ static void load_namespace_work(void *context) {
     console_printf("acpi-runtime: namespace worker returned status=%u\n", (uint64_t)runtime.load_result);
     runtime.load_done = true;
 }
-static bool start_runtime(bool fail_install, bool fixture, bool early, bool deny) {
+static bool start_runtime(bool fail_install, bool fixture, bool early, bool deny, bool fail_io) {
     if (runtime.engaged || !timer_reference_ready() || !rsdp_request.response) return false;
     const struct acpi_fadt *fadt = acpi_q35_fixture_fadt();
-    if (!fadt || inw(0x602)) return false;
+    if (!fadt) return false;
+    struct acpi_event_io event_io = {.fixed_enable_mask = (1u<<5) | (1u<<8)};
+    bool parsed = false;
+    for (uint64_t i = 0; i < acpi_table_count(); i++) {
+        const struct acpi_table_info *table = acpi_table_at(i);
+        if (pmm_phys_to_virt(table->physical_address) != (const void *)fadt) continue;
+        parsed = acpi_event_resources_parse(&event_io.resources,
+            (const uint8_t *)fadt, table->length) == ACPI_EC_RESOURCES_OK;
+        break;
+    }
+    /* Fixed global-lock/power-button users only; no GPE enablement. The full
+     * disabled GPE status domain is owned by this disposable Q35 fixture. */
+    if (!parsed || inw(0x602)) return false;
     uint64_t fixture_dsdt = fixture ? find_fixture_dsdt() : 0;
     if (fixture && !fixture_dsdt) return false;
     for (uint16_t port = 0x628; port < 0x630; port++) if (inb(port)) return false;
     uint32_t low, high;
     if (!ioapic_read_gsi(9, &low, &high) || !(low & (1u<<16)) || (low & ((1u<<12)|(1u<<14)))) return false;
     runtime = (typeof(runtime)){
-        .engaged = true, .original_low = low, .original_high = high,
+        .engaged = true,
         .original_control = inw(0x604), .disable_command = fadt->acpi_disable,
         .rsdp = (uintptr_t)rsdp_request.response->address - pmm_hhdm_offset(),
         .facs = fadt->firmware_ctrl, .fault_install = fail_install, .fixture_dsdt = fixture_dsdt,
+        .event_io = event_io,
+        .fault_init_io = fail_io,
     };
     if (!acpi_worker_start(&runtime.worker)) { runtime.engaged = false; return false; }
     acpi_ec_fixture_reset(&runtime.worker);
     uacpi_status result = fixture ? uacpi_set_table_installation_handler(fixture_table) : UACPI_STATUS_OK;
     if (result) goto failed;
     result = uacpi_initialize(UACPI_FLAG_NO_ACPI_MODE | UACPI_FLAG_BAD_CSUM_FATAL | UACPI_FLAG_BAD_TBL_SIGNATURE_FATAL);
+    if (!result && (runtime.errors || runtime.denied)) {
+        console_printf("acpi-runtime: initialize API=success refused errors=%u denied=%u\n",runtime.errors,runtime.denied);
+        result = UACPI_STATUS_DENIED;
+    }
     if (result) goto failed;
     uacpi_context_set_loop_timeout(1);
     uacpi_context_set_max_call_stack_depth(32);
@@ -369,6 +410,7 @@ static bool start_runtime(bool fail_install, bool fixture, bool early, bool deny
     if (result) goto failed;
     result = uacpi_enter_acpi_mode();
     if (result) goto failed;
+    if (runtime.errors || runtime.denied) { result = UACPI_STATUS_DENIED; goto failed; }
     runtime.initialized = true;
     return true;
 failed:
@@ -398,10 +440,10 @@ static void wedged_work(void *context) {
 void acpi_runtime_test_command(const char *args) {
     bool early = equal(args, "start-early") || equal(args, "start-early-denied") ||
         equal(args, "start-early-fail");
-    if (early || equal(args, "start") || equal(args, "start-fail") || equal(args, "start-fixture")) {
+    if (early || equal(args, "start") || equal(args, "start-fail") || equal(args, "start-fixture") || equal(args,"start-io-fail")) {
         bool ok = start_runtime(equal(args, "start-fail") || equal(args, "start-early-fail"),
             early || equal(args, "start-fixture"), early,
-            equal(args, "start-early-denied"));
+            equal(args, "start-early-denied"), equal(args,"start-io-fail"));
         console_printf("acpi-runtime: %s\n", ok ? "READY" : "REFUSED");
     } else if (equal(args, "stop")) {
         uint64_t flags = irq_save();
