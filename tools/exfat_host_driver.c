@@ -9,6 +9,10 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#ifdef __linux__
+#include <sys/ioctl.h>
+#include <linux/fs.h>
+#endif
 #include <srvros/block.h>
 #include <srvros/exfat.h>
 #include <srvros/vfs.h>
@@ -47,10 +51,35 @@ static void equal(const char *path, const uint8_t *expected, uint64_t n) {
     assert(size==n && (!n || !memcmp(data,expected,n))); vfs_release_data(node,data);
 }
 int main(int argc, char **argv) {
-    assert(argc>=3); fd=open(argv[1],O_RDWR); assert(fd>=0);
-    struct stat st; assert(fstat(fd,&st)==0 && S_ISREG(st.st_mode));
-    struct block_device d={.name="fixture",.block_size=512,.block_count=st.st_size/512,
-        .read=block_read,.write=block_write,.flush=flush};
+    assert(argc>=3);
+    bool check_only=!strcmp(argv[2],"allocation-check");
+    fd=open(argv[1],check_only ? O_RDONLY : O_RDWR); assert(fd>=0);
+    struct stat st; assert(fstat(fd,&st)==0);
+    uint64_t bytes=st.st_size;
+    if(!S_ISREG(st.st_mode)) {
+#ifdef __linux__
+        assert(check_only && S_ISBLK(st.st_mode));
+        assert(ioctl(fd,BLKGETSIZE64,&bytes)==0);
+#else
+        assert(false);
+#endif
+    }
+    struct block_device d={.name="fixture",.block_size=512,.block_count=bytes/512,
+        .read=block_read,.write=check_only ? NULL : block_write,.flush=check_only ? NULL : flush};
+    if(check_only) {
+        if(!exfat_mount_block_device("/vol",&d)) {
+            fputs("allocation-check: unsupported or invalid filesystem; NOT CHECKED\n",stderr);
+            close(fd);return 2;
+        }
+        struct exfat_check_result result={0};
+        bool ok=exfat_check("/vol",&result);
+        assert(!writes && !flushes);
+        printf("allocation-check: %s files=%llu clusters=%llu leaked=%llu fat_bitmap_mismatches=%llu errors=%llu\n",
+            ok ? "PASS" : "FAIL",(unsigned long long)result.files_checked,
+            (unsigned long long)result.clusters_checked,(unsigned long long)result.leaked_clusters,
+            (unsigned long long)result.fat_bitmap_mismatches,(unsigned long long)result.errors);
+        close(fd);return ok ? 0 : 1;
+    }
     if(!strcmp(argv[2],"noflush")) d.flush=NULL;
     if(!strcmp(argv[2],"foreign")) foreign=true;
     if(!strcmp(argv[2],"snapshot-seed")) {

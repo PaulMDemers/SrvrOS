@@ -112,7 +112,10 @@ battery startup remains disabled.
 
 Air hardware accepts bounded cached-service lifecycle and USB **read** overlap.
 The first v36 scratch write trial failed allocation preflight before native
-runtime entry; offline exFAT was clean. Write overlap, sustained desktop/input
+runtime entry; ordinary offline fsck reported clean. Later independent traversal
+confirmed eight orphan allocations; rehearsed recovery preserved all existing and
+orphan data. Use both checks in the Ubuntu guide before future trials. Write
+overlap, sustained desktop/input
 coexistence, gauge calibration and the unclaimed SCI cause remain open. See the
 [service contract](battery-service.md) and [Air record](machines/macbookair7-2.md).
 

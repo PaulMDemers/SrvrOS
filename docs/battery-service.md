@@ -330,7 +330,10 @@ The first native v36 attempt, release `5792b6ece45b85dc` / source `e2d779b`,
 `session-00065e4a6f889c64-00` records eight leaked allocated clusters, first 114,
 from the SrvrOS allocation checker. No scratch capability was granted. The failed
 exit was saved and the machine returned automatically; Ubuntu's read-only offline
-exFAT check reports clean. This discrepancy requires investigation, not relaxing
-the allocation guard. Native write/flush overlap remains untested; the accepted
+exFAT check reports clean. A later independent scan confirmed eight actual orphan allocations; exfatprogs
+1.3.2 ordinary read-only checking did not report them. Rehearsed orphan recovery
+preserved every existing file and all orphan bytes, and the unchanged SrvrOS
+checker now passes. The guard was correct. Native write/flush overlap remains
+untested until a new hardware trial; the accepted
 bounded read-overlap result is unchanged. Evidence and recovery details are in
 the [Air unit record](machines/macbookair7-2.md).

@@ -475,13 +475,32 @@ For an offline, read-only filesystem check, first finish collection, close open
 Files/terminal views of the volume and unmount it:
 
 ```sh
-udisksctl unmount -b "$SRVROS_USB_PART" && sudo fsck.exfat -n "$SRVROS_USB_PART"
+make build/tests/exfat-driver
+udisksctl unmount -b "$SRVROS_USB_PART"
+sudo fsck.exfat -n "$SRVROS_USB_PART"
+sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
 udisksctl mount -b "$SRVROS_USB_PART"
 ```
 
+Require successful results from both checks. `fsck.exfat -n` alone can report
+clean while the allocation bitmap contains orphaned clusters: this occurred on
+the Air with exfatprogs 1.3.2. The additional helper runs the real SrvrOS
+allocation checker with an `O_RDONLY` descriptor and no write/flush callbacks.
+It verifies USB partition identity and refuses mounted volumes. Exit 0 means
+the supported allocation graph passed, 1 means it failed, and 2 means it could
+not be checked. Mount or capacity refusal is not a pass. This complements fsck;
+it is not a complete filesystem certification or power-loss atomicity test.
+
 Do not run repair flags automatically after a failed test. Preserve the failure
-report and investigate the write path. A clean check establishes filesystem
-consistency at that point, not power-loss atomicity.
+report and investigate the write path. For proven orphan allocations, first
+preserve boot/FAT/all allocated clusters outside `build`, rehearse
+`fsck.exfat -y -s` on a disposable copy, and verify every existing file's bytes and
+the recovered `LOST+FOUND` contents. Recheck unchanged source media before any
+explicit recovery. Never clear allocation bits merely to pass a scratch test.
+The Air's [recovery record](machines/macbookair7-2.md#allocation-check-discrepancy--october-20-resolved)
+does not authorize applying that repair to another machine's unexplained error.
+The [exfatprogs rescue implementation](https://github.com/exfatprogs/exfatprogs/blob/1.3.2/fsck/fsck.c)
+handles orphan recovery separately from ordinary read-only checking.
 
 ## 8. Unattended filesystem confidence tests
 

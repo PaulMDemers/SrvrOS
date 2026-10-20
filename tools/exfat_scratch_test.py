@@ -43,6 +43,37 @@ def main():
                 assert ExfatFixture(changed).read('anchor.txt') == b'unchanged'
                 assert changed[:offset] == baseline[:offset]
                 assert changed[offset+4096:] == baseline[offset+4096:]
+            # Ordinary fsck.exfat -n can call this volume clean despite an
+            # orphan allocation. The kernel guard must reject it without writes.
+            image.write_bytes(baseline)
+            command(DRIVER, image, 'allocation-check')
+            root = fs.chain(fs.root)
+            bitmap = next(root[i:i+32] for i in range(0, len(root), 32) if root[i] == 0x81)
+            bitmap_offset = fs.offset(struct.unpack_from('<I', bitmap, 20)[0])
+            bit = next(i for i in range(fs.count)
+                       if not baseline[bitmap_offset+i//8] & (1 << (i % 8)))
+            orphan = bytearray(baseline)
+            orphan[bitmap_offset+bit//8] |= 1 << (bit % 8)
+            struct.pack_into('<I', orphan, fs.fat+(bit+2)*4, 0xffffffff)
+            orphan_offset = fs.offset(bit+2)
+            orphan[orphan_offset:orphan_offset+fs.cluster] = b'\x5a' * fs.cluster
+            image.write_bytes(orphan)
+            output = command(DRIVER, image, 'allocation-check', codes=(1,))
+            assert 'leaked=1' in output and 'errors=1' in output
+            command(DRIVER, image, 'scratch-refuse')
+            assert image.read_bytes() == orphan
+            # Rescue on the disposable image preserves the orphan bytes and
+            # existing files; it must restore eligibility, not weaken the guard.
+            command('/usr/sbin/fsck.exfat', '-y', '-s', image, codes=(0, 1))
+            clean = ExfatFixture(image.read_bytes())
+            recovered = list(clean.entries(clean.read('LOST+FOUND')))
+            assert len(recovered) == 1
+            assert clean.read('LOST+FOUND/'+recovered[0][0]) == b'\x5a' * fs.cluster
+            assert clean.read('anchor.txt') == b'unchanged'
+            assert clean.read('scratch.bin') == bytes(i & 255 for i in range(4096))
+            command(DRIVER, image, 'allocation-check')
+            command(DRIVER, image, 'scratch-range')
+            check_clean_image(image)
             scratch_at = baseline.index(scratch, fs.offset(fs.root))
             anchor_at = baseline.index(entries['anchor.txt'], fs.offset(fs.root))
             for fault in ('size', 'multi-cluster', 'alias', 'directory-overlap', 'bitmap', 'dirty'):

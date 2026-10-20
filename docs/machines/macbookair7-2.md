@@ -68,6 +68,35 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Allocation-check discrepancy — October 20 (resolved)
+
+Base `d72d2af` (merged PR #6), Pro PR #5 inspected at `7c9372b`.
+Independent read-only allocation traversal and the actual SrvrOS checker both
+found orphan clusters 114, 159, 162, 210–213 and 606. The kernel guard was correct;
+`fsck.exfat -n` (1.3.2) reported clean without resolving those orphan allocations.
+Their originating write or interruption is unknown. No kernel or native battery
+policy change was needed.
+
+Preserved boot/FAT and all 1,506 allocated clusters in a sparse snapshot outside
+`build`. Recovery was rehearsed on a copy, verified against the unchanged device,
+then applied with exfatprogs orphan rescue. All 862 existing files remained
+byte-for-byte identical. Five `LOST+FOUND` files preserve all eight orphan
+clusters, also copied into the durable evidence archive. The recovered volume
+passes the real SrvrOS allocation checker: 867 files, 1,507 accounted clusters,
+zero leaks/FAT mismatches/errors. Offline fsck reports 180 directories, 867 files.
+The workspace is remounted. A retry of the unchanged automatic v36 payload
+`5792b6ece45b85dc` is being prepared; no human input is required.
+
+Evidence is under `~/.local/share/srvros/failed-evidence/exfat-orphans-20261020`.
+The snapshot contains boot/FAT and allocated data; unallocated bytes were not
+captured. New host tooling exposes read-only allocation checking on an unmounted
+USB partition. Disposable 4 KiB/128 KiB fixtures exercise orphan refusal,
+byte-preserving rescue and renewed scratch eligibility; the kernel guard remains
+unchanged. Scratch/entry tests, the full filesystem hardening suite (including
+write/flush/power-cut boundaries), wrapper selection and documentation checks
+pass. Native write/flush overlap still requires another automatic trial.
+See the [offline workflow](../ubuntu-device-agent-setup.md#7-test-return-and-collect).
+
 ### Native scratch write/flush overlap — October 20 (preflight failed)
 
 Bounded objective: extend coexistence testing to USB writes and cache flushes
@@ -113,8 +142,8 @@ installed/recovery hashes were verified. No new reboot is armed.
 
 The failed report and 45 hashed evidence files are retained outside `build` at
 `~/.local/share/srvros/failed-evidence/5792b6ece45b85dc`. The accepted b73 read
-baseline is unchanged. Next investigate the allocation-check discrepancy without
-bypassing the guard; do not repeat the write trial until its cause is understood.
+baseline is unchanged. The later recovery above resolves this preflight refusal without bypassing the
+guard. It does not accept native writes or identify the historical orphan source.
 Both full CI baseline runs passed at `800d84e`, which contains the exact scratch
 implementation. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36)
 and [integration handoff](../agent-coordination.md#october-20-battery-baseline-handoff).
