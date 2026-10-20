@@ -56,6 +56,11 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
         if(value==mask)console_printf("battery-vm: foreign restored enable=%x pending=%x\n",(uint64_t)port,(uint64_t)model.foreign_status[i]);
     }
 }
+static void model_mode_entered(void) {
+    uint16_t value=model.fault==11?1u<<8:1u<<9;
+    outw(0x602,value);
+    console_printf("battery-vm: injected post-mode fixed-enable=%x\n",(uint64_t)inw(0x602));
+}
 bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_memmap_response *map){
     (void)map;dsdt=0;platform=NULL;model=(typeof(model)){0};
     const struct acpi_fadt *f=acpi_q35_fixture_fadt();if(!f||!p||!rsdp)return false;
@@ -63,10 +68,17 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>10||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>12||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
+    /* Reproduce a real legacy-to-ACPI transition on disposable Q35. Do not
+     * fake original_control: retirement must restore the actual starting mode. */
+    if(model.fault==11||model.fault==12) {
+        outb(f->smi_cmd,f->acpi_disable);
+        if(inw(0x604)&1)return false;
+        p->model_mode_entered=model_mode_entered;
+    }
     p->events.fixed_enable_mask=1u<<5;p->original_control=inw(0x604);
     p->rsdp=(uintptr_t)rsdp-pmm_hhdm_offset();p->facs=f->firmware_ctrl;
     p->io=(struct ec_io){NULL,status,read_data,command,write_data};
@@ -75,7 +87,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     model.words[13]=86;model.words[15]=4300;model.words[16]=5000;model.words[24]=6000;
     model.words[8]=2981;model.words[18]=120;model.words[19]=65535;model.words[22]=0xc0;
     if(uacpi_set_table_installation_handler(install))return false;
-    if(model.fault>=7) {
+    if(model.fault>=7&&model.fault<=10) {
         model.foreign_status[0]=model.foreign_enable[0]=0x40;
         model.foreign_status[1]=model.foreign_enable[1]=4;
         p->foreign_events[0]=(struct battery_event_hold){.status=0x627,.enable=0x62f,.mask=0x40,.original=0x40};

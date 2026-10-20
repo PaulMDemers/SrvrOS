@@ -421,6 +421,19 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     if(uacpi_bulk_configure_interfaces(UACPI_INTERFACE_ACTION_DISABLE,UACPI_INTERFACE_KIND_VENDOR)||
        uacpi_install_interface("Darwin",UACPI_INTERFACE_KIND_VENDOR)||uacpi_enter_acpi_mode())unsafe("ACPI mode/policy");
     check_foreign_event();
+    if(runtime.platform.model_mode_entered)runtime.platform.model_mode_entered();
+    /* Firmware may arm the fixed power button while entering ACPI mode. The
+     * observed Air transition adds bit8 to an initially zero enable register.
+     * Disable that source before uACPI installs Global Lock; never widen its
+     * allowed-enable mask or acknowledge pending button status here. */
+    uint16_t fixed=inw(runtime.platform.events.resources.pm1_enable);
+    console_printf("battery: post-mode fixed-enable=%x\n",(uint64_t)fixed);
+    if(fixed) {
+        if((runtime.platform.original_control&1)||fixed!=(1u<<8))unsafe("unexpected post-mode fixed enable");
+        if(uacpi_disable_fixed_event(UACPI_FIXED_EVENT_POWER_BUTTON)||
+           inw(runtime.platform.events.resources.pm1_enable))unsafe("post-mode power button mask");
+        console_write("battery: post-mode power button masked; status not acknowledged\n");
+    }
     runtime.loading=true;operation(setup_work,5000,"namespace/EC connection");runtime.loading=false;
     /* Match the Linux EC raw edge policy; no firmware AML GPE finalization. */
     unsigned bank=runtime.platform.ec.gpe>=runtime.platform.events.resources.gpe[1].first&&runtime.platform.events.resources.gpe[1].bytes?1:0;

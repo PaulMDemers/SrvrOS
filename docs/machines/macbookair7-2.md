@@ -154,9 +154,26 @@ device work uses separate branches based on `main`.
   passes its exact GRUB/UEFI Q35 rehearsal: expected native refusal, verified
   saved log bytes, clean exFAT and persistent halt. Next is the AC-connected
   physical trial; full event snapshot and both retirement records are required.
-- Integration remains `b6075ef`; Pro PR #5 is at `92b277b` with pointer-wake
-  rehearsal and idle comparison. Shared startup/staging hunks require later
+- Integration remains `b6075ef`; Pro PR #5 is at `fd6d2a2` with input queue residence
+  diagnostics and bounded queue work. Shared startup/staging hunks require later
   integration reconciliation, not concurrent changes to the battery mechanism.
+- Native trial `6a2f90f72a0e4b96` / `ac033a5` passed preflight and masked
+  both retained sources, then halted during namespace load: the captured CPU
+  SSDT requests PNVS length `0x53` (83 bytes), but the adapter used decimal 53.
+  The photograph records this denied mapping, a later PM1 enable denial
+  (`0x120` at `0x1802`), and the contained reset attempt;
+  no samples or restoration completed. Matching session
+  `session-00065e3db0a6917a-00` has a verified boot log, no exit log.
+  Next bounded scope: correct PNVS admission/mapping/read bounds to the captured
+  length, add independent boundary coverage, and rerun native staging/VM checks.
+  Scope also checks the post-mode fixed enables: the later Global Lock write
+  suggests firmware armed power-button bit8. Mask only this exact bit before
+  namespace load, without status acknowledgement or widening permitted enables;
+  unexpected sources halt. All 14 battery VM cases pass; the final fixture
+  also verifies both mode cases after actually placing Q35 in legacy mode.
+  Host/sanitizer mapping/read boundaries, connected captured-firmware replay,
+  9 collector and 29 staging tests pass. Missing exit snapshots now receive an
+  explicit incomplete-session flag. Read-only USB fsck after this halt was clean.
 - Recovery before this candidate: current `c0f2c3af0dbacc66`, previous
   `b427b78f21644bd2`; accepted power and interactive backups are verified outside
   build. Retain that previous release when installing the next candidate; the

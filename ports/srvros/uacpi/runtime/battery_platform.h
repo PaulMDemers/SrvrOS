@@ -16,6 +16,9 @@ struct battery_platform {
     /* Optional shadow registers for the disposable VM model only. Native uses
      * direct byte IO. Only the configured foreign status/enable pairs are routed. */
     struct battery_event_ops foreign_io;
+    /* Disposable VM may reproduce firmware changing fixed enables on entry.
+     * Native leaves this NULL; runtime checks actual registers in both cases. */
+    void (*model_mode_entered)(void);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

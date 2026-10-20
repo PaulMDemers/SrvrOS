@@ -4,6 +4,8 @@
 #include <stdint.h>
 #define BATTERY_GNVS 0x8ad28a90ull
 #define BATTERY_PNVS 0x8ad2af90ull
+/* Captured CpuSsdt OperationRegion length is hexadecimal 0x0053 (83 bytes). */
+#define BATTERY_PNVS_BYTES 0x53u
 /* Captured GPE66 graphics/TCO SCI and GPE72 wake-alarm sources only. The runtime must lease and
  * restore it without acknowledging its status. Already active ACPI ownership
  * or any other enabled event is refused. This predicate grants no IO. */
@@ -15,12 +17,16 @@ static inline bool battery_native_gpe_admit(unsigned byte,uint8_t enabled,uint16
 static inline bool battery_native_contains(uint64_t b,uint64_t n,uint64_t a,uint64_t s) {
     return s&&a>=b&&a-b<=n&&s<=n-(a-b);
 }
+/* Shared by native mapping and read policy; writes remain independently gated. */
+static inline bool battery_native_nvs_contains(uint64_t igdm,uint64_t address,uint64_t bytes) {
+    return battery_native_contains(BATTERY_GNVS,0x282,address,bytes)||
+        battery_native_contains(BATTERY_PNVS,BATTERY_PNVS_BYTES,address,bytes)||
+        (igdm&&battery_native_contains(igdm,8192,address,bytes));
+}
 static inline bool battery_native_memory_allowed(uint64_t igdm,uint64_t facs,
     uint64_t address,unsigned bits,bool write,uint64_t value) {
     if(bits!=8&&bits!=16&&bits!=32&&bits!=64)return false;
-    if(!write)return battery_native_contains(BATTERY_GNVS,0x282,address,bits/8)||
-        battery_native_contains(BATTERY_PNVS,53,address,bits/8)||
-        (igdm&&battery_native_contains(igdm,8192,address,bits/8))||
+    if(!write)return battery_native_nvs_contains(igdm,address,bits/8)||
         (facs<=UINT64_MAX-16&&facs&&address==facs+16&&bits==32);
     if(bits!=8||value>255)return false;
     return address==BATTERY_GNVS||address==BATTERY_GNVS+1||

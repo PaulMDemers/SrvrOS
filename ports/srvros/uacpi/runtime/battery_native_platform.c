@@ -119,7 +119,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     if(p->events.resources.pm2_control!=0x1850)return refuse("pm2-port",p->events.resources.pm2_control,0x1850);
     if(p->events.resources.timer!=0x1808)return refuse("timer-port",p->events.resources.timer,0x1808);
     map=m;
-    if(!require_nvs("gnvs",GNVS,0x282)||!require_nvs("pnvs",PNVS,53))return false;
+    if(!require_nvs("gnvs",GNVS,0x282)||!require_nvs("pnvs",PNVS,BATTERY_PNVS_BYTES))return false;
     igdm=*(const uint32_t *)pmm_phys_to_virt(GNVS+0x130);
     if(!igdm||(igdm&3))return refuse("igdm-address",igdm,0);
     uint32_t asls=pci_read_config32(gpu,0xfc);
@@ -187,7 +187,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
 void *battery_platform_map(uint64_t a,size_t n) {
     if(!platform)return NULL;
     if(contains(platform->rsdp,36,a,n)||contains(platform->facs,64,a,n)||
-       contains(GNVS,0x282,a,n)||contains(PNVS,53,a,n)||contains(igdm,8192,a,n))return pmm_phys_to_virt(a);
+       battery_native_nvs_contains(igdm,a,n))return pmm_phys_to_virt(a);
     /* Mapping is an opaque base: only the HPTC DWORD can actually be read. */
     if(contains(0xfed1c000,0x4000,a,n))return (void *)(HPTC_VA-0x3000+(a-0xfed1c000));
     for(uint64_t i=0;i<acpi_table_count();i++) {

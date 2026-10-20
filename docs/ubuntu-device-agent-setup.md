@@ -403,7 +403,9 @@ python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \
 
 This verifies and copies session logs, not screenshots or documents. Copy the
 relevant BMPs from `srvros-work/Screenshots` separately and verify their hashes.
-Match a new session's release to the staged manifest, inspect `attention`, exit
+A missing exit snapshot is flagged as an incomplete session, including when a
+halt occurs before any failure text reaches USB. Match a new session's release
+to the staged manifest, inspect `attention`, exit
 status and device/sample-age fields, and record what the human actually heard or
 felt. Old sessions are included in collection; their presence is not a pass for
 the new build. No new session after a boot stall may mean failure before logging.

@@ -535,6 +535,23 @@ Memory callbacks admit the audited NVS reads, exact FACS lock DWORD and HPTC
 DWORD. Writes admit only the two OSYS bytes, boolean GNVS lid/AC bytes, and the
 CLID DWORD encoded as four byte writes (upper bytes zero). A pure host test
 checks range edges, all byte values and rejected widths; ASan/UBSan also passes.
+The native PNVS span is `0x53` (83) bytes, matching CpuSsdt's OperationRegion
+and the captured snapshot. Trial `6a2f90f72a0e4b96` exposed an erroneous decimal
+53 bound in admission, mapping and reads; its old host test had repeated the
+same number. Those paths now share the explicit hexadecimal length; independent
+83-byte mapping/read-edge tests accept the last byte and refuse overruns, zero
+length and underflow. PNVS writes remain denied.
+
+The same photograph records Global Lock's denied `0x120` PM1 enable write after
+ACPI mode entry, consistent with firmware having armed fixed power-button bit8.
+Before namespace load, the runtime logs and verifies the actual enable word.
+Only from an initially legacy mode, exactly `0x100` may be disabled with the
+uACPI power-button API and zero readback. It does not acknowledge button status
+or widen the fixed-enable policy beyond Global Lock. Other unexpected enables
+halt with live state retained. Two VM lifetimes inject bit8 in the actual Q35
+register after entry and exercise this mask; an injected sleep-button enable
+halts before namespace load. This does not accept native button or mode handoff.
+
 PCI access is read-only and limited to the audited offsets. GPIO access keeps
 the prior byte-width/set-only predicates. Generic PM1 control writes remain
 refused; the serialized AML worker may send the exact Global Lock release

@@ -118,6 +118,18 @@ class CollectionTests(unittest.TestCase):
                     header+one+two+three.replace('energy=3276544','energy=0')):
             self.assertIsNone(desktop.power_idle_sample(bad),bad)
 
+    def test_boot_only_session_is_incomplete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            (folder/'boot.log').write_text('laptop-capture: boot options=srvros.desktop-release=6a2f90f72a0e4b96 srvros.capture=battery\n')
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertFalse(item['exit_snapshot_present'])
+            self.assertIsNone(item['battery_diagnostic'])
+            self.assertIn('collection: missing exit snapshot; session incomplete',item['attention'])
+            self.assertEqual(report['hardware_acceptance'],'manual-pending')
+
     def test_logs_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work';folder=work/'Logs/session-0000000000000001-00'

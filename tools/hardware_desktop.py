@@ -233,6 +233,8 @@ def collect(mount, volume, output):
         text = "\n".join(data.decode("utf-8", errors="replace") for data in payload.values())
         releases = session_releases(text)
         attention = sorted(set(line for line in text.splitlines() if needs_attention(line)))
+        if "exit.log" not in payload:
+            attention.append("collection: missing exit snapshot; session incomplete")
         if len(releases) > 1:
             attention.append("collection: conflicting boot release identities")
         records.append({
