@@ -794,3 +794,15 @@ obsolete unreferenced payload only after verifying its durable archive.
 Next bounded milestone: controlled load/thermal baseline and visible System
 readout validation. Battery/AC still depends on reviewed shared runtime work
 and this Pro's firmware evidence. Trackpad latency remains deferred by request.
+
+## Controlled-load preparation — 2026-10-20
+
+Refreshed main remains b6075ef; Air PR6 is now e9af5d3 and owns active
+battery/USB capture changes in startup, boot profiles, collectors and Makefile.
+Prepare an opt-in single-worker load diagnostic inside existing threadstress,
+with independent host fixtures, plus System two-fan display fixtures. No shared
+boot/profile edits in this scope. Fixed idle/load/recovery phases, bounded work
+chunks, fresh valid sensors and thermal stop conditions are required. This is
+not a CPU policy or fan-control change. Native automatic profile wiring remains
+a review dependency; do not label the existing idle profile a load capture or
+reboot into a payload without the necessary save/return path.
