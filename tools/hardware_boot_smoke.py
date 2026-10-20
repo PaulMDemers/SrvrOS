@@ -161,6 +161,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v29-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -184,6 +185,8 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if scaled_desktop:
+            command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
@@ -363,6 +366,38 @@ def main():
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                    if scaled_desktop:
+                        text=serial.read_text(errors="replace")
+                        assert "physical=2880x1800 logical=1440x900 scale=2" in text
+                        time.sleep(1)
+                        ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
+                        shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
+                        wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
+                        time.sleep(1);type_text("Pro scaled desktop USB test.");shortcut("ctrl-s")
+                        wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
+                        wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                        shortcut("meta_l-shift-3")
+                        text=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=/work/" in s,process,60)
+                        shot=re.search(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",text)[1]
+                        for keys in ("f10","end","ret"): shortcut(keys)
+                        text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
+                        with stick.open("rb") as stream:
+                            stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
+                        check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
+                        assert stored.read("srvros-work/Untitled.txt")==b"Pro scaled desktop USB test."
+                        bitmap=stored.read(shot.removeprefix("/work/"))
+                        assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==(1440,900)
+                        folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
+                        for name in ("boot.log","exit.log"):
+                            data=stored.read(folder+"/"+name);assert release.encode() in data
+                            (logs/("scaled-desktop-"+name)).write_bytes(data)
+                        assert b"deskd: exited" in stored.read(folder+"/exit.log")
+                        assert not has_fatal_exception(text)
+                        (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
+                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,
+                            "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"physical_acceptance":"pending"},indent=2)+"\n")
+                        print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
+                        return
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
                     workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))

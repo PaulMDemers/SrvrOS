@@ -158,6 +158,15 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
         with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
 
+    def test_scaled_desktop_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v29-desktop-37d8c5d0")
+        self.assertIn("srvros.desktop-scale=2",cfg)
+        self.assertIn("resolution: 2880x1800",cfg)
+        self.assertIn("srvros.trackpad=gestures",cfg)
+        self.assertNotIn("srvros.aml",cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_scale=2)
+        with self.assertRaises(ValueError): boot.stage(desktop_scale=3,desktop_volume="37d8c5d0")
+
     def test_keyboard_capture_profile(self):
         version="ram-usb-v28-laptop-probe-37d8c5d0"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

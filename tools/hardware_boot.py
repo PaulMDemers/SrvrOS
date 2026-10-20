@@ -25,7 +25,7 @@ RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
 LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|36)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
-DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22)-desktop-([0-9a-f]{8})")
+DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
 
@@ -77,6 +77,8 @@ def limine_config(release, version=CONFIG_VERSION):
         # before workspace logging/desktop startup. Keep diagnostics opt-in;
         # preserve v21's exact recipe so installed images remain verifiable.
         if version.startswith("ram-usb-v22-"): cmdline += " srvros.audio=hda srvros.usb-network=ecm srvros.sensors=cpu srvros.smc=read-only"
+        if version.startswith("ram-usb-v29-"):
+            cmdline += f" srvros.desktop-release={release} srvros.desktop-scale=2 srvros.laptop-services=probe"
     elif trackpad:
         volume, run = trackpad.groups()
         mode="gestures" if version.startswith(("ram-usb-v12-","ram-usb-v13-","ram-usb-v14-","ram-usb-v15-","ram-usb-v16-")) else "pointer" if version.startswith("ram-usb-v11-") else "capture"
@@ -99,11 +101,12 @@ def limine_config(release, version=CONFIG_VERSION):
         cmdline = "srvros.log=debug srvros.storage=ram"
         if version == "ram-usb-v3-inputdiag":
             cmdline += " srvros.inputdiag=1"
+    resolution="    resolution: 2880x1800\n" if version.startswith("ram-usb-v29-") else ""
     return f"""timeout: 0
 serial: yes
 
 /SrvrOS hardware test {release}
-    protocol: limine
+{resolution}    protocol: limine
     path: boot():/EFI/srvros/{release}/srvros.elf
     cmdline: {cmdline}
     module_path: boot():/EFI/srvros/{release}/initramfs.tar
@@ -137,13 +140,15 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, keyboard_capture=False):
-    if (battery_usb_read or battery_usb_write or keyboard_capture) and hold_on_failure:
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, keyboard_capture=False, desktop_scale=1):
+    if (battery_usb_read or battery_usb_write) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
     if hold_on_failure and laptop_probe_volume is None:
         raise ValueError("Hold-on-failure requires a laptop probe profile")
     if battery_transitions and battery_capture:
         raise ValueError("Battery sample and transition captures are separate profiles")
+    if desktop_scale not in (1,2) or (desktop_scale!=1 and desktop_volume is None):
+        raise ValueError("Desktop scale requires desktop volume and scale 1 or 2")
     if power_telemetry and not desktop_idle_capture:
         raise ValueError("Power telemetry requires the explicit desktop idle capture")
     if (idle_capture or aml_capture or desktop_idle_capture or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or keyboard_capture) and laptop_probe_volume is None:
@@ -170,7 +175,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or repeat != 1 or not TRACKPAD_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting trackpad profile")
     if desktop_volume is not None:
-        version = f"ram-usb-v22-desktop-{desktop_volume}"
+        version = f"ram-usb-v{29 if desktop_scale==2 else 22}-desktop-{desktop_volume}"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
@@ -370,6 +375,7 @@ def main():
     parser.add_argument("--diagnostic", action="store_true", help="stage verbose input-probe boot")
     parser.add_argument("--release", help="install this exact staged release")
     parser.add_argument("--keep-previous", action="store_true", help="retain the verified existing recovery entry during install")
+    parser.add_argument("--desktop-scale",type=int,choices=(1,2),default=1,help="explicit desktop integer scale")
     parser.add_argument("--desktop-volume", type=compact_volume_uuid, help="stage an interactive native desktop trial for this compact USB UUID")
     parser.add_argument("--laptop-probe-volume", type=compact_volume_uuid, help="stage unattended laptop diagnostics on this prepared USB UUID")
     parser.add_argument("--power-telemetry",action="store_true",help="opt-in read-only CPU energy/frequency diagnostics during --desktop-idle-capture; completion is not power acceptance")
@@ -403,7 +409,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, keyboard_capture=args.keyboard_capture)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, keyboard_capture=args.keyboard_capture, desktop_scale=args.desktop_scale)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
