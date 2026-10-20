@@ -745,6 +745,16 @@ incoherent AC, wrong current sign, stale/replayed samples and deadline boundarie
 The exact staged native image must still refuse Q35, save its refusal and halt.
 These checks do not establish physical AC transitions or desktop-service safety.
 
+The first collected v32 round on Air7,2 includes one complete hardware session,
+`session-00065e3e608567ed-00` on `aa976febab59c128`: 17 samples, three coherent
+observations per phase, −1.455 A during discharge, 0 A after reconnection, both
+foreign-event restorations and clean runtime retirement. An earlier session of
+the same release lacks an exit record; its last periodic log was still waiting
+for unplug. The [machine record](machines/macbookair7-2.md#guided-round-collected--october-20)
+tracks that unresolved attempt and return confirmation. Preserve both results;
+one completed session does not erase an incomplete attempt or accept a
+long-running desktop provider.
+
 ### Integration sequence
 
 1. Preserve separate restricted-probe and full-runtime build profiles. Match the

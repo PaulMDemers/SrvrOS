@@ -223,6 +223,32 @@ recovery copies remain outside `build`. The redundant, unreferenced failed
 space. The local run record owns actual armed/reboot state; on return collect
 the matching v32 session before another trial. PR #6 remains draft.
 
+### Guided round collected — October 20
+
+Two new sessions for `aa976febab59c128` were copied and hash-verified on return:
+
+- `session-00065e3e608567ed-00` has complete three-phase proofs in `exit.log`,
+  17 samples, 259 queries / 260 notifications, one attachment/detachment,
+  both retained event enables restored, and zero errors/denials/heap. AC-connected
+  current was 0 A; the accepted discharge sample was −1.455 A at 8.190 V;
+  reconnection returned to 0 A at 8.335 V. Each phase has three consecutive
+  coherent samples. The collector reports transition/runtime completion with
+  no attention items. Relative SOC remained 98%; final remaining/full capacity
+  6.107/6.293 Ah matches Linux after return.
+- `session-00065e3e400fee10-00` has boot and periodic logs but **no exit
+  snapshot**. The last saved state, around 44 seconds after startup, was waiting
+  for AC unplug with AC still present. Its cause is unresolved; do not count it
+  as a pass or infer a clean timeout.
+
+The Ubuntu boot ID changed, the one-shot was consumed, and read-only exFAT
+checking is clean (172 directories, 844 files). Both sessions and the exact
+payload have hash-verified copies outside `build`. Human confirmation of what
+ended the earlier attempt and whether the latest return was automatic is pending.
+This establishes the latest run's bounded transition evidence, not reliability
+across both attempts, calibrated gauge accuracy or a persistent desktop service.
+No new reboot is armed; the accepted v31 diagnostic and desktop recovery remain
+preserved while the incomplete attempt is reconciled.
+
 ## First completed native battery diagnostic — October 20
 
 Release `13d8083de35b51af`, artifact source `57de926`, completed five samples
