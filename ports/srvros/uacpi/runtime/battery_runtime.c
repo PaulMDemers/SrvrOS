@@ -835,8 +835,8 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
     failure="restart";
     if(!battery_service_start(rsdp,map)||battery_service_start(rsdp,map)||
        battery_diagnostic_run(rsdp,map))goto failed;
-    workload_started=timer_monotonic_us();
-    uint64_t deadline=workload_started+(filesystem?120000000:30000000);
+    workload_started=filesystem?0:timer_monotonic_us();
+    uint64_t deadline=timer_monotonic_us()+(filesystem?120000000:30000000);
     for(;;) {
         for(unsigned i=0;i<64;i++) {
             uint64_t before=timer_monotonic_us();
@@ -855,12 +855,13 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
             }
             previous=s;
         }
-        if(usb_reads) {
+        if(usb_reads&&(!filesystem||s.state==BATTERY_SERVICE_ACTIVE)) {
+            if(filesystem&&!workload_started)workload_started=timer_monotonic_us();
             failure="USB read overlap";
             if(!usb_read_burst(usb_mode))goto failed;
         }
         if(s.state==BATTERY_SERVICE_UNAVAILABLE){failure="unexpected unavailable";goto failed;}
-        workload_elapsed=timer_monotonic_us()-workload_started;
+        workload_elapsed=workload_started?timer_monotonic_us()-workload_started:0;
         if((s.flags&BATTERY_CACHE_FRESH)&&s.sample.generation>=(filesystem?10:5)&&
            (!filesystem||workload_elapsed>=60000000))break;
         failure="sample deadline";

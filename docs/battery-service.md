@@ -398,7 +398,9 @@ lease prevents outer remount. No outer allocation or directory update occurs
 during the battery lifetime. This does not authorize ordinary desktop filesystem
 mutation while native EC/SCI ownership is active.
 
-The workload grows/shrinks and renames files, truncates an empty file, renames and
+Filesystem traffic starts only after the service reaches ACTIVE; unsupported
+platform refusal and setup deadlines therefore leave the prepared inner image
+unchanged. The workload grows/shrinks and renames files, truncates an empty file, renames and
 deletes directories, verifies contents and flushes for at least 60 seconds while
 the cached service samples. Completion requires at least ten sample generations,
 I/O progress during sampling and clean service retirement before unmounting and
@@ -411,7 +413,10 @@ Host tests run the real filesystem and adapter against a disposable image,
 interrupting every write, power-cut and flush boundary. They compare every byte
 outside the image before and after, check the outer allocation graph and rehearse
 inner recovery. The modeled runtime cases `service-isolated-filesystem` and
-`service-isolated-auto-deadline` add USB, battery progress and reset coverage.
+`service-isolated-auto-deadline` add USB, battery progress and setup-reset coverage.
+`service-isolated-active-deadline` stalls the third sample after filesystem writes
+start, then verifies reset, byte-for-byte outer isolation and recovery on a copy
+of the retained interrupted image.
 Exact-stage Q35 native refusal must also revoke the image, save an unsuccessful
 report and reset. None of these fixtures accepts physical operation.
 

@@ -110,15 +110,15 @@ def verify_isolated_disk(stick, before, offset, volume, out, cycles):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io', 'service-usb-read', 'service-usb-read-auto-deadline', 'service-usb-write', 'service-usb-write-auto-deadline','service-filesystem','service-filesystem-write-failure','service-isolated-filesystem','service-isolated-auto-deadline'), default='normal')
+    parser.add_argument('--case', choices=('normal', 'denied', 'transport', 'storm', 'deadline', 'query-deadline', 'disconnect-deadline', 'foreign-event', 'foreign-restore-fail', 'foreign-mask-fail', 'foreign-reenable', 'mode-button', 'mode-unexpected', 'transitions', 'transition-timeout', 'native-refusal', 'service', 'service-stale', 'service-incoherent', 'service-refusal', 'service-query-deadline', 'service-setup-load', 'service-auto-deadline', 'service-sci-unclaimed', 'service-io-short', 'service-io-long', 'service-io-sustained', 'service-usb-io', 'service-usb-read', 'service-usb-read-auto-deadline', 'service-usb-write', 'service-usb-write-auto-deadline','service-filesystem','service-filesystem-write-failure','service-isolated-filesystem','service-isolated-auto-deadline','service-isolated-active-deadline'), default='normal')
     args = parser.parse_args()
-    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24, 'service-usb-read':15, 'service-usb-read-auto-deadline':19,'service-usb-write':15,'service-usb-write-auto-deadline':19,'service-filesystem':25,'service-filesystem-write-failure':26,'service-isolated-filesystem':15,'service-isolated-auto-deadline':19}
+    faults = {'normal': 0, 'denied': 1, 'transport': 2, 'storm': 3, 'deadline': 4, 'query-deadline':5, 'disconnect-deadline':6, 'native-refusal': 0, 'foreign-event': 7, 'foreign-restore-fail': 8, 'foreign-mask-fail': 9, 'foreign-reenable': 10, 'mode-button':11, 'mode-unexpected':12, 'transitions':13, 'transition-timeout':14, 'service':15, 'service-stale':16, 'service-incoherent':17, 'service-refusal':0, 'service-query-deadline':5, 'service-setup-load':18, 'service-auto-deadline':19, 'service-sci-unclaimed':20, 'service-io-short':21, 'service-io-long':22, 'service-io-sustained':23, 'service-usb-io':24, 'service-usb-read':15, 'service-usb-read-auto-deadline':19,'service-usb-write':15,'service-usb-write-auto-deadline':19,'service-filesystem':25,'service-filesystem-write-failure':26,'service-isolated-filesystem':15,'service-isolated-auto-deadline':19,'service-isolated-active-deadline':27}
     transitions=args.case in ('transitions','transition-timeout')
     service=args.case.startswith('service')
     readonly=args.case in ('service-usb-read','service-usb-read-auto-deadline')
     scratch=args.case in ('service-usb-write','service-usb-write-auto-deadline')
-    isolated=args.case in ('service-isolated-filesystem','service-isolated-auto-deadline')
-    auto_deadline=args.case in ('service-auto-deadline','service-usb-read-auto-deadline','service-usb-write-auto-deadline','service-isolated-auto-deadline')
+    isolated=args.case in ('service-isolated-filesystem','service-isolated-auto-deadline','service-isolated-active-deadline')
+    auto_deadline=args.case in ('service-auto-deadline','service-usb-read-auto-deadline','service-usb-write-auto-deadline','service-isolated-auto-deadline','service-isolated-active-deadline')
     filesystem=args.case in ('service-filesystem','service-filesystem-write-failure')
     fs_failure=args.case=='service-filesystem-write-failure'
     usb=args.case=='service-usb-io' or readonly or scratch or filesystem or isolated
@@ -231,6 +231,8 @@ def main():
                             with stick.open('rb') as stream:stream.seek(2048*512);volume.write_bytes(stream.read())
                             (out/'usb-fsck.txt').write_text(check_clean_image(volume))
                         if isolated:
+                            if args.case=='service-isolated-active-deadline':
+                                assert stick.read_bytes()!=before_disk,'Fault did not overlap filesystem writes'
                             verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
                         if scratch:
                             verify_scratch_disk(stick,before_disk,scratch_offset,scratch_path,volume,out,None)
