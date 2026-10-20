@@ -84,6 +84,20 @@ int main(int argc, char **argv) {
         return 0;
     }
     assert(exfat_mount_block_device("/vol",&d));
+    if(!strcmp(argv[2],"scratch-seed")) {
+        uint8_t data[4096];for(unsigned i=0;i<4096;i++)data[i]=(uint8_t)i;
+        assert(exfat_write_file("/vol/scratch.bin",data,4096));
+        assert(exfat_write_file("/vol/anchor.txt",(const uint8_t *)"unchanged",9));
+        assert(exfat_unmount("/vol"));assert(fsync(fd)==0);close(fd);return 0;
+    }
+    if(!strcmp(argv[2],"scratch-range")||!strcmp(argv[2],"scratch-refuse")) {
+        struct block_device *resolved=NULL;uint64_t offset=UINT64_MAX;
+        bool ok=exfat_scratch_range("/vol/scratch.bin",&resolved,&offset);
+        assert(!writes);
+        if(!strcmp(argv[2],"scratch-refuse"))assert(!ok&&resolved==NULL&&offset==UINT64_MAX);
+        else {assert(ok&&resolved==&d);printf("scratch offset=%llu bytes=4096\n",(unsigned long long)offset);}
+        close(fd);return 0;
+    }
     if(!strcmp(argv[2],"timestamps")) {
         assert(vfs_lookup("/vol")->metadata.mtime==0);
         assert(exfat_write_file("/vol/dated.txt",(const uint8_t *)"date",4));

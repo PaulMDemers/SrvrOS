@@ -71,6 +71,14 @@ static void test_mbr(void) {
     assert(block_register_mbr_partitions(d)==0 && partition_count==1);
     assert(block_register_mbr_partitions(p)==0);
     assert(block_device_at(0)==d && block_parent(p)==d && !block_device_at(BLOCK_MAX_DEVICES));
+    struct block_device *raw=NULL;uint64_t offset=UINT64_MAX;
+    assert(block_raw_range(p,512,512,&raw,&offset)&&raw==d&&offset==1024);
+    assert(!block_raw_range(p,2048,1,&raw,&offset));
+    assert(!block_raw_range(p,UINT64_MAX,512,&raw,&offset));
+    assert(!block_raw_range(p,0,0,&raw,&offset));
+    assert(block_raw_range(d,0,4096,&raw,&offset)&&raw==d&&offset==0);
+    medium[512]=0x93;block_forget(p);
+    assert(block_read(p,0,&byte,1)&&byte==0x93);
     assert(!block_enable_partition_writes(p));
     d->write=fake_write; assert(block_enable_partition_writes(p) && p->write==partition_write);
     byte=0x72; assert(block_write(p,0,&byte,1) && medium[512]==0x72);

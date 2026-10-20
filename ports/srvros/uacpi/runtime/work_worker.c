@@ -50,26 +50,46 @@ static void worker_main(void *arg) {
         if (worker->stopping) {
             worker->stopped = true;
             scheduler_wake_all(&worker->progress);
-            irq_restore(flags);
-            return; /* No worker-state access after stopped publication. */
+            /* Return to the scheduler trampoline with IRQs still masked. An I/O
+             * eligibility callback holds this worker pointer until the thread
+             * is dead; do not let a waiter reclaim it between publication and
+             * the trampoline's terminal exit. No worker-state access follows. */
+            return;
         }
         irq_restore(flags);
         if (!scheduler_wait(&worker->ready, work_ready, worker)) scheduler_yield();
     }
 }
 
-bool acpi_worker_start(struct acpi_work_worker *worker) {
+static bool io_ready(void *arg) {
+    struct acpi_work_worker *worker=arg;
+    return worker->started && !worker->stopped && worker->io_eligible &&
+        worker->io_eligible(worker->io_context);
+}
+
+static bool start(struct acpi_work_worker *worker,
+    scheduler_wait_condition_fn eligible, void *context) {
     if (!worker || !scheduler_current_thread_id()) return false;
     uint64_t flags = irq_save();
     if (worker->started && !worker->stopped) {
         irq_restore(flags);
         return false;
     }
-    *worker = (struct acpi_work_worker){.started = true};
-    bool ok = scheduler_spawn("acpi-work", worker_main, worker);
+    *worker = (struct acpi_work_worker){.started = true,
+        .io_eligible=eligible,.io_context=context};
+    bool ok = eligible ? scheduler_spawn_io_service("acpi-work",worker_main,worker,io_ready) :
+        scheduler_spawn("acpi-work", worker_main, worker);
     if (!ok) *worker = (struct acpi_work_worker){0};
     irq_restore(flags);
     return ok;
+}
+
+bool acpi_worker_start(struct acpi_work_worker *worker) {
+    return start(worker,NULL,NULL);
+}
+bool acpi_worker_start_io(struct acpi_work_worker *worker,
+    scheduler_wait_condition_fn eligible, void *context) {
+    return eligible && start(worker,eligible,context);
 }
 
 bool acpi_worker_enqueue(struct acpi_work_worker *worker, struct acpi_work_item *item,

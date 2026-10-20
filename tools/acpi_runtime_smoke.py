@@ -91,7 +91,7 @@ def main():
                     assert qmp.call('query-status')['running']
                 request('acpiruntime start', rb'acpi-runtime: READY')
                 request('acpiruntime wedge', rb'acpi-runtime: wedge-blocked')
-                halted = request('acpiruntime stop', rb'acpi-runtime: HALTED unsafe teardown: work did not drain heap=(\d+)', timeout=8)
+                halted = request('acpiruntime stop', rb'acpi-runtime: HALTED unsafe teardown: pre-reset work did not drain heap=(\d+)', timeout=8)
                 assert int(halted[1]) > 0  # Live state was retained, not freed under blocked work.
                 qmp.call('quit')
                 process.wait(timeout=10)

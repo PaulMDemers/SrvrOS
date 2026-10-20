@@ -13,11 +13,16 @@ static struct acpi_work_worker worker;
 static struct acpi_work_item *item;
 static unsigned callbacks, yields, waits;
 static bool finish_on_wait, stop_on_yield;
+static scheduler_wait_condition_fn admitted_io;
 
 uint64_t scheduler_current_thread_id(void) { return identity; }
 bool scheduler_spawn(const char *name, scheduler_thread_fn fn, void *arg) {
     assert(name && !(acpi_worker_test_flags & (1ull << 9)));
-    spawned = fn; spawn_arg = arg; return spawn_ok;
+    admitted_io=NULL;spawned = fn; spawn_arg = arg; return spawn_ok;
+}
+bool scheduler_spawn_io_service(const char *name,scheduler_thread_fn fn,
+    void *arg,scheduler_wait_condition_fn eligible) {
+    bool ok=scheduler_spawn(name,fn,arg);assert(eligible);admitted_io=eligible;return ok;
 }
 void scheduler_wake_all(struct scheduler_wait_queue *queue) {
     assert(queue && !(acpi_worker_test_flags & (1ull << 9)));
@@ -56,6 +61,15 @@ void scheduler_yield(void) {
     }
 }
 static void noop(void *arg) { (void)arg; }
+static void run_worker(void) {
+    spawned(spawn_arg);
+    assert(!(acpi_worker_test_flags&(1ull<<9)));
+    /* Model the trampoline's non-preemptible terminal exit and next thread. */
+    acpi_worker_test_flags=1ull<<9;
+}
+static bool policy(void *arg) {
+    assert(!(acpi_worker_test_flags&(1ull<<9)));return *(bool *)arg;
+}
 static void callback(void *arg) {
     assert(arg == &worker && (acpi_worker_test_flags & (1ull << 9)));
     assert(!acpi_worker_drain(&worker, 0) && !acpi_worker_stop(&worker, 0));
@@ -91,14 +105,29 @@ int main(void) {
     finish_on_wait = true; assert(acpi_worker_drain(&worker, 100));
     item = calloc(1, sizeof(*item)); assert(item);
     assert(acpi_worker_enqueue(&worker, item, UACPI_WORK_GPE_EXECUTION, callback, &worker));
-    stop_on_yield = true; identity = 2; spawned(spawn_arg); identity = 1;
+    stop_on_yield = true; identity = 2; run_worker(); identity = 1;
     assert(callbacks == 1000 && yields == 1000 && worker.completed == 1000 && !item);
     assert(acpi_worker_stop(&worker, 0));
     assert(!acpi_worker_enqueue(&worker, &pending, UACPI_WORK_NOTIFICATION, noop, NULL));
     assert(acpi_worker_start(&worker) && !worker.stopped && !worker.completed);
     assert(!acpi_worker_stop(&worker, 0));
-    identity = 3; spawned(spawn_arg); identity = 1;
+    identity = 3; run_worker(); identity = 1;
     assert(acpi_worker_stop(&worker, 0));
     assert(acpi_worker_test_flags == (1ull << 9));
+    bool enabled=false;
+    assert(!acpi_worker_start_io(&worker,NULL,&enabled));
+    spawn_ok=false;
+    assert(!acpi_worker_start_io(&worker,policy,&enabled));
+    assert(!worker.started&&!worker.io_eligible&&!worker.io_context);
+    spawn_ok=true;assert(acpi_worker_start_io(&worker,policy,&enabled));
+    acpi_worker_test_flags=0;assert(!admitted_io(spawn_arg));
+    enabled=true;assert(admitted_io(spawn_arg));acpi_worker_test_flags=1ull<<9;
+    assert(!acpi_worker_stop(&worker,0));
+    acpi_worker_test_flags=0;assert(admitted_io(spawn_arg)); /* Stop still needs execution. */
+    acpi_worker_test_flags=1ull<<9;identity=4;run_worker();identity=1;
+    acpi_worker_test_flags=0;assert(!admitted_io(spawn_arg));acpi_worker_test_flags=1ull<<9;
+    assert(acpi_worker_start(&worker)&&!admitted_io&&!worker.io_eligible&&!worker.io_context);
+    assert(!acpi_worker_stop(&worker,0));identity=5;run_worker();identity=1;
+    assert(acpi_worker_stop(&worker,0));
     puts("acpi-worker: PASS IRQ admission, duplicate refusal, timeout/overflow/failure, self-reschedule/free, yielding, stop/restart and flags");
 }

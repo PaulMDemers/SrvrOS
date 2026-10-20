@@ -100,6 +100,32 @@ artifacts and rerun affected host/VM checks before staging. Schedule the relevan
 physical checks on that machine under its existing authorization. Acceptance of
 an older release stays historical evidence, not a blanket pass for the new tree.
 
+## October 20 battery baseline handoff
+
+[PR #6](https://github.com/PaulMDemers/SrvrOS/pull/6) supplies the shared cached
+battery service, explicit worker I/O eligibility, retired scheduler callback
+handling, lifecycle/SCI diagnostics and automatic capture/collection mechanisms.
+Consume this baseline before building another battery service. Its native backend
+is gated to captured Air7,2 firmware/resources; shared mechanisms do not authorize
+copying those gates or enabling a sibling's EC/SCI ownership. Ordinary desktop
+battery startup remains disabled.
+
+Air hardware accepts bounded cached-service lifecycle and USB **read** overlap.
+The first v36 scratch write trial failed allocation preflight before native
+runtime entry; offline exFAT was clean. Write overlap, sustained desktop/input
+coexistence, gauge calibration and the unclaimed SCI cause remain open. See the
+[service contract](battery-service.md) and [Air record](machines/macbookair7-2.md).
+
+Pro11,2 [PR #5](https://github.com/PaulMDemers/SrvrOS/pull/5) was inspected at
+`7c9372b`; its battery work is deferred at the user's request. Preserve its v35
+CPU-load capture and unit evidence when incorporating this baseline. Air uses
+v36 for scratch writes. Reconcile `kernel/src/main.c`, `tools/hardware_boot.py`
+and `tools/hardware_boot_smoke.py` by behavior, preserving both profiles and
+automatic-return policy; do not resolve overlapping files wholesale with one
+branch's version. Fetch the actual merged `origin/main`, rebuild matched artifacts,
+and rerun affected staging/collector and VM checks before a Pro hardware trial.
+Each machine retains its own UUID, recovery payload and acceptance ledger.
+
 ## Evidence and checkpoints
 
 Use distinct states: planned, inventory captured, implemented, host-tested,

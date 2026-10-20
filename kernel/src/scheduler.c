@@ -219,8 +219,10 @@ void scheduler_io_checkpoint(void) {
 
 static bool has_ready_thread_except(uint64_t skipped_index) {
     for (uint64_t i = 0; i < SCHEDULER_MAX_THREADS; i++) {
-        if (i != skipped_index && io_thread_allowed(i) &&
-            (threads[i].state == THREAD_READY || threads[i].state == THREAD_RUNNING)) {
+        /* A retired service may already have released its callback context. */
+        if (i != skipped_index &&
+            (threads[i].state == THREAD_READY || threads[i].state == THREAD_RUNNING) &&
+            io_thread_allowed(i)) {
             return true;
         }
     }

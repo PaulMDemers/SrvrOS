@@ -7,12 +7,22 @@
 #include <srvros/scheduler.h>
 #include <srvros/usb_storage.h>
 #include <srvros/vfs.h>
+#include <srvros/timer.h>
 #include <stddef.h>
 #include <stdint.h>
 
-static struct block_device *active;
+static struct block_device *active, *parked;
 static char active_uuid[9];
 static bool failed;
+static struct {
+    bool open, poisoned;
+    struct block_device *volume,*parent;
+    block_write_fn write;
+    block_flush_fn flush;
+    uint64_t offset;
+    uint8_t buffer[4096];
+} scratch;
+
 
 struct scope { uint64_t flags; bool services; };
 static bool begin(struct scope *scope) {
@@ -79,6 +89,15 @@ static bool marker_valid(const char uuid[9]) {
     return ok;
 }
 bool workspace_active(void) { return active != NULL; }
+/* CPU0 diagnostic admission only; no mount or I/O side effects. The caller must
+ * keep the workspace unmounted and must not enable writes during the lease. */
+struct block_device *workspace_parked_device(void) {
+    struct block_device *parent=block_parent(parked);
+    return !active && !failed && parked && parent &&
+        usb_storage_is_device(parked) && !parked->write && !parent->write &&
+        !parent->flush ? parked : NULL;
+}
+
 void workspace_status(void) {
     if (!active) console_write("workspace: not mounted\n");
     else console_printf("workspace: UUID=%s path=/work/srvros-work state=%s\n",
@@ -90,7 +109,7 @@ bool workspace_mount(const char *uuid) {
     struct scope scope;
     if (!begin(&scope)) { end(&scope); return false; }
     bool ok = false;
-    if (active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
+    if (scratch.open || scratch.poisoned || active || vfs_lookup("/work")) { console_write("workspace: /work is busy\n"); goto out; }
     struct block_device *device = find_volume(serial);
     struct block_device *parent = block_parent(device);
     if (!device || !parent || parent->write) {
@@ -105,7 +124,7 @@ bool workspace_mount(const char *uuid) {
         console_write("workspace: volume cannot be written; check it offline\n");
         usb_storage_disable_volume_writes(device); exfat_unmount("/work"); goto out;
     }
-    active = device; failed = false;
+    active = device; parked = NULL; failed = false;
     for (unsigned i = 0; i < 9; i++) active_uuid[i] = compact[i];
     console_write("workspace: ready at /work/srvros-work\n");
     console_write("workspace: type 'workspace shell' to open your saved environment\n");
@@ -139,12 +158,70 @@ bool workspace_unmount(void) {
     if (!exfat_unmount("/work") || !usb_storage_disable_volume_writes(active)) {
         failed = true; goto out;
     }
-    active = NULL; failed = false;
+    parked = active; active = NULL; failed = false;
     console_write("workspace: unmounted; USB writes disabled\n");
     ok = true;
 out:
     end(&scope); return ok;
 }
+/* All filesystem work precedes the lease. During the lease there are no public
+ * write callbacks, mounted nodes, allocation updates or mutable extent inputs. */
+bool workspace_scratch_prepare(void) {
+    struct scope scope;
+    if(!begin(&scope)){end(&scope);return false;}
+    bool ok=false;
+    if(scratch.open||scratch.poisoned||!active||failed||process_has_open_vfs_prefix("/work"))goto out;
+    char path[]="/work/srvros-work/battery-io-0000000000000000.bin";
+    uint64_t nonce=timer_monotonic_us();
+    for(unsigned i=0;i<16;i++)path[sizeof("/work/srvros-work/battery-io-")-1+i]="0123456789abcdef"[(nonce>>(60-i*4))&15];
+    if(vfs_lookup(path))goto out; /* Never overwrite an existing file. */
+    for(unsigned i=0;i<4096;i++)scratch.buffer[i]=(uint8_t)i;
+    if(!exfat_write_file(path,scratch.buffer,4096)||!sync_locked())goto out;
+    struct block_device *volume=NULL,*parent=NULL;
+    uint64_t offset,raw;
+    if(!exfat_scratch_range(path,&volume,&offset)||volume!=active||
+       !block_raw_range(volume,offset,4096,&parent,&raw)||!parent->write||!parent->flush||
+       raw%parent->block_size||4096%parent->block_size)goto out;
+    block_write_fn write=parent->write;block_flush_fn flush=parent->flush;
+    if(!workspace_unmount()||workspace_parked_device()!=volume)goto out;
+    scratch.volume=volume;scratch.parent=parent;scratch.offset=raw;
+    scratch.write=write;scratch.flush=flush;scratch.open=true;
+    block_forget(parent);
+    console_printf("workspace-scratch: prepared path=%s raw_offset=%u bytes=4096; unmounted=yes aliases=revoked\n",path,raw);
+    ok=true;
+out:
+    end(&scope);return ok;
+}
+bool workspace_scratch_ready(void) {
+    return scratch.open&&!scratch.poisoned&&workspace_parked_device()==scratch.volume;
+}
+bool workspace_scratch_cycle(const uint8_t data[4096]) {
+    struct scope scope;
+    if(!begin(&scope)){end(&scope);return false;}
+    bool ok=false;
+    if(!data||!scratch.open||scratch.poisoned||workspace_parked_device()!=scratch.volume)goto out;
+    struct block_device *d=scratch.parent;
+    ok=scratch.write(d,scratch.offset,data,4096)&&scratch.flush(d)&&
+        d->read(d,scratch.offset,scratch.buffer,4096);
+    for(unsigned i=0;ok&&i<4096;i++)ok=data[i]==scratch.buffer[i];
+    if(!ok)scratch.poisoned=true;
+    /* Even a failed write may have modified a prefix. Invalidate every alias. */
+    block_forget(d);
+out:
+    end(&scope);return ok;
+}
+bool workspace_scratch_end(void) {
+    struct scope scope;
+    if(!begin(&scope)){end(&scope);return false;}
+    bool ok=scratch.open&&!scratch.poisoned&&workspace_parked_device()==scratch.volume;
+    if(scratch.open)block_forget(scratch.parent);
+    scratch.open=false;scratch.write=NULL;scratch.flush=NULL;
+    scratch.volume=NULL;scratch.parent=NULL;
+    if(!ok)scratch.poisoned=true;
+    console_printf("workspace-scratch: revoked clean=%s\n",ok?"yes":"NO");
+    end(&scope);return ok;
+}
+
 void workspace_boot(const char *cmdline) {
     static const char key[] = "srvros.workspace-volume=";
     char uuid[10]; unsigned matches = 0;

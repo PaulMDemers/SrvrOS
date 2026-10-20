@@ -55,9 +55,12 @@ class NamespaceTests(unittest.TestCase):
             aml.write_bytes(data)
         return aml
 
-    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=()):
+    def probe(self,*paths,snapshot=True,darwin=False,aml=None,contract=None,models=(),set_models=(),pci=(),initialize=False,read32=(),ec_model=None):
         args=[str(BINARY)]
         if darwin: args+=['--darwin']
+        if initialize: args+=['--initialize']
+        if ec_model: args+=['--ec-model',str(ec_model)]
+        for description in read32: args+=['--mmio-read32',description]
         for address,path in models: args+=['--io-model',f'{address}:{path}']
         for address,mask,path in set_models: args+=['--io-set-model',f'{address}:{mask}:{path}']
         for address,path in pci: args+=['--pci',f'{address}:{path}']
@@ -65,6 +68,133 @@ class NamespaceTests(unittest.TestCase):
         if snapshot: args+=['--region',f'0x100000:{self.snapshot}']
         args += [str(aml or self.aml),'--',*paths]
         return subprocess.run(args,capture_output=True,text=True,timeout=20)
+
+    def test_connected_ec_lifecycle(self):
+        aml=self.variant('Device (SMB0) {', """
+            Name (REGC, Zero)
+            OperationRegion (ECOR, EmbeddedControl, Zero, 0x100)
+            Field (ECOR, ByteAcc, NoLock, Preserve) { V000, 8 }
+            Method (_REG, 2) {
+                REGC = Arg1
+                If (Arg1) { V000 = 0x42 Notify (EC, 0x80) }
+                Else { V000 = 0x24 }
+            }
+            Method (ECRD, 0) { Return (V000) }
+            Device (SMB0) {
+        """)
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        r=self.probe('\\_SB.EC.ECRD',aml=aml,contract=self.contract(),initialize=True,ec_model=model)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('ec-model: connect=PASS',r.stdout)
+        self.assertIn('ec-model: notify path=\\_SB_.EC__ value=80',r.stdout)
+        self.assertIn('\\_SB.EC.ECRD = 0x42',r.stdout)
+        self.assertIn('ec-model: disconnect=PASS api=0 attached=1 detached=1',r.stdout)
+        self.assertIn('value=24',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+        self.assertEqual(model.read_bytes(),bytes(256))
+
+    def test_ec_model_requires_explicit_contract_and_initialize(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        for options in ({},dict(initialize=True),dict(contract=self.contract())):
+            r=self.probe('\\READ',ec_model=model,**options)
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+            self.assertIn('EC model requires',r.stderr)
+        model.write_bytes(bytes(255))
+        r=self.probe('\\READ',ec_model=model,contract=self.contract(),initialize=True)
+        self.assertEqual(r.returncode,2)
+        self.assertIn('expected 256-byte',r.stderr)
+
+    def test_ec_contract_mismatch_prevents_connection(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        r=self.probe('\\READ',ec_model=model,contract=self.contract(uid=1),initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertNotIn('ec-model: connect=PASS',r.stdout)
+        self.assertIn('namespace-init: SKIPPED',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_ec_model_out_of_bounds_refused(self):
+        model=self.folder/'ec.bin';model.write_bytes(bytes(256))
+        aml=self.variant('Device (SMB0) {', """
+            OperationRegion (ECOR, EmbeddedControl, 0xFF, 2)
+            Field (ECOR, ByteAcc, NoLock, Preserve) { DATA, 8 }
+            Method (_REG, 2) { If (Arg1) { DATA = One } }
+            Device (SMB0) {
+        """)
+        r=self.probe('\\READ',aml=aml,ec_model=model,contract=self.contract(),initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('ec-model: connect=REFUSED',r.stdout)
+        self.assertIn('namespace-init: SKIPPED',r.stdout)
+        self.assertNotIn('ec-model: write',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_namespace_initialization_is_opt_in(self):
+        aml=self.variant('Method (READ, 0)', 'Method (_INI, 0) { VAL0 = 0x42 } Method (READ, 0)')
+        before=self.snapshot.read_bytes()
+        r=self.probe('\\READ',aml=aml)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('\\READ = 0x21',r.stdout)
+        self.assertNotIn('namespace-init:',r.stdout)
+        r=self.probe('\\READ',aml=aml,initialize=True)
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('namespace-init: PASS api=0 errors=0 warnings=0 denied=0',r.stdout)
+        self.assertIn('\\READ = 0x42',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+        self.assertEqual(self.snapshot.read_bytes(),before)
+
+    def test_namespace_initialization_ignored_error_refused(self):
+        aml=self.variant('Method (READ, 0)', 'Method (_INI, 0) { IOV0 = One } Method (READ, 0)')
+        r=self.probe('\\READ',aml=aml,initialize=True,contract=self.contract())
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: REFUSED api=0',r.stdout)
+        self.assertIn('follow-up evaluations and EC contract skipped',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertNotIn('ec-contract: MATCH',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_namespace_initialization_prior_load_fault_refused(self):
+        aml=self.variant('Method (BADR, 0)', 'Name (BOOT, Zero) BOOT = IOV0 Method (BADR, 0)')
+        r=self.probe('\\READ',aml=aml,initialize=True,contract=self.contract())
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: SKIPPED prior load errors=',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertNotIn('ec-contract: MATCH',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_namespace_initialization_bad_status_refused(self):
+        aml=self.variant('Name (_UID, Zero)', 'Name (_UID, Zero) Method (XSTA, 0) { Return (Buffer () {1}) }', (b'XSTA',b'_STA'))
+        r=self.probe('\\READ',aml=aml,initialize=True)
+        self.assertEqual(r.returncode,1,r.stdout+r.stderr)
+        self.assertIn('namespace-init: REFUSED api=0',r.stdout)
+        self.assertNotIn('\\READ =',r.stdout)
+        self.assertIn('remaining_allocated=0',r.stdout)
+
+    def test_exact_read32_model(self):
+        model=self.folder/'read32.bin';model.write_bytes(b'\x80\0\0\0')
+        aml=self.variant('Method (READ, 0)',
+            'Field (SNAP, DWordAcc, NoLock, Preserve) { Offset (4), CONF, 32 } '
+            'Field (SNAP, WordAcc, NoLock, Preserve) { Offset (4), HALF, 16 } '
+            'Method (RHAF, 0) { Return (HALF) } '
+            'Method (RCFG, 0) { Return (CONF) } Method (WCFG, 0) { CONF = One } Method (READ, 0)')
+        description=f'0x100000:16:0x100004:{model}'
+        r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[description])
+        self.assertEqual(r.returncode,0,r.stdout+r.stderr)
+        self.assertIn('memory-model: read address=0x100004 width=32 before=0x80 value=0x80',r.stdout)
+        for method in ['\\READ','\\RHAF','\\WR64','\\WCFG']:
+            r=self.probe(method,snapshot=False,aml=aml,read32=[description])
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+            self.assertIn('MMIO outside exact read-only 32-bit model denied',r.stderr)
+        self.assertEqual(model.read_bytes(),b'\x80\0\0\0')
+        for desc in [f'0x100000:16:0x100001:{model}',f'0x100000:16:0x100010:{model}',
+                     f'0x100000:3:0x100000:{model}',f'0xfffffffffffffff0:32:0xfffffffffffffff0:{model}']:
+            r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[desc])
+            self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        r=self.probe('\\RCFG',aml=aml,read32=[description])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
+        self.assertIn('overlapping regions',r.stderr)
+        model.write_bytes(bytes(5))
+        r=self.probe('\\RCFG',snapshot=False,aml=aml,read32=[description])
+        self.assertEqual(r.returncode,2,r.stdout+r.stderr)
 
     def test_resources_and_osi(self):
         r=self.probe('\\_SB.EC._HID','\\_SB.EC._CRS','\\_SB.EC.SMB0._STA','\\_SB.EC.SMB0._EC',darwin=True)

@@ -228,7 +228,8 @@ thermal, fan and audio status. It blocks the calling thread while waiting;
 logging and device sampling still create some activity. It does not launch the
 desktop or play audio and never enables AML. Success saves/flushes the exit log,
 unmounts the USB workspace and returns to Ubuntu. Missing workspace, incomplete
-sampling or failed save/unmount halts. Rehearse the missing-drive failure with
+sampling or failed save/unmount returns with failed/incomplete evidence in new
+`-auto-return` stages. Older recipes retain their halt behavior. Rehearse the missing-drive failure with
 `--probe-check --probe-missing-workspace`; that failure rehearsal does not replace
 the successful exact-stage result. Collect using `hardware_desktop.py` and require
 this release's exit log containing `idle-capture: ... completed=yes`, plus a healthy
@@ -244,7 +245,8 @@ tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
 
 It opens Text, allows startup to settle, samples CPU0 scheduler counters for
 60 seconds, saves a screenshot to the selected workspace and closes the desktop.
-Clean log save/unmount then returns to Ubuntu; failure halts. Leave input alone
+Clean log save/unmount then returns to Ubuntu; new unattended stages also return
+on handled failure. Leave input alone
 during this measurement. This is an explicit unattended diagnostic, not a timed
 exit added to ordinary desktop use. The collector's `desktop_idle_sample` requires
 the complete measurement, screenshot success and clean process return. The
@@ -291,6 +293,85 @@ installed release and previous USB session IDs. Copy the screenshots after the
 run. Keep a durable copy of accepted boot payloads outside `build` before cleanup.
 Shell variables do not survive reboot: retain this record and reload UUID/release
 from it on return. Do not rely on an old `latest` pointer as a machine identity.
+
+The Air7,2 native battery candidate uses a separate **v31** profile and kernel:
+
+```sh
+tools/host-env.sh make kernel initramfs acpi-battery-kernel
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+This is an explicit firmware/EC/SCI diagnostic, not ordinary desktop startup.
+The newly staged native image must refuse Q35, save the refusal, unmount and reset;
+the synthetic positive lifecycle uses another kernel and cannot grant physical
+acceptance. On the matched Air it takes five battery/AC samples, retires the
+runtime, saves and returns automatically, including a failed result. Keep AC connected for
+the initial trials. The current diagnostic preserves the two observed firmware
+graphics/wake-alarm events while it owns the battery event; unknown enabled
+sources still refuse. Unattended battery captures checkpoint and unmount USB
+before entering the runtime; a contained fault resets without unsafe cleanup.
+Missing final reports remain failures. The last fault text may not reach USB.
+Read the [runtime gate](native-ec-runtime.md#explicit-native-battery-diagnostic),
+retain recovery, record the exact run and collect its matching session first
+on return. The collector reports complete runtime evidence separately from
+physical battery accuracy. Pro11,2 desktop profiles v27–v31 remain reserved on its
+work branch; do not reuse a profile number or alter an installed recipe.
+
+After the bounded AC-connected diagnostic, the separate **v32 laptop-probe**
+profile adds a guided transition trial:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-transitions
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+Start with AC connected and leave USB plugged in throughout. Follow the persistent
+instructions to unplug AC and then reconnect it. Each phase needs three coherent
+readings within 120 seconds; a missed phase saves an incomplete result and halts.
+Successful retirement, save and unmount return automatically. Collect the exact
+release/session and inspect `battery_transitions`, both event restorations and
+attention items before claiming acceptance. Preserve the accepted v31 diagnostic
+and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
+for sample validity, current signs and the distinction between VM and hardware evidence.
+
+The separate **v36 laptop-probe** `--battery-usb-write` profile adds bounded
+scratch-data writes/flushes during battery sampling. It allocates and validates
+a new 4096-byte scratch file before runtime, unmounts the workspace, and retains
+only a private capability to that data extent. General USB write aliases stay
+disabled. Use the same native build, exact-stage `--probe-check`, missing-workspace
+rehearsal and automatic-return installation sequence. Collection must verify
+both `battery_service` and `battery_usb_write`, including the saved scratch
+payload; an incomplete report is failure. Keep AC/USB connected; no input is
+requested. See [the scratch contract](battery-service.md#native-scratch-writeflush-overlap-capture-v36).
+This does not accept concurrent filesystem metadata updates. The Pro11,2 branch
+owns the separate v35 CPU-load proposal; do not reuse its profile number.
+
+The separate **v34 laptop-probe** `--battery-usb-read` profile extends the service
+trial with uncached reads of the validated, unmounted USB device while battery
+sampling runs. It leaves USB writes revoked until clean retirement, verifies
+each read against a baseline, and requires sampling progress inside storage
+scopes. It is automatic; keep AC and USB connected. The same exact-stage
+`--probe-check` rehearsal must verify native refusal and automatic return.
+See [the read-overlap contract](battery-service.md#native-read-only-usb-overlap-capture-v34).
+On collection require both `battery_service` and `battery_usb_read` evidence.
+A missing final report remains failure. This does not accept concurrent writes
+or human input responsiveness.
+
+The **v33 laptop-probe** `--battery-service` profile runs a bounded automatic
+cached-reader/start/stop test with AC and USB left connected. Follow the
+[service guide](battery-service.md) and the same exact-stage/install/one-shot
+sequence. New stages use the `-auto-return` recipe suffix, checkpoint/unmount
+before risky runtime work and return on handled failures as well as success.
+Full final logs are saved after normal retirement; contained faults retain the
+pre-probe checkpoint and reset without touching the filesystem. Its
+`battery_service` collection field does not accept desktop responsiveness or a
+permanent background service.
+
+Announce required human actions before rebooting. Use `--hold-on-failure` only
+for an explicitly attended diagnostic. Existing installed recipes keep their
+original behavior; restage to obtain automatic failure return. The guided v32
+AC transition trial remains attended and must be announced in advance.
 
 ## 6. Install alongside Ubuntu and select one boot
 
@@ -381,7 +462,9 @@ python3 tools/hardware_desktop.py --uuid "$SRVROS_USB_UUID" \
 
 This verifies and copies session logs, not screenshots or documents. Copy the
 relevant BMPs from `srvros-work/Screenshots` separately and verify their hashes.
-Match a new session's release to the staged manifest, inspect `attention`, exit
+A missing exit snapshot is flagged as an incomplete session, including when a
+halt occurs before any failure text reaches USB. Match a new session's release
+to the staged manifest, inspect `attention`, exit
 status and device/sample-age fields, and record what the human actually heard or
 felt. Old sessions are included in collection; their presence is not a pass for
 the new build. No new session after a boot stall may mean failure before logging.

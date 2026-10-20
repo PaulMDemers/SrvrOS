@@ -52,6 +52,197 @@ def device_summaries(text):
     return latest
 
 
+def battery_diagnostic(exit_text):
+    """Complete runtime evidence, never automatic physical-value acceptance."""
+    lines=exit_text.splitlines()
+    finish="battery-capture: returned=yes clean=yes; physical accuracy NOT_TESTED"
+    if lines.count(finish)!=1 or any(line.startswith(("battery: HALTED", "battery: FAILED", "battery: REFUSED")) for line in lines):return None
+    complete=re.findall(r"^battery: PASS samples=5 notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; physical accuracy NOT_TESTED$",exit_text,re.M)
+    if len(complete)!=1 or complete[0][2]!=complete[0][3] or not int(complete[0][2]):return None
+    held=[line for line in lines if line.startswith('battery: foreign-event held')]
+    restored=[line for line in lines if line.startswith('battery: foreign-event restored')]
+    handoffs=[]
+    if held or restored:
+        if len(held)!=len(restored) or not 1<=len(held)<=2:return None
+        pending={}
+        for line in held:
+            h=re.fullmatch(r"battery: foreign-event held enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16})",line)
+            if not h:return None
+            port,original=map(lambda v:int(v,16),h.groups())
+            if port in pending:return None
+            pending[port]=(original,lines.index(line))
+        for line in restored:
+            r=re.fullmatch(r"battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=([0-9]{1,20})",line)
+            if not r or not int(r[3]):return None
+            port,original=int(r[1],16),int(r[2],16)
+            if port not in pending:return None
+            before,position=pending.pop(port)
+            if original!=before or not position<lines.index(line)<next(i for i,row in enumerate(lines) if row.startswith('battery: PASS'))<lines.index(finish):return None
+            handoffs.append({'enable_port':port,'original_enable':original,'protected_writes':int(r[3]),'restored':True})
+        if pending:return None
+    pattern=(r"^battery: sample=(?P<generation>[0-9]{1,20}) ac_present=(?P<ac>[01]) soc=(?P<soc>[0-9]{1,3}) "
+             r"voltage_uv=(?P<voltage_uv>[0-9]{1,20}) current_ua=(?P<current_ua>-?[0-9]{1,20}) "
+             r"capacity=(?P<capacity>[0-9]{1,20}) full=(?P<full>[0-9]{1,20}) unit=(?P<unit>[12]) "
+             r"temp_mc=(?P<temperature_mc>-?[0-9]{1,12}) valid=(?P<valid>0x[0-9a-f]{1,16}) age_us=(?P<age_us>[0-9]{1,20}) "
+             r"ac_us=(?P<ac_us>[0-9]{1,20}) start_us=(?P<start_us>[0-9]{1,20}) end_us=(?P<end_us>[0-9]{1,20})$")
+    samples=[]
+    for match in re.finditer(pattern,exit_text,re.M):
+        sample={k:int(v,16 if k=='valid' else 10) for k,v in match.groupdict().items()}
+        if sample['generation']!=len(samples)+1 or sample['soc']>100 or sample['valid']&11!=11 or \
+           not 0<=sample['ac_us']<=sample['start_us']<=sample['end_us']<2**64 or \
+           sample['age_us']>1000000 or (samples and sample['ac_us']<=samples[-1]['end_us']):return None
+        sample['capacity_unit']='uAh' if sample['unit']==1 else 'uWh'
+        samples.append(sample)
+    if len(samples)!=5 or sum(line.startswith('battery: sample=') for line in lines)!=5:return None
+    return {'runtime_complete':True,'physical_accuracy':'manual-pending','samples':samples,
+            'queries':int(complete[0][1]),'notifications':int(complete[0][0]),'foreign_event':handoffs[0] if len(handoffs)==1 else None,'foreign_events':handoffs}
+
+
+def battery_transitions(exit_text):
+    """Compact end-of-run proof survives a long human wait and bounded log tail."""
+    lines=exit_text.splitlines()
+    finish='battery-transition-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: FAILED','battery: REFUSED','battery-transition: INCOMPLETE','battery-transition-capture: returned=yes clean=NO')) for row in lines):return None
+    passes=[row for row in lines if row.startswith('battery-transition: PASS')]
+    if len(passes)!=1:return None
+    match=re.fullmatch(r'battery-transition: PASS phases=3 samples=([0-9]{1,20}) notifications=([0-9]{1,20}) queries=([0-9]{1,20}) attached=([0-9]{1,20}) detached=([0-9]{1,20}) heap=0 errors=0 denied=0; retired=yes',passes[0])
+    if not match:return None
+    samples,notifications,queries,attached,detached=map(int,match.groups())
+    if any(value>=2**64 for value in (samples,notifications,queries,attached,detached)):return None
+    if samples<9 or not attached or attached!=detached or not lines.index(passes[0])<lines.index(finish):return None
+    # v32 is the native image, with precisely these two configured leases. The
+    # initial held records can age out; final exact restoration records cannot.
+    restored=[row for row in lines if row.startswith('battery: foreign-event restored')]
+    expected={0x189c:0x40,0x189e:4}
+    if len(restored)!=2:return None
+    for row in restored:
+        m=re.fullmatch(r'battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=([0-9]{1,20})',row)
+        if not m:return None
+        port,original=int(m[1],16),int(m[2],16)
+        if port not in expected or original not in (0,expected.pop(port)) or not int(m[3]) or lines.index(row)>lines.index(passes[0]):return None
+    phases=[]
+    keys={'accepted','stable','first_gen','last_gen','first_us','ac_us','start_us','end_us','relative_soc','voltage_uv','current_ua','capacity','full','design','unit','valid'}
+    for row in (line for line in lines if line.startswith('battery-transition: accepted=')):
+        tokens=row[len('battery-transition: '):].split();values={}
+        for token in tokens:
+            key,sep,value=token.partition('=')
+            if not sep or key in values or not re.fullmatch(r'-?[0-9]{1,20}|0x[0-9a-f]{1,16}',value):return None
+            values[key]=int(value,16 if value.startswith('0x') else 10)
+        if set(values)!=keys or values['accepted']!=len(phases) or values['stable']!=3:return None
+        if any(not 0<=v<2**64 for k,v in values.items() if k!='current_ua') or not -2**63<=values['current_ua']<2**63:return None
+        if not 1<=values['first_gen'] or values['last_gen']!=values['first_gen']+2 or values['last_gen']>samples:return None
+        if not 0<values['first_us']<=values['ac_us']<=values['start_us']<=values['end_us']:return None
+        if values['relative_soc']>100 or values['valid']&15!=15 or values['unit'] not in (1,2) or not values['voltage_uv'] or not values['full']:return None
+        if (values['accepted']==1 and values['current_ua']>=0) or (values['accepted']!=1 and values['current_ua']<0):return None
+        if phases and (values['first_gen']<=phases[-1]['last_gen'] or values['first_us']<=phases[-1]['end_us']):return None
+        if lines.index(row)>lines.index(passes[0]):return None
+        phases.append(values)
+    if len(phases)!=3:return None
+    return {'runtime_complete':True,'transition_complete':True,'physical_accuracy':'manual-pending',
+            'samples':samples,'queries':queries,'notifications':notifications,'phases':phases}
+
+
+def battery_service_result(exit_text):
+    """v33 bounded native reader/lifecycle proof, not desktop acceptance."""
+    lines=exit_text.splitlines()
+    finish='battery-service-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+    if lines.count(finish)!=1 or any(row.startswith(('battery: HALTED','battery: FAILED','battery: REFUSED',
+        'battery-service-test: FAIL','battery-service-capture: returned=yes clean=NO')) for row in lines):return None
+    passes=[row for row in lines if row.startswith('battery-service-test: PASS')]
+    if len(passes)!=1:return None
+    m=re.fullmatch(r'battery-service-test: PASS reads=(\d{1,20}) busy_reads=(\d{1,20}) max_read_us=(\d{1,20}) stale=0 recovered=0 stop_timeout=([01]) epochs=3; retired=yes',passes[0])
+    if not m or lines.index(passes[0])>=lines.index(finish):return None
+    reads,busy,maximum,timed_out=map(int,m.groups())
+    if not 1000<=reads<2**64 or not 0<busy<=reads or maximum>=2**64:return None
+    leases={};retired=[];retired_at={};summary_at=lines.index(passes[0])
+    for i,row in enumerate(lines):
+        if row.startswith('battery: foreign-event restored'):
+            m=re.fullmatch(r'battery: foreign-event restored enable=(0x[0-9a-f]{1,16}) original=(0x[0-9a-f]{1,16}) protected_writes=(\d{1,20})',row)
+            if not m:return None
+            port,original,writes=int(m[1],16),int(m[2],16),int(m[3])
+            masks={0x189c:0x40,0x189e:4}
+            if i>=summary_at or port not in masks or port in leases or original not in (0,masks[port]) or not 0<writes<2**64:return None
+            leases[port]=original
+        if row.startswith('battery-service: retired'):
+            m=re.fullmatch(r'battery-service: retired epoch=(\d{1,20}) attempts=(\d{1,20}) rejected=0 queries=(\d{1,20}) notifications=(\d{1,20}) attached=(\d{1,20}) detached=(\d{1,20}) heap=0 errors=0 denied=0',row)
+            if not m or i>=summary_at or set(leases)!={0x189c,0x189e}:return None
+            epoch,attempts,queries,notifications,attached,detached=map(int,m.groups())
+            if any(n>=2**64 for n in (epoch,attempts,queries,notifications,attached,detached)) or not attached or attached!=detached:return None
+            retired.append(dict(epoch=epoch,attempts=attempts,queries=queries,notifications=notifications))
+            retired_at[epoch]=i
+            leases={}
+    if leases or [r['epoch'] for r in retired] not in ([2,3],[1,2,3]):return None
+    samples=[row for row in lines if row.startswith('battery-service-test: sample ')]
+    if len(samples)!=1 or lines.index(samples[0])>=retired_at[2]:return None
+    values={}
+    for token in samples[0].removeprefix('battery-service-test: sample ').split():
+        key,sep,value=token.partition('=')
+        if not sep or key in values or not re.fullmatch(r'-?\d{1,20}',value):return None
+        values[key]=int(value)
+    if set(values)!={'epoch','generation','flags','age_us','ac_us','start_us','end_us','relative_soc','voltage_uv','current_ua','capacity','full','design','unit','valid'}:return None
+    if any(not 0<=v<2**64 for k,v in values.items() if k!='current_ua') or not -2**63<=values['current_ua']<2**63:return None
+    if values['epoch']!=2 or not 5<=values['generation']<=retired[-2]['attempts']:return None
+    if values['flags']&3!=3 or values['flags']&4 or values['flags']&~31 or values['age_us']>6000000:return None
+    if not 0<values['ac_us']<=values['start_us']<=values['end_us']:return None
+    if values['relative_soc']>100 or not values['voltage_uv'] or not values['full'] or values['unit'] not in (1,2) or values['valid']&15!=15:return None
+    return dict(runtime_complete=True,reader_complete=True,reads=reads,busy_reads=busy,
+                max_read_us=maximum,stop_wait_timed_out=bool(timed_out),lifetimes=retired,
+                sample=values,physical_accuracy='manual-pending',desktop_acceptance='pending')
+
+
+def battery_usb_read_result(exit_text,require_service=True):
+    """v34 raw USB reads with writes revoked; never write/input acceptance."""
+    if require_service and battery_service_result(exit_text) is None:return None
+    lines=exit_text.splitlines()
+    rows=[row for row in lines if row.startswith('battery-usb-read:')]
+    if len(rows)!=1:return None
+    match=re.fullmatch(r'battery-usb-read: PASS reads=(\d{1,20}) commands=(\d{1,20}) busy_reads=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) bytes_per_read=4096 writes=0; retired=yes',rows[0])
+    if not match:return None
+    reads,commands,busy,progress,bursts,maximum=map(int,match.groups())
+    if any(n>=2**64 for n in (reads,commands,busy,progress,bursts,maximum)):return None
+    if not 0<busy<=reads<=commands or not 0<progress<=bursts<=reads or maximum<250000:return None
+    summaries=[row for row in lines if row.startswith('battery-service-test: PASS reads=')]
+    if len(summaries)!=1 or lines.index(rows[0])>=lines.index(summaries[0]):return None
+    return dict(read_complete=True,reads=reads,commands=commands,busy_reads=busy,
+                progress_bursts=progress,bursts=bursts,max_burst_us=maximum,
+                bytes_per_read=4096,writes=0,write_acceptance='pending',input_acceptance='pending')
+
+
+def battery_usb_write_result(exit_text,require_service=True):
+    """Bounded scratch data writes/flushes; no filesystem-mutation acceptance."""
+    if require_service and battery_service_result(exit_text) is None:return None
+    lines=exit_text.splitlines()
+    prepared=[r for r in lines if r.startswith('workspace-scratch: prepared ')]
+    revoked=[r for r in lines if r.startswith('workspace-scratch: revoked ')]
+    rows=[r for r in lines if r.startswith('battery-usb-write:')]
+    summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
+    if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
+    extent=re.fullmatch(r'workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=(\d{1,20}) bytes=4096; unmounted=yes aliases=revoked',prepared[0])
+    proof=re.fullmatch(r'battery-usb-write: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) bytes_per_cycle=4096; retired=yes revoked=yes',rows[0])
+    if not extent or not proof or revoked[0]!='workspace-scratch: revoked clean=yes':return None
+    cycles,commands,busy,progress,bursts,maximum=map(int,proof.groups());offset=int(extent[2])
+    if any(n>=2**64 for n in (cycles,commands,busy,progress,bursts,maximum,offset)):return None
+    if not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts<=cycles or maximum<250000 or not offset or offset%512:return None
+    if not lines.index(prepared[0])<lines.index(revoked[0])<lines.index(rows[0])<lines.index(summaries[0]):return None
+    return dict(write_complete=True,cycles=cycles,commands=commands,busy_cycles=busy,
+                progress_bursts=progress,bursts=bursts,max_burst_us=maximum,
+                path=extent[1],raw_offset=offset,bytes_per_cycle=4096,
+                filesystem_mutation_acceptance='pending',input_acceptance='pending')
+
+
+def verify_battery_scratch(workspace,proof):
+    """Read only the strictly named, fixed-size diagnostic file from this volume."""
+    name=proof['path'].removeprefix('/work/srvros-work/')
+    if not re.fullmatch(r'battery-io-[0-9a-f]{16}\.bin',name):raise ValueError('Invalid scratch filename')
+    source=workspace/name
+    if source.is_symlink() or not source.is_file() or source.stat().st_size!=4096:
+        raise ValueError('Missing or unsafe scratch payload')
+    with source.open('rb') as stream:data=stream.read(4097)
+    if data!=bytes((i+proof['cycles']-1)&255 for i in range(4096)):
+        raise ValueError('Scratch payload does not match completed cycles')
+    return data
+
+
 def idle_sample(exit_text):
     records=re.findall(r"^idle-capture: elapsed_us=([0-9]{1,20}) sampled_ticks=([0-9]{1,20}) idle_ticks=([0-9]{1,20}) switches=([0-9]{1,20}) preemptions=([0-9]{1,20}) completed=yes$",exit_text,re.M)
     if len(records)!=1:return None
@@ -125,6 +316,9 @@ def power_idle_sample(exit_text):
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
+    if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
+                        "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
+                        "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
         return True
     if re.match(r"(?:audio|smc): state=4(?: |$)",line):
@@ -186,8 +380,22 @@ def collect(mount, volume, output):
         text = "\n".join(data.decode("utf-8", errors="replace") for data in payload.values())
         releases = session_releases(text)
         attention = sorted(set(line for line in text.splitlines() if needs_attention(line)))
+        if "exit.log" not in payload:
+            attention.append("collection: missing exit snapshot; session incomplete")
         if len(releases) > 1:
             attention.append("collection: conflicting boot release identities")
+        write_proof=battery_usb_write_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if write_proof:
+            try:
+                data=verify_battery_scratch(workspace,write_proof)
+                scratch_copy=saved/"battery-scratch.bin"
+                scratch_copy.write_bytes(data)
+                if scratch_copy.read_bytes()!=data:raise OSError("Scratch copy verification failed")
+                write_proof['payload_verified']=True
+                write_proof['payload_sha256']=hashlib.sha256(data).hexdigest()
+            except (OSError,ValueError) as error:
+                attention.append("collection: "+str(error))
+                write_proof=None
         records.append({
             "session": name,
             "releases": releases,
@@ -198,6 +406,11 @@ def collect(mount, volume, output):
             "devices": device_summaries(text),
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_usb_write": write_proof,
+            "battery_usb_read": battery_usb_read_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_service": battery_service_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_diagnostic": battery_diagnostic(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "idle_sample": idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "probe": sorted(set(line for line in text.splitlines() if line.startswith("laptop-probe:"))),
             "brightness": sorted(set(line for line in text.splitlines() if line.startswith(("backlight:", "deskd: brightness", "desktools: brightness")))),

@@ -47,3 +47,13 @@ bool arch_reboot(void) {
     console_write("reboot: reset did not complete; manual reboot required\n");
     return false;
 }
+
+void arch_reboot_unattended(void) {
+    __asm__ volatile("cli":::"memory");
+    (void)arch_reboot();
+    console_write("reboot: ACPI reset unavailable; architectural reset fallback\n");
+    console_sync();
+    struct __attribute__((packed)) { uint16_t limit; uint64_t base; } empty_idt={0,0};
+    __asm__ volatile("lidt %0; int3"::"m"(empty_idt):"memory");
+    for(;;)__asm__ volatile("cli; hlt");
+}

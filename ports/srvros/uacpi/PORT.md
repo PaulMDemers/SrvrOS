@@ -452,7 +452,7 @@ though the synthetic source has become quiet.
 The Q35 runtime now decodes the complete supported FADT event layout and uses
 `runtime/event_io` for exact-width maps and per-access checks. Status registers
 remain W1C; fixed-event enables are limited to Global Lock and power button,
-and no GPE enable bit is allowed in this fixture. PM control/timer writes,
+and no GPE enable bit is allowed in this fixture. Generic PM control/timer writes,
 SMI reads, other mode commands and unrelated ports are refused. This replaces
 the former broad IO-range permission; Q35 identity gates are unchanged.
 
@@ -468,3 +468,26 @@ and those pending bits cannot be restored from a snapshot. See the
 register width/direction, all 16-bit fixed-enable values and all byte GPE-enable
 values. An optional FADT file argument to the host binary audits a captured
 layout without accessing hardware.
+
+
+The explicit Q35 Global Lock release fixture now has a one-attempt, worker-owned
+PM1 notification path. It admits only GBL_RLS while preserving the other readable
+control bits and refusing SLP_EN. Generic PM1 writes remain denied; this is not
+native firmware ownership. The successful and injected-sleep refusal cases are
+run by `tools/acpi_global_lock_smoke.py --fault release` and
+`--fault release-sleep-denied`. See the
+[notification contract](../../../docs/native-ec-runtime.md#owner-scoped-os-to-firmware-notification)
+for the per-access policy, host coverage and acceptance limits.
+
+
+## Native battery diagnostic candidate (2026-10-19)
+
+A separate `acpi-battery-kernel` now links the full runtime and an evidence-gated
+Air7,2 platform. It explicitly connects EC regions before initialization, owns
+SCI/selected GPE and serialized SBS work, and either retires cleanly or halts
+with live state retained. `acpi-battery-vm-kernel` uses the same lifecycle with a
+synthetic controller; it is never staged as the physical image. The normal
+kernel retains its refusal stub and isolated probe. See the
+[connected audit, policy and v31 trial](../../../docs/native-ec-runtime.md#explicit-native-battery-diagnostic)
+for exact permissions, tests and remaining physical acceptance. Earlier sections
+record the incremental fixture work and are not native acceptance claims.

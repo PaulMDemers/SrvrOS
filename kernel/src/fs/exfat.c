@@ -2649,6 +2649,26 @@ out:
     return ok;
 }
 
+bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
+    uint64_t index;
+    if(!path||!device||!offset)return false;
+    struct exfat_mount *mount=find_mount_and_index_for_file(path,&index);
+    if(!mount)return false;
+    struct exfat_file *file=&mount->files[index];
+    struct exfat_volume *v=&mount->volume;
+    if(!v->device||v->image||v->write_blocked||v->mutation_depth||v->flags||
+       file->volume!=v||file->size!=4096||file->allocated_clusters!=1||
+       v->cluster_size<4096||!v->sector_size||4096%v->sector_size)return false;
+    /* The general checker permits VFS aliases. A raw scratch lease must not. */
+    for(uint64_t i=0;i<mount->file_count;i++)
+        if(i!=index&&mount->paths[i][0]&&mount->files[i].first_cluster==file->first_cluster)return false;
+    struct exfat_check_result result={0};
+    uint64_t start;
+    if(!check_mount(mount,&result)||!cluster_offset(v,file->first_cluster,&start)||
+       start%v->sector_size)return false;
+    *device=v->device;*offset=start;return true;
+}
+
 bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {
     struct exfat_check_result local = {0};
     struct exfat_check_result *out = result != NULL ? result : &local;

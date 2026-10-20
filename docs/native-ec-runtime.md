@@ -1,7 +1,9 @@
 # Native EC and battery runtime gate
 
-Updated 2026-10-19. This is the implementation boundary for the next opt-in
-MacBookAir7,2 battery/AC diagnostic. Live battery readings are **not enabled**.
+Updated 2026-10-20. This is the implementation boundary for the opt-in
+MacBookAir7,2 battery/AC diagnostic. Bounded AC-connected sampling and the guided
+discharge/reconnect round are accepted on this unit, as recorded below. A
+persistent provider remains pending; battery readings are absent from the ordinary desktop.
 The existing desktop, isolated AML probe, brightness profile and Q35 adapter
 retain their current hardware permissions. Other Macs need independent evidence.
 
@@ -178,6 +180,100 @@ Lock. In particular, captured PNVS fields request `Lock`, regardless of the
 absence of EC `_GLK`. Full namespace initialization, EC `_REG`, query methods
 and teardown must be audited separately from the explicit methods above.
 
+## Complete offline initialization audit
+
+`--initialize` additionally runs `uacpi_namespace_initialize` after table loading
+and before explicit query paths. The default remains load-and-evaluate only.
+Initialization is refused on an API failure, any logged AML error or warning,
+or any denied access, including faults left by table loading. A prior load fault
+skips initialization entirely. A refused initialization skips both follow-up
+queries and the EC contract check, then releases the interpreter and reports
+remaining allocations. Warning refusal is intentionally strict for this audit;
+it does not imply every warning is a hardware fault.
+
+```sh
+# Add to the same explicit, unit-specific snapshot/model arguments above:
+build/tools/acpi-namespace --initialize --darwin ... -- '\OSDW'
+```
+
+This is a reduced-hardware **offline** interpreter. It does not install an EC
+handler, run EC `_REG` as a connected device, exercise FACS firmware arbitration,
+or activate SCI/GPE hardware. Even an offline PASS would not accept those paths.
+The existing wall-clock, AML loop, allocation and per-access limits remain in
+force. Synthetic cases verify opt-in initialization effects, ignored `_INI`
+failure, malformed `_STA`, prior load failures, skipped queries and cleanup.
+
+The Air's `GN46` field corresponds to pin 46's configuration register 2, bit 2:
+`0x104 + 8 * 46 = 0x274`. The Intel-authored
+[Linux Lynxpoint driver](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/pinctrl/intel/pinctrl-lynxpoint.c)
+identifies that bit as disabling input sensing. This is a register-layout
+inference, not evidence of the Mac's board wiring or permission to alter it.
+Captured AML also changes this field in sleep/wake paths. Those methods were
+not executed, and no Linux implementation was copied.
+
+A private one-byte set-only model at `0xa74`, mask `4`, lets the explicit
+`_SB._INI` replay complete: one byte read/write, `0xa1` to `0xa5`, preserving
+all other bits; four private OSYS byte writes; no errors/denials/leaks. The
+model file is unchanged. Supplying both this model and the earlier GI82 model
+then exposes the following dependencies during complete namespace initialization:
+
+| Captured dependency | Result / remaining requirement |
+| --- | --- |
+| HPET `_STA` reads `HPAE` in `RCRB` | Mapping at `0xfed1c000`, length `0x4000`, refused. AML declares a DWord field at offset `0x3404`, bit 7; audit an exact read permission instead of allowing the whole chipset region. |
+| PCI `0:0:3.0` and `0:0:1f.0` | Missing snapshots refused; offsets/directions are not established by a failed device-open. Need evidence before permitting accesses. |
+| OSYS and GPIO | Eight private OSYS byte writes and both constrained GPIO read/writes occurred before the final refusal. Initialization is not transactional. |
+
+The captured full replay returns API status zero but records four AML errors and
+11 denied accesses. The tool reports `REFUSED`, skips `OSDW`/contract evaluation
+and releases all interpreter allocations. There are 101 private memory reads,
+one PCI read, and no input-file changes. This is a useful failed audit, not a
+complete native permission list: missing models and the absent EC handler can
+prevent later paths from running.
+
+The pinned full uACPI Global Lock implementation in `source/mutex.c` also needs
+specific containment before native use: it waits for a firmware release event
+with timeout `0xffff` inside acquisition, and release can write PM1 `GBL_RLS`.
+The existing Q35 policy denies PM1 control writes; it must not simply be widened
+for the native case. A bounded ownership/watchdog path, exact release-bit
+semantics and contended firmware handoff tests remain required. The offline
+reduced-hardware build does not exercise this handshake.
+
+### Follow-up chipset evidence and successful offline initialization
+
+A read-only Ubuntu capture on this Air supplied the previously missing 256-byte
+PCI configuration snapshots for `8086:9cc3` at `0:0:1f.0` and `8086:160c` at
+`0:0:3.0`. LPC RCBA was `0xfed1c001`, matching the captured AML base. A single
+32-bit read at `0xfed1f404` returned `0x80`. The
+[pinned Linux HPET quirk](https://raw.githubusercontent.com/torvalds/linux/v6.12/arch/x86/kernel/quirks.c)
+corroborates RCBA offset `0x3404`, DWORD access and HPET enable bit 7. The
+capture did not write configuration or MMIO registers. All nine live DSDT/SSDT
+hashes matched the prior capture; older NVS snapshots and newer register samples
+remain observations from different times, not an atomic live boot state.
+
+The new offline option describes an exact read inside a larger AML region:
+
+```sh
+build/tools/acpi-namespace --mmio-read32 BASE:REGION_SIZE:ADDRESS:FILE ...
+```
+
+The file must contain exactly four bytes. Region size is bounded to 64 KiB;
+addresses, alignment, overflow and overlapping regions are checked. The model
+provides a private backing allocation for the declared region, but its MMIO
+callback admits only a 32-bit read at ADDRESS. Adjacent/narrow/wide accesses and
+all writes fail; padding is not captured hardware data. This is an offline
+model, not a native page mapping or a general access-control boundary for table
+loading. The native adapter must independently enforce its live mappings.
+
+With this exact HPET model and both PCI snapshots, complete offline namespace
+initialization plus `OSDW` and the EC contract now pass: zero errors, warnings,
+denials and remaining interpreter allocations. The trace contains 104 memory
+reads, eight OSYS byte writes, 11 PCI reads and two GPIO read/write pairs.
+Additional PCI reads are vendor-ID bytes 0/1 on `0:0:3.0` and LPC bytes
+`0x60..0x63` / `0x68..0x6b`. There are no PCI writes on this observed path.
+All snapshot/model input files remain unchanged. This replaces the earlier
+missing-model refusal for this replay only; connected EC `_REG`, firmware lock
+arbitration, queries and native teardown remain outside its acceptance.
+
 ## SCI route ownership implementation
 
 `runtime/sci_owner` separates the route/callback lifetime from the Q35 adapter.
@@ -260,7 +356,7 @@ cross-check these domains against EC ports and its other live mappings.
 Mappings/accesses must match one register at its exact width; a broad range
 does not admit narrower, wider or neighboring accesses. Status writes are
 treated as write-one-to-clear, without an ordinary-memory read/modify/write
-predicate. Enable writes may set only explicitly allowed bits. PM1 control,
+predicate. Enable writes may set only explicitly allowed bits. Generic PM1 control,
 PM2 control and timer writes are denied, as are SMI reads and commands other
 than the decoded enter/leave values. Reset/sleep registers and unrelated IO
 are not mapped.
@@ -274,6 +370,399 @@ the EC GPE. Masking just that GPE is insufficient. Pending status cleared during
 initialization cannot be restored from a snapshot; it must not be advertised as
 reversible rollback. FACS Global Lock access and AML NVS/PCI/GPIO permissions
 remain separate unresolved gates.
+
+### Global Lock lifecycle fixture
+
+The separate Q35 runtime now exercises the pinned full uACPI Global Lock API.
+`acpiruntime global-lock` queues acquisition/release on the ordinary worker and
+checks FACS Owned/Pending state, API status and adapter error/denial counters.
+Two complete runtime lifetimes return with zero heap/errors/denials. The
+fixture validates its FACS signature/length and an initially free lock, then
+admits only the exact 32-bit lock-word read while that explicit fixture is
+active. Other MMIO reads/writes remain denied. uACPI's lock updates use atomic
+compare/exchange directly; they do not pass through the MMIO write callback.
+This is another reason a native FACS mapping requires its own ownership policy.
+
+Two disposable VM faults cover the boundaries:
+
+- `global-lock-block` models firmware holding Owned before acquisition. The
+  worker sets Pending and blocks on the real uACPI firmware-release semaphore.
+  Shutdown masks event sources/SCI, then times out draining the worker **before**
+  calling interpreter reset. The halt retains the same nonzero heap, lock bits
+  `3` and registered masked SCI owner. Interrupts are verified disabled. This
+  does not simulate a successful firmware notification or accept native SCI.
+- `global-lock-release-denied` sets Pending after acquisition, making release
+  attempt PM1 `GBL_RLS`. The existing control-write policy rejects it. Upstream
+  release still returns success and clears the lock bits; adapter accounting
+  catches the denial and halts with runtime state retained. No safe rollback or
+  completed firmware handoff is claimed, and the policy is not widened.
+
+The lifecycle owner now drains work before `uacpi_state_reset`, because upstream
+retires event machinery before invoking its own work-drain callback. The latter
+remains a defensive check. A timeout does not close the firmware semaphore,
+remove the SCI callback, free live interpreter state or fabricate an unlock.
+This is bounded shutdown containment, not yet an autonomous watchdog for a
+worker stuck during ordinary operation.
+
+Run sequentially after `make acpi-runtime-vm-kernel`:
+
+```sh
+python3 tools/acpi_global_lock_smoke.py
+python3 tools/acpi_global_lock_smoke.py --fault block
+python3 tools/acpi_global_lock_smoke.py --fault release-denied
+```
+
+These three cases remain regression checks alongside the later handoff and
+notification cases below. Normal startup/native adapters are unchanged. Native
+PM1 release ownership, validated FACS/NVS mappings and an independent operation
+owner remain prerequisites for a native battery trial.
+
+### Modeled firmware handoff and operation deadline
+
+Two additional Q35 cases extend the lock fixture:
+
+- `global-lock-handoff` starts with firmware owning FACS. After the worker sets
+  Pending and reaches its firmware-release wait, the owner models firmware
+  clearing the lock and asserting fixed-event status bit 5. It invokes the
+  installed uACPI SCI handler with interrupts disabled. The handler acknowledges
+  the modeled W1C bit and signals the real lock semaphore; the worker acquires
+  and releases successfully. Two runtime lifetimes finish with zero
+  errors/denials/heap. This exercises handler dispatch and wakeup through a
+  modeled status bit; no physical SCI edge or native firmware is claimed.
+- `global-lock-deadline` keeps firmware ownership asserted. The lifecycle owner
+  independently waits at most one second for worker completion, then disables
+  fixture event sources, masks SCI and halts with Owned/Pending, callback token,
+  active worker and heap retained. No `stop` command is sent. Interrupts are
+  verified disabled, with no fabricated unlock or successful teardown.
+
+The handoff owner bounds waiting for the worker's wait state to one second and
+then bounds completion to another second. These deadlines run outside the
+blocked worker; they do not depend on AML returning. They are explicit fixture
+operation lifetimes, not a general background watchdog. The successful case
+covers firmware-to-OS handoff. OS-to-firmware `GBL_RLS` notification without an
+explicit owner permission remains denied and tested as a failure; the following
+fixture adds the narrowly scoped positive path. Native implementation still
+needs its own source ownership and operation owner.
+
+Run the same VM harness with `--fault handoff` and `--fault deadline`.
+CI retains these five cases alongside the notification cases below and the
+SCI/EC regressions.
+
+### Owner-scoped OS-to-firmware notification
+
+`acpi_event_io_global_release` is a separate pure predicate for the 16-bit PM1
+control write emitted by uACPI when firmware requested the Global Lock. It
+requires SCI_EN already set, sets only GBL_RLS, clears the write-only SLP_EN bit
+and preserves every other bit from a fresh register read, including SLP_TYP,
+BM_RLD, SCI_EN and reserved/ignored bits. General `acpi_event_io_write` still
+refuses every PM1 control write. This follows the
+[ACPI PM1 control definition](https://uefi.org/specs/ACPI/6.6/04_ACPI_Hardware_Specification.html#pm1-control-registers):
+GBL_RLS notifies firmware; SLP_EN triggers a sleep transition. A readback of a
+write-only bit is not preserved as a requested action.
+
+Only the explicit Q35 `global-lock-release` fixture grants a one-attempt
+permission around the ordinary worker's uACPI release call, after modeling
+firmware's Pending request. The adapter checks worker identity, active runtime
+and operation, exact port/width, and the permission. Under CPU0 IRQ
+serialization it consumes the permission, reads PM1 control, checks the command
+and issues one actual emulated `outw`. A duplicate attempt is refused. It does
+not demand a free FACS lock after release: firmware could already have acquired
+it. This is not a reusable native owner or a grant to arbitrary AML writes.
+
+The VM harness checks two clean lifetimes, one write per release, preserved
+readable control bits, zero errors/denials and zero heap after shutdown. Q35
+reads back GBL_RLS as set; the policy correctly treats it as a command rather
+than persistent state. The fixture models the firmware Pending request and
+does not prove that a real SMM partner received or serviced the notification.
+The existing denied-notification case remains unchanged.
+
+`global-lock-release-sleep-denied` injects SLP_EN into that same callback path.
+The permission is consumed but no register write occurs. Adapter denial
+accounting catches the failure despite uACPI returning success, and the VM
+halts with live state retained and interrupts disabled. Both new operations
+also use the independent one-second worker-drain deadline. Host and sanitizer
+tests cover all 65,536 initial words and every single-bit mutation of the only
+allowed command, plus wrong widths/ports, stale reads and out-of-range values.
+
+```sh
+python3 tools/acpi_global_lock_smoke.py --fault release
+python3 tools/acpi_global_lock_smoke.py --fault release-sleep-denied
+```
+
+CI runs all seven lock cases sequentially. The connected audit and explicit
+native diagnostic below build on this boundary; ordinary images do not acquire
+native EC/SCI ownership.
+
+### Connected firmware audit
+
+The offline namespace tool accepts `--ec-model FILE` only with `--initialize`
+and an exact `--ec-contract`. The file must contain exactly 256 bytes. The tool
+connects a private byte-wide EC handler, explicitly runs `_REG`, initializes
+the namespace, drains a bounded notification FIFO, evaluates requested methods,
+and disconnects before resetting. It never accesses EC ports. Contract mismatch,
+invalid access, failed connection, notification overflow or an interpreter error
+prevents a successful result. Thirty synthetic cases pass normally and under
+ASan/UBSan, including connected writes, notifications, detach and denied access.
+
+A read-only Linux i915 OpRegion export supplied the missing IGDM model. ASLS
+from PCI and ASLB from captured GNVS agree; `IntelGraphicsMem`, 8 KiB, version 2,
+mailbox 1 and the CLID DWORD at offset `0x1ac` match the
+[Linux i915 OpRegion layout](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/gpu/drm/i915/display/intel_opregion.c).
+The physical base is 16-byte aligned, not page aligned. Direct `/dev/mem` access
+was refused; no restriction was bypassed. Raw dumps stay in private local evidence.
+
+The complete captured Air initialization with EC connected now passes with
+zero errors, warnings, denials and outstanding allocations. Fourteen memory byte
+writes cover OSYS, GNVS lid/AC values and CLID; ECSS is written and EC byte `0x60`
+is read. Queried methods `_Q10`, `_Q20`, `_Q21`, `_Q40`, `_Q5A`, `_QCE`, `_QCF`
+and `_QD0` complete in that model. `_Q80` reaches an absent discrete-GPU node
+under the captured state; it remains unsupported evidence, not an excuse to
+widen the hardware allowlist. A failed query in the native trial halts.
+
+### Explicit native battery diagnostic
+
+`make acpi-battery-kernel` builds `build/acpi-battery/srvros.elf` with
+`battery_runtime.c` and `battery_native_platform.c`. The ordinary kernel retains
+a refusal stub. The native adapter requires the captured DSDT and all eight
+SSDT fingerprints, exact Intel GPU/LPC/HDAU/SMBus identities, ECDT/FADT and
+namespace agreement, ACPI-NVS mappings, OpRegion signature/layout, free FACS
+lock, RCBA/HPTC configuration, disabled fixed enables, tightly gated GPE enables, idle EC buffer state
+and a free masked SCI route. A sibling Mac or changed firmware is refused.
+These fingerprints identify a supported profile; they are not a security boundary
+against hostile firmware.
+
+Memory callbacks admit the audited NVS reads, exact FACS lock DWORD and HPTC
+DWORD. Writes admit only the two OSYS bytes, boolean GNVS lid/AC bytes, and the
+CLID DWORD encoded as four byte writes (upper bytes zero). A pure host test
+checks range edges, all byte values and rejected widths; ASan/UBSan also passes.
+The native PNVS span is `0x53` (83) bytes, matching CpuSsdt's OperationRegion
+and the captured snapshot. Trial `6a2f90f72a0e4b96` exposed an erroneous decimal
+53 bound in admission, mapping and reads; its old host test had repeated the
+same number. Those paths now share the explicit hexadecimal length; independent
+83-byte mapping/read-edge tests accept the last byte and refuse overruns, zero
+length and underflow. PNVS writes remain denied.
+
+The same photograph records Global Lock's denied `0x120` PM1 enable write after
+ACPI mode entry, consistent with firmware having armed fixed power-button bit8.
+Before namespace load, the runtime logs and verifies the actual enable word.
+Only from an initially legacy mode, exactly `0x100` may be disabled with the
+uACPI power-button API and zero readback. It does not acknowledge button status
+or widen the fixed-enable policy beyond Global Lock. Other unexpected enables
+halt with live state retained. Two VM lifetimes inject bit8 in the actual Q35
+register after entry and exercise this mask; an injected sleep-button enable
+halts before namespace load. This does not accept native button or mode handoff.
+
+PCI access is read-only and limited to the audited offsets. GPIO access keeps
+the prior byte-width/set-only predicates. Generic PM1 control writes remain
+refused; the serialized AML worker may send the exact Global Lock release
+command through the separate predicate. Unlike the synthetic one-attempt
+fixture, native permission follows the trusted interpreter's implicit firmware
+lock lifetime; firmware reception is not yet physically accepted.
+
+For the direct diagnostic, one ordinary worker owns initialization, early EC
+access, explicit `_REG`, AML queries and whole 15-word Smart Battery transactions.
+The separate cached service uses [audited, conditional I/O eligibility](battery-service.md#audited-storage-eligibility)
+for its owner and worker. No nested notification
+callback performs EC IO. The lifecycle owner has a five-second setup deadline,
+25-second sample bound and three-second disconnect bound; it checks the query
+budget every 50 ms while waiting. EC byte operations have a 100 ms limit.
+The selected raw EC GPE uses the
+[Linux EC edge-triggered policy](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/acpi/ec.c),
+is suspended and acknowledged before query work, and rechecked when rearmed.
+A drain has at most 128 attempts and two seconds across queued batches. Firmware
+GPE methods are not broadly finalized or enabled. Full initialization does clear
+the initially disabled owned event status domain; those cleared events cannot be restored.
+The foreign graphics and wake-alarm events below are excluded from those acknowledgements.
+
+#### First physical completion
+
+On October 20, native release `13d8083de35b51af` (`57de926`) completed five
+AC-connected samples on the reference Air7,2. The post-mode fixed enable was
+`0x100`; masking it allowed namespace load and sampling. Exit evidence records
+75 queries, 76 notifications, one attachment/detachment, zero errors/denials/heap,
+both retained event enables restored, and a clean capture return. Linux returned
+with the one-shot consumed and read-only exFAT checking clean. This accepts that
+bounded run, not a persistent service or unrestricted firmware ownership.
+
+The samples reported relative SOC 98%, 8.374 V, 0 A, remaining 6.094 Ah and full
+6.265 Ah; the last four values match Linux before/after snapshots. Linux's 86%
+capacity uses a different denominator: SrvrOS requests `RelativeStateOfCharge`
+(`0x0d`), while [upstream Linux SBS](https://raw.githubusercontent.com/torvalds/linux/v6.12/drivers/acpi/sbs.c)
+requests `AbsoluteStateOfCharge` (`0x0e`). The
+[SBS specification sections 5.1.14–15](https://sbs-forum.org/specs/sbdat110.pdf)
+defines those against full-charge and design capacity respectively. The host's
+7.150 Ah design capacity is consistent with the difference; direct raw absolute
+SOC comparison is still pending. Preserve clearly named semantics rather than
+substituting one value to match an OS percentage. Calibration, discharge current,
+AC transitions were pending at this checkpoint; the later guided round below
+accepts that bounded sequence. Sustained desktop operation remains unaccepted.
+
+#### Retaining firmware graphics and wake-alarm events
+
+Physical trial `339211cceb5d894d` identified the prior refusal: GPE enable byte
+12 (`0x189c`) contained `0x40`, meaning GPE `0x66`. The exact captured DSDT's
+`_L66` routes that source to IGPU `GSCI`, or clears the graphics notification
+fields and TCO `SCIS`. The chipset identity is consistent with coreboot's
+[Broadwell PM register definitions](https://raw.githubusercontent.com/coreboot/coreboot/4.22/src/soc/intel/broadwell/include/soc/pm.h):
+standard GPE bank byte zero is at PMBASE+`0x9c`, bit 6 is `TCOSCI_EN`.
+This event is distinct from the captured EC GPE `0x4e`.
+
+The next physical trial, `c0f2c3af0dbacc66`, reached a second enabled byte:
+`0x189e=0x04` (GPE `0x72`), with PM1 control zero. It refused before starting
+any lease or the interpreter. The same Broadwell definitions identify standard
+GPE bit 18 as the wake-alarm timer. Intel's
+[I/O datasheet, sections 10.7.3.13 and 10.7.3.17](https://www.intel.com/content/dam/www/public/us/en/documents/datasheets/core-m-processor-platform-i-o-datasheet.pdf)
+describes its status as W1C and enable as read/write; timer registers are separate.
+The retained source is therefore the observed byte-14 bit-2 event, not a grant
+to program wake alarms. The captured DSDT has no `_L72`/`_E72` handler.
+
+Preflight now reads all 16 enable/status bytes plus PM1 control/status/enables
+and EC status before admission. Four records each pack four adjacent bytes
+little-endian, labeled by first GPE number (0, 32, 64, 96). These reads do not
+acknowledge status, and the complete snapshot is retained even if any source
+is refused. This avoids discovering one enabled byte per physical trial.
+
+The diagnostic permits **only** GPE66 and GPE72 as pre-enabled sources, and only with SCI_EN clear
+at preflight; all other enabled sources remain refused. Each source has a lease
+that rechecks its exact saved enable byte, masks it and verifies readback before
+starting uACPI. The adapter hides its status from the interpreter and strips
+bit `0x40` from status writes at `0x188c` and bit `0x04` at `0x188e`, including
+uACPI's initial `0xff` clears. It never acknowledges the underlying sources,
+executes their handlers, changes timer values, or expands graphics register access. An unexpected enable after the mode
+transition, during SCI delivery, worker waits or sampling halts. After worker/interpreter/SCI retirement
+and mode restoration, it restores each exact initial enable byte with readback.
+A failed mask/restore or changed owner halts rather than reporting completion;
+unsafe retirement retains the mask instead of enabling a source behind live work.
+This is a temporary diagnostic handoff, not general graphics-event or wake-alarm support.
+
+Host tests cover every byte value for status filtering, exact restoration,
+changed enables, failed writes/readbacks, poisoned leases and replay. The
+native admission predicate exhaustively rejects other byte/mask/mode combinations.
+Two separate VM shadow GPE bytes start enabled and pending; two full interpreter
+lifetimes must retain both pending bits through real initialization W1C requests
+and restore both enables. Injected failures on the second mask and second restore
+exercise partial progress; a source reenabled during runtime also halts.
+That shadow model is not physical GPE/graphics or firmware handoff acceptance.
+
+Five complete samples record AC state, charge, voltage, current, capacity units,
+temperature, validity, age and separate AC/start/completion timestamps. AC and
+battery reads span an interval; they are not one atomic physical observation.
+Shutdown masks SCI and GPE sources, hard-masks the selected GPE before removing
+its handler, drains work, executes disconnect while EC access is alive, resets
+uACPI, verifies zero heap, stops the worker and restores the prior ACPI mode.
+Any unquiesced operation halts with interrupts off and live state retained.
+It does not reset the EC or free memory behind a running worker. Failure output
+is visible; periodic USB logs may precede the final halt and are not completion.
+
+`make acpi-battery-vm-kernel` links the **same runtime** with a separate synthetic
+Q35 platform, never the physical image. The VM cases cover two clean lifetimes,
+five correct samples per lifetime, connection/query notifications, balanced
+attach/detach, zero heap, denied `_REG` access, poisoned transport, query storm,
+setup deadline, independent query deadline, disconnect deadline and the foreign-event
+lease/failed-mask/failed-restore cases. The native
+image separately refuses Q35 before EC access. These tests do not establish
+physical SCI delivery, real firmware handoff or battery accuracy.
+
+```sh
+tools/host-env.sh make kernel initramfs acpi-battery-kernel acpi-battery-vm-kernel
+tools/host-env.sh make test-battery-native-policy test-battery-event-hold test-battery-transition test-acpi-namespace
+for scenario in normal denied transport storm deadline query-deadline disconnect-deadline foreign-event foreign-restore-fail foreign-mask-fail foreign-reenable mode-button mode-unexpected transitions transition-timeout native-refusal; do
+    tools/host-env.sh python3 tools/acpi_battery_smoke.py --case "$scenario"
+done
+```
+
+The explicit **v31 laptop-probe** staging profile is reserved for this diagnostic. Pro11,2's
+unmerged PR5 occupies v27–v31 desktop profiles; preserve those recipes when reconciling shared
+staging changes. `--battery-capture` always selects the native diagnostic ELF,
+not the normal kernel or VM model. It mounts the locally selected prepared
+workspace, starts logging, runs the diagnostic, saves `exit.log`, unmounts and
+returns to Ubuntu only after a clean result. Refusal saves diagnostics and halts;
+unsafe live-runtime failures halt immediately. Native preflight prints the first
+failed check and bounded observed/expected metadata before the generic refusal.
+A saved refusal is reported as `saved=yes`, `completed=NO`; log saving is
+independent of diagnostic success, and incomplete runs still halt. Existing desktop/recovery payloads
+are independent. Follow the normal device run-record and exact-stage sequence:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-capture
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+The exact-stage Q35 rehearsal expects **refusal**, verifies persisted refusal
+bytes and clean exFAT, and requires a visible halt without automatic return.
+After a physical run, `hardware_desktop.py --uuid "$SRVROS_USB_UUID"` collects the
+matching release/session. Its `battery_diagnostic` field requires exactly five
+fresh ordered samples, balanced retirement and the clean capture return marker;
+physical accuracy stays `manual-pending`. If a foreign-event hold is present, the
+collector additionally requires a unique matching restoration for every held
+source before PASS, each with a nonzero protected-write count. Missing completion never means pass.
+
+The first Air trial (`cc486bf6b6581626`, source `8dc2408`) refused generic
+platform/resource preflight before runtime initialization. Its verified exit log
+and photographed clean USB unmount establish retained failure evidence, not
+battery acceptance. The granular follow-up above identified the graphics event; the subsequent
+lease subsequently completed in the bounded AC-connected run documented above.
+
+The original v31 trials keep AC connected and change no lid/power policy.
+Sustained sampling, input/storage responsiveness and UI integration remain later
+acceptance. No battery widget or background native service is enabled.
+
+### Guided AC transition capture
+
+The separate **v32 laptop-probe** recipe selects the same native diagnostic
+image with `srvros.capture=battery-transitions`; v31's recipe is unchanged:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-transitions
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+Start connected to AC, keep the prepared USB attached, and follow the repeated
+on-screen instructions: connected baseline, unplug AC, then reconnect AC.
+Each phase requires three consecutive fresh samples within 120 seconds.
+Discharge requires AC absent and negative battery current; connected phases
+require AC present and nonnegative current. AC is read before and after each
+15-word battery sample; disagreement resets the consecutive-sample streak.
+This brackets the sample but cannot prove there was no unobserved transient.
+Gauge output is explicitly relative SOC, with full/design capacities and units;
+it does not replace relative SOC with Linux's absolute percentage.
+
+A phase timeout or invalid sample sequence uses normal retirement, saves an
+incomplete result, unmounts and halts for a photograph. A transport, AML or
+ownership fault retains the existing immediate containment halt. A complete
+three-phase result returns to Ubuntu only after retirement, log saving and
+unmount. Human waits do not extend the firmware access allowlist, query budget,
+operation deadlines or foreign-event policy.
+
+Compact accepted-phase proofs are repeated after retirement so the bounded
+exit-log tail retains them even after a long wait. The collector's
+`battery_transitions` field requires all three ordered proofs, three consecutive
+generations per phase, valid timestamps/units/current signs, both exact native
+event restorations, balanced attachment/retirement and a clean capture marker.
+Incomplete results are attention items. Physical accuracy remains separately
+`manual-pending`; a runtime result is not gauge calibration.
+
+The VM fixture models the successful nine-sample sequence and a real 120-second
+missed-unplug timeout followed by a fresh diagnostic lifetime. Host tests cover
+incoherent AC, wrong current sign, stale/replayed samples and deadline boundaries.
+The exact staged native image must still refuse Q35, save its refusal and halt.
+These checks do not establish physical AC transitions or desktop-service safety.
+
+The first collected v32 round on Air7,2 includes one complete hardware session,
+`session-00065e3e608567ed-00` on `aa976febab59c128`: 17 samples, three coherent
+observations per phase, −1.455 A during discharge, 0 A after reconnection, both
+foreign-event restorations and clean runtime retirement. An earlier session of
+the same release lacks an exit record; its last periodic log was still waiting
+for unplug. The [machine record](machines/macbookair7-2.md#guided-round-collected--october-20)
+records the user's acceptance of the latest round and explicit exclusion of
+earlier attempts. The bounded transition milestone is accepted on this unit;
+the earlier incomplete session remains historical evidence, not a pass.
+A long-running desktop provider and calibrated accuracy remain separate work.
+
+The next opt-in [cached service](battery-service.md) adds asynchronous lifecycle
+ownership and nonblocking status reads. Its separate v33 capture checks readers
+and stop/restart before ordinary desktop integration; the accepted v31/v32
+diagnostics remain available.
 
 ### Integration sequence
 
@@ -303,13 +792,16 @@ remain separate unresolved gates.
 6. On failure or shutdown, reject new work, mask owned sources, synchronize
    interrupts and drain workers. Disconnect EC handlers while the namespace and
    owner still exist. If a worker or controller cannot be quiesced, retain its
-   storage and halt visibly with durable diagnostics. Do not free live state or
+   storage; an attended diagnostic halts visibly. An unattended battery capture
+   checkpoints/unmounts USB before starting and resets on containment without
+   filesystem reentry; a missing final report remains failure. Do not free live state or
    attempt a blind EC reset. Restore prior routing/mode only where ownership and
    rollback have been established and tested.
 7. Before a native trial, exercise the concrete adapter's initialization, denied
    mapping, `_REG` error, GPE storm and teardown failures in host/VM fixtures.
-   Stage an opt-in exact release with log flush and automatic return on success,
-   visible halt on failure, Ubuntu recovery and independent accepted payload.
+   Stage an opt-in exact release with checkpointing and automatic return for
+   unattended tests, Ubuntu recovery and independent accepted payload. Announce
+   human actions before attended tests; preserve their explicit failure hold.
    First collect a bounded AC-connected sample. Physical AC unplug/replug,
    sensible fresh readings and responsive input/storage remain later explicit
    acceptance; VM or Linux values cannot accept those workflows.

@@ -174,6 +174,119 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(idle_capture=True)
         with self.assertRaises(ValueError): boot.stage(idle_capture=True,laptop_probe_volume='37d8c5d0',desktop_volume='37d8c5d0')
 
+    def test_native_battery_is_explicit_separate_kernel(self):
+        version = "ram-usb-v31-laptop-probe-37d8c5d0"
+        release = self.payload("battery", version)
+        cfg = boot.limine_config(release, version)
+        self.assertIn('srvros.capture=battery', cfg)
+        for flag in ('srvros.aml=', 'srvros.desktop=trial', 'srvros.laptop-services=', 'srvros.smc='):
+            self.assertNotIn(flag, cfg)
+        path = self.stage/release/"manifest.json"
+        manifest = json.loads(path.read_text()); manifest["config_version"] = version
+        path.write_text(json.dumps(manifest))
+        boot.verify(self.stage/release)
+        with self.assertRaises(ValueError): boot.stage(battery_capture=True)
+        for other in ('idle_capture', 'aml_capture', 'desktop_idle_capture'):
+            with self.assertRaises(ValueError):
+                boot.stage(battery_capture=True, laptop_probe_volume='37d8c5d0', **{other:True})
+        # Real staging with temporary payloads proves the special profile cannot
+        # silently take the ordinary kernel (or the synthetic VM binding).
+        for name, data in {'build/limine-binary/BOOTX64.EFI':b'loader',
+                           'build/kernel/srvros.elf':b'normal',
+                           'build/acpi-battery/srvros.elf':b'native',
+                           'build/acpi-battery/vm.elf':b'model',
+                           'build/initramfs.tar':b'initramfs'}.items():
+            path = self.root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root), patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged = boot.stage(battery_capture=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+        self.assertTrue(boot.verify(self.stage/staged)['config_version'].endswith('-auto-return'))
+        self.assertIn('srvros.capture-failure=reboot',(self.stage/staged/'limine.conf').read_text())
+
+    def test_unattended_recipe_keeps_existing_and_guided_profiles(self):
+        old='ram-usb-v33-laptop-probe-37d8c5d0'
+        self.assertNotIn('srvros.capture-failure',boot.limine_config('0'*16,old))
+        new=old+'-auto-return'
+        release=self.payload('unattended',new)
+        path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=new
+        path.write_text(json.dumps(manifest))
+        self.assertEqual(boot.verify(path.parent)['config_version'],new)
+        self.assertIn('srvros.capture-failure=reboot',boot.limine_config(release,new))
+        self.assertNotIn('srvros.capture-failure',boot.limine_config('0'*16,'ram-usb-v32-laptop-probe-37d8c5d0'))
+        with self.assertRaises(ValueError):boot.stage(hold_on_failure=True)
+
+    def test_battery_transitions_preserve_v31_recipe(self):
+        v31='ram-usb-v31-laptop-probe-37d8c5d0';v32='ram-usb-v32-laptop-probe-37d8c5d0'
+        a=self.payload('battery',v31);b=self.payload('battery',v32)
+        for release,version in ((a,v31),(b,v32)):
+            path=self.stage/release/'manifest.json'
+            manifest=json.loads(path.read_text());manifest['config_version']=version
+            path.write_text(json.dumps(manifest))
+        self.assertNotEqual(a,b)
+        self.assertIn('srvros.capture=battery-transitions',boot.limine_config(b,v32))
+        self.assertNotIn('battery-transitions',boot.limine_config(a,v31))
+        boot.verify(self.stage/a);boot.verify(self.stage/b)
+        with self.assertRaises(ValueError):boot.stage(battery_transitions=True)
+        for other in ('battery_capture','idle_capture','aml_capture','desktop_idle_capture'):
+            with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',battery_transitions=True,**{other:True})
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/acpi-battery/vm.elf':b'model','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_transitions=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+
+    def test_battery_service_is_a_separate_native_recipe(self):
+        version='ram-usb-v33-laptop-probe-37d8c5d0'
+        release=self.payload('service',version);path=self.stage/release/'manifest.json'
+        manifest=json.loads(path.read_text());manifest['config_version']=version
+        path.write_text(json.dumps(manifest));boot.verify(path.parent)
+        self.assertIn('srvros.capture=battery-service',boot.limine_config(release,version))
+        for old in ('31','32'):
+            self.assertNotIn('battery-service',boot.limine_config(release,f'ram-usb-v{old}-laptop-probe-37d8c5d0'))
+        with self.assertRaises(ValueError):boot.stage(battery_service=True)
+        for other in ('battery_capture','battery_transitions','idle_capture','aml_capture','desktop_idle_capture'):
+            with self.assertRaises(ValueError):boot.stage(laptop_probe_volume='37d8c5d0',battery_service=True,**{other:True})
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/acpi-battery/vm.elf':b'model','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_service=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+
+    def test_battery_usb_read_is_automatic_and_native(self):
+        version='ram-usb-v34-laptop-probe-37d8c5d0-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=battery-usb-read',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_read=True)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_read=True,laptop_probe_volume='37d8c5d0',hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_read=True,laptop_probe_volume='37d8c5d0',battery_service=True)
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_usb_read=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+        self.assertEqual(boot.verify(self.stage/staged)['config_version'],version)
+
+    def test_battery_usb_write_is_automatic_and_native(self):
+        version='ram-usb-v36-laptop-probe-37d8c5d0-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=battery-usb-write',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_write=True)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_write=True,laptop_probe_volume='37d8c5d0',hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.stage(battery_usb_write=True,laptop_probe_volume='37d8c5d0',battery_service=True)
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_usb_write=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+        self.assertEqual(boot.verify(self.stage/staged)['config_version'],version)
+
     def test_aml_capture_is_explicit_and_separate(self):
         version="ram-usb-v24-laptop-probe-37d8c5d0"
         release=self.payload("aml",version)

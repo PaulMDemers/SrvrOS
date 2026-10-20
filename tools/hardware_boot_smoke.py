@@ -146,6 +146,12 @@ def main():
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
+    auto_return=manifest["config_version"].endswith("-auto-return")
+    battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
+    battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
+    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
+    battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
+    battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
@@ -191,15 +197,35 @@ def main():
             try:
                 if args.probe_check:
                     if args.probe_missing_workspace:
-                        text=wait_for(serial,lambda s:"laptop-capture: HALTED" in s,process,args.boot_wait)
-                        time.sleep(2)
-                        assert process.poll() is None and "laptop-capture: returning" not in text
+                        text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
+                        if auto_return:
+                            assert process.wait(timeout=30)==0
+                        else:
+                            time.sleep(2)
+                            assert process.poll() is None and "laptop-capture: returning" not in text
                         assert "laptop-capture: saved=NO unmounted=NO" in text
-                        print(f"laptop-probe-smoke: PASS ({release}); missing workspace halts without reboot")
+                        print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
                         return
-                    text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
-                    assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not (idle_capture or aml_capture or desktop_idle_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if battery_capture:
+                        text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
+                        assert "battery: REFUSED platform/resource ownership preflight" in text
+                        assert battery_marker+": returned=yes clean=NO" in text
+                        assert "laptop-capture: saved=yes unmounted=yes" in text
+                        assert "laptop-capture: completed=NO" in text
+                        assert "battery-native: REFUSED check=pci-gpu" in text
+                        assert "battery: phase=" not in text
+                        if auto_return:
+                            assert "laptop-capture: battery media parked=yes fault-reset=armed" in text
+                            assert text.index("workspace: unmounted; USB writes disabled") < text.index("battery: REFUSED")
+                            assert text.count("workspace: ready at") == 2
+                        else:
+                            assert "laptop-capture: returning" not in text
+                            from desktop_foundation_smoke import QMP
+                            ui=QMP(qmp_path);ui.call("quit");process.wait(timeout=10)
+                    else:
+                        text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
+                        assert "laptop-capture: saved=yes unmounted=yes" in text
+                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if idle_capture:
                         measured=re.search(r"idle-capture: elapsed_us=(\d+) sampled_ticks=(\d+) idle_ticks=(\d+).*completed=yes",text)
                         assert measured and int(measured[1])>=59000000
@@ -218,9 +244,19 @@ def main():
                     for filename in ("boot.log","exit.log"):
                         contents=stored.read(folder+"/"+filename)
                         assert release.encode() in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture): assert b"laptop-probe: unsupported chipset" in contents
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert b"laptop-probe: unsupported chipset" in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
+                    if battery_capture:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert (battery_marker+": returned=yes clean=NO").encode() in exit_log
+                        assert b"battery: REFUSED platform/resource ownership preflight" in exit_log
+                    if battery_usb_write:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"workspace-scratch: revoked clean=yes" in exit_log
+                        prepared=re.search(rb"workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=\d+ bytes=4096; unmounted=yes aliases=revoked",exit_log)
+                        assert prepared and len(stored.read(prepared[1].decode().removeprefix("/work/")))==4096
+                        assert b"battery-usb-write: PASS" not in exit_log
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log
@@ -254,10 +290,11 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
+                        "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
-                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT, automatic reset")
+                    print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP

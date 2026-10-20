@@ -46,3 +46,13 @@ bool acpi_event_io_write(const struct acpi_event_io *p, uint64_t port, unsigned 
     default: return false; /* No PM control/sleep/reset/timer writes. */
     }
 }
+bool acpi_event_io_global_release(const struct acpi_event_io *p, uint64_t port,
+    unsigned bits, uint32_t before, uint32_t value) {
+    unsigned bank=0, byte=0;
+    const uint32_t release=1u<<2, sleep=1u<<13;
+    if (classify(p,port,bits,&bank,&byte)!=CONTROL || before>UINT16_MAX ||
+        value>UINT16_MAX || !(before&1)) return false;
+    /* Write-only bits are not state to preserve, even if hardware reads them
+     * back as set. All other bits, including SCI_EN and SLP_TYP, must match. */
+    return value==((before & ~(release|sleep)) | release);
+}

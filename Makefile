@@ -3274,3 +3274,56 @@ build/tests/power-service-host$(HOST_EXE): tools/test_power_service.c kernel/src
 test-core: test-vm-sockets
 test-vm-sockets:
 	$(PYTHON) tools/test_vm_sockets.py
+
+# Explicit battery diagnostic: full uACPI, never the ordinary desktop payload.
+UACPI_BATTERY_SRC := $(UACPI_SRC) ports/srvros/uacpi/runtime/battery_event_hold.c ports/srvros/uacpi/runtime/battery_runtime.c ports/srvros/uacpi/runtime/sci_owner.c ports/srvros/uacpi/runtime/ec_query_budget.c ports/srvros/uacpi/runtime/event_io.c
+UACPI_BATTERY_OBJ := $(UACPI_BATTERY_SRC:%.c=build/acpi-battery/%.c.o)
+.PHONY: acpi-battery-kernel
+acpi-battery-kernel: build/acpi-battery/srvros.elf
+build/acpi-battery/srvros.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-battery/ports/srvros/uacpi/runtime/battery_native_platform.c.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+build/acpi-battery/%.c.o: %.c $(ZIG) $(UACPI_HEADERS) $(KERNEL_HEADERS) Makefile
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -I ports/upstream/uacpi/include -DUACPI_NATIVE_MMIO -c $< -o $@
+-include $(UACPI_BATTERY_OBJ:.o=.d) build/acpi-battery/ports/srvros/uacpi/runtime/battery_native_platform.c.d
+.PHONY: acpi-battery-vm-kernel
+acpi-battery-vm-kernel: build/acpi-battery/vm.elf
+build/acpi-battery/vm.elf: $(filter-out $(UACPI_KERNEL_OBJ),$(KERNEL_OBJ)) $(UACPI_WORK_NATIVE_OBJ) $(UACPI_BATTERY_OBJ) build/acpi-battery/ports/srvros/uacpi/runtime/battery_vm_platform.c.o kernel/linker.ld
+	$(LD) -m elf_x86_64 -nostdlib -static -z max-page-size=0x1000 --gc-sections -T kernel/linker.ld $(filter-out kernel/linker.ld,$^) -o $@
+-include build/acpi-battery/ports/srvros/uacpi/runtime/battery_vm_platform.c.d
+.PHONY: test-battery-native-policy
+test-core: test-battery-native-policy
+test-battery-native-policy: build/tests/battery-native-policy$(HOST_EXE)
+	$<
+build/tests/battery-native-policy$(HOST_EXE): tools/test_battery_native_policy.c ports/srvros/uacpi/runtime/battery_native_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-event-hold
+test-core: test-battery-event-hold
+test-battery-event-hold: build/tests/battery-event-hold$(HOST_EXE)
+	$<
+build/tests/battery-event-hold$(HOST_EXE): tools/test_battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.c ports/srvros/uacpi/runtime/battery_event_hold.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $(filter %.c,$^) -o $@
+
+.PHONY: test-battery-transition
+test-core: test-battery-transition
+test-battery-transition: build/tests/battery-transition$(HOST_EXE)
+	$<
+build/tests/battery-transition$(HOST_EXE): tools/test_battery_transition.c ports/srvros/uacpi/runtime/battery_transition.h kernel/include/srvros/sbs_sample.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+
+.PHONY: test-battery-cache
+test-core: test-battery-cache
+test-battery-cache: build/tests/battery-cache$(HOST_EXE)
+	$<
+build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/drivers/battery_cache.c kernel/include/srvros/battery_cache.h kernel/include/srvros/battery_service.h kernel/include/srvros/sbs_sample.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $(filter %.c,$^) -o $@
+
+.PHONY: test-exfat-scratch
+test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/exfat_scratch_test.py
+test-core: test-exfat-scratch

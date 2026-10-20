@@ -132,3 +132,9 @@ bool workspace_log_stop(void) {
     console_printf("workspace-log: final=%s directory=%s\n",ok?"saved":"FAILED",directory);
     return ok && healthy;
 }
+bool workspace_log_pause(void) {
+    enabled=false;scheduler_wake_all(&wake);
+    while(busy) scheduler_wait(&wake,idle,NULL);
+    if(!directory[0] || !workspace_active())return false;
+    return save("session-a.log") && healthy;
+}

@@ -48,7 +48,12 @@ int main(void) {
     char first[128];strcpy(first,directory);assert(!workspace_log_start());
     assert(!ready(NULL) && activated(NULL));ticks=due;assert(ready(NULL));
     assert(save("session-a.log"));assert(find(path) && find(path)->node.size==8);
-    assert(workspace_log_stop() && !enabled && writes==3 && flushes==3);
+    assert(workspace_log_pause() && !enabled && writes==3 && flushes==3);
+    assert(!ready(NULL) && !activated(NULL));
+    char checkpoint_path[160];strcpy(checkpoint_path,directory);strcat(checkpoint_path,"/exit.log");
+    assert(!find(checkpoint_path)); /* A pause must never fabricate completion. */
+    mounted=false;assert(!workspace_log_stop());mounted=true;
+    assert(workspace_log_stop() && !enabled && writes==4 && flushes==4);
     assert(workspace_log_start() && strcmp(first,directory)); /* Same RTC still gets a fresh folder. */
     unsigned before=writes;open_file=true;assert(!save("session-a.log") && writes==before);open_file=false;
     corrupt=true;before=flushes;assert(!save("session-a.log") && flushes==before);corrupt=false;
