@@ -48,6 +48,15 @@ device work uses separate branches based on `main`.
   CI now runs the separate SCI/early-EC and query-fault VMs sequentially and saves
   their serial evidence. Native GPE masking/rearm and a worker that cannot return
   still need the external ownership/lifecycle path; no physical result is claimed.
+- Event-register checkpoint (`843b66c`): complete supported FADT event layout
+  decoding and exact-width/direction IO policy pass host tests and ASan/UBSan,
+  including the captured Air FADT. Q35 now restricts fixed enables to its Global
+  Lock/power button and enables no GPEs. SCI lifecycle and early EC/SBS/teardown
+  regressions pass under the policy. An injected early write denial is refused
+  despite upstream API success, then cleans up with zero heap before a normal
+  start. Full startup clears all GPE status bytes: native ownership must cover
+  that domain, and cleared pending events cannot be rolled back from a snapshot.
+  Live native register/NVS/FACS/PCI/GPIO permissions remain unaccepted.
 - Dependencies: early worker/handler lifetime fixture merged in PR #3; actual
   captured Air firmware, legacy/extended address consistency, namespace resource
   agreement, `_OSI` policy and SCI/GPE ownership must all be resolved before use.
