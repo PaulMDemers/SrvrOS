@@ -23,6 +23,16 @@ the unattended setup deadline actually resets; the normal service and explicit
 legacy deadline halt still pass. Native automatic-failure return and the battery
 service itself remain unaccepted pending the next exact-stage trial.
 
+Unattended candidate **`d9e6f4f75da4e871`**, artifact **`a24836a`**, uses
+`ram-usb-v33-laptop-probe-37d8c5d0-auto-return`. Exact-stage UEFI/GRUB checks
+confirm a missing workspace resets without starting the probe, and native Q35
+refusal parks/remounts USB, saves the failed result, leaves clean exFAT and
+actually resets. This verifies failure return in the VM, not native battery
+acceptance. The next physical trial requires no input. Collect its session and
+distinguish automatic return from service success; missing final proof remains
+failure. Ubuntu and the previous desktop are retained. Failed original v33
+`a9be2dc78d213dee` was archived and verified before EFI space was reclaimed.
+
 ## Identity and ownership
 
 Development host: Ubuntu on the 13-inch Air, Broadwell-U, Intel HD Graphics 6000
