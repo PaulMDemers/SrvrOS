@@ -616,6 +616,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
@@ -634,11 +635,11 @@ void kmain(void) {
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load;
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -655,6 +656,11 @@ void kmain(void) {
         if(automatic_battery && return_on_failure) {
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
+        }
+        if(automatic_load && started && init_ready && timer_running) {
+            sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");
+            console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();
         }
         if (started && cmdline_has_token(cmdline,"srvros.capture=keyboard")) keyboard_capture();
         if(automatic_desktop_idle && started && init_ready && timer_running) {
@@ -692,7 +698,7 @@ void kmain(void) {
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        if(return_on_failure || (saved && sampled && unmounted)) {
+        if(return_on_failure || (saved && (sampled || automatic_load) && unmounted)) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();

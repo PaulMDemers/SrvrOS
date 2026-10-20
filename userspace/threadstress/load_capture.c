@@ -65,8 +65,8 @@ int cpu_load_capture(void) {
             } else if(srv_sleep_ticks(1)<0) return reject("sleep");
         }
         if(phase==1 && !chunks) return reject("no-load-work");
-        printf("cpu-load: phase=%s completed=yes elapsed_us=%ld chunks=%llu checksum=%llu\n",
-            names[phase],previous-start,(unsigned long long)chunks,(unsigned long long)work);
+        printf("cpu-load: phase=%s completed=yes elapsed_us=%ld start_us=%ld end_us=%ld chunks=%llu checksum=%llu\n",
+            names[phase],previous-start,start,previous,(unsigned long long)chunks,(unsigned long long)work);
     }
     printf("cpu-load: completed=yes\n");
     return 0;

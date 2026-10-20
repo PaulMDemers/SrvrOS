@@ -216,3 +216,15 @@ Host time/sensor fixtures exercise successful Air/Pro-shaped snapshots and
 thermal, freshness, transport-validity and clock failure exits. They are not
 native load acceptance. Automatic physical capture/profile wiring is pending
 shared boot-path coordination with PR6; no native load trial is armed.
+
+The device-branch v35 proposal now stages with `hardware_boot.py stage
+--laptop-probe-volume <local-UUID> --cpu-load-capture`. It enables only RAM/USB,
+CPU/SMC readout and package telemetry, then runs the standalone diagnostic.
+Handled refusal is saved and returns after clean unmount; missing workspace or
+save/unmount failure halts. The process-return marker alone is not acceptance:
+require the worker's `completed=yes`, ordered complete phase boundaries and
+nonzero load work. `tools/hardware_cpu_load.py <exit.log>` parses the result and
+computes energy only from fresh checkpoints wholly within each phase. At least
+two checkpoints spanning ten seconds are required per phase; unavailable power
+remains null. Console phase measurements are separate from the Text idle baseline.
+Shared integration of the proposal remains pending review against PR6.

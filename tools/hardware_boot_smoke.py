@@ -151,6 +151,7 @@ def main():
     keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
     keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
     if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
+    cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
@@ -273,7 +274,7 @@ def main():
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture): assert "laptop-probe: unsupported chipset; no register access" in text
                     if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
                     if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
                     if keyboard_capture:
@@ -300,7 +301,7 @@ def main():
                         assert release.encode() in contents
                         if keyboard_capture and filename=="exit.log":
                             assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture):
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture):
                             assert b"laptop-probe: unsupported chipset" in contents
                             assert b"USB INPUT DIAGNOSTIC" in contents
                             assert b"xhci: vendor=" in contents
@@ -318,6 +319,14 @@ def main():
                         prepared=re.search(rb"workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=\d+ bytes=4096; unmounted=yes aliases=revoked",exit_log)
                         assert prepared and len(stored.read(prepared[1].decode().removeprefix("/work/")))==4096
                         assert b"battery-usb-write: PASS" not in exit_log
+                    if cpu_load_capture:
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        assert "cpu-load: completed=NO reason=thermal-unavailable-or-stale" in exit_log
+                        assert "cpu-load: completed=yes" not in exit_log and "cpu-load: phase=load" not in exit_log
+                        assert "cpu-load-capture: returned=yes" in exit_log
+                        assert "srvros.aml" not in exit_log
+                        from hardware_cpu_load import load_result
+                        assert load_result(exit_log)["completed"] is False
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log
@@ -352,7 +361,7 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "probe":True,"cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))

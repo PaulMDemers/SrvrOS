@@ -840,3 +840,9 @@ resolve those hunks during review. Do not merge or replace the Air implementatio
 The proposed profile runs the bounded standalone worker and saves its result,
 unmounts and returns on handled sensor refusal as well as success. Missing
 workspace/save/unmount remains a halt. No optional AML or EC ownership is added.
+
+Proposed v35 implementation passes full build/USB image/test-core, existing
+installer tests, bounded worker fixtures and new phase/profile fixtures.
+Separate phase parsing refuses missing completion, failure markers, zero load
+work and inconsistent boundaries; invalid power is null. Proceed to exact-stage
+VM refusal/save/unmount/reset and missing-workspace checks before installation.
