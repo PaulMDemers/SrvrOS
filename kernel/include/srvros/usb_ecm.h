@@ -7,6 +7,7 @@ struct usb_ecm_endpoint { uint8_t address, interval, burst;uint16_t packet; };
 struct usb_ecm_config {
     uint8_t configuration,control_interface,data_interface,data_alt,mac_string;
     uint16_t segment;
+    bool notify_data_interface; /* Exact captured firmware quirk, not generic CDC. */
     struct usb_ecm_endpoint out,in,notify;
 };
 /* Initial profile: one ECM function, union descriptor, explicit data alternate,

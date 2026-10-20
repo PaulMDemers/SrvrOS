@@ -44,13 +44,13 @@ static void network_service(struct xhci_device *d) {
         bool was_known=n->link.known,was_up=n->link.up;
         unsigned actual=notify->requested-notify->remaining;
         bool valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.control_interface);
-        /* QEMU 9.2's Ethernet gadget reports the data interface in wIndex. */
-        if(!valid && d->vendor_id==0x0525 && d->product_id==0xa4a2)
+        /* Captured ASIX firmware and QEMU report the data interface in wIndex. */
+        if(!valid && (n->config.notify_data_interface || (d->vendor_id==0x0525 && d->product_id==0xa4a2)))
             valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.data_interface);
         if(valid) {
             n->notifications++;
             if(n->link.known && (!was_known || was_up!=n->link.up)) {
-                console_printf("xhci-network: slot=%u cable=%s\n",(uint64_t)d->slot_id,n->link.up?"up":"down");
+                console_printf("xhci-network: slot=%u cable=%s tx_pending=%u monotonic_us=%u\n",(uint64_t)d->slot_id,n->link.up?"up":"down",(uint64_t)tx->pending,timer_monotonic_us());
                 net_notify_rx();
             }
         } else n->drops++;
@@ -63,7 +63,13 @@ static void network_service(struct xhci_device *d) {
         if(n->tx_zero) { n->tx_zero=false;network_post(d,0,0); }
         else n->tx_packets++;
     }
-    if(tx->pending && timer_monotonic_us()-n->tx_started>=2000000) { network_fail(d,"transmit-deadline");return; }
+    /* Confirmed cable loss may stall USB OUT in the adapter. Retain the one
+     * submitted transfer; do not recycle its DMA or spend its live-link budget
+     * while disconnected. Unknown link and post-reconnect stalls still fail. */
+    if(!tx->pending) n->tx_suspended=false;
+    else if(n->link.known && !n->link.up) n->tx_suspended=true;
+    else if(n->tx_suspended) { n->tx_suspended=false;n->tx_started=timer_monotonic_us(); }
+    if(tx->pending && !n->tx_suspended && timer_monotonic_us()-n->tx_started>=2000000) { network_fail(d,"transmit-deadline");return; }
     /* A cable loss invalidates unsent traffic. Keep submitted DMA owned until
      * completion/deadline; reconnect may send only newly queued frames. */
     if(n->link.known && !n->link.up) { n->drops+=n->count;n->count=0;n->head=0; }

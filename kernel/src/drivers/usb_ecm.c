@@ -107,5 +107,7 @@ bool usb_ecm_parse_device(const uint8_t *b,size_t n,unsigned speed,uint16_t vend
     uint8_t normalized[sizeof(captured)];
     for(unsigned i=0;i<sizeof(captured);i++) { if(b[i]!=captured[i]) return false;normalized[i]=b[i]; }
     normalized[52]=16;
-    return usb_ecm_parse(normalized,sizeof(normalized),speed,out);
+    if(!usb_ecm_parse(normalized,sizeof(normalized),speed,out)) return false;
+    out->notify_data_interface=true;
+    return true;
 }

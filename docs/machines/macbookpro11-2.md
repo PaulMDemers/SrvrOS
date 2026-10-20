@@ -1143,3 +1143,13 @@ trace pending TX on cable loss before changing notification parsing or recovery.
 Main remains `76508bf`; Air PR8 concerns battery/filesystem isolation. Preserve
 DMA quarantine safety and exact device gates; do not hide failure with a longer
 timeout or a UI-only connected indicator. Battery/headphones/latency stay deferred.
+
+Linux ECM capture identifies the missing status: this exact adapter sends speed
+and link-up notifications with wIndex 1 (data), not 0 (control). The previous
+parser correctly rejected that unexpected interface. Configuration 2 and the
+original Linux connection were restored after the bounded capture. Add the
+notification-interface flag only in the exact captured descriptor compatibility
+path. On a confirmed cable-down indication, retain the submitted TX/DMA and
+suspend its deadline; on up, restore the normal two-second budget. Do not extend
+unknown-link timeouts or recycle a live ring. Add capture-derived and ownership
+fixtures before a native retry; raw interrupt-only capture stays local.

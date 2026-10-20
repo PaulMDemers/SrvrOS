@@ -729,6 +729,17 @@ static void test_network_transport(void) {
         write_link_trb(rings[i],(uint64_t)rings[i],true);
     }
     network_service(&d);assert(n.ep[1].pending && n.ep[2].pending && !n.ep[0].pending);
+    /* Captured ECM configuration 3 reports speed/link on data interface 1.
+     * Generic devices must continue to reject that unexpected interface. */
+    uint8_t speed[]={0xa1,0x2a,0,0,1,0,8,0,0,0xca,0x9a,0x3b,0,0xca,0x9a,0x3b};
+    n.config.data_interface=1;
+    memcpy(n.ep[2].buffer,speed,sizeof(speed));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
+    assert(n.notifications==0 && !n.link.downstream_bps);
+    n.config.notify_data_interface=true;
+    memcpy(n.ep[2].buffer,speed,sizeof(speed));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
+    assert(n.notifications==1 && n.link.downstream_bps==1000000000);
     uint8_t frame[1514];memset(frame,0x5a,sizeof(frame));
     assert(!network_send(&d,frame,13) && !network_send(&d,frame,1515));
     for(unsigned i=0;i<XHCI_NET_QUEUE;i++) assert(network_send(&d,frame,64));
@@ -762,7 +773,7 @@ static void test_network_transport(void) {
     /* Ethernet cable changes preserve USB ownership, drop stale queued TX,
      * reject new TX while down, and resume on a fresh up notification. */
     assert(network_send(&d,frame,65));
-    uint8_t down[]={0xa1,0,0,0,0,0,0,0};
+    uint8_t down[]={0xa1,0,0,0,1,0,0,0};
     memcpy(n.ep[2].buffer,down,sizeof(down));
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
     network_service(&d);
@@ -783,11 +794,14 @@ static void test_network_transport(void) {
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
     network_service(&d);
     assert(n.ready && n.ep[0].pending && n.ep[0].trb==inflight && !n.count && !freed);
-    assert(network_event(&d,2,inflight,1,0));network_service(&d);
-    assert(n.ready && !n.ep[0].pending && n.ep[1].pending);
+    test_time+=3000000;network_service(&d);
+    assert(n.ready && n.tx_suspended && n.ep[0].pending && n.ep[0].trb==inflight && !freed);
     down[2]=1;memcpy(n.ep[2].buffer,down,sizeof(down));
     assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
-    network_service(&d);assert(n.ready && n.link.up);
+    network_service(&d);assert(n.ready && n.link.up && !n.tx_suspended);
+    assert(n.ep[0].pending && n.ep[0].trb==inflight && !freed);
+    assert(network_event(&d,2,inflight,1,0));network_service(&d);
+    assert(n.ready && !n.ep[0].pending && n.ep[1].pending);
     /* Malformed residue quarantines; pending receive buffers remain owned. */
     assert(network_event(&d,3,n.ep[1].trb,13,4097));network_service(&d);
     assert(n.failed && !n.ready && n.errors==1 && !freed);

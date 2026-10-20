@@ -192,7 +192,7 @@ struct xhci_network {
     struct usb_ecm_config config;
     struct usb_ecm_link link;
     struct xhci_network_endpoint ep[3]; /* TX, RX, notifications */
-    bool ready,failed,polling,tx_zero;
+    bool ready,failed,polling,tx_zero,tx_suspended;
     uint8_t mac[6];
     unsigned head,count;
     uint16_t length[XHCI_NET_QUEUE];

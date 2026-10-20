@@ -66,6 +66,7 @@ static void captured_asix(void) {
     assert(!usb_ecm_parse(bytes,sizeof(bytes),4,&c));
     assert(usb_ecm_parse_device(bytes,sizeof(bytes),4,0x0b95,0x1790,0x0200,&c));
     assert(c.configuration==3 && c.control_interface==0 && c.data_interface==1 && c.data_alt==1 && c.mac_string==5);
+    assert(c.notify_data_interface);
     assert(c.notify.packet==16 && c.in.packet==1024 && c.in.burst==5 && c.out.address==3 && c.out.burst==2);
     assert(!usb_ecm_parse_device(bytes,sizeof(bytes),4,0x0b95,0x1790,0x0100,&c));
     assert(!usb_ecm_parse_device(bytes,sizeof(bytes),4,0x0b95,0x1791,0x0200,&c));
@@ -76,12 +77,17 @@ static void captured_asix(void) {
         if(!usb_ecm_parse(bytes,sizeof(bytes),4,&c)) assert(!usb_ecm_parse_device(bytes,sizeof(bytes),4,0x0b95,0x1790,0x0200,&c));
         bytes[i]^=0x80;
     }
+    /* A generic-valid sibling descriptor must not inherit this firmware quirk. */
+    bytes[52]=16;
+    assert(usb_ecm_parse_device(bytes,sizeof(bytes),4,0x0b95,0x1790,0x0200,&c));
+    assert(!c.notify_data_interface);bytes[52]=0;
     for(unsigned n=0;n<sizeof(bytes);n++) assert(!usb_ecm_parse_device(bytes,n,4,0x0b95,0x1790,0x0200,&c));
 }
 int main(void) {
     captured_asix();
     fixture[2]=sizeof(fixture);struct usb_ecm_config c;
     assert(usb_ecm_parse(fixture,sizeof(fixture),1,&c));
+    assert(!c.notify_data_interface);
     assert(c.control_interface==0&&c.data_interface==1&&c.data_alt==1&&c.mac_string==3&&c.segment==1514);
     assert(c.in.address==0x82&&c.out.address==2&&c.notify.address==0x81);
     for(size_t n=0;n<sizeof(fixture);n++) assert(!usb_ecm_parse(fixture,n,1,&c));

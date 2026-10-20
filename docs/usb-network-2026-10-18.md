@@ -126,7 +126,10 @@ remain untested; multi-adapter VM results do not extend this hardware acceptance
 
 Ethernet cable loss drops unsent queued frames and rejects new transmission
 until a link-up notification. Submitted USB transfers retain ownership until
-completion or the existing deadline; cable changes never free live DMA. Link
+completion or the existing live-link deadline; cable changes never free live DMA.
+A confirmed cable-down notification suspends that deadline for the one submitted
+transfer. Link-up starts a fresh two-second budget; unknown-link stalls and USB
+removal still quarantine the device. Unsent traffic is not replayed. Link
 transitions are recorded in session logs. USB removal still quarantines the
 adapter until reboot; it is distinct from unplugging only the Ethernet cable.
 
@@ -149,3 +152,19 @@ response. This is HTTP transport, not TLS or HTTP status validation. The script
 accepts DNS name, HTTP host and port arguments for controlled local fixtures;
 `httpget host [path [port]]` defaults to port 80 and rejects invalid ports.
 Native DNS/HTTP/cable acceptance remains pending the next matched trial.
+
+### Captured ASIX notification interface
+
+Native `c7bf960edc860376` passed DHCP/DNS/HTTP before the cable test, but link
+state stayed unknown and an OUT timeout eventually quarantined the provider.
+A bounded Linux configuration-3 capture found its speed and link notifications
+use data interface 1 in wIndex, despite the ECM control interface being 0:
+`a1 2a 00 00 01 00 08 00 00 ca 9a 3b 00 ca 9a 3b` (1 Gb/s both ways) and
+`a1 00 01 00 01 00 00 00` (link up). Linux configuration 2 was restored.
+
+Only the existing exact 98-byte descriptor/identity compatibility path enables
+accepting interface 1 for this firmware. Generic-valid descriptors do not inherit
+that flag, including a corrected descriptor with otherwise identical IDs.
+Notification type, length and value checks stay strict. Host fixtures cover the
+captured bytes, down/up transitions and retaining pending DMA across a cable
+outage longer than the live-link deadline. Native reconnect acceptance is pending.
