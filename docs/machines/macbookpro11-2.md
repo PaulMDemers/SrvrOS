@@ -893,3 +893,12 @@ branch pending shared integration review. Update the opening Help checklist with
 the two-fan check and exit commands. No timeout: user checks System/Sensors,
 Pause/Resume and screenshot, then returns manually using the on-screen steps.
 No AML, battery runtime, fan control or additional CPU load in this profile.
+
+Candidate `c30ec628bf5d68aa`, source `831ba62`, passes full build/USB image,
+System formatting fixtures, installer/profile checks and exact v36 GPT VM trial.
+The trial verifies 2880x1800/2x, System startup, Text persistence, screenshot,
+clean exit/unmount and an emulated audio tone. VM providers cannot accept native
+fan visibility. The opening Help checklist carries the requested actions and
+manual exit commands. Preserve the accepted sound payload as previous, archive
+this candidate, then boot once for the user's untimed Sensors check. Collect
+its matching session and screenshot before any further stage.
