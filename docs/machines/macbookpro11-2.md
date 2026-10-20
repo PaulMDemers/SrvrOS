@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-19. State: **native desktop, keyboard and trackpad exercised successfully; brightness and audio unavailable**.
+Updated: 2026-10-19. State: **native desktop, keyboard, trackpad and brightness exercised successfully; audio pending**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -370,3 +370,22 @@ and responsive input, restore a comfortable level, then Return to console and
 reboot after USB unmounted=yes. No deadline or automatic reboot in this desktop
 trial. Retain accepted desktop c4b7b7bb5eb48b3a as previous; archive the candidate
 and run record before arming. Brightness adjustment remains physically pending.
+
+## Native brightness acceptance
+
+Release `c7dd411a4ea31af4` (source `1f2d677`), session
+`session-00065e3c9d5e862e-00`, has matching saved boot/exit logs. The user confirms
+brightness worked well across the whole range. The exact Pro provider initialized
+at 26% without changing the panel. All 108 logged adjustment requests matched
+their readback, spanning 5–100% and finishing at 41%. This accepts manual
+Settings brightness adjustment on this unit; media keys and automatic dimming
+are not covered.
+
+Desktop exit status is zero. Trackpad telemetry records 5,374 reports with zero
+malformed reports or transfer errors. No keyboard reports occurred in this saved
+snapshot; prior keyboard acceptance remains separate. Offline exFAT is clean,
+Ubuntu default and consumed one-shot are verified, and no reboot is armed.
+Logs and the accepted payload are archived outside `build`. Current installed
+release is now accepted for brightness; previous remains `c4b7b7bb5eb48b3a`.
+Preserve this brightness payload when staging audio work next. Sound remains
+disabled in this profile and requires Pro-specific CS4208 routing and tests.
