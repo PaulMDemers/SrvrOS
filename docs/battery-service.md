@@ -324,3 +324,13 @@ before installation. Native Q35 refusal must save a failed report and reset.
 Keep AC and USB connected; no human input is requested. Do not infer desktop
 responsiveness, concurrent filesystem updates or sustained native service
 acceptance from this bounded scratch test.
+
+The first native v36 attempt, release `5792b6ece45b85dc` / source `e2d779b`,
+**failed preparation before entering the battery runtime**. Session
+`session-00065e4a6f889c64-00` records eight leaked allocated clusters, first 114,
+from the SrvrOS allocation checker. No scratch capability was granted. The failed
+exit was saved and the machine returned automatically; Ubuntu's read-only offline
+exFAT check reports clean. This discrepancy requires investigation, not relaxing
+the allocation guard. Native write/flush overlap remains untested; the accepted
+bounded read-overlap result is unchanged. Evidence and recovery details are in
+the [Air unit record](machines/macbookair7-2.md).

@@ -68,7 +68,7 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
-### Native scratch write/flush overlap — October 20 (in progress)
+### Native scratch write/flush overlap — October 20 (preflight failed)
 
 Bounded objective: extend coexistence testing to USB writes and cache flushes
 without filesystem metadata updates during native battery ownership. Prepare a
@@ -82,8 +82,8 @@ Touches block range translation/cache invalidation, exFAT allocation inspection,
 workspace scratch lifetime, battery diagnostics and host/VM tests. First gate is
 a tested scratch capability including refusal, partial-write and flush failures;
 then wire the automatic capture with strict offline verification. Base `b6075ef`,
-Pro PR #5 `c0f5fd5` inspected. Its proposed CPU-load capture overlaps shared boot
-staging/startup files: keep its implementation separate and reconcile those hunks
+Pro PR #5 `7c9372b` inspected (battery work deferred on that unit). Its CPU-load
+capture overlaps shared boot staging/startup files: keep its implementation separate and reconcile those hunks
 at integration; do not copy or replace the Pro proposal. Ordinary desktop battery
 access remains disabled. The accepted b73 read trial is collected; its evidence and recovery payload
 remain preserved.
@@ -99,15 +99,25 @@ existing service, read overlap and disposable filesystem-write regressions pass.
 Collection independently verifies and copies the final scratch payload.
 Candidate `5792b6ece45b85dc`, artifact `e2d779b`, passed exact-stage native
 Q35 refusal with saved failed result, scratch revocation, clean exFAT, unmount
-and reset. Physical acceptance remains pending; no hardware result is claimed
-for scratch writes yet. Missing-workspace automatic return also passed.
+and reset. Missing-workspace automatic return also passed.
 The candidate is installed with previous desktop `b427b78f21644bd2` retained;
 accepted read payload `b73c1ae3e4643dc9` remains on EFI. The unreferenced `a528`
 EFI duplicate was removed only after its independent backup/hashes were verified.
-Offline physical exFAT remains clean (178 directories, 858 files). The next
-one-shot run is automatic: keep AC/USB connected, no human action required.
-Collect matching service/write proof and verified scratch payload before more
-work. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36).
+The physical run returned automatically but **failed preflight**, session
+`session-00065e4a6f889c64-00`: SrvrOS's allocation check reported eight leaked
+clusters, first cluster 114. It refused the scratch capability before native
+battery runtime entry; no service/write-overlap acceptance is claimed. The
+matching exit saved `completed=NO`. Ubuntu's read-only offline exFAT check
+reports clean (179 directories, 862 files). The new boot, consumed one-shot and
+installed/recovery hashes were verified. No new reboot is armed.
+
+The failed report and 45 hashed evidence files are retained outside `build` at
+`~/.local/share/srvros/failed-evidence/5792b6ece45b85dc`. The accepted b73 read
+baseline is unchanged. Next investigate the allocation-check discrepancy without
+bypassing the guard; do not repeat the write trial until its cause is understood.
+Both full CI baseline runs passed at `800d84e`, which contains the exact scratch
+implementation. See the [v36 contract](../battery-service.md#native-scratch-writeflush-overlap-capture-v36)
+and [integration handoff](../agent-coordination.md#october-20-battery-baseline-handoff).
 
 ### Native read-only USB overlap capture — October 20
 
