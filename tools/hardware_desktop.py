@@ -241,15 +241,21 @@ def battery_filesystem_result(exit_text, require_service=True):
     summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
     if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
     extent=re.fullmatch(r'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d{1,20}) bytes=16777216; unmounted=yes aliases=revoked',prepared[0])
-    proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20}); retired=yes revoked=yes',rows[0])
+    proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20})(?: steps=(\d{1,20}) max_step_us=(\d{1,20}) slowest_step=(\d{1,20}))?; retired=yes revoked=yes',rows[0])
     if not extent or not proof or revoked[0]!='workspace-image: revoked clean=yes':return None
-    cycles,commands,busy,progress,bursts,maximum,elapsed=map(int,proof.groups());offset=int(extent[1])
+    cycles,commands,busy,progress,bursts,maximum,elapsed=map(int,proof.groups()[:7]);offset=int(extent[1])
     if any(n>=2**64 for n in (cycles,commands,busy,progress,bursts,maximum,elapsed,offset)):return None
-    if cycles<2 or not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts<=cycles or maximum<250000 or elapsed<60000000 or not offset or offset%512:return None
+    if cycles<2 or not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts or not maximum or elapsed<60000000 or not offset or offset%512:return None
+    stepped={}
+    if proof[8] is not None:
+        steps,step_us,slowest=map(int,proof.groups()[7:])
+        if steps>=2**64 or steps!=cycles*18 or bursts!=steps or not 0<step_us<=maximum or slowest>=18:return None
+        stepped=dict(steps=steps,max_step_us=step_us,slowest_step=slowest)
+    elif bursts>cycles or maximum<250000:return None
     if not lines.index(prepared[0])<lines.index(revoked[0])<lines.index(rows[0])<lines.index(summaries[0]):return None
     return dict(isolated_complete=True,cycles=cycles,commands=commands,busy_cycles=busy,
                 progress_bursts=progress,bursts=bursts,max_burst_us=maximum,elapsed_us=elapsed,
-                raw_offset=offset,bytes=16777216,input_acceptance='pending',desktop_acceptance='pending')
+                **stepped,raw_offset=offset,bytes=16777216,input_acceptance='pending',desktop_acceptance='pending')
 
 
 def verify_battery_image(workspace, proof, saved):

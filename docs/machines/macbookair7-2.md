@@ -122,8 +122,8 @@ device work uses separate branches based on `main`.
 ### Filesystem operation scheduling — October 20
 
 Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
-and its acceptance notes. PR #8 CI remains independent; do not re-push its code
-branch merely to publish this follow-up. Pro scope inspected at `a19ce5c` remains
+and its acceptance notes. PR #8 passed CI and merged as `09207b0`; this branch
+consumes that integration baseline. Pro scope inspected at `a19ce5c` remains
 Ethernet bring-up; preserve its branch and profiles.
 
 Bounded objective: split the diagnostic filesystem cycle into explicit operations,
@@ -137,6 +137,18 @@ revocation between operations; VM checks must prove complete payloads, sampling
 progress, step accounting and automatic fault return. Native latency acceptance
 remains pending; a bounded operation count does not guarantee device completion
 within a fixed time. No new physical test is armed.
+Host validation passed all 19 clean pause/revocation boundaries plus 457 write
+failures, 457 power cuts and 72 flush failures, preserving outer bytes and clean
+post-recovery inner allocation. Collector tests cover complete step accounting,
+invalid counts/timing/phase and legacy reports. Ordinary/native/modeled kernels
+build with the local `tools/host-env.sh` wrapper. The sustained VM completed
+73 cycles / 1,314 operations over 60,354,688 microseconds, with 54,874 transport
+commands and 23 scopes containing sampling progress. The maximum operation was
+532,726 microseconds (step 1, the initial large draft write); maximum scope was
+532,748 microseconds. Payload, outer isolation and clean retirement passed.
+Setup and active-sample deadline fixtures also passed automatic reset and
+outer preservation/inner recovery; the scratch-write regression passed.
+Physical comparison remains pending; these VM times do not revise native results.
 
 
 ### Isolated filesystem coexistence — October 20

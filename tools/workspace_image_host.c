@@ -100,6 +100,25 @@ int main(int argc,char **argv){
     assert(!image_write(&image.view,0,NULL,512));
     assert(!image_write(&disk,0,data,512));
     assert(writes==before&&workspace_image_ready());
+    bool complete=true;
+    assert(!workspace_image_step(1,&complete)&&!complete&&!workspace_image_pending());
+    assert(!workspace_image_step(0,NULL));
+    assert(writes==before&&!depth);
+    if(!strcmp(argv[2],"pause")) {
+        unsigned steps=(unsigned)strtoul(argv[3],NULL,10);assert(steps<=WORKSPACE_IMAGE_STEPS);
+        for(unsigned i=0;i<steps;i++) {
+            before=writes;foreign=true;
+            assert(!workspace_image_step(0,&complete)&&!complete&&writes==before&&!depth);
+            foreign=false;assert(workspace_image_step(0,&complete)&&!depth);
+            assert(complete==(i+1==WORKSPACE_IMAGE_STEPS));
+            assert(workspace_image_pending()==!complete);
+            before=writes;
+            assert(!workspace_image_step(complete?0:1,&complete)&&!complete&&writes==before);
+        }
+        assert(workspace_image_close()&&!depth);
+        before=writes;assert(!workspace_image_step(0,&complete)&&!complete&&writes==before);
+        close(fd);puts("image: clean pause/revocation");return 0;
+    }
     if(argc>3)fail_write=(unsigned)strtoul(argv[3],NULL,10);
     if(argc>4)crash_write=(unsigned)strtoul(argv[4],NULL,10);
     if(argc>5)fail_flush=(unsigned)strtoul(argv[5],NULL,10);

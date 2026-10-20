@@ -753,6 +753,8 @@ static struct {
     struct block_device *volume,*device;
     uint8_t baseline[4096],buffer[4096];
     uint64_t reads,commands,busy,progress,bursts,max_us,max_read_us;
+    uint64_t steps,max_step_us,slowest_step;
+    bool cycle_busy;
 } usb_read_test;
 static bool usb_read_prepare(void) {
     usb_read_test=(typeof(usb_read_test)){0};
@@ -773,8 +775,16 @@ static bool usb_read_burst(unsigned mode) {
     battery_service_status(&before);after=before;
     bool ok=true;
     do {
+        bool complete=true;
         if(mode==3) {
-            if(!workspace_image_cycle(usb_read_test.reads)){ok=false;break;}
+            uint64_t step_start=timer_monotonic_us();
+            if(!workspace_image_step(usb_read_test.reads,&complete)){ok=false;break;}
+            uint64_t elapsed=timer_monotonic_us()-step_start;
+            if(elapsed>usb_read_test.max_step_us) {
+                usb_read_test.max_step_us=elapsed;
+                usb_read_test.slowest_step=usb_read_test.steps%WORKSPACE_IMAGE_STEPS;
+            }
+            usb_read_test.steps++;
         } else if(mode==2) {
             for(unsigned i=0;i<4096;i++)usb_read_test.buffer[i]=(uint8_t)(i+usb_read_test.reads);
             if(!workspace_scratch_cycle(usb_read_test.buffer)){ok=false;break;}
@@ -783,11 +793,21 @@ static bool usb_read_burst(unsigned mode) {
             for(unsigned i=0;i<4096;i++)if(usb_read_test.buffer[i]!=usb_read_test.baseline[i]){ok=false;break;}
         }
         if(!ok)break;
-        usb_read_test.reads++;
+        if(complete)usb_read_test.reads++;
         uint64_t read_start=timer_monotonic_us();
         battery_service_status(&after);
         uint64_t read_us=timer_monotonic_us()-read_start;
         if(read_us>usb_read_test.max_read_us)usb_read_test.max_read_us=read_us;
+        if(mode==3) {
+            if((before.flags|after.flags)&BATTERY_CACHE_SAMPLING)usb_read_test.cycle_busy=true;
+            if(complete) {
+                if(usb_read_test.cycle_busy)usb_read_test.busy++;
+                usb_read_test.cycle_busy=false;
+            }
+            /* Return to the reader loop and release exclusion after ONE operation.
+             * Never combine many fast operations into another long scope. */
+            break;
+        }
         if(after.flags&BATTERY_CACHE_SAMPLING)usb_read_test.busy++;
         (void)scheduler_io_yield();
     } while(timer_monotonic_us()-start<250000);
@@ -863,7 +883,7 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
         if(s.state==BATTERY_SERVICE_UNAVAILABLE){failure="unexpected unavailable";goto failed;}
         workload_elapsed=workload_started?timer_monotonic_us()-workload_started:0;
         if((s.flags&BATTERY_CACHE_FRESH)&&s.sample.generation>=(filesystem?10:5)&&
-           (!filesystem||workload_elapsed>=60000000))break;
+           (!filesystem||(workload_elapsed>=60000000&&!workspace_image_pending())))break;
         failure="sample deadline";
         if(timer_monotonic_us()>=deadline)goto failed;
         uacpi_kernel_sleep(10); /* Block this reader; HLT would keep it runnable. */
@@ -916,9 +936,10 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
     if(filesystem) {
         failure="isolated filesystem retirement";
         if(!workspace_image_close())goto failed;
-        console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u; retired=yes revoked=yes\n",
+        console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u; retired=yes revoked=yes\n",
             usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,
-            usb_read_test.bursts,usb_read_test.max_us,workload_elapsed);
+            usb_read_test.bursts,usb_read_test.max_us,workload_elapsed,usb_read_test.steps,
+            usb_read_test.max_step_us,usb_read_test.slowest_step);
     }
     if(usb_reads&&!usb_writes&&!filesystem)console_printf("battery-usb-read: PASS reads=%u commands=%u busy_reads=%u progress_bursts=%u bursts=%u max_burst_us=%u bytes_per_read=4096 writes=0; retired=yes\n",
         usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,
