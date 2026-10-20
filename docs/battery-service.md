@@ -117,3 +117,28 @@ Long-lived desktop operation, input/storage responsiveness under heavy I/O,
 power cost, gauge calibration and other Macs are separate acceptance gates.
 In particular, do not promote the worker into a storage exemption merely to
 avoid a deadline during a workload: audit and measure the scheduling interaction.
+
+## Physical checkpoint and next gate
+
+On October 20, Air7,2 release `d9e6f4f75da4e871` (artifact `a24836a`) completed
+the bounded service test in session `session-00065e4922d1be3d-00`. Five fresh
+samples, 49,344 cached reads including 10,368 during sampling, and an observed
+18-microsecond maximum read passed. Immediate cancellation, restart and in-flight
+stop with a timed-out short wait followed by clean join passed. Both initialized
+lifetimes restored the retained event enables and retired without reported
+runtime errors, denied accesses or remaining heap. The matching completed exit,
+consumed one-shot entry, new Ubuntu boot and clean exFAT were verified.
+
+This capture parked USB throughout runtime and initialized in approximately four
+seconds per lifetime. It also logged an unhandled SCI warning after the first
+setup; the current log prints only the first occurrence, so one warning does not
+establish a single interrupt. Before desktop enablement, quantify claimed and
+unclaimed SCI deliveries across setup, active sampling and retirement, then
+exercise bounded service operation alongside storage and cached readers.
+Retain exact native access gates and existing deadlines. Do not mask the warning
+by claiming every interrupt, and do not attribute the successful run solely to
+the blocking reader fix when USB logging also changed.
+
+The physical success path is accepted for this bounded test. Automatic return
+after a contained fault remains VM-tested only. Gauge calibration, continuous
+operation and userspace/UI integration are still pending.

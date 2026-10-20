@@ -4,34 +4,45 @@ Updated: 2026-10-20. State: **active reference machine; partial device acceptanc
 
 Current unattended-test policy (user correction October 20): announce required
 human actions before boot; tests requiring no input must return to Ubuntu on
-handled failures as well as success. The corrected v33 run has only a boot log
-in `session-00065e48d76b65bf-00`; the user reports another halt, so it is not
-accepted and the exact latest fault is unknown. Repair scope now covers capture
-return policy, pre-probe USB checkpoint/unmount, reset from contained runtime
-faults without unsafe interpreter cleanup, and VM reset/failed-collection tests.
-Use a distinct `-auto-return` recipe suffix; retain existing recipes unchanged.
-Missing completion remains failure, never an automatic pass after reboot.
+handled failures as well as success. The `-auto-return` capture checkpoints and
+unmounts USB before battery runtime entry. Normal returns remount, save the result
+and reset even on failure. Contained faults disable interrupts and reset without
+filesystem reentry or unsafe interpreter cleanup. Missing completion remains
+failure, never a pass merely because Ubuntu returned.
 
-The new unattended path is implemented: it pauses the logger, saves a nonfinal
-checkpoint and unmounts USB before battery runtime entry. Containment disables
-CPU0 interrupts, retains live runtime state and resets without filesystem
-reentry. Normal returns remount, save the result and reset even on failure.
-The collector flags failed completion and never accepts reset as a pass.
-Ordinary/native/VM builds, workspace pause/remount logging, bootlog, cache,
-autotest/FADT host checks and 44 staging/collector tests pass. VM injection proves
-the unattended setup deadline actually resets; the normal service and explicit
-legacy deadline halt still pass. Native automatic-failure return and the battery
-service itself remain unaccepted pending the next exact-stage trial.
+**Bounded cached battery service accepted:** release **`d9e6f4f75da4e871`**,
+artifact **`a24836a`**, session **`session-00065e4922d1be3d-00`** completed the
+v33 automatic test. It produced five fresh samples, 49,344 cached reads (10,368
+during sampling), and an observed maximum read time of 18 microseconds.
+Immediate cancellation, two initialized lifetimes, restart and in-flight stop
+with a short wait timeout followed by successful retirement passed. Both retained
+event enables were restored in each initialized lifetime; together they handled
+90 queries/92 notifications with balanced attach/detach and zero reported runtime
+errors, denied accesses or remaining heap. Setup took 3.997 and 3.978 seconds.
 
-Unattended candidate **`d9e6f4f75da4e871`**, artifact **`a24836a`**, uses
-`ram-usb-v33-laptop-probe-37d8c5d0-auto-return`. Exact-stage UEFI/GRUB checks
-confirm a missing workspace resets without starting the probe, and native Q35
-refusal parks/remounts USB, saves the failed result, leaves clean exFAT and
-actually resets. This verifies failure return in the VM, not native battery
-acceptance. The next physical trial requires no input. Collect its session and
-distinguish automatic return from service success; missing final proof remains
-failure. Ubuntu and the previous desktop are retained. Failed original v33
-`a9be2dc78d213dee` was archived and verified before EFI space was reclaimed.
+The matching exit log contains clean retirement and `completed=yes`. Ubuntu has
+a new boot ID, the one-shot entry is consumed, installed/previous payload hashes
+match, and read-only exFAT checking reports clean (176 directories, 852 files).
+The accepted payload and 33 hashed evidence files are preserved outside `build`.
+This establishes service completion and host recovery; failure-triggered reset
+has VM evidence, not a physical fault-injection result.
+
+Acceptance is deliberately bounded: USB logging was parked during runtime.
+Long-lived desktop use, concurrent storage/input responsiveness and gauge
+calibration remain pending. An unhandled SCI line 9/vector 41 warning appeared
+after the first setup; its count/cause remain unresolved. Do not hide that warning
+or infer a fault-free interrupt path from the runtime's zero error counters.
+The next block is SCI accounting and scheduling/USB coexistence validation before
+enabling an ordinary desktop provider. Battery values remain relative SOC:
+the capture's 98% is not acceptance of agreement with Ubuntu's 86% display.
+
+Builds, workspace pause/remount logging, bootlog/cache/autotest host checks and
+44 staging/collector checks passed for this candidate. VM setup-deadline injection
+verified actual reset; explicit legacy halt still passed. Exact-stage UEFI/GRUB
+checks verified missing-workspace reset and native Q35 refusal with USB
+park/remount, saved failed report, clean exFAT and reset. Earlier failed v33 runs
+remain preserved; this success does not identify their exact causes or prove
+the reader-wait change alone resolved them.
 
 ## Identity and ownership
 
@@ -53,7 +64,8 @@ explicit start/stop and bounded waits, and host/VM lifecycle/reader regressions.
 Preserve the accepted diagnostics and exact native resource gates. Ordinary
 desktop startup remains disabled until service lifetime and responsiveness have
 separate evidence; UI/syscall integration follows this kernel contract.
-Base remains `b6075ef`; Pro PR #5 is `522c36a` (two-fan rehearsal documentation).
+Base remains `b6075ef`; Pro PR #5 is `8fc3e1c` (accepted paired-fan telemetry docs),
+confirmed by fetch after this physical return.
 No overlapping native EC implementation or new sibling acceptance is inferred.
 The next checkpoint is a tested cached service with safe retirement, stale
 readings during missed/invalid updates, and repeatable start/stop lifetimes.
@@ -61,7 +73,10 @@ Reserve **v33 laptop-probe** for a bounded automatic service-lifecycle capture
 after those checks pass, including exact-stage refusal rehearsal and strict
 collection. It exercises cached readers and stop/restart, not desktop acceptance.
 
-Implementation checkpoint: the pure cache and asynchronous lifecycle are in
+Historical implementation and trial sequence (the acceptance above supersedes
+the pending statuses below):
+
+The pure cache and asynchronous lifecycle are in
 place; [service contract](../battery-service.md) documents freshness, retirement
 and ownership. Host cache checks also pass ASan/UBSan; native, VM and ordinary
 kernel builds pass. All 21 battery VM scenarios pass, including cached readers
