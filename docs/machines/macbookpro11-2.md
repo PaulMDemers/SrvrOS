@@ -970,3 +970,24 @@ Opening Help carries manual exit commands; this is untimed. Preserve Ubuntu
 and sound-confirmed previous `e47dca3a6b30c6c1`, archive candidate and exact VM
 receipt, and collect the matching new session before promotion or another run.
 Battery/charger and trackpad latency work remain explicitly deferred.
+
+## Rebased desktop native regression — 2026-10-20
+
+Release `8d8b85e8a68d1042` (payload `96840d9`), session
+`session-00065e4c52c62152-00`, exited cleanly with no collector attention.
+The user confirmed typing, trackpad, apps, brightness, sound, both fan readings
+and Pause/Resume worked; Text saving was explicitly skipped this round.
+Do not claim a new native Text save/reopen pass. Screenshot persistence passed.
+
+The saved screenshot shows L 2,156 / R 2,007 RPM, fan age 539 ms and core/package
+46/51 C. Logs record pause/resume, 2,415 paired fan samples and zero SMC errors.
+Matching logs and screenshot were copied, hash-verified and archived outside
+`build`. Both offline exFAT checks pass, including allocation accounting with
+no orphan/mismatch errors. Ubuntu default, consumed one-shot and installed/
+archived recovery hashes verify. Current remains the rebased desktop; previous
+remains `e47dca3a6b30c6c1`. No reboot is armed.
+
+The named regression checks are physically accepted on this unit. Next remaining
+non-battery bringup checks are headphone output/isolation and supported wired
+USB networking, preceded by inventory and driver compatibility review. Battery
+and trackpad latency remain deferred.
