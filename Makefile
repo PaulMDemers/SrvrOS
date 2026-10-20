@@ -3325,5 +3325,6 @@ build/tests/battery-cache$(HOST_EXE): tools/test_battery_cache.c kernel/src/driv
 
 .PHONY: test-exfat-scratch
 test-exfat-scratch: build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_exfat_allocation_check.py
 	$(PYTHON) tools/exfat_scratch_test.py
 test-core: test-exfat-scratch

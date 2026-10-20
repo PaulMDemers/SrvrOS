@@ -9,6 +9,9 @@
 #include <srvros/battery_service.h>
 #include <srvros/scheduler.h>
 #include <srvros/exfat.h>
+#include <srvros/vfs.h>
+#include <srvros/block.h>
+#include <srvros/usb_storage.h>
 #include <srvros/workspace.h>
 #include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
@@ -25,9 +28,67 @@ static struct {
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+/* Only this VM platform can mutate a mounted workspace during the test.
+ * Native captures retain the narrower fixed scratch-data capability. */
+#define FS_BYTES (256u*1024u+37u)
+static uint8_t fs_data[FS_BYTES];
+static struct { block_write_fn original; unsigned calls; bool failed; } write_fault;
+static bool fail_third_write(struct block_device *d,uint64_t off,const void *data,uint64_t n) {
+    if(++write_fault.calls==3){write_fault.failed=true;return false;}
+    return write_fault.original(d,off,data,n);
+}
+static bool file_matches(const char *path,const uint8_t *expected,uint64_t length) {
+    const struct vfs_node *node=vfs_lookup(path);const uint8_t *data;uint64_t size;
+    if(!node||!vfs_read_all(node,&data,&size))return false;
+    bool ok=size==length;
+    for(uint64_t i=0;ok&&i<size;i++)ok=data[i]==expected[i];
+    vfs_release_data(node,data);return ok;
+}
+static bool filesystem_cycle(uint64_t cycle) {
+    const char *dir="/work/srvros-work/fs-proof";
+    const char *draft="/work/srvros-work/fs-proof/draft.bin";
+    const char *payload="/work/srvros-work/fs-proof/payload.bin";
+    const char *empty="/work/srvros-work/fs-proof/empty.bin";
+    const char *tmp="/work/srvros-work/fs-proof/transient";
+    const char *moved="/work/srvros-work/fs-proof/moved";
+    if(!cycle&&(vfs_lookup(dir)||!exfat_create_directory(dir)))return false;
+    for(unsigned i=0;i<FS_BYTES;i++)fs_data[i]=(uint8_t)(i*37u+(i>>8)+cycle);
+    if(!exfat_write_file(draft,fs_data,FS_BYTES)||!file_matches(draft,fs_data,FS_BYTES)||
+       !exfat_write_file(draft,fs_data,37)||!file_matches(draft,fs_data,37)||
+       !exfat_write_file(draft,fs_data,FS_BYTES)||
+       (cycle&&!exfat_delete_file(payload))||!exfat_rename(draft,payload)||vfs_lookup(draft)||
+       !file_matches(payload,fs_data,FS_BYTES)||
+       !exfat_write_file(empty,fs_data,4096)||!exfat_write_file(empty,NULL,0)||!file_matches(empty,NULL,0)||
+       !exfat_create_directory(tmp)||!exfat_rename(tmp,moved)||vfs_lookup(tmp)||
+       !exfat_delete_directory(moved)||vfs_lookup(moved)||!workspace_sync())return false;
+    return true;
+}
+static bool filesystem_failure(void) {
+    struct block_device *device=NULL;
+    for(unsigned i=0;i<BLOCK_MAX_DEVICES;i++) {
+        struct block_device *d=block_device_at(i);
+        if(d&&usb_storage_is_device(d)&&block_parent(d)==d&&d->write) {
+            if(device)return false;
+            device=d;
+        }
+    }
+    if(!device)return false;
+    write_fault=(typeof(write_fault)){.original=device->write};
+    device->write=fail_third_write;
+    bool accepted=exfat_write_file("/work/srvros-work/fs-proof/payload.bin",(const uint8_t *)"replacement",11);
+    unsigned calls=write_fault.calls;
+    bool blocked=!exfat_write_file("/work/srvros-work/fs-proof/forbidden",fs_data,37)&&
+        write_fault.calls==calls&&!exfat_is_writable("/work");
+    device->write=write_fault.original;
+    bool preserved=file_matches("/work/srvros-work/fs-proof/payload.bin",fs_data,FS_BYTES);
+    console_printf("battery-vm: fs-failure injected=%u calls=%u blocked=%u preserved=%u\n",
+        (uint64_t)write_fault.failed,(uint64_t)calls,(uint64_t)blocked,(uint64_t)preserved);
+    return !accepted&&write_fault.failed&&calls==3&&blocked&&preserved;
+}
 static void io_hold(void *arg) {
     (void)arg;
-    uint64_t duration=model.fault==21?20000:model.fault>=23?5000000:250000;
+    bool filesystem=model.fault==25||model.fault==26;
+    uint64_t duration=model.fault==25?60000000:model.fault==21?20000:model.fault>=23?5000000:250000;
     uint64_t f=irq_save(),start=timer_monotonic_us(),reads=0,max_read_us=0;
     bool admitted=scheduler_io_begin(),sampling=false;
     uint64_t commands=model.commands,progress=0,first_generation=0,last_generation=0;
@@ -44,6 +105,11 @@ static void io_hold(void *arg) {
             if(!reads)first_generation=s.sample.generation;
             last_generation=s.sample.generation;
             reads++;sampling|=(s.flags&BATTERY_CACHE_SAMPLING)!=0;
+            if(filesystem && (model.fault==25||!writes)) {
+                if(!filesystem_cycle(writes)){file_ok=false;break;}
+                writes++;
+                if(model.fault==26&&!filesystem_failure()){file_ok=false;break;}
+            }
             if(model.fault==24) {
                 for(unsigned i=0;i<sizeof(data);i++)data[i]=(uint8_t)(i+writes);
                 if(!exfat_write_file("/work/srvros-work/io-proof",data,sizeof(data))||!workspace_sync()) {
@@ -60,14 +126,16 @@ static void io_hold(void *arg) {
     irq_restore(f);
     console_printf("battery-vm: io-hold admitted=%u sampling=%u requested_us=%u elapsed_us=%u reads=%u max_read_us=%u commands=%u first_gen=%u last_gen=%u\n",
         (uint64_t)admitted,(uint64_t)sampling,duration,elapsed,reads,max_read_us,progress,first_generation,last_generation);
+    if(filesystem)console_printf("battery-vm: filesystem mode=%s cycles=%u file_ok=%u bytes=%u\n",
+        model.fault==26?"write-failure":"sustained",writes,(uint64_t)file_ok,(uint64_t)FS_BYTES);
     if(model.fault==24)console_printf("battery-vm: usb-io writes=%u file_ok=%u bytes=4096\n",writes,(uint64_t)file_ok);
 }
 static void interleave_io(void) {
-    if(model.io_started||model.generation!=2||(model.fault<21||model.fault>24))return;
+    if(model.io_started||model.generation!=2||(model.fault<21||model.fault>26))return;
     model.io_started=true;
     /* Stop the worker at a transport status read while a different thread
      * holds the real scheduler IO exclusion. No artificial device delay
-     * is introduced. Case 24 also writes a disposable
+     * is introduced. Cases 24-26 also write a disposable
      * USB filesystem; other cases only hold the scheduler scope. Once admitted,
      * the worker may resume as soon as its scheduler policy allows it. */
     scheduler_enable_io_services();
@@ -169,7 +237,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>24||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>26||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};

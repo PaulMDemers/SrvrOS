@@ -209,13 +209,20 @@ wait until the scope ends.
 | `service-io-long` | 250 ms scheduler scope | EC commands advance inside the scope; service passes |
 | `service-io-sustained` | Five-second scheduler scope | EC commands and sample generation advance inside the scope |
 | `service-usb-io` | Five seconds of disposable QEMU USB exFAT writes and flushes | Concurrent sample progress, service retirement, clean unmount, offline exact payload verification and clean exFAT |
+| `service-filesystem` | 60 seconds of 256 KiB+37-byte file growth/shrink, rename, empty-file truncation, directory rename/deletion and flushes | At least ten generation advances inside the I/O scope, clean retirement/unmount, exact retained tree, clean offline exFAT and allocation graph |
+| `service-filesystem-write-failure` | Reject the third raw write during replacement of a committed file; keep sampling in a five-second I/O scope | Existing file preserved, subsequent writes refused, service retires; dirty volume retained and offline recovery rehearsed on the disposable image |
 
 The USB fixture creates its own image and synthetic workspace identity. It never
 uses the laptop flash drive. VM evidence does not accept native storage/input
 coexistence, native SCI behavior over sustained operation, or desktop enablement.
-The v34 capture below adds native read-overlap evidence. Native writes and
-flushes still need a bounded capture with a durable checkpoint and automatic
-return on handled failure as well as success.
+The v34 and v36 captures below add bounded native read and scratch-data
+write/flush evidence. Ordinary filesystem metadata mutation on hardware still
+needs a separate recovery contract: a contained native fault resets without
+filesystem reentry and could interrupt an allocation or directory update. Do not
+reuse that reset policy on a writable user workspace merely because the VM
+workload passed. The next physical filesystem step needs a disposable target
+whose failures cannot alter existing workspace files, retained pre-test bytes,
+and verified post-return recovery before ordinary desktop integration.
 
 
 ## Native read-only USB overlap capture (v34)
@@ -330,7 +337,44 @@ The first native v36 attempt, release `5792b6ece45b85dc` / source `e2d779b`,
 `session-00065e4a6f889c64-00` records eight leaked allocated clusters, first 114,
 from the SrvrOS allocation checker. No scratch capability was granted. The failed
 exit was saved and the machine returned automatically; Ubuntu's read-only offline
-exFAT check reports clean. This discrepancy requires investigation, not relaxing
-the allocation guard. Native write/flush overlap remains untested; the accepted
-bounded read-overlap result is unchanged. Evidence and recovery details are in
+exFAT check reports clean. A later independent scan confirmed eight actual orphan allocations; exfatprogs
+1.3.2 ordinary read-only checking did not report them. Rehearsed orphan recovery
+preserved every existing file and all orphan bytes, and the unchanged SrvrOS
+checker now passes. The guard was correct. Native write/flush overlap remains
+untested by that failed attempt; the accepted bounded read-overlap result was
+unchanged. The subsequent successful retry is described below. Evidence and recovery details are in
 the [Air unit record](machines/macbookair7-2.md).
+
+After recovery, the same immutable release passed on Air7,2 in session
+`session-00065e4c30fcddac-00`: 1,894 write/flush/readback cycles, 5,682 commands,
+62 cycles during sampling, and three sample-generation advances inside I/O
+scopes. Five fresh samples and 5,414 cached reads completed (574 during sampling,
+maximum 18 microseconds). The service retired cleanly through cancellation,
+restart and short stop-timeout coverage; the scratch capability was revoked.
+The collector verified the final 4096-byte file against the reported sequence.
+A completed exit, new Ubuntu boot, consumed one-shot and payload/recovery hashes
+were verified. Both offline checks passed: fsck clean, and the SrvrOS checker
+reported zero leaks/FAT mismatches/errors. This accepts bounded native transport
+write/flush coexistence. It does not accept ordinary filesystem metadata updates,
+human input or sustained desktop operation. Six active SCI deliveries remained
+unclaimed; none occurred during setup/retirement or remained in flight.
+
+
+### Filesystem recovery checks during the VM workload
+
+The injected metadata-write failure preserved the committed payload and blocked
+subsequent writes, but initially failed SrvrOS's post-recovery check. The checker
+incorrectly required every bitmap-free cluster's FAT entry to be zero. The
+[exFAT allocation contract (sections 5.1 and 7.1.5)](https://learn.microsoft.com/en-us/windows/win32/fileio/exfat-specification#51-cluster-heap-sub-region)
+uses the bitmap to determine ownership. [Linux's free-cluster implementation](https://github.com/torvalds/linux/blob/v6.17/fs/exfat/fatent.c)
+clears bitmap bits without clearing old FAT links; exfatprogs recovery can leave
+the same state.
+
+The checker now validates the allocation bits of referenced clusters and still
+rejects allocated orphan clusters, overlaps and invalid live chains. It ignores
+FAT contents of unreferenced bitmap-free clusters. No repair or allocation change
+is performed. `fat_bitmap_mismatches` now counts referenced clusters missing from
+the bitmap. Regressions cover stale end markers, self-links and apparent links to
+live files in free clusters, while missing live allocation bits and actual
+orphans still refuse scratch admission. This correction is separate from the
+eight real orphan clusters recovered on the Air: their rejection was correct.
