@@ -663,7 +663,7 @@ Current capability ledger and suggested next order:
 | Trackpad | Functional; latency investigation deferred; gesture combinations need separate exhaustive acceptance |
 | Brightness | User confirmed full offered 5–100% range |
 | Audio | User confirmed sound; headphone isolation, individual channel/route checks and microphone remain separate |
-| CPU/thermal/fan telemetry | Native CPU temperature/package energy/active-frequency idle capture accepted below; two-fan readout host/VM tested, native trial pending; fan control not accepted |
+| CPU/thermal/fan telemetry | Native CPU temperature/package energy/active-frequency idle capture accepted below; native paired two-fan readout accepted below; fan control not accepted |
 | Battery and charger | Native Pro ACPI/EC ownership and live battery/AC reporting not accepted; reuse reviewed shared groundwork, not Air firmware assumptions |
 | Networking | No accepted physical network path; validate supported wired USB hardware first; internal Broadcom Wi-Fi is separate driver work |
 | Power behavior | Lid events, orderly power-off and suspend/resume each need implementation/acceptance review; idle/load power baseline pending |
@@ -768,3 +768,29 @@ run is unattended and must show a fresh complete two-fan pair with no failures,
 as well as the completed idle capture/save/unmount/return. Visible System fan
 formatting remains a separate interactive check. Keep the sound-confirmed
 `e47dca3a6b30c6c1` recovery payload and collect this exact release on return.
+
+
+## Native two-fan readout accepted — 2026-10-20
+
+Release `d2928b8e81f148cd` (source `3604d74`), session
+`session-00065e3e2405d9d1-00`, completed the automatic capture and returned to
+Ubuntu. SMC reached active with two fans: 76 complete pairs, 156 transactions,
+zero failures/errors. Final F0Ac/F1Ac readings were 2,162/1,991 RPM, published
+with the same timestamp and count. Nine periodic snapshots were valid, fresh
+under three seconds, and advancing. This accepts native read-only paired fan
+telemetry; it does not accept fan control or the visible System presentation.
+
+The 59.997-second Text capture had 93.88% scheduler idle samples. Six package
+energy checkpoints covered 52.998 seconds at 9,246 mW average and 3,466 MHz
+CPU0 active frequency. No rejected power samples; final temperature was 71 C
+after screenshot work. These are short package-only measurements, not thermal
+equilibrium, whole-machine power, or a controlled load baseline. The saved
+1440x900 screenshot and matching logs were copied and independently archived.
+Offline exFAT is clean; installed hashes, Ubuntu default and consumed one-shot
+were verified. No reboot is armed. Current remains this diagnostic; accepted
+sound-enabled `e47dca3a6b30c6c1` remains previous. Installation reclaimed one
+obsolete unreferenced payload only after verifying its durable archive.
+
+Next bounded milestone: controlled load/thermal baseline and visible System
+readout validation. Battery/AC still depends on reviewed shared runtime work
+and this Pro's firmware evidence. Trackpad latency remains deferred by request.
