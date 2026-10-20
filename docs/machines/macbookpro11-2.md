@@ -954,3 +954,19 @@ System startup, audio and USB save/unmount), load refusal `ea1a686c92c4fdce`
 (wrong-key retries followed by all ten steps and saved return). These images
 are VM-only. Installed accepted desktop/recovery are unchanged, and no reboot
 is armed. Rebased history is published using an exact remote-head lease.
+
+## Rebased physical regression scope — 2026-10-20
+
+User authorized the next physical regression. Use VM-passed sensor desktop
+`8d8b85e8a68d1042`, payload source `96840d9`, based on main `d72d2af`.
+Fetch confirms main unchanged; Air PR7 adds host allocation checking and does
+not change this payload. Its read-only checker was inspected and run separately
+on this unit's unmounted USB: 65 files, 204 accounted clusters, zero leaks,
+FAT/bitmap mismatches or errors. No shared implementation changes in this scope.
+
+Check keyboard/trackpad, apps, brightness range, speaker audio, System's two
+fan readings (including Pause/Resume), Text saving and a screenshot together.
+Opening Help carries manual exit commands; this is untimed. Preserve Ubuntu
+and sound-confirmed previous `e47dca3a6b30c6c1`, archive candidate and exact VM
+receipt, and collect the matching new session before promotion or another run.
+Battery/charger and trackpad latency work remain explicitly deferred.
