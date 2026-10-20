@@ -13,7 +13,7 @@ records own observed configuration and acceptance for each model/unit.
 | --- | --- | --- |
 | MacBookAir7,2 / A1466 | [macbookair7-2](macbookair7-2.md) | Active reference machine; partial device acceptance |
 | MacBookAir7,1 / A1465 | [macbookair7-1](macbookair7-1.md) | Planned; no local inventory or physical results |
-| MacBookPro11,2 / A1398 | [macbookpro11-2](macbookpro11-2.md) | Console boot, keyboard enumeration and GPT discovery observed; typing and persistence pending |
+| MacBookPro11,2 / A1398 | [macbookpro11-2](macbookpro11-2.md) | Console boot, keyboard enumeration, USB log persistence and automatic return verified; typing pending |
 | MacBookPro11,3 / A1398 | [macbookpro11-3](macbookpro11-3.md) | Planned; no local inventory or physical results |
 | Macmini7,1 / A1347 | [macmini7-1](macmini7-1.md) | Planned; no local inventory or physical results |
 

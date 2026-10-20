@@ -153,3 +153,18 @@ Retry the same exact tested release with this corrected workspace. Save a new
 run record rather than overwriting the failed trial. Ubuntu and the previous
 console payload remain recovery; collect logs before further staging. Keyboard
 reports/typing, trackpad and successful native log persistence remain pending.
+
+## Successful native diagnostic retry
+
+Release `fe8e4d3e22ba97eb`, session `session-00065e3b75192c41-00`, saved
+matching boot and exit logs after the bitmap repair. The logs establish
+`05ac:0262` keyboard enumeration (interface 0, DCI 7, packet 10), GPT workspace
+mount, diagnostic writes and flush. The user confirmed an automatic return to
+Ubuntu. The one-shot entry was consumed and Ubuntu remains the default; the
+post-return offline exFAT check reports no errors. Evidence is archived outside
+`build` along with the separate retry record.
+
+Keyboard reports were zero at the diagnostic snapshot, so actual typing remains
+untested. Trackpad, desktop interaction and other device providers are also not
+accepted by this run. Next milestone is a visible typing test with instructions
+in the boot environment, preserving the standing reboot policy.
