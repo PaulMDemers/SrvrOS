@@ -55,6 +55,19 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### SCI accounting and storage scheduling block — October 20
+
+The Air agent owns the next bounded runtime change: phase-scoped SCI delivery,
+claimed/unclaimed counts and timestamps, plus disposable VM tests of service
+progress under the existing storage scheduling exclusion. Touches the separate
+battery runtime/model, its VM harness and validation documentation; no changes
+to native resource gates, IRQ acknowledgement, scheduler exemptions or ordinary
+desktop startup are planned. Base `b6075ef` and Pro PR #5 `8fc3e1c` were fetched
+again before work; no overlapping native EC scope was found. Preserve accepted
+`d9e6f4f75da4e871` while establishing the interrupt warning's measurable scope
+and whether storage exclusion can exhaust the existing operation/query budgets.
+A modeled scheduling hold is not physical USB or desktop responsiveness evidence.
+
 ### Cached battery service block — October 20
 
 Following acceptance of the latest v32 transition round, this Air branch owns
