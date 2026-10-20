@@ -7,6 +7,7 @@
 #include "preferences.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
+#include "input_timing.h"
 #include <srvros/desk_capture_job.h>
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
@@ -1004,6 +1005,11 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
     }
     if (!(buttons&MOUSE_LEFT)) s->pointer_pid=0;
 }
+static void timing_print(const char *name,const struct perf_sample *p) {
+    desk_log("cursor-timing: %s count=%llu mean_us=%llu max_us=%llu p95_bound_us=%llu p99_bound_us=%llu\n",
+        name,(unsigned long long)p->count,(unsigned long long)(p->count?p->total/p->count:0),
+        (unsigned long long)p->max,(unsigned long long)perf_percentile(p,95),(unsigned long long)perf_percentile(p,99));
+}
 int main(int argc,char **argv) {
     unsigned scale=1;
     for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
@@ -1061,6 +1067,7 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
+    struct desktop_input_timing timing={0};
     uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
@@ -1224,8 +1231,15 @@ int main(int argc,char **argv) {
                 if(!s.scene.notice[0]) { strcpy(s.scene.notice,s.capture.busy?"Finishing screenshot save…":"Finishing saved preferences…");desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height}); }
             }
         }
+        long poll_clock=hardware_trial?srv_monotonic_us():0;
+        uint64_t poll_time=poll_clock>0?(uint64_t)poll_clock:0;
+        if(hardware_trial) desktop_timing_poll(&timing,poll_time);
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            if(hardware_trial) {
+                long now=srv_monotonic_us();
+                desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
+            }
             if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
                 stop_warning=0; io_trial_input(&s.io,1);
             }
@@ -1366,7 +1380,7 @@ int main(int argc,char **argv) {
                 desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-36,canvas.width,36});
             }
         }
-        long render_start=io_mode && s.damage.count?srv_monotonic_us():0;
+        long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
         for (unsigned n=0;n<s.damage.count;n++) {
             struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
             if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
@@ -1374,6 +1388,10 @@ int main(int argc,char **argv) {
             if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;
             if(physical_h>info.height-(uint64_t)r.y*scale) physical_h=info.height-(uint64_t)r.y*scale;
             bytes+=physical_w*physical_h*4;
+        }
+        if(hardware_trial) {
+            long end=s.damage.count?srv_monotonic_us():0;
+            desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);
         }
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
@@ -1424,6 +1442,11 @@ int main(int argc,char **argv) {
     if(idle_capture) {
         if(idle_phase!=3) failed=1;
         desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");
+    }
+    if(hardware_trial) {
+        desk_log("cursor-timing: software-only; excludes USB arrival and display scanout; percentile bounds are histogram buckets\n");
+        timing_print("poll-gap",&timing.poll_gap);timing_print("consecutive-motion-gap",&timing.active_gap);
+        timing_print("consume-to-final-blit",&timing.consume_to_blit);timing_print("draw-blit",&timing.draw_blit);
     }
     if (io_trial_finish(&s.io)!=0) failed=1;
     /* Bound shutdown even when a client stopped reading. Only kill children
