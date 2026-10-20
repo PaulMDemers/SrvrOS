@@ -56,6 +56,18 @@ Accepted v32 `aa976febab59c128`, v31 `13d8083de35b51af` and previous desktop
 Collect the matching v33 session before another candidate; physical result is
 pending, and this does not accept persistent desktop operation.
 
+The v33 physical trial failed during namespace/EC initialization with the
+five-second operation deadline: errors/denials zero, heap 674132 retained,
+EC phase/error and queries zero. Both new sessions
+`session-00065e3eecadaeef-00` and `session-00065e48a9f0e993-00` lack exit records;
+the latter matches the supplied halt photograph. They are failures/incomplete
+evidence, not service acceptance. Current repair scope is the diagnostic reader's
+scheduling: its `HLT` waits keep it runnable during worker setup. Add a slower
+VM initialization fixture, compare before/after blocking reader waits, and add
+setup progress/timing diagnostics while preserving native deadlines and access
+gates. Pro PR #5 advanced to `8fc3e1c` (accepted paired fan telemetry docs), with
+no overlapping runtime work; integration base remains `b6075ef`.
+
 - Owner: local Air7,2 device agent; branch `device/macbookair7-2/reliability-input-power`.
 - Objective: read-only desktop power/frequency baseline, then bounded native
   battery/AC runtime groundwork; CPU policy changes and suspend/resume follow
