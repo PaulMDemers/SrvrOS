@@ -150,12 +150,17 @@ device work uses separate branches based on `main`.
 - Existing handoff implementation passed host/sanitizer and full-runtime VM
   pending-status preservation, failed mask/restore and unexpected reenable
   containment. Those are model results; neither native handoff nor battery
-  readings are accepted yet. No trial is currently armed.
+  readings are accepted yet. Candidate `6a2f90f72a0e4b96` / source `ac033a5`
+  passes its exact GRUB/UEFI Q35 rehearsal: expected native refusal, verified
+  saved log bytes, clean exFAT and persistent halt. Next is the AC-connected
+  physical trial; full event snapshot and both retirement records are required.
 - Integration remains `b6075ef`; Pro PR #5 is at `92b277b` with pointer-wake
   rehearsal and idle comparison. Shared startup/staging hunks require later
   integration reconciliation, not concurrent changes to the battery mechanism.
-- Recovery: current `c0f2c3af0dbacc66`, previous `b427b78f21644bd2`; accepted
-  power and interactive backups are verified outside build. One-shot consumed.
+- Recovery before this candidate: current `c0f2c3af0dbacc66`, previous
+  `b427b78f21644bd2`; accepted power and interactive backups are verified outside
+  build. Retain that previous release when installing the next candidate; the
+  local run record owns installed/armed state.
 
 ## Accepted scope and open items
 
