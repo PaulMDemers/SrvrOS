@@ -127,8 +127,12 @@ device work uses separate branches based on `main`.
   per-access rule's exhaustive byte transitions pass, including ASan/UBSan.
   This is not controller ownership acceptance. The production build passes and
   its PT_LOAD contents match installed `ed93e03b2585dcaf` exactly.
-- Next checkpoint: finish the v31 exact-stage rehearsal, then run the first
-  bounded AC-connected native battery capture. Retain the installed v26 payload,
+- Hardware-ready checkpoint: source `8dc2408`, v31 release `cc486bf6b6581626`
+  is staged, not installed or armed. Exact GRUB/UEFI Q35 rehearsal saved the
+  expected platform refusal, verified log bytes and clean exFAT, then halted.
+  Missing-workspace refusal also passed on its preceding candidate. Local frozen
+  evidence is `build/native-battery-20261019/native-candidate-cc486bf6b6581626/`.
+- Next checkpoint: run the first bounded AC-connected native battery capture. Retain the installed v26 payload,
   previous diagnostic and independent interactive backup until installation is
   explicitly recorded. Collect the matching release/session before any follow-up.
   A refusal or visible halt is incomplete hardware evidence, not a pass.
