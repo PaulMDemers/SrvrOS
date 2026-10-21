@@ -2,15 +2,17 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current scope: scoped battery controls accepted; integration closeout
+### Active scope: mounted workspace coexistence and reset admission
 
-PR #34 builds on `origin/main` `84cf41e` and adds the asynchronous control mailbox,
-command syscall, shared System controls and v44 capture/collection path. Native
-release `87524e9fe7788772` passed on this Air7,2; evidence and the exact payload are
-backed up independently of `build`. No reboot is armed. Ordinary workspace
-coexistence is the next bounded checkpoint; automatic battery startup stays off.
-Pro PR #19 at `c6ad8e9` has consumed merged PR #33 and retains separate USB Wi-Fi
-firmware work. No sibling EC/SCI acceptance is implied.
+Base `origin/main` `7d8c58d` (merged PR #34). First add a checked reset policy:
+arming while parked must not authorize a later immediate reset with ordinary
+workspace writes live. Exercise the mounted `/work` application-file path in a
+disposable VM while retaining existing model/resource and I/O eligibility gates.
+Native mounted-workspace trials stay disabled until failure handling can preserve
+storage ownership and return safely. Automatic battery startup remains off.
+Touched scope: battery reset policy/runtime, opt-in application-file workload and
+VM/host tests; workspace recovery design. Pro PR #19 at `1c30e04` remains separate
+Wi-Fi firmware work. No physical run is pending or armed.
 
 ### Native scoped controls checkpoint (PR #34)
 
