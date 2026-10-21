@@ -1,6 +1,7 @@
 #include <srvros/acpi.h>
 #include <srvros/autotest.h>
 #include <srvros/workspace.h>
+#include <srvros/workspace_image.h>
 #include <srvros/workspace_log.h>
 #include <srvros/battery_diagnostic.h>
 #include <srvros/laptop_probe.h>
@@ -612,9 +613,10 @@ void kmain(void) {
         xhci_print_boot_diagnostic();
     }
     bool guided_battery=cmdline_has_token(cmdline,"srvros.capture=battery-transitions");
+    bool filesystem_battery=cmdline_has_token(cmdline,"srvros.capture=battery-filesystem");
     bool usb_write_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-write");
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
-    bool service_battery=usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
+    bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
     bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
@@ -643,17 +645,18 @@ void kmain(void) {
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
-            battery_prepared=workspace_log_pause() && (usb_write_battery?workspace_scratch_prepare():workspace_unmount());
-            workspace_parked=battery_prepared;
+            battery_prepared=workspace_log_pause() && (filesystem_battery?workspace_image_open():usb_write_battery?workspace_scratch_prepare():workspace_unmount());
+            workspace_parked=workspace_parked_device()!=NULL;
             battery_prepared=battery_prepared && battery_diagnostic_auto_return(true);
             console_printf("laptop-capture: battery media parked=%s fault-reset=%s\n",
                 workspace_parked?"yes":"NO",battery_prepared?"armed":"NO");
         }
         if(automatic_battery && battery_prepared && started && init_ready && timer_running) {
-            sampled=(usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
+            sampled=(filesystem_battery?battery_filesystem_diagnostic_run:usb_write_battery?battery_usb_write_diagnostic_run:usb_read_battery?battery_usb_read_diagnostic_run:service_battery?battery_service_diagnostic_run:guided_battery?battery_transition_diagnostic_run:battery_diagnostic_run)(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
             console_printf("%s: returned=yes clean=%s; physical accuracy NOT_TESTED\n",service_battery?"battery-service-capture":guided_battery?"battery-transition-capture":"battery-capture",sampled?"yes":"NO");
         }
         if(automatic_battery && return_on_failure) {
+            if(filesystem_battery&&workspace_image_busy())(void)workspace_image_close();
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
         }

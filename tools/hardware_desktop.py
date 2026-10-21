@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 import tempfile
 from pathlib import Path
 import hardware_test as host
@@ -230,6 +231,54 @@ def battery_usb_write_result(exit_text,require_service=True):
                 filesystem_mutation_acceptance='pending',input_acceptance='pending')
 
 
+def battery_filesystem_result(exit_text, require_service=True):
+    """Completion of the isolated image workload, not general desktop acceptance."""
+    if require_service and battery_service_result(exit_text) is None:return None
+    lines=exit_text.splitlines()
+    prepared=[r for r in lines if r.startswith('workspace-image: prepared ')]
+    revoked=[r for r in lines if r.startswith('workspace-image: revoked ')]
+    rows=[r for r in lines if r.startswith('battery-filesystem:')]
+    summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
+    if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
+    extent=re.fullmatch(r'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d{1,20}) bytes=16777216; unmounted=yes aliases=revoked',prepared[0])
+    proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20})(?: steps=(\d{1,20}) max_step_us=(\d{1,20}) slowest_step=(\d{1,20}))?; retired=yes revoked=yes',rows[0])
+    if not extent or not proof or revoked[0]!='workspace-image: revoked clean=yes':return None
+    cycles,commands,busy,progress,bursts,maximum,elapsed=map(int,proof.groups()[:7]);offset=int(extent[1])
+    if any(n>=2**64 for n in (cycles,commands,busy,progress,bursts,maximum,elapsed,offset)):return None
+    if cycles<2 or not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts or not maximum or elapsed<60000000 or not offset or offset%512:return None
+    stepped={}
+    if proof[8] is not None:
+        steps,step_us,slowest=map(int,proof.groups()[7:])
+        if steps>=2**64 or steps!=cycles*18 or bursts!=steps or not 0<step_us<=maximum or slowest>=18:return None
+        stepped=dict(steps=steps,max_step_us=step_us,slowest_step=slowest)
+    elif bursts>cycles or maximum<250000:return None
+    if not lines.index(prepared[0])<lines.index(revoked[0])<lines.index(rows[0])<lines.index(summaries[0]):return None
+    return dict(isolated_complete=True,cycles=cycles,commands=commands,busy_cycles=busy,
+                progress_bursts=progress,bursts=bursts,max_burst_us=maximum,elapsed_us=elapsed,
+                **stepped,raw_offset=offset,bytes=16777216,input_acceptance='pending',desktop_acceptance='pending')
+
+
+def verify_battery_image(workspace, proof, saved):
+    from battery_filesystem_image import verify, SIZE
+    from exfat_test_image import check_clean_image
+    source=workspace/'battery-fs.img'
+    if source.is_symlink() or not source.is_file() or source.stat().st_size!=SIZE:
+        raise ValueError('Missing or unsafe battery filesystem image')
+    with source.open('rb') as stream:data=stream.read(SIZE+1)
+    if len(data)!=SIZE:raise ValueError('Battery filesystem image changed while reading')
+    try:verify(data,proof['cycles'])
+    except (AssertionError,ValueError,KeyError,IndexError) as error:
+        raise ValueError('Battery filesystem contents do not match completed cycles') from error
+    target=saved/'battery-filesystem.exfat';target.write_bytes(data)
+    if target.read_bytes()!=data:raise OSError('Battery filesystem image copy failed')
+    (saved/'battery-filesystem-fsck.txt').write_text(check_clean_image(target))
+    driver=Path(__file__).resolve().parents[1]/'build/tests/exfat-driver'
+    result=subprocess.run([str(driver),str(target),'allocation-check'],capture_output=True,text=True)
+    (saved/'battery-filesystem-allocation.txt').write_text(result.stdout+result.stderr)
+    if result.returncode:raise ValueError('Battery filesystem allocation check failed')
+    return hashlib.sha256(data).hexdigest()
+
+
 def verify_battery_scratch(workspace,proof):
     """Read only the strictly named, fixed-size diagnostic file from this volume."""
     name=proof['path'].removeprefix('/work/srvros-work/')
@@ -318,7 +367,8 @@ def needs_attention(line):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO")):return True
+                        "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
+                        "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
         return True
     if re.match(r"(?:audio|smc): state=4(?: |$)",line):
@@ -396,6 +446,15 @@ def collect(mount, volume, output):
             except (OSError,ValueError) as error:
                 attention.append("collection: "+str(error))
                 write_proof=None
+        image_proof=battery_filesystem_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-filesystem' in text and image_proof is None:
+            attention.append('collection: isolated filesystem completion missing or invalid')
+        if image_proof:
+            try:
+                image_proof['image_sha256']=verify_battery_image(workspace,image_proof,saved)
+                image_proof['image_verified']=True
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                attention.append("collection: "+str(error));image_proof=None
         records.append({
             "session": name,
             "releases": releases,
@@ -407,6 +466,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_filesystem": image_proof,
             "battery_usb_write": write_proof,
             "battery_usb_read": battery_usb_read_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_service": battery_service_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),

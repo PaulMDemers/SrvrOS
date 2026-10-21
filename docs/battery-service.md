@@ -378,3 +378,110 @@ the bitmap. Regressions cover stale end markers, self-links and apparent links t
 live files in free clusters, while missing live allocation bits and actual
 orphans still refuse scratch admission. This correction is separate from the
 eight real orphan clusters recovered on the Air: their rejection was correct.
+
+## Isolated filesystem image trial (v38)
+
+The native capture uses a 16 MiB exFAT filesystem inside the prepared file
+`/work/srvros-work/battery-fs.img`. This is a disposable volume, not desktop Home.
+`tools/battery_filesystem_image.py` creates it exclusively, with a diagnostic
+identity and marker; it refuses an existing file. Retain each used image with its
+run evidence before preparing another. The kernel refuses an image containing a
+previous workload, so rebooting the same used fixture cannot count as a fresh run.
+
+Admission checks the outer allocation graph, initialized file length, exclusive
+ownership and physical contiguity (either NoFatChain or a contiguous FAT chain).
+The outer workspace is flushed and unmounted, and public USB write aliases stay
+revoked. A private block view maps only the proven file data range. Every callback
+checks its identity, lease state, alignment and bounds; arithmetic overflow and
+out-of-range requests are refused without transport access. An open or poisoned
+lease prevents outer remount. No outer allocation or directory update occurs
+during the battery lifetime. This does not authorize ordinary desktop filesystem
+mutation while native EC/SCI ownership is active.
+
+Filesystem traffic starts only after the service reaches ACTIVE; unsupported
+platform refusal and setup deadlines therefore leave the prepared inner image
+unchanged. The workload grows/shrinks and renames files, truncates an empty file, renames and
+deletes directories, verifies contents and flushes for at least 60 seconds while
+the cached service samples. Completion requires at least ten sample generations,
+I/O progress during sampling and clean service retirement before unmounting and
+revoking the image view. The automatic capture then remounts the outer workspace
+to save logs and returns to Ubuntu. Contained native faults reset without trying
+to repair the inner filesystem. Missing completion is failure; a failed transport
+poisons the lease and may prevent saving the final log.
+
+Host tests run the real filesystem and adapter against a disposable image,
+interrupting every write, power-cut and flush boundary. They compare every byte
+outside the image before and after, check the outer allocation graph and rehearse
+inner recovery. The modeled runtime cases `service-isolated-filesystem` and
+`service-isolated-auto-deadline` add USB, battery progress and setup-reset coverage.
+`service-isolated-active-deadline` stalls the third sample after filesystem writes
+start, then verifies reset, byte-for-byte outer isolation and recovery on a copy
+of the retained interrupted image.
+Exact-stage Q35 native refusal must also revoke the image, save an unsuccessful
+report and reset. None of these fixtures accepts physical operation.
+
+Collection copies the completed inner image, verifies its retained payload and
+anchor, and checks the copied filesystem with both exfatprogs and the kernel
+allocation checker. Preserve the original failed image before any offline repair.
+The fixed prepared filename is single-use: collect/archive it before replacing it
+for another run, and do not reinterpret older session logs using a newer image.
+
+Air7,2 physically accepted this bounded workload in release `c473b63c44d32cd0`
+(source `8822cba`), session `session-00065e4ddc1d41d5-00`: 25 cycles over
+61.51 seconds, 18,754 commands and 21 sample-progress scopes. Collection verified
+the final contents, clean inner/outer allocation graphs, clean service retirement
+and image revocation, and return to Ubuntu. The 870 previous non-sidecar files
+were unchanged; the outer inode sidecar was updated for session logging.
+The maximum filesystem scope lasted 7.303 seconds, so this is not interactive
+latency acceptance. SCI unclaimed deliveries, long-lived desktop/input coexistence
+and gauge accuracy remain open. See the [unit record](machines/macbookair7-2.md).
+
+### Operation boundaries for the follow-up trial
+
+The follow-up diagnostic executes one filesystem operation per scheduler storage
+scope, then releases exclusion and sleeps the reader before the next operation.
+A cycle has 18 ordered steps: prepare directory/pattern, write large draft, verify
+large draft, shrink, verify short draft, regrow, remove old payload, rename draft,
+verify payload, write empty-file seed, truncate it, verify empty, create temporary
+directory, rename it, verify old name absent, remove directory, verify removal,
+and flush. Each individual mutation retains the existing filesystem transaction
+and storage exclusion; no transaction is suspended halfway through a mutation.
+The pattern and final payload size are unchanged from the accepted v38 workload.
+
+Reports add `steps`, `max_step_us` and zero-based `slowest_step`. The collector
+requires exactly 18 operations per completed cycle and one scope per operation;
+legacy complete-cycle reports remain readable with their original predicates.
+The minute-long trial finishes a cycle before retirement, never accepting a
+half-written next payload. Wrong cycle identities and failed operations cannot
+advance the continuation. The host suite checks clean stop/revocation at all 19
+boundaries as well as the existing transport fault/cut matrix.
+
+This bounds the work unit, not USB completion or battery-worker wall time. Large
+file writes and verification still use existing atomic APIs. Measure their times
+before selecting a smaller transfer/transaction design; do not interpret the
+whole-cycle 7.303-second hardware measurement as a measured input stall. Ordinary
+desktop startup and scheduler admission remain unchanged. Physical acceptance of
+this follow-up is recorded below.
+
+Air7,2 release `9eb84deab70d240c` / source `89edb98`, session
+`session-00065e4e5218f777-00`, completed 25 cycles / 450 operations over 60.77
+seconds with verified contents and clean retirement/revocation. Maximum scope
+was 3,210,080 us and maximum operation 3,210,076 us (step 1, initial large draft
+write), compared with the prior whole-cycle maximum 7,303,034 us. This accepts
+the operation boundaries and isolated data-integrity test, not desktop latency.
+The large atomic write remains the next measured bottleneck; retain existing
+transaction/transport failure guarantees when reducing it. Outer/inner offline
+checks passed and the accepted evidence is archived outside `build`.
+
+
+The contiguous FAT batching follow-up (`39b152d`, PR #10) preserves FAT values,
+copy-on-write publication and all flush barriers while grouping adjacent entries
+into bounded writes. Native release `2ca59bc8678efc17`, session
+`session-00065e4f02718396-00`, completed 34 cycles / 612 operations over 61.13
+seconds with 16,954 commands and sampling progress in 17 scopes. Maximum scope
+was 2,721,271 us, versus 3,210,080 us in the prior operation-stepped trial; the
+slowest step remains initial large creation. Cached reads topped out at 18 us.
+Payload, inner/outer allocation, unrelated files and clean retirement passed.
+This is a single-run comparison and bounded isolated-workload acceptance;
+desktop responsiveness, ordinary native battery startup and gauge accuracy
+remain unaccepted. The 24 handled / 24 unclaimed active SCI deliveries persist.

@@ -156,9 +156,10 @@ def main():
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
     power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
-    battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
+    battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
-    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-")))
+    battery_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v31-","ram-usb-v32-","ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
+    battery_filesystem=bool(probe and manifest["config_version"].startswith("ram-usb-v38-"))
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
@@ -201,7 +202,12 @@ def main():
             subprocess.run(["/usr/sbin/mkfs.exfat","-c","128K",str(volume)],check=True,stdout=subprocess.DEVNULL)
             subprocess.run(["/usr/sbin/tune.exfat","-I","0x"+workspace[1],str(volume)],check=True,stdout=subprocess.DEVNULL)
             fixture=ExfatFixture(volume.read_bytes())
-            fixture.add_directory_file("srvros-work",".workspace",f"SRVROS-WORKSPACE-V1 {workspace[1]}\n".encode())
+            files={".workspace":f"SRVROS-WORKSPACE-V1 {workspace[1]}\n".encode()}
+            if battery_filesystem:
+                from battery_filesystem_image import create
+                inner=temp/'inner.exfat';create(inner)
+                files['battery-fs.img']=inner.read_bytes()
+            fixture.add_directory_files("srvros-work",files)
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
             struct.pack_into("<II",mbr,454,2048,len(fixture.data)//512);mbr[510:]=b"\x55\xaa"
@@ -316,6 +322,11 @@ def main():
                         exit_log=stored.read(folder+"/exit.log")
                         assert (battery_marker+": returned=yes clean=NO").encode() in exit_log
                         assert b"battery: REFUSED platform/resource ownership preflight" in exit_log
+                    if battery_filesystem:
+                        exit_log=stored.read(folder+"/exit.log")
+                        assert b"workspace-image: revoked clean=yes" in exit_log
+                        assert stored.read('srvros-work/battery-fs.img')==inner.read_bytes()
+                        assert b"battery-filesystem: PASS" not in exit_log
                     if battery_usb_write:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"workspace-scratch: revoked clean=yes" in exit_log
@@ -366,7 +377,7 @@ def main():
                         (logs/"desktop-idle.bmp").write_bytes(image)
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
-                        "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
+                        "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
                         "probe":True,"cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
                         "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())

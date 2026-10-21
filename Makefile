@@ -2131,6 +2131,13 @@ build/tests/exfat-entries-host$(HOST_EXE): tools/test_exfat_entries.c kernel/src
 test-core: test-exfat-entries
 
 .PHONY: test-exfat-hardening
+.PHONY: test-workspace-image
+build/tests/workspace-image-host$(HOST_EXE): tools/workspace_image_host.c kernel/src/workspace_image.c kernel/src/fs/exfat.c kernel/src/vfs.c $(KERNEL_HEADERS)
+	mkdir -p build/tests
+	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/workspace_image_host.c kernel/src/fs/exfat.c kernel/src/vfs.c -Wl,--gc-sections -o $@
+test-workspace-image: build/tests/workspace-image-host$(HOST_EXE) build/tests/exfat-driver$(HOST_EXE)
+	$(PYTHON) tools/test_workspace_image.py
+
 build/tests/exfat-driver$(HOST_EXE): tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c $(KERNEL_HEADERS)
 	mkdir -p build/tests
 	$(HOST_CC) -DSRVROS_EXFAT_HOST_TEST -std=c11 -O2 -Wall -Wextra -Werror -ffunction-sections -fdata-sections -I shared/include -I kernel/include tools/exfat_host_driver.c kernel/src/fs/exfat.c kernel/src/vfs.c kernel/src/autotest_storage.c -Wl,--gc-sections -o $@

@@ -285,6 +285,28 @@ static bool write_fat_entry(struct exfat_volume *volume, uint32_t cluster, uint3
         sizeof(bytes));
 }
 
+/* Keep the existing FAT values/ordering, but avoid one sector RMW for every
+ * four-byte entry in a contiguous run. Only the requested bytes are passed to
+ * block_write: its partial-sector handling preserves neighboring entries even
+ * when the device has sectors larger than this bounded scratch buffer. */
+static bool fill_fat_range(struct exfat_volume *volume, uint32_t first,
+    uint64_t count, uint32_t value) {
+    if (volume == NULL || first < 2 || first >= volume->cluster_count + 2 ||
+        count > volume->cluster_count - ((uint64_t)first - 2)) return false;
+    uint8_t entries[512];
+    for (unsigned i = 0; i < sizeof(entries); i += 4) write_u32(entries + i, value);
+    uint64_t offset = volume->fat_offset_bytes + (uint64_t)first * 4;
+    uint64_t bytes = count * 4;
+    while (bytes) {
+        uint64_t chunk = sizeof(entries) - offset % sizeof(entries);
+        if (chunk > bytes) chunk = bytes;
+        if (!volume_write(volume, offset, entries, chunk)) return false;
+        offset += chunk;
+        bytes -= chunk;
+    }
+    return true;
+}
+
 static uint64_t append_mount_path(char *path, uint64_t capacity, const char *mountpoint) {
     uint64_t written = 0;
     while (mountpoint[written] != '\0' && written + 1 < capacity) {
@@ -1531,34 +1553,12 @@ static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t c
             }
             run_length++;
             if (run_length == count) {
-                for (uint64_t i = 0; i < count; i++) {
-                    uint32_t cluster = (uint32_t)(run_start + i + 2);
-                    bitmap_set_bit(bitmap, run_start + i);
-                    uint8_t fat_entry[4];
-                    write_u32(fat_entry, 0xffffffffu);
-                    if (!volume_write(volume,
-                            volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t),
-                            fat_entry,
-                            sizeof(fat_entry))) {
-                        for (uint64_t j = 0; j < i; j++) {
-                            uint32_t written_cluster = (uint32_t)(run_start + j + 2);
-                            (void)volume_write(volume,
-                                volume->fat_offset_bytes + (uint64_t)written_cluster * sizeof(uint32_t),
-                                (uint8_t[4]) {0, 0, 0, 0},
-                                sizeof(fat_entry));
-                        }
-                        kfree(bitmap);
-                        return false;
-                    }
-                }
-                if (!volume_write(volume, bitmap_offset, bitmap, volume->cluster_size)) {
-                    for (uint64_t i = 0; i < count; i++) {
-                        uint32_t cluster = (uint32_t)(run_start + i + 2);
-                        (void)volume_write(volume,
-                            volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t),
-                            (uint8_t[4]) {0, 0, 0, 0},
-                            sizeof(uint32_t));
-                    }
+                for (uint64_t i = 0; i < count; i++) bitmap_set_bit(bitmap, run_start + i);
+                uint32_t first = (uint32_t)(run_start + 2);
+                if (!fill_fat_range(volume, first, count, 0xffffffffu) ||
+                    !volume_write(volume, bitmap_offset, bitmap, volume->cluster_size)) {
+                    /* A failed write blocks further mutation, as before. The
+                     * dirty volume must be recovered before it can be reused. */
                     kfree(bitmap);
                     return false;
                 }
@@ -1720,12 +1720,7 @@ static bool free_file_clusters(struct exfat_file *file) {
             bitmap_clear_bit(bitmap, bit_index);
         }
 
-        uint8_t fat_entry[4];
-        write_u32(fat_entry, 0);
-        if (!volume_write(volume,
-                volume->fat_offset_bytes + (uint64_t)cluster * sizeof(uint32_t),
-                fat_entry,
-                sizeof(fat_entry))) {
+        if (!file->no_fat_chain && !write_fat_entry(volume, cluster, 0)) {
             kfree(bitmap);
             return false;
         }
@@ -1737,6 +1732,11 @@ static bool free_file_clusters(struct exfat_file *file) {
         }
     }
 
+    if (file->no_fat_chain && !fill_fat_range(volume, file->first_cluster,
+            file->allocated_clusters, 0)) {
+        kfree(bitmap);
+        return false;
+    }
     bool ok = volume_write(volume, bitmap_offset, bitmap, volume->cluster_size);
     kfree(bitmap);
     return ok;
@@ -2617,16 +2617,21 @@ out:
     return ok;
 }
 
-bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
+static bool exclusive_range(const char *path,uint64_t bytes,bool single,
+    struct block_device **device,uint64_t *offset) {
     uint64_t index;
-    if(!path||!device||!offset)return false;
+    if(!path||!device||!offset||!bytes)return false;
     struct exfat_mount *mount=find_mount_and_index_for_file(path,&index);
     if(!mount)return false;
     struct exfat_file *file=&mount->files[index];
     struct exfat_volume *v=&mount->volume;
     if(!v->device||v->image||v->write_blocked||v->mutation_depth||v->flags||
-       file->volume!=v||file->size!=4096||file->allocated_clusters!=1||
-       v->cluster_size<4096||!v->sector_size||4096%v->sector_size)return false;
+       file->volume!=v||file->size!=bytes||!file->allocated_clusters||
+       (single&&(file->allocated_clusters!=1||v->cluster_size<bytes))||
+       !v->sector_size||bytes%v->sector_size)return false;
+    struct exfat_stream_entry stream;
+    if(!volume_read(v,file->stream_entry_offset,&stream,sizeof(stream))||
+       stream.valid_data_length!=bytes||stream.data_length!=bytes)return false;
     /* The general checker permits VFS aliases. A raw scratch lease must not. */
     for(uint64_t i=0;i<mount->file_count;i++)
         if(i!=index&&mount->paths[i][0]&&mount->files[i].first_cluster==file->first_cluster)return false;
@@ -2634,7 +2639,21 @@ bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t 
     uint64_t start;
     if(!check_mount(mount,&result)||!cluster_offset(v,file->first_cluster,&start)||
        start%v->sector_size)return false;
+    if(!file->no_fat_chain) {
+        for(uint64_t i=1;i<file->allocated_clusters;i++) {
+            uint32_t next;
+            if(!next_cluster(v,file->first_cluster+(uint32_t)i-1,&next)||
+               next!=file->first_cluster+i)return false;
+        }
+    }
     *device=v->device;*offset=start;return true;
+}
+bool exfat_scratch_range(const char *path,struct block_device **device,uint64_t *offset) {
+    return exclusive_range(path,4096,true,device,offset);
+}
+bool exfat_exclusive_range(const char *path,uint64_t bytes,
+    struct block_device **device,uint64_t *offset) {
+    return exclusive_range(path,bytes,false,device,offset);
 }
 
 bool exfat_check(const char *mountpoint, struct exfat_check_result *result) {

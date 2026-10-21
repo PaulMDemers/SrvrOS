@@ -375,6 +375,34 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v38 laptop-probe** `--battery-filesystem` profile exercises an
+isolated disposable filesystem image during battery sampling. Bounded native
+acceptance is recorded for Air7,2; desktop/input coexistence remains pending.
+Prepare a fresh `battery-fs.img` in this machine's `srvros-work`
+directory with `python3 tools/battery_filesystem_image.py /your/mounted/volume/srvros-work/battery-fs.img`.
+The tool exclusively creates a regular file; it refuses an existing path. Do not
+replace a used image before collecting and archiving its associated session.
+Then stage `--laptop-probe-volume "$SRVROS_USB_UUID" --battery-filesystem` and run
+the exact-stage `tools/hardware_boot_smoke.py --probe-check` before installation.
+Build `build/tests/exfat-driver` for post-return collection. Keep AC and USB
+connected; the trial needs no input and returns automatically. Follow the
+[isolation and recovery contract](battery-service.md#isolated-filesystem-image-trial-v38)
+and retain both outer-volume preflight checks. Pro desktop v37 is a separate
+profile; do not replace or renumber it when merging these staging changes.
+With the selected partition unmounted, also run
+`sudo python3 tools/check_exfat_allocation.py --uuid "$SRVROS_USB_UUID" --battery-image`
+to reject a fragmented, aliased or incompletely initialized outer file before
+reboot. This checks the outer extent; the kernel separately validates the inner
+filesystem identity, marker and allocation graph before enabling its view.
+A newly created file can still be fragmented; do not bypass this refusal. On
+Air7,2 the first unused fixture occupied a one-cluster hole plus a larger run.
+After archiving its bytes, retaining that unused allocation while writing a fresh
+copy, then removing the temporary copy, produced an admissible contiguous extent.
+Only apply such preparation to a disposable fixture whose bytes and lack of a
+pending run have been verified; rerun both offline checks afterward. Used fixtures
+must first be collected and archived. Never repair or relocate unrelated files to
+make this diagnostic run.
+
 The separate **v36 laptop-probe** `--battery-usb-write` profile adds bounded
 scratch-data writes/flushes during battery sampling. It allocates and validates
 a new 4096-byte scratch file before runtime, unmounts the workspace, and retains

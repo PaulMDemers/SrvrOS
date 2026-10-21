@@ -2,6 +2,88 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
+source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic
+trial completed 34 cycles / 612 operations in 61,130,508 microseconds with 16,954
+USB commands and sampling progress in 17 scopes. Maximum storage scope was
+2,721,271 microseconds; maximum operation 2,721,267 microseconds at step 1
+(initial large draft write). Compared with the previous 25-cycle run below,
+commands per cycle fell about 34% and maximum scope about 15%. These are
+single-run measurements on the same USB drive, not a desktop latency guarantee.
+
+The service reached generation 23 with 51,938 cached reads (1,423 while sampling),
+maximum 18 microseconds. Both lifetimes retired with balanced attachment,
+restored event enables and zero heap/errors/denials. SCI still recorded 24
+handled / 24 unclaimed active deliveries; setup/retirement deliveries and
+in-flight count were zero. The unclaimed cause remains open.
+
+Exact final payload/tree, inner fsck (4 directories / 5 files) and 75-cluster
+allocation checks passed. Outer fsck is clean (184 directories / 881 files),
+with 1,652 clusters and zero leaks/mismatches/errors. All 876 prior files except
+the disposable image and root inode sidecar are byte-identical. New Ubuntu boot,
+consumed one-shot and installed/recovery hashes were verified. The payload and
+29 hashed evidence files are archived outside `build`; the USB is remounted.
+Accepted desktop recovery remains `b427b78f21644bd2`.
+
+PRs #9/#10 are merged. Actions is disabled at the user's request; validation
+runs locally. No reboot is armed and ordinary desktop battery startup remains
+disabled. Next: measure the remaining large-write data/flush costs and reduce
+blocking time while retaining failure guarantees, then establish desktop/input
+coexistence. This result accepts the isolated workload and runtime retirement;
+it does not accept ordinary desktop battery startup or gauge accuracy.
+
+Previous accepted **operation-stepped isolated filesystem overlap**: release
+**`9eb84deab70d240c`** / source **`89edb98`**, session
+**`session-00065e4e5218f777-00`**. The trial completed 25 cycles / 450 operations
+in 60,768,457 microseconds, issuing 18,754 commands, with sample progress in 21
+scopes. The maximum storage scope was 3,210,080 microseconds; maximum operation
+was 3,210,076 microseconds at step 1 (the initial large draft write). The prior
+whole-cycle scope maximum was 7,303,034 microseconds. These single-run timings
+show shorter exclusion, not accepted desktop/input latency; the remaining
+three-second operation needs further investigation before desktop integration.
+
+The service captured generation 23 and 41,561 cached reads (1,226 while sampling),
+maximum 18 microseconds. Both initialized lifetimes retired cleanly with balanced
+attachments, restored enables, zero heap/errors/denials, and clean image revocation.
+SCI counted 24 handled / 24 unclaimed active deliveries, none during setup or
+retirement; the cause remains open. Final image payload/tree and inner fsck plus
+75-cluster allocation checks passed. Outer fsck is clean (183 directories,
+878 files); 1,648 clusters are accounted for with zero leaks/mismatches/errors.
+All 873 previous files other than the disposable image and inode sidecar are
+byte-identical. New Ubuntu boot, consumed one-shot and recovery hashes verified;
+the payload and 30 hashed evidence files are archived outside `build`.
+
+At that checkpoint PR #9 was awaiting validation. It later merged using local
+results after the user disabled Actions; the newer batching result is above.
+
+Previous bounded **whole-cycle isolated filesystem overlap**: release
+**`c473b63c44d32cd0`** / source **`8822cba`**, session
+**`session-00065e4ddc1d41d5-00`**. The v38 trial completed 25 create/grow/shrink,
+rename/delete/flush cycles over 61,510,180 microseconds, issuing 18,754 USB
+commands. Sampling advanced inside 21 of 25 filesystem scopes; generation 22
+was captured. Cached reads completed 14,425 times (130 while sampling), with a
+17-microsecond maximum. Cancellation, restart and in-flight stop/timeout followed
+by clean retirement passed. Both initialized lifetimes restored retained enables,
+balanced attachments and ended with zero heap, errors and denied accesses.
+
+The exclusive image lease was revoked before workspace remount. Collection
+verified the final payload, empty file, unchanged anchor and image identity.
+Inner fsck/allocation checks passed (75 clusters); outer fsck reports clean
+(182 directories, 875 files), with 1,644 accounted clusters and zero leaks or FAT
+mismatches. All 870 pre-existing files other than the SrvrOS inode metadata sidecar
+are byte-identical; that sidecar was rewritten by normal session logging. The
+new Ubuntu boot, consumed one-shot and installed/recovery hashes were verified.
+The accepted payload and 33 hashed evidence files are archived outside `build`.
+
+This accepts the bounded isolated workload, not ordinary desktop filesystem
+concurrency or input responsiveness. Maximum filesystem scope duration was
+7,303,034 microseconds; bound and measure that work before desktop integration.
+SCI recorded 24 handled and 24 unclaimed active deliveries across both lifetimes,
+with none during setup/retirement or remaining in flight; the cause remains open.
+Gauge accuracy and long-lived service are untested. Ordinary desktop battery
+startup remains disabled. No reboot is armed; the used fixture must be archived
+before replacement and cannot be reused as a fresh trial.
+
 Latest accepted bounded **scratch write/flush overlap**: release
 **`5792b6ece45b85dc`** / artifact **`e2d779b`**, retry checkpoint **`d4a21cb`**,
 session **`session-00065e4c30fcddac-00`**. It completed 1,894 write/flush/readback
@@ -90,6 +172,110 @@ including the completed `codex/linux-development-baseline` work. Subsequent
 device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
+
+### Contiguous FAT write batching — October 20
+
+Branch `device/macbookair7-2/fat-write-batching` consumes PR #9 source
+`89edb98` and native acceptance notes. PR #9 merged as `5bf63b7` after
+review of its local host/VM and native evidence; this branch consumes that main. Pro scope inspected at `14e2a99` remains Ethernet readiness
+and prompted cable testing; no overlapping filesystem change was found.
+
+Bounded objective: reduce repeated writes of the same FAT sector during
+contiguous allocation/free. Scope: `kernel/src/fs/exfat.c`, entry/isolated-image
+host regressions and this record. Preserve the existing on-disk FAT values,
+copy-on-write publication and flush/dirty ordering; fragmented chains retain
+their existing traversal. First record per-operation FAT/data write counts,
+then batch adjacent equal FAT entries into bounded writes. Validate neighboring
+FAT entries, boundary failures, directory growth and fragmented allocation,
+then run the full image fault matrix and battery filesystem VM workload.
+The native comparison is recorded at the top of this file; no reboot is armed
+and ordinary desktop battery startup remains disabled.
+
+Host tracing measured 142 writes (67 FAT) for initial 256 KiB+37-byte creation
+before batching, versus 78 (3 FAT) afterward. One full cycle falls from 457
+to 265 writes; all 72 flushes remain. These are fixture transfer counts, not
+hardware latency measurements. The change retains each FAT entry's prior value
+and the existing write-blocked recovery behavior; it batches contiguous ranges
+in at most 512-byte slices while leaving fragmented traversal intact.
+
+Local range/sentinel/failure tests, all 19 pause/revocation boundaries, all 265
+write failures + 265 power cuts + 72 flush faults, exFAT hardening (4K/128K,
+copy-on-write recovery, directory growth, capacity and fragmented allocation),
+scratch isolation and ordinary/native/modeled builds passed. Local `make smoke`
+passed the full core suite, 481-command CLI workload (424 files / 5,159 clusters,
+zero leaks/FAT mismatches/errors), syscall, line-editing, UEFI USB/input and
+display-service checks. All six affected battery VM cases passed: sustained
+isolated filesystem, isolated setup/active deadline automatic reset, filesystem
+normal/write-failure, and scratch writes. The sustained run completed 75 cycles /
+1,350 steps in 60,494,657 microseconds, 37,391 commands, 21 scopes with sampling
+progress, and a maximum step of 499,405 microseconds (regrow, step 5). Payload,
+outside bytes, allocation and clean retirement passed. Staging (35) and collector
+(12) tests also passed. Functional code is `6ca3f4f`, tested after integration
+with main as `880efc3`; later documentation commits do not change that code.
+
+Repository Actions is disabled at the user's request; no hosted result is used.
+PR #10 merged as `39b152d`. Its native comparison is accepted for the bounded
+isolated workload above. Every subsequent trial still needs a fresh disposable
+fixture, exact-stage rehearsal and independently verified recovery.
+
+
+### Filesystem operation scheduling — October 20
+
+Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
+and its acceptance notes. PR #8 passed CI and merged as `09207b0`; this branch
+consumes that integration baseline. Pro scope inspected at `a19ce5c` remains
+Ethernet bring-up; preserve its branch and profiles.
+
+Bounded objective: split the diagnostic filesystem cycle into explicit operations,
+release storage exclusion between them, measure each operation and require a
+complete cycle before accepting its payload. Files: `workspace_image.c`/header,
+battery runtime workload, host fault/continuation tests, VM harness and collector.
+Keep each filesystem mutation atomic under existing exclusion; do not change
+shared exFAT transactions, scheduler admission or ordinary desktop startup.
+Host tests must reject skipped/repeated cycle identities and cover failures and
+revocation between operations; VM checks must prove complete payloads, sampling
+progress, step accounting and automatic fault return. Native latency acceptance
+remains pending; a bounded operation count does not guarantee device completion
+within a fixed time. No new physical test is armed.
+Host validation passed all 19 clean pause/revocation boundaries plus 457 write
+failures, 457 power cuts and 72 flush failures, preserving outer bytes and clean
+post-recovery inner allocation. Collector tests cover complete step accounting,
+invalid counts/timing/phase and legacy reports. Ordinary/native/modeled kernels
+build with the local `tools/host-env.sh` wrapper. The sustained VM completed
+73 cycles / 1,314 operations over 60,354,688 microseconds, with 54,874 transport
+commands and 23 scopes containing sampling progress. The maximum operation was
+532,726 microseconds (step 1, the initial large draft write); maximum scope was
+532,748 microseconds. Payload, outer isolation and clean retirement passed.
+Setup and active-sample deadline fixtures also passed automatic reset and
+outer preservation/inner recovery; the scratch-write regression passed.
+The physical comparison above accepts the operation sequence and data integrity;
+it does not accept interactive latency.
+
+
+### Isolated filesystem coexistence — October 20
+
+PR #7 passed CI and merged as `76508bf`; this device branch consumes that baseline.
+Pro PR #5 inspected at `304bc55`. Air scope: exclusive exFAT file-extent admission,
+a diagnostic bounded block view over a prepared disposable filesystem image,
+workspace lease exclusion, battery workload and VM/host isolation verification.
+Avoid Pro's partition-parser and CPU-load changes. The outer workspace must be
+unmounted with public writes revoked throughout the lease; all test allocations
+remain inside the image's proven data extent. Validate interrupted inner writes,
+byte-for-byte preservation outside that extent, lease revocation and refusal paths
+before adding a native capture. Ordinary desktop startup remains unchanged.
+Air reserves **v38 laptop-probe** for `--battery-filesystem`; preserve Pro's
+v37 desktop network profile during integration. The isolated VM completed 332
+cycles / 249,772 transport commands over 60,183,438 microseconds, with 25 progress
+bursts inside I/O scopes and generation 24 at completion. Service retirement,
+exclusive range revocation, offline image contents/allocation checks and exact
+preservation of every byte outside the image passed. Filesystem traffic now waits for ACTIVE runtime ownership. Both the setup and
+active-sample deadline fixtures reset automatically; outer bytes remained unchanged
+and a separate copy of the interrupted inner image recovered successfully.
+All 457 write-failure, 457 power-cut and 72 flush-failure host boundaries passed
+outer isolation and post-recovery inner/outer allocation checks. The exact staged
+Q35 native-refusal/automatic-return check and the bounded native trial above
+passed. PR #8 publishes this work; Pro PR #5 was subsequently inspected at
+`f74595d` (Ethernet recovery work). Keep that branch and its capture profiles intact.
 
 ### Sustained filesystem coexistence — October 20 (VM-first)
 
