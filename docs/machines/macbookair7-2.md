@@ -1,6 +1,18 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
+
+### Active scope: SCI controller snapshots
+
+Branch `device/macbookair7-2/sci-controller`, base main `bd0fe58`.
+Add a bounded xAPIC vector-state read API and diagnostic-only snapshots before
+and after the uACPI SCI callback. Record ISR/IRR/TMR, LINT0 configuration, the
+owned I/O APIC route and PIC masks; both snapshots precede generic EOI. No EOI,
+route, mask, event acknowledgement or claim-policy change. Retain explicit
+availability and sequential-read limits. Touch LAPIC helper/tests, battery
+observer/runtime, VM record validation and documentation. Pro scope inspected
+at `ecad3df` remains network/UI acceptance, with battery deferred. Host and VM
+validation precede a fresh automatic native trial; ordinary desktop battery off.
 
 Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
 source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
