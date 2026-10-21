@@ -472,3 +472,16 @@ the operation boundaries and isolated data-integrity test, not desktop latency.
 The large atomic write remains the next measured bottleneck; retain existing
 transaction/transport failure guarantees when reducing it. Outer/inner offline
 checks passed and the accepted evidence is archived outside `build`.
+
+
+The contiguous FAT batching follow-up (`39b152d`, PR #10) preserves FAT values,
+copy-on-write publication and all flush barriers while grouping adjacent entries
+into bounded writes. Native release `2ca59bc8678efc17`, session
+`session-00065e4f02718396-00`, completed 34 cycles / 612 operations over 61.13
+seconds with 16,954 commands and sampling progress in 17 scopes. Maximum scope
+was 2,721,271 us, versus 3,210,080 us in the prior operation-stepped trial; the
+slowest step remains initial large creation. Cached reads topped out at 18 us.
+Payload, inner/outer allocation, unrelated files and clean retirement passed.
+This is a single-run comparison and bounded isolated-workload acceptance;
+desktop responsiveness, ordinary native battery startup and gauge accuracy
+remain unaccepted. The 24 handled / 24 unclaimed active SCI deliveries persist.
