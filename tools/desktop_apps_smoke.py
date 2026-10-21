@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Exercise native desktop applications and persisted files in a disposable VM."""
 import os
+import re
 from pathlib import Path
 import shutil
 import socket
@@ -8,7 +9,7 @@ import subprocess
 import tempfile
 import time
 from displayd_frame_smoke import choose_port, connect_serial, stop_process
-from displayd_resolution_smoke import build_iso
+from displayd_resolution_smoke import build_iso, read_for
 from desktop_foundation_smoke import QMP
 
 
@@ -98,7 +99,12 @@ def main():
                 shortcut("alt-up");wait(b"file-result role=files op=3 status=0")
                 type_text("desktop-smoke");qmp.key("ret")
                 wait(b"desktools: starting role=text");wait(b"file-result role=text op=1 status=0")
-                shot("opened-from-files");shortcut("ctrl-w");wait(b"desktools: exited role=text failure=0")
+                shot("opened-from-files");output+=read_for(serial,.1)
+                # Child/parent console writes may interleave at exit. The parent
+                # owns the process status; pair it with this newly opened PID.
+                opened=re.findall(rb"deskd: opened pid=(\d+) window=2\r?\n",output)
+                assert len(opened)==1, "Expected the newly opened Text process"
+                shortcut("ctrl-w");wait(b"deskd: child-exit pid="+opened[0]+b" status=0")
                 # Calculator is a separate process and receives raw editing/navigation keys.
                 click(590,750);wait(b"desktools: starting role=calculator");wait(b"deskd: commit")
                 type_text("2 + 3 * (4 - 1)");qmp.key("ret");shot("calculator")
@@ -108,7 +114,8 @@ def main():
                 click(210,240);time.sleep(.3);click(490,750);shot("larger-text")
                 # Minimize and restore through the dock, then zoom and restore.
                 click(666,86);shot("text-minimized");click(490,750)
-                click(700,86);shot("text-zoomed");click(1078,74);shot("text-restored")
+                click(700,86);wait(b"maximized=1");shot("text-zoomed")
+                click(1216,74);wait(b"maximized=0");shot("text-restored")
                 shortcut("ctrl-n");shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-empty.txt")
                 shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 shortcut("ctrl-n");shortcut("ctrl-v");wait(b"clipboard role=2 action=32")
@@ -118,9 +125,11 @@ def main():
                 shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret");wait(b"file-result role=text op=2 status=0")
                 # Save As must ask before replacing another file, and Cancel keeps edits.
                 shortcut("ctrl-n");type_text("Original replacement target")
+                shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-replace.txt")
                 shortcut("ctrl-shift-s");wait(b"picker ready mode=2");shortcut("ctrl-a");type_text("desktop-replace.txt");qmp.key("ret")
                 wait(b"file-result role=text op=2 status=0")
                 shortcut("ctrl-n");type_text("Updated replacement target")
+                shortcut("ctrl-l");shortcut("ctrl-a");type_text("/fat/desktop-replace.txt")
                 shortcut("ctrl-shift-s");wait(b"picker ready mode=2");shortcut("ctrl-a");type_text("desktop-replace.txt");qmp.key("ret")
                 wait(b"file-result role=text op=2 status=2");shot("replace-confirmation");qmp.key("esc")
                 shortcut("ctrl-shift-s");wait(b"picker ready mode=2");qmp.key("ret")
