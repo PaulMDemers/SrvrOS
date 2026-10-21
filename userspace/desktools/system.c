@@ -47,6 +47,8 @@ static const char *network_state(const struct tool *t) {
     return t->network.local_ip?"IPv4 address configured":"Waiting for an IPv4 address";
 }
 static void network_refresh(struct tool *t,int force) {
+    int previous_valid=t->network_valid;
+    uint64_t previous_link=t->network.link_flags,previous_speed=t->network.link_speed_mbps;
     struct srv_net_status_info n={0};
     t->network_valid=srv_net_status_info(&n)==0 && n.abi_version==SRV_NET_ABI_VERSION && n.struct_size>=sizeof(n);
     t->network=t->network_valid?n:(struct srv_net_status_info){0};
@@ -68,9 +70,29 @@ static void network_refresh(struct tool *t,int force) {
         if(known && up && n.link_speed_mbps) snprintf(t->network_values[13],80,"%llu Mb/s",(unsigned long long)n.link_speed_mbps);
         snprintf(t->network_values[14],80,"%s",known && up && (n.link_flags&SRV_NET_LINK_DUPLEX_KNOWN)?(n.link_flags&SRV_NET_LINK_FULL_DUPLEX?"Full duplex":"Half duplex"):"—");
     }
+    if(t->network_valid) {
+        for(unsigned i=0;i<n.adapter_count && i<SRV_NET_ADAPTER_MAX;i++) {
+            struct srv_net_adapter_info *a=&n.adapters[i];a->driver[sizeof(a->driver)-1]=0;
+            const char *fields[]={"role","driver","MAC","link"};
+            unsigned base=count;
+            for(unsigned j=0;j<4;j++) {
+                char *label=t->network_labels[i*4+j];
+                snprintf(label,32,"Adapter %u %s",a->id,fields[j]);
+                t->network_rows[count]=(struct desk_table_row){.id=100+i*4+j,.cells={label,t->network_values[count]}};
+                count++;
+            }
+            snprintf(t->network_values[base],80,"%s",a->flags&SRV_NET_ADAPTER_ACTIVE?"Active · net0":"Inactive · no IP configuration");
+            snprintf(t->network_values[base+1],80,"%s",a->driver);
+            snprintf(t->network_values[base+2],80,"%02x:%02x:%02x:%02x:%02x:%02x",a->mac[0],a->mac[1],a->mac[2],a->mac[3],a->mac[4],a->mac[5]);
+            const char *state=!(a->link_flags&SRV_NET_LINK_KNOWN)?"Unknown":a->link_flags&SRV_NET_LINK_UP?"Connected":"Disconnected";
+            if((a->link_flags&SRV_NET_LINK_UP) && a->link_speed_mbps)
+                snprintf(t->network_values[base+3],80,"%s · %llu Mb/s",state,(unsigned long long)a->link_speed_mbps);
+            else snprintf(t->network_values[base+3],80,"%s",state);
+        }
+    }
     desk_table_rows(&t->network_table,t->network_rows,count);
-    if(force) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d link=%llu speed=%llu\n",t->network_valid,
-        (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused,(unsigned long long)t->network.link_flags,(unsigned long long)t->network.link_speed_mbps);
+    if(force || previous_valid!=t->network_valid || previous_link!=t->network.link_flags || previous_speed!=t->network.link_speed_mbps) desk_log("desktools: network-refresh valid=%d initialized=%llu ip=%u rx=%llu tx=%llu paused=%d link=%llu speed=%llu monotonic_us=%llu\n",t->network_valid,
+        (unsigned long long)t->network.initialized,t->network.local_ip,(unsigned long long)t->network.rx_frames,(unsigned long long)t->network.tx_frames,t->system_paused,(unsigned long long)t->network.link_flags,(unsigned long long)t->network.link_speed_mbps,(unsigned long long)srv_monotonic_us());
 }
 static const char *device_name(const struct srv_device_info *d) {
     if(d->bus_kind==SRV_DEVICE_USB) {
@@ -152,19 +174,23 @@ static void sensors_refresh(struct tool *t,int force) {
         uint64_t age=(uint64_t)now-fan.sampled_us;
         int fresh=t->smc_fresh=fan.state==SRV_SMC_ACTIVE && (fan.flags&SRV_SMC_FAN_VALID) && age<=3000000;
         snprintf(t->sensor_values[8],64,"%llu ms%s",(unsigned long long)(age/1000),fresh?"":" · stale");
-        if(fresh)snprintf(t->sensor_values[7],64,"%u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100);
+        if(fresh) {
+            if(fan.fan_count==2)snprintf(t->sensor_values[7],64,"L %u.%u / R %u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100,fan.fan1_millirpm/1000,(fan.fan1_millirpm%1000)/100);
+            else snprintf(t->sensor_values[7],64,"%u.%u RPM",fan.fan_millirpm/1000,(fan.fan_millirpm%1000)/100);
+        }
     }
     desk_table_rows(&t->sensor_table,t->sensor_rows,9);
     if(force) desk_log("desktools: sensors-refresh valid=%d fresh=%d state=%u flags=%u samples=%llu\n",t->thermal_valid,t->thermal_fresh,s.state,s.flags,(unsigned long long)s.samples);
 }
 void tool_system_refresh(struct tool *t,int force) {
-    uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;t->refresh_tick=now;
+    uint64_t now=srv_ticks();if(!force && (t->system_paused || now-t->refresh_tick<100)) return;
+    int trace=force || now/1000!=t->refresh_tick/1000;t->refresh_tick=now;
     long index=0;int count=0;struct srv_process_info p;
     while(count<DESK_TABLE_MAX_ROWS && (index=srv_proc_list((uint64_t)index,&p))>0) {
         p.name[sizeof(p.name)-1]=0;p.state[sizeof(p.state)-1]=0;t->processes[count++]=p;
     }
     if(force) desk_log("desktools: system-refresh processes=%d paused=%d\n",count,t->system_paused);
-    t->process_count=count;t->system_memory_valid=srv_meminfo(&t->system_memory)==0;rows(t);network_refresh(t,force);devices_refresh(t,force);sensors_refresh(t,force);
+    t->process_count=count;t->system_memory_valid=srv_meminfo(&t->system_memory)==0;rows(t);network_refresh(t,trace);devices_refresh(t,force);sensors_refresh(t,force);
     if(desk_tabs_selected(&t->system_tabs)!=SYSTEM_PROCESSES) snprintf(t->status,sizeof(t->status),"%s · %s",t->system_paused?"Paused":"Updates every second","F5 refreshes");
     else if(index<0) tool_status(t,"Process list unavailable. Press Refresh to try again.");
     else snprintf(t->status,sizeof(t->status),"%d processes%s · F6 selects headings · F5 refreshes",count,t->system_paused?" · Paused":"");

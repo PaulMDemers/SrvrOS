@@ -310,79 +310,100 @@ struct block_device *block_find(const char *name) {
     return 0;
 }
 
+static uint32_t gpt_crc32(uint32_t crc, const uint8_t *bytes, uint64_t count) {
+    for (uint64_t i = 0; i < count; i++) {
+        crc ^= bytes[i];
+        for (unsigned bit = 0; bit < 8; bit++)
+            crc = (crc >> 1) ^ (0xedb88320u & (0u - (crc & 1u)));
+    }
+    return crc;
+}
+
+/* Validate the complete primary map before exposing any writable aliases.
+ * Bounded to a 64 KiB table and 32 used entries. No backup repair or disk writes. */
 uint64_t block_register_gpt_partitions(struct block_device *device) {
-    if (device == 0 || !device->used || device->block_size < 512) {
-        return 0;
-    }
-
-    uint8_t header[512];
-    if (!block_read(device, device->block_size, header, sizeof(header)) ||
-        header[0] != 'E' || header[1] != 'F' || header[2] != 'I' || header[3] != ' ' ||
-        header[4] != 'P' || header[5] != 'A' || header[6] != 'R' || header[7] != 'T') {
-        return 0;
-    }
-
-    uint64_t entries_lba = read_le64(header + 72);
-    uint32_t entry_count = read_le32(header + 80);
-    uint32_t entry_size = read_le32(header + 84);
-    if (entries_lba == 0 || entry_size < 128 || entry_size > 512) {
-        return 0;
-    }
-
-    uint64_t registered = 0;
-    uint8_t entry[512];
-    for (uint32_t i = 0; i < entry_count && partition_count < BLOCK_MAX_PARTITIONS; i++) {
-        uint64_t entry_offset = entries_lba * device->block_size + (uint64_t)i * entry_size;
-        if (!block_read(device, entry_offset, entry, entry_size)) {
-            break;
-        }
-        if (guid_is_zero(entry)) {
+    if (!device || !device->used || device->read == partition_read ||
+        device->block_size < 512 || device->block_size > 4096 ||
+        (device->block_size & (device->block_size - 1)) || device->block_count < 6 ||
+        device->block_count > UINT64_MAX / device->block_size) return 0;
+    uint8_t header[512], entry[512];
+    if (!block_read(device, 0, header, 512) || header[510] != 0x55 || header[511] != 0xaa) return 0;
+    unsigned protective = 0;
+    for (unsigned i = 0; i < 4; i++) {
+        const uint8_t *p = header + 446 + 16 * i;
+        if (!p[4]) { /* Empty means empty, not a hidden overlapping extent. */
+            for (unsigned j = 0; j < 16; j++) if (p[j]) return 0;
             continue;
         }
-
-        uint64_t first_lba = read_le64(entry + 32);
-        uint64_t last_lba = read_le64(entry + 40);
-        if (last_lba < first_lba) {
-            continue;
+        uint64_t sectors = device->block_count - 1;
+        if (sectors > UINT32_MAX) sectors = UINT32_MAX;
+        /* Some formatters saturate the protective length even on small disks.
+         * This entry is never exposed; all actual extents come from checked GPT. */
+        uint32_t protective_size = read_le32(p + 12);
+        if (p[0] || p[4] != 0xee || read_le32(p + 8) != 1 ||
+            (protective_size != sectors && protective_size != UINT32_MAX)) return 0;
+        protective++;
+    }
+    if (protective != 1 || !block_read(device, device->block_size, header, 512)) return 0;
+    static const uint8_t signature[8] = {'E','F','I',' ','P','A','R','T'};
+    for (unsigned i = 0; i < 8; i++) if (header[i] != signature[i]) return 0;
+    uint32_t header_size = read_le32(header + 12), crc = read_le32(header + 16);
+    if (read_le32(header + 8) != 0x10000 || header_size < 92 || header_size > sizeof(header) ||
+        read_le32(header + 20) || read_le64(header + 24) != 1 ||
+        read_le64(header + 32) != device->block_count - 1) return 0;
+    for (unsigned i = 16; i < 20; i++) header[i] = 0;
+    if (~gpt_crc32(UINT32_MAX, header, header_size) != crc) return 0;
+    uint64_t first = read_le64(header + 40), last = read_le64(header + 48);
+    uint64_t table_lba = read_le64(header + 72);
+    uint32_t count = read_le32(header + 80), size = read_le32(header + 84);
+    if (!count || size < 128 || size > 512 || (size & (size - 1)) ||
+        (uint64_t)count * size > 65536) return 0;
+    uint64_t table_blocks = ((uint64_t)count * size + device->block_size - 1) / device->block_size;
+    if (table_lba < 2 || first >= device->block_count || first > last ||
+        table_lba >= first || table_blocks > first - table_lba ||
+        last >= device->block_count - 1 || table_blocks > device->block_count - 2 - last) return 0;
+    struct { uint64_t first, last; uint32_t index; uint8_t guid[16]; } ranges[BLOCK_MAX_PARTITIONS];
+    unsigned used = 0;
+    crc = UINT32_MAX;
+    for (uint32_t i = 0; i < count; i++) {
+        uint64_t offset = table_lba * device->block_size + (uint64_t)i * size;
+        if (!block_read(device, offset, entry, size)) return 0;
+        crc = gpt_crc32(crc, entry, size);
+        if (guid_is_zero(entry)) continue;
+        uint64_t begin = read_le64(entry + 32), end = read_le64(entry + 40);
+        /* Read-only GPT entries cannot be promoted through workspace opt-in. */
+        if (used == BLOCK_MAX_PARTITIONS || guid_is_zero(entry + 16) ||
+            begin < first || end > last || begin > end || (read_le64(entry + 48) & (1ull << 60))) return 0;
+        for (unsigned j = 0; j < used; j++) {
+            bool same = true;
+            for (unsigned k = 0; k < 16; k++) same &= ranges[j].guid[k] == entry[16 + k];
+            if (same || (begin <= ranges[j].last && ranges[j].first <= end)) return 0;
         }
-
-        uint64_t start = first_lba * device->block_size;
-        uint64_t size = (last_lba - first_lba + 1) * device->block_size;
-        if (start >= block_device_size(device) || size > block_device_size(device) - start) {
-            continue;
-        }
-
+        ranges[used].first = begin; ranges[used].last = end; ranges[used].index = i + 1;
+        for (unsigned k = 0; k < 16; k++) ranges[used].guid[k] = entry[16 + k];
+        used++;
+    }
+    if (~crc != read_le32(header + 88) || used > BLOCK_MAX_PARTITIONS - partition_count ||
+        used > BLOCK_MAX_DEVICES - device_count) return 0;
+    /* Repeated scans must not register duplicate aliases. */
+    char name[16];
+    for (unsigned i = 0; i < used; i++) {
+        make_partition_name(name, sizeof(name), device->name, ranges[i].index);
+        if (block_find(name)) return 0;
+    }
+    for (unsigned i = 0; i < used; i++) {
         uint64_t slot = partition_count++;
-        partition_devices[slot] = (struct partition_block_device) {
-            .parent = device,
-            .offset = start,
-            .size = size,
-        };
-        make_partition_name(partition_names[slot], sizeof(partition_names[slot]), device->name, i + 1);
-        struct block_device *partition = block_register(partition_names[slot],
-            device->block_size,
-            size / device->block_size,
-            partition_read,
-            device->write != 0 ? partition_write : NULL,
-            &partition_devices[slot]);
-        if (partition == 0) {
-            partition_count--;
-            console_printf("block: partition registration stopped at %s entry=%u\n",
-                device->name,
-                (uint64_t)i + 1);
-            break;
-        }
-        console_printf("block: registered partition %s offset=%u size=%u\n",
-            partition->name,
-            start,
-            size);
-        registered++;
+        uint64_t blocks = ranges[i].last - ranges[i].first + 1;
+        partition_devices[slot] = (struct partition_block_device){.parent = device,
+            .offset = ranges[i].first * device->block_size, .size = blocks * device->block_size};
+        make_partition_name(partition_names[slot], sizeof(partition_names[slot]), device->name, ranges[i].index);
+        struct block_device *partition = block_register(partition_names[slot], device->block_size,
+            blocks, partition_read, device->write ? partition_write : NULL, &partition_devices[slot]);
+        if (!partition) { partition_count--; return i; }
+        console_printf("block: registered GPT partition %s offset=%u size=%u\n", partition->name,
+            partition_devices[slot].offset, partition_devices[slot].size);
     }
-    if (partition_count >= BLOCK_MAX_PARTITIONS) {
-        console_printf("block: partition registry full slots=%u\n", (uint64_t)BLOCK_MAX_PARTITIONS);
-    }
-
-    return registered;
+    return used;
 }
 
 /* Primary MBR partitions only. Reject ambiguous/overlapping maps as a unit;

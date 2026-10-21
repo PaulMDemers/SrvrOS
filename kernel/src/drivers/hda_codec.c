@@ -40,7 +40,7 @@ static bool validate_route(struct hda_codec *c,unsigned r) {
     if((c->pin_caps[r]&4) && !parameter(c,(c->pin_caps[r]&8)?c->pin[r]:c->afg,18,&c->pin_amp[r])) return false;
     return true;
 }
-bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,bool apple_controller) {
+bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,enum hda_profile profile) {
     if(!c||!h||!h->ready) return false;
     *c=(struct hda_codec){.controller=h};
     for(unsigned address=0;address<15;address++) {
@@ -53,16 +53,26 @@ bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,bool apple_contro
         if(groups!=0x10001 || !parameter(c,1,5,&type)||(type&255)!=1) continue;
         c->afg=1;
         if(!verb(c,1,0xf20,0,&c->subsystem)) return false;
-        c->apple=apple_controller && c->vendor==0x10134208 && c->subsystem==0x106b7e00;
-        bool qemu=c->vendor==0x1af40012||c->vendor==0x1af40022||c->vendor==0x1af40032;
+        bool pro=profile==HDA_PRO11_2 && c->vendor==0x10134208 && c->subsystem==0x106b5e00;
+        c->apple=pro || (profile==HDA_AIR7_2 && c->vendor==0x10134208 && c->subsystem==0x106b7e00);
+        bool qemu=profile==HDA_GENERIC && (c->vendor==0x1af40012||c->vendor==0x1af40022||c->vendor==0x1af40032);
         if(!c->apple&&!qemu) continue;
         c->pin[0]=c->apple?0x12:3; c->dac[0]=c->apple?3:2;
         c->pin[1]=0x10; c->dac[1]=2;
-        if(!validate_route(c,0)||(c->apple&&!validate_route(c,1))) return false;
+        c->routes=pro?3:c->apple?2:1;
+        c->pin[2]=0x13;c->dac[2]=4;
+        if(pro) {
+            uint32_t value;
+            if(!parameter(c,0,2,&value)||value!=0x100300) return false;
+            const uint32_t defaults[]={0x90100110,0x002b4020,0x90100112};
+            for(unsigned r=0;r<3;r++)
+                if(!verb(c,c->pin[r],0xf1c,0,&value)||value!=defaults[r]) return false;
+        }
+        for(unsigned r=0;r<c->routes;r++) if(!validate_route(c,r)) return false;
         if(c->apple) {
             /* CS4208 A1 coefficient setup, gated by the observed codec + board
              * subsystem. Register values are documented in the audio bring-up
-             * note; no other Cirrus or Apple model uses this profile. */
+             * note; only the two explicitly matched boards use these coefficients. */
             if(!power_on(c,1)||!verb(c,0x24,0x703,1,0)||
                !verb(c,0x24,0x500,0x33,0)||!verb(c,0x24,0x400,1,0)||
                !verb(c,0x24,0x500,0x34,0)||!verb(c,0x24,0x400,0x1c01,0)||
@@ -79,8 +89,8 @@ bool hda_codec_discover(struct hda_codec *c,struct hda_core *h,bool apple_contro
 bool hda_codec_route(struct hda_codec *c,enum hda_output output) {
     if(!c||!c->available||output>HDA_HEADPHONES || (output==HDA_HEADPHONES&&!c->apple)) return false;
     if(c->controller->playing) return false;
-    for(unsigned r=0;r<(c->apple?2u:1u);r++) {
-        bool active=r==(unsigned)output;
+    for(unsigned r=0;r<c->routes;r++) {
+        bool active=(r==1)==(output==HDA_HEADPHONES);
         uint32_t caps=c->dac_caps[r];
         if((caps&(1<<10))&&!power_on(c,c->dac[r])) goto fail;
         if((c->pin_caps[r]&(1<<10))&&!power_on(c,c->pin[r])) goto fail;
@@ -88,7 +98,7 @@ bool hda_codec_route(struct hda_codec *c,enum hda_output output) {
            !amp(c,c->pin[r],c->pin_caps[r],c->pin_amp[r],true) ||
            !verb(c,c->dac[r],0x200,0x11,0)||
            !verb(c,c->dac[r],0x706,active?0x10:0,0)||
-           !verb(c,c->pin[r],0x707,active?(r?0xc0:0x40):0,0)) goto fail;
+           !verb(c,c->pin[r],0x707,active?(r==1?0xc0:0x40):0,0)) goto fail;
     }
     if(c->apple&&!verb(c,1,0x715,(c->gpio_data&~1u)|(output==HDA_SPEAKERS),0)) goto fail;
     c->output=output;c->muted=true; return true;
@@ -97,9 +107,11 @@ fail:
 }
 bool hda_codec_mute(struct hda_codec *c,bool mute) {
     if(!c||!c->available) return false;
-    unsigned r=c->output;
-    if(!amp(c,c->dac[r],c->dac_caps[r],c->dac_amp[r],mute)||
-       !amp(c,c->pin[r],c->pin_caps[r],c->pin_amp[r],mute)) { c->available=false;return false; }
+    for(unsigned r=0;r<c->routes;r++) {
+        if((r==1)!=(c->output==HDA_HEADPHONES)) continue;
+        if(!amp(c,c->dac[r],c->dac_caps[r],c->dac_amp[r],mute)||
+           !amp(c,c->pin[r],c->pin_caps[r],c->pin_amp[r],mute)) { c->available=false;return false; }
+    }
     c->muted=mute;return true;
 }
 bool hda_codec_headphones(struct hda_codec *c,bool *present) {

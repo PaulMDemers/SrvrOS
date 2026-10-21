@@ -520,6 +520,17 @@ static bool send_udp_packet(const uint8_t *dst_mac,
     return send_ipv4_packet_from(dst_mac, src_ip_bytes, dst_ip, IP_PROTO_UDP, packet, udp_length);
 }
 
+static bool rx_signaled(void *arg) { return rx_signal_generation!=*(uint64_t *)arg; }
+
+/* Poll-only syscalls must actually block between attempts. Yield alone can
+ * select this thread again with IRQs masked, starving the timeout clock when
+ * all other work is asleep. RX wakes early; one tick covers providers without
+ * reliable notifications. No scheduler policy or storage ownership changes. */
+static void net_wait_tick(void) {
+    uint64_t generation=rx_signal_generation;
+    if(!scheduler_wait_timeout(&rx_wait_queue,rx_signaled,&generation,timer_ticks()+1)) scheduler_yield();
+}
+
 static bool resolve_route_mac(uint32_t remote_ip, uint8_t *mac_out);
 
 static bool send_icmp_echo_request(uint32_t remote_ip, uint16_t sequence) {
@@ -563,7 +574,7 @@ static bool resolve_ipv4_mac(uint32_t ip, uint8_t *mac_out) {
             return true;
         }
         (void)net_device_poll(32, false);
-        scheduler_yield();
+        net_wait_tick();
     }
     arp_waiting = false;
     return false;
@@ -2135,7 +2146,7 @@ void net_timer_tick(void) {
     scheduler_wake_all(&rx_wait_queue);
 }
 
-static bool rx_signaled(void *arg) { return rx_signal_generation!=*(uint64_t *)arg; }
+
 
 static void net_worker(void *arg) {
     (void)arg;
@@ -2223,7 +2234,7 @@ int64_t net_dhcp_request(void) {
         if (dhcp_have_offer && !dhcp_request_sent) {
             (void)send_dhcp_message(DHCP_REQUEST, dhcp_offered_ip_bytes, dhcp_server_ip_bytes);
         }
-        scheduler_yield();
+        net_wait_tick();
     }
 
     dhcp_in_progress = false;
@@ -2274,7 +2285,7 @@ int64_t net_dns_resolve(const char *name, uint32_t *ip_out) {
                 break;
             }
             (void)net_device_poll(32, false);
-            scheduler_yield();
+            net_wait_tick();
         }
         dns_waiting = false;
     }
@@ -2507,6 +2518,7 @@ int64_t net_status_info(struct srv_net_status_info *info) {
     clear_bytes((uint8_t *)info, sizeof(*info));
     info->abi_version = SRV_NET_ABI_VERSION;
     info->struct_size = sizeof(*info);
+    info->adapter_count=net_device_inventory(info->adapters,SRV_NET_ADAPTER_MAX);
     info->initialized = initialized ? 1 : 0;
     struct net_device_link link;
     if(initialized && net_device_link(&link)) {
@@ -2629,7 +2641,7 @@ int64_t net_ping(uint32_t remote_ip, uint16_t sequence, uint64_t timeout_ticks, 
             return 0;
         }
         (void)net_device_poll(32, false);
-        scheduler_yield();
+        net_wait_tick();
     }
 
     icmp_ping_waiting = false;

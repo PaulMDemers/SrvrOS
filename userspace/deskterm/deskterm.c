@@ -27,6 +27,7 @@ struct terminal_app {
     char status[160];
 };
 static struct terminal_app app;
+static int network_trial;
 static void status(const char *message) { snprintf(app.status,sizeof(app.status),"%s",message);app.window.dirty=1; }
 static int enqueue(const void *data,size_t size) {
     if(size>INPUT_BYTES-app.input_size || app.master<0 || app.exited) return -1;
@@ -56,7 +57,8 @@ static void start(void) {
     app.master=pair[0];
     if(srv_fcntl(app.master,SRV_F_SETFL,SRV_FD_NONBLOCK)<0) goto failed;
     layout();
-    char *argv[]={"/fat/bin/sh",NULL};
+    char *argv[]={"/fat/bin/sh",network_trial?"/fat/share/examples/network-trial.sh":NULL,NULL};
+    network_trial=0; /* New sessions always open a normal shell. */
     /* Keep per-window command history in memory. Empty HISTFILE explicitly
      * disables disk history, avoiding cross-session overwrites. */
     char home[192],pwd[192];snprintf(home,sizeof(home),"HOME=%s",desk_home());
@@ -211,7 +213,8 @@ static void draw(struct desk_canvas *c) {
     desk_label_draw(c,(struct desk_rect){12,c->height-28,c->width-24,24},theme->body,app.status,theme->muted);
     if(app.modal) desk_dialog_draw(c,&app.dialog,theme);
 }
-int main(void) {
+int main(int argc,char **argv) {
+    network_trial=argc==3 && !strcmp(argv[1],"terminal") && !strcmp(argv[2],"network-trial");
     app.master=-1;
     if(desk_terminal_init(&app.screen,app.lines,576,app.alternate,80,1)) return 1;
     desk_terminal_view_init(&app.view,&app.screen);desk_ui_init(&app.toolbar);desk_dialog_init(&app.dialog);

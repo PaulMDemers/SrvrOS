@@ -34,3 +34,12 @@ struct laptop_backlight laptop_backlight_decode(uint32_t cpu,uint32_t cd,uint32_
     if(!b.mode || b.duty>b.period) return (struct laptop_backlight){0};
     return b;
 }
+
+/* Read-only display diagnostic identity captured on the local Pro11,2.
+ * This does not authorize EC access or a brightness provider. */
+bool laptop_pro_display_match(uint16_t gpu,uint16_t pch,const uint8_t *b,size_t n) {
+    if(gpu!=0x0d26 || pch!=0x8c4b || !table(b,n,"DSDT",36) || n!=27679) return false;
+    uint64_t hash=14695981039346656037ull;
+    for(size_t i=0;i<n;i++) hash=(hash^b[i])*1099511628211ull;
+    return hash==0x5c5e79599c550767ull;
+}

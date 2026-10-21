@@ -42,7 +42,29 @@ static void physical_samples(void) {
     assert(f.count==1 && f.button);
     assert(f.contacts[0].x==-815 && f.contacts[0].y==2379 && f.contacts[0].touch_major==223);
 }
+static void test_type2(void) {
+    uint8_t b[30+28*APPLE_TRACKPAD_CONTACTS+1]={0};
+    struct apple_trackpad_frame f={0},previous;
+    b[15]=1;put16(b+30,4);put16(b+32,-321);put16(b+34,1234);
+    put16(b+46,80);put16(b+48,40);
+    assert(apple_trackpad_decode_type(2,b,58,&f)==1);
+    assert(f.count==1 && f.button && f.contacts[0].x==-321 && f.contacts[0].y==1234);
+    previous=f;
+    for(size_t n=0;n<sizeof(b);n++) {
+        if(n>=30 && n<=30+28*APPLE_TRACKPAD_CONTACTS && (n-30)%28==0) continue;
+        assert(apple_trackpad_decode_type(2,b,n,&f)==(n==2?0:-1));
+        assert(!memcmp(&f,&previous,sizeof(f)));
+    }
+    assert(apple_trackpad_decode_type(3,b,58,&f)==-1);
+    assert(apple_trackpad_decode_type(0,b,58,&f)==-1);
+    memset(b,0,sizeof(b));
+    for(unsigned i=0;i<APPLE_TRACKPAD_CONTACTS;i++) put16(b+30+28*i+16,1);
+    assert(apple_trackpad_decode_type(2,b,30+28*APPLE_TRACKPAD_CONTACTS,&f)==1 && f.count==16);
+    put16(b+46,-1);previous=f;
+    assert(apple_trackpad_decode_type(2,b,58,&f)==-1 && !memcmp(&f,&previous,sizeof(f)));
+}
 int main(void) {
+    test_type2();
     uint8_t bytes[APPLE_TRACKPAD_REPORT_MAX+2]={0};
     uint8_t *p=bytes+1; /* Deliberately unaligned USB buffer. */
     struct apple_trackpad_frame frame={0}, previous;
@@ -71,6 +93,6 @@ int main(void) {
     assert(apple_trackpad_decode(NULL,38,&frame)==-1);
     assert(apple_trackpad_decode(p,38,NULL)==-1);
     physical_samples();
-    puts("apple-trackpad: PASS Type 3 framing, signed coordinates, contacts, release, bounds; physical capture fixtures");
+    puts("apple-trackpad: PASS Type 2 synthetic and Type 3 framing, signed coordinates, contacts, release, bounds; physical capture fixtures");
     return 0;
 }

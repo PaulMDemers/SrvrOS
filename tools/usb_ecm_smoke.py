@@ -10,6 +10,7 @@ import subprocess
 import struct
 import tempfile
 import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import time
 import displayd_resolution_smoke as boot
 from desktop_foundation_smoke import QMP
@@ -19,10 +20,11 @@ from displayd_frame_smoke import stop_process
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--soak-seconds',type=int,default=0)
+    parser.add_argument('--second-usb',action='store_true',help='Also enumerate an inactive ECM adapter on a separate network')
     args=parser.parse_args()
     if not 0<=args.soak_seconds<=3600:parser.error('soak duration must be 0..3600 seconds')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('usb-ecm-multiple' if args.second_usb else 'usb-ecm-soak' if args.soak_seconds else 'usb-ecm');out.mkdir(parents=True,exist_ok=True)
     original=boot.make_limine_conf
     boot.make_limine_conf=lambda w,h:original(w,h)+'    cmdline: srvros.usb-network=ecm\n'
     output=b'';consumed=0
@@ -33,6 +35,14 @@ def main():
             try:
                 data,peer=udp.recvfrom(2048);messages.append(data);udp.sendto(data,peer)
             except socket.timeout:pass
+    body=b'SrvrOS ECM outbound HTTP fixture\n'+bytes(range(32,127))*80
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            self.send_response(200);self.send_header('Content-Length',str(len(body)))
+            self.end_headers();self.wfile.write(body)
+        def log_message(self,*args):pass
+    http=ThreadingHTTPServer(('127.0.0.1',0),Handler)
+    http_worker=threading.Thread(target=http.serve_forever,daemon=True);http_worker.start()
     worker=threading.Thread(target=echo,daemon=True);worker.start()
     try:
         with tempfile.TemporaryDirectory(prefix='srvros-ecm-') as directory:
@@ -48,6 +58,8 @@ def main():
                 '-nic','none','-netdev',f'user,id=net0,hostfwd=tcp:127.0.0.1:{http_port}-10.0.2.15:80',
                 '-device','usb-net,netdev=net0,bus=xhci.0,id=usbnet',
                 '-object',f'filter-dump,id=packets,netdev=net0,file={out}/traffic.pcap']
+            if args.second_usb:
+                command+=['-netdev','user,id=net1,net=10.0.3.0/24','-device','usb-net,netdev=net1,bus=xhci.0,id=usbnet2,mac=52:54:00:12:34:57']
             with (out/'qemu.txt').open('w') as log:
                 process=subprocess.Popen(command,stdout=log,stderr=log)
                 try:
@@ -73,6 +85,63 @@ def main():
                     command_line('run /fat/bin/sh');command_line('dhcp')
                     assert b'dhcp: 10.0.2.15' in output
                     command_line('ping 10.0.2.2');assert b'sent=4 received=4 lost=0' in output
+                    command_line('ping 10.0.2.99',timeout=15)
+                    assert b'sent=4 received=0 lost=4' in output
+                    command_line('dns');command_line('echo dns-usage-status=$?')
+                    assert b'dns-usage-status=2' in output
+                    command_line('host localhost')
+                    assert b'localhost has address' in output
+                    # Exercise outbound TCP and file output without a public HTTP service.
+                    command_line(f'httpget 10.0.2.2 / {http.server_port} > /fat/ecm-http.txt')
+                    command_line('cat /fat/ecm-http.txt')
+                    assert b'200 OK' in output and body in output.replace(b'\r',b'')
+                    command_line(f'sh /fat/share/examples/network-check.sh localhost 10.0.2.2 {http.server_port} > /fat/network-check.txt')
+                    start=len(output);command_line('cat /fat/network-check.txt')
+                    report=output[start:].replace(b'\r',b'')
+                    for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',b'Network check complete',body):
+                        assert marker in report,marker
+                    command_line('export HOME=/fat')
+                    serial.sendall(f'sh /fat/share/examples/network-trial.sh localhost 10.0.2.2 {http.server_port}\n'.encode())
+                    wait(b'UNPLUG the Ethernet cable ONLY, then press Enter here.')
+                    time.sleep(2)
+                    q.call('set_link',{'name':'usbnet','up':False})
+                    serial.sendall(b'\n')
+                    wait(b'RECONNECT the Ethernet cable, then press Enter here.',60)
+                    time.sleep(2)
+                    q.call('set_link',{'name':'usbnet','up':True})
+                    serial.sendall(b'\n')
+                    wait(b'Then type reboot and press Enter. There is no timer.',60)
+                    wait(b' $ ')
+                    command_line('touch /fat/network-empty.txt')
+                    command_line("sh -c 'read EOF_GATE' < /fat/network-empty.txt")
+                    start=len(output);command_line('echo eof-status=$?')
+                    assert b'eof-status=1' in output[start:]
+                    for invalid in ('0','65536','12x','999999999999999'):
+                        start=len(output);command_line(f'httpget 10.0.2.2 / {invalid}')
+                        assert b'usage: httpget' in output[start:]
+                    for cycle in range(3):
+                        q.call('set_link',{'name':'usbnet','up':False})
+                        # QEMU usb-net lacks link_status_changed: traffic stops,
+                        # but its CDC notification remains connected. Real cable
+                        # notifications are covered by the xHCI host fixture.
+                        start=len(output);command_line('ifconfig')
+                        assert b'role=active-net0 link=up' in output[start:]
+                        command_line('ping 10.0.2.2',timeout=15)
+                        assert b'sent=4 received=0 lost=4' in output[start:]
+                        start=len(output);command_line('dhcp');command_line('echo dhcp-outage-status=$?')
+                        assert b'dhcp: failed' in output[start:] and b'dhcp-outage-status=1' in output[start:]
+                        command_line('dns localhost');command_line('echo dns-outage-status=$?')
+                        assert b'dns-outage-status=1' in output[start:]
+                        q.call('set_link',{'name':'usbnet','up':True})
+                        start=len(output)
+                        command_line('dhcp');command_line('ping 10.0.2.2')
+                        assert b'dhcp: 10.0.2.15' in output[start:]
+                        assert b'sent=4 received=4 lost=0' in output[start:]
+                        command_line('host localhost')
+                        assert b'localhost has address' in output[start:]
+                        command_line(f'httpget 10.0.2.2 / {http.server_port} > /fat/ecm-http.txt')
+                        start=len(output);command_line('cat /fat/ecm-http.txt')
+                        assert body in output[start:].replace(b'\r',b'')
                     # 22 + Ethernet/IP/UDP headers (42) = exactly 64 bytes.
                     # Alternate this with 65-byte frames, across repeated TRB wraps.
                     started=time.monotonic();i=0
@@ -85,6 +154,10 @@ def main():
                         if not i%100:print(f'usb-ecm: completed {i} echoes in {time.monotonic()-started:.1f}s',flush=True)
                     rounds=i;assert len(messages)==rounds
                     command_line('ifconfig');assert b'net0: flags=UP,RUNNING dhcp=yes' in output
+                    if args.second_usb:
+                        assert b'adapter 1: driver=usb-ecm role=active-net0' in output
+                        assert b'adapter 2: driver=usb-ecm role=inactive' in output
+                        assert b'mac=52:54:00:12:34:57' in output
                     command_line('service webd status');assert b'webd background pid' in output
                     for _ in range(8):
                         with socket.create_connection(('127.0.0.1',http_port),timeout=10) as client:
@@ -97,6 +170,9 @@ def main():
                     q.key('h');q.key('e');q.key('l');q.key('p');q.key('ret');wait(b'commands: help');wait(b'\nsrv> ')
                     command_line('xhci',b'xhci-network: slot=');wait(b'\nsrv> ')
                     rows=re.findall(rb'xhci-network: slot=\d+ ready=(\d+) link=(\w+) tx=(\d+) rx=(\d+) drops=(\d+) errors=(\d+) notifications=(\d+) queued=(\d+)',output)
+                    if args.second_usb:
+                        assert rows[-1][2:4]==(b'0',b'0'),rows
+                        rows=rows[:-1]
                     assert rows and rows[-1][0:2]==(b'1',b'up') and rows[-1][5]==b'0',rows
                     assert int(rows[-1][2])>=170 and int(rows[-1][3])>=170,rows
                     keyboards=re.findall(rb'keyboard=1 mouse=0 absolute=0 dci=3 control=\d+ intr=\d+ reports=(\d+)',output)
@@ -104,12 +180,30 @@ def main():
                     # Physical USB removal must stop traffic without reusing live DMA.
                     q.call('device_del',{'id':'usbnet'});wait(b'quarantined reason=disconnected')
                     command_line('xhci',b'xhci-network: slot=');wait(b'\nsrv> ')
+                    command_line('run /fat/bin/sh');command_line('ifconfig')
+                    tail=output[output.rfind(b'adapter 1:'):]
+                    assert b'role=active-net0 link=down' in tail,tail
+                    if args.second_usb: assert b'adapter 2: driver=usb-ecm role=inactive' in tail
                     assert b'exception:' not in output and b'kernel panic' not in output
                     q.call('quit');process.wait(timeout=10)
                 finally:
                     stop_process(process);(out/'serial.txt').write_bytes(output)
+                from exfat_test_image import ExfatFixture
+                fixture=ExfatFixture((tmp/'disk.exfat').read_bytes())
+                assert fixture.read('ecm-http.txt').endswith(body)
+                report=fixture.read('network-check.txt')
+                assert body in report and b'http-status=0' in report
+                (out/'network-check.txt').write_bytes(report)
+                for name in ('network-before.txt','network-after.txt'):
+                    report=fixture.read(name)
+                    for marker in (b'dhcp-status=0',b'dns-status=0',b'http-status=0',body):assert marker in report
+                    (out/name).write_bytes(report)
+                assert b'disconnected-dhcp-status=1' in fixture.read('network-down.txt')
+                assert fixture.read('network-trial.txt')==b'started\ncompleted\n'
+
     finally:
         stop.set();worker.join(timeout=2);udp.close()
+        http.shutdown();http.server_close();http_worker.join(timeout=2)
     # Check actual wire framing, not only the application echo result.
     raw=(out/'traffic.pcap').read_bytes();assert raw[:4]==b'\xd4\xc3\xb2\xa1'
     cursor=24;sizes=[]
@@ -119,6 +213,6 @@ def main():
         if len(frame)>=42 and frame[12:14]==b'\x08\x00' and frame[23]==17 and frame[36:38]==udp_port.to_bytes(2,'big'):
             sizes.append(len(frame))
     assert sizes.count(64)==(rounds+1)//2 and sizes.count(65)==rounds//2,sizes
-    print(f'usb-ecm: PASS second configuration selection, DHCP, ICMP, {rounds} UDP echoes including exact-64-byte ZLP frames, repeated ring wraps, TCP web serving, shared USB keyboard and disconnect quarantine')
+    print(f'usb-ecm: PASS second configuration selection, DHCP, DNS, outbound HTTP, three traffic outage/recovery cycles, ICMP, {rounds} UDP echoes including exact-64-byte ZLP frames, repeated ring wraps, TCP web serving, shared USB keyboard and disconnect quarantine')
 
 if __name__=='__main__':main()

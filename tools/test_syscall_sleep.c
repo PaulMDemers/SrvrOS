@@ -4,20 +4,25 @@
 #include "../kernel/src/arch/x86_64/syscall.c"
 static uint64_t now;
 static unsigned waits,yields,spurious;
-static bool killed,signaled,no_scheduler;
+static bool killed,signaled,no_scheduler,pointer;
+bool mouse_pending(void) { return pointer; }
 static int interrupt;
+static bool arrive_at_check;
 static struct scheduler_wait_queue queue;
+struct scheduler_wait_queue *mouse_wait_queue(void) { return &queue; }
 uint64_t timer_ticks(void) { return now; }
 bool process_should_exit_current(void) { return killed; }
 bool process_signal_pending_current(void) { return signaled; }
 struct scheduler_wait_queue *process_file_poll_wait_queue(void) { return &queue; }
 void scheduler_yield(void) { yields++;now++; }
 bool scheduler_wait_timeout(struct scheduler_wait_queue *q,scheduler_wait_condition_fn ready,void *arg,uint64_t deadline) {
+    if(arrive_at_check) { arrive_at_check=false;pointer=true;assert(ready(arg));return true; }
     assert(q==&queue && !ready(arg) && deadline>now);waits++;
     if(no_scheduler) return false;
     if(spurious) { spurious--;now++;assert(!ready(arg));return true; }
     if(interrupt==1) killed=true;
     else if(interrupt==2) signaled=true;
+    else if(interrupt==3) pointer=true;
     else now=deadline;
     assert(ready(arg));return true;
 }
@@ -29,5 +34,15 @@ int main(void) {
     signaled=false;interrupt=1;assert(syscall_sleep_ticks(500)==-1 && waits==7);
     killed=false;interrupt=0;no_scheduler=true;assert(syscall_sleep_ticks(3)==0 && now==70 && yields==3);
     now=UINT64_MAX-10;assert(syscall_sleep_ticks(11)==-1 && waits==10);
+    no_scheduler=false;now=100;unsigned before=waits;
+    assert(syscall_pointer_wait()==0 && now==101 && waits==before+1);
+    pointer=true;before=waits;assert(syscall_pointer_wait()==1 && waits==before);
+    pointer=false;interrupt=3;assert(syscall_pointer_wait()==1 && now==101);
+    pointer=false;arrive_at_check=true;assert(syscall_pointer_wait()==1);
+    pointer=false;interrupt=2;assert(syscall_pointer_wait()==SRV_ERR_INTR);
+    signaled=false;interrupt=1;assert(syscall_pointer_wait()==-1);
+    killed=false;interrupt=0;no_scheduler=true;assert(syscall_pointer_wait()==0 && now==102);
+    now=UINT64_MAX;assert(syscall_pointer_wait()==0);
+    puts("pointer-wait: PASS ready input, arrival during wait, deadline, signals/exit and fallback");
     puts("syscall-sleep: PASS deadline blocking, spurious wakes, signals/cancel, zero/overflow and early-boot fallback");
 }

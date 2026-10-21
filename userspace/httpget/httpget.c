@@ -6,13 +6,13 @@
 #include <unistd.h>
 
 static void usage(void) {
-    puts("usage: httpget host [path]");
+    puts("usage: httpget host [path [port]]");
 }
 
 static int write_all(int fd, const char *buffer, size_t length) {
     size_t offset = 0;
     while (offset < length) {
-        ssize_t written = send(fd, buffer + offset, length - offset, 0);
+        ssize_t written = write(fd, buffer + offset, length - offset);
         if (written <= 0) {
             return -1;
         }
@@ -21,11 +21,13 @@ static int write_all(int fd, const char *buffer, size_t length) {
     return 0;
 }
 
-static int request(int fd, const char *host, const char *path) {
+static int request(int fd, const char *host, const char *path, const char *port) {
     if (write_all(fd, "GET ", 4) < 0 ||
         write_all(fd, path, strlen(path)) < 0 ||
         write_all(fd, " HTTP/1.0\r\nHost: ", 17) < 0 ||
         write_all(fd, host, strlen(host)) < 0 ||
+        (strcmp(port, "80") != 0 &&
+         (write_all(fd, ":", 1) < 0 || write_all(fd, port, strlen(port)) < 0)) ||
         write_all(fd, "\r\nConnection: close\r\n\r\n", 23) < 0) {
         return -1;
     }
@@ -44,7 +46,7 @@ int main(int argc, char **argv) {
         usage();
         return 0;
     }
-    if (argc < 2 || argc > 3) {
+    if (argc < 2 || argc > 4) {
         usage();
         return 2;
     }
@@ -54,11 +56,21 @@ int main(int argc, char **argv) {
         path = "/";
     }
 
+    const char *port = argc == 4 ? argv[3] : "80";
+    unsigned port_number = 0;
+    for (const char *p = port; *p; p++) {
+        if (*p < '0' || *p > '9' || port_number > 6553) {
+            usage(); return 2;
+        }
+        port_number = port_number * 10 + (unsigned)(*p - '0');
+    }
+    if (!port_number || port_number > 65535) { usage(); return 2; }
+
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_protocol = IPPROTO_TCP;
-    gai = getaddrinfo(host, "80", &hints, &info);
+    gai = getaddrinfo(host, port, &hints, &info);
     if (gai != 0) {
         printf("httpget: resolve failed: %s\n", gai_strerror(gai));
         return 1;
@@ -78,7 +90,7 @@ int main(int argc, char **argv) {
     }
     freeaddrinfo(info);
 
-    if (request(fd, host, path) < 0) {
+    if (request(fd, host, path, port) < 0) {
         perror("httpget: write");
         close(fd);
         return 1;

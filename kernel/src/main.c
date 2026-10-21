@@ -63,6 +63,60 @@ static bool char_is_separator(char c) {
     return c == '\0' || c == ' ' || c == '\t' || c == '\n' || c == '\r';
 }
 
+/* Explicit, bounded physical typing trial. Never consume serial input here. */
+static void keyboard_capture(void) {
+    static const struct { const char *prompt, *expected; } steps[] = {
+        {"Press a (lowercase)", "a"},
+        {"Hold Shift and press a, then release both", "A"},
+        {"Press Caps Lock, release it, then press a", "A"},
+        {"Press Caps Lock again, release it, then press a", "a"},
+        {"Press Backspace (the Mac Delete key)", "\b"},
+        {"Press Enter / Return", "\n"},
+        {"Press Up arrow", "\x1b[A"}, {"Press Down arrow", "\x1b[B"},
+        {"Press Left arrow", "\x1b[D"}, {"Press Right arrow", "\x1b[C"},
+    };
+    console_clear();
+    console_write("SRVROS KEYBOARD TEST - use the built-in keyboard only\n"
+        "Follow one instruction at a time. Release each key promptly.\n"
+        "No shell commands needed. Each step allows 90 seconds.\n"
+        "Wrong key? Try again. Only a timeout ends the test.\n"
+        "Results are saved automatically; do not power off.\n\n");
+    char c;
+    while (keyboard_try_read_char(&c)) {}
+    uint64_t dropped = keyboard_dropped_count();
+    unsigned passed = 0;
+    uint64_t retries = 0;
+    bool ok = timer_reference_ready();
+    for (unsigned i = 0; ok && i < sizeof(steps)/sizeof(steps[0]); i++) {
+        console_printf("keyboard-test: step=%u %s\n", (uint64_t)i + 1, steps[i].prompt);
+        console_sync();
+        uint64_t deadline = timer_monotonic_us() + 90000000;
+        unsigned n = 0;
+        while (steps[i].expected[n] && timer_monotonic_us() < deadline) {
+            if (keyboard_try_read_char(&c)) {
+                if (c != steps[i].expected[n]) {
+                    retries++;
+                    console_printf("keyboard-test: retry step=%u received=%u; %s\n",
+                        (uint64_t)i + 1, (uint64_t)(uint8_t)c, steps[i].prompt);
+                    /* Restart escape-sequence matching, retaining a new ESC. */
+                    n = c == steps[i].expected[0] ? 1 : 0;
+                } else n++;
+            } else scheduler_yield();
+        }
+        if (steps[i].expected[n]) {
+            ok = false;
+            console_printf("keyboard-test: timeout step=%u limit_seconds=90\n", (uint64_t)i + 1);
+        }
+        if (ok) { passed++; console_write("keyboard-test: step PASS\n"); }
+    }
+    ok = ok && passed == sizeof(steps)/sizeof(steps[0]) && keyboard_dropped_count() == dropped;
+    console_printf("keyboard-test: result=%s passed=%u total=10 dropped=%u\n",
+        ok ? "PASS" : "FAIL", (uint64_t)passed, keyboard_dropped_count() - dropped);
+    console_printf("keyboard-test: retries=%u\n", retries);
+    xhci_print_input_summary();
+    console_write("Keyboard test finished. Saving results and returning to Ubuntu...\n");
+}
+
 static bool cmdline_has_token(const char *cmdline, const char *token) {
     if (cmdline == NULL || token == NULL || token[0] == '\0') {
         return false;
@@ -564,6 +618,7 @@ void kmain(void) {
     bool usb_read_battery=cmdline_has_token(cmdline,"srvros.capture=battery-usb-read");
     bool service_battery=filesystem_battery||usb_write_battery||usb_read_battery||cmdline_has_token(cmdline,"srvros.capture=battery-service");
     bool automatic_battery=service_battery||guided_battery||cmdline_has_token(cmdline,"srvros.capture=battery");
+    bool automatic_load=cmdline_has_token(cmdline,"srvros.capture=cpu-load");
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
@@ -575,11 +630,18 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery) {
+    if (automatic_probe) {
+        /* Capture enumeration/setup failures even if firmware left a misleading
+         * PS/2-ready flag. This unattended profile must not require typing. */
+        xhci_print_boot_diagnostic();
+        xhci_print_status();
+        xhci_print_input_summary();
+    }
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
-        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery;
+        bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load;
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");
@@ -598,6 +660,12 @@ void kmain(void) {
             (void)battery_diagnostic_auto_return(false);
             if(workspace_parked&&!workspace_active())workspace_boot(cmdline);
         }
+        if(automatic_load && started && init_ready && timer_running) {
+            sampled=process_run_elf_args("/fat/bin/threadstress","--cpu-load-capture");
+            console_printf("cpu-load-capture: returned=yes process_ok=%s\n",sampled?"yes":"NO");
+            thermal_print_status();smc_print_status();
+        }
+        if (started && cmdline_has_token(cmdline,"srvros.capture=keyboard")) keyboard_capture();
         if(automatic_desktop_idle && started && init_ready && timer_running) {
             sampled=process_run_elf_args("/fat/bin/deskd","--idle-capture");
             console_printf("desktop-idle-capture: returned=yes clean=%s\n",sampled?"yes":"NO");
@@ -633,7 +701,7 @@ void kmain(void) {
         bool saved=started && workspace_log_stop();
         bool unmounted=workspace_active() && workspace_unmount();
         console_printf("laptop-capture: saved=%s unmounted=%s\n",saved?"yes":"NO",unmounted?"yes":"NO");
-        if(return_on_failure || (saved && sampled && unmounted)) {
+        if(return_on_failure || (saved && (sampled || automatic_load) && unmounted)) {
             console_write("laptop-capture: returning to Ubuntu through normal firmware/GRUB boot\n");
             console_sync();timer_delay_us(250000);
             if(return_on_failure)arch_reboot_unattended();
@@ -651,7 +719,11 @@ void kmain(void) {
             console_write("desktop-trial: opening the native desktop checklist; no timed exit.\n");
             console_printf("desktop-trial: boot options=%s\n",cmdline);
             (void)workspace_log_start();
-            bool exited = process_run_elf_args("/fat/bin/deskd", "--hardware-trial");
+            bool network_trial=cmdline_has_token(cmdline,"srvros.usb-network=ecm");
+            bool scaled=cmdline_has_token(cmdline,"srvros.desktop-scale=2");
+            bool exited = process_run_elf_args("/fat/bin/deskd", network_trial ?
+                (scaled?"--network-trial --scale=2":"--network-trial") :
+                (scaled?"--hardware-trial --scale=2":"--hardware-trial"));
             audio_print_status();
             thermal_print_status();
             smc_print_status();

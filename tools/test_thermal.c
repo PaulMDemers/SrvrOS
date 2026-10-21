@@ -10,6 +10,12 @@ int main(void) {
     assert(!thermal_cpu_supported(b,d,c,0x306c3,0,32,65));
     assert(!thermal_cpu_supported(b,d,c,0x307d4,0,32,65));
     assert(!thermal_cpu_supported(0,d,c,0x306d4,0,32,65));
+    assert(thermal_cpu_supported(b,d,c,0x40661,0x7ffafbff,0xbfebfbff,0x77));
+    assert(!thermal_cpu_supported(b,d,c,0x40661,1u<<31,32,65));
+    assert(!thermal_cpu_supported(b,d,c,0x40661,0,0,65));
+    assert(!thermal_cpu_supported(b,d,c,0x40661,0,32,64));
+    assert(!thermal_cpu_supported(b,d,c,0x140661,0,32,65));
+    assert(!thermal_cpu_supported(b,d,c,0x40651,0,32,65));
     struct srv_thermal_status s={.version=1,.samples=2};
     thermal_decode(&s,0x690000,0x88030a80,0x88030800,true); /* Actual read-only Linux capture. */
     assert(s.core_mc==102000&&s.package_mc==102000&&s.target_mc==105000);
@@ -23,5 +29,7 @@ int main(void) {
     thermal_decode(&s,0,0,0,true);assert(!s.flags);
     thermal_decode(&s,0x01640000,0,0,true);assert(!s.flags); /* Unvalidated TCC offset. */
     thermal_decode(&s,100u<<16,(1u<<31)|(127u<<16),0,false);assert(s.core_mc==-27000);
+    thermal_decode(&s,6557696ull,2282162816ull,2282162176ull,true);
+    assert(s.target_mc==100000 && s.core_mc==93000 && s.package_mc==93000);
     puts("thermal: PASS exact CPU/feature/hypervisor gating, actual target fixture, signed readout, independent package semantics, invalid core/target, offset rejection, raw flags and cached metadata");
 }

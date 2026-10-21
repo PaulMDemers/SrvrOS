@@ -1737,15 +1737,16 @@ static void print_ipv4(uint64_t ip) {
     cli_putn(ip & 0xff);
 }
 
-static void dhcp_command(void) {
+static int dhcp_command(void) {
     long ip = srv_net_dhcp();
     if (ip < 0) {
         cli_puts("dhcp: failed\n");
-        return;
+        return 1;
     }
     cli_puts("dhcp: ");
     print_ipv4((uint64_t)ip);
     cli_puts("\n");
+    return 0;
 }
 
 static void net_command(void) {
@@ -1754,7 +1755,7 @@ static void net_command(void) {
     }
 }
 
-static void dns_command(const char *args) {
+static int dns_command(const char *args) {
     char work[LINE_MAX];
     char *name;
     uint32_t ip = 0;
@@ -1762,18 +1763,19 @@ static void dns_command(const char *args) {
     name = cli_trim(work);
     if (name[0] == '\0') {
         cli_puts("usage: dns <name>\n");
-        return;
+        return 2;
     }
     if (srv_net_dns(name, &ip) < 0) {
         cli_puts("dns: failed: ");
         cli_puts(name);
         cli_puts("\n");
-        return;
+        return 1;
     }
     cli_puts(name);
     cli_puts(" ");
     print_ipv4(ip);
     cli_puts("\n");
+    return 0;
 }
 
 static void rmdir_command(const char *args) {
@@ -4261,7 +4263,7 @@ static uint64_t read_command(const char *args) {
         char c;
         long count = srv_read(SRV_STDIN, &c, 1);
         if (count <= 0) {
-            break;
+            return 1; /* EOF must not acknowledge an interactive trial gate. */
         }
         if (c == '\r') {
             continue;
@@ -5663,16 +5665,14 @@ static uint64_t run_command_impl(char *line, char *cwd, int background, int bypa
         return 0;
     }
     if (cli_streq(command, "dhcp")) {
-        dhcp_command();
-        return 0;
+        return dhcp_command();
     }
     if (cli_streq(command, "net")) {
         net_command();
         return 0;
     }
     if (cli_streq(command, "dns")) {
-        dns_command(args);
-        return 0;
+        return dns_command(args);
     }
     if (cli_streq(command, "rmdir")) {
         rmdir_command(args);

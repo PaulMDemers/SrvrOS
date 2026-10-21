@@ -2,7 +2,7 @@
 #define SRVROS_THERMAL_H
 #include <srvros/thermal_abi.h>
 #include <stdbool.h>
-/* This initial profile matches the physical Broadwell-U 06_3D CPU only.
+/* Explicit captured CPU profiles: Broadwell-U 06_3D and Haswell 06_46.
  * No MSR reads on unsupported CPUs or hypervisors. No MSR writes anywhere. */
 bool thermal_cpu_supported(uint32_t vendor_b,uint32_t vendor_d,uint32_t vendor_c,
     uint32_t signature,uint32_t features_c,uint32_t features_d,uint32_t thermal_a);

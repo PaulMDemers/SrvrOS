@@ -21,7 +21,8 @@ static bool network_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uin
         struct xhci_network_endpoint *e=&d->network->ep[i];
         if(e->pending && e->hw.dci==dci && e->trb==pointer) {
             e->pending=false;e->done=true;e->completion=completion;e->remaining=remaining;
-            if(i==1) net_notify_rx();
+            if(i==2) d->network->notify_completed_us=timer_monotonic_us();
+            if(i==1 || i==2) net_notify_rx();
             return true;
         }
     }
@@ -41,12 +42,19 @@ static void network_service(struct xhci_device *d) {
     for(unsigned i=0;i<3;i++) if(n->ep[i].done && !network_complete(d,i)) return;
     struct xhci_network_endpoint *notify=&n->ep[2],*tx=&n->ep[0],*rx=&n->ep[1];
     if(notify->done) {
+        bool was_known=n->link.known,was_up=n->link.up;
         unsigned actual=notify->requested-notify->remaining;
         bool valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.control_interface);
-        /* QEMU 9.2's Ethernet gadget reports the data interface in wIndex. */
-        if(!valid && d->vendor_id==0x0525 && d->product_id==0xa4a2)
+        /* Captured ASIX firmware and QEMU report the data interface in wIndex. */
+        if(!valid && (n->config.notify_data_interface || (d->vendor_id==0x0525 && d->product_id==0xa4a2)))
             valid=usb_ecm_notification(&n->link,notify->buffer,actual,n->config.data_interface);
-        if(valid) n->notifications++;else n->drops++;
+        if(valid) {
+            n->notifications++;
+            if(n->link.known && (!was_known || was_up!=n->link.up)) {
+                console_printf("xhci-network: slot=%u cable=%s tx_pending=%u monotonic_us=%u completion_us=%u\n",(uint64_t)d->slot_id,n->link.up?"up":"down",(uint64_t)tx->pending,timer_monotonic_us(),n->notify_completed_us);
+                net_notify_rx();
+            }
+        } else n->drops++;
         notify->done=false;
     }
     if(!notify->pending) network_post(d,2,notify->hw.packet);
@@ -56,7 +64,16 @@ static void network_service(struct xhci_device *d) {
         if(n->tx_zero) { n->tx_zero=false;network_post(d,0,0); }
         else n->tx_packets++;
     }
-    if(tx->pending && timer_monotonic_us()-n->tx_started>=2000000) { network_fail(d,"transmit-deadline");return; }
+    /* Confirmed cable loss may stall USB OUT in the adapter. Retain the one
+     * submitted transfer; do not recycle its DMA or spend its live-link budget
+     * while disconnected. Unknown link and post-reconnect stalls still fail. */
+    if(!tx->pending) n->tx_suspended=false;
+    else if(n->link.known && !n->link.up) n->tx_suspended=true;
+    else if(n->tx_suspended) { n->tx_suspended=false;n->tx_started=timer_monotonic_us(); }
+    if(tx->pending && !n->tx_suspended && timer_monotonic_us()-n->tx_started>=2000000) { network_fail(d,"transmit-deadline");return; }
+    /* A cable loss invalidates unsent traffic. Keep submitted DMA owned until
+     * completion/deadline; reconnect may send only newly queued frames. */
+    if(n->link.known && !n->link.up) { n->drops+=n->count;n->count=0;n->head=0; }
     if(!tx->pending && n->count) {
         unsigned length=n->length[n->head];copy_bytes(tx->buffer,n->queue[n->head],length);
         n->head=(n->head+1)%XHCI_NET_QUEUE;n->count--;
@@ -91,7 +108,9 @@ static uint64_t network_poll(void *context,uint64_t budget,bool verbose) {
 }
 static bool network_link(void *context,struct net_device_link *out) {
     struct xhci_network *n=((struct xhci_device *)context)->network;
-    if(!n||!n->link.known) return false;
+    if(!n) return false;
+    if(!n->ready) { *out=(struct net_device_link){0};return true; }
+    if(!n->link.known) return false;
     uint32_t speed=n->link.downstream_bps/1000000;
     *out=(struct net_device_link){.up=n->link.up,.speed_mbps=speed>65535?0:(uint16_t)speed};return true;
 }
@@ -148,7 +167,7 @@ static bool enumerate_network(struct xhci_device *d,uint16_t length) {
             if(length<9||length>4096||!network_descriptor(d,2,index,0,length)) return false;
         }
         struct usb_ecm_config config;
-        if(!usb_ecm_parse(d->descriptor_buffer,length,d->speed,&config)) continue;
+        if(!usb_ecm_parse_device(d->descriptor_buffer,length,d->speed,d->vendor_id,d->product_id,d->device_bcd,&config)) continue;
         if(!network_configure(d,&config)) {
             if(d->network) network_fail(d,"configuration");
             console_printf("xhci-network: ECM configuration failed slot=%u\n",(uint64_t)d->slot_id);

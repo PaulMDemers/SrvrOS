@@ -126,7 +126,7 @@ Home is `/fat/home` normally and `/work/srvros-work` for the prepared USB laptop
 | Sketch | Pen, Line and Box tools; brush size and RGB color panel; undo/redo; import images and save verified BMP copies |
 | Find Files | Background name search under a folder; kind filters; sortable results; open, reveal in Files, and copy paths |
 | Calculator | Expressions, parentheses, keypad, explicit errors, copied results and calculation history |
-| System | Live process and memory information; network interface, address, link state, speed and duplex; open diagnostics |
+| System | Live process and memory information; supported adapter inventory, active interface, address, link state, speed and duplex; open diagnostics |
 | Network Utility | Background Ping and DNS lookup; Stop; copied reports |
 | Settings | Persisted desktop color, document text size, clock display/UTC offset and trackpad speed/acceleration |
 | Clock | Countdown and stopwatch; pause/resume, laps and copied times; completion notification |
@@ -378,3 +378,60 @@ remains independent. External mice and keyboards do not participate in this
 paired internal-device policy. Turning the setting off clears a suppression latch
 on the next trackpad frame and rebases motion so suppressed travel cannot jump
 the cursor. The normal verified preferences writer saves the choice.
+
+### Bounded pointer wake
+
+The experimental `srv_pointer_wait()` (syscall 133) remains available. It
+returns 1 if the mouse queue is ready, 0 after at most one timer tick, or a
+negative error/interruption. It does not consume an event. The dedicated queue
+is notified when input is enqueued or cancellation replaces queued gestures;
+readiness is rechecked under scheduler IRQ exclusion before blocking. The
+one-tick deadline retains service of keyboard, client messages and clocks and
+bounds signal/exit handling. A failed/unavailable call falls back to ordinary
+one-tick sleep. Timer frequency and xHCI polling are unchanged. This is not a
+promise of interrupt-driven USB or sub-tick device sampling.
+
+The Pro11,2 physical comparison reported worse responsiveness. The desktop now
+uses its previous unconditional one-tick sleep; hardware-trial logs identify
+`policy=fixed-one-tick`. The syscall remains for controlled investigation and
+is not an accepted latency fix.
+
+Input summaries include software queue residence for trackpad-only batches:
+`queue-oldest` preserves the first constituent timestamp across coalescing;
+`queue-latest` uses the newest constituent. Mixed mouse/trackpad batches and
+synthetic cancellations are excluded. xHCI reports consecutive contact dispatch
+gaps (lift/malformed frames reset the sequence) and dispatch-to-rearm duration.
+These fixed-size aggregates add monotonic clock reads during trackpad handling;
+they do not measure hardware arrival, USB transaction duration or display
+scanout. Values accumulate since boot, with counts, means and maxima; compare
+matching workloads and inspect sample counts. The event ABI and polling rate
+are unchanged.
+
+For unattended `--idle-capture` only, an omitted scale is selected to keep the
+saved BMP within the existing 8 MiB capture limit: 1x when it fits, otherwise
+2x when that fits. A 2880x1800 framebuffer therefore captures 1440x900. Explicit
+`--scale=1`/`--scale=2` remains authoritative, and ordinary desktop launch does
+not auto-scale. Logs record both framebuffer and logical dimensions.
+
+The SMC status ABI is version 2 (72 bytes), appending `fan1_millirpm` and a zero
+reserved field. `fan_millirpm` retains its F0Ac meaning. Matched kernel/userspace
+images are required; the syscall rejects old-size buffers. The exact captured
+Pro11,2 GPU/PCH/DSDT profile requires FNum=2 and readable fpe2 metadata for both
+F0Ac/F1Ac. A snapshot is published only after both reads complete. Failure of
+either transaction invalidates the pair and quarantines the worker. The original
+Air profile still requires one fan and returns zero for the second value.
+System displays left/right RPM for the Pro; stale/faulted snapshots are not shown
+as current. Diagnostic `smc-fans` lines retain both values and their shared sample
+age; older workspace summary fields retain F0Ac for compatibility. Fan control,
+SMC MMIO, IRQ6 and other keys remain unused. Resource/key references are the
+captured DSDT/Linux sysfs evidence and Linux's
+[Apple SMC driver](https://github.com/torvalds/linux/blob/v6.12/drivers/hwmon/applesmc.c).
+
+The Pro v36 device-branch proposal adds `--desktop-sensors` to the scaled
+`--desktop-brightness --desktop-audio` trial. It enables exact-profile read-only
+CPU/SMC providers, retaining 2880x1800/2x, brightness and audio. It does not enable
+AML, battery runtime or CPU/fan controls. The opening Help page includes the
+System/Sensors two-fan, Pause/Resume, screenshot and manual return checks.
+This is untimed; exit/unmount before reboot. Host formatting and VM boot checks
+are separate from native visible acceptance. Shared profile integration remains
+subject to review against the active Air branch.

@@ -20,7 +20,8 @@ struct network_app {
     struct desk_document document;
     struct desk_popup context;
     struct desk_command_job job;
-    char output[4096],heading[320],run_target[256],result_status[128],status[160],report[8192];
+    char adapter[96];
+    char output[4096],heading[448],run_target[256],result_status[128],status[160],report[8192];
     unsigned run_mode;
     size_t shown_length;
     uint64_t now,display_second;
@@ -50,14 +51,14 @@ static const char *operation(unsigned mode) { return mode==NET_LOOKUP?"DNS looku
 static void report_view(void) {
     struct desk_document_block blocks[3];unsigned count=0;
     if(app.run_mode) {
-        snprintf(app.heading,sizeof(app.heading),"%s · %s",operation(app.run_mode),app.run_target);
+        snprintf(app.heading,sizeof(app.heading),"%s · %s · %s",operation(app.run_mode),app.run_target,app.adapter);
         blocks[count++]=(struct desk_document_block){1,DESK_DOCUMENT_HEADING,app.heading};
         blocks[count++]=(struct desk_document_block){2,DESK_DOCUMENT_CODE,app.job.length?app.output:app.job.busy?"Waiting for results…":"No output."};
         blocks[count++]=(struct desk_document_block){3,DESK_DOCUMENT_NOTE,app.result_status};
     } else {
         blocks[count++]=(struct desk_document_block){1,DESK_DOCUMENT_HEADING,"Check a connection"};
         blocks[count++]=(struct desk_document_block){2,DESK_DOCUMENT_PARAGRAPH,"Ping sends four echo requests to an IPv4 address or host. Lookup asks the configured DNS server for an IPv4 address."};
-        blocks[count++]=(struct desk_document_block){3,DESK_DOCUMENT_NOTE,"Results stay in this window until the next run. Copy report exports them to Text or Terminal. Stop cancels a diagnostic."};
+        blocks[count++]=(struct desk_document_block){3,DESK_DOCUMENT_NOTE,"Diagnostics use the active adapter. System > Network lists all supported adapters. Copy report retains the adapter used; Stop cancels a diagnostic."};
     }
     if(desk_document_set(&app.document,blocks,count)) status("The diagnostic report could not be displayed.");
     app.shown_length=app.job.length;app.window.dirty=1;
@@ -82,6 +83,13 @@ static void run(void) {
     const char *program=page()==NET_LOOKUP?"/fat/bin/host":"/fat/bin/ping";
     char *argv[]={(char *)program,app.target_text.data,NULL};
     if(desk_command_job_start(&app.job,program,argv,app.now,15000000)) { status("The diagnostic could not start. Try again.");return; }
+    snprintf(app.adapter,sizeof(app.adapter),"net0");
+    for(unsigned i=0;i<network.adapter_count && i<SRV_NET_ADAPTER_MAX;i++) {
+        const struct srv_net_adapter_info *a=&network.adapters[i];
+        if(a->flags&SRV_NET_ADAPTER_ACTIVE) {
+            snprintf(app.adapter,sizeof(app.adapter),"Adapter %u · %.31s · net0",a->id,a->driver);break;
+        }
+    }
     app.run_mode=page();strcpy(app.run_target,app.target_text.data);strcpy(app.result_status,"Running…");
     status("Running… You can keep working in other windows.");report_view();layout();
     desk_log("desknet: started mode=%s target=%s\n",app.run_mode==NET_LOOKUP?"lookup":"ping",app.run_target);
@@ -106,7 +114,7 @@ static void poll_job(void) {
 }
 static void copy_report(void) {
     if(!app.run_mode || app.clipboard.mode) return;
-    int n=snprintf(app.report,sizeof(app.report),"%s\nTarget: %s\nStatus: %s\n\n%s",operation(app.run_mode),app.run_target,app.result_status,app.output);
+    int n=snprintf(app.report,sizeof(app.report),"%s\nTarget: %s\nAdapter: %s\nStatus: %s\n\n%s",operation(app.run_mode),app.run_target,app.adapter,app.result_status,app.output);
     if(n<0 || (size_t)n>=sizeof(app.report) || desk_clipboard_copy(&app.clipboard,app.window.server,app.report,n,srv_ticks())) { status("The report could not be copied. Try again.");return; }
     app.clip_action=NET_COPY;status("Copying report…");layout();desk_log("desknet: copy-report bytes=%d\n",n);
 }

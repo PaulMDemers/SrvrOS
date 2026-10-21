@@ -11,14 +11,15 @@ static int16_t signed16(const uint8_t *p) {
     return n<32768 ? (int16_t)n : (int16_t)((int32_t)n-65536);
 }
 
-int apple_trackpad_decode(const uint8_t *report, size_t length,
+int apple_trackpad_decode_type(unsigned type, const uint8_t *report, size_t length,
     struct apple_trackpad_frame *frame) {
-    if (!report || !frame) return -1;
+    if (!report || !frame || (type!=2 && type!=3)) return -1;
+    size_t header=type==2?30:38;
     if (length==2) return 0;
-    if (length<38 || length>APPLE_TRACKPAD_REPORT_MAX || (length-38)%28) return -1;
+    if (length<header || length>header+28*APPLE_TRACKPAD_CONTACTS || (length-header)%28) return -1;
     struct apple_trackpad_frame next={0};
-    next.button=report[23]!=0;
-    for (size_t offset=38;offset<length;offset+=28) {
+    next.button=report[type==2?15:23]!=0;
+    for (size_t offset=header;offset<length;offset+=28) {
         const uint8_t *p=report+offset;
         int16_t touch=signed16(p+16);
         if (touch<0) return -1;
@@ -31,4 +32,9 @@ int apple_trackpad_decode(const uint8_t *report, size_t length,
     }
     *frame=next;
     return 1;
+}
+
+int apple_trackpad_decode(const uint8_t *report, size_t length,
+    struct apple_trackpad_frame *frame) {
+    return apple_trackpad_decode_type(3,report,length,frame);
 }

@@ -197,6 +197,8 @@ long srv_ticks(void);
 long srv_monotonic_us(void);
 long srv_realtime_us(void);
 long srv_sleep_ticks(uint64_t ticks);
+/* Wait for queued pointer input or one tick; 1 ready, 0 timeout, negative error. */
+long srv_pointer_wait(void);
 long srv_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags);
 long srv_thread_exit(uint64_t value);
 long srv_thread_join(uint64_t tid, uint64_t *value_out);

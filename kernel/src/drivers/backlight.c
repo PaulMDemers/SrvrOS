@@ -13,10 +13,11 @@ static bool sample(uint32_t *raw) {
     }
     return true;
 }
-bool backlight_bind(struct backlight_io io) {
+bool backlight_bind_profile(struct backlight_io io,enum backlight_profile profile) {
     available=false;
     if(!io.read || !io.write_duty) return false;
-    device=io;period=2777;available=true;uint32_t raw;
+    if(profile!=BACKLIGHT_AIR7_2 && profile!=BACKLIGHT_PRO11_2) return false;
+    device=io;period=profile==BACKLIGHT_PRO11_2?1953:2777;available=true;uint32_t raw;
     return sample(&raw); /* Discovery never writes. */
 }
 int backlight_percent(unsigned value) {
@@ -33,3 +34,5 @@ int backlight_percent(unsigned value) {
     }
     return (int)(((raw&65535)*100+period/2)/period);
 }
+
+bool backlight_bind(struct backlight_io io) { return backlight_bind_profile(io,BACKLIGHT_AIR7_2); }
