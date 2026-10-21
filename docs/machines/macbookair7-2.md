@@ -2,7 +2,7 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: returned GPE callback failures
+### Returned GPE callback failures (PR #38)
 
 Base `origin/main` `a35cd5e` (PR #37). Add VM-only structured propagation for
 EC query-admission failures from the raw GPE callback, allowing the actual uACPI
@@ -12,6 +12,34 @@ continuation. No nonlocal unwind or arbitrary exception recovery. Native startup
 and mounted Home remain off. Touched: battery runtime/model, disposable VM harness
 and proof-parser tests; no scheduler or upstream interpreter changes planned.
 Pro PR #19 at `10caff8` remains separate Wi-Fi work. No hardware run is pending.
+
+### Local callback recovery results
+
+Code `14d4b39` passed nine disposable VM cases. The modeled enqueue refusal ran
+through the real uACPI SCI/GPE/raw-handler call chain and returned normally with
+12 callback spinlock acquisitions balanced and no pending query work item. The
+interrupted storage thread 7 continued after battery threads 8/9 were retained;
+secondary handler, post-EOI completion, registry removal and both flushes passed.
+Generation 2, worker completion 10 and 9,411 bytes of interpreter heap remained
+held across sleep expiry, wake attempts and a late SCI. Three clients retired;
+saved failure logs matched serial, followed by unmount, automatic reset and clean
+exact-tree/metadata/allocation checks. Zero Text saves in this fixture are not
+an input responsiveness claim.
+
+Interrupting the battery worker, leaving a modeled callback spinlock unmatched,
+and triggering the fault outside the explicit callback scope each halted without
+false storage retirement. Native admission refused before firmware access with
+the disposable disk unchanged. Previous IRQ-entry recovery/refusal and watchdog
+recovery during a storage scope passed. Normal Text completed 60 edits, 20 worker
+operations and five file cycles with generations 1→25 and clean retirement.
+Ordinary/native/VM builds, full core host tests, 19 proof-parser tests and 397
+local documentation links passed. Evidence is retained outside `build` with
+verified hashes. Actions remain disabled; no physical payload or reboot changed.
+
+The new boundary covers enqueue refusal after successful GPE suspend/clear and a
+normal interpreter return. Other callback failures and interrupts of a battery
+thread still halt. Shared native firmware/resource ownership and physical SCI/DMA
+recovery remain unaccepted; native mounted Home and automatic startup stay off.
 
 ### IRQ entry fault containment (PR #37)
 
