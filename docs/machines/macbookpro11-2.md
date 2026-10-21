@@ -1342,9 +1342,11 @@ DHCP fails as expected. Two cable cycles complete without quarantine, with the
 final System down/up snapshots within 0.71 seconds of driver notifications.
 Normal desktop exit and zero collector attention; both fans provide recent
 readings with zero service failures. The logs record no audio playback and the
-requested `postmerge-text-check.txt` is absent, so broader checklist coverage
-(brightness, sound, Text save/reopen) awaits clarification rather than inheriting
-acceptance from the earlier payload. Prior native acceptance remains historical.
+requested `postmerge-text-check.txt` is absent. The user subsequently confirms
+only network/UI checks were performed. Brightness, sound, Text save/reopen and
+the remaining desktop checklist were not retested on this payload; prior native
+acceptance remains historical. Fan samples establish telemetry availability,
+not a user-confirmed fan-display or Pause/Resume retest.
 
 Matching logs and all five reports are hashed and archived with this release
 outside build. Offline exFAT/allocation checks pass: 28 directories, 109 files,
