@@ -1668,3 +1668,14 @@ Collection is archived separately; installed/recovery manifests and Ubuntu defau
 verify. Offline checks remain clean: 117 files, 424 clusters, zero allocation
 errors. No next boot is armed. Await the user's description of the boot screen
 and return path before deciding whether startup or workspace logging failed.
+
+Attended cold retry saved session `00065e606b547868-00` for `56b0d84701bc99ff`.
+The user saw SrvrOS console briefly and automatic Ubuntu return. Root port 1/slot 1
+timed out on EP0 at device-descriptor-prefix, before VID/PID or Wi-Fi identity
+detection; no firmware upload was attempted. Unlike the prior missing-session
+attempt, this run saved a matching exit log with completed=NO. Workspace storage
+initialized on SuperSpeed port 17 and remained healthy. Evidence archived;
+Ubuntu/recovery/consumed one-shot verified. Offline checks pass: 119 files, 427
+clusters, zero leaks/mismatches/errors. Next scope is cold-start USB enumeration
+and EP0 timing/completion diagnosis; do not relax firmware ownership gates or
+retry uncertain DMA blindly. No next boot is armed.
