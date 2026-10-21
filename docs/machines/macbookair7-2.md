@@ -2,7 +2,67 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: application files and cached battery presentation accepted
+### Current scope: scoped battery controls accepted; integration closeout
+
+PR #34 builds on `origin/main` `84cf41e` and adds the asynchronous control mailbox,
+command syscall, shared System controls and v44 capture/collection path. Native
+release `87524e9fe7788772` passed on this Air7,2; evidence and the exact payload are
+backed up independently of `build`. No reboot is armed. Ordinary workspace
+coexistence is the next bounded checkpoint; automatic battery startup stays off.
+Pro PR #19 at `c6ad8e9` has consumed merged PR #33 and retains separate USB Wi-Fi
+firmware work. No sibling EC/SCI acceptance is implied.
+
+### Native scoped controls checkpoint (PR #34)
+
+Release `87524e9fe7788772`, source `134f0d6`, session
+`session-00065e5f9bef533b-00` completed the automatic v44 trial and returned to
+Ubuntu. System admitted and dispatched all four commands, reached fresh sample
+generation 2 in each of two lifetimes, and showed both stopped states. Both service
+lifetimes detached their handler with zero remaining runtime heap, errors or denied
+operations. Two clients retired and control admission was revoked. The desktop
+made five fresh cached reads. SCI handled four deliveries, with none unclaimed.
+
+All 913 prior data files were byte-identical, including the old filesystem image.
+Only workspace metadata changed and exactly three matching logs were added.
+Offline checks passed: 196 directories, 917 files, 1,700 allocated clusters, no
+leaks or mismatches. The new Ubuntu boot, consumed one-shot, default/EFI order and
+installed/independent recovery payloads were verified. Evidence and payload hashes
+were verified outside `build`; current `87524e9fe7788772`, desktop recovery
+`b427b78f21644bd2`, and former accepted `27c39e5404ab573b` remain recoverable.
+
+This accepts the automatic native System action/syscall/lifecycle path with the
+outer workspace parked. Actual pointer controls and active-window close passed in
+Q35; attended physical clicking, input latency, ordinary Home coexistence and gauge
+accuracy remain separate acceptance work. Automatic battery startup stays disabled.
+
+### Scoped control implementation and local validation (PR #34)
+
+System Sensors now has shared Start/Stop presentation backed by a separate bounded
+command syscall and an owner-scoped mailbox. Four requests drive two service
+lifetimes; pending requests, stale epochs and invalid transitions are rejected.
+Client exit revokes admission before owner-controlled service retirement. The
+ordinary kernel offers no control scope and automatic startup stays disabled.
+
+Local Q35 checks pass two complete automatic sessions in the same VM, actual
+pointer Start/Stop/restart and window-close while active, forced compositor exit,
+native platform refusal, and injected live-runtime deadline with automatic reset.
+A replacement compositor succeeds after every clean case. Full host core and
+ordinary/native/VM builds pass. The previous Text file-worker workload and ordinary
+desktop applications also pass, alongside staging/collector and documentation
+checks. The new v44 unattended capture parks the outer
+workspace and saves completion logs only after retirement; it neither opens nor
+rewrites the prior filesystem image. Exact-stage refusal/save/return rehearsal and
+the native trial passed; see the bounded acceptance above.
+
+Two exploratory fixture problems were retained and corrected: the automatic
+study originally stopped before the injected third-sample fault, and concurrent
+UART output split a short request record. Fault testing now leaves monitoring
+active. Completed VM cases validate the atomic in-memory boot-log records, the
+same source saved by hardware captures; strict proof checks were not relaxed.
+The initial manual fixture also now waits for scope availability and its first
+frame. Ordinary workspace coexistence and attended input/AC accuracy remain open.
+
+### Previous checkpoint: application files and cached battery presentation accepted
 
 Release `27c39e5404ab573b`, source `977a554` (PR #33), session
 `session-00065e5ed9440af5-00` passed the automatic v43 hardware trial and returned

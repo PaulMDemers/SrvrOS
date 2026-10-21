@@ -339,6 +339,27 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: battery application-file completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_battery_controls_collection(self):
+        from test_battery_controls_records import BASE
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-controls\n'
+            tail=b'battery-controls-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+            (folder/'boot.log').write_bytes(boot)
+            (folder/'exit.log').write_bytes(boot+BASE+tail)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertEqual(item['battery_controls']['lifetimes'],2);self.assertFalse(item['attention'])
+            for bad in (boot+tail,boot+BASE,boot+BASE+tail+tail,
+                        boot+BASE+tail+b'battery-ui: FAIL phase=2\n',
+                        boot+BASE+tail[:-1],boot+BASE+tail.replace(b'clean=yes',b'clean=NO')):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_controls'])
+                self.assertIn('collection: battery controls completion missing or invalid',item['attention'])
+            self.assertIsNone(desktop.battery_controls_result((boot+BASE+tail).replace(b'srvros.capture=battery-controls',b'srvros.capture=battery-controls-other').decode()))
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'

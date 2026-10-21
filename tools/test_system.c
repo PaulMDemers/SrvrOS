@@ -6,6 +6,14 @@ static uint64_t ticks=500;
 static int phase,reads,net_phase,net_reads,device_phase,thermal_phase,smc_phase;
 long srv_monotonic_us(void) { return 5000000; }
 static int battery_phase;
+static int control_available,control_requests;
+static struct srv_battery_control current_control={.version=SRV_BATTERY_CONTROL_VERSION,.size=sizeof(struct srv_battery_control)};
+long srv_battery_control(unsigned op,uint64_t epoch,struct srv_battery_control *out) {
+    assert(epoch==0);
+    current_control.available=control_available;
+    if(op) { assert(control_available);control_requests++;current_control.pending=op;current_control.serial++; }
+    *out=current_control;return 0;
+}
 long srv_battery_status(struct srv_battery_status *s) {
     *s=(struct srv_battery_status){.version=SRV_BATTERY_VERSION,.size=sizeof(*s),.state=SRV_BATTERY_DISABLED};
     if(battery_phase) { s->state=SRV_BATTERY_ACTIVE;s->flags=SRV_BATTERY_VALID|(battery_phase==1?SRV_BATTERY_FRESH:SRV_BATTERY_STALE);
@@ -59,6 +67,11 @@ void tool_launch(struct tool *t,int application,const char *path) { (void)t;asse
 static struct tool t;
 int main(void) {
     t.window.width=760;t.window.height=500;desk_ui_init(&t.ui);tool_system_init(&t);tool_system_layout(&t);desk_ui_layout_changed(&t.ui);
+    tool_system_action(&t,(struct desk_action){SYSTEM_BATTERY_START,DESK_WIDGET_ACTIVATED});assert(!control_requests);
+    control_available=1;tool_system_refresh(&t,1);
+    tool_system_action(&t,(struct desk_action){SYSTEM_BATTERY_START,DESK_WIDGET_ACTIVATED});assert(control_requests==1);
+    tool_system_action(&t,(struct desk_action){SYSTEM_BATTERY_START,DESK_WIDGET_ACTIVATED});assert(control_requests==1);
+    current_control.pending=0;control_available=0;tool_system_refresh(&t,1);
     assert(t.process_count==3 && t.processes[0].pid==2 && t.processes[2].pid==33);
     desk_list_select(&t.table.body,1);assert(t.table.navigation[1].id==9);
     desk_table_sort_indicator(&t.table,4,1);tool_system_action(&t,(struct desk_action){SYSTEM_TABLE,DESK_TABLE_SORT});

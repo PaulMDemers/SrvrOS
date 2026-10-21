@@ -51,3 +51,14 @@ __attribute__((weak)) bool battery_load_diagnostic_run(void *rsdp,struct limine_
 __attribute__((weak)) bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+#include <srvros/battery_control.h>
+__attribute__((weak)) int battery_control_request(uint64_t group,unsigned operation,uint64_t epoch,struct srv_battery_control *out) {
+    (void)group;(void)epoch;
+    *out=battery_control_view(&(struct battery_control_mailbox){0},0,0);
+    return operation?SRV_BATTERY_CONTROL_UNAVAILABLE:0;
+}
+
+__attribute__((weak)) bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}

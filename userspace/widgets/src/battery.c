@@ -28,3 +28,18 @@ struct desk_battery_view desk_battery_view(const struct srv_battery_status *s) {
     snprintf(v.detail,sizeof(v.detail),"%u%% · %s",s->soc,state);
     return v;
 }
+
+struct desk_battery_controls desk_battery_controls(const struct srv_battery_status *s,const struct srv_battery_control *c) {
+    struct desk_battery_controls v={.message="Battery controls are unavailable in this session."};
+    if(!s || s->version!=SRV_BATTERY_VERSION || s->size!=sizeof(*s) ||
+       !c || c->version!=SRV_BATTERY_CONTROL_VERSION || c->size!=sizeof(*c) || !c->available)return v;
+    if(c->pending){v.message=c->pending==SRV_BATTERY_START?"Start requested…":"Stop requested…";return v;}
+    if(s->epoch!=c->epoch){v.message="Updating battery state…";return v;}
+    if(s->state==SRV_BATTERY_STARTING){v.stop=1;v.message="Starting battery monitoring…";return v;}
+    if(s->state==SRV_BATTERY_STOPPING){v.message="Stopping battery monitoring…";return v;}
+    if(s->state==SRV_BATTERY_ACTIVE){v.stop=1;v.message="Battery monitoring is running.";return v;}
+    if(s->state==SRV_BATTERY_FAULTED || s->state>SRV_BATTERY_FAULTED){v.message="Battery monitoring is unavailable.";return v;}
+    v.start=s->state==SRV_BATTERY_DISABLED || s->state==SRV_BATTERY_STOPPED || s->state==SRV_BATTERY_UNAVAILABLE;
+    v.message=c->result<0?"Request failed. Refresh and try again.":s->state==SRV_BATTERY_UNAVAILABLE?"Battery monitoring could not start.":"Battery monitoring is stopped.";
+    return v;
+}

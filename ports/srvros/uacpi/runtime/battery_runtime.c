@@ -9,6 +9,7 @@
 #include "ec_query_rearm.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
+#include <srvros/battery_control.h>
 #include <srvros/arch.h>
 #include <srvros/workspace.h>
 #include <srvros/workspace_image.h>
@@ -767,6 +768,28 @@ void battery_service_status(struct battery_service_status *out) {
     battery_cache_read(&service.cache,timer_monotonic_us(),out);
     irq_restore(f);
 }
+static struct battery_control_mailbox controls;
+int battery_control_request(uint64_t group,unsigned operation,uint64_t epoch,struct srv_battery_control *out) {
+    uint64_t f=irq_save();struct battery_service_status status;
+    battery_service_status(&status);
+    int result=battery_control_enqueue(&controls,group,operation,epoch,&status);
+    *out=battery_control_view(&controls,group,status.epoch);
+    irq_restore(f);return result;
+}
+/* Called only by the scoped session owner, outside syscalls and storage work. */
+static void controls_dispatch(void *rsdp,struct limine_memmap_response *map) {
+    uint64_t f=irq_save();unsigned op=battery_control_take(&controls);
+    uint64_t epoch=controls.expected_epoch,serial=controls.serial;irq_restore(f);
+    if(!op)return;
+    struct battery_service_status status;battery_service_status(&status);
+    int result=0;
+    if(status.epoch!=epoch)result=SRV_BATTERY_CONTROL_STALE;
+    else if(op==SRV_BATTERY_START) {
+        if(!battery_service_start(rsdp,map))result=SRV_BATTERY_CONTROL_FAILED;
+    } else (void)battery_service_stop(0);
+    f=irq_save();battery_control_complete(&controls,result);irq_restore(f);
+    console_printf("battery-control: dispatched serial=%u operation=%u epoch=%u result=%d\n",serial,(uint64_t)op,epoch,(int64_t)result);
+}
 static bool run_battery(void *rsdp,struct limine_memmap_response *map,bool transitions) {
     if(!claim_diagnostic())return false;
     if(!runtime_open(rsdp,map,transitions,false)){release_owner();return false;}
@@ -1199,6 +1222,44 @@ done:
     }
     return ok;
 }
+/* Scope lasts for this desktop process group only. The outer workspace remains
+ * parked; controls never grant a userspace thread firmware ownership. */
+static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic) {
+    if(workspace_active())return false;
+    uint64_t f=irq_save();bool free=owner==OWNER_NONE && !controls.group;irq_restore(f);
+    if(!free)return false;
+    int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",automatic?"--battery-controls":"--battery-controls-manual");
+    if(child<=0)return false;
+    uint64_t pid=(uint64_t)child,status=UINT64_MAX,first_serial=controls.serial;
+    struct battery_service_status before;battery_service_status(&before);
+    struct desktop_tree tree={.pids={pid},.count=1};
+    f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
+    uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false;
+    if(bound)for(;;) {
+        desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
+        if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
+        if(timer_monotonic_us()>=deadline)break;
+        uacpi_kernel_sleep(10);
+    }
+    f=irq_save();uint64_t requests=controls.serial-first_serial;unsigned pending=controls.operation;
+    battery_control_revoke(&controls);irq_restore(f);
+    if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+    deadline=timer_monotonic_us()+5000000;
+    while(!desktop_children_stop(&tree,!ok) || !reaped) {
+        if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
+        if(timer_monotonic_us()>=deadline)unsafe("control clients retirement");
+        uacpi_kernel_sleep(10);
+    }
+    if(!battery_service_stop(35000))unsafe("control service retirement");
+    struct battery_service_status retired;battery_service_status(&retired);
+    ok=ok && !pending && tree.count==2 && (automatic?requests==4 && retired.epoch==before.epoch+2 && retired.state==BATTERY_SERVICE_STOPPED:
+        retired.state==BATTERY_SERVICE_STOPPED || retired.state==BATTERY_SERVICE_DISABLED || retired.state==BATTERY_SERVICE_UNAVAILABLE);
+    console_printf("battery-controls: %s requests=%u descendants=%u epoch=%u; revoked=yes retired=yes\n",ok?"PASS":"FAIL",requests,(uint64_t)tree.count,retired.epoch);
+    return ok;
+}
+bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return controls_test(rsdp,map,true);
+}
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return desktop_test(rsdp,map,0,false,false,false);
 }
@@ -1213,6 +1274,9 @@ bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-controls") || command_is(args,"battery-controls-manual")) {
+        (void)controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,command_is(args,"battery-controls"));return;
+    }
     if(command_is(args,"battery-app-files") || command_is(args,"battery-app-files-timeout") || command_is(args,"battery-app-files-missing")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             command_is(args,"battery-app-files-timeout")?2:command_is(args,"battery-app-files-missing")?1:0,true,false,true);return;

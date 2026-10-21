@@ -2,7 +2,8 @@
 
 The kernel service builds on the bounded Air7,2 battery diagnostic. It is linked
 only into the separate full-runtime image. Ordinary desktop boot still returns
-the disabled stub; there is no userspace syscall or battery widget yet.
+the disabled stub. A versioned read-only userspace snapshot feeds the desktop
+and System battery display; explicit controls are being validated separately.
 See the [native runtime gate](native-ec-runtime.md) and
 [machine acceptance record](machines/macbookair7-2.md) for physical evidence.
 
@@ -40,8 +41,8 @@ retain the halt.
 
 `battery_service_status` copies the snapshot with IRQs briefly masked and
 calculates its age. It never starts EC/AML work, waits for a sample, allocates or
-touches storage. This is a kernel contract; a later versioned userspace interface
-should expose deliberate fields rather than copying internal structs wholesale.
+touches storage. The v1 userspace snapshot exposes deliberate fields and units rather than
+copying internal structs or firmware data wholesale.
 
 Sampling starts two seconds after the previous operation completes. Firmware
 notifications remain serialized through the worker; they do not recursively
@@ -1034,3 +1035,55 @@ service/image teardown. SCI handled 23 deliveries with none unclaimed. Exact
 image contents/metadata, inner/outer allocation, other-file preservation and
 Ubuntu return passed. This accepts the isolated application path and cached view;
 it does not enable ordinary Home access, lifecycle UI or automatic startup.
+
+
+### Scoped asynchronous controls (in development)
+
+`SYS_BATTERY_CONTROL` is separate from cached status. Query returns a v1 control
+snapshot; Start/Stop enqueue one command and return immediately without allocation,
+firmware work or waiting. Admission requires the opt-in desktop process group and
+the observed battery epoch. Duplicate pending commands are busy; stale epochs and
+invalid lifecycle transitions are rejected. A successful enqueue means requested,
+not running or stopped. The kernel session owner dispatches commands to the existing
+service outside syscall/storage work. Starting can be cancelled by Stop; STOPPING
+retains ownership until the existing worker/SCI/AML teardown finishes.
+
+System's Sensors buttons use the shared state helper and remain disabled without
+a granted scope. Pending/starting/stopping/failure states remain visible, and
+control state refreshes even when other System tables are paused. Scope revocation
+precedes client retirement; late commands are rejected and unfinished runtime work
+is retired before the session owner returns. Closing a window does not free live
+firmware state. The outer workspace remains parked throughout this first study.
+
+`acpiruntime battery-controls` drives two lifetimes through the real System action,
+syscall and owner paths. `acpiruntime battery-controls-manual` exposes the same
+buttons for an attended bounded session; close System to end it. These commands
+require the separate runtime kernel and retain native platform gates. They do not
+enable automatic startup or ordinary workspace coexistence. VM evidence and native
+acceptance are recorded separately in the machine record.
+
+The v44 `hardware_boot.py stage --laptop-probe-volume <local-volume-id>
+--battery-controls` recipe runs the automatic study through the exact native
+kernel and matched userspace. Automatic return is mandatory; this profile takes
+no physical input. It parks the outer workspace, starts and stops twice through
+System, revokes control, retires both clients and the service, then remounts only
+to save the final logs and returns to Ubuntu. A contained runtime fault can reset
+without a final report; missing proof is incomplete evidence. Collection requires
+four accepted/dispatched requests, two fresh sample generations in each lifetime,
+two stopped states, balanced retirement, revoked scope and the exact return marker.
+The former disposable filesystem image is neither opened nor rewritten by v44.
+
+Local validation uses `tools/battery_controls_smoke.py` with `--case normal`,
+`manual`, `early-exit`, `refusal` and `runtime-fault`. Normal repeats the whole
+session in one VM to reject stale command/epoch reuse. Manual uses actual pointer
+clicks, then closes System while active; the owner must retire the live service.
+The runtime-fault case leaves monitoring running until the third-sample injected
+deadline and requires automatic reset without a claimed clean retirement.
+
+Air7,2 accepted the bounded automatic v44 path in release `87524e9fe7788772`,
+source `134f0d6`: four commands, two fresh lifetimes and stopped states, two retired
+clients, clean service teardown and revoked scope. SCI handled four deliveries
+without an unclaimed interrupt. All 913 prior data files stayed identical; only
+workspace metadata and three new logs changed. Offline allocation and Ubuntu
+return/recovery checks passed. This accepts the parked-workspace System action
+path; ordinary workspace coexistence and attended pointer/AC accuracy remain open.
