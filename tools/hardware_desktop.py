@@ -231,6 +231,43 @@ def battery_usb_write_result(exit_text,require_service=True):
                 filesystem_mutation_acceptance='pending',input_acceptance='pending')
 
 
+def battery_filesystem_profile(lines, cycles, slowest, maximum):
+    """Validate callback wall times; these include admitted service execution."""
+    headers=[r for r in lines if r.startswith('battery-filesystem-profile:')]
+    rows=[r for r in lines if r.startswith('battery-filesystem-phase:')]
+    if len(headers)!=1 or len(rows)!=4:return None
+    number=r'(\d{1,20})'
+    header=re.fullmatch('battery-filesystem-profile: cycle='+number+' step='+number+
+                        ' elapsed_us='+number+' io_us='+number,headers[0])
+    if not header:return None
+    cycle,step,elapsed,io_us=map(int,header.groups())
+    if not 0<=cycle<cycles or step!=slowest or not 0<elapsed<=maximum or io_us>elapsed:return None
+    phases={};total=0
+    fields=('phase','reads','read_bytes','read_us','read_max_us','writes',
+            'write_bytes','write_us','write_max_us','flushes','flush_us','flush_max_us')
+    pattern='battery-filesystem-phase: '+' '.join(k+'='+number for k in fields)
+    for row in rows:
+        match=re.fullmatch(pattern,row)
+        if not match:return None
+        values=list(map(int,match.groups()))
+        if any(v>=2**64 for v in values):return None
+        sample=dict(zip(fields,values));phase=sample.pop('phase')
+        if phase>=4 or phase in phases:return None
+        for op,count_key in (('read','reads'),('write','writes'),('flush','flushes')):
+            count=sample[count_key];duration=sample[op+'_us'];peak=sample[op+'_max_us']
+            if not peak<=duration<=count*peak or (not count and peak):return None
+            if op!='flush':
+                size=sample[op+'_bytes']
+                if (not count and size) or (count and (size<count*512 or size%512)):return None
+            total+=duration
+        phases[phase]=sample
+    if total!=io_us or any(lines.index(r)<=lines.index(headers[0]) for r in rows):return None
+    names=('metadata','allocation','data','free')
+    return dict(cycle=cycle,step=step,elapsed_us=elapsed,io_us=io_us,
+                other_us=elapsed-io_us,phases={names[k]:phases[k] for k in range(4)},
+                scope='callback wall time includes admitted services; not CPU or input latency')
+
+
 def battery_filesystem_result(exit_text, require_service=True):
     """Completion of the isolated image workload, not general desktop acceptance."""
     if require_service and battery_service_result(exit_text) is None:return None
@@ -241,18 +278,25 @@ def battery_filesystem_result(exit_text, require_service=True):
     summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
     if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
     extent=re.fullmatch(r'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d{1,20}) bytes=16777216; unmounted=yes aliases=revoked',prepared[0])
-    proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20})(?: steps=(\d{1,20}) max_step_us=(\d{1,20}) slowest_step=(\d{1,20}))?; retired=yes revoked=yes',rows[0])
+    proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20})(?: steps=(\d{1,20}) max_step_us=(\d{1,20}) slowest_step=(\d{1,20}))?(?: profile=(1))?; retired=yes revoked=yes',rows[0])
     if not extent or not proof or revoked[0]!='workspace-image: revoked clean=yes':return None
     cycles,commands,busy,progress,bursts,maximum,elapsed=map(int,proof.groups()[:7]);offset=int(extent[1])
     if any(n>=2**64 for n in (cycles,commands,busy,progress,bursts,maximum,elapsed,offset)):return None
     if cycles<2 or not 0<busy<=cycles or commands<cycles*3 or not 0<progress<=bursts or not maximum or elapsed<60000000 or not offset or offset%512:return None
     stepped={}
     if proof[8] is not None:
-        steps,step_us,slowest=map(int,proof.groups()[7:])
+        steps,step_us,slowest=map(int,proof.groups()[7:10])
         if steps>=2**64 or steps!=cycles*18 or bursts!=steps or not 0<step_us<=maximum or slowest>=18:return None
         stepped=dict(steps=steps,max_step_us=step_us,slowest_step=slowest)
     elif bursts>cycles or maximum<250000:return None
     if not lines.index(prepared[0])<lines.index(revoked[0])<lines.index(rows[0])<lines.index(summaries[0]):return None
+    profile_lines=[r for r in lines if r.startswith(('battery-filesystem-profile:', 'battery-filesystem-phase:'))]
+    if proof[11] is not None:
+        if not stepped:return None
+        profile=battery_filesystem_profile(lines,cycles,slowest,step_us)
+        if not profile or any(not lines.index(rows[0])<lines.index(r)<lines.index(summaries[0]) for r in profile_lines):return None
+        stepped['profile']=profile
+    elif profile_lines:return None
     return dict(isolated_complete=True,cycles=cycles,commands=commands,busy_cycles=busy,
                 progress_bursts=progress,bursts=bursts,max_burst_us=maximum,elapsed_us=elapsed,
                 **stepped,raw_offset=offset,bytes=16777216,input_acceptance='pending',desktop_acceptance='pending')

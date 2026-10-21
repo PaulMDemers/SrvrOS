@@ -176,7 +176,7 @@ device work uses separate branches based on `main`.
 ### Large-write profiling — October 20
 
 Branch `device/macbookair7-2/write-profiling` starts from merged main `9d9c72e`.
-Pro scope inspected at `a894981` concerns network UI repaint, with battery
+Pro scope inspected at `992e8b9` concerns network UI repaint/integration, with battery
 work deferred. Air scope: read-only exFAT phase labels, per-operation bounded
 image callback timing, diagnostic battery reporting, collector and host/VM
 fixtures. Keep mutation order, flush barriers, I/O admission and model gates

@@ -754,8 +754,25 @@ static struct {
     uint8_t baseline[4096],buffer[4096];
     uint64_t reads,commands,busy,progress,bursts,max_us,max_read_us;
     uint64_t steps,max_step_us,slowest_step;
+    struct workspace_image_profile profile;
     bool cycle_busy;
 } usb_read_test;
+static void filesystem_profile_print(void) {
+    const struct workspace_image_profile *p=&usb_read_test.profile;
+    uint64_t io_us=0;
+    for(unsigned phase=0;phase<EXFAT_IO_PHASE_COUNT;phase++)
+        for(unsigned op=0;op<WORKSPACE_IMAGE_IO_COUNT;op++)io_us+=p->io[phase][op].total_us;
+    console_printf("battery-filesystem-profile: cycle=%u step=%u elapsed_us=%u io_us=%u\n",
+        p->cycle,p->step,p->elapsed_us,io_us);
+    for(unsigned phase=0;phase<EXFAT_IO_PHASE_COUNT;phase++) {
+        const struct workspace_image_io_sample *r=&p->io[phase][WORKSPACE_IMAGE_READ];
+        const struct workspace_image_io_sample *w=&p->io[phase][WORKSPACE_IMAGE_WRITE];
+        const struct workspace_image_io_sample *f=&p->io[phase][WORKSPACE_IMAGE_FLUSH];
+        console_printf("battery-filesystem-phase: phase=%u reads=%u read_bytes=%u read_us=%u read_max_us=%u writes=%u write_bytes=%u write_us=%u write_max_us=%u flushes=%u flush_us=%u flush_max_us=%u\n",
+            (uint64_t)phase,r->count,r->bytes,r->total_us,r->max_us,w->count,w->bytes,w->total_us,w->max_us,f->count,f->total_us,f->max_us);
+    }
+}
+
 static bool usb_read_prepare(void) {
     usb_read_test=(typeof(usb_read_test)){0};
     usb_read_test.volume=workspace_parked_device();
@@ -781,6 +798,7 @@ static bool usb_read_burst(unsigned mode) {
             if(!workspace_image_step(usb_read_test.reads,&complete)){ok=false;break;}
             uint64_t elapsed=timer_monotonic_us()-step_start;
             if(elapsed>usb_read_test.max_step_us) {
+                if(!workspace_image_last_profile(&usb_read_test.profile)){ok=false;break;}
                 usb_read_test.max_step_us=elapsed;
                 usb_read_test.slowest_step=usb_read_test.steps%WORKSPACE_IMAGE_STEPS;
             }
@@ -936,10 +954,11 @@ static bool service_test(void *rsdp,struct limine_memmap_response *map,bool stal
     if(filesystem) {
         failure="isolated filesystem retirement";
         if(!workspace_image_close())goto failed;
-        console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u; retired=yes revoked=yes\n",
+        console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u profile=1; retired=yes revoked=yes\n",
             usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,
             usb_read_test.bursts,usb_read_test.max_us,workload_elapsed,usb_read_test.steps,
             usb_read_test.max_step_us,usb_read_test.slowest_step);
+        filesystem_profile_print();
     }
     if(usb_reads&&!usb_writes&&!filesystem)console_printf("battery-usb-read: PASS reads=%u commands=%u busy_reads=%u progress_bursts=%u bursts=%u max_burst_us=%u bytes_per_read=4096 writes=0; retired=yes\n",
         usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,

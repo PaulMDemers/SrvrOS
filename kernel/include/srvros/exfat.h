@@ -6,6 +6,12 @@
 
 struct block_device;
 
+/* Diagnostic observation only, while the caller owns filesystem I/O exclusion.
+ * Labels describe the current synchronous operation, not permission to reenter. */
+enum exfat_io_phase { EXFAT_IO_METADATA, EXFAT_IO_ALLOCATE, EXFAT_IO_DATA,
+    EXFAT_IO_FREE, EXFAT_IO_PHASE_COUNT };
+enum exfat_io_phase exfat_io_phase(const struct block_device *device);
+
 struct exfat_check_result {
     uint64_t mounts_checked;
     uint64_t files_checked;
