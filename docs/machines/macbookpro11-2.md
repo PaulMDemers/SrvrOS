@@ -1620,3 +1620,12 @@ the expected absent-adapter refusal, unmounts and resets; missing-workspace retu
 also passes. Native firmware startup remains untested. Package and test evidence
 are archived outside build; existing physical v43 calibration acceptance remains
 historical, not firmware acceptance.
+
+Firmware candidate installation: Ethernet recovery and USB storage read/write/flush/
+reload VMs pass. Release `6ec5ab2ce67afaee` is installed for an unattended native
+readiness capture; Ubuntu remains default and recovery `e47dca3a6b30c6c1` is retained.
+Preboot offline filesystem/allocation checks pass. Prior identity payload was
+removed from EFI only after verifying its durable archive; accepted calibration
+payload remains retained. Run record, exact VM receipt, payload and logs are saved
+outside build. Next is the authorized one-shot capture, then matching-session
+collection before any further staging. No physical firmware acceptance yet.
