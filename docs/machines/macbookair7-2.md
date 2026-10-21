@@ -31,16 +31,40 @@ battery startup remains disabled. Next validate the rich Text keyboard-event
 path in RAM, then combine the isolated disposable filesystem workload; retain
 separate attended input acceptance.
 
-### Active scope: full Text input in RAM
+### Full Text input in RAM: implemented and VM validated
 
-From actual `main` at `3b20bfb`, extend the opt-in runtime/VM capture to the
-real Text application and rich keyboard events. Touch compositor diagnostic
-routing, Text diagnostic snapshots, runtime monitor entry points and VM/checker
-tests. Keep the accepted v40 study profile unchanged; no native staging yet.
-Disable the diagnostic Text file worker and app launching, retain normal editing
-and clipboard logic, and require semantic editing results plus presentation
-acknowledgements. Cover normal/early-exit/deadline/unavailable/fault retirement.
-Pro PR #19 remains `e9320d9` with no overlap in these files. Actions remain off.
+PR #28 builds on `3b20bfb`; runtime/compositor/Text implementation `9ee553a`.
+The new monitor-only `battery-desktop-text` mode runs the real Text editor with
+its file worker disabled. It retains normal rich keyboard events, editing,
+clipboard IPC and surface publication. The existing v40 study profile and the
+installed/accepted native payload above remain unchanged; ordinary desktop
+battery startup stays off. Pro PR #19 remains `e9320d9`, with no shared-file
+conflict in this change.
+
+Seven Text VM cases passed: automatic script, injected keyboard editing, missing
+program, owner deadline, early exit, unsupported platform and active-runtime
+fault/reset. Both positive cases presented all 60 generated operations and five
+exact `AA` editing checkpoints while sampling advanced generation 1→25. The
+injected case delivered 44 keyboard events, acknowledged the final serial, and
+ended with visible `ZbZb`; ordered events may share frames. Every clean-return
+case subsequently started a replacement compositor. The old study, full host
+core suite, strict record/corruption tests and ordinary desktop-app regression
+also passed. No guest timeout or native hardware gate changed.
+
+The initial injected VM lacked final serial records while its document was
+visible. Its failed evidence is retained; draining serial between input bursts
+resolved the repeat. Refreshing the older apps harness also corrected stale
+folder-field coordinates, implicit `/fat` defaults after the move to Home,
+and maximized restore coordinates. Screenshots/raw disposable disks established
+the path mismatch; a split child exit log was replaced by checking the parent's
+status for that exact PID. The refreshed suite verifies actual file contents,
+clipboard editing and maximize/restore transitions. All failed attempts remain
+separate from final validation.
+
+Next add a separate native Text capture recipe and strict collection proof,
+rehearse its exact stage, then run the automatic laptop trial. Full Text native
+acceptance, concurrent isolated filesystem load, attended input latency and
+battery gauge accuracy remain pending. No physical trial is armed by this work.
 
 ### Previous checkpoint: EC GPE rearm ordering accepted for the bounded trial
 
