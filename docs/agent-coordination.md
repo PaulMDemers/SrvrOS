@@ -242,3 +242,26 @@ Next Air scope is combining this RAM Text workload with the existing isolated
 filesystem-image workload in VM, preserving lease ownership and bounded teardown.
 Other devices can consume the shared capture/collection contract; native model
 and firmware gates remain evidence-specific. Ordinary desktop battery stays off.
+
+
+## Air combined-load milestone closeout (2026-10-21)
+
+Merged PR #31 (`421a69b`) adds v42 `--battery-load`: generated RAM Text editing,
+exclusive disposable filesystem-image work and cached battery sampling. Air7,2
+accepted release `c3746988ed5c0d5b`: 60 presented edits, 45 complete filesystem
+cycles over 60.017 seconds of common activity, generation 1→25, clean retirement
+and 25 handled / zero unclaimed SCI interrupts. Exact image contents, inner/outer
+allocation, other-file preservation and automatic Ubuntu return verified. The
+[unit record](machines/macbookair7-2.md) records the complete acceptance scope.
+
+Shared code includes corrected compositor child-reap accounting at final cleanup
+and retention of disposable VM disks on failed load assertions. Deadlines and
+scheduler/hardware eligibility did not change. Other agents should consume these
+commits before duplicating the lifecycle or collection work. Pro PR #19 inspected
+at `39c25ce` retains v39 Wi-Fi scope. No sibling EC gate is accepted by this run.
+
+The bounded milestone is complete; ordinary desktop battery startup remains off.
+Attended input/gesture latency, regular app filesystem access while sampling,
+gauge accuracy and eventual ordinary startup are separate acceptance work.
+There is no new physical trial armed or shared implementation in progress for
+this closeout. Actions remain disabled; validation ran locally.

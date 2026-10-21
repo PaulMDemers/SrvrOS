@@ -972,6 +972,21 @@ The exact native payload must refuse unsupported Q35, leave the image unchanged,
 save, unmount and return. For the physical trial, retain accepted desktop recovery,
 save the durable run record, leave keys/trackpad alone and keep AC/USB connected.
 No human input is required. Completion or handled failure returns automatically;
-a contained reset without complete proof remains incomplete. Native combined-load
-acceptance is pending; this profile does not accept general desktop storage access,
-physical input latency, battery gauge accuracy or another model's firmware.
+a contained reset without complete proof remains incomplete. This profile does not
+accept general desktop storage access, physical input latency, battery gauge
+accuracy or another model's firmware.
+
+
+Air7,2 release `c3746988ed5c0d5b` (source `421a69b`, merged PR #31) passed the
+native v42 trial. All 60 generated edits and five exact document checkpoints
+completed during 60.017 seconds of common desktop/filesystem activity. The image
+workload completed 45 cycles / 810 operations / 18,120 USB commands while battery
+generation advanced 1→25. Maximum desktop loop gap was 29,998 microseconds;
+the slowest filesystem operation took 4,551,918 microseconds including admitted
+services. Neither metric measures physical input latency. Clean app/service/lease
+retirement, 25 handled / zero unclaimed SCI interrupts, exact inner contents and
+inner/outer allocation checks passed. All 906 other prior data files were unchanged;
+only the intended image and workspace metadata changed, with three new logs.
+The one-shot was consumed and Ubuntu recovery verified. This closes bounded
+combined-load acceptance on this unit; ordinary desktop battery remains off.
+See the [unit record](machines/macbookair7-2.md) for retained evidence and limits.

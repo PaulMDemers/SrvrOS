@@ -2,6 +2,46 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Current checkpoint: combined Text/filesystem/battery milestone accepted
+
+Release `c3746988ed5c0d5b`, source `421a69b` (merged PR #31), session
+`session-00065e5e243ecee0-00` passed the automatic v42 hardware trial and returned
+to Ubuntu. The editor presented all **60 generated operations**, five exact `AA`
+checkpoints and final `AA` with caret/anchor at byte two. No extra keyboard events
+occurred. Text used a RAM document with its file worker disabled; the separate
+filesystem workload held an exclusive lease on the disposable 16 MiB image.
+
+The common desktop/filesystem interval covered **60.017 seconds**. The compositor
+recorded 66 frames, 5,323 loops and a maximum loop gap of 29,998 microseconds.
+Filesystem work completed **45 cycles / 810 operations / 18,120 USB commands**,
+with 21 sampling-busy cycles and 18 bursts containing sampling progress. The
+slowest filesystem operation took 4,551,918 microseconds including admitted
+service work; that wall time is not input latency. Battery generation advanced
+1→25; 811 cached reads included 38 during sampling. App, service and image lease
+retired cleanly with balanced attachment and zero rejected samples, heap,
+errors or denied operations. SCI recorded **25 handled / zero unclaimed**.
+
+Strict collection found one matching new session with no attention items. Exact
+image contents, inner exFAT and allocation checks passed (five files, 75 clusters).
+All 906 other prior data files were unchanged; only the intended image and
+workspace metadata changed, with exactly three matching logs added. Outer offline
+checks passed: 194 directories, 911 files, 1,692 clusters, zero leaks or allocation
+mismatches. A new Ubuntu boot, consumed one-shot, default/EFI order and recovery
+payload hashes were verified. Evidence, pre/post images and the exact accepted
+payload are archived outside `build`.
+
+This completes the bounded combined-load milestone on this Air. Physical input
+latency, normal application filesystem access with the service running, gauge
+accuracy and automatic battery startup remain separate work. Ordinary desktop
+battery startup stays disabled. Current installed diagnostic is
+`c3746988ed5c0d5b`; accepted desktop recovery `b427b78f21644bd2` remains previous.
+No further reboot is armed. The used test image must not be replayed as fresh.
+
+This closeout changes documentation only, based on actual `origin/main` at
+`421a69b`. Pro PR #19 inspected at `39c25ce` retains its independent v39 Wi-Fi
+scope; no sibling hardware gate or acceptance is changed. Actions remain disabled;
+local validation and native evidence are the acceptance basis.
+
 ### Combined Text/filesystem/battery: implemented and VM validated
 
 PR #31 starts at `8211ec1` (PR #30); implementation `72fb430`, compositor cleanup
@@ -31,12 +71,13 @@ raw disk as well. The final matrix passed after the fix.
 Native/VM/ordinary builds, full host core checks, 45 staging tests, 14 collector
 tests, nine strict overlap-record tests, ordinary desktop-app regression and
 394 documentation links passed. Binaries and validation evidence are archived
-outside `build`. Native combined-load acceptance remains pending its own stage
-and automatic trial. Fresh native fixture preparation must archive the used image,
-preserve all other files and verify outer allocation/exclusive extent offline.
-The accepted v41 payload and desktop recovery below remain the current baseline.
+outside `build`. The exact-stage native Q35 refusal/save/unmount/return rehearsal
+passed, followed by the native acceptance recorded above. Fresh fixture preparation
+archived the used image, preserved other files and verified outer allocation and
+the exclusive extent offline. The earlier v41 diagnostic remains independently
+backed up; accepted desktop recovery is retained.
 
-### Current checkpoint: native full Text/battery RAM overlap accepted
+### Previous checkpoint: native full Text/battery RAM overlap accepted
 
 Release `2fd49386c4ecf0d9`, source `01e64a9` (merged PR #29), session
 `session-00065e5d96dd1b73-00` completed the automatic v41 Text trial and returned
@@ -60,14 +101,13 @@ no leaks or mismatches. A new Ubuntu boot, consumed one-shot, default/EFI order,
 installed payload and accepted desktop recovery were verified. Evidence and exact
 payload are archived outside `build`; the flash drive is remounted in Ubuntu.
 
-Current installed is this diagnostic; previous remains accepted desktop
-`b427b78f21644bd2`. No reboot is armed. This accepts generated full Text editing
-with concurrent cached battery sampling in RAM. Physical input latency,
-simultaneous filesystem load and gauge accuracy remain separate acceptance.
-Ordinary desktop battery startup remains disabled. Next scope is combining the
-RAM Text script with the existing isolated filesystem workload in a disposable
-VM fixture before a new native stage. Preserve the exclusive image lease and
-bounded process/service retirement; do not reuse the used native image as fresh.
+At that checkpoint installed was this diagnostic; previous remained accepted desktop
+`b427b78f21644bd2`. This accepted generated full Text editing
+with concurrent cached battery sampling in RAM. Simultaneous filesystem load
+was the next scope and is now accepted by the v42 trial above. Physical input
+latency and gauge accuracy remain separate acceptance. Ordinary desktop battery
+startup remains disabled. Future trials must preserve the exclusive image lease
+and bounded process/service retirement; do not reuse the used image as fresh.
 
 ### Native full Text capture: implementation and local validation
 
