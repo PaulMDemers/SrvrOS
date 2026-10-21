@@ -2,7 +2,33 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted bounded **isolated filesystem overlap**: release
+Latest accepted **operation-stepped isolated filesystem overlap**: release
+**`9eb84deab70d240c`** / source **`89edb98`**, session
+**`session-00065e4e5218f777-00`**. The trial completed 25 cycles / 450 operations
+in 60,768,457 microseconds, issuing 18,754 commands, with sample progress in 21
+scopes. The maximum storage scope was 3,210,080 microseconds; maximum operation
+was 3,210,076 microseconds at step 1 (the initial large draft write). The prior
+whole-cycle scope maximum was 7,303,034 microseconds. These single-run timings
+show shorter exclusion, not accepted desktop/input latency; the remaining
+three-second operation needs further investigation before desktop integration.
+
+The service captured generation 23 and 41,561 cached reads (1,226 while sampling),
+maximum 18 microseconds. Both initialized lifetimes retired cleanly with balanced
+attachments, restored enables, zero heap/errors/denials, and clean image revocation.
+SCI counted 24 handled / 24 unclaimed active deliveries, none during setup or
+retirement; the cause remains open. Final image payload/tree and inner fsck plus
+75-cluster allocation checks passed. Outer fsck is clean (183 directories,
+878 files); 1,648 clusters are accounted for with zero leaks/mismatches/errors.
+All 873 previous files other than the disposable image and inode sidecar are
+byte-identical. New Ubuntu boot, consumed one-shot and recovery hashes verified;
+the payload and 30 hashed evidence files are archived outside `build`.
+
+No reboot is armed. PR #9 CI remains pending; ordinary desktop battery startup
+is still disabled. Next scope is measuring large-write allocation, transfer and
+flush costs and reducing the longest atomic operation without weakening failure
+handling or filesystem consistency.
+
+Previous bounded **whole-cycle isolated filesystem overlap**: release
 **`c473b63c44d32cd0`** / source **`8822cba`**, session
 **`session-00065e4ddc1d41d5-00`**. The v38 trial completed 25 create/grow/shrink,
 rename/delete/flush cycles over 61,510,180 microseconds, issuing 18,754 USB
@@ -119,6 +145,52 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Contiguous FAT write batching — October 20
+
+Branch `device/macbookair7-2/fat-write-batching` consumes PR #9 source
+`89edb98` and native acceptance notes. PR #9 merged as `5bf63b7` after
+review of its local host/VM and native evidence; this branch consumes that main. Pro scope inspected at `14e2a99` remains Ethernet readiness
+and prompted cable testing; no overlapping filesystem change was found.
+
+Bounded objective: reduce repeated writes of the same FAT sector during
+contiguous allocation/free. Scope: `kernel/src/fs/exfat.c`, entry/isolated-image
+host regressions and this record. Preserve the existing on-disk FAT values,
+copy-on-write publication and flush/dirty ordering; fragmented chains retain
+their existing traversal. First record per-operation FAT/data write counts,
+then batch adjacent equal FAT entries into bounded writes. Validate neighboring
+FAT entries, boundary failures, directory growth and fragmented allocation,
+then run the full image fault matrix and battery filesystem VM workload.
+Native comparison remains pending; no reboot is armed and ordinary desktop
+battery startup remains disabled.
+
+Host tracing measured 142 writes (67 FAT) for initial 256 KiB+37-byte creation
+before batching, versus 78 (3 FAT) afterward. One full cycle falls from 457
+to 265 writes; all 72 flushes remain. These are fixture transfer counts, not
+hardware latency measurements. The change retains each FAT entry's prior value
+and the existing write-blocked recovery behavior; it batches contiguous ranges
+in at most 512-byte slices while leaving fragmented traversal intact.
+
+Local range/sentinel/failure tests, all 19 pause/revocation boundaries, all 265
+write failures + 265 power cuts + 72 flush faults, exFAT hardening (4K/128K,
+copy-on-write recovery, directory growth, capacity and fragmented allocation),
+scratch isolation and ordinary/native/modeled builds passed. Local `make smoke`
+passed the full core suite, 481-command CLI workload (424 files / 5,159 clusters,
+zero leaks/FAT mismatches/errors), syscall, line-editing, UEFI USB/input and
+display-service checks. All six affected battery VM cases passed: sustained
+isolated filesystem, isolated setup/active deadline automatic reset, filesystem
+normal/write-failure, and scratch writes. The sustained run completed 75 cycles /
+1,350 steps in 60,494,657 microseconds, 37,391 commands, 21 scopes with sampling
+progress, and a maximum step of 499,405 microseconds (regrow, step 5). Payload,
+outside bytes, allocation and clean retirement passed. Staging (35) and collector
+(12) tests also passed. Functional code is `6ca3f4f`, tested after integration
+with main as `880efc3`; later documentation commits do not change that code.
+
+Repository Actions is disabled at the user's request; no hosted result is used.
+PR #10 carries the batching change and local validation. Native comparison is the
+next acceptance step; prepare a fresh isolated fixture and exact-stage rehearsal
+before another automatic trial. Installed/recovery payloads remain unchanged.
+
+
 ### Filesystem operation scheduling — October 20
 
 Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
@@ -148,7 +220,8 @@ commands and 23 scopes containing sampling progress. The maximum operation was
 532,748 microseconds. Payload, outer isolation and clean retirement passed.
 Setup and active-sample deadline fixtures also passed automatic reset and
 outer preservation/inner recovery; the scratch-write regression passed.
-Physical comparison remains pending; these VM times do not revise native results.
+The physical comparison above accepts the operation sequence and data integrity;
+it does not accept interactive latency.
 
 
 ### Isolated filesystem coexistence — October 20

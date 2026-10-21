@@ -17,6 +17,7 @@ IMAGE_DRIVER = ROOT/'build/tests/workspace-image-host'
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--flush-only',action='store_true',help='run new flush faults after an unchanged write-boundary run')
+    parser.add_argument('--profile-only', action='store_true', help='count step/FAT writes and verify successful output without fault sweep')
     args=parser.parse_args()
     with tempfile.TemporaryDirectory(prefix='srvros-image-') as directory:
         tmp = Path(directory)
@@ -43,9 +44,11 @@ def main():
         extent_check=command(DRIVER,volume,'image-range')
         assert f'image-range: PASS offset={offset} bytes={SIZE}' in extent_check
         assert volume.read_bytes()==baseline
-        output = command(IMAGE_DRIVER, volume, 'workload')
-        total = int(re.search(r'writes=(\d+)', output)[1])
-        total_flushes = int(re.search(r'flushes=(\d+)', output)[1])
+        output = command(IMAGE_DRIVER, volume, 'profile')
+        initial = re.search(r'image step=1 writes=(\d+) fat_writes=(\d+) flushes=(\d+)', output)
+        assert initial and int(initial[2]) <= 5, 'large contiguous allocation regressed to per-cluster FAT I/O'
+        total = int(re.search(r'image: PASS writes=(\d+)', output)[1])
+        total_flushes = int(re.search(r'image: PASS writes=\d+ flushes=(\d+)', output)[1])
         data = volume.read_bytes()
         assert data[:offset] == baseline[:offset] and data[offset+SIZE:] == baseline[offset+SIZE:]
         verify(data[offset:offset+SIZE], 1)
@@ -54,6 +57,9 @@ def main():
         inner.write_bytes(data[offset:offset+SIZE]); check_clean_image(inner)
         command(DRIVER, inner, 'allocation-check')
         print(f'image workload: PASS, {total} write boundaries', flush=True)
+        if args.profile_only:
+            print(output, end='', flush=True)
+            return
         # Stop at every committed operation boundary; exclusion has been released,
         # another owner cannot advance the workload, and close revokes the lease.
         for steps in range(19):

@@ -5,12 +5,14 @@
 #include "../kernel/src/fs/exfat.c"
 static uint8_t disk[4096];
 static bool reject_write;
+static unsigned write_calls, reject_at;
 bool block_read(struct block_device *d, uint64_t off, void *out, uint64_t len) {
     (void)d; assert(off + len <= sizeof(disk)); memcpy(out, disk + off, len); return true;
 }
 bool block_write(struct block_device *d, uint64_t off, const void *in, uint64_t len) {
     (void)d; assert(off + len <= sizeof(disk));
-    if (reject_write) return false;
+    write_calls++;
+    if (reject_write || write_calls == reject_at) return false;
     memcpy(disk + off, in, len); return true;
 }
 bool vfs_update_file_size(const char *path, uint64_t size) { (void)path; (void)size; return true; }
@@ -22,7 +24,34 @@ static uint16_t check(const uint8_t *p, unsigned n) {
     }
     return sum;
 }
+static void test_fat_ranges(void) {
+    struct block_device device = {0};
+    struct exfat_volume volume = {.device=&device, .image_size=sizeof(disk), .cluster_count=1022};
+    const unsigned starts[] = {2, 127, 128, 129};
+    const unsigned counts[] = {0, 1, 65, 130};
+    for(unsigned a=0;a<4;a++) for(unsigned b=0;b<4;b++) for(unsigned clear=0;clear<2;clear++) {
+        memset(disk,0x5a,sizeof(disk));write_calls=0;
+        unsigned start=starts[a]*4,end=start+counts[b]*4;
+        assert(fill_fat_range(&volume,starts[a],counts[b],clear?0:0xffffffffu));
+        assert(write_calls==(counts[b]?(end-1)/512-start/512+1:0));
+        for(unsigned i=0;i<sizeof(disk);i++)
+            assert(disk[i]==(i>=start&&i<end?(clear?0:255):0x5a));
+    }
+    write_calls=0;
+    assert(!fill_fat_range(&volume,1,1,0));
+    assert(!fill_fat_range(&volume,1023,2,0));
+    assert(!fill_fat_range(&volume,2,UINT64_MAX,0));
+    assert(!write_calls);
+    /* Crossing a sector boundary must stop on failure and quarantine writes. */
+    memset(disk,0x5a,sizeof(disk));reject_at=2;
+    assert(!fill_fat_range(&volume,127,130,0));
+    assert(write_calls==2&&volume.write_blocked);
+    for(unsigned i=0;i<sizeof(disk);i++) assert(disk[i]==(i>=508&&i<512?0:0x5a));
+    assert(!fill_fat_range(&volume,127,130,0)&&write_calls==2);
+    reject_at=0;
+}
 int main(void) {
+    test_fat_ranges();
     uint8_t slots[8 * EXFAT_ENTRY_SIZE];
     memset(slots,0,sizeof(slots));
     for(unsigned i=0;i<8;i++) slots[i*EXFAT_ENTRY_SIZE]=0x85;
@@ -68,5 +97,5 @@ int main(void) {
     assert(file.size == 25 && !memcmp(before, disk, sizeof(disk)));
     file.secondary_count = 255;
     assert(!update_file_length(&file, "/test.req", 1));
-    puts("exfat-entries-host: PASS (name hash, allocation flags, checksummed resize, rejected names, write failure)");
+    puts("exfat-entries-host: PASS (name hash, allocation flags, checksummed resize, rejected names, write failure, bounded FAT batches)");
 }
