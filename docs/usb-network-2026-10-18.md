@@ -172,7 +172,9 @@ outage longer than the live-link deadline. Native reconnect acceptance is pendin
 ## Prompted native cable trial
 
 A USB-ECM desktop hardware trial opens Terminal in an explicit `network-trial`
-mode. Ordinary Terminal windows still open an interactive shell. The bundled
+mode. Startup waits up to 30 one-second samples for the active provider to
+report link-up before beginning checks; expiry is reported explicitly and
+failed diagnostics are retained. Ordinary Terminal windows still open an interactive shell. The bundled
 `network-trial.sh` runs connected diagnostics automatically, then waits without
 a deadline for Ethernet-unplug/Enter and Ethernet-reconnect/Enter. Each gate
 uses terminal stdin; EOF aborts instead of acknowledging the prompt. Five-second

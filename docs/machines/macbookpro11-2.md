@@ -1193,3 +1193,13 @@ initial report failed because it ran before startup link negotiation completed
 readiness: wait for the active provider's known link-up, with a finite budget,
 before initial checks. Keep the two human cable gates untimed. Evidence and
 reports are archived; offline filesystem/allocation and recovery checks pass.
+
+The follow-up script now checks the active provider (ignoring inactive links)
+for up to 30 one-second samples, saves the last startup snapshot, and reports
+expiry explicitly. Host fixtures cover immediate readiness, delayed readiness
+and budget exhaustion. It keeps both human cable gates untimed. This script
+change is not installed or physically accepted; current installed payload
+remains `0875949083ad6ac7` and Ubuntu remains the default.
+The follow-up image build and two-adapter VM regression also pass, including
+the actual startup gate and prompted sequence, saved HTTP response bytes,
+disconnected DHCP failure, EOF refusal and the existing transport coverage.

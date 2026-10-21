@@ -5,6 +5,20 @@ echo Keep the USB adapter and workspace plugged in throughout.
 echo Checks and reports run automatically. Cable prompts have no time limit.
 echo started > "$HOME/network-trial.txt" || exit 1
 rm -f "$HOME/network-after.txt" "$HOME/network-down.txt" || exit 1
+echo Waiting up to 30 seconds for the initial Ethernet link...
+for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30
+do
+    ifconfig > "$HOME/network-startup.txt" || exit 1
+    if grep -q 'role=active-net0 link=up' "$HOME/network-startup.txt"; then
+        break
+    fi
+    sleep 1
+done
+if grep -q 'role=active-net0 link=up' "$HOME/network-startup.txt"; then
+    echo Initial link is up.
+else
+    echo Initial link is unavailable. The before report will record any failures.
+fi
 echo Running connected DHCP, DNS and HTTP checks...
 sh /fat/share/examples/network-check.sh ${1:-example.com} ${2:-example.com} ${3:-80} > "$HOME/network-before.txt" || exit 1
 cat "$HOME/network-before.txt"

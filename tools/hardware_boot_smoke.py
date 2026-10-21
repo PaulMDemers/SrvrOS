@@ -388,11 +388,11 @@ def main():
                             time.sleep(2)
                         phase_cats(1)
                         ui.call('screendump',{'filename':str(logs/'network-auto-unplug.ppm')})
-                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==0
+                        initial_sleeps=serial.read_text(errors='replace').count('/fat/bin/sleep entry=')
                         ui.call('set_link',{'name':'usbnet','up':False});ui.key('ret')
                         phase_cats(2)
                         ui.call('screendump',{'filename':str(logs/'network-auto-reconnect.ppm')})
-                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==1
+                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==initial_sleeps+1
                         ui.call('set_link',{'name':'usbnet','up':True});ui.key('ret')
                         wait_for(serial,lambda s:'deskterm: shell exited status=0' in s,process,90)
                         ui.call('screendump',{'filename':str(logs/'network-auto-complete.ppm')})
