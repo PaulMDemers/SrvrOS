@@ -1542,3 +1542,16 @@ file against its durable archive; accepted identity payload remains installed.
 Preboot workspace fsck/allocation checks pass: 111 files, 415 clusters, zero leaks,
 mismatches or errors. Local run record and archived payload/evidence are saved;
 next is one-shot calibration capture and matching-session collection on return.
+
+
+Native calibration collection: release `47997cb8604043ff`, source `ac6b9a4`,
+session `00065e5e35f79801-00` saved all 32 logical EFUSE blocks (512 bytes),
+result=0, quarantined=0, unmapped mask `cf899c42`. All unmapped blocks contain
+FF bytes; MAC bytes 4–9 are zeroed. The matching exit log records both capture
+and overall completed=yes; collector attention=0. Raw evidence and a reconstructed
+MAC-redacted image are archived outside build. This accepts logical readout only;
+board/version/regulatory calibration validation, firmware and connectivity remain
+pending. Postboot fsck/allocation pass: 30 directories, 113 files, 418 clusters,
+zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and installed/
+recovery manifests verify; no reboot is armed. Next: validate the captured layout
+and calibration requirements before bounded firmware upload/readiness work.

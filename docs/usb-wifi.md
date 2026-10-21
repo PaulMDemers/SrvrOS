@@ -225,4 +225,7 @@ worker cannot discard capture completions. Short writes, errors and timeouts
 quarantine EP0 and retain its DMA; failed captures cannot retry in that boot.
 Successful data logs redact EEPROM MAC bytes 4–9. Partial data is never logged.
 A successful capture still requires board/version/regulatory validation before
-radio initialization. Native v43 acceptance remains pending.
+radio initialization. Native v43 release `47997cb8604043ff` captured all 32 blocks
+on the Pro11,2 adapter with result=0 and no quarantine. Unmapped blocks match
+the erased-byte representation; the six MAC bytes are redacted. This accepts
+the logical read transport, not the contents as usable radio calibration.
