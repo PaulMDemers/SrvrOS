@@ -61,6 +61,7 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
         done+=n;phase=done==length?2:1;
         if(fault==3 || (fault==14 && data_calls==fault_chunk)){*actual=n-1;phase=2;}
         if(fault==15 && data_calls==fault_chunk)*actual=n+1;
+        if(fault==16 && data_calls==fault_chunk){*actual=0;phase=2;}
         return true;
     }
     assert(in && n==13); memset(data,0,n);
@@ -116,14 +117,14 @@ static void test_batches(void) {
 }
 static void test_segment_faults(void) {
     static uint8_t buffer[USB_STORAGE_COMMAND_BYTES*2];
-    for(unsigned in=0;in<2;in++)for(unsigned bad=13;bad<=15;bad++)for(unsigned chunk=1;chunk<=4;chunk++) {
+    for(unsigned in=0;in<2;in++)for(unsigned bad=13;bad<=16;bad++)for(unsigned chunk=1;chunk<=4;chunk++) {
         reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
         fault=bad;fault_chunk=chunk;unsigned before=calls;
         uint64_t commands=storage.commands;
         bool ok=in?block.read(&block,0,buffer,sizeof(buffer)):block.write(&block,0,buffer,sizeof(buffer));
         assert(!ok && storage.failed && storage.commands==commands+1 && data_calls==chunk);
         /* Short data proceeds only to CSW; failed/overrun chunks stop at once. */
-        assert(calls-before==1+chunk+(bad==14));
+        assert(calls-before==1+chunk+(bad==14 || bad==16));
         before=calls;
         assert(!block.read(&block,0,buffer,512) && calls==before && !depth && !storage.busy);
     }
