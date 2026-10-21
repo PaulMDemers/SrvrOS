@@ -220,4 +220,29 @@ class FaultResetRecords(unittest.TestCase):
             else:
                 with self.assertRaises(AssertionError):check_fault(blocked,allow_io_halt=True)
 
+RECOVERY=b'''battery-quarantine: owner=7 worker=8 io=0 heap=9000 completed=10; sources=masked retained=yes
+battery-workspace: QUARANTINED descendants=3; clients_retired=yes runtime_retired=NO
+battery-recovery: held=yes generation=2 completed=10 io=0; restart=refused runtime_retired=NO
+'''
+
+class RecoveryRecords(unittest.TestCase):
+    def test_retained_failure_is_not_clean_retirement(self):
+        from battery_workspace_smoke import check_recovery
+        self.assertFalse(check_recovery(RECOVERY)['runtime_retired'])
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        self.assertEqual(check_recovery(io)['io_at_quarantine'],1)
+        for old,new in ((b'owner=7',b'owner=8'),(b'heap=9000',b'heap=0'),(b'held=yes',b'held=NO'),
+                        (b'generation=2',b'generation=3'),(b'descendants=3',b'descendants=2'),
+                        (b'clients_retired=yes',b'clients_retired=NO'),(b'restart=refused',b'restart=allowed'),
+                        (b'worker=8 io=0',b'worker=8 io=1'),(b'io=0; restart',b'io=1; restart')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(old,new))
+        for row in RECOVERY.splitlines(keepends=True):
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(row,b''))
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY+row)
+        for extra in (b'battery: HALTED',b'battery: FAILED',b'battery-service: retired ',b'battery-desktop: PASS',b'battery-quarantine: partial'):
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY+extra+b'\n')
+        for old,new in ((b'before=1',b'before=0'),(b'after=1',b'after=0'),(b'28000100',b'100'),(b'owner_completed=yes',b'owner_completed=NO')):
+            with self.assertRaises(AssertionError):check_recovery(io.replace(old,new))
+
 if __name__=='__main__':unittest.main()

@@ -37,6 +37,14 @@ void scheduler_io_wait(void);
 void scheduler_io_set_user_safe(bool safe);
 void scheduler_user_enter(void);
 void scheduler_yield(void);
+/* CPU0 fatal service boundary only, IRQs already masked, NOT IRQ context.
+ * Atomically retain current+peer kernel service slots/stacks until reboot.
+ * Refuses userspace, idle, stale identities, a storage owner or no idle fallback.
+ * On success only IRQ-masked terminal bookkeeping may precede yielding; caller
+ * must never re-enable IRQs or return on the retained stack.
+ * Does not release device resources, locks or memory. No resume/free operation. */
+bool scheduler_quarantine_service_pair(uint64_t caller, uint64_t peer);
+bool scheduler_service_pair_quarantined(uint64_t caller, uint64_t peer);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);
 void scheduler_kill_user_threads(void *process, void *except_user_thread_context);
