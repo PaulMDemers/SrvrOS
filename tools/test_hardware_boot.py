@@ -193,6 +193,19 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_brightness=True)
         with self.assertRaises(ValueError): boot.stage(desktop_volume="37d8c5d0",desktop_brightness=True)
 
+    def test_wifi_capture_profile(self):
+        version="ram-usb-v39-laptop-probe-37d8c5d0-auto-return"
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config("0123456789abcdef",version)
+        for flag in ("srvros.capture=wifi", "srvros.usb-wifi=probe", "srvros.capture-failure=reboot"):
+            self.assertIn(flag,cfg)
+        for flag in ("srvros.aml", "srvros.audio", "srvros.laptop-services", "srvros.usb-network"):
+            self.assertNotIn(flag,cfg)
+        self.assertNotIn("srvros.usb-wifi",boot.limine_config("0123456789abcdef","ram-usb-v19-laptop-probe-37d8c5d0-auto-return"))
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True)
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True,hold_on_failure=True,laptop_probe_volume="37d8c5d0")
+        with self.assertRaises(ValueError): boot.stage(wifi_capture=True,idle_capture=True,laptop_probe_volume="37d8c5d0")
+
     def test_keyboard_capture_profile(self):
         version="ram-usb-v28-laptop-probe-37d8c5d0"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

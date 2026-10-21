@@ -378,6 +378,16 @@ static volatile bool xhci_input_probe_active;
 
 static bool wifi_probe_enabled;
 void xhci_set_wifi_probe_enabled(bool enabled) { wifi_probe_enabled = enabled; }
+bool xhci_wifi_identity_ready(void) {
+    unsigned found = 0;
+    for (unsigned i = 0; i < XHCI_MAX_DEVICES; ++i) {
+        const struct xhci_device *d = &xhci.devices[i];
+        if (!d->present || !d->wifi_probe_attempted) continue;
+        if (!d->wifi_probe_ok || d->ep0_quarantined) return false;
+        ++found;
+    }
+    return found != 0;
+}
 static bool network_enabled;
 static uint64_t network_count;
 void xhci_set_network_enabled(bool enabled) { network_enabled=enabled; }

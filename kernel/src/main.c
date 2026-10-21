@@ -623,6 +623,7 @@ void kmain(void) {
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
+    bool automatic_wifi=cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
@@ -631,18 +632,23 @@ void kmain(void) {
     if(!automatic_aml && cmdline_has_token(cmdline,"srvros.aml=probe")) aml_probe_run(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response);
     if(cmdline_has_token(cmdline,"srvros.smc=read-only")) smc_init();
     workspace_boot(cmdline);
-    if (automatic_probe) {
+    if (automatic_probe || automatic_wifi) {
         /* Capture enumeration/setup failures even if firmware left a misleading
          * PS/2-ready flag. This unattended profile must not require typing. */
         xhci_print_boot_diagnostic();
         xhci_print_status();
         xhci_print_input_summary();
     }
-    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load) {
+    if(automatic_probe || automatic_idle || automatic_aml || automatic_desktop_idle || automatic_battery || automatic_load || automatic_wifi) {
         console_printf("laptop-capture: boot options=%s\n",cmdline);
         bool started=workspace_active() && workspace_log_start();
         if(started) console_write("laptop-capture: diagnostics collected; physical input acceptance remains pending\n");
         bool sampled=!automatic_idle && !automatic_aml && !automatic_desktop_idle && !automatic_battery && !automatic_load;
+        if(automatic_wifi) {
+            xhci_print_status();
+            sampled=xhci_wifi_identity_ready();
+            console_printf("wifi-capture: identity=%s; connectivity NOT_TESTED\n",sampled?"read":"unavailable");
+        }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && return_on_failure && started) {
             console_write("laptop-capture: preparing unattended battery probe; missing final report means failure\n");

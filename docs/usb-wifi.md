@@ -78,8 +78,14 @@ provider. `xhci-wifi` lines record the raw values, failure and quarantine state
 both at probe time and in the boot diagnostic snapshot. Default boots leave it
 disabled. Read success is not acceptance of the revision or permission to transmit.
 
-No physical result is claimed yet. An immutable automatic-capture profile and
-exact-stage VM rehearsal are still required before installing a native trial.
+No physical result is claimed yet. The immutable v39 capture profile is staged
+with `python3 tools/hardware_boot.py stage --laptop-probe-volume <local-uuid>
+--wifi-capture` (one command). Rehearse with `python3 tools/hardware_boot_smoke.py
+--probe-check --workspace-table gpt` before installing. It saves identity/status
+diagnostics, marks missing or failed identity as `completed=NO`, unmounts and
+returns automatically even on handled failure. QEMU has no captured radio, so
+the rehearsal requires explicit unavailable identity plus saved logs and reset;
+this is a refusal-path pass, not physical identity acceptance.
 Do not detach the adapter from Linux while it carries the development connection.
 
 The firmware parser validates the 32-byte header, little-endian ILM/DLM lengths,

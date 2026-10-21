@@ -1423,3 +1423,11 @@ quarantine. `python3 tools/usb_storage_smoke.py` passes read/write/flush/reload 
 keyboard; docs checks pass. An earlier local VM wrapper accidentally emitted two
 command lines and failed to enable Ethernet; retained as harness failure evidence,
 then corrected to the explicit `--wifi-probe` option with a single command line.
+
+Authorized next run: prepare new immutable v39 Wi-Fi identity auto-capture,
+using main base `7761200`. Scope: staging/profile tests, the capture branch and
+exact-stage VM refusal/persistence checks. Air PR #21 is separate SCI observation;
+its changes are not consumed. Capture reports failure if no matching radio or
+identity read fails, saves diagnostics, and returns on handled failure. No manual
+commands, radio writes or authentication. Preserve Ubuntu and accepted recovery;
+verify actual USB UUID and both filesystem preflights before one-shot reboot.

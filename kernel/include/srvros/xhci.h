@@ -27,6 +27,7 @@ struct xhci_trackpad_capture {
 void xhci_trackpad_snapshot(struct xhci_trackpad_capture *out);
 void xhci_trackpad_reset_capture(void);
 
+bool xhci_wifi_identity_ready(void);
 void xhci_set_wifi_probe_enabled(bool enabled);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);

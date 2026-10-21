@@ -943,6 +943,13 @@ static void test_wifi_probe(void) {
         }
         wifi_test_device = NULL;
     }
+    assert(!xhci_wifi_identity_ready());
+    xhci.devices[0] = (struct xhci_device){.present=true,.wifi_probe_attempted=true,.wifi_probe_ok=true};
+    assert(xhci_wifi_identity_ready());
+    xhci.devices[0].ep0_quarantined=true; assert(!xhci_wifi_identity_ready());
+    xhci.devices[0].ep0_quarantined=false;
+    xhci.devices[1] = (struct xhci_device){.present=true,.wifi_probe_attempted=true};
+    assert(!xhci_wifi_identity_ready());
     xhci_set_wifi_probe_enabled(false);
     puts("xhci-wifi: PASS opt-in, captured profile refusals and two read-only register requests");
 }
