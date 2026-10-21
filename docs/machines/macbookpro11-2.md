@@ -1226,3 +1226,11 @@ shows automatic disconnect and reconnect without F5; the recovered System
 screenshot visibly shows Connected / 1000 Mb/s. This validates the shared UI
 path with e1000, not the native ECM notification timing. Native diagnostics
 remain necessary; source changes are not installed and no reboot is armed.
+
+Proceeding with the bounded UI diagnostic trial. Remote main is now `39b152d`
+(PR9 filesystem exclusion and PR10 FAT batching landed); this trial retains
+its already-tested `76508bf` integration base to isolate the network/UI changes.
+No open overlapping device PR remains. New on-screen completion instructions
+ask for a live System Network cable cycle, fifteen seconds in each state and
+a screenshot if reconnect remains stale. Pending main integration is separate
+from this native comparison; battery remains deferred.
