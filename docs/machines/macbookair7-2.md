@@ -2,6 +2,17 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: returned GPE callback failures
+
+Base `origin/main` `a35cd5e` (PR #37). Add VM-only structured propagation for
+EC query-admission failures from the raw GPE callback, allowing the actual uACPI
+SCI callback to return before retaining noncurrent battery threads. Check balanced
+callback spinlock calls, no queued query, IRQ completion and unrelated storage
+continuation. No nonlocal unwind or arbitrary exception recovery. Native startup
+and mounted Home remain off. Touched: battery runtime/model, disposable VM harness
+and proof-parser tests; no scheduler or upstream interpreter changes planned.
+Pro PR #19 at `10caff8` remains separate Wi-Fi work. No hardware run is pending.
+
 ### IRQ entry fault containment (PR #37)
 
 Base `origin/main` `07dfa77` (merged PR #36). Add a VM-only recovery boundary
