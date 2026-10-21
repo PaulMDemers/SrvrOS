@@ -1064,6 +1064,8 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    int control_manual=argc==2 && !strcmp(argv[1],"--battery-controls-manual");
+    int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
     int coexist_files=argc==2 && !strcmp(argv[1],"--coexist-files");
     int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
@@ -1077,7 +1079,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if((idle_capture || coexist) && !explicit_scale) {
+    if((idle_capture || coexist || control_capture) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1090,7 +1092,7 @@ int main(int argc,char **argv) {
     if (!pixels || desk_canvas_init(&canvas,pixels,width,height,width)!=0) return 1;
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
-    struct session s={.ram_text=coexist_text,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
+    struct session s={.ram_text=coexist_text || control_capture,.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
         .trace=coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
@@ -1110,7 +1112,8 @@ int main(int argc,char **argv) {
     battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-    if(coexist_text) spawn_capture_text(&s,coexist_files);
+    if(control_capture)spawn_app(&s,DESK_APP_SYSTEM,control_manual?"--battery-controls":"--battery-control-capture");
+    else if(coexist_text) spawn_capture_text(&s,coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
@@ -1118,6 +1121,7 @@ int main(int argc,char **argv) {
     /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
      * font-toggle events are not physical keyboard input. */
+    if(control_capture)strcpy(s.scene.notice,control_manual?"Battery controls: use Start/Stop in Sensors. Close System to finish.":"Battery controls: two automatic start/stop cycles. No input needed.");
     if(coexist) strcpy(s.scene.notice,coexist_files?"Battery overlap: Text save/rename/reopen in test image. No input needed.":"Battery overlap: RAM only. No input needed; returns automatically.");
     uint64_t coexist_begin=0,coexist_last=0,coexist_gap=0,coexist_loops=0;
     uint64_t coexist_next=0,coexist_sent=0,coexist_ack=0,coexist_frames=0;
@@ -1143,6 +1147,10 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if(control_capture) {
+            if(s.child_reaped) { if(s.child_reaped!=1 || s.child_errors)failed=1;break; }
+            if((uint64_t)srv_ticks()-start>10000){failed=1;break;}
+        }
         if(coexist) {
             uint64_t now=(uint64_t)srv_monotonic_us();
             if(coexist_last && now-coexist_last>coexist_gap) coexist_gap=now-coexist_last;
@@ -1161,7 +1169,7 @@ int main(int argc,char **argv) {
             }
             if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+4000000) { failed=1;break; }
         }
-        if(apps || coexist)battery_update(&s,0);
+        if(apps || coexist || control_capture)battery_update(&s,0);
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
             io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
@@ -1577,6 +1585,7 @@ int main(int argc,char **argv) {
         }
         if (s.clients[i].pid) forget(&s,i);
     }
+    if(control_capture)desk_log("desktop-controls: completed=%s reaped=%u errors=%u cached_reads=%llu\n",!failed && s.child_reaped==1 && !s.child_errors?"yes":"NO",s.child_reaped,s.child_errors,(unsigned long long)s.battery_reads);
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;
     if(coexist)desk_log("desktop-battery: reads=%llu first_gen=%llu last_gen=%llu cached=yes\n",
         (unsigned long long)s.battery_reads,(unsigned long long)s.battery_first,(unsigned long long)s.battery_last);

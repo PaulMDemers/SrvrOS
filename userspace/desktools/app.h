@@ -13,7 +13,7 @@
 #include <srvros/sys.h>
 #include <srvros/audio_abi.h>
 enum tool_action { TOOL_NEW=1,TOOL_OPEN,TOOL_SAVE,TOOL_PATH,TOOL_BODY,TOOL_UP,TOOL_REFRESH,TOOL_MKDIR,TOOL_LIST,TOOL_NAME,TOOL_PICK_LOCATION,TOOL_PICK_NAME,TOOL_RENAME,TOOL_DUPLICATE,TOOL_DELETE,TOOL_PROMPT,TOOL_BACK,TOOL_FORWARD,TOOL_HOME,TOOL_VOLUME,TOOL_ROOT,TOOL_FIND,TOOL_FIND_NEXT,TOOL_FIND_PREVIOUS,TOOL_FIND_QUERY,TOOL_FIND_CLOSE,TOOL_INFO,TOOL_COPY_PATH,TOOL_REPLACE,TOOL_REPLACEMENT };
-enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK,SYSTEM_DIAGNOSTICS,SYSTEM_DEVICES,SYSTEM_DEVICE_TABLE,SYSTEM_SENSORS,SYSTEM_SENSOR_TABLE };
+enum { SYSTEM_TABLE=40,SYSTEM_PAUSE,SYSTEM_REFRESH,SYSTEM_TABS,SYSTEM_NETWORK_TABLE,SYSTEM_PROCESSES,SYSTEM_NETWORK,SYSTEM_DIAGNOSTICS,SYSTEM_DEVICES,SYSTEM_DEVICE_TABLE,SYSTEM_SENSORS,SYSTEM_SENSOR_TABLE,SYSTEM_BATTERY_START,SYSTEM_BATTERY_STOP };
 enum { SETTINGS_POINTER_SPEED=100,SETTINGS_POINTER_ACCELERATION,SETTINGS_BRIGHTNESS,SETTINGS_DISABLE_WHILE_TYPING,SETTINGS_TAP_CLICK,SETTINGS_TWO_FINGER_TAP,SETTINGS_AUDIO_VOLUME,SETTINGS_AUDIO_SPEAKERS,SETTINGS_AUDIO_HEADPHONES,SETTINGS_AUDIO_TEST,SETTINGS_AUDIO_STOP };
 enum { CALC_EVALUATE=70,CALC_CLEAR,CALC_USE,CALC_COPY,CALC_HISTORY,CALC_KEY_FIRST=300 };
 #define CALC_HISTORY_LIMIT 16
@@ -80,6 +80,10 @@ struct tool {
     char device_values[160][4][64];
     unsigned device_count,device_pci_count,device_usb_count;
     int devices_valid;
+    struct srv_battery_status battery;
+    struct srv_battery_control battery_control;
+    uint64_t battery_refresh_tick;
+    char battery_notice[96];
     struct desk_table sensor_table;
     struct desk_table_row sensor_rows[9];
     char sensor_values[9][64];
@@ -108,6 +112,7 @@ void tool_calculator_layout(struct tool *tool);
 void tool_calculator_draw(struct tool *tool,struct desk_canvas *canvas);
 void tool_calculator_action(struct tool *tool,struct desk_action action);
 int tool_calculator_key(struct tool *tool,const struct srv_key_event *key);
+void tool_battery_capture_tick(struct tool *tool);
 void tool_system_init(struct tool *tool);
 void tool_system_layout(struct tool *tool);
 void tool_system_refresh(struct tool *tool,int force);

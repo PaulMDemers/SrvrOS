@@ -457,12 +457,22 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_controls_result(exit_text):
+    from serial_records import complete_lines
+    from battery_controls_smoke import check
+    if not battery_overlap_recipe(exit_text,'battery-controls'):return None
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    if [r for r in rows if r.startswith('battery-controls-capture:')]!=['battery-controls-capture: returned=yes clean=yes; physical accuracy NOT_TESTED']:return None
+    try:return check(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-app-files-capture: returned=yes clean=NO", "battery-app-files: FAIL", "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
+                        "battery-controls-capture: returned=yes clean=NO", "battery-controls: FAIL", "battery-ui: FAIL", "desktop-controls: completed=NO", "battery-app-files-capture: returned=yes clean=NO", "battery-app-files: FAIL", "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -551,6 +561,9 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        controls_proof=battery_controls_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-controls' in text and controls_proof is None:
+            attention.append('collection: battery controls completion missing or invalid')
         app_files_proof=battery_app_files_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.capture=battery-app-files' in text and app_files_proof is None:
             attention.append('collection: battery application-file completion missing or invalid')
@@ -587,6 +600,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,
             "battery_text": text_proof,

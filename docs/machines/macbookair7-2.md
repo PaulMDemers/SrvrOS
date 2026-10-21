@@ -12,8 +12,34 @@ Validate repeated start/stop, stale epoch rejection, duplicate requests, scope
 revocation and client exit before enabling ordinary workspace access. No native
 register gate, scheduler I/O eligibility or automatic startup change is planned.
 Touched scope: battery owner/control ABI and syscall, shared presentation/System,
-opt-in compositor study and local tests. Pro PR #19 at `c263221` remains Wi-Fi;
+opt-in compositor study, v44 capture/staging/collector and local tests. Pro PR #19 at `c263221` remains Wi-Fi;
 no sibling acceptance is implied. No new physical trial is armed.
+
+### Scoped control candidate (PR #34; native acceptance pending)
+
+System Sensors now has shared Start/Stop presentation backed by a separate bounded
+command syscall and an owner-scoped mailbox. Four requests drive two service
+lifetimes; pending requests, stale epochs and invalid transitions are rejected.
+Client exit revokes admission before owner-controlled service retirement. The
+ordinary kernel offers no control scope and automatic startup stays disabled.
+
+Local Q35 checks pass two complete automatic sessions in the same VM, actual
+pointer Start/Stop/restart and window-close while active, forced compositor exit,
+native platform refusal, and injected live-runtime deadline with automatic reset.
+A replacement compositor succeeds after every clean case. Full host core and
+ordinary/native/VM builds pass. The previous Text file-worker workload and ordinary
+desktop applications also pass, alongside staging/collector and documentation
+checks. The new v44 unattended capture parks the outer
+workspace and saves completion logs only after retirement; it neither opens nor
+rewrites the prior filesystem image. Exact-stage and native acceptance are pending.
+
+Two exploratory fixture problems were retained and corrected: the automatic
+study originally stopped before the injected third-sample fault, and concurrent
+UART output split a short request record. Fault testing now leaves monitoring
+active. Completed VM cases validate the atomic in-memory boot-log records, the
+same source saved by hardware captures; strict proof checks were not relaxed.
+The initial manual fixture also now waits for scope availability and its first
+frame. Ordinary workspace coexistence and attended input/AC accuracy remain open.
 
 ### Current checkpoint: application files and cached battery presentation accepted
 

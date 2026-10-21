@@ -2,6 +2,7 @@
 #include <srvros/thermal.h>
 #include <srvros/smc.h>
 #include <srvros/battery_snapshot.h>
+#include <srvros/battery_control.h>
 #include <srvros/scheduler_abi.h>
 #include <srvros/audio.h>
 #include <srvros/audio_abi.h>
@@ -2483,7 +2484,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
      * Process listing and memory counters are read-only snapshots.
      * Mapping/spawn/kill remain gated. */
     case SYS_GUI_SEND: case SYS_GUI_RECV: case SYS_MOUSE_SCAN:
-    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
+    case SYS_GUI_KEYBOARD_READ: case SYS_GUI_KEYBOARD_MODE: case SYS_GUI_POINTER_CONFIG: case SYS_GUI_BRIGHTNESS: case SYS_AUDIO: case SYS_DEVICE_LIST: case SYS_THERMAL_STATUS: case SYS_BATTERY_STATUS: case SYS_BATTERY_CONTROL: case SYS_AUDIO_STREAM: case SYS_SMC_STATUS:
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
@@ -2508,6 +2509,13 @@ static int64_t syscall_scheduler_status(struct srv_scheduler_status *out,uint64_
         .monotonic_us=timer_monotonic_us(),.sampled_ticks=stats.sampled_ticks,
         .idle_ticks=stats.idle_ticks,.switches=stats.switches,.preemptions=stats.preemptions};
     return copy_to_user(out,&value,sizeof(value))?0:-1;
+}
+
+static int64_t syscall_battery_control(uint64_t operation,uint64_t epoch,struct srv_battery_control *out,uint64_t size) {
+    if(operation>SRV_BATTERY_STOP || size!=sizeof(*out) || !user_buffer_ok(out,sizeof(*out),true))return -1;
+    struct srv_battery_control value;
+    int result=battery_control_request(process_group(process_pid(process_current())),operation,epoch,&value);
+    return copy_to_user(out,&value,sizeof(value))?result:-1;
 }
 
 static int64_t syscall_battery(struct srv_battery_status *out,uint64_t size) {
@@ -2708,6 +2716,9 @@ void syscall_dispatch(struct isr_frame *frame) {
         return;
     case SYS_SCHEDULER_STATUS:
         frame->rax=(uint64_t)syscall_scheduler_status((struct srv_scheduler_status *)frame->rdi,frame->rsi);
+        return;
+    case SYS_BATTERY_CONTROL:
+        frame->rax=(uint64_t)syscall_battery_control(frame->rdi,frame->rsi,(struct srv_battery_control *)frame->rdx,frame->rcx);
         return;
     case SYS_BATTERY_STATUS:
         frame->rax=(uint64_t)syscall_battery((struct srv_battery_status *)frame->rdi,frame->rsi);

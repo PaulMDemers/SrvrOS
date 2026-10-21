@@ -691,3 +691,17 @@ collector requires exact editing and retirement proof, not merely a reboot.
 Follow the [battery capture contract](battery-service.md#native-automatic-text-capture-v41)
 and retain the accepted desktop recovery. Other models must retain their native
 refusal until independently matched and accepted.
+
+### Automatic battery Start/Stop study
+
+The captured Air7,2 can stage v44 with `--laptop-probe-volume <local-volume-id>
+--battery-controls`. Build the native battery kernel and matched userspace first,
+then follow the same exact-stage rehearsal, recovery preservation, run record and
+one-shot boot sequence. This is unattended: keep AC/USB connected and leave input
+alone. System starts, samples and stops twice; the outer workspace stays parked.
+The capture saves logs and returns automatically, including handled failures.
+A contained fault can return without final logs and must be recorded as incomplete.
+Collect the matching `battery_controls` proof and verify unchanged prior USB files
+and offline allocation before accepting the run. v44 does not replace or use the
+old disposable filesystem image. See the [control contract](battery-service.md#scoped-asynchronous-controls-in-development).
+Ordinary desktop battery startup and other models' native gates remain unchanged.

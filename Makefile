@@ -3382,6 +3382,19 @@ test-battery-desktop-records:
 test-core: test-battery-view
 test-battery-view: build/tests/battery-view$(HOST_EXE)
 	$<
-build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h shared/include/srvros/battery_control_abi.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@
+
+.PHONY: test-battery-control
+test-core: test-battery-control
+test-battery-control: build/tests/battery-control$(HOST_EXE)
+	$<
+build/tests/battery-control$(HOST_EXE): tools/test_battery_control.c kernel/src/drivers/battery_control_policy.c kernel/include/srvros/battery_control.h kernel/include/srvros/battery_service.h shared/include/srvros/battery_control_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include tools/test_battery_control.c kernel/src/drivers/battery_control_policy.c -o $@
+
+.PHONY: test-battery-controls-records
+test-core: test-battery-controls-records
+test-battery-controls-records:
+	$(PYTHON) tools/test_battery_controls_records.py

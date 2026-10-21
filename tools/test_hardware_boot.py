@@ -416,6 +416,23 @@ class InstallTests(unittest.TestCase):
         self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
         self.assertEqual(boot.verify(self.stage/staged)['config_version'],version)
 
+    def test_battery_controls_is_automatic_and_native(self):
+        version='ram-usb-v44-laptop-probe-37d8c5d0-auto-return'
+        cfg=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=battery-controls',cfg)
+        self.assertIn('srvros.capture-failure=reboot',cfg)
+        with self.assertRaises(ValueError):boot.stage(battery_controls=True)
+        with self.assertRaises(ValueError):boot.stage(battery_controls=True,laptop_probe_volume='37d8c5d0',hold_on_failure=True)
+        with self.assertRaises(ValueError):boot.stage(battery_controls=True,laptop_probe_volume='37d8c5d0',battery_service=True)
+        with self.assertRaises(ValueError):boot.stage(battery_controls=True,laptop_probe_volume='37d8c5d0',battery_desktop=True)
+        for name,data in {'build/limine-binary/BOOTX64.EFI':b'loader','build/kernel/srvros.elf':b'normal',
+                          'build/acpi-battery/srvros.elf':b'native','build/initramfs.tar':b'init'}.items():
+            path=self.root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
+        with patch.object(boot,'ROOT',self.root),patch.object(boot.subprocess,'check_output',side_effect=['abc',b'']):
+            staged=boot.stage(battery_controls=True,laptop_probe_volume='37d8c5d0')
+        self.assertEqual((self.stage/staged/'srvros.elf').read_bytes(),b'native')
+        self.assertEqual(boot.verify(self.stage/staged)['config_version'],version)
+
     def test_aml_capture_is_explicit_and_separate(self):
         version="ram-usb-v24-laptop-probe-37d8c5d0"
         release=self.payload("aml",version)

@@ -151,6 +151,7 @@ int main(int argc,char **argv) {
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
     int file_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files");
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
+    int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
     unsigned captured=0;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
@@ -167,7 +168,10 @@ int main(int argc,char **argv) {
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_CALCULATOR) tool_calculator_init(t);
     else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
-    else if(t->role==DESK_APP_SYSTEM) tool_system_init(t);
+    else if(t->role==DESK_APP_SYSTEM) {
+        tool_system_init(t);
+        if(argc==3 && !strcmp(argv[2],"--battery-controls")) {desk_tabs_select(&t->system_tabs,SYSTEM_SENSORS);tool_system_layout(t);desk_ui_layout_changed(&t->ui);}
+    }
     while(!t->quit && !t->window.failed && !t->window.closed) {
         if(t->role==DESK_APP_SETTINGS) tool_settings_tick(t);
         if(desk_clipboard_tick(&t->clip,srv_ticks())<0) tool_clipboard_result(t,-1);
@@ -242,6 +246,7 @@ int main(int argc,char **argv) {
         } }
         if(t->closing && !t->job.busy && t->role!=DESK_APP_TEXT) t->quit=1;
         if(t->role==DESK_APP_SYSTEM) tool_system_refresh(t,0);
+        if(battery_capture)tool_battery_capture_tick(t);
         if(t->role==DESK_APP_TEXT && t->title_dirty && t->window.server) {
             const char *name=t->saved_path[0]?strrchr(t->saved_path,'/')+1:"Untitled";char title[88];
             snprintf(title,sizeof(title),"Text — %s%s",name,tool_modified(t)?" *":"");

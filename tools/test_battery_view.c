@@ -28,5 +28,15 @@ int main(void) {
     s.state=SRV_BATTERY_ACTIVE;s.version++;assert(!desk_battery_view(&s).fresh);
     s.version--;s.size--;assert(!desk_battery_view(&s).fresh);
     assert(!desk_battery_view(NULL).fresh);
+    s.version=SRV_BATTERY_VERSION;s.size=sizeof(s);s.state=SRV_BATTERY_STOPPED;s.epoch=7;
+    struct srv_battery_control c={.version=SRV_BATTERY_CONTROL_VERSION,.size=sizeof(c),.epoch=7};
+    assert(!desk_battery_controls(&s,&c).start);
+    c.available=1;assert(desk_battery_controls(&s,&c).start);
+    c.pending=SRV_BATTERY_START;assert(!desk_battery_controls(&s,&c).start && !desk_battery_controls(&s,&c).stop);
+    c.pending=0;s.state=SRV_BATTERY_STARTING;assert(desk_battery_controls(&s,&c).stop);
+    s.state=SRV_BATTERY_ACTIVE;assert(desk_battery_controls(&s,&c).stop);
+    s.state=SRV_BATTERY_STOPPING;assert(!desk_battery_controls(&s,&c).start && !desk_battery_controls(&s,&c).stop);
+    s.state=SRV_BATTERY_STOPPED;c.epoch=6;assert(!desk_battery_controls(&s,&c).start);
+    c.epoch=7;c.result=SRV_BATTERY_CONTROL_FAILED;assert(strstr(desk_battery_controls(&s,&c).message,"failed"));
     puts("battery-view: PASS cached ABI, disabled/stopping, freshness, validity and charge presentation");
 }
