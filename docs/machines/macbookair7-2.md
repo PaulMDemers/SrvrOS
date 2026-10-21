@@ -62,10 +62,10 @@ Validate mmap semantics and repeat overlap/cleanup before attributing the failur
 to this candidate. Keep the existing EC timeout and containment unchanged.
 The repeat VM passed after the single-pass change, including 60 presentations,
 real injected typing, clean battery retirement and replacement compositor startup.
-Extend the implementation to an opt-in v39 laptop probe: `--battery-desktop`,
+Extend the implementation to an opt-in v40 laptop probe: `--battery-desktop`,
 with parked workspace, automatic return, exact-stage refusal rehearsal and strict
 collector pairing. This adds `main.c`, diagnostic header/stub, hardware staging,
-smoke/collection and tests; preserve Pro PR #19's separate desktop recipe.
+smoke/collection and tests; preserve Pro PR #19's reserved v39 laptop Wi-Fi recipe (confirmed in its actual diff).
 The study uses the existing legacy text-input path; rich keyboard-event Text-app
 coexistence and loaded filesystem overlap remain subsequent checks.
 
