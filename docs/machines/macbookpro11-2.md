@@ -1629,3 +1629,13 @@ removed from EFI only after verifying its durable archive; accepted calibration
 payload remains retained. Run record, exact VM receipt, payload and logs are saved
 outside build. Next is the authorized one-shot capture, then matching-session
 collection before any further staging. No physical firmware acceptance yet.
+
+Native firmware trial `6ec5ab2ce67afaee`, session `00065e5f8a2199cf-00`,
+returned with preparation refused (result=1), zero chunks, mac_disabled=0 and
+quarantined=1; overall completed=NO. This is a failed readiness trial, not
+firmware acceptance. Logs archived; Ubuntu default and consumed one-shot verified.
+Offline checks pass: 115 files, 421 clusters, zero leaks/mismatches/errors.
+Next bounded scope: cache and report the last prerequisite register read and
+preparation/reset/upload progress in the explicit diagnostic, without additional
+register operations or relaxing refusal gates. Main remains `84cf41e`; Air PR #34
+owns separate desktop battery controls. No battery changes are needed here.

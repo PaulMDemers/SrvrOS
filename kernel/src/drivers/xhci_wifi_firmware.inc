@@ -61,6 +61,7 @@ static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
     struct usb_setup_packet setup={.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};int actual;
     if(!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual!=4)return wifi_firmware_fail(d);
     for(unsigned i=0;i<4;i++)*value|=(uint32_t)d->descriptor_buffer[i]<<(8*i);
+    d->firmware.last_read_address=address;d->firmware.last_read_value=*value;d->firmware.read_count++;
     if(address==0x238){d->firmware.cfg=*value;d->firmware.cfg_valid=true;}
     if(address==0x9a8){d->firmware.descriptor=*value;d->firmware.descriptor_valid=true;}
     return true;
@@ -167,6 +168,11 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
              * diagnostic; make one bounded attempt to disable MAC again. */
             if(!disabled && wifi_firmware_owned(d))wifi_fw_write(d,0x1004,0x20);
         }
+        /* Report cached state after the attempt, without adding hardware reads or
+         * logging inside readiness polling. This distinguishes refusal gates. */
+        console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",
+            (uint64_t)f->read_count,(uint64_t)f->last_read_address,(uint64_t)f->last_read_value,
+            (uint64_t)f->preparation.prepared,(uint64_t)f->reset_seen,(uint64_t)f->upload.attempted);
         if(status!=MT76_UPLOAD_OK || !disabled){wifi_firmware_fail(d);success=false;}
         console_printf("wifi-firmware: slot=%u result=%u chunks=%u mac_disabled=%u quarantined=%u\n",
             (uint64_t)d->slot_id,(uint64_t)status,(uint64_t)f->chunk,(uint64_t)disabled,(uint64_t)f->failed);

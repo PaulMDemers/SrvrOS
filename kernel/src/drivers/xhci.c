@@ -233,6 +233,7 @@ struct xhci_wifi_firmware {
     const uint8_t *image;
     size_t image_size, chunk;
     uint32_t remaining, cfg, descriptor;
+    uint32_t last_read_address, last_read_value, read_count;
     unsigned phase, completion;
     bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
     struct mt76_prepare_session preparation;
