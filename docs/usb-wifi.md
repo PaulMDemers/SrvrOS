@@ -52,7 +52,7 @@ QEMU USB Ethernet coverage does not emulate this radio. The next implementation
 checkpoint is a documented vendor-control/firmware contract and read-only native
 identity diagnostic; inventory-only groundwork does not need a reboot.
 
-## Implemented protocol contract (host tested)
+## Implemented identity diagnostic (native acceptance pending)
 
 `kernel/src/drivers/mt76_probe.c` implements a transport-independent identity
 probe. It issues exactly two device-recipient vendor IN requests (`c0/07`),
@@ -62,13 +62,25 @@ zero or all-ones register stops immediately, without retries or publishing a
 partial identity. Other register values are reported as raw observations, not
 accepted silicon revisions. The caller must gate on the captured USB topology.
 
-The transport callback must return the **actual** received byte count and bound
-its wait. On failure it must quarantine any DMA still owned by the controller.
-The current xHCI control helper returns only success/failure and accepts short
-completion codes; it cannot yet implement this contract safely. There is no
-native caller, opt-in boot switch or active network provider in this checkpoint.
-The next step is exact-length control completion with short-read and timeout
-fault tests, followed by an opt-in identity-only native profile.
+The xHCI transport uses `ISP` on the single data-stage TRB and `IOC` on the
+status stage. It records a short packet's actual length (including zero), then
+requires successful status completion. Malformed residue, duplicate short events,
+endpoint errors or a bounded-loop timeout quarantine EP0. Its ring/context/buffer
+allocations remain retained, and later control requests cannot reuse them. Other
+slots' transfer events are dispatched normally. Existing control callers retain
+their prior completion behavior; only the diagnostic uses this strict path.
+
+`srvros.usb-wifi=probe` explicitly enables the diagnostic during USB enumeration.
+It requires the captured vendor/product/revision, high speed, EP0 size and exact
+configuration topology. It reads ASIC_VERSION and MAC_CSR0 without selecting a
+configuration, resetting the radio, loading firmware or registering a network
+provider. `xhci-wifi` lines record the raw values, failure and quarantine state
+both at probe time and in the boot diagnostic snapshot. Default boots leave it
+disabled. Read success is not acceptance of the revision or permission to transmit.
+
+No physical result is claimed yet. An immutable automatic-capture profile and
+exact-stage VM rehearsal are still required before installing a native trial.
+Do not detach the adapter from Linux while it carries the development connection.
 
 The firmware parser validates the 32-byte header, little-endian ILM/DLM lengths,
 64-byte initial vector block inside ILM, and exact total file length. It returns
@@ -97,3 +109,5 @@ third-party sources or firmware. Firmware packaging is not part of this change.
 - [Register offsets](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
 - [Firmware header](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_mcu.h)
 - [Vector block size](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/mcu.h)
+
+- [xHCI control transfer semantics, sections 4.11.2 and 6.4.1](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)

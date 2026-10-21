@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+bool mt76_probe_config(const uint8_t *data, size_t size);
+
 struct mt76_identity { uint32_t asic, mac; };
 /* Synchronous transport: exact received length, or negative failure. It must
  * bound its wait and retain/quarantine DMA after timeout. No retries here.

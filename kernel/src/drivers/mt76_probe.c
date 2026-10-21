@@ -39,3 +39,18 @@ bool mt76_firmware_layout(const uint8_t *data, size_t size, struct mt76_firmware
     };
     return true;
 }
+
+/* Captured EW-7711MAC configuration only; no generic vendor-class matching. */
+bool mt76_probe_config(const uint8_t *data, size_t size) {
+    static const uint8_t interface[] = {9,4,0,0,8,255,2,255,0};
+    static const uint8_t endpoints[] = {0x84,0x85,8,4,5,6,7,9};
+    if (!data || size != 74 || data[0] != 9 || data[1] != 2 ||
+        data[2] != 74 || data[3] || data[4] != 1 || data[5] != 1) return false;
+    for (size_t i = 0; i < sizeof interface; ++i) if (data[9+i] != interface[i]) return false;
+    for (size_t i = 0; i < sizeof endpoints; ++i) {
+        const uint8_t *ep = data + 18 + i*7;
+        if (ep[0] != 7 || ep[1] != 5 || ep[2] != endpoints[i] || ep[3] != 2 ||
+            ep[4] || ep[5] != 2 || ep[6] != 1) return false;
+    }
+    return true;
+}

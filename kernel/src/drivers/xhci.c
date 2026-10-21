@@ -3,6 +3,7 @@
 #include <srvros/net_device.h>
 #include <srvros/net.h>
 #include <srvros/usb_ecm.h>
+#include <srvros/mt76_probe.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -226,6 +227,9 @@ struct xhci_trackpad_endpoint {
 
 struct xhci_device {
     bool present;
+    bool ep0_quarantined;
+    bool wifi_probe_attempted, wifi_probe_ok;
+    struct mt76_identity wifi_identity;
     bool addressed;
     bool configured;
     bool hid_keyboard;
@@ -372,6 +376,8 @@ struct xhci_state {
 static struct xhci_state xhci;
 static volatile bool xhci_input_probe_active;
 
+static bool wifi_probe_enabled;
+void xhci_set_wifi_probe_enabled(bool enabled) { wifi_probe_enabled = enabled; }
 static bool network_enabled;
 static uint64_t network_count;
 void xhci_set_network_enabled(bool enabled) { network_enabled=enabled; }
@@ -1187,11 +1193,50 @@ static bool wait_transfer_completion(uint8_t slot_id,
     return false;
 }
 
-static bool control_transfer(struct xhci_device *device,
+/* ISP on the single IN data TRB reports short packets. Status completion
+ * retires the whole control transfer; its residue does not describe data.
+ * A failed/uncertain request permanently retains this slot's DMA allocations. */
+static int wait_control_in(struct xhci_device *device, uint64_t setup_trb,
+    uint64_t data_trb, uint64_t status_trb, uint32_t length) {
+    uint32_t actual = length;
+    bool short_seen = false;
+    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; ++i) {
+        struct xhci_trb event;
+        if (!poll_event(&event)) continue;
+        uint32_t type = (event.control >> 10) & 0x3f;
+        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) continue;
+        uint32_t slot = event.control >> 24, dci = (event.control >> 16) & 31;
+        uint32_t cc = event.status >> 24, residue = event.status & 0xffffff;
+        uint64_t pointer = event.parameter_low | ((uint64_t)event.parameter_high << 32);
+        xhci.transfer_events++;
+        xhci.last_completion_code = cc;
+        xhci.last_slot_id = slot;
+        if (slot != device->slot_id || dci != 1) {
+            dispatch_transfer_event(&event);
+            continue;
+        }
+        if (pointer != setup_trb && pointer != data_trb && pointer != status_trb) continue;
+        if (event.control & (1u << 2)) break; /* Event Data is not used here. */
+        if (pointer == data_trb && cc == 13 && residue <= length && !short_seen) {
+            actual = length - residue;
+            short_seen = true;
+            continue;
+        }
+        if (pointer == status_trb && cc == 1 && residue == 0) return (int)actual;
+        break;
+    }
+    device->ep0_quarantined = true;
+    return -1;
+}
+
+static bool control_transfer_internal(struct xhci_device *device,
     const struct usb_setup_packet *setup,
     uint64_t buffer_phys,
     uint32_t length,
-    bool data_in) {
+    bool data_in, int *actual) {
+    if (actual) *actual = -1;
+    if (device->ep0_quarantined) return false;
+    if (actual && (!data_in || !(setup->request_type & 0x80) || !length || length > PMM_FRAME_SIZE || setup->length != length)) return false;
     uint64_t setup_value =
         (uint64_t)setup->request_type |
         ((uint64_t)setup->request << 8) |
@@ -1207,21 +1252,22 @@ static bool control_transfer(struct xhci_device *device,
             XHCI_TRB_IDT |
             (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
-    (void)ring_push(device->ep0_ring,
+    uint64_t setup_phys = ring_push(device->ep0_ring,
         device->ep0_ring_phys,
         &device->ep0_enqueue,
         &device->ep0_cycle,
         &setup_trb);
 
+    uint64_t data_phys = 0;
     if (length != 0) {
         struct xhci_trb data_trb = {
             .parameter_low = (uint32_t)buffer_phys,
             .parameter_high = (uint32_t)(buffer_phys >> 32),
             .status = length,
             .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
-                (data_in ? XHCI_DATA_DIR_IN : 0),
+                (data_in ? XHCI_DATA_DIR_IN : 0) | (actual ? XHCI_TRB_ISP : 0),
         };
-        (void)ring_push(device->ep0_ring,
+        data_phys = ring_push(device->ep0_ring,
             device->ep0_ring_phys,
             &device->ep0_enqueue,
             &device->ep0_cycle,
@@ -1243,6 +1289,12 @@ static bool control_transfer(struct xhci_device *device,
         &status_trb);
 
     db_write32(device->slot_id, 1);
+    if (actual) {
+        *actual = wait_control_in(device, setup_phys, data_phys, status_phys, length);
+        if (*actual < 0) return false;
+        device->control_success++;
+        return true;
+    }
     uint64_t completion = 0;
     if (!wait_transfer_completion(device->slot_id, 1, status_phys, &completion)) {
         console_printf("xhci: control request=%u failed cc=%u\n",
@@ -1252,6 +1304,45 @@ static bool control_transfer(struct xhci_device *device,
     }
     device->control_success++;
     return true;
+}
+
+static bool control_transfer(struct xhci_device *device,
+    const struct usb_setup_packet *setup, uint64_t buffer_phys,
+    uint32_t length, bool data_in) {
+    return control_transfer_internal(device, setup, buffer_phys, length, data_in, 0);
+}
+
+static int wifi_read_identity(void *context, const uint8_t wire[8], uint8_t data[4]) {
+    struct xhci_device *device = context;
+    if (device->ep0_quarantined) return -1;
+    struct usb_setup_packet setup = {
+        .request_type = wire[0], .request = wire[1],
+        .value = wire[2] | ((uint16_t)wire[3] << 8),
+        .index = wire[4] | ((uint16_t)wire[5] << 8),
+        .length = wire[6] | ((uint16_t)wire[7] << 8),
+    };
+    /* Keep this transport read-only even if a future caller passes bad setup. */
+    if (setup.request_type != 0xc0 || setup.request != 7 || setup.value ||
+        (setup.index != 0 && setup.index != 0x1000) || setup.length != 4) return -1;
+    zero_bytes(device->descriptor_buffer, 4);
+    int actual;
+    if (!control_transfer_internal(device, &setup, device->descriptor_buffer_phys, 4, true, &actual)) return -1;
+    for (int i = 0; i < actual; ++i) data[i] = device->descriptor_buffer[i];
+    return actual;
+}
+
+static bool probe_wifi(struct xhci_device *device, size_t config_size) {
+    if (!wifi_probe_enabled || device->vendor_id != 0x7392 || device->product_id != 0xa711 ||
+        device->device_bcd != 0x0100 || device->speed != 3 || device->ep0_max_packet != 64 ||
+        device->configuration_count != 1 ||
+        !mt76_probe_config(device->descriptor_buffer, config_size)) return false;
+    device->wifi_probe_attempted = true;
+    device->stage = "wifi-identity";
+    device->wifi_probe_ok = mt76_probe_identity(wifi_read_identity, device, &device->wifi_identity);
+    console_printf("xhci-wifi: identity=%s asic=%x mac=%x quarantined=%u (not a network provider)\n",
+        device->wifi_probe_ok ? "read" : "failed", (uint64_t)device->wifi_identity.asic,
+        (uint64_t)device->wifi_identity.mac, (uint64_t)device->ep0_quarantined);
+    return true; /* Never fall through and reuse the probe's DMA buffer. */
 }
 
 static bool get_descriptor(struct xhci_device *device,
@@ -2354,6 +2445,7 @@ static bool enumerate_device(struct xhci_device *device) {
         bool hub_like =
             device->device_class == USB_CLASS_HUB ||
             device->first_interface_class == USB_CLASS_HUB;
+        if (!hub_like && probe_wifi(device, total_length)) return true;
         if (!hub_like && network_enabled && enumerate_network(device,total_length)) return true;
         if (hub_like) {
             xhci.hubs_seen++;
@@ -2767,6 +2859,12 @@ void xhci_print_status(void) {
         if (!device->present) {
             continue;
         }
+        if (device->wifi_probe_attempted) {
+            console_printf("xhci-wifi: slot=%u identity=%s asic=%x mac=%x quarantined=%u\n",
+                (uint64_t)device->slot_id, device->wifi_probe_ok ? "read" : "failed",
+                (uint64_t)device->wifi_identity.asic, (uint64_t)device->wifi_identity.mac,
+                (uint64_t)device->ep0_quarantined);
+        }
         if(device->network) {
             const struct xhci_network *n=device->network;
             console_printf("xhci-network: slot=%u ready=%u link=%s tx=%u rx=%u drops=%u errors=%u notifications=%u queued=%u\n",
@@ -2864,7 +2962,7 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
         if(d->storage.block) bound|=SRV_DEVICE_STORAGE;
         if(d->hub_ports) bound|=SRV_DEVICE_HUB;
         if(d->network && d->network->ready) bound|=SRV_DEVICE_NETWORK;
-        if(d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
+        if(d->ep0_quarantined || d->storage.failed || d->bulk_failed || (d->network && d->network->failed)) bound|=SRV_DEVICE_FAILED;
         *out=(struct srv_device_info){.version=SRV_DEVICE_VERSION,.size=sizeof(*out),.bus_kind=SRV_DEVICE_USB,
             .index=i,.vendor_id=d->vendor_id,.product_id=d->product_id,.revision=d->device_bcd,
             .class_code=d->device_class?d->device_class:d->first_interface_class,

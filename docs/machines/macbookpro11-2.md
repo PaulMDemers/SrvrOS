@@ -16,8 +16,9 @@ Battery work, headphone testing and further trackpad-latency tuning stay deferre
 Ubuntu remains default and no reboot is armed.
 
 Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
-revision `0100`, bound by Linux to `mt76x0u`. Begin captured USB Wi-Fi inventory,
-firmware/protocol research and a separate bounded implementation plan. Preserve
+revision `0100`, bound by Linux to `mt76x0u`. Captured inventory and the opt-in
+identity diagnostic are implemented; native identity acceptance and firmware/
+radio/authentication/UI implementation remain pending. Preserve
 shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
 Air PR #17 concerns SCI controller observation and does not overlap this scope.
 
@@ -1394,3 +1395,31 @@ build success is not hardware acceptance. No firmware is packaged and no Wi-Fi
 connectivity is claimed. Next: exact-byte EP0 completion and timeout ownership
 fixtures before wiring the opt-in native diagnostic. Installed payload/recovery
 remain unchanged, Linux still owns the adapter, and no reboot is armed.
+
+Next bounded checkpoint: consumed main `7761200` (Air SCI evidence only).
+Implement an opt-in `srvros.usb-wifi=probe` identity diagnostic for the captured
+Edimax profile. Shared scope is an isolated strict EP0 IN completion path in
+xHCI, new probe wiring in main, and host transport fixtures. Preserve existing
+control callers. Track short data events through status completion, reject malformed residue,
+and retain/quarantine the slot's EP0 ring and buffer on uncertain completion.
+No firmware upload, transmitter, networking provider or physical boot is armed.
+
+Opt-in identity implementation checkpoint: `srvros.usb-wifi=probe` now gates on
+captured Edimax identity/revision/high-speed/EP0/configuration shape and performs
+only ASIC/MAC vendor reads. Strict EP0 completion retains short-data length until
+successful status; errors/timeouts quarantine the endpoint with DMA retained.
+The diagnostic records raw identity or failure, never an active network provider.
+Native silicon values and physical acceptance remain pending. The next step is
+an immutable automatic-capture profile plus exact-stage VM rehearsal before any
+installation. Current/recovery payloads remain unchanged; no reboot is armed.
+
+Validation: full `make -j2 all usb-image test-core` passes; final guard/refusal
+additions pass `make -j2 all test-xhci`. Host fixtures cover lengths zero through
+four, malformed residue, setup/data/status errors, missing status, stale events,
+duplicate short events, ring wrap, retained DMA and profile/opt-in refusals.
+`python3 tools/usb_ecm_smoke.py --second-usb --wifi-probe` passes DHCP/DNS/HTTP,
+three outage/recovery cycles, 160 UDP echoes, ring wraps, keyboard and disconnect
+quarantine. `python3 tools/usb_storage_smoke.py` passes read/write/flush/reload and
+keyboard; docs checks pass. An earlier local VM wrapper accidentally emitted two
+command lines and failed to enable Ethernet; retained as harness failure evidence,
+then corrected to the explicit `--wifi-probe` option with a single command line.

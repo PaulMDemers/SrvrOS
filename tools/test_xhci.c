@@ -63,7 +63,14 @@ static uint32_t xhci_test_read32(uint64_t offset) {
 
 static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
+static struct xhci_device *wifi_test_device;
+static unsigned wifi_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if (wifi_test_device && offset == xhci.db_base+4 && value == 1) {
+        wifi_doorbells++;
+        uint8_t *p = wifi_test_device->descriptor_buffer;
+        p[0] = 1; p[1] = 0; p[2] = 0x10; p[3] = 0x76;
+    }
     if (mode_device && offset==xhci.db_base+4 && value==1) {
         if (!mode_doorbells) for (unsigned i=0;i<8;i++) mode_device->descriptor_buffer[i]=0x80+i;
         else {
@@ -832,8 +839,118 @@ static void test_device_inventory(void) {
     assert(!xhci_device_snapshot(4,&info) && !xhci_device_snapshot(UINT64_MAX,&info));
 }
 
+static struct xhci_trb control_event(uint64_t pointer, unsigned cc, unsigned residue) {
+    return (struct xhci_trb){.parameter_low = (uint32_t)pointer,
+        .parameter_high = pointer >> 32, .status = (cc << 24) | residue,
+        .control = (32u << 10) | (1u << 24) | (1u << 16) | 1};
+}
+
+static void test_strict_control(void) {
+    for (unsigned wrap = 0; wrap < 2; ++wrap) for (unsigned scenario = 0; scenario < 16; ++scenario) {
+        reset_test();
+        struct xhci_trb ring[64] = {0}, events[64] = {0};
+        uint8_t buffer[64] = {0};
+        unsigned first = wrap ? 61 : 0;
+        uint64_t setup = 0x9000 + first*16, data = setup+16, status = wrap ? 0x9000 : setup+32;
+        struct xhci_device d = {.slot_id = 1, .ep0_ring = ring, .ep0_ring_phys = 0x9000,
+            .ep0_enqueue = first, .ep0_cycle = true, .descriptor_buffer = buffer};
+        xhci.db_base = 0x1000; xhci.rt_base = 0x2000;
+        xhci.event_ring = events; xhci.event_cycle = true;
+        struct usb_setup_packet request = {.request_type = 0xc0, .request = 7, .length = 4};
+        int expected = -1;
+        switch (scenario) {
+        case 0: events[0] = control_event(status, 1, 0); expected = 4; break;
+        case 1: case 2: case 3: case 4:
+            events[0] = control_event(data, 13, scenario);
+            events[1] = control_event(status, 1, 0); expected = 4-scenario; break;
+        case 5: events[0] = control_event(data, 13, 5); break;
+        case 6: events[0] = control_event(setup, 6, 0); break;
+        case 7: events[0] = control_event(data, 6, 0); break;
+        case 8: events[0] = control_event(status, 6, 0); break;
+        case 9: events[0] = control_event(data, 13, 2); break; /* Missing status. */
+        case 10: break; /* No event: bounded timeout. */
+        case 11: events[0] = control_event(status, 1, 1); break;
+        case 12: events[0] = control_event(data, 13, 2);
+            events[1] = events[0]; events[2] = control_event(status, 1, 0); break;
+        case 14: events[0] = control_event(status, 13, 0); break;
+        case 15: events[0] = control_event(status, 1, 0); events[0].control |= 4; break;
+        case 13: /* Stale same-endpoint and unrelated slot events cannot retire us. */
+            events[0] = control_event(0xdead, 1, 0);
+            events[1] = control_event(status, 1, 0); events[1].control ^= 3u << 24;
+            events[2] = control_event(status, 1, 0); expected = 4; break;
+        }
+        int actual = 42;
+        assert(control_transfer_internal(&d, &request, 0xa000, 4, true, &actual) == (expected >= 0));
+        assert(actual == expected && d.ep0_quarantined == (expected < 0));
+        assert(ring[first+1].control & XHCI_TRB_ISP);
+        assert(!(ring[first+1].control & XHCI_TRB_IOC));
+        assert(ring[wrap ? 0 : 2].control & XHCI_TRB_IOC);
+        assert(!freed && d.ep0_ring == ring && d.descriptor_buffer == buffer);
+        if (expected < 0) {
+            uint64_t enqueue = d.ep0_enqueue;
+            assert(!control_transfer(&d, &request, 0xa000, 4, true));
+            uint8_t wire[8] = {0xc0,7,0,0,0,0,4,0}, output[4];
+            buffer[0] = 0x5a;
+            assert(wifi_read_identity(&d, wire, output) == -1);
+            assert(buffer[0] == 0x5a && d.ep0_enqueue == enqueue && !freed);
+        }
+    }
+    puts("xhci-strict-control: PASS full/short/zero, stale events, ring wrap, faults and retained DMA quarantine");
+}
+
+static void test_wifi_probe(void) {
+    uint8_t fixture[92];
+    FILE *file = fopen("tools/fixtures/edimax-7392-a711-usb.bin", "rb");
+    assert(file && fread(fixture, 1, sizeof fixture, file) == sizeof fixture); fclose(file);
+    assert(mt76_probe_config(fixture+18,74));
+    for (unsigned n = 0; n < 74; ++n) assert(!mt76_probe_config(fixture+18,n));
+    for (unsigned n = 9; n < 74; ++n) {
+        fixture[18+n] ^= 1; assert(!mt76_probe_config(fixture+18,74)); fixture[18+n] ^= 1;
+    }
+    for (unsigned fault = 0; fault < 11; ++fault) {
+        reset_test();
+        struct xhci_trb ring[64] = {0}, events[64] = {0};
+        uint8_t buffer[4096] = {0}; memcpy(buffer, fixture+18, 74);
+        struct xhci_device d = {.slot_id = 1, .vendor_id = 0x7392, .product_id = 0xa711,
+            .device_bcd = 0x0100, .speed = 3, .ep0_max_packet = 64, .configuration_count = 1,
+            .ep0_ring = ring, .ep0_ring_phys = 0x9000, .ep0_cycle = true,
+            .descriptor_buffer = buffer, .descriptor_buffer_phys = (uintptr_t)buffer};
+        xhci.db_base = 0x1000; xhci.rt_base = 0x2000; xhci.event_ring = events; xhci.event_cycle = true;
+        events[0] = control_event(0x9020, 1, 0); events[1] = control_event(0x9050, 1, 0);
+        if (fault == 9) {
+            events[1] = control_event(0x9040, 13, 1);
+            events[2] = control_event(0x9050, 1, 0);
+        }
+        if (fault == 10) events[0] = control_event(0x9010, 6, 0);
+        wifi_test_device = &d; wifi_doorbells = 0; xhci_set_wifi_probe_enabled(fault != 1);
+        if (fault == 2) d.vendor_id++;
+        if (fault == 3) d.product_id++;
+        if (fault == 4) d.device_bcd++;
+        if (fault == 5) d.speed = 1;
+        if (fault == 6) buffer[18+2] ^= 1;
+        if (fault == 7) d.ep0_max_packet = 8;
+        if (fault == 8) d.configuration_count = 2;
+        assert(probe_wifi(&d,74) == (fault == 0 || fault >= 9));
+        assert(wifi_doorbells == (fault == 0 || fault == 9 ? 2u : fault == 10 ? 1u : 0u));
+        assert(d.ep0_quarantined == (fault == 10));
+        if (fault) assert(!d.wifi_identity.asic && !d.wifi_identity.mac);
+        assert(d.wifi_probe_ok == (fault == 0));
+        if (!fault) {
+            assert(d.wifi_identity.asic == 0x76100001 && d.wifi_identity.mac == 0x76100001);
+            assert(!d.network && !d.configured);
+            assert(ring[0].parameter_low == 0x000007c0 && ring[0].parameter_high == 0x00040000);
+            assert(ring[3].parameter_high == 0x00041000);
+        }
+        wifi_test_device = NULL;
+    }
+    xhci_set_wifi_probe_enabled(false);
+    puts("xhci-wifi: PASS opt-in, captured profile refusals and two read-only register requests");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_strict_control();
+    test_wifi_probe();
     test_ep0_packet();
     test_network_transport();
     test_device_inventory();
