@@ -1431,3 +1431,20 @@ its changes are not consumed. Capture reports failure if no matching radio or
 identity read fails, saves diagnostics, and returns on handled failure. No manual
 commands, radio writes or authentication. Preserve Ubuntu and accepted recovery;
 verify actual USB UUID and both filesystem preflights before one-shot reboot.
+
+Wi-Fi capture release `5d65ddcc4ccbeaf2`, source `b1aa1ca`, is installed for
+the user-authorized automatic boot. New immutable v39 enables identity reads and
+capture/return only. All 43 installer/profile tests and build/xHCI tests pass.
+Exact-stage GPT rehearsal saved unavailable-radio/`completed=NO` evidence,
+verified offline log bytes and clean exFAT, and reset automatically. The separate
+missing-workspace rehearsal also returned. These are expected VM refusal paths,
+not radio acceptance. Native results remain pending collection after this boot.
+
+Preboot offline fsck and allocation checks pass. Current capture and accepted
+previous recovery are verified; Ubuntu remains default. One obsolete test payload
+was removed from ESP only after every file matched its durable archive. Payload,
+VM receipts, prior-session list, authorization and run/checkpoint records are
+archived outside build. The capture requires no keyboard input. After return,
+collect the new matching session before further work, inspect raw identity and
+quarantine/result markers, verify the consumed one-shot, and repeat offline
+filesystem checks. Battery and radio initialization/authentication remain off.
