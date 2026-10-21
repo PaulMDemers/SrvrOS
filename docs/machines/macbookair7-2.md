@@ -46,6 +46,15 @@ this change does not promise to eliminate every unclaimed IRQ. Pro PR #19 at
 `e9320d9` remains USB Wi-Fi/xHCI/staging work; only additive Makefile tests overlap.
 Ordinary desktop battery remains off; GitHub Actions remain disabled.
 
+Rearm implementation `3129374` (PR #24) passes the latched-delivery/late-arrival
+host model, core suite, native/VM builds and six focused VMs: software-unclaimed,
+normal service, foreign event, isolated filesystem, active filesystem deadline
+with automatic reset, and query deadline containment. The isolated image and
+all outside bytes pass verification. The ordinary kernel is byte-identical to
+PR #23's full-smoke baseline; that unchanged baseline was not rerun. Docs and
+whitespace checks pass. Local evidence and binary hashes are archived outside
+`build`; physical ordering efficacy remains pending a fresh automatic trial.
+
 ### Previous native post-EOI capture accepted
 
 Branch `device/macbookair7-2/sci-controller`, integration base `2c90dfe` (PR #21).
