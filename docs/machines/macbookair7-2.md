@@ -2,7 +2,41 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-### Active scope: passive SCI observation
+Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
+source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
+The isolated workload completed 43 cycles / 774 operations in 60,859,549
+microseconds, with 17,311 USB commands and a 2,796,485-microsecond maximum
+operation. This single run does not attribute timing variation to the observer.
+Both service lifetimes retired with balanced attachments, restored enables and
+zero heap/errors/denials; 62,443 cached reads completed, maximum 18 microseconds.
+
+The ring retained ten callbacks across the two lifetimes, including five
+unclaimed callbacks; 38 older callbacks were overwritten. All five retained
+unclaimed callbacks had complete first-read evidence: EC mask `0x40` was clear
+in status `0xa0`, EC enable was zero, and fixed status `0x8001` did not overlap
+fixed enable `0x20`. Raw and filtered EC bytes agreed. Query work was pending
+before and after each callback. Each followed a handled callback by
+536,339–741,498 microseconds and took 4–5 microseconds. The preceding retained
+handled callbacks saw EC status `0xe0`, enable `0x40`, and scheduled query work.
+Total active deliveries remain 24 handled / 24 unclaimed; no setup/retirement
+or in-flight deliveries remained. This narrows observed callback conditions;
+it does **not** establish an interrupt source, queued-delivery cause or safety
+of ignoring unclaimed interrupts. Keep the actual handler result unchanged.
+
+Exact final image, inner fsck/allocation (75 clusters), outer fsck (187 directories,
+890 files) and outer allocation (1,664 clusters, no leaks/mismatches/errors) passed.
+885 existing files are byte-identical; only the disposable image and root inode
+sidecar changed, with three matching new logs. New Ubuntu boot, consumed one-shot,
+boot default/EFI order and recovery hashes verified. Twenty-nine hashed evidence
+files and the payload are archived outside `build`. Installed is this diagnostic;
+previous accepted desktop remains `b427b78f21644bd2`. No reboot is armed.
+
+Next: bounded controller-delivery/IRQ-return observations alongside query timing.
+The source audit finds EOI after dispatch and a level-triggered SCI route; there
+is no demonstrated ordering repair yet. Ordinary desktop battery remains off;
+input coexistence and physical gauge accuracy remain separate acceptance work.
+
+### Passive SCI observation implementation — October 20
 
 Branch `device/macbookair7-2/sci-observation`, base main `3c1739b`.
 Investigate the repeated 24 handled / 24 unclaimed active SCI deliveries before
@@ -16,10 +50,10 @@ reads as unknown. Timestamps use the existing read-only PM timer. Validate bound
 before a native automatic capture. Implementation `2da3043` passes the host core
 suite, observer unit/record-corruption tests, native/VM builds and all five focused
 VM cases (injected unclaimed, normal service, foreign event, isolated filesystem
-and active deadline). Native observation remains pending. Pro branch inspected at `4f9fa06`; its current
+and active deadline). The native result is recorded above. Pro branch inspected at `4f9fa06`; its current
 scope is post-merge desktop validation, with battery deferred.
 
-Latest accepted **bounded USB data batching**: release `e1ba87c6133b2e9d`,
+Previous accepted **bounded USB data batching**: release `e1ba87c6133b2e9d`,
 merged source `cd732ec` (PR #13, including the Pro PR #5 baseline), session
 `session-00065e50be1d9e42-00`. The automatic run completed 45 cycles / 810
 operations in 60,779,542 microseconds with 18,116 USB commands. Maximum storage
@@ -41,7 +75,7 @@ mismatches or errors. 882 existing files are byte-identical; only the disposable
 image and root inode sidecar changed, with three new matching logs.
 
 New Ubuntu boot, consumed one-shot, boot default/EFI order and recovery hashes
-were verified. Evidence and payload are archived outside `build`. Installed is
+were verified. Evidence and payload are archived outside `build`. At that checkpoint installed was
 `e1ba87c6133b2e9d`; accepted desktop recovery remains `b427b78f21644bd2`.
 No reboot is armed. This accepts the isolated workload and runtime retirement,
 not ordinary desktop battery startup, physical gauge accuracy or input latency.
