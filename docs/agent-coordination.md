@@ -143,6 +143,12 @@ remaining unclaimed SCI deliveries; no sibling EC gate is authorized.
 
 ## CI cadence
 
+The user disabled repository Actions on October 20 to avoid further hosted
+minute consumption. Validate PRs locally and record exact source, commands and
+results before merging; do not re-enable or dispatch Actions. The workflow below
+remains a reference for local coverage if the repository setting stays disabled.
+
+
 The full build/VM baseline runs for pull requests targeting `main`, pushes to
 `main`, and manual dispatch. Ordinary device-branch pushes do not also run a
 second copy. Documentation-only diffs (`docs/**` and Markdown files) skip the

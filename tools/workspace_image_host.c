@@ -14,6 +14,8 @@ static int fd;
 static struct block_device disk;
 static bool mounted, parked, busy, foreign;
 static unsigned writes, flushes, depth, fail_write, crash_write, fail_flush;
+static unsigned fat_writes;
+static uint64_t fat_start, fat_end;
 void *kmalloc(uint64_t n){return malloc(n);}
 void *kcalloc(uint64_t n,uint64_t s){return calloc(n,s);}
 void kfree(void *p){free(p);}
@@ -41,6 +43,7 @@ static bool raw_write(struct block_device *d,uint64_t o,const void *p,uint64_t n
     assert(o>=image.offset&&o-image.offset<=WORKSPACE_IMAGE_BYTES&&
         n<=WORKSPACE_IMAGE_BYTES-(o-image.offset));
     writes++;
+    if(o < fat_end && o+n > fat_start) fat_writes++;
     if(writes==fail_write)return false;
     if(pwrite(fd,p,n,o)!=(ssize_t)n)return false;
     if(writes==crash_write){fsync(fd);_exit(77);}
@@ -122,7 +125,20 @@ int main(int argc,char **argv){
     if(argc>3)fail_write=(unsigned)strtoul(argv[3],NULL,10);
     if(argc>4)crash_write=(unsigned)strtoul(argv[4],NULL,10);
     if(argc>5)fail_flush=(unsigned)strtoul(argv[5],NULL,10);
-    bool ok=workspace_image_cycle(0);
+    bool ok;
+    if(!strcmp(argv[2],"profile")) {
+        uint8_t boot[512];assert(raw_read(&disk,image.offset,boot,sizeof(boot)));
+        uint32_t fat_lba=0,fat_sectors=0;
+        for(unsigned i=0;i<4;i++) {fat_lba|=(uint32_t)boot[80+i]<<(8*i);fat_sectors|=(uint32_t)boot[84+i]<<(8*i);}
+        fat_start=image.offset+(uint64_t)fat_lba*512;fat_end=fat_start+(uint64_t)fat_sectors*512;
+        ok=true;
+        for(unsigned i=0;i<WORKSPACE_IMAGE_STEPS&&ok;i++) {
+            unsigned w=writes,f=flushes,fw=fat_writes;
+            ok=workspace_image_step(0,&complete);
+            printf("image step=%u writes=%u fat_writes=%u flushes=%u\n",i,writes-w,fat_writes-fw,flushes-f);
+        }
+        assert(complete);
+    } else ok=workspace_image_cycle(0);
     if(fail_write||fail_flush){
         if(!ok){
             assert(!workspace_image_ready());
