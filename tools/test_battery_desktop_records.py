@@ -1,7 +1,7 @@
 import unittest
-from battery_desktop_smoke import check_capture, check_text_capture
+from battery_desktop_smoke import check_capture, check_text_capture, check_load_capture
 from test_sci_observe_records import BASE as SCI
-from hardware_desktop import battery_desktop_result, battery_text_result, needs_attention
+from hardware_desktop import battery_desktop_result, battery_text_result, battery_load_result, needs_attention
 
 BASE = SCI + b'''battery-desktop: started pid=4 epoch=2 generation=1 start_us=1000 storage=ram
 desktop-coexist: completed=yes start_us=2000 end_us=60002000 loops=6000 max_gap_us=12000 generated=60 presented=60 frames=61 storage=ram
@@ -93,5 +93,43 @@ class TextCoexistRecords(unittest.TestCase):
             with self.assertRaises(AssertionError):check_text_capture(TEXT+line)
         with self.assertRaises(AssertionError):check_text_capture(TEXT+b'desktools: file-result role=text\n')
         with self.assertRaises(AssertionError):check_text_capture(TEXT.rstrip(b'\n'))
+
+LOAD = b'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=2097152 bytes=16777216; unmounted=yes aliases=revoked\n'+TEXT
+LOAD += b'workspace-image: revoked clean=yes\n'
+LOAD += b'battery-filesystem: PASS cycles=10 commands=1000 busy_cycles=2 progress_bursts=10 bursts=180 max_burst_us=60000 elapsed_us=60598500 steps=180 max_step_us=50000 slowest_step=1 profile=1; retired=yes revoked=yes\n'
+LOAD += b'battery-filesystem-profile: cycle=1 step=1 elapsed_us=50000 io_us=0\n'
+LOAD += b''.join(f'battery-filesystem-phase: phase={i} reads=0 read_bytes=0 read_us=0 read_max_us=0 writes=0 write_bytes=0 write_us=0 write_max_us=0 flushes=0 flush_us=0 flush_max_us=0\n'.encode() for i in range(4))
+LOAD += b'battery-text-load: PASS epoch=2 start_us=1000 end_us=60600000 first_step_us=1500 last_step_us=60600000; retired=yes revoked=yes\n'
+
+class LoadCoexistRecords(unittest.TestCase):
+    def test_complete_load(self):
+        result=check_load_capture(LOAD)
+        self.assertEqual(result['filesystem']['cycles'],10)
+        self.assertEqual(result['overlap_us'],60000000)
+        prefix=b'laptop-capture: boot options=srvros.capture=battery-load\n'
+        tail=b'battery-load-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+        self.assertIsNotNone(battery_load_result((prefix+LOAD+tail).decode()))
+        for data in (LOAD,prefix+LOAD,LOAD+tail,prefix+LOAD+tail.rstrip(b'\n'),prefix+LOAD+tail+tail,
+                     (prefix+LOAD+tail).replace(b'srvros.capture=battery-load',b'srvros.capture=battery-load-other')):
+            self.assertIsNone(battery_load_result(data.decode()))
+        self.assertTrue(needs_attention('battery-text-load: FAIL outcome=filesystem retirement'))
+        self.assertTrue(needs_attention('battery-load-capture: returned=yes clean=NO'))
+
+    def test_reject_sequential_or_incomplete_load(self):
+        changes=((b'first_step_us=1500',b'first_step_us=59000000'),
+                 (b'last_step_us=60600000',b'last_step_us=1000000'),
+                 (b'epoch=2 start_us=1000 end_us=60600000',b'epoch=3 start_us=1000 end_us=60600000'),
+                 (b'elapsed_us=60598500',b'elapsed_us=60000000'),
+                 (b'steps=180',b'steps=179'),(b'progress_bursts=10',b'progress_bursts=0'),
+                 (b'busy_cycles=2',b'busy_cycles=0'),(b'revoked clean=yes',b'revoked clean=NO'),
+                 (b'hex=4141',b'hex=4142'))
+        for old,new in changes:
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_load_capture(LOAD.replace(old,new))
+        for prefix in (b'workspace-image: prepared',b'workspace-image: revoked',b'battery-filesystem: PASS',b'battery-text-load: PASS'):
+            row=next(r for r in LOAD.splitlines(keepends=True) if r.startswith(prefix))
+            with self.assertRaises(AssertionError):check_load_capture(LOAD.replace(row,b''))
+            with self.assertRaises(AssertionError):check_load_capture(LOAD+row)
+        with self.assertRaises(AssertionError):check_load_capture(LOAD.rstrip(b'\n'))
 
 if __name__=='__main__':unittest.main()

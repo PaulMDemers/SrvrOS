@@ -1071,9 +1071,9 @@ bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response 
 bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return service_test(rsdp,map,false,false,2);
 }
-/* The first coexistence capture intentionally has no storage workload. The
- * compositor runs its RAM-only study and retires its own client; this owner
- * monitors it independently and retains the runtime until process cleanup. */
+/* The compositor owns its RAM-only client. The diagnostic owner can interleave
+ * one exclusive image operation per iteration, releasing I/O exclusion before
+ * waiting or process cleanup. Keep the runtime and lease until all users retire. */
 static bool desktop_children_stop(uint64_t parent) {
     bool live=false;
     uint64_t index=0,pid,owner;const char *state;
@@ -1083,12 +1083,17 @@ static bool desktop_children_stop(uint64_t parent) {
     }
     return !live;
 }
-static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text) {
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem) {
     const char *failure="workspace mounted";
     struct battery_service_status before={0},after={0};
     uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
     bool started=false,reaped=false,ok=false;
+    uint64_t first_step=0,last_step=0,workload_end=0;
     if(workspace_active())goto done;
+    if(filesystem) {
+        failure="filesystem preparation";
+        if(!workspace_image_ready() || !usb_read_prepare())goto done;
+    }
     failure="start";
     if(!battery_service_start(rsdp,map))goto done;
     started=true;
@@ -1111,14 +1116,31 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
         if(after.flags&BATTERY_CACHE_SAMPLING)busy++;
         failure="service progress";
         if(after.state!=BATTERY_SERVICE_ACTIVE || after.epoch!=before.epoch || after.rejected || after.sample.generation<before.sample.generation)goto done;
-        int64_t waited=process_wait(pid,&status,true);
-        if(waited==(int64_t)pid){reaped=true;break;}
-        if(waited<0){failure="desktop ownership";goto done;}
+        if(!reaped) {
+            int64_t waited=process_wait(pid,&status,true);
+            if(waited==(int64_t)pid){reaped=true;end=timer_monotonic_us();}
+            else if(waited<0){failure="desktop ownership";goto done;}
+        }
+        if(reaped && (!filesystem || (timer_monotonic_us()-first_step>=60000000 && !workspace_image_pending())))break;
         if(timer_monotonic_us()>=deadline){failure="desktop deadline";goto done;}
+        if(filesystem) {
+            if(reaped && status!=0){failure="desktop completion";goto done;}
+            failure="filesystem step";
+            if(!first_step)first_step=timer_monotonic_us();
+            if(!usb_read_burst(3))goto done;
+            last_step=timer_monotonic_us();
+            if(fault==3 && usb_read_test.steps>=3){failure="filesystem abort fixture";goto done;}
+        }
         uacpi_kernel_sleep(10);
     }
-    end=timer_monotonic_us();failure="desktop completion";
+    workload_end=timer_monotonic_us();failure="desktop completion";
     ok=status==0 && end>=start+59000000 && after.sample.generation>=before.sample.generation+10 && busy>0 && (after.flags&BATTERY_CACHE_FRESH);
+    if(ok && filesystem) {
+        failure="filesystem progress";
+        ok=usb_read_test.reads>=2 && usb_read_test.busy>0 && usb_read_test.progress>0 &&
+            usb_read_test.commands>=usb_read_test.reads*3 && usb_read_test.steps==usb_read_test.reads*WORKSPACE_IMAGE_STEPS &&
+            last_step>=first_step+59000000 && !workspace_image_pending();
+    }
 done:
     /* No process or client may outlive the capture and access the remounted
      * workspace. Kill only this study's children; it cannot launch descendants. */
@@ -1134,25 +1156,48 @@ done:
         }
     }
     if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
+    if(filesystem && workspace_image_busy() && !workspace_image_close()) {ok=false;failure="filesystem retirement";}
     /* Defer the saved start record until competing process/runtime writers stop. */
     if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=ram\n",pid,before.epoch,before.sample.generation,start);
     console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
         ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
+    if(filesystem) {
+        if(ok) {
+            console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u profile=1; retired=yes revoked=yes\n",
+                usb_read_test.reads,usb_read_test.commands,usb_read_test.busy,usb_read_test.progress,
+                usb_read_test.bursts,usb_read_test.max_us,workload_end-first_step,usb_read_test.steps,
+                usb_read_test.max_step_us,usb_read_test.slowest_step);
+            filesystem_profile_print();
+        }
+        if(ok)console_printf("battery-text-load: PASS epoch=%u start_us=%u end_us=%u first_step_us=%u last_step_us=%u; retired=yes revoked=yes\n",
+            before.epoch,start,workload_end,first_step,last_step);
+        else console_printf("battery-text-load: FAIL outcome=%s\n",failure);
+    }
     return ok;
 }
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,false);
+    return desktop_test(rsdp,map,0,false,false);
 }
 bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true);
+    return desktop_test(rsdp,map,0,true,false);
+}
+bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return desktop_test(rsdp,map,0,true,true);
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
+    bool desktop_load=command_is(args,"battery-text-load") || command_is(args,"battery-text-load-missing") ||
+        command_is(args,"battery-text-load-timeout") || command_is(args,"battery-text-load-abort");
+    if(desktop_load) {
+        (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            command_is(args,"battery-text-load-missing")?1:command_is(args,"battery-text-load-timeout")?2:
+            command_is(args,"battery-text-load-abort")?3:0,true,true);return;
+    }
     bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");
     if(desktop_text || command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             (command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-text-missing"))?1:
-            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text);return;
+            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text,false);return;
     }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");

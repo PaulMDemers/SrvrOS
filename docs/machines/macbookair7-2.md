@@ -2,6 +2,19 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: Text, filesystem and battery coexistence
+
+Starting at `8211ec1` (PR #30), combine the accepted RAM Text script with the
+existing exclusive filesystem-image workload in the bounded diagnostic owner.
+Touched subsystems: runtime owner, opt-in v42 boot/staging, collection proof and
+VM fixtures. Reuse per-operation I/O exclusion and lease cleanup; no scheduler,
+filesystem format, desktop defaults or native model-gate changes are planned.
+Pro PR #19 inspected at `e9320d9`; preserve its v39 Wi-Fi scope. Validate normal,
+injected input, cancellation/deadline, unavailable platform and runtime fault
+paths in disposable VMs before native staging. Native preparation must archive
+the used image and provision a fresh fixture with independent outer allocation
+checks. No physical run is armed by this scope notice.
+
 ### Current checkpoint: native full Text/battery RAM overlap accepted
 
 Release `2fd49386c4ecf0d9`, source `01e64a9` (merged PR #29), session

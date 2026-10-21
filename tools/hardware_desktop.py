@@ -268,14 +268,14 @@ def battery_filesystem_profile(lines, cycles, slowest, maximum):
                 scope='callback wall time includes admitted services; not CPU or input latency')
 
 
-def battery_filesystem_result(exit_text, require_service=True):
+def battery_filesystem_result(exit_text, require_service=True, desktop=False):
     """Completion of the isolated image workload, not general desktop acceptance."""
     if require_service and battery_service_result(exit_text) is None:return None
     lines=exit_text.splitlines()
     prepared=[r for r in lines if r.startswith('workspace-image: prepared ')]
     revoked=[r for r in lines if r.startswith('workspace-image: revoked ')]
     rows=[r for r in lines if r.startswith('battery-filesystem:')]
-    summaries=[r for r in lines if r.startswith('battery-service-test: PASS reads=')]
+    summaries=[r for r in lines if r.startswith('battery-text-load: PASS ' if desktop else 'battery-service-test: PASS reads=')]
     if any(len(r)!=1 for r in (prepared,revoked,rows,summaries)):return None
     extent=re.fullmatch(r'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d{1,20}) bytes=16777216; unmounted=yes aliases=revoked',prepared[0])
     proof=re.fullmatch(r'battery-filesystem: PASS cycles=(\d{1,20}) commands=(\d{1,20}) busy_cycles=(\d{1,20}) progress_bursts=(\d{1,20}) bursts=(\d{1,20}) max_burst_us=(\d{1,20}) elapsed_us=(\d{1,20})(?: steps=(\d{1,20}) max_step_us=(\d{1,20}) slowest_step=(\d{1,20}))?(?: profile=(1))?; retired=yes revoked=yes',rows[0])
@@ -435,12 +435,22 @@ def battery_text_result(exit_text):
     return battery_overlap_result(exit_text,text=True)
 
 
+def battery_load_result(exit_text):
+    from serial_records import complete_lines
+    from battery_desktop_smoke import check_load_capture
+    if not battery_overlap_recipe(exit_text,'battery-load'):return None
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    if [r for r in rows if r.startswith('battery-load-capture:')]!=['battery-load-capture: returned=yes clean=yes; physical accuracy NOT_TESTED']:return None
+    try:return check_load_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
+                        "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -529,6 +539,15 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        load_proof=battery_load_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-load' in text and load_proof is None:
+            attention.append('collection: Text/filesystem overlap completion missing or invalid')
+        if load_proof:
+            try:
+                load_proof['image_sha256']=verify_battery_image(workspace,load_proof['filesystem'],saved)
+                load_proof['image_verified']=True
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                attention.append("collection: "+str(error));load_proof=None
         desktop_proof=battery_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         text_proof=battery_text_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.capture=battery-text' in text and text_proof is None:
@@ -546,6 +565,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_load": load_proof,
             "battery_text": text_proof,
             "battery_desktop": desktop_proof,
             "battery_filesystem": image_proof,
