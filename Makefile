@@ -3377,3 +3377,11 @@ build/tests/ec-query-rearm-host$(HOST_EXE): tools/test_ec_query_rearm.c ports/sr
 test-core: test-battery-desktop-records
 test-battery-desktop-records:
 	$(PYTHON) tools/test_battery_desktop_records.py
+
+.PHONY: test-battery-view
+test-core: test-battery-view
+test-battery-view: build/tests/battery-view$(HOST_EXE)
+	$<
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@

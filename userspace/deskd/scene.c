@@ -181,9 +181,11 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         if(s->notifications.opened || unread) desk_fill(c,alerts,desk_theme_quiet.selected);
         if(unread) snprintf(label,sizeof(label),"Alerts %u",unread);else strcpy(label,"Alerts");
         desk_label_draw(c,(struct desk_rect){alerts.x+6,12,alerts.w-12,24},&desk_font_16,label,desk_theme_quiet.text);
+        if(s->battery[0]) desk_label_draw(c,(struct desk_rect){alerts.x-144,12,140,24},&desk_font_16,s->battery,desk_theme_quiet.muted);
         int clock_width=desk_text_width(&desk_font_16,s->clock);
         desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
+    if(!s->apps && s->battery[0])desk_label_draw(c,(struct desk_rect){c->width-180,12,164,24},&desk_font_16,s->battery,desk_theme_quiet.muted);
     if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->notice[0]?s->notice:s->trackpad_trial==3?s->io_status:
         s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":

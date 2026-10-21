@@ -149,7 +149,8 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    int coexist=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture");
+    int file_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files");
+    int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
     unsigned captured=0;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
@@ -159,7 +160,7 @@ int main(int argc,char **argv) {
     desk_text_buffer_init(&t->name_text,t->name_store[0],t->name_store[1],128);
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
-    if(!coexist && (t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES)) t->worker_ready=desk_file_job_init(&t->job)==0;
+    if((!coexist || file_capture) && (t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES)) t->worker_ready=desk_file_job_init(&t->job)==0;
     desk_log("desktools: starting role=%s\n",roles[t->role-1]);
     if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
     if(t->role==DESK_APP_TEXT) tool_text_init(t,!coexist && argc>2?argv[2]:"");
@@ -194,8 +195,10 @@ int main(int argc,char **argv) {
             } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
             else if(p.type==DESK_KEY) {
                 struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k);
-                if(coexist && p.input_serial && p.input_serial<=60 && p.input_serial%12==0 && captured<5)
-                    capture_states[captured++]=capture_state(t,p.input_serial);
+                if(coexist && p.input_serial && p.input_serial<=60 && p.input_serial%12==0 && captured<5) {
+                    if(file_capture) tool_file_capture_begin(t,p.input_serial);
+                    else capture_states[captured++]=capture_state(t,p.input_serial);
+                }
             }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
@@ -231,7 +234,11 @@ int main(int argc,char **argv) {
         }
         if(t->job.busy) { int result=desk_file_job_poll(&t->job);if(result) {
             desk_log("desktools: file-result role=%s op=%u status=%u bytes=%u\n",roles[t->role-1],t->job.request.operation,t->job.response.status,t->job.response.length);
-            if(t->picker_job) tool_picker_finish(t,result);else if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
+            if(file_capture && tool_file_capture_busy()) {
+                tool_file_capture_finish(t,result);
+                if(!tool_file_capture_busy() && !t->window.failed && captured<5)
+                    capture_states[captured++]=capture_state(t,t->window.input_serial);
+            } else if(t->picker_job) tool_picker_finish(t,result);else if(t->role==DESK_APP_TEXT) tool_text_finish(t,result);else tool_files_finish(t,result);
         } }
         if(t->closing && !t->job.busy && t->role!=DESK_APP_TEXT) t->quit=1;
         if(t->role==DESK_APP_SYSTEM) tool_system_refresh(t,0);
@@ -247,7 +254,8 @@ int main(int argc,char **argv) {
     if(coexist) {
         for(unsigned i=0;i<captured;i++) capture_print("checkpoint",capture_states[i]);
         capture_print("final",capture_state(t,t->window.input_serial));
-        desk_log("text-coexist: file_worker=%s checkpoints=%u\n",t->worker_ready?"UNEXPECTED":"disabled",captured);
+        desk_log("text-coexist: file_worker=%s checkpoints=%u\n",file_capture?(t->worker_ready?"enabled":"MISSING"):(t->worker_ready?"UNEXPECTED":"disabled"),captured);
+        if(file_capture) { tool_file_capture_report();if(tool_file_capture_cycles()!=5 || tool_file_capture_busy()) t->window.failed=1; }
     }
     free(t->body_history);
     if(t->worker_ready) desk_file_job_close(&t->job);

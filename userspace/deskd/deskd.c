@@ -1,3 +1,4 @@
+#include <srvros/desk_battery.h>
 #include <srvros/desk_log.h>
 #include <srvros/desk_paths.h>
 #include <srvros/desktop_apps.h>
@@ -49,6 +50,7 @@ struct session {
     struct client clients[DESKD_WINDOWS];
     uint64_t children[DESKD_WINDOWS];
     int child_apps[DESKD_WINDOWS],exiting,ram_text;
+    uint64_t battery_tick,battery_reads,battery_first,battery_last;
     struct desktop_preferences_store preferences;
     uint64_t clock_tick,exit_wait;
     int trace,pointer_blocked,overlay_return,overlay_down;
@@ -263,9 +265,9 @@ static void spawn_client(struct session *s) {
         return;
     }
 }
-/* Diagnostic Text has no file worker and cannot launch descendants. */
-static void spawn_capture_text(struct session *s) {
-    char *argv[]={"/fat/bin/desktools","text","--coexist-capture",NULL};
+/* Diagnostic Text uses either RAM only or its normal asynchronous file worker. */
+static void spawn_capture_text(struct session *s,int files) {
+    char *argv[]={"/fat/bin/desktools","text",files?"--coexist-files":"--coexist-capture",NULL};
     char *env[]={"HOME=" DESK_RAM_HOME,"SRVROS_DESKTOP_HOME=" DESK_RAM_HOME,NULL};
     struct srv_exec_request request={.path=argv[0],.argv=argv,.envp=env,.flags=SRV_EXEC_BACKGROUND,
         .stdin_fd=-1,.stdout_fd=-1,.stderr_fd=-1};
@@ -334,6 +336,23 @@ static void global_menu_damage(struct session *s) {
         s->menu_visible.w+=3;s->menu_visible.h+=4;desk_damage_add(&s->damage,s->menu_visible);
     }
 }
+static void battery_update(struct session *s,int force) {
+    uint64_t now=srv_ticks();
+    if(!force && now-s->battery_tick<100)return;
+    s->battery_tick=now;
+    struct srv_battery_status value={0};
+    long result=srv_battery_status(&value);
+    struct desk_battery_view view=desk_battery_view(result?NULL:&value);
+    if(view.fresh) {
+        s->battery_reads++;
+        if(!s->battery_first)s->battery_first=value.generation;
+        s->battery_last=value.generation;
+    }
+    if(strcmp(view.label,s->scene.battery)) {
+        strcpy(s->scene.battery,view.label);
+        desk_damage_add(&s->damage,(struct desk_rect){0,0,s->damage.width,44});
+    }
+}
 static void clock_update(struct session *s,int force) {
     if(!s->scene.apps) return;
     uint64_t now=srv_ticks();
@@ -346,7 +365,7 @@ static void clock_update(struct session *s,int force) {
     calendar_today_update(s,us<0?-1:us/1000000);
     if(strcmp(clock,s->scene.clock)) {
         strcpy(s->scene.clock,clock);
-        int reserve=s->damage.width<1000?284:434;
+        int reserve=s->damage.width<1000?428:578;
         desk_damage_add(&s->damage,(struct desk_rect){s->damage.width-reserve,0,reserve,44});
     }
 }
@@ -414,7 +433,7 @@ static void global_menu_rebuild(struct session *s) {
     }
     uint64_t owner=s->scene.focus>=0?s->clients[s->scene.focus].pid:0;
     if(s->scene.menu.font && owner==s->menu_owner) desk_menu_replace(&s->scene.menu,items,count);
-    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-(s->damage.width<1000?284:434),44},
+    else desk_menu_configure(&s->scene.menu,items,count,(struct desk_rect){10,0,s->damage.width-(s->damage.width<1000?428:578),44},
         (struct desk_rect){0,0,s->damage.width,s->damage.height},&desk_font_16);
     s->menu_owner=owner;
     global_menu_damage(s);
@@ -1045,7 +1064,8 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
-    int coexist_text=argc==2 && !strcmp(argv[1],"--coexist-text");
+    int coexist_files=argc==2 && !strcmp(argv[1],"--coexist-files");
+    int coexist_text=coexist_files || (argc==2 && !strcmp(argv[1],"--coexist-text"));
     int coexist=coexist_text || (argc==2 && !strcmp(argv[1],"--coexist-capture"));
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
@@ -1087,17 +1107,18 @@ int main(int argc,char **argv) {
     desk_damage_init(&s.damage,width,height);
     if(apps) { desktop_preferences_init_path(&s.preferences,(hardware_trial || idle_capture)?DESKTOP_WORKSPACE_PREFERENCES_PATH:DESKTOP_PREFERENCES_PATH);
         pointer_preferences(&s);clock_update(&s,1); }
+    battery_update(&s,1);
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-    if(coexist_text) spawn_capture_text(&s);
+    if(coexist_text) spawn_capture_text(&s,coexist_files);
     else if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
-    /* RAM-only diagnostic: no app menus, preferences, Home or screenshot jobs.
+    /* Diagnostic: no app menus, preferences, Home or screenshot jobs.
      * The study client exercises independent IPC/surface publication. Generated
      * font-toggle events are not physical keyboard input. */
-    if(coexist) strcpy(s.scene.notice,"Battery overlap: RAM only. No input needed; returns automatically.");
+    if(coexist) strcpy(s.scene.notice,coexist_files?"Battery overlap: Text save/rename/reopen in test image. No input needed.":"Battery overlap: RAM only. No input needed; returns automatically.");
     uint64_t coexist_begin=0,coexist_last=0,coexist_gap=0,coexist_loops=0;
     uint64_t coexist_next=0,coexist_sent=0,coexist_ack=0,coexist_frames=0;
     int coexist_complete=0,coexist_script_done=0;
@@ -1129,7 +1150,7 @@ int main(int argc,char **argv) {
             if(!coexist_begin) {
                 if(s.scene.windows[0].pixels && s.clients[0].generation) {
                     coexist_begin=now;coexist_next=now;coexist_frames=frames;
-                    desk_log("desktop-coexist: ready start_us=%llu storage=ram generated=%s\n",(unsigned long long)now,coexist_text?"text-edit":"font-toggle");
+                    desk_log("desktop-coexist: ready start_us=%llu storage=%s generated=%s\n",(unsigned long long)now,coexist_files?"image":"ram",coexist_text?"text-edit":"font-toggle");
                 } else if((uint64_t)srv_ticks()-start>=500) { failed=1;break; }
             } else if(!s.clients[0].pid || !s.scene.windows[0].pixels) { failed=1;break; }
             if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<60000000 && (!coexist_text || coexist_sent<60)) {
@@ -1140,6 +1161,7 @@ int main(int argc,char **argv) {
             }
             if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+4000000) { failed=1;break; }
         }
+        if(apps || coexist)battery_update(&s,0);
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
             io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
@@ -1556,15 +1578,17 @@ int main(int argc,char **argv) {
         if (s.clients[i].pid) forget(&s,i);
     }
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;
-    if(coexist_text) desk_log("desktop-text: generated=%llu presented=%llu keyboard_sent=%llu keyboard_presented=%llu storage=ram\n",
+    if(coexist)desk_log("desktop-battery: reads=%llu first_gen=%llu last_gen=%llu cached=yes\n",
+        (unsigned long long)s.battery_reads,(unsigned long long)s.battery_first,(unsigned long long)s.battery_last);
+    if(coexist_text) desk_log("desktop-text: generated=%llu presented=%llu keyboard_sent=%llu keyboard_presented=%llu storage=%s\n",
         (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,
-        (unsigned long long)coexist_keys,(unsigned long long)coexist_key_ack);
+        (unsigned long long)coexist_keys,(unsigned long long)coexist_key_ack,coexist_files?"image":"ram");
     if(coexist) {
         if(!coexist_complete) failed=1;
-        desk_log("desktop-coexist: completed=%s start_us=%llu end_us=%llu loops=%llu max_gap_us=%llu generated=%llu presented=%llu frames=%llu storage=ram\n",
+        desk_log("desktop-coexist: completed=%s start_us=%llu end_us=%llu loops=%llu max_gap_us=%llu generated=%llu presented=%llu frames=%llu storage=%s\n",
             failed?"NO":"yes",(unsigned long long)coexist_begin,(unsigned long long)coexist_end,
             (unsigned long long)coexist_loops,(unsigned long long)coexist_gap,
-            (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,(unsigned long long)(frames-coexist_frames));
+            (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,(unsigned long long)(frames-coexist_frames),coexist_files?"image":"ram");
     }
     if(apps) {
         if(s.preferences.dirty) desk_log("deskd: preferences were not fully saved (status=%u)\n",s.preferences.status);

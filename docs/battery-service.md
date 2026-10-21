@@ -990,3 +990,38 @@ only the intended image and workspace metadata changed, with three new logs.
 The one-shot was consumed and Ubuntu recovery verified. This closes bounded
 combined-load acceptance on this unit; ordinary desktop battery remains off.
 See the [unit record](machines/macbookair7-2.md) for retained evidence and limits.
+
+
+### Application file worker and cached presentation (v43)
+
+`--battery-app-files` uses a fresh exclusive image and the real Text file worker.
+Every twelfth generated edit saves `AA`, stats and renames the document through
+`deskfs`, clears the editor, then reopens and verifies it. Five cycles leave only
+`text-1.txt` through `text-5.txt` in the fixture alongside its original anchors.
+The image also contains the normal `.srvros/meta` sidecar; offline verification
+requires exactly the expected paths, unique inode identities, modes and link counts.
+Normal open resets the caret/anchor to zero; the capture verifies that behavior.
+It acknowledges the generated edit only after reopening, while still rendering
+intermediate progress. This tests application syscalls and asynchronous worker
+IPC; it does not mount the ordinary Home volume alongside the runtime.
+
+The diagnostic owner retains descendant identities, including Text's worker,
+until they exit before stopping the service and revoking the image. Existing
+workload and retirement deadlines remain bounded. VM failure paths must prove
+cleanup and a replacement compositor; unsafe native retirement retains contained
+reset behavior. Missing final evidence is never acceptance.
+
+`SYS_BATTERY_STATUS` returns version 1 of `srv_battery_status`: a bounded copy of
+the cache, with explicit state, validity, freshness, sample generation/age, AC,
+SOC and unit-bearing battery values. It performs no hardware work. The ordinary
+kernel's disabled provider returns unavailable data without activating EC/AML.
+The shared battery presentation helper labels disabled, starting, stopping,
+stale and unavailable states. Only a current valid SOC becomes a live percentage;
+charging/discharging also requires valid signed current. The compositor polls
+once per second and updates its status label only when the text changes. System’s
+Sensors page uses the same cached view; neither UI starts the service.
+
+This is the first part of desktop battery integration. Explicit user start/stop,
+ordinary workspace coexistence and attended input/AC acceptance are still pending;
+automatic battery startup stays disabled. Do not infer physical acceptance from
+VM screenshots. Rehearse the exact native payload before installing v43.

@@ -15,11 +15,41 @@ battery startup remains disabled, and attended input/AC acceptance stays separat
 Planned shared edits: battery diagnostic owner, Text/compositor diagnostic modes,
 file-worker validation, cached ABI/UI and local VM harnesses; staging/collection
 only after the application path passes. Preserve the existing v40–42 profiles.
-Pro PR #19 inspected at `b132e1d` owns v39 Wi-Fi work; preserve its main/staging,
+Pro PR #19 inspected at `c263221` owns v39 Wi-Fi work; preserve its main/staging,
 Makefile and xHCI changes. No sibling hardware gates or source are changed here.
 No physical reboot is armed. Current accepted payload/recovery remain below.
 
-### Current checkpoint: combined Text/filesystem/battery milestone accepted
+### Application file/cached battery checkpoint (PR #33)
+
+Opt-in v43 `--battery-app-files` exercises Text's normal asynchronous file worker:
+60 generated edits, five saves/stats/guarded renames/reopens into distinct files,
+and final `AA` with caret/anchor zero after normal Open. The owner retains all
+three process identities through retirement before revoking the exclusive image.
+The outer workspace stays parked. A versioned read-only battery syscall supplies
+the shared desktop label and System Sensors row; UI reads never start EC/AML work.
+Explicit lifecycle controls and ordinary workspace coexistence are still pending.
+
+The final automatic and injected VM runs passed all 20 worker operations, exact
+file contents and metadata, unchanged bytes outside the image, offline allocation
+and a replacement compositor. The injected run acknowledged all 44 key events.
+Missing-program, deadline, early-exit, platform-refusal and active-runtime-fault
+fixtures passed their expected cleanup/containment checks. These are VM results,
+not physical input latency or native v43 acceptance. Automatic startup stays off.
+
+Exploratory failures are retained locally: stale ISO userspace (the harness now
+uses the explicit matching initramfs), a fixture's incorrect post-Open caret
+expectation, and a checker that omitted normal `.srvros/meta`. The final checker
+requires exact sidecar paths, unique inode identities, modes and link counts;
+it does not ignore extra files. Existing retirement deadlines remain unchanged.
+
+Final local validation also passed the previous combined-load VM (78 filesystem
+cycles), ordinary desktop application regression, all/native/VM builds, full host
+core, final System test, 46 staging tests, 15 collector tests and 13 strict record/
+metadata tests. Desktop screenshots were inspected for the active and disabled
+battery states. v43 exact-stage rehearsal and native acceptance follow separately.
+Actions remain disabled; all validation is local.
+
+### Previous accepted checkpoint: combined Text/filesystem/battery milestone
 
 Release `c3746988ed5c0d5b`, source `421a69b` (merged PR #31), session
 `session-00065e5e243ecee0-00` passed the automatic v42 hardware trial and returned
