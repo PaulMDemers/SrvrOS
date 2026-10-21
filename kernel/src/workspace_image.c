@@ -7,11 +7,14 @@
 #include <srvros/process.h>
 #include <srvros/scheduler.h>
 #include <srvros/console.h>
+#include <srvros/timer.h>
 #include <stddef.h>
 #include <stdint.h>
 
 static struct {
     bool open, poisoned, mounted, workload_failed;
+    bool profiling, profile_valid;
+    struct workspace_image_profile profile;
     uint64_t cycle;
     unsigned step;
     struct block_device *volume, *parent;
@@ -47,15 +50,29 @@ static bool valid_io(struct block_device *d, uint64_t off, const void *p, uint64
         off <= WORKSPACE_IMAGE_BYTES && n <= WORKSPACE_IMAGE_BYTES - off &&
         !(off % d->block_size) && !(n % d->block_size);
 }
+static void profile_io(enum exfat_io_phase phase, enum workspace_image_io op,
+    uint64_t bytes, uint64_t start) {
+    if (!image.profiling) return;
+    struct workspace_image_io_sample *s=&image.profile.io[phase][op];
+    uint64_t elapsed=timer_monotonic_us()-start;
+    s->count++;s->bytes+=bytes;s->total_us+=elapsed;
+    if(elapsed>s->max_us)s->max_us=elapsed;
+}
 static bool image_read(struct block_device *d, uint64_t off, void *p, uint64_t n) {
     if (!valid_io(d, off, p, n)) return false;
+    enum exfat_io_phase phase=exfat_io_phase(d);
+    uint64_t start=image.profiling?timer_monotonic_us():0;
     bool ok = image.parent->read(image.parent, image.offset + off, p, n);
+    profile_io(phase,WORKSPACE_IMAGE_READ,n,start);
     if (!ok) image.poisoned = true;
     return ok;
 }
 static bool image_write(struct block_device *d, uint64_t off, const void *p, uint64_t n) {
     if (!valid_io(d, off, p, n) || !image.mounted) return false;
+    enum exfat_io_phase phase=exfat_io_phase(d);
+    uint64_t start=image.profiling?timer_monotonic_us():0;
     bool ok = image.write(image.parent, image.offset + off, p, n);
+    profile_io(phase,WORKSPACE_IMAGE_WRITE,n,start);
     /* The parent cache must never retain bytes changed through this view. */
     block_forget(image.parent);
     if (!ok) image.poisoned = true;
@@ -63,7 +80,10 @@ static bool image_write(struct block_device *d, uint64_t off, const void *p, uin
 }
 static bool image_flush(struct block_device *d) {
     if (d != &image.view || !workspace_image_ready()) return false;
+    enum exfat_io_phase phase=exfat_io_phase(d);
+    uint64_t start=image.profiling?timer_monotonic_us():0;
     bool ok = image.flush(image.parent);
+    profile_io(phase,WORKSPACE_IMAGE_FLUSH,0,start);
     if (!ok) image.poisoned = true;
     return ok;
 }
@@ -74,6 +94,7 @@ static void revoke(void) {
     image.view.read = NULL; image.view.write = NULL; image.view.flush = NULL;
     image.write = NULL; image.flush = NULL;
     image.open = false; image.volume = NULL; image.parent = NULL;
+    image.profiling=false;image.profile_valid=false;
 }
 static bool marker_valid(void) {
     static const char expected[] = "SRVROS-BATTERY-FS-V1\n";
@@ -106,6 +127,7 @@ bool workspace_image_open(void) {
     image.volume = volume; image.parent = parent; image.offset = raw;
     image.write = write; image.flush = flush; image.open = true;
     image.cycle = 0; image.step = 0; image.workload_failed = false;
+    image.profiling=false;image.profile_valid=false;
     image.view = (struct block_device){.used=true, .name="battery-image",
         .block_size=parent->block_size, .block_count=WORKSPACE_IMAGE_BYTES/parent->block_size,
         .max_transfer_bytes=4096, .read=image_read};
@@ -180,6 +202,9 @@ bool workspace_image_step(uint64_t cycle, bool *complete) {
     bool ok = false;
     if (!workspace_image_ready() || !image.mounted || image.workload_failed ||
         cycle != image.cycle || cycle == UINT64_MAX) goto out;
+    image.profile=(struct workspace_image_profile){.cycle=cycle,.step=image.step};
+    image.profile_valid=false;image.profiling=true;
+    uint64_t started=timer_monotonic_us();
     switch (image.step) {
     case 0:
         ok = cycle || (!vfs_lookup(dir) && exfat_create_directory(dir));
@@ -205,6 +230,8 @@ bool workspace_image_step(uint64_t cycle, bool *complete) {
     case 17: ok = image_flush(&image.view); break;
     default: break;
     }
+    image.profile.elapsed_us=timer_monotonic_us()-started;
+    image.profiling=false;image.profile_valid=ok;
     if (!ok) image.workload_failed = true;
     else if (++image.step == WORKSPACE_IMAGE_STEPS) {
         image.step = 0; image.cycle++; *complete = true;
@@ -216,4 +243,9 @@ bool workspace_image_cycle(uint64_t cycle) {
     bool complete = false;
     while (!complete) if (!workspace_image_step(cycle, &complete)) return false;
     return true;
+}
+
+bool workspace_image_last_profile(struct workspace_image_profile *out) {
+    if (!out || !image.open || !image.profile_valid || image.profiling) return false;
+    *out=image.profile;return true;
 }

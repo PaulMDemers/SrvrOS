@@ -14,7 +14,9 @@ static int fd;
 static struct block_device disk;
 static bool mounted, parked, busy, foreign;
 static unsigned writes, flushes, depth, fail_write, crash_write, fail_flush;
-static unsigned fat_writes;
+static unsigned fat_writes, reads;
+static uint64_t mock_us;
+uint64_t timer_monotonic_us(void){return mock_us;}
 static uint64_t fat_start, fat_end;
 void *kmalloc(uint64_t n){return malloc(n);}
 void *kcalloc(uint64_t n,uint64_t s){return calloc(n,s);}
@@ -36,20 +38,21 @@ bool block_raw_range(struct block_device *d,uint64_t o,uint64_t n,struct block_d
 }
 static bool raw_read(struct block_device *d,uint64_t o,void *p,uint64_t n){
     assert(d==&disk&&o<=block_device_size(d)&&n<=block_device_size(d)-o);
+    reads++;mock_us+=5;
     return pread(fd,p,n,o)==(ssize_t)n;
 }
 static bool raw_write(struct block_device *d,uint64_t o,const void *p,uint64_t n){
     assert(d==&disk&&parked&&!mounted&&!disk.write&&!disk.flush);
     assert(o>=image.offset&&o-image.offset<=WORKSPACE_IMAGE_BYTES&&
         n<=WORKSPACE_IMAGE_BYTES-(o-image.offset));
-    writes++;
+    writes++;mock_us+=7;
     if(o < fat_end && o+n > fat_start) fat_writes++;
     if(writes==fail_write)return false;
     if(pwrite(fd,p,n,o)!=(ssize_t)n)return false;
     if(writes==crash_write){fsync(fd);_exit(77);}
     return true;
 }
-static bool raw_flush(struct block_device *d){assert(d==&disk);flushes++;return flushes!=fail_flush&&fsync(fd)==0;}
+static bool raw_flush(struct block_device *d){assert(d==&disk);flushes++;mock_us+=11;return flushes!=fail_flush&&fsync(fd)==0;}
 bool block_read(struct block_device *d,uint64_t o,void *p,uint64_t n){
     if(!d||!d->read||o>block_device_size(d)||n>block_device_size(d)-o)return false;
     if(!(o%512)&&!(n%512))return d->read(d,o,p,n);
@@ -103,6 +106,8 @@ int main(int argc,char **argv){
     assert(!image_write(&image.view,0,NULL,512));
     assert(!image_write(&disk,0,data,512));
     assert(writes==before&&workspace_image_ready());
+    struct workspace_image_profile prof;
+    assert(!workspace_image_last_profile(&prof)&&!workspace_image_last_profile(NULL));
     bool complete=true;
     assert(!workspace_image_step(1,&complete)&&!complete&&!workspace_image_pending());
     assert(!workspace_image_step(0,NULL));
@@ -118,7 +123,9 @@ int main(int argc,char **argv){
             before=writes;
             assert(!workspace_image_step(complete?0:1,&complete)&&!complete&&writes==before);
         }
+        assert(exfat_io_phase(&image.view)==EXFAT_IO_METADATA);
         assert(workspace_image_close()&&!depth);
+        assert(!workspace_image_last_profile(&prof));
         before=writes;assert(!workspace_image_step(0,&complete)&&!complete&&writes==before);
         close(fd);puts("image: clean pause/revocation");return 0;
     }
@@ -133,15 +140,30 @@ int main(int argc,char **argv){
         fat_start=image.offset+(uint64_t)fat_lba*512;fat_end=fat_start+(uint64_t)fat_sectors*512;
         ok=true;
         for(unsigned i=0;i<WORKSPACE_IMAGE_STEPS&&ok;i++) {
-            unsigned w=writes,f=flushes,fw=fat_writes;
+            unsigned w=writes,f=flushes,fw=fat_writes,rd=reads;
             ok=workspace_image_step(0,&complete);
+            assert(ok&&workspace_image_last_profile(&prof)&&prof.step==i&&prof.cycle==0);
+            assert(exfat_io_phase(&image.view)==EXFAT_IO_METADATA);
+            uint64_t counts[3]={0},times=0;
+            for(unsigned phase=0;phase<EXFAT_IO_PHASE_COUNT;phase++)for(unsigned op=0;op<WORKSPACE_IMAGE_IO_COUNT;op++) {
+                struct workspace_image_io_sample *sample=&prof.io[phase][op];
+                counts[op]+=sample->count;times+=sample->total_us;
+                assert(sample->total_us==sample->count*(op==0?5:op==1?7:11));
+                assert(sample->max_us==(sample->count?(op==0?5:op==1?7:11):0));
+            }
+            assert(counts[0]==reads-rd&&counts[1]==writes-w&&counts[2]==flushes-f);
+            assert(times==prof.elapsed_us);
+            if(i==1)assert(prof.io[EXFAT_IO_DATA][WORKSPACE_IMAGE_WRITE].count>=65&&
+                prof.io[EXFAT_IO_ALLOCATE][WORKSPACE_IMAGE_WRITE].count>0&&
+                prof.io[EXFAT_IO_METADATA][WORKSPACE_IMAGE_FLUSH].count>0);
             printf("image step=%u writes=%u fat_writes=%u flushes=%u\n",i,writes-w,fat_writes-fw,flushes-f);
         }
         assert(complete);
     } else ok=workspace_image_cycle(0);
+    assert(exfat_io_phase(&image.view)==EXFAT_IO_METADATA);
     if(fail_write||fail_flush){
         if(!ok){
-            assert(!workspace_image_ready());
+            assert(!workspace_image_ready()&&!workspace_image_last_profile(&prof));
             before=writes;assert(!workspace_image_cycle(1)&&writes==before);
         }
         assert(!workspace_image_close()&&workspace_image_busy()&&!image.open);

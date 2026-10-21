@@ -78,6 +78,7 @@ struct exfat_name_entry {
 } __attribute__((packed));
 
 struct exfat_volume {
+    enum exfat_io_phase io_phase;
     const uint8_t *image;
     struct block_device *device;
     uint64_t image_size;
@@ -131,6 +132,13 @@ struct exfat_mount {
 };
 
 static struct exfat_mount mounts[EXFAT_MAX_VOLUMES];
+enum exfat_io_phase exfat_io_phase(const struct block_device *device) {
+    if (device) for (unsigned i=0;i<EXFAT_MAX_VOLUMES;i++)
+        if (mounts[i].used && mounts[i].volume.device==device)
+            return mounts[i].volume.io_phase;
+    return EXFAT_IO_METADATA;
+}
+
 static bool metadata_syncing;
 static char metadata_buffer[EXFAT_METADATA_MAX_BYTES];
 
@@ -1323,7 +1331,7 @@ static uint16_t entry_set_checksum(const uint8_t *entries, uint64_t entry_count)
     return checksum;
 }
 
-static bool write_file_data(struct exfat_file *file, const uint8_t *data, uint64_t size) {
+static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, uint64_t size) {
     if (file != NULL && size == 0) {
         return true;
     }
@@ -1378,6 +1386,15 @@ static bool write_file_data(struct exfat_file *file, const uint8_t *data, uint64
 
     kfree(cluster_buffer);
     return true;
+}
+
+static bool write_file_data(struct exfat_file *file, const uint8_t *data, uint64_t size) {
+    struct exfat_volume *volume=file?file->volume:NULL;
+    enum exfat_io_phase previous=volume?volume->io_phase:EXFAT_IO_METADATA;
+    if(volume)volume->io_phase=EXFAT_IO_DATA;
+    bool ok=write_file_data_impl(file,data,size);
+    if(volume)volume->io_phase=previous;
+    return ok;
 }
 
 static bool update_file_length(struct exfat_file *file, const char *path, uint64_t size) {
@@ -1520,7 +1537,7 @@ static uint64_t allocation_bitmap_bytes(const struct exfat_volume *volume) {
     return bytes;
 }
 
-static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
+static bool allocate_contiguous_clusters_impl(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
     if (volume->allocation_bitmap_cluster < 2 || count == 0 || first_cluster == NULL) {
         return false;
     }
@@ -1575,6 +1592,12 @@ static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t c
     return false;
 }
 
+static bool allocate_contiguous_clusters(struct exfat_volume *volume, uint64_t count, uint32_t *first_cluster) {
+    enum exfat_io_phase previous=volume->io_phase;volume->io_phase=EXFAT_IO_ALLOCATE;
+    bool ok=allocate_contiguous_clusters_impl(volume,count,first_cluster);
+    volume->io_phase=previous;return ok;
+}
+
 static void clear_fat_entries(struct exfat_volume *volume, const uint32_t *clusters, uint64_t count) {
     uint8_t fat_entry[4];
     write_u32(fat_entry, 0);
@@ -1586,7 +1609,7 @@ static void clear_fat_entries(struct exfat_volume *volume, const uint32_t *clust
     }
 }
 
-static bool allocate_fragmented_clusters(struct exfat_volume *volume,
+static bool allocate_fragmented_clusters_impl(struct exfat_volume *volume,
     uint64_t count,
     uint32_t *first_cluster,
     bool *no_fat_chain) {
@@ -1657,6 +1680,13 @@ static bool allocate_fragmented_clusters(struct exfat_volume *volume,
     return true;
 }
 
+static bool allocate_fragmented_clusters(struct exfat_volume *volume, uint64_t count,
+    uint32_t *first_cluster, bool *no_fat_chain) {
+    enum exfat_io_phase previous=volume->io_phase;volume->io_phase=EXFAT_IO_ALLOCATE;
+    bool ok=allocate_fragmented_clusters_impl(volume,count,first_cluster,no_fat_chain);
+    volume->io_phase=previous;return ok;
+}
+
 static bool allocate_clusters(struct exfat_volume *volume,
     uint64_t count,
     uint32_t *first_cluster,
@@ -1676,7 +1706,7 @@ static bool allocate_clusters(struct exfat_volume *volume,
     return allocate_fragmented_clusters(volume, count, first_cluster, no_fat_chain);
 }
 
-static bool free_file_clusters(struct exfat_file *file) {
+static bool free_file_clusters_impl(struct exfat_file *file) {
     if (file == NULL ||
         file->volume == NULL ||
         file->volume->allocation_bitmap_cluster < 2 ||
@@ -1739,6 +1769,15 @@ static bool free_file_clusters(struct exfat_file *file) {
     }
     bool ok = volume_write(volume, bitmap_offset, bitmap, volume->cluster_size);
     kfree(bitmap);
+    return ok;
+}
+
+static bool free_file_clusters(struct exfat_file *file) {
+    struct exfat_volume *volume=file?file->volume:NULL;
+    enum exfat_io_phase previous=volume?volume->io_phase:EXFAT_IO_METADATA;
+    if(volume)volume->io_phase=EXFAT_IO_FREE;
+    bool ok=free_file_clusters_impl(file);
+    if(volume)volume->io_phase=previous;
     return ok;
 }
 

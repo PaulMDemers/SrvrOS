@@ -173,6 +173,29 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Large-write profiling — October 20
+
+Branch `device/macbookair7-2/write-profiling` starts from merged main `9d9c72e`.
+Pro scope inspected at `992e8b9` concerns network UI repaint/integration, with battery
+work deferred. Air scope: read-only exFAT phase labels, per-operation bounded
+image callback timing, diagnostic battery reporting, collector and host/VM
+fixtures. Keep mutation order, flush barriers, I/O admission and model gates
+unchanged while measuring allocation/data/free/metadata read/write/flush costs.
+Record the slowest operation without printing inside its measured interval.
+I/O durations include any admitted service execution; scope wall time is not
+an input-latency measurement. After local validation, use a fresh automatic
+native diagnostic to identify the next targeted change. Ordinary desktop
+battery startup remains disabled. Actions remains disabled; validate locally.
+
+Implementation `e1dce19` passed ordinary/native/Q35 builds; deterministic callback
+accounting; 265 write-failure, 265 power-cut, 72 flush-failure and 19 pause/revoke
+boundaries; generic exFAT hardening; collector and documentation checks. Five
+Q35 cases passed: isolated workload, setup/active deadlines, generic filesystem
+and write failure. The profiled VM completed 78 cycles with clean payload/tree
+and allocation checks. These are VM results; native profiling is pending in
+PR #12. The remaining long write and unclaimed SCI cause are still open.
+
+
 ### Contiguous FAT write batching — October 20
 
 Branch `device/macbookair7-2/fat-write-batching` consumes PR #9 source
