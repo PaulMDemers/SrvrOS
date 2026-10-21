@@ -31,6 +31,17 @@ battery startup remains disabled. Next validate the rich Text keyboard-event
 path in RAM, then combine the isolated disposable filesystem workload; retain
 separate attended input acceptance.
 
+### Active scope: full Text input in RAM
+
+From actual `main` at `3b20bfb`, extend the opt-in runtime/VM capture to the
+real Text application and rich keyboard events. Touch compositor diagnostic
+routing, Text diagnostic snapshots, runtime monitor entry points and VM/checker
+tests. Keep the accepted v40 study profile unchanged; no native staging yet.
+Disable the diagnostic Text file worker and app launching, retain normal editing
+and clipboard logic, and require semantic editing results plus presentation
+acknowledgements. Cover normal/early-exit/deadline/unavailable/fault retirement.
+Pro PR #19 remains `e9320d9` with no overlap in these files. Actions remain off.
+
 ### Previous checkpoint: EC GPE rearm ordering accepted for the bounded trial
 
 Release `54dce7fb0a41b718`, source `b7bd60c` (merged PR #24), session

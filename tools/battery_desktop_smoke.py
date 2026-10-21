@@ -17,7 +17,7 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 
 
-def check_capture(data):
+def check_capture(data, text=False):
     """Require actual overlapping intervals and completed client presentations."""
     data=complete_lines(data)
     for prefix in (b'battery-desktop: started ',b'battery-desktop: PASS ',b'desktop-coexist: completed=',b'battery-service: retired '):
@@ -33,7 +33,11 @@ def check_capture(data):
     assert last>=first+10 and reads>=busy>0
     assert begin<=ustart<uend<=end and uend-ustart>=60000000
     assert loops>55 and 0<gap<=end-begin and sent==shown>=55 and frames>=shown
-    assert b'deskclient: exited ' in data and b'deskclient: FAIL' not in data
+    if text:
+        assert data.count(b'desktools: exited role=text failure=0')==1
+        assert b'desktools: exited role=text failure=1' not in data
+    else:
+        assert b'deskclient: exited ' in data and b'deskclient: FAIL' not in data
     assert b'deskd: exited ' in data and b'deskd: FAIL' not in data
     assert b'battery-desktop: FAIL' not in data and b'battery: HALTED' not in data
     assert re.search(rb'battery-service: retired epoch='+str(epoch).encode()+rb' attempts=\d+ rejected=0 queries=\d+ notifications=\d+ attached=1 detached=1 heap=0 errors=0 denied=0\r?$',data,re.MULTILINE)
@@ -45,12 +49,42 @@ def check_capture(data):
                 physical_input='not tested',storage='RAM only')
 
 
+def check_text_capture(data, injected=False):
+    result=check_capture(data,text=True)
+    rows=re.findall(rb'^text-coexist: checkpoint serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
+    assert len(rows)==5 and sum(line.startswith(b'text-coexist: checkpoint ') for line in data.splitlines())==5
+    for i,row in enumerate(rows):
+        assert tuple(map(int,row[:5]))==((i+1)*12,2,2,2,0) and row[5]==b'4141',row
+    finals=re.findall(rb'^text-coexist: final serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
+    progress=re.findall(rb'^desktop-text: generated=(\d+) presented=(\d+) keyboard_sent=(\d+) keyboard_presented=(\d+) storage=ram\r?$',data,re.MULTILINE)
+    assert len(finals)==len(progress)==1
+    for prefix in (b'text-coexist: final ',b'desktop-text: generated=',b'text-coexist: file_worker='):
+        assert sum(line.startswith(prefix) for line in data.splitlines())==1
+    sent,shown,keys,acked=map(int,progress[0]);assert sent==shown==60 and keys==acked
+    expected=b'5a625a62' if injected else b'4141';length=len(expected)//2
+    final=finals[0];assert tuple(map(int,final[1:5]))==(length,length,length,0) and final[5]==expected,final
+    assert int(final[0])==(1000+keys if keys else 60) and (keys>0)==injected
+    assert data.count(b'text-coexist: file_worker=disabled checkpoints=5')==1
+    assert b'desktools: file-result' not in data
+    result.update(application='Text',script_checkpoints=5,final_hex=expected.decode(),keyboard_events=keys,keyboard_presented=acked)
+    return result
+
+
+def chord(qmp,key,*modifiers):
+    for down,names in ((True,(*modifiers,key)),(False,(key,*reversed(modifiers)))):
+        qmp.call('input-send-event',{'events':[{'type':'key','data':{'down':down,'key':{'type':'qcode','data':name}}} for name in names]})
+        time.sleep(.06)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal','runtime-fault'),default='normal')
+    parser.add_argument('--text',action='store_true',help='Exercise the real Text app and rich keyboard input in RAM')
+    parser.add_argument('--no-input',action='store_true',help='Text normal case: validate the automatic script without QMP typing')
     args=parser.parse_args()
+    if args.no_input and (not args.text or args.case!='normal'):parser.error('--no-input requires --text --case normal')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-desktop-'+args.case);out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-desktop-'+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-battery-desktop-') as folder:
         tmp=Path(folder)
@@ -70,15 +104,30 @@ def main():
                     output.extend(read_for(serial,.1));qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                 assert b'srv> ' in output,bytes(output)
                 suffix='-'+args.case if args.case in ('missing','timeout') else ''
-                serial.sendall(('acpiruntime battery-desktop'+suffix+'\n').encode())
+                serial.sendall(('acpiruntime battery-desktop'+('-text' if args.text else '')+suffix+'\n').encode())
                 part=bytearray();start=time.monotonic();injected=False
                 while time.monotonic()-start<125:
                     part.extend(read_for(serial,.1));lines=complete_lines(part)
                     (out/'serial.log').write_bytes(output+part)
-                    if not injected and b'desktop-coexist: ready ' in lines:
-                        if args.case=='early-exit':qmp.key('esc')
+                    ready=b'desktop-text: script presented; keyboard ready' if args.text and args.case=='normal' else b'desktop-coexist: ready '
+                    if not injected and ready in lines:
+                        if args.case=='early-exit':
+                            if args.text:chord(qmp,'esc','ctrl','alt')
+                            else:qmp.key('esc')
                         elif args.case=='normal':
-                            qmp.key('a',shift=True);qmp.key('b');qmp.key('x');qmp.key('backspace')
+                            # Drain diagnostic output between input bursts. A paused
+                            # UART reader can exhaust the guest's bounded TX budget.
+                            def type_key(name,shift=False):
+                                qmp.key(name,shift=shift);part.extend(read_for(serial,.08))
+                            def type_chord(name,*mods):
+                                chord(qmp,name,*mods);part.extend(read_for(serial,.15))
+                            if not args.no_input:
+                                if args.text:type_chord('a','ctrl')
+                                type_key('a',shift=True);type_key('b');type_key('x');type_key('backspace')
+                                if args.text:
+                                    type_key('left');type_key('delete');type_key('b');type_key('home');type_key('right',shift=True);type_key('z',shift=True)
+                                    type_chord('a','ctrl');type_chord('c','ctrl');type_key('end');type_chord('v','ctrl')
+                                    part.extend(read_for(serial,.3))
                             qmp.mouse(40,20)
                             qmp.call('screendump',{'filename':str(out/'desktop.ppm')})
                             from PIL import Image
@@ -98,10 +147,11 @@ def main():
                     print(json.dumps(result),flush=True)
                     return
                 if args.case=='normal':
-                    result=check_capture(data)
-                    assert b'deskclient: text=Abx' in data and b'deskclient: text=Ab\r\n' in data,data
-                    assert re.search(rb'deskclient: exited frames=\d+ input=Ab\r?\n',data),data
-                    result['vm_keyboard']='Abx then Backspace produced Ab in client and clean exit'
+                    result=check_text_capture(data,injected=not args.no_input) if args.text else check_capture(data)
+                    if not args.text:
+                        assert b'deskclient: text=Abx' in data and b'deskclient: text=Ab\r\n' in data,data
+                        assert re.search(rb'deskclient: exited frames=\d+ input=Ab\r?\n',data),data
+                        result['vm_keyboard']='Abx then Backspace produced Ab in client and clean exit'
                 else:
                     expected={'missing':b'desktop spawn','timeout':b'desktop deadline','early-exit':b'desktop completion','refusal':b'unavailable or startup deadline'}[args.case]
                     assert b'battery-desktop: FAIL outcome='+expected in data and b'; retired=yes' in data,data

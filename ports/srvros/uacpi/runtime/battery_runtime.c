@@ -1083,7 +1083,7 @@ static bool desktop_children_stop(uint64_t parent) {
     }
     return !live;
 }
-static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault) {
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text) {
     const char *failure="workspace mounted";
     struct battery_service_status before={0},after={0};
     uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
@@ -1102,7 +1102,7 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
         uacpi_kernel_sleep(10);
     }
     failure="desktop spawn";
-    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd","--coexist-capture");
+    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",text?"--coexist-text":"--coexist-capture");
     if(child<=0)goto done;
     pid=(uint64_t)child;start=timer_monotonic_us();
     deadline=start+(fault==2?500000:90000000);
@@ -1141,13 +1141,15 @@ done:
     return ok;
 }
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0);
+    return desktop_test(rsdp,map,0,false);
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
-    if(command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
+    bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");
+    if(desktop_text || command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            command_is(args,"battery-desktop-missing")?1:command_is(args,"battery-desktop-timeout")?2:0);return;
+            (command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-text-missing"))?1:
+            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text);return;
     }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");
