@@ -1,7 +1,7 @@
 import unittest
-from battery_desktop_smoke import check_capture, check_text_capture, check_load_capture
+from battery_desktop_smoke import check_capture, check_text_capture, check_load_capture, check_files_capture, verify_app_metadata
 from test_sci_observe_records import BASE as SCI
-from hardware_desktop import battery_desktop_result, battery_text_result, battery_load_result, needs_attention
+from hardware_desktop import battery_desktop_result, battery_text_result, battery_load_result, battery_app_files_result, needs_attention
 
 BASE = SCI + b'''battery-desktop: started pid=4 epoch=2 generation=1 start_us=1000 storage=ram
 desktop-coexist: completed=yes start_us=2000 end_us=60002000 loops=6000 max_gap_us=12000 generated=60 presented=60 frames=61 storage=ram
@@ -12,6 +12,17 @@ battery-desktop: PASS outcome=complete epoch=2 first_gen=1 last_gen=24 start_us=
 '''
 
 class CoexistRecords(unittest.TestCase):
+    def test_file_metadata_exact_paths_and_identity(self):
+        paths=['/battery-test','/battery-test/fixture','/battery-test/fixture/.battery-test',
+               '/battery-test/fixture/anchor.txt']+[f'/battery-test/fixture/text-{i}.txt' for i in range(1,6)]
+        rows=[f'{p}\t{512+i}\t{16877 if i<2 else 33188}\t{2 if i<2 else 1}\t0\t0\t1\t2\t3\n' for i,p in enumerate(paths)]
+        data=('SRVROSMETA1\n'+''.join(rows)).encode()
+        verify_app_metadata(data)
+        for bad in (data+rows[-1].encode(),data.replace(rows[-1].encode(),b''),
+                    data.replace(b'text-5.txt',b'text-draft.txt'),data.replace(b'\t520\t',b'\t519\t'),
+                    data.replace(b'33188',b'33279'),data.replace(b'\t1\t2\t3',b'\t1\t2\t-3')):
+            with self.assertRaises(AssertionError):verify_app_metadata(bad)
+
     def test_complete(self):
         self.assertEqual(check_capture(BASE)['presented'],60)
 
@@ -131,5 +142,38 @@ class LoadCoexistRecords(unittest.TestCase):
             with self.assertRaises(AssertionError):check_load_capture(LOAD.replace(row,b''))
             with self.assertRaises(AssertionError):check_load_capture(LOAD+row)
         with self.assertRaises(AssertionError):check_load_capture(LOAD.rstrip(b'\n'))
+
+FILES=TEXT.replace(b'storage=ram',b'storage=image').replace(b'caret=2 anchor=2',b'caret=0 anchor=0').replace(b'file_worker=disabled',b'file_worker=enabled')
+FILES+=b'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=2097152 bytes=16777216; unmounted=yes aliases=revoked\n'
+FILES+=b'battery-app-files: PASS descendants=3; retired=yes revoked=yes\ntext-files: cycles=5 pending=0 storage=image\nworkspace-image: revoked clean=yes\n'
+FILES+=b'desktop-battery: reads=60 first_gen=1 last_gen=24 cached=yes\n'
+FILES+=b''.join(f'desktools: file-result role=text op={op} status=0 bytes={size}\n'.encode() for _ in range(5) for op,size in ((2,0),(8,32),(5,0),(1,2)))
+
+class ApplicationFileRecords(unittest.TestCase):
+    def test_complete(self):
+        self.assertEqual(check_files_capture(FILES)['worker_operations'],20)
+        with self.assertRaises(AssertionError):check_text_capture(FILES)
+
+    def test_native_recipe_and_return(self):
+        prefix=b'laptop-capture: boot options=srvros.capture=battery-app-files srvros.capture-failure=reboot\n'
+        suffix=b'battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+        good=prefix+FILES+suffix
+        self.assertEqual(battery_app_files_result(good.decode())['file_cycles'],5)
+        for bad in (FILES,prefix+FILES,FILES+suffix,good+suffix,good+prefix,good.rstrip(b'\n'),good.replace(b'clean=yes',b'clean=NO')):
+            self.assertIsNone(battery_app_files_result(bad.decode()))
+        for line in good.decode().splitlines():self.assertFalse(needs_attention(line),line)
+
+    def test_incomplete_worker_document_or_lifecycle(self):
+        for before,after in ((b'cycles=5',b'cycles=4'),(b'pending=0',b'pending=1'),
+            (b'descendants=3',b'descendants=2'),(b'revoked=yes',b'revoked=NO'),
+            (b'bytes=2\n',b'bytes=1\n'),(b'status=0',b'status=1'),
+            (b'hex=4141',b'hex=4241'),(b'caret=0',b'caret=2'),
+            (b'file_worker=enabled',b'file_worker=disabled'),(b'reads=60 first_gen=1 last_gen=24',b'reads=60 first_gen=1 last_gen=1')):
+            with self.subTest(before=before):
+                with self.assertRaises(AssertionError):check_files_capture(FILES.replace(before,after))
+        for prefix in (b'battery-app-files:',b'text-files:',b'desktop-battery:',b'desktools: file-result'):
+            line=next(r for r in FILES.splitlines(keepends=True) if r.startswith(prefix))
+            with self.assertRaises(AssertionError):check_files_capture(FILES.replace(line,b'',1))
+            with self.assertRaises(AssertionError):check_files_capture(FILES+line)
 
 if __name__=='__main__':unittest.main()

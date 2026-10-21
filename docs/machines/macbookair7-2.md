@@ -2,7 +2,71 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: combined Text/filesystem/battery milestone accepted
+### Current checkpoint: application files and cached battery presentation accepted
+
+Release `27c39e5404ab573b`, source `977a554` (PR #33), session
+`session-00065e5ed9440af5-00` passed the automatic v43 hardware trial and returned
+to Ubuntu. Text presented all **60 generated edits** and completed five real
+save/stat/guarded-rename/reopen cycles (20 worker operations). All five files
+contained `AA`; normal Open left the final caret/anchor at zero. No extra keyboard
+events occurred. The compositor, Text and file worker retired before the image
+lease was released, followed by clean service teardown.
+
+Battery generation advanced **1→23**, with 61 fresh cached UI reads. The desktop
+recorded 81 frames, 5,306 loops and a maximum loop gap of 30,013 microseconds;
+this is not physical input latency. SCI recorded **23 handled / zero unclaimed**.
+The image's exact file contents and metadata passed, with eight files, 14 allocated
+clusters and no leaks. All 909 other prior files remained unchanged; the intended
+image and workspace metadata changed and exactly three matching logs were added.
+Outer offline checks passed: 195 directories, 914 files, 1,696 allocated clusters,
+zero leaks or allocation mismatches. The new Ubuntu boot, consumed one-shot,
+default/EFI order and recovery payload were verified. Evidence and the exact
+accepted payload are backed up outside `build`.
+
+Collection initially encountered a missing expected path in an older session's
+now-replaced disposable image. The host collector now converts that lookup failure
+into invalid evidence for that session and continues. The matching v43 session has
+no attention items. The collector regression passes; this host-only correction
+does not change the physically tested kernel or userspace payload.
+
+This completes the bounded application-file and cached-presentation checkpoint.
+Explicit user start/stop, ordinary workspace coexistence and attended input/AC
+accuracy remain pending; automatic battery startup stays disabled. Installed
+`27c39e5404ab573b`, prior accepted `c3746988ed5c0d5b` backed up, desktop recovery
+`b427b78f21644bd2` retained. No further reboot is armed; the used image is not fresh.
+Pro PR #19 at `c263221` retains its independent Wi-Fi scope. Actions remain disabled.
+
+### Application file/cached battery checkpoint (PR #33)
+
+Opt-in v43 `--battery-app-files` exercises Text's normal asynchronous file worker:
+60 generated edits, five saves/stats/guarded renames/reopens into distinct files,
+and final `AA` with caret/anchor zero after normal Open. The owner retains all
+three process identities through retirement before revoking the exclusive image.
+The outer workspace stays parked. A versioned read-only battery syscall supplies
+the shared desktop label and System Sensors row; UI reads never start EC/AML work.
+Explicit lifecycle controls and ordinary workspace coexistence are still pending.
+
+The final automatic and injected VM runs passed all 20 worker operations, exact
+file contents and metadata, unchanged bytes outside the image, offline allocation
+and a replacement compositor. The injected run acknowledged all 44 key events.
+Missing-program, deadline, early-exit, platform-refusal and active-runtime-fault
+fixtures passed their expected cleanup/containment checks. These are VM results,
+not physical input latency or native v43 acceptance. Automatic startup stays off.
+
+Exploratory failures are retained locally: stale ISO userspace (the harness now
+uses the explicit matching initramfs), a fixture's incorrect post-Open caret
+expectation, and a checker that omitted normal `.srvros/meta`. The final checker
+requires exact sidecar paths, unique inode identities, modes and link counts;
+it does not ignore extra files. Existing retirement deadlines remain unchanged.
+
+Final local validation also passed the previous combined-load VM (78 filesystem
+cycles), ordinary desktop application regression, all/native/VM builds, full host
+core, final System test, 46 staging tests, 15 collector tests and 13 strict record/
+metadata tests. Desktop screenshots were inspected for the active and disabled
+battery states. v43 exact-stage rehearsal and native acceptance follow separately.
+Actions remain disabled; all validation is local.
+
+### Previous accepted checkpoint: combined Text/filesystem/battery milestone
 
 Release `c3746988ed5c0d5b`, source `421a69b` (merged PR #31), session
 `session-00065e5e243ecee0-00` passed the automatic v42 hardware trial and returned

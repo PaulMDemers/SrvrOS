@@ -19,14 +19,15 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 
 
-def check_capture(data, text=False):
+def check_capture(data, text=False, files=False):
+    storage=b'image' if files else b'ram'
     """Require actual overlapping intervals and completed client presentations."""
     data=complete_lines(data)
     for prefix in (b'battery-desktop: started ',b'battery-desktop: PASS ',b'desktop-coexist: completed=',b'battery-service: retired '):
         assert sum(line.startswith(prefix) for line in data.splitlines())==1,'Missing or duplicate record'
-    starts=re.findall(rb'battery-desktop: started pid=(\d+) epoch=(\d+) generation=(\d+) start_us=(\d+) storage=ram',data)
+    starts=re.findall(rb'battery-desktop: started pid=(\d+) epoch=(\d+) generation=(\d+) start_us=(\d+) storage='+storage,data)
     ends=re.findall(rb'battery-desktop: PASS outcome=complete epoch=(\d+) first_gen=(\d+) last_gen=(\d+) start_us=(\d+) end_us=(\d+) reads=(\d+) busy_reads=(\d+) process_status=0; retired=yes',data)
-    ui=re.findall(rb'desktop-coexist: completed=yes start_us=(\d+) end_us=(\d+) loops=(\d+) max_gap_us=(\d+) generated=(\d+) presented=(\d+) frames=(\d+) storage=ram',data)
+    ui=re.findall(rb'desktop-coexist: completed=yes start_us=(\d+) end_us=(\d+) loops=(\d+) max_gap_us=(\d+) generated=(\d+) presented=(\d+) frames=(\d+) storage='+storage,data)
     assert len(starts)==len(ends)==len(ui)==1,'Missing or repeated completion'
     pid,epoch,generation,start=map(int,starts[0])
     ep,first,last,begin,end,reads,busy=map(int,ends[0])
@@ -48,27 +49,29 @@ def check_capture(data, text=False):
     return dict(status='PASS',epoch=epoch,first_generation=first,last_generation=last,
                 start_us=begin,end_us=end,desktop_start_us=ustart,desktop_end_us=uend,
                 loops=loops,max_loop_gap_us=gap,generated=sent,presented=shown,frames=frames,
-                physical_input='not tested',storage='RAM only')
+                physical_input='not tested',storage='Exclusive filesystem image' if files else 'RAM only')
 
 
-def check_text_capture(data, injected=False):
+def check_text_capture(data, injected=False, files=False):
+    storage=b'image' if files else b'ram'
     data=complete_lines(data)
-    result=check_capture(data,text=True)
+    result=check_capture(data,text=True,files=files)
     rows=re.findall(rb'^text-coexist: checkpoint serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
     assert len(rows)==5 and sum(line.startswith(b'text-coexist: checkpoint ') for line in data.splitlines())==5
     for i,row in enumerate(rows):
-        assert tuple(map(int,row[:5]))==((i+1)*12,2,2,2,0) and row[5]==b'4141',row
+        assert tuple(map(int,row[:5]))==((i+1)*12,2,0 if files else 2,0 if files else 2,0) and row[5]==b'4141',row
     finals=re.findall(rb'^text-coexist: final serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
-    progress=re.findall(rb'^desktop-text: generated=(\d+) presented=(\d+) keyboard_sent=(\d+) keyboard_presented=(\d+) storage=ram\r?$',data,re.MULTILINE)
+    progress=re.findall(rb'^desktop-text: generated=(\d+) presented=(\d+) keyboard_sent=(\d+) keyboard_presented=(\d+) storage='+storage+rb'\r?$',data,re.MULTILINE)
     assert len(finals)==len(progress)==1
     for prefix in (b'text-coexist: final ',b'desktop-text: generated=',b'text-coexist: file_worker='):
         assert sum(line.startswith(prefix) for line in data.splitlines())==1
     sent,shown,keys,acked=map(int,progress[0]);assert sent==shown==60 and keys==acked
     expected=b'5a625a62' if injected else b'4141';length=len(expected)//2
-    final=finals[0];assert tuple(map(int,final[1:5]))==(length,length,length,0) and final[5]==expected,final
+    caret=0 if files and not injected else length
+    final=finals[0];assert tuple(map(int,final[1:5]))==(length,caret,caret,0) and final[5]==expected,final
     assert int(final[0])==(1000+keys if keys else 60) and (keys>0)==injected
-    assert data.count(b'text-coexist: file_worker=disabled checkpoints=5')==1
-    assert b'desktools: file-result' not in data
+    assert data.count(b'text-coexist: file_worker='+ (b'enabled' if files else b'disabled')+b' checkpoints=5')==1
+    if not files:assert b'desktools: file-result' not in data
     result.update(application='Text',script_checkpoints=5,final_hex=expected.decode(),keyboard_events=keys,keyboard_presented=acked)
     return result
 
@@ -94,6 +97,57 @@ def check_load_capture(data, injected=False):
     return result
 
 
+def check_files_capture(data, injected=False):
+    data=complete_lines(data)
+    result=check_text_capture(data,injected,files=True)
+    extent=re.findall(rb'^workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d+) bytes=16777216; unmounted=yes aliases=revoked\r?$',data,re.MULTILINE)
+    assert len(extent)==1 and sum(r.startswith(b'workspace-image: prepared ') for r in data.splitlines())==1 and int(extent[0])>0 and int(extent[0])%512==0
+    result.update(raw_offset=int(extent[0]),bytes=16777216)
+    assert [r for r in data.splitlines() if r.startswith(b'battery-app-files:')]==[b'battery-app-files: PASS descendants=3; retired=yes revoked=yes']
+    assert [r for r in data.splitlines() if r.startswith(b'text-files:')]==[b'text-files: cycles=5 pending=0 storage=image']
+    rows=re.findall(rb'^desktools: file-result role=text op=(\d+) status=(\d+) bytes=(\d+)\r?$',data,re.MULTILINE)
+    assert len(rows)==sum(r.startswith(b'desktools: file-result ') for r in data.splitlines())
+    assert [tuple(map(int,r)) for r in rows]==[(op,0,length) for _ in range(5) for op,length in ((2,0),(8,32),(5,0),(1,2))],rows
+    assert data.count(b'workspace-image: revoked clean=yes')==1
+    ui=re.findall(rb'^desktop-battery: reads=(\d+) first_gen=(\d+) last_gen=(\d+) cached=yes\r?$',data,re.MULTILINE)
+    assert len(ui)==1 and sum(r.startswith(b'desktop-battery:') for r in data.splitlines())==1
+    reads,first,last=map(int,ui[0]);assert reads>=10 and first>=result['first_generation'] and last>=first+10 and last<=result['last_generation']
+    result.update(file_cycles=5,worker_operations=20,descendants_retired=3,cached_ui_reads=reads,cached_ui_first=first,cached_ui_last=last)
+    return result
+
+
+def verify_app_image(data):
+    from battery_filesystem_image import MARKER, ANCHOR
+    from exfat_test_image import ExfatFixture
+    image=ExfatFixture(data)
+    assert {n for n,_ in image.entries(image.chain(image.root))}=={'fixture','.srvros'}
+    assert {n for n,_ in image.entries(image.read('fixture'))}=={'.battery-test','anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
+    assert image.read('fixture/.battery-test')==MARKER
+    assert image.read('fixture/anchor.txt')==ANCHOR
+    for i in range(1,6):assert image.read(f'fixture/text-{i}.txt')==b'AA'
+    assert {n for n,_ in image.entries(image.read('.srvros'))}=={'meta'}
+    verify_app_metadata(image.read('.srvros/meta'))
+
+
+def verify_app_metadata(data):
+    rows=data.decode('ascii').splitlines()
+    assert rows.pop(0)=='SRVROSMETA1'
+    expected={'/battery-test','/battery-test/fixture',
+              '/battery-test/fixture/.battery-test','/battery-test/fixture/anchor.txt',
+              *(f'/battery-test/fixture/text-{i}.txt' for i in range(1,6))}
+    paths=set();inodes=set()
+    for row in rows:
+        fields=row.split('\t');assert len(fields)==9
+        path=fields[0];assert path in expected and path not in paths
+        inode,mode,links,uid,gid,atime,mtime,ctime=map(int,fields[1:])
+        directory=path in ('/battery-test','/battery-test/fixture')
+        assert inode>0 and inode not in inodes and mode==(0o40755 if directory else 0o100644)
+        assert links==(2 if directory else 1) and uid==gid==0 and min(atime,mtime,ctime)>=0
+        paths.add(path);inodes.add(inode)
+    assert paths==expected
+
+
+
 def chord(qmp,key,*modifiers):
     for down,names in ((True,(*modifiers,key)),(False,(key,*reversed(modifiers)))):
         qmp.call('input-send-event',{'events':[{'type':'key','data':{'down':down,'key':{'type':'qcode','data':name}}} for name in names]})
@@ -105,24 +159,27 @@ def main():
     parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal','runtime-fault','load-abort'),default='normal')
     parser.add_argument('--text',action='store_true',help='Exercise the real Text app and rich keyboard input in RAM')
     parser.add_argument('--no-input',action='store_true',help='Text normal case: validate the automatic script without QMP typing')
+    parser.add_argument('--files',action='store_true',help='Exercise Text save/rename/reopen through its real file worker')
     parser.add_argument('--load',action='store_true',help='Combine Text with the exclusive disposable filesystem workload')
     args=parser.parse_args()
-    if args.load:args.text=True
+    if args.load and args.files:parser.error('--load and --files are separate workloads')
+    isolated=args.load or args.files
+    if isolated:args.text=True
     if args.case=='load-abort' and not args.load:parser.error('--case load-abort requires --load')
     if args.no_input and (not args.text or args.case!='normal'):parser.error('--no-input requires --text --case normal')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-desktop-'+('load-' if args.load else '')+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
+    out=root/'build/review'/('battery-desktop-'+('files-' if args.files else 'load-' if args.load else '')+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
     output=bytearray();passed=False
     with tempfile.TemporaryDirectory(prefix='srvros-battery-desktop-') as folder:
         tmp=Path(folder)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('27' if args.case=='runtime-fault' else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
-        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel)
+        iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
                  '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
                  '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
-        if args.load:
+        if isolated:
             from exfat_test_image import ExfatFixture
             from battery_filesystem_image import create
             volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -143,7 +200,7 @@ def main():
                 while b'srv> ' not in output and time.monotonic()-start<60:
                     output.extend(read_for(serial,.1));qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                 assert b'srv> ' in output,bytes(output)
-                if args.load:
+                if isolated:
                     serial.sendall(b'workspace mount 51525354\n');mounted=bytearray();until=time.monotonic()+30
                     while b'workspace: ready at /work/srvros-work' not in mounted and time.monotonic()<until:mounted.extend(read_for(serial,.1))
                     output.extend(mounted);assert b'workspace: ready at /work/srvros-work' in mounted,bytes(mounted)
@@ -155,7 +212,7 @@ def main():
                     image_offset=int(extent[1]);before_disk=stick.read_bytes()
                 suffix='-'+args.case if args.case in ('missing','timeout') else ''
                 if args.case=='load-abort':suffix='-abort'
-                serial.sendall(('acpiruntime '+('battery-text-load' if args.load else 'battery-desktop'+('-text' if args.text else ''))+suffix+'\n').encode())
+                serial.sendall(('acpiruntime '+('battery-app-files' if args.files else 'battery-text-load' if args.load else 'battery-desktop'+('-text' if args.text else ''))+suffix+'\n').encode())
                 part=bytearray();start=time.monotonic();injected=False
                 while time.monotonic()-start<125:
                     part.extend(read_for(serial,.1));lines=complete_lines(part)
@@ -186,14 +243,14 @@ def main():
                             (out/'desktop.ppm').unlink()
                         injected=True
                     if args.case=='runtime-fault' and process.poll() is not None:break
-                    if (b'battery-text-load:' in lines if args.load else b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines) or b'battery: HALTED' in lines:break
-                output.extend(part);data=bytes(output if args.load else part)
+                    if ((b'battery-app-files:' if args.files else b'battery-text-load:') in lines if isolated else b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines) or b'battery: HALTED' in lines:break
+                output.extend(part);data=bytes(output if isolated else part)
                 if args.case=='runtime-fault':
                     assert process.wait(timeout=5)==0,data
                     assert b'desktop-coexist: ready ' in data and b'battery: FAILED operation deadline' in data,data
                     assert b'contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable' in data,data
                     assert b'battery-desktop: PASS' not in data and b'; retired=yes' not in data,data
-                    if args.load:
+                    if isolated:
                         from acpi_battery_smoke import verify_isolated_disk
                         assert stick.read_bytes()!=before_disk,'Runtime fault preceded all filesystem writes'
                         verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
@@ -203,7 +260,7 @@ def main():
                     print(json.dumps(result),flush=True)
                     return
                 if args.case=='normal':
-                    result=(check_load_capture if args.load else check_text_capture)(data,injected=not args.no_input) if args.text else check_capture(data)
+                    result=(check_files_capture if args.files else check_load_capture if args.load else check_text_capture)(data,injected=not args.no_input) if args.text else check_capture(data)
                     if not args.text:
                         assert b'deskclient: text=Abx' in data and b'deskclient: text=Ab\r\n' in data,data
                         assert re.search(rb'deskclient: exited frames=\d+ input=Ab\r?\n',data),data
@@ -222,10 +279,10 @@ def main():
                 output.extend(again)
                 assert b'deskd: exited ' in again and b'another display server' not in again,bytes(again)
                 result['replacement_compositor']='PASS'
-                if args.load:
+                if isolated:
                     from acpi_battery_smoke import verify_isolated_disk
                     stop_process(process)
-                    verify_isolated_disk(stick,before_disk,image_offset,volume,out,result['filesystem']['cycles'] if args.case=='normal' else None)
+                    verify_isolated_disk(stick,before_disk,image_offset,volume,out,(0 if args.files else result['filesystem']['cycles']) if args.case=='normal' else None,verify_app_image if args.files else None)
                     result['outside_image_unchanged']=True
                     result['offline_allocation']='PASS'
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
@@ -234,7 +291,7 @@ def main():
             finally:
                 (out/'serial.log').write_bytes(output)
                 stop_process(process)
-                if args.load and not passed and stick.exists():
+                if isolated and not passed and stick.exists():
                     shutil.copyfile(stick,out/'failed-workspace.img')
 
 

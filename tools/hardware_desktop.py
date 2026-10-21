@@ -302,7 +302,7 @@ def battery_filesystem_result(exit_text, require_service=True, desktop=False):
                 **stepped,raw_offset=offset,bytes=16777216,input_acceptance='pending',desktop_acceptance='pending')
 
 
-def verify_battery_image(workspace, proof, saved):
+def verify_battery_image(workspace, proof, saved, verifier=None):
     from battery_filesystem_image import verify, SIZE
     from exfat_test_image import check_clean_image
     source=workspace/'battery-fs.img'
@@ -310,8 +310,10 @@ def verify_battery_image(workspace, proof, saved):
         raise ValueError('Missing or unsafe battery filesystem image')
     with source.open('rb') as stream:data=stream.read(SIZE+1)
     if len(data)!=SIZE:raise ValueError('Battery filesystem image changed while reading')
-    try:verify(data,proof['cycles'])
-    except (AssertionError,ValueError,KeyError,IndexError) as error:
+    try:
+        if verifier is None:verify(data,proof['cycles'])
+        else:verifier(data)
+    except (AssertionError,ValueError,KeyError,IndexError,StopIteration) as error:
         raise ValueError('Battery filesystem contents do not match completed cycles') from error
     target=saved/'battery-filesystem.exfat';target.write_bytes(data)
     if target.read_bytes()!=data:raise OSError('Battery filesystem image copy failed')
@@ -445,12 +447,22 @@ def battery_load_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_app_files_result(exit_text):
+    from serial_records import complete_lines
+    from battery_desktop_smoke import check_files_capture
+    if not battery_overlap_recipe(exit_text,'battery-app-files'):return None
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    if [r for r in rows if r.startswith('battery-app-files-capture:')]!=['battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED']:return None
+    try:return check_files_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
+                        "battery-app-files-capture: returned=yes clean=NO", "battery-app-files: FAIL", "battery-load-capture: returned=yes clean=NO", "battery-text-load: FAIL", "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -539,6 +551,16 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        app_files_proof=battery_app_files_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-app-files' in text and app_files_proof is None:
+            attention.append('collection: battery application-file completion missing or invalid')
+        if app_files_proof:
+            try:
+                from battery_desktop_smoke import verify_app_image
+                app_files_proof['image_sha256']=verify_battery_image(workspace,app_files_proof,saved,verify_app_image)
+                app_files_proof['image_verified']=True
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
+                attention.append("collection: "+str(error));app_files_proof=None
         load_proof=battery_load_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if 'srvros.capture=battery-load' in text and load_proof is None:
             attention.append('collection: Text/filesystem overlap completion missing or invalid')
@@ -565,6 +587,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_app_files": app_files_proof,
             "battery_load": load_proof,
             "battery_text": text_proof,
             "battery_desktop": desktop_proof,

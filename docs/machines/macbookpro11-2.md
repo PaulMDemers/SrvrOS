@@ -1591,3 +1591,11 @@ locally; it is not in the boot image. Next: native endpoint/DMA ownership and
 kernel-side verified package consumption, then an immutable readiness profile
 and exact-image rehearsal. Installed calibration payload/recovery unchanged;
 no reboot armed. No firmware or radio acceptance is claimed.
+
+Integration at main `84cf41e`: Air PR #33 independently used v43 for battery app
+files, colliding with Pro's published/native calibration v43. Preserve verification
+of both exact historical recipes (config copies must agree); future calibration
+stages use v44, while main's battery-app-files stays v43. Historical bytes from
+both merge parents and installed-stage v43 verify. No host UUID is used to guess
+a recipe. New scope: kernel-side pinned firmware hash verification and dedicated
+native firmware EP08 DMA/control ownership; no shared battery implementation.

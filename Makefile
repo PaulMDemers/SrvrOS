@@ -3419,3 +3419,11 @@ test-mt76-prepare: build/tests/mt76-prepare-host$(HOST_EXE)
 build/tests/mt76-prepare-host$(HOST_EXE): tools/test_mt76_prepare.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_prepare.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-battery-view
+test-core: test-battery-view
+test-battery-view: build/tests/battery-view$(HOST_EXE)
+	$<
+build/tests/battery-view$(HOST_EXE): tools/test_battery_view.c userspace/widgets/src/battery.c userspace/widgets/include/srvros/desk_battery.h kernel/include/srvros/battery_snapshot.h shared/include/srvros/battery_abi.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I userspace/widgets/include tools/test_battery_view.c userspace/widgets/src/battery.c -o $@
