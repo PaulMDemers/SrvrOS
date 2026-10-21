@@ -50,6 +50,7 @@ def check_capture(data, text=False):
 
 
 def check_text_capture(data, injected=False):
+    data=complete_lines(data)
     result=check_capture(data,text=True)
     rows=re.findall(rb'^text-coexist: checkpoint serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
     assert len(rows)==5 and sum(line.startswith(b'text-coexist: checkpoint ') for line in data.splitlines())==5

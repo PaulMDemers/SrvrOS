@@ -78,5 +78,6 @@ class TextCoexistRecords(unittest.TestCase):
             with self.assertRaises(AssertionError):check_text_capture(TEXT.replace(line,b''))
             with self.assertRaises(AssertionError):check_text_capture(TEXT+line)
         with self.assertRaises(AssertionError):check_text_capture(TEXT+b'desktools: file-result role=text\n')
+        with self.assertRaises(AssertionError):check_text_capture(TEXT.rstrip(b'\n'))
 
 if __name__=='__main__':unittest.main()
