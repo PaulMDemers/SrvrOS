@@ -2,6 +2,7 @@
 #define SRVROS_NET_DEVICE_H
 #include <stdbool.h>
 #include <stdint.h>
+#include <srvros/syscall_numbers.h>
 #define NET_DEVICE_FRAME_MAX 1514
 struct net_device_link { bool up, full_duplex, duplex_known;uint16_t speed_mbps; };
 /* Register before net_init. The selected provider is immutable for this boot.
@@ -21,6 +22,8 @@ struct net_device_ops {
 };
 bool net_device_register(const struct net_device_ops *ops);
 bool net_device_select(void);
+/* Read-only enumeration; never polls hardware or delivers receive frames. */
+unsigned net_device_inventory(struct srv_net_adapter_info *out,unsigned capacity);
 const char *net_device_name(void);
 const uint8_t *net_device_mac(void);
 bool net_device_send(const uint8_t *frame,uint16_t length);

@@ -144,6 +144,23 @@ workspace workflow.
 lsblk -o NAME,PATH,TYPE,TRAN,SIZE,FSTYPE,UUID,MOUNTPOINTS,MODEL
 ```
 
+USB storage discovers validated primary GPT maps as well as primary MBR
+partitions. GPT discovery checks both primary checksums, usable ranges, duplicate
+GUIDs and overlaps before publishing partitions. It accepts a saturated
+protective-MBR length but rejects hybrid maps, unsupported read-only attributes,
+tables over 64 KiB and more than 32 used entries. It does not repair GPT or fall
+back to its backup header. Rehearse the actual layout with
+`hardware_boot_smoke.py --probe-check --workspace-table gpt` for a staged
+unattended probe (omit the option for the default MBR fixture). A VM pass is not
+physical USB persistence acceptance.
+
+If SrvrOS mounts the volume but refuses writes, inspect the full output of an
+offline `fsck.exfat -n` check after unmounting it in Ubuntu. A zero exit status
+and a final clean summary can coexist with an invalid bitmap-size diagnostic.
+Back up files and affected filesystem metadata before repairing; verify the
+checker output and existing file hashes afterward. Do not relax the kernel's
+write refusal to bypass a filesystem inconsistency.
+
 Identify the intended **partition**, its USB ancestry, and UUID. Set the UUID
 from that output in the current shell (replace the example text):
 
@@ -206,6 +223,29 @@ cat "build/hardware-boot/$SRVROS_RELEASE/manifest.json"
 tools/host-env.sh python3 tools/hardware_boot_smoke.py --desktop-check --audio-check
 cat build/review/hardware-grub-result.json
 ```
+
+On the captured Pro11,2 firmware, the laptop probe now reads only the four
+CPU/PCH PWM registers after exact GPU/HM87/DSDT matching. This diagnostic does
+not enable brightness or sound and does not access EC ports. Use the v19
+`--laptop-probe-volume` profile and exact GPT rehearsal for its unattended
+save/unmount/return capture; retain the accepted desktop as recovery.
+
+After the Pro's native read-only capture, its explicit brightness trial uses
+`--desktop-volume "$SRVROS_USB_UUID" --desktop-scale 2 --desktop-brightness`.
+This v30 profile preserves 2880x1800/2x, enables the exact matched brightness
+provider and leaves audio/AML/SMC off. Rehearse with `--desktop-check` and the
+actual workspace partition-table type. Startup does not adjust the panel;
+Settings offers 5–100% only when the captured mode and period still match.
+Physical visible adjustment remains a separate acceptance check.
+
+The subsequent Pro audio trial adds `--desktop-audio` to that command (v31).
+It retains brightness and scaled display while enabling the exact 8c20/CS4208
+5e00 codec profile, including the main and bass speaker converters. Use
+`--desktop-check --audio-check --workspace-table gpt` for the exact scaled
+rehearsal. That path verifies one captured test tone after desktop exit; it does
+not claim the unscaled harness's two-boot or bundled-WAV coverage. Speakers,
+headphone isolation and audible quality require the on-screen listening checks.
+Startup is silent; no optional AML, EC, SMC or HDMI audio is enabled.
 
 The current v22 desktop profile includes gestures, brightness, HDA, CPU/SMC
 telemetry and CDC ECM. Hardware matching may leave providers unavailable on new
@@ -586,3 +626,45 @@ changes need coordination and regression on the original Air. Model-specific
 success is not a pass for siblings. Prefer separate commits for a generic fix
 and new device matching. Keep failed captures and document rollback/recovery;
 never relabel an incomplete test as a pass to advance the milestone.
+
+### Guided keyboard acceptance
+
+Stage `hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID"
+--keyboard-capture` for the opt-in v28 guided trial. Rehearse with
+`hardware_boot_smoke.py --probe-check --workspace-table gpt`; add
+`--keyboard-fail` to exercise wrong-key recovery or `--keyboard-timeout` to
+verify a saved deadline failure.
+The screen prompts for lowercase, Shift, Caps Lock on/off, Backspace, Enter and
+all four arrows. Each step has 90 seconds. Only keyboard input counts. Unexpected input repeats
+the current prompt without resetting its deadline; a timeout records FAIL. Completed and timed-out trials save logs, flush/unmount and
+return automatically if storage succeeds. Missing/failed storage still halts.
+Use the built-in keyboard only for its acceptance. A successful VM rehearsal
+or merely enumerating a keyboard is not physical typing acceptance.
+
+### Retina desktop trial
+
+For an explicit 2880x1800 framebuffer and a 1440x900 logical desktop, stage
+`hardware_boot.py stage --desktop-volume "$SRVROS_USB_UUID" --desktop-scale 2`
+(v29). Rehearse that exact payload with `hardware_boot_smoke.py --desktop-check
+--workspace-table gpt`. This profile enables trackpad gestures and read-only
+laptop diagnostics; it does not enable optional AML, audio or SMC probing.
+The opening Help page displays pointer checks and keyboard-only exit instructions.
+There is no deadline or automatic reboot. Save work, choose Return to console
+(F10, End, Return), and type `reboot` only after `USB unmounted=yes`.
+
+The `05ac:0262` trackpad candidate matches the captured vendor-HID interface 1,
+endpoint 0x81/64-byte packets, interval 2. It uses an explicit Wellspring7 Type2
+decoder and feature mode switch, separate from the Air0291 Type3 profile.
+Synthetic protocol/transport tests do not accept physical gestures. Keep the
+last accepted keyboard payload and collect the native session before proceeding.
+
+### Prompted Ethernet cable checks
+
+With `--desktop-network`, the hardware desktop opens the automated Terminal
+trial. Connected diagnostics and report saving start automatically. Unplug only
+the Ethernet cable when prompted, press Enter, then reconnect and press Enter at
+the next prompt. Both gates wait indefinitely. Leave USB devices connected.
+Reports are saved in Home (`network-before.txt`, `network-down.txt`,
+`network-after.txt`, sequence state in `network-trial.txt`). Inspect statuses,
+HTTP responses and System/Network Utility behavior; completion alone is not a
+pass. The final screen gives the clean console-return and reboot instructions.

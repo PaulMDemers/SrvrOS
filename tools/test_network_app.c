@@ -24,6 +24,7 @@ int main(void) {
     for(unsigned i=0;i<sizeof(invalid)/sizeof(*invalid);i++) assert(!target_valid(invalid[i]));
     char longlabel[65];memset(longlabel,'a',64);longlabel[64]=0;assert(!target_valid(longlabel));longlabel[63]=0;assert(target_valid(longlabel));
     net=(struct srv_net_status_info){.initialized=1,.worker_started=1,.router_ip=0x0a000202,.local_ip=0x0a00020f,.link_flags=SRV_NET_LINK_KNOWN|SRV_NET_LINK_UP};
+    net.adapter_count=1;net.adapters[0]=(struct srv_net_adapter_info){.id=2,.flags=SRV_NET_ADAPTER_ACTIVE,.driver="usb-ecm"};
     initialize();app.window.width=680;app.window.height=460;app.window.focused=1;app.window.server=42;layout();desk_ui_focus(&app.ui,NET_TARGET);
     assert(!strcmp(app.target_text.data,"10.0.2.2") && page()==NET_PING);
     target("bad target");run();assert(!started && strstr(app.status,"without spaces"));target("10.0.2.2");
@@ -32,11 +33,14 @@ int main(void) {
     net.local_ip=0;run();assert(!started && strstr(app.status,"IPv4"));net.local_ip=0x0a00020f;
     spawn_fail=1;run();assert(!started && strstr(app.status,"could not start"));spawn_fail=0;
     run();assert(started==1 && app.job.busy && !app.run.enabled && app.stop.enabled && !strcmp(child_path,"/fat/bin/ping"));
+    assert(strstr(app.adapter,"Adapter 2") && strstr(app.adapter,"usb-ecm"));
+    net.adapters[0].id=3;
     target("changed.test");run();assert(started==1 && !strcmp(app.run_target,"10.0.2.2"));
     action((struct desk_action){NET_LOOKUP,DESK_WIDGET_ACTIVATED});assert(page()==NET_PING);
     inject=1;poll_job();assert(!memcmp(app.output,"hello\n???end",12));
     app.job.exit_status=0;poll_result=1;poll_job();poll_result=0;assert(!app.job.busy && strstr(app.result_status,"completed") && !app.stop.enabled);
-    copy_report();assert(app.clipboard.mode && strstr((char *)app.clipboard_data,"Target: 10.0.2.2\n") && strstr((char *)app.clipboard_data,"hello\n???end"));app.clipboard.mode=0;clipboard_finish(1);
+    assert(strstr(app.adapter,"Adapter 2"));
+    copy_report();assert(app.clipboard.mode && strstr((char *)app.clipboard_data,"Target: 10.0.2.2\n") && strstr((char *)app.clipboard_data,"hello\n???end") && strstr((char *)app.clipboard_data,"Adapter: Adapter 2"));app.clipboard.mode=0;clipboard_finish(1);
     action((struct desk_action){NET_LOOKUP,DESK_WIDGET_ACTIVATED});run();assert(started==2 && !strcmp(child_path,"/fat/bin/host") && !strcmp(child_target,"changed.test"));
     stop();assert(!app.job.busy && app.job.retiring_pid && strstr(app.result_status,"Stopped"));run();assert(started==2);app.job.retiring_pid=0;
     run();app.job.exit_status=1;poll_result=1;poll_job();poll_result=0;assert(strstr(app.result_status,"did not succeed"));

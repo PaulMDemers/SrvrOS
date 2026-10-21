@@ -30,7 +30,9 @@ struct block_device *block_find(const char *name) { (void)name; return NULL; }
 struct block_device *block_register(const char *name,uint64_t size,uint64_t count,block_read_fn r,block_write_fn w,void *p) {
     block=(struct block_device){.used=true,.name=name,.block_size=size,.block_count=count,.read=r,.write=w,.private_data=p}; return &block;
 }
-uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&block); return 0; }
+static unsigned gpt_scans, mbr_scans, gpt_found;
+uint64_t block_register_gpt_partitions(struct block_device *d) { assert(d==&block); gpt_scans++; return gpt_found; }
+uint64_t block_register_mbr_partitions(struct block_device *d) { assert(d==&block); mbr_scans++; return 0; }
 static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
     assert(ctx==&storage); calls++; *actual=n;
     if(fault==1) return false;
@@ -77,6 +79,7 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
 static void reset(void) {
     memset(&storage,0,sizeof(storage)); memset(&block,0,sizeof(block));
     memset(disk,0x69,sizeof(disk)); phase=calls=writes=syncs=senses=tur_failures=fault=depth=0;
+    gpt_scans=mbr_scans=gpt_found=0;
     empty=foreign=false; irq_enabled=true;done=data_calls=fault_chunk=0;
     sector_bytes=512;
 }
@@ -132,7 +135,10 @@ static void test_segment_faults(void) {
 int main(void) {
     test_segment_faults();
     test_batches();
+    reset(); gpt_found=1; assert(usb_storage_attach(&storage,&storage,bulk,false));
+    assert(gpt_scans==1 && mbr_scans==0);
     reset(); tur_failures=2; assert(usb_storage_attach(&storage,&storage,bulk,false));
+    assert(gpt_scans==1 && mbr_scans==1);
     assert(senses==2 && block.block_count==sizeof(disk)/512 && block.block_size==512 && !block.write && !block.flush);
     assert(storage.errors==2 && storage.error_command==4 && storage.error_opcode==0);
     assert(storage.error_phase==3 && storage.error_status==1 && !storage.failed);

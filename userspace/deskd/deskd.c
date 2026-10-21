@@ -7,6 +7,7 @@
 #include "preferences.h"
 #include <srvros/desk_text.h>
 #include "io_trial.h"
+#include "input_timing.h"
 #include <srvros/desk_capture_job.h>
 #include <srvros/desktop.h>
 #include <srvros/conio.h>
@@ -1004,9 +1005,15 @@ static void pointer_at(struct session *s,int x,int y,unsigned buttons,int presse
     }
     if (!(buttons&MOUSE_LEFT)) s->pointer_pid=0;
 }
+static void timing_print(const char *name,const struct perf_sample *p) {
+    desk_log("cursor-timing: %s count=%llu mean_us=%llu max_us=%llu p95_bound_us=%llu p99_bound_us=%llu\n",
+        name,(unsigned long long)p->count,(unsigned long long)(p->count?p->total/p->count:0),
+        (unsigned long long)p->max,(unsigned long long)perf_percentile(p,95),(unsigned long long)perf_percentile(p,99));
+}
 int main(int argc,char **argv) {
-    unsigned scale=1;
+    unsigned scale=1;int explicit_scale=0;
     for (int i=1;i<argc;i++) if (!strncmp(argv[i],"--scale=",8)) {
+        explicit_scale=1;
         if (!strcmp(argv[i],"--scale=1")) scale=1;
         else if (!strcmp(argv[i],"--scale=2")) scale=2;
         else { srv_puts("deskd: scale must be 1 or 2\n"); return 1; }
@@ -1015,7 +1022,8 @@ int main(int argc,char **argv) {
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
-    int hardware_trial=argc==2 && !strcmp(argv[1],"--hardware-trial");
+    int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
+    int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
     int apps=idle_capture || hardware_trial || argc==1 || (argc==2 && (!strcmp(argv[1],"--apps") || !strcmp(argv[1],"--apps-trace")));
     int scroll_smoke=argc==2 && strcmp(argv[1],"--scroll-smoke")==0,scroll_phase=0;
     int smoke=scroll_smoke || (argc==2 && strcmp(argv[1],"--smoke")==0);
@@ -1023,6 +1031,10 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
+    if(idle_capture && !explicit_scale) {
+        scale=desk_capture_scale(info.width,info.height);
+        if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
+    }
     uint32_t width=(info.width+scale-1)/scale,height=(info.height+scale-1)/scale;
     if (width<640 || height<480) { srv_puts("deskd: scaled desktop requires at least 640x480 logical pixels\n"); return 1; }
     desk_log("deskd: display physical=%llux%llu logical=%ux%u scale=%u screenshots=logical\n",
@@ -1051,7 +1063,8 @@ int main(int argc,char **argv) {
         pointer_preferences(&s);clock_update(&s,1); }
     global_menu_rebuild(&s);
     desk_damage_add(&s.damage,(struct desk_rect){0,0,width,height});
-    if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
+    if(network_trial) spawn_app(&s,DESK_APP_TERMINAL,"network-trial");
+    else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
     int idle_phase=0;
@@ -1061,6 +1074,7 @@ int main(int argc,char **argv) {
     int io_started=0,io_ready=0,stop_warning=0;
     uint64_t start=srv_ticks(),frames=0,bytes=0;
     int quit=0,failed=0,drag=-1,resize=-1,grabx=0,graby=0,pending_key=0,io_leaving=0;
+    struct desktop_input_timing timing={0};
     uint64_t key_pid=0,key_since=0,key_serial=0;
     uint8_t buttons=0;
     srv_puts("deskd: ready; independent clients, sealed surfaces\n");
@@ -1224,8 +1238,15 @@ int main(int argc,char **argv) {
                 if(!s.scene.notice[0]) { strcpy(s.scene.notice,s.capture.busy?"Finishing screenshot save…":"Finishing saved preferences…");desk_damage_add(&s.damage,(struct desk_rect){0,0,s.damage.width,s.damage.height}); }
             }
         }
+        long poll_clock=hardware_trial?srv_monotonic_us():0;
+        uint64_t poll_time=poll_clock>0?(uint64_t)poll_clock:0;
+        if(hardware_trial) desktop_timing_poll(&timing,poll_time);
         struct mouse_event e;
         for (int n=0;n<32 && mouse_scan(&e)>0;n++) {
+            if(hardware_trial) {
+                long now=srv_monotonic_us();
+                desktop_timing_input(&timing,poll_time,now>0?(uint64_t)now:0,e.dx||e.dy);
+            }
             if (e.dx || e.dy || e.wheel_x || e.wheel_y || e.buttons!=buttons) {
                 stop_warning=0; io_trial_input(&s.io,1);
             }
@@ -1366,7 +1387,7 @@ int main(int argc,char **argv) {
                 desk_damage_add(&s.damage,(struct desk_rect){0,canvas.height-36,canvas.width,36});
             }
         }
-        long render_start=io_mode && s.damage.count?srv_monotonic_us():0;
+        long render_start=(io_mode || hardware_trial) && s.damage.count?srv_monotonic_us():0;
         for (unsigned n=0;n<s.damage.count;n++) {
             struct desk_rect r=s.damage.rects[n]; desk_clip(&canvas,r); desktop_draw(&canvas,&s.scene);
             if (blitrect_scaled((uint64_t)r.x*scale,(uint64_t)r.y*scale,r.w,r.h,pixels+(size_t)r.y*canvas.stride+r.x,canvas.stride,scale)!=0) failed=1;
@@ -1374,6 +1395,10 @@ int main(int argc,char **argv) {
             if(physical_w>info.width-(uint64_t)r.x*scale) physical_w=info.width-(uint64_t)r.x*scale;
             if(physical_h>info.height-(uint64_t)r.y*scale) physical_h=info.height-(uint64_t)r.y*scale;
             bytes+=physical_w*physical_h*4;
+        }
+        if(hardware_trial) {
+            long end=s.damage.count?srv_monotonic_us():0;
+            desktop_timing_end(&timing,poll_time,render_start>0?(uint64_t)render_start:0,end>0?(uint64_t)end:0,!failed && s.damage.count);
         }
         if (!failed && s.damage.count) for (int i=0;i<DESKD_WINDOWS;i++)
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
@@ -1424,6 +1449,12 @@ int main(int argc,char **argv) {
     if(idle_capture) {
         if(idle_phase!=3) failed=1;
         desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");
+    }
+    if(hardware_trial) {
+        desk_log("cursor-timing: software-only; excludes USB arrival and display scanout; percentile bounds are histogram buckets\n");
+        desk_log("cursor-wait: policy=fixed-one-tick\n");
+        timing_print("poll-gap",&timing.poll_gap);timing_print("consecutive-motion-gap",&timing.active_gap);
+        timing_print("consume-to-final-blit",&timing.consume_to_blit);timing_print("draw-blit",&timing.draw_blit);
     }
     if (io_trial_finish(&s.io)!=0) failed=1;
     /* Bound shutdown even when a client stopped reading. Only kill children

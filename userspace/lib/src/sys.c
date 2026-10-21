@@ -558,6 +558,8 @@ long srv_ticks(void) {
     return srv_syscall0(SYS_TICKS);
 }
 
+long srv_pointer_wait(void) { return srv_syscall0(SYS_POINTER_WAIT); }
+
 long srv_sleep_ticks(uint64_t ticks) {
     return srv_syscall1(SYS_SLEEP_TICKS, (long)ticks);
 }

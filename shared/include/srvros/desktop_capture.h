@@ -13,4 +13,10 @@ static inline uint32_t desk_capture_bytes(uint32_t width,uint32_t height) {
     if(!width || !height || width>4096 || height>4096 || width>(DESK_CAPTURE_MAX_BYTES-54)/4/height) return 0;
     return width*height*4;
 }
+/* Only the unattended capture caller opts into this policy. */
+static inline unsigned desk_capture_scale(uint32_t width,uint32_t height) {
+    if(!width || !height || width>4096 || height>4096) return 0;
+    if(desk_capture_bytes(width,height)) return 1;
+    return desk_capture_bytes((width+1)/2,(height+1)/2)?2:0;
+}
 #endif

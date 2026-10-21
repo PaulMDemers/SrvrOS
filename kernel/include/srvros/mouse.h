@@ -3,6 +3,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <srvros/input_timing.h>
 
 #define MOUSE_CANCEL 0x80
 
@@ -27,6 +28,10 @@ void mouse_inject_trackpad_tap(uint8_t button);
  * click-producing release. Preserve an external mouse's physical button state. */
 void mouse_cancel_trackpad(void);
 uint64_t mouse_overflow_count(void);
+void mouse_queue_timing(struct input_timing *oldest,struct input_timing *latest);
 bool mouse_scan(struct mouse_event *event);
+struct scheduler_wait_queue;
+struct scheduler_wait_queue *mouse_wait_queue(void);
+bool mouse_pending(void);
 
 #endif

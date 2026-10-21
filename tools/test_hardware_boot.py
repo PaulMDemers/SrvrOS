@@ -158,6 +158,52 @@ class InstallTests(unittest.TestCase):
             with self.assertRaises(ValueError):boot.stage(power_telemetry=True,**options)
         with self.assertRaises(ValueError):boot.stage(power_telemetry=True,desktop_idle_capture=True)
 
+    def test_network_sensor_desktop_profile(self):
+        cfg=boot.limine_config('0123456789abcdef','ram-usb-v37-desktop-0e535900')
+        for flag in ('resolution: 2880x1800','srvros.desktop-scale=2','srvros.usb-network=ecm','srvros.smc=read-only','srvros.audio=hda'):
+            self.assertIn(flag,cfg)
+        self.assertNotIn('srvros.aml',cfg)
+        self.assertNotIn('srvros.usb-network',boot.limine_config('0123456789abcdef','ram-usb-v36-desktop-0e535900'))
+        with self.assertRaises(ValueError): boot.stage(desktop_network=True)
+
+    def test_scaled_desktop_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v29-desktop-37d8c5d0")
+        self.assertIn("srvros.desktop-scale=2",cfg)
+        self.assertIn("resolution: 2880x1800",cfg)
+        self.assertIn("srvros.trackpad=gestures",cfg)
+        self.assertNotIn("srvros.aml",cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_scale=2)
+        with self.assertRaises(ValueError): boot.stage(desktop_scale=3,desktop_volume="37d8c5d0")
+
+    def test_scaled_audio_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v31-desktop-37d8c5d0")
+        for token in ("srvros.audio=hda","srvros.desktop-scale=2","srvros.laptop-services=brightness","resolution: 2880x1800"):
+            self.assertIn(token,cfg)
+        for token in ("srvros.aml=","srvros.smc=","srvros.usb-network="):
+            self.assertNotIn(token,cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_audio=True)
+
+    def test_scaled_brightness_profile(self):
+        cfg=boot.limine_config("0123456789abcdef","ram-usb-v30-desktop-37d8c5d0")
+        self.assertIn("srvros.desktop-scale=2",cfg)
+        self.assertIn("srvros.laptop-services=brightness",cfg)
+        self.assertIn("resolution: 2880x1800",cfg)
+        for forbidden in ("srvros.audio=", "srvros.aml=", "srvros.smc="):
+            self.assertNotIn(forbidden,cfg)
+        with self.assertRaises(ValueError): boot.stage(desktop_brightness=True)
+        with self.assertRaises(ValueError): boot.stage(desktop_volume="37d8c5d0",desktop_brightness=True)
+
+    def test_keyboard_capture_profile(self):
+        version="ram-usb-v28-laptop-probe-37d8c5d0"
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        cfg=boot.limine_config("0123456789abcdef",version)
+        self.assertIn("srvros.capture=keyboard",cfg)
+        self.assertIn("srvros.laptop-services=probe-autoreboot",cfg)
+        self.assertNotIn("srvros.aml",cfg)
+        self.assertNotIn("srvros.capture=keyboard",boot.limine_config("0123456789abcdef","ram-usb-v19-laptop-probe-37d8c5d0"))
+        with self.assertRaises(ValueError): boot.stage(keyboard_capture=True)
+        with self.assertRaises(ValueError): boot.stage(keyboard_capture=True,idle_capture=True,laptop_probe_volume="37d8c5d0")
+
     def test_idle_capture_profile_is_separate_and_has_no_aml(self):
         version="ram-usb-v23-laptop-probe-37d8c5d0"
         release=self.payload("idle",version)
@@ -491,6 +537,23 @@ class InstallTests(unittest.TestCase):
         manifest = json.loads(path.read_text()); manifest['config_version'] = version
         path.write_text(json.dumps(manifest))
         with self.assertRaises(ValueError): boot.install(release)
+
+
+class CombinedProfileTests(unittest.TestCase):
+    def test_shared_version_numbers_keep_profile_specific_resolution(self):
+        for version in (31, 36):
+            probe=boot.limine_config("a"*16,f"ram-usb-v{version}-laptop-probe-12345678-auto-return")
+            desktop=boot.limine_config("a"*16,f"ram-usb-v{version}-desktop-12345678")
+            self.assertNotIn("resolution:",probe)
+            self.assertIn("srvros.capture=battery",probe)
+            self.assertIn("srvros.capture-failure=reboot",probe)
+            self.assertIn("resolution: 2880x1800",desktop)
+            self.assertNotIn("srvros.capture=battery",desktop)
+
+    def test_load_and_battery_modes_are_exclusive(self):
+        for mode in ("keyboard_capture", "cpu_load_capture"):
+            with self.assertRaises(ValueError):
+                boot.stage(laptop_probe_volume="12345678",battery_service=True,**{mode:True})
 
 
 if __name__ == "__main__":

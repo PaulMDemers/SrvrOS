@@ -581,7 +581,10 @@ static int stdio_test(void) {
     return 0;
 }
 
+int cpu_load_capture(void);
+
 int main(int argc, char **argv) {
+    if(argc==2 && !strcmp(argv[1],"--cpu-load-capture")) return cpu_load_capture();
     const char *only = argc > 1 ? argv[1] : "all";
     say("threadstress: start\n");
 

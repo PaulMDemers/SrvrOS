@@ -95,6 +95,7 @@
 #define XHCI_TRB_IOC (1u << 5)
 #define XHCI_TRB_ISP (1u << 2)
 #define XHCI_TRB_IDT (1u << 6)
+#define XHCI_SETUP_TRT_OUT (2u << 16)
 #define XHCI_SETUP_TRT_IN (3u << 16)
 #define XHCI_SETUP_TRT_NONE (0u << 16)
 #define XHCI_DATA_DIR_IN (1u << 16)
@@ -191,19 +192,19 @@ struct xhci_network {
     struct usb_ecm_config config;
     struct usb_ecm_link link;
     struct xhci_network_endpoint ep[3]; /* TX, RX, notifications */
-    bool ready,failed,polling,tx_zero;
+    bool ready,failed,polling,tx_zero,tx_suspended;
     uint8_t mac[6];
     unsigned head,count;
     uint16_t length[XHCI_NET_QUEUE];
     uint8_t queue[XHCI_NET_QUEUE][NET_DEVICE_FRAME_MAX];
-    uint64_t tx_started,tx_packets,rx_packets,drops,errors,notifications;
+    uint64_t tx_started,tx_packets,rx_packets,drops,errors,notifications,notify_completed_us;
 };
 
 /* Independent endpoint on the same physical USB slot as the keyboard.
  * Capture only until real reports validate the transport and contact model. */
 struct xhci_trackpad_endpoint {
     bool candidate,ready,pending,cycle;
-    uint8_t dci,interval;
+    uint8_t dci,interval,report_type;
     uint16_t packet;
     uint64_t ring_phys,buffer_phys,enqueue,trb;
     struct xhci_trb *ring;
@@ -217,6 +218,8 @@ struct xhci_trackpad_endpoint {
     uint32_t max_touch_major,max_touch_minor;
     uint64_t pointer_motion, pointer_events,pointer_buttons,pointer_cancels;
     uint64_t lifts;
+    uint64_t last_contact_us;
+    struct input_timing contact_gap,rearm_time;
     uint32_t max_contacts;
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
@@ -240,7 +243,7 @@ struct xhci_device {
     uint8_t hub_ports;
     uint8_t slot_type;
     uint8_t speed;
-    uint8_t ep0_max_packet;
+    uint16_t ep0_max_packet;
     uint8_t device_class;
     uint8_t device_subclass;
     uint8_t device_protocol;
@@ -556,12 +559,12 @@ static uint32_t port_speed(uint32_t portsc) {
     return (portsc >> 10) & 0xfu;
 }
 
-static uint8_t default_ep0_packet_for_speed(uint8_t speed) {
-    if (speed == 2) {
+static uint16_t default_ep0_packet_for_speed(uint8_t speed) {
+    if (speed == 1 || speed == 2) {
         return 8;
     }
     if (speed == 4) {
-        return 0;
+        return 512;
     }
     return 64;
 }
@@ -1202,7 +1205,7 @@ static bool control_transfer(struct xhci_device *device,
         .status = 8,
         .control = (XHCI_TRB_TYPE_SETUP_STAGE << 10) |
             XHCI_TRB_IDT |
-            (length == 0 ? XHCI_SETUP_TRT_NONE : XHCI_SETUP_TRT_IN),
+            (length == 0 ? XHCI_SETUP_TRT_NONE : (data_in ? XHCI_SETUP_TRT_IN : XHCI_SETUP_TRT_OUT)),
     };
     (void)ring_push(device->ep0_ring,
         device->ep0_ring_phys,
@@ -1437,7 +1440,7 @@ static void setup_address_input_context(struct xhci_device *device) {
     context_write32(device->input_context, 1, 2, slot2);
 
     uint32_t ep0_info = (3u << 1) | (4u << 3);
-    uint32_t ep0_packet = ((uint32_t)(device->ep0_max_packet == 0 ? 512 : device->ep0_max_packet) << 16);
+    uint32_t ep0_packet = ((uint32_t)device->ep0_max_packet << 16);
     context_write32(device->input_context, 2, 1, ep0_info | ep0_packet);
     context_write32(device->input_context, 2, 2, (uint32_t)(device->ep0_ring_phys | 1u));
     context_write32(device->input_context, 2, 3, (uint32_t)(device->ep0_ring_phys >> 32));
@@ -1475,8 +1478,9 @@ static bool address_device(struct xhci_device *device) {
 }
 
 static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
-    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || device->product_id!=0x0291 ||
+    if ((!trackpad_capture && !trackpad_pointer_enabled) || device->vendor_id!=0x05ac || (device->product_id!=0x0291 && device->product_id!=0x0262) ||
         device->speed!=1 || length<9 || length>PMM_FRAME_SIZE) return false;
+    bool pro=device->product_id==0x0262;
     bool interface=false,found=false;
     uint8_t interval=0;
     for (uint16_t offset=0;offset<length;) {
@@ -1484,18 +1488,19 @@ static bool parse_trackpad_config(struct xhci_device *device,uint16_t length) {
         if (length-offset<2 || p[0]<2 || p[0]>length-offset) return false;
         if (p[1]==USB_DESC_INTERFACE) {
             if (p[0]<9) return false;
-            interface=p[2]==2 && p[3]==0 && p[4]==1 && p[5]==USB_CLASS_HID &&
-                p[6]==USB_HID_SUBCLASS_BOOT && p[7]==USB_HID_PROTOCOL_MOUSE;
+            interface=p[2]==(pro?1:2) && p[3]==0 && p[4]==1 && p[5]==USB_CLASS_HID &&
+                p[6]==(pro?0:USB_HID_SUBCLASS_BOOT) && p[7]==(pro?0:USB_HID_PROTOCOL_MOUSE);
         } else if (p[1]==USB_DESC_ENDPOINT && interface) {
-            if (p[0]<7 || found || p[2]!=0x83 || (p[3]&3)!=USB_ENDPOINT_INTERRUPT ||
-                p[4]!=64 || p[5]!=0 || !p[6]) return false;
+            if (p[0]<7 || found || p[2]!=(pro?0x81:0x83) || (p[3]&3)!=USB_ENDPOINT_INTERRUPT ||
+                p[4]!=64 || p[5]!=0 || p[6]!=(pro?2:1)) return false;
             found=true; interval=p[6];
         }
         offset+=p[0];
     }
     if (!found) return false;
     device->trackpad.candidate=true;
-    device->trackpad.dci=7; device->trackpad.packet=64; device->trackpad.interval=interval;
+    device->trackpad.report_type=pro?2:3;
+    device->trackpad.dci=pro?3:7; device->trackpad.packet=64; device->trackpad.interval=interval;
     return true;
 }
 
@@ -1684,6 +1689,20 @@ static void setup_trackpad_input_context(struct xhci_device *device) {
     context_write32(device->input_context,ep,4,APPLE_TRACKPAD_REPORT_MAX|((uint32_t)t->packet<<16));
 }
 
+/* Wellspring7 requires its documented eight-byte feature mode switch.
+ * Read/modify/write preserves opaque bytes. Type3 has no mode switch. */
+static bool enable_trackpad_mode(struct xhci_device *device) {
+    if (device->trackpad.report_type==3) return true;
+    if (device->vendor_id!=0x05ac || device->product_id!=0x0262 ||
+        !device->trackpad.candidate || device->trackpad.report_type!=2) return false;
+    struct usb_setup_packet setup={.request_type=0xa1,.request=1,.value=0x300,.index=0,.length=8};
+    zero_bytes(device->descriptor_buffer,8);
+    if (!control_transfer(device,&setup,device->descriptor_buffer_phys,8,true)) return false;
+    device->descriptor_buffer[0]=1;
+    setup.request_type=0x21;setup.request=9;
+    return control_transfer(device,&setup,device->descriptor_buffer_phys,8,false);
+}
+
 static bool configure_trackpad_endpoint(struct xhci_device *device) {
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     void *virt;
@@ -1854,9 +1873,14 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
         if ((completion!=1 && completion!=13) || remaining>APPLE_TRACKPAD_REPORT_MAX) {
             t->errors++; t->ready=false; cancel_trackpad_pointer(t); return;
         }
+        uint64_t dispatch_us=timer_monotonic_us();
         t->last_length=APPLE_TRACKPAD_REPORT_MAX-remaining;
         uint8_t previous_contacts=t->frame.count;
-        int decoded=apple_trackpad_decode(t->buffer,t->last_length,&t->frame);
+        int decoded=apple_trackpad_decode_type(t->report_type,t->buffer,t->last_length,&t->frame);
+        if(decoded>0 && t->frame.count) {
+            input_timing_add(&t->contact_gap,t->last_contact_us,dispatch_us);
+            t->last_contact_us=dispatch_us;
+        } else t->last_contact_us=0;
         if (decoded<0) { t->malformed++; trackpad_sample(t,4); cancel_trackpad_pointer(t); }
         if (decoded>0) {
             t->reports++;
@@ -1900,6 +1924,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
             if (t->max_contacts<t->frame.count) t->max_contacts=t->frame.count;
         }
         submit_trackpad_poll(device);
+        input_timing_add(&t->rearm_time,dispatch_us,timer_monotonic_us());
         return;
     }
     if (device->bulk_pending && dci == device->bulk_dci && pointer == device->bulk_trb) {
@@ -2237,6 +2262,42 @@ static bool enumerate_storage(struct xhci_device *d) {
     return true;
 }
 
+/* Read only the first eight descriptor bytes before choosing EP0's packet
+ * size. In particular, full-speed Apple 0262 uses eight, not sixty-four.
+ * Update the controller's live context before any multi-packet request. */
+static bool update_ep0_packet(struct xhci_device *device) {
+    const uint8_t *header = device->descriptor_buffer;
+    uint16_t packet = header[7];
+    if (header[0] != 18 || header[1] != USB_DESC_DEVICE) return false;
+    if (device->speed == 4) {
+        if (packet != 9) return false; /* SuperSpeed encodes log2(512). */
+        packet = 512;
+    } else if (device->speed == 3) {
+        if (packet != 64) return false;
+    } else if (device->speed == 2) {
+        if (packet != 8) return false;
+    } else if (device->speed == 1) {
+        if (packet != 8 && packet != 16 && packet != 32 && packet != 64) return false;
+    } else return false;
+    if (packet == device->ep0_max_packet) return true;
+    zero_bytes(device->input_context, PMM_FRAME_SIZE);
+    context_write32(device->input_context, 0, 1, 1u << 1);
+    copy_bytes(device->input_context + 2 * context_size(),
+        device->output_context + context_size(), context_size());
+    context_write32(device->input_context, 2, 0,
+        context_read32(device->input_context, 2, 0) & ~7u);
+    context_write32(device->input_context, 2, 1,
+        (context_read32(device->input_context, 2, 1) & 0xffffu) | ((uint32_t)packet << 16));
+    struct xhci_trb command = {
+        .parameter_low = (uint32_t)device->input_context_phys,
+        .parameter_high = (uint32_t)(device->input_context_phys >> 32),
+        .control = (XHCI_TRB_TYPE_EVALUATE_CONTEXT << 10) | ((uint32_t)device->slot_id << 24),
+    };
+    if (!submit_command_trb(&command, XHCI_TRB_TYPE_EVALUATE_CONTEXT, 0)) return false;
+    device->ep0_max_packet = packet;
+    return true;
+}
+
 static bool enumerate_device(struct xhci_device *device) {
     if (device == 0) {
         return false;
@@ -2254,15 +2315,23 @@ static bool enumerate_device(struct xhci_device *device) {
         return false;
     }
 
+    device->stage = "device-descriptor-prefix";
+    zero_bytes(device->descriptor_buffer, 18);
+    if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 8)) return false;
+    device->stage = "ep0-packet";
+    if (!update_ep0_packet(device)) return false;
     device->stage = "device-descriptor";
+    zero_bytes(device->descriptor_buffer, 18);
     if (!get_descriptor(device, USB_DESC_DEVICE, 0, 0, 18)) {
         console_printf("xhci: slot=%u device descriptor failed\n", (uint64_t)device->slot_id);
         return false;
     }
+    /* Refuse a changed/malformed size instead of changing an active endpoint
+     * again after a potentially truncated full descriptor. */
+    uint16_t encoded = device->speed == 4 ? 9 : device->ep0_max_packet;
+    if (device->descriptor_buffer[0] != 18 || device->descriptor_buffer[1] != USB_DESC_DEVICE ||
+        device->descriptor_buffer[7] != encoded) return false;
     parse_device_descriptor(device);
-    if (device->descriptor_buffer[7] != 0) {
-        device->ep0_max_packet = device->descriptor_buffer[7];
-    }
 
     device->stage = "config-descriptor";
     if (!get_descriptor(device, USB_DESC_CONFIGURATION, 0, 0, 9)) {
@@ -2329,9 +2398,9 @@ static bool enumerate_device(struct xhci_device *device) {
     }
     device->interrupt_ready = true;
     if (device->trackpad.candidate) {
-        bool ready=configure_trackpad_endpoint(device);
-        console_printf("xhci: trackpad slot=%u dci=7 ready=%s request=%u pointer=%s\n",
-            (uint64_t)device->slot_id,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX,trackpad_pointer_enabled?"yes":"no");
+        bool ready=enable_trackpad_mode(device) && configure_trackpad_endpoint(device);
+        console_printf("xhci: trackpad slot=%u dci=%u ready=%s request=%u pointer=%s\n",
+            (uint64_t)device->slot_id,(uint64_t)device->trackpad.dci,ready?"yes":"no",(uint64_t)APPLE_TRACKPAD_REPORT_MAX,trackpad_pointer_enabled?"yes":"no");
     }
     device->stage = "ready";
     if (device->hid_keyboard) {
@@ -2539,6 +2608,11 @@ void xhci_probe_input(uint64_t wait_ticks) {
     xhci_input_probe_active = false;
 }
 
+static void print_input_timing(const char *name,const struct input_timing *s) {
+    console_printf("input-timing: %s count=%u mean_us=%u max_us=%u\n",name,
+        s->count,s->count?s->total_us/s->count:0,s->max_us);
+}
+
 static void print_trackpad_capture(const struct xhci_device *device) {
     const struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (!device->present || !t->candidate) return;
@@ -2547,6 +2621,11 @@ static void print_trackpad_capture(const struct xhci_device *device) {
         (uint64_t)t->packet,(uint64_t)APPLE_TRACKPAD_REPORT_MAX,(uint64_t)t->last_length,(uint64_t)t->last_completion);
     console_printf("trackpad-capture: reports=%u contact_reports=%u button_reports=%u malformed=%u errors=%u\n",
         t->reports,t->contact_reports,t->button_reports,t->malformed,t->errors);
+    uint64_t flags=event_irq_save();
+    struct input_timing gap=t->contact_gap,rearm=t->rearm_time;
+    event_irq_restore(flags);
+    print_input_timing("contact-dispatch-gap",&gap);
+    print_input_timing("dispatch-to-rearm",&rearm);
     console_printf("trackpad-gesture: policy=taps-v1 frames=%u rebases=%u handoffs=%u scroll=%u typing=%u palm=%u cancels=%u tap_primary=%u tap_secondary=%u\n",
         t->drag_frames,t->drag_rebases,t->drag_handoffs,t->scroll_events,t->typing_suppressed,t->palm_suppressed,t->pointer_cancels,t->tap_primary,t->tap_secondary);
     console_printf("trackpad-capture: current contacts=%u button=%u x=%d y=%d origin=%u\n",
@@ -2555,6 +2634,9 @@ static void print_trackpad_capture(const struct xhci_device *device) {
 }
 
 void xhci_print_input_summary(void) {
+    struct input_timing oldest,latest;mouse_queue_timing(&oldest,&latest);
+    print_input_timing("queue-oldest",&oldest);
+    print_input_timing("queue-latest",&latest);
     if (!xhci.present) {
         console_write("input-usb: xhci=none\n");
         return;
@@ -2764,7 +2846,7 @@ void xhci_print_boot_diagnostic(void) {
         console_printf("  polls=%u reports=%u errors=%u\n",
             d->interrupt_success, d->hid_reports, d->interrupt_errors);
     }
-    console_write("Expected internal keyboard: 05ac:0291, port 5, iface 1, dci 5.\n");
+    console_write("Match vendor/product, port, interface and endpoint against this machine's captured descriptors.\n");
 }
 
 

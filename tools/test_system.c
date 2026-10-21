@@ -42,6 +42,9 @@ long srv_net_status_info(struct srv_net_status_info *n) {
     if(net_phase==3) n->struct_size=16;
     if(net_phase>=4) n->link_flags=SRV_NET_LINK_KNOWN;
     if(net_phase==5) { n->link_flags|=SRV_NET_LINK_UP|SRV_NET_LINK_FULL_DUPLEX|SRV_NET_LINK_DUPLEX_KNOWN;n->link_speed_mbps=1000; }
+    n->adapter_count=2;
+    n->adapters[0]=(struct srv_net_adapter_info){.id=1,.flags=SRV_NET_ADAPTER_ACTIVE,.link_flags=SRV_NET_LINK_KNOWN|SRV_NET_LINK_UP,.link_speed_mbps=1000,.mac={2,0,0,0,0,1},.driver="e1000"};
+    n->adapters[1]=(struct srv_net_adapter_info){.id=2,.link_flags=SRV_NET_LINK_KNOWN,.mac={2,0,0,0,0,2},.driver="usb-ecm"};
     return 0;
 }
 void tool_status(struct tool *t,const char *text) { snprintf(t->status,sizeof(t->status),"%s",text);t->window.dirty=1; }
@@ -61,6 +64,9 @@ int main(void) {
     phase=2;tool_system_refresh(&t,1);assert(strstr(t.status,"unavailable") && t.process_count==0 && t.table.body.selected==-1);
     phase=0;tool_system_action(&t,(struct desk_action){SYSTEM_PAUSE,DESK_WIDGET_ACTIVATED});assert(!t.system_paused && t.process_count==3);
     assert(t.network_valid && !strcmp(t.network_values[0],"10.0.2.15") && !strcmp(t.network_values[3],"52:54:00:12:34:56"));
+    assert(!strcmp(t.network_values[15],"Active · net0") && !strcmp(t.network_values[16],"e1000"));
+    assert(!strcmp(t.network_values[19],"Inactive · no IP configuration") && !strcmp(t.network_values[20],"usb-ecm"));
+    assert(!strcmp(t.network_values[21],"02:00:00:00:00:02") && !strcmp(t.network_values[22],"Disconnected"));
     assert(!strcmp(t.network_values[5],"123") && !strcmp(t.network_values[8],"3"));
     desk_list_select(&t.table.body,1);uint64_t selected=t.table.navigation[t.table.body.selected].id;
     tool_system_action(&t,(struct desk_action){SYSTEM_NETWORK,DESK_WIDGET_ACTIVATED});
@@ -71,8 +77,9 @@ int main(void) {
     net_phase=1;tool_system_refresh(&t,1);assert(!t.network_valid && strstr(network_state(&t),"unavailable") && !strcmp(t.network_values[0],"—"));
     net_phase=2;tool_system_refresh(&t,1);assert(t.network_valid && strstr(network_state(&t),"No supported") && !strcmp(t.network_values[5],"—"));
     net_phase=3;tool_system_refresh(&t,1);assert(!t.network_valid);
-    net_phase=4;tool_system_refresh(&t,1);assert(strstr(network_state(&t),"disconnected") && !strcmp(t.network_values[12],"Disconnected") && !strcmp(t.network_values[13],"—"));
-    net_phase=5;tool_system_refresh(&t,1);assert(!strcmp(t.network_values[12],"Connected") && !strcmp(t.network_values[13],"1000 Mb/s") && !strcmp(t.network_values[14],"Full duplex"));
+    tool_system_action(&t,(struct desk_action){SYSTEM_PAUSE,DESK_WIDGET_ACTIVATED});assert(!t.system_paused);
+    t.window.dirty=0;ticks+=100;net_phase=4;tool_system_refresh(&t,0);assert(t.window.dirty);assert(strstr(network_state(&t),"disconnected") && !strcmp(t.network_values[12],"Disconnected") && !strcmp(t.network_values[13],"—"));
+    t.window.dirty=0;ticks+=100;net_phase=5;tool_system_refresh(&t,0);assert(t.window.dirty);assert(!strcmp(t.network_values[12],"Connected") && !strcmp(t.network_values[13],"1000 Mb/s") && !strcmp(t.network_values[14],"Full duplex"));
     net_phase=0;tool_system_action(&t,(struct desk_action){SYSTEM_PROCESSES,DESK_WIDGET_ACTIVATED});assert(t.table.body.enabled && !t.network_table.body.enabled);
     assert(t.table.navigation[t.table.body.selected].id==selected);
     tool_system_action(&t,(struct desk_action){SYSTEM_DEVICES,DESK_WIDGET_ACTIVATED});
@@ -88,6 +95,9 @@ int main(void) {
     thermal_phase=2;tool_system_refresh(&t,1);assert(!t.thermal_fresh&&!strcmp(t.sensor_values[0],"Not available")&&strstr(t.sensor_values[5],"stale"));
     thermal_phase=3;tool_system_refresh(&t,1);assert(!t.thermal_valid);
     smc_phase=1;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"6501.0 RPM"));
+    smc_phase=4;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"L 2162.0 / R 1991.0 RPM"));
+    smc_phase=5;tool_system_refresh(&t,1);assert(t.smc_fresh && !strcmp(t.sensor_values[7],"L 0.0 / R 0.0 RPM"));
+    smc_phase=6;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available"));
     smc_phase=2;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available") && strstr(t.sensor_values[8],"stale"));
     smc_phase=3;tool_system_refresh(&t,1);assert(!t.smc_fresh && !strcmp(t.sensor_values[7],"Not available"));
     tool_system_action(&t,(struct desk_action){SYSTEM_DEVICES,DESK_WIDGET_ACTIVATED});
@@ -105,5 +115,8 @@ long srv_smc_status(struct srv_smc_status *out) {
     *out=(struct srv_smc_status){.version=SRV_SMC_VERSION,.state=SRV_SMC_UNAVAILABLE};
     if(smc_phase)*out=(struct srv_smc_status){.version=SRV_SMC_VERSION,.state=smc_phase==3?SRV_SMC_FAULT:SRV_SMC_ACTIVE,
         .flags=SRV_SMC_FAN_VALID,.fan_millirpm=6501000,.samples=1,.sampled_us=smc_phase==2?1000000:4500000};
+    if(smc_phase>=4) { out->fan_count=2;out->fan_millirpm=2162000;out->fan1_millirpm=1991000; }
+    if(smc_phase==5) out->fan_millirpm=out->fan1_millirpm=0;
+    if(smc_phase==6) out->flags=0;
     return 0;
 }

@@ -239,6 +239,6 @@ bool usb_storage_attach(struct usb_storage *s,void *context,usb_bulk_fn bulk,boo
     s->block->max_transfer_bytes=sizeof(s->data);
     if(writable) s->block->flush=flush;
     console_printf("usb-storage: %s blocks=%u sector=%u mode=%s\n",s->name,s->sectors,(uint64_t)bytes,writable?"rw":"read-only");
-    block_register_mbr_partitions(s->block);
+    if (!block_register_gpt_partitions(s->block)) block_register_mbr_partitions(s->block);
     return true;
 }

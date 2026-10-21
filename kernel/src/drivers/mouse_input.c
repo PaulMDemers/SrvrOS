@@ -1,11 +1,17 @@
 #include <srvros/mouse.h>
 #include <limits.h>
+#include <srvros/scheduler.h>
+#include <srvros/timer.h>
 
 /* One CPU currently owns input. IRQ exclusion also covers producers reached
  * from storage service hooks. Keep button edges even if userspace is delayed. */
 #define MOUSE_QUEUE_SIZE 64
 static struct mouse_event queue[MOUSE_QUEUE_SIZE];
 static unsigned head,count;
+static uint64_t queued_first[MOUSE_QUEUE_SIZE],queued_last[MOUSE_QUEUE_SIZE];
+static struct input_timing queue_oldest,queue_latest;
+static struct scheduler_wait_queue input_waiters;
+struct scheduler_wait_queue *mouse_wait_queue(void) { return &input_waiters; }
 static uint64_t overflows;
 static uint8_t source_buttons[2],blocked[2];
 static uint64_t lock(void) {
@@ -45,6 +51,11 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
             wheel==prior_wheel && (!wheel || same_direction)) {
             last->dx=sum(last->dx,dx); last->dy=sum(last->dy,dy);
             last->wheel_x=sum(last->wheel_x,wx); last->wheel_y=sum(last->wheel_y,wy);
+            /* Preserve the oldest constituent when coalescing. Mixed-source
+             * batches are excluded from trackpad-only residence statistics. */
+            unsigned index=(head+count-1)%MOUSE_QUEUE_SIZE;
+            if(source==1 && queued_first[index]) queued_last[index]=timer_monotonic_us();
+            else queued_first[index]=queued_last[index]=0;
             unlock(flags); return;
         }
     }
@@ -55,23 +66,40 @@ static void inject(unsigned source,int32_t dx,int32_t dy,int32_t wx,int32_t wy,u
         head=0; count=1;
         blocked[0]=source_buttons[0]; blocked[1]=source_buttons[1];
         queue[0]=(struct mouse_event){.flags=MOUSE_CANCEL};
+        queued_first[0]=queued_last[0]=0;
+        scheduler_wake_all(&input_waiters);
         unlock(flags); return;
     }
     queue[(head+count)%MOUSE_QUEUE_SIZE]=(struct mouse_event){
         .dx=dx,.dy=dy,.wheel_x=wx,.wheel_y=wy,.buttons=buttons,.flags=buttons,
         .reserved=previous!=buttons}; /* Internal edge marker, stripped on read. */
+    queued_first[(head+count)%MOUSE_QUEUE_SIZE]=queued_last[(head+count)%MOUSE_QUEUE_SIZE]=
+        source==1?timer_monotonic_us():0;
     count++;
+    scheduler_wake_all(&input_waiters);
     unlock(flags);
 }
 void mouse_inject_event(int32_t dx,int32_t dy,uint8_t buttons) { inject(0,dx,dy,0,0,buttons); }
 void mouse_inject_trackpad(int32_t dx,int32_t dy,uint8_t buttons) { inject(1,dx,dy,0,0,buttons); }
+bool mouse_pending(void) {
+    uint64_t flags=lock();bool pending=count!=0;unlock(flags);return pending;
+}
 bool mouse_scan(struct mouse_event *out) {
     if (!out) return false;
     uint64_t flags=lock();
     if (!count) { unlock(flags); return false; }
     *out=queue[head]; out->reserved=0;
+    if(queued_first[head]) {
+        uint64_t now=timer_monotonic_us();
+        input_timing_add(&queue_oldest,queued_first[head],now);
+        input_timing_add(&queue_latest,queued_last[head],now);
+    }
     head=(head+1)%MOUSE_QUEUE_SIZE; count--;
     unlock(flags); return true;
+}
+
+void mouse_queue_timing(struct input_timing *oldest,struct input_timing *latest) {
+    uint64_t flags=lock();*oldest=queue_oldest;*latest=queue_latest;unlock(flags);
 }
 
 uint64_t mouse_overflow_count(void) {
@@ -109,6 +137,8 @@ void mouse_cancel_trackpad(void) {
         head=0;count=1;
         uint8_t buttons=source_buttons[0]&~blocked[0];
         queue[0]=(struct mouse_event){.buttons=buttons,.flags=MOUSE_CANCEL|buttons};
+        queued_first[0]=queued_last[0]=0;
+        scheduler_wake_all(&input_waiters);
     }
     unlock(flags);
 }

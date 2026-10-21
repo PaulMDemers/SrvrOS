@@ -61,7 +61,17 @@ static uint32_t xhci_test_read32(uint64_t offset) {
     return *(uint32_t *)(registers + offset);
 }
 
+static struct xhci_device *mode_device;
+static unsigned mode_doorbells;
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if (mode_device && offset==xhci.db_base+4 && value==1) {
+        if (!mode_doorbells) for (unsigned i=0;i<8;i++) mode_device->descriptor_buffer[i]=0x80+i;
+        else {
+            assert(mode_device->descriptor_buffer[0]==1);
+            for (unsigned i=1;i<8;i++) assert(mode_device->descriptor_buffer[i]==0x80+i);
+        }
+        mode_doorbells++;
+    }
     if (port_model.active && offset == xhci.op_base + XHCI_OP_PORTS) {
         assert(!(value & XHCI_PORTSC_PED)); /* Would disable the port. */
         port_model.state = (port_model.state & ~XHCI_PORTSC_RWS) | (value & XHCI_PORTSC_RWS);
@@ -158,7 +168,56 @@ static void test_handoff(void) {
     assert(!claim_firmware_ownership());
 }
 
-static void test_keyboard_context(const char *fixture) {
+static void test_ep0_packet(void) {
+    assert(default_ep0_packet_for_speed(1) == 8); /* Pro 0262, full speed. */
+    assert(default_ep0_packet_for_speed(2) == 8);
+    assert(default_ep0_packet_for_speed(3) == 64);
+    assert(default_ep0_packet_for_speed(4) == 512);
+    for (unsigned wide = 0; wide < 2; wide++) {
+        for (unsigned failed = 0; failed < 2; failed++) {
+            reset_test(); xhci.hcc_params1 = wide ? 4 : 0;
+            uint8_t input[4096] = {0}, output[4096] = {0};
+            uint8_t descriptor[18] = {18, USB_DESC_DEVICE}; descriptor[7] = 64;
+            struct xhci_trb commands[64] = {0}, events[64] = {0};
+            xhci.command_ring = commands; xhci.command_ring_phys = (uintptr_t)commands;
+            xhci.command_cycle = true; xhci.event_ring = events; xhci.event_cycle = true;
+            xhci.rt_base = 0x2000; xhci.db_base = 0x1000;
+            events[0] = (struct xhci_trb){.parameter_low = (uint32_t)(uintptr_t)commands,
+                .parameter_high = (uint32_t)((uintptr_t)commands >> 32),
+                .status = (failed ? 17u : 1u) << 24,
+                .control = 1 | (XHCI_TRB_TYPE_COMMAND_COMPLETION << 10) | (3u << 24)};
+            struct xhci_device d = {.speed = 1, .slot_id = 3, .ep0_max_packet = 8,
+                .input_context = input, .input_context_phys = (uintptr_t)input,
+                .output_context = output, .descriptor_buffer = descriptor};
+            context_write32(output, 1, 0, 0x10001); /* Preserve interval, clear EP state. */
+            context_write32(output, 1, 1, (8u << 16) | 0x26);
+            context_write32(output, 1, 2, 0x12345031); /* Live dequeue, not ring start. */
+            context_write32(output, 1, 3, 0x12);
+            assert(update_ep0_packet(&d) == !failed);
+            assert(d.ep0_max_packet == (failed ? 8 : 64));
+            assert(context_read32(input, 0, 0) == 0 && context_read32(input, 0, 1) == 2);
+            assert(context_read32(input, 1, 0) == 0); /* No slot reconfiguration. */
+            assert(context_read32(input, 2, 0) == 0x10000);
+            assert(context_read32(input, 2, 1) == ((64u << 16) | 0x26));
+            assert(context_read32(input, 2, 2) == 0x12345031 && context_read32(input, 2, 3) == 0x12);
+            assert(((commands[0].control >> 10) & 63) == XHCI_TRB_TYPE_EVALUATE_CONTEXT);
+            assert(context_read32(output, 1, 1) >> 16 == 8); /* Driver never writes output context. */
+            unsigned queued = xhci.command_enqueue;
+            descriptor[7] = 12; assert(!update_ep0_packet(&d));
+            descriptor[0] = 0; descriptor[7] = 8; assert(!update_ep0_packet(&d));
+            descriptor[0] = 18; descriptor[1] = USB_DESC_CONFIGURATION; assert(!update_ep0_packet(&d));
+            descriptor[1] = USB_DESC_DEVICE; d.speed = 2; descriptor[7] = 64; assert(!update_ep0_packet(&d));
+            d.speed = 3; descriptor[7] = 8; assert(!update_ep0_packet(&d));
+            d.speed = 4; descriptor[7] = 0; assert(!update_ep0_packet(&d));
+            descriptor[7] = 9; d.ep0_max_packet = 512; assert(update_ep0_packet(&d));
+            d.speed = 1; descriptor[7] = 8; d.ep0_max_packet = 8; assert(update_ep0_packet(&d));
+            assert(xhci.command_enqueue == queued);
+        }
+    }
+    puts("xhci-ep0: PASS full-speed prefix sizing, live-context update, rejection, both context sizes and SuperSpeed encoding");
+}
+
+static void test_keyboard_context(const char *fixture, uint8_t interface, uint8_t dci, uint16_t packet) {
     reset_test();
     uint8_t descriptor[4096] = {0};
     FILE *file = fopen(fixture, "rb");
@@ -172,8 +231,8 @@ static void test_keyboard_context(const char *fixture) {
         .input_context = input, .output_context = output, .interrupt_ring_phys = 0x12345000};
     assert(parse_hid_input_config(&device, length, &config));
     assert(config == 1 && device.interface_count == 3);
-    assert(device.interface_number == 1 && device.interrupt_dci == 5);
-    assert(device.interrupt_max_packet == 64 && device.interrupt_interval == 8);
+    assert(device.interface_number == interface && device.interrupt_dci == dci);
+    assert(device.interrupt_max_packet == packet && device.interrupt_interval == 8);
     assert(device.hid_boot_keyboard && !device.hid_mouse);
     assert(interrupt_interval_exponent(1, 8) == 6); /* 8ms = 64 microframes. */
     assert(interrupt_interval_exponent(2, 10) == 6);
@@ -185,12 +244,12 @@ static void test_keyboard_context(const char *fixture) {
         xhci.hcc_params1 = context64 ? 1u << 2 : 0;
         context_write32(output, 0, 2, 0x0203); /* Preserve TT hub and port. */
         setup_interrupt_input_context(&device);
-        assert(context_read32(input, 0, 1) == ((1u << 0) | (1u << 5)));
+        assert(context_read32(input, 0, 1) == ((1u << 0) | (1u << dci)));
         assert(context_read32(input, 1, 2) == 0x0203);
-        assert(context_read32(input, 6, 0) == 6u << 16);
-        assert(context_read32(input, 6, 1) >> 16 == 64);
-        assert(context_read32(input, 6, 4) == (64u | (64u << 16)));
-        assert(context_read32(input, 6, 2) == 0x12345001);
+        assert(context_read32(input, dci + 1, 0) == 6u << 16);
+        assert(context_read32(input, dci + 1, 1) >> 16 == packet);
+        assert(context_read32(input, dci + 1, 4) == (packet | ((uint32_t)packet << 16)));
+        assert(context_read32(input, dci + 1, 2) == 0x12345001);
     }
     /* Configured interrupt TRBs request short packet events, e.g. 8 bytes
      * returned from a 64-byte Apple endpoint. Failed endpoint setup must not poll. */
@@ -207,7 +266,7 @@ static void test_keyboard_context(const char *fixture) {
     submit_interrupt_poll(&device);
     assert(device.interrupt_pending);
     assert((ring[0].control & (XHCI_TRB_ISP | XHCI_TRB_IOC)) == (XHCI_TRB_ISP | XHCI_TRB_IOC));
-    assert(ring[0].status == 64);
+    assert(ring[0].status == packet);
 }
 
 static void setup_port_model(uint32_t connect_at) {
@@ -427,6 +486,56 @@ static void test_storage(void) {
     test_time_step=1000;
 }
 
+static void test_pro_trackpad(const char *fixture) {
+    reset_test();
+    uint8_t descriptor[4096]={0},input[4096]={0},output[4096]={0};
+    FILE *file=fopen(fixture,"rb");assert(file && fread(descriptor,1,84,file)==84);fclose(file);
+    struct xhci_device d={.present=true,.slot_id=1,.vendor_id=0x05ac,.product_id=0x0262,.speed=1,
+        .descriptor_buffer=descriptor,.descriptor_buffer_phys=(uintptr_t)descriptor,
+        .input_context=input,.output_context=output};
+    xhci_set_trackpad_capture(true);
+    assert(parse_trackpad_config(&d,84));
+    assert(d.trackpad.dci==3 && d.trackpad.report_type==2 && d.trackpad.packet==64 && d.trackpad.interval==2);
+    d.product_id=0x0263;assert(!parse_trackpad_config(&d,84));d.product_id=0x0262;
+    descriptor[54]=0x82;assert(!parse_trackpad_config(&d,84));descriptor[54]=0x81;
+    descriptor[56]=32;assert(!parse_trackpad_config(&d,84));descriptor[56]=64;
+    for(unsigned wide=0;wide<2;wide++) {
+        xhci.hcc_params1=wide?4:0;
+        context_write32(output,0,0,7u<<27);setup_trackpad_input_context(&d);
+        assert(context_read32(input,0,1)==(1u|(1u<<3)));
+        assert(context_read32(input,1,0)>>27==7 && context_read32(input,8,1)==0);
+        assert(context_read32(input,4,1)>>16==64);
+    }
+    for(unsigned fail=0;fail<3;fail++) {
+        struct xhci_trb ring[64]={0},events[64]={0};
+        d.ep0_ring=ring;d.ep0_ring_phys=0x9000;d.ep0_enqueue=0;d.ep0_cycle=true;
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;xhci.event_dequeue=0;
+        for(unsigned i=0;i<2;i++) events[i]=(struct xhci_trb){.parameter_low=0x9020+48*i,
+            .status=((fail==i+1)?6u:1u)<<24,.control=(32u<<10)|(1u<<24)|(1u<<16)|1};
+        mode_device=&d;mode_doorbells=0;
+        assert(enable_trackpad_mode(&d)==(fail==0));
+        assert(mode_doorbells==(fail==1?1u:2u));
+        assert(((ring[0].control>>16)&3)==3 && (ring[1].control&XHCI_DATA_DIR_IN));
+        if(fail!=1) {
+            assert(((ring[3].control>>16)&3)==2 && !(ring[4].control&XHCI_DATA_DIR_IN));
+            assert(ring[5].control&XHCI_STATUS_DIR_IN);
+            assert(ring[3].parameter_low==0x03000921);
+        }
+        mode_device=NULL;
+    }
+    xhci_set_trackpad_capture(false);
+    struct xhci_trb input_ring[64]={0};uint8_t report[APPLE_TRACKPAD_REPORT_MAX]={0};
+    xhci.devices[0]=d;struct xhci_trackpad_endpoint *t=&xhci.devices[0].trackpad;
+    t->ready=true;t->pending=true;t->trb=0xa000;t->ring=input_ring;t->ring_phys=0xb000;
+    t->cycle=true;t->buffer=report;t->buffer_phys=(uintptr_t)report;
+    report[15]=1;report[30]=4;report[32]=123;report[34]=45;report[46]=10;
+    struct xhci_trb event={.parameter_low=0xa000,.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-58),
+        .control=(32u<<10)|(1u<<24)|(3u<<16)};
+    dispatch_transfer_event(&event);
+    assert(t->reports==1 && t->frame.count==1 && t->frame.button && t->frame.contacts[0].x==123);
+    puts("pro-trackpad: PASS exact interface/DCI, keyboard preservation, feature read/modify/write and failures");
+}
+
 static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     xhci_set_trackpad_gestures(false);
     xhci_set_trackpad_pointer(false); pointer_injected=0;pointer_canceled=0;
@@ -490,7 +599,7 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
     if (gestures) assert(t->typing_until>test_time);
     e.parameter_low=0xb010; e.control=(32u<<10)|(1u<<24)|(7u<<16);
     e.status=(13u<<24)|(APPLE_TRACKPAD_REPORT_MAX-38); dispatch_transfer_event(&e);
-    assert(t->reports==2 && t->frame.count==0 && !t->frame.button); /* Lift frame. */
+    assert(t->reports==2 && t->frame.count==0 && !t->frame.button && !t->last_contact_us); /* Lift frame. */
     assert(pointer_injected==(pointer?2u:0u));
     if (pointer) assert(!last_pointer.buttons);
     assert(t->lifts==1 && t->max_contacts==1 && t->samples[1].data[40]==123);
@@ -599,6 +708,8 @@ static void test_trackpad(const char *fixture,bool pointer,bool gestures) {
         dispatch_transfer_event(&e);assert(last_pointer.buttons==1);
         cancel_trackpad_pointer(t);assert(pointer_canceled==canceled+2);
     }
+    assert(t->rearm_time.count>0);
+    if(gestures) assert(t->contact_gap.count>0);
     xhci_set_trackpad_capture(false); xhci_set_trackpad_pointer(false); xhci_set_trackpad_gestures(false);
     puts("trackpad-transport: PASS opt-in, exact descriptor, independent context/ring, multi-packet length, keyboard/bulk coexistence, stale events, errors; synthetic only");
 }
@@ -618,6 +729,20 @@ static void test_network_transport(void) {
         write_link_trb(rings[i],(uint64_t)rings[i],true);
     }
     network_service(&d);assert(n.ep[1].pending && n.ep[2].pending && !n.ep[0].pending);
+    /* Captured ECM configuration 3 reports speed/link on data interface 1.
+     * Generic devices must continue to reject that unexpected interface. */
+    uint8_t speed[]={0xa1,0x2a,0,0,1,0,8,0,0,0xca,0x9a,0x3b,0,0xca,0x9a,0x3b};
+    n.config.data_interface=1;
+    memcpy(n.ep[2].buffer,speed,sizeof(speed));
+    unsigned notification_wakes=net_wakeups;
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));
+    assert(net_wakeups==notification_wakes+1 && n.notify_completed_us==test_time);
+    network_service(&d);
+    assert(n.notifications==0 && !n.link.downstream_bps);
+    n.config.notify_data_interface=true;
+    memcpy(n.ep[2].buffer,speed,sizeof(speed));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
+    assert(n.notifications==1 && n.link.downstream_bps==1000000000);
     uint8_t frame[1514];memset(frame,0x5a,sizeof(frame));
     assert(!network_send(&d,frame,13) && !network_send(&d,frame,1515));
     for(unsigned i=0;i<XHCI_NET_QUEUE;i++) assert(network_send(&d,frame,64));
@@ -648,6 +773,38 @@ static void test_network_transport(void) {
     assert(n.ep[0].requested==65 && !n.tx_zero);
     assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
     assert(n.tx_packets==count+1 && !n.ep[0].pending);
+    /* Ethernet cable changes preserve USB ownership, drop stale queued TX,
+     * reject new TX while down, and resume on a fresh up notification. */
+    assert(network_send(&d,frame,65));
+    uint8_t down[]={0xa1,0,0,0,1,0,0,0};
+    memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);
+    assert(n.ready && !n.failed && n.link.known && !n.link.up);
+    assert(!n.count && !n.ep[0].pending && n.ep[1].pending);
+    assert(!network_send(&d,frame,65));
+    down[2]=1;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);assert(n.link.up && n.ready);
+    assert(network_send(&d,frame,65));network_service(&d);
+    assert(n.ep[0].pending);
+    assert(network_event(&d,2,n.ep[0].trb,1,0));network_service(&d);
+    /* A cable loss with an in-flight transfer must not revoke DMA ownership. */
+    assert(network_send(&d,frame,65));network_service(&d);
+    uint64_t inflight=n.ep[0].trb;
+    assert(network_send(&d,frame,65));
+    down[2]=0;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);
+    assert(n.ready && n.ep[0].pending && n.ep[0].trb==inflight && !n.count && !freed);
+    test_time+=3000000;network_service(&d);
+    assert(n.ready && n.tx_suspended && n.ep[0].pending && n.ep[0].trb==inflight && !freed);
+    down[2]=1;memcpy(n.ep[2].buffer,down,sizeof(down));
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(down)));
+    network_service(&d);assert(n.ready && n.link.up && !n.tx_suspended);
+    assert(n.ep[0].pending && n.ep[0].trb==inflight && !freed);
+    assert(network_event(&d,2,inflight,1,0));network_service(&d);
+    assert(n.ready && !n.ep[0].pending && n.ep[1].pending);
     /* Malformed residue quarantines; pending receive buffers remain owned. */
     assert(network_event(&d,3,n.ep[1].trb,13,4097));network_service(&d);
     assert(n.failed && !n.ready && n.errors==1 && !freed);
@@ -676,14 +833,17 @@ static void test_device_inventory(void) {
 }
 
 int main(int argc, char **argv) {
-    assert(argc == 2);
+    assert(argc == 3);
+    test_ep0_packet();
     test_network_transport();
     test_device_inventory();
     test_storage();
     test_root_ports();
     test_scratchpads();
     test_handoff();
-    test_keyboard_context(argv[1]);
+    test_keyboard_context(argv[1], 1, 5, 64);
+    test_keyboard_context(argv[2], 0, 7, 10);
+    test_pro_trackpad(argv[2]);
     test_trackpad(argv[1],false,false);
     test_trackpad(argv[1],true,false);
     test_trackpad(argv[1],true,true);

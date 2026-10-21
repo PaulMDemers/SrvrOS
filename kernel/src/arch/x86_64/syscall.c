@@ -2386,6 +2386,26 @@ static int64_t syscall_sleep_ticks(uint64_t ticks) {
     return 0;
 }
 
+/* Bounded to one timer tick: signal/exit delivery cannot be stranded on the
+ * private pointer queue. Readiness is rechecked atomically by the scheduler. */
+static bool pointer_wait_ready(void *arg) {
+    return mouse_pending() || sleep_finished(arg);
+}
+static int64_t syscall_pointer_wait(void) {
+    uint64_t start=timer_ticks();
+    struct sleep_wait wait={start,1};
+#ifndef SRVROS_SYSCALL_SLEEP_HOST_TEST
+    __asm__ volatile ("sti" : : : "memory");
+#endif
+    for(;;) {
+        if(process_should_exit_current()) return -1;
+        if(process_signal_pending_current()) return SRV_ERR_INTR;
+        if(mouse_pending()) return 1;
+        if(timer_ticks()-start>=1 || start==UINT64_MAX) return 0;
+        if(!scheduler_wait_timeout(mouse_wait_queue(),pointer_wait_ready,&wait,start+1)) scheduler_yield();
+    }
+}
+
 static int64_t syscall_thread_create(uint64_t entry, uint64_t arg, uint64_t stack_top, uint64_t flags) {
     if (entry == 0 ||
         stack_top < 16 ||
@@ -2466,7 +2486,7 @@ bool syscall_io_safe(const struct isr_frame *frame) {
     case SYS_GUI_SURFACE_BLIT: case SYS_GUI_SURFACE_COPY:
     case SYS_GUI_SURFACE_CREATE: case SYS_GUI_SURFACE_DESTROY:
     case SYS_GFX_BLIT_RECT: case SYS_GFX_BLIT_SCALED_RECT: case SYS_PROC_LIST: case SYS_MEMINFO: case SYS_SLEEP_TICKS:
-    case SYS_SCHEDULER_STATUS:
+    case SYS_POINTER_WAIT: case SYS_SCHEDULER_STATUS:
     case SYS_REALTIME_US:
     case SYS_MONOTONIC_US:
     case SYS_KEY_SCAN: case SYS_YIELD: case SYS_GETPID: case SYS_TICKS:
@@ -2789,6 +2809,9 @@ void syscall_dispatch(struct isr_frame *frame) {
     case SYS_TICKS:
         frame->rax = timer_ticks();
         return;
+    case SYS_POINTER_WAIT:
+        frame->rax=(uint64_t)syscall_pointer_wait();
+        break;
     case SYS_SLEEP_TICKS:
         frame->rax = (uint64_t)syscall_sleep_ticks(frame->rdi);
         return;

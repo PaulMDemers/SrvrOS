@@ -100,7 +100,7 @@ def workspace_preferences(ui, serial, process, logs, restored=False, expanded=Fa
 def verify_workspace(stick, volume, acceleration):
     from exfat_test_image import ExfatFixture, check_clean_image
     with stick.open("rb") as stream:
-        stream.seek(2048*512);saved=stream.read()
+        stream.seek(2048*512);saved=stream.read(128*1024*1024)
     volume.write_bytes(saved);check_clean_image(volume)
     fixture=ExfatFixture(saved)
     expected=("srvros-desktop-v2\ntext_size=16\nutc_offset_minutes=0\nclock_flags=3\n"
@@ -121,6 +121,9 @@ def main():
     parser.add_argument("--desktop-check", action="store_true")
     parser.add_argument("--audio-check", action="store_true", help="Add HDA to the exact staged desktop and validate a captured test tone and bundled WAV playback")
     parser.add_argument("--audio-codec-timer", choices=("on","off"), default="off", help="QEMU codec timing; callback mode avoids host-load capture drops")
+    parser.add_argument("--workspace-table", choices=("mbr", "gpt"), default="mbr")
+    parser.add_argument("--keyboard-timeout", action="store_true", help="send no keys and verify the guided trial deadline")
+    parser.add_argument("--keyboard-fail", action="store_true", help="inject wrong keys before correct keys in the guided typing rehearsal")
     parser.add_argument("--probe-check", action="store_true")
     parser.add_argument("--probe-missing-workspace", action="store_true")
     parser.add_argument("--console-check", action="store_true")
@@ -141,11 +144,17 @@ def main():
     probe=boot.LAPTOP_PROBE_RE.fullmatch(manifest.get("config_version", ""))
     if bool(probe) != args.probe_check or (args.probe_missing_workspace and not probe):
         parser.error("Automatic laptop probe stages require --probe-check")
-    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-"))):
+    if args.audio_check and (not desktop or not manifest["config_version"].startswith(("ram-usb-v21-", "ram-usb-v22-", "ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-"))):
         parser.error("--audio-check requires a v21/v22 desktop stage")
+    keyboard_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v27-","ram-usb-v28-")))
+    if args.keyboard_fail and args.keyboard_timeout: parser.error("choose wrong input or timeout")
+    keyboard_retry=bool(probe and manifest["config_version"].startswith("ram-usb-v28-"))
+    keyboard_negative=args.keyboard_timeout or (args.keyboard_fail and not keyboard_retry)
+    if keyboard_negative and not keyboard_capture: parser.error("--keyboard-fail requires keyboard capture")
+    cpu_load_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v35-"))
     idle_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v23-"))
     desktop_idle_capture=bool(probe and manifest["config_version"].startswith(("ram-usb-v25-","ram-usb-v26-")))
-    power_telemetry=bool(probe and manifest["config_version"].startswith("ram-usb-v26-"))
+    power_telemetry=bool(probe and manifest["config_version"].startswith(("ram-usb-v26-","ram-usb-v35-")))
     auto_return=manifest["config_version"].endswith("-auto-return")
     battery_service=bool(probe and manifest["config_version"].startswith(("ram-usb-v33-","ram-usb-v34-","ram-usb-v36-","ram-usb-v38-")))
     battery_transitions=bool(probe and manifest["config_version"].startswith("ram-usb-v32-"))
@@ -154,6 +163,7 @@ def main():
     battery_usb_write=bool(probe and manifest["config_version"].startswith("ram-usb-v36-"))
     battery_marker="battery-service-capture" if battery_service else "battery-transition-capture" if battery_transitions else "battery-capture"
     aml_capture=bool(probe and manifest["config_version"].startswith("ram-usb-v24-"))
+    scaled_desktop=bool(desktop and manifest["config_version"].startswith(("ram-usb-v29-","ram-usb-v30-","ram-usb-v31-", "ram-usb-v36-", "ram-usb-v37-")))
     workspace=desktop or probe
     serial = logs / "hardware-grub-serial.log"
     serial.unlink(missing_ok=True)
@@ -177,6 +187,11 @@ def main():
                    "-device", "qemu-xhci,id=xhci", "-device", "usb-kbd,bus=xhci.0",
                    "-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off",
                    "-monitor", "none", "-display", "none", "-no-reboot"]
+        if scaled_desktop:
+            command += ["-vga","none","-device","VGA,vgamem_mb=64,xres=2880,yres=1800"]
+        network_desktop=bool(desktop and manifest["config_version"].startswith("ram-usb-v37-"))
+        if network_desktop:
+            command += ["-nic","none","-netdev","user,id=ecm","-device","usb-net,netdev=ecm,bus=xhci.0,id=usbnet"]
         if args.audio_check:
             command += ["-device","ich9-intel-hda","-device",f"hda-duplex,audiodev=capture,use-timer={args.audio_codec_timer}","-trace","enable=hda_audio_overrun",
                 "-audiodev",f"wav,id=capture,path={logs/'hardware-grub-tone.wav'},out.frequency=48000"]
@@ -196,7 +211,25 @@ def main():
             volume.write_bytes(fixture.data);check_clean_image(volume)
             mbr=bytearray(512);mbr[450]=7
             struct.pack_into("<II",mbr,454,2048,len(fixture.data)//512);mbr[510:]=b"\x55\xaa"
-            with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
+            if args.workspace_table == "gpt":
+                last = 2048 + len(fixture.data)//512 - 1
+                backup = last + 33
+                entries = bytearray(128*128)
+                entries[:128] = gpt_entry(uuid.UUID("ebd0a0a2-b9e5-4433-87c0-68b6b72699c7"),
+                    uuid.uuid4(), 2048, last, "Workspace")
+                crc, guid = binascii.crc32(entries) & 0xffffffff, uuid.uuid4()
+                mbr[450] = 0xee
+                # Match the saturated protective length captured on the Pro USB.
+                struct.pack_into("<II", mbr, 454, 1, 0xffffffff)
+                with stick.open("wb") as stream:
+                    stream.write(mbr)
+                    stream.write(gpt_header(1, backup, 34, last, 2, 128, crc, guid))
+                    stream.write(entries)
+                    stream.seek(2048*512);stream.write(fixture.data)
+                    stream.write(entries)
+                    stream.write(gpt_header(backup, 1, 34, last, backup-32, 128, crc, guid))
+            else:
+                with stick.open("wb") as stream: stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
             command += ["-drive",f"if=none,id=stick,format=raw,file={stick}","-device","usb-storage,drive=stick,bus=xhci.0"]
         with (logs / "hardware-grub-qemu.log").open("wb") as errors:
             process = subprocess.Popen(command, stdout=errors, stderr=errors)
@@ -212,6 +245,25 @@ def main():
                         assert "laptop-capture: saved=NO unmounted=NO" in text
                         print(f"laptop-probe-smoke: PASS ({release}); missing workspace " + ("returns without starting probe" if auto_return else "halts without reboot"))
                         return
+                    if keyboard_capture:
+                        wait_for(serial, lambda s: "keyboard-test: step=1 " in s, process, args.boot_wait)
+                        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as qmp:
+                            qmp.settimeout(5);qmp.connect(str(qmp_path));qmp.recv(4096)
+                            qmp_command(qmp, {"execute":"qmp_capabilities"})
+                            qmp_command(qmp, {"execute":"screendump", "arguments":{"filename":str(logs/"keyboard-instructions.ppm")}})
+                            keys=[("a",False),("a",True),("a",False),("a",False),("backspace",False),
+                                  ("ret",False),("up",False),("down",False),("left",False),("right",False)]
+                            if args.keyboard_fail and not keyboard_retry: send_qmp_key(qmp,"b")
+                            elif not args.keyboard_timeout:
+                                for i,(key,shift) in enumerate(keys,1):
+                                    wait_for(serial,lambda s: f"keyboard-test: step={i} " in s,process,40)
+                                    if args.keyboard_fail and keyboard_retry:
+                                        send_qmp_key(qmp,"b");time.sleep(.2)
+                                        wait_for(serial,lambda s:f"keyboard-test: retry step={i} " in s,process,10)
+                                    time.sleep(.2) # Release the previous HID report before the next step.
+                                    if i in (3,4):
+                                        send_qmp_key(qmp,"caps_lock");time.sleep(.2)
+                                    send_qmp_key(qmp,key,shift)
                     if battery_capture:
                         text=wait_for(serial,lambda s:("laptop-capture: returning to Ubuntu" if auto_return else "laptop-capture: HALTED") in s,process,args.boot_wait)
                         assert "battery: REFUSED platform/resource ownership preflight" in text
@@ -231,7 +283,13 @@ def main():
                     else:
                         text=wait_for(serial,lambda s:"laptop-capture: returning to Ubuntu" in s,process,args.boot_wait)
                         assert "laptop-capture: saved=yes unmounted=yes" in text
-                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture): assert "laptop-probe: unsupported chipset; no register access" in text
+                    if keyboard_retry and args.keyboard_fail: assert "keyboard-test: retries=10" in text
+                    if keyboard_retry and args.keyboard_timeout: assert "keyboard-test: timeout step=1 limit_seconds=90" in text
+                    if keyboard_capture:
+                        assert ("keyboard-test: result=FAIL passed=0" if keyboard_negative else "keyboard-test: result=PASS passed=10") in text
+                    if args.workspace_table == "gpt":
+                        assert "block: registered GPT partition usb0p1" in text
                     if idle_capture:
                         measured=re.search(r"idle-capture: elapsed_us=(\d+) sampled_ticks=(\d+) idle_ticks=(\d+).*completed=yes",text)
                         assert measured and int(measured[1])>=59000000
@@ -244,13 +302,20 @@ def main():
                     assert not has_fatal_exception(text)
                     assert process.wait(timeout=30)==0 # -no-reboot exits only after guest reset.
                     with stick.open("rb") as stream:
-                        stream.seek(2048*512);volume.write_bytes(stream.read())
+                        stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
                     check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
                     folder=re.search(r"workspace-log: directory=(/work/[^ ]+) ",text)[1].removeprefix("/work/")
                     for filename in ("boot.log","exit.log"):
                         contents=stored.read(folder+"/"+filename)
                         assert release.encode() in contents
-                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture): assert b"laptop-probe: unsupported chipset" in contents
+                        if keyboard_capture and filename=="exit.log":
+                            assert (b"keyboard-test: result=FAIL passed=0" if keyboard_negative else b"keyboard-test: result=PASS passed=10") in contents
+                        if not (idle_capture or aml_capture or desktop_idle_capture or battery_capture or cpu_load_capture):
+                            assert b"laptop-probe: unsupported chipset" in contents
+                            assert b"USB INPUT DIAGNOSTIC" in contents
+                            assert b"xhci: vendor=" in contents
+                            assert b"input-usb: dev slot=" in contents
+                            assert b"Expected internal keyboard: 05ac:0291" not in contents
                         (logs/("laptop-capture-"+filename)).write_bytes(contents)
                     assert b"laptop-capture: diagnostics collected" in stored.read(folder+"/exit.log")
                     if battery_capture:
@@ -268,6 +333,17 @@ def main():
                         prepared=re.search(rb"workspace-scratch: prepared path=(/work/srvros-work/battery-io-[0-9a-f]{16}\.bin) raw_offset=\d+ bytes=4096; unmounted=yes aliases=revoked",exit_log)
                         assert prepared and len(stored.read(prepared[1].decode().removeprefix("/work/")))==4096
                         assert b"battery-usb-write: PASS" not in exit_log
+                    if cpu_load_capture:
+                        exit_log=stored.read(folder+"/exit.log").decode()
+                        assert "cpu-load: completed=NO reason=thermal-unavailable-or-stale" in exit_log
+                        assert "cpu-load: completed=yes" not in exit_log and "cpu-load: phase=load" not in exit_log
+                        assert "cpu-load-capture: returned=yes" in exit_log
+                        assert "srvros.aml" not in exit_log
+                        from hardware_desktop import device_summaries
+                        power=device_summaries(exit_log)["power"]
+                        assert power["power_state"]==1 and power["samples"]==0 and power["flags"]==0
+                        from hardware_cpu_load import load_result
+                        assert load_result(exit_log)["completed"] is False
                     if aml_capture:
                         exit_log=stored.read(folder+"/exit.log")
                         assert b"aml-capture: returned=yes clean=yes" in exit_log
@@ -302,20 +378,104 @@ def main():
                     (logs/"hardware-grub-result.json").write_text(json.dumps({
                         "status":"PASS","release":release,"manifest_sha256":boot.digest(source/"manifest.json"),
                         "battery_capture":battery_capture,"battery_transitions":battery_transitions,"battery_service":battery_service,"battery_filesystem":battery_filesystem,"return_on_failure":auto_return,"battery_outcome":"expected platform refusal" if battery_capture else "not requested",
-                        "probe":True,"power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
-                        "physical_acceptance":"pending"},indent=2)+"\n")
+                        "probe":True,"cpu_load_capture":cpu_load_capture,"load_result":"refused in VM" if cpu_load_capture else "not requested","power_telemetry":power_telemetry,"power_measurement":"unavailable in VM" if power_telemetry else "not requested","desktop_idle_capture":desktop_idle_capture,"idle_capture":idle_capture,"aml_capture":aml_capture,"saved":True,"unmounted":True,
+                        "keyboard_capture":keyboard_capture,"keyboard_expected_failure":keyboard_negative,"workspace_table":args.workspace_table,"physical_acceptance":"pending"},indent=2)+"\n")
                     (logs/"laptop-capture.exfat").write_bytes(volume.read_bytes())
                     print(f"laptop-probe-smoke: PASS ({release}); diagnostics saved, offline file bytes verified, clean exFAT; " + (("native battery refused in VM and returned" if auto_return else "native battery refused in VM and halted") if battery_capture else "automatic reset"))
                     return
                 if args.desktop_check:
                     from desktop_foundation_smoke import QMP
-                    wait_for(serial,lambda s:"deskhelp: page=laptop-trial" in s and "deskd: opened" in s,process,args.boot_wait)
+                    wait_for(serial,lambda s:("deskterm: ready" if network_desktop else "deskhelp: page=laptop-trial") in s and "deskd: opened" in s,process,args.boot_wait)
                     ui=QMP(qmp_path)
                     def shortcut(keys):
                         ui.call("human-monitor-command",{"command-line":"sendkey "+keys});time.sleep(.3)
                     def type_text(value):
                         keys={" ":"spc","/":"slash",".":"dot","-":"minus"}
                         for c in value: ui.key({">":"dot","$":"4","?":"slash"}.get(c,keys.get(c,c.lower())),c.isupper() or c in ">$?")
+                    if network_desktop:
+                        # Each saved phase is displayed by cat before its next gate.
+                        def phase_cats(count):
+                            wait_for(serial,lambda s:s.count('/fat/bin/cat entry=')>=count,process,90)
+                            time.sleep(2)
+                        phase_cats(1)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-unplug.ppm')})
+                        initial_sleeps=serial.read_text(errors='replace').count('/fat/bin/sleep entry=')
+                        ui.call('set_link',{'name':'usbnet','up':False});ui.key('ret')
+                        phase_cats(2)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-reconnect.ppm')})
+                        assert serial.read_text(errors='replace').count('/fat/bin/sleep entry=')==initial_sleeps+1
+                        ui.call('set_link',{'name':'usbnet','up':True});ui.key('ret')
+                        wait_for(serial,lambda s:'deskterm: shell exited status=0' in s,process,90)
+                        ui.call('screendump',{'filename':str(logs/'network-auto-complete.ppm')})
+                        shortcut('meta_l-w')
+                        shortcut('meta_l-spc');type_text('Help new app');ui.key('ret')
+                        wait_for(serial,lambda s:'deskhelp: starting' in s,process,30)
+                    if scaled_desktop:
+                        text=serial.read_text(errors="replace")
+                        assert "physical=2880x1800 logical=1440x900 scale=2" in text
+                        time.sleep(1)
+                        ui.call("screendump",{"filename":str(logs/"native-scaled-checklist.ppm")})
+                        if manifest["config_version"].startswith(("ram-usb-v36-","ram-usb-v37-")):
+                            shortcut("meta_l-spc");type_text("System new app");ui.key("ret")
+                            wait_for(serial,lambda s:"desktools: system-ready" in s,process,30)
+                        if network_desktop:
+                            shortcut("meta_l-spc");type_text("Terminal new app");ui.key("ret")
+                            wait_for(serial,lambda s:"deskterm: starting" in s,process,30)
+                            time.sleep(2);type_text("dhcp");ui.key("ret")
+                            wait_for(serial,lambda s:"net: dhcp ipv4=10.0.2.15" in s,process,30)
+                            type_text("ping 10.0.2.2 > /work/srvros-work/network-ping.txt");ui.key("ret")
+                            time.sleep(5);type_text("exit");ui.key("ret")
+                            wait_for(serial,lambda s:"deskterm: shell exited" in s,process,30)
+                            shortcut("meta_l-w")
+                            wait_for(serial,lambda s:"deskterm: exited failure=0" in s,process,30)
+                        shortcut("meta_l-spc");type_text("Text new app");ui.key("ret")
+                        wait_for(serial,lambda s:"desktools: starting role=text" in s,process,30)
+                        time.sleep(1);type_text("Pro scaled desktop USB test.");shortcut("ctrl-s")
+                        wait_for(serial,lambda s:"picker ready mode=2" in s,process,30);ui.key("ret")
+                        wait_for(serial,lambda s:"file-result role=text op=2 status=0" in s,process,60)
+                        shortcut("meta_l-shift-3")
+                        text=wait_for(serial,lambda s:"deskd: screenshot saved status=0 path=/work/" in s,process,60)
+                        shot=re.search(r"deskd: screenshot saved status=0 path=(/work/[^\s]+)",text)[1]
+                        for keys in ("f10","end","ret"): shortcut(keys)
+                        text=wait_for(serial,lambda s:"desktop-trial: desktop returned=yes USB unmounted=yes" in s and s.endswith("srv> "),process,60)
+                        with stick.open("rb") as stream:
+                            stream.seek(2048*512);volume.write_bytes(stream.read(128*1024*1024))
+                        check_clean_image(volume);stored=ExfatFixture(volume.read_bytes())
+                        assert stored.read("srvros-work/Untitled.txt")==b"Pro scaled desktop USB test."
+                        if network_desktop: assert b"sent=4 received=4 lost=0" in stored.read("srvros-work/network-ping.txt")
+                        if network_desktop:
+                            assert stored.read('srvros-work/network-trial.txt')==b'started\ncompleted\n'
+                            assert b'disconnected-dhcp-status=1' in stored.read('srvros-work/network-down.txt')
+                            for phase in ('before','after'):
+                                report=stored.read('srvros-work/network-'+phase+'.txt')
+                                assert b'dhcp-status=0' in report and b'Network check complete' in report
+                                (logs/('network-auto-'+phase+'.txt')).write_bytes(report)
+
+                        bitmap=stored.read(shot.removeprefix("/work/"))
+                        assert bitmap[:2]==b"BM" and struct.unpack_from("<II",bitmap,18)==(1440,900)
+                        folder=re.search(r"workspace-log: directory=(/work/[^ ]+)",text)[1].removeprefix("/work/")
+                        for name in ("boot.log","exit.log"):
+                            data=stored.read(folder+"/"+name);assert release.encode() in data
+                            (logs/("scaled-desktop-"+name)).write_bytes(data)
+                        assert b"deskd: exited" in stored.read(folder+"/exit.log")
+                        assert not has_fatal_exception(text)
+                        tone_result=None
+                        if args.audio_check:
+                            assert b"audio: state=2" in stored.read(folder+"/exit.log")
+                            offset=len(text)
+                            type_text("audio test");ui.key("ret")
+                            wait_for(serial,lambda s:"audio: request queued" in s[offset:],process,20)
+                            time.sleep(1.5)
+                            type_text("audio");ui.key("ret")
+                            wait_for(serial,lambda s:"tests_started=1 tests_completed=1" in s[offset:] and s.endswith("srv> "),process,20)
+                            ui.call("quit");process.wait(timeout=10)
+                            from audio_smoke import analyze_tones
+                            tone_result=analyze_tones(logs/"hardware-grub-tone.wav",1)
+                        (logs/"hardware-grub-result.json").write_text(json.dumps({"status":"PASS","release":release,
+                            "manifest_sha256":boot.digest(source/"manifest.json"),"desktop":True,"scale":2,"usb_network":network_desktop,"audio":args.audio_check,"tone":tone_result,
+                            "workspace_table":args.workspace_table,"saved":True,"unmounted":True,"physical_acceptance":"pending"},indent=2)+"\n")
+                        print(f"scaled-desktop-smoke: PASS ({release}); 2880x1800 at2x, saved Text/screenshot/logs, clean USB unmount")
+                        return
                     time.sleep(.5)
                     ui.call("screendump",{"filename":str(logs/"native-hardware-checklist.ppm")})
                     workspace_preferences(ui,serial,process,logs,expanded=manifest.get("config_version", "").startswith(("ram-usb-v20-", "ram-usb-v21-", "ram-usb-v22-")))
@@ -560,7 +720,7 @@ def main():
         "desktop":args.desktop_check,"audio":args.audio_check,
         "audio_codec_timer":args.audio_codec_timer if args.audio_check else None,
         "console":args.console_check,"kernel":args.kernel_check,
-        "responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
+        "workspace_table":args.workspace_table,"responsiveness":args.responsiveness_check,"physical_acceptance":"manual-pending"
     },indent=2)+"\n")
     print(f"hardware-boot-smoke: PASS ({release}); GRUB chainload, RAM filesystem, USB input" + (", case/Caps/repeat/renderbench" if args.console_check else ""))
     if args.kernel_check:
