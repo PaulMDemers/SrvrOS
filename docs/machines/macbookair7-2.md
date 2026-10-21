@@ -2,6 +2,19 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: explicit desktop battery lifecycle controls
+
+Starting from `origin/main` `84cf41e` (merged PR #33), add a bounded asynchronous
+control mailbox scoped to the opt-in desktop process group. System's Sensors page
+will expose Start/Stop only when that owner grants control. The existing cached
+reading ABI remains read-only; command acceptance is distinct from ACTIVE/STOPPED.
+Validate repeated start/stop, stale epoch rejection, duplicate requests, scope
+revocation and client exit before enabling ordinary workspace access. No native
+register gate, scheduler I/O eligibility or automatic startup change is planned.
+Touched scope: battery owner/control ABI and syscall, shared presentation/System,
+opt-in compositor study and local tests. Pro PR #19 at `c263221` remains Wi-Fi;
+no sibling acceptance is implied. No new physical trial is armed.
+
 ### Current checkpoint: application files and cached battery presentation accepted
 
 Release `27c39e5404ab573b`, source `977a554` (PR #33), session
