@@ -2,7 +2,88 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted **write profiling**: release `f99f6759a1ed8f68`, source
+Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
+source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
+The isolated workload completed 43 cycles / 774 operations in 60,859,549
+microseconds, with 17,311 USB commands and a 2,796,485-microsecond maximum
+operation. This single run does not attribute timing variation to the observer.
+Both service lifetimes retired with balanced attachments, restored enables and
+zero heap/errors/denials; 62,443 cached reads completed, maximum 18 microseconds.
+
+The ring retained ten callbacks across the two lifetimes, including five
+unclaimed callbacks; 38 older callbacks were overwritten. All five retained
+unclaimed callbacks had complete first-read evidence: EC mask `0x40` was clear
+in status `0xa0`, EC enable was zero, and fixed status `0x8001` did not overlap
+fixed enable `0x20`. Raw and filtered EC bytes agreed. Query work was pending
+before and after each callback. Each followed a handled callback by
+536,339–741,498 microseconds and took 4–5 microseconds. The preceding retained
+handled callbacks saw EC status `0xe0`, enable `0x40`, and scheduled query work.
+Total active deliveries remain 24 handled / 24 unclaimed; no setup/retirement
+or in-flight deliveries remained. This narrows observed callback conditions;
+it does **not** establish an interrupt source, queued-delivery cause or safety
+of ignoring unclaimed interrupts. Keep the actual handler result unchanged.
+
+Exact final image, inner fsck/allocation (75 clusters), outer fsck (187 directories,
+890 files) and outer allocation (1,664 clusters, no leaks/mismatches/errors) passed.
+885 existing files are byte-identical; only the disposable image and root inode
+sidecar changed, with three matching new logs. New Ubuntu boot, consumed one-shot,
+boot default/EFI order and recovery hashes verified. Twenty-nine hashed evidence
+files and the payload are archived outside `build`. Installed is this diagnostic;
+previous accepted desktop remains `b427b78f21644bd2`. No reboot is armed.
+
+Next: bounded controller-delivery/IRQ-return observations alongside query timing.
+The source audit finds EOI after dispatch and a level-triggered SCI route; there
+is no demonstrated ordering repair yet. Ordinary desktop battery remains off;
+input coexistence and physical gauge accuracy remain separate acceptance work.
+
+### Passive SCI observation implementation — October 20
+
+Branch `device/macbookair7-2/sci-observation`, base main `3c1739b`.
+Investigate the repeated 24 handled / 24 unclaimed active SCI deliveries before
+ordinary desktop battery integration. Touch the diagnostic battery runtime,
+a pure bounded observation helper, host tests and the battery VM harness. Capture
+only existing successful uACPI event reads (fixed status/enable and the EC GPE
+byte), first-read values, callback result, timing and query scheduling state.
+No additional event/EC reads, acknowledgements, event enable changes, native model
+gates or IRQ claim-policy changes. Report outside IRQ context and retain missing
+reads as unknown. Timestamps use the existing read-only PM timer. Validate bounded storage and the injected unclaimed VM case
+before a native automatic capture. Implementation `2da3043` passes the host core
+suite, observer unit/record-corruption tests, native/VM builds and all five focused
+VM cases (injected unclaimed, normal service, foreign event, isolated filesystem
+and active deadline). The native result is recorded above. Pro branch inspected at `4f9fa06`; its current
+scope is post-merge desktop validation, with battery deferred.
+
+Previous accepted **bounded USB data batching**: release `e1ba87c6133b2e9d`,
+merged source `cd732ec` (PR #13, including the Pro PR #5 baseline), session
+`session-00065e50be1d9e42-00`. The automatic run completed 45 cycles / 810
+operations in 60,779,542 microseconds with 18,116 USB commands. Maximum storage
+scope was 2,176,320 microseconds; the slowest operation was the initial large
+write at 2,176,314 microseconds. Its data callbacks used 1,446,984 microseconds
+in 18 calls / 270,336 bytes; flushing used 5,023 microseconds. The previous
+profile below needed 66 data calls and 4,702,530 microseconds for that operation.
+Throughput rose about 37% and commands per cycle fell about 19%. These are
+single-run comparisons; callback wall time includes admitted services and does
+not measure desktop input latency.
+
+Both service lifetimes retired with balanced attachments, restored enables and
+zero heap/errors/denials. The service reached generation 23; 64,685 cached reads
+(maximum 18 microseconds), including 2,261 while sampling, completed. Active SCI
+still totals 24 handled / 24 unclaimed; the cause remains unresolved. Exact final
+image contents, inner fsck and its 75-cluster allocation passed. Outer fsck is
+clean (186 directories / 887 files), with 1,660 clusters and zero leaks,
+mismatches or errors. 882 existing files are byte-identical; only the disposable
+image and root inode sidecar changed, with three new matching logs.
+
+New Ubuntu boot, consumed one-shot, boot default/EFI order and recovery hashes
+were verified. Evidence and payload are archived outside `build`. At that checkpoint installed was
+`e1ba87c6133b2e9d`; accepted desktop recovery remains `b427b78f21644bd2`.
+No reboot is armed. This accepts the isolated workload and runtime retirement,
+not ordinary desktop battery startup, physical gauge accuracy or input latency.
+The used diagnostic image cannot be rerun without fresh preparation. Next:
+investigate unclaimed SCI deliveries, then establish desktop/input coexistence
+with explicit service admission and lifecycle checks. Actions remains disabled.
+
+Previous accepted **write profiling**: release `f99f6759a1ed8f68`, source
 `b090d94`, session `session-00065e4ff61b5b24-00`. The automatic run completed
 33 cycles / 594 operations in 61,198,562 microseconds with 16,454 USB commands.
 Slowest operation: cycle 1, step 1, 4,702,530 microseconds. Data-write callbacks
@@ -20,8 +101,8 @@ fsck is clean (185 directories / 884 files), with 1,656 clusters and zero leaks,
 mismatches or errors. 879 prior files are byte-identical; only the disposable
 image and root inode sidecar changed, with three new session logs. New Ubuntu
 boot, consumed one-shot and recovery hashes verified; 29 evidence files and the
-payload are archived independently. Installed is this profiling diagnostic;
-previous accepted desktop remains `b427b78f21644bd2`. No reboot is armed.
+payload are archived independently. At that checkpoint this profiling diagnostic was installed;
+previous accepted desktop remained `b427b78f21644bd2`. No reboot is armed.
 
 ### Bounded USB data batching — October 20
 
@@ -33,7 +114,7 @@ capability and host/VM fault fixtures. No xHCI DMA geometry, retry, flush, model
 or scheduler-admission changes. Follow USB BOT 1.0 data-phase ordering and short
 transfer rules; preserve quarantine on ambiguity. Validate local boundaries,
 then compare a fresh automatic native profile. Ordinary desktop battery remains
-disabled and Actions remains disabled. Native batching acceptance is pending.
+disabled and Actions remains disabled. The native batching result is recorded above.
 
 Integration: main `6dd6574` was merged without replacing either device's scope.
 Pro GPT map validation and GPT-first USB discovery merge with the batching
@@ -44,7 +125,7 @@ this landed baseline; the earlier dry-merge conflicts are superseded. Combined
 ordinary/native/Q35 builds, full baseline smoke (481 CLI commands, system calls,
 editing, UEFI USB input and display), USB persistence/keyboard/timeout tests and
 all five battery VM cases passed at `88f09c9`. Pro acceptance remains limited to
-its own machine; native Air batching acceptance is pending.
+its own machine; the later Air result above accepts only the named isolated checks.
 
 Local batching comparison (implementation `ca6f274`, added fixtures `d0e98d1`):
 265 -> 169 image writes, all 72 flushes retained, and identical final disk bytes.
@@ -53,8 +134,9 @@ The isolated image passed 169 write failures, 169 power cuts, 72 flush failures,
 169 sector-aligned partial failures, 169 partial cuts and 19 pause/revoke points.
 USB read-only/write/flush/reload/keyboard and timeout/quarantine VM checks, plus all five battery VM cases
 passed. The profiled Q35 workload completed 78 cycles / 31,400 commands, compared
-with 78 / 38,888 before batching. Native timing remains pending; neither VM result
-accepts physical input latency or ordinary desktop battery startup.
+with 78 / 38,888 before batching. Native timing was pending at this local-validation
+checkpoint; neither VM result accepts physical input latency or ordinary desktop
+battery startup.
 
 Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
 source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic

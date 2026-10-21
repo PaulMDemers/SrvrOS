@@ -510,7 +510,7 @@ seconds flushing. See the machine record for acceptance limits and integrity che
 
 ## Bounded USB command batching
 
-The next data-path candidate uses at most 16 KiB per SCSI command while keeping
+The data path uses at most 16 KiB per SCSI command while keeping
 each controller bulk request at 4 KiB. Command/data/status ordering follows
 [USB BOT 1.0, sections 5.3 and 6.7](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf).
 Intermediate full-sized requests neither send a zero-length packet nor restart
@@ -527,4 +527,50 @@ existing traversal. Final partial clusters are zero-padded. Flush barriers and
 copy-on-write metadata ordering stay unchanged. The diagnostic image inherits
 the bounded capability; host tests compare its persisted bytes against the 4 KiB
 path, then exercise write/power-cut/flush failures and sector-aligned partial-write
-prefixes. Native batching is pending.
+prefixes. Air7,2 release `e1ba87c6133b2e9d` subsequently passed 45 isolated
+cycles in 60.78 seconds with 18,116 commands, clean retirement and exact final
+filesystem contents. Compared with the preceding profile, the slowest operation
+fell from 4.70 to 2.18 seconds and data calls from 66 to 18. Outer file hashes,
+fsck and allocation graph passed. This is isolated-workload acceptance, not a
+desktop latency guarantee. Unclaimed SCI deliveries, desktop coexistence and
+physical gauge accuracy remain open; ordinary desktop battery startup stays off.
+See the [Air record](machines/macbookair7-2.md) for the exact source and evidence.
+
+## Passive SCI observations
+
+The explicit battery runtime keeps an eight-entry ring of completed SCI
+callbacks. It observes values returned by the event reads uACPI already issues;
+it adds no event/EC register reads, W1C acknowledgements, enable writes, or claim-policy
+changes. Entry/exit timestamps use the existing monotonic clock, which reads the
+read-only ACPI PM timer on this host. Normal reports are printed at lifecycle
+snapshots, outside IRQ handling. The existing terminal containment path also
+prints retained completed entries before halt/reset; it never resumes dispatch.
+Each entry retains phase, callback result, entry/duration/gap timing, previous
+callback result and query scheduling state before/after dispatch.
+
+`valid` bits 0/1 indicate first fixed-status/enable reads; bits 2/3 indicate first
+EC GPE-byte status/enable reads. Missing reads are unknown, even when the printed
+value is zero. EC raw values and filtered values returned to uACPI are both
+retained. The EC mask in the header identifies the relevant bit within that
+byte. First reads are retained across later handler clears/disables. These are
+sequential observations, not an atomic event snapshot; they cover only the fixed
+registers and EC GPE byte, not every potential shared interrupt source. A
+zero enabled/status intersection does not prove a spurious interrupt.
+
+The ring records its retained/overwritten counts and sequence numbers, so missing
+older entries are explicit. Adjacent handled/unclaimed callbacks and short gaps
+may support a queued-delivery hypothesis, but do not by themselves establish
+controller or firmware causality. The existing per-phase totals and uACPI return
+value remain authoritative. Host fixtures cover address/width gating, first-read
+retention, unknown values, filtering, timing and ring overflow; the Q35 injected
+unclaimed case checks actual dispatcher output without claiming native evidence.
+
+Air7,2 release `57ac1e9954e445e9` accepts the observer during the isolated
+filesystem workload and clean service retirement. Of ten retained callbacks,
+five were unclaimed: all had complete reads, EC event bit clear and disabled,
+no fixed-status/enable overlap, and pending query work. They followed handled
+callbacks by 0.536–0.741 seconds. The full counters still recorded 24 handled
+and 24 unclaimed deliveries; the ring overwrote 38 older callbacks. This evidence
+narrows callback conditions but does not prove queued-controller delivery or
+exclude another source. No claim, enable or acknowledgement policy changed.
+See the [Air record](machines/macbookair7-2.md) for integrity checks and limits.
