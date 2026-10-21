@@ -1242,3 +1242,12 @@ The final live-UI instructions are visibly readable. Install retains Ubuntu
 default and recovery `e47dca3a6b30c6c1`; native acceptance remains pending.
 Collect startup/phase reports and correlate notification completion/processing
 with System transition/heartbeat timestamps before changing the verdict.
+
+Collected `81e3308ffcdfe637`, session `00065e4f10dd7857-00`: initial and
+recovered DHCP/DNS/HTTP200 pass; startup readiness fix works on this unit.
+User reports neither unplug nor reconnect visibly updated. System sampled the
+final down at 40.629 s (driver 40.539 s) and up at 82.788 s (driver 82.518 s),
+with continuing heartbeats and no quarantine. Thus sampled data is timely;
+visible repaint/which displayed field remains unresolved. Next bounded scope
+is a foreground idle-window VM transition test with no click/F5 after either
+link change, since previous recovery screenshots focused System first.
