@@ -130,7 +130,7 @@ bool workspace_image_open(void) {
     image.profiling=false;image.profile_valid=false;
     image.view = (struct block_device){.used=true, .name="battery-image",
         .block_size=parent->block_size, .block_count=WORKSPACE_IMAGE_BYTES/parent->block_size,
-        .max_transfer_bytes=4096, .read=image_read};
+        .max_transfer_bytes=parent->max_transfer_bytes>=BLOCK_MAX_BATCH_BYTES?BLOCK_MAX_BATCH_BYTES:4096, .read=image_read};
     block_forget(parent);
     uint8_t boot[512];
     /* Prepared fixture only: clean, 512-byte sectors, fixed diagnostic identity.

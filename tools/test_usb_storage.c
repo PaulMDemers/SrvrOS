@@ -11,8 +11,9 @@ static void usb_test_irq_restore(uint64_t f) { irq_enabled=f; }
 #include "../kernel/src/drivers/usb_storage.c"
 static struct block_device block, alias, other;
 static struct usb_storage storage;
-static uint8_t disk[8192], cdb[16];
-static uint32_t tag, length;
+static uint8_t disk[65536], cdb[16];
+static uint32_t tag, length, done;
+static unsigned data_calls, fault_chunk, checkpoints;
 static unsigned phase, calls, writes, syncs, senses, tur_failures, fault;
 static bool empty;
 static uint32_t sector_bytes=512;
@@ -39,23 +40,28 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
         assert(!in && n==31 && le32(data)==0x43425355);
         uint8_t *b=data; tag=le32(b+4); length=le32(b+8);
         assert(b[13]==0 && b[14]>0 && b[14]<=16);
-        memcpy(cdb,b+15,16); phase=length?1:2;
+        memcpy(cdb,b+15,16); phase=length?1:2;done=0;data_calls=0;
         if(fault==2) *actual=30;
         return true;
     }
     if(phase==1) {
-        assert(n==length);
+        data_calls++;
+        assert(n==(length-done>USB_STORAGE_BULK_BYTES?USB_STORAGE_BULK_BYTES:length-done));
+        if(fault==13 && data_calls==fault_chunk){*actual=0;return false;}
         if(cdb[0]==0x12) { assert(in); memset(data,0,n); }
         else if(cdb[0]==3) { assert(in); memset(data,0,n); ((uint8_t *)data)[0]=0x70; ((uint8_t *)data)[2]=empty?2:6; senses++; }
         else if(cdb[0]==0x25) { assert(in); put_be32(data,sizeof(disk)/sector_bytes-1); put_be32((uint8_t *)data+4,sector_bytes); }
         else {
             assert((cdb[0]==0x28 && in)||(cdb[0]==0x2a && !in));
             uint32_t count=((uint32_t)cdb[7]<<8)|cdb[8];
-            assert(count && n==count*sector_bytes && n<=4096);
-            uint32_t off=be32(cdb+2)*sector_bytes; assert(off+n<=sizeof(disk));
+            assert(count && length==count*sector_bytes && n<=USB_STORAGE_BULK_BYTES);
+            uint32_t off=be32(cdb+2)*sector_bytes+done; assert(off+n<=sizeof(disk));
             if(in) memcpy(data,disk+off,n); else { memcpy(disk+off,data,n); writes++; }
         }
-        phase=2; if(fault==3) *actual=n-1; return true;
+        done+=n;phase=done==length?2:1;
+        if(fault==3 || (fault==14 && data_calls==fault_chunk)){*actual=n-1;phase=2;}
+        if(fault==15 && data_calls==fault_chunk)*actual=n+1;
+        return true;
     }
     assert(in && n==13); memset(data,0,n);
     put_le32(data,fault==4?0:0x53425355); put_le32((uint8_t *)data+4,tag+(fault==5));
@@ -70,13 +76,13 @@ static bool bulk(void *ctx,bool in,void *data,uint32_t n,uint32_t *actual) {
 static void reset(void) {
     memset(&storage,0,sizeof(storage)); memset(&block,0,sizeof(block));
     memset(disk,0x69,sizeof(disk)); phase=calls=writes=syncs=senses=tur_failures=fault=depth=0;
-    empty=foreign=false; irq_enabled=true;
+    empty=foreign=false; irq_enabled=true;done=data_calls=fault_chunk=0;
     sector_bytes=512;
 }
 static void test_batches(void) {
     static uint8_t expected[sizeof(disk)], input[sizeof(disk)], output[sizeof(disk)];
-    const unsigned offsets[]={0,1,510,512,4095,4096,8191};
-    const unsigned lengths[]={0,1,2,511,512,513,4095,4096,4097,8192};
+    const unsigned offsets[]={0,1,510,512,4095,4096,8191,16383,16384,32767};
+    const unsigned lengths[]={0,1,2,511,512,513,4095,4096,4097,8192,16383,16384,16385,32768,65536};
     for (unsigned sector=512;sector<=4096;sector*=2) {
         for (unsigned a=0;a<sizeof(offsets)/sizeof(*offsets);a++) {
             for (unsigned b=0;b<sizeof(lengths)/sizeof(*lengths);b++) {
@@ -84,7 +90,7 @@ static void test_batches(void) {
                 if (n>sizeof(disk)-off) continue;
                 reset(); sector_bytes=sector;
                 assert(usb_storage_attach(&storage,&storage,bulk,true));
-                assert(block.max_transfer_bytes==4096);
+                assert(block.max_transfer_bytes==USB_STORAGE_COMMAND_BYTES);
                 memset(expected,0x69,sizeof(expected));
                 for (unsigned i=0;i<n;i++) input[i]=(uint8_t)(i*37+11);
                 memcpy(expected+off,input,n);
@@ -97,20 +103,36 @@ static void test_batches(void) {
         }
     }
     reset(); assert(usb_storage_attach(&storage,&storage,bulk,true));
-    unsigned before=calls;
+    unsigned before=calls, service_before=checkpoints;
     assert(block.write(&block,0,input,sizeof(input)));
-    assert(writes==2 && calls-before==6); /* Two commands, no prereads. */
-    before=calls;
+    assert(checkpoints-service_before==16);
+    assert(writes==16 && calls-before==24); /* Four commands, each four data chunks, no prereads. */
+    before=calls;service_before=checkpoints;
     assert(block.read(&block,0,output,sizeof(output)) && !memcmp(input,output,sizeof(input)));
-    assert(calls-before==6);
+    assert(calls-before==24 && checkpoints-service_before==16);
     fault=5; before=calls;
     assert(!block.write(&block,0,input,sizeof(input)) && storage.failed);
-    assert(calls-before==3); /* Ambiguous first batch: no second batch/retry. */
+    assert(calls-before==6); /* Ambiguous first command: no next command/retry. */
+}
+static void test_segment_faults(void) {
+    static uint8_t buffer[USB_STORAGE_COMMAND_BYTES*2];
+    for(unsigned in=0;in<2;in++)for(unsigned bad=13;bad<=15;bad++)for(unsigned chunk=1;chunk<=4;chunk++) {
+        reset();assert(usb_storage_attach(&storage,&storage,bulk,true));
+        fault=bad;fault_chunk=chunk;unsigned before=calls;
+        uint64_t commands=storage.commands;
+        bool ok=in?block.read(&block,0,buffer,sizeof(buffer)):block.write(&block,0,buffer,sizeof(buffer));
+        assert(!ok && storage.failed && storage.commands==commands+1 && data_calls==chunk);
+        /* Short data proceeds only to CSW; failed/overrun chunks stop at once. */
+        assert(calls-before==1+chunk+(bad==14));
+        before=calls;
+        assert(!block.read(&block,0,buffer,512) && calls==before && !depth && !storage.busy);
+    }
 }
 int main(void) {
+    test_segment_faults();
     test_batches();
     reset(); tur_failures=2; assert(usb_storage_attach(&storage,&storage,bulk,false));
-    assert(senses==2 && block.block_count==16 && block.block_size==512 && !block.write && !block.flush);
+    assert(senses==2 && block.block_count==sizeof(disk)/512 && block.block_size==512 && !block.write && !block.flush);
     assert(storage.errors==2 && storage.error_command==4 && storage.error_opcode==0);
     assert(storage.error_phase==3 && storage.error_status==1 && !storage.failed);
     uint8_t buf[1024]; assert(block.read(&block,510,buf,1024));
@@ -131,7 +153,7 @@ int main(void) {
     for(unsigned i=510;i<1534;i++) assert(disk[i]==0xab);
     assert(block.flush(&block) && syncs==1);
     unsigned before=calls;
-    assert(!block.read(&block,UINT64_MAX,buf,1)); assert(!block.write(&block,8191,buf,2));
+    assert(!block.read(&block,UINT64_MAX,buf,1)); assert(!block.write(&block,sizeof(disk)-1,buf,2));
     foreign=true; assert(!block.read(&block,0,buf,1)); foreign=false;
     storage.busy=true; assert(!block.read(&block,0,buf,1)); storage.busy=false;
     assert(calls==before && depth==0 && irq_enabled);
@@ -155,9 +177,9 @@ int main(void) {
         assert(!block.read(&block,512,buf,512) && !block.write(&block,0,buf,512) && !block.flush(&block));
         assert(calls==before && !depth && irq_enabled);
     }
-    puts("usb-storage-host: PASS (4 KiB batches, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
+    puts("usb-storage-host: PASS (16 KiB commands / 4 KiB segments, 512-4096 byte sectors, BOT wrappers, short/malformed responses, quarantine, Unit Attention, empty media, unaligned I/O, bounds, ownership, flush, read-only)");
 }
 
 void latency_usb(uint64_t bytes,uint8_t opcode) { (void)bytes; (void)opcode; }
 
-void scheduler_io_checkpoint(void) {}
+void scheduler_io_checkpoint(void) { assert(!depth || storage.busy);checkpoints++; }

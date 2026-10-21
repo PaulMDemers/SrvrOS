@@ -45,10 +45,25 @@ static int command(struct usb_storage *s, const uint8_t *cdb, uint8_t cdb_len,
     reason="cbw-length";
     if (actual!=sizeof(cbw)) goto bad;
     phase = 2;
-    reason="data-transfer";
-    if (length && !s->bulk(s->context,in,data,length,&transferred)) goto bad;
-    reason="data-overrun";
-    if (transferred>length) goto bad;
+    /* One BOT data phase may span several controller requests. Keep each
+     * request within the existing pinned 4 KiB DMA buffer; no intermediate
+     * short/zero packet or new command wrapper terminates the phase. */
+    while (transferred<length) {
+        uint32_t chunk=length-transferred;
+        if(chunk>USB_STORAGE_BULK_BYTES)chunk=USB_STORAGE_BULK_BYTES;
+        actual=0;reason="data-transfer";
+        if(!s->bulk(s->context,in,(uint8_t *)data+transferred,chunk,&actual)) {
+            if(actual<=chunk)transferred+=actual;
+            goto bad;
+        }
+        reason="data-overrun";
+        if(actual>chunk)goto bad;
+        transferred+=actual;
+        /* A short data transfer ends the phase. Do not consume its CSW as
+         * another data chunk; the existing status/residue checks decide it. */
+        if(actual<chunk)break;
+        if(transferred<length)scheduler_io_checkpoint();
+    }
     phase = 3;
     actual=0; reason="csw-transfer";
     if (!s->bulk(s->context,true,csw,sizeof(csw),&actual)) goto bad;

@@ -44,12 +44,19 @@ def main():
         extent_check=command(DRIVER,volume,'image-range')
         assert f'image-range: PASS offset={offset} bytes={SIZE}' in extent_check
         assert volume.read_bytes()==baseline
+        legacy = command(IMAGE_DRIVER, volume, 'profile-4k')
+        legacy_data=volume.read_bytes()
+        legacy_writes=int(re.search(r'image: PASS writes=(\d+)',legacy)[1])
+        volume.write_bytes(baseline)
         output = command(IMAGE_DRIVER, volume, 'profile')
         initial = re.search(r'image step=1 writes=(\d+) fat_writes=(\d+) flushes=(\d+)', output)
         assert initial and int(initial[2]) <= 5, 'large contiguous allocation regressed to per-cluster FAT I/O'
         total = int(re.search(r'image: PASS writes=(\d+)', output)[1])
         total_flushes = int(re.search(r'image: PASS writes=\d+ flushes=(\d+)', output)[1])
         data = volume.read_bytes()
+        assert data==legacy_data, 'batching changed persisted bytes'
+        assert total<legacy_writes and total_flushes==int(re.search(r'flushes=(\d+) revoked=yes',legacy)[1])
+        print(f'image batching: {legacy_writes} -> {total} writes; identical bytes and {total_flushes} flushes',flush=True)
         assert data[:offset] == baseline[:offset] and data[offset+SIZE:] == baseline[offset+SIZE:]
         verify(data[offset:offset+SIZE], 1)
         check_clean_image(volume)

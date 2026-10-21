@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #define BLOCK_MAX_DEVICES 32
+#define BLOCK_MAX_BATCH_BYTES 16384u
 
 struct block_device;
 
@@ -25,7 +26,7 @@ struct block_device {
     uint64_t block_size;
     uint64_t block_count;
     /* Opt-in aligned I/O batching; zero retains single-block cache transfers.
-     * The cache caps this at 4 KiB and preserves synchronous write-through. */
+     * The cache caps this at 16 KiB and preserves synchronous write-through. */
     uint32_t max_transfer_bytes;
     block_read_fn read;
     block_write_fn write;
