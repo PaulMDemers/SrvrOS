@@ -265,3 +265,25 @@ Attended input/gesture latency, regular app filesystem access while sampling,
 gauge accuracy and eventual ordinary startup are separate acceptance work.
 There is no new physical trial armed or shared implementation in progress for
 this closeout. Actions remain disabled; validation ran locally.
+
+
+## Air application-file and cached battery interface (PR #33)
+
+Air's v43 `--battery-app-files` extends coexistence to the real asynchronous Text
+file worker in the disposable exclusive image. It retains descendant identities
+and the kernel-created process group until all clients retire. The shared v1
+`SYS_BATTERY_STATUS` ABI is a read-only cache snapshot; desktop and System use the
+shared battery presentation helper without starting hardware work. Explicit user
+lifecycle controls and ordinary workspace coexistence remain pending; automatic
+startup is still disabled. Native acceptance must come from this unit's matching
+capture, not the VM fixture. Pro PR #19 inspected at `c263221` retains independent
+Wi-Fi scope, including v39; preserve both profiles when reconciling shared files.
+
+
+Air7,2 v43 release `27c39e5404ab573b` subsequently passed native collection:
+five real-worker file cycles, 60 generated edits, continued cached UI/service
+sampling, clean three-process retirement and exact offline contents/allocation.
+The accepted source is `977a554`; native gates remain Air-specific. A host-only
+collector fix treats missing expected paths in a replaced historical test image
+as invalid evidence instead of aborting collection. Consume PR #33 before adding
+another battery UI read interface or descendant-retirement implementation.

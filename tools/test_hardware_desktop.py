@@ -303,6 +303,42 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: Text/filesystem overlap completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_missing_image_path_is_invalid_evidence(self):
+        from unittest.mock import patch
+        from battery_filesystem_image import SIZE
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);image=root/'battery-fs.img'
+            with image.open('wb') as f:f.truncate(SIZE)
+            # ExfatFixture.read raises StopIteration for a missing expected path.
+            # A later recipe can replace the disposable image while old logs stay.
+            with patch('battery_filesystem_image.verify',side_effect=StopIteration):
+                with self.assertRaisesRegex(ValueError,'contents do not match'):
+                    desktop.verify_battery_image(root,{'cycles':1},root)
+            self.assertFalse((root/'battery-filesystem.exfat').exists())
+
+    def test_application_files_require_saved_image_verification(self):
+        from test_battery_desktop_records import FILES
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-app-files\n'
+            tail=b'battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+            (folder/'boot.log').write_bytes(boot);(folder/'exit.log').write_bytes(boot+FILES+tail)
+            with patch.object(desktop,'verify_battery_image',return_value='verified-fixture-hash') as verify:
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertTrue(item['battery_app_files']['image_verified']);self.assertFalse(item['attention'])
+                self.assertEqual(verify.call_args.args[1]['file_cycles'],5)
+                self.assertEqual(verify.call_args.args[3].__name__,'verify_app_image')
+                self.assertIsNone(item['battery_text']);self.assertIsNone(item['battery_desktop'])
+            with patch.object(desktop,'verify_battery_image',side_effect=ValueError('wrong saved image')):
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_app_files']);self.assertIn('collection: wrong saved image',item['attention'])
+            (folder/'exit.log').write_bytes(boot+tail)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertIn('collection: battery application-file completion missing or invalid',report['sessions'][0]['attention'])
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'

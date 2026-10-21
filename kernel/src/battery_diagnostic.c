@@ -47,3 +47,7 @@ __attribute__((weak)) bool battery_text_diagnostic_run(void *rsdp,struct limine_
 __attribute__((weak)) bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+__attribute__((weak)) bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}

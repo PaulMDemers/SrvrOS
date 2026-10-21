@@ -7,6 +7,8 @@
 #include <srvros/thermal_abi.h>
 #include <srvros/smc_abi.h>
 #include <srvros/scheduler_abi.h>
+#include <srvros/battery_abi.h>
+long srv_battery_status(struct srv_battery_status *out);
 
 #include <srvros/syscall_numbers.h>
 

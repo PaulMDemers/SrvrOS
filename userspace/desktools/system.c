@@ -1,3 +1,4 @@
+#include <srvros/desk_battery.h>
 #include "app.h"
 #include <srvros/desk_log.h>
 #include <stdio.h>
@@ -169,6 +170,10 @@ static void sensors_refresh(struct tool *t,int force) {
     }
     if(t->thermal_valid && s.samples && now>=0 && (uint64_t)now>=s.sampled_us)
         snprintf(t->sensor_values[5],64,"%llu ms%s",(unsigned long long)(((uint64_t)now-s.sampled_us)/1000),t->thermal_fresh?"":" · stale");
+    struct srv_battery_status battery={0};
+    long battery_result=srv_battery_status(&battery);
+    struct desk_battery_view battery_view=desk_battery_view(battery_result?NULL:&battery);
+    snprintf(t->sensor_values[6],64,"%.63s",battery_view.detail);
     struct srv_smc_status fan={0};t->smc_fresh=0;
     if(!srv_smc_status(&fan) && fan.version==SRV_SMC_VERSION && fan.samples && now>=0 && (uint64_t)now>=fan.sampled_us) {
         uint64_t age=(uint64_t)now-fan.sampled_us;

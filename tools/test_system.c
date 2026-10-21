@@ -5,6 +5,13 @@
 static uint64_t ticks=500;
 static int phase,reads,net_phase,net_reads,device_phase,thermal_phase,smc_phase;
 long srv_monotonic_us(void) { return 5000000; }
+static int battery_phase;
+long srv_battery_status(struct srv_battery_status *s) {
+    *s=(struct srv_battery_status){.version=SRV_BATTERY_VERSION,.size=sizeof(*s),.state=SRV_BATTERY_DISABLED};
+    if(battery_phase) { s->state=SRV_BATTERY_ACTIVE;s->flags=SRV_BATTERY_VALID|(battery_phase==1?SRV_BATTERY_FRESH:SRV_BATTERY_STALE);
+        s->valid=SRV_BATTERY_SOC_VALID|SRV_BATTERY_CURRENT_VALID;s->soc=74;s->current_ua=-200000; }
+    return 0;
+}
 long srv_thermal_status(struct srv_thermal_status *s) {
     *s=(struct srv_thermal_status){.version=1,.state=SRV_THERMAL_UNAVAILABLE};
     if(thermal_phase==1 || thermal_phase==2) *s=(struct srv_thermal_status){.version=1,.state=SRV_THERMAL_ACTIVE,.flags=19,.core_mc=65000,.package_mc=70000,.target_mc=105000,.sampled_us=thermal_phase==1?4500000:1000000,.samples=5};
@@ -91,6 +98,9 @@ int main(void) {
     tool_system_action(&t,(struct desk_action){SYSTEM_SENSORS,DESK_WIDGET_ACTIVATED});
     assert(t.sensor_table.body.enabled && !t.device_table.body.enabled && !t.table.body.enabled);
     assert(t.thermal_valid&&!t.thermal_fresh&&!strcmp(t.sensor_values[0],"Not available"));
+    assert(!strcmp(t.sensor_values[6],"Battery monitoring is stopped."));
+    battery_phase=1;tool_system_refresh(&t,1);assert(!strcmp(t.sensor_values[6],"74% · Discharging"));
+    battery_phase=2;tool_system_refresh(&t,1);assert(!strcmp(t.sensor_values[6],"Waiting for a fresh battery reading."));
     thermal_phase=1;tool_system_refresh(&t,1);assert(t.thermal_fresh&&!strcmp(t.sensor_values[0],"65.0 °C")&&!strcmp(t.sensor_values[1],"70.0 °C"));
     thermal_phase=2;tool_system_refresh(&t,1);assert(!t.thermal_fresh&&!strcmp(t.sensor_values[0],"Not available")&&strstr(t.sensor_values[5],"stale"));
     thermal_phase=3;tool_system_refresh(&t,1);assert(!t.thermal_valid);

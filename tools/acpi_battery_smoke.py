@@ -124,7 +124,7 @@ def verify_filesystem_tree(data, cycles):
     assert fs.read('srvros-work/.workspace') == b'SRVROS-WORKSPACE-V1 51525354\n'
 
 
-def verify_isolated_disk(stick, before, offset, volume, out, cycles):
+def verify_isolated_disk(stick, before, offset, volume, out, cycles, verifier=None):
     from battery_filesystem_image import verify, SIZE
     from exfat_test_image import check_clean_image
     after = stick.read_bytes()
@@ -148,7 +148,9 @@ def verify_isolated_disk(stick, before, offset, volume, out, cycles):
         result = subprocess.run([str(driver), str(target), 'allocation-check'],capture_output=True,text=True)
         (out/f'usb-{name}-allocation.txt').write_text(result.stdout+result.stderr)
         assert result.returncode == 0,result.stdout+result.stderr
-    if cycles is not None:
+    if cycles is not None and verifier is not None:
+        verifier(image.read_bytes())
+    elif cycles is not None:
         verify(image.read_bytes(), cycles)
         from hardware_desktop import verify_battery_image
         with tempfile.TemporaryDirectory(prefix='collector-',dir=out) as directory:
