@@ -379,9 +379,9 @@ live files in free clusters, while missing live allocation bits and actual
 orphans still refuse scratch admission. This correction is separate from the
 eight real orphan clusters recovered on the Air: their rejection was correct.
 
-## Isolated filesystem image trial (v38, acceptance pending)
+## Isolated filesystem image trial (v38)
 
-The next native capture uses a 16 MiB exFAT filesystem inside the prepared file
+The native capture uses a 16 MiB exFAT filesystem inside the prepared file
 `/work/srvros-work/battery-fs.img`. This is a disposable volume, not desktop Home.
 `tools/battery_filesystem_image.py` creates it exclusively, with a diagnostic
 identity and marker; it refuses an existing file. Retain each used image with its
@@ -425,3 +425,40 @@ anchor, and checks the copied filesystem with both exfatprogs and the kernel
 allocation checker. Preserve the original failed image before any offline repair.
 The fixed prepared filename is single-use: collect/archive it before replacing it
 for another run, and do not reinterpret older session logs using a newer image.
+
+Air7,2 physically accepted this bounded workload in release `c473b63c44d32cd0`
+(source `8822cba`), session `session-00065e4ddc1d41d5-00`: 25 cycles over
+61.51 seconds, 18,754 commands and 21 sample-progress scopes. Collection verified
+the final contents, clean inner/outer allocation graphs, clean service retirement
+and image revocation, and return to Ubuntu. The 870 previous non-sidecar files
+were unchanged; the outer inode sidecar was updated for session logging.
+The maximum filesystem scope lasted 7.303 seconds, so this is not interactive
+latency acceptance. SCI unclaimed deliveries, long-lived desktop/input coexistence
+and gauge accuracy remain open. See the [unit record](machines/macbookair7-2.md).
+
+### Operation boundaries for the follow-up trial
+
+The follow-up diagnostic executes one filesystem operation per scheduler storage
+scope, then releases exclusion and sleeps the reader before the next operation.
+A cycle has 18 ordered steps: prepare directory/pattern, write large draft, verify
+large draft, shrink, verify short draft, regrow, remove old payload, rename draft,
+verify payload, write empty-file seed, truncate it, verify empty, create temporary
+directory, rename it, verify old name absent, remove directory, verify removal,
+and flush. Each individual mutation retains the existing filesystem transaction
+and storage exclusion; no transaction is suspended halfway through a mutation.
+The pattern and final payload size are unchanged from the accepted v38 workload.
+
+Reports add `steps`, `max_step_us` and zero-based `slowest_step`. The collector
+requires exactly 18 operations per completed cycle and one scope per operation;
+legacy complete-cycle reports remain readable with their original predicates.
+The minute-long trial finishes a cycle before retirement, never accepting a
+half-written next payload. Wrong cycle identities and failed operations cannot
+advance the continuation. The host suite checks clean stop/revocation at all 19
+boundaries as well as the existing transport fault/cut matrix.
+
+This bounds the work unit, not USB completion or battery-worker wall time. Large
+file writes and verification still use existing atomic APIs. Measure their times
+before selecting a smaller transfer/transaction design; do not interpret the
+whole-cycle 7.303-second hardware measurement as a measured input stall. Ordinary
+desktop startup and scheduler admission remain unchanged. Physical acceptance of
+this follow-up is pending.

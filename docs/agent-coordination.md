@@ -132,12 +132,24 @@ Each machine retains its own UUID, recovery payload and acceptance ledger.
 On the later inspection, Pro PR #5 at `3b3b66a` already uses `d72d2af` as its
 base, consuming the merged PR #6 baseline; its local validation remains its own.
 
+Air PR #8 adds the isolated v38 filesystem-image lease and sustained native
+workload, based on merged PR #7 (`76508bf`). Air7,2 accepted 25 cycles over a
+minute in release `c473b63c44d32cd0`; the outer workspace stays unmounted during
+runtime. This does not enable ordinary desktop battery startup or concurrent
+writes to a user's filesystem. Preserve Pro's separate v37 desktop network
+profile when integrating the shared staging/main changes. Next Air scope is
+bounding filesystem work for desktop/input coexistence and investigating the
+remaining unclaimed SCI deliveries; no sibling EC gate is authorized.
+
 ## CI cadence
 
 The full build/VM baseline runs for pull requests targeting `main`, pushes to
 `main`, and manual dispatch. Ordinary device-branch pushes do not also run a
-second copy. Documentation-only changes (`docs/**` and Markdown files) skip the
-full baseline; run `make check-docs` locally. A newer revision cancels obsolete
+second copy. Documentation-only diffs (`docs/**` and Markdown files) skip the
+full baseline; run `make check-docs` locally. Pull-request path filtering considers
+the full PR diff: a docs-only follow-up to an open code PR can still start a new
+baseline. Batch acceptance notes before validation, or publish them as a separate
+docs-only change after the validated code lands. A newer revision cancels obsolete
 runs for the same PR or branch. Keep a PR draft while its scope is being formed,
 but note that updating an open draft still triggers relevant PR validation.
 Batch coherent changes rather than pushing every intermediate edit. CI evidence

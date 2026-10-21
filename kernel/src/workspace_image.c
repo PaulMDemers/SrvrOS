@@ -11,7 +11,9 @@
 #include <stdint.h>
 
 static struct {
-    bool open, poisoned, mounted;
+    bool open, poisoned, mounted, workload_failed;
+    uint64_t cycle;
+    unsigned step;
     struct block_device *volume, *parent;
     struct block_device view;
     block_write_fn write;
@@ -103,6 +105,7 @@ bool workspace_image_open(void) {
     if (!workspace_unmount() || workspace_parked_device() != volume) goto out;
     image.volume = volume; image.parent = parent; image.offset = raw;
     image.write = write; image.flush = flush; image.open = true;
+    image.cycle = 0; image.step = 0; image.workload_failed = false;
     image.view = (struct block_device){.used=true, .name="battery-image",
         .block_size=parent->block_size, .block_count=WORKSPACE_IMAGE_BYTES/parent->block_size,
         .max_transfer_bytes=4096, .read=image_read};
@@ -162,7 +165,10 @@ static bool matches(const char *path, uint64_t length) {
     vfs_release_data(node, data);
     return ok;
 }
-bool workspace_image_cycle(uint64_t cycle) {
+bool workspace_image_pending(void) { return image.open && image.step != 0; }
+bool workspace_image_step(uint64_t cycle, bool *complete) {
+    if (!complete) return false;
+    *complete = false;
     struct image_scope scope;
     if (!enter(&scope)) { leave(&scope); return false; }
     const char *dir = "/battery-test/fixture/fs-proof";
@@ -172,17 +178,42 @@ bool workspace_image_cycle(uint64_t cycle) {
     const char *tmp = "/battery-test/fixture/fs-proof/transient";
     const char *moved = "/battery-test/fixture/fs-proof/moved";
     bool ok = false;
-    if (!workspace_image_ready() || !image.mounted) goto out;
-    if (!cycle && (vfs_lookup(dir) || !exfat_create_directory(dir))) goto out;
-    for (unsigned i = 0; i < TEST_BYTES; i++) test_data[i] = (uint8_t)(i*37u+(i>>8)+cycle);
-    ok = exfat_write_file(draft,test_data,TEST_BYTES) && matches(draft,TEST_BYTES) &&
-        exfat_write_file(draft,test_data,37) && matches(draft,37) &&
-        exfat_write_file(draft,test_data,TEST_BYTES) &&
-        (!cycle || exfat_delete_file(payload)) && exfat_rename(draft,payload) && !vfs_lookup(draft) &&
-        matches(payload,TEST_BYTES) && exfat_write_file(empty,test_data,4096) &&
-        exfat_write_file(empty,NULL,0) && matches(empty,0) &&
-        exfat_create_directory(tmp) && exfat_rename(tmp,moved) && !vfs_lookup(tmp) &&
-        exfat_delete_directory(moved) && !vfs_lookup(moved) && image_flush(&image.view);
+    if (!workspace_image_ready() || !image.mounted || image.workload_failed ||
+        cycle != image.cycle || cycle == UINT64_MAX) goto out;
+    switch (image.step) {
+    case 0:
+        ok = cycle || (!vfs_lookup(dir) && exfat_create_directory(dir));
+        if (ok) for (unsigned i = 0; i < TEST_BYTES; i++)
+            test_data[i] = (uint8_t)(i*37u+(i>>8)+cycle);
+        break;
+    case 1: ok = exfat_write_file(draft,test_data,TEST_BYTES); break;
+    case 2: ok = matches(draft,TEST_BYTES); break;
+    case 3: ok = exfat_write_file(draft,test_data,37); break;
+    case 4: ok = matches(draft,37); break;
+    case 5: ok = exfat_write_file(draft,test_data,TEST_BYTES); break;
+    case 6: ok = !cycle || exfat_delete_file(payload); break;
+    case 7: ok = exfat_rename(draft,payload); break;
+    case 8: ok = !vfs_lookup(draft) && matches(payload,TEST_BYTES); break;
+    case 9: ok = exfat_write_file(empty,test_data,4096); break;
+    case 10: ok = exfat_write_file(empty,NULL,0); break;
+    case 11: ok = matches(empty,0); break;
+    case 12: ok = exfat_create_directory(tmp); break;
+    case 13: ok = exfat_rename(tmp,moved); break;
+    case 14: ok = !vfs_lookup(tmp); break;
+    case 15: ok = exfat_delete_directory(moved); break;
+    case 16: ok = !vfs_lookup(moved); break;
+    case 17: ok = image_flush(&image.view); break;
+    default: break;
+    }
+    if (!ok) image.workload_failed = true;
+    else if (++image.step == WORKSPACE_IMAGE_STEPS) {
+        image.step = 0; image.cycle++; *complete = true;
+    }
 out:
     leave(&scope); return ok;
+}
+bool workspace_image_cycle(uint64_t cycle) {
+    bool complete = false;
+    while (!complete) if (!workspace_image_step(cycle, &complete)) return false;
+    return true;
 }

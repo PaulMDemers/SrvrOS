@@ -191,6 +191,16 @@ class CollectionTests(unittest.TestCase):
                     image_text.replace(image_revoked,'workspace-image: revoked clean=NO'),image_text.replace(finish,''),
                     image_text+'\n'+image_result,image_text.replace(image_prepared+'\n','')+'\n'+image_prepared):
             self.assertIsNone(desktop.battery_filesystem_result(bad),bad)
+        stepped=image_text.replace('bursts=40 max_burst_us=270000 elapsed_us=60000000',
+            'bursts=3600 max_burst_us=5000 elapsed_us=60000000 steps=3600 max_step_us=4900 slowest_step=5')
+        self.assertEqual(desktop.battery_filesystem_result(stepped)['steps'],3600)
+        for bad in (stepped.replace('steps=3600','steps=3599'),
+                    stepped.replace('bursts=3600','bursts=3599'),
+                    stepped.replace('max_step_us=4900','max_step_us=5001'),
+                    stepped.replace('slowest_step=5','slowest_step=18'),
+                    stepped.replace('steps=3600',f'steps={2**64}'),
+                    stepped.replace(' steps=3600 max_step_us=4900 slowest_step=5','')):
+            self.assertIsNone(desktop.battery_filesystem_result(bad),bad)
         with tempfile.TemporaryDirectory() as temp:
             workspace=Path(temp);proof=desktop.battery_usb_write_result(written)
             scratch_path=workspace/'battery-io-0000000000001234.bin'

@@ -54,6 +54,19 @@ def main():
         inner.write_bytes(data[offset:offset+SIZE]); check_clean_image(inner)
         command(DRIVER, inner, 'allocation-check')
         print(f'image workload: PASS, {total} write boundaries', flush=True)
+        # Stop at every committed operation boundary; exclusion has been released,
+        # another owner cannot advance the workload, and close revokes the lease.
+        for steps in range(19):
+            volume.write_bytes(baseline)
+            command(IMAGE_DRIVER,volume,'pause',steps)
+            data=volume.read_bytes()
+            assert data[:offset]==baseline[:offset] and data[offset+SIZE:]==baseline[offset+SIZE:]
+            check_clean_image(volume);command(DRIVER,volume,'allocation-check')
+            inner.write_bytes(data[offset:offset+SIZE]);check_clean_image(inner)
+            command(DRIVER,inner,'allocation-check')
+            assert ExfatFixture(inner.read_bytes()).read('fixture/anchor.txt')==ANCHOR
+            if steps==18:verify(inner.read_bytes(),1)
+        print('image continuation: all 19 pause/revoke boundaries clean',flush=True)
         # Contiguous NoFatChain and a contiguous FAT chain are both valid.
         contiguous = bytearray(baseline); contiguous[entry_at+33] |= 2
         checksum(contiguous,entry_at); volume.write_bytes(contiguous)

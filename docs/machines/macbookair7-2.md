@@ -2,6 +2,34 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+Latest accepted bounded **isolated filesystem overlap**: release
+**`c473b63c44d32cd0`** / source **`8822cba`**, session
+**`session-00065e4ddc1d41d5-00`**. The v38 trial completed 25 create/grow/shrink,
+rename/delete/flush cycles over 61,510,180 microseconds, issuing 18,754 USB
+commands. Sampling advanced inside 21 of 25 filesystem scopes; generation 22
+was captured. Cached reads completed 14,425 times (130 while sampling), with a
+17-microsecond maximum. Cancellation, restart and in-flight stop/timeout followed
+by clean retirement passed. Both initialized lifetimes restored retained enables,
+balanced attachments and ended with zero heap, errors and denied accesses.
+
+The exclusive image lease was revoked before workspace remount. Collection
+verified the final payload, empty file, unchanged anchor and image identity.
+Inner fsck/allocation checks passed (75 clusters); outer fsck reports clean
+(182 directories, 875 files), with 1,644 accounted clusters and zero leaks or FAT
+mismatches. All 870 pre-existing files other than the SrvrOS inode metadata sidecar
+are byte-identical; that sidecar was rewritten by normal session logging. The
+new Ubuntu boot, consumed one-shot and installed/recovery hashes were verified.
+The accepted payload and 33 hashed evidence files are archived outside `build`.
+
+This accepts the bounded isolated workload, not ordinary desktop filesystem
+concurrency or input responsiveness. Maximum filesystem scope duration was
+7,303,034 microseconds; bound and measure that work before desktop integration.
+SCI recorded 24 handled and 24 unclaimed active deliveries across both lifetimes,
+with none during setup/retirement or remaining in flight; the cause remains open.
+Gauge accuracy and long-lived service are untested. Ordinary desktop battery
+startup remains disabled. No reboot is armed; the used fixture must be archived
+before replacement and cannot be reused as a fresh trial.
+
 Latest accepted bounded **scratch write/flush overlap**: release
 **`5792b6ece45b85dc`** / artifact **`e2d779b`**, retry checkpoint **`d4a21cb`**,
 session **`session-00065e4c30fcddac-00`**. It completed 1,894 write/flush/readback
@@ -91,7 +119,39 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
-### Isolated filesystem hardware preparation — October 20
+### Filesystem operation scheduling — October 20
+
+Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
+and its acceptance notes. PR #8 passed CI and merged as `09207b0`; this branch
+consumes that integration baseline. Pro scope inspected at `a19ce5c` remains
+Ethernet bring-up; preserve its branch and profiles.
+
+Bounded objective: split the diagnostic filesystem cycle into explicit operations,
+release storage exclusion between them, measure each operation and require a
+complete cycle before accepting its payload. Files: `workspace_image.c`/header,
+battery runtime workload, host fault/continuation tests, VM harness and collector.
+Keep each filesystem mutation atomic under existing exclusion; do not change
+shared exFAT transactions, scheduler admission or ordinary desktop startup.
+Host tests must reject skipped/repeated cycle identities and cover failures and
+revocation between operations; VM checks must prove complete payloads, sampling
+progress, step accounting and automatic fault return. Native latency acceptance
+remains pending; a bounded operation count does not guarantee device completion
+within a fixed time. No new physical test is armed.
+Host validation passed all 19 clean pause/revocation boundaries plus 457 write
+failures, 457 power cuts and 72 flush failures, preserving outer bytes and clean
+post-recovery inner allocation. Collector tests cover complete step accounting,
+invalid counts/timing/phase and legacy reports. Ordinary/native/modeled kernels
+build with the local `tools/host-env.sh` wrapper. The sustained VM completed
+73 cycles / 1,314 operations over 60,354,688 microseconds, with 54,874 transport
+commands and 23 scopes containing sampling progress. The maximum operation was
+532,726 microseconds (step 1, the initial large draft write); maximum scope was
+532,748 microseconds. Payload, outer isolation and clean retirement passed.
+Setup and active-sample deadline fixtures also passed automatic reset and
+outer preservation/inner recovery; the scratch-write regression passed.
+Physical comparison remains pending; these VM times do not revise native results.
+
+
+### Isolated filesystem coexistence — October 20
 
 PR #7 passed CI and merged as `76508bf`; this device branch consumes that baseline.
 Pro PR #5 inspected at `304bc55`. Air scope: exclusive exFAT file-extent admission,
@@ -111,8 +171,10 @@ preservation of every byte outside the image passed. Filesystem traffic now wait
 active-sample deadline fixtures reset automatically; outer bytes remained unchanged
 and a separate copy of the interrupted inner image recovered successfully.
 All 457 write-failure, 457 power-cut and 72 flush-failure host boundaries passed
-outer isolation and post-recovery inner/outer allocation checks. Physical
-acceptance is pending.
+outer isolation and post-recovery inner/outer allocation checks. The exact staged
+Q35 native-refusal/automatic-return check and the bounded native trial above
+passed. PR #8 publishes this work; Pro PR #5 was subsequently inspected at
+`f74595d` (Ethernet recovery work). Keep that branch and its capture profiles intact.
 
 ### Sustained filesystem coexistence — October 20 (VM-first)
 

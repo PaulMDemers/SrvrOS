@@ -12,6 +12,12 @@ bool workspace_image_open(void);
 bool workspace_image_busy(void);
 bool workspace_image_ready(void);
 bool workspace_image_flush(void);
+/* One filesystem operation per call; exclusion is released before returning.
+ * Cycle identities must be sequential. A failed operation cannot be resumed.
+ * This bounds work units, not wall time of USB/media or battery service waits. */
+#define WORKSPACE_IMAGE_STEPS 18u
+bool workspace_image_step(uint64_t cycle, bool *complete);
+bool workspace_image_pending(void);
 bool workspace_image_cycle(uint64_t cycle);
 bool workspace_image_close(void);
 #endif
