@@ -33,13 +33,37 @@ def check_sci_records(part):
     # reconcile completed callbacks with the existing phase counters.
     headers=re.findall(rb"battery-sci-observe: snapshot=(ready|retired|fault) epoch=(\d+) total=(\d+) retained=(\d+) overwritten=(\d+) ec_mask=(0x[0-9a-fA-F]+)",part)
     events=re.findall(rb"battery-sci-event: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) phase=(\d+) handled=(\d+) at_us=(\d+) duration_us=(\d+) previous_valid=(\d+) previous_handled=(\d+) gap_us=(\d+) query_before=(\d+) query_after=(\d+) valid=(0x[0-9a-fA-F]+) fixed_status=(0x[0-9a-fA-F]+) fixed_enable=(0x[0-9a-fA-F]+) ec_status=(0x[0-9a-fA-F]+) ec_enable=(0x[0-9a-fA-F]+) ec_raw_status=(0x[0-9a-fA-F]+) ec_raw_enable=(0x[0-9a-fA-F]+)",part)
-    controllers=re.findall(rb"battery-sci-controller: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) point=(before|after) valid=(\d+) vector=(\d+) gsi=(\d+) lapic_bits=(\d+) lint0=(0x[0-9a-fA-F]+) route_low=(0x[0-9a-fA-F]+) route_high=(0x[0-9a-fA-F]+) pic_masks=(0x[0-9a-fA-F]+)",part)
+    controllers=re.findall(rb"battery-sci-controller: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) point=(before|after|post_eoi) valid=(\d+) vector=(\d+) gsi=(\d+) lapic_bits=(\d+) lint0=(0x[0-9a-fA-F]+) route_low=(0x[0-9a-fA-F]+) route_high=(0x[0-9a-fA-F]+) pic_masks=(0x[0-9a-fA-F]+)",part)
     assert len(controllers)==part.count(b'battery-sci-controller:'),'Malformed controller record'
-    assert len(controllers)==2*len(events),'Missing or extra controller record'
+    assert len(controllers)==3*len(events),'Missing or extra controller record'
+    returns=re.findall(rb"battery-sci-return: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) observed=(\d+) elapsed_us=(\d+) query=(\d+)",part)
+    assert len(returns)==part.count(b'battery-sci-return:')==len(events),'Missing/malformed completion record'
+    queries=re.findall(rb"battery-sci-query: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) valid=(\d+) cycle=(\d+) phase=(\d+) age_us=(\d+) phase_age_us=(\d+) transfers=(\d+) code_valid=(\d+) code=(\d+)\r?$",part,re.MULTILINE)
+    assert len(queries)==part.count(b'battery-sci-query:')==len(events),'Missing/malformed query record'
     for event in events:
+        matches=[q for q in queries if q[:3]==event[:3]]
+        assert len(matches)==1,matches
+        q=matches[0];valid,cycle,phase,age,phase_age,transfers,code_valid,code=map(int,q[3:])
+        assert valid==1 and phase<=5 and code_valid<=1 and code<=255,q
+        assert max(cycle,age,phase_age,transfers)<=0xffffffffffffffff,q
+        assert phase_age<=age<=int(event[5]),q
+        if int(event[10]):assert cycle>0 and phase in (1,2,3,4),q
+        else:assert phase in (0,5),q
+        if not cycle:assert phase==age==phase_age==transfers==code_valid==code==0,q
+        if code_valid:assert transfers>0,q
+        else:assert code==0,q
+        if phase==2:assert transfers>0 and code_valid==0,q
+        if phase==3:assert code_valid==1 and code>0,q
         pair=[c for c in controllers if c[:3]==event[:3]]
-        assert [c[3] for c in pair]==[b'before',b'after'],pair
-        assert pair[0][5:7]==pair[1][5:7],pair # Stable owned vector/GSI identity.
+        assert [c[3] for c in pair]==[b'before',b'after',b'post_eoi'],pair
+        assert pair[0][5:7]==pair[1][5:7]==pair[2][5:7],pair # Stable owned vector/GSI identity.
+        completion=[r for r in returns if r[:3]==event[:3]]
+        assert len(completion)==1,completion
+        r=completion[0];observed,elapsed,query=map(int,r[3:])
+        assert observed<=1 and query<=1,r
+        if event[0]!=b'fault':assert observed==1,r
+        if observed:assert elapsed>=int(event[6]),r
+        else:assert elapsed==query==int(pair[2][4])==0,r
         for c in pair:
             valid,vector,gsi,bits=map(int,c[4:8])
             lint,low,high,masks=(int(v,16) for v in c[8:])
@@ -289,6 +313,8 @@ def main():
                                 observed=re.findall(rb'battery-sci-event: snapshot=retired .*? handled=0 .*? valid=(0x[0-9a-fA-F]+)',part)
                                 assert observed and all(int(v,16)&3==3 for v in observed),bytes(part)
                                 assert part.count(b'irq: unhandled line=9 vector=41')==1,bytes(part)
+                                contexts=re.findall(rb'battery-sci-query: snapshot=retired .*? cycle=(\d+) phase=2 age_us=(\d+) phase_age_us=(\d+) transfers=(\d+) code_valid=0 code=0',part)
+                                assert contexts and all(int(c)>0 and int(a)>=int(p) and int(t)>0 for c,a,p,t in contexts),bytes(part)
                             if args.case in ('service-io-short','service-io-long','service-io-sustained','service-usb-io','service-filesystem','service-filesystem-write-failure'):
                                 check_io_hold(part,{'service-io-short':20000,'service-io-long':250000,'service-io-sustained':5000000,'service-usb-io':5000000,'service-filesystem':60000000,'service-filesystem-write-failure':5000000}[args.case])
                             assert part.count(b'battery: foreign-event restored ')>=4,bytes(part)

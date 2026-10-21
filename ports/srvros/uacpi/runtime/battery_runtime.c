@@ -6,6 +6,7 @@
 #include "sci_owner.h"
 #include "sci_observe.h"
 #include "ec_query_budget.h"
+#include "ec_query_rearm.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
 #include <srvros/arch.h>
@@ -17,6 +18,7 @@
 #include <srvros/halt.h>
 #include <srvros/heap.h>
 #include <srvros/pmm.h>
+#include <srvros/process.h>
 #include <srvros/semaphore.h>
 #include <srvros/sbs_sample.h>
 #include <srvros/timer.h>
@@ -47,6 +49,7 @@ static struct {
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
     struct sci_observer sci_observer;
+    struct sci_query_state query_observer;
     struct sci_counts sci_counts[3]; /* setup, active, retirement; CPU0 only */
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
     bool ac_present,ac_coherent,transition_mode,service_mode;
@@ -67,6 +70,11 @@ static struct {
 } service;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+static void query_phase(uint8_t phase) {
+    uint64_t f=irq_save();
+    sci_query_phase(&runtime.query_observer,phase,timer_monotonic_us());
+    irq_restore(f);
+}
 static void sci_report(const char *snapshot) {
     struct sci_counts counts[3];
     struct sci_observer observer;
@@ -90,13 +98,19 @@ static void sci_report(const char *snapshot) {
             (uint64_t)r->query_before,(uint64_t)r->query_after,(uint64_t)r->valid,
             (uint64_t)r->fixed_status,(uint64_t)r->fixed_enable,(uint64_t)r->ec_status,
             (uint64_t)r->ec_enable,(uint64_t)r->ec_raw_status,(uint64_t)r->ec_raw_enable);
-        for(unsigned j=0;j<2;j++) {
-            const struct sci_controller_observation *c=j?&r->after:&r->before;
+        for(unsigned j=0;j<3;j++) {
+            const struct sci_controller_observation *c=j==2?&r->post_eoi:j?&r->after:&r->before;
             console_printf("battery-sci-controller: snapshot=%s epoch=%u seq=%u point=%s valid=%u vector=%u gsi=%u lapic_bits=%u lint0=%x route_low=%x route_high=%x pic_masks=%x\n",
-                snapshot,epoch,r->sequence,j?"after":"before",(uint64_t)c->valid,
+                snapshot,epoch,r->sequence,j==2?"post_eoi":j?"after":"before",(uint64_t)c->valid,
                 (uint64_t)c->vector,(uint64_t)c->gsi,(uint64_t)c->lapic_bits,
                 (uint64_t)c->lint0,(uint64_t)c->route_low,(uint64_t)c->route_high,(uint64_t)c->pic_masks);
         }
+        const struct sci_query_snapshot *q=&r->query_entry;
+        console_printf("battery-sci-query: snapshot=%s epoch=%u seq=%u valid=%u cycle=%u phase=%u age_us=%u phase_age_us=%u transfers=%u code_valid=%u code=%u\n",
+            snapshot,epoch,r->sequence,(uint64_t)q->valid,q->sequence,(uint64_t)q->phase,
+            q->age_us,q->phase_age_us,q->transfers,(uint64_t)q->code_valid,(uint64_t)q->code);
+        console_printf("battery-sci-return: snapshot=%s epoch=%u seq=%u observed=%u elapsed_us=%u query=%u\n",
+            snapshot,epoch,r->sequence,(uint64_t)r->post_eoi_observed,r->post_eoi_elapsed_us,(uint64_t)r->query_post_eoi);
     }
 }
 static bool claim_diagnostic(void) {
@@ -298,7 +312,11 @@ static bool irq_bridge(void *context) {
     check_foreign_event();
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
-    if(observed)sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
+    if(observed) {
+        runtime.sci_observer.current.query_entry=sci_query_snapshot(&runtime.query_observer,
+            runtime.sci_observer.current.at_us);
+        sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
+    }
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
     if(observed)sci_observe_controller(&runtime.sci_observer,true,sci_controller_snapshot());
     uint64_t finished_us=timer_monotonic_us();
@@ -314,6 +332,11 @@ static bool irq_bridge(void *context) {
      * logging in the IRQ path; a delivered interrupt is not necessarily ours. */
     return handled;
 }
+static void sci_after_eoi(void *context) {
+    (void)context;
+    struct sci_controller_observation c=sci_controller_snapshot();
+    sci_observe_post_eoi(&runtime.sci_observer,c,timer_monotonic_us(),runtime.query_scheduled);
+}
 static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
     (void)ctx; return ioapic_read_gsi(gsi, low, high);
 }
@@ -328,7 +351,7 @@ static bool sci_restore(void *ctx, uint32_t gsi, uint32_t low, uint32_t high) {
 }
 static uint64_t sci_register(void *ctx, uint8_t line, irq_handler_fn fn, void *context) {
     (void)ctx;
-    return irq_handler_register(line, fn, context);
+    return irq_handler_register_observed(line, fn, sci_after_eoi, context);
 }
 static bool sci_remove(void *ctx, uint64_t token) { (void)ctx; return irq_handler_remove(token); }
 uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,uacpi_interrupt_handler fn,uacpi_handle ctx,uacpi_handle *out) {
@@ -468,6 +491,7 @@ static void queue_query(void) {
     if(runtime.stopping||runtime.query_scheduled)return;
     if(!ec_query_budget_begin(&runtime.budget,timer_monotonic_us(),128,2000000))unsafe("query budget begin");
     runtime.query_scheduled=true;
+    sci_query_start(&runtime.query_observer,timer_monotonic_us());
     if(uacpi_suspend_gpe(NULL,runtime.platform.ec.gpe)||uacpi_clear_gpe(NULL,runtime.platform.ec.gpe)||
        !acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL))unsafe("query admission");
 }
@@ -475,6 +499,13 @@ static bool pending_query(void) {
     uacpi_event_info info=0;
     if(uacpi_gpe_info(NULL,runtime.platform.ec.gpe,&info))unsafe("GPE read");
     return (info&UACPI_EVENT_INFO_HW_STATUS)||(runtime.platform.io.status(runtime.platform.io.context)&32);
+}
+static bool rearm_pending(void *context) { (void)context;return pending_query(); }
+static void rearm_queue(void *context) { (void)context;queue_query(); }
+static void rearm_resume(void *context) {
+    (void)context;query_phase(SCI_QUERY_RESUME);
+    if(uacpi_resume_gpe(NULL,runtime.platform.ec.gpe))unsafe("GPE resume");
+    query_phase(SCI_QUERY_IDLE);
 }
 static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *node,uacpi_u16 idx) {
     (void)ctx;(void)node;
@@ -484,28 +515,37 @@ static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *no
 static void query_work(void *ctx) {
     (void)ctx;
     if(!worker_context()||runtime.lease)unsafe("query ownership");
-    if(runtime.stopping){runtime.query_scheduled=false;return;}
+    if(runtime.stopping){
+        uint64_t f=irq_save();runtime.query_scheduled=false;query_phase(SCI_QUERY_IDLE);irq_restore(f);return;
+    }
     for(unsigned i=0;i<8;i++) {
         if(!ec_query_budget_take(&runtime.budget,timer_monotonic_us()))unsafe("query limit");
         uint8_t code=0;
+        query_phase(SCI_QUERY_TRANSFER);
         if(!transfer(false,0,&code,true))unsafe("query transport");
+        uint64_t observed_flags=irq_save();
+        runtime.query_observer.code=code;runtime.query_observer.code_valid=true;
+        query_phase(code?SCI_QUERY_AML:SCI_QUERY_CHECK);irq_restore(observed_flags);
         if(code) {
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
             if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
             if(uacpi_execute_simple(runtime.node,method)||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
         }
+        query_phase(SCI_QUERY_CHECK);
         if(!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("query deadline");
         if(!(runtime.platform.io.status(runtime.platform.io.context)&32))break;
     }
     uint64_t flags=irq_save();
-    if(runtime.stopping){runtime.query_scheduled=false;irq_restore(flags);return;}
+    if(runtime.stopping){runtime.query_scheduled=false;query_phase(SCI_QUERY_IDLE);irq_restore(flags);return;}
     if(runtime.platform.io.status(runtime.platform.io.context)&32) {
+        query_phase(SCI_QUERY_QUEUED);
         if(!acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL))unsafe("query reschedule");
     } else {
         if(!ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query finish");
         runtime.query_scheduled=false;
-        if(uacpi_resume_gpe(NULL,runtime.platform.ec.gpe))unsafe("GPE resume");
-        if(pending_query())queue_query(); /* Close edge/pending race with IRQs off. */
+        const struct ec_query_rearm_ops rearm={.pending=rearm_pending,
+            .resume=rearm_resume,.queue=rearm_queue};
+        ec_query_rearm(&rearm); /* Keep IRQs off through both pending checks. */
     }
     irq_restore(flags);
 }
@@ -1031,8 +1071,89 @@ bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response 
 bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return service_test(rsdp,map,false,false,2);
 }
+/* The first coexistence capture intentionally has no storage workload. The
+ * compositor runs its RAM-only study and retires its own client; this owner
+ * monitors it independently and retains the runtime until process cleanup. */
+static bool desktop_children_stop(uint64_t parent) {
+    bool live=false;
+    uint64_t index=0,pid,owner;const char *state;
+    while((index=process_list_details(index,&pid,NULL,&state,&owner,NULL))!=0) {
+        if(owner!=parent || state[0]=='e')continue;
+        live=true;(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+    }
+    return !live;
+}
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text) {
+    const char *failure="workspace mounted";
+    struct battery_service_status before={0},after={0};
+    uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
+    bool started=false,reaped=false,ok=false;
+    if(workspace_active())goto done;
+    failure="start";
+    if(!battery_service_start(rsdp,map))goto done;
+    started=true;
+    uint64_t deadline=timer_monotonic_us()+15000000;
+    for(;;) {
+        battery_service_status(&before);
+        if(before.state==BATTERY_SERVICE_ACTIVE && (before.flags&BATTERY_CACHE_FRESH))break;
+        if(before.state==BATTERY_SERVICE_UNAVAILABLE || timer_monotonic_us()>=deadline) {
+            failure="unavailable or startup deadline";goto done;
+        }
+        uacpi_kernel_sleep(10);
+    }
+    failure="desktop spawn";
+    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",text?"--coexist-text":"--coexist-capture");
+    if(child<=0)goto done;
+    pid=(uint64_t)child;start=timer_monotonic_us();
+    deadline=start+(fault==2?500000:90000000);
+    for(;;) {
+        battery_service_status(&after);reads++;
+        if(after.flags&BATTERY_CACHE_SAMPLING)busy++;
+        failure="service progress";
+        if(after.state!=BATTERY_SERVICE_ACTIVE || after.epoch!=before.epoch || after.rejected || after.sample.generation<before.sample.generation)goto done;
+        int64_t waited=process_wait(pid,&status,true);
+        if(waited==(int64_t)pid){reaped=true;break;}
+        if(waited<0){failure="desktop ownership";goto done;}
+        if(timer_monotonic_us()>=deadline){failure="desktop deadline";goto done;}
+        uacpi_kernel_sleep(10);
+    }
+    end=timer_monotonic_us();failure="desktop completion";
+    ok=status==0 && end>=start+59000000 && after.sample.generation>=before.sample.generation+10 && busy>0 && (after.flags&BATTERY_CACHE_FRESH);
+done:
+    /* No process or client may outlive the capture and access the remounted
+     * workspace. Kill only this study's children; it cannot launch descendants. */
+    if(pid) {
+        if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+        uint64_t stop_deadline=timer_monotonic_us()+5000000;
+        for(;;) {
+            bool children=desktop_children_stop(pid);
+            if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
+            if(children&&reaped)break;
+            if(timer_monotonic_us()>=stop_deadline)unsafe("desktop process retirement");
+            uacpi_kernel_sleep(10);
+        }
+    }
+    if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
+    /* Defer the saved start record until competing process/runtime writers stop. */
+    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=ram\n",pid,before.epoch,before.sample.generation,start);
+    console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
+        ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
+    return ok;
+}
+bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return desktop_test(rsdp,map,0,false);
+}
+bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return desktop_test(rsdp,map,0,true);
+}
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
+    bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");
+    if(desktop_text || command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
+        (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            (command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-text-missing"))?1:
+            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text);return;
+    }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");
         return;

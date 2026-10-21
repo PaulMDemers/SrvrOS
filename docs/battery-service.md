@@ -612,3 +612,304 @@ Neither snapshot occurs after generic EOI, so delivery cause and acknowledgement
 behavior remain unresolved. No IRQ claim or configuration policy changed. See
 the [Air acceptance record](machines/macbookair7-2.md) for counts, integrity checks
 and remaining physical acceptance boundaries.
+
+### Post-EOI observation
+
+The diagnostic now retains a third controller row, `point=post_eoi`, and a
+`battery-sci-return` row for each completed callback. A token-owned optional IRQ
+completion observer runs after the existing generic PIC/LAPIC EOI sequence,
+with interrupts masked, before returning through the ISR frame. It cannot alter
+the handler claim. The dispatcher preserves the handler-to-EOI ordering; it does
+not add acknowledgement, route or event-register writes.
+
+`observed=1` distinguishes a completed observation from unknown state. The
+entry-to-snapshot `elapsed_us` includes callback execution, other shared handlers,
+any existing dispatcher logging, EOI and the third controller read. It is **not**
+an `iret` timestamp, query-worker execution time, or input latency. `query` is
+the scheduling flag at this observation. Register reads remain sequential;
+IRR/delivery state can change immediately afterward. A clear bit at this point
+does not exclude later delivery or prove that the interrupt line is deasserted.
+
+Registration mutation and reentrant shared dispatch are rejected while callbacks
+or completion are outstanding. Only handlers actually dispatched receive one
+completion. Wrong-line or duplicate completion cannot call the observer, and
+successful removal excludes later calls. An interrupted completion is explicitly
+unknown; normal ready/retired report validation requires complete observations,
+while a terminal fault record may retain an unfinished observation. No observer
+is registered by ordinary desktop startup.
+
+Air7,2 release `71b16a6e59709895` (source `2c90dfe`, PR #21) accepts this
+three-point diagnostic during the isolated filesystem workload: 45 cycles / 810
+operations, two clean service lifetimes and verified inner/outer filesystem
+integrity. All ten retained post-EOI observations show LAPIC ISR/IRR clear and
+I/O APIC remote-IRR clear (`lapic_bits=4`, route low `0x8029`). The existing EOI
+therefore takes effect at these sample points. All five retained unclaimed
+callbacks still follow handled callbacks while query work is pending; their
+selected event status/enable pairs contain no enabled event. This does not
+identify the later delivery's cause or justify changing the interrupt claim.
+
+The pending flag spans queued and executing query work, including AML evaluation
+and rescheduling. Next correlate those stages and their timing with the SCI ring
+using bounded passive observations, without additional EC/event-register reads
+or policy changes. The [Air record](machines/macbookair7-2.md) contains exact
+counts, timing limits and preserved recovery evidence. Ordinary desktop battery
+startup, interactive input coexistence and physical gauge accuracy remain
+unaccepted by this automatic trial.
+
+### Query context at SCI entry
+
+Each new `battery-sci-query` row pairs with one event by snapshot/epoch/sequence.
+It copies the diagnostic worker's passive state at SCI callback entry, before
+uACPI dispatch. `valid=1` distinguishes a recorded state from missing evidence.
+`cycle` counts admitted query batches within the runtime lifetime; zero means
+none has started. `transfers` counts attempted query commands in that batch,
+including attempts across worker rescheduling. Counters saturate rather than wrap.
+
+| Phase | Meaning at the sampling point |
+| --- | --- |
+| 0 | Idle; any nonzero cycle describes the most recent completed batch |
+| 1 | Queued or requeued; the same batch retains its cycle and transfer count |
+| 2 | Query transport; returned code is unknown until the transfer succeeds |
+| 3 | Nonzero query code dispatch/logging and AML evaluation |
+| 4 | Query budget/status checks between transfers |
+| 5 | GPE resume boundary, with interrupts masked |
+
+`age_us` is wall time since batch admission; `phase_age_us` is wall time since
+entry to this phase. They include scheduler delay, hardware waits and any logging;
+they are not CPU cost or IRQ latency. On initial idle state both are zero. The
+last successful command's `code` has an independent `code_valid` bit: a valid
+zero is an empty response, while unknown is zero with validity clear. Entering
+a new transfer clears code validity. A new batch resets its transfer count/code.
+
+Updates and snapshots are serialized on CPU0 against IRQ entry. The ring stores
+copies, so later worker progress cannot rewrite an older interrupt's context.
+No transport/event reads, ownership, deadlines or acknowledgement decisions are
+added. A phase identifies where the worker was interrupted, not why an interrupt
+was delivered; bounded retention can omit earlier work. The VM unclaimed-SCI
+fixture injects a software interrupt at a query-command boundary to exercise
+this association. It cannot establish a physical interrupt cause.
+
+Air7,2 release `df04f96a16d0f850` (PR #23, source `68aac71`) accepts the query
+context observations with the isolated workload and clean retirement. All five
+retained unclaimed callbacks observed a new queued batch just 5–6 microseconds
+old, with no transfer yet. The event was already disabled/clear for the EC mask;
+post-EOI controller state again cleared normally. This points toward the worker's
+resume-then-recheck ordering, rather than an interrupt during query transport or
+AML, in these retained samples. It is correlation, not proof of the source.
+
+### Check pending work before GPE resume
+
+At the end of a query batch, with the owned GPE still suspended and IRQ dispatch
+excluded, check pending status first. Known pending work is queued while the
+source stays disabled. Otherwise resume the GPE and retain the existing pending
+check after resume. This avoids briefly enabling a source already known pending,
+which can latch an interrupt before the subsequent queue operation masks and
+clears it. It preserves the post-resume check for arrivals after the first read.
+An arrival in that window can still latch a delivery; claims are never forced to
+handled merely because this race is possible.
+
+`ec_query_rearm.h` defines the ordering through the existing pending/resume/queue
+callbacks. The runtime retains its EC/GPE access gates, raw GPE handler, query
+budgets, worker ownership, stop and retirement behavior. The host fixture models
+a latched interrupt surviving source clear, known GPE or EC pending work, a quiet
+source, and arrivals before/during/after resume and after the final check.
+
+Air7,2 release `54dce7fb0a41b718` (source `b7bd60c`, merged PR #24) accepts this
+ordering for the bounded native workload. Full counters across both lifetimes
+were **24 handled / zero unclaimed**, versus 32 / 32 in the preceding capture.
+All nine retained entries found an idle query worker and normal post-EOI state.
+The isolated filesystem completed 42 cycles / 756 operations, both lifetimes
+retired cleanly, and exact image contents, outer allocation and unrelated-file
+hashes passed. This supports the ordering fix for the observed duplicate pattern;
+it does not eliminate the documented late-arrival window. Ordinary desktop
+battery startup remains disabled.
+
+## Desktop and input coexistence contract
+
+The automatic filesystem captures exercise storage and cached readers, but do
+not run the compositor concurrently. The original `main.c` battery and desktop
+capture branches ran sequentially, so combining flags did not demonstrate
+overlap. The v40 RAM capture implements the first stage of this contract:
+
+1. Checkpoint and park the outer workspace before native runtime entry. Launch
+   the desktop with RAM-backed state and a visible test banner; omit Home access,
+   periodic workspace logging and screenshot writes while storage is parked.
+   Preserve the accepted ordinary desktop and its startup behavior.
+2. Start the cached battery service once, wait for ACTIVE under a deadline, and
+   run the compositor alongside it. First validate this without storage load;
+   then add the existing isolated disposable filesystem capability. Keep generic
+   USB write aliases revoked and retain ownership until every operation completes.
+3. Record compositor progress and frame/event timing alongside battery generations,
+   SCI totals and lifecycle state. Synthetic VM input must assert delivery and
+   application state, not only a polling counter. Native automatic progress is
+   not acceptance of physical typing, gestures or end-to-end input latency.
+4. Stop desktop activity and storage work, retire the battery service, then revoke
+   the image capability. Only after clean retirement may the workspace remount
+   and persist final logs. Exercise process failure, unavailable service, deadline
+   and stop-timeout paths in VMs; preserve live-state containment and automatic
+   return without unsafe filesystem writes after a runtime fault.
+5. Rehearse the exact native stage, then run an automatic physical overlap trial.
+   Require matched release/session, overlapping activity, complete lifecycle,
+   final filesystem checks and Ubuntu recovery. Follow with a separately announced
+   attended keyboard/trackpad trial before accepting interactive responsiveness.
+
+Do not add a persistent battery widget or enable the ordinary desktop service
+until this lifecycle and coexistence contract is tested. A versioned cached
+userspace read interface can follow; it must expose freshness/unavailability and
+must never trigger EC/AML work from the compositor. Gauge accuracy, AC transition
+revalidation and suspend/resume remain separate acceptance items.
+
+### RAM compositor capture (v40)
+
+`hardware_boot.py stage --laptop-probe-volume <this-host-uuid>
+--battery-desktop` selects the separate native runtime, automatic-return recipe
+and RAM-only `deskd --coexist-capture`. v39 remains reserved for the Pro agent's
+Wi-Fi probe. Ordinary desktop startup and its disabled battery stub are unchanged.
+This first step uses the existing independent typing-study client and legacy text
+input path; it is not yet the full Text application or a filesystem load test.
+
+The launcher checkpoints and unmounts the workspace before starting the service.
+It requires a fresh active sample, then launches the compositor under an independent
+90-second deadline. The compositor requires its client to appear within five
+seconds and runs a 60-second sequence of generated font-toggle messages. Each
+message carries a serial that must return in a client surface commit and reach a
+successful screen blit. It requires at least 55 completed presentations, tracks
+loop gaps, and retires its client. Generated events are explicitly distinct from
+physical keys. This mode opens no app menus, Home, preferences or screenshot jobs;
+the native keyboard/mouse can still feed the study, but no input is required.
+
+The owner requires successful process exit, at least ten additional battery
+sample generations and cached reads during sampling. It reaps the compositor and
+ensures no live study child remains before stopping the service. Failure to retire
+retains the existing containment/reset path. Only after retirement does main
+remount the workspace, save the final log and return to Ubuntu. Missing final
+logs remain incomplete evidence. The collector's `battery_desktop` field checks
+matching epochs, overlapping time intervals, completed client presentations,
+process/lifecycle success and SCI records. The saved kernel start record is
+printed after teardown to avoid interleaving with startup writers; its timestamp
+still identifies admission. Loop gaps include client startup and are software
+scheduling measurements, not physical input-to-display latency.
+
+Local validation uses `tools/battery_desktop_smoke.py`: normal operation with
+injected `Abx`/Backspace, missing executable, owner deadline, early UI exit and
+native platform refusal. A replacement compositor must start afterward. An
+additional active-runtime deadline case requires automatic containment/reset,
+without a successful completion report or unsafe live-runtime cleanup. The first
+VM exposed a sample timeout during large pixel-cache cleanup; `process_munmap`
+now removes mappings in one table pass rather than searching twice per page.
+A bulk/split/unrelated-mapping regression runs in `posixdemo`. The existing EC
+100 ms transport deadline and fault containment remain unchanged.
+
+### Accepted Air7,2 RAM overlap (2026-10-21)
+
+Native release `ae2851607a9bf0c1` (source `1df9a24`, PR #26), session
+`session-00065e5c8e37f13c-00`, passed after exact-stage VM rehearsal. The study
+ran 60.019 seconds, presented all 60 generated changes and 61 frames, and
+recorded a maximum loop gap of 30,009 microseconds. Sampling advanced from
+generation 1 to 23 with 3,004 cached reads, 707 during sampling. Clean process
+exit and service retirement, balanced attachment, zero rejection/errors/denials
+and 23 handled / zero unclaimed SCI interrupts were recorded. The
+30 ms maximum loop gap is software scheduling evidence, not physical latency.
+
+Collection, old-file hashes (including the unchanged used filesystem image),
+offline exFAT/allocation, Ubuntu return/default and recovery verification passed.
+The machine record owns the exact installed/evidence state. This closes the first
+RAM study overlap step. Rich Text keyboard-event coverage, isolated filesystem
+load alongside the compositor and attended physical input acceptance remain.
+The ordinary desktop battery service is still disabled.
+
+### Text keyboard-event overlap (monitor/VM only)
+
+The native v40 recipe remains the accepted typing study. A separate
+`acpiruntime battery-desktop-text` monitor command starts the same bounded owner
+with `deskd --coexist-text` and the real Text app. Opt-in v41 `--battery-text`
+selects the same owner for native capture. The Text diagnostic uses its normal editor, history,
+clipboard and surface publication, with its file worker disabled and no initial
+file loaded. The compositor provides focus and the in-memory clipboard without
+activating the global app launcher, preferences, Home or screenshot writes.
+Ordinary Text and desktop startup retain their existing behavior.
+
+Five twelve-event sequences exercise Ctrl-A, Backspace, shifted insertion,
+Left/Delete, End, copy and paste. Each sequence must leave `AA`, with the caret
+and anchor at byte two and no clipboard transfer pending. Every generated event
+must be acknowledged by a client surface commit and presented before the next.
+The sixty events finish before the end of the one-minute overlap interval,
+leaving time for VM keyboard injection. Diagnostic snapshots are printed only
+at shutdown, and only in this explicitly selected RAM document mode.
+
+The injected sequence exercises casing, selection replacement, navigation,
+Backspace/Delete and clipboard shortcuts through the OS keyboard-event stream.
+Its final document must be `ZbZb`. Ordered keyboard events may share a frame;
+`keyboard_presented` records the last acknowledged sequence prefix, not one frame
+per physical event. The final document, caret/anchor, matching input serial and
+successful presentation are required together. These are VM observations, not
+physical input latency or trackpad acceptance.
+
+Run sequentially after building matching ordinary/native/VM kernels and userspace:
+
+```sh
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --no-input
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case normal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case missing
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case timeout
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case early-exit
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case refusal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case runtime-fault
+```
+
+Normal and handled-failure cases require a replacement compositor to start after
+cleanup. The runtime-fault fixture requires automatic reset without a false
+retirement/success report. The harness drains serial output between injected key
+bursts: pausing diagnostic reads while typing produced an incomplete first run,
+although its final document was visible. That failed evidence is retained; the
+repeat passed without guest deadline changes. `check_text_capture` rejects wrong
+or missing editing checkpoints, unfinished clipboard operations, unmatched final
+input/presentation serials, file-worker activation and incomplete lifecycle proof.
+The existing v40 collector continues to require the original study evidence.
+
+The seven Text cases, original study, host core suite and ordinary desktop-app
+regression passed with implementation `9ee553a`. The apps harness now selects
+fixture paths explicitly after the move to Home and targets the current Places
+layout. It asserts maximize/restore transitions and pairs child shutdown with
+the parent-reported PID/status, avoiding an interleaved child console line.
+The separate v41 native trial is accepted for the bounded RAM script below.
+
+
+### Native automatic Text capture (v41)
+
+Build `acpi-battery-kernel` and the matching `build/initramfs.tar`, then stage:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-text
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+The distinct `srvros.capture=battery-text` recipe requires automatic return and
+cannot be combined with another capture or `--hold-on-failure`. The exact-stage
+Q35 run checks the native platform refusal, saved report, unmount and return; it
+does not establish native runtime or editing acceptance. Preserve the ordinary
+desktop recovery and follow the setup guide's install/run-record sequence.
+
+No typing or clicking is required. Leave input alone for the one-minute trial,
+with AC and the workspace USB connected. The outer workspace is parked during
+runtime; Text has a RAM document and no file worker. Clean completion or handled
+failure saves diagnostics and returns automatically. Existing unsafe-retirement
+containment can reset without a final report; missing evidence remains failure.
+
+Collection reports `battery_text` only for the exact recipe and one complete
+clean-return marker, all sixty presentations, five exact `AA` checkpoints, the
+final `AA` document/caret, zero extra keyboard events, continued battery sampling
+and clean app/service retirement. Malformed or missing proof adds an attention
+item. The v40 study remains separately selectable and separately checked. This
+automatic result does not establish physical input latency, simultaneous storage
+load, gauge accuracy or ordinary desktop battery support.
+
+
+Air7,2 release `2fd49386c4ecf0d9` (source `01e64a9`, PR #29) passed the native
+v41 trial: all 60 edits presented, five exact `AA` checkpoints and final `AA`,
+zero extra keyboard events, 60.018 seconds of overlap, battery generation 1→23
+and clean process/service retirement. SCI recorded 23 handled / zero unclaimed
+interrupts. Collection, all prior data-file hashes, offline exFAT/allocation,
+consumed one-shot and recovery checks passed. This accepts only this bounded
+RAM workload on the captured Air; simultaneous filesystem load, physical input
+latency and gauge accuracy remain open. See the [unit record](machines/macbookair7-2.md).

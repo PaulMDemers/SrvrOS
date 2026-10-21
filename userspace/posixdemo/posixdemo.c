@@ -1173,6 +1173,22 @@ int main(int argc, char **argv) {
         say("posixdemo: mmap rw failed\n");
         return 26;
     }
+    /* Bulk removal must recheck swapped entries, preserve unrelated pages,
+     * and preserve both ends of a split region. */
+    uint8_t *bulk=mmap(0,259*4096,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    uint8_t *neighbor=mmap(0,8192,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANONYMOUS,-1,0);
+    if(bulk==MAP_FAILED || neighbor==MAP_FAILED) return 26;
+    for(unsigned i=0;i<259;i++) bulk[i*4096]=(uint8_t)i;
+    neighbor[0]=0x62;neighbor[4096]=0x79;
+    if(munmap(bulk+4096,257*4096) || bulk[0]!=0 || bulk[258*4096]!=2 ||
+       neighbor[0]!=0x62 || neighbor[4096]!=0x79) return 26;
+    uint8_t *middle=mmap(bulk+4096,257*4096,PROT_READ|PROT_WRITE,
+        MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED,-1,0);
+    if(middle!=bulk+4096) return 26;
+    for(unsigned i=0;i<257;i++) if(middle[i*4096]!=0) return 26;
+    if(munmap(middle,257*4096) || munmap(bulk,4096) || munmap(bulk+258*4096,4096) ||
+       neighbor[0]!=0x62 || neighbor[4096]!=0x79 || munmap(neighbor,8192)) return 26;
+    say("posixdemo: munmap bulk split ok\n");
     void *fixed = mmap((void *)0x18000000,
         4096,
         PROT_READ | PROT_WRITE,

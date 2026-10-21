@@ -12,21 +12,55 @@ struct sci_controller_observation {
     uint16_t pic_masks;
     uint8_t valid,vector; /* availability: LAPIC=1, I/O APIC=2, PIC=4 */
 };
+/* CPU0 query timeline. Caller serializes updates/snapshots against IRQ entry.
+ * Ages are wall time, including scheduling and transport waits, not CPU time. */
+enum sci_query_phase { SCI_QUERY_IDLE, SCI_QUERY_QUEUED, SCI_QUERY_TRANSFER,
+    SCI_QUERY_AML, SCI_QUERY_CHECK, SCI_QUERY_RESUME };
+struct sci_query_state {
+    uint64_t sequence,started_us,phase_us,transfers;
+    uint8_t phase,code;
+    bool code_valid;
+};
+struct sci_query_snapshot {
+    uint64_t sequence,age_us,phase_age_us,transfers;
+    uint8_t phase,code;
+    bool valid,code_valid;
+};
+static inline void sci_query_start(struct sci_query_state *q,uint64_t now) {
+    uint64_t seq=q->sequence;
+    *q=(struct sci_query_state){.sequence=seq==UINT64_MAX?seq:seq+1,
+        .started_us=now,.phase_us=now,.phase=SCI_QUERY_QUEUED};
+}
+static inline void sci_query_phase(struct sci_query_state *q,uint8_t phase,uint64_t now) {
+    q->phase=phase;q->phase_us=now;
+    if(phase==SCI_QUERY_TRANSFER) {
+        if(q->transfers!=UINT64_MAX)q->transfers++;
+        q->code=0;q->code_valid=false;
+    }
+}
+static inline struct sci_query_snapshot sci_query_snapshot(const struct sci_query_state *q,uint64_t now) {
+    return (struct sci_query_snapshot){.valid=true,.sequence=q->sequence,
+        .age_us=q->sequence&&now>=q->started_us?now-q->started_us:0,
+        .phase_age_us=q->sequence&&now>=q->phase_us?now-q->phase_us:0,
+        .transfers=q->transfers,.phase=q->phase,.code=q->code,.code_valid=q->code_valid};
+}
 struct sci_observation {
-    struct sci_controller_observation before,after;
-    uint64_t sequence,at_us,duration_us,previous_gap_us;
+    struct sci_controller_observation before,after,post_eoi;
+    struct sci_query_snapshot query_entry;
+    uint64_t sequence,at_us,duration_us,previous_gap_us,post_eoi_elapsed_us;
     uint16_t fixed_status,fixed_enable;
     uint8_t ec_status,ec_enable,ec_raw_status,ec_raw_enable,valid,phase;
-    bool handled,previous_valid,previous_handled,query_before,query_after;
+    bool handled,previous_valid,previous_handled,query_before,query_after,post_eoi_observed,query_post_eoi;
 };
 struct sci_observer {
     struct sci_observation rows[SCI_OBSERVE_CAPACITY],current;
     uint64_t total,previous_us;
     unsigned next,count;
-    bool active,previous_valid,previous_handled;
+    bool active,previous_valid,previous_handled,post_pending;
 };
 static inline bool sci_observe_begin(struct sci_observer *o,uint64_t now,uint8_t phase,bool query) {
     if(o->active)return false; /* Do not overwrite an outer observation. */
+    o->post_pending=false; /* A missing completion remains explicitly unknown. */
     o->current=(struct sci_observation){.at_us=now,.phase=phase,.query_before=query,
         .previous_valid=o->previous_valid,.previous_handled=o->previous_handled,
         .previous_gap_us=o->previous_valid&&now>=o->previous_us?now-o->previous_us:0};
@@ -57,9 +91,19 @@ static inline void sci_observe_end(struct sci_observer *o,uint64_t now,bool hand
     if(o->total!=UINT64_MAX)o->total++;
     r->sequence=o->total;r->handled=handled;r->query_after=query;
     r->duration_us=now>=r->at_us?now-r->at_us:0;
+    r->post_eoi.vector=r->before.vector;r->post_eoi.gsi=r->before.gsi;
+    o->post_pending=true;
     o->rows[o->next]=*r;o->next=(o->next+1)%SCI_OBSERVE_CAPACITY;
     if(o->count<SCI_OBSERVE_CAPACITY)o->count++;
     o->previous_us=r->at_us;o->previous_valid=true;o->previous_handled=handled;o->active=false;
+}
+static inline void sci_observe_post_eoi(struct sci_observer *o,
+    struct sci_controller_observation value,uint64_t now,bool query) {
+    if(!o->post_pending || o->active || !o->count)return;
+    struct sci_observation *r=&o->rows[(o->next+SCI_OBSERVE_CAPACITY-1)%SCI_OBSERVE_CAPACITY];
+    r->post_eoi=value;r->post_eoi_observed=true;r->query_post_eoi=query;
+    r->post_eoi_elapsed_us=now>=r->at_us?now-r->at_us:0;
+    o->post_pending=false;
 }
 static inline const struct sci_observation *sci_observe_row(const struct sci_observer *o,unsigned i) {
     if(i>=o->count)return 0;

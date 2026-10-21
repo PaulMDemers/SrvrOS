@@ -1466,3 +1466,9 @@ before firmware work, preserve immutable v39, then establish firmware provenance
 hash and revision/calibration gates. Fetched main `8211ec1` includes Air v40/v41
 capture/collection and shared process/UI changes; it is not present in this
 physically tested payload. Preserve both Air recipes when resolving shared files.
+
+Next scope: integrate main `8211ec1`, preserving Pro Wi-Fi v39 and Air v40/v41
+exact recipes and refusal tests. Resolve shared staging/receipt/Make targets by
+combining behaviors, then build/core and exact v39 VM checks. Independently audit
+installed mt7610 firmware structure/hash/provenance and document calibration
+requirements; no firmware upload or radio writes in this checkpoint.

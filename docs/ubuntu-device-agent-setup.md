@@ -375,6 +375,17 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v40 laptop-probe** `--battery-desktop` profile runs the native
+cached service alongside a RAM-only compositor study for one minute. Keep AC and
+USB connected; no input is required and it returns automatically. The workspace
+is checkpointed and parked during overlap; this profile does not use or replace
+`battery-fs.img`. Use the native build, exact-stage `--probe-check`, install with
+accepted recovery retained, and one-shot/collection sequence below. Require the
+matching session's `battery_desktop` proof and clean offline filesystem checks.
+VM input or generated redraws do not accept physical key/trackpad latency. See
+[the capture contract](battery-service.md#ram-compositor-capture-v40). v39 is
+reserved by the separate Pro Wi-Fi probe.
+
 The separate **v38 laptop-probe** `--battery-filesystem` profile exercises an
 isolated disposable filesystem image during battery sampling. Bounded native
 acceptance is recorded for Air7,2; desktop/input coexistence remains pending.
@@ -677,3 +688,15 @@ Reports are saved in Home (`network-before.txt`, `network-down.txt`,
 `network-after.txt`, sequence state in `network-trial.txt`). Inspect statuses,
 HTTP responses and System/Network Utility behavior; completion alone is not a
 pass. The final screen gives the clean console-return and reboot instructions.
+
+
+### Automatic Text and battery overlap
+
+The captured Air7,2 can use the opt-in v41 `--battery-text` recipe after local
+validation and exact-stage rehearsal. It runs a one-minute RAM Text editing
+script with cached battery sampling, then saves and returns automatically. No
+human input is needed; leave keys/trackpad alone and keep AC/USB attached. The
+collector requires exact editing and retirement proof, not merely a reboot.
+Follow the [battery capture contract](battery-service.md#native-automatic-text-capture-v41)
+and retain the accepted desktop recovery. Other models must retain their native
+refusal until independently matched and accepted.

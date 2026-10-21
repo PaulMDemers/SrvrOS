@@ -2,6 +2,333 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Current checkpoint: native full Text/battery RAM overlap accepted
+
+Release `2fd49386c4ecf0d9`, source `01e64a9` (merged PR #29), session
+`session-00065e5d96dd1b73-00` completed the automatic v41 Text trial and returned
+to Ubuntu. The real editor presented all **60 generated operations**, all five
+`AA` editing checkpoints and final `AA`, with caret/anchor at byte two and no
+clipboard operation pending. No extra keyboard events occurred. Its RAM-only
+file worker remained disabled. The capture ran 60.018 seconds, with 66 frames,
+5,321 loops and a maximum loop gap of 30,015 microseconds; this is not measured
+physical input latency.
+
+Battery sampling advanced 1→23; 3,007 cached reads included 706 during sampling.
+The compositor exited successfully and the service retired with one attachment
+and detachment, zero rejected samples, heap, errors or denied operations. SCI
+counters recorded **23 handled / zero unclaimed** interrupts. Strict collection
+found one matching new session and no attention items.
+
+All 904 prior data files, including the used filesystem-test image, were unchanged.
+Only workspace metadata changed and three matching logs were added. Offline
+exFAT and allocation checks passed: 193 directories, 908 files, 1,688 clusters,
+no leaks or mismatches. A new Ubuntu boot, consumed one-shot, default/EFI order,
+installed payload and accepted desktop recovery were verified. Evidence and exact
+payload are archived outside `build`; the flash drive is remounted in Ubuntu.
+
+Current installed is this diagnostic; previous remains accepted desktop
+`b427b78f21644bd2`. No reboot is armed. This accepts generated full Text editing
+with concurrent cached battery sampling in RAM. Physical input latency,
+simultaneous filesystem load and gauge accuracy remain separate acceptance.
+Ordinary desktop battery startup remains disabled. Next scope is combining the
+RAM Text script with the existing isolated filesystem workload in a disposable
+VM fixture before a new native stage. Preserve the exclusive image lease and
+bounded process/service retirement; do not reuse the used native image as fresh.
+
+### Native full Text capture: implementation and local validation
+
+Starting from merged PR #28 (`529eee4`), add opt-in v41 `--battery-text`
+selection, exact-stage rehearsal and strict native collection. Shared edits are
+limited to the battery diagnostic entry point, boot selection/staging, collectors
+and their tests; editor/compositor and native hardware gates stay as validated.
+Pro PR #19 inspected at `e9320d9` reserves v39 Wi-Fi; preserve that independent
+scope. The automatic trial needs no input: require 60 presented edits, five `AA`
+checkpoints, clean app/service retirement and continued sampling. Rehearse the
+exact native payload's unsupported-platform save/unmount/return before install.
+Implementation `98bebc9` passed native/VM builds, full host core tests, 44 staging
+and 13 collector tests, seven strict overlap-record tests and 393 documentation
+links. The rebuilt automatic Text VM presented all 60 events, retained all five
+`AA` checkpoints and final `AA`, with zero extra keyboard input. Sampling advanced
+1→25 and a replacement compositor started after clean retirement. Eleven files
+including exact binaries are archived outside `build`. PR #29 carries this work.
+The exact-stage native Q35 refusal/save/unmount/return rehearsal passed; native
+acceptance is recorded above. Actions remain disabled.
+
+### Previous checkpoint: native RAM typing-study/battery overlap accepted
+
+Release `ae2851607a9bf0c1`, source `1df9a24` (merged PR #26), session
+`session-00065e5c8e37f13c-00` completed the automatic v40 trial and returned to
+Ubuntu. The typing-study compositor ran for 60.019 seconds, generated and
+presented all **60 changes**, and completed 61 frames across 5,314 loops.
+Maximum loop gap was 30,009 microseconds; this includes scheduling and is not
+measured physical input latency. Battery sampling advanced generation 1→23;
+3,004 cached reads included 707 while sampling. The compositor exited with
+status zero and the service retired with balanced attachment and zero rejected
+samples, heap, errors or denied operations. Full SCI counters recorded
+**23 handled / zero unclaimed** interrupts.
+
+The collector found one matching session, complete overlap proof and no attention
+items. All 901 prior data files, including the used filesystem-test image, were
+byte-identical. Only workspace metadata changed, with three new matching logs.
+Offline exFAT and allocation checks passed: 192 directories, 905 files, 1,684
+clusters, no leaks or mismatches. A new Ubuntu boot, consumed one-shot, default
+and EFI order, installed payload and accepted desktop recovery hashes verified.
+Evidence and the exact payload are archived outside `build`.
+
+Current installed is this diagnostic; previous remains accepted desktop
+`b427b78f21644bd2`. No reboot is armed. This accepts the bounded RAM typing-study
+and generated-event overlap, not physical typing/gesture latency, full Text-app
+keyboard events, filesystem-load overlap or gauge accuracy. Ordinary desktop
+battery startup remains disabled. Next validate the rich Text keyboard-event
+path in RAM, then combine the isolated disposable filesystem workload; retain
+separate attended input acceptance.
+
+### Full Text input in RAM: implemented and VM validated
+
+PR #28 builds on `3b20bfb`; runtime/compositor/Text implementation `9ee553a`.
+The new monitor-only `battery-desktop-text` mode runs the real Text editor with
+its file worker disabled. It retains normal rich keyboard events, editing,
+clipboard IPC and surface publication. The existing v40 study profile and the
+installed/accepted native payload above remain unchanged; ordinary desktop
+battery startup stays off. Pro PR #19 remains `e9320d9`, with no shared-file
+conflict in this change.
+
+Seven Text VM cases passed: automatic script, injected keyboard editing, missing
+program, owner deadline, early exit, unsupported platform and active-runtime
+fault/reset. Both positive cases presented all 60 generated operations and five
+exact `AA` editing checkpoints while sampling advanced generation 1→25. The
+injected case delivered 44 keyboard events, acknowledged the final serial, and
+ended with visible `ZbZb`; ordered events may share frames. Every clean-return
+case subsequently started a replacement compositor. The old study, full host
+core suite, strict record/corruption tests and ordinary desktop-app regression
+also passed. No guest timeout or native hardware gate changed.
+
+The initial injected VM lacked final serial records while its document was
+visible. Its failed evidence is retained; draining serial between input bursts
+resolved the repeat. Refreshing the older apps harness also corrected stale
+folder-field coordinates, implicit `/fat` defaults after the move to Home,
+and maximized restore coordinates. Screenshots/raw disposable disks established
+the path mismatch; a split child exit log was replaced by checking the parent's
+status for that exact PID. The refreshed suite verifies actual file contents,
+clipboard editing and maximize/restore transitions. All failed attempts remain
+separate from final validation.
+
+The separate native v41 recipe and strict collection landed in PR #29 and are
+accepted above. Concurrent isolated filesystem load, attended input latency and
+battery gauge accuracy remain pending. No physical trial is armed.
+
+### Previous checkpoint: EC GPE rearm ordering accepted for the bounded trial
+
+Release `54dce7fb0a41b718`, source `b7bd60c` (merged PR #24), session
+`session-00065e5b4cd48eb4-00`, returned automatically. Full retired counters
+recorded **24 handled / zero unclaimed** interrupts across two lifetimes,
+compared with 32 handled / 32 unclaimed in the preceding query-context run.
+Nine callbacks were retained and fifteen overwritten. All retained entries
+observed an idle query worker; all post-EOI samples had ISR/IRR and remote-IRR
+clear (LAPIC bits 4, route low `0x8029`). The pre-resume pending check eliminated
+the observed duplicate-delivery pattern in this trial. This is bounded native
+acceptance, not a guarantee against late arrivals or all future unclaimed IRQs.
+Claims, EOI ordering, route polarity and hardware gates remain unchanged.
+
+The isolated filesystem completed 42 cycles / 756 operations in 61,319,529
+microseconds with 16,910 USB commands. Maximum operation time was 3,157,927
+microseconds; this is wall time, not measured input latency. Generation 23 and
+61,290 cached reads (maximum 18 microseconds), including 2,194 during sampling,
+were recorded. Both lifetimes retired with restored enables, balanced attachments
+and zero heap/errors/denials. The deliberate short stop wait timed out, then
+retirement completed normally.
+
+Exact inner contents/fsck/allocation (75 clusters), outer fsck/allocation (191
+directories, 902 files, 1,680 clusters) and preservation of 897 unrelated files
+passed. Only the disposable image/root metadata changed, with three new matching
+logs. Ubuntu return, consumed one-shot, default/EFI order and recovery hashes
+verified. Twenty-eight hashed evidence files and the exact payload are archived
+outside `build`. Current installed is this diagnostic; accepted desktop
+`b427b78f21644bd2` remains previous. No reboot is armed. The image is used and
+must not rerun. Ordinary desktop battery startup remains disabled; this trial
+has no physical input or gauge-accuracy acceptance.
+
+### Implementation and local validation: RAM desktop and battery overlap
+
+Branch `device/macbookair7-2/sci-controller`, PR #26, integration base `4daf2c2`.
+Runtime `aaab764`, bulk unmap fix `054b6cf` and harness `39aa9fa` implement an
+opt-in v40 `--battery-desktop` laptop probe. Ordinary desktop battery startup
+remains disabled. The workspace is parked during the RAM typing-study capture;
+Home, preferences, screenshots and storage load are excluded. The used filesystem
+fixture is left unchanged. Pro PR #19 (`e9320d9`) retains v39 for its Wi-Fi probe;
+its hardware profiles and xHCI scope are unchanged.
+
+The independent runtime owner starts active cached sampling, observes the desktop
+for one minute, checks process exit and sampling progress, then retires the
+service before remounting storage and saving logs. Generated font-toggle input
+requires a matching client serial and successful compositor presentation. The
+study uses legacy text input, not the rich Text-app keyboard-event path. Startup
+proof is printed after retirement to avoid concurrent console-writer interleaving;
+its saved timestamp still identifies actual start. Maximum compositor loop gap
+includes client startup and is not physical input latency.
+
+The first VM presented all 60 events and typed `Ab`, then hit the existing EC
+sample deadline during compositor cache cleanup. This failed evidence is retained.
+`process_munmap` performed two linear mapping-table searches per page. Single-pass
+range removal preserves full validation and frame ownership, and the repeat VM
+completed cleanly. Bulk/split/unrelated-mapping regression coverage was added to
+posixdemo. EC deadlines, IRQ claims, EOI ordering and native hardware gates have
+not changed.
+
+Final normal, missing-program, deadline, early-exit and unsupported-platform VM
+cases passed, each followed by successful replacement compositor startup. Normal
+captured generation 1→25, 60 generated/presented changes, 66 frames, and injected
+`Abx` followed by Backspace produced `Ab`. Full local `make smoke` and the
+software SCI regression passed. Record tests reject missing, conflicting and
+non-overlapping proof. The active-runtime deadline fixture also returned automatically without unsafe
+cleanup or a false success record. All six cases and exact binaries are archived
+outside `build` under `local-validation/coexist-39aa9fa`. Exact native stage
+rehearsal is recorded separately before installation. GitHub Actions
+remain disabled. The native v40 result above accepts bounded RAM overlap; none
+of this accepts physical input latency, gauge accuracy or loaded filesystem coexistence.
+
+### Previous native query correlation accepted
+
+Release `df04f96a16d0f850`, source `68aac71` (PR #23), session
+`session-00065e5b05b8b6c9-00`, returned automatically after 45 cycles / 810
+operations in 60,749,550 microseconds (18,116 USB commands; maximum operation
+2,439,655 microseconds). Both lifetimes retired cleanly with restored enables,
+balanced attachments and zero heap/errors/denials. The service reached generation
+23; 64,685 cached reads completed, maximum 3 microseconds, including 2,263 during
+sampling. The intentional short stop-wait timed out before clean retirement.
+
+Counters recorded 32 handled / 32 unclaimed callbacks; ten were retained and
+54 overwritten. All five retained unclaimed entries found a **new queued batch**
+aged 5–6 microseconds, with zero transfers and no known response code. They
+followed handled callbacks by 558,139–717,617 microseconds; selected EC event
+status/enable was `0xa0`/zero and fixed status/enable `0x8001`/`0x20`. Each retained
+post-EOI snapshot again had ISR/IRR clear and remote-IRR clear, with LAPIC bits 4
+and route low `0x8029`. The query worker was not executing a transfer or AML at
+these entry points. Source inspection finds GPE resume **before** the pending
+check that can suspend/clear it and queue this new batch. That ordering is a
+candidate cause of a latched delivery whose event is gone by callback entry;
+the correlation alone does not prove the cause or justify claiming that IRQ.
+
+Inner exact contents/fsck/allocation (75 clusters), outer fsck/allocation (190
+directories, 899 files, 1,676 clusters) and preservation of 894 previous files
+passed. Only the disposable image/root metadata changed, with three new logs.
+New Ubuntu boot, consumed one-shot, default/EFI order and recovery hashes passed.
+Twenty-nine hashed evidence files and the exact payload are archived outside
+`build`. USB remounted; previous desktop `b427b78f21644bd2` retained. No reboot
+armed; the used image must not rerun. Desktop/input/gauge acceptance stays pending.
+
+### Rearm implementation scope and validation (PR #24)
+
+Branch `device/macbookair7-2/sci-controller`, base main `68aac71`. Add a pending
+check while the owned EC GPE is still suspended: queue known work directly,
+otherwise resume and keep the existing post-resume pending check. Preserve
+budgets, ownership, genuine handler claims, raw-handler semantics and late-arrival
+coverage. Touch `battery_runtime.c`, a small `ec_query_rearm.h` ordering helper,
+its host model test/Makefile target and current guides. Model known-pending and
+late arrivals with a latched-interrupt fixture; run the battery VMs before a fresh
+automatic native trial. A late arrival during resume can still latch a delivery;
+this change does not promise to eliminate every unclaimed IRQ. Pro PR #19 at
+`e9320d9` remains USB Wi-Fi/xHCI/staging work; only additive Makefile tests overlap.
+Ordinary desktop battery remains off; GitHub Actions remain disabled.
+
+Rearm implementation `3129374` (PR #24) passes the latched-delivery/late-arrival
+host model, core suite, native/VM builds and six focused VMs: software-unclaimed,
+normal service, foreign event, isolated filesystem, active filesystem deadline
+with automatic reset, and query deadline containment. The isolated image and
+all outside bytes pass verification. The ordinary kernel is byte-identical to
+PR #23's full-smoke baseline; that unchanged baseline was not rerun. Docs and
+whitespace checks pass. Local evidence and binary hashes are archived outside
+`build`; physical ordering efficacy is accepted for the bounded trial above.
+
+### Previous native post-EOI capture accepted
+
+Branch `device/macbookair7-2/sci-controller`, integration base `2c90dfe` (PR #21).
+Release `71b16a6e59709895`, session `session-00065e52c3a9ec0c-00`, completed the
+automatic native trial and returned to Ubuntu. The workload completed 45 cycles /
+810 operations in 60,719,544 microseconds, using 18,116 USB commands; maximum
+operation time was 1,968,515 microseconds. Both service lifetimes retired with
+restored enables, balanced attachments and zero heap/errors/denials. Generation
+23 and 64,749 cached reads (maximum 18 microseconds), including 2,517 during
+sampling, were recorded. The deliberate short stop-wait timeout was followed by
+clean retirement; it is not an abandoned worker.
+
+Full counters recorded 24 handled / 24 unclaimed callbacks. Ten completed
+callbacks and thirty controller rows survived ring retention; 38 older callbacks
+were overwritten. All snapshots were available on vector 41 / GSI 9. Before
+and after each callback, LAPIC ISR/TMR were set and IRR clear; after generic EOI,
+ISR and IRR were clear, TMR remained set (`lapic_bits=4`), and route low was
+`0x8029`: remote-IRR and delivery-pending clear, level trigger retained. The
+pre-EOI route was `0xd029` before handled callbacks and `0xc029` afterward;
+unclaimed callbacks had `0xc029` at both pre-EOI points. LINT0 remained `0x10700`,
+PIC masks `0xffff`, route high zero. Thus the existing acknowledgement takes
+effect in every retained sample. Sequential snapshots do not establish line
+voltage or exclude a subsequent interrupt.
+
+All ten completion rows were observed with query work pending. Entry-to-post-EOI
+time was 26 microseconds for each retained unclaimed callback, 33–34 for the
+first lifetime's retained handled callbacks, and 368 for the second lifetime's
+first handled callback (callback time 357). These are not `iret`, worker-duration
+or input-latency measurements. The five retained unclaimed callbacks followed
+handled callbacks by 553,381–754,688 microseconds, with EC status/enable
+`0xa0`/zero and fixed status/enable `0x8001`/`0x20`; their callback duration was
+15–16 microseconds. The extra-delivery cause remains unresolved. No evidence
+here justifies altering EOI order, route polarity, event enables or claim policy.
+
+Exact inner contents, fsck and allocation (75 clusters) passed. Outer fsck and
+allocation passed: 189 directories, 896 files, 1,672 clusters, no leaks/mismatches.
+891 existing files remain byte-identical; only the disposable image and root
+metadata changed, with three new matching logs. New Ubuntu boot, consumed
+one-shot, default/EFI order and installed/recovery hashes verified. Twenty-eight
+hashed evidence files and an independent exact payload survive outside `build`.
+The USB is remounted, previous desktop `b427b78f21644bd2` retained, no reboot
+armed. The image is used and must be freshly prepared before another trial.
+This accepts the isolated workload and diagnostic lifecycle, not ordinary desktop
+battery startup, physical gauge accuracy or interactive input coexistence.
+
+### Query execution correlation implementation (PR #23)
+
+The source audit confirms `query_scheduled` spans queued work, EC query transfer,
+AML evaluation and rescheduling until GPE resume. Existing observations cannot
+distinguish those stages. Next add bounded passive query phase/sequence/timing
+correlation to the diagnostic runtime and host/VM validators, reusing successful
+reads and existing scheduling transitions. Keep output outside IRQ context; no
+new EC/event reads, policy changes or sibling hardware gates. Implementation scope: add a pure query-phase observer to `sci_observe.h`,
+entry snapshots in `battery_runtime.c`, software query-transfer IRQ injection
+in `battery_vm_platform.c`, and matching host tests and
+`tools/acpi_battery_smoke.py` record validation. No IRQ dispatcher or USB edits.
+Base is main `a3aaa27`; Pro PR #19 remains separate. Native acceptance will require
+a fresh isolated automatic trial after local validation. Ordinary desktop battery
+remains off. Pro PR #19 at `e9320d9` concerns USB Wi-Fi inventory, xHCI and staging;
+no IRQ/runtime overlap was found. Preserve both branches' Makefile test additions.
+GitHub Actions remain disabled; validation is local.
+
+Query correlation implementation `f3fa54d` (PR #23) passes host snapshot/lifecycle
+checks, seven malformed-record cases, the core suite and native/VM builds.
+Five focused VMs pass: software-unclaimed, normal service, foreign event,
+isolated filesystem and active filesystem deadline/reset. The injected case
+retains five query-transfer and five idle entry contexts; the transfer contexts
+have a known batch/attempt and correctly unknown response code. The workload
+checks preserve all outside bytes and verify final image contents. Full local
+baseline smoke passes syscalls, 481 shell commands, shell editing, USB keyboard
+and display startup. Documentation links and diff whitespace pass. Validation
+is archived outside `build`; exact-stage VM and native query correlation are now
+accepted above.
+
+### Post-EOI implementation and local validation (PR #21)
+
+Implementation `4b2560c` adds an optional token-owned IRQ completion observer
+after the existing EOI and before interrupt return. It records a third controller
+snapshot and entry-to-observation time/query state without changing claim, route,
+mask, EOI order or EC/event-access policy. Core, registry ownership, real dispatcher
+ordering, six record-corruption/unknown-state cases and native/VM builds pass.
+Full baseline smoke passes syscalls, 481 shell commands, shell editing, UEFI USB
+keyboard and display startup. Five focused battery VMs pass: injected-unclaimed,
+normal service, foreign event, isolated filesystem and active filesystem deadline
+with automatic reset. Outside bytes, retirement and recovery checks pass as
+applicable. Exact-stage Q35 platform refusal, diagnostic save, unmount and return
+also pass. Local validation and payload hashes are archived outside `build`;
+physical acceptance is recorded above.
+
 ### Native SCI controller capture accepted
 
 Release `7357a2eee058622e`, source `d9950fb` (merged PR #17), session

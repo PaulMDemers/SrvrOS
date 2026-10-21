@@ -141,6 +141,22 @@ profile when integrating the shared staging/main changes. Next Air scope is
 bounding filesystem work for desktop/input coexistence and investigating the
 remaining unclaimed SCI deliveries; no sibling EC gate is authorized.
 
+## October 21 Air SCI handoff
+
+Merged PR #24 (`b7bd60c`) checks pending EC query work before resuming its GPE,
+retaining the post-resume check for late arrivals. Air7,2 release
+`54dce7fb0a41b718` completed the isolated filesystem workload and two clean
+lifetimes with 24 handled / zero unclaimed SCI deliveries, versus 32 / 32 in
+the previous capture. This accepts the bounded trial; late-arrival races remain
+possible. Consume the shared ordering helper and its host regression before
+reworking query rearm behavior. IRQ claims, route polarity and native model gates
+were not widened. It does not accept another model's EC ownership.
+
+The next Air scope is an opt-in desktop/input coexistence capture with explicit
+battery lifecycle and parked outer storage. Ordinary desktop battery startup
+remains disabled. Coordinate overlapping main/staging edits with the existing
+Pro Wi-Fi capture through actual branch/PR diffs; preserve both profiles.
+
 ## CI cadence
 
 The user disabled repository Actions on October 20 to avoid further hosted
@@ -200,3 +216,29 @@ publish its actual identity/inventory, source/base and bounded scope. Each host
 uses its own exFAT UUID and sudo/reboot authorization. Do not start by replaying
 Air7,2 commands with its UUID, accepted release or firmware gates substituted
 into a new machine's record.
+
+## Air RAM coexistence handoff (2026-10-21)
+
+PR #26 adds the opt-in v40 laptop `--battery-desktop` capture and strict collection
+proof. Pro PR #19 keeps v39 for Wi-Fi; do not renumber or combine those recipes.
+The Air change includes a generic single-pass bulk unmap fix with split and
+unrelated-mapping regression coverage. It does not enable ordinary desktop
+battery startup or widen native hardware gates. The initial study exercises
+legacy text input in RAM; rich Text-app events and filesystem load are separate
+acceptance work. Use the Air unit record and exact run receipts for native state.
+
+
+## Air full Text coexistence handoff (2026-10-21)
+
+Merged PR #29 (`01e64a9`) adds the distinct v41 `--battery-text` automatic capture
+and strict `battery_text` collection proof. Air7,2 accepted release
+`2fd49386c4ecf0d9`: all 60 generated edits and five exact document checkpoints,
+continued battery sampling, clean retirement, 23 handled / zero unclaimed SCI
+interrupts and preserved USB contents. This is RAM-only generated editing, not
+physical input latency or general desktop battery acceptance. v40 remains the
+original study; Pro PR #19 at `e9320d9` retains its independent v39 Wi-Fi scope.
+
+Next Air scope is combining this RAM Text workload with the existing isolated
+filesystem-image workload in VM, preserving lease ownership and bounded teardown.
+Other devices can consume the shared capture/collection contract; native model
+and firmware gates remain evidence-specific. Ordinary desktop battery stays off.

@@ -3365,3 +3365,24 @@ test-mt76-probe: build/tests/mt76-probe-host$(HOST_EXE)
 build/tests/mt76-probe-host$(HOST_EXE): tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_probe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-irq-completion
+test-core: test-irq-completion
+test-irq-completion: build/tests/irq-completion-host$(HOST_EXE)
+	$<
+build/tests/irq-completion-host$(HOST_EXE): tools/test_irq_completion.c kernel/src/irq_handlers.c kernel/src/arch/x86_64/irq.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@
+
+.PHONY: test-ec-query-rearm
+test-core: test-ec-query-rearm
+test-ec-query-rearm: build/tests/ec-query-rearm-host$(HOST_EXE)
+	$<
+build/tests/ec-query-rearm-host$(HOST_EXE): tools/test_ec_query_rearm.c ports/srvros/uacpi/runtime/ec_query_rearm.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-desktop-records
+test-core: test-battery-desktop-records
+test-battery-desktop-records:
+	$(PYTHON) tools/test_battery_desktop_records.py

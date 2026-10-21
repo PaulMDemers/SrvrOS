@@ -184,7 +184,7 @@ void desktop_draw(struct desk_canvas *c,const struct desktop_scene *s) {
         int clock_width=desk_text_width(&desk_font_16,s->clock);
         desk_label_draw(c,(struct desk_rect){c->width-clock_width-16,12,clock_width,24},&desk_font_16,s->clock,0x646b65);
     } else desk_text(c,&desk_font_16,24,12,s->trackpad_trial?"SrvrOS   /   Trackpad trial":"SrvrOS   /   Desktop",0x292e2b);
-    if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->trackpad_trial==3?s->io_status:
+    if(!s->apps) desk_text(c,&desk_font_16,24,c->height-30,s->notice[0]?s->notice:s->trackpad_trial==3?s->io_status:
         s->trackpad_trial==2?"Two fingers: scroll   Move / press-drag   Type to test   Esc: save checks":
         s->trackpad_trial?"One finger: move / press-drag   Type to test   Esc: save checks":
         "Tab: switch window   Ctrl-N: open study   Esc: console",0x465348);
