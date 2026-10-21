@@ -3391,3 +3391,11 @@ test-battery-desktop-records:
 test-core: test-wifi-firmware-audit
 test-wifi-firmware-audit:
 	$(PYTHON) tools/test_wifi_firmware_audit.py
+
+.PHONY: test-mt76-bringup
+test-core: test-mt76-bringup
+test-mt76-bringup: build/tests/mt76-bringup-host$(HOST_EXE)
+	$<
+build/tests/mt76-bringup-host$(HOST_EXE): tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@

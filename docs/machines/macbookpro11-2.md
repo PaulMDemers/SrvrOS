@@ -1490,3 +1490,25 @@ packaged. See the Wi-Fi guide for hashes, lengths, source links and explicit
 calibration requirements. Next is a separately bounded EEPROM/EFUSE capture and
 MCU/reset/firmware ownership implementation; accepted identities do not authorize
 transmit without this adapter's validated calibration. No reboot is armed.
+
+Next bounded implementation at base `8211ec1`: a transport-independent EFUSE
+capture engine restricted to logical-read mode on the captured ASIC/MAC pair,
+plus firmware segment planning. Host fixtures must cover failed operations,
+busy/timeout/cancellation, erased blocks and clearing partial output. Do not
+wire control-register writes into ordinary enumeration; native capture needs
+separate opt-in transport, staging and exact-image rehearsal. Firmware planning
+is not upload permission or radio initialization. Air's active SCI/filesystem
+work is separate; main has not advanced since the previous integration.
+
+EFUSE/planning checkpoint: added the transport-independent logical-read engine
+for the accepted identity pair and a pure ILM/DLM/IVB firmware chunk planner.
+Capture has a shared poll budget, read-mode-only control writes, unmapped-block
+tracking and all-or-nothing private output. Host fixtures cover every operation
+failure, cancellation, busy/empty/unmapped data and cross-block timeout budgets.
+Firmware tests cover both pinned candidates' ILM lengths, alignment tails,
+address overlap, invalid lengths and end-of-plan refusal. Build, xHCI/probe host
+regressions, new engine tests and ASan/UBSan pass. Two early synthetic fixture
+bugs (byte carry and stale AOUT state) were corrected; no hardware was involved.
+There is no native caller, register-write transport or active upload yet.
+Next is strict OUT transport/ownership and an opt-in calibration capture profile;
+retain v39 unchanged. Installed release/recovery and reboot state are unchanged.

@@ -1,0 +1,89 @@
+#include <srvros/mt76_bringup.h>
+
+#define EFUSE_CTRL 0x24u
+#define EFUSE_DATA 0x28u
+#define EFUSE_KICK (1u << 30)
+#define EFUSE_ADDRESS (0x3ffu << 16)
+#define EFUSE_MODE (3u << 6)
+#define EFUSE_POLL_BUDGET 1024u
+
+static void clear_capture(struct mt76_efuse_capture *out) {
+    for (size_t i = 0; i < sizeof out->bytes; ++i) out->bytes[i] = 0;
+    out->unmapped_blocks = 0;
+}
+
+enum mt76_capture_status mt76_capture_efuse(const struct mt76_register_io *io,
+    const struct mt76_identity *identity, struct mt76_efuse_capture *out) {
+    if (!out) return MT76_CAPTURE_REFUSED;
+    clear_capture(out);
+    if (!io || !io->read || !io->write || !io->delay || !identity ||
+        identity->asic != 0x76100002 || identity->mac != 0x76502000) return MT76_CAPTURE_REFUSED;
+    enum mt76_capture_status failure = MT76_CAPTURE_IO;
+    unsigned budget = EFUSE_POLL_BUDGET;
+    bool any_data = false;
+    for (unsigned block = 0; block < MT76_EFUSE_BYTES/16; ++block) {
+        if (!budget) { failure = MT76_CAPTURE_TIMEOUT; goto fail; }
+        uint32_t value;
+        if (!io->read(io->context, EFUSE_CTRL, &value)) goto fail;
+        if (value & EFUSE_KICK) { failure = MT76_CAPTURE_BUSY; goto fail; }
+        /* Preserve timing/selection, remove previous address and all mode bits.
+         * Mode zero requests a logical read; never generate programming modes. */
+        value = (value & ~(EFUSE_ADDRESS | EFUSE_MODE)) | (block*16u << 16) | EFUSE_KICK;
+        if (!io->write(io->context, EFUSE_CTRL, value)) goto fail;
+        for (;;) {
+            if (!budget) { failure = MT76_CAPTURE_TIMEOUT; goto fail; }
+            --budget;
+            if (!io->read(io->context, EFUSE_CTRL, &value)) goto fail;
+            if (!(value & EFUSE_KICK)) break;
+            if (!io->delay(io->context, 1000)) { failure = MT76_CAPTURE_CANCELLED; goto fail; }
+        }
+        if (!io->delay(io->context, 2)) { failure = MT76_CAPTURE_CANCELLED; goto fail; }
+        if (!io->read(io->context, EFUSE_CTRL, &value)) goto fail;
+        if (value & EFUSE_KICK) { failure = MT76_CAPTURE_BUSY; goto fail; }
+        if ((value & 63u) == 63u) {
+            out->unmapped_blocks |= 1u << block;
+            for (unsigned i = 0; i < 16; ++i) out->bytes[block*16+i] = 0xff;
+            continue;
+        }
+        for (unsigned word = 0; word < 4; ++word) {
+            if (!io->read(io->context, EFUSE_DATA+word*4, &value)) goto fail;
+            for (unsigned byte = 0; byte < 4; ++byte) {
+                uint8_t v = (uint8_t)(value >> (byte*8));
+                out->bytes[block*16+word*4+byte] = v;
+                if (v != 0xff && v != 0) any_data = true;
+            }
+        }
+    }
+    if (!any_data) { failure = MT76_CAPTURE_EMPTY; goto fail; }
+    return MT76_CAPTURE_OK;
+fail:
+    clear_capture(out);
+    return failure;
+}
+
+bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
+    struct mt76_fw_chunk *out) {
+    if (!out) return false;
+    *out = (struct mt76_fw_chunk){0};
+    struct mt76_firmware_layout layout;
+    if (size > 1024*1024 || !mt76_firmware_layout(image, size, &layout)) return false;
+    /* Do not let the ILM destination overlap the DLM address window. */
+    if (layout.ilm_size > 0x80000-64 || layout.dlm_size > 0x80000) return false;
+    const size_t limit = 0x38f0; /* 0x38f8 packet budget less header/trailer. */
+    size_t ilm_count = (layout.ilm_size+limit-1)/limit;
+    size_t dlm_count = (layout.dlm_size+limit-1)/limit;
+    if (index > ilm_count+dlm_count) return false;
+    if (index == ilm_count+dlm_count) {
+        *out = (struct mt76_fw_chunk){MT76_FW_IVB,32,64,64,64,0};
+        return true;
+    }
+    bool ilm = index < ilm_count;
+    size_t pos = (ilm ? index : index-ilm_count)*limit;
+    size_t count = (ilm ? layout.ilm_size : layout.dlm_size)-pos;
+    if (count > limit) count = limit;
+    size_t padded = (count+3)&~(size_t)3;
+    *out = (struct mt76_fw_chunk){ilm ? MT76_FW_ILM : MT76_FW_DLM,
+        (ilm ? layout.ilm_offset : layout.dlm_offset)+pos,count,padded,padded+8,
+        (uint32_t)((ilm ? 64 : 0x80000)+pos)};
+    return true;
+}

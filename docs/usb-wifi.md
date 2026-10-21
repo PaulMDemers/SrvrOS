@@ -174,3 +174,37 @@ indirect EFUSE access may require control-register writes, so it is not equivale
 to the accepted two-register read. Firmware/reset/DMA ownership, MCU readiness and
 failure teardown also remain implementation work. Hash acceptance alone must not
 turn on the radio.
+
+## Capture engine and upload planning (host tested, not wired)
+
+`mt76_bringup.c` adds a transport-independent logical EFUSE capture for the
+accepted ASIC/MAC pair. It reads 32 blocks into a private 512-byte buffer, records
+unmapped blocks, and refuses an entirely erased/empty capture. Control writes
+are limited to EFUSE_CTRL (`0x24`), clearing all mode bits to select logical read,
+preserving timing/selection and setting the aligned address and KICK. There is
+no programming-mode API. Busy entry, I/O failure, cancellation or exhaustion of
+the shared 1,024-poll budget stops immediately and clears all partial output.
+No new block is started after the budget expires. Delay requests are bounded;
+the transport must also bound each I/O and retain DMA on uncertain completion.
+A failed capture must not be retried or used to initialize the radio without an
+explicit recovery path. Successful raw capture is not calibration validation.
+
+The same module provides a pure firmware chunk plan: remaining ILM at destination
+`0x40`, DLM at `0x80000`, then the 64-byte IVB control payload. Bulk payload chunks
+are at most `0x38f0` bytes, with four-byte padding and an eight-byte envelope
+budget. Overlapping ILM/DLM windows and out-of-range indices are rejected. The
+planner does not encode or send USB packets, reset the MCU, verify a hash, wait
+for readiness or activate firmware. Its caller must verify the pinned candidate
+and acknowledge every previous transfer before advancing to the IVB activation.
+
+`make test-mt76-bringup` exercises every failure position in a complete capture,
+initial busy state, delayed/stuck completion, shared-budget exhaustion across
+blocks, unmapped/empty data, cleared outputs and segment/tail/alignment boundaries.
+The tests use synthetic calibration only. Address/length references are pinned
+[EFUSE protocol](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.c),
+[register definitions](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+and [firmware transport](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c).
+Neither module is called during native enumeration. Next is the opt-in register
+transport with strict OUT completion and device ownership, followed by a separate
+immutable calibration-capture profile and exact-stage rehearsal. The existing
+v39 identity-only recipe remains unchanged. No firmware is bundled or uploaded.
