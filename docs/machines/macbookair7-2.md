@@ -2,6 +2,18 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: owner-watchdog quarantine and workspace recovery
+
+Base `origin/main` `49ded19` (PR #35). Add a CPU0 kernel-service quarantine
+primitive that retains exact identities/stacks, excludes wakeup and reuse, and
+refuses to quarantine a storage owner. Exercise only the battery owner's sample
+deadline outside IRQ context in the disposable VM backend, followed by client
+retirement, saved failure evidence, workspace drain/unmount and automatic reset.
+Native enablement and IRQ-origin faults remain excluded. Touched: scheduler,
+battery runtime/VM fixtures, recovery harness and host tests. Pro PR #19
+`bb0284b` remains independent Wi-Fi work; no subsystem overlap beyond Makefile.
+No physical run is pending; installed/recovery payloads remain unchanged.
+
 ### Current scope: mounted workspace coexistence and reset admission (PR #35)
 
 Base `origin/main` `7d8c58d` (merged PR #34). First add a checked reset policy:
