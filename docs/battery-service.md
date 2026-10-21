@@ -612,3 +612,28 @@ Neither snapshot occurs after generic EOI, so delivery cause and acknowledgement
 behavior remain unresolved. No IRQ claim or configuration policy changed. See
 the [Air acceptance record](machines/macbookair7-2.md) for counts, integrity checks
 and remaining physical acceptance boundaries.
+
+### Post-EOI observation
+
+The diagnostic now retains a third controller row, `point=post_eoi`, and a
+`battery-sci-return` row for each completed callback. A token-owned optional IRQ
+completion observer runs after the existing generic PIC/LAPIC EOI sequence,
+with interrupts masked, before returning through the ISR frame. It cannot alter
+the handler claim. The dispatcher preserves the handler-to-EOI ordering; it does
+not add acknowledgement, route or event-register writes.
+
+`observed=1` distinguishes a completed observation from unknown state. The
+entry-to-snapshot `elapsed_us` includes callback execution, other shared handlers,
+any existing dispatcher logging, EOI and the third controller read. It is **not**
+an `iret` timestamp, query-worker execution time, or input latency. `query` is
+the scheduling flag at this observation. Register reads remain sequential;
+IRR/delivery state can change immediately afterward. A clear bit at this point
+does not exclude later delivery or prove that the interrupt line is deasserted.
+
+Registration mutation and reentrant shared dispatch are rejected while callbacks
+or completion are outstanding. Only handlers actually dispatched receive one
+completion. Wrong-line or duplicate completion cannot call the observer, and
+successful removal excludes later calls. An interrupted completion is explicitly
+unknown; normal ready/retired report validation requires complete observations,
+while a terminal fault record may retain an unfinished observation. No observer
+is registered by ordinary desktop startup. Native post-EOI acceptance is pending.

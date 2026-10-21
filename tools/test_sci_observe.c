@@ -26,6 +26,11 @@ int main(void) {
     sci_observe_read(&o,&p,p.ec_status,8,0,0); /* Keep pre-handler first read. */
     sci_observe_end(&o,13,true,true);
     const struct sci_observation *r=sci_observe_row(&o,0);
+    assert(!r->post_eoi_observed && o.post_pending);
+    sci_observe_post_eoi(&o,after,15,true);
+    assert(r->post_eoi_observed && r->post_eoi_elapsed_us==5 && r->query_post_eoi);
+    assert(r->post_eoi.lapic_bits==7 && !o.post_pending);
+    sci_observe_post_eoi(&o,before,16,false);assert(r->post_eoi.lapic_bits==7);
     assert(r->before.valid==7 && r->before.lapic_bits==5 && r->before.vector==41);
     assert(r->after.valid==7 && r->after.lapic_bits==7 && r->after.route_low==0x1e029);
     assert(r->before.route_low==0xe029 && r->before.gsi==9 && r->before.pic_masks==0xffff);
@@ -34,7 +39,8 @@ int main(void) {
     assert(r->fixed_status==0x801 && r->fixed_enable==1 && r->ec_status==4 && r->ec_raw_status==0x44);
     assert(r->handled && !r->previous_valid && !r->query_before && r->query_after && r->duration_us==3);
     assert(sci_observe_begin(&o,14,1,true));
-    assert(!o.current.before.valid && !o.current.after.valid);
+    assert(!o.current.before.valid && !o.current.after.valid && !o.current.post_eoi_observed);
+    sci_observe_post_eoi(&o,before,17,false);assert(!o.current.post_eoi_observed);
     sci_observe_read(&o,&p,p.ec_enable,8,0,0); /* Zero known; other reads unknown. */
     sci_observe_end(&o,15,false,true);r=sci_observe_row(&o,1);
     assert(r->valid==8 && r->ec_enable==0 && r->previous_valid && r->previous_handled && r->previous_gap_us==4);
@@ -44,7 +50,7 @@ int main(void) {
     assert(o.count==SCI_OBSERVE_CAPACITY && o.total==20);
     for(unsigned i=0;i<o.count;i++) {
         r=sci_observe_row(&o,i);assert(r->sequence==13+i);
-        assert(!r->before.valid && !r->after.valid && !r->before.lapic_bits);
+        assert(!r->before.valid && !r->after.valid && !r->before.lapic_bits && !r->post_eoi_observed);
     }
     assert(!sci_observe_row(&o,o.count));
     assert(sci_observe_begin(&o,1,0,false));sci_observe_end(&o,0,false,false);
