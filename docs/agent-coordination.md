@@ -216,3 +216,13 @@ publish its actual identity/inventory, source/base and bounded scope. Each host
 uses its own exFAT UUID and sudo/reboot authorization. Do not start by replaying
 Air7,2 commands with its UUID, accepted release or firmware gates substituted
 into a new machine's record.
+
+## Air RAM coexistence handoff (2026-10-21)
+
+PR #26 adds the opt-in v40 laptop `--battery-desktop` capture and strict collection
+proof. Pro PR #19 keeps v39 for Wi-Fi; do not renumber or combine those recipes.
+The Air change includes a generic single-pass bulk unmap fix with split and
+unrelated-mapping regression coverage. It does not enable ordinary desktop
+battery startup or widen native hardware gates. The initial study exercises
+legacy text input in RAM; rich Text-app events and filesystem load are separate
+acceptance work. Use the Air unit record and exact run receipts for native state.

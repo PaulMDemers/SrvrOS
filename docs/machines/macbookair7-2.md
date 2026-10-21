@@ -33,42 +33,44 @@ outside `build`. Current installed is this diagnostic; accepted desktop
 must not rerun. Ordinary desktop battery startup remains disabled; this trial
 has no physical input or gauge-accuracy acceptance.
 
-### Next bounded scope: desktop and input coexistence
+### Current bounded scope: RAM desktop and battery overlap
 
-Branch `device/macbookair7-2/sci-controller`, actual integration baseline
-`4daf2c2`. First implementation is a RAM-only `deskd --coexist-capture` with the
-existing independent typing-study client. Keep Home/preferences/screenshots off
-this path. Add a bounded runtime owner that waits for active cached sampling,
-launches and observes the compositor, and stops/reaps it before retiring the
-service. Record overlapping timestamps, sampling progress, process exit and
-compositor progress; no claim of physical input latency. Implement and test this
-through the VM/monitor entry point before adding any native staging profile.
+Branch `device/macbookair7-2/sci-controller`, PR #26, integration base `4daf2c2`.
+Runtime `aaab764`, bulk unmap fix `054b6cf` and harness `39aa9fa` implement an
+opt-in v40 `--battery-desktop` laptop probe. Ordinary desktop battery startup
+remains disabled. The workspace is parked during the RAM typing-study capture;
+Home, preferences, screenshots and storage load are excluded. The used filesystem
+fixture is left unchanged. Pro PR #19 (`e9320d9`) retains v39 for its Wi-Fi probe;
+its hardware profiles and xHCI scope are unchanged.
 
-Scope: `ports/srvros/uacpi/runtime/battery_runtime.c`, `userspace/deskd/deskd.c`,
-a focused VM harness/record checker and current guides. No ordinary desktop boot,
-USB driver or hardware gate changes. Cover unavailable service, missing/failed
-process, capture deadline and injected input in disposable VMs. Pro PR #19 at
-`e9320d9` is unchanged and does not overlap these runtime/compositor files.
-The later native profile will touch main/staging; reinspect that PR first.
-GitHub Actions remain disabled; validate locally.
+The independent runtime owner starts active cached sampling, observes the desktop
+for one minute, checks process exit and sampling progress, then retires the
+service before remounting storage and saving logs. Generated font-toggle input
+requires a matching client serial and successful compositor presentation. The
+study uses legacy text input, not the rich Text-app keyboard-event path. Startup
+proof is printed after retirement to avoid concurrent console-writer interleaving;
+its saved timestamp still identifies actual start. Maximum compositor loop gap
+includes client startup and is not physical input latency.
 
-The first coexistence VM delivered/presented all 60 generated events and typed
-`Ab` correctly, then hit EC transport timeout during compositor cache cleanup.
-This is failed evidence, archived independently. Source review found two linear
-mapping-table searches per unmapped page in `process_munmap`; the many compositor
-caches make this quadratic teardown work. Extend scope to a single-pass range
-removal in `kernel/src/process.c`, preserving mapping validation and frame release.
-Validate mmap semantics and repeat overlap/cleanup before attributing the failure
-to this candidate. Keep the existing EC timeout and containment unchanged.
-The repeat VM passed after the single-pass change, including 60 presentations,
-real injected typing, clean battery retirement and replacement compositor startup.
-Extend the implementation to an opt-in v40 laptop probe: `--battery-desktop`,
-with parked workspace, automatic return, exact-stage refusal rehearsal and strict
-collector pairing. This adds `main.c`, diagnostic header/stub, hardware staging,
-smoke/collection and tests; preserve Pro PR #19's reserved v39 laptop Wi-Fi recipe (confirmed in its actual diff).
-The study uses the existing legacy text-input path; rich keyboard-event Text-app
-coexistence and loaded filesystem overlap remain subsequent checks.
+The first VM presented all 60 events and typed `Ab`, then hit the existing EC
+sample deadline during compositor cache cleanup. This failed evidence is retained.
+`process_munmap` performed two linear mapping-table searches per page. Single-pass
+range removal preserves full validation and frame ownership, and the repeat VM
+completed cleanly. Bulk/split/unrelated-mapping regression coverage was added to
+posixdemo. EC deadlines, IRQ claims, EOI ordering and native hardware gates have
+not changed.
 
+Final normal, missing-program, deadline, early-exit and unsupported-platform VM
+cases passed, each followed by successful replacement compositor startup. Normal
+captured generation 1→25, 60 generated/presented changes, 66 frames, and injected
+`Abx` followed by Backspace produced `Ab`. Full local `make smoke` and the
+software SCI regression passed. Record tests reject missing, conflicting and
+non-overlapping proof. The active-runtime deadline fixture also returned automatically without unsafe
+cleanup or a false success record. All six cases and exact binaries are archived
+outside `build` under `local-validation/coexist-39aa9fa`. Exact native stage
+rehearsal is recorded separately before installation. GitHub Actions
+remain disabled. Native overlap acceptance is pending; none of this accepts
+physical input latency, gauge accuracy or loaded filesystem coexistence.
 
 ### Previous native query correlation accepted
 

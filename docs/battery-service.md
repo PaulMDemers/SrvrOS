@@ -785,12 +785,16 @@ retains the existing containment/reset path. Only after retirement does main
 remount the workspace, save the final log and return to Ubuntu. Missing final
 logs remain incomplete evidence. The collector's `battery_desktop` field checks
 matching epochs, overlapping time intervals, completed client presentations,
-process/lifecycle success and SCI records. Loop gaps are software scheduling
-measurements, not physical input-to-display latency.
+process/lifecycle success and SCI records. The saved kernel start record is
+printed after teardown to avoid interleaving with startup writers; its timestamp
+still identifies admission. Loop gaps include client startup and are software
+scheduling measurements, not physical input-to-display latency.
 
 Local validation uses `tools/battery_desktop_smoke.py`: normal operation with
 injected `Abx`/Backspace, missing executable, owner deadline, early UI exit and
-native platform refusal. A replacement compositor must start afterward. The first
+native platform refusal. A replacement compositor must start afterward. An
+additional active-runtime deadline case requires automatic containment/reset,
+without a successful completion report or unsafe live-runtime cleanup. The first
 VM exposed a sample timeout during large pixel-cache cleanup; `process_munmap`
 now removes mappings in one table pass rather than searching twice per page.
 A bulk/split/unrelated-mapping regression runs in `posixdemo`. The existing EC
