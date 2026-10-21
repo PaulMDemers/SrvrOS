@@ -29,6 +29,7 @@
 #include <uacpi/event.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
 #include "../../../../kernel/src/arch/x86_64/ioapic.h"
+#include "../../../../kernel/src/arch/x86_64/lapic.h"
 #define HEAP_LIMIT (8u*1024u*1024u)
 struct sci_counts {
     uint64_t delivered,handled,unclaimed,in_flight,first_unclaimed_us,last_unclaimed_us;
@@ -89,6 +90,13 @@ static void sci_report(const char *snapshot) {
             (uint64_t)r->query_before,(uint64_t)r->query_after,(uint64_t)r->valid,
             (uint64_t)r->fixed_status,(uint64_t)r->fixed_enable,(uint64_t)r->ec_status,
             (uint64_t)r->ec_enable,(uint64_t)r->ec_raw_status,(uint64_t)r->ec_raw_enable);
+        for(unsigned j=0;j<2;j++) {
+            const struct sci_controller_observation *c=j?&r->after:&r->before;
+            console_printf("battery-sci-controller: snapshot=%s epoch=%u seq=%u point=%s valid=%u vector=%u gsi=%u lapic_bits=%u lint0=%x route_low=%x route_high=%x pic_masks=%x\n",
+                snapshot,epoch,r->sequence,j?"after":"before",(uint64_t)c->valid,
+                (uint64_t)c->vector,(uint64_t)c->gsi,(uint64_t)c->lapic_bits,
+                (uint64_t)c->lint0,(uint64_t)c->route_low,(uint64_t)c->route_high,(uint64_t)c->pic_masks);
+        }
     }
 }
 static bool claim_diagnostic(void) {
@@ -270,6 +278,18 @@ uacpi_status uacpi_kernel_wait_for_work_completion(void) {
     if (!acpi_worker_drain(&runtime.worker, 5000)) unsafe("work did not drain");
     return UACPI_STATUS_OK;
 }
+static struct sci_controller_observation sci_controller_snapshot(void) {
+    struct sci_controller_observation c={.gsi=runtime.sci.route.gsi,
+        .vector=(uint8_t)(32+runtime.sci.route.line)};
+    struct lapic_vector_state local;
+    if(lapic_vector_snapshot(c.vector,&local)) {
+        c.valid|=1;c.lapic_bits=local.bits;c.lint0=local.lint0;
+    }
+    /* read_gsi serializes the register selector; it writes no route fields. */
+    if(ioapic_read_gsi(c.gsi,&c.route_low,&c.route_high))c.valid|=2;
+    c.pic_masks=(uint16_t)inb(0x21)|((uint16_t)inb(0xa1)<<8);c.valid|=4;
+    return c;
+}
 static bool irq_bridge(void *context) {
     (void)context; runtime.interrupts++;
     struct sci_counts *counts=&runtime.sci_counts[runtime.stopping?2:runtime.ready?1:0];
@@ -278,7 +298,9 @@ static bool irq_bridge(void *context) {
     check_foreign_event();
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
+    if(observed)sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
+    if(observed)sci_observe_controller(&runtime.sci_observer,true,sci_controller_snapshot());
     uint64_t finished_us=timer_monotonic_us();
     if(observed)sci_observe_end(&runtime.sci_observer,finished_us,handled,runtime.query_scheduled);
     counts->in_flight--;

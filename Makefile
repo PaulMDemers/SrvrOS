@@ -3348,3 +3348,11 @@ build/tests/sci-observe-host$(HOST_EXE): tools/test_sci_observe.c ports/srvros/u
 test-core: test-sci-observe-records
 test-sci-observe-records:
 	$(PYTHON) tools/test_sci_observe_records.py
+
+.PHONY: test-lapic-snapshot
+test-core: test-lapic-snapshot
+test-lapic-snapshot: build/tests/lapic-snapshot-host$(HOST_EXE)
+	$<
+build/tests/lapic-snapshot-host$(HOST_EXE): tools/test_lapic_snapshot.c kernel/src/arch/x86_64/lapic.c kernel/src/arch/x86_64/lapic.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@

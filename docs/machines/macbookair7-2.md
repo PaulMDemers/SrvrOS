@@ -14,6 +14,12 @@ observer/runtime, VM record validation and documentation. Pro scope inspected
 at `ecad3df` remains network/UI acceptance, with battery deferred. Host and VM
 validation precede a fresh automatic native trial; ordinary desktop battery off.
 
+Implementation: paired controller rows in the existing eight-entry ring; xAPIC
+reads are bounded to ISR/IRR/TMR/LINT0, and no IRQ return or acknowledgement
+policy changes. Host core suite, all vector/bit combinations, observer pairing
+and corrupted/truncated record fixtures pass. Five focused VM cases are being
+run before integration/staging. Physical acceptance is pending.
+
 Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
 source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
 The isolated workload completed 43 cycles / 774 operations in 60,859,549

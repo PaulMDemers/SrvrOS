@@ -84,3 +84,27 @@ void lapic_send_eoi(void) {
         lapic[LAPIC_EOI_OFFSET / sizeof(uint32_t)] = 0;
     }
 }
+
+/* Intel SDM vol.3, local APIC register map: 32-bit words on 16-byte
+ * boundaries. ISR/IRR/TMR are read-only. LINT0 is read without modification. */
+static uint32_t snapshot_read(unsigned offset) {
+#ifdef SRVROS_LAPIC_HOST_TEST
+    extern uint32_t lapic_test_read(unsigned);
+    return lapic_test_read(offset);
+#else
+    return lapic[offset/sizeof(uint32_t)];
+#endif
+}
+bool lapic_vector_snapshot(uint8_t vector,struct lapic_vector_state *out) {
+    if(!out)return false;
+    *out=(struct lapic_vector_state){0};
+    if(!lapic || vector<32 || vector==255)return false;
+    unsigned bank=(vector/32)*16;
+    uint32_t mask=1u<<(vector%32);
+    bool isr=(snapshot_read(0x100+bank)&mask)!=0;
+    bool irr=(snapshot_read(0x200+bank)&mask)!=0;
+    bool tmr=(snapshot_read(0x180+bank)&mask)!=0;
+    out->bits=(isr?1u:0u)|(irr?2u:0u)|(tmr?4u:0u);
+    out->lint0=snapshot_read(0x350);
+    return true;
+}

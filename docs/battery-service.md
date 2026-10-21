@@ -574,3 +574,30 @@ and 24 unclaimed deliveries; the ring overwrote 38 older callbacks. This evidenc
 narrows callback conditions but does not prove queued-controller delivery or
 exclude another source. No claim, enable or acknowledgement policy changed.
 See the [Air record](machines/macbookair7-2.md) for integrity checks and limits.
+
+### Interrupt-controller snapshots
+
+The next diagnostic adds paired `battery-sci-controller` records to each retained
+callback. `snapshot`, `epoch` and `seq` identify the associated event; `point` is
+`before` or `after` the uACPI callback. Both points precede the generic IRQ
+end-of-interrupt acknowledgement. These records cannot describe post-EOI state.
+The callback duration now includes the two bounded controller reads.
+
+Availability bits are LAPIC=1, I/O APIC=2 and PIC=4. An unavailable field is unknown,
+not evidence of a clear bit. `lapic_bits` encodes the selected vector's ISR=1,
+IRR=2 and TMR=4; `lint0` retains its raw LVT configuration. The raw owned route
+low/high words include the I/O APIC's delivery, remote-IRR, trigger and mask bits.
+`pic_masks` combines master/slave mask bytes, master in the low byte; it does not
+read PIC pending/in-service state. No PIC command, event acknowledgement, EOI,
+mask or routing policy is changed. Reading the I/O APIC uses its serialized
+register selector, without writing route fields.
+
+The xAPIC register offsets and 16-byte bank spacing follow the
+[Intel System Programming Guide, local APIC register map](https://www.intel.com/content/dam/www/public/us/en/documents/manuals/64-ia-32-architectures-software-developer-vol-3a-part-1-manual.pdf).
+Only the existing mapped xAPIC is supported; this is not x2APIC enablement.
+ISR, IRR, TMR, LINT0, route and PIC masks are read sequentially. Hardware can
+change between reads, so the pair is a bounded observation rather than an atomic
+snapshot or proof of interrupt origin. Software `int` injection in Q35 exercises
+dispatch and record validation but does not model a pending hardware APIC vector.
+Native controller evidence remains pending until a matching physical run is
+collected. Existing unclaimed interrupts retain their original return value.

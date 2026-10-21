@@ -7,7 +7,13 @@
  * its validity bit is UNKNOWN. A bounded ring retains the most recent events. */
 #define SCI_OBSERVE_CAPACITY 8
 struct sci_observe_ports { uint16_t fixed_status,fixed_enable,ec_status,ec_enable; };
+struct sci_controller_observation {
+    uint32_t gsi,lapic_bits,lint0,route_low,route_high;
+    uint16_t pic_masks;
+    uint8_t valid,vector; /* availability: LAPIC=1, I/O APIC=2, PIC=4 */
+};
 struct sci_observation {
+    struct sci_controller_observation before,after;
     uint64_t sequence,at_us,duration_us,previous_gap_us;
     uint16_t fixed_status,fixed_enable;
     uint8_t ec_status,ec_enable,ec_raw_status,ec_raw_enable,valid,phase;
@@ -39,6 +45,11 @@ static inline void sci_observe_read(struct sci_observer *o,const struct sci_obse
     } else if(bits==8 && port==p->ec_enable && !(r->valid&8)) {
         r->ec_enable=visible;r->ec_raw_enable=raw;r->valid|=8;
     }
+}
+static inline void sci_observe_controller(struct sci_observer *o,bool after,
+    struct sci_controller_observation value) {
+    if(!o->active)return;
+    if(after)o->current.after=value;else o->current.before=value;
 }
 static inline void sci_observe_end(struct sci_observer *o,uint64_t now,bool handled,bool query) {
     if(!o->active)return;
