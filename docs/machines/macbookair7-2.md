@@ -64,6 +64,17 @@ remains off. Pro PR #19 at `e9320d9` concerns USB Wi-Fi inventory, xHCI and stag
 no IRQ/runtime overlap was found. Preserve both branches' Makefile test additions.
 GitHub Actions remain disabled; validation is local.
 
+Query correlation implementation `f3fa54d` (PR #23) passes host snapshot/lifecycle
+checks, seven malformed-record cases, the core suite and native/VM builds.
+Five focused VMs pass: software-unclaimed, normal service, foreign event,
+isolated filesystem and active filesystem deadline/reset. The injected case
+retains five query-transfer and five idle entry contexts; the transfer contexts
+have a known batch/attempt and correctly unknown response code. The workload
+checks preserve all outside bytes and verify final image contents. Full local
+baseline smoke passes syscalls, 481 shell commands, shell editing, USB keyboard
+and display startup. Documentation links and diff whitespace pass. Validation
+is archived outside `build`; exact-stage/native query correlation remains pending.
+
 ### Post-EOI implementation and local validation (PR #21)
 
 Implementation `4b2560c` adds an optional token-owned IRQ completion observer
