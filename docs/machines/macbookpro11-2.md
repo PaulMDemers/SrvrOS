@@ -1203,3 +1203,12 @@ remains `0875949083ad6ac7` and Ubuntu remains the default.
 The follow-up image build and two-adapter VM regression also pass, including
 the actual startup gate and prompted sequence, saved HTTP response bytes,
 disconnected DHCP failure, EOF refusal and the existing transport coverage.
+
+User confirms reconnect UI remained stale in `0875949083ad6ac7`; other checks
+worked. Do not accept UI recovery. Final native link-up was at 151.379 seconds,
+with System close requested at about 151.98 seconds, so current logs cannot
+separate late hardware detection from the one-second repaint interval. Next
+bounded scope: System network transition timestamps and automatic (no Refresh)
+VM down/up coverage in `system.c` / `desktop_network_smoke.py`. Main remains
+`09207b0`; Air PR9/filesystem write-batching scope does not overlap. Preserve
+successful native data-path evidence separately from unresolved UI timing.
