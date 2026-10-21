@@ -2,6 +2,23 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: application file I/O and desktop battery presentation
+
+Starting from actual `origin/main` `21a9fdf` (PR #32), extend the accepted
+coexistence foundation to Text's real asynchronous file worker: save, rename,
+reopen and verify documents inside the exclusive disposable image. Validate
+worker descendants and cancellation before permitting ordinary workspace use.
+Then add a versioned cached battery read interface and desktop presentation with
+explicit lifecycle control; never run EC/AML work from a UI read. Automatic
+battery startup remains disabled, and attended input/AC acceptance stays separate.
+
+Planned shared edits: battery diagnostic owner, Text/compositor diagnostic modes,
+file-worker validation, cached ABI/UI and local VM harnesses; staging/collection
+only after the application path passes. Preserve the existing v40–42 profiles.
+Pro PR #19 inspected at `b132e1d` owns v39 Wi-Fi work; preserve its main/staging,
+Makefile and xHCI changes. No sibling hardware gates or source are changed here.
+No physical reboot is armed. Current accepted payload/recovery remain below.
+
 ### Current checkpoint: combined Text/filesystem/battery milestone accepted
 
 Release `c3746988ed5c0d5b`, source `421a69b` (merged PR #31), session
