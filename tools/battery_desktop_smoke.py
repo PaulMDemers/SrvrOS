@@ -47,14 +47,14 @@ def check_capture(data):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal'),default='normal')
+    parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal','runtime-fault'),default='normal')
     args=parser.parse_args()
     root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-desktop-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-battery-desktop-') as folder:
         tmp=Path(folder)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT 15\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('27' if args.case=='runtime-fault' else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case=='refusal' else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel)
@@ -85,8 +85,18 @@ def main():
                             with Image.open(out/'desktop.ppm') as screenshot:screenshot.save(out/'desktop.png')
                             (out/'desktop.ppm').unlink()
                         injected=True
+                    if args.case=='runtime-fault' and process.poll() is not None:break
                     if b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines or b'battery: HALTED' in lines:break
                 output.extend(part);data=bytes(part)
+                if args.case=='runtime-fault':
+                    assert process.wait(timeout=5)==0,data
+                    assert b'desktop-coexist: ready ' in data and b'battery: FAILED operation deadline' in data,data
+                    assert b'contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable' in data,data
+                    assert b'battery-desktop: PASS' not in data and b'; retired=yes' not in data,data
+                    result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=True,final_report='unavailable')
+                    (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+                    print(json.dumps(result),flush=True)
+                    return
                 if args.case=='normal':
                     result=check_capture(data)
                     assert b'deskclient: text=Abx' in data and b'deskclient: text=Ab\r\n' in data,data
