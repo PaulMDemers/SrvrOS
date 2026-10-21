@@ -2,6 +2,40 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Combined Text/filesystem/battery: implemented and VM validated
+
+PR #31 starts at `8211ec1` (PR #30); implementation `72fb430`, compositor cleanup
+fix `0f22d3e`. The bounded owner interleaves one operation from the existing
+exclusive filesystem-image workload with cached service observation and process
+polling. Opt-in v42 `--battery-load` adds exact-stage and strict collection proof.
+No scheduler eligibility, filesystem format, desktop default or native model gate
+changed. Pro PR #19 inspected at `e9320d9` retains its independent v39 Wi-Fi scope.
+
+All eight loaded Text VM cases passed: automatic script, injected keyboard,
+missing program, deadline, early exit, platform refusal, partial-cycle owner
+abort and active runtime fault/reset. Standalone RAM Text also passed. Both normal
+loaded runs presented all 60 edits and five exact `AA` checkpoints, completed
+78 filesystem cycles / 1,404 operations while sampling advanced 1→25, and covered
+over 60 seconds of common UI/filesystem interval. The injected run delivered all
+44 keyboard events and ended with `ZbZb`. Offline contents/allocation and every
+byte outside the image extent passed; clean-return cases started a replacement
+compositor. The abort fixture is owner cancellation, not a transport fault.
+
+The first injected run failed compositor shutdown accounting despite correct
+editing and a successful Text-app exit report. Final cleanup now checks for and
+records an already-completed child before forcing termination; deadlines remain
+unchanged. That failed evidence is retained separately. Its raw VM disk was not
+saved by the old harness; future assertion failures now retain the disposable
+raw disk as well. The final matrix passed after the fix.
+
+Native/VM/ordinary builds, full host core checks, 45 staging tests, 14 collector
+tests, nine strict overlap-record tests, ordinary desktop-app regression and
+394 documentation links passed. Binaries and validation evidence are archived
+outside `build`. Native combined-load acceptance remains pending its own stage
+and automatic trial. Fresh native fixture preparation must archive the used image,
+preserve all other files and verify outer allocation/exclusive extent offline.
+The accepted v41 payload and desktop recovery below remain the current baseline.
+
 ### Current checkpoint: native full Text/battery RAM overlap accepted
 
 Release `2fd49386c4ecf0d9`, source `01e64a9` (merged PR #29), session

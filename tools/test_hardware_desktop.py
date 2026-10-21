@@ -281,6 +281,28 @@ class CollectionTests(unittest.TestCase):
                 self.assertEqual(bool(item['attention']),not valid)
                 self.assertEqual(report['hardware_acceptance'],'manual-pending')
 
+    def test_loaded_text_requires_saved_image_verification(self):
+        from test_battery_desktop_records import LOAD
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-load\n'
+            tail=b'battery-load-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+            (folder/'boot.log').write_bytes(boot);(folder/'exit.log').write_bytes(boot+LOAD+tail)
+            with patch.object(desktop,'verify_battery_image',return_value='verified-fixture-hash') as verify:
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertTrue(item['battery_load']['image_verified']);self.assertFalse(item['attention'])
+                self.assertEqual(verify.call_args.args[1]['cycles'],10)
+                self.assertIsNone(item['battery_text']);self.assertIsNone(item['battery_desktop'])
+            with patch.object(desktop,'verify_battery_image',side_effect=ValueError('wrong saved image')):
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+                self.assertIsNone(item['battery_load']);self.assertIn('collection: wrong saved image',item['attention'])
+            (folder/'exit.log').write_bytes(boot+tail)
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertIn('collection: Text/filesystem overlap completion missing or invalid',report['sessions'][0]['attention'])
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'

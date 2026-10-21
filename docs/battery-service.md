@@ -913,3 +913,65 @@ interrupts. Collection, all prior data-file hashes, offline exFAT/allocation,
 consumed one-shot and recovery checks passed. This accepts only this bounded
 RAM workload on the captured Air; simultaneous filesystem load, physical input
 latency and gauge accuracy remain open. See the [unit record](machines/macbookair7-2.md).
+
+### Text with isolated filesystem load (v42)
+
+The explicit `--battery-load` profile combines the RAM Text script with the
+existing exclusive 16 MiB image workload. It uses `srvros.capture=battery-load`
+and the native diagnostic kernel. Ordinary desktop startup is unchanged. The
+outer workspace is unmounted and write-revoked before runtime entry; only the
+leased `battery-fs.img` extent is writable. Text's own file worker stays disabled.
+
+The diagnostic owner alternates one image operation with service observation and
+process polling, releasing I/O exclusion between operations. Existing audited
+userspace paths and the battery service may run during I/O; this does not widen
+scheduler eligibility. After Text exits, the owner finishes the current file
+cycle, with a 90-second total workload deadline. It reaps owned processes before
+retiring the service and closing the image lease. Handled failure uses the same
+bounded cleanup; unsafe runtime retirement uses the existing contained reset.
+
+`battery-text-load` proof binds the owner epoch/start to the Text completion and
+requires at least 59 seconds of measured common filesystem/desktop interval.
+It also requires the existing Text document/presentation proof, complete image
+cycles, service progress inside I/O scopes, per-operation timing, clean revocation
+and exact offline payload contents. Collection records `battery_load` only after
+verifying the saved image, inner filesystem and allocation graph. Outer file hashes
+and offline outer allocation checks remain part of native acceptance. Max loop or
+I/O durations include scheduling and are not physical input latency.
+
+Run the disposable cases sequentially after matching native/VM builds:
+
+```sh
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --no-input
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case normal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case missing
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case timeout
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case early-exit
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case refusal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case load-abort
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --load --case runtime-fault
+```
+
+`load-abort` deliberately stops after three successful filesystem operations;
+it tests partial-cycle owner cleanup, not a simulated USB transport failure.
+Interrupted VM images are retained, and only a separate disposable copy may be
+recovered for offline inspection. Every byte outside the image extent must remain
+unchanged. Clean-return cases also require a replacement compositor to start.
+
+Before native testing, archive and verify the previous used fixture outside
+`build`, provision a fresh image, snapshot all file hashes and run offline
+`fsck.exfat -n` plus `check_exfat_allocation.py --uuid "$SRVROS_USB_UUID"
+--battery-image`. Do not replay a used image as fresh. Then stage and rehearse:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-load
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+The exact native payload must refuse unsupported Q35, leave the image unchanged,
+save, unmount and return. For the physical trial, retain accepted desktop recovery,
+save the durable run record, leave keys/trackpad alone and keep AC/USB connected.
+No human input is required. Completion or handled failure returns automatically;
+a contained reset without complete proof remains incomplete. Native combined-load
+acceptance is pending; this profile does not accept general desktop storage access,
+physical input latency, battery gauge accuracy or another model's firmware.
