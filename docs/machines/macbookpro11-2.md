@@ -1234,3 +1234,11 @@ No open overlapping device PR remains. New on-screen completion instructions
 ask for a live System Network cable cycle, fifteen seconds in each state and
 a screenshot if reconnect remains stale. Pending main integration is separate
 from this native comparison; battery remains deferred.
+
+Diagnostic candidate `81e3308ffcdfe637` (source `5d9ca16`) passes the exact
+v37 GPT/scaled desktop/audio rehearsal: initial readiness, both prompted phases,
+saved reports/sequence, Text/screenshot/log persistence and clean unmount.
+The final live-UI instructions are visibly readable. Install retains Ubuntu
+default and recovery `e47dca3a6b30c6c1`; native acceptance remains pending.
+Collect startup/phase reports and correlate notification completion/processing
+with System transition/heartbeat timestamps before changing the verdict.
