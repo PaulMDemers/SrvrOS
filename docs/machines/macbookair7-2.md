@@ -2,7 +2,36 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: EC GPE rearm ordering accepted for the bounded trial
+### Current checkpoint: native RAM desktop/battery overlap accepted
+
+Release `ae2851607a9bf0c1`, source `1df9a24` (merged PR #26), session
+`session-00065e5c8e37f13c-00` completed the automatic v40 trial and returned to
+Ubuntu. The typing-study compositor ran for 60.019 seconds, generated and
+presented all **60 changes**, and completed 61 frames across 5,314 loops.
+Maximum loop gap was 30,009 microseconds; this includes scheduling and is not
+measured physical input latency. Battery sampling advanced generation 1→23;
+3,004 cached reads included 707 while sampling. The compositor exited with
+status zero and the service retired with balanced attachment and zero rejected
+samples, heap, errors or denied operations. Full SCI counters recorded
+**23 handled / zero unclaimed** interrupts.
+
+The collector found one matching session, complete overlap proof and no attention
+items. All 901 prior data files, including the used filesystem-test image, were
+byte-identical. Only workspace metadata changed, with three new matching logs.
+Offline exFAT and allocation checks passed: 192 directories, 905 files, 1,684
+clusters, no leaks or mismatches. A new Ubuntu boot, consumed one-shot, default
+and EFI order, installed payload and accepted desktop recovery hashes verified.
+Evidence and the exact payload are archived outside `build`.
+
+Current installed is this diagnostic; previous remains accepted desktop
+`b427b78f21644bd2`. No reboot is armed. This accepts the bounded RAM typing-study
+and generated-event overlap, not physical typing/gesture latency, full Text-app
+keyboard events, filesystem-load overlap or gauge accuracy. Ordinary desktop
+battery startup remains disabled. Next validate the rich Text keyboard-event
+path in RAM, then combine the isolated disposable filesystem workload; retain
+separate attended input acceptance.
+
+### Previous checkpoint: EC GPE rearm ordering accepted for the bounded trial
 
 Release `54dce7fb0a41b718`, source `b7bd60c` (merged PR #24), session
 `session-00065e5b4cd48eb4-00`, returned automatically. Full retired counters
@@ -33,7 +62,7 @@ outside `build`. Current installed is this diagnostic; accepted desktop
 must not rerun. Ordinary desktop battery startup remains disabled; this trial
 has no physical input or gauge-accuracy acceptance.
 
-### Current bounded scope: RAM desktop and battery overlap
+### Implementation and local validation: RAM desktop and battery overlap
 
 Branch `device/macbookair7-2/sci-controller`, PR #26, integration base `4daf2c2`.
 Runtime `aaab764`, bulk unmap fix `054b6cf` and harness `39aa9fa` implement an
@@ -69,8 +98,8 @@ non-overlapping proof. The active-runtime deadline fixture also returned automat
 cleanup or a false success record. All six cases and exact binaries are archived
 outside `build` under `local-validation/coexist-39aa9fa`. Exact native stage
 rehearsal is recorded separately before installation. GitHub Actions
-remain disabled. Native overlap acceptance is pending; none of this accepts
-physical input latency, gauge accuracy or loaded filesystem coexistence.
+remain disabled. The native v40 result above accepts bounded RAM overlap; none
+of this accepts physical input latency, gauge accuracy or loaded filesystem coexistence.
 
 ### Previous native query correlation accepted
 
