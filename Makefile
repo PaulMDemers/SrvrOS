@@ -3356,3 +3356,12 @@ test-lapic-snapshot: build/tests/lapic-snapshot-host$(HOST_EXE)
 build/tests/lapic-snapshot-host$(HOST_EXE): tools/test_lapic_snapshot.c kernel/src/arch/x86_64/lapic.c kernel/src/arch/x86_64/lapic.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-mt76-probe
+test-core: test-mt76-probe
+test-mt76-probe: build/tests/mt76-probe-host$(HOST_EXE)
+	$<
+	$(PYTHON) tools/test_wifi_usb_inventory.py
+build/tests/mt76-probe-host$(HOST_EXE): tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_probe.c kernel/src/drivers/mt76_probe.c -o $@

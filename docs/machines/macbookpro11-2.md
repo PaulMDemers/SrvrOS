@@ -1378,3 +1378,19 @@ reject truncations/identity/topology mutations. Linux binds `mt76x0u`. No reset,
 unbind, scan, firmware upload or SrvrOS reboot was performed. See
 [USB Wi-Fi scope](../usb-wifi.md) for staged driver/authentication/UI work.
 This phase touches inventory/tests/docs only; Air SCI work remains separate.
+
+Next bounded implementation on main base `6c6bf9e`, draft PR #19: add a pure
+MT76 identity-request/response contract and firmware layout validator, with
+host fault tests. Touch only the new protocol module, tests, Make target and
+Wi-Fi docs. Existing xHCI control completion lacks exact received lengths;
+native wiring is deferred until short replies and timeout DMA ownership are
+handled explicitly. No radio writes, firmware upload, IP provider or reboot.
+
+Protocol checkpoint: identity request generation and exact-length response
+validation plus firmware structural parsing are implemented and host-tested.
+`make test-mt76-probe`, ASan/UBSan contract tests, `make -j2 all test-xhci
+test-usb-ecm` and `make check-docs` pass. The module has no native caller; kernel
+build success is not hardware acceptance. No firmware is packaged and no Wi-Fi
+connectivity is claimed. Next: exact-byte EP0 completion and timeout ownership
+fixtures before wiring the opt-in native diagnostic. Installed payload/recovery
+remain unchanged, Linux still owns the adapter, and no reboot is armed.

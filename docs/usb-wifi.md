@@ -52,11 +52,48 @@ QEMU USB Ethernet coverage does not emulate this radio. The next implementation
 checkpoint is a documented vendor-control/firmware contract and read-only native
 identity diagnostic; inventory-only groundwork does not need a reboot.
 
+## Implemented protocol contract (host tested)
+
+`kernel/src/drivers/mt76_probe.c` implements a transport-independent identity
+probe. It issues exactly two device-recipient vendor IN requests (`c0/07`),
+with value zero, indices `0000` (ASIC_VERSION) and `1000` (MAC_CSR0), and length
+four. Responses are little-endian. A short/oversized reply, transport failure,
+zero or all-ones register stops immediately, without retries or publishing a
+partial identity. Other register values are reported as raw observations, not
+accepted silicon revisions. The caller must gate on the captured USB topology.
+
+The transport callback must return the **actual** received byte count and bound
+its wait. On failure it must quarantine any DMA still owned by the controller.
+The current xHCI control helper returns only success/failure and accepts short
+completion codes; it cannot yet implement this contract safely. There is no
+native caller, opt-in boot switch or active network provider in this checkpoint.
+The next step is exact-length control completion with short-read and timeout
+fault tests, followed by an opt-in identity-only native profile.
+
+The firmware parser validates the 32-byte header, little-endian ILM/DLM lengths,
+64-byte initial vector block inside ILM, and exact total file length. It returns
+bounded offsets for IVB, remaining ILM and DLM plus build/firmware versions.
+Subtraction-based checks avoid length overflow. This only establishes structural
+validity: hash pinning, licensing, actual ASIC compatibility and calibration are
+still prerequisites for upload. No firmware bytes are bundled, uploaded or
+selected by this parser; tests use synthetic headers, not proprietary payloads.
+
+Run `make test-mt76-probe` for the contract and captured-topology tests. These
+cover every fixture truncation, request encoding, failure on either read,
+invalid identities, firmware boundary lengths, oversized lengths and cleared
+outputs after failure. They do not emulate a radio or accept physical Wi-Fi.
+
 ## Primary references
 
-- [Linux device table and initialization](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/mediatek/mt76/mt76x0/usb.c)
-- [Linux MCU firmware loader](https://github.com/torvalds/linux/blob/master/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c)
+- [Linux device table and initialization](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb.c)
+- [Linux MCU firmware loader](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c)
 
 These are protocol research references, not imported driver code. Check each
 file's license before any code reuse; the SrvrOS root license does not relicense
 third-party sources or firmware. Firmware packaging is not part of this change.
+
+- [Vendor read encoding](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/usb.c)
+- [Vendor request numbers](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76.h)
+- [Register offsets](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+- [Firmware header](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_mcu.h)
+- [Vector block size](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/mcu.h)
