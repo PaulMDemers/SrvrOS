@@ -10,9 +10,9 @@ ordinary desktop battery integration. Touch the diagnostic battery runtime,
 a pure bounded observation helper, host tests and the battery VM harness. Capture
 only existing successful uACPI event reads (fixed status/enable and the EC GPE
 byte), first-read values, callback result, timing and query scheduling state.
-No additional port reads, acknowledgements, event enable changes, native model
+No additional event/EC reads, acknowledgements, event enable changes, native model
 gates or IRQ claim-policy changes. Report outside IRQ context and retain missing
-reads as unknown. Validate bounded storage and the injected unclaimed VM case
+reads as unknown. Timestamps use the existing read-only PM timer. Validate bounded storage and the injected unclaimed VM case
 before a native automatic capture. Pro branch inspected at `4f9fa06`; its current
 scope is post-merge desktop validation, with battery deferred.
 

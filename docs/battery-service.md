@@ -540,8 +540,10 @@ See the [Air record](machines/macbookair7-2.md) for the exact source and evidenc
 
 The explicit battery runtime keeps an eight-entry ring of completed SCI
 callbacks. It observes values returned by the event reads uACPI already issues;
-it adds no port reads, W1C acknowledgements, enable writes, or claim-policy
-changes. Reports are printed at lifecycle snapshots, outside IRQ handling.
+it adds no event/EC register reads, W1C acknowledgements, enable writes, or claim-policy
+changes. Entry/exit timestamps use the existing monotonic clock, which reads the
+read-only ACPI PM timer on this host. Reports are printed at lifecycle snapshots,
+outside IRQ handling.
 Each entry retains phase, callback result, entry/duration/gap timing, previous
 callback result and query scheduling state before/after dispatch.
 

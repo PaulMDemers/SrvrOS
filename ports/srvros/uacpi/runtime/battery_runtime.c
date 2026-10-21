@@ -279,14 +279,14 @@ static bool irq_bridge(void *context) {
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
-    if(observed)sci_observe_end(&runtime.sci_observer,timer_monotonic_us(),handled,runtime.query_scheduled);
+    uint64_t finished_us=timer_monotonic_us();
+    if(observed)sci_observe_end(&runtime.sci_observer,finished_us,handled,runtime.query_scheduled);
     counts->in_flight--;
     uint64_t *total=handled?&counts->handled:&counts->unclaimed;
     if(*total!=UINT64_MAX)(*total)++;
     if(!handled) {
-        uint64_t now=timer_monotonic_us();
-        if(counts->unclaimed==1)counts->first_unclaimed_us=now;
-        counts->last_unclaimed_us=now;
+        if(counts->unclaimed==1)counts->first_unclaimed_us=finished_us;
+        counts->last_unclaimed_us=finished_us;
     }
     /* Preserve the callback's claim result. No added event-register access or
      * logging in the IRQ path; a delivered interrupt is not necessarily ours. */
