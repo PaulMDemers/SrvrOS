@@ -817,3 +817,59 @@ The machine record owns the exact installed/evidence state. This closes the firs
 RAM study overlap step. Rich Text keyboard-event coverage, isolated filesystem
 load alongside the compositor and attended physical input acceptance remain.
 The ordinary desktop battery service is still disabled.
+
+### Text keyboard-event overlap (monitor/VM only)
+
+The native v40 recipe remains the accepted typing study. A separate
+`acpiruntime battery-desktop-text` monitor command starts the same bounded owner
+with `deskd --coexist-text` and the real Text app. This is not selected by a
+hardware-boot recipe yet. The Text diagnostic uses its normal editor, history,
+clipboard and surface publication, with its file worker disabled and no initial
+file loaded. The compositor provides focus and the in-memory clipboard without
+activating the global app launcher, preferences, Home or screenshot writes.
+Ordinary Text and desktop startup retain their existing behavior.
+
+Five twelve-event sequences exercise Ctrl-A, Backspace, shifted insertion,
+Left/Delete, End, copy and paste. Each sequence must leave `AA`, with the caret
+and anchor at byte two and no clipboard transfer pending. Every generated event
+must be acknowledged by a client surface commit and presented before the next.
+The sixty events finish before the end of the one-minute overlap interval,
+leaving time for VM keyboard injection. Diagnostic snapshots are printed only
+at shutdown, and only in this explicitly selected RAM document mode.
+
+The injected sequence exercises casing, selection replacement, navigation,
+Backspace/Delete and clipboard shortcuts through the OS keyboard-event stream.
+Its final document must be `ZbZb`. Ordered keyboard events may share a frame;
+`keyboard_presented` records the last acknowledged sequence prefix, not one frame
+per physical event. The final document, caret/anchor, matching input serial and
+successful presentation are required together. These are VM observations, not
+physical input latency or trackpad acceptance.
+
+Run sequentially after building matching ordinary/native/VM kernels and userspace:
+
+```sh
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --no-input
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case normal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case missing
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case timeout
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case early-exit
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case refusal
+tools/host-env.sh python3 tools/battery_desktop_smoke.py --text --case runtime-fault
+```
+
+Normal and handled-failure cases require a replacement compositor to start after
+cleanup. The runtime-fault fixture requires automatic reset without a false
+retirement/success report. The harness drains serial output between injected key
+bursts: pausing diagnostic reads while typing produced an incomplete first run,
+although its final document was visible. That failed evidence is retained; the
+repeat passed without guest deadline changes. `check_text_capture` rejects wrong
+or missing editing checkpoints, unfinished clipboard operations, unmatched final
+input/presentation serials, file-worker activation and incomplete lifecycle proof.
+The existing v40 collector continues to require the original study evidence.
+
+The seven Text cases, original study, host core suite and ordinary desktop-app
+regression passed with implementation `9ee553a`. The apps harness now selects
+fixture paths explicitly after the move to Home and targets the current Places
+layout. It asserts maximize/restore transitions and pairs child shutdown with
+the parent-reported PID/status, avoiding an interleaved child console line.
+Native Text acceptance is still pending its own profile and exact-stage trial.

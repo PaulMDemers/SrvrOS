@@ -1,5 +1,5 @@
 import unittest
-from battery_desktop_smoke import check_capture
+from battery_desktop_smoke import check_capture, check_text_capture
 from test_sci_observe_records import BASE as SCI
 from hardware_desktop import battery_desktop_result, needs_attention
 
@@ -46,5 +46,38 @@ class CoexistRecords(unittest.TestCase):
         for old,new in changes:
             with self.subTest(old=old,new=new):
                 with self.assertRaises(AssertionError):check_capture(BASE.replace(old,new))
+
+TEXT = BASE.replace(b'deskclient: exited frames=61 input=Ab',b'desktools: exited role=text failure=0')
+TEXT += b''.join(f'text-coexist: checkpoint serial={i*12} length=2 caret=2 anchor=2 clipboard_busy=0 hex=4141\n'.encode() for i in range(1,6))
+TEXT += b'text-coexist: final serial=60 length=2 caret=2 anchor=2 clipboard_busy=0 hex=4141\n'
+TEXT += b'text-coexist: file_worker=disabled checkpoints=5\n'
+TEXT += b'desktop-text: generated=60 presented=60 keyboard_sent=0 keyboard_presented=0 storage=ram\n'
+
+class TextCoexistRecords(unittest.TestCase):
+    def test_script_and_injected_input(self):
+        self.assertEqual(check_text_capture(TEXT)['script_checkpoints'],5)
+        injected=TEXT.replace(b'final serial=60 length=2 caret=2 anchor=2 clipboard_busy=0 hex=4141',b'final serial=1046 length=4 caret=4 anchor=4 clipboard_busy=0 hex=5a625a62').replace(b'keyboard_sent=0 keyboard_presented=0',b'keyboard_sent=46 keyboard_presented=46')
+        self.assertEqual(check_text_capture(injected,True)['keyboard_presented'],46)
+        with self.assertRaises(AssertionError):check_text_capture(injected)
+        with self.assertRaises(AssertionError):check_text_capture(TEXT,True)
+        # The accepted v40 study collector must not silently accept a new mode.
+        with self.assertRaises(AssertionError):check_capture(TEXT)
+
+    def test_reject_incomplete_or_wrong_editing(self):
+        changes=((b'serial=12 ',b'serial=13 '),(b'hex=4141',b'hex=4162'),
+                 (b'caret=2',b'caret=1'),(b'anchor=2',b'anchor=1'),
+                 (b'clipboard_busy=0',b'clipboard_busy=1'),(b'length=2',b'length=1'),
+                 (b'file_worker=disabled',b'file_worker=UNEXPECTED'),
+                 (b'keyboard_presented=0',b'keyboard_presented=1'),
+                 (b'failure=0',b'failure=1'))
+        for old,new in changes:
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_text_capture(TEXT.replace(old,new))
+        for prefix in (b'text-coexist: checkpoint',b'text-coexist: final',b'desktop-text: generated',b'text-coexist: file_worker'):
+            line=next(l for l in TEXT.splitlines(keepends=True) if l.startswith(prefix))
+            with self.assertRaises(AssertionError):check_text_capture(TEXT.replace(line,b''))
+            with self.assertRaises(AssertionError):check_text_capture(TEXT+line)
+        with self.assertRaises(AssertionError):check_text_capture(TEXT+b'desktools: file-result role=text\n')
+        with self.assertRaises(AssertionError):check_text_capture(TEXT.rstrip(b'\n'))
 
 if __name__=='__main__':unittest.main()

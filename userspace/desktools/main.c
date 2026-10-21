@@ -130,9 +130,27 @@ static void draw(struct tool *t,struct desk_canvas *c) {
     desk_popup_draw(c,&t->context,theme);
     if(t->prompt_mode) desk_prompt_draw(c,&t->prompt,theme);
 }
+/* Explicit diagnostic only: snapshots of the RAM document, never user files. */
+struct capture_snapshot { uint64_t serial;unsigned length,caret,anchor,busy;char hex[129]; };
+static struct capture_snapshot capture_states[5];
+static struct capture_snapshot capture_state(struct tool *t,uint64_t serial) {
+    struct capture_snapshot v={.serial=serial,.length=t->body_text.length,
+        .caret=t->body_text.caret,.anchor=t->body_text.anchor,.busy=t->clip.mode!=0};
+    static const char digits[]="0123456789abcdef";
+    for(unsigned i=0;i<t->body_text.length && i<64;i++) {
+        unsigned char c=t->body_text.data[i];v.hex[2*i]=digits[c>>4];v.hex[2*i+1]=digits[c&15];
+    }
+    return v;
+}
+static void capture_print(const char *kind,struct capture_snapshot v) {
+    desk_log("text-coexist: %s serial=%llu length=%u caret=%u anchor=%u clipboard_busy=%u hex=%s\n",
+        kind,(unsigned long long)v.serial,v.length,v.caret,v.anchor,v.busy,v.hex[0]?v.hex:"-");
+}
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
+    int coexist=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture");
+    unsigned captured=0;
     desk_ui_init(&t->ui);desk_dialog_init(&t->dialog);desk_prompt_init(&t->prompt);desk_picker_init(&t->picker);
     desk_clipboard_init(&t->clip,t->clipboard);
     desk_text_buffer_init(&t->path_text,t->path_store[0],t->path_store[1],DESK_FILE_PATH);
@@ -141,10 +159,10 @@ int main(int argc,char **argv) {
     desk_text_buffer_init(&t->name_text,t->name_store[0],t->name_store[1],128);
     desk_edit_init(&t->path,&t->path_text,0);desk_edit_init(&t->body,&t->body_text,t->role==DESK_APP_TEXT);
     desk_edit_init(&t->name,&t->name_text,0);
-    if(t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES) t->worker_ready=desk_file_job_init(&t->job)==0;
+    if(!coexist && (t->role==DESK_APP_TEXT || t->role==DESK_APP_FILES)) t->worker_ready=desk_file_job_init(&t->job)==0;
     desk_log("desktools: starting role=%s\n",roles[t->role-1]);
     if(desk_app_open(&t->window,titles[t->role-1],t->role==DESK_APP_SYSTEM?760:t->role==DESK_APP_CALCULATOR?640:t->role<=2?720:560,t->role==DESK_APP_SYSTEM?500:t->role==DESK_APP_CALCULATOR?520:t->role==DESK_APP_SETTINGS?560:t->role<=2?480:320)) return 1;
-    if(t->role==DESK_APP_TEXT) tool_text_init(t,argc>2?argv[2]:"");
+    if(t->role==DESK_APP_TEXT) tool_text_init(t,!coexist && argc>2?argv[2]:"");
     else if(t->role==DESK_APP_FILES) tool_files_init(t,argc>2?argv[2]:"");
     else if(t->role==DESK_APP_CALCULATOR) tool_calculator_init(t);
     else if(t->role==DESK_APP_SETTINGS) tool_settings_init(t);
@@ -174,7 +192,11 @@ int main(int argc,char **argv) {
                 if(t->role==DESK_APP_SETTINGS && !p.value) tool_settings_pointer(t,(struct desk_widget_event){.type=DESK_WIDGET_CANCEL});
                 if(t->info_mode) desk_ui_window_focus(&t->info_ui,p.value!=0);else if(t->prompt_mode) desk_prompt_focus(&t->prompt,p.value!=0);else if(t->picker_mode) desk_picker_focus(&t->picker,p.value!=0);else if(t->modal) desk_dialog_focus(&t->dialog,p.value!=0);else tool_content_focus(t,p.value!=0);t->window.dirty=1;
             } else if(p.type==DESK_MENU_ACTION) tool_menu_action(t,p.value);
-            else if(p.type==DESK_KEY) { struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k); }
+            else if(p.type==DESK_KEY) {
+                struct srv_key_event k;memcpy(&k,p.text,sizeof(k));key(t,&k);
+                if(coexist && p.input_serial && p.input_serial<=60 && p.input_serial%12==0 && captured<5)
+                    capture_states[captured++]=capture_state(t,p.input_serial);
+            }
             else if(p.type==DESK_POINTER) {
                 struct desk_widget_event e={.type=p.value&DESK_POINTER_CANCEL?DESK_WIDGET_CANCEL:DESK_WIDGET_POINTER,
                     .x=p.x,.y=p.y,.down=(p.value&DESK_POINTER_LEFT)!=0,.pressed=(p.value&DESK_POINTER_PRESS)!=0};
@@ -221,6 +243,11 @@ int main(int argc,char **argv) {
         tool_menu_refresh(t);desk_app_menu_tick(&t->window);
         struct desk_canvas c;if(desk_app_canvas(&t->window,&c)==1) { draw(t,&c);desk_app_present(&t->window); }
         srv_sleep_ticks(1);
+    }
+    if(coexist) {
+        for(unsigned i=0;i<captured;i++) capture_print("checkpoint",capture_states[i]);
+        capture_print("final",capture_state(t,t->window.input_serial));
+        desk_log("text-coexist: file_worker=%s checkpoints=%u\n",t->worker_ready?"UNEXPECTED":"disabled",captured);
     }
     free(t->body_history);
     if(t->worker_ready) desk_file_job_close(&t->job);
