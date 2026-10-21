@@ -187,6 +187,14 @@ an input-latency measurement. After local validation, use a fresh automatic
 native diagnostic to identify the next targeted change. Ordinary desktop
 battery startup remains disabled. Actions remains disabled; validate locally.
 
+Implementation `e1dce19` passed ordinary/native/Q35 builds; deterministic callback
+accounting; 265 write-failure, 265 power-cut, 72 flush-failure and 19 pause/revoke
+boundaries; generic exFAT hardening; collector and documentation checks. Five
+Q35 cases passed: isolated workload, setup/active deadlines, generic filesystem
+and write failure. The profiled VM completed 78 cycles with clean payload/tree
+and allocation checks. These are VM results; native profiling is pending in
+PR #12. The remaining long write and unclaimed SCI cause are still open.
+
 
 ### Contiguous FAT write batching — October 20
 
