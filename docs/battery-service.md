@@ -712,6 +712,49 @@ handled merely because this race is possible.
 callbacks. The runtime retains its EC/GPE access gates, raw GPE handler, query
 budgets, worker ownership, stop and retirement behavior. The host fixture models
 a latched interrupt surviving source clear, known GPE or EC pending work, a quiet
-source, and arrivals before/during/after resume and after the final check. Native
-acceptance of this ordering requires a new release and matching saved evidence;
-ordinary desktop battery startup remains disabled.
+source, and arrivals before/during/after resume and after the final check.
+
+Air7,2 release `54dce7fb0a41b718` (source `b7bd60c`, merged PR #24) accepts this
+ordering for the bounded native workload. Full counters across both lifetimes
+were **24 handled / zero unclaimed**, versus 32 / 32 in the preceding capture.
+All nine retained entries found an idle query worker and normal post-EOI state.
+The isolated filesystem completed 42 cycles / 756 operations, both lifetimes
+retired cleanly, and exact image contents, outer allocation and unrelated-file
+hashes passed. This supports the ordering fix for the observed duplicate pattern;
+it does not eliminate the documented late-arrival window. Ordinary desktop
+battery startup remains disabled.
+
+## Next milestone: desktop and input coexistence
+
+The automatic filesystem captures exercise storage and cached readers, but do
+not run the compositor concurrently. Current `main.c` runs battery and desktop
+capture branches sequentially. Merely combining command-line flags would therefore
+not demonstrate overlap. Build a separate opt-in capture with an explicit owner:
+
+1. Checkpoint and park the outer workspace before native runtime entry. Launch
+   the desktop with RAM-backed state and a visible test banner; omit Home access,
+   periodic workspace logging and screenshot writes while storage is parked.
+   Preserve the accepted ordinary desktop and its startup behavior.
+2. Start the cached battery service once, wait for ACTIVE under a deadline, and
+   run the compositor alongside it. First validate this without storage load;
+   then add the existing isolated disposable filesystem capability. Keep generic
+   USB write aliases revoked and retain ownership until every operation completes.
+3. Record compositor progress and frame/event timing alongside battery generations,
+   SCI totals and lifecycle state. Synthetic VM input must assert delivery and
+   application state, not only a polling counter. Native automatic progress is
+   not acceptance of physical typing, gestures or end-to-end input latency.
+4. Stop desktop activity and storage work, retire the battery service, then revoke
+   the image capability. Only after clean retirement may the workspace remount
+   and persist final logs. Exercise process failure, unavailable service, deadline
+   and stop-timeout paths in VMs; preserve live-state containment and automatic
+   return without unsafe filesystem writes after a runtime fault.
+5. Rehearse the exact native stage, then run an automatic physical overlap trial.
+   Require matched release/session, overlapping activity, complete lifecycle,
+   final filesystem checks and Ubuntu recovery. Follow with a separately announced
+   attended keyboard/trackpad trial before accepting interactive responsiveness.
+
+Do not add a persistent battery widget or enable the ordinary desktop service
+until this lifecycle and coexistence contract is tested. A versioned cached
+userspace read interface can follow; it must expose freshness/unavailability and
+must never trigger EC/AML work from the compositor. Gauge accuracy, AC transition
+revalidation and suspend/resume remain separate acceptance items.
