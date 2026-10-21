@@ -2,7 +2,33 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted bounded **isolated filesystem overlap**: release
+Latest accepted **operation-stepped isolated filesystem overlap**: release
+**`9eb84deab70d240c`** / source **`89edb98`**, session
+**`session-00065e4e5218f777-00`**. The trial completed 25 cycles / 450 operations
+in 60,768,457 microseconds, issuing 18,754 commands, with sample progress in 21
+scopes. The maximum storage scope was 3,210,080 microseconds; maximum operation
+was 3,210,076 microseconds at step 1 (the initial large draft write). The prior
+whole-cycle scope maximum was 7,303,034 microseconds. These single-run timings
+show shorter exclusion, not accepted desktop/input latency; the remaining
+three-second operation needs further investigation before desktop integration.
+
+The service captured generation 23 and 41,561 cached reads (1,226 while sampling),
+maximum 18 microseconds. Both initialized lifetimes retired cleanly with balanced
+attachments, restored enables, zero heap/errors/denials, and clean image revocation.
+SCI counted 24 handled / 24 unclaimed active deliveries, none during setup or
+retirement; the cause remains open. Final image payload/tree and inner fsck plus
+75-cluster allocation checks passed. Outer fsck is clean (183 directories,
+878 files); 1,648 clusters are accounted for with zero leaks/mismatches/errors.
+All 873 previous files other than the disposable image and inode sidecar are
+byte-identical. New Ubuntu boot, consumed one-shot and recovery hashes verified;
+the payload and 30 hashed evidence files are archived outside `build`.
+
+No reboot is armed. PR #9 CI remains pending; ordinary desktop battery startup
+is still disabled. Next scope is measuring large-write allocation, transfer and
+flush costs and reducing the longest atomic operation without weakening failure
+handling or filesystem consistency.
+
+Previous bounded **whole-cycle isolated filesystem overlap**: release
 **`c473b63c44d32cd0`** / source **`8822cba`**, session
 **`session-00065e4ddc1d41d5-00`**. The v38 trial completed 25 create/grow/shrink,
 rename/delete/flush cycles over 61,510,180 microseconds, issuing 18,754 USB
@@ -148,7 +174,8 @@ commands and 23 scopes containing sampling progress. The maximum operation was
 532,748 microseconds. Payload, outer isolation and clean retirement passed.
 Setup and active-sample deadline fixtures also passed automatic reset and
 outer preservation/inner recovery; the scratch-write regression passed.
-Physical comparison remains pending; these VM times do not revise native results.
+The physical comparison above accepts the operation sequence and data integrity;
+it does not accept interactive latency.
 
 
 ### Isolated filesystem coexistence — October 20

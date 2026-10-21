@@ -461,4 +461,14 @@ file writes and verification still use existing atomic APIs. Measure their times
 before selecting a smaller transfer/transaction design; do not interpret the
 whole-cycle 7.303-second hardware measurement as a measured input stall. Ordinary
 desktop startup and scheduler admission remain unchanged. Physical acceptance of
-this follow-up is pending.
+this follow-up is recorded below.
+
+Air7,2 release `9eb84deab70d240c` / source `89edb98`, session
+`session-00065e4e5218f777-00`, completed 25 cycles / 450 operations over 60.77
+seconds with verified contents and clean retirement/revocation. Maximum scope
+was 3,210,080 us and maximum operation 3,210,076 us (step 1, initial large draft
+write), compared with the prior whole-cycle maximum 7,303,034 us. This accepts
+the operation boundaries and isolated data-integrity test, not desktop latency.
+The large atomic write remains the next measured bottleneck; retain existing
+transaction/transport failure guarantees when reducing it. Outer/inner offline
+checks passed and the accepted evidence is archived outside `build`.
