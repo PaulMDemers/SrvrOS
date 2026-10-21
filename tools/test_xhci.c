@@ -845,8 +845,29 @@ static struct xhci_trb control_event(uint64_t pointer, unsigned cc, unsigned res
         .control = (32u << 10) | (1u << 24) | (1u << 16) | 1};
 }
 
+static void test_control_worker_completion(void) {
+    reset_test();
+    struct xhci_device d = {.slot_id=1};
+    strict_control.device=&d; strict_control.setup=0x9000;
+    strict_control.data=0x9010; strict_control.status=0x9020;
+    strict_control.length=4; strict_control.actual=4; strict_control.data_in=true;
+    strict_control.short_seen=false; strict_control.done=false;
+    struct xhci_trb event=control_event(0xdead,1,0);
+    dispatch_transfer_event(&event);
+    assert(!strict_control.done);
+    event=control_event(0x9010,13,1);
+    dispatch_transfer_event(&event);
+    assert(!strict_control.done && strict_control.actual==3);
+    event=control_event(0x9020,1,0);
+    dispatch_transfer_event(&event);
+    assert(strict_control.done && !d.ep0_quarantined);
+    /* Completion consumed by another worker must remain visible to the owner. */
+    assert(wait_control_exact(&d)==3 && !strict_control.device);
+    puts("xhci-control-worker: PASS dispatched short/status completion and stale events");
+}
+
 static void test_strict_control(void) {
-    for (unsigned wrap = 0; wrap < 2; ++wrap) for (unsigned scenario = 0; scenario < 16; ++scenario) {
+    for (unsigned output = 0; output < 2; ++output) for (unsigned wrap = 0; wrap < 2; ++wrap) for (unsigned scenario = 0; scenario < 16; ++scenario) {
         reset_test();
         struct xhci_trb ring[64] = {0}, events[64] = {0};
         uint8_t buffer[64] = {0};
@@ -856,7 +877,7 @@ static void test_strict_control(void) {
             .ep0_enqueue = first, .ep0_cycle = true, .descriptor_buffer = buffer};
         xhci.db_base = 0x1000; xhci.rt_base = 0x2000;
         xhci.event_ring = events; xhci.event_cycle = true;
-        struct usb_setup_packet request = {.request_type = 0xc0, .request = 7, .length = 4};
+        struct usb_setup_packet request = {.request_type = output ? 0x40 : 0xc0, .request = output ? 6 : 7, .length = 4};
         int expected = -1;
         switch (scenario) {
         case 0: events[0] = control_event(status, 1, 0); expected = 4; break;
@@ -879,10 +900,12 @@ static void test_strict_control(void) {
             events[1] = control_event(status, 1, 0); events[1].control ^= 3u << 24;
             events[2] = control_event(status, 1, 0); expected = 4; break;
         }
+        if (output && scenario >= 1 && scenario <= 4) expected = -1;
         int actual = 42;
-        assert(control_transfer_internal(&d, &request, 0xa000, 4, true, &actual) == (expected >= 0));
+        assert(control_transfer_internal(&d, &request, 0xa000, 4, !output, &actual) == (expected >= 0));
         assert(actual == expected && d.ep0_quarantined == (expected < 0));
-        assert(ring[first+1].control & XHCI_TRB_ISP);
+        assert(!!(ring[first+1].control & XHCI_TRB_ISP) == !output);
+        assert(!!(ring[wrap ? 0 : 2].control & XHCI_STATUS_DIR_IN) == !!output);
         assert(!(ring[first+1].control & XHCI_TRB_IOC));
         assert(ring[wrap ? 0 : 2].control & XHCI_TRB_IOC);
         assert(!freed && d.ep0_ring == ring && d.descriptor_buffer == buffer);
@@ -954,9 +977,43 @@ static void test_wifi_probe(void) {
     puts("xhci-wifi: PASS opt-in, captured profile refusals and two read-only register requests");
 }
 
+static void test_wifi_write_guard(void) {
+    for (unsigned fault=0;fault<10;++fault) {
+        reset_test();
+        uint8_t buffer[4096]={0}; struct xhci_trb ring[64]={0},events[64]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_calibration_active=true,
+            .wifi_identity={0x76100002,0x76502000},.wifi_efuse_control_valid=true,.wifi_efuse_control=0x80003fc0,
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,
+            .descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,1,0);
+        uint32_t address=0x24,value=0xc0103f00;
+        if(fault==1) address=0x28;
+        if(fault==2) value|=0x40; /* Never programming/physical mode. */
+        if(fault==3) value=0xc2003f00; /* Address outside logical EEPROM. */
+        if(fault==4) value|=1u<<16; /* Unaligned block. */
+        if(fault==5) d.wifi_calibration_active=false;
+        if(fault==6) d.wifi_efuse_control_valid=false;
+        if(fault==7) d.wifi_identity.mac++;
+        if(fault==8) value^=0x100; /* Cannot change timing fields. */
+        if(fault==9) events[0]=control_event(0x9010,6,0);
+        assert(wifi_calibration_write(&d,address,value)==(fault==0));
+        assert(d.ep0_enqueue==(fault==0||fault==9?3u:0u));
+        assert(d.ep0_quarantined==(fault==9));
+        if(fault==0) {
+            assert(ring[0].parameter_low==0x00000640 && ring[0].parameter_high==0x00040024);
+            assert(buffer[0]==0 && buffer[1]==0x3f && buffer[2]==0x10 && buffer[3]==0xc0);
+            assert(!wifi_calibration_write(&d,address,value) && d.ep0_enqueue==3); /* Fresh read required. */
+        }
+    }
+    puts("xhci-wifi-write: PASS logical mode/address/timing/identity/ownership gates and error quarantine");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_control_worker_completion();
     test_strict_control();
+    test_wifi_write_guard();
     test_wifi_probe();
     test_ep0_packet();
     test_network_transport();

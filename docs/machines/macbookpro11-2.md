@@ -1512,3 +1512,10 @@ bugs (byte carry and stale AOUT state) were corrected; no hardware was involved.
 There is no native caller, register-write transport or active upload yet.
 Next is strict OUT transport/ownership and an opt-in calibration capture profile;
 retain v39 unchanged. Installed release/recovery and reboot state are unchanged.
+
+Next native calibration scope: add strict four-byte OUT completion and a guarded
+EFUSE-only register transport. Run capture only after workspace logging starts,
+never in ordinary enumeration. Use new v43 automatic profile; Air's active
+branch already reserves v42 for battery load. Preserve v39 and all Air recipes.
+Host tests must cover write rejection, short/error/timeout quarantine and no
+retry. Log only MAC-redacted calibration bytes. No firmware upload or transmitter.

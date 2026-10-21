@@ -4,6 +4,7 @@
 #include <srvros/net.h>
 #include <srvros/usb_ecm.h>
 #include <srvros/mt76_probe.h>
+#include <srvros/mt76_bringup.h>
 #include <srvros/latency.h>
 #include <srvros/console.h>
 #include <srvros/keyboard.h>
@@ -230,6 +231,8 @@ struct xhci_device {
     bool ep0_quarantined;
     bool wifi_probe_attempted, wifi_probe_ok;
     struct mt76_identity wifi_identity;
+    bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
+    uint32_t wifi_efuse_control;
     bool addressed;
     bool configured;
     bool hid_keyboard;
@@ -1203,39 +1206,55 @@ static bool wait_transfer_completion(uint8_t slot_id,
     return false;
 }
 
-/* ISP on the single IN data TRB reports short packets. Status completion
- * retires the whole control transfer; its residue does not describe data.
- * A failed/uncertain request permanently retains this slot's DMA allocations. */
-static int wait_control_in(struct xhci_device *device, uint64_t setup_trb,
-    uint64_t data_trb, uint64_t status_trb, uint32_t length) {
-    uint32_t actual = length;
-    bool short_seen = false;
-    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; ++i) {
-        struct xhci_trb event;
-        if (!poll_event(&event)) continue;
-        uint32_t type = (event.control >> 10) & 0x3f;
-        if (type != XHCI_TRB_TYPE_TRANSFER_EVENT) continue;
-        uint32_t slot = event.control >> 24, dci = (event.control >> 16) & 31;
-        uint32_t cc = event.status >> 24, residue = event.status & 0xffffff;
-        uint64_t pointer = event.parameter_low | ((uint64_t)event.parameter_high << 32);
-        xhci.transfer_events++;
-        xhci.last_completion_code = cc;
-        xhci.last_slot_id = slot;
-        if (slot != device->slot_id || dci != 1) {
-            dispatch_transfer_event(&event);
-            continue;
-        }
-        if (pointer != setup_trb && pointer != data_trb && pointer != status_trb) continue;
-        if (event.control & (1u << 2)) break; /* Event Data is not used here. */
-        if (pointer == data_trb && cc == 13 && residue <= length && !short_seen) {
-            actual = length - residue;
-            short_seen = true;
-            continue;
-        }
-        if (pointer == status_trb && cc == 1 && residue == 0) return (int)actual;
-        break;
+/* One strict EP0 owner per controller. Every event consumer dispatches its
+ * completions here, including the HID worker and storage waiters. Publication,
+ * event consumption and retirement use the same local IRQ exclusion. */
+static struct {
+    struct xhci_device *device;
+    uint64_t setup, data, status;
+    uint32_t length;
+    int actual;
+    bool data_in, short_seen, done;
+} strict_control;
+
+static bool dispatch_strict_control(const struct xhci_trb *event) {
+    if (!strict_control.device || (event->control >> 24) != strict_control.device->slot_id ||
+        ((event->control >> 16) & 31) != 1) return false;
+    uint64_t pointer = event->parameter_low | ((uint64_t)event->parameter_high << 32);
+    if (strict_control.done || (pointer != strict_control.setup && pointer != strict_control.data &&
+        pointer != strict_control.status)) return true;
+    uint32_t cc = event->status >> 24, residue = event->status & 0xffffff;
+    if (!(event->control & 4) && strict_control.data_in && pointer == strict_control.data &&
+        cc == 13 && residue <= strict_control.length && !strict_control.short_seen) {
+        strict_control.actual = strict_control.length - residue;
+        strict_control.short_seen = true;
+        return true;
     }
+    if ((event->control & 4) || pointer != strict_control.status || cc != 1 || residue) {
+        strict_control.actual = -1;
+        strict_control.device->ep0_quarantined = true;
+    }
+    strict_control.done = true;
+    return true;
+}
+
+static int wait_control_exact(struct xhci_device *device) {
+    for (uint64_t i = 0; i < XHCI_TRANSFER_TIMEOUT; ++i) {
+        uint64_t flags = event_irq_save();
+        struct xhci_trb event;
+        if (!strict_control.done && poll_event(&event)) dispatch_transfer_event(&event);
+        if (strict_control.done) {
+            int actual = strict_control.actual;
+            strict_control.device = 0;
+            event_irq_restore(flags);
+            return actual;
+        }
+        event_irq_restore(flags);
+    }
+    uint64_t flags = event_irq_save();
     device->ep0_quarantined = true;
+    strict_control.device = 0;
+    event_irq_restore(flags);
     return -1;
 }
 
@@ -1245,8 +1264,12 @@ static bool control_transfer_internal(struct xhci_device *device,
     uint32_t length,
     bool data_in, int *actual) {
     if (actual) *actual = -1;
-    if (device->ep0_quarantined) return false;
-    if (actual && (!data_in || !(setup->request_type & 0x80) || !length || length > PMM_FRAME_SIZE || setup->length != length)) return false;
+    if (actual && (((setup->request_type & 0x80) != 0) != data_in || !length || length > PMM_FRAME_SIZE || setup->length != length)) return false;
+    uint64_t submit_flags = event_irq_save();
+    if (device->ep0_quarantined || strict_control.device) {
+        event_irq_restore(submit_flags);
+        return false;
+    }
     uint64_t setup_value =
         (uint64_t)setup->request_type |
         ((uint64_t)setup->request << 8) |
@@ -1275,7 +1298,7 @@ static bool control_transfer_internal(struct xhci_device *device,
             .parameter_high = (uint32_t)(buffer_phys >> 32),
             .status = length,
             .control = (XHCI_TRB_TYPE_DATA_STAGE << 10) |
-                (data_in ? XHCI_DATA_DIR_IN : 0) | (actual ? XHCI_TRB_ISP : 0),
+                (data_in ? XHCI_DATA_DIR_IN : 0) | (actual && data_in ? XHCI_TRB_ISP : 0),
         };
         data_phys = ring_push(device->ep0_ring,
             device->ep0_ring_phys,
@@ -1298,13 +1321,21 @@ static bool control_transfer_internal(struct xhci_device *device,
         &device->ep0_cycle,
         &status_trb);
 
-    db_write32(device->slot_id, 1);
     if (actual) {
-        *actual = wait_control_in(device, setup_phys, data_phys, status_phys, length);
+        strict_control.device = device;
+        strict_control.setup = setup_phys; strict_control.data = data_phys;
+        strict_control.status = status_phys; strict_control.length = length;
+        strict_control.actual = length; strict_control.data_in = data_in;
+        strict_control.short_seen = false; strict_control.done = false;
+        db_write32(device->slot_id, 1);
+        event_irq_restore(submit_flags);
+        *actual = wait_control_exact(device);
         if (*actual < 0) return false;
         device->control_success++;
         return true;
     }
+    db_write32(device->slot_id, 1);
+    event_irq_restore(submit_flags);
     uint64_t completion = 0;
     if (!wait_transfer_completion(device->slot_id, 1, status_phys, &completion)) {
         console_printf("xhci: control request=%u failed cc=%u\n",
@@ -1353,6 +1384,90 @@ static bool probe_wifi(struct xhci_device *device, size_t config_size) {
         device->wifi_probe_ok ? "read" : "failed", (uint64_t)device->wifi_identity.asic,
         (uint64_t)device->wifi_identity.mac, (uint64_t)device->ep0_quarantined);
     return true; /* Never fall through and reuse the probe's DMA buffer. */
+}
+
+static bool wifi_calibration_owned(const struct xhci_device *d) {
+    return d->wifi_calibration_active && d->wifi_probe_ok && !d->ep0_quarantined &&
+        d->wifi_identity.asic == 0x76100002 && d->wifi_identity.mac == 0x76502000;
+}
+
+static bool wifi_calibration_read(void *context, uint32_t address, uint32_t *value) {
+    struct xhci_device *d = context;
+    *value = 0;
+    if (!wifi_calibration_owned(d) || address < 0x24 || address > 0x34 || (address & 3)) return false;
+    struct usb_setup_packet setup = {.request_type=0xc0,.request=7,.index=(uint16_t)address,.length=4};
+    zero_bytes(d->descriptor_buffer,4);
+    int actual;
+    if (!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,true,&actual) || actual != 4) {
+        d->ep0_quarantined = true;
+        d->wifi_efuse_control_valid = false;
+        return false;
+    }
+    for (unsigned i=0;i<4;++i) *value |= (uint32_t)d->descriptor_buffer[i] << (8*i);
+    if (address == 0x24) {
+        d->wifi_efuse_control = *value;
+        d->wifi_efuse_control_valid = !(*value & (1u<<30));
+    }
+    return true;
+}
+
+static bool wifi_calibration_write(void *context, uint32_t address, uint32_t value) {
+    struct xhci_device *d = context;
+    uint32_t offset = (value >> 16) & 0x3ff;
+    uint32_t expected = (d->wifi_efuse_control & ~((0x3ffu<<16)|(3u<<6))) |
+        (offset<<16) | (1u<<30);
+    if (!wifi_calibration_owned(d) || !d->wifi_efuse_control_valid || address != 0x24 ||
+        offset >= MT76_EFUSE_BYTES || (offset & 15) || value != expected) return false;
+    d->wifi_efuse_control_valid = false;
+    for (unsigned i=0;i<4;++i) d->descriptor_buffer[i] = (uint8_t)(value >> (8*i));
+    struct usb_setup_packet setup = {.request_type=0x40,.request=6,.index=0x24,.length=4};
+    int actual;
+    if (!control_transfer_internal(d,&setup,d->descriptor_buffer_phys,4,false,&actual) || actual != 4) {
+        d->ep0_quarantined = true;
+        return false;
+    }
+    return true;
+}
+
+static bool wifi_calibration_delay(void *context, uint32_t microseconds) {
+    return wifi_calibration_owned(context) && microseconds <= 1000 && timer_delay_us(microseconds);
+}
+
+bool xhci_wifi_capture_calibration(void) {
+    unsigned found = 0;
+    bool success = true;
+    for (unsigned i=0;i<XHCI_MAX_DEVICES;++i) {
+        struct xhci_device *d = &xhci.devices[i];
+        if (!d->present || !d->wifi_probe_attempted) continue;
+        ++found;
+        if (!d->wifi_probe_ok || d->ep0_quarantined || d->wifi_calibration_attempted) {
+            success = false;
+            continue;
+        }
+        d->wifi_calibration_attempted = true;
+        d->wifi_calibration_active = true;
+        struct mt76_register_io io = {d,wifi_calibration_read,wifi_calibration_write,wifi_calibration_delay};
+        struct mt76_efuse_capture capture;
+        enum mt76_capture_status result = mt76_capture_efuse(&io,&d->wifi_identity,&capture);
+        d->wifi_calibration_active = false;
+        d->wifi_efuse_control_valid = false;
+        if (result != MT76_CAPTURE_OK) { d->ep0_quarantined = true; success = false; }
+        console_printf("wifi-calibration: slot=%u result=%u unmapped=%x quarantined=%u mac_redacted=yes\n",
+            (uint64_t)d->slot_id,(uint64_t)result,(uint64_t)capture.unmapped_blocks,(uint64_t)d->ep0_quarantined);
+        /* A saved diagnostic may contain board calibration, but never expose
+         * the per-device MAC in a portable fixture or ordinary log. */
+        if (result == MT76_CAPTURE_OK) {
+            for (unsigned n=4;n<10;++n) capture.bytes[n]=0;
+            for (unsigned n=0;n<MT76_EFUSE_BYTES;n+=16) {
+                uint32_t words[4]={0};
+                for (unsigned b=0;b<16;++b) words[b/4] |= (uint32_t)capture.bytes[n+b] << (8*(b%4));
+                console_printf("wifi-calibration-data: slot=%u offset=%u words=%x,%x,%x,%x\n",
+                    (uint64_t)d->slot_id,(uint64_t)n,(uint64_t)words[0],(uint64_t)words[1],(uint64_t)words[2],(uint64_t)words[3]);
+            }
+        }
+        zero_bytes(&capture,sizeof capture);
+    }
+    return found && success;
 }
 
 static bool get_descriptor(struct xhci_device *device,
@@ -1964,6 +2079,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     xhci.transfer_events++;
     xhci.last_completion_code = completion;
     xhci.last_slot_id = slot;
+    if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
     if(network_event(device,dci,pointer,completion,remaining)) return;

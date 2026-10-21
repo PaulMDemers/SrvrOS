@@ -625,7 +625,8 @@ void kmain(void) {
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
-    bool automatic_wifi=cmdline_has_token(cmdline,"srvros.capture=wifi");
+    bool automatic_wifi_calibration=cmdline_has_token(cmdline,"srvros.capture=wifi-calibration");
+    bool automatic_wifi=automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
@@ -649,7 +650,11 @@ void kmain(void) {
         if(automatic_wifi) {
             xhci_print_status();
             sampled=xhci_wifi_identity_ready();
-            console_printf("wifi-capture: identity=%s; connectivity NOT_TESTED\n",sampled?"read":"unavailable");
+            if(automatic_wifi_calibration) {
+                sampled=started && init_ready && timer_running && sampled && xhci_wifi_capture_calibration();
+                console_printf("wifi-calibration-capture: completed=%s; calibration validity and connectivity NOT_TESTED\n",sampled?"yes":"NO");
+            }
+            console_printf("wifi-capture: identity=%s; connectivity NOT_TESTED\n",xhci_wifi_identity_ready()?"read":"unavailable");
         }
         bool battery_prepared=true,workspace_parked=false;
         if(automatic_battery && return_on_failure && started) {

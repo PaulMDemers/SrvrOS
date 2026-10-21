@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|43)-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -75,6 +75,9 @@ def limine_config(release, version=CONFIG_VERSION):
         if version.startswith("ram-usb-v39-"):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=wifi srvros.usb-wifi=probe")
+        if version.startswith("ram-usb-v43-"):
+            cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
+                       f"srvros.desktop-release={release} srvros.capture=wifi-calibration srvros.usb-wifi=probe")
         if probe[2]: cmdline += " srvros.capture-failure=reboot"
         if version.startswith(("ram-usb-v27-","ram-usb-v28-")): cmdline += " srvros.capture=keyboard"
     elif desktop:
@@ -153,8 +156,8 @@ def verify(directory):
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, wifi_capture=False):
-    if wifi_capture and hold_on_failure:
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, wifi_capture=False, wifi_calibration=False):
+    if (wifi_capture or wifi_calibration) and hold_on_failure:
         raise ValueError("Wi-Fi capture requires automatic return")
     if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text) and hold_on_failure:
         raise ValueError("USB overlap requires automatic checkpoint/return")
@@ -174,9 +177,9 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Desktop scale requires desktop volume and scale 1 or 2")
     if power_telemetry and not desktop_idle_capture:
         raise ValueError("Power telemetry requires the explicit desktop idle capture")
-    if (idle_capture or aml_capture or desktop_idle_capture or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or keyboard_capture or cpu_load_capture or wifi_capture) and laptop_probe_volume is None:
+    if (idle_capture or aml_capture or desktop_idle_capture or battery_capture or battery_transitions or battery_service or battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or keyboard_capture or cpu_load_capture or wifi_capture or wifi_calibration) and laptop_probe_volume is None:
         raise ValueError("Idle/AML capture requires a laptop probe volume")
-    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture,battery_transitions,battery_service,battery_usb_read,battery_usb_write,battery_filesystem,battery_desktop,battery_text,keyboard_capture,cpu_load_capture,wifi_capture)))>1:
+    if sum(map(bool,(idle_capture,aml_capture,desktop_idle_capture,battery_capture,battery_transitions,battery_service,battery_usb_read,battery_usb_write,battery_filesystem,battery_desktop,battery_text,keyboard_capture,cpu_load_capture,wifi_capture,wifi_calibration)))>1:
         raise ValueError("Idle and AML captures are separate profiles")
     gestures=gestures or desktop_io
     pointer=pointer or gestures
@@ -202,7 +205,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or not DESKTOP_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
-        version=f"ram-usb-v{39 if wifi_capture else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
+        version=f"ram-usb-v{43 if wifi_calibration else 39 if wifi_capture else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and not battery_transitions and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
@@ -408,6 +411,7 @@ def main():
     parser.add_argument("--power-telemetry",action="store_true",help="opt-in read-only CPU energy/frequency diagnostics during --desktop-idle-capture; completion is not power acceptance")
     parser.add_argument("--hold-on-failure",action="store_true",help="explicit attended diagnostic: retain failure screen instead of automatic return")
     capture=parser.add_mutually_exclusive_group()
+    capture.add_argument("--wifi-calibration",action="store_true",help="capture logical EFUSE after logging, redact MAC, save and return")
     capture.add_argument("--wifi-capture",action="store_true",help="read captured Wi-Fi identity, save diagnostics and return automatically")
     capture.add_argument("--cpu-load-capture",action="store_true",help="bounded idle/load/recovery diagnostic; save and return on handled failure")
     capture.add_argument("--keyboard-capture",action="store_true",help="guided typing test, save results and return automatically")
@@ -425,7 +429,7 @@ def main():
     args = parser.parse_args()
     if args.hold_on_failure and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("--hold-on-failure requires stage --laptop-probe-volume")
-    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service or args.battery_usb_read or args.battery_usb_write or args.battery_filesystem or args.battery_desktop or args.battery_text or args.keyboard_capture or args.cpu_load_capture or args.wifi_capture) and (args.action != "stage" or not args.laptop_probe_volume):
+    if (args.idle_capture or args.aml_capture or args.desktop_idle_capture or args.battery_capture or args.battery_transitions or args.battery_service or args.battery_usb_read or args.battery_usb_write or args.battery_filesystem or args.battery_desktop or args.battery_text or args.keyboard_capture or args.cpu_load_capture or args.wifi_capture or args.wifi_calibration) and (args.action != "stage" or not args.laptop_probe_volume):
         parser.error("capture requires stage --laptop-probe-volume")
     if args.power_telemetry and (args.action != "stage" or not args.desktop_idle_capture):
         parser.error("--power-telemetry requires stage --desktop-idle-capture")
@@ -449,7 +453,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, wifi_capture=args.wifi_capture)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

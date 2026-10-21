@@ -204,7 +204,25 @@ The tests use synthetic calibration only. Address/length references are pinned
 [EFUSE protocol](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.c),
 [register definitions](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
 and [firmware transport](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c).
-Neither module is called during native enumeration. Next is the opt-in register
-transport with strict OUT completion and device ownership, followed by a separate
-immutable calibration-capture profile and exact-stage rehearsal. The existing
-v39 identity-only recipe remains unchanged. No firmware is bundled or uploaded.
+Neither module is called during native enumeration. No firmware is bundled or
+uploaded. The existing v39 identity-only recipe remains unchanged.
+
+## Opt-in native calibration capture
+
+Stage with `python3 tools/hardware_boot.py stage --laptop-probe-volume UUID
+--wifi-calibration` (one command), then rehearse that exact stage with
+`python3 tools/hardware_boot_smoke.py --probe-check --workspace-table gpt`.
+The immutable v43 profile starts workspace logging before attempting capture,
+saves the result, and returns automatically. QEMU without this adapter must
+record completed=NO and no calibration data; this tests refusal and recovery,
+not physical calibration support.
+
+The transport permits four-byte reads only at EFUSE control/data registers and
+writes only to EFUSE_CTRL in logical-read mode, using a fresh idle control value.
+It rejects changed timing/selection, programming modes and invalid addresses.
+Strict IN/OUT completions share an event owner with HID/storage dispatch, so a
+worker cannot discard capture completions. Short writes, errors and timeouts
+quarantine EP0 and retain its DMA; failed captures cannot retry in that boot.
+Successful data logs redact EEPROM MAC bytes 4–9. Partial data is never logged.
+A successful capture still requires board/version/regulatory validation before
+radio initialization. Native v43 acceptance remains pending.
