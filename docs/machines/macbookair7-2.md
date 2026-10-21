@@ -11,9 +11,21 @@ the diagnostic ring and log validator with a third controller snapshot and
 entry-to-observation elapsed time/query state. Touch IRQ registry/dispatcher,
 battery observer/runtime, host/VM tests and these guides. No claim, route, mask,
 EOI ordering or EC/event access policy changes. This is not an `iret` timestamp.
-Pro PR #19 remains USB Wi-Fi inventory; no overlapping IRQ change was found.
+Pro PR #19 at `b3878b6` adds a USB Wi-Fi identity diagnostic and xHCI support;
+no overlapping IRQ change was found. Both branches append Makefile tests; preserve
+both additions when integrating.
 Host lifecycle/dispatch ordering tests and focused VMs precede another fresh
 automatic native capture. Ordinary desktop battery remains off.
+
+Implementation `4b2560c` passes the core suite, IRQ registry/completion ownership
+and real dispatcher EOI-order tests, six record-corruption/unknown-state cases,
+and native/VM kernel builds. Full baseline smoke passes syscall, 481 shell
+commands, shell editing, UEFI USB keyboard and display startup. Five focused
+battery VMs pass: injected-unclaimed, normal service, foreign event, isolated
+filesystem and active filesystem deadline/reset, with unchanged outside bytes
+and clean retirement/recovery as applicable. Three controller rows and completion
+timing reconcile by epoch/sequence; this remains VM evidence. Validation is
+archived outside `build`; exact-stage and native post-EOI acceptance follow.
 
 ### Native SCI controller capture accepted
 
