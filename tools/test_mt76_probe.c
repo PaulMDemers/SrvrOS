@@ -10,7 +10,7 @@ static int read_register(void *context, const uint8_t setup[8], uint8_t data[4])
     const uint8_t expected[8] = {0xc0,7,0,0,0,f->calls ? 0x10 : 0,4,0};
     assert(memcmp(setup, expected, 8) == 0);
     ++f->calls;
-    uint32_t value = f->calls == f->fail_at ? f->value : 0x76100001;
+    uint32_t value = f->calls == f->fail_at ? f->value : (f->calls == 1 ? 0x76100002 : 0x76502000);
     for (unsigned i = 0; i < 4; ++i) data[i] = (uint8_t)(value >> (8*i));
     return f->calls == f->fail_at ? f->result : 4;
 }
@@ -18,7 +18,7 @@ static void identity(void) {
     struct mt76_identity id = {1,1};
     struct fake f = {0};
     assert(mt76_probe_identity(read_register, &f, &id));
-    assert(f.calls == 2 && id.asic == 0x76100001 && id.mac == 0x76100001);
+    assert(f.calls == 2 && id.asic == 0x76100002 && id.mac == 0x76502000);
     for (unsigned at = 1; at <= 2; ++at) {
         for (int result = -2; result <= 5; ++result) {
             if (result == 4) continue;

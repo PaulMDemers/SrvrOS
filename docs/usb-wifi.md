@@ -52,7 +52,7 @@ QEMU USB Ethernet coverage does not emulate this radio. The next implementation
 checkpoint is a documented vendor-control/firmware contract and read-only native
 identity diagnostic; inventory-only groundwork does not need a reboot.
 
-## Implemented identity diagnostic (native acceptance pending)
+## Implemented identity diagnostic (native register read accepted)
 
 `kernel/src/drivers/mt76_probe.c` implements a transport-independent identity
 probe. It issues exactly two device-recipient vendor IN requests (`c0/07`),
@@ -78,7 +78,7 @@ provider. `xhci-wifi` lines record the raw values, failure and quarantine state
 both at probe time and in the boot diagnostic snapshot. Default boots leave it
 disabled. Read success is not acceptance of the revision or permission to transmit.
 
-No physical result is claimed yet. The immutable v39 capture profile is staged
+The immutable v39 capture profile is staged
 with `python3 tools/hardware_boot.py stage --laptop-probe-volume <local-uuid>
 --wifi-capture` (one command). Rehearse with `python3 tools/hardware_boot_smoke.py
 --probe-check --workspace-table gpt` before installing. It saves identity/status
@@ -117,3 +117,18 @@ third-party sources or firmware. Firmware packaging is not part of this change.
 - [Vector block size](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/mcu.h)
 
 - [xHCI control transfer semantics, sections 4.11.2 and 6.4.1](https://cdrdv2-public.intel.com/625472/625472_xHCI_Rev1_2b.pdf)
+
+## Native identity result, October 21
+
+MacBookPro11,2 release `5d65ddcc4ccbeaf2`, source `b1aa1ca`, session
+`00065e52c454a4dd-00` read ASIC_VERSION `0x76100002` and MAC_CSR0 `0x76502000`.
+Both reads completed with `quarantined=0`; the saved exit snapshot records
+`wifi-capture: identity=read` and `laptop-capture: completed=yes`. Boot/exit logs
+match the installed release and are independently archived with hashes. This
+accepts the two vendor register reads on this captured adapter only. It does
+not accept firmware upload, calibration, radio initialization or connectivity.
+
+Ubuntu return and consumed one-shot were verified. Postboot offline filesystem
+and allocation checks pass: 29 directories, 111 files, 415 clusters, zero leaks,
+bitmap mismatches or errors. The next driver step is firmware provenance/hash
+pinning and revision/calibration checks before enabling any radio writes.

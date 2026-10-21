@@ -1448,3 +1448,21 @@ archived outside build. The capture requires no keyboard input. After return,
 collect the new matching session before further work, inspect raw identity and
 quarantine/result markers, verify the consumed one-shot, and repeat offline
 filesystem checks. Battery and radio initialization/authentication remain off.
+
+
+Collected native Wi-Fi identity session `00065e52c454a4dd-00` from release
+`5d65ddcc4ccbeaf2` / source `b1aa1ca`. ASIC_VERSION is `0x76100002`; MAC_CSR0 is
+`0x76502000`. Both reads succeed with `quarantined=0`, and the matching saved exit
+snapshot records identity read and capture completed=yes. Collector attention=0.
+The two register reads are physically accepted for this adapter; no firmware,
+radio, authentication or connectivity acceptance is implied. Updated host probe
+fixture values reproduce the observed identity pair with distinct endian checks.
+
+Boot/exit bytes and collection hashes are archived outside build. Ubuntu default,
+consumed one-shot and current/previous payload hashes verify. Postboot fsck and
+allocation checks pass: 29 directories, 111 files, 415 clusters, no leaks/mismatches
+or errors. Capture is collected; no reboot is armed. Next: consume current main
+before firmware work, preserve immutable v39, then establish firmware provenance,
+hash and revision/calibration gates. Fetched main `8211ec1` includes Air v40/v41
+capture/collection and shared process/UI changes; it is not present in this
+physically tested payload. Preserve both Air recipes when resolving shared files.
