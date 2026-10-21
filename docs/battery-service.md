@@ -636,4 +636,22 @@ completion. Wrong-line or duplicate completion cannot call the observer, and
 successful removal excludes later calls. An interrupted completion is explicitly
 unknown; normal ready/retired report validation requires complete observations,
 while a terminal fault record may retain an unfinished observation. No observer
-is registered by ordinary desktop startup. Native post-EOI acceptance is pending.
+is registered by ordinary desktop startup.
+
+Air7,2 release `71b16a6e59709895` (source `2c90dfe`, PR #21) accepts this
+three-point diagnostic during the isolated filesystem workload: 45 cycles / 810
+operations, two clean service lifetimes and verified inner/outer filesystem
+integrity. All ten retained post-EOI observations show LAPIC ISR/IRR clear and
+I/O APIC remote-IRR clear (`lapic_bits=4`, route low `0x8029`). The existing EOI
+therefore takes effect at these sample points. All five retained unclaimed
+callbacks still follow handled callbacks while query work is pending; their
+selected event status/enable pairs contain no enabled event. This does not
+identify the later delivery's cause or justify changing the interrupt claim.
+
+The pending flag spans queued and executing query work, including AML evaluation
+and rescheduling. Next correlate those stages and their timing with the SCI ring
+using bounded passive observations, without additional EC/event-register reads
+or policy changes. The [Air record](machines/macbookair7-2.md) contains exact
+counts, timing limits and preserved recovery evidence. Ordinary desktop battery
+startup, interactive input coexistence and physical gauge accuracy remain
+unaccepted by this automatic trial.
