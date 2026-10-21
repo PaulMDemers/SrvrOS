@@ -2,6 +2,39 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+Latest accepted **write profiling**: release `f99f6759a1ed8f68`, source
+`b090d94`, session `session-00065e4ff61b5b24-00`. The automatic run completed
+33 cycles / 594 operations in 61,198,562 microseconds with 16,454 USB commands.
+Slowest operation: cycle 1, step 1, 4,702,530 microseconds. Data-write callbacks
+used 3,737,960 microseconds (66 writes / 270,336 padded bytes); all flushes used
+24,519 microseconds; only 44,808 microseconds fell outside raw I/O callbacks.
+The maximum data callback was 274,351 microseconds. This is callback wall time,
+including admitted services, not CPU or input latency; the higher maximum than
+the preceding run is not enough to attribute a performance regression.
+
+Both service lifetimes retired cleanly with restored event enables, balanced
+attachments and zero heap/errors/denials. Generation 23 and 50,785 cached reads
+(maximum 18 microseconds) were captured. Active SCI remains 24 handled / 24
+unclaimed. The final image/tree and 75-cluster allocation check passed. Outer
+fsck is clean (185 directories / 884 files), with 1,656 clusters and zero leaks,
+mismatches or errors. 879 prior files are byte-identical; only the disposable
+image and root inode sidecar changed, with three new session logs. New Ubuntu
+boot, consumed one-shot and recovery hashes verified; 29 evidence files and the
+payload are archived independently. Installed is this profiling diagnostic;
+previous accepted desktop remains `b427b78f21644bd2`. No reboot is armed.
+
+### Bounded USB data batching — October 20
+
+Branch `device/macbookair7-2/usb-data-batching`, base main `b090d94`; Pro PR #5
+inspected at `992e8b9` remains network/UI integration with battery deferred.
+Air scope: bounded 16 KiB SCSI commands segmented into existing 4 KiB bulk calls,
+block-cache batch admission, contiguous exFAT file-data grouping, isolated image
+capability and host/VM fault fixtures. No xHCI DMA geometry, retry, flush, model
+or scheduler-admission changes. Follow USB BOT 1.0 data-phase ordering and short
+transfer rules; preserve quarantine on ambiguity. Validate local boundaries,
+then compare a fresh automatic native profile. Ordinary desktop battery remains
+disabled and Actions remains disabled. Native batching acceptance is pending.
+
 Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
 source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic
 trial completed 34 cycles / 612 operations in 61,130,508 microseconds with 16,954

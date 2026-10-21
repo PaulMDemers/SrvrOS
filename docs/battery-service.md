@@ -504,4 +504,6 @@ flush/order/admission rules and does not enable battery service on ordinary
 startup. Failed operations do not publish a successful profile. The collector
 accepts older reports without profiling; a report marked `profile=1` must contain
 one matching operation header and all four consistent phase records before the
-service completion summary. Native profiling acceptance remains pending.
+service completion summary. Native profiling completed on Air7,2 in release `f99f6759a1ed8f68`: 3.738 of
+4.703 seconds in the slowest operation were data-write callbacks, versus 0.025
+seconds flushing. See the machine record for acceptance limits and integrity checks.
