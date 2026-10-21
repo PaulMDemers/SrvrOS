@@ -609,9 +609,10 @@ static void quarantine_sample_deadline(void) {
         if(event_read(NULL,runtime.platform.events.resources.gpe[b].enable+i))quiet=false;
     uint32_t low=0,high=0;
     quiet=quiet && ioapic_read_gsi(runtime.sci.route.gsi,&low,&high) && (low&(1u<<16));
-    if(!quiet || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity)) {
-        irq_restore(flags);return;
-    }
+    /* Once sources have changed, a refused quarantine is terminal. Do not
+     * restore IF and give either runtime thread a scheduling window. */
+    if(!quiet || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity))
+        unsafe("quarantine admission");
     service.quarantined=true;service.stop=true;
     service.cache.value.state=BATTERY_SERVICE_FAULTED;
     service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;

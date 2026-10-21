@@ -131,7 +131,7 @@ def verify_recovery(data,serial):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal'),default='normal')
+    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -146,7 +146,7 @@ def main():
         mbr=bytearray(512);mbr[450]=7
         struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('28' if args.case in ('runtime-fault','recovery','recovery-io','recovery-refusal') else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('29' if args.case=='recovery-owner-refusal' else '28' if args.case in ('runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal') else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('refusal','recovery-refusal') else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
@@ -171,9 +171,18 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case in ('recovery','recovery-io'):
+                if args.case=='recovery-owner-refusal':
+                    data=wait_for(b'battery: HALTED quarantine admission',90)
+                    assert b'battery-vm: worker storage owner=yes' in data
+                    assert b'battery-quarantine:' not in data and b'battery-recovery: saved=' not in data
+                    assert b'contained fault; returning' not in data
+                    output.extend(read_for(serial,1));assert process.poll() is None
+                    result=dict(status='PASS',expected_failure='quarantine refuses storage owner',automatic_reset=False,storage_retirement='NOT claimed')
+                    stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
+                elif args.case in ('recovery','recovery-io'):
+
                     data=wait_for(b'battery-recovery: returning after storage drain; test outcome=contained-failure',100)
                     assert process.wait(timeout=10)==0
                     disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])

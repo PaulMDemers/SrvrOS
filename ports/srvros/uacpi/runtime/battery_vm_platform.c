@@ -203,6 +203,14 @@ static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
     /* Active-service fault. Model 27 exercises an armed parked-workspace reset;
      * model 28 retains a mounted workspace and must block that same reset. */
+    if(model.fault==29 && generation==3) {
+        /* Deliberately violate the adapter's no-storage contract. Quarantine
+         * must refuse a worker which owns I/O, preserving terminal containment. */
+        uint64_t flags=irq_save();bool entered=scheduler_io_begin();irq_restore(flags);
+        console_printf("battery-vm: worker storage owner=%s\n",entered?"yes":"NO");
+        uacpi_kernel_sleep(26000);
+        flags=irq_save();if(entered)scheduler_io_end();irq_restore(flags);
+    }
     if((model.fault==27||model.fault==28)&&generation==3)uacpi_kernel_sleep(26000);
     /* Deliver a deliberately unclaimed SCI through the real dispatcher. This
      * verifies accounting without inventing hardware status or claiming it. */
@@ -248,7 +256,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>28||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>29||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};

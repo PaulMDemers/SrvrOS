@@ -1169,7 +1169,10 @@ media transactions. File work can remain blocked for this whole fixture; its
 zero completed Text saves must not be reported as an interactive workload pass.
 
 Use `tools/battery_workspace_smoke.py --case recovery`, `recovery-io`, or
-`recovery-refusal` through the host environment. The harness accepts only its own
+`recovery-refusal` through the host environment. The additional
+`recovery-owner-refusal` case deliberately lets the modeled battery worker own
+a storage scope: quarantine must refuse and halt without restoring interrupts
+after source masking, saving a false completion or resetting active storage. The harness accepts only its own
 disposable image, requires automatic reset after successful containment, checks
 the saved failure log against serial evidence, and verifies the exact file tree,
 metadata, unchanged anchors and allocation graph offline. Remaining native
