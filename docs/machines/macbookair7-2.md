@@ -2,7 +2,7 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: mounted workspace coexistence and reset admission
+### Current scope: mounted workspace coexistence and reset admission (PR #35)
 
 Base `origin/main` `7d8c58d` (merged PR #34). First add a checked reset policy:
 arming while parked must not authorize a later immediate reset with ordinary
@@ -11,21 +11,36 @@ disposable VM while retaining existing model/resource and I/O eligibility gates.
 Native mounted-workspace trials stay disabled until failure handling can preserve
 storage ownership and return safely. Automatic battery startup remains off.
 Touched scope: battery reset policy/runtime, opt-in application-file workload and
-VM/host tests; workspace recovery design. Pro PR #19 at `1c30e04` remains separate
+VM/host tests; workspace recovery design. Pro PR #19 at `bb0284b` remains separate
 Wi-Fi firmware work. No physical run is pending or armed.
 
-### Mounted workspace VM study (implementation checkpoint)
+### Mounted workspace VM study (PR #35)
 
-The opt-in VM path keeps `/work` mounted while Text completes 60 edits and five
-save/stat/rename/reopen cycles. The first normal Q35 run passed: 20 file-worker
-operations, battery generations 1→25, three clients retired, balanced service
-teardown, replacement compositor, ordinary unmount, exact disk tree/metadata and
-allocation checks. Native admission is explicitly refused before firmware access.
-Fatal reset now rechecks current workspace/I/O ownership under IRQ exclusion;
-stale parked-time arming cannot bypass either guard. Failure injection and prior
-parked/image regressions are being validated locally. No installed payload changed.
-The remaining blocker is recoverable ACPI failure ownership during ordinary Home
-I/O; a VM halt is evidence of containment, not a usable native recovery path.
+Code `207a52a` adds a fatal reset interlock and a VM-only mounted `/work` study.
+The normal Q35 run passed 60 Text edits, 20 file-worker operations (five
+save/stat/rename/reopen cycles), battery generations 1→25 and 60 cached UI reads.
+All three clients and the service retired, a replacement compositor succeeded,
+and the workspace unmounted normally. Offline checks found the exact expected
+tree and metadata, untouched anchors, nine files, 15 allocated clusters and no
+leaks or allocation mismatches. These are VM results, not physical input latency
+or gauge-accuracy acceptance.
+
+Early desktop timeout retired clients/service and left the entire disk unchanged.
+The native backend refused the mounted-study command before firmware access and
+also left the disk unchanged. Injected runtime timeout with `/work` mounted
+blocked reset and retained live state; it did not claim clean storage retirement.
+The parked controls timeout still reset automatically. The prior exclusive-image
+Text workload passed unchanged. Full ordinary/native/VM builds, core host tests,
+malformed-proof rejection and 397 documentation links passed locally; Actions
+remain disabled. Fault regressions retain isolated-image recovery checks and
+accept a halt only with explicit current I/O-ownership evidence.
+
+No installed payload or recovery changed and no reboot is armed. Automatic
+battery startup remains off. Native mounted Home remains disabled until failed
+ACPI owner/worker and IRQ callbacks can be contained without stack reuse or
+wake-up resurrection, followed by safe storage drain, logging and automatic
+return. The next block is that recovery mechanism and its injected-fault tests;
+this VM study does not authorize skipping it.
 
 ### Native scoped controls checkpoint (PR #34)
 
