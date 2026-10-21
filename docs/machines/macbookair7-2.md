@@ -145,6 +145,25 @@ device work uses separate branches based on `main`.
 
 ## Active work and shared dependencies
 
+### Contiguous FAT write batching — October 20
+
+Branch `device/macbookair7-2/fat-write-batching` consumes PR #9 source
+`89edb98` and native acceptance notes over main `09207b0`. PR #9 validation
+is still running. Pro scope inspected at `14e2a99` remains Ethernet readiness
+and prompted cable testing; no overlapping filesystem change was found.
+
+Bounded objective: reduce repeated writes of the same FAT sector during
+contiguous allocation/free. Scope: `kernel/src/fs/exfat.c`, entry/isolated-image
+host regressions and this record. Preserve the existing on-disk FAT values,
+copy-on-write publication and flush/dirty ordering; fragmented chains retain
+their existing traversal. First record per-operation FAT/data write counts,
+then batch adjacent equal FAT entries into bounded writes. Validate neighboring
+FAT entries, boundary failures, directory growth and fragmented allocation,
+then run the full image fault matrix and battery filesystem VM workload.
+Native comparison remains pending; no reboot is armed and ordinary desktop
+battery startup remains disabled.
+
+
 ### Filesystem operation scheduling — October 20
 
 Branch `device/macbookair7-2/filesystem-latency`, based on PR #8 source `8822cba`
