@@ -2,7 +2,51 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: native post-EOI capture accepted
+### Current checkpoint: native query correlation accepted
+
+Release `df04f96a16d0f850`, source `68aac71` (PR #23), session
+`session-00065e5b05b8b6c9-00`, returned automatically after 45 cycles / 810
+operations in 60,749,550 microseconds (18,116 USB commands; maximum operation
+2,439,655 microseconds). Both lifetimes retired cleanly with restored enables,
+balanced attachments and zero heap/errors/denials. The service reached generation
+23; 64,685 cached reads completed, maximum 3 microseconds, including 2,263 during
+sampling. The intentional short stop-wait timed out before clean retirement.
+
+Counters recorded 32 handled / 32 unclaimed callbacks; ten were retained and
+54 overwritten. All five retained unclaimed entries found a **new queued batch**
+aged 5–6 microseconds, with zero transfers and no known response code. They
+followed handled callbacks by 558,139–717,617 microseconds; selected EC event
+status/enable was `0xa0`/zero and fixed status/enable `0x8001`/`0x20`. Each retained
+post-EOI snapshot again had ISR/IRR clear and remote-IRR clear, with LAPIC bits 4
+and route low `0x8029`. The query worker was not executing a transfer or AML at
+these entry points. Source inspection finds GPE resume **before** the pending
+check that can suspend/clear it and queue this new batch. That ordering is a
+candidate cause of a latched delivery whose event is gone by callback entry;
+the correlation alone does not prove the cause or justify claiming that IRQ.
+
+Inner exact contents/fsck/allocation (75 clusters), outer fsck/allocation (190
+directories, 899 files, 1,676 clusters) and preservation of 894 previous files
+passed. Only the disposable image/root metadata changed, with three new logs.
+New Ubuntu boot, consumed one-shot, default/EFI order and recovery hashes passed.
+Twenty-nine hashed evidence files and the exact payload are archived outside
+`build`. USB remounted; previous desktop `b427b78f21644bd2` retained. No reboot
+armed; the used image must not rerun. Desktop/input/gauge acceptance stays pending.
+
+### Active scope: avoid enabling an already-pending query event
+
+Branch `device/macbookair7-2/sci-controller`, base main `68aac71`. Add a pending
+check while the owned EC GPE is still suspended: queue known work directly,
+otherwise resume and keep the existing post-resume pending check. Preserve
+budgets, ownership, genuine handler claims, raw-handler semantics and late-arrival
+coverage. Touch `battery_runtime.c`, a small `ec_query_rearm.h` ordering helper,
+its host model test/Makefile target and current guides. Model known-pending and
+late arrivals with a latched-interrupt fixture; run the battery VMs before a fresh
+automatic native trial. A late arrival during resume can still latch a delivery;
+this change does not promise to eliminate every unclaimed IRQ. Pro PR #19 at
+`e9320d9` remains USB Wi-Fi/xHCI/staging work; only additive Makefile tests overlap.
+Ordinary desktop battery remains off; GitHub Actions remain disabled.
+
+### Previous native post-EOI capture accepted
 
 Branch `device/macbookair7-2/sci-controller`, integration base `2c90dfe` (PR #21).
 Release `71b16a6e59709895`, session `session-00065e52c3a9ec0c-00`, completed the
@@ -47,7 +91,7 @@ armed. The image is used and must be freshly prepared before another trial.
 This accepts the isolated workload and diagnostic lifecycle, not ordinary desktop
 battery startup, physical gauge accuracy or interactive input coexistence.
 
-### Active scope: query execution correlation
+### Query execution correlation implementation (PR #23)
 
 The source audit confirms `query_scheduled` spans queued work, EC query transfer,
 AML evaluation and rescheduling until GPE resume. Existing observations cannot
@@ -73,7 +117,8 @@ have a known batch/attempt and correctly unknown response code. The workload
 checks preserve all outside bytes and verify final image contents. Full local
 baseline smoke passes syscalls, 481 shell commands, shell editing, USB keyboard
 and display startup. Documentation links and diff whitespace pass. Validation
-is archived outside `build`; exact-stage/native query correlation remains pending.
+is archived outside `build`; exact-stage VM and native query correlation are now
+accepted above.
 
 ### Post-EOI implementation and local validation (PR #21)
 
