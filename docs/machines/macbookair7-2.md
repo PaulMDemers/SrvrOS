@@ -44,6 +44,16 @@ segmented transport cases and `sizeof(disk)/512` capacity assertion. The existin
 hardware staging/smoke conflicts come from the prior Air battery profiles and
 must preserve both profile sets. This branch does not import or replace Pro work.
 
+Local batching comparison (implementation `ca6f274`, added fixtures `d0e98d1`):
+265 -> 169 image writes, all 72 flushes retained, and identical final disk bytes.
+All/core builds/tests and exFAT hardening passed, including fragmented allocation.
+The isolated image passed 169 write failures, 169 power cuts, 72 flush failures,
+169 sector-aligned partial failures, 169 partial cuts and 19 pause/revoke points.
+USB read-only/write/flush/reload/keyboard and timeout/quarantine VM checks, plus all five battery VM cases
+passed. The profiled Q35 workload completed 78 cycles / 31,400 commands, compared
+with 78 / 38,888 before batching. Native timing remains pending; neither VM result
+accepts physical input latency or ordinary desktop battery startup.
+
 Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
 source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic
 trial completed 34 cycles / 612 operations in 61,130,508 microseconds with 16,954
