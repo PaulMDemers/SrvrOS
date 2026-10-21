@@ -120,7 +120,7 @@ def main():
                 click(690,750);wait(b"desktools: starting role=system");wait(b"desktools: system-ready")
                 click(370,228);wait(b"system-page=network");time.sleep(.5)
                 click(400,350);shortcut("end");shot("network-adapters")
-                qmp.call("set_link",{"name":"nic0","up":False});shortcut("f5")
+                qmp.call("set_link",{"name":"nic0","up":False})
                 if args.usb_only:
                     # USB gadget notifications ignore set_link; test bounded
                     # traffic failure here, physical link state on hardware.
@@ -132,6 +132,11 @@ def main():
                     wait(b"link=9 speed=0");shot("network-disconnected-system")
                     launch_network();wait(b"launcher window=");shortcut("ctrl-ret");wait(b"desknet: disconnected");shot("network-disconnected")
                 qmp.call("set_link",{"name":"nic0","up":True})
+                if not args.usb_only:
+                    wait(b"link=15 speed=1000",5)
+                    # Return System to front without forcing a data refresh.
+                    click(690,750);time.sleep(.5);shot("network-reconnected-system")
+                    launch_network();wait(b"launcher window=")
                 shortcut("ctrl-l");type_text("10.0.2.2");shortcut("ctrl-ret");wait(b"desknet: started mode=ping target=10.0.2.2");wait(b"desknet: finished result=1 exit=0")
                 # Compact layout, shared context menu, and global Help topic.
                 qmp.mouse(733-pointer[0],588-pointer[1]);pointer[:]=[733,588]

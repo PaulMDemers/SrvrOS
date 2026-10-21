@@ -21,7 +21,8 @@ static bool network_event(struct xhci_device *d,uint8_t dci,uint64_t pointer,uin
         struct xhci_network_endpoint *e=&d->network->ep[i];
         if(e->pending && e->hw.dci==dci && e->trb==pointer) {
             e->pending=false;e->done=true;e->completion=completion;e->remaining=remaining;
-            if(i==1) net_notify_rx();
+            if(i==2) d->network->notify_completed_us=timer_monotonic_us();
+            if(i==1 || i==2) net_notify_rx();
             return true;
         }
     }
@@ -50,7 +51,7 @@ static void network_service(struct xhci_device *d) {
         if(valid) {
             n->notifications++;
             if(n->link.known && (!was_known || was_up!=n->link.up)) {
-                console_printf("xhci-network: slot=%u cable=%s tx_pending=%u monotonic_us=%u\n",(uint64_t)d->slot_id,n->link.up?"up":"down",(uint64_t)tx->pending,timer_monotonic_us());
+                console_printf("xhci-network: slot=%u cable=%s tx_pending=%u monotonic_us=%u completion_us=%u\n",(uint64_t)d->slot_id,n->link.up?"up":"down",(uint64_t)tx->pending,timer_monotonic_us(),n->notify_completed_us);
                 net_notify_rx();
             }
         } else n->drops++;

@@ -734,7 +734,10 @@ static void test_network_transport(void) {
     uint8_t speed[]={0xa1,0x2a,0,0,1,0,8,0,0,0xca,0x9a,0x3b,0,0xca,0x9a,0x3b};
     n.config.data_interface=1;
     memcpy(n.ep[2].buffer,speed,sizeof(speed));
-    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));network_service(&d);
+    unsigned notification_wakes=net_wakeups;
+    assert(network_event(&d,4,n.ep[2].trb,13,64-sizeof(speed)));
+    assert(net_wakeups==notification_wakes+1 && n.notify_completed_us==test_time);
+    network_service(&d);
     assert(n.notifications==0 && !n.link.downstream_bps);
     n.config.notify_data_interface=true;
     memcpy(n.ep[2].buffer,speed,sizeof(speed));

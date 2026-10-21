@@ -197,7 +197,7 @@ struct xhci_network {
     unsigned head,count;
     uint16_t length[XHCI_NET_QUEUE];
     uint8_t queue[XHCI_NET_QUEUE][NET_DEVICE_FRAME_MAX];
-    uint64_t tx_started,tx_packets,rx_packets,drops,errors,notifications;
+    uint64_t tx_started,tx_packets,rx_packets,drops,errors,notifications,notify_completed_us;
 };
 
 /* Independent endpoint on the same physical USB slot as the keyboard.

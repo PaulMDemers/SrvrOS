@@ -77,8 +77,9 @@ int main(void) {
     net_phase=1;tool_system_refresh(&t,1);assert(!t.network_valid && strstr(network_state(&t),"unavailable") && !strcmp(t.network_values[0],"—"));
     net_phase=2;tool_system_refresh(&t,1);assert(t.network_valid && strstr(network_state(&t),"No supported") && !strcmp(t.network_values[5],"—"));
     net_phase=3;tool_system_refresh(&t,1);assert(!t.network_valid);
-    net_phase=4;tool_system_refresh(&t,1);assert(strstr(network_state(&t),"disconnected") && !strcmp(t.network_values[12],"Disconnected") && !strcmp(t.network_values[13],"—"));
-    net_phase=5;tool_system_refresh(&t,1);assert(!strcmp(t.network_values[12],"Connected") && !strcmp(t.network_values[13],"1000 Mb/s") && !strcmp(t.network_values[14],"Full duplex"));
+    tool_system_action(&t,(struct desk_action){SYSTEM_PAUSE,DESK_WIDGET_ACTIVATED});assert(!t.system_paused);
+    t.window.dirty=0;ticks+=100;net_phase=4;tool_system_refresh(&t,0);assert(t.window.dirty);assert(strstr(network_state(&t),"disconnected") && !strcmp(t.network_values[12],"Disconnected") && !strcmp(t.network_values[13],"—"));
+    t.window.dirty=0;ticks+=100;net_phase=5;tool_system_refresh(&t,0);assert(t.window.dirty);assert(!strcmp(t.network_values[12],"Connected") && !strcmp(t.network_values[13],"1000 Mb/s") && !strcmp(t.network_values[14],"Full duplex"));
     net_phase=0;tool_system_action(&t,(struct desk_action){SYSTEM_PROCESSES,DESK_WIDGET_ACTIVATED});assert(t.table.body.enabled && !t.network_table.body.enabled);
     assert(t.table.navigation[t.table.body.selected].id==selected);
     tool_system_action(&t,(struct desk_action){SYSTEM_DEVICES,DESK_WIDGET_ACTIVATED});

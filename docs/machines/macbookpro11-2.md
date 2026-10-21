@@ -1212,3 +1212,17 @@ bounded scope: System network transition timestamps and automatic (no Refresh)
 VM down/up coverage in `system.c` / `desktop_network_smoke.py`. Main remains
 `09207b0`; Air PR9/filesystem write-batching scope does not overlap. Preserve
 successful native data-path evidence separately from unresolved UI timing.
+The user estimates roughly a minute waiting and reports connectivity returned
+quickly. Treat this as an unresolved live-update failure, not a confirmed
+close-before-refresh case. Extend diagnostics to xHCI notification-completion
+and processing timestamps; wake the network worker for status completions as
+well as received packets. Log System state changes and a ten-second sampling
+heartbeat. Test automatic up/down sampling, repaint dirtiness and no-F5 VM
+recovery before another physical attempt. No native fix is claimed yet.
+
+Full build/test-core pass with automatic System sampling/repaint assertions and
+notification wakeup/timestamp coverage. The mixed e1000/ECM desktop VM now
+shows automatic disconnect and reconnect without F5; the recovered System
+screenshot visibly shows Connected / 1000 Mb/s. This validates the shared UI
+path with e1000, not the native ECM notification timing. Native diagnostics
+remain necessary; source changes are not installed and no reboot is armed.
