@@ -1,11 +1,27 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-20. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-21. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
-## Ownership and scope
+## Current handoff
+
+The user considers the current Pro bring-up generally working and closes this
+phase on October 21. Installed release `2f8abe0e131023d8` remains unchanged;
+network/UI acceptance is confirmed on that release. Earlier desktop acceptance
+stands for its named payloads; the latest run did not repeat sound, brightness
+or Text saving. Closing this phase does not relabel skipped checks as passes.
+Battery work, headphone testing and further trackpad-latency tuning stay deferred.
+Ubuntu remains default and no reboot is armed.
+
+Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
+revision `0100`, bound by Linux to `mt76x0u`. Begin captured USB Wi-Fi inventory,
+firmware/protocol research and a separate bounded implementation plan. Preserve
+shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
+Air PR #17 concerns SCI controller observation and does not overlap this scope.
+
+## Original bring-up scope (historical)
 
 Local on-device agent, branch `device/macbookpro11-2/bringup`, starting from
 `main` at `db40ed510636847d9aad2c7d38fea9976de43252`.
