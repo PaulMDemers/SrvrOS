@@ -1608,3 +1608,15 @@ HID/storage dispatch and quarantine uncertain completion. MAC control stays 0x20
 in preparation and must read back 0x20 after MCU readiness; live-MCU preparation
 is refused. Native firmware acceptance remains pending exact-stage rehearsal
 and physical capture. No RF setup or network provider is enabled.
+
+Firmware readiness candidate: clean source `fdd8d02`, release `6ec5ab2ce67afaee`,
+profile `ram-usb-wifi-fw-v1`. Full build/USB/core suite and 50 boot-profile tests
+pass, including both historical v43 recipes and mismatched-copy refusal. Native
+transport fixtures cover EP08 context/aligned retained DMA, exact command pointer,
+control write/reset gates, FCE halfwords, bulk residue/Event-Data/timeout quarantine.
+Kernel SHA-256 vectors, actual pinned firmware mutations and actual staged
+initramfs lookup/hash checks pass, including ASan/UBSan. Exact-stage GPT VM saves
+the expected absent-adapter refusal, unmounts and resets; missing-workspace return
+also passes. Native firmware startup remains untested. Package and test evidence
+are archived outside build; existing physical v43 calibration acceptance remains
+historical, not firmware acceptance.
