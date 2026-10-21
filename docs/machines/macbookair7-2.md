@@ -2,30 +2,79 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: post-EOI SCI observation
+### Current checkpoint: native post-EOI capture accepted
 
-Continue on `device/macbookair7-2/sci-controller` from main `7761200`.
-Add an optional, token-owned IRQ completion observer invoked after the existing
-EOI and before interrupt return, with bounded lifecycle/mutation checks. Extend
-the diagnostic ring and log validator with a third controller snapshot and
-entry-to-observation elapsed time/query state. Touch IRQ registry/dispatcher,
-battery observer/runtime, host/VM tests and these guides. No claim, route, mask,
-EOI ordering or EC/event access policy changes. This is not an `iret` timestamp.
-Pro PR #19 at `b3878b6` adds a USB Wi-Fi identity diagnostic and xHCI support;
-no overlapping IRQ change was found. Both branches append Makefile tests; preserve
-both additions when integrating.
-Host lifecycle/dispatch ordering tests and focused VMs precede another fresh
-automatic native capture. Ordinary desktop battery remains off.
+Branch `device/macbookair7-2/sci-controller`, integration base `2c90dfe` (PR #21).
+Release `71b16a6e59709895`, session `session-00065e52c3a9ec0c-00`, completed the
+automatic native trial and returned to Ubuntu. The workload completed 45 cycles /
+810 operations in 60,719,544 microseconds, using 18,116 USB commands; maximum
+operation time was 1,968,515 microseconds. Both service lifetimes retired with
+restored enables, balanced attachments and zero heap/errors/denials. Generation
+23 and 64,749 cached reads (maximum 18 microseconds), including 2,517 during
+sampling, were recorded. The deliberate short stop-wait timeout was followed by
+clean retirement; it is not an abandoned worker.
 
-Implementation `4b2560c` passes the core suite, IRQ registry/completion ownership
-and real dispatcher EOI-order tests, six record-corruption/unknown-state cases,
-and native/VM kernel builds. Full baseline smoke passes syscall, 481 shell
-commands, shell editing, UEFI USB keyboard and display startup. Five focused
-battery VMs pass: injected-unclaimed, normal service, foreign event, isolated
-filesystem and active filesystem deadline/reset, with unchanged outside bytes
-and clean retirement/recovery as applicable. Three controller rows and completion
-timing reconcile by epoch/sequence; this remains VM evidence. Validation is
-archived outside `build`; exact-stage and native post-EOI acceptance follow.
+Full counters recorded 24 handled / 24 unclaimed callbacks. Ten completed
+callbacks and thirty controller rows survived ring retention; 38 older callbacks
+were overwritten. All snapshots were available on vector 41 / GSI 9. Before
+and after each callback, LAPIC ISR/TMR were set and IRR clear; after generic EOI,
+ISR and IRR were clear, TMR remained set (`lapic_bits=4`), and route low was
+`0x8029`: remote-IRR and delivery-pending clear, level trigger retained. The
+pre-EOI route was `0xd029` before handled callbacks and `0xc029` afterward;
+unclaimed callbacks had `0xc029` at both pre-EOI points. LINT0 remained `0x10700`,
+PIC masks `0xffff`, route high zero. Thus the existing acknowledgement takes
+effect in every retained sample. Sequential snapshots do not establish line
+voltage or exclude a subsequent interrupt.
+
+All ten completion rows were observed with query work pending. Entry-to-post-EOI
+time was 26 microseconds for each retained unclaimed callback, 33–34 for the
+first lifetime's retained handled callbacks, and 368 for the second lifetime's
+first handled callback (callback time 357). These are not `iret`, worker-duration
+or input-latency measurements. The five retained unclaimed callbacks followed
+handled callbacks by 553,381–754,688 microseconds, with EC status/enable
+`0xa0`/zero and fixed status/enable `0x8001`/`0x20`; their callback duration was
+15–16 microseconds. The extra-delivery cause remains unresolved. No evidence
+here justifies altering EOI order, route polarity, event enables or claim policy.
+
+Exact inner contents, fsck and allocation (75 clusters) passed. Outer fsck and
+allocation passed: 189 directories, 896 files, 1,672 clusters, no leaks/mismatches.
+891 existing files remain byte-identical; only the disposable image and root
+metadata changed, with three new matching logs. New Ubuntu boot, consumed
+one-shot, default/EFI order and installed/recovery hashes verified. Twenty-eight
+hashed evidence files and an independent exact payload survive outside `build`.
+The USB is remounted, previous desktop `b427b78f21644bd2` retained, no reboot
+armed. The image is used and must be freshly prepared before another trial.
+This accepts the isolated workload and diagnostic lifecycle, not ordinary desktop
+battery startup, physical gauge accuracy or interactive input coexistence.
+
+### Next bounded scope: query execution correlation
+
+The source audit confirms `query_scheduled` spans queued work, EC query transfer,
+AML evaluation and rescheduling until GPE resume. Existing observations cannot
+distinguish those stages. Next add bounded passive query phase/sequence/timing
+correlation to the diagnostic runtime and host/VM validators, reusing successful
+reads and existing scheduling transitions. Keep output outside IRQ context; no
+new EC/event reads, policy changes or sibling hardware gates. Publish the exact
+implementation scope before editing shared code. Native acceptance will require
+a fresh isolated automatic trial after local validation. Ordinary desktop battery
+remains off. Pro PR #19 at `e9320d9` concerns USB Wi-Fi inventory, xHCI and staging;
+no IRQ/runtime overlap was found. Preserve both branches' Makefile test additions.
+GitHub Actions remain disabled; validation is local.
+
+### Post-EOI implementation and local validation (PR #21)
+
+Implementation `4b2560c` adds an optional token-owned IRQ completion observer
+after the existing EOI and before interrupt return. It records a third controller
+snapshot and entry-to-observation time/query state without changing claim, route,
+mask, EOI order or EC/event-access policy. Core, registry ownership, real dispatcher
+ordering, six record-corruption/unknown-state cases and native/VM builds pass.
+Full baseline smoke passes syscalls, 481 shell commands, shell editing, UEFI USB
+keyboard and display startup. Five focused battery VMs pass: injected-unclaimed,
+normal service, foreign event, isolated filesystem and active filesystem deadline
+with automatic reset. Outside bytes, retirement and recovery checks pass as
+applicable. Exact-stage Q35 platform refusal, diagnostic save, unmount and return
+also pass. Local validation and payload hashes are archived outside `build`;
+physical acceptance is recorded above.
 
 ### Native SCI controller capture accepted
 
