@@ -6,6 +6,7 @@ bool battery_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_transition_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_service_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
+bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_usb_read_diagnostic_run(void *rsdp,struct limine_memmap_response *map);

@@ -822,8 +822,8 @@ The ordinary desktop battery service is still disabled.
 
 The native v40 recipe remains the accepted typing study. A separate
 `acpiruntime battery-desktop-text` monitor command starts the same bounded owner
-with `deskd --coexist-text` and the real Text app. This is not selected by a
-hardware-boot recipe yet. The Text diagnostic uses its normal editor, history,
+with `deskd --coexist-text` and the real Text app. Opt-in v41 `--battery-text`
+selects the same owner for native capture. The Text diagnostic uses its normal editor, history,
 clipboard and surface publication, with its file worker disabled and no initial
 file loaded. The compositor provides focus and the in-memory clipboard without
 activating the global app launcher, preferences, Home or screenshot writes.
@@ -872,4 +872,34 @@ regression passed with implementation `9ee553a`. The apps harness now selects
 fixture paths explicitly after the move to Home and targets the current Places
 layout. It asserts maximize/restore transitions and pairs child shutdown with
 the parent-reported PID/status, avoiding an interleaved child console line.
-Native Text acceptance is still pending its own profile and exact-stage trial.
+Native Text acceptance remains pending the separate v41 physical trial.
+
+
+### Native automatic Text capture (v41)
+
+Build `acpi-battery-kernel` and the matching `build/initramfs.tar`, then stage:
+
+```sh
+python3 tools/hardware_boot.py stage --laptop-probe-volume "$SRVROS_USB_UUID" --battery-text
+tools/host-env.sh python3 tools/hardware_boot_smoke.py --probe-check
+```
+
+The distinct `srvros.capture=battery-text` recipe requires automatic return and
+cannot be combined with another capture or `--hold-on-failure`. The exact-stage
+Q35 run checks the native platform refusal, saved report, unmount and return; it
+does not establish native runtime or editing acceptance. Preserve the ordinary
+desktop recovery and follow the setup guide's install/run-record sequence.
+
+No typing or clicking is required. Leave input alone for the one-minute trial,
+with AC and the workspace USB connected. The outer workspace is parked during
+runtime; Text has a RAM document and no file worker. Clean completion or handled
+failure saves diagnostics and returns automatically. Existing unsafe-retirement
+containment can reset without a final report; missing evidence remains failure.
+
+Collection reports `battery_text` only for the exact recipe and one complete
+clean-return marker, all sixty presentations, five exact `AA` checkpoints, the
+final `AA` document/caret, zero extra keyboard events, continued battery sampling
+and clean app/service retirement. Malformed or missing proof adds an attention
+item. The v40 study remains separately selectable and separately checked. This
+automatic result does not establish physical input latency, simultaneous storage
+load, gauge accuracy or ordinary desktop battery support.
