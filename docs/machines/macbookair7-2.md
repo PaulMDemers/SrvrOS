@@ -2,22 +2,39 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: application file I/O and desktop battery presentation
+### Current checkpoint: application files and cached battery presentation accepted
 
-Starting from actual `origin/main` `21a9fdf` (PR #32), extend the accepted
-coexistence foundation to Text's real asynchronous file worker: save, rename,
-reopen and verify documents inside the exclusive disposable image. Validate
-worker descendants and cancellation before permitting ordinary workspace use.
-Then add a versioned cached battery read interface and desktop presentation with
-explicit lifecycle control; never run EC/AML work from a UI read. Automatic
-battery startup remains disabled, and attended input/AC acceptance stays separate.
+Release `27c39e5404ab573b`, source `977a554` (PR #33), session
+`session-00065e5ed9440af5-00` passed the automatic v43 hardware trial and returned
+to Ubuntu. Text presented all **60 generated edits** and completed five real
+save/stat/guarded-rename/reopen cycles (20 worker operations). All five files
+contained `AA`; normal Open left the final caret/anchor at zero. No extra keyboard
+events occurred. The compositor, Text and file worker retired before the image
+lease was released, followed by clean service teardown.
 
-Planned shared edits: battery diagnostic owner, Text/compositor diagnostic modes,
-file-worker validation, cached ABI/UI and local VM harnesses; staging/collection
-only after the application path passes. Preserve the existing v40–42 profiles.
-Pro PR #19 inspected at `c263221` owns v39 Wi-Fi work; preserve its main/staging,
-Makefile and xHCI changes. No sibling hardware gates or source are changed here.
-No physical reboot is armed. Current accepted payload/recovery remain below.
+Battery generation advanced **1→23**, with 61 fresh cached UI reads. The desktop
+recorded 81 frames, 5,306 loops and a maximum loop gap of 30,013 microseconds;
+this is not physical input latency. SCI recorded **23 handled / zero unclaimed**.
+The image's exact file contents and metadata passed, with eight files, 14 allocated
+clusters and no leaks. All 909 other prior files remained unchanged; the intended
+image and workspace metadata changed and exactly three matching logs were added.
+Outer offline checks passed: 195 directories, 914 files, 1,696 allocated clusters,
+zero leaks or allocation mismatches. The new Ubuntu boot, consumed one-shot,
+default/EFI order and recovery payload were verified. Evidence and the exact
+accepted payload are backed up outside `build`.
+
+Collection initially encountered a missing expected path in an older session's
+now-replaced disposable image. The host collector now converts that lookup failure
+into invalid evidence for that session and continues. The matching v43 session has
+no attention items. The collector regression passes; this host-only correction
+does not change the physically tested kernel or userspace payload.
+
+This completes the bounded application-file and cached-presentation checkpoint.
+Explicit user start/stop, ordinary workspace coexistence and attended input/AC
+accuracy remain pending; automatic battery startup stays disabled. Installed
+`27c39e5404ab573b`, prior accepted `c3746988ed5c0d5b` backed up, desktop recovery
+`b427b78f21644bd2` retained. No further reboot is armed; the used image is not fresh.
+Pro PR #19 at `c263221` retains its independent Wi-Fi scope. Actions remain disabled.
 
 ### Application file/cached battery checkpoint (PR #33)
 

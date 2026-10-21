@@ -303,6 +303,19 @@ class CollectionTests(unittest.TestCase):
             _,report=desktop.collect(mount,'37d8c5d0',root/'out')
             self.assertIn('collection: Text/filesystem overlap completion missing or invalid',report['sessions'][0]['attention'])
 
+    def test_missing_image_path_is_invalid_evidence(self):
+        from unittest.mock import patch
+        from battery_filesystem_image import SIZE
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);image=root/'battery-fs.img'
+            with image.open('wb') as f:f.truncate(SIZE)
+            # ExfatFixture.read raises StopIteration for a missing expected path.
+            # A later recipe can replace the disposable image while old logs stay.
+            with patch('battery_filesystem_image.verify',side_effect=StopIteration):
+                with self.assertRaisesRegex(ValueError,'contents do not match'):
+                    desktop.verify_battery_image(root,{'cycles':1},root)
+            self.assertFalse((root/'battery-filesystem.exfat').exists())
+
     def test_application_files_require_saved_image_verification(self):
         from test_battery_desktop_records import FILES
         from unittest.mock import patch

@@ -1025,3 +1025,12 @@ This is the first part of desktop battery integration. Explicit user start/stop,
 ordinary workspace coexistence and attended input/AC acceptance are still pending;
 automatic battery startup stays disabled. Do not infer physical acceptance from
 VM screenshots. Rehearse the exact native payload before installing v43.
+
+
+Air7,2 accepted the bounded v43 trial in release `27c39e5404ab573b`, source
+`977a554`: 60 presented edits, five complete real-worker file cycles, 61 fresh
+cached UI reads, battery generation 1→23, three retired descendants and clean
+service/image teardown. SCI handled 23 deliveries with none unclaimed. Exact
+image contents/metadata, inner/outer allocation, other-file preservation and
+Ubuntu return passed. This accepts the isolated application path and cached view;
+it does not enable ordinary Home access, lifecycle UI or automatic startup.

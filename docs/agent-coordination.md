@@ -278,3 +278,12 @@ lifecycle controls and ordinary workspace coexistence remain pending; automatic
 startup is still disabled. Native acceptance must come from this unit's matching
 capture, not the VM fixture. Pro PR #19 inspected at `c263221` retains independent
 Wi-Fi scope, including v39; preserve both profiles when reconciling shared files.
+
+
+Air7,2 v43 release `27c39e5404ab573b` subsequently passed native collection:
+five real-worker file cycles, 60 generated edits, continued cached UI/service
+sampling, clean three-process retirement and exact offline contents/allocation.
+The accepted source is `977a554`; native gates remain Air-specific. A host-only
+collector fix treats missing expected paths in a replaced historical test image
+as invalid evidence instead of aborting collection. Consume PR #33 before adding
+another battery UI read interface or descendant-retirement implementation.

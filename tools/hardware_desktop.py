@@ -313,7 +313,7 @@ def verify_battery_image(workspace, proof, saved, verifier=None):
     try:
         if verifier is None:verify(data,proof['cycles'])
         else:verifier(data)
-    except (AssertionError,ValueError,KeyError,IndexError) as error:
+    except (AssertionError,ValueError,KeyError,IndexError,StopIteration) as error:
         raise ValueError('Battery filesystem contents do not match completed cycles') from error
     target=saved/'battery-filesystem.exfat';target.write_bytes(data)
     if target.read_bytes()!=data:raise OSError('Battery filesystem image copy failed')
