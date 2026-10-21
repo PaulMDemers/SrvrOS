@@ -2,7 +2,7 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: IRQ entry fault containment
+### IRQ entry fault containment (PR #37)
 
 Base `origin/main` `07dfa77` (merged PR #36). Add a VM-only recovery boundary
 for the foreign-event guard at SCI callback entry when both battery threads are
@@ -13,6 +13,33 @@ of a battery thread remain terminal; no stack unwinding is implied. Touched:
 scheduler retention API, battery runtime/model, host proofs and disposable VM
 harness. Pro PR #19 at `6fb3af5` remains independent USB Wi-Fi work. No physical
 trial, installed payload change or native admission expansion is planned.
+
+### Local IRQ entry recovery results
+
+Code `b2bc9c1` passed all seven disposable workspace cases. The injected SCI
+returned to storage thread 7 after retaining battery threads 8/9. The next handler
+and post-EOI completion ran once; registry removal succeeded, callback in-flight
+count returned to zero, and the original stack sentinel and I/O ownership survived.
+Both flushes completed across the 28-second scope. Three clients retired, the
+9,379-byte interpreter heap and generation 2/completion 10 stayed retained, and
+saved failure logs matched serial evidence. Unmount, automatic reset and offline
+exact-tree/metadata/allocation checks passed. The IRQ fixture completed zero Text
+saves and is not an input latency or pending-DMA acceptance test.
+
+Both unsafe recovery cases halted as required: interrupting a battery worker and
+refusing the source-mask write. Neither claimed storage retirement. Native backend
+admission was refused before firmware access with the disposable disk unchanged.
+Previous watchdog recovery with/without a separate I/O owner passed. Normal
+mounted Text passed 60 generated/presented edits, 20 worker operations, five file
+cycles, generations 1→25, three client retirements and clean service teardown.
+Full ordinary/native/VM builds, core host tests, 18 proof-parser tests and 397
+local documentation links passed. Actions remain disabled. Evidence is archived
+outside `build` with hashes; no laptop reboot or installed-payload change occurred.
+
+This completes the bounded IRQ entry guard. Deep interpreter callback faults,
+IRQs interrupting battery threads, native firmware/shared-resource ownership and
+physical level-triggered SCI recovery remain open. Native mounted Home and
+ordinary automatic battery startup stay off.
 
 ### Owner-watchdog quarantine and workspace recovery (PR #36)
 

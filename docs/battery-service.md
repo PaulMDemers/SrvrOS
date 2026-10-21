@@ -1135,8 +1135,8 @@ The VM-only `acpiruntime battery-workspace-recovery` command adds a recoverable
 boundary for a sample deadline detected by the service owner. It requires IF set,
 the matching owner identity, a ready runtime, and zero SCI callbacks in flight.
 It masks and reads back all fixed/GPE enables and the SCI route before asking the
-scheduler to quarantine the owner and its worker. All native paths and all other
-fatal paths retain the existing containment/reset interlock. This is **not** an
+scheduler to quarantine the owner and its worker. All native paths and other fatal paths outside the explicit IRQ entry study
+below retain the existing containment/reset interlock. This is **not** an
 exception escape mechanism from an IRQ or an arbitrary AML callback.
 
 The CPU0 scheduler primitive validates boot-lifetime identities and both kernel
@@ -1194,6 +1194,9 @@ threads cannot run, wake, reuse their slots or release interpreter allocations.
 The service stays faulted until reset. Failure to verify masks or retain the pair
 is terminal without restoring IRQs or attempting storage cleanup.
 
+Run `tools/battery_workspace_smoke.py --case recovery-irq` through
+`tools/host-env.sh`; the negative cases are `recovery-irq-target-refusal`,
+`recovery-irq-mask-refusal` and `recovery-irq-refusal` (native admission).
 The VM fixture injects a software SCI on an unrelated storage owner's stack. A
 second handler and completion callback prove continued dispatch; successful
 removal after return checks registry pending/depth accounting. A stack sentinel,
@@ -1208,3 +1211,17 @@ covered.
 Remaining boundaries: deep uACPI callback faults, IRQs interrupting a battery
 thread, native shared locks/firmware resources and physical level-triggered
 behavior. Do not promote this study to native mounted Home or automatic startup.
+
+The shared-resource check for this boundary is deliberately limited to CPU0 and
+the modeled sample sleep. The runtime allocator and spinlock adapter serialize
+with IRQ masking; this entry guard calls neither the allocator nor uACPI. The
+worker's sleep semaphore, interpreter-owned semaphores, work items and heap remain
+allocated with their stacks. Quarantine removes scheduler wait membership without
+pretending to decrement semaphore waiter counts or complete outstanding work.
+Normal storage uses none of those interpreter objects. The SCI token/context
+stays registered, but later deliveries bypass the retained interpreter. Source
+mask verification and scheduler retention occur in one IRQ-excluded interval.
+These observations support the disposable fixture; they do not prove that an
+arbitrary native AML callback holds no firmware Global Lock, EC transaction or
+other shared resource required by unrelated hardware. Those cases still need
+explicit ownership evidence and injected-fault coverage.
