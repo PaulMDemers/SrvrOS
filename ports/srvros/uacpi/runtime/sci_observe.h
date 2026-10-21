@@ -12,8 +12,41 @@ struct sci_controller_observation {
     uint16_t pic_masks;
     uint8_t valid,vector; /* availability: LAPIC=1, I/O APIC=2, PIC=4 */
 };
+/* CPU0 query timeline. Caller serializes updates/snapshots against IRQ entry.
+ * Ages are wall time, including scheduling and transport waits, not CPU time. */
+enum sci_query_phase { SCI_QUERY_IDLE, SCI_QUERY_QUEUED, SCI_QUERY_TRANSFER,
+    SCI_QUERY_AML, SCI_QUERY_CHECK, SCI_QUERY_RESUME };
+struct sci_query_state {
+    uint64_t sequence,started_us,phase_us,transfers;
+    uint8_t phase,code;
+    bool code_valid;
+};
+struct sci_query_snapshot {
+    uint64_t sequence,age_us,phase_age_us,transfers;
+    uint8_t phase,code;
+    bool valid,code_valid;
+};
+static inline void sci_query_start(struct sci_query_state *q,uint64_t now) {
+    uint64_t seq=q->sequence;
+    *q=(struct sci_query_state){.sequence=seq==UINT64_MAX?seq:seq+1,
+        .started_us=now,.phase_us=now,.phase=SCI_QUERY_QUEUED};
+}
+static inline void sci_query_phase(struct sci_query_state *q,uint8_t phase,uint64_t now) {
+    q->phase=phase;q->phase_us=now;
+    if(phase==SCI_QUERY_TRANSFER) {
+        if(q->transfers!=UINT64_MAX)q->transfers++;
+        q->code=0;q->code_valid=false;
+    }
+}
+static inline struct sci_query_snapshot sci_query_snapshot(const struct sci_query_state *q,uint64_t now) {
+    return (struct sci_query_snapshot){.valid=true,.sequence=q->sequence,
+        .age_us=q->sequence&&now>=q->started_us?now-q->started_us:0,
+        .phase_age_us=q->sequence&&now>=q->phase_us?now-q->phase_us:0,
+        .transfers=q->transfers,.phase=q->phase,.code=q->code,.code_valid=q->code_valid};
+}
 struct sci_observation {
     struct sci_controller_observation before,after,post_eoi;
+    struct sci_query_snapshot query_entry;
     uint64_t sequence,at_us,duration_us,previous_gap_us,post_eoi_elapsed_us;
     uint16_t fixed_status,fixed_enable;
     uint8_t ec_status,ec_enable,ec_raw_status,ec_raw_enable,valid,phase;

@@ -16,7 +16,27 @@ for seq in (1,2):
 for seq in (1,2):
     BASE += (f'battery-sci-return: snapshot=retired epoch=2 seq={seq} observed=1 elapsed_us=6 query=1\n').encode()
 
+BASE += b'battery-sci-query: snapshot=retired epoch=2 seq=1 valid=1 cycle=0 phase=0 age_us=0 phase_age_us=0 transfers=0 code_valid=0 code=0\n'
+BASE += b'battery-sci-query: snapshot=retired epoch=2 seq=2 valid=1 cycle=1 phase=3 age_us=8 phase_age_us=3 transfers=2 code_valid=1 code=18\n'
+
 class ObserverRecords(unittest.TestCase):
+    def test_bad_query_records(self):
+        line=BASE.splitlines(keepends=True)[-1]
+        bad=[BASE[:-len(line)],BASE+line,
+             BASE.replace(b'cycle=1 phase=3',b'cycle=0 phase=3'),
+             BASE.replace(b'phase=3',b'phase=6'),
+             BASE.replace(b'phase=3',b'phase=0'),
+             BASE.replace(b'phase_age_us=3',b'phase_age_us=9'),
+             BASE.replace(b'age_us=8',b'age_us=111'),
+             BASE.replace(b'code_valid=1',b'code_valid=0'),
+             BASE.replace(b'code=18',b'code=256'),
+             BASE.replace(b'code=18',b'code=0'),
+             BASE.replace(b'transfers=2',b'transfers=0'),
+             BASE.replace(b'phase=3',b'phase=2')]
+        for value in bad:
+            with self.subTest(value=value):
+                with self.assertRaises(AssertionError):check_sci_records(value)
+
     def test_complete(self):
         self.assertEqual(len(check_sci_records(BASE)),3)
 

@@ -55,7 +55,8 @@ distinguish those stages. Next add bounded passive query phase/sequence/timing
 correlation to the diagnostic runtime and host/VM validators, reusing successful
 reads and existing scheduling transitions. Keep output outside IRQ context; no
 new EC/event reads, policy changes or sibling hardware gates. Implementation scope: add a pure query-phase observer to `sci_observe.h`,
-entry snapshots in `battery_runtime.c`, and matching host tests and
+entry snapshots in `battery_runtime.c`, software query-transfer IRQ injection
+in `battery_vm_platform.c`, and matching host tests and
 `tools/acpi_battery_smoke.py` record validation. No IRQ dispatcher or USB edits.
 Base is main `a3aaa27`; Pro PR #19 remains separate. Native acceptance will require
 a fresh isolated automatic trial after local validation. Ordinary desktop battery

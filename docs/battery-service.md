@@ -655,3 +655,36 @@ or policy changes. The [Air record](machines/macbookair7-2.md) contains exact
 counts, timing limits and preserved recovery evidence. Ordinary desktop battery
 startup, interactive input coexistence and physical gauge accuracy remain
 unaccepted by this automatic trial.
+
+### Query context at SCI entry
+
+Each new `battery-sci-query` row pairs with one event by snapshot/epoch/sequence.
+It copies the diagnostic worker's passive state at SCI callback entry, before
+uACPI dispatch. `valid=1` distinguishes a recorded state from missing evidence.
+`cycle` counts admitted query batches within the runtime lifetime; zero means
+none has started. `transfers` counts attempted query commands in that batch,
+including attempts across worker rescheduling. Counters saturate rather than wrap.
+
+| Phase | Meaning at the sampling point |
+| --- | --- |
+| 0 | Idle; any nonzero cycle describes the most recent completed batch |
+| 1 | Queued or requeued; the same batch retains its cycle and transfer count |
+| 2 | Query transport; returned code is unknown until the transfer succeeds |
+| 3 | Nonzero query code dispatch/logging and AML evaluation |
+| 4 | Query budget/status checks between transfers |
+| 5 | GPE resume boundary, with interrupts masked |
+
+`age_us` is wall time since batch admission; `phase_age_us` is wall time since
+entry to this phase. They include scheduler delay, hardware waits and any logging;
+they are not CPU cost or IRQ latency. On initial idle state both are zero. The
+last successful command's `code` has an independent `code_valid` bit: a valid
+zero is an empty response, while unknown is zero with validity clear. Entering
+a new transfer clears code validity. A new batch resets its transfer count/code.
+
+Updates and snapshots are serialized on CPU0 against IRQ entry. The ring stores
+copies, so later worker progress cannot rewrite an older interrupt's context.
+No transport/event reads, ownership, deadlines or acknowledgement decisions are
+added. A phase identifies where the worker was interrupted, not why an interrupt
+was delivered; bounded retention can omit earlier work. The VM unclaimed-SCI
+fixture injects a software interrupt at a query-command boundary to exercise
+this association. It cannot establish a physical interrupt cause.

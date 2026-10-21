@@ -148,7 +148,15 @@ static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a
 static bool equal(const void *a,const char *b,unsigned n){const char *p=a;for(unsigned i=0;i<n;i++)if(p[i]!=b[i])return false;return true;}
 static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
 static uint8_t read_data(void *c){(void)c;model.obf=false;return model.output;}
-static void command(void *c,uint8_t v){(void)c;model.commands++;model.mode=v;model.step=0;if(v==0x84){model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;}}
+static void command(void *c,uint8_t v) {
+    (void)c;model.commands++;model.mode=v;model.step=0;
+    if(v==0x84) {
+        /* Observe real query-worker state at the transport boundary. Software
+         * injection validates correlation, not physical APIC delivery. */
+        if(model.fault==20)__asm__ volatile("int $41":::"memory");
+        model.output=model.pending?0x20:0;model.pending=model.fault==3;model.obf=true;
+    }
+}
 static void write_data(void *c,uint8_t v){
     (void)c;
     if(!model.step++) {
