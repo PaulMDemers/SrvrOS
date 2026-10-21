@@ -956,6 +956,7 @@ def main():
         "posixdemo: poll ok",
         "posixdemo: pipe ok",
         "posixdemo: malloc ok",
+        "posixdemo: munmap bulk split ok",
         "posixdemo: stdlib extra ok",
         "posixdemo: math ok",
         "posixdemo: pread ok",
