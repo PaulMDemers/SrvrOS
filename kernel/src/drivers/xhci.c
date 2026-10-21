@@ -1221,7 +1221,7 @@ static bool dispatch_strict_control(const struct xhci_trb *event) {
     if (!strict_control.device || (event->control >> 24) != strict_control.device->slot_id ||
         ((event->control >> 16) & 31) != 1) return false;
     uint64_t pointer = event->parameter_low | ((uint64_t)event->parameter_high << 32);
-    if (strict_control.done || (pointer != strict_control.setup && pointer != strict_control.data &&
+    if (strict_control.done || (pointer != strict_control.setup && (!strict_control.length || pointer != strict_control.data) &&
         pointer != strict_control.status)) return true;
     uint32_t cc = event->status >> 24, residue = event->status & 0xffffff;
     if (!(event->control & 4) && strict_control.data_in && pointer == strict_control.data &&
@@ -1264,7 +1264,7 @@ static bool control_transfer_internal(struct xhci_device *device,
     uint32_t length,
     bool data_in, int *actual) {
     if (actual) *actual = -1;
-    if (actual && (((setup->request_type & 0x80) != 0) != data_in || !length || length > PMM_FRAME_SIZE || setup->length != length)) return false;
+    if (actual && (((setup->request_type & 0x80) != 0) != data_in || (!length && data_in) || length > PMM_FRAME_SIZE || setup->length != length)) return false;
     uint64_t submit_flags = event_irq_save();
     if (device->ep0_quarantined || strict_control.device) {
         event_irq_restore(submit_flags);

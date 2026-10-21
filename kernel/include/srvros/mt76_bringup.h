@@ -61,4 +61,15 @@ size_t mt76_firmware_packet(const uint8_t *image, size_t size, size_t index,
 enum mt76_upload_status mt76_upload_firmware(struct mt76_firmware_session *session,
     const struct mt76_firmware_io *io, const struct mt76_identity *identity,
     const uint8_t *image, size_t size, uint8_t *scratch, size_t capacity);
+/* One-shot preparation; caller must own the device and validate firmware
+ * before invoking. Reset callback is vendor device-mode 1, no data stage.
+ * No RF register writes. A failure leaves prepared=false and must quarantine
+ * the native transport; repeating preparation requires physical recovery. */
+struct mt76_prepare_session { bool attempted, prepared; };
+struct mt76_prepare_io {
+    struct mt76_register_io registers;
+    bool (*reset)(void *);
+};
+enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *session,
+    const struct mt76_prepare_io *io, const struct mt76_identity *identity);
 #endif

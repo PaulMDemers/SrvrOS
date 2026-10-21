@@ -145,3 +145,44 @@ enum mt76_upload_status mt76_upload_firmware(struct mt76_firmware_session *sessi
     }
     return MT76_UPLOAD_TIMEOUT;
 }
+
+enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *session,
+    const struct mt76_prepare_io *io, const struct mt76_identity *identity) {
+    if (!session || session->attempted || !io || !io->reset ||
+        !io->registers.read || !io->registers.write || !io->registers.delay ||
+        !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000)
+        return MT76_UPLOAD_REFUSED;
+    session->attempted=true;session->prepared=false;
+    const struct mt76_register_io *r=&io->registers;
+    uint32_t value;
+    /* Refuse an already running or unreadable MCU instead of taking it over. */
+    if (!r->read(r->context,0x730,&value)) return MT76_UPLOAD_IO;
+    if (value==0xffffffffu || (value&1)) return MT76_UPLOAD_REFUSED;
+    if (!r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
+    if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
+    if (!r->write(r->context,0x238,0x00c00000) ||
+        !r->write(r->context,0x1004,0x20) ||
+        !r->read(r->context,0x1004,&value)) return MT76_UPLOAD_IO;
+    /* Upstream uses 0x2c, which enables MAC TX/RX. This diagnostic deliberately
+     * holds both disabled; firmware compatibility must be tested natively. */
+    if (value!=0x20) return MT76_UPLOAD_REFUSED;
+    if (
+        !r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
+    if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
+    if (!r->write(r->context,0x238,value|0x00c00020) ||
+        !io->reset(r->context)) return MT76_UPLOAD_IO;
+    if (!r->delay(r->context,5000)) return MT76_UPLOAD_CANCELLED;
+    static const uint32_t setup[][2] = {
+        {0x800,1}, {0x9a0,0x400230}, {0x9a4,1}, {0x9c4,0x44}, {0xa6c,3}
+    };
+    for (size_t i=0;i<sizeof setup/sizeof setup[0];i++)
+        if (!r->write(r->context,setup[i][0],setup[i][1])) return MT76_UPLOAD_IO;
+    if (!r->read(r->context,0x238,&value)) return MT76_UPLOAD_IO;
+    if (value==0xffffffffu || (value&0xc0000000u)) return MT76_UPLOAD_REFUSED;
+    if (!r->write(r->context,0x238,value|(1u<<16)) ||
+        !r->write(r->context,0x238,value&~(1u<<16))) return MT76_UPLOAD_IO;
+    if (!r->read(r->context,0x1004,&value)) return MT76_UPLOAD_IO;
+    if (value!=0x20) return MT76_UPLOAD_REFUSED;
+    session->prepared=true;
+    return MT76_UPLOAD_OK;
+}

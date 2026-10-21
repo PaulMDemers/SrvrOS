@@ -261,3 +261,34 @@ Wire ordering follows the pinned
 `make test-mt76-upload test-wifi-calibration-audit` covers structural refusals,
 packet bytes/padding, operation ordering, every-operation failure, short bulk/IVB,
 no retry, overlapping buffers and readiness timeout. Native upload is untested.
+
+## Preparation and explicit firmware packaging
+
+`mt76_prepare_firmware` models one-shot MCU/FCE preparation. It refuses an
+already-running/unreadable MCU and busy/unreadable DMA state, checks every
+operation, bounds the post-reset delay and never retries a failed session.
+The xHCI strict control path now also retires zero-data requests by their status
+completion, covering reset and the two half-word FCE vendor writes without
+falling back to permissive legacy completion handling.
+
+There is an intentional difference from Linux's loader: its `MAC_SYS_CTRL=0x2c`
+sets TX/RX enable bits. This diagnostic preparation uses `0x20` and checks the
+readback before reset and after preparation. Nonmatching readback refuses the
+trial. This is a proposed disabled-MAC readiness path, not physically accepted
+firmware compatibility. Native integration must preserve exclusive endpoint/DMA
+ownership and check MAC state after firmware activation as well. Neither the
+preparation helper nor upload helper has a native startup caller yet.
+See the pinned [MAC control bits](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_regs.h)
+and [upstream preparation sequence](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/usb_mcu.c).
+
+`tools/wifi_firmware_package.py IMAGE --license LICENSE --output NEW_DIRECTORY`
+creates an explicit local package containing the hash-pinned binary, exact
+hash-pinned MediaTek license and manifest. It refuses existing destinations,
+unknown firmware, malformed layout and changed license bytes. Inputs are bounded;
+output is staged before publication. The local mt7610e candidate was packaged and
+verified; no firmware bytes enter Git, ordinary OS images or the installed boot
+payload. Consuming that package in an immutable opt-in image still requires
+kernel-side identity/hash verification, endpoint transport and exact-stage tests.
+`make test-mt76-prepare test-wifi-firmware-package test-xhci` tests ordering,
+every-operation failures, busy/live/refusal cases, disabled-MAC checks, package
+refusals and strict zero-data completion/error/quarantine semantics.

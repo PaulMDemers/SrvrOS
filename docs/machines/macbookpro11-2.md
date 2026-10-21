@@ -1574,3 +1574,20 @@ transport. No native reset/upload caller or packaged firmware was added. Next is
 hardware preparation/ownership and pinned firmware packaging before a separate
 native MCU-readiness diagnostic. Installed v43 and recovery remain unchanged;
 no reboot is armed.
+
+Next bounded scope at unchanged main `21a9fdf`: strict zero-data EP0 completion
+for MCU reset/FCE setup, one-shot MCU/FCE preparation with fault injection, and
+an explicit pinned firmware/license package for future opt-in integration. Touch
+xHCI strict transport, mt76 helpers/tests, host package tool and unit/Wi-Fi docs.
+Ordinary enumeration and immutable boot profiles remain unchanged until complete
+native ownership and exact-stage rehearsal are available. No new physical run.
+
+Preparation checkpoint: strict zero-data xHCI control completion and one-shot
+MCU/FCE preparation are implemented with host fault tests. Inspection found that
+upstream's MAC control 0x2c enables TX/RX; the proposed readiness preparation uses
+0x20 with readback checks instead. Native compatibility remains unknown and no
+hardware writes were issued. A hash-pinned mt7610e/license package was produced
+locally; it is not in the boot image. Next: native endpoint/DMA ownership and
+kernel-side verified package consumption, then an immutable readiness profile
+and exact-image rehearsal. Installed calibration payload/recovery unchanged;
+no reboot armed. No firmware or radio acceptance is claimed.

@@ -866,6 +866,29 @@ static void test_control_worker_completion(void) {
     puts("xhci-control-worker: PASS dispatched short/status completion and stale events");
 }
 
+static void test_strict_no_data(void) {
+    for (unsigned fault=0;fault<6;fault++) {
+        reset_test();
+        struct xhci_trb ring[64]={0}, events[64]={0};
+        struct xhci_device d={.slot_id=1,.ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        struct usb_setup_packet request={.request_type=0x40,.request=1,.value=1};
+        events[0]=control_event(0x9010,1,0);
+        if(fault==1) events[0]=control_event(0x9000,6,0);
+        if(fault==2) events[0]=control_event(0x9010,6,0);
+        if(fault==3) events[0]=control_event(0x9010,13,0);
+        if(fault==4) events[0]=control_event(0x9010,1,1);
+        if(fault==5) events[0]=(struct xhci_trb){0};
+        int actual=-1;
+        assert(control_transfer_internal(&d,&request,0,0,false,&actual)==!fault);
+        assert(d.ep0_enqueue==2 && ((ring[0].control>>16)&3)==0);
+        assert(ring[1].control&XHCI_STATUS_DIR_IN);
+        assert(d.ep0_quarantined==!!fault && actual==(fault?-1:0));
+        if(fault) assert(!control_transfer_internal(&d,&request,0,0,false,&actual) && d.ep0_enqueue==2);
+    }
+    puts("xhci-no-data: PASS exact status retirement, setup/status errors, residue, timeout and quarantine");
+}
+
 static void test_strict_control(void) {
     for (unsigned output = 0; output < 2; ++output) for (unsigned wrap = 0; wrap < 2; ++wrap) for (unsigned scenario = 0; scenario < 16; ++scenario) {
         reset_test();
@@ -1013,6 +1036,7 @@ int main(int argc, char **argv) {
     assert(argc == 3);
     test_control_worker_completion();
     test_strict_control();
+    test_strict_no_data();
     test_wifi_write_guard();
     test_wifi_probe();
     test_ep0_packet();
