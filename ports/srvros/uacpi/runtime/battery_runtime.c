@@ -1105,7 +1105,6 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
     int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd","--coexist-capture");
     if(child<=0)goto done;
     pid=(uint64_t)child;start=timer_monotonic_us();
-    console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=ram\n",pid,before.epoch,before.sample.generation,start);
     deadline=start+(fault==2?500000:90000000);
     for(;;) {
         battery_service_status(&after);reads++;
@@ -1135,6 +1134,8 @@ done:
         }
     }
     if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
+    /* Defer the saved start record until competing process/runtime writers stop. */
+    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=ram\n",pid,before.epoch,before.sample.generation,start);
     console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
         ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
     return ok;
