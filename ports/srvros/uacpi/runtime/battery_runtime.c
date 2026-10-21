@@ -90,13 +90,15 @@ static void sci_report(const char *snapshot) {
             (uint64_t)r->query_before,(uint64_t)r->query_after,(uint64_t)r->valid,
             (uint64_t)r->fixed_status,(uint64_t)r->fixed_enable,(uint64_t)r->ec_status,
             (uint64_t)r->ec_enable,(uint64_t)r->ec_raw_status,(uint64_t)r->ec_raw_enable);
-        for(unsigned j=0;j<2;j++) {
-            const struct sci_controller_observation *c=j?&r->after:&r->before;
+        for(unsigned j=0;j<3;j++) {
+            const struct sci_controller_observation *c=j==2?&r->post_eoi:j?&r->after:&r->before;
             console_printf("battery-sci-controller: snapshot=%s epoch=%u seq=%u point=%s valid=%u vector=%u gsi=%u lapic_bits=%u lint0=%x route_low=%x route_high=%x pic_masks=%x\n",
-                snapshot,epoch,r->sequence,j?"after":"before",(uint64_t)c->valid,
+                snapshot,epoch,r->sequence,j==2?"post_eoi":j?"after":"before",(uint64_t)c->valid,
                 (uint64_t)c->vector,(uint64_t)c->gsi,(uint64_t)c->lapic_bits,
                 (uint64_t)c->lint0,(uint64_t)c->route_low,(uint64_t)c->route_high,(uint64_t)c->pic_masks);
         }
+        console_printf("battery-sci-return: snapshot=%s epoch=%u seq=%u observed=%u elapsed_us=%u query=%u\n",
+            snapshot,epoch,r->sequence,(uint64_t)r->post_eoi_observed,r->post_eoi_elapsed_us,(uint64_t)r->query_post_eoi);
     }
 }
 static bool claim_diagnostic(void) {
@@ -314,6 +316,11 @@ static bool irq_bridge(void *context) {
      * logging in the IRQ path; a delivered interrupt is not necessarily ours. */
     return handled;
 }
+static void sci_after_eoi(void *context) {
+    (void)context;
+    struct sci_controller_observation c=sci_controller_snapshot();
+    sci_observe_post_eoi(&runtime.sci_observer,c,timer_monotonic_us(),runtime.query_scheduled);
+}
 static bool sci_read(void *ctx, uint32_t gsi, uint32_t *low, uint32_t *high) {
     (void)ctx; return ioapic_read_gsi(gsi, low, high);
 }
@@ -328,7 +335,7 @@ static bool sci_restore(void *ctx, uint32_t gsi, uint32_t low, uint32_t high) {
 }
 static uint64_t sci_register(void *ctx, uint8_t line, irq_handler_fn fn, void *context) {
     (void)ctx;
-    return irq_handler_register(line, fn, context);
+    return irq_handler_register_observed(line, fn, sci_after_eoi, context);
 }
 static bool sci_remove(void *ctx, uint64_t token) { (void)ctx; return irq_handler_remove(token); }
 uacpi_status uacpi_kernel_install_interrupt_handler(uacpi_u32 irq,uacpi_interrupt_handler fn,uacpi_handle ctx,uacpi_handle *out) {

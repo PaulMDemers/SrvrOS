@@ -3356,3 +3356,11 @@ test-lapic-snapshot: build/tests/lapic-snapshot-host$(HOST_EXE)
 build/tests/lapic-snapshot-host$(HOST_EXE): tools/test_lapic_snapshot.c kernel/src/arch/x86_64/lapic.c kernel/src/arch/x86_64/lapic.h $(KERNEL_HEADERS) $(LIMINE_PROTOCOL_DIR)/.ready
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include -I $(LIMINE_PROTOCOL_DIR)/include $< -o $@
+
+.PHONY: test-irq-completion
+test-core: test-irq-completion
+test-irq-completion: build/tests/irq-completion-host$(HOST_EXE)
+	$<
+build/tests/irq-completion-host$(HOST_EXE): tools/test_irq_completion.c kernel/src/irq_handlers.c kernel/src/arch/x86_64/irq.c $(KERNEL_HEADERS)
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=gnu11 -O2 -Wall -Wextra -Werror -I kernel/include -I shared/include $< -o $@

@@ -33,13 +33,22 @@ def check_sci_records(part):
     # reconcile completed callbacks with the existing phase counters.
     headers=re.findall(rb"battery-sci-observe: snapshot=(ready|retired|fault) epoch=(\d+) total=(\d+) retained=(\d+) overwritten=(\d+) ec_mask=(0x[0-9a-fA-F]+)",part)
     events=re.findall(rb"battery-sci-event: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) phase=(\d+) handled=(\d+) at_us=(\d+) duration_us=(\d+) previous_valid=(\d+) previous_handled=(\d+) gap_us=(\d+) query_before=(\d+) query_after=(\d+) valid=(0x[0-9a-fA-F]+) fixed_status=(0x[0-9a-fA-F]+) fixed_enable=(0x[0-9a-fA-F]+) ec_status=(0x[0-9a-fA-F]+) ec_enable=(0x[0-9a-fA-F]+) ec_raw_status=(0x[0-9a-fA-F]+) ec_raw_enable=(0x[0-9a-fA-F]+)",part)
-    controllers=re.findall(rb"battery-sci-controller: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) point=(before|after) valid=(\d+) vector=(\d+) gsi=(\d+) lapic_bits=(\d+) lint0=(0x[0-9a-fA-F]+) route_low=(0x[0-9a-fA-F]+) route_high=(0x[0-9a-fA-F]+) pic_masks=(0x[0-9a-fA-F]+)",part)
+    controllers=re.findall(rb"battery-sci-controller: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) point=(before|after|post_eoi) valid=(\d+) vector=(\d+) gsi=(\d+) lapic_bits=(\d+) lint0=(0x[0-9a-fA-F]+) route_low=(0x[0-9a-fA-F]+) route_high=(0x[0-9a-fA-F]+) pic_masks=(0x[0-9a-fA-F]+)",part)
     assert len(controllers)==part.count(b'battery-sci-controller:'),'Malformed controller record'
-    assert len(controllers)==2*len(events),'Missing or extra controller record'
+    assert len(controllers)==3*len(events),'Missing or extra controller record'
+    returns=re.findall(rb"battery-sci-return: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) observed=(\d+) elapsed_us=(\d+) query=(\d+)",part)
+    assert len(returns)==part.count(b'battery-sci-return:')==len(events),'Missing/malformed completion record'
     for event in events:
         pair=[c for c in controllers if c[:3]==event[:3]]
-        assert [c[3] for c in pair]==[b'before',b'after'],pair
-        assert pair[0][5:7]==pair[1][5:7],pair # Stable owned vector/GSI identity.
+        assert [c[3] for c in pair]==[b'before',b'after',b'post_eoi'],pair
+        assert pair[0][5:7]==pair[1][5:7]==pair[2][5:7],pair # Stable owned vector/GSI identity.
+        completion=[r for r in returns if r[:3]==event[:3]]
+        assert len(completion)==1,completion
+        r=completion[0];observed,elapsed,query=map(int,r[3:])
+        assert observed<=1 and query<=1,r
+        if event[0]!=b'fault':assert observed==1,r
+        if observed:assert elapsed>=int(event[6]),r
+        else:assert elapsed==query==int(pair[2][4])==0,r
         for c in pair:
             valid,vector,gsi,bits=map(int,c[4:8])
             lint,low,high,masks=(int(v,16) for v in c[8:])
