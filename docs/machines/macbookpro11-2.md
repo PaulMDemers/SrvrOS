@@ -1279,3 +1279,11 @@ their archives. No reboot is armed. The bounded networking/UI task is complete;
 next scope is separate integration review against newer main. Multiple physical
 adapters remain untested; one boot-selected IP provider remains the limit.
 Battery work, headphone testing and further trackpad latency work stay deferred.
+
+Integration scope: user authorizes local validation and merging PR #5 while
+Actions are disabled. Consume actual main `9d9c72e` (battery filesystem isolation,
+operation scheduling and FAT batching), preserving Pro desktop/network profiles
+and both machines' evidence. Resolve shared staging/kernel/tool conflicts by
+behavior, run the CI baseline locally plus affected networking regressions,
+then merge the reviewed PR. Installed native payload stays `81e3308ffcdfe637`;
+the combined source tree requires its own later physical acceptance.
