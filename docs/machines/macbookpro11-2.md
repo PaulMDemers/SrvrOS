@@ -1647,3 +1647,16 @@ installed with Ubuntu default and previous recovery retained; preboot filesystem
 allocation checks pass. Calibration payload was removed from EFI only after
 verifying its durable archive. Next authorized boot needs no input and will
 record the refusal prerequisite; physical firmware startup remains unaccepted.
+
+Native cached-progress trial `56b0d84701bc99ff`, session `00065e5fc1be293b-00`,
+identifies a live MCU: first/only read 0x730 returns 1, prepared=0, reset=0,
+upload=0. The explicit live-MCU refusal fires before firmware preparation writes.
+Completed=NO remains a failed readiness trial; no upload accepted. Logs archived,
+Ubuntu/consumed one-shot/recovery verified, offline checks pass (117 files, 424
+clusters, zero leaks/mismatches/errors). Ubuntu currently uses this adapter for
+its default network route, so unloading it would interrupt the agent connection.
+Next: reuse the exact tested image after an attended cold adapter power-cycle
+while Ubuntu is shut down. The local cold-run record/shutdown helper are prepared
+but unarmed; wait for user readiness, arm one-shot and shut down, then have the
+user unplug/reconnect only Wi-Fi while off and power on. No Linux driver blacklist
+or firmware takeover workaround is installed.

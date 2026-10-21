@@ -329,3 +329,19 @@ published v43. Verification now recognizes both exact historical recipes and
 requires identical config copies; it does not infer the mode from the host UUID.
 New calibration stages use v44, Air app-file stages retain v43, and historical
 installed payload bytes are unchanged. Firmware stages use the descriptive name.
+
+### Cold-start prerequisite for the native upload diagnostic
+
+On Pro11,2, the warm-boot firmware diagnostic observed MCU register 0x730=1
+on its first read, before reset or upload. Ubuntu had bound mt76x0u and used the
+adapter for its default route. This is the intentional already-running-MCU
+refusal, not firmware upload acceptance. Cached progress records the last
+successful read and preparation/reset/upload state without adding hardware I/O.
+
+To test upload from a cold adapter, retain the exact rehearsed image and recovery,
+prepare an attended shutdown run record, and confirm the user can perform the
+physical step before shutting down. Once fully off, unplug only the Wi-Fi adapter
+for ten seconds, reconnect it, then power on into the one-shot diagnostic. Leave
+the workspace drive connected. Collect the new matching session on Ubuntu return.
+An ordinary reboot, USB logical reset or unbind does not establish removal of
+adapter power; do not relax the live-MCU gate to bypass this prerequisite.
