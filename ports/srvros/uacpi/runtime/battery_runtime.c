@@ -6,6 +6,7 @@
 #include "sci_owner.h"
 #include "sci_observe.h"
 #include "ec_query_budget.h"
+#include "ec_query_rearm.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
 #include <srvros/arch.h>
@@ -498,6 +499,13 @@ static bool pending_query(void) {
     if(uacpi_gpe_info(NULL,runtime.platform.ec.gpe,&info))unsafe("GPE read");
     return (info&UACPI_EVENT_INFO_HW_STATUS)||(runtime.platform.io.status(runtime.platform.io.context)&32);
 }
+static bool rearm_pending(void *context) { (void)context;return pending_query(); }
+static void rearm_queue(void *context) { (void)context;queue_query(); }
+static void rearm_resume(void *context) {
+    (void)context;query_phase(SCI_QUERY_RESUME);
+    if(uacpi_resume_gpe(NULL,runtime.platform.ec.gpe))unsafe("GPE resume");
+    query_phase(SCI_QUERY_IDLE);
+}
 static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *node,uacpi_u16 idx) {
     (void)ctx;(void)node;
     if(idx!=runtime.platform.ec.gpe)unsafe("wrong EC GPE");
@@ -534,10 +542,9 @@ static void query_work(void *ctx) {
     } else {
         if(!ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query finish");
         runtime.query_scheduled=false;
-        query_phase(SCI_QUERY_RESUME);
-        if(uacpi_resume_gpe(NULL,runtime.platform.ec.gpe))unsafe("GPE resume");
-        query_phase(SCI_QUERY_IDLE);
-        if(pending_query())queue_query(); /* Close edge/pending race with IRQs off. */
+        const struct ec_query_rearm_ops rearm={.pending=rearm_pending,
+            .resume=rearm_resume,.queue=rearm_queue};
+        ec_query_rearm(&rearm); /* Keep IRQs off through both pending checks. */
     }
     irq_restore(flags);
 }

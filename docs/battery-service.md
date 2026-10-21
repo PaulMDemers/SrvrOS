@@ -688,3 +688,30 @@ added. A phase identifies where the worker was interrupted, not why an interrupt
 was delivered; bounded retention can omit earlier work. The VM unclaimed-SCI
 fixture injects a software interrupt at a query-command boundary to exercise
 this association. It cannot establish a physical interrupt cause.
+
+Air7,2 release `df04f96a16d0f850` (PR #23, source `68aac71`) accepts the query
+context observations with the isolated workload and clean retirement. All five
+retained unclaimed callbacks observed a new queued batch just 5–6 microseconds
+old, with no transfer yet. The event was already disabled/clear for the EC mask;
+post-EOI controller state again cleared normally. This points toward the worker's
+resume-then-recheck ordering, rather than an interrupt during query transport or
+AML, in these retained samples. It is correlation, not proof of the source.
+
+### Check pending work before GPE resume
+
+At the end of a query batch, with the owned GPE still suspended and IRQ dispatch
+excluded, check pending status first. Known pending work is queued while the
+source stays disabled. Otherwise resume the GPE and retain the existing pending
+check after resume. This avoids briefly enabling a source already known pending,
+which can latch an interrupt before the subsequent queue operation masks and
+clears it. It preserves the post-resume check for arrivals after the first read.
+An arrival in that window can still latch a delivery; claims are never forced to
+handled merely because this race is possible.
+
+`ec_query_rearm.h` defines the ordering through the existing pending/resume/queue
+callbacks. The runtime retains its EC/GPE access gates, raw GPE handler, query
+budgets, worker ownership, stop and retirement behavior. The host fixture models
+a latched interrupt surviving source clear, known GPE or EC pending work, a quiet
+source, and arrivals before/during/after resume and after the final check. Native
+acceptance of this ordering requires a new release and matching saved evidence;
+ordinary desktop battery startup remains disabled.
