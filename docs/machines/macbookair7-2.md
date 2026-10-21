@@ -60,6 +60,15 @@ caches make this quadratic teardown work. Extend scope to a single-pass range
 removal in `kernel/src/process.c`, preserving mapping validation and frame release.
 Validate mmap semantics and repeat overlap/cleanup before attributing the failure
 to this candidate. Keep the existing EC timeout and containment unchanged.
+The repeat VM passed after the single-pass change, including 60 presentations,
+real injected typing, clean battery retirement and replacement compositor startup.
+Extend the implementation to an opt-in v39 laptop probe: `--battery-desktop`,
+with parked workspace, automatic return, exact-stage refusal rehearsal and strict
+collector pairing. This adds `main.c`, diagnostic header/stub, hardware staging,
+smoke/collection and tests; preserve Pro PR #19's separate desktop recipe.
+The study uses the existing legacy text-input path; rich keyboard-event Text-app
+coexistence and loaded filesystem overlap remain subsequent checks.
+
 
 ### Previous native query correlation accepted
 
