@@ -1313,3 +1313,14 @@ The user authorizes merging PR #5 after these checks. Durable integration logs
 and receipts are archived outside `build`. Installed desktop/recovery remain
 `81e3308ffcdfe637` / `e47dca3a6b30c6c1`; no reboot or installation is armed.
 Battery, headphone and further trackpad-latency acceptance remain deferred.
+
+Post-merge physical regression scope: user requests pull/update and the next
+native test. Main is now `cd732ec` (PR #13 bounded USB data batching). Fast-forward
+this device branch, rebuild and run core/storage hardening, USB transport and
+exact GPT/scaled/audio/network desktop checks before installation. Shared source
+is unchanged by this device step. Use the existing untimed Terminal cable trial
+and persistent Help checklist for input/apps, brightness, speakers, both fans,
+Pause/Resume and Text save/reopen. Preserve current accepted network payload and
+previous recovery independently; retain Ubuntu default. Battery/headphones and
+further pointer-latency tuning remain deferred. Collect this exact new session
+before another stage; local/VM passes do not accept the updated native tree.
