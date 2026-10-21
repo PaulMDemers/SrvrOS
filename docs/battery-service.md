@@ -1135,8 +1135,8 @@ The VM-only `acpiruntime battery-workspace-recovery` command adds a recoverable
 boundary for a sample deadline detected by the service owner. It requires IF set,
 the matching owner identity, a ready runtime, and zero SCI callbacks in flight.
 It masks and reads back all fixed/GPE enables and the SCI route before asking the
-scheduler to quarantine the owner and its worker. All native paths and all other
-fatal paths retain the existing containment/reset interlock. This is **not** an
+scheduler to quarantine the owner and its worker. All native paths and other fatal paths outside the explicit IRQ entry study
+below retain the existing containment/reset interlock. This is **not** an
 exception escape mechanism from an IRQ or an arbitrary AML callback.
 
 The CPU0 scheduler primitive validates boot-lifetime identities and both kernel
@@ -1178,3 +1178,50 @@ the saved failure log against serial evidence, and verifies the exact file tree,
 metadata, unchanged anchors and allocation graph offline. Remaining native
 prerequisites include IRQ-origin fault handling, shared-lock/resource audits and
 fault injection around real device operations. Automatic startup remains off.
+
+### VM IRQ entry containment
+
+`acpiruntime battery-workspace-recovery-irq` extends the disposable workspace
+study to the foreign-enable guard at SCI callback entry. It does not recover
+arbitrary faults inside the interpreter callback. The native backend refuses the
+command before platform access; ordinary desktop startup remains unchanged.
+
+With IRQs masked on CPU0, the guard verifies source masks and retains both
+noncurrent battery service threads. Neither can be the interrupted thread or a
+storage owner. It returns unclaimed through the normal IRQ registry, dispatcher
+EOI and completion callbacks; the interrupted stack continues normally. Retained
+threads cannot run, wake, reuse their slots or release interpreter allocations.
+The service stays faulted until reset. Failure to verify masks or retain the pair
+is terminal without restoring IRQs or attempting storage cleanup.
+
+Run `tools/battery_workspace_smoke.py --case recovery-irq` through
+`tools/host-env.sh`; the negative cases are `recovery-irq-target-refusal`,
+`recovery-irq-mask-refusal` and `recovery-irq-refusal` (native admission).
+The VM fixture injects a software SCI on an unrelated storage owner's stack. A
+second handler and completion callback prove continued dispatch; successful
+removal after return checks registry pending/depth accounting. A stack sentinel,
+current identity and I/O ownership must survive. Both flushes, retained state
+across the old sleep deadline, saved failure logs, ordinary unmount and automatic
+reset are checked. This exercises the real software dispatcher/EOI path, not a
+physical level-triggered SCI or outstanding device DMA. Negative fixtures inject
+on the battery worker itself or refuse an enable-mask write; neither may resume
+or claim clean retirement. The previous watchdog recovery remains separately
+covered.
+
+Remaining boundaries: deep uACPI callback faults, IRQs interrupting a battery
+thread, native shared locks/firmware resources and physical level-triggered
+behavior. Do not promote this study to native mounted Home or automatic startup.
+
+The shared-resource check for this boundary is deliberately limited to CPU0 and
+the modeled sample sleep. The runtime allocator and spinlock adapter serialize
+with IRQ masking; this entry guard calls neither the allocator nor uACPI. The
+worker's sleep semaphore, interpreter-owned semaphores, work items and heap remain
+allocated with their stacks. Quarantine removes scheduler wait membership without
+pretending to decrement semaphore waiter counts or complete outstanding work.
+Normal storage uses none of those interpreter objects. The SCI token/context
+stays registered, but later deliveries bypass the retained interpreter. Source
+mask verification and scheduler retention occur in one IRQ-excluded interval.
+These observations support the disposable fixture; they do not prove that an
+arbitrary native AML callback holds no firmware Global Lock, EC transaction or
+other shared resource required by unrelated hardware. Those cases still need
+explicit ownership evidence and injected-fault coverage.

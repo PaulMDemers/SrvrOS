@@ -23,6 +23,8 @@ struct battery_platform {
     void (*model_sample_begin)(uint64_t generation);
     /* VM-only CPU-bound setup workload; native leaves this NULL. */
     void (*model_setup_work)(void);
+    /* Disposable VM only: raise the foreign-enable entry guard. */
+    bool (*model_irq_fault)(void);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

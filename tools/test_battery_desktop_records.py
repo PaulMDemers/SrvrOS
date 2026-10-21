@@ -245,4 +245,20 @@ class RecoveryRecords(unittest.TestCase):
         for old,new in ((b'before=1',b'before=0'),(b'after=1',b'after=0'),(b'28000100',b'100'),(b'owner_completed=yes',b'owner_completed=NO')):
             with self.assertRaises(AssertionError):check_recovery(io.replace(old,new))
 
+    def test_irq_return_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        row=b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n'
+        self.assertTrue(check_recovery(io+row)['irq_entry_recovered'])
+        self.assertFalse(check_recovery(io)['irq_entry_recovered'])
+        for old,new in ((b'interrupted=6',b'interrupted=0'),(b'interrupted=6',b'interrupted=7'),
+                        (b'interrupted=6',b'interrupted=8'),(b'peer=1',b'peer=0'),
+                        (b'completion=1',b'completion=0'),(b'in_flight=0',b'in_flight=1'),
+                        (b'returned=yes',b'returned=NO'),(b'registry_released=yes',b'registry_released=NO'),
+                        (b'claim=unclaimed',b'claim=handled')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(io+row.replace(old,new))
+        with self.assertRaises(AssertionError):check_recovery(io+row+row)
+        with self.assertRaises(AssertionError):check_recovery(RECOVERY+row)
+
 if __name__=='__main__':unittest.main()

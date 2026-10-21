@@ -81,7 +81,10 @@ def check_recovery(data):
     io_rows=re.findall(rb'^battery-recovery-io: before=1 after=1 elapsed_us=(\d+); owner_completed=yes\r?$',data,re.M)
     assert len(io_rows)==io and sum(r.startswith(b'battery-recovery-io:') for r in data.splitlines())==io
     if io:assert int(io_rows[0])>=28000000
-    return dict(status='PASS',outcome='contained-failure',owner=owner,worker=worker,io_at_quarantine=io,
+    irq_rows=re.findall(rb'^battery-recovery-irq: interrupted=(\d+) peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\r?$',data,re.M)
+    assert len(irq_rows)<=1 and sum(r.startswith(b'battery-recovery-irq:') for r in data.splitlines())==len(irq_rows)
+    if irq_rows:assert io==1 and int(irq_rows[0])>0 and int(irq_rows[0]) not in (owner,worker)
+    return dict(irq_entry_recovered=bool(irq_rows),status='PASS',outcome='contained-failure',owner=owner,worker=worker,io_at_quarantine=io,
                 retained_heap=heap,worker_completed=completed,generation=generation,runtime_retired=False,native_acceptance='not tested')
 
 
@@ -131,7 +134,7 @@ def verify_recovery(data,serial):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal'),default='normal')
+    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -146,9 +149,9 @@ def main():
         mbr=bytearray(512);mbr[450]=7
         struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('29' if args.case=='recovery-owner-refusal' else '28' if args.case in ('runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal') else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('32' if args.case=='recovery-irq-mask-refusal' else '31' if args.case=='recovery-irq-target-refusal' else '30' if args.case in ('recovery-irq','recovery-irq-refusal') else '29' if args.case=='recovery-owner-refusal' else '28' if args.case in ('runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal') else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('refusal','recovery-refusal') else 'vm.elf')
+        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('refusal','recovery-refusal','recovery-irq-refusal') else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
@@ -171,9 +174,16 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-recovery-irq' if args.case.startswith('recovery-irq') else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case=='recovery-owner-refusal':
+                if args.case in ('recovery-irq-target-refusal','recovery-irq-mask-refusal'):
+                    data=wait_for(b'battery: HALTED IRQ entry quarantine admission',90)
+                    assert b'battery-quarantine:' not in data and b'battery-recovery: saved=' not in data
+                    assert b'contained fault; returning' not in data and b'battery-recovery-irq:' not in data
+                    output.extend(read_for(serial,1));assert process.poll() is None
+                    result=dict(status='PASS',expected_failure=args.case,automatic_reset=False,storage_retirement='NOT claimed')
+                    stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
+                elif args.case=='recovery-owner-refusal':
                     data=wait_for(b'battery: HALTED quarantine admission',90)
                     assert b'battery-vm: worker storage owner=yes' in data
                     assert b'battery-quarantine:' not in data and b'battery-recovery: saved=' not in data
@@ -181,13 +191,14 @@ def main():
                     output.extend(read_for(serial,1));assert process.poll() is None
                     result=dict(status='PASS',expected_failure='quarantine refuses storage owner',automatic_reset=False,storage_retirement='NOT claimed')
                     stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
-                elif args.case in ('recovery','recovery-io'):
+                elif args.case in ('recovery','recovery-io','recovery-irq'):
 
                     data=wait_for(b'battery-recovery: returning after storage drain; test outcome=contained-failure',100)
                     assert process.wait(timeout=10)==0
                     disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                     volume.write_bytes(disk[2048*512:]);result=verify_recovery(volume.read_bytes(),data)
-                    assert result['io_at_quarantine']==int(args.case=='recovery-io')
+                    assert result['io_at_quarantine']==int(args.case in ('recovery-io','recovery-irq'))
+                    if args.case=='recovery-irq':assert result['irq_entry_recovered']
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
@@ -203,14 +214,14 @@ def main():
                     result=dict(status='PASS',expected_failure='runtime deadline',reset_blocked=True,storage_retirement='NOT claimed',native_acceptance='not tested')
                     stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
                 else:
-                    wait_for(b'battery-recovery:' if args.case=='recovery-refusal' else b'battery-workspace:',100)
+                    wait_for(b'battery-recovery:' if args.case in ('recovery-refusal','recovery-irq-refusal') else b'battery-workspace:',100)
                     serial.sendall(b'dmesg 65536\necho WORKSPACE_STUDY_END\n')
                     snapshot=wait_for(b'\nWORKSPACE_STUDY_END\r\n',15)
                     starts=list(re.finditer(rb'^WORKSPACE_STUDY_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
                     if args.case=='normal':result=check(data)
-                    elif args.case in ('refusal','recovery-refusal'):
-                        assert (b'battery-recovery: REFUSED VM-only study' if args.case=='recovery-refusal' else b'battery-workspace: REFUSED VM-only study') in data
+                    elif args.case in ('refusal','recovery-refusal','recovery-irq-refusal'):
+                        assert (b'battery-recovery: REFUSED VM-only study' if args.case in ('recovery-refusal','recovery-irq-refusal') else b'battery-workspace: REFUSED VM-only study') in data
                         assert b'battery-service:' not in data and b'battery-native:' not in data
                         result=dict(status='PASS',native_study_admission='refused before runtime')
                     else:
