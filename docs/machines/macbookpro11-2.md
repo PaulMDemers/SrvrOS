@@ -1679,3 +1679,10 @@ Ubuntu/recovery/consumed one-shot verified. Offline checks pass: 119 files, 427
 clusters, zero leaks/mismatches/errors. Next scope is cold-start USB enumeration
 and EP0 timing/completion diagnosis; do not relax firmware ownership gates or
 retry uncertain DMA blindly. No next boot is armed.
+
+Cold USB scope: diagnose post-address descriptor timing in xHCI and add host
+regressions without firmware gate changes. Fetched main `49ded19` (Air battery
+controls); integration overlaps staging and reuses v44, so it is deferred while
+isolating this USB change on the prior `84cf41e` baseline. The attempted merge
+was aborted without changing either branch. Reconcile immutable profiles before
+consuming that baseline; no Air EC or battery changes are part of this fix.

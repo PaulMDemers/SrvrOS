@@ -287,6 +287,35 @@ static void setup_port_model(uint32_t connect_at) {
     port_model.state = (1u << 10) | XHCI_PORTSC_PP; /* Full speed, initially absent. */
 }
 
+static void test_address_recovery(void) {
+    for (unsigned mode=0;mode<3;mode++) {
+        setup_port_model(0);
+        port_model.now=16350; /* Recovery crosses the 14-bit MFINDEX wrap. */
+        port_model.frozen=mode==1;
+        uint64_t dcbaa[256]={0};
+        struct xhci_trb commands[256]={0},events[256]={0};
+        xhci.dcbaa=dcbaa;xhci.max_slots=8;xhci.db_base=0x1000;
+        xhci.command_ring=commands;xhci.command_ring_phys=(uintptr_t)commands;
+        xhci.command_cycle=true;xhci.event_ring=events;xhci.event_cycle=true;
+        for(unsigned i=0;i<2;i++) {
+            uint64_t ptr=(uintptr_t)&commands[i];
+            events[i]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,
+                .parameter_high=ptr>>32,.status=((mode==2 && i==1)?17u:1u)<<24,
+                .control=1|(XHCI_TRB_TYPE_COMMAND_COMPLETION<<10)|(1u<<24)};
+        }
+        struct xhci_device d={.speed=3,.port_id=1};
+        assert(allocate_device_runtime(&d));
+        uint64_t allocated=pool_used;
+        assert(address_device(&d)==(mode==0));
+        assert(d.ep0_enqueue==0); /* No early descriptor TD is submitted. */
+        if(mode==0)assert(port_model.now>=16431 && !d.ep0_quarantined && d.addressed);
+        if(mode==1)assert(port_model.now==16350 && d.ep0_quarantined && d.addressed);
+        if(mode==2)assert(port_model.now==16350 && !d.addressed);
+        assert(pool_used==allocated && freed==0); /* Retain controller-owned memory. */
+    }
+    puts("xhci-address: PASS recovery interval, clock wrap/stall and failed address command");
+}
+
 static void test_root_ports(void) {
     /* The old one-shot scan misses this device entirely. The reset is also
      * deliberately invisible for 10 ms; PR=0 is not reset completion. */
@@ -1136,6 +1165,7 @@ int main(int argc, char **argv) {
     test_device_inventory();
     test_storage();
     test_root_ports();
+    test_address_recovery();
     test_scratchpads();
     test_handoff();
     test_keyboard_context(argv[1], 1, 5, 64);

@@ -1714,6 +1714,15 @@ static bool address_device(struct xhci_device *device) {
     }
     device->addressed = true;
     xhci.addressed_devices++;
+    /* Address Device completes SET_ADDRESS, but the device still needs its
+     * recovery interval before the first descriptor request. Linux hub.c also
+     * allows 10 ms here. Use the controller clock before scheduler startup. */
+    device->stage = "address-recovery";
+    if (!wait_microframes(80)) {
+        device->ep0_quarantined = true;
+        console_printf("xhci: address recovery clock stalled slot=%u\n", (uint64_t)device->slot_id);
+        return false;
+    }
     return true;
 }
 
