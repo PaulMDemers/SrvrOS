@@ -2,6 +2,23 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
+### Active scope: passive SCI observation
+
+Branch `device/macbookair7-2/sci-observation`, base main `3c1739b`.
+Investigate the repeated 24 handled / 24 unclaimed active SCI deliveries before
+ordinary desktop battery integration. Touch the diagnostic battery runtime,
+a pure bounded observation helper, host tests and the battery VM harness. Capture
+only existing successful uACPI event reads (fixed status/enable and the EC GPE
+byte), first-read values, callback result, timing and query scheduling state.
+No additional event/EC reads, acknowledgements, event enable changes, native model
+gates or IRQ claim-policy changes. Report outside IRQ context and retain missing
+reads as unknown. Timestamps use the existing read-only PM timer. Validate bounded storage and the injected unclaimed VM case
+before a native automatic capture. Implementation `2da3043` passes the host core
+suite, observer unit/record-corruption tests, native/VM builds and all five focused
+VM cases (injected unclaimed, normal service, foreign event, isolated filesystem
+and active deadline). Native observation remains pending. Pro branch inspected at `4f9fa06`; its current
+scope is post-merge desktop validation, with battery deferred.
+
 Latest accepted **bounded USB data batching**: release `e1ba87c6133b2e9d`,
 merged source `cd732ec` (PR #13, including the Pro PR #5 baseline), session
 `session-00065e50be1d9e42-00`. The automatic run completed 45 cycles / 810

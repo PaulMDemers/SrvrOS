@@ -4,6 +4,7 @@
 #include "battery_transition.h"
 #include "work_worker.h"
 #include "sci_owner.h"
+#include "sci_observe.h"
 #include "ec_query_budget.h"
 #include <srvros/battery_diagnostic.h>
 #include <srvros/battery_cache.h>
@@ -44,6 +45,7 @@ static struct {
     struct ec_query_budget budget;
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
+    struct sci_observer sci_observer;
     struct sci_counts sci_counts[3]; /* setup, active, retirement; CPU0 only */
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
     bool ac_present,ac_coherent,transition_mode,service_mode;
@@ -66,14 +68,28 @@ static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
 static void sci_report(const char *snapshot) {
     struct sci_counts counts[3];
+    struct sci_observer observer;
     uint64_t f=irq_save(),epoch=owner==OWNER_SERVICE?service.cache.value.epoch:0;
     for(unsigned i=0;i<3;i++)counts[i]=runtime.sci_counts[i];
+    observer=runtime.sci_observer;
     irq_restore(f);
     static const char *phases[]={"setup","active","retire"};
     for(unsigned i=0;i<3;i++)
         console_printf("battery-sci: snapshot=%s epoch=%u phase=%s delivered=%u handled=%u unclaimed=%u in_flight=%u first_unclaimed_us=%u last_unclaimed_us=%u\n",
             snapshot,epoch,phases[i],counts[i].delivered,counts[i].handled,
             counts[i].unclaimed,counts[i].in_flight,counts[i].first_unclaimed_us,counts[i].last_unclaimed_us);
+    console_printf("battery-sci-observe: snapshot=%s epoch=%u total=%u retained=%u overwritten=%u ec_mask=%x\n",
+        snapshot,epoch,observer.total,(uint64_t)observer.count,observer.total-observer.count,
+        (uint64_t)runtime.platform.ec.gpe_mask);
+    for(unsigned i=0;i<observer.count;i++) {
+        const struct sci_observation *r=sci_observe_row(&observer,i);
+        console_printf("battery-sci-event: snapshot=%s epoch=%u seq=%u phase=%u handled=%u at_us=%u duration_us=%u previous_valid=%u previous_handled=%u gap_us=%u query_before=%u query_after=%u valid=%x fixed_status=%x fixed_enable=%x ec_status=%x ec_enable=%x ec_raw_status=%x ec_raw_enable=%x\n",
+            snapshot,epoch,r->sequence,(uint64_t)r->phase,(uint64_t)r->handled,r->at_us,r->duration_us,
+            (uint64_t)r->previous_valid,(uint64_t)r->previous_handled,r->previous_gap_us,
+            (uint64_t)r->query_before,(uint64_t)r->query_after,(uint64_t)r->valid,
+            (uint64_t)r->fixed_status,(uint64_t)r->fixed_enable,(uint64_t)r->ec_status,
+            (uint64_t)r->ec_enable,(uint64_t)r->ec_raw_status,(uint64_t)r->ec_raw_enable);
+    }
 }
 static bool claim_diagnostic(void) {
     uint64_t f=irq_save();
@@ -260,14 +276,17 @@ static bool irq_bridge(void *context) {
     if(counts->delivered!=UINT64_MAX)counts->delivered++;
     counts->in_flight++;
     check_foreign_event();
+    bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
+        runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
+    uint64_t finished_us=timer_monotonic_us();
+    if(observed)sci_observe_end(&runtime.sci_observer,finished_us,handled,runtime.query_scheduled);
     counts->in_flight--;
     uint64_t *total=handled?&counts->handled:&counts->unclaimed;
     if(*total!=UINT64_MAX)(*total)++;
     if(!handled) {
-        uint64_t now=timer_monotonic_us();
-        if(counts->unclaimed==1)counts->first_unclaimed_us=now;
-        counts->last_unclaimed_us=now;
+        if(counts->unclaimed==1)counts->first_unclaimed_us=finished_us;
+        counts->last_unclaimed_us=finished_us;
     }
     /* Preserve the callback's claim result. No added event-register access or
      * logging in the IRQ path; a delivered interrupt is not necessarily ours. */
@@ -323,7 +342,12 @@ static uacpi_status port_io(struct io_region *r,size_t o,unsigned bits,bool writ
         if(write){if(bits==8)event_write(NULL,a,filter_foreign_event(a,true,*v));else if(bits==16)outw(a,*v);else outl(a,*v);}
         else {
             *v=bits==8?event_read(NULL,a):bits==16?inw(a):inl(a);
+            uint32_t raw=*v;
             if(bits==8)*v=filter_foreign_event(a,false,*v);
+            const struct sci_observe_ports ports={runtime.platform.events.resources.pm1_status,
+                runtime.platform.events.resources.pm1_enable,runtime.platform.ec.gpe_status,
+                runtime.platform.ec.gpe_enable};
+            sci_observe_read(&runtime.sci_observer,&ports,a,bits,raw,*v);
         }
         return UACPI_STATUS_OK;
     }
