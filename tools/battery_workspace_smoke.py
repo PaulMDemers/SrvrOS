@@ -38,7 +38,7 @@ def check(data):
 
 def verify_disk(data,normal):
     image=ExfatFixture(data)
-    assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','battery-study','.srvros'}
+    assert {n for n,_ in image.entries(image.chain(image.root))}==({'srvros-work','battery-study','.srvros'} if normal else {'srvros-work','battery-study'})
     assert {n for n,_ in image.entries(image.read('srvros-work'))}=={'.workspace','anchor.txt'}
     assert image.read('srvros-work/.workspace')==MARKER and image.read('srvros-work/anchor.txt')==ANCHOR
     names={n for n,_ in image.entries(image.read('battery-study'))}
@@ -46,7 +46,9 @@ def verify_disk(data,normal):
     if normal:
         assert names=={'anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
         for i in range(1,6):assert image.read(f'battery-study/text-{i}.txt')==b'AA'
-    else:assert names=={'anchor.txt'}  # Timeout occurs before first save.
+    else:
+        assert names=={'anchor.txt'}  # No mutation, so no metadata sidecar yet.
+        return
     assert {n for n,_ in image.entries(image.read('.srvros'))}=={'meta'}
     rows=image.read('.srvros/meta').decode('ascii').splitlines();assert rows.pop(0)=='SRVROSMETA1'
     expected={'/work','/work/srvros-work','/work/srvros-work/.workspace','/work/srvros-work/anchor.txt','/work/battery-study','/work/battery-study/anchor.txt'}
@@ -136,6 +138,7 @@ def main():
                     serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
                     stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
                     volume.write_bytes(disk[2048*512:]);verify_disk(volume.read_bytes(),args.case=='normal')
+                    if args.case!='normal':assert volume.read_bytes()==bytes(fixture.data),'Read-only trial changed disk bytes'
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
