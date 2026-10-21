@@ -1183,3 +1183,13 @@ were visually reviewed. Earlier EOF-fixture and argument-forwarding failures
 remain in local evidence; final validation uses explicit positional targets.
 Native cable timing/UI/recovery remains pending. Install with Ubuntu default
 and `e47dca3a6b30c6c1` recovery retained; collect this candidate before another run.
+
+Collected prompted `0875949083ad6ac7`, session `00065e4e72601882-00`: sequence
+completed; after-reconnect DHCP, DNS and HTTP 200 all passed. Two physical
+cable down/up cycles were logged without quarantine. System snapshots include
+up and down states; visual update timing still awaits user confirmation. The
+initial report failed because it ran before startup link negotiation completed
+(link-up at about 4.44 seconds). Next bounded fix is only script startup
+readiness: wait for the active provider's known link-up, with a finite budget,
+before initial checks. Keep the two human cable gates untimed. Evidence and
+reports are archived; offline filesystem/allocation and recovery checks pass.
