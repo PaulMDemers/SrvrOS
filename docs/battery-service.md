@@ -1225,3 +1225,33 @@ These observations support the disposable fixture; they do not prove that an
 arbitrary native AML callback holds no firmware Global Lock, EC transaction or
 other shared resource required by unrelated hardware. Those cases still need
 explicit ownership evidence and injected-fault coverage.
+
+### Returned GPE callback failures
+
+The VM-only `battery-workspace-recovery-callback` study exercises an actual
+uACPI SCI → GPE-dispatch → raw EC handler call chain. A modeled EC status bit
+causes entry through the interpreter; the queue-admission fault occurs after
+GPE suspend/clear. The raw handler returns NOT_HANDLED on the reported enqueue
+failure, and uACPI returns normally to the bridge. Only then does the bridge
+mask sources and retain the noncurrent service pair. No upstream interpreter
+code or stack unwinding mechanism is changed.
+
+Callback-scoped spinlock accounting must balance on return, the failed query
+must not be pending in the worker queue, and the interpreter must return
+unclaimed. The existing same-stack storage, secondary handler, post-EOI,
+registry removal, retained-state and saved-filesystem proofs still apply. A
+leaked modeled spinlock, interrupted battery worker, or use outside the explicit
+callback recovery scope remains terminal. Native command admission is refused
+before platform access. These VM hooks are null in the native backend.
+
+This covers a known enqueue refusal with a normal return path. GPE suspend/clear
+failures, query-budget failures, unexpected indices, arbitrary interpreter
+exceptions/nonreturning callbacks and native firmware lock ownership remain
+outside this boundary. Runtime state, including the interrupted sample and query
+budget, is retained until reboot; no clean service retirement is claimed.
+
+Run `tools/battery_workspace_smoke.py --case recovery-callback` through the host
+environment. Refusal fixtures: `recovery-callback-target-refusal`,
+`recovery-callback-lock-refusal`, `recovery-callback-outside-scope`, and
+`recovery-callback-refusal` (native admission). This is software SCI dispatch in
+a disposable Q35 image, not physical level-triggered SCI or DMA acceptance.

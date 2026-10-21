@@ -24,7 +24,8 @@ static struct {
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation,commands;
     unsigned ac_reads;
-    bool obf,pending,io_started,io_entered;
+    bool obf,pending,io_started,io_entered,irq_injected;
+    uint8_t injected_gpe;
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
@@ -202,7 +203,21 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
 }
 static bool model_irq_fault(void) {
     if(model.generation!=3)return false;
-    model.foreign_enable[0]=0x40;return true;
+    if(model.fault>=33) { model.irq_injected=true;model.injected_gpe=2; }
+    else model.foreign_enable[0]=0x40;
+    return true;
+}
+static bool model_event(uint16_t port,bool write,uint8_t *value) {
+    if(port!=0x620)return false;
+    if(write) { model.injected_gpe&=~*value;return false; } /* Also clear real W1C bits. */
+    *value=inb(port)|model.injected_gpe;return true;
+}
+static bool model_query_refuse(void) {
+    if(!model.irq_injected)return false;
+    /* Deliberately leave a callback spinlock unmatched. The returned-callback
+     * boundary must refuse it, even though the CPU0 lock is IRQ masking only. */
+    if(model.fault==35)(void)uacpi_kernel_lock_spinlock((void *)1);
+    return true;
 }
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
@@ -216,10 +231,10 @@ static void model_sample_begin(uint64_t generation) {
         uacpi_kernel_sleep(26000);
         flags=irq_save();if(entered)scheduler_io_end();irq_restore(flags);
     }
-    if(model.fault==31 && generation==3) {
+    if((model.fault==31||model.fault==34) && generation==3) {
         model_irq_fault();__asm__ volatile("int $41":::"memory");
     }
-    if((model.fault==27||model.fault==28||model.fault==30||model.fault==32)&&generation==3)uacpi_kernel_sleep(26000);
+    if((model.fault==27||model.fault==28||model.fault==30||model.fault==32||model.fault==33||model.fault==35)&&generation==3)uacpi_kernel_sleep(26000);
     /* Deliver a deliberately unclaimed SCI through the real dispatcher. This
      * verifies accounting without inventing hardware status or claiming it. */
     if(model.fault==20)__asm__ volatile("int $41":::"memory");
@@ -264,7 +279,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>32||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>35||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -291,6 +306,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
+    if(model.fault>=33) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }
     if(model.fault>=30)p->model_irq_fault=model_irq_fault;
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
     if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;

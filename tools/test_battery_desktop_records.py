@@ -261,4 +261,20 @@ class RecoveryRecords(unittest.TestCase):
         with self.assertRaises(AssertionError):check_recovery(io+row+row)
         with self.assertRaises(AssertionError):check_recovery(RECOVERY+row)
 
+    def test_callback_return_proof(self):
+        from battery_workspace_smoke import check_recovery
+        io=RECOVERY.replace(b'worker=8 io=0',b'worker=8 io=1')+b'battery-recovery-io: before=1 after=1 elapsed_us=28000100; owner_completed=yes\n'
+        irq=b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n'
+        row=b'battery-recovery-callback: entries=1 faults=1 locks=5 depth=0 query_pending=0; returned=yes reason=query-admission\n'
+        result=check_recovery(io+irq+row)
+        self.assertTrue(result['irq_callback_recovered']);self.assertFalse(result['irq_entry_recovered'])
+        self.assertEqual(result['callback_lock_calls'],5)
+        for old,new in ((b'entries=1',b'entries=0'),(b'faults=1',b'faults=2'),(b'locks=5',b'locks=0'),
+                        (b'depth=0',b'depth=1'),(b'query_pending=0',b'query_pending=1'),
+                        (b'returned=yes',b'returned=NO'),(b'reason=query-admission',b'reason=other')):
+            with self.subTest(old=old):
+                with self.assertRaises(AssertionError):check_recovery(io+irq+row.replace(old,new))
+        with self.assertRaises(AssertionError):check_recovery(io+irq+row+row)
+        with self.assertRaises(AssertionError):check_recovery(io+row)
+
 if __name__=='__main__':unittest.main()
