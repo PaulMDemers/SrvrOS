@@ -35,3 +35,7 @@ __attribute__((weak)) bool battery_usb_write_diagnostic_run(void *rsdp,struct li
 __attribute__((weak)) bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return battery_diagnostic_run(rsdp,map);
 }
+
+__attribute__((weak)) bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return battery_diagnostic_run(rsdp,map);
+}

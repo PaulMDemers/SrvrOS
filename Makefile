@@ -3372,3 +3372,8 @@ test-ec-query-rearm: build/tests/ec-query-rearm-host$(HOST_EXE)
 build/tests/ec-query-rearm-host$(HOST_EXE): tools/test_ec_query_rearm.c ports/srvros/uacpi/runtime/ec_query_rearm.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-desktop-records
+test-core: test-battery-desktop-records
+test-battery-desktop-records:
+	$(PYTHON) tools/test_battery_desktop_records.py

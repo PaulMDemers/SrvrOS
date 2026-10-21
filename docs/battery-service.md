@@ -758,3 +758,41 @@ until this lifecycle and coexistence contract is tested. A versioned cached
 userspace read interface can follow; it must expose freshness/unavailability and
 must never trigger EC/AML work from the compositor. Gauge accuracy, AC transition
 revalidation and suspend/resume remain separate acceptance items.
+
+### RAM compositor capture (v40)
+
+`hardware_boot.py stage --laptop-probe-volume <this-host-uuid>
+--battery-desktop` selects the separate native runtime, automatic-return recipe
+and RAM-only `deskd --coexist-capture`. v39 remains reserved for the Pro agent's
+Wi-Fi probe. Ordinary desktop startup and its disabled battery stub are unchanged.
+This first step uses the existing independent typing-study client and legacy text
+input path; it is not yet the full Text application or a filesystem load test.
+
+The launcher checkpoints and unmounts the workspace before starting the service.
+It requires a fresh active sample, then launches the compositor under an independent
+90-second deadline. The compositor requires its client to appear within five
+seconds and runs a 60-second sequence of generated font-toggle messages. Each
+message carries a serial that must return in a client surface commit and reach a
+successful screen blit. It requires at least 55 completed presentations, tracks
+loop gaps, and retires its client. Generated events are explicitly distinct from
+physical keys. This mode opens no app menus, Home, preferences or screenshot jobs;
+the native keyboard/mouse can still feed the study, but no input is required.
+
+The owner requires successful process exit, at least ten additional battery
+sample generations and cached reads during sampling. It reaps the compositor and
+ensures no live study child remains before stopping the service. Failure to retire
+retains the existing containment/reset path. Only after retirement does main
+remount the workspace, save the final log and return to Ubuntu. Missing final
+logs remain incomplete evidence. The collector's `battery_desktop` field checks
+matching epochs, overlapping time intervals, completed client presentations,
+process/lifecycle success and SCI records. Loop gaps are software scheduling
+measurements, not physical input-to-display latency.
+
+Local validation uses `tools/battery_desktop_smoke.py`: normal operation with
+injected `Abx`/Backspace, missing executable, owner deadline, early UI exit and
+native platform refusal. A replacement compositor must start afterward. The first
+VM exposed a sample timeout during large pixel-cache cleanup; `process_munmap`
+now removes mappings in one table pass rather than searching twice per page.
+A bulk/split/unrelated-mapping regression runs in `posixdemo`. The existing EC
+100 ms transport deadline and fault containment remain unchanged. Native v40
+acceptance is pending a separately recorded exact-stage trial.

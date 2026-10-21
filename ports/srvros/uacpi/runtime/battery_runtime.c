@@ -18,6 +18,7 @@
 #include <srvros/halt.h>
 #include <srvros/heap.h>
 #include <srvros/pmm.h>
+#include <srvros/process.h>
 #include <srvros/semaphore.h>
 #include <srvros/sbs_sample.h>
 #include <srvros/timer.h>
@@ -1070,8 +1071,83 @@ bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response 
 bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return service_test(rsdp,map,false,false,2);
 }
+/* The first coexistence capture intentionally has no storage workload. The
+ * compositor runs its RAM-only study and retires its own client; this owner
+ * monitors it independently and retains the runtime until process cleanup. */
+static bool desktop_children_stop(uint64_t parent) {
+    bool live=false;
+    uint64_t index=0,pid,owner;const char *state;
+    while((index=process_list_details(index,&pid,NULL,&state,&owner,NULL))!=0) {
+        if(owner!=parent || state[0]=='e')continue;
+        live=true;(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+    }
+    return !live;
+}
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault) {
+    const char *failure="workspace mounted";
+    struct battery_service_status before={0},after={0};
+    uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
+    bool started=false,reaped=false,ok=false;
+    if(workspace_active())goto done;
+    failure="start";
+    if(!battery_service_start(rsdp,map))goto done;
+    started=true;
+    uint64_t deadline=timer_monotonic_us()+15000000;
+    for(;;) {
+        battery_service_status(&before);
+        if(before.state==BATTERY_SERVICE_ACTIVE && (before.flags&BATTERY_CACHE_FRESH))break;
+        if(before.state==BATTERY_SERVICE_UNAVAILABLE || timer_monotonic_us()>=deadline) {
+            failure="unavailable or startup deadline";goto done;
+        }
+        uacpi_kernel_sleep(10);
+    }
+    failure="desktop spawn";
+    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd","--coexist-capture");
+    if(child<=0)goto done;
+    pid=(uint64_t)child;start=timer_monotonic_us();
+    console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=ram\n",pid,before.epoch,before.sample.generation,start);
+    deadline=start+(fault==2?500000:90000000);
+    for(;;) {
+        battery_service_status(&after);reads++;
+        if(after.flags&BATTERY_CACHE_SAMPLING)busy++;
+        failure="service progress";
+        if(after.state!=BATTERY_SERVICE_ACTIVE || after.epoch!=before.epoch || after.rejected || after.sample.generation<before.sample.generation)goto done;
+        int64_t waited=process_wait(pid,&status,true);
+        if(waited==(int64_t)pid){reaped=true;break;}
+        if(waited<0){failure="desktop ownership";goto done;}
+        if(timer_monotonic_us()>=deadline){failure="desktop deadline";goto done;}
+        uacpi_kernel_sleep(10);
+    }
+    end=timer_monotonic_us();failure="desktop completion";
+    ok=status==0 && end>=start+59000000 && after.sample.generation>=before.sample.generation+10 && busy>0 && (after.flags&BATTERY_CACHE_FRESH);
+done:
+    /* No process or client may outlive the capture and access the remounted
+     * workspace. Kill only this study's children; it cannot launch descendants. */
+    if(pid) {
+        if(!reaped)(void)process_signal_pid(pid,SRV_SIGNAL_KILL);
+        uint64_t stop_deadline=timer_monotonic_us()+5000000;
+        for(;;) {
+            bool children=desktop_children_stop(pid);
+            if(!reaped)reaped=process_wait(pid,&status,true)==(int64_t)pid;
+            if(children&&reaped)break;
+            if(timer_monotonic_us()>=stop_deadline)unsafe("desktop process retirement");
+            uacpi_kernel_sleep(10);
+        }
+    }
+    if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
+    console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
+        ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
+    return ok;
+}
+bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return desktop_test(rsdp,map,0);
+}
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
+    if(command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
+        (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            command_is(args,"battery-desktop-missing")?1:command_is(args,"battery-desktop-timeout")?2:0);return;
+    }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");
         return;

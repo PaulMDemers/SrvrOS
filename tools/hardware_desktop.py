@@ -406,11 +406,20 @@ def power_idle_sample(exit_text):
             "scope":"covered interval inside desktop idle; package energy and CPU0 active frequency, not whole-laptop power"}
 
 
+def battery_desktop_result(exit_text):
+    if 'srvros.capture=battery-desktop' not in exit_text:return None
+    if 'battery-desktop-capture: returned=yes clean=yes; physical accuracy NOT_TESTED' not in exit_text:return None
+    from battery_desktop_smoke import check_capture
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def needs_attention(line):
     if any(token in line for token in ("SAVE FAILED","deskd: FAIL","reason=","exception:")):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
+                        "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -499,6 +508,9 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        desktop_proof=battery_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-desktop' in text and desktop_proof is None:
+            attention.append('collection: battery desktop overlap completion missing or invalid')
         records.append({
             "session": name,
             "releases": releases,
@@ -510,6 +522,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_desktop": desktop_proof,
             "battery_filesystem": image_proof,
             "battery_usb_write": write_proof,
             "battery_usb_read": battery_usb_read_result(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
