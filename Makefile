@@ -3398,3 +3398,11 @@ build/tests/battery-control$(HOST_EXE): tools/test_battery_control.c kernel/src/
 test-core: test-battery-controls-records
 test-battery-controls-records:
 	$(PYTHON) tools/test_battery_controls_records.py
+
+.PHONY: test-battery-reset-policy
+test-core: test-battery-reset-policy
+test-battery-reset-policy: build/tests/battery-reset-policy$(HOST_EXE)
+	$<
+build/tests/battery-reset-policy$(HOST_EXE): tools/test_battery_reset_policy.c ports/srvros/uacpi/runtime/battery_reset_policy.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@

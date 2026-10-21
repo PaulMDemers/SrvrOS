@@ -19,8 +19,8 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 
 
-def check_capture(data, text=False, files=False):
-    storage=b'image' if files else b'ram'
+def check_capture(data, text=False, files=False, workspace=False):
+    storage=b'workspace' if workspace else b'image' if files else b'ram'
     """Require actual overlapping intervals and completed client presentations."""
     data=complete_lines(data)
     for prefix in (b'battery-desktop: started ',b'battery-desktop: PASS ',b'desktop-coexist: completed=',b'battery-service: retired '):
@@ -49,13 +49,13 @@ def check_capture(data, text=False, files=False):
     return dict(status='PASS',epoch=epoch,first_generation=first,last_generation=last,
                 start_us=begin,end_us=end,desktop_start_us=ustart,desktop_end_us=uend,
                 loops=loops,max_loop_gap_us=gap,generated=sent,presented=shown,frames=frames,
-                physical_input='not tested',storage='Exclusive filesystem image' if files else 'RAM only')
+                physical_input='not tested',storage='Mounted disposable workspace' if workspace else 'Exclusive filesystem image' if files else 'RAM only')
 
 
-def check_text_capture(data, injected=False, files=False):
-    storage=b'image' if files else b'ram'
+def check_text_capture(data, injected=False, files=False, workspace=False):
+    storage=b'workspace' if workspace else b'image' if files else b'ram'
     data=complete_lines(data)
-    result=check_capture(data,text=True,files=files)
+    result=check_capture(data,text=True,files=files,workspace=workspace)
     rows=re.findall(rb'^text-coexist: checkpoint serial=(\d+) length=(\d+) caret=(\d+) anchor=(\d+) clipboard_busy=(\d+) hex=([0-9a-f-]+)\r?$',data,re.MULTILINE)
     assert len(rows)==5 and sum(line.startswith(b'text-coexist: checkpoint ') for line in data.splitlines())==5
     for i,row in enumerate(rows):

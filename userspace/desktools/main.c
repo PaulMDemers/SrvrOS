@@ -149,7 +149,9 @@ static void capture_print(const char *kind,struct capture_snapshot v) {
 int main(int argc,char **argv) {
     struct tool *t=&app;t->role=DESK_APP_TEXT;t->body_size=16;t->title_dirty=1;
     if(argc>1) for(unsigned i=0;i<sizeof(roles)/sizeof(*roles);i++) if(!strcmp(argv[1],roles[i])) t->role=i+1;
-    int file_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files");
+    int workspace_capture=t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-workspace");
+    int file_capture=workspace_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-files"));
+    if(file_capture)tool_file_capture_setup(workspace_capture);
     int coexist=file_capture || (t->role==DESK_APP_TEXT && argc==3 && !strcmp(argv[2],"--coexist-capture"));
     int battery_capture=t->role==DESK_APP_SYSTEM && argc==3 && !strcmp(argv[2],"--battery-control-capture");
     unsigned captured=0;

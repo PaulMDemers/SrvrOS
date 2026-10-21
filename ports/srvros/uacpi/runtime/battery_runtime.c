@@ -2,6 +2,7 @@
  * snapshot probe and the desktop. CPU0 lifecycle owner and one EC/AML worker. */
 #include "battery_platform.h"
 #include "battery_transition.h"
+#include "battery_reset_policy.h"
 #include "work_worker.h"
 #include "sci_owner.h"
 #include "sci_observe.h"
@@ -131,7 +132,7 @@ static bool service_io_ready(void *arg) {
 }
 bool battery_diagnostic_auto_return(bool enabled) {
     uint64_t f=irq_save();
-    bool ok=!enabled||(!workspace_active()&&!scheduler_io_active());
+    bool ok=!enabled||battery_reset_allowed(true,workspace_active(),scheduler_io_active());
     if(ok)auto_return=enabled;
     irq_restore(f);return ok;
 }
@@ -155,16 +156,22 @@ static __attribute__((noreturn)) void unsafe(const char *reason) {
         service.cache.value.state=BATTERY_SERVICE_FAULTED;
         service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
     }
+    /* Recheck with scheduling excluded: arming while parked is not a lease on
+     * future filesystem ownership. Never try to flush from this fatal context. */
+    bool mounted=workspace_active(),io=scheduler_io_active();
+    bool reset=battery_reset_allowed(auto_return,mounted,io);
     mask_sources();
     sci_report("fault");
+    if(auto_return && !reset)
+        console_printf("battery-reset: BLOCKED workspace=%u io=%u; live storage retained\n",(uint64_t)mounted,(uint64_t)io);
     console_printf("battery: progress setup=%s setup_elapsed_us=%u worker=%u completed=%u in_flight=%u\n",
         runtime.setup_stage?runtime.setup_stage:"not-started",
         runtime.setup_started_us?timer_monotonic_us()-runtime.setup_started_us:0,
         runtime.worker.identity,runtime.worker.completed,runtime.worker.work.in_flight);
     console_printf("battery: %s %s errors=%u denied=%u heap=%u ec_phase=%u ec_error=%u queries=%u; live state retained\n",
-        auto_return?"FAILED":"HALTED",reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
+        reset?"FAILED":"HALTED",reason,runtime.errors,runtime.denied,runtime.heap,(uint64_t)runtime.transport.phase,
         (uint64_t)runtime.transport.error,runtime.queries);
-    if(auto_return) {
+    if(reset) {
         console_write("battery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n");
         arch_reboot_unattended();
     }
@@ -1126,15 +1133,18 @@ static bool desktop_children_stop(struct desktop_tree *t,bool kill) {
     }
     return !live;
 }
-static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem,bool appfiles) {
+static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem,bool appfiles,bool workspace) {
     const char *failure="workspace mounted";
     struct battery_service_status before={0},after={0};
     uint64_t pid=0,status=UINT64_MAX,reads=0,busy=0,start=0,end=0;
     bool started=false,reaped=false,ok=false;
     uint64_t first_step=0,last_step=0,workload_end=0;
     struct desktop_tree tree={0};
-    if(workspace_active())goto done;
-    if(filesystem || appfiles) {
+    if(workspace) {
+        failure="workspace VM admission";
+        if(!battery_platform_workspace_study_allowed() || !workspace_active() || workspace_image_busy())goto done;
+    } else if(workspace_active())goto done;
+    if(filesystem || (appfiles && !workspace)) {
         failure="filesystem preparation";
         if(!workspace_image_ready() || !usb_read_prepare())goto done;
     }
@@ -1151,7 +1161,7 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
         uacpi_kernel_sleep(10);
     }
     failure="desktop spawn";
-    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",appfiles?"--coexist-files":text?"--coexist-text":"--coexist-capture");
+    int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",workspace?"--coexist-workspace":appfiles?"--coexist-files":text?"--coexist-text":"--coexist-capture");
     if(child<=0)goto done;
     pid=(uint64_t)child;tree.pids[tree.count++]=pid;start=timer_monotonic_us();
     if(process_group(pid)!=pid){failure="desktop process group";goto done;}
@@ -1202,12 +1212,13 @@ done:
         }
     }
     if(started&&!battery_service_stop(35000))unsafe("desktop service retirement");
-    if((filesystem || appfiles) && workspace_image_busy() && !workspace_image_close()) {ok=false;failure="filesystem retirement";}
+    if((filesystem || (appfiles && !workspace)) && workspace_image_busy() && !workspace_image_close()) {ok=false;failure="filesystem retirement";}
     /* Defer the saved start record until competing process/runtime writers stop. */
-    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=%s\n",pid,before.epoch,before.sample.generation,start,appfiles?"image":"ram");
+    if(pid)console_printf("battery-desktop: started pid=%u epoch=%u generation=%u start_us=%u storage=%s\n",pid,before.epoch,before.sample.generation,start,workspace?"workspace":appfiles?"image":"ram");
     console_printf("battery-desktop: %s outcome=%s epoch=%u first_gen=%u last_gen=%u start_us=%u end_us=%u reads=%u busy_reads=%u process_status=%u; retired=yes\n",
         ok?"PASS":"FAIL",ok?"complete":failure,before.epoch,before.sample.generation,after.sample.generation,start,end,reads,busy,status);
-    if(appfiles)console_printf("battery-app-files: %s descendants=%u; retired=yes revoked=%s\n",ok?"PASS":"FAIL",tree.count,workspace_image_busy()?"NO":"yes");
+    if(workspace)console_printf("battery-workspace: %s descendants=%u; retired=yes mounted=%s\n",ok?"PASS":"FAIL",tree.count,workspace_active()?"yes":"NO");
+    else if(appfiles)console_printf("battery-app-files: %s descendants=%u; retired=yes revoked=%s\n",ok?"PASS":"FAIL",tree.count,workspace_image_busy()?"NO":"yes");
     if(filesystem) {
         if(ok) {
             console_printf("battery-filesystem: PASS cycles=%u commands=%u busy_cycles=%u progress_bursts=%u bursts=%u max_burst_us=%u elapsed_us=%u steps=%u max_step_us=%u slowest_step=%u profile=1; retired=yes revoked=yes\n",
@@ -1261,38 +1272,52 @@ bool battery_controls_diagnostic_run(void *rsdp,struct limine_memmap_response *m
     return controls_test(rsdp,map,true);
 }
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,false,false,false);
+    return desktop_test(rsdp,map,0,false,false,false,false);
 }
 bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,false,false);
+    return desktop_test(rsdp,map,0,true,false,false,false);
 }
 bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,false,true);
+    return desktop_test(rsdp,map,0,true,false,true,false);
 }
 bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
-    return desktop_test(rsdp,map,0,true,true,false);
+    return desktop_test(rsdp,map,0,true,true,false,false);
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
+    /* No native boot option or exported diagnostic entry point. The backend
+     * gate precedes all service/platform activity, including fault arming. */
+    if(command_is(args,"battery-workspace") || command_is(args,"battery-workspace-fault") || command_is(args,"battery-workspace-timeout")) {
+        if(!battery_platform_workspace_study_allowed()) {
+            console_write("battery-workspace: REFUSED VM-only study\n");return;
+        }
+        if(command_is(args,"battery-workspace-fault")) {
+            /* Model only: reproduce stale parked-time arming after mount. */
+            auto_return=true;
+        }
+        (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            command_is(args,"battery-workspace-timeout")?2:0,true,false,true,true);
+        auto_return=false;return;
+    }
     if(command_is(args,"battery-controls") || command_is(args,"battery-controls-manual")) {
         (void)controls_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,command_is(args,"battery-controls"));return;
     }
     if(command_is(args,"battery-app-files") || command_is(args,"battery-app-files-timeout") || command_is(args,"battery-app-files-missing")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
-            command_is(args,"battery-app-files-timeout")?2:command_is(args,"battery-app-files-missing")?1:0,true,false,true);return;
+            command_is(args,"battery-app-files-timeout")?2:command_is(args,"battery-app-files-missing")?1:0,true,false,true,false);return;
     }
     bool desktop_load=command_is(args,"battery-text-load") || command_is(args,"battery-text-load-missing") ||
         command_is(args,"battery-text-load-timeout") || command_is(args,"battery-text-load-abort");
     if(desktop_load) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             command_is(args,"battery-text-load-missing")?1:command_is(args,"battery-text-load-timeout")?2:
-            command_is(args,"battery-text-load-abort")?3:0,true,true,false);return;
+            command_is(args,"battery-text-load-abort")?3:0,true,true,false,false);return;
     }
     bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");
     if(desktop_text || command_is(args,"battery-desktop") || command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-timeout")) {
         (void)desktop_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
             (command_is(args,"battery-desktop-missing") || command_is(args,"battery-desktop-text-missing"))?1:
-            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text,false,false);return;
+            (command_is(args,"battery-desktop-timeout") || command_is(args,"battery-desktop-text-timeout"))?2:0,desktop_text,false,false,false);return;
     }
     if(command_is(args,"battery-filesystem-prepare")) {
         if(!workspace_image_open())console_write("workspace-image: preparation FAILED\n");

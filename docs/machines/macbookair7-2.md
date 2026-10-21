@@ -14,6 +14,19 @@ Touched scope: battery reset policy/runtime, opt-in application-file workload an
 VM/host tests; workspace recovery design. Pro PR #19 at `1c30e04` remains separate
 Wi-Fi firmware work. No physical run is pending or armed.
 
+### Mounted workspace VM study (implementation checkpoint)
+
+The opt-in VM path keeps `/work` mounted while Text completes 60 edits and five
+save/stat/rename/reopen cycles. The first normal Q35 run passed: 20 file-worker
+operations, battery generations 1→25, three clients retired, balanced service
+teardown, replacement compositor, ordinary unmount, exact disk tree/metadata and
+allocation checks. Native admission is explicitly refused before firmware access.
+Fatal reset now rechecks current workspace/I/O ownership under IRQ exclusion;
+stale parked-time arming cannot bypass either guard. Failure injection and prior
+parked/image regressions are being validated locally. No installed payload changed.
+The remaining blocker is recoverable ACPI failure ownership during ordinary Home
+I/O; a VM halt is evidence of containment, not a usable native recovery path.
+
 ### Native scoped controls checkpoint (PR #34)
 
 Release `87524e9fe7788772`, source `134f0d6`, session
