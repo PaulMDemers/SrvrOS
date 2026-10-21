@@ -510,7 +510,7 @@ seconds flushing. See the machine record for acceptance limits and integrity che
 
 ## Bounded USB command batching
 
-The next data-path candidate uses at most 16 KiB per SCSI command while keeping
+The data path uses at most 16 KiB per SCSI command while keeping
 each controller bulk request at 4 KiB. Command/data/status ordering follows
 [USB BOT 1.0, sections 5.3 and 6.7](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf).
 Intermediate full-sized requests neither send a zero-length packet nor restart
@@ -527,4 +527,11 @@ existing traversal. Final partial clusters are zero-padded. Flush barriers and
 copy-on-write metadata ordering stay unchanged. The diagnostic image inherits
 the bounded capability; host tests compare its persisted bytes against the 4 KiB
 path, then exercise write/power-cut/flush failures and sector-aligned partial-write
-prefixes. Native batching is pending.
+prefixes. Air7,2 release `e1ba87c6133b2e9d` subsequently passed 45 isolated
+cycles in 60.78 seconds with 18,116 commands, clean retirement and exact final
+filesystem contents. Compared with the preceding profile, the slowest operation
+fell from 4.70 to 2.18 seconds and data calls from 66 to 18. Outer file hashes,
+fsck and allocation graph passed. This is isolated-workload acceptance, not a
+desktop latency guarantee. Unclaimed SCI deliveries, desktop coexistence and
+physical gauge accuracy remain open; ordinary desktop battery startup stays off.
+See the [Air record](machines/macbookair7-2.md) for the exact source and evidence.
