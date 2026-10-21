@@ -25,6 +25,9 @@ struct battery_platform {
     void (*model_setup_work)(void);
     /* Disposable VM only: raise the foreign-enable entry guard. */
     bool (*model_irq_fault)(void);
+    /* VM-only shadow GPE status and callback query admission failure. */
+    bool (*model_event)(uint16_t port,bool write,uint8_t *value);
+    bool (*model_query_refuse)(void);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };
