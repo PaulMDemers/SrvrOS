@@ -87,3 +87,61 @@ bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
         (uint32_t)((ilm ? 64 : 0x80000)+pos)};
     return true;
 }
+
+static bool firmware_overlap(const void *a, size_t na, const void *b, size_t nb) {
+    uintptr_t x=(uintptr_t)a,y=(uintptr_t)b;
+    return x<=y ? y-x<na : x-y<nb;
+}
+
+size_t mt76_firmware_packet(const uint8_t *image, size_t size, size_t index,
+    uint8_t *packet, size_t capacity) {
+    struct mt76_fw_chunk chunk;
+    if (!packet || !mt76_firmware_chunk(image,size,index,&chunk) ||
+        chunk.segment == MT76_FW_IVB || capacity < chunk.wire_bytes ||
+        firmware_overlap(image,size,packet,chunk.wire_bytes)) return 0;
+    /* CPU_TX_PORT=2, command type, unpadded payload length. */
+    uint32_t header = (1u<<30) | (2u<<27) | (uint32_t)chunk.bytes;
+    for (unsigned i=0;i<4;i++) packet[i]=(uint8_t)(header>>(8*i));
+    for (size_t i=0;i<chunk.bytes;i++) packet[4+i]=image[chunk.file_offset+i];
+    for (size_t i=4+chunk.bytes;i<chunk.wire_bytes;i++) packet[i]=0;
+    return chunk.wire_bytes;
+}
+
+enum mt76_upload_status mt76_upload_firmware(struct mt76_firmware_session *session,
+    const struct mt76_firmware_io *io, const struct mt76_identity *identity,
+    const uint8_t *image, size_t size, uint8_t *scratch, size_t capacity) {
+    struct mt76_fw_chunk chunk;
+    if (!session || session->attempted || !io || !io->authorize || !io->fce_write ||
+        !io->read || !io->write || !io->bulk || !io->activate || !io->delay ||
+        !identity || identity->asic!=0x76100002 || identity->mac!=0x76502000 ||
+        !scratch || capacity<MT76_FW_PACKET_MAX || !mt76_firmware_chunk(image,size,0,&chunk) ||
+        firmware_overlap(image,size,scratch,MT76_FW_PACKET_MAX))
+        return MT76_UPLOAD_REFUSED;
+    session->attempted=true;
+    if (!io->authorize(io->context,image,size,identity)) return MT76_UPLOAD_REFUSED;
+    for (size_t index=0;;index++) {
+        if (!mt76_firmware_chunk(image,size,index,&chunk)) return MT76_UPLOAD_REFUSED;
+        if (chunk.segment==MT76_FW_IVB) {
+            if (io->activate(io->context,image+chunk.file_offset,chunk.bytes)!=(int)chunk.bytes)
+                return MT76_UPLOAD_IO;
+            break;
+        }
+        size_t length=mt76_firmware_packet(image,size,index,scratch,capacity);
+        if (!length) return MT76_UPLOAD_REFUSED;
+        if (!io->fce_write(io->context,0x230,chunk.destination) ||
+            !io->fce_write(io->context,0x234,(uint32_t)chunk.padded_bytes<<16) ||
+            io->bulk(io->context,scratch,length)!=(int)length) return MT76_UPLOAD_IO;
+        uint32_t descriptor;
+        if (!io->read(io->context,0x9a8,&descriptor) ||
+            !io->write(io->context,0x9a8,descriptor+1)) return MT76_UPLOAD_IO;
+        if (!io->delay(io->context,5000)) return MT76_UPLOAD_CANCELLED;
+    }
+    for (unsigned poll=0;poll<1000;poll++) {
+        uint32_t ready;
+        if (!io->read(io->context,0x730,&ready)) return MT76_UPLOAD_IO;
+        /* All-ones is not proof of a live MCU. */
+        if (ready!=0xffffffffu && (ready&1)) return MT76_UPLOAD_OK;
+        if (!io->delay(io->context,1000)) return MT76_UPLOAD_CANCELLED;
+    }
+    return MT76_UPLOAD_TIMEOUT;
+}

@@ -1555,3 +1555,22 @@ pending. Postboot fsck/allocation pass: 30 directories, 113 files, 418 clusters,
 zero leaks/mismatches/errors. Ubuntu default, consumed one-shot and installed/
 recovery manifests verify; no reboot is armed. Next: validate the captured layout
 and calibration requirements before bounded firmware upload/readiness work.
+
+Next scope at main `21a9fdf` (documentation-only update, merged locally): audit
+captured EEPROM structure and mapped fields without claiming regulatory/radio
+acceptance; add pure firmware packet encoding and a bounded, one-shot upload
+engine behind an explicitly prepared/authorized transport contract. Touch only
+mt76 bring-up helpers, host tests/audit, Makefile and Wi-Fi/unit docs. No native
+reset/upload wiring, firmware packaging, boot recipe changes or Air subsystem
+edits in this checkpoint. Preserve v43 physical read acceptance independently.
+
+Audit/prepared-upload checkpoint: actual captured calibration passes the new
+offline structural auditor (7610, version2/FAE1, one TX/RX chain, 15 consistently
+erased unmapped blocks). Region bytes 10/30 remain raw metadata; no channels or
+transmit permission inferred. Physical usage-map and power/gain/regulatory checks
+remain open. The new packet encoder and one-shot upload engine are host-tested
+only, requiring externally verified firmware and an exclusively prepared DMA/MCU
+transport. No native reset/upload caller or packaged firmware was added. Next is
+hardware preparation/ownership and pinned firmware packaging before a separate
+native MCU-readiness diagnostic. Installed v43 and recovery remain unchanged;
+no reboot is armed.

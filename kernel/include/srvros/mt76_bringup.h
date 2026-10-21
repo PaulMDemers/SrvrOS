@@ -37,4 +37,28 @@ struct mt76_fw_chunk {
 };
 bool mt76_firmware_chunk(const uint8_t *image, size_t size, size_t index,
     struct mt76_fw_chunk *out);
+/* Transport-independent upload into an ALREADY prepared MCU/FCE. authorize
+ * must pin the image/hash and exact device and confirm exclusive prepared DMA.
+ * All callbacks are bounded; transport retains/quarantines scratch DMA on
+ * uncertainty. Keep image and scratch alive until transport teardown. This API
+ * does not reset/configure hardware, package firmware or authorize a radio. */
+#define MT76_FW_PACKET_MAX 0x38f8u
+struct mt76_firmware_io {
+    void *context;
+    bool (*authorize)(void *, const uint8_t *, size_t, const struct mt76_identity *);
+    bool (*fce_write)(void *, uint32_t, uint32_t);
+    bool (*read)(void *, uint32_t, uint32_t *);
+    bool (*write)(void *, uint32_t, uint32_t);
+    int (*bulk)(void *, const uint8_t *, size_t);
+    int (*activate)(void *, const uint8_t *, size_t);
+    bool (*delay)(void *, uint32_t);
+};
+struct mt76_firmware_session { bool attempted; };
+enum mt76_upload_status { MT76_UPLOAD_OK, MT76_UPLOAD_REFUSED, MT76_UPLOAD_IO,
+    MT76_UPLOAD_CANCELLED, MT76_UPLOAD_TIMEOUT };
+size_t mt76_firmware_packet(const uint8_t *image, size_t size, size_t index,
+    uint8_t *packet, size_t capacity);
+enum mt76_upload_status mt76_upload_firmware(struct mt76_firmware_session *session,
+    const struct mt76_firmware_io *io, const struct mt76_identity *identity,
+    const uint8_t *image, size_t size, uint8_t *scratch, size_t capacity);
 #endif

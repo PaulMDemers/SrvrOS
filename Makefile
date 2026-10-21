@@ -3399,3 +3399,13 @@ test-mt76-bringup: build/tests/mt76-bringup-host$(HOST_EXE)
 build/tests/mt76-bringup-host$(HOST_EXE): tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_bringup.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-mt76-upload test-wifi-calibration-audit
+test-core: test-mt76-upload test-wifi-calibration-audit
+test-wifi-calibration-audit:
+	$(PYTHON) tools/test_wifi_calibration_audit.py
+test-mt76-upload: build/tests/mt76-upload-host$(HOST_EXE)
+	$<
+build/tests/mt76-upload-host$(HOST_EXE): tools/test_mt76_upload.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/mt76_bringup.h kernel/include/srvros/mt76_probe.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_upload.c kernel/src/drivers/mt76_bringup.c kernel/src/drivers/mt76_probe.c -o $@

@@ -229,3 +229,35 @@ radio initialization. Native v43 release `47997cb8604043ff` captured all 32 bloc
 on the Pro11,2 adapter with result=0 and no quarantine. Unmapped blocks match
 the erased-byte representation; the six MAC bytes are redacted. This accepts
 the logical read transport, not the contents as usable radio calibration.
+
+## Calibration audit and prepared firmware transport
+
+`python3 tools/wifi_calibration_audit.py IMAGE --unmapped HEXMASK` audits a
+512-byte logical image offline without printing its MAC. It requires a recognized
+chip/version, single TX/RX chain, mapped identity/configuration fields and erased
+bytes for every unmapped block. The captured Pro adapter passes: chip 7610,
+EEPROM version 2 / FAE 1, NIC configuration fd11/1004, raw region bytes 10/30,
+frequency byte 68 and 15 unmapped blocks. These raw region fields are not a
+country selection or permission to use channels. Physical usage-map validation,
+power/gain decoding and regulatory channel policy remain separate requirements.
+The audit deliberately reports radio_authorized=false even on structural success.
+Field interpretation follows pinned Linux v6.18
+[EEPROM handling](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c)
+and [layout definitions](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.h).
+
+The pure firmware packet encoder emits the CPU-port command header, unpadded
+length, data, zero alignment padding and zero trailer. The new one-shot upload
+engine requires an explicitly prepared transport whose authorization callback
+verifies image hash, captured device and exclusive DMA ownership. It orders FCE
+address/length, exact bulk completion, descriptor advancement and bounded pacing;
+only then sends IVB activation and polls MCU readiness for at most 1,000 attempts.
+Every error/short transfer/cancellation stops without retry. All-ones reads never
+count as readiness. Transport callbacks must retain/quarantine DMA after uncertain
+completion; callers must keep image/scratch alive and disjoint through teardown.
+The engine does not perform MCU reset, configure USB endpoints/DMA, verify hashes
+itself or initialize RF. It has no native caller. Firmware remains unbundled.
+Wire ordering follows the pinned
+[USB firmware transport](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c).
+`make test-mt76-upload test-wifi-calibration-audit` covers structural refusals,
+packet bytes/padding, operation ordering, every-operation failure, short bulk/IVB,
+no retry, overlapping buffers and readiness timeout. Native upload is untested.
