@@ -13,7 +13,10 @@ byte), first-read values, callback result, timing and query scheduling state.
 No additional event/EC reads, acknowledgements, event enable changes, native model
 gates or IRQ claim-policy changes. Report outside IRQ context and retain missing
 reads as unknown. Timestamps use the existing read-only PM timer. Validate bounded storage and the injected unclaimed VM case
-before a native automatic capture. Pro branch inspected at `4f9fa06`; its current
+before a native automatic capture. Implementation `2da3043` passes the host core
+suite, observer unit/record-corruption tests, native/VM builds and all five focused
+VM cases (injected unclaimed, normal service, foreign event, isolated filesystem
+and active deadline). Native observation remains pending. Pro branch inspected at `4f9fa06`; its current
 scope is post-merge desktop validation, with battery deferred.
 
 Latest accepted **bounded USB data batching**: release `e1ba87c6133b2e9d`,

@@ -3343,3 +3343,8 @@ test-sci-observe: build/tests/sci-observe-host$(HOST_EXE)
 build/tests/sci-observe-host$(HOST_EXE): tools/test_sci_observe.c ports/srvros/uacpi/runtime/sci_observe.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-sci-observe-records
+test-core: test-sci-observe-records
+test-sci-observe-records:
+	$(PYTHON) tools/test_sci_observe_records.py

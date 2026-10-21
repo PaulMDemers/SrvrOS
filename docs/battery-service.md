@@ -542,8 +542,9 @@ The explicit battery runtime keeps an eight-entry ring of completed SCI
 callbacks. It observes values returned by the event reads uACPI already issues;
 it adds no event/EC register reads, W1C acknowledgements, enable writes, or claim-policy
 changes. Entry/exit timestamps use the existing monotonic clock, which reads the
-read-only ACPI PM timer on this host. Reports are printed at lifecycle snapshots,
-outside IRQ handling.
+read-only ACPI PM timer on this host. Normal reports are printed at lifecycle
+snapshots, outside IRQ handling. The existing terminal containment path also
+prints retained completed entries before halt/reset; it never resumes dispatch.
 Each entry retains phase, callback result, entry/duration/gap timing, previous
 callback result and query scheduling state before/after dispatch.
 
