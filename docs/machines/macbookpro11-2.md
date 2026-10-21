@@ -1639,3 +1639,11 @@ Next bounded scope: cache and report the last prerequisite register read and
 preparation/reset/upload progress in the explicit diagnostic, without additional
 register operations or relaxing refusal gates. Main remains `84cf41e`; Air PR #34
 owns separate desktop battery controls. No battery changes are needed here.
+
+Cached progress diagnostic source `11da4e0`, release `56b0d84701bc99ff`, passes
+build, xHCI transport, MCU preparation/upload and documentation checks. Exact GPT
+VM saves diagnostics, verifies offline bytes and unmounts/resets. Candidate is
+installed with Ubuntu default and previous recovery retained; preboot filesystem/
+allocation checks pass. Calibration payload was removed from EFI only after
+verifying its durable archive. Next authorized boot needs no input and will
+record the refusal prerequisite; physical firmware startup remains unaccepted.
