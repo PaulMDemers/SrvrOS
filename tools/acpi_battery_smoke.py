@@ -29,6 +29,22 @@ def check_sci_records(part):
         if row['unclaimed']:assert 0<row['first']<=row['last'],row
         else:assert row['first']==row['last']==0,row
         rows.append(row)
+    # Passive observer has no reads of its own. Validate its bounded ring and
+    # reconcile completed callbacks with the existing phase counters.
+    headers=re.findall(rb"battery-sci-observe: snapshot=(ready|retired|fault) epoch=(\d+) total=(\d+) retained=(\d+) overwritten=(\d+) ec_mask=(0x[0-9a-fA-F]+)",part)
+    events=re.findall(rb"battery-sci-event: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) phase=(\d+) handled=(\d+) at_us=(\d+) duration_us=(\d+) previous_valid=(\d+) previous_handled=(\d+) gap_us=(\d+) query_before=(\d+) query_after=(\d+) valid=(0x[0-9a-fA-F]+) fixed_status=(0x[0-9a-fA-F]+) fixed_enable=(0x[0-9a-fA-F]+) ec_status=(0x[0-9a-fA-F]+) ec_enable=(0x[0-9a-fA-F]+) ec_raw_status=(0x[0-9a-fA-F]+) ec_raw_enable=(0x[0-9a-fA-F]+)",part)
+    for snapshot,epoch,total,retained,overwritten,mask in headers:
+        total,retained,overwritten=int(total),int(retained),int(overwritten)
+        assert retained==min(total,8) and overwritten==total-retained
+        group=[r for r in rows if r['snapshot']==snapshot.decode() and r['epoch']==int(epoch)]
+        assert len(group)==3 and total==sum(r['handled']+r['unclaimed'] for r in group),group
+        captured=[r for r in events if r[0]==snapshot and r[1]==epoch]
+        assert len(captured)==retained,(headers,events)
+        assert [int(r[2]) for r in captured]==list(range(total-retained+1,total+1))
+        for r in captured:
+            assert int(r[3])<=2 and int(r[4])<=1 and int(r[5])>0
+            assert all(int(r[i])<=1 for i in (7,8,10,11)) and int(r[12],16)<=15
+    if rows:assert len(headers)==len(rows)//3,'Missing passive SCI observer records'
     return rows
 
 
@@ -251,6 +267,8 @@ def main():
                             if args.case=='service-sci-unclaimed':
                                 active=[r for r in sci if r['snapshot']=='retired' and r['phase']=='active']
                                 assert sum(r['unclaimed'] for r in active)>=5,bytes(part)
+                                observed=re.findall(rb'battery-sci-event: snapshot=retired .*? handled=0 .*? valid=(0x[0-9a-fA-F]+)',part)
+                                assert observed and all(int(v,16)&3==3 for v in observed),bytes(part)
                                 assert part.count(b'irq: unhandled line=9 vector=41')==1,bytes(part)
                             if args.case in ('service-io-short','service-io-long','service-io-sustained','service-usb-io','service-filesystem','service-filesystem-write-failure'):
                                 check_io_hold(part,{'service-io-short':20000,'service-io-long':250000,'service-io-sustained':5000000,'service-usb-io':5000000,'service-filesystem':60000000,'service-filesystem-write-failure':5000000}[args.case])

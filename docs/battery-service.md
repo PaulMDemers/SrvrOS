@@ -535,3 +535,29 @@ fsck and allocation graph passed. This is isolated-workload acceptance, not a
 desktop latency guarantee. Unclaimed SCI deliveries, desktop coexistence and
 physical gauge accuracy remain open; ordinary desktop battery startup stays off.
 See the [Air record](machines/macbookair7-2.md) for the exact source and evidence.
+
+## Passive SCI observations
+
+The explicit battery runtime keeps an eight-entry ring of completed SCI
+callbacks. It observes values returned by the event reads uACPI already issues;
+it adds no port reads, W1C acknowledgements, enable writes, or claim-policy
+changes. Reports are printed at lifecycle snapshots, outside IRQ handling.
+Each entry retains phase, callback result, entry/duration/gap timing, previous
+callback result and query scheduling state before/after dispatch.
+
+`valid` bits 0/1 indicate first fixed-status/enable reads; bits 2/3 indicate first
+EC GPE-byte status/enable reads. Missing reads are unknown, even when the printed
+value is zero. EC raw values and filtered values returned to uACPI are both
+retained. The EC mask in the header identifies the relevant bit within that
+byte. First reads are retained across later handler clears/disables. These are
+sequential observations, not an atomic event snapshot; they cover only the fixed
+registers and EC GPE byte, not every potential shared interrupt source. A
+zero enabled/status intersection does not prove a spurious interrupt.
+
+The ring records its retained/overwritten counts and sequence numbers, so missing
+older entries are explicit. Adjacent handled/unclaimed callbacks and short gaps
+may support a queued-delivery hypothesis, but do not by themselves establish
+controller or firmware causality. The existing per-phase totals and uACPI return
+value remain authoritative. Host fixtures cover address/width gating, first-read
+retention, unknown values, filtering, timing and ring overflow; the Q35 injected
+unclaimed case checks actual dispatcher output without claiming native evidence.
