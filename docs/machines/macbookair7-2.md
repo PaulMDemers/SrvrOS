@@ -173,9 +173,22 @@ in at most 512-byte slices while leaving fragmented traversal intact.
 Local range/sentinel/failure tests, all 19 pause/revocation boundaries, all 265
 write failures + 265 power cuts + 72 flush faults, exFAT hardening (4K/128K,
 copy-on-write recovery, directory growth, capacity and fragmented allocation),
-scratch isolation and ordinary/native/modeled builds passed. Full baseline
-smoke and affected battery filesystem/deadline VM cases are running locally.
+scratch isolation and ordinary/native/modeled builds passed. Local `make smoke`
+passed the full core suite, 481-command CLI workload (424 files / 5,159 clusters,
+zero leaks/FAT mismatches/errors), syscall, line-editing, UEFI USB/input and
+display-service checks. All six affected battery VM cases passed: sustained
+isolated filesystem, isolated setup/active deadline automatic reset, filesystem
+normal/write-failure, and scratch writes. The sustained run completed 75 cycles /
+1,350 steps in 60,494,657 microseconds, 37,391 commands, 21 scopes with sampling
+progress, and a maximum step of 499,405 microseconds (regrow, step 5). Payload,
+outside bytes, allocation and clean retirement passed. Staging (35) and collector
+(12) tests also passed. Functional code is `6ca3f4f`, tested after integration
+with main as `880efc3`; later documentation commits do not change that code.
+
 Repository Actions is disabled at the user's request; no hosted result is used.
+PR #10 carries the batching change and local validation. Native comparison is the
+next acceptance step; prepare a fresh isolated fixture and exact-stage rehearsal
+before another automatic trial. Installed/recovery payloads remain unchanged.
 
 
 ### Filesystem operation scheduling — October 20
