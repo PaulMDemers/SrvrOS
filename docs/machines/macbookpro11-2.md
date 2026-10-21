@@ -8,8 +8,9 @@ and next scope are recorded at the end; earlier failures are historical.
 ## Current handoff
 
 The user considers the current Pro bring-up generally working and closes this
-phase on October 21. Installed release `2f8abe0e131023d8` remains unchanged;
-network/UI acceptance is confirmed on that release. Earlier desktop acceptance
+phase on October 21. Network/UI acceptance is confirmed on release
+`2f8abe0e131023d8`. Current installed release `5d65ddcc4ccbeaf2` is the
+collected Wi-Fi identity capture, with `e47dca3a6b30c6c1` retained as recovery. Earlier desktop acceptance
 stands for its named payloads; the latest run did not repeat sound, brightness
 or Text saving. Closing this phase does not relabel skipped checks as passes.
 Battery work, headphone testing and further trackpad-latency tuning stay deferred.
@@ -17,8 +18,8 @@ Ubuntu remains default and no reboot is armed.
 
 Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
 revision `0100`, bound by Linux to `mt76x0u`. Captured inventory and the opt-in
-identity diagnostic are implemented; native identity acceptance and firmware/
-radio/authentication/UI implementation remain pending. Preserve
+identity diagnostic are implemented and native identity reads accepted. Firmware,
+radio, authentication and UI implementation remain pending. Preserve
 shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
 Air PR #17 concerns SCI controller observation and does not overlap this scope.
 
@@ -1472,3 +1473,20 @@ exact recipes and refusal tests. Resolve shared staging/receipt/Make targets by
 combining behaviors, then build/core and exact v39 VM checks. Independently audit
 installed mt7610 firmware structure/hash/provenance and document calibration
 requirements; no firmware upload or radio writes in this checkpoint.
+
+Integration/audit checkpoint: merge `f1421f4` consumes main `8211ec1` and preserves
+all laptop recipes byte-for-byte against both parents, including Pro v39 and Air
+v40/v41. All 45 profile tests, full build/USB image/core suite and exact v39 GPT
+VM rehearsal pass. VM-only stage `de4ec051e0ee2f06` records dirty=true because the
+untracked host firmware-audit tools were being authored; it is not installed or
+promoted as a clean native candidate. Saved refusal evidence and reset pass;
+installed native identity release remains `5d65ddcc4ccbeaf2`.
+
+Both local decompressed mt7610e/u images match upstream commit `431e7f03` hashes
+and pass the actual kernel C layout parser and new host audit. The audit rejects
+unknown hashes/names and malformed sizes; four tests plus docs checks pass.
+Upstream WHENCE assigns LICENCE.mediatek. No firmware bytes are committed or
+packaged. See the Wi-Fi guide for hashes, lengths, source links and explicit
+calibration requirements. Next is a separately bounded EEPROM/EFUSE capture and
+MCU/reset/firmware ownership implementation; accepted identities do not authorize
+transmit without this adapter's validated calibration. No reboot is armed.

@@ -3386,3 +3386,8 @@ build/tests/ec-query-rearm-host$(HOST_EXE): tools/test_ec_query_rearm.c ports/sr
 test-core: test-battery-desktop-records
 test-battery-desktop-records:
 	$(PYTHON) tools/test_battery_desktop_records.py
+
+.PHONY: test-wifi-firmware-audit
+test-core: test-wifi-firmware-audit
+test-wifi-firmware-audit:
+	$(PYTHON) tools/test_wifi_firmware_audit.py

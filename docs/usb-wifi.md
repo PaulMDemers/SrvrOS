@@ -132,3 +132,45 @@ Ubuntu return and consumed one-shot were verified. Postboot offline filesystem
 and allocation checks pass: 29 directories, 111 files, 415 clusters, zero leaks,
 bitmap mismatches or errors. The next driver step is firmware provenance/hash
 pinning and revision/calibration checks before enabling any radio writes.
+
+## Firmware audit checkpoint
+
+The Ubuntu `linux-firmware` package `20260319.git217ca6e4.1ubuntu` supplies the
+following compressed files. After local decompression, their bytes match the
+same files at upstream linux-firmware commit
+`431e7f03d2c77c3d027d02c9160b15f0f245d882` exactly:
+
+| Candidate | Bytes | ILM including 64-byte IVB | DLM | SHA-256 |
+| --- | --- | --- | --- | --- |
+| mt7610e.bin | 80680 | 69172 | 11476 | `538d08c08f8fb5aa05cacf34e49aeb307e8b2dc094407fc655fbf3580c893953` |
+| mt7610u.bin | 80288 | 68780 | 11476 | `5a4268e9021bb587426ba624b425f1e660bfc82cd63b36ad3ce6fb9ce6751760` |
+
+Both headers report build `0x7640`, firmware `0x0100`. Their build-time fields
+are `201404011018____` and `201308221655____` respectively. These are candidate
+provenance observations, not evidence of which image Linux loaded on this boot.
+The pinned Linux loader prefers mt7610e and falls back to mt7610u; SrvrOS has not
+yet selected or uploaded either. The MAC register value does not justify choosing
+a different firmware filename by itself.
+
+`python3 tools/wifi_firmware_audit.py /local/path/mt7610e.bin` audits a locally
+decompressed file. It bounds the input, checks header/payload lengths, and rejects
+unknown names or hashes. It never uploads, installs or bundles firmware. Run
+`make test-wifi-firmware-audit` for malformed/truncated/unknown-image tests. Raw
+firmware and research files remain in ignored local evidence, not Git or initramfs.
+
+The upstream [WHENCE entry](https://kernel.googlesource.com/pub/scm/linux/kernel/git/firmware/linux-firmware/+/431e7f03d2c77c3d027d02c9160b15f0f245d882/WHENCE)
+assigns these images to [LICENCE.mediatek](https://kernel.googlesource.com/pub/scm/linux/kernel/git/firmware/linux-firmware/+/431e7f03d2c77c3d027d02c9160b15f0f245d882/LICENSES/LICENCE.mediatek).
+Future packaging must retain that license and provenance separately from SrvrOS's
+MIT source license. No firmware redistribution is added by this checkpoint.
+
+Before a transmitter is enabled, capture and validate this device's EEPROM/EFUSE
+layout/version, chain/band capabilities, frequency/temperature offsets and power
+calibration. Reject erased, malformed or unsupported data; do not substitute
+another device's values or Linux's current regulatory setting. The upstream
+[EEPROM implementation](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c)
+and [initialization order](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/init.c)
+are protocol references. Calibration capture needs a separate bounded diagnostic:
+indirect EFUSE access may require control-register writes, so it is not equivalent
+to the accepted two-register read. Firmware/reset/DMA ownership, MCU readiness and
+failure teardown also remain implementation work. Hash acceptance alone must not
+turn on the radio.
