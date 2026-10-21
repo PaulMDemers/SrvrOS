@@ -2,6 +2,19 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: post-EOI SCI observation
+
+Continue on `device/macbookair7-2/sci-controller` from main `7761200`.
+Add an optional, token-owned IRQ completion observer invoked after the existing
+EOI and before interrupt return, with bounded lifecycle/mutation checks. Extend
+the diagnostic ring and log validator with a third controller snapshot and
+entry-to-observation elapsed time/query state. Touch IRQ registry/dispatcher,
+battery observer/runtime, host/VM tests and these guides. No claim, route, mask,
+EOI ordering or EC/event access policy changes. This is not an `iret` timestamp.
+Pro PR #19 remains USB Wi-Fi inventory; no overlapping IRQ change was found.
+Host lifecycle/dispatch ordering tests and focused VMs precede another fresh
+automatic native capture. Ordinary desktop battery remains off.
+
 ### Native SCI controller capture accepted
 
 Release `7357a2eee058622e`, source `d9950fb` (merged PR #17), session
