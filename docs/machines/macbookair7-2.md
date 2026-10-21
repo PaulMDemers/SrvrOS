@@ -2,17 +2,63 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: SCI controller snapshots
+### Native SCI controller capture accepted
+
+Release `7357a2eee058622e`, source `d9950fb` (merged PR #17), session
+`session-00065e523d6edce6-00` completed the automatic isolated-filesystem trial.
+42 cycles / 756 operations ran in 60,968,560 microseconds, with 16,910 USB commands
+and a 3,669,507-microsecond maximum operation. Both service lifetimes retired
+cleanly with restored enables, balanced attachment and zero heap/errors/denials;
+generation 23 and 61,290 cached reads (maximum 18 microseconds) were recorded.
+This workload timing does not establish desktop/input latency or observer cost.
+
+The full counters recorded 29 handled and 29 unclaimed callbacks. Ten completed
+callbacks were retained; 48 were overwritten. All twenty paired controller
+snapshots were available on vector 41 / GSI 9: ISR and TMR set, IRR clear,
+LINT0 `0x10700`, PIC masks `0xffff`. Each retained handled callback showed route
+low `0xd029` before and `0xc029` after; each unclaimed callback showed `0xc029`
+at both points. All route high words were zero. The route's remote-IRR bit was
+set throughout these observations. These are sequential **pre-EOI** reads.
+
+All five retained unclaimed callbacks still had EC status `0xa0`, enable zero,
+fixed status/enable `0x8001`/`0x20`, and query work pending before and after.
+They followed handled callbacks by 578,961–751,884 microseconds and lasted
+15–16 microseconds including the controller reads. This is evidence of a
+level-triggered APIC delivery with no enabled event in the selected register
+reads; it does not establish its cause or justify swallowing the interrupt.
+A checksum-validated, read-only MADT audit confirms source 9 / GSI 9, flags 13:
+explicit active-high/level, matching the observed route. Do not substitute an
+assumed active-low SCI configuration for this machine's firmware evidence.
+
+Exact inner contents, fsck and allocation (75 clusters) passed. Outer fsck and
+allocation passed with 188 directories, 893 files, 1,668 clusters and no leaks or
+mismatches. 888 previous files are byte-identical; only the disposable image and
+root metadata changed, with three new matching logs. New Ubuntu boot, consumed
+one-shot, default/EFI order and recovery payload hashes were verified. Accepted
+evidence contains 29 hashed files outside `build`, plus an independent exact
+payload backup; accepted desktop `b427b78f21644bd2` remains the recovery entry.
+The current test image is used and must not be rerun without fresh preparation.
+
+Next bounded investigation: observe controller state after generic EOI and IRQ
+return timing alongside query scheduling. The source audit finds EOI directly
+after dispatch; these snapshots cannot verify its effect. Keep claim, route,
+mask and event acknowledgement policy unchanged until evidence supports a fix.
+Ordinary desktop battery startup and physical gauge/input acceptance remain off
+or pending. Integration baseline `6c6bf9e` includes Pro's updated unit record;
+Pro PR #19 at `f2af3f2` concerns USB Wi-Fi inventory and does not overlap this
+scope. GitHub Actions remain disabled; validation is local.
+
+### Controller snapshot implementation (PR #17)
 
 Branch `device/macbookair7-2/sci-controller`, base main `bd0fe58`.
-Add a bounded xAPIC vector-state read API and diagnostic-only snapshots before
-and after the uACPI SCI callback. Record ISR/IRR/TMR, LINT0 configuration, the
+Added a bounded xAPIC vector-state read API and diagnostic-only snapshots before
+and after the uACPI SCI callback. Records include ISR/IRR/TMR, LINT0 configuration, the
 owned I/O APIC route and PIC masks; both snapshots precede generic EOI. No EOI,
-route, mask, event acknowledgement or claim-policy change. Retain explicit
-availability and sequential-read limits. Touch LAPIC helper/tests, battery
+route, mask, event acknowledgement or claim-policy change. Availability and
+sequential-read limits remain explicit. Changes cover LAPIC helper/tests, battery
 observer/runtime, VM record validation and documentation. Pro scope inspected
-at `ecad3df` remains network/UI acceptance, with battery deferred. Host and VM
-validation precede a fresh automatic native trial; ordinary desktop battery off.
+at implementation time (`ecad3df`) concerned network/UI acceptance, with battery
+deferred. Host and VM validation preceded the accepted native trial above.
 
 Implementation: paired controller rows in the existing eight-entry ring; xAPIC
 reads are bounded to ISR/IRR/TMR/LINT0, and no IRQ return or acknowledgement
@@ -25,9 +71,9 @@ The initial stale VM binary was rejected for missing controller records; the
 final runs used the rebuilt VM kernel. The isolated test verified the inner tree
 and all outside bytes, and deadline recovery returned automatically. Validation
 is archived outside `build`; GitHub Actions remain disabled. Physical acceptance
-is pending.
+is now recorded above.
 
-Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
+Prior accepted **passive SCI observation**: release `57ac1e9954e445e9`,
 source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
 The isolated workload completed 43 cycles / 774 operations in 60,859,549
 microseconds, with 17,311 USB commands and a 2,796,485-microsecond maximum

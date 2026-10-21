@@ -599,5 +599,16 @@ ISR, IRR, TMR, LINT0, route and PIC masks are read sequentially. Hardware can
 change between reads, so the pair is a bounded observation rather than an atomic
 snapshot or proof of interrupt origin. Software `int` injection in Q35 exercises
 dispatch and record validation but does not model a pending hardware APIC vector.
-Native controller evidence remains pending until a matching physical run is
-collected. Existing unclaimed interrupts retain their original return value.
+Native controller acceptance is limited to the matching physical run recorded
+below. Existing unclaimed interrupts retain their original return value.
+
+Air7,2 release `7357a2eee058622e` accepts this bounded controller capture during
+42 isolated-filesystem cycles and two clean service lifetimes. All ten retained
+callbacks had ISR/TMR set and IRR clear; the I/O APIC remote-IRR bit was set at
+both observation points. Five unclaimed callbacks again had no enabled event
+in the selected fixed/EC reads and pending query work. The firmware MADT override
+explicitly specifies active-high/level for GSI 9, matching the observed route.
+Neither snapshot occurs after generic EOI, so delivery cause and acknowledgement
+behavior remain unresolved. No IRQ claim or configuration policy changed. See
+the [Air acceptance record](machines/macbookair7-2.md) for counts, integrity checks
+and remaining physical acceptance boundaries.
