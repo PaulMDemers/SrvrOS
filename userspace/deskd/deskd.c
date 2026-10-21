@@ -1537,7 +1537,22 @@ int main(int argc,char **argv) {
     uint64_t until=(uint64_t)srv_ticks()+30;
     while ((uint64_t)srv_ticks()<until) { service(&s); srv_sleep_ticks(1); }
     for (int i=0;i<DESKD_WINDOWS;i++) {
-        if (s.children[i]) { uint64_t status; srv_kill(s.children[i]); srv_wait(s.children[i],&status,0); }
+        if (s.children[i]) {
+            /* A storage wait can cross the grace deadline after the client
+             * exits. Reap that completion before treating it as a forced kill. */
+            uint64_t status=0,pid=s.children[i];
+            long waited=srv_wait(pid,&status,SRV_WAIT_NOHANG);
+            if(waited!=(long)pid) {
+                srv_kill(pid);waited=srv_wait(pid,&status,0);
+                if(coexist) failed=1;
+            }
+            if(waited==(long)pid) {
+                s.child_reaped++;if(status)s.child_errors++;
+                desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",
+                    (unsigned long long)pid,(unsigned long long)status,(unsigned long long)srv_ticks());
+            } else s.child_errors++;
+            s.children[i]=0;
+        }
         if (s.clients[i].pid) forget(&s,i);
     }
     if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;

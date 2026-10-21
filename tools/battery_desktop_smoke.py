@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 import struct
+import shutil
 import tempfile
 import time
 
@@ -111,7 +112,7 @@ def main():
     if args.no_input and (not args.text or args.case!='normal'):parser.error('--no-input requires --text --case normal')
     root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-desktop-'+('load-' if args.load else '')+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
-    output=bytearray()
+    output=bytearray();passed=False
     with tempfile.TemporaryDirectory(prefix='srvros-battery-desktop-') as folder:
         tmp=Path(folder)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('27' if args.case=='runtime-fault' else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
@@ -198,6 +199,7 @@ def main():
                         verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
                     result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=True,final_report='unavailable')
                     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+                    passed=True
                     print(json.dumps(result),flush=True)
                     return
                 if args.case=='normal':
@@ -227,10 +229,13 @@ def main():
                     result['outside_image_unchanged']=True
                     result['offline_allocation']='PASS'
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+                passed=True
                 print(json.dumps(result),flush=True)
             finally:
                 (out/'serial.log').write_bytes(output)
                 stop_process(process)
+                if args.load and not passed and stick.exists():
+                    shutil.copyfile(stick,out/'failed-workspace.img')
 
 
 if __name__=='__main__':main()

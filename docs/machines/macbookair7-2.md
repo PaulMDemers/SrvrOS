@@ -6,8 +6,8 @@ Updated: 2026-10-21. State: **active reference machine; partial device acceptanc
 
 Starting at `8211ec1` (PR #30), combine the accepted RAM Text script with the
 existing exclusive filesystem-image workload in the bounded diagnostic owner.
-Touched subsystems: runtime owner, opt-in v42 boot/staging, collection proof and
-VM fixtures. Reuse per-operation I/O exclusion and lease cleanup; no scheduler,
+Touched subsystems: runtime owner, opt-in v42 boot/staging, collection proof,
+VM fixtures and compositor shutdown accounting. Reuse per-operation I/O exclusion and lease cleanup; no scheduler,
 filesystem format, desktop defaults or native model-gate changes are planned.
 Pro PR #19 inspected at `e9320d9`; preserve its v39 Wi-Fi scope. Validate normal,
 injected input, cancellation/deadline, unavailable platform and runtime fault
