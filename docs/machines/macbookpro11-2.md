@@ -1251,3 +1251,9 @@ with continuing heartbeats and no quarantine. Thus sampled data is timely;
 visible repaint/which displayed field remains unresolved. Next bounded scope
 is a foreground idle-window VM transition test with no click/F5 after either
 link change, since previous recovery screenshots focused System first.
+The foreground, no-input down/up VM cycle passes; the recovered screenshot
+shows Connected / 1000 Mb/s without focusing, clicking or Refresh. This is
+shared-UI/e1000 evidence, not acceptance of the native report. Await the user's
+identification of the unchanged field and whether Refresh/window movement helps.
+No native screenshot was saved in this run. No new payload installed or reboot
+armed; preserve the current diagnostic image for a focused follow-up.

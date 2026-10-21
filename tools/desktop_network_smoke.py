@@ -130,6 +130,12 @@ def main():
                     wait(b"desknet: finished result=1 exit=1");shot("network-traffic-outage")
                 else:
                     wait(b"link=9 speed=0");shot("network-disconnected-system")
+                    # Keep System foreground and send no user input between
+                    # transitions: focusing it later could mask stale repaint.
+                    qmp.call("set_link",{"name":"nic0","up":True})
+                    wait(b"link=15 speed=1000",5);shot("network-idle-reconnected-system")
+                    qmp.call("set_link",{"name":"nic0","up":False})
+                    wait(b"link=9 speed=0",5)
                     launch_network();wait(b"launcher window=");shortcut("ctrl-ret");wait(b"desknet: disconnected");shot("network-disconnected")
                 qmp.call("set_link",{"name":"nic0","up":True})
                 if not args.usb_only:
