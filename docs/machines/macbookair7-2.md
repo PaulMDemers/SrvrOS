@@ -35,6 +35,15 @@ transfer rules; preserve quarantine on ambiguity. Validate local boundaries,
 then compare a fresh automatic native profile. Ordinary desktop battery remains
 disabled and Actions remains disabled. Native batching acceptance is pending.
 
+Integration inspection: Pro PR #5 also contains GPT map validation and GPT-first
+USB discovery in `block.c`/`usb_storage.c`. Those function changes are distinct
+from this branch's batch/command changes and merge mechanically. A dry merge
+against Pro `992e8b9` identifies a new fixture conflict in `test_usb_storage.c`:
+retain Pro's GPT scan/reset assertions alongside Air's larger mock disk,
+segmented transport cases and `sizeof(disk)/512` capacity assertion. The existing
+hardware staging/smoke conflicts come from the prior Air battery profiles and
+must preserve both profile sets. This branch does not import or replace Pro work.
+
 Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
 source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic
 trial completed 34 cycles / 612 operations in 61,130,508 microseconds with 16,954
