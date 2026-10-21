@@ -724,12 +724,12 @@ hashes passed. This supports the ordering fix for the observed duplicate pattern
 it does not eliminate the documented late-arrival window. Ordinary desktop
 battery startup remains disabled.
 
-## Next milestone: desktop and input coexistence
+## Desktop and input coexistence contract
 
 The automatic filesystem captures exercise storage and cached readers, but do
-not run the compositor concurrently. Current `main.c` runs battery and desktop
-capture branches sequentially. Merely combining command-line flags would therefore
-not demonstrate overlap. Build a separate opt-in capture with an explicit owner:
+not run the compositor concurrently. The original `main.c` battery and desktop
+capture branches ran sequentially, so combining flags did not demonstrate
+overlap. The v40 RAM capture implements the first stage of this contract:
 
 1. Checkpoint and park the outer workspace before native runtime entry. Launch
    the desktop with RAM-backed state and a visible test banner; omit Home access,
@@ -798,5 +798,22 @@ without a successful completion report or unsafe live-runtime cleanup. The first
 VM exposed a sample timeout during large pixel-cache cleanup; `process_munmap`
 now removes mappings in one table pass rather than searching twice per page.
 A bulk/split/unrelated-mapping regression runs in `posixdemo`. The existing EC
-100 ms transport deadline and fault containment remain unchanged. Native v40
-acceptance is pending a separately recorded exact-stage trial.
+100 ms transport deadline and fault containment remain unchanged.
+
+### Accepted Air7,2 RAM overlap (2026-10-21)
+
+Native release `ae2851607a9bf0c1` (source `1df9a24`, PR #26), session
+`session-00065e5c8e37f13c-00`, passed after exact-stage VM rehearsal. The study
+ran 60.019 seconds, presented all 60 generated changes and 61 frames, and
+recorded a maximum loop gap of 30,009 microseconds. Sampling advanced from
+generation 1 to 23 with 3,004 cached reads, 707 during sampling. Clean process
+exit and service retirement, balanced attachment, zero rejection/errors/denials
+and 23 handled / zero unclaimed SCI interrupts were recorded. The
+30 ms maximum loop gap is software scheduling evidence, not physical latency.
+
+Collection, old-file hashes (including the unchanged used filesystem image),
+offline exFAT/allocation, Ubuntu return/default and recovery verification passed.
+The machine record owns the exact installed/evidence state. This closes the first
+RAM study overlap step. Rich Text keyboard-event coverage, isolated filesystem
+load alongside the compositor and attended physical input acceptance remain.
+The ordinary desktop battery service is still disabled.
