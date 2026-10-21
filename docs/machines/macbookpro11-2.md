@@ -1171,3 +1171,15 @@ filesystem exclusion latency, not these network/terminal changes. Collected
 `1212d33f6ccf6bd4`, session `00065e4e19aee836-00`, normal exit and no attention
 markers: startup down/up notifications now parse; full cable recovery remains
 unaccepted. No new trial starts before the automated flow is validated.
+
+Prompted candidate `0875949083ad6ac7` (source `41375f1`) passes full build/core
+checks, documentation checks and the two-adapter network regression. The actual
+trial script saves exact local-server HTTP responses before/after a simulated
+traffic outage, records disconnected DHCP failure, and rejects EOF at a gate.
+The exact GPT/scaled desktop/audio rehearsal starts Terminal automatically,
+waits at both gates until Enter, saves all phase reports and completion state,
+then saves Text/screenshots/logs and unmounts cleanly. All three trial screens
+were visually reviewed. Earlier EOF-fixture and argument-forwarding failures
+remain in local evidence; final validation uses explicit positional targets.
+Native cable timing/UI/recovery remains pending. Install with Ubuntu default
+and `e47dca3a6b30c6c1` recovery retained; collect this candidate before another run.
