@@ -1686,3 +1686,11 @@ controls); integration overlaps staging and reuses v44, so it is deferred while
 isolating this USB change on the prior `84cf41e` baseline. The attempted merge
 was aborted without changing either branch. Reconcile immutable profiles before
 consuming that baseline; no Air EC or battery changes are part of this fix.
+
+Address-recovery candidate `296927c`, release `205e2cc2fb7e616c`, adds the
+10 ms controller-clock settling interval after Address Device, before descriptors.
+Build/xHCI/docs pass; the new test covers clock wrap, stall quarantine, failed
+address command and retained DMA. Exact GPT VM capture/save/unmount/reset passes,
+as do USB Ethernet DHCP/DNS/HTTP/recovery and storage read/write/flush/reload VMs.
+This is a plausible cold-start fix, not native acceptance. Main `49ded19` remains
+unmerged pending resolution of the v44 staging collision; prior baseline retained.

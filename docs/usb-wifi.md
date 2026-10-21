@@ -345,3 +345,12 @@ for ten seconds, reconnect it, then power on into the one-shot diagnostic. Leave
 the workspace drive connected. Collect the new matching session on Ubuntu return.
 An ordinary reboot, USB logical reset or unbind does not establish removal of
 adapter power; do not relax the live-MCU gate to bypass this prerequisite.
+
+The attended cold retry on Pro11,2 timed out at the first device descriptor on
+root port 1, before Wi-Fi identity or firmware preparation. The driver now allows
+10 ms of controller-clock recovery after successful Address Device completion
+before requesting descriptors, consistent with the settling delay in
+[Linux v6.18 hub enumeration](https://github.com/torvalds/linux/blob/v6.18/drivers/usb/core/hub.c).
+Host coverage checks the interval across MFINDEX wrap, stalled-clock quarantine
+and failed address commands. This fixes a missing recovery interval; whether it
+resolves this adapter's cold-start timeout still requires native acceptance.
