@@ -17,8 +17,15 @@ validation precede a fresh automatic native trial; ordinary desktop battery off.
 Implementation: paired controller rows in the existing eight-entry ring; xAPIC
 reads are bounded to ISR/IRR/TMR/LINT0, and no IRQ return or acknowledgement
 policy changes. Host core suite, all vector/bit combinations, observer pairing
-and corrupted/truncated record fixtures pass. Five focused VM cases are being
-run before integration/staging. Physical acceptance is pending.
+and corrupted/truncated record fixtures pass. Source `6e7c93f` passes five local
+Q35 cases: injected unclaimed, normal service, foreign event, isolated filesystem
+and active filesystem deadline/reset. All available controller identities match
+the fixture; twelve injected-callback snapshots report no APIC vector state.
+The initial stale VM binary was rejected for missing controller records; the
+final runs used the rebuilt VM kernel. The isolated test verified the inner tree
+and all outside bytes, and deadline recovery returned automatically. Validation
+is archived outside `build`; GitHub Actions remain disabled. Physical acceptance
+is pending.
 
 Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
 source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
