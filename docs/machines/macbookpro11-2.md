@@ -1324,3 +1324,13 @@ Pause/Resume and Text save/reopen. Preserve current accepted network payload and
 previous recovery independently; retain Ubuntu default. Battery/headphones and
 further pointer-latency tuning remain deferred. Collect this exact new session
 before another stage; local/VM passes do not accept the updated native tree.
+
+Updated native candidate `2f8abe0e131023d8` (source `fd3ffd2`, main `cd732ec`)
+passes local build/core and storage hardening: all 169 write/power-cut/partial
+boundaries, 72 flush failures and 19 pause/revoke points. USB read/write/flush,
+reload, keyboard and timeout-quarantine VMs pass, as does mixed-adapter live UI.
+The exact GPT desktop rehearsal passes 2880x1800 at 2x, audio, prompted network
+checks, Text/screenshot/log persistence and clean USB unmount. The physical
+workspace contains `regression-checklist.txt` with all checks and return steps.
+Install with previous recovery retained, save the on-disk run record, and select
+one boot. Native acceptance is pending; collect this release first after return.
