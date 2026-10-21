@@ -36,14 +36,20 @@ has no physical input or gauge-accuracy acceptance.
 ### Next bounded scope: desktop and input coexistence
 
 Branch `device/macbookair7-2/sci-controller`, actual integration baseline
-`b7bd60c`. Complete the shared rearm milestone with this acceptance record, then
-implement a separate opt-in coexistence capture following the
-[service plan](../battery-service.md#next-milestone-desktop-and-input-coexistence).
-Own the battery lifecycle/capture contract; likely touch runtime diagnostics,
-`kernel/src/main.c`, `deskd`, staging/collection and their tests. Publish the
-precise implementation scope before changing those shared files. Pro PR #19 at
-`e9320d9` remains Wi-Fi/xHCI/staging work; inspect its latest diff and preserve
-its capture profile before integrating overlapping main/staging edits.
+`4daf2c2`. First implementation is a RAM-only `deskd --coexist-capture` with the
+existing independent typing-study client. Keep Home/preferences/screenshots off
+this path. Add a bounded runtime owner that waits for active cached sampling,
+launches and observes the compositor, and stops/reaps it before retiring the
+service. Record overlapping timestamps, sampling progress, process exit and
+compositor progress; no claim of physical input latency. Implement and test this
+through the VM/monitor entry point before adding any native staging profile.
+
+Scope: `ports/srvros/uacpi/runtime/battery_runtime.c`, `userspace/deskd/deskd.c`,
+a focused VM harness/record checker and current guides. No ordinary desktop boot,
+USB driver or hardware gate changes. Cover unavailable service, missing/failed
+process, capture deadline and injected input in disposable VMs. Pro PR #19 at
+`e9320d9` is unchanged and does not overlap these runtime/compositor files.
+The later native profile will touch main/staging; reinspect that PR first.
 GitHub Actions remain disabled; validate locally.
 
 ### Previous native query correlation accepted
