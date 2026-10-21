@@ -1,11 +1,27 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-20. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
+Updated: 2026-10-21. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
 
-## Ownership and scope
+## Current handoff
+
+The user considers the current Pro bring-up generally working and closes this
+phase on October 21. Installed release `2f8abe0e131023d8` remains unchanged;
+network/UI acceptance is confirmed on that release. Earlier desktop acceptance
+stands for its named payloads; the latest run did not repeat sound, brightness
+or Text saving. Closing this phase does not relabel skipped checks as passes.
+Battery work, headphone testing and further trackpad-latency tuning stay deferred.
+Ubuntu remains default and no reboot is armed.
+
+Next scope: the Ethernet adapter has been replaced by Edimax `7392:a711`, USB
+revision `0100`, bound by Linux to `mt76x0u`. Begin captured USB Wi-Fi inventory,
+firmware/protocol research and a separate bounded implementation plan. Preserve
+shared Ethernet behavior; coordinate through the unit record and reviewable PRs.
+Air PR #17 concerns SCI controller observation and does not overlap this scope.
+
+## Original bring-up scope (historical)
 
 Local on-device agent, branch `device/macbookpro11-2/bringup`, starting from
 `main` at `db40ed510636847d9aad2c7d38fea9976de43252`.
@@ -1313,3 +1329,44 @@ The user authorizes merging PR #5 after these checks. Durable integration logs
 and receipts are archived outside `build`. Installed desktop/recovery remain
 `81e3308ffcdfe637` / `e47dca3a6b30c6c1`; no reboot or installation is armed.
 Battery, headphone and further trackpad-latency acceptance remain deferred.
+
+Post-merge physical regression scope: user requests pull/update and the next
+native test. Main is now `cd732ec` (PR #13 bounded USB data batching). Fast-forward
+this device branch, rebuild and run core/storage hardening, USB transport and
+exact GPT/scaled/audio/network desktop checks before installation. Shared source
+is unchanged by this device step. Use the existing untimed Terminal cable trial
+and persistent Help checklist for input/apps, brightness, speakers, both fans,
+Pause/Resume and Text save/reopen. Preserve current accepted network payload and
+previous recovery independently; retain Ubuntu default. Battery/headphones and
+further pointer-latency tuning remain deferred. Collect this exact new session
+before another stage; local/VM passes do not accept the updated native tree.
+
+Updated native candidate `2f8abe0e131023d8` (source `fd3ffd2`, main `cd732ec`)
+passes local build/core and storage hardening: all 169 write/power-cut/partial
+boundaries, 72 flush failures and 19 pause/revoke points. USB read/write/flush,
+reload, keyboard and timeout-quarantine VMs pass, as does mixed-adapter live UI.
+The exact GPT desktop rehearsal passes 2880x1800 at 2x, audio, prompted network
+checks, Text/screenshot/log persistence and clean USB unmount. The physical
+workspace contains `regression-checklist.txt` with all checks and return steps.
+Install with previous recovery retained, save the on-disk run record, and select
+one boot. Native acceptance is pending; collect this release first after return.
+
+Collected post-merge release `2f8abe0e131023d8`, source `fd3ffd2` / main
+`cd732ec`, session `00065e5123d266b4-00`. User reports everything appeared to
+work as expected. Fresh before/after reports pass DHCP/DNS/HTTP 200; disconnected
+DHCP fails as expected. Two cable cycles complete without quarantine, with the
+final System down/up snapshots within 0.71 seconds of driver notifications.
+Normal desktop exit and zero collector attention; both fans provide recent
+readings with zero service failures. The logs record no audio playback and the
+requested `postmerge-text-check.txt` is absent. The user subsequently confirms
+only network/UI checks were performed. Brightness, sound, Text save/reopen and
+the remaining desktop checklist were not retested on this payload; prior native
+acceptance remains historical. Fan samples establish telemetry availability,
+not a user-confirmed fan-display or Pause/Resume retest.
+
+Matching logs and all five reports are hashed and archived with this release
+outside build. Offline exFAT/allocation checks pass: 28 directories, 109 files,
+412 clusters, zero leaks/mismatches/errors. Current and recovery manifests verify;
+Ubuntu remains default, one-shot consumed, no reboot armed. Network/UI recovery
+and the exercised persistence path are accepted on the updated tree. Battery,
+headphones and further trackpad-latency work remain deferred.
