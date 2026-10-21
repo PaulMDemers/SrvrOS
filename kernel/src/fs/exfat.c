@@ -1339,51 +1339,48 @@ static bool write_file_data_impl(struct exfat_file *file, const uint8_t *data, u
         return false;
     }
 
-    uint8_t *cluster_buffer = kcalloc(file->volume->cluster_size, 1);
-    if (cluster_buffer == NULL) {
-        return false;
+    /* Group only a proven contiguous allocation. Fragmented FAT chains retain
+     * one-cluster traversal, and a large cluster retains its existing buffer.
+     * The block layer and driver still enforce their own transfer limits. */
+    uint64_t cluster_size=file->volume->cluster_size, buffer_bytes=cluster_size;
+    if(file->no_fat_chain && file->volume->device) {
+        struct block_device *device=block_parent(file->volume->device);
+        uint64_t limit=device?device->max_transfer_bytes:0;
+        if(limit>BLOCK_MAX_BATCH_BYTES)limit=BLOCK_MAX_BATCH_BYTES;
+        if(limit>cluster_size)buffer_bytes=limit-limit%cluster_size;
     }
+    uint8_t *cluster_buffer = kcalloc(buffer_bytes, 1);
+    if (cluster_buffer == NULL) return false;
 
     uint64_t copied = 0;
     uint32_t cluster = file->first_cluster;
     uint64_t clusters = file->allocated_clusters;
-    for (uint64_t i = 0; i < clusters; i++) {
-        uint64_t offset;
-        if (!cluster_offset(file->volume, cluster, &offset)) {
-            kfree(cluster_buffer);
-            return false;
+    for (uint64_t i = 0; i < clusters;) {
+        uint64_t span=buffer_bytes/cluster_size;
+        if(span>clusters-i)span=clusters-i;
+        uint64_t needed=(size-copied+cluster_size-1)/cluster_size;
+        if(span>needed)span=needed;
+        uint64_t offset,last_offset;
+        if(span-1>UINT32_MAX-cluster ||
+           !cluster_offset(file->volume,cluster,&offset) ||
+           !cluster_offset(file->volume,cluster+(uint32_t)span-1,&last_offset)) {
+            kfree(cluster_buffer);return false;
         }
-
-        for (uint64_t j = 0; j < file->volume->cluster_size; j++) {
-            cluster_buffer[j] = 0;
+        uint64_t bytes=span*cluster_size;
+        for (uint64_t j=0;j<bytes;j++)cluster_buffer[j]=0;
+        uint64_t chunk=bytes;
+        if(chunk>size-copied)chunk=size-copied;
+        for(uint64_t j=0;j<chunk;j++)cluster_buffer[j]=data[copied+j];
+        if(!volume_write(file->volume,offset,cluster_buffer,bytes)) {
+            kfree(cluster_buffer);return false;
         }
-
-        uint64_t chunk = file->volume->cluster_size;
-        if (chunk > size - copied) {
-            chunk = size - copied;
-        }
-        for (uint64_t j = 0; j < chunk; j++) {
-            cluster_buffer[j] = data[copied + j];
-        }
-
-        if (!volume_write(file->volume, offset, cluster_buffer, file->volume->cluster_size)) {
-            kfree(cluster_buffer);
-            return false;
-        }
-
-        copied += chunk;
-        if (copied >= size) {
-            break;
-        }
-
-        if (file->no_fat_chain) {
-            cluster++;
-        } else if (!next_cluster(file->volume, cluster, &cluster) || cluster >= EXFAT_FAT_CHAIN_END) {
-            kfree(cluster_buffer);
-            return false;
+        copied+=chunk;i+=span;
+        if(copied>=size)break;
+        if(file->no_fat_chain)cluster+=(uint32_t)span;
+        else if(!next_cluster(file->volume,cluster,&cluster) || cluster>=EXFAT_FAT_CHAIN_END) {
+            kfree(cluster_buffer);return false;
         }
     }
-
     kfree(cluster_buffer);
     return true;
 }

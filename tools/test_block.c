@@ -152,11 +152,13 @@ static void test_batches(void) {
     static uint8_t input[sizeof(medium)], output[sizeof(medium)], expected[sizeof(medium)];
     const unsigned offsets[]={0,1,510,512,4095,4096};
     const unsigned lengths[]={0,1,511,512,513,4095,4096,4097,32768};
+    const unsigned limits[]={512,4096,16384,32768};
+    for (unsigned l=0;l<sizeof(limits)/sizeof(*limits);l++)
     for (unsigned a=0;a<sizeof(offsets)/sizeof(*offsets);a++) {
         for (unsigned b=0;b<sizeof(lengths)/sizeof(*lengths);b++) {
             block_init(); memset(medium,0x69,sizeof(medium));
             struct block_device *d=block_register("batch",512,sizeof(medium)/512,fake_read,fake_write,NULL);
-            d->max_transfer_bytes=4096;
+            d->max_transfer_bytes=limits[l];
             unsigned off=offsets[a], n=lengths[b];
             memcpy(expected,medium,sizeof(medium));
             for(unsigned i=0;i<n;i++) input[i]=(uint8_t)(i*37+11);
@@ -187,6 +189,19 @@ static void test_batches(void) {
     fail_write=partial_failure=false; reads=0;
     assert(block_read(d,0,output,4096) && reads==1 && !memcmp(output,medium,4096));
     for(unsigned i=0;i<2048;i++) assert(output[i]==0xab);
+    /* Larger batches retain sector-granular cache publication and invalidate
+     * every potentially written sector on partial failure. Never exceed 16 KiB
+     * even if a device advertises a larger request. */
+    block_forget(d);d->max_transfer_bytes=32768;reads=writes=0;
+    assert(block_write(d,0,input,32768) && writes==2 && reads==0);
+    block_forget(d);reads=0;
+    assert(block_read(d,0,output,32768) && reads==2 && !memcmp(input,output,32768));
+    memset(input,0x32,16384);fail_write=partial_failure=true;writes=0;
+    assert(!block_write(d,0,input,32768) && writes==1);
+    fail_write=partial_failure=false;reads=0;
+    assert(block_read(d,0,output,16384) && reads==1 && !memcmp(output,medium,16384));
+    for(unsigned i=0;i<8192;i++)assert(output[i]==0x32);
+    d->max_transfer_bytes=4096;
     /* Partition aliases share the parent's batching and invalidation. */
     struct partition_block_device part={.parent=d,.offset=512,.size=8192};
     struct block_device *p=block_register("part",512,16,partition_read,partition_write,&part);

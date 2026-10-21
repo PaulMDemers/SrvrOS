@@ -519,7 +519,7 @@ static void service_checkpoint(void) {
 
 static uint64_t batch_bytes(struct block_device *device, uint64_t remaining) {
     uint64_t limit=device->max_transfer_bytes;
-    if (limit>BLOCK_CACHE_MAX_BLOCK_SIZE) limit=BLOCK_CACHE_MAX_BLOCK_SIZE;
+    if (limit>BLOCK_MAX_BATCH_BYTES) limit=BLOCK_MAX_BATCH_BYTES;
     if (limit>remaining) limit=remaining;
     return limit-limit%device->block_size;
 }

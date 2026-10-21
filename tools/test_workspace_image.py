@@ -16,6 +16,7 @@ IMAGE_DRIVER = ROOT/'build/tests/workspace-image-host'
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--partial-only',action='store_true',help='exercise sector-aligned prefixes of failed/interrupted writes')
     parser.add_argument('--flush-only',action='store_true',help='run new flush faults after an unchanged write-boundary run')
     parser.add_argument('--profile-only', action='store_true', help='count step/FAT writes and verify successful output without fault sweep')
     args=parser.parse_args()
@@ -44,12 +45,19 @@ def main():
         extent_check=command(DRIVER,volume,'image-range')
         assert f'image-range: PASS offset={offset} bytes={SIZE}' in extent_check
         assert volume.read_bytes()==baseline
+        legacy = command(IMAGE_DRIVER, volume, 'profile-4k')
+        legacy_data=volume.read_bytes()
+        legacy_writes=int(re.search(r'image: PASS writes=(\d+)',legacy)[1])
+        volume.write_bytes(baseline)
         output = command(IMAGE_DRIVER, volume, 'profile')
         initial = re.search(r'image step=1 writes=(\d+) fat_writes=(\d+) flushes=(\d+)', output)
         assert initial and int(initial[2]) <= 5, 'large contiguous allocation regressed to per-cluster FAT I/O'
         total = int(re.search(r'image: PASS writes=(\d+)', output)[1])
         total_flushes = int(re.search(r'image: PASS writes=\d+ flushes=(\d+)', output)[1])
         data = volume.read_bytes()
+        assert data==legacy_data, 'batching changed persisted bytes'
+        assert total<legacy_writes and total_flushes==int(re.search(r'flushes=(\d+) revoked=yes',legacy)[1])
+        print(f'image batching: {legacy_writes} -> {total} writes; identical bytes and {total_flushes} flushes',flush=True)
         assert data[:offset] == baseline[:offset] and data[offset+SIZE:] == baseline[offset+SIZE:]
         verify(data[offset:offset+SIZE], 1)
         check_clean_image(volume)
@@ -105,12 +113,12 @@ def main():
             if fault!='inner-dirty':command(DRIVER,volume,'image-range',codes=(1,))
             assert volume.read_bytes() == changed,fault
         print('image admission: dirty/length/alias/fragmentation/bitmap refusals PASS',flush=True)
-        for mode in (('flush-failure',) if args.flush_only else ('failure','power-cut','flush-failure')):
+        for mode in (('partial-failure','partial-cut') if args.partial_only else ('flush-failure',) if args.flush_only else ('failure','power-cut','flush-failure','partial-failure','partial-cut')):
             boundaries=total_flushes if mode=='flush-failure' else total
             for boundary in range(1,boundaries+1):
                 volume.write_bytes(baseline)
-                command(IMAGE_DRIVER,volume,'workload',boundary if mode=='failure' else 0,
-                        boundary if mode=='power-cut' else 0,boundary if mode=='flush-failure' else 0,codes=(77,) if mode=='power-cut' else (0,))
+                command(IMAGE_DRIVER,volume,'partial' if mode.startswith('partial-') else 'workload',boundary if mode in ('failure','partial-failure') else 0,
+                        boundary if mode in ('power-cut','partial-cut') else 0,boundary if mode=='flush-failure' else 0,codes=(77,) if mode in ('power-cut','partial-cut') else (0,))
                 data = volume.read_bytes()
                 assert data[:offset]==baseline[:offset] and data[offset+SIZE:]==baseline[offset+SIZE:],(mode,boundary)
                 # Outer allocation and file contents remain completely unchanged.

@@ -1,7 +1,10 @@
 #ifndef SRVROS_USB_STORAGE_H
 #define SRVROS_USB_STORAGE_H
 #include <srvros/block.h>
+#define USB_STORAGE_BULK_BYTES 4096u
+#define USB_STORAGE_COMMAND_BYTES 16384u
 /* Synchronous BOT transport. The controller owns/pins its DMA bounce buffer.
+ * Calls are at most USB_STORAGE_BULK_BYTES, including each data-phase chunk.
  * A false return makes this device unusable until the next boot. */
 typedef bool (*usb_bulk_fn)(void *, bool, void *, uint32_t, uint32_t *);
 struct usb_storage {
@@ -20,7 +23,7 @@ struct usb_storage {
     void (*diagnose)(void *);
     bool failed, busy, services;
     char name[12];
-    uint8_t data[4096];
+    uint8_t data[USB_STORAGE_COMMAND_BYTES];
 };
 bool usb_storage_is_device(struct block_device *device);
 void usb_storage_print_status(struct block_device *device);

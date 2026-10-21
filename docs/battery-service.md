@@ -504,4 +504,27 @@ flush/order/admission rules and does not enable battery service on ordinary
 startup. Failed operations do not publish a successful profile. The collector
 accepts older reports without profiling; a report marked `profile=1` must contain
 one matching operation header and all four consistent phase records before the
-service completion summary. Native profiling acceptance remains pending.
+service completion summary. Native profiling completed on Air7,2 in release `f99f6759a1ed8f68`: 3.738 of
+4.703 seconds in the slowest operation were data-write callbacks, versus 0.025
+seconds flushing. See the machine record for acceptance limits and integrity checks.
+
+## Bounded USB command batching
+
+The next data-path candidate uses at most 16 KiB per SCSI command while keeping
+each controller bulk request at 4 KiB. Command/data/status ordering follows
+[USB BOT 1.0, sections 5.3 and 6.7](https://www.usb.org/sites/default/files/usbmassbulk_10.pdf).
+Intermediate full-sized requests neither send a zero-length packet nor restart
+the command. A short data response ends that phase; existing status/residue
+validation and quarantine policy still apply. Transfer failure or overrun stops
+immediately, with no retry or later command. Service checkpoints remain between
+chunks as well as after commands. xHCI's pinned buffer, timeout and DMA ownership
+are unchanged.
+
+The block cache admits at most 16 KiB, still publishing only completed sectors
+and invalidating an entire failed range. exFAT groups only contiguous file-data
+clusters within the advertised raw-device limit; fragmented chains retain their
+existing traversal. Final partial clusters are zero-padded. Flush barriers and
+copy-on-write metadata ordering stay unchanged. The diagnostic image inherits
+the bounded capability; host tests compare its persisted bytes against the 4 KiB
+path, then exercise write/power-cut/flush failures and sector-aligned partial-write
+prefixes. Native batching is pending.

@@ -16,6 +16,7 @@ static bool mounted, parked, busy, foreign;
 static unsigned writes, flushes, depth, fail_write, crash_write, fail_flush;
 static unsigned fat_writes, reads;
 static uint64_t mock_us;
+static bool partial_write;
 uint64_t timer_monotonic_us(void){return mock_us;}
 static uint64_t fat_start, fat_end;
 void *kmalloc(uint64_t n){return malloc(n);}
@@ -47,6 +48,11 @@ static bool raw_write(struct block_device *d,uint64_t o,const void *p,uint64_t n
         n<=WORKSPACE_IMAGE_BYTES-(o-image.offset));
     writes++;mock_us+=7;
     if(o < fat_end && o+n > fat_start) fat_writes++;
+    if(partial_write && n>512 && (writes==fail_write || writes==crash_write)) {
+        uint64_t prefix=(n/2/512)*512;
+        assert(pwrite(fd,p,prefix,o)==(ssize_t)prefix);
+        if(writes==crash_write){fsync(fd);_exit(77);}
+    }
     if(writes==fail_write)return false;
     if(pwrite(fd,p,n,o)!=(ssize_t)n)return false;
     if(writes==crash_write){fsync(fd);_exit(77);}
@@ -89,7 +95,7 @@ int main(int argc,char **argv){
     fd=open(argv[1],O_RDWR);assert(fd>=0);
     struct stat st;assert(fstat(fd,&st)==0&&S_ISREG(st.st_mode));
     disk=(struct block_device){.used=true,.name="fixture",.block_size=512,
-        .block_count=(uint64_t)st.st_size/512,.read=raw_read,.write=raw_write,.flush=raw_flush};
+        .block_count=(uint64_t)st.st_size/512,.max_transfer_bytes=!strcmp(argv[2],"profile-4k")?4096:16384,.read=raw_read,.write=raw_write,.flush=raw_flush};
     assert(exfat_mount_block_device("/work",&disk));mounted=true;
     if(!strcmp(argv[2],"refuse")){
         assert(!workspace_image_open()&&!workspace_image_busy()&&!writes);
@@ -129,11 +135,12 @@ int main(int argc,char **argv){
         before=writes;assert(!workspace_image_step(0,&complete)&&!complete&&writes==before);
         close(fd);puts("image: clean pause/revocation");return 0;
     }
+    partial_write=!strcmp(argv[2],"partial");
     if(argc>3)fail_write=(unsigned)strtoul(argv[3],NULL,10);
     if(argc>4)crash_write=(unsigned)strtoul(argv[4],NULL,10);
     if(argc>5)fail_flush=(unsigned)strtoul(argv[5],NULL,10);
     bool ok;
-    if(!strcmp(argv[2],"profile")) {
+    if(!strcmp(argv[2],"profile") || !strcmp(argv[2],"profile-4k")) {
         uint8_t boot[512];assert(raw_read(&disk,image.offset,boot,sizeof(boot)));
         uint32_t fat_lba=0,fat_sectors=0;
         for(unsigned i=0;i<4;i++) {fat_lba|=(uint32_t)boot[80+i]<<(8*i);fat_sectors|=(uint32_t)boot[84+i]<<(8*i);}
@@ -153,7 +160,7 @@ int main(int argc,char **argv){
             }
             assert(counts[0]==reads-rd&&counts[1]==writes-w&&counts[2]==flushes-f);
             assert(times==prof.elapsed_us);
-            if(i==1)assert(prof.io[EXFAT_IO_DATA][WORKSPACE_IMAGE_WRITE].count>=65&&
+            if(i==1)assert(prof.io[EXFAT_IO_DATA][WORKSPACE_IMAGE_WRITE].count==(!strcmp(argv[2],"profile-4k")?66:18)&&
                 prof.io[EXFAT_IO_ALLOCATE][WORKSPACE_IMAGE_WRITE].count>0&&
                 prof.io[EXFAT_IO_METADATA][WORKSPACE_IMAGE_FLUSH].count>0);
             printf("image step=%u writes=%u fat_writes=%u flushes=%u\n",i,writes-w,fat_writes-fw,flushes-f);
