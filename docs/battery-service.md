@@ -564,3 +564,13 @@ controller or firmware causality. The existing per-phase totals and uACPI return
 value remain authoritative. Host fixtures cover address/width gating, first-read
 retention, unknown values, filtering, timing and ring overflow; the Q35 injected
 unclaimed case checks actual dispatcher output without claiming native evidence.
+
+Air7,2 release `57ac1e9954e445e9` accepts the observer during the isolated
+filesystem workload and clean service retirement. Of ten retained callbacks,
+five were unclaimed: all had complete reads, EC event bit clear and disabled,
+no fixed-status/enable overlap, and pending query work. They followed handled
+callbacks by 0.536–0.741 seconds. The full counters still recorded 24 handled
+and 24 unclaimed deliveries; the ring overwrote 38 older callbacks. This evidence
+narrows callback conditions but does not prove queued-controller delivery or
+exclude another source. No claim, enable or acknowledgement policy changed.
+See the [Air record](machines/macbookair7-2.md) for integrity checks and limits.
