@@ -1694,3 +1694,12 @@ address command and retained DMA. Exact GPT VM capture/save/unmount/reset passes
 as do USB Ethernet DHCP/DNS/HTTP/recovery and storage read/write/flush/reload VMs.
 This is a plausible cold-start fix, not native acceptance. Main `49ded19` remains
 unmerged pending resolution of the v44 staging collision; prior baseline retained.
+
+Native address-recovery trial `205e2cc2fb7e616c`: the user observed brief console
+output and automatic Ubuntu return, but collection found no new session (latest
+remains `00065e606b547868-00` from the prior release). This is incomplete evidence;
+the timing fix is not physically accepted and the failure location is unknown.
+Installed/recovery manifests, Ubuntu default and consumed one-shot verify. Offline
+filesystem/allocation checks pass: 119 files, 427 clusters, no errors. Evidence
+and checkpoint archived. Next: prepare a visible failure-screen diagnostic so
+missing-workspace/early failures can be photographed; no further boot is armed.
