@@ -21,6 +21,7 @@ enum thread_state {
     THREAD_RUNNING,
     THREAD_BLOCKED,
     THREAD_DEAD,
+    THREAD_QUARANTINED,
 };
 
 struct scheduler_context {
@@ -343,6 +344,43 @@ static uint64_t next_ready_thread(uint64_t old_index) {
     if(idle_thread<SCHEDULER_MAX_THREADS &&
        (threads[idle_thread].state==THREAD_READY || threads[idle_thread].state==THREAD_RUNNING)) return idle_thread;
     return old_index;
+}
+
+/* Identities are boot-monotonic; an old slot index is not authority. */
+static uint64_t identity_index(uint64_t identity) {
+    if(identity)for(uint64_t i=0;i<SCHEDULER_MAX_THREADS;i++)
+        if(threads[i].identity==identity)return i;
+    return SCHEDULER_MAX_THREADS;
+}
+bool scheduler_service_pair_quarantined(uint64_t caller,uint64_t peer) {
+    uint64_t flags=irq_save(),a=identity_index(caller),b=identity_index(peer);
+    bool ok=initialized && a<SCHEDULER_MAX_THREADS && b<SCHEDULER_MAX_THREADS && a!=b &&
+        threads[a].state==THREAD_QUARANTINED && threads[b].state==THREAD_QUARANTINED;
+    irq_restore(flags);return ok;
+}
+bool scheduler_quarantine_service_pair(uint64_t caller,uint64_t peer) {
+    /* The caller owns IRQ exclusion and the non-IRQ recovery boundary. Keep
+     * validation entirely before mutation; failure retains both original slots. */
+    uint64_t a=identity_index(caller),b=identity_index(peer);
+    if(!initialized || switching || a!=current_thread || a==0 ||
+       a>=SCHEDULER_MAX_THREADS || b>=SCHEDULER_MAX_THREADS || b==0 || a==b ||
+       a==idle_thread || b==idle_thread || idle_thread>=SCHEDULER_MAX_THREADS ||
+       (threads[idle_thread].state!=THREAD_READY && threads[idle_thread].state!=THREAD_RUNNING) ||
+       threads[a].state!=THREAD_RUNNING ||
+       (threads[b].state!=THREAD_READY && threads[b].state!=THREAD_BLOCKED) ||
+       (io_depth && (io_owner==a || io_owner==b)))return false;
+    for(unsigned j=0;j<2;j++) {
+        struct thread *t=&threads[j?b:a];
+        if(t->user_context || t->user_thread_context || t->address_space ||
+           !t->stack || !t->stack_physical || !t->io_eligible)return false;
+    }
+    for(unsigned j=0;j<2;j++) {
+        uint64_t i=j?b:a;struct thread *t=&threads[i];
+        if(t->blocked_queue)t->blocked_queue->waiters&=~(1ull<<i);
+        t->blocked_queue=NULL;t->blocked_deadline_ticks=0;
+        t->io_eligible=NULL;t->state=THREAD_QUARANTINED;
+    }
+    return true;
 }
 
 void scheduler_yield(void) {

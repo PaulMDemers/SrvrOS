@@ -2,6 +2,48 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Owner-watchdog quarantine and workspace recovery (PR #36)
+
+Base `origin/main` `49ded19` (PR #35). Add a CPU0 kernel-service quarantine
+primitive that retains exact identities/stacks, excludes wakeup and reuse, and
+refuses to quarantine a storage owner. Exercise only the battery owner's sample
+deadline outside IRQ context in the disposable VM backend, followed by client
+retirement, saved failure evidence, workspace drain/unmount and automatic reset.
+Native enablement and IRQ-origin faults remain excluded. Touched: scheduler,
+battery runtime/VM fixtures, recovery harness and host tests. Pro PR #19
+`b884060` remains independent Wi-Fi work; no subsystem overlap beyond Makefile.
+No physical run is pending; installed/recovery payloads remain unchanged.
+
+### Local owner-watchdog recovery results
+
+Code `ff8ddb5` passed both disposable VM recovery cases. Each retained two service
+threads and 9,379 bytes of interpreter heap, left generation 2 and worker completion
+10 unchanged across the old sleep expiry, queue wakeups and a late SCI dispatch,
+and refused restart/stop. Three clients retired before saving boot/exit failure
+logs, normal unmount and automatic reset. Saved logs match serial evidence; the
+exact file tree, metadata, anchors and offline allocation checks pass. The normal
+recovery case retained three completed Text files. The I/O-owner case completed
+both flushes across a 28-second storage scope and had zero Text saves; it is an
+ownership/recovery proof, not a responsiveness or outstanding-DMA claim.
+
+The negative fixture gives the modeled battery worker a storage scope; quarantine
+refuses it and halts without a scheduling window or reset. No storage retirement
+is claimed in that case. Native recovery admission is refused before firmware access, with the whole
+disposable disk unchanged. The previous mounted-runtime fault still halts when
+the explicit recovery study is absent. Normal mounted Text and two repeated
+scoped-control sessions still retire cleanly. Full builds/core host checks,
+malformed-proof rejection and 397 documentation links pass locally; Actions OFF.
+Full core/normal regressions ran on `3c98771`; the final terminal-refusal change
+was rebuilt and checked with focused host tests and all three recovery fixtures.
+The scheduler tests cover stale/user/dead/idle/storage-owner refusal, atomicity,
+wait unlink, late wake/expiry, and no slot or stack reuse, including slot exhaustion.
+
+No installed or recovery payload changed; no physical test is armed. Native Home
+remains disabled. Next is fault handling inside IRQ callbacks and a shared
+lock/resource audit before any native recovery trial. IRQ-origin faults must not
+abandon an interrupted storage owner's stack or skip IRQ completion accounting.
+Ordinary startup remains off; these results do not accept native EC/SCI recovery.
+
 ### Current scope: mounted workspace coexistence and reset admission (PR #35)
 
 Base `origin/main` `7d8c58d` (merged PR #34). First add a checked reset policy:

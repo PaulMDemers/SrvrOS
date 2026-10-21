@@ -1127,3 +1127,54 @@ owner must finish safely before logging/unmount/return. Fatal callbacks may run
 inside IRQ context, so merely killing a kernel thread is insufficient. A future
 change must prove these paths with injected faults before enabling mounted Home
 on hardware. Automatic battery startup remains off.
+
+
+## Owner-watchdog quarantine study
+
+The VM-only `acpiruntime battery-workspace-recovery` command adds a recoverable
+boundary for a sample deadline detected by the service owner. It requires IF set,
+the matching owner identity, a ready runtime, and zero SCI callbacks in flight.
+It masks and reads back all fixed/GPE enables and the SCI route before asking the
+scheduler to quarantine the owner and its worker. All native paths and all other
+fatal paths retain the existing containment/reset interlock. This is **not** an
+exception escape mechanism from an IRQ or an arbitrary AML callback.
+
+The CPU0 scheduler primitive validates boot-lifetime identities and both kernel
+service contexts before any mutation. It refuses stale, idle, userspace, dead or
+storage-owner targets and requires an idle fallback. It unlinks waits, clears
+timeouts and scheduling eligibility, and assigns a distinct quarantined state.
+Neither thread is runnable, wakeable, dead nor reusable. Stacks, interpreter heap,
+queue entries, callback contexts and firmware resources remain retained until
+reboot; there is no resume or reclaim operation. The caller performs only final
+IRQ-masked accounting and yields without unwinding or restoring interrupts on
+its retained stack. The adapter must establish that shared resources needed by
+unrelated kernel services are not held by these threads.
+
+The battery cache reports FAULTED and retains the epoch; start and stop are
+refused. The study's ordinary owner waits for its three client descendants to
+retire, crosses the stuck worker's original sleep expiry, attempts queue wakeups
+and delivers a late SCI vector. It verifies unchanged worker completion, sample
+generation, heap, query and IRQ counters and retained scheduler identities.
+It then saves boot/exit logs through the ordinary workspace logger, unmounts,
+checks reset admission again and returns automatically. Logs explicitly say
+`runtime_retired=NO` and `test outcome=contained-failure`: successful containment
+is not successful service teardown.
+
+`battery-workspace-recovery-io` additionally runs an unrelated storage owner
+which holds its scheduler scope for 28 seconds around the 25-second sample
+deadline and flushes before and after quarantine. Ordinary recovery/logging
+cannot run until this owner releases its scope. This proves scheduler ownership
+and real flush continuation, not outstanding DMA or partially completed physical
+media transactions. File work can remain blocked for this whole fixture; its
+zero completed Text saves must not be reported as an interactive workload pass.
+
+Use `tools/battery_workspace_smoke.py --case recovery`, `recovery-io`, or
+`recovery-refusal` through the host environment. The additional
+`recovery-owner-refusal` case deliberately lets the modeled battery worker own
+a storage scope: quarantine must refuse and halt without restoring interrupts
+after source masking, saving a false completion or resetting active storage. The harness accepts only its own
+disposable image, requires automatic reset after successful containment, checks
+the saved failure log against serial evidence, and verifies the exact file tree,
+metadata, unchanged anchors and allocation graph offline. Remaining native
+prerequisites include IRQ-origin fault handling, shared-lock/resource audits and
+fault injection around real device operations. Automatic startup remains off.
