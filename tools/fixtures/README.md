@@ -42,3 +42,9 @@ interface 2 is boot mouse/trackpad. The shared host test verifies keyboard
 selection, both endpoint context sizes and poll length against this fixture as
 well as the Air fixture. This passes on the existing driver; it does not explain
 the reported native keyboard failure or accept physical transport/reports.
+
+`edimax-7392-a711-usb.bin` contains the 18-byte device and 74-byte configuration
+descriptors captured from the Pro's Edimax adapter, revision 0100, at high speed.
+It contains no string descriptor values, serial number, MAC address or SSID.
+`test_wifi_usb_inventory.py` checks identity/topology refusal and truncation.
+This fixture establishes USB transport shape, not radio support.

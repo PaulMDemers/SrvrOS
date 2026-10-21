@@ -1370,3 +1370,11 @@ outside build. Offline exFAT/allocation checks pass: 28 directories, 109 files,
 Ubuntu remains default, one-shot consumed, no reboot armed. Network/UI recovery
 and the exercised persistence path are accepted on the updated tree. Battery,
 headphones and further trackpad-latency work remain deferred.
+
+USB Wi-Fi groundwork: captured Edimax `7392:a711` revision `0100`, high-speed,
+one ff/02/ff interface with two bulk IN and six bulk OUT endpoints. A read-only
+inventory utility and sanitized descriptor fixture validate this shape and
+reject truncations/identity/topology mutations. Linux binds `mt76x0u`. No reset,
+unbind, scan, firmware upload or SrvrOS reboot was performed. See
+[USB Wi-Fi scope](../usb-wifi.md) for staged driver/authentication/UI work.
+This phase touches inventory/tests/docs only; Air SCI work remains separate.
