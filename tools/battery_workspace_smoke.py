@@ -7,6 +7,7 @@ Faults are expected to halt in the VM; they are not clean storage retirement.
 import argparse,json,os,re,struct,subprocess,tempfile,time
 from pathlib import Path
 from battery_desktop_smoke import check_text_capture
+from battery_fault_records import check_fault
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso,read_for
@@ -111,7 +112,7 @@ def main():
                 serial.sendall(b'acpiruntime '+command+b'\n')
                 if args.case=='runtime-fault':
                     data=wait_for(b'battery: HALTED operation deadline',90)
-                    assert b'battery-reset: BLOCKED workspace=1 io=' in data
+                    assert not check_fault(data,workspace=True)
                     assert b'desktop-coexist: ready ' in data
                     assert b'contained fault; returning' not in data and b'; retired=yes' not in data
                     # A halted VM must remain alive (no-reboot would exit on reset).

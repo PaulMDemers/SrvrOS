@@ -12,6 +12,7 @@ import tempfile
 import time
 
 from acpi_battery_smoke import check_sci_records
+from battery_fault_records import check_fault
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso, read_for
@@ -246,15 +247,17 @@ def main():
                     if ((b'battery-app-files:' if args.files else b'battery-text-load:') in lines if isolated else b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines) or b'battery: HALTED' in lines:break
                 output.extend(part);data=bytes(output if isolated else part)
                 if args.case=='runtime-fault':
-                    assert process.wait(timeout=5)==0,data
-                    assert b'desktop-coexist: ready ' in data and b'battery: FAILED operation deadline' in data,data
-                    assert b'contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable' in data,data
-                    assert b'battery-desktop: PASS' not in data and b'; retired=yes' not in data,data
+                    reset=check_fault(data,allow_io_halt=isolated)
+                    if reset:assert process.wait(timeout=5)==0,data
+                    else:
+                        assert process.poll() is None,data
+                        stop_process(process)
+                    assert b'desktop-coexist: ready ' in data and b'battery-desktop: PASS' not in data,data
                     if isolated:
                         from acpi_battery_smoke import verify_isolated_disk
                         assert stick.read_bytes()!=before_disk,'Runtime fault preceded all filesystem writes'
                         verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
-                    result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=True,final_report='unavailable')
+                    result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=reset,reset_blocked=not reset,final_report='unavailable')
                     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
                     passed=True
                     print(json.dumps(result),flush=True)

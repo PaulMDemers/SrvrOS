@@ -3,7 +3,8 @@
 The kernel service builds on the bounded Air7,2 battery diagnostic. It is linked
 only into the separate full-runtime image. Ordinary desktop boot still returns
 the disabled stub. A versioned read-only userspace snapshot feeds the desktop
-and System battery display; explicit controls are being validated separately.
+and System battery display; scoped Start/Stop controls passed the parked-workspace
+trial. Mounted workspace support remains a VM-only study.
 See the [native runtime gate](native-ec-runtime.md) and
 [machine acceptance record](machines/macbookair7-2.md) for physical evidence.
 
@@ -34,8 +35,10 @@ epoch, so an already-retired lifetime is not confused with a new start. STOPPED
 is published only after worker, SCI, interpreter, ACPI mode and retained event
 restoration have completed. Unsafe live-runtime failures keep the existing
 containment and retain memory rather than claim successful retirement. An
-unattended capture resets the machine after containment; attended diagnostics
-retain the halt.
+armed unattended capture can reset only while the workspace is unmounted and no
+scheduler I/O scope is active at failure time. Otherwise it retains the halt.
+This current [reset interlock](#mounted-workspace-study-and-fatal-reset-admission)
+also applies to the earlier isolated-image recipes described below.
 
 ## Cached readings
 

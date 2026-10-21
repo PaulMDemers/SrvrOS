@@ -203,4 +203,21 @@ class MountedWorkspaceRecords(unittest.TestCase):
         for extra in (b'workspace: unmounted',b'battery-reset: BLOCKED',b'workspace-image: prepared'):
             with self.assertRaises(AssertionError):check(WORKSPACE+extra+b'\n')
 
+class FaultResetRecords(unittest.TestCase):
+    def test_current_storage_ownership(self):
+        from battery_fault_records import check_fault
+        reset=b'battery: FAILED operation deadline\nbattery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n'
+        self.assertTrue(check_fault(reset))
+        with self.assertRaises(AssertionError):check_fault(reset,workspace=True)
+        for mounted,io in ((0,0),(0,1),(1,0),(1,1)):
+            blocked=f'battery-reset: BLOCKED workspace={mounted} io={io}; live storage retained\nbattery: HALTED operation deadline\n'.encode()
+            if mounted or io:
+                self.assertFalse(check_fault(blocked,workspace=bool(mounted),allow_io_halt=True))
+                if io and not mounted:
+                    with self.assertRaises(AssertionError):check_fault(blocked)
+                for extra in (reset,b'battery-service: retired epoch=1\n',b'battery-desktop: PASS; retired=yes\n',blocked):
+                    with self.assertRaises(AssertionError):check_fault(blocked+extra,workspace=bool(mounted),allow_io_halt=True)
+            else:
+                with self.assertRaises(AssertionError):check_fault(blocked,allow_io_halt=True)
+
 if __name__=='__main__':unittest.main()
