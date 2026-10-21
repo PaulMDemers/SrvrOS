@@ -1287,3 +1287,29 @@ and both machines' evidence. Resolve shared staging/kernel/tool conflicts by
 behavior, run the CI baseline locally plus affected networking regressions,
 then merge the reviewed PR. Installed native payload stays `81e3308ffcdfe637`;
 the combined source tree requires its own later physical acceptance.
+
+
+Integration validation completed locally on `8985b81` against main `b090d94`
+(PRs #8–#12 included). The two staging-tool conflicts preserve both Pro
+keyboard/CPU-load/scaled desktop/network profiles and Air v38 filesystem
+capture, with explicit kernel selection and automatic-return policy retained.
+All 66 sequential validation steps pass using Ubuntu QEMU 10.2.1: the complete
+Actions baseline (host/docs/ACPI audit, BIOS/UEFI builds, 256 restart rounds,
+481 shell commands, input/display and ACPI/battery fault scenarios), two-ECM
+transport regression, mixed and active-USB desktop networking, CPU-load refusal,
+and exact GPT/scaled/audio desktop plus v38 refusal rehearsals. Three additional
+isolated-filesystem workload/automatic-deadline/active-deadline cases pass,
+including verification that every outside byte is unchanged. The no-input
+reconnect screenshot visibly shows the active adapter Connected / 1000 Mb/s.
+
+Exact desktop release `d3e5117729c46e35` and filesystem diagnostic release
+`49a0b0eef761b38b` save evidence and unmount cleanly in VM. These are not installed
+or physically accepted. An initial run with the optional older bundled QEMU
+stalled at Limine before kernel entry; its failed log is retained. System-QEMU
+validation passes without changing test predicates. An intermediate test run
+was intentionally stopped when PR #12 landed, then restarted on the final tree.
+Actions remain disabled; this result is local evidence, not a GitHub CI pass.
+The user authorizes merging PR #5 after these checks. Durable integration logs
+and receipts are archived outside `build`. Installed desktop/recovery remain
+`81e3308ffcdfe637` / `e47dca3a6b30c6c1`; no reboot or installation is armed.
+Battery, headphone and further trackpad-latency acceptance remain deferred.
