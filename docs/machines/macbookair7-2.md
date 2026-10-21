@@ -52,6 +52,15 @@ process, capture deadline and injected input in disposable VMs. Pro PR #19 at
 The later native profile will touch main/staging; reinspect that PR first.
 GitHub Actions remain disabled; validate locally.
 
+The first coexistence VM delivered/presented all 60 generated events and typed
+`Ab` correctly, then hit EC transport timeout during compositor cache cleanup.
+This is failed evidence, archived independently. Source review found two linear
+mapping-table searches per unmapped page in `process_munmap`; the many compositor
+caches make this quadratic teardown work. Extend scope to a single-pass range
+removal in `kernel/src/process.c`, preserving mapping validation and frame release.
+Validate mmap semantics and repeat overlap/cleanup before attributing the failure
+to this candidate. Keep the existing EC timeout and containment unchanged.
+
 ### Previous native query correlation accepted
 
 Release `df04f96a16d0f850`, source `68aac71` (PR #23), session
