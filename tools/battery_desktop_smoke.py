@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 import re
 import subprocess
+import struct
+import shutil
 import tempfile
 import time
 
@@ -71,6 +73,27 @@ def check_text_capture(data, injected=False):
     return result
 
 
+def check_load_capture(data, injected=False):
+    from hardware_desktop import battery_filesystem_result
+    data=complete_lines(data)
+    result=check_text_capture(data,injected)
+    rows=[r for r in data.splitlines() if r.startswith(b'battery-text-load:')]
+    assert len(rows)==1,'Missing or duplicate load completion'
+    row=re.fullmatch(rb'battery-text-load: PASS epoch=(\d+) start_us=(\d+) end_us=(\d+) first_step_us=(\d+) last_step_us=(\d+); retired=yes revoked=yes',rows[0])
+    assert row,'Incomplete load completion'
+    epoch,start,end,first,last=map(int,row.groups())
+    assert epoch==result['epoch'] and start==result['start_us']
+    assert start<=first<last<=end and end>=result['end_us']
+    assert first<=result['desktop_start_us']+1000000 and last>=result['desktop_end_us']-1000000
+    overlap=min(last,result['desktop_end_us'])-max(first,result['desktop_start_us'])
+    assert overlap>=59000000,'Filesystem does not span the desktop interval'
+    fs=battery_filesystem_result(data.decode(),require_service=False,desktop=True)
+    assert fs and fs.get('steps') and fs.get('profile') and fs['elapsed_us']==end-first,'Invalid filesystem progress/retirement'
+    assert b'battery-text-load: FAIL' not in data
+    result.update(storage='RAM Text; exclusive filesystem image',filesystem=fs,load_start_us=first,load_end_us=end,last_step_us=last,overlap_us=overlap)
+    return result
+
+
 def chord(qmp,key,*modifiers):
     for down,names in ((True,(*modifiers,key)),(False,(key,*reversed(modifiers)))):
         qmp.call('input-send-event',{'events':[{'type':'key','data':{'down':down,'key':{'type':'qcode','data':name}}} for name in names]})
@@ -79,14 +102,17 @@ def chord(qmp,key,*modifiers):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal','runtime-fault'),default='normal')
+    parser.add_argument('--case',choices=('normal','missing','timeout','early-exit','refusal','runtime-fault','load-abort'),default='normal')
     parser.add_argument('--text',action='store_true',help='Exercise the real Text app and rich keyboard input in RAM')
     parser.add_argument('--no-input',action='store_true',help='Text normal case: validate the automatic script without QMP typing')
+    parser.add_argument('--load',action='store_true',help='Combine Text with the exclusive disposable filesystem workload')
     args=parser.parse_args()
+    if args.load:args.text=True
+    if args.case=='load-abort' and not args.load:parser.error('--case load-abort requires --load')
     if args.no_input and (not args.text or args.case!='normal'):parser.error('--no-input requires --text --case normal')
     root=Path(__file__).resolve().parents[1]
-    out=root/'build/review'/('battery-desktop-'+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
-    output=bytearray()
+    out=root/'build/review'/('battery-desktop-'+('load-' if args.load else '')+('text-' if args.text else '')+('script' if args.no_input else args.case));out.mkdir(parents=True,exist_ok=True)
+    output=bytearray();passed=False
     with tempfile.TemporaryDirectory(prefix='srvros-battery-desktop-') as folder:
         tmp=Path(folder)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+('27' if args.case=='runtime-fault' else '15')+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
@@ -96,6 +122,19 @@ def main():
         command=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
                  '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
                  '-qmp',f'unix:{tmp}/qmp,server=on,wait=off','-display','none','-monitor','none','-no-reboot']
+        if args.load:
+            from exfat_test_image import ExfatFixture
+            from battery_filesystem_image import create
+            volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
+            with volume.open('wb') as stream:stream.truncate(128*1024*1024)
+            subprocess.run(['/usr/sbin/mkfs.exfat','-c','128K',str(volume)],check=True,stdout=subprocess.DEVNULL)
+            subprocess.run(['/usr/sbin/tune.exfat','-I','0x51525354',str(volume)],check=True,stdout=subprocess.DEVNULL)
+            fixture=ExfatFixture(volume.read_bytes());inner=tmp/'inner.exfat';create(inner)
+            fixture.add_directory_files('srvros-work',{'.workspace':b'SRVROS-WORKSPACE-V1 51525354\n','anchor.txt':b'Unchanged battery filesystem anchor\n','battery-fs.img':inner.read_bytes()})
+            mbr=bytearray(512);mbr[450]=7
+            struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
+            with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
+            command+=['-device','qemu-xhci,id=xhci','-drive',f'if=none,id=stick,format=raw,file={stick}','-device','usb-storage,drive=stick,bus=xhci.0']
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(command,stdout=errors,stderr=errors)
             try:
@@ -104,8 +143,19 @@ def main():
                 while b'srv> ' not in output and time.monotonic()-start<60:
                     output.extend(read_for(serial,.1));qmp.boot_if_menu_stalled(output,time.monotonic()-start)
                 assert b'srv> ' in output,bytes(output)
+                if args.load:
+                    serial.sendall(b'workspace mount 51525354\n');mounted=bytearray();until=time.monotonic()+30
+                    while b'workspace: ready at /work/srvros-work' not in mounted and time.monotonic()<until:mounted.extend(read_for(serial,.1))
+                    output.extend(mounted);assert b'workspace: ready at /work/srvros-work' in mounted,bytes(mounted)
+                    serial.sendall(b'acpiruntime battery-filesystem-prepare\n');prepared=bytearray();until=time.monotonic()+30
+                    while b'workspace-image: prepared ' not in complete_lines(prepared) and time.monotonic()<until:prepared.extend(read_for(serial,.1))
+                    output.extend(prepared)
+                    extent=re.search(rb'workspace-image: prepared path=/work/srvros-work/battery-fs.img raw_offset=(\d+) bytes=16777216; unmounted=yes aliases=revoked',prepared)
+                    assert extent,bytes(prepared)
+                    image_offset=int(extent[1]);before_disk=stick.read_bytes()
                 suffix='-'+args.case if args.case in ('missing','timeout') else ''
-                serial.sendall(('acpiruntime battery-desktop'+('-text' if args.text else '')+suffix+'\n').encode())
+                if args.case=='load-abort':suffix='-abort'
+                serial.sendall(('acpiruntime '+('battery-text-load' if args.load else 'battery-desktop'+('-text' if args.text else ''))+suffix+'\n').encode())
                 part=bytearray();start=time.monotonic();injected=False
                 while time.monotonic()-start<125:
                     part.extend(read_for(serial,.1));lines=complete_lines(part)
@@ -136,25 +186,30 @@ def main():
                             (out/'desktop.ppm').unlink()
                         injected=True
                     if args.case=='runtime-fault' and process.poll() is not None:break
-                    if b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines or b'battery: HALTED' in lines:break
-                output.extend(part);data=bytes(part)
+                    if (b'battery-text-load:' in lines if args.load else b'battery-desktop: PASS' in lines or b'battery-desktop: FAIL' in lines) or b'battery: HALTED' in lines:break
+                output.extend(part);data=bytes(output if args.load else part)
                 if args.case=='runtime-fault':
                     assert process.wait(timeout=5)==0,data
                     assert b'desktop-coexist: ready ' in data and b'battery: FAILED operation deadline' in data,data
                     assert b'contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable' in data,data
                     assert b'battery-desktop: PASS' not in data and b'; retired=yes' not in data,data
+                    if args.load:
+                        from acpi_battery_smoke import verify_isolated_disk
+                        assert stick.read_bytes()!=before_disk,'Runtime fault preceded all filesystem writes'
+                        verify_isolated_disk(stick,before_disk,image_offset,volume,out,None)
                     result=dict(status='PASS',expected_failure='active runtime deadline',automatic_reset=True,final_report='unavailable')
                     (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+                    passed=True
                     print(json.dumps(result),flush=True)
                     return
                 if args.case=='normal':
-                    result=check_text_capture(data,injected=not args.no_input) if args.text else check_capture(data)
+                    result=(check_load_capture if args.load else check_text_capture)(data,injected=not args.no_input) if args.text else check_capture(data)
                     if not args.text:
                         assert b'deskclient: text=Abx' in data and b'deskclient: text=Ab\r\n' in data,data
                         assert re.search(rb'deskclient: exited frames=\d+ input=Ab\r?\n',data),data
                         result['vm_keyboard']='Abx then Backspace produced Ab in client and clean exit'
                 else:
-                    expected={'missing':b'desktop spawn','timeout':b'desktop deadline','early-exit':b'desktop completion','refusal':b'unavailable or startup deadline'}[args.case]
+                    expected={'missing':b'desktop spawn','timeout':b'desktop deadline','early-exit':b'desktop completion','refusal':b'unavailable or startup deadline','load-abort':b'filesystem abort fixture'}[args.case]
                     assert b'battery-desktop: FAIL outcome='+expected in data and b'; retired=yes' in data,data
                     assert b'battery-desktop: PASS' not in data and b'battery: HALTED' not in data,data
                     if args.case!='refusal':assert b'heap=0 errors=0 denied=0' in data,data
@@ -167,11 +222,20 @@ def main():
                 output.extend(again)
                 assert b'deskd: exited ' in again and b'another display server' not in again,bytes(again)
                 result['replacement_compositor']='PASS'
+                if args.load:
+                    from acpi_battery_smoke import verify_isolated_disk
+                    stop_process(process)
+                    verify_isolated_disk(stick,before_disk,image_offset,volume,out,result['filesystem']['cycles'] if args.case=='normal' else None)
+                    result['outside_image_unchanged']=True
+                    result['offline_allocation']='PASS'
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n')
+                passed=True
                 print(json.dumps(result),flush=True)
             finally:
                 (out/'serial.log').write_bytes(output)
                 stop_process(process)
+                if args.load and not passed and stick.exists():
+                    shutil.copyfile(stick,out/'failed-workspace.img')
 
 
 if __name__=='__main__':main()
