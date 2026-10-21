@@ -29,10 +29,26 @@ def check_sci_records(part):
         if row['unclaimed']:assert 0<row['first']<=row['last'],row
         else:assert row['first']==row['last']==0,row
         rows.append(row)
-    # Passive observer has no reads of its own. Validate its bounded ring and
+    # Validate the bounded event/controller observer ring and
     # reconcile completed callbacks with the existing phase counters.
     headers=re.findall(rb"battery-sci-observe: snapshot=(ready|retired|fault) epoch=(\d+) total=(\d+) retained=(\d+) overwritten=(\d+) ec_mask=(0x[0-9a-fA-F]+)",part)
     events=re.findall(rb"battery-sci-event: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) phase=(\d+) handled=(\d+) at_us=(\d+) duration_us=(\d+) previous_valid=(\d+) previous_handled=(\d+) gap_us=(\d+) query_before=(\d+) query_after=(\d+) valid=(0x[0-9a-fA-F]+) fixed_status=(0x[0-9a-fA-F]+) fixed_enable=(0x[0-9a-fA-F]+) ec_status=(0x[0-9a-fA-F]+) ec_enable=(0x[0-9a-fA-F]+) ec_raw_status=(0x[0-9a-fA-F]+) ec_raw_enable=(0x[0-9a-fA-F]+)",part)
+    controllers=re.findall(rb"battery-sci-controller: snapshot=(ready|retired|fault) epoch=(\d+) seq=(\d+) point=(before|after) valid=(\d+) vector=(\d+) gsi=(\d+) lapic_bits=(\d+) lint0=(0x[0-9a-fA-F]+) route_low=(0x[0-9a-fA-F]+) route_high=(0x[0-9a-fA-F]+) pic_masks=(0x[0-9a-fA-F]+)",part)
+    assert len(controllers)==part.count(b'battery-sci-controller:'),'Malformed controller record'
+    assert len(controllers)==2*len(events),'Missing or extra controller record'
+    for event in events:
+        pair=[c for c in controllers if c[:3]==event[:3]]
+        assert [c[3] for c in pair]==[b'before',b'after'],pair
+        assert pair[0][5:7]==pair[1][5:7],pair # Stable owned vector/GSI identity.
+        for c in pair:
+            valid,vector,gsi,bits=map(int,c[4:8])
+            lint,low,high,masks=(int(v,16) for v in c[8:])
+            assert valid<=7 and 32<=vector<255 and gsi<=0xffffffff and bits<=7,c
+            assert max(lint,low,high)<=0xffffffff and masks<=0xffff,c
+            if valid&2:assert low&255==vector,c
+            if not valid&1:assert bits==lint==0,c
+            if not valid&2:assert low==high==0,c
+            if not valid&4:assert masks==0,c
     for snapshot,epoch,total,retained,overwritten,mask in headers:
         total,retained,overwritten=int(total),int(retained),int(overwritten)
         assert retained==min(total,8) and overwritten==total-retained
@@ -238,6 +254,9 @@ def main():
                             break
                     output.extend(part); (out/'serial.txt').write_bytes(output)
                     sci=check_sci_records(part)
+                    controllers=re.findall(rb'battery-sci-controller: .*? valid=(\d+) vector=(\d+) gsi=(\d+)',part)
+                    assert all(tuple(map(int,c))==(7,41,9) for c in controllers),controllers
+
                     if auto_deadline:
                         assert b'battery: FAILED operation deadline' in part,bytes(part)
                         assert b'returning to Ubuntu without live-runtime cleanup' in part,bytes(part)

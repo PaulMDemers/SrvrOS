@@ -1,6 +1,31 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
+
+### Active scope: SCI controller snapshots
+
+Branch `device/macbookair7-2/sci-controller`, base main `bd0fe58`.
+Add a bounded xAPIC vector-state read API and diagnostic-only snapshots before
+and after the uACPI SCI callback. Record ISR/IRR/TMR, LINT0 configuration, the
+owned I/O APIC route and PIC masks; both snapshots precede generic EOI. No EOI,
+route, mask, event acknowledgement or claim-policy change. Retain explicit
+availability and sequential-read limits. Touch LAPIC helper/tests, battery
+observer/runtime, VM record validation and documentation. Pro scope inspected
+at `ecad3df` remains network/UI acceptance, with battery deferred. Host and VM
+validation precede a fresh automatic native trial; ordinary desktop battery off.
+
+Implementation: paired controller rows in the existing eight-entry ring; xAPIC
+reads are bounded to ISR/IRR/TMR/LINT0, and no IRQ return or acknowledgement
+policy changes. Host core suite, all vector/bit combinations, observer pairing
+and corrupted/truncated record fixtures pass. Source `6e7c93f` passes five local
+Q35 cases: injected unclaimed, normal service, foreign event, isolated filesystem
+and active filesystem deadline/reset. All available controller identities match
+the fixture; twelve injected-callback snapshots report no APIC vector state.
+The initial stale VM binary was rejected for missing controller records; the
+final runs used the rebuilt VM kernel. The isolated test verified the inner tree
+and all outside bytes, and deadline recovery returned automatically. Validation
+is archived outside `build`; GitHub Actions remain disabled. Physical acceptance
+is pending.
 
 Latest accepted **passive SCI observation**: release `57ac1e9954e445e9`,
 source `d9d5afc` (merged PR #15), session `session-00065e5157c6e854-00`.
