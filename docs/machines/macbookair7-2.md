@@ -2,7 +2,37 @@
 
 Updated: 2026-10-20. State: **active reference machine; partial device acceptance**.
 
-Latest accepted **operation-stepped isolated filesystem overlap**: release
+Latest accepted **contiguous FAT batching**: release **`2ca59bc8678efc17`** /
+source **`39b152d`**, session **`session-00065e4f02718396-00`**. The automatic
+trial completed 34 cycles / 612 operations in 61,130,508 microseconds with 16,954
+USB commands and sampling progress in 17 scopes. Maximum storage scope was
+2,721,271 microseconds; maximum operation 2,721,267 microseconds at step 1
+(initial large draft write). Compared with the previous 25-cycle run below,
+commands per cycle fell about 34% and maximum scope about 15%. These are
+single-run measurements on the same USB drive, not a desktop latency guarantee.
+
+The service reached generation 23 with 51,938 cached reads (1,423 while sampling),
+maximum 18 microseconds. Both lifetimes retired with balanced attachment,
+restored event enables and zero heap/errors/denials. SCI still recorded 24
+handled / 24 unclaimed active deliveries; setup/retirement deliveries and
+in-flight count were zero. The unclaimed cause remains open.
+
+Exact final payload/tree, inner fsck (4 directories / 5 files) and 75-cluster
+allocation checks passed. Outer fsck is clean (184 directories / 881 files),
+with 1,652 clusters and zero leaks/mismatches/errors. All 876 prior files except
+the disposable image and root inode sidecar are byte-identical. New Ubuntu boot,
+consumed one-shot and installed/recovery hashes were verified. The payload and
+29 hashed evidence files are archived outside `build`; the USB is remounted.
+Accepted desktop recovery remains `b427b78f21644bd2`.
+
+PRs #9/#10 are merged. Actions is disabled at the user's request; validation
+runs locally. No reboot is armed and ordinary desktop battery startup remains
+disabled. Next: measure the remaining large-write data/flush costs and reduce
+blocking time while retaining failure guarantees, then establish desktop/input
+coexistence. This result accepts the isolated workload and runtime retirement;
+it does not accept ordinary desktop battery startup or gauge accuracy.
+
+Previous accepted **operation-stepped isolated filesystem overlap**: release
 **`9eb84deab70d240c`** / source **`89edb98`**, session
 **`session-00065e4e5218f777-00`**. The trial completed 25 cycles / 450 operations
 in 60,768,457 microseconds, issuing 18,754 commands, with sample progress in 21
@@ -23,10 +53,8 @@ All 873 previous files other than the disposable image and inode sidecar are
 byte-identical. New Ubuntu boot, consumed one-shot and recovery hashes verified;
 the payload and 30 hashed evidence files are archived outside `build`.
 
-No reboot is armed. PR #9 CI remains pending; ordinary desktop battery startup
-is still disabled. Next scope is measuring large-write allocation, transfer and
-flush costs and reducing the longest atomic operation without weakening failure
-handling or filesystem consistency.
+At that checkpoint PR #9 was awaiting validation. It later merged using local
+results after the user disabled Actions; the newer batching result is above.
 
 Previous bounded **whole-cycle isolated filesystem overlap**: release
 **`c473b63c44d32cd0`** / source **`8822cba`**, session
@@ -160,8 +188,8 @@ their existing traversal. First record per-operation FAT/data write counts,
 then batch adjacent equal FAT entries into bounded writes. Validate neighboring
 FAT entries, boundary failures, directory growth and fragmented allocation,
 then run the full image fault matrix and battery filesystem VM workload.
-Native comparison remains pending; no reboot is armed and ordinary desktop
-battery startup remains disabled.
+The native comparison is recorded at the top of this file; no reboot is armed
+and ordinary desktop battery startup remains disabled.
 
 Host tracing measured 142 writes (67 FAT) for initial 256 KiB+37-byte creation
 before batching, versus 78 (3 FAT) afterward. One full cycle falls from 457
@@ -186,9 +214,9 @@ outside bytes, allocation and clean retirement passed. Staging (35) and collecto
 with main as `880efc3`; later documentation commits do not change that code.
 
 Repository Actions is disabled at the user's request; no hosted result is used.
-PR #10 carries the batching change and local validation. Native comparison is the
-next acceptance step; prepare a fresh isolated fixture and exact-stage rehearsal
-before another automatic trial. Installed/recovery payloads remain unchanged.
+PR #10 merged as `39b152d`. Its native comparison is accepted for the bounded
+isolated workload above. Every subsequent trial still needs a fresh disposable
+fixture, exact-stage rehearsal and independently verified recovery.
 
 
 ### Filesystem operation scheduling — October 20
