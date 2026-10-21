@@ -40,6 +40,8 @@ def main():
                             qmp.boot_if_menu_stalled(output, time.monotonic() - (end - timeout))
                         if time.monotonic()>end or process.poll() is not None:
                             qmp.call("screendump",{"filename":str(out/"failure.ppm")})
+                            qmp.call("stop")
+                            shutil.copyfile(tmp/"disk.exfat",out/"failure.exfat")
                             raise RuntimeError(f"Missing {marker!r}; see {out}")
                         try:
                             chunk=serial.recv(16384)
@@ -83,7 +85,13 @@ def main():
                 # Files lists asynchronously; open a saved file using its location field.
                 click(390,750);wait(b"desktools: starting role=files")
                 wait(b"file-result role=files op=3 status=0");shot("files")
-                click(180,550);shortcut("ctrl-a");type_text("GUI folder");click(700,553)
+                # Files starts in Home. Select the fixture root explicitly;
+                # subsequent open/save assertions use absolute /fat paths.
+                shortcut("ctrl-l");type_text("/fat");qmp.key("ret")
+                wait(b"files-location path=/fat history=")
+                # The Places sidebar moved the name field right of x=221.
+                # x=180 hits outside it and leaves the default "New folder" name.
+                click(300,550);shortcut("ctrl-a");type_text("GUI folder");click(700,553)
                 wait(b"file-result role=files op=4 status=0");wait(b"file-result role=files op=3 status=0")
                 shortcut("ctrl-l");type_text("/fat/GUI folder");qmp.key("ret")
                 wait(b"file-result role=files op=3 status=0");shot("new-folder")
