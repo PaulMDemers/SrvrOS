@@ -141,6 +141,22 @@ profile when integrating the shared staging/main changes. Next Air scope is
 bounding filesystem work for desktop/input coexistence and investigating the
 remaining unclaimed SCI deliveries; no sibling EC gate is authorized.
 
+## October 21 Air SCI handoff
+
+Merged PR #24 (`b7bd60c`) checks pending EC query work before resuming its GPE,
+retaining the post-resume check for late arrivals. Air7,2 release
+`54dce7fb0a41b718` completed the isolated filesystem workload and two clean
+lifetimes with 24 handled / zero unclaimed SCI deliveries, versus 32 / 32 in
+the previous capture. This accepts the bounded trial; late-arrival races remain
+possible. Consume the shared ordering helper and its host regression before
+reworking query rearm behavior. IRQ claims, route polarity and native model gates
+were not widened. It does not accept another model's EC ownership.
+
+The next Air scope is an opt-in desktop/input coexistence capture with explicit
+battery lifecycle and parked outer storage. Ordinary desktop battery startup
+remains disabled. Coordinate overlapping main/staging edits with the existing
+Pro Wi-Fi capture through actual branch/PR diffs; preserve both profiles.
+
 ## CI cadence
 
 The user disabled repository Actions on October 20 to avoid further hosted

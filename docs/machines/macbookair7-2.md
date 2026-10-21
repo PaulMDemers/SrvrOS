@@ -2,7 +2,51 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Current checkpoint: native query correlation accepted
+### Current checkpoint: EC GPE rearm ordering accepted for the bounded trial
+
+Release `54dce7fb0a41b718`, source `b7bd60c` (merged PR #24), session
+`session-00065e5b4cd48eb4-00`, returned automatically. Full retired counters
+recorded **24 handled / zero unclaimed** interrupts across two lifetimes,
+compared with 32 handled / 32 unclaimed in the preceding query-context run.
+Nine callbacks were retained and fifteen overwritten. All retained entries
+observed an idle query worker; all post-EOI samples had ISR/IRR and remote-IRR
+clear (LAPIC bits 4, route low `0x8029`). The pre-resume pending check eliminated
+the observed duplicate-delivery pattern in this trial. This is bounded native
+acceptance, not a guarantee against late arrivals or all future unclaimed IRQs.
+Claims, EOI ordering, route polarity and hardware gates remain unchanged.
+
+The isolated filesystem completed 42 cycles / 756 operations in 61,319,529
+microseconds with 16,910 USB commands. Maximum operation time was 3,157,927
+microseconds; this is wall time, not measured input latency. Generation 23 and
+61,290 cached reads (maximum 18 microseconds), including 2,194 during sampling,
+were recorded. Both lifetimes retired with restored enables, balanced attachments
+and zero heap/errors/denials. The deliberate short stop wait timed out, then
+retirement completed normally.
+
+Exact inner contents/fsck/allocation (75 clusters), outer fsck/allocation (191
+directories, 902 files, 1,680 clusters) and preservation of 897 unrelated files
+passed. Only the disposable image/root metadata changed, with three new matching
+logs. Ubuntu return, consumed one-shot, default/EFI order and recovery hashes
+verified. Twenty-eight hashed evidence files and the exact payload are archived
+outside `build`. Current installed is this diagnostic; accepted desktop
+`b427b78f21644bd2` remains previous. No reboot is armed. The image is used and
+must not rerun. Ordinary desktop battery startup remains disabled; this trial
+has no physical input or gauge-accuracy acceptance.
+
+### Next bounded scope: desktop and input coexistence
+
+Branch `device/macbookair7-2/sci-controller`, actual integration baseline
+`b7bd60c`. Complete the shared rearm milestone with this acceptance record, then
+implement a separate opt-in coexistence capture following the
+[service plan](../battery-service.md#next-milestone-desktop-and-input-coexistence).
+Own the battery lifecycle/capture contract; likely touch runtime diagnostics,
+`kernel/src/main.c`, `deskd`, staging/collection and their tests. Publish the
+precise implementation scope before changing those shared files. Pro PR #19 at
+`e9320d9` remains Wi-Fi/xHCI/staging work; inspect its latest diff and preserve
+its capture profile before integrating overlapping main/staging edits.
+GitHub Actions remain disabled; validate locally.
+
+### Previous native query correlation accepted
 
 Release `df04f96a16d0f850`, source `68aac71` (PR #23), session
 `session-00065e5b05b8b6c9-00`, returned automatically after 45 cycles / 810
@@ -32,7 +76,7 @@ Twenty-nine hashed evidence files and the exact payload are archived outside
 `build`. USB remounted; previous desktop `b427b78f21644bd2` retained. No reboot
 armed; the used image must not rerun. Desktop/input/gauge acceptance stays pending.
 
-### Active scope: avoid enabling an already-pending query event
+### Rearm implementation scope and validation (PR #24)
 
 Branch `device/macbookair7-2/sci-controller`, base main `68aac71`. Add a pending
 check while the owned EC GPE is still suspended: queue known work directly,
@@ -53,7 +97,7 @@ with automatic reset, and query deadline containment. The isolated image and
 all outside bytes pass verification. The ordinary kernel is byte-identical to
 PR #23's full-smoke baseline; that unchanged baseline was not rerun. Docs and
 whitespace checks pass. Local evidence and binary hashes are archived outside
-`build`; physical ordering efficacy remains pending a fresh automatic trial.
+`build`; physical ordering efficacy is accepted for the bounded trial above.
 
 ### Previous native post-EOI capture accepted
 
