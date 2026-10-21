@@ -9,7 +9,13 @@ static struct {
     uint64_t serial;
     char destination[DESK_FILE_PATH];
 } capture;
-static const char draft[]="/battery-test/fixture/text-draft.txt";
+static const char *root="/battery-test/fixture";
+static const char *storage="image";
+static char draft[DESK_FILE_PATH];
+void tool_file_capture_setup(int workspace) {
+    if(workspace) { root="/work/battery-study";storage="workspace"; }
+    snprintf(draft,sizeof(draft),"%s/text-draft.txt",root);
+}
 int tool_file_capture_busy(void) { return capture.phase!=0; }
 unsigned tool_file_capture_cycles(void) { return capture.cycles; }
 void tool_file_capture_begin(struct tool *t,uint64_t serial) {
@@ -17,7 +23,7 @@ void tool_file_capture_begin(struct tool *t,uint64_t serial) {
        serial!=(capture.cycles+1)*12 || t->body_text.length!=2 ||
        memcmp(t->body_text.data,"AA",2) || t->clip.mode) { t->window.failed=1;return; }
     capture.serial=serial;capture.phase=1;
-    snprintf(capture.destination,sizeof(capture.destination),"/battery-test/fixture/text-%u.txt",capture.cycles+1);
+    snprintf(capture.destination,sizeof(capture.destination),"%s/text-%u.txt",root,capture.cycles+1);
     /* Present intermediate progress without acknowledging the edit until its
      * saved, renamed and reopened document has been checked. */
     t->window.input_serial=serial-1;
@@ -56,5 +62,5 @@ void tool_file_capture_finish(struct tool *t,int result) {
 failed:t->window.failed=1;
 }
 void tool_file_capture_report(void) {
-    desk_log("text-files: cycles=%u pending=%u storage=image\n",capture.cycles,capture.phase);
+    desk_log("text-files: cycles=%u pending=%u storage=%s\n",capture.cycles,capture.phase,storage);
 }

@@ -11,7 +11,9 @@ bool battery_filesystem_diagnostic_run(void *rsdp,struct limine_memmap_response 
 bool battery_usb_write_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_usb_read_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 /* Arm contained-fault reset only with the USB workspace unmounted and no
- * active storage scope. Does not make incomplete diagnostics a pass. */
+ * active storage scope. Rechecked at failure time; later workspace mounting or
+ * I/O ownership blocks reset and retains live state. No flush from fatal context.
+ * Does not make incomplete diagnostics a pass. */
 bool battery_diagnostic_auto_return(bool enabled);
 bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map);
 bool battery_app_files_diagnostic_run(void *rsdp,struct limine_memmap_response *map);

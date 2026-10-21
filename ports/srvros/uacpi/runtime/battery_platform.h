@@ -26,6 +26,8 @@ struct battery_platform {
     uint64_t rsdp,facs;
     uint16_t original_control;
 };
+/* Explicit disposable-VM study only; native always denies. */
+bool battery_platform_workspace_study_allowed(void);
 bool battery_platform_open(struct battery_platform *,void *rsdp,struct limine_memmap_response *);
 void *battery_platform_map(uint64_t address,size_t length);
 bool battery_platform_memory(void *pointer,unsigned bits,bool write,uint64_t *value);

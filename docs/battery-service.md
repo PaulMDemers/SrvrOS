@@ -3,7 +3,8 @@
 The kernel service builds on the bounded Air7,2 battery diagnostic. It is linked
 only into the separate full-runtime image. Ordinary desktop boot still returns
 the disabled stub. A versioned read-only userspace snapshot feeds the desktop
-and System battery display; explicit controls are being validated separately.
+and System battery display; scoped Start/Stop controls passed the parked-workspace
+trial. Mounted workspace support remains a VM-only study.
 See the [native runtime gate](native-ec-runtime.md) and
 [machine acceptance record](machines/macbookair7-2.md) for physical evidence.
 
@@ -34,8 +35,10 @@ epoch, so an already-retired lifetime is not confused with a new start. STOPPED
 is published only after worker, SCI, interpreter, ACPI mode and retained event
 restoration have completed. Unsafe live-runtime failures keep the existing
 containment and retain memory rather than claim successful retirement. An
-unattended capture resets the machine after containment; attended diagnostics
-retain the halt.
+armed unattended capture can reset only while the workspace is unmounted and no
+scheduler I/O scope is active at failure time. Otherwise it retains the halt.
+This current [reset interlock](#mounted-workspace-study-and-fatal-reset-admission)
+also applies to the earlier isolated-image recipes described below.
 
 ## Cached readings
 
@@ -1087,3 +1090,40 @@ without an unclaimed interrupt. All 913 prior data files stayed identical; only
 workspace metadata and three new logs changed. Offline allocation and Ubuntu
 return/recovery checks passed. This accepts the parked-workspace System action
 path; ordinary workspace coexistence and attended pointer/AC accuracy remain open.
+
+
+## Mounted workspace study and fatal reset admission
+
+The opt-in VM kernel provides `acpiruntime battery-workspace` for a disposable
+mounted `/work` study. It exercises the existing Text file worker against
+`/work/battery-study`, with 60 edits and five save/stat/rename/reopen cycles while
+cached battery samples continue. The workspace stays mounted until all three
+clients and the service retire. The native backend refuses this command before
+opening firmware resources; there is no native capture recipe or boot option.
+This is a prerequisite study, not ordinary desktop enablement or physical acceptance.
+
+`tools/battery_workspace_smoke.py` creates its own fresh exFAT image and never
+accepts a host disk path. Run it through `tools/host-env.sh` after building matched
+`all acpi-battery-kernel acpi-battery-vm-kernel` targets. Cases are `normal`,
+`timeout`, `refusal`, and `runtime-fault`. Completed cases use an atomic boot-log
+dump for strict proof checks, run a replacement compositor, unmount normally and
+verify the exact file tree, metadata identities, anchors, partition prefix and
+allocation graph offline. The fault case preserves the interrupted disposable
+disk and explicitly does **not** claim clean retirement.
+
+Contained-fault reset admission is now checked again with IRQs masked at the
+point of failure. Earlier arming while parked cannot authorize reset if an
+ordinary workspace is now mounted or a scheduler I/O scope is active. In either
+case the runtime masks its sources, reports `battery-reset: BLOCKED`, retains
+live state and halts. It does not reenter the filesystem to flush, free the live
+runtime or claim successful teardown. Parked, idle fault trials may still reset
+when armed. This also means an isolated-image fault during an active I/O scope
+must halt, even though earlier image trials allowed reset there.
+
+Ordinary native workspace enablement remains blocked on recoverable failure
+ownership: a failed ACPI owner/worker must be quarantined without stack reuse,
+queued-wakeup resurrection or freeing firmware-owned memory; the active storage
+owner must finish safely before logging/unmount/return. Fatal callbacks may run
+inside IRQ context, so merely killing a kernel thread is insufficient. A future
+change must prove these paths with injected faults before enabling mounted Home
+on hardware. Automatic battery startup remains off.

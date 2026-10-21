@@ -230,3 +230,5 @@ bool battery_platform_pci_read(void *h,size_t o,unsigned bits,uint32_t *v) {
     if(bits==32&&p==device(31,3,0x9ca2)&&o==0x20){*v=pci_read_config32(p,o);return true;}
     return false;
 }
+
+bool battery_platform_workspace_study_allowed(void) { return false; }

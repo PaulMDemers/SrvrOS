@@ -176,4 +176,48 @@ class ApplicationFileRecords(unittest.TestCase):
             with self.assertRaises(AssertionError):check_files_capture(FILES.replace(line,b'',1))
             with self.assertRaises(AssertionError):check_files_capture(FILES+line)
 
+WORKSPACE=b''.join(r for r in FILES.splitlines(keepends=True) if not r.startswith((b'workspace-image:',b'battery-app-files:'))).replace(b'storage=image',b'storage=workspace')
+WORKSPACE+=b'battery-workspace: PASS descendants=3; retired=yes mounted=yes\n'
+
+class MountedWorkspaceRecords(unittest.TestCase):
+    def test_complete_and_not_native_acceptance(self):
+        from battery_workspace_smoke import check
+        self.assertEqual(check(WORKSPACE)['worker_operations'],20)
+        with self.assertRaises(AssertionError):check_files_capture(WORKSPACE)
+        with self.assertRaises(AssertionError):check(FILES)
+        prefix=b'laptop-capture: boot options=srvros.capture=battery-app-files srvros.capture-failure=reboot\n'
+        suffix=b'battery-app-files-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+        self.assertIsNone(battery_app_files_result((prefix+WORKSPACE+suffix).decode()))
+
+    def test_missing_corrupt_or_false_retirement(self):
+        from battery_workspace_smoke import check
+        for before,after in ((b'mounted=yes',b'mounted=NO'),(b'descendants=3',b'descendants=2'),
+                             (b'storage=workspace',b'storage=image'),(b'cycles=5',b'cycles=4'),
+                             (b'pending=0',b'pending=1'),(b'status=0',b'status=1'),(b'hex=4141',b'hex=4142')):
+            with self.subTest(before=before):
+                with self.assertRaises(AssertionError):check(WORKSPACE.replace(before,after))
+        for prefix in (b'battery-workspace:',b'text-files:',b'desktools: file-result',b'desktop-battery:'):
+            row=next(r for r in WORKSPACE.splitlines(keepends=True) if r.startswith(prefix))
+            with self.assertRaises(AssertionError):check(WORKSPACE.replace(row,b'',1))
+            with self.assertRaises(AssertionError):check(WORKSPACE+row)
+        for extra in (b'workspace: unmounted',b'battery-reset: BLOCKED',b'workspace-image: prepared'):
+            with self.assertRaises(AssertionError):check(WORKSPACE+extra+b'\n')
+
+class FaultResetRecords(unittest.TestCase):
+    def test_current_storage_ownership(self):
+        from battery_fault_records import check_fault
+        reset=b'battery: FAILED operation deadline\nbattery: contained fault; returning to Ubuntu without live-runtime cleanup; final report unavailable\n'
+        self.assertTrue(check_fault(reset))
+        with self.assertRaises(AssertionError):check_fault(reset,workspace=True)
+        for mounted,io in ((0,0),(0,1),(1,0),(1,1)):
+            blocked=f'battery-reset: BLOCKED workspace={mounted} io={io}; live storage retained\nbattery: HALTED operation deadline\n'.encode()
+            if mounted or io:
+                self.assertFalse(check_fault(blocked,workspace=bool(mounted),allow_io_halt=True))
+                if io and not mounted:
+                    with self.assertRaises(AssertionError):check_fault(blocked)
+                for extra in (reset,b'battery-service: retired epoch=1\n',b'battery-desktop: PASS; retired=yes\n',blocked):
+                    with self.assertRaises(AssertionError):check_fault(blocked+extra,workspace=bool(mounted),allow_io_halt=True)
+            else:
+                with self.assertRaises(AssertionError):check_fault(blocked,allow_io_halt=True)
+
 if __name__=='__main__':unittest.main()
