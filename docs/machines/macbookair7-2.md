@@ -148,8 +148,8 @@ device work uses separate branches based on `main`.
 ### Contiguous FAT write batching — October 20
 
 Branch `device/macbookair7-2/fat-write-batching` consumes PR #9 source
-`89edb98` and native acceptance notes over main `09207b0`. PR #9 validation
-is still running. Pro scope inspected at `14e2a99` remains Ethernet readiness
+`89edb98` and native acceptance notes. PR #9 merged as `5bf63b7` after
+review of its local host/VM and native evidence; this branch consumes that main. Pro scope inspected at `14e2a99` remains Ethernet readiness
 and prompted cable testing; no overlapping filesystem change was found.
 
 Bounded objective: reduce repeated writes of the same FAT sector during
@@ -162,6 +162,20 @@ FAT entries, boundary failures, directory growth and fragmented allocation,
 then run the full image fault matrix and battery filesystem VM workload.
 Native comparison remains pending; no reboot is armed and ordinary desktop
 battery startup remains disabled.
+
+Host tracing measured 142 writes (67 FAT) for initial 256 KiB+37-byte creation
+before batching, versus 78 (3 FAT) afterward. One full cycle falls from 457
+to 265 writes; all 72 flushes remain. These are fixture transfer counts, not
+hardware latency measurements. The change retains each FAT entry's prior value
+and the existing write-blocked recovery behavior; it batches contiguous ranges
+in at most 512-byte slices while leaving fragmented traversal intact.
+
+Local range/sentinel/failure tests, all 19 pause/revocation boundaries, all 265
+write failures + 265 power cuts + 72 flush faults, exFAT hardening (4K/128K,
+copy-on-write recovery, directory growth, capacity and fragmented allocation),
+scratch isolation and ordinary/native/modeled builds passed. Full baseline
+smoke and affected battery filesystem/deadline VM cases are running locally.
+Repository Actions is disabled at the user's request; no hosted result is used.
 
 
 ### Filesystem operation scheduling — October 20
