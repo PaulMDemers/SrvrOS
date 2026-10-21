@@ -292,3 +292,40 @@ kernel-side identity/hash verification, endpoint transport and exact-stage tests
 `make test-mt76-prepare test-wifi-firmware-package test-xhci` tests ordering,
 every-operation failures, busy/live/refusal cases, disabled-MAC checks, package
 refusals and strict zero-data completion/error/quarantine semantics.
+
+## Native firmware-readiness diagnostic
+
+The opt-in native transport now configures only captured OUT endpoint 08, before
+runtime workers start. It uses dedicated retained ring/DMA allocations; the 16K
+buffer is aligned so no transfer crosses a 64K TRB boundary. Configure-endpoint
+requires the exact command pointer and slot; uncertain configuration disables
+further controller commands. Runtime firmware events share the common dispatcher
+with HID/storage and require successful completion with zero residue. Errors,
+short writes, Event Data events and timeouts quarantine the device with DMA held.
+FCE writes are restricted to the current planned destination/length and encoded
+as two exact zero-data vendor requests. Descriptor advancement follows successful
+bulk completion; IVB is available only after every chunk. Register callbacks
+refuse TX/RX-enabling MAC values and unrelated addresses.
+
+The kernel verifies the exact 80,680-byte mt7610e SHA-256 before MCU writes and
+again before upload. The firmware lives in immutable initramfs data; no workspace
+firmware, mutable manifest trust or fallback image is accepted. Preparation still
+refuses a live MCU, and the final diagnostic requires MAC control 0x20 after MCU
+readiness. An unexpected MAC value after successful startup fails acceptance and
+triggers one bounded disable attempt. There is no RF initialization or network
+provider. A successful firmware readiness test is not connectivity acceptance.
+
+Stage with `python3 tools/hardware_boot.py stage --laptop-probe-volume UUID
+--wifi-firmware-package PACKAGE_DIRECTORY` (one command). The descriptive
+`ram-usb-wifi-fw-v1` profile avoids the shared numeric namespace. Only its staged
+copy of initramfs receives the pinned firmware and exact license; both are
+revalidated during payload verification. Default build images remain unbundled.
+The existing automatic capture saves diagnostics and returns to Ubuntu; rehearse
+with `tools/hardware_boot_smoke.py --probe-check --workspace-table gpt` first.
+Native readiness has not yet been accepted.
+
+Integration note: Pro calibration and Air app-file branches independently
+published v43. Verification now recognizes both exact historical recipes and
+requires identical config copies; it does not infer the mode from the host UUID.
+New calibration stages use v44, Air app-file stages retain v43, and historical
+installed payload bytes are unchanged. Firmware stages use the descriptive name.

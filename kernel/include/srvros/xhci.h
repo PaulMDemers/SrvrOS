@@ -31,6 +31,8 @@ bool xhci_wifi_identity_ready(void);
 /* Call only in the explicit capture after logging and timer initialization. */
 bool xhci_wifi_capture_calibration(void);
 void xhci_set_wifi_probe_enabled(bool enabled);
+void xhci_set_wifi_firmware_enabled(bool enabled);
+bool xhci_wifi_capture_firmware(const uint8_t *image, uint64_t size);
 void xhci_set_network_enabled(bool enabled);
 void xhci_set_storage_writable(bool writable);
 void xhci_set_trackpad_capture(bool enabled);

@@ -111,6 +111,7 @@ void pmm_free_frame(uint64_t address) { assert(address != 0); freed++; }
 void pmm_free_frame_range(uint64_t address, uint64_t count) { assert(address != 0); freed += count; }
 
 static void reset_test(void) {
+    firmware_command_exact=firmware_command_failed=wifi_firmware_enabled=false;
     memset(&port_model, 0, sizeof(port_model));
     memset(&xhci, 0, sizeof(xhci));
     memset(registers, 0, sizeof(registers));
@@ -1032,8 +1033,99 @@ static void test_wifi_write_guard(void) {
     puts("xhci-wifi-write: PASS logical mode/address/timing/identity/ownership gates and error quarantine");
 }
 
+static void test_wifi_firmware_configuration(void) {
+    for(unsigned failure=0;failure<4;failure++) {
+        reset_test();uint8_t input[4096]={0},output[4096]={0};struct xhci_trb ring[64]={0},commands[64]={0},events[64]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.input_context=input,.input_context_phys=(uintptr_t)input,.output_context=output};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
+        events[0]=control_event(0x9010,1,0);
+        events[1]=(struct xhci_trb){.parameter_low=failure==1?0xb000:0xa000,.status=(failure==2?6u:1u)<<24,
+            .control=(XHCI_TRB_TYPE_COMMAND_COMPLETION<<10)|(1u<<24)|1};
+        if(failure==3)d.wifi_identity.mac++;
+        assert(configure_wifi_firmware(&d)==!failure);
+        assert(d.firmware.configured==!failure && !freed);
+        if(failure<3){assert(!(d.firmware.buffer_phys&16383));assert(d.firmware.buffer_phys>=d.firmware.allocation);
+            assert(d.firmware.buffer_phys+16384<=d.firmware.allocation+8*4096);
+            assert(context_read32(input,0,1)==(1u|(1u<<16)));
+            assert(context_read32(input,17,1)==((3u<<1)|(2u<<3)|(512u<<16)));
+        }
+        assert(firmware_command_failed==(failure==1||failure==2));
+        if(failure==3)assert(!d.ep0_enqueue && !pool_used);
+    }
+    puts("xhci-firmware-config: PASS dedicated EP08 context, aligned retained DMA, exact command pointer, failed command quarantine and identity gate");
+}
+
+static void test_wifi_firmware_control_guards(void) {
+    for(unsigned fault=0;fault<5;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer};
+        d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9020,fault==4?6:1,0);
+        if(fault==3)d.firmware.active=false;
+        assert(wifi_fw_write(&d,fault==2?0x1008:0x1004,fault==1?0x2c:0x20)==!fault);
+        assert(d.ep0_enqueue==(fault==0||fault==4?3u:0u));
+        assert(d.firmware.failed==(fault==4));
+        if(!fault)assert(buffer[0]==0x20 && ring[0].parameter_high==0x00041004);
+    }
+    reset_test();struct xhci_trb ring[64]={0},events[64]={0};
+    struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+        .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
+    d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true};
+    xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+    events[0]=control_event(0x9010,1,0);
+    assert(wifi_fw_reset(&d));assert(!wifi_fw_reset(&d) && d.ep0_enqueue==2);
+    assert(ring[0].parameter_low==0x00010140 && ring[0].parameter_high==0);
+    puts("xhci-firmware-control: PASS disabled-MAC-only write, register/ownership refusals, I/O quarantine and one-shot reset");
+}
+
+static void test_wifi_firmware_transport(void) {
+    for(unsigned fault=0;fault<6;fault++) {
+        reset_test();
+        struct xhci_trb ring[64]={0},events[64]={0};uint8_t scratch[32]={0},dma[32]={0},image[104]={67,0,0,0,5};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000}};
+        struct xhci_wifi_firmware *f=&d->firmware;
+        *f=(struct xhci_wifi_firmware){.active=true,.configured=true,.phase=2,.scratch=scratch,.buffer=dma,
+            .buffer_phys=0x10000,.image=image,.image_size=sizeof image,.ep={.ring=ring,.ring_phys=0x9000,.cycle=true,.dci=16}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9000,1,0);events[0].control=(32u<<10)|(1u<<24)|(16u<<16)|1;
+        if(fault==1)events[0].status=13u<<24;
+        if(fault==2)events[0].status=(1u<<24)|1;
+        if(fault==3)events[0].control|=4;
+        if(fault==4)events[0]=(struct xhci_trb){0};
+        if(fault==5)f->active=false;
+        assert(wifi_fw_bulk(d,scratch,12)==(fault?-1:12));
+        assert(f->failed==(fault>0 && fault<5));assert(freed==0);
+        if(fault && fault<5){uint64_t enqueue=f->ep.enqueue;assert(wifi_fw_bulk(d,scratch,12)==-1 && f->ep.enqueue==enqueue);}
+        if(!fault){assert(f->phase==3 && !memcmp(dma,scratch,12));assert(ring[0].parameter_low==0x10000 && ring[0].status==12);}
+    }
+    for(unsigned fault=0;fault<4;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t image[104]={67,0,0,0,5};
+        struct xhci_device d={.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true};
+        d.firmware=(struct xhci_wifi_firmware){.configured=true,.active=true,.image=image,.image_size=sizeof image,
+            .preparation={.prepared=true},.upload={.attempted=true}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        events[0]=control_event(0x9010,1,0);events[1]=control_event(0x9030,fault==1?6:1,0);
+        if(fault==2)d.firmware.active=false;
+        assert(wifi_fw_fce(&d,fault==3?0x238:0x230,64)==!fault);
+        if(!fault){assert(ring[0].parameter_low==0x00404240 && ring[0].parameter_high==0x230);
+            assert(ring[2].parameter_low==0x4240 && ring[2].parameter_high==0x232 && d.firmware.phase==1);}
+        if(fault==1)assert(d.ep0_quarantined && d.firmware.failed && d.firmware.phase==0);
+        if(fault>=2)assert(!d.ep0_enqueue);
+    }
+    puts("xhci-firmware: PASS dedicated bulk completion/residue/ED/timeout quarantine, ownership and exact FCE halfword requests");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_firmware_control_guards();
+    test_wifi_firmware_configuration();
+    test_wifi_firmware_transport();
     test_control_worker_completion();
     test_strict_control();
     test_strict_no_data();

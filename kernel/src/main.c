@@ -502,6 +502,7 @@ void kmain(void) {
     xhci_set_trackpad_capture(cmdline_has_token(cmdline, "srvros.trackpad=capture"));
     xhci_set_network_enabled(cmdline_has_token(cmdline,"srvros.usb-network=ecm"));
     xhci_set_wifi_probe_enabled(cmdline_has_token(cmdline,"srvros.usb-wifi=probe"));
+    xhci_set_wifi_firmware_enabled(cmdline_has_token(cmdline,"srvros.capture=wifi-firmware"));
     xhci_init();
     console_printf("input: ps2_keyboard=%s ps2_mouse=%s usb_keyboards=%u usb_mice=%u usb_devices=%u usb_hubs=%u\n",
         keyboard_ready ? "yes" : "no",
@@ -627,8 +628,9 @@ void kmain(void) {
     bool automatic_aml=cmdline_has_token(cmdline,"srvros.capture=aml");
     bool automatic_desktop_idle=cmdline_has_token(cmdline,"srvros.capture=desktop-idle");
     bool automatic_idle=cmdline_has_token(cmdline,"srvros.capture=idle");
+    bool automatic_wifi_firmware=cmdline_has_token(cmdline,"srvros.capture=wifi-firmware");
     bool automatic_wifi_calibration=cmdline_has_token(cmdline,"srvros.capture=wifi-calibration");
-    bool automatic_wifi=automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
+    bool automatic_wifi=automatic_wifi_firmware || automatic_wifi_calibration || cmdline_has_token(cmdline,"srvros.capture=wifi");
     bool automatic_probe=cmdline_has_token(cmdline,"srvros.laptop-services=probe-autoreboot");
     bool return_on_failure=cmdline_has_token(cmdline,"srvros.capture-failure=reboot");
     if(automatic_probe || cmdline_has_token(cmdline,"srvros.laptop-services=probe")) laptop_probe();
@@ -652,6 +654,12 @@ void kmain(void) {
         if(automatic_wifi) {
             xhci_print_status();
             sampled=xhci_wifi_identity_ready();
+            if(automatic_wifi_firmware) {
+                const struct initramfs_file *firmware=initramfs_find("/firmware/mt7610e.bin");
+                sampled=started && init_ready && timer_running && sampled &&
+                    xhci_wifi_capture_firmware(firmware?firmware->data:0,firmware?firmware->size:0);
+                console_printf("wifi-firmware-capture: completed=%s; RF and connectivity NOT_TESTED\n",sampled?"yes":"NO");
+            }
             if(automatic_wifi_calibration) {
                 sampled=started && init_ready && timer_running && sampled && xhci_wifi_capture_calibration();
                 console_printf("wifi-calibration-capture: completed=%s; calibration validity and connectivity NOT_TESTED\n",sampled?"yes":"NO");

@@ -72,4 +72,5 @@ struct mt76_prepare_io {
 };
 enum mt76_upload_status mt76_prepare_firmware(struct mt76_prepare_session *session,
     const struct mt76_prepare_io *io, const struct mt76_identity *identity);
+bool mt76_firmware_verified(const uint8_t *image, size_t size);
 #endif

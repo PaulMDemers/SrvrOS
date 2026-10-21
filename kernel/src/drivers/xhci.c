@@ -226,6 +226,19 @@ struct xhci_trackpad_endpoint {
     struct xhci_trackpad_sample samples[XHCI_TRACKPAD_SAMPLES];
 };
 
+struct xhci_wifi_firmware {
+    struct xhci_bulk_endpoint ep;
+    uint64_t allocation, buffer_phys, scratch_phys, trb;
+    uint8_t *buffer, *scratch;
+    const uint8_t *image;
+    size_t image_size, chunk;
+    uint32_t remaining, cfg, descriptor;
+    unsigned phase, completion;
+    bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
+    struct mt76_prepare_session preparation;
+    struct mt76_firmware_session upload;
+};
+
 struct xhci_device {
     bool present;
     bool ep0_quarantined;
@@ -233,6 +246,7 @@ struct xhci_device {
     struct mt76_identity wifi_identity;
     bool wifi_calibration_attempted, wifi_calibration_active, wifi_efuse_control_valid;
     uint32_t wifi_efuse_control;
+    struct xhci_wifi_firmware firmware;
     bool addressed;
     bool configured;
     bool hid_keyboard;
@@ -400,6 +414,10 @@ static bool trackpad_capture,trackpad_pointer_enabled,trackpad_gestures;
 void xhci_set_trackpad_gestures(bool enabled) { trackpad_gestures=enabled; }
 void xhci_set_trackpad_pointer(bool enabled) { trackpad_pointer_enabled=enabled; }
 void xhci_set_trackpad_capture(bool enabled) { trackpad_capture=enabled; }
+static bool wifi_firmware_enabled, firmware_command_exact, firmware_command_failed;
+void xhci_set_wifi_firmware_enabled(bool enabled) { wifi_firmware_enabled=enabled; }
+static bool configure_wifi_firmware(struct xhci_device *d);
+static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event);
 static void dispatch_transfer_event(const struct xhci_trb *event);
 static uint64_t event_irq_save(void) {
 #ifdef SRVROS_XHCI_TEST_MMIO
@@ -1064,6 +1082,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
         xhci.last_command_pointer = pointer;
         xhci.last_expected_command_pointer = command_phys;
         if (pointer != command_phys) {
+            if (firmware_command_exact) continue;
             xhci.command_pointer_mismatches++;
             if (completion_code != 1) {
                 console_printf("xhci: command type=%u pointer mismatch ptr=%x expected=%x cc=%u slot=%u\n",
@@ -1104,6 +1123,7 @@ static bool wait_command_completion(uint64_t command_phys, uint64_t expected_typ
 }
 
 static bool submit_command_trb(const struct xhci_trb *source, uint64_t expected_type, uint64_t *slot_out) {
+    if (firmware_command_failed) return false;
     uint64_t index = xhci.command_enqueue;
     if (index >= XHCI_TRB_COUNT - 1) {
         index = 0;
@@ -1383,6 +1403,9 @@ static bool probe_wifi(struct xhci_device *device, size_t config_size) {
     console_printf("xhci-wifi: identity=%s asic=%x mac=%x quarantined=%u (not a network provider)\n",
         device->wifi_probe_ok ? "read" : "failed", (uint64_t)device->wifi_identity.asic,
         (uint64_t)device->wifi_identity.mac, (uint64_t)device->ep0_quarantined);
+    if (wifi_firmware_enabled && device->wifi_probe_ok && !configure_wifi_firmware(device)) {
+        device->firmware.failed=true; device->stage="wifi-firmware-config-failed";
+    }
     return true; /* Never fall through and reuse the probe's DMA buffer. */
 }
 
@@ -2082,6 +2105,7 @@ static void dispatch_transfer_event(const struct xhci_trb *event) {
     if (dispatch_strict_control(event)) return;
     struct xhci_device *device = device_by_slot(slot);
     if (!device) return;
+    if(wifi_firmware_event(device,event)) return;
     if(network_event(device,dci,pointer,completion,remaining)) return;
     struct xhci_trackpad_endpoint *t=&device->trackpad;
     if (t->pending && dci==t->dci && pointer==t->trb) {
@@ -3101,3 +3125,5 @@ int64_t xhci_device_snapshot(uint64_t index,struct srv_device_info *out) {
     }
     event_irq_restore(flags);return 0;
 }
+
+#include "xhci_wifi_firmware.inc"

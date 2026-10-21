@@ -209,6 +209,18 @@ class InstallTests(unittest.TestCase):
         with self.assertRaises(ValueError): boot.stage(desktop_brightness=True)
         with self.assertRaises(ValueError): boot.stage(desktop_volume="37d8c5d0",desktop_brightness=True)
 
+    def test_wifi_firmware_profile(self):
+        version='ram-usb-wifi-fw-v1-laptop-probe-37d8c5d0-auto-return'
+        self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))
+        config=boot.limine_config('0123456789abcdef',version)
+        self.assertIn('srvros.capture=wifi-firmware',config)
+        self.assertIn('srvros.capture-failure=reboot',config)
+        self.assertNotIn('srvros.capture=battery',config)
+        with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root)
+        with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',hold_on_failure=True)
+        for other in ('wifi_capture','wifi_calibration','battery_app_files','battery_load'):
+            with self.assertRaises(ValueError):boot.stage(wifi_firmware_package=self.root,laptop_probe_volume='37d8c5d0',**{other:True})
+
     def test_wifi_calibration_profile(self):
         version="ram-usb-v44-laptop-probe-37d8c5d0-auto-return"
         self.assertTrue(boot.LAPTOP_PROBE_RE.fullmatch(version))

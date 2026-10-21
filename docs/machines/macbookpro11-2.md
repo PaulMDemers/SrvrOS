@@ -1599,3 +1599,12 @@ stages use v44, while main's battery-app-files stays v43. Historical bytes from
 both merge parents and installed-stage v43 verify. No host UUID is used to guess
 a recipe. New scope: kernel-side pinned firmware hash verification and dedicated
 native firmware EP08 DMA/control ownership; no shared battery implementation.
+
+Native firmware implementation now connects pinned SHA-256 verification,
+dedicated EP08 DMA, strict configure completion and guarded vendor callbacks to
+the prepared/upload engines. It runs only in a new descriptive wifi-fw-v1 capture
+with the explicitly staged firmware/license package. Runtime bulk waits share
+HID/storage dispatch and quarantine uncertain completion. MAC control stays 0x20
+in preparation and must read back 0x20 after MCU readiness; live-MCU preparation
+is refused. Native firmware acceptance remains pending exact-stage rehearsal
+and physical capture. No RF setup or network provider is enabled.

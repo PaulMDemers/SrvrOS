@@ -43,3 +43,37 @@ if __name__ == '__main__':
         print(json.dumps(package(a.image, a.license, a.output), indent=2))
     except (OSError, ValueError) as error:
         p.exit(1, f'firmware package refused: {error}\n')
+
+
+def add_to_initramfs(directory, archive):
+    """Append only verified fixed-name files to a disposable staged initramfs."""
+    import io
+    import tarfile
+    image = directory/'mt7610e.bin'
+    with image.open('rb') as stream:
+        data = stream.read(MAX_BYTES+1)
+    inspect(image.name, data)
+    with (directory/'LICENCE.mediatek').open('rb') as stream:
+        license_data = stream.read(65537)
+    if hashlib.sha256(license_data).hexdigest() != LICENSE_SHA256:
+        raise ValueError('package license mismatch')
+    with tarfile.open(archive, 'a', format=tarfile.USTAR_FORMAT) as tar:
+        if any(m.name.lstrip('./').split('/')[0]=='firmware' for m in tar.getmembers()):
+            raise ValueError('initramfs already contains firmware; refusing replacement')
+        for name, content in (('mt7610e.bin',data),('LICENCE.mediatek',license_data)):
+            info=tarfile.TarInfo('firmware/'+name);info.size=len(content);info.mode=0o444;info.mtime=0
+            tar.addfile(info,io.BytesIO(content))
+
+
+def verify_initramfs(archive):
+    import tarfile
+    with tarfile.open(archive, 'r:') as tar:
+        members=[m for m in tar.getmembers() if m.name.lstrip('./').split('/')[0]=='firmware']
+        if sorted(m.name for m in members)!=['firmware/LICENCE.mediatek','firmware/mt7610e.bin'] or any(not m.isfile() for m in members):
+            raise ValueError('unexpected or duplicate firmware tar entries')
+        for m in members:
+            if m.size>MAX_BYTES:raise ValueError('oversized packaged firmware entry')
+        data=tar.extractfile('firmware/mt7610e.bin').read()
+        license_data=tar.extractfile('firmware/LICENCE.mediatek').read()
+        inspect('mt7610e.bin',data)
+        if hashlib.sha256(license_data).hexdigest()!=LICENSE_SHA256:raise ValueError('packaged license mismatch')
