@@ -1,7 +1,7 @@
 import unittest
 from battery_desktop_smoke import check_capture, check_text_capture
 from test_sci_observe_records import BASE as SCI
-from hardware_desktop import battery_desktop_result, needs_attention
+from hardware_desktop import battery_desktop_result, battery_text_result, needs_attention
 
 BASE = SCI + b'''battery-desktop: started pid=4 epoch=2 generation=1 start_us=1000 storage=ram
 desktop-coexist: completed=yes start_us=2000 end_us=60002000 loops=6000 max_gap_us=12000 generated=60 presented=60 frames=61 storage=ram
@@ -62,6 +62,20 @@ class TextCoexistRecords(unittest.TestCase):
         with self.assertRaises(AssertionError):check_text_capture(TEXT,True)
         # The accepted v40 study collector must not silently accept a new mode.
         with self.assertRaises(AssertionError):check_capture(TEXT)
+
+    def test_native_collector_requires_exact_recipe_return_and_text_proof(self):
+        prefix=b'laptop-capture: boot options=srvros.capture=battery-text srvros.capture-failure=reboot\n'
+        suffix=b'battery-text-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+        valid=prefix+TEXT+suffix
+        self.assertEqual(battery_text_result(valid.decode())['script_checkpoints'],5)
+        self.assertIsNone(battery_desktop_result(valid.decode()))
+        for data in (TEXT,prefix+TEXT,TEXT+suffix,valid.rstrip(b'\n'),valid+suffix,
+                     valid+prefix,valid.replace(b'clean=yes',b'clean=NO'),
+                     valid.replace(b'srvros.capture=battery-text ',b'srvros.capture=battery-text-other '),
+                     valid.replace(b'hex=4141',b'hex=4142'),prefix+BASE+suffix):
+            with self.subTest(data=data[-100:]):self.assertIsNone(battery_text_result(data.decode()))
+        for line in valid.decode().splitlines():self.assertFalse(needs_attention(line),line)
+        self.assertTrue(needs_attention('battery-text-capture: returned=yes clean=NO'))
 
     def test_reject_incomplete_or_wrong_editing(self):
         changes=((b'serial=12 ',b'serial=13 '),(b'hex=4141',b'hex=4162'),

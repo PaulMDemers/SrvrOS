@@ -406,12 +406,33 @@ def power_idle_sample(exit_text):
             "scope":"covered interval inside desktop idle; package energy and CPU0 active frequency, not whole-laptop power"}
 
 
-def battery_desktop_result(exit_text):
-    if 'srvros.capture=battery-desktop' not in exit_text:return None
-    if 'battery-desktop-capture: returned=yes clean=yes; physical accuracy NOT_TESTED' not in exit_text:return None
-    from battery_desktop_smoke import check_capture
-    try:return check_capture(exit_text.encode())
+def battery_overlap_recipe(exit_text, recipe):
+    # Exact boot-option tokens, not a substring of another capture profile.
+    from serial_records import complete_lines
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    boots=[line for line in rows if line.startswith('laptop-capture: boot options=')]
+    return len(boots)==1 and ('srvros.capture='+recipe) in boots[0].split('=',1)[1].split()
+
+
+def battery_overlap_result(exit_text, text=False):
+    from serial_records import complete_lines
+    from battery_desktop_smoke import check_capture, check_text_capture
+    recipe='battery-text' if text else 'battery-desktop'
+    if not battery_overlap_recipe(exit_text,recipe):return None
+    rows=complete_lines(exit_text.encode()).decode().splitlines()
+    marker=recipe+'-capture: returned=yes clean=yes; physical accuracy NOT_TESTED'
+    returns=[line for line in rows if line.startswith(recipe+'-capture:')]
+    if returns!=[marker]:return None
+    try:return (check_text_capture if text else check_capture)(exit_text.encode())
     except (AssertionError,ValueError):return None
+
+
+def battery_desktop_result(exit_text):
+    return battery_overlap_result(exit_text)
+
+
+def battery_text_result(exit_text):
+    return battery_overlap_result(exit_text,text=True)
 
 
 def needs_attention(line):
@@ -419,7 +440,7 @@ def needs_attention(line):
         return True
     if line.startswith(("laptop-capture: completed=NO", "battery: HALTED", "battery: FAILED", "battery: REFUSED", "battery-capture: returned=yes clean=NO",
                         "battery-transition: INCOMPLETE", "battery-transition-capture: returned=yes clean=NO",
-                        "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
+                        "battery-text-capture: returned=yes clean=NO", "battery-desktop: FAIL", "desktop-coexist: completed=NO", "battery-desktop-capture: returned=yes clean=NO",
                         "battery-service-test: FAIL", "battery-service-capture: returned=yes clean=NO",
                         "workspace-image: revoked clean=NO", "workspace-image: preparation FAILED")):return True
     if line.startswith("deskd: brightness requested=") and "result=-1" in line:
@@ -509,6 +530,9 @@ def collect(mount, volume, output):
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
         desktop_proof=battery_desktop_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        text_proof=battery_text_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if 'srvros.capture=battery-text' in text and text_proof is None:
+            attention.append('collection: battery Text overlap completion missing or invalid')
         if 'srvros.capture=battery-desktop' in text and desktop_proof is None:
             attention.append('collection: battery desktop overlap completion missing or invalid')
         records.append({
@@ -522,6 +546,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
+            "battery_text": text_proof,
             "battery_desktop": desktop_proof,
             "battery_filesystem": image_proof,
             "battery_usb_write": write_proof,

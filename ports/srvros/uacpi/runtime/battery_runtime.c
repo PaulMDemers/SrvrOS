@@ -1143,6 +1143,9 @@ done:
 bool battery_desktop_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
     return desktop_test(rsdp,map,0,false);
 }
+bool battery_text_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    return desktop_test(rsdp,map,0,true);
+}
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
     bool desktop_text=command_is(args,"battery-desktop-text") || command_is(args,"battery-desktop-text-missing") || command_is(args,"battery-desktop-text-timeout");

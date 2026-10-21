@@ -679,3 +679,15 @@ Reports are saved in Home (`network-before.txt`, `network-down.txt`,
 `network-after.txt`, sequence state in `network-trial.txt`). Inspect statuses,
 HTTP responses and System/Network Utility behavior; completion alone is not a
 pass. The final screen gives the clean console-return and reboot instructions.
+
+
+### Automatic Text and battery overlap
+
+The captured Air7,2 can use the opt-in v41 `--battery-text` recipe after local
+validation and exact-stage rehearsal. It runs a one-minute RAM Text editing
+script with cached battery sampling, then saves and returns automatically. No
+human input is needed; leave keys/trackpad alone and keep AC/USB attached. The
+collector requires exact editing and retirement proof, not merely a reboot.
+Follow the [battery capture contract](battery-service.md#native-automatic-text-capture-v41)
+and retain the accepted desktop recovery. Other models must retain their native
+refusal until independently matched and accepted.

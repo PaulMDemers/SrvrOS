@@ -2,6 +2,25 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: native full Text capture
+
+Starting from merged PR #28 (`529eee4`), add opt-in v41 `--battery-text`
+selection, exact-stage rehearsal and strict native collection. Shared edits are
+limited to the battery diagnostic entry point, boot selection/staging, collectors
+and their tests; editor/compositor and native hardware gates stay as validated.
+Pro PR #19 inspected at `e9320d9` reserves v39 Wi-Fi; preserve that independent
+scope. The automatic trial needs no input: require 60 presented edits, five `AA`
+checkpoints, clean app/service retirement and continued sampling. Rehearse the
+exact native payload's unsupported-platform save/unmount/return before install.
+Implementation `98bebc9` passed native/VM builds, full host core tests, 44 staging
+and 13 collector tests, seven strict overlap-record tests and 393 documentation
+links. The rebuilt automatic Text VM presented all 60 events, retained all five
+`AA` checkpoints and final `AA`, with zero extra keyboard input. Sampling advanced
+1→25 and a replacement compositor started after clean retirement. Eleven files
+including exact binaries are archived outside `build`. PR #29 carries this work.
+Physical acceptance remains pending exact-stage rehearsal and a native trial;
+retain the installed v40 and desktop recovery. Actions remain disabled.
+
 ### Current checkpoint: native RAM desktop/battery overlap accepted
 
 Release `ae2851607a9bf0c1`, source `1df9a24` (merged PR #26), session

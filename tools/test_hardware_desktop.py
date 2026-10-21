@@ -261,6 +261,26 @@ class CollectionTests(unittest.TestCase):
         self.assertTrue(desktop.needs_attention('battery-service-test: FAIL sample deadline'))
         self.assertTrue(desktop.needs_attention('battery-service-capture: returned=yes clean=NO'))
 
+    def test_text_capture_collection_requires_complete_exit_proof(self):
+        from test_battery_desktop_records import TEXT
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-text\n'
+            tail=b'battery-text-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\n'
+            (folder/'boot.log').write_bytes(boot)
+            for payload,valid in ((boot+TEXT+tail,True),(boot+TEXT,False),
+                                  (boot+TEXT.replace(b'hex=4141',b'hex=4142')+tail,False),
+                                  (boot+tail,False)):
+                (folder/'exit.log').write_bytes(payload)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+                item=report['sessions'][0]
+                self.assertEqual(item['battery_text'] is not None,valid)
+                self.assertIsNone(item['battery_desktop'])
+                self.assertEqual(bool(item['attention']),not valid)
+                self.assertEqual(report['hardware_acceptance'],'manual-pending')
+
     def test_boot_only_session_is_incomplete(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
