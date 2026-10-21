@@ -201,6 +201,33 @@ class CollectionTests(unittest.TestCase):
                     stepped.replace('steps=3600',f'steps={2**64}'),
                     stepped.replace(' steps=3600 max_step_us=4900 slowest_step=5','')):
             self.assertIsNone(desktop.battery_filesystem_result(bad),bad)
+        profile_header='battery-filesystem-profile: cycle=7 step=5 elapsed_us=4800 io_us=60'
+        phase=lambda n,active: (f'battery-filesystem-phase: phase={n} reads={2 if active else 0} '
+            f'read_bytes={1024 if active else 0} read_us={10 if active else 0} read_max_us={5 if active else 0} '
+            f'writes={2 if active else 0} write_bytes={8192 if active else 0} '
+            f'write_us={20 if active else 0} write_max_us={10 if active else 0} '
+            f'flushes={1 if active else 0} flush_us={30 if active else 0} flush_max_us={30 if active else 0}')
+        phases=[phase(n,n==2) for n in range(4)]
+        detail='\n'.join([profile_header]+phases)
+        profiled=stepped.replace('slowest_step=5;', 'slowest_step=5 profile=1;').replace(summary,detail+'\n'+summary)
+        profile=desktop.battery_filesystem_result(profiled)['profile']
+        self.assertEqual(profile['other_us'],4740)
+        self.assertEqual(profile['phases']['data']['write_bytes'],8192)
+        for bad in (profiled.replace(profile_header+'\n',''),profiled.replace(phases[1]+'\n',''),
+                    profiled.replace('phase=3','phase=2'),profiled.replace('cycle=7','cycle=200'),
+                    profiled.replace('step=5 elapsed','step=4 elapsed'),
+                    profiled.replace('elapsed_us=4800','elapsed_us=4901'),
+                    profiled.replace('io_us=60','io_us=59'),
+                    profiled.replace('read_us=10','read_us=11'),
+                    profiled.replace('read_max_us=5','read_max_us=11'),
+                    profiled.replace('read_bytes=1024','read_bytes=512'),
+                    profiled.replace('read_bytes=1024','read_bytes=1025'),
+                    profiled.replace('reads=2 read_bytes=1024','reads=0 read_bytes=1024'),
+                    profiled.replace('write_bytes=8192',f'write_bytes={2**64}'),
+                    profiled.replace('cycle=7',f'cycle={2**64}'),
+                    profiled.replace(' profile=1',''),profiled+'\n'+profile_header,
+                    profiled.replace(detail+'\n','')+'\n'+detail):
+            self.assertIsNone(desktop.battery_filesystem_result(bad),bad)
         with tempfile.TemporaryDirectory() as temp:
             workspace=Path(temp);proof=desktop.battery_usb_write_result(written)
             scratch_path=workspace/'battery-io-0000000000001234.bin'

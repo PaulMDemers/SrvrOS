@@ -2,6 +2,7 @@
 """Run the battery diagnostic runtime with a disposable Q35 EC model."""
 import argparse
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -350,12 +351,16 @@ def main():
                         assert repair.returncode in (0,1),repair.stdout+repair.stderr
                     (out/'usb-fsck.txt').write_text(check_clean_image(volume))
                     if isolated:
-                        record=re.findall(rb'battery-filesystem: PASS cycles=(\d+) commands=(\d+) busy_cycles=(\d+) progress_bursts=(\d+) bursts=(\d+) max_burst_us=(\d+) elapsed_us=(\d+) steps=(\d+) max_step_us=(\d+) slowest_step=(\d+); retired=yes revoked=yes',output)
+                        record=re.findall(rb'battery-filesystem: PASS cycles=(\d+) commands=(\d+) busy_cycles=(\d+) progress_bursts=(\d+) bursts=(\d+) max_burst_us=(\d+) elapsed_us=(\d+) steps=(\d+) max_step_us=(\d+) slowest_step=(\d+) profile=1; retired=yes revoked=yes',output)
                         assert len(record)==1,bytes(output)
                         cycles,commands,busy,progress,bursts,maximum,elapsed,steps,step_us,slowest=map(int,record[0])
                         assert cycles>1 and commands>=cycles*3 and busy>0 and 0<progress<=bursts and elapsed>=60000000,record
                         assert steps==cycles*18 and bursts==steps and 0<step_us<=maximum and slowest<18,record
                         assert output.count(b'workspace-image: revoked clean=yes')==1,bytes(output)
+                        from hardware_desktop import battery_filesystem_result
+                        parsed=battery_filesystem_result(output.decode(errors='replace'),require_service=False)
+                        assert parsed and 'profile' in parsed,bytes(output)
+                        (out/'filesystem-profile.json').write_text(json.dumps(parsed['profile'],indent=2)+'\n')
                         verify_isolated_disk(stick,before_disk,image_offset,volume,out,cycles)
                     elif filesystem:
                         verify_filesystem_tree(volume.read_bytes(),fs_cycles)

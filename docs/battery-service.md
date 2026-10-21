@@ -485,3 +485,23 @@ Payload, inner/outer allocation, unrelated files and clean retirement passed.
 This is a single-run comparison and bounded isolated-workload acceptance;
 desktop responsiveness, ordinary native battery startup and gauge accuracy
 remain unaccepted. The 24 handled / 24 unclaimed active SCI deliveries persist.
+
+## Isolated filesystem write profiling
+
+The diagnostic image records the slowest completed filesystem operation using
+`battery-filesystem-profile` and four `battery-filesystem-phase` records. Phase
+0 is metadata/default (including verification reads), 1 allocation, 2 file data
+writes and 3 freeing old clusters. Each phase counts raw image read/write/flush
+callbacks, transfer bytes, total microseconds and the longest callback. The
+operation's remaining time includes filesystem CPU work, cache invalidation and
+scheduler activity outside those callbacks. Callback wall time itself includes
+any admitted input or power-service execution; it is neither CPU blocking time
+nor a measurement of user input latency.
+
+The report is copied while the diagnostic owns storage exclusion, and printed
+only after workload completion and lease revocation. It adds no I/O, changes no
+flush/order/admission rules and does not enable battery service on ordinary
+startup. Failed operations do not publish a successful profile. The collector
+accepts older reports without profiling; a report marked `profile=1` must contain
+one matching operation header and all four consistent phase records before the
+service completion summary. Native profiling acceptance remains pending.
