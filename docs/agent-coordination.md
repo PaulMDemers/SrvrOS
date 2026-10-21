@@ -287,3 +287,22 @@ The accepted source is `977a554`; native gates remain Air-specific. A host-only
 collector fix treats missing expected paths in a replaced historical test image
 as invalid evidence instead of aborting collection. Consume PR #33 before adding
 another battery UI read interface or descendant-retirement implementation.
+
+
+## October 21 scoped battery controls handoff
+
+Air PR #34 adds a separate asynchronous command syscall and a process-group-scoped
+mailbox; the existing cached read ABI stays read-only. System Sensors uses shared
+Start/Stop presentation, with pending, stale-epoch and lifecycle admission checks.
+The owner dispatches outside syscall/storage work, revokes admission, retires the
+client tree and stops the service before returning. Automatic native v44 acceptance
+is limited to captured Air7,2 with the outer workspace parked. Ordinary battery
+startup stays off; sibling model/resource gates are unchanged.
+
+The local host/VM suite and exact-stage refusal/save/return checks passed. Air
+release `87524e9fe7788772` (`134f0d6`) completed two native lifetimes/four commands,
+clean retirement and file-preservation/allocation/Ubuntu-return checks. Reuse this
+control contract before designing another battery UI. Ordinary Home coexistence
+is the next Air checkpoint. Pro PR #19 at `c6ad8e9` consumed PR #33 and retains its
+separate Wi-Fi firmware capture; preserve that profile when integrating main and
+staging changes. Fetch the actual merged baseline and rerun local affected tests.

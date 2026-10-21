@@ -1079,3 +1079,11 @@ session in one VM to reject stale command/epoch reuse. Manual uses actual pointe
 clicks, then closes System while active; the owner must retire the live service.
 The runtime-fault case leaves monitoring running until the third-sample injected
 deadline and requires automatic reset without a claimed clean retirement.
+
+Air7,2 accepted the bounded automatic v44 path in release `87524e9fe7788772`,
+source `134f0d6`: four commands, two fresh lifetimes and stopped states, two retired
+clients, clean service teardown and revoked scope. SCI handled four deliveries
+without an unclaimed interrupt. All 913 prior data files stayed identical; only
+workspace metadata and three new logs changed. Offline allocation and Ubuntu
+return/recovery checks passed. This accepts the parked-workspace System action
+path; ordinary workspace coexistence and attended pointer/AC accuracy remain open.
