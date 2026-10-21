@@ -54,6 +54,7 @@ struct session {
     int trace,pointer_blocked,overlay_return,overlay_down;
     uint64_t pointer_pid;
     int notice_visible,context_down;
+    unsigned child_reaped,child_errors;
     unsigned modifiers;
     struct io_trial io;
     struct desk_capture_job capture;
@@ -891,6 +892,8 @@ static void service(struct session *s) {
         long waited=srv_wait(s->children[i],&status,SRV_WAIT_NOHANG);
         /* An interrupted wait is not proof of death. Init only adopts a
          * child after its parent exits; live clients retain their own results. */
+        if (waited==(long)s->children[i]) { s->child_reaped++;if(status)s->child_errors++; }
+        else if(waited<0 && !desk_process_alive(s->children[i])) s->child_errors++;
         if (waited==(long)s->children[i])
             desk_log("deskd: child-exit pid=%llu status=%llu tick=%llu\n",(unsigned long long)s->children[i],(unsigned long long)status,(unsigned long long)srv_ticks());
         if (waited==(long)s->children[i] || (waited<0 && !desk_process_alive(s->children[i])))
@@ -1021,6 +1024,7 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
+    int coexist=argc==2 && !strcmp(argv[1],"--coexist-capture");
     int idle_capture=argc==2 && !strcmp(argv[1],"--idle-capture");
     int network_trial=argc==2 && !strcmp(argv[1],"--network-trial");
     int hardware_trial=network_trial || (argc==2 && !strcmp(argv[1],"--hardware-trial"));
@@ -1031,7 +1035,7 @@ int main(int argc,char **argv) {
     int io_mode=argc==3 && strcmp(argv[1],"--io-test")==0 && desk_trial_run_valid(argv[2]);
     struct gfx_info info={0};
     if (gfx_info(&info)!=0 || info.width<640 || info.height<480 || info.width>3840 || info.height>2160) return 1;
-    if(idle_capture && !explicit_scale) {
+    if((idle_capture || coexist) && !explicit_scale) {
         scale=desk_capture_scale(info.width,info.height);
         if(!scale) { srv_puts("deskd: framebuffer exceeds idle capture limits\n");return 1; }
     }
@@ -1045,7 +1049,7 @@ int main(int argc,char **argv) {
     if (gui_register_server()!=0) { srv_puts("deskd: another display server is active\n"); return 1; }
     if (gfx_console_mute(1)!=0) return 1;
     struct session s={.home=(hardware_trial || idle_capture)?DESK_WORKSPACE_HOME:DESK_RAM_HOME,.scene={.focus=-1,.cursor_x=24,.cursor_y=56},
-        .trace=idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
+        .trace=coexist || idle_capture || lifecycle || (argc==2 && (!strcmp(argv[1],"--trace") || !strcmp(argv[1],"--apps-trace")))};
     desk_capture_job_init(&s.capture);
     desktop_notice_view_init(&s.scene.notifications);desktop_notice_view_configure(&s.scene.notifications,width,height);
     s.scene.apps=apps;desk_popup_init(&s.scene.context);desk_menu_init(&s.scene.menu);desk_palette_init(&s.scene.launcher);
@@ -1067,6 +1071,13 @@ int main(int argc,char **argv) {
     else if(apps) spawn_app(&s,hardware_trial?DESK_APP_HELP:DESK_APP_TEXT,hardware_trial?"laptop-trial":"");else spawn_client(&s);
     if (io_mode) spawn_client(&s); /* Load both studies before storage starts. */
     if(idle_capture) strcpy(s.scene.notice,"Automatic idle check: leave input alone. Logs and a screenshot will be saved before return.");
+    /* RAM-only diagnostic: no app menus, preferences, Home or screenshot jobs.
+     * The study client exercises independent IPC/surface publication. Generated
+     * font-toggle events are not physical keyboard input. */
+    if(coexist) strcpy(s.scene.notice,"Battery overlap: RAM only. No input needed; returns automatically.");
+    uint64_t coexist_begin=0,coexist_last=0,coexist_gap=0,coexist_loops=0;
+    uint64_t coexist_next=0,coexist_sent=0,coexist_ack=0,coexist_frames=0;
+    int coexist_complete=0;
     int idle_phase=0;
     unsigned idle_capture_serial=0;
     uint64_t idle_deadline=0,idle_frames=0,idle_bytes=0;
@@ -1087,6 +1098,22 @@ int main(int argc,char **argv) {
             if (r==1) incoming(&s,pid,&p);
         }
         service(&s);
+        if(coexist) {
+            uint64_t now=(uint64_t)srv_monotonic_us();
+            if(coexist_last && now-coexist_last>coexist_gap) coexist_gap=now-coexist_last;
+            coexist_last=now;coexist_loops++;
+            if(!coexist_begin) {
+                if(s.scene.windows[0].pixels && s.clients[0].generation) {
+                    coexist_begin=now;coexist_next=now;coexist_frames=frames;
+                    desk_log("desktop-coexist: ready start_us=%llu storage=ram generated=font-toggle\n",(unsigned long long)now);
+                } else if((uint64_t)srv_ticks()-start>=500) { failed=1;break; }
+            } else if(!s.clients[0].pid || !s.scene.windows[0].pixels) { failed=1;break; }
+            if(coexist_begin && now>=coexist_next && coexist_sent==coexist_ack && now-coexist_begin<60000000) {
+                struct desk_packet p=desk_packet_new(DESK_TEXT);p.value=12;p.input_serial=coexist_sent+1;
+                if(desk_send(s.clients[0].pid,&p)==0) { coexist_sent++;coexist_next=now+1000000; }
+            }
+            if(coexist_begin && coexist_sent!=coexist_ack && now>coexist_next+4000000) { failed=1;break; }
+        }
         if(apps) { if(desktop_preferences_poll(&s.preferences,srv_ticks())) preferences_changed(&s);clock_update(&s,0);notifications_tick(&s); }
         if (io_mode && !io_ready && s.scene.windows[0].pixels && s.scene.windows[1].pixels) {
             io_ready=1; srv_puts("deskd: trial ready; Space starts USB work\n");
@@ -1134,7 +1161,7 @@ int main(int argc,char **argv) {
                     quit=1; break;
                 }
                 stop_warning=0;
-                if (key==14) { spawn_client(&s); continue; }
+                if (key==14) { if(!coexist) spawn_client(&s); continue; }
                 if (key==9) {
                     int other=1-s.scene.focus;
                     if (other>=0 && other<DESKD_WINDOWS && s.clients[other].pid) {
@@ -1404,8 +1431,15 @@ int main(int argc,char **argv) {
             io_trial_text_present(&s.io,s.clients[i].pid,s.clients[i].present_input);
         io_trial_loop_end(&s.io,render_start>0?(uint64_t)render_start:0);
         if (s.damage.count) frames++;
+        if(coexist && !failed && s.damage.count && s.clients[0].present_input==coexist_sent)
+            coexist_ack=coexist_sent;
         s.damage.count=0;
         if(apps && !failed) capture_tick(&s,pixels);
+        if(coexist && coexist_begin && !failed && (uint64_t)srv_monotonic_us()-coexist_begin>=60000000 && coexist_sent==coexist_ack) {
+            coexist_complete=coexist_ack>=55 && frames-coexist_frames>=55;
+            if(!coexist_complete) failed=1;
+            quit=1;
+        }
         if(idle_capture && !failed) {
             uint64_t now=srv_ticks();
             if(idle_phase && !s.clients[0].generation) failed=1;
@@ -1446,6 +1480,7 @@ int main(int argc,char **argv) {
         if (failed || (smoke && (uint64_t)srv_ticks()-start>=200)) break;
         srv_sleep_ticks(1);
     }
+    uint64_t coexist_end=(uint64_t)srv_monotonic_us();
     if(idle_capture) {
         if(idle_phase!=3) failed=1;
         desk_log("desktop-idle: completed=%s screenshot=%s\n",failed?"NO":"yes",idle_phase==3?"yes":"NO");
@@ -1465,6 +1500,14 @@ int main(int argc,char **argv) {
     for (int i=0;i<DESKD_WINDOWS;i++) {
         if (s.children[i]) { uint64_t status; srv_kill(s.children[i]); srv_wait(s.children[i],&status,0); }
         if (s.clients[i].pid) forget(&s,i);
+    }
+    if(coexist && (s.child_reaped!=1 || s.child_errors)) failed=1;
+    if(coexist) {
+        if(!coexist_complete) failed=1;
+        desk_log("desktop-coexist: completed=%s start_us=%llu end_us=%llu loops=%llu max_gap_us=%llu generated=%llu presented=%llu frames=%llu storage=ram\n",
+            failed?"NO":"yes",(unsigned long long)coexist_begin,(unsigned long long)coexist_end,
+            (unsigned long long)coexist_loops,(unsigned long long)coexist_gap,
+            (unsigned long long)coexist_sent,(unsigned long long)coexist_ack,(unsigned long long)(frames-coexist_frames));
     }
     if(apps) {
         if(s.preferences.dirty) desk_log("deskd: preferences were not fully saved (status=%u)\n",s.preferences.status);

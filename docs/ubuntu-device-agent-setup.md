@@ -375,6 +375,17 @@ attention items before claiming acceptance. Preserve the accepted v31 diagnostic
 and ordinary desktop recovery. See the [transition contract](native-ec-runtime.md#guided-ac-transition-capture)
 for sample validity, current signs and the distinction between VM and hardware evidence.
 
+The separate **v40 laptop-probe** `--battery-desktop` profile runs the native
+cached service alongside a RAM-only compositor study for one minute. Keep AC and
+USB connected; no input is required and it returns automatically. The workspace
+is checkpointed and parked during overlap; this profile does not use or replace
+`battery-fs.img`. Use the native build, exact-stage `--probe-check`, install with
+accepted recovery retained, and one-shot/collection sequence below. Require the
+matching session's `battery_desktop` proof and clean offline filesystem checks.
+VM input or generated redraws do not accept physical key/trackpad latency. See
+[the capture contract](battery-service.md#ram-compositor-capture-v40). v39 is
+reserved by the separate Pro Wi-Fi probe.
+
 The separate **v38 laptop-probe** `--battery-filesystem` profile exercises an
 isolated disposable filesystem image during battery sampling. Bounded native
 acceptance is recorded for Air7,2; desktop/input coexistence remains pending.

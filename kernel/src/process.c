@@ -990,21 +990,21 @@ static int64_t process_mapping_index(struct process *process, uint64_t virtual_p
     return -1;
 }
 
-static bool process_unmap_tracked_page(struct process *process, uint64_t virtual_page) {
-    int64_t index = process_mapping_index(process, virtual_page);
-    if (index < 0) {
-        return false;
-    }
-
+static void process_unmap_mapping_at(struct process *process, uint64_t index) {
     uint64_t physical = 0;
-    if (vmm_unmap_page_in_space(process->address_space, virtual_page, &physical)) {
+    if (vmm_unmap_page_in_space(process->address_space,
+            process->mappings[index].virtual_address, &physical)) {
         pmm_free_frame(physical);
     } else if (process->mappings[index].physical_address != 0) {
         pmm_free_frame(process->mappings[index].physical_address);
     }
+    process->mappings[index] = process->mappings[--process->mapping_count];
+}
 
-    uint64_t unsigned_index = (uint64_t)index;
-    process->mappings[unsigned_index] = process->mappings[--process->mapping_count];
+static bool process_unmap_tracked_page(struct process *process, uint64_t virtual_page) {
+    int64_t index = process_mapping_index(process, virtual_page);
+    if (index < 0) return false;
+    process_unmap_mapping_at(process, (uint64_t)index);
     return true;
 }
 
@@ -5675,9 +5675,16 @@ int64_t process_munmap(struct process *process, uint64_t address, uint64_t lengt
             return -1;
         }
     }
-    for (uint64_t page = address; page < address + mapped_length; page += PAGE_SIZE) {
-        if (process_mapping_index(process, page) >= 0) {
-            (void)process_unmap_tracked_page(process, page);
+    /* Visit each tracked mapping once. Searching the complete table twice
+     * per page made large compositor-buffer teardown quadratic. Removal swaps
+     * in the last entry, so examine that replacement before advancing. Pages
+     * without physical mappings (for example PROT_NONE) need no frame release. */
+    for (uint64_t index = 0; index < process->mapping_count;) {
+        uint64_t page = process->mappings[index].virtual_address;
+        if (page >= address && page < address + mapped_length) {
+            process_unmap_mapping_at(process, index);
+        } else {
+            index++;
         }
     }
     mmap_forget_range(process, address, mapped_length);
