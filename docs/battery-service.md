@@ -526,4 +526,5 @@ clusters within the advertised raw-device limit; fragmented chains retain their
 existing traversal. Final partial clusters are zero-padded. Flush barriers and
 copy-on-write metadata ordering stay unchanged. The diagnostic image inherits
 the bounded capability; host tests compare its persisted bytes against the 4 KiB
-path, then exercise write/power-cut/flush failures. Native batching is pending.
+path, then exercise write/power-cut/flush failures and sector-aligned partial-write
+prefixes. Native batching is pending.

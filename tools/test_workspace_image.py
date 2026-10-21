@@ -16,6 +16,7 @@ IMAGE_DRIVER = ROOT/'build/tests/workspace-image-host'
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--partial-only',action='store_true',help='exercise sector-aligned prefixes of failed/interrupted writes')
     parser.add_argument('--flush-only',action='store_true',help='run new flush faults after an unchanged write-boundary run')
     parser.add_argument('--profile-only', action='store_true', help='count step/FAT writes and verify successful output without fault sweep')
     args=parser.parse_args()
@@ -112,12 +113,12 @@ def main():
             if fault!='inner-dirty':command(DRIVER,volume,'image-range',codes=(1,))
             assert volume.read_bytes() == changed,fault
         print('image admission: dirty/length/alias/fragmentation/bitmap refusals PASS',flush=True)
-        for mode in (('flush-failure',) if args.flush_only else ('failure','power-cut','flush-failure')):
+        for mode in (('partial-failure','partial-cut') if args.partial_only else ('flush-failure',) if args.flush_only else ('failure','power-cut','flush-failure','partial-failure','partial-cut')):
             boundaries=total_flushes if mode=='flush-failure' else total
             for boundary in range(1,boundaries+1):
                 volume.write_bytes(baseline)
-                command(IMAGE_DRIVER,volume,'workload',boundary if mode=='failure' else 0,
-                        boundary if mode=='power-cut' else 0,boundary if mode=='flush-failure' else 0,codes=(77,) if mode=='power-cut' else (0,))
+                command(IMAGE_DRIVER,volume,'partial' if mode.startswith('partial-') else 'workload',boundary if mode in ('failure','partial-failure') else 0,
+                        boundary if mode in ('power-cut','partial-cut') else 0,boundary if mode=='flush-failure' else 0,codes=(77,) if mode in ('power-cut','partial-cut') else (0,))
                 data = volume.read_bytes()
                 assert data[:offset]==baseline[:offset] and data[offset+SIZE:]==baseline[offset+SIZE:],(mode,boundary)
                 # Outer allocation and file contents remain completely unchanged.

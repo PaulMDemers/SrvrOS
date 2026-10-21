@@ -16,6 +16,7 @@ static bool mounted, parked, busy, foreign;
 static unsigned writes, flushes, depth, fail_write, crash_write, fail_flush;
 static unsigned fat_writes, reads;
 static uint64_t mock_us;
+static bool partial_write;
 uint64_t timer_monotonic_us(void){return mock_us;}
 static uint64_t fat_start, fat_end;
 void *kmalloc(uint64_t n){return malloc(n);}
@@ -47,6 +48,11 @@ static bool raw_write(struct block_device *d,uint64_t o,const void *p,uint64_t n
         n<=WORKSPACE_IMAGE_BYTES-(o-image.offset));
     writes++;mock_us+=7;
     if(o < fat_end && o+n > fat_start) fat_writes++;
+    if(partial_write && n>512 && (writes==fail_write || writes==crash_write)) {
+        uint64_t prefix=(n/2/512)*512;
+        assert(pwrite(fd,p,prefix,o)==(ssize_t)prefix);
+        if(writes==crash_write){fsync(fd);_exit(77);}
+    }
     if(writes==fail_write)return false;
     if(pwrite(fd,p,n,o)!=(ssize_t)n)return false;
     if(writes==crash_write){fsync(fd);_exit(77);}
@@ -129,6 +135,7 @@ int main(int argc,char **argv){
         before=writes;assert(!workspace_image_step(0,&complete)&&!complete&&writes==before);
         close(fd);puts("image: clean pause/revocation");return 0;
     }
+    partial_write=!strcmp(argv[2],"partial");
     if(argc>3)fail_write=(unsigned)strtoul(argv[3],NULL,10);
     if(argc>4)crash_write=(unsigned)strtoul(argv[4],NULL,10);
     if(argc>5)fail_flush=(unsigned)strtoul(argv[5],NULL,10);
