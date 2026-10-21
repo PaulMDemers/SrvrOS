@@ -1178,3 +1178,33 @@ the saved failure log against serial evidence, and verifies the exact file tree,
 metadata, unchanged anchors and allocation graph offline. Remaining native
 prerequisites include IRQ-origin fault handling, shared-lock/resource audits and
 fault injection around real device operations. Automatic startup remains off.
+
+### VM IRQ entry containment
+
+`acpiruntime battery-workspace-recovery-irq` extends the disposable workspace
+study to the foreign-enable guard at SCI callback entry. It does not recover
+arbitrary faults inside the interpreter callback. The native backend refuses the
+command before platform access; ordinary desktop startup remains unchanged.
+
+With IRQs masked on CPU0, the guard verifies source masks and retains both
+noncurrent battery service threads. Neither can be the interrupted thread or a
+storage owner. It returns unclaimed through the normal IRQ registry, dispatcher
+EOI and completion callbacks; the interrupted stack continues normally. Retained
+threads cannot run, wake, reuse their slots or release interpreter allocations.
+The service stays faulted until reset. Failure to verify masks or retain the pair
+is terminal without restoring IRQs or attempting storage cleanup.
+
+The VM fixture injects a software SCI on an unrelated storage owner's stack. A
+second handler and completion callback prove continued dispatch; successful
+removal after return checks registry pending/depth accounting. A stack sentinel,
+current identity and I/O ownership must survive. Both flushes, retained state
+across the old sleep deadline, saved failure logs, ordinary unmount and automatic
+reset are checked. This exercises the real software dispatcher/EOI path, not a
+physical level-triggered SCI or outstanding device DMA. Negative fixtures inject
+on the battery worker itself or refuse an enable-mask write; neither may resume
+or claim clean retirement. The previous watchdog recovery remains separately
+covered.
+
+Remaining boundaries: deep uACPI callback faults, IRQs interrupting a battery
+thread, native shared locks/firmware resources and physical level-triggered
+behavior. Do not promote this study to native mounted Home or automatic startup.

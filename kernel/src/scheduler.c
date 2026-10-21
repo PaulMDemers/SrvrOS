@@ -358,15 +358,18 @@ bool scheduler_service_pair_quarantined(uint64_t caller,uint64_t peer) {
         threads[a].state==THREAD_QUARANTINED && threads[b].state==THREAD_QUARANTINED;
     irq_restore(flags);return ok;
 }
-bool scheduler_quarantine_service_pair(uint64_t caller,uint64_t peer) {
-    /* The caller owns IRQ exclusion and the non-IRQ recovery boundary. Keep
+static bool quarantine_pair(uint64_t caller,uint64_t peer,bool external) {
+    /* The caller owns IRQ exclusion and its explicit recovery boundary. Keep
      * validation entirely before mutation; failure retains both original slots. */
     uint64_t a=identity_index(caller),b=identity_index(peer);
-    if(!initialized || switching || a!=current_thread || a==0 ||
+    if(!initialized || switching || current_thread>=SCHEDULER_MAX_THREADS ||
+       threads[current_thread].state!=THREAD_RUNNING || a==0 ||
        a>=SCHEDULER_MAX_THREADS || b>=SCHEDULER_MAX_THREADS || b==0 || a==b ||
        a==idle_thread || b==idle_thread || idle_thread>=SCHEDULER_MAX_THREADS ||
        (threads[idle_thread].state!=THREAD_READY && threads[idle_thread].state!=THREAD_RUNNING) ||
-       threads[a].state!=THREAD_RUNNING ||
+       (external ? (a==current_thread || b==current_thread ||
+         (threads[a].state!=THREAD_READY && threads[a].state!=THREAD_BLOCKED)) :
+         (a!=current_thread || threads[a].state!=THREAD_RUNNING)) ||
        (threads[b].state!=THREAD_READY && threads[b].state!=THREAD_BLOCKED) ||
        (io_depth && (io_owner==a || io_owner==b)))return false;
     for(unsigned j=0;j<2;j++) {
@@ -381,6 +384,13 @@ bool scheduler_quarantine_service_pair(uint64_t caller,uint64_t peer) {
         t->io_eligible=NULL;t->state=THREAD_QUARANTINED;
     }
     return true;
+}
+
+bool scheduler_quarantine_service_pair(uint64_t caller,uint64_t peer) {
+    return quarantine_pair(caller,peer,false);
+}
+bool scheduler_quarantine_noncurrent_services(uint64_t first,uint64_t second) {
+    return quarantine_pair(first,second,true);
 }
 
 void scheduler_yield(void) {

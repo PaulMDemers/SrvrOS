@@ -194,10 +194,15 @@ static void foreign_write(void *ctx,uint16_t port,uint8_t value) {
         model.foreign_status[i]&=~value;
     } else {
         if(model.fault==9&&i==1&&value==0)return;
+        if(model.fault==32&&model.generation==3&&i==0&&model.foreign_enable[0]&&value==0)return;
         if(model.fault==8&&i==1&&value==mask)return;
         model.foreign_enable[i]=value;
         if(value==mask)console_printf("battery-vm: foreign restored enable=%x pending=%x\n",(uint64_t)port,(uint64_t)model.foreign_status[i]);
     }
+}
+static bool model_irq_fault(void) {
+    if(model.generation!=3)return false;
+    model.foreign_enable[0]=0x40;return true;
 }
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
@@ -211,7 +216,10 @@ static void model_sample_begin(uint64_t generation) {
         uacpi_kernel_sleep(26000);
         flags=irq_save();if(entered)scheduler_io_end();irq_restore(flags);
     }
-    if((model.fault==27||model.fault==28)&&generation==3)uacpi_kernel_sleep(26000);
+    if(model.fault==31 && generation==3) {
+        model_irq_fault();__asm__ volatile("int $41":::"memory");
+    }
+    if((model.fault==27||model.fault==28||model.fault==30||model.fault==32)&&generation==3)uacpi_kernel_sleep(26000);
     /* Deliver a deliberately unclaimed SCI through the real dispatcher. This
      * verifies accounting without inventing hardware status or claiming it. */
     if(model.fault==20)__asm__ volatile("int $41":::"memory");
@@ -256,7 +264,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>29||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>32||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -283,6 +291,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
+    if(model.fault>=30)p->model_irq_fault=model_irq_fault;
     if(model.fault>=13)p->model_sample_begin=model_sample_begin;
     if(model.fault==18||model.fault==19)p->model_setup_work=model_setup_work;
     platform=p;console_printf("battery-vm: model fault=%u; no physical EC\n",(uint64_t)model.fault);return true;

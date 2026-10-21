@@ -65,6 +65,10 @@ static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
 static struct {
+    bool study,pending,completed;
+    uint64_t interrupted,peer,peer_complete;
+} recovery_irq;
+static struct {
     struct battery_cache cache;
     struct scheduler_wait_queue wake,progress;
     void *rsdp;
@@ -203,11 +207,15 @@ static void event_write(void *ctx,uint16_t port,uint8_t value) {
     if(foreign_port(port)&&io->write)io->write(io->ctx,port,value);else outb(port,value);
 }
 static const struct battery_event_ops event_ops={.read=event_read,.write=event_write};
-static void check_foreign_event(void) {
+static bool foreign_event_enabled(void) {
     for(unsigned i=0;i<BATTERY_FOREIGN_EVENTS;i++) {
         const struct battery_event_hold *h=&runtime.platform.foreign_events[i];
-        if(h->active&&event_read(NULL,h->enable))unsafe("foreign event unexpectedly enabled");
+        if(h->active&&event_read(NULL,h->enable))return true;
     }
+    return false;
+}
+static void check_foreign_event(void) {
+    if(foreign_event_enabled())unsafe("foreign event unexpectedly enabled");
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t size){return size&&p>=a&&p-a<=n&&size<=n-(p-a);}
 static bool worker_context(void){uint64_t f=irq_save();bool ok=(f&(1ull<<9))&&runtime.worker.identity&&scheduler_current_thread_id()==runtime.worker.identity;irq_restore(f);return ok;}
@@ -314,13 +322,56 @@ static struct sci_controller_observation sci_controller_snapshot(void) {
     c.pic_masks=(uint16_t)inb(0x21)|((uint16_t)inb(0xa1)<<8);c.valid|=4;
     return c;
 }
+/* CPU0, IRQ exclusion held throughout mask verification and thread retention. */
+static bool sources_quiet(void) {
+    bool quiet=!inw(runtime.platform.events.resources.pm1_enable);
+    for(unsigned b=0;b<2;b++)for(unsigned i=0;i<runtime.platform.events.resources.gpe[b].bytes;i++)
+        if(event_read(NULL,runtime.platform.events.resources.gpe[b].enable+i))quiet=false;
+    uint32_t low=0,high=0;
+    return quiet && ioapic_read_gsi(runtime.sci.route.gsi,&low,&high) && (low&(1u<<16));
+}
+static void mark_quarantined(void) {
+    service.quarantined=true;service.stop=true;
+    service.cache.value.state=BATTERY_SERVICE_FAULTED;
+    service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
+    service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
+    scheduler_wake_all(&service.progress);
+}
+static void report_quarantine(void) {
+    console_printf("battery-quarantine: owner=%u worker=%u io=%u heap=%u completed=%u; sources=masked retained=yes\n",
+        service.identity,runtime.worker.identity,(uint64_t)scheduler_io_active(),runtime.heap,runtime.worker.completed);
+}
+/* Only the entry guard, before invoking uACPI or acquiring interpreter locks.
+ * Both targets must be noncurrent: no abandoning an interrupted target stack,
+ * no nonlocal unwind, no scheduling before the dispatcher completes its EOI. */
+static void quarantine_irq_entry(void) {
+    uint64_t flags=irq_save();
+    if(!recovery_study || !recovery_irq.study || !battery_platform_workspace_study_allowed() ||
+       (flags&(1ull<<9)) || owner!=OWNER_SERVICE || !runtime.ready ||
+       runtime.sci_counts[0].in_flight || runtime.sci_counts[1].in_flight!=1 || runtime.sci_counts[2].in_flight)
+        unsafe("IRQ entry recovery admission");
+    mask_sources();
+    if(!sources_quiet() || !scheduler_quarantine_noncurrent_services(service.identity,runtime.worker.identity))
+        unsafe("IRQ entry quarantine admission");
+    mark_quarantined();
+    recovery_irq.interrupted=scheduler_current_thread_id();recovery_irq.pending=true;
+}
 static bool irq_bridge(void *context) {
     (void)context; if(service.quarantined)return false;
     runtime.interrupts++;
     struct sci_counts *counts=&runtime.sci_counts[runtime.stopping?2:runtime.ready?1:0];
     if(counts->delivered!=UINT64_MAX)counts->delivered++;
     counts->in_flight++;
-    check_foreign_event();
+    if(foreign_event_enabled()) {
+        if(!recovery_irq.study)unsafe("foreign event unexpectedly enabled");
+        quarantine_irq_entry();
+        counts->in_flight--;
+        if(counts->unclaimed!=UINT64_MAX)counts->unclaimed++;
+        uint64_t now=timer_monotonic_us();
+        if(counts->unclaimed==1)counts->first_unclaimed_us=now;
+        counts->last_unclaimed_us=now;
+        return false; /* Unexpected foreign event is never claimed as ours. */
+    }
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
     if(observed) {
@@ -344,7 +395,10 @@ static bool irq_bridge(void *context) {
     return handled;
 }
 static void sci_after_eoi(void *context) {
-    (void)context;if(service.quarantined)return;
+    (void)context;if(service.quarantined) {
+        if(recovery_irq.pending) { recovery_irq.pending=false;recovery_irq.completed=true; }
+        return;
+    }
     struct sci_controller_observation c=sci_controller_snapshot();
     sci_observe_post_eoi(&runtime.sci_observer,c,timer_monotonic_us(),runtime.query_scheduled);
 }
@@ -604,22 +658,10 @@ static void quarantine_sample_deadline(void) {
         irq_restore(flags);return;
     }
     mask_sources();
-    bool quiet=!inw(runtime.platform.events.resources.pm1_enable);
-    for(unsigned b=0;b<2;b++)for(unsigned i=0;i<runtime.platform.events.resources.gpe[b].bytes;i++)
-        if(event_read(NULL,runtime.platform.events.resources.gpe[b].enable+i))quiet=false;
-    uint32_t low=0,high=0;
-    quiet=quiet && ioapic_read_gsi(runtime.sci.route.gsi,&low,&high) && (low&(1u<<16));
-    /* Once sources have changed, a refused quarantine is terminal. Do not
-     * restore IF and give either runtime thread a scheduling window. */
-    if(!quiet || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity))
+    /* Once sources have changed, a refused quarantine is terminal. */
+    if(!sources_quiet() || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity))
         unsafe("quarantine admission");
-    service.quarantined=true;service.stop=true;
-    service.cache.value.state=BATTERY_SERVICE_FAULTED;
-    service.cache.value.error=BATTERY_SERVICE_CONTAINMENT;
-    service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
-    scheduler_wake_all(&service.progress);
-    console_printf("battery-quarantine: owner=%u worker=%u io=%u heap=%u completed=%u; sources=masked retained=yes\n",
-        service.identity,runtime.worker.identity,(uint64_t)scheduler_io_active(),runtime.heap,runtime.worker.completed);
+    mark_quarantined();report_quarantine();
     /* Quarantined slots are neither runnable nor reusable. Never restore IF on
      * this stack; the selected storage owner/idle thread restores its own state. */
     for(;;)scheduler_yield();
@@ -1325,6 +1367,14 @@ bool battery_load_diagnostic_run(void *rsdp,struct limine_memmap_response *map) 
     return desktop_test(rsdp,map,0,true,true,false,false);
 }
 static struct { bool active,done,ok,before,after;uint64_t start,end; } recovery_io;
+static bool recovery_peer_irq(void *arg) {
+    (void)arg;recovery_irq.peer++;
+    return false;
+}
+static void recovery_peer_complete(void *arg) {
+    (void)arg;
+    if(recovery_irq.completed && !recovery_irq.pending)recovery_irq.peer_complete++;
+}
 static void recovery_io_owner(void *arg) {
     (void)arg;
     uint64_t deadline=timer_monotonic_us()+15000000;
@@ -1336,6 +1386,29 @@ static void recovery_io_owner(void *arg) {
     if(!scheduler_io_begin()) { recovery_io.done=true;irq_restore(flags);return; }
     recovery_io.active=true;recovery_io.start=timer_monotonic_us();
     recovery_io.before=workspace_sync();
+    if(recovery_irq.study) {
+        /* Enter on the unrelated storage owner's actual stack, with IF masked.
+         * The second registration proves dispatch continues and completion runs;
+         * removal after IRET also checks registry depth/pending bookkeeping. */
+        uint64_t identity=scheduler_current_thread_id();
+        volatile uint64_t sentinel=0x735256524f534952ull;
+        if(!runtime.platform.model_irq_fault)unsafe("IRQ recovery fixture setup");
+        uint64_t until=timer_monotonic_us()+5000000;
+        while(!runtime.platform.model_irq_fault()) {
+            if(timer_monotonic_us()>=until)unsafe("IRQ recovery fixture sample wait");
+            (void)scheduler_io_yield();__asm__ volatile("sti; hlt; cli":::"memory");
+        }
+        uint64_t token=irq_handler_register_observed(9,recovery_peer_irq,recovery_peer_complete,NULL);
+        if(!token)unsafe("IRQ recovery fixture registration");
+        __asm__ volatile("int $41":::"memory");
+        bool returned=sentinel==0x735256524f534952ull && scheduler_current_thread_id()==identity &&
+            recovery_irq.interrupted==identity && scheduler_io_active() && !scheduler_io_busy() &&
+            recovery_irq.peer==1 && recovery_irq.peer_complete==1 && recovery_irq.completed &&
+            !recovery_irq.pending && !runtime.sci_counts[1].in_flight && irq_handler_remove(token);
+        if(!returned)unsafe("IRQ recovery return proof");
+        report_quarantine();
+        console_printf("battery-recovery-irq: interrupted=%u peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n",identity);
+    }
     /* Hold one unrelated storage scope across the 25-second sample deadline.
      * This models an admitted operation, not a claim of pending hardware DMA. */
     while(timer_monotonic_us()-recovery_io.start<28000000) {
@@ -1348,13 +1421,14 @@ static void recovery_io_owner(void *arg) {
     recovery_io.active=false;recovery_io.done=true;
     scheduler_io_end();irq_restore(flags);
 }
-static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *map,bool io) {
+static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *map,bool io,bool irq) {
     if(!battery_platform_workspace_study_allowed()) {
         console_write("battery-recovery: REFUSED VM-only study\n");return;
     }
     if(!workspace_active() || owner!=OWNER_NONE) {
         console_write("battery-recovery: REFUSED ownership\n");return;
     }
+    recovery_irq=(typeof(recovery_irq)){.study=irq};
     if(io) {
         recovery_io=(typeof(recovery_io)){0};
         if(!scheduler_spawn("battery-recovery-io",recovery_io_owner,NULL)) {
@@ -1393,8 +1467,10 @@ static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *ma
 }
 static bool command_is(const char *a,const char *b){while(*a&&*a==*b){a++;b++;}return *a==*b;}
 void acpi_runtime_test_command(const char *args) {
-    if(command_is(args,"battery-workspace-recovery") || command_is(args,"battery-workspace-recovery-io")) {
-        workspace_recovery_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,command_is(args,"battery-workspace-recovery-io"));return;
+    if(command_is(args,"battery-workspace-recovery") || command_is(args,"battery-workspace-recovery-io") || command_is(args,"battery-workspace-recovery-irq")) {
+        bool irq=command_is(args,"battery-workspace-recovery-irq");
+        workspace_recovery_test(rsdp_request.response?rsdp_request.response->address:NULL,memmap_request.response,
+            irq || command_is(args,"battery-workspace-recovery-io"),irq);return;
     }
     /* No native boot option or exported diagnostic entry point. The backend
      * gate precedes all service/platform activity, including fault arming. */

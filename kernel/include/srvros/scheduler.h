@@ -44,6 +44,11 @@ void scheduler_yield(void);
  * must never re-enable IRQs or return on the retained stack.
  * Does not release device resources, locks or memory. No resume/free operation. */
 bool scheduler_quarantine_service_pair(uint64_t caller, uint64_t peer);
+/* CPU0, IRQs masked. Retain two READY/BLOCKED kernel services, neither current
+ * nor a storage owner. Safe at an IRQ entry guard before acquiring service locks;
+ * leaves the interrupted task untouched and MUST return through normal IRQ/EOI
+ * completion. No switching, cleanup or callback unwinding is performed. */
+bool scheduler_quarantine_noncurrent_services(uint64_t first, uint64_t second);
 bool scheduler_service_pair_quarantined(uint64_t caller, uint64_t peer);
 void scheduler_exit_current(void) __attribute__((noreturn));
 void scheduler_preempt_tick(void);
