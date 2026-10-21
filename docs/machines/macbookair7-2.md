@@ -25,8 +25,8 @@ previous accepted desktop remains `b427b78f21644bd2`. No reboot is armed.
 
 ### Bounded USB data batching — October 20
 
-Branch `device/macbookair7-2/usb-data-batching`, base main `b090d94`; Pro PR #5
-inspected at `992e8b9` remains network/UI integration with battery deferred.
+Branch `device/macbookair7-2/usb-data-batching`, original base main `b090d94`.
+Pro PR #5 has now landed as main `6dd6574`; combined source is `88f09c9`.
 Air scope: bounded 16 KiB SCSI commands segmented into existing 4 KiB bulk calls,
 block-cache batch admission, contiguous exFAT file-data grouping, isolated image
 capability and host/VM fault fixtures. No xHCI DMA geometry, retry, flush, model
@@ -35,14 +35,16 @@ transfer rules; preserve quarantine on ambiguity. Validate local boundaries,
 then compare a fresh automatic native profile. Ordinary desktop battery remains
 disabled and Actions remains disabled. Native batching acceptance is pending.
 
-Integration inspection: Pro PR #5 also contains GPT map validation and GPT-first
-USB discovery in `block.c`/`usb_storage.c`. Those function changes are distinct
-from this branch's batch/command changes and merge mechanically. A dry merge
-against Pro `992e8b9` identifies a new fixture conflict in `test_usb_storage.c`:
-retain Pro's GPT scan/reset assertions alongside Air's larger mock disk,
-segmented transport cases and `sizeof(disk)/512` capacity assertion. The existing
-hardware staging/smoke conflicts come from the prior Air battery profiles and
-must preserve both profile sets. This branch does not import or replace Pro work.
+Integration: main `6dd6574` was merged without replacing either device's scope.
+Pro GPT map validation and GPT-first USB discovery merge with the batching
+implementation. The USB fixture's two conflicts were resolved by keeping GPT
+scan/reset assertions, segmented transport counters and cases, and the larger
+mock disk's `sizeof(disk)/512` capacity. The staging profiles merge cleanly in
+this landed baseline; the earlier dry-merge conflicts are superseded. Combined
+ordinary/native/Q35 builds, full baseline smoke (481 CLI commands, system calls,
+editing, UEFI USB input and display), USB persistence/keyboard/timeout tests and
+all five battery VM cases passed at `88f09c9`. Pro acceptance remains limited to
+its own machine; native Air batching acceptance is pending.
 
 Local batching comparison (implementation `ca6f274`, added fixtures `d0e98d1`):
 265 -> 169 image writes, all 72 flushes retained, and identical final disk bytes.
