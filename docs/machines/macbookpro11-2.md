@@ -1660,3 +1660,11 @@ while Ubuntu is shut down. The local cold-run record/shutdown helper are prepare
 but unarmed; wait for user readiness, arm one-shot and shut down, then have the
 user unplug/reconnect only Wi-Fi while off and power on. No Linux driver blacklist
 or firmware takeover workaround is installed.
+
+The subsequent attended cold-start attempt returned to Ubuntu with the one-shot
+entry consumed but no new USB session (latest remains `00065e5fc1be293b-00`,
+the prior warm refusal). This is incomplete evidence, not upload acceptance.
+Collection is archived separately; installed/recovery manifests and Ubuntu default
+verify. Offline checks remain clean: 117 files, 424 clusters, zero allocation
+errors. No next boot is armed. Await the user's description of the boot screen
+and return path before deciding whether startup or workspace logging failed.
