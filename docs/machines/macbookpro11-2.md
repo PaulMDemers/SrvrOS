@@ -1519,3 +1519,26 @@ never in ordinary enumeration. Use new v43 automatic profile; Air's active
 branch already reserves v42 for battery load. Preserve v39 and all Air recipes.
 Host tests must cover write rejection, short/error/timeout quarantine and no
 retry. Log only MAC-redacted calibration bytes. No firmware upload or transmitter.
+
+Calibration transport checkpoint: `4f6bf1b` adds strict OUT completion, guarded
+logical EFUSE transport and opt-in v43. Shared event dispatch retains strict EP0
+completion for its owner when HID/storage workers consume the event. Short/error
+or uncertain completion quarantines the endpoint and retains DMA. Capture starts
+only after workspace logging; successful logs redact the MAC, and failures emit
+no partial calibration bytes. No firmware upload or transmitter is enabled.
+
+Merge `ac6b9a4` consumes main `421a69b`, preserving Air v42 and Pro v39/v43;
+all existing laptop recipes match both parents byte-for-byte. Full build/USB/core,
+47 profile tests and docs checks pass. Clean stage `47997cb8604043ff` passes exact
+GPT VM refusal/persistence/unmount/reset and missing-workspace automatic return.
+Native calibration remains pending; the earlier identity acceptance is unchanged.
+
+USB Ethernet VM regressions pass (DHCP/DNS/HTTP, three outage/recovery cycles,
+160 echoes and keyboard), as do USB storage read/write/flush/reload regressions.
+The clean v43 candidate is installed for the automated native trial. Ubuntu
+remains default and the accepted previous recovery payload is retained. An older
+network payload was removed from the EFI partition only after verifying every
+file against its durable archive; accepted identity payload remains installed.
+Preboot workspace fsck/allocation checks pass: 111 files, 415 clusters, zero leaks,
+mismatches or errors. Local run record and archived payload/evidence are saved;
+next is one-shot calibration capture and matching-session collection on return.
