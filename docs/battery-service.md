@@ -872,7 +872,7 @@ regression passed with implementation `9ee553a`. The apps harness now selects
 fixture paths explicitly after the move to Home and targets the current Places
 layout. It asserts maximize/restore transitions and pairs child shutdown with
 the parent-reported PID/status, avoiding an interleaved child console line.
-Native Text acceptance remains pending the separate v41 physical trial.
+The separate v41 native trial is accepted for the bounded RAM script below.
 
 
 ### Native automatic Text capture (v41)
@@ -903,3 +903,13 @@ and clean app/service retirement. Malformed or missing proof adds an attention
 item. The v40 study remains separately selectable and separately checked. This
 automatic result does not establish physical input latency, simultaneous storage
 load, gauge accuracy or ordinary desktop battery support.
+
+
+Air7,2 release `2fd49386c4ecf0d9` (source `01e64a9`, PR #29) passed the native
+v41 trial: all 60 edits presented, five exact `AA` checkpoints and final `AA`,
+zero extra keyboard events, 60.018 seconds of overlap, battery generation 1→23
+and clean process/service retirement. SCI recorded 23 handled / zero unclaimed
+interrupts. Collection, all prior data-file hashes, offline exFAT/allocation,
+consumed one-shot and recovery checks passed. This accepts only this bounded
+RAM workload on the captured Air; simultaneous filesystem load, physical input
+latency and gauge accuracy remain open. See the [unit record](machines/macbookair7-2.md).

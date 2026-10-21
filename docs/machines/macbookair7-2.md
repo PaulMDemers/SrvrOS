@@ -2,7 +2,40 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
-### Active scope: native full Text capture
+### Current checkpoint: native full Text/battery RAM overlap accepted
+
+Release `2fd49386c4ecf0d9`, source `01e64a9` (merged PR #29), session
+`session-00065e5d96dd1b73-00` completed the automatic v41 Text trial and returned
+to Ubuntu. The real editor presented all **60 generated operations**, all five
+`AA` editing checkpoints and final `AA`, with caret/anchor at byte two and no
+clipboard operation pending. No extra keyboard events occurred. Its RAM-only
+file worker remained disabled. The capture ran 60.018 seconds, with 66 frames,
+5,321 loops and a maximum loop gap of 30,015 microseconds; this is not measured
+physical input latency.
+
+Battery sampling advanced 1→23; 3,007 cached reads included 706 during sampling.
+The compositor exited successfully and the service retired with one attachment
+and detachment, zero rejected samples, heap, errors or denied operations. SCI
+counters recorded **23 handled / zero unclaimed** interrupts. Strict collection
+found one matching new session and no attention items.
+
+All 904 prior data files, including the used filesystem-test image, were unchanged.
+Only workspace metadata changed and three matching logs were added. Offline
+exFAT and allocation checks passed: 193 directories, 908 files, 1,688 clusters,
+no leaks or mismatches. A new Ubuntu boot, consumed one-shot, default/EFI order,
+installed payload and accepted desktop recovery were verified. Evidence and exact
+payload are archived outside `build`; the flash drive is remounted in Ubuntu.
+
+Current installed is this diagnostic; previous remains accepted desktop
+`b427b78f21644bd2`. No reboot is armed. This accepts generated full Text editing
+with concurrent cached battery sampling in RAM. Physical input latency,
+simultaneous filesystem load and gauge accuracy remain separate acceptance.
+Ordinary desktop battery startup remains disabled. Next scope is combining the
+RAM Text script with the existing isolated filesystem workload in a disposable
+VM fixture before a new native stage. Preserve the exclusive image lease and
+bounded process/service retirement; do not reuse the used native image as fresh.
+
+### Native full Text capture: implementation and local validation
 
 Starting from merged PR #28 (`529eee4`), add opt-in v41 `--battery-text`
 selection, exact-stage rehearsal and strict native collection. Shared edits are
@@ -18,10 +51,10 @@ links. The rebuilt automatic Text VM presented all 60 events, retained all five
 `AA` checkpoints and final `AA`, with zero extra keyboard input. Sampling advanced
 1→25 and a replacement compositor started after clean retirement. Eleven files
 including exact binaries are archived outside `build`. PR #29 carries this work.
-Physical acceptance remains pending exact-stage rehearsal and a native trial;
-retain the installed v40 and desktop recovery. Actions remain disabled.
+The exact-stage native Q35 refusal/save/unmount/return rehearsal passed; native
+acceptance is recorded above. Actions remain disabled.
 
-### Current checkpoint: native RAM desktop/battery overlap accepted
+### Previous checkpoint: native RAM typing-study/battery overlap accepted
 
 Release `ae2851607a9bf0c1`, source `1df9a24` (merged PR #26), session
 `session-00065e5c8e37f13c-00` completed the automatic v40 trial and returned to
@@ -80,10 +113,9 @@ status for that exact PID. The refreshed suite verifies actual file contents,
 clipboard editing and maximize/restore transitions. All failed attempts remain
 separate from final validation.
 
-Next add a separate native Text capture recipe and strict collection proof,
-rehearse its exact stage, then run the automatic laptop trial. Full Text native
-acceptance, concurrent isolated filesystem load, attended input latency and
-battery gauge accuracy remain pending. No physical trial is armed by this work.
+The separate native v41 recipe and strict collection landed in PR #29 and are
+accepted above. Concurrent isolated filesystem load, attended input latency and
+battery gauge accuracy remain pending. No physical trial is armed.
 
 ### Previous checkpoint: EC GPE rearm ordering accepted for the bounded trial
 

@@ -226,3 +226,19 @@ unrelated-mapping regression coverage. It does not enable ordinary desktop
 battery startup or widen native hardware gates. The initial study exercises
 legacy text input in RAM; rich Text-app events and filesystem load are separate
 acceptance work. Use the Air unit record and exact run receipts for native state.
+
+
+## Air full Text coexistence handoff (2026-10-21)
+
+Merged PR #29 (`01e64a9`) adds the distinct v41 `--battery-text` automatic capture
+and strict `battery_text` collection proof. Air7,2 accepted release
+`2fd49386c4ecf0d9`: all 60 generated edits and five exact document checkpoints,
+continued battery sampling, clean retirement, 23 handled / zero unclaimed SCI
+interrupts and preserved USB contents. This is RAM-only generated editing, not
+physical input latency or general desktop battery acceptance. v40 remains the
+original study; Pro PR #19 at `e9320d9` retains its independent v39 Wi-Fi scope.
+
+Next Air scope is combining this RAM Text workload with the existing isolated
+filesystem-image workload in VM, preserving lease ownership and bounded teardown.
+Other devices can consume the shared capture/collection contract; native model
+and firmware gates remain evidence-specific. Ordinary desktop battery stays off.
