@@ -1334,3 +1334,21 @@ checks, Text/screenshot/log persistence and clean USB unmount. The physical
 workspace contains `regression-checklist.txt` with all checks and return steps.
 Install with previous recovery retained, save the on-disk run record, and select
 one boot. Native acceptance is pending; collect this release first after return.
+
+Collected post-merge release `2f8abe0e131023d8`, source `fd3ffd2` / main
+`cd732ec`, session `00065e5123d266b4-00`. User reports everything appeared to
+work as expected. Fresh before/after reports pass DHCP/DNS/HTTP 200; disconnected
+DHCP fails as expected. Two cable cycles complete without quarantine, with the
+final System down/up snapshots within 0.71 seconds of driver notifications.
+Normal desktop exit and zero collector attention; both fans provide recent
+readings with zero service failures. The logs record no audio playback and the
+requested `postmerge-text-check.txt` is absent, so broader checklist coverage
+(brightness, sound, Text save/reopen) awaits clarification rather than inheriting
+acceptance from the earlier payload. Prior native acceptance remains historical.
+
+Matching logs and all five reports are hashed and archived with this release
+outside build. Offline exFAT/allocation checks pass: 28 directories, 109 files,
+412 clusters, zero leaks/mismatches/errors. Current and recovery manifests verify;
+Ubuntu remains default, one-shot consumed, no reboot armed. Network/UI recovery
+and the exercised persistence path are accepted on the updated tree. Battery,
+headphones and further trackpad-latency work remain deferred.
