@@ -1,6 +1,6 @@
 # MacBookPro11,2 / A1398
 
-Updated: 2026-10-20. State: **native desktop, input, brightness, sound, CPU/fan telemetry and first USB Ethernet DHCP/ping exercised; extended networking trial in preparation**.
+Updated: 2026-10-20. State: **native desktop, input, brightness, sound, CPU/fan telemetry and captured USB Ethernet DHCP/DNS/HTTP and live cable-status UI accepted**.
 
 The sections below retain the dated bring-up sequence. The latest acceptance
 and next scope are recorded at the end; earlier failures are historical.
@@ -1257,3 +1257,25 @@ shared-UI/e1000 evidence, not acceptance of the native report. Await the user's
 identification of the unchanged field and whether Refresh/window movement helps.
 No native screenshot was saved in this run. No new payload installed or reboot
 armed; preserve the current diagnostic image for a focused follow-up.
+
+
+Same-payload retest accepted (2026-10-20 local / October 21 UTC): release
+`81e3308ffcdfe637`, source `5d9ca16`, session `00065e4fa158e3b8-00`.
+User confirms everything worked and the UI updated. Fresh initial and recovered
+reports pass DHCP, DNS and HTTP 200; cable-down DHCP fails as expected. Both
+prompted gates and final sequence completed, with normal desktop exit and no
+quarantine. System sampled the final down at 65.119 s (driver 64.599 s) and up
+at 74.119 s (driver 73.299 s). This accepts visible disconnect/reconnect for
+this captured adapter on this unit. Router/DNS lease values may stay unchanged
+while the Link row and status message change. Earlier user-reported failures
+remain historical evidence; this acceptance is from the explicit retest.
+
+All five reports and matching session are hashed and archived in the dedicated
+`retest-20261021T012530Z` directory beneath the durable release archive, without
+overwriting the prior run. Offline exFAT checks pass: 27 directories, 104 files,
+406 clusters, zero leaks, mismatches or errors. Ubuntu remains default, the
+one-shot entry is consumed, and current/recovery payload hashes verify against
+their archives. No reboot is armed. The bounded networking/UI task is complete;
+next scope is separate integration review against newer main. Multiple physical
+adapters remain untested; one boot-selected IP provider remains the limit.
+Battery work, headphone testing and further trackpad latency work stay deferred.
