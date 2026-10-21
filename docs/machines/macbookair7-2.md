@@ -2,6 +2,18 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active scope: IRQ entry fault containment
+
+Base `origin/main` `07dfa77` (merged PR #36). Add a VM-only recovery boundary
+for the foreign-event guard at SCI callback entry when both battery threads are
+noncurrent. Preserve the interrupted task, return through dispatcher/EOI and
+completion callbacks, and verify an unrelated storage owner can finish before
+saving failure logs/unmounting. Deep interpreter callback faults and interrupts
+of a battery thread remain terminal; no stack unwinding is implied. Touched:
+scheduler retention API, battery runtime/model, host proofs and disposable VM
+harness. Pro PR #19 at `6fb3af5` remains independent USB Wi-Fi work. No physical
+trial, installed payload change or native admission expansion is planned.
+
 ### Owner-watchdog quarantine and workspace recovery (PR #36)
 
 Base `origin/main` `49ded19` (PR #35). Add a CPU0 kernel-service quarantine
