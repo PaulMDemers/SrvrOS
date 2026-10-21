@@ -47,19 +47,33 @@ armed. The image is used and must be freshly prepared before another trial.
 This accepts the isolated workload and diagnostic lifecycle, not ordinary desktop
 battery startup, physical gauge accuracy or interactive input coexistence.
 
-### Next bounded scope: query execution correlation
+### Active scope: query execution correlation
 
 The source audit confirms `query_scheduled` spans queued work, EC query transfer,
 AML evaluation and rescheduling until GPE resume. Existing observations cannot
 distinguish those stages. Next add bounded passive query phase/sequence/timing
 correlation to the diagnostic runtime and host/VM validators, reusing successful
 reads and existing scheduling transitions. Keep output outside IRQ context; no
-new EC/event reads, policy changes or sibling hardware gates. Publish the exact
-implementation scope before editing shared code. Native acceptance will require
+new EC/event reads, policy changes or sibling hardware gates. Implementation scope: add a pure query-phase observer to `sci_observe.h`,
+entry snapshots in `battery_runtime.c`, software query-transfer IRQ injection
+in `battery_vm_platform.c`, and matching host tests and
+`tools/acpi_battery_smoke.py` record validation. No IRQ dispatcher or USB edits.
+Base is main `a3aaa27`; Pro PR #19 remains separate. Native acceptance will require
 a fresh isolated automatic trial after local validation. Ordinary desktop battery
 remains off. Pro PR #19 at `e9320d9` concerns USB Wi-Fi inventory, xHCI and staging;
 no IRQ/runtime overlap was found. Preserve both branches' Makefile test additions.
 GitHub Actions remain disabled; validation is local.
+
+Query correlation implementation `f3fa54d` (PR #23) passes host snapshot/lifecycle
+checks, seven malformed-record cases, the core suite and native/VM builds.
+Five focused VMs pass: software-unclaimed, normal service, foreign event,
+isolated filesystem and active filesystem deadline/reset. The injected case
+retains five query-transfer and five idle entry contexts; the transfer contexts
+have a known batch/attempt and correctly unknown response code. The workload
+checks preserve all outside bytes and verify final image contents. Full local
+baseline smoke passes syscalls, 481 shell commands, shell editing, USB keyboard
+and display startup. Documentation links and diff whitespace pass. Validation
+is archived outside `build`; exact-stage/native query correlation remains pending.
 
 ### Post-EOI implementation and local validation (PR #21)
 

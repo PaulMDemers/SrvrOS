@@ -47,6 +47,7 @@ static struct {
     uacpi_namespace_node *node,*handler_node;
     uint64_t heap,peak,errors,denied,interrupts,queries,notifications,attached,detached;
     struct sci_observer sci_observer;
+    struct sci_query_state query_observer;
     struct sci_counts sci_counts[3]; /* setup, active, retirement; CPU0 only */
     bool engaged,loading,stopping,ready,done,ok,region,notify,gpe,lease,query_scheduled;
     bool ac_present,ac_coherent,transition_mode,service_mode;
@@ -67,6 +68,11 @@ static struct {
 } service;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
+static void query_phase(uint8_t phase) {
+    uint64_t f=irq_save();
+    sci_query_phase(&runtime.query_observer,phase,timer_monotonic_us());
+    irq_restore(f);
+}
 static void sci_report(const char *snapshot) {
     struct sci_counts counts[3];
     struct sci_observer observer;
@@ -97,6 +103,10 @@ static void sci_report(const char *snapshot) {
                 (uint64_t)c->vector,(uint64_t)c->gsi,(uint64_t)c->lapic_bits,
                 (uint64_t)c->lint0,(uint64_t)c->route_low,(uint64_t)c->route_high,(uint64_t)c->pic_masks);
         }
+        const struct sci_query_snapshot *q=&r->query_entry;
+        console_printf("battery-sci-query: snapshot=%s epoch=%u seq=%u valid=%u cycle=%u phase=%u age_us=%u phase_age_us=%u transfers=%u code_valid=%u code=%u\n",
+            snapshot,epoch,r->sequence,(uint64_t)q->valid,q->sequence,(uint64_t)q->phase,
+            q->age_us,q->phase_age_us,q->transfers,(uint64_t)q->code_valid,(uint64_t)q->code);
         console_printf("battery-sci-return: snapshot=%s epoch=%u seq=%u observed=%u elapsed_us=%u query=%u\n",
             snapshot,epoch,r->sequence,(uint64_t)r->post_eoi_observed,r->post_eoi_elapsed_us,(uint64_t)r->query_post_eoi);
     }
@@ -300,7 +310,11 @@ static bool irq_bridge(void *context) {
     check_foreign_event();
     bool observed=sci_observe_begin(&runtime.sci_observer,timer_monotonic_us(),
         runtime.stopping?2:runtime.ready?1:0,runtime.query_scheduled);
-    if(observed)sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
+    if(observed) {
+        runtime.sci_observer.current.query_entry=sci_query_snapshot(&runtime.query_observer,
+            runtime.sci_observer.current.at_us);
+        sci_observe_controller(&runtime.sci_observer,false,sci_controller_snapshot());
+    }
     bool handled=runtime.irq_fn && runtime.irq_fn(runtime.irq_context)==UACPI_INTERRUPT_HANDLED;
     if(observed)sci_observe_controller(&runtime.sci_observer,true,sci_controller_snapshot());
     uint64_t finished_us=timer_monotonic_us();
@@ -475,6 +489,7 @@ static void queue_query(void) {
     if(runtime.stopping||runtime.query_scheduled)return;
     if(!ec_query_budget_begin(&runtime.budget,timer_monotonic_us(),128,2000000))unsafe("query budget begin");
     runtime.query_scheduled=true;
+    sci_query_start(&runtime.query_observer,timer_monotonic_us());
     if(uacpi_suspend_gpe(NULL,runtime.platform.ec.gpe)||uacpi_clear_gpe(NULL,runtime.platform.ec.gpe)||
        !acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL))unsafe("query admission");
 }
@@ -491,27 +506,37 @@ static uacpi_interrupt_ret gpe_handler(uacpi_handle ctx,uacpi_namespace_node *no
 static void query_work(void *ctx) {
     (void)ctx;
     if(!worker_context()||runtime.lease)unsafe("query ownership");
-    if(runtime.stopping){runtime.query_scheduled=false;return;}
+    if(runtime.stopping){
+        uint64_t f=irq_save();runtime.query_scheduled=false;query_phase(SCI_QUERY_IDLE);irq_restore(f);return;
+    }
     for(unsigned i=0;i<8;i++) {
         if(!ec_query_budget_take(&runtime.budget,timer_monotonic_us()))unsafe("query limit");
         uint8_t code=0;
+        query_phase(SCI_QUERY_TRANSFER);
         if(!transfer(false,0,&code,true))unsafe("query transport");
+        uint64_t observed_flags=irq_save();
+        runtime.query_observer.code=code;runtime.query_observer.code_valid=true;
+        query_phase(code?SCI_QUERY_AML:SCI_QUERY_CHECK);irq_restore(observed_flags);
         if(code) {
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
             if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
             if(uacpi_execute_simple(runtime.node,method)||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
         }
+        query_phase(SCI_QUERY_CHECK);
         if(!ec_query_budget_check(&runtime.budget,timer_monotonic_us()))unsafe("query deadline");
         if(!(runtime.platform.io.status(runtime.platform.io.context)&32))break;
     }
     uint64_t flags=irq_save();
-    if(runtime.stopping){runtime.query_scheduled=false;irq_restore(flags);return;}
+    if(runtime.stopping){runtime.query_scheduled=false;query_phase(SCI_QUERY_IDLE);irq_restore(flags);return;}
     if(runtime.platform.io.status(runtime.platform.io.context)&32) {
+        query_phase(SCI_QUERY_QUEUED);
         if(!acpi_worker_enqueue(&runtime.worker,&runtime.query,UACPI_WORK_GPE_EXECUTION,query_work,NULL))unsafe("query reschedule");
     } else {
         if(!ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query finish");
         runtime.query_scheduled=false;
+        query_phase(SCI_QUERY_RESUME);
         if(uacpi_resume_gpe(NULL,runtime.platform.ec.gpe))unsafe("GPE resume");
+        query_phase(SCI_QUERY_IDLE);
         if(pending_query())queue_query(); /* Close edge/pending race with IRQs off. */
     }
     irq_restore(flags);
