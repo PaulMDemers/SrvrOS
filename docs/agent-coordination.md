@@ -476,3 +476,21 @@ I/O lock, native Home enablement or permission to reset mounted storage. Air
 retains the next controls-plus-asynchronous-file integration scope; see the
 [delivery plan](battery-home-lifecycle.md). Other machines should consume the
 shared primitive, not duplicate it or widen native firmware gates.
+
+
+## October 22 controls during file work handoff (PR #51)
+
+Air implementation `23837b9` adds bounded `desk_file_job_submit` to transmit an
+asynchronous request without consuming its reply. Existing poll callers retain
+the combined API; do not duplicate transport loops or kill a worker with an
+accepted write during close. The explicit Text fixture uses the same scoped
+battery syscall as System, with submitted application jobs, repeated lifetimes,
+active-service exit and cancellation. Actual System buttons remain separately
+covered. Six directed VM cases and three regressions pass, including exact file
+contents/allocation and uncertain-runtime containment. This does not prove USB
+DMA overlap, native Home operation or physical input latency.
+
+Next Air scope is native mounted normal-return/refusal and desktop-session
+ownership; ordinary startup stays OFF. Native profiles and accepted payloads
+are unchanged. Pro PR19 `77ba966` remains independent Wi-Fi work. Consume the
+shared submission/ownership helpers before adding another transport or lifecycle.
