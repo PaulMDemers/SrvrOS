@@ -2,20 +2,38 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active: inherited desktop process lifetime (VM/host only)
+### Inherited desktop lifetime: VM/host validation (PR #60)
 
-Base `22fd266` (merged PR55), fetched before implementation. This block owns
-`kernel/src/process.c`, its kernel API, a monitor/VM lifetime fixture and focused
-process tests, plus the continuous VM battery owner and its collector. Add an immutable kernel-created lifetime inherited at allocation,
-including processes still loading or releasing resources; revoke new admission
-before draining descendants. Prove sequential app churn, orphaned jobs and
-process-group/session changes without a retained history of PIDs. No userspace
-lifetime assignment API, ordinary startup change or native battery enablement.
+Source `8ea35fd` integrates main `50b14fe` (Air6,1 PR59/61). A kernel-created
+lifetime now tracks every descendant across spawn, exec, orphaning and job-control
+changes. Membership includes loading and final resource release; revocation
+blocks new reservations before shutdown drains the selected lifetime. Competing
+reapers claim completion atomically and final removal wakes other waiters.
+The continuous VM battery session uses this owner; native bounded diagnostics
+and ordinary startup retain their existing behavior.
 
-Pro PR19 `45db188` remains USB Wi-Fi; Air6,1's captured profile/record is preserved.
-Next checkpoint is reviewed kernel ownership plus host/full-boot VM evidence,
-then use that owner in a continuous desktop with periodic logging and file work.
-Installed current/previous payloads below remain unchanged; no reboot is armed.
+Local full build/both battery kernels, complete core suite and docs passed.
+The full-boot fixture passed 256 sequential app launches, 32 competing waiter
+pairs, failed loads, synchronous/detached spawn, orphan setsid/exec/group changes,
+unrelated-process survival and the existing PTY regression. All nine continuous
+battery cases passed, including 1,608 + 72 events across two lifetimes with 29
+summary records, alarms, early exit, refusals and uncertain-ownership containment.
+Clean cases preserved workspace bytes and passed offline allocation. Existing
+Home capture (60 edits/five file cycles) and pending-write cancellation also passed.
+Those file regressions still use the bounded diagnostic owner; they do not yet
+accept file/logging overlap under the new ordinary desktop owner.
+
+Exact payloads and 99 evidence files (18 compressed artifacts verified by
+re-reading) are retained outside `build` in
+`~/.local/share/srvros/local-validation/process-lifetime-8ea35fde079a`.
+Pro PR19 `301a640` remains USB Wi-Fi; Air6,1 profiles and records are preserved.
+No physical run/reboot is armed; current `fd6f6b9d397c339f` and previous
+`b427b78f21644bd2` are untouched. Actions remain disabled.
+
+Next: wrap the arbitrary-app desktop in this owner, validate periodic logging
+and pending file-work overlap, then native continuous-session testing and
+attended AC/gauge/indicator acceptance. Ordinary native battery startup stays OFF.
+See the [ownership follow-up](../battery-home-lifecycle.md#ordinary-desktop-ownership-follow-up).
 
 ### Continuous service accounting: VM validation (PR #55)
 

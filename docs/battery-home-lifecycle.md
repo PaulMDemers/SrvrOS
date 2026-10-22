@@ -381,3 +381,12 @@ kernels, a repeated extended session (1,680 events across two lifetimes), accept
 Home capture, pending-write cancellation, full core and documentation checks.
 This is VM/host evidence only. The prior native PR53 release remains installed;
 no ordinary startup or native continuous-service trial was enabled.
+
+The inherited-owner checkpoint `8ea35fd` integrates actual main `50b14fe` and
+passes full build/core/docs, the repeated process/PTY fixture, all nine continuous
+battery cases, and the existing Home capture/cancellation regressions. The latter
+still use the bounded diagnostic owner, so they are regression evidence rather
+than proof of ordinary logging/file overlap. Exact payloads and 99 evidence files
+are verified outside `build` in
+`~/.local/share/srvros/local-validation/process-lifetime-8ea35fde079a`.
+No native payload was installed and no physical acceptance was claimed.
