@@ -1,6 +1,6 @@
 # MacBookAir6,1 — local bring-up
 
-Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture accepted; desktop pointer trial prepared**.
+Updated: 2026-10-22. State: **Console, keyboard, bounded USB persistence and raw trackpad capture and bounded desktop pointer/drag/scroll trial accepted**.
 
 ## Identity and ownership
 
@@ -294,3 +294,38 @@ VM evidence have hash-verified durable backups. Ubuntu remains default and the
 one-shot is empty. At readiness, save `launch.json` and arm the installed entry
 without reinstalling. After manual restart collect this exact run first.
 No physical pointer/click/drag/scroll acceptance is claimed yet.
+
+
+## Native desktop pointer trial accepted (2026-10-22)
+
+Evidence-only follow-up on main `22fd266`, branch
+`device/macbookair6-1/pointer-evidence`; no driver or desktop changes. PR #19
+remains independent Wi-Fi work. The newly integrated battery changes are not
+part of the physically tested source below.
+
+The user reports “the trackpad works well” after run `e0d4f2a9d906c9b5`, release
+`e20382a7c8acbfe2`, clean implementation `ecb028c`. Collector validates report
+CRC/completion and changed host boot ID: `CAPTURED`, pointer/gesture trials
+`EXERCISED`, desktop exit and keyboard `PASS`. Over about 132 seconds, 5,009
+reports include 3,306 pointer motion events, 34 button edges, 792 held-drag
+frames, 505 scroll events and 63 lifts. There are zero malformed reports,
+driver errors, pointer cancels/queue overflows or dropped keyboard reports.
+
+This accepts the bounded desktop pointer, physical click/held drag and scrolling
+trial with positive overall usability feedback. Direction/speed were not rated
+separately. Typing suppression (zero frames), tap clicks (zero), and drag
+handoffs (zero) remain unexercised. Five broad-contact suppression frames do
+not establish general palm rejection. Sustained use and other applications
+remain outside this trial's acceptance.
+
+All 112 unrelated pre-test file hashes match; the request is correctly consumed,
+workspace metadata updated and only report/completion files added. Offline
+fsck is clean (116 files), allocation has 119 clusters and zero leaks/mismatches/
+errors. Durable report persistence is independently verified; on-screen unmount
+and halt are not separate fields in this report format. Evidence, completion,
+hashes and checks in `build/trackpad-tests/e0d4f2a9d906c9b5/` have a hash-verified
+backup outside build under release `e20382a7c8acbfe2`.
+
+Ubuntu default and installed payloads are verified, one-shot consumed. Current
+remains the accepted bounded v12 trial; previous console/USB recovery remains
+`c35475f62f154f1e`. No new test or reboot is prepared.
