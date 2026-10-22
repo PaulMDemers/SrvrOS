@@ -386,3 +386,11 @@ the prerequisite in [Linux v6.18 chip initialization](https://github.com/torvald
 without replaying its optional GPIO/RF reset. MAC TX/RX remains disabled.
 `wifi-firmware-clock` reports cached before/after WLAN and final CMB state.
 Host verification does not accept native clock or firmware readiness.
+
+On a firmware EP0 timeout, a one-shot Stop Endpoint command now requests a
+stopped output-context snapshot. `wifi-firmware-td` lists submitted stage TRBs;
+`wifi-firmware-stop` records exact-command success, endpoint state/dequeue and
+the first late or stopped transfer event. Interpret the dequeue only after a
+successful stop with state 3; a snapshot does not prove why the device stalled.
+A failed command blocks later controller commands. The failed request remains
+failed and quarantined: no retry, endpoint restart or DMA reuse is performed.

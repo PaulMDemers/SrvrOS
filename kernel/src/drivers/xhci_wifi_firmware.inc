@@ -10,6 +10,15 @@ static bool wifi_firmware_fail(struct xhci_device *d) {
 static bool wifi_firmware_event(struct xhci_device *d,const struct xhci_trb *event) {
     struct xhci_wifi_firmware *f=&d->firmware;
     uint64_t pointer=event->parameter_low|((uint64_t)event->parameter_high<<32);
+    if(f->active && f->stop_attempted && ((event->control>>16)&31)==1) {
+        /* Preserve the first late/stopped event, even if its pointer is outside
+         * our submitted TD. This is evidence only, never successful retirement. */
+        if(!f->stop_event_cc) {
+            f->stop_event_pointer=pointer;f->stop_event_cc=event->status>>24;
+            f->stop_event_residue=event->status&0xffffff;
+        }
+        return true;
+    }
     if(!f->pending || ((event->control>>16)&31)!=16 || pointer!=f->trb)return false;
     f->completion=event->status>>24;f->remaining=event->status&0xffffff;
     f->done=true;f->pending=false;
@@ -55,6 +64,28 @@ static bool configure_wifi_firmware(struct xhci_device *d) {
     if(firmware_command_failed)return false;
     f->configured=true;d->stage="wifi-firmware-endpoint";return true;
 }
+/* Stop a timed-out owned EP0 exactly once so the output context becomes a
+ * stopped-endpoint snapshot. No reset, Set Dequeue, restart, retry or DMA free.
+ * A failed command quarantines further controller commands as configuration does. */
+static void wifi_fw_stop_timeout(struct xhci_device *d) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    if(!f->active || !f->configured || !f->control_timeout || !d->ep0_quarantined ||
+        f->stop_attempted || !xhci.command_ring || firmware_command_failed ||
+        strict_control.device || !d->output_context) return;
+    uint64_t flags=event_irq_save(),slot=0;
+    f->stop_attempted=true;
+    struct xhci_trb cmd={.control=(15u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)};
+    firmware_command_exact=true;
+    f->stop_ok=submit_command_trb(&cmd,15,&slot) && slot==d->slot_id;
+    firmware_command_exact=false;
+    if(!f->stop_ok)firmware_command_failed=true;
+    if(f->stop_ok) {
+        f->stop_state=context_read32(d->output_context,1,0)&7;
+        f->stop_dequeue=context_read32(d->output_context,1,2)|
+            ((uint64_t)context_read32(d->output_context,1,3)<<32);
+    }
+    event_irq_restore(flags);
+}
 /* Cache diagnostic metadata only; no extra transfer, retry or poll logging. */
 static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet *setup,
     uint64_t buffer,uint32_t length,bool in,int *actual) {
@@ -70,6 +101,7 @@ static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet 
         f->control_dequeue=context_read32(d->output_context,1,2)|
             ((uint64_t)context_read32(d->output_context,1,3)<<32);
     }
+    if(f->control_timeout)wifi_fw_stop_timeout(d);
     return f->control_ok;
 }
 static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
@@ -202,6 +234,11 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
             (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
         console_printf("wifi-firmware-endpoint: elapsed_us=%u state=%u dequeue=%x\n",
             f->control_elapsed_us,(uint64_t)f->control_ep_state,f->control_dequeue);
+        console_printf("wifi-firmware-td: setup=%x data=%x status=%x\n",
+            f->control_setup,f->control_data,f->control_status);
+        console_printf("wifi-firmware-stop: attempted=%u ok=%u state=%u dequeue=%x event=%x cc=%u residue=%u\n",
+            (uint64_t)f->stop_attempted,(uint64_t)f->stop_ok,(uint64_t)f->stop_state,
+            f->stop_dequeue,f->stop_event_pointer,(uint64_t)f->stop_event_cc,(uint64_t)f->stop_event_residue);
         console_printf("wifi-firmware-clock: before=%x after=%x cmb=%x written=%u\n",
             (uint64_t)f->wlan_before,(uint64_t)f->wlan_after,(uint64_t)f->cmb,(uint64_t)f->wlan_written);
         console_printf("wifi-firmware-progress: reads=%u last_register=%x last_value=%x prepared=%u reset=%u upload=%u\n",

@@ -244,6 +244,10 @@ struct xhci_wifi_firmware {
     bool control_ok, control_timeout;
     uint64_t control_elapsed_us, control_dequeue;
     uint32_t control_ep_state;
+    uint64_t control_setup, control_data, control_status;
+    uint64_t stop_dequeue, stop_event_pointer;
+    uint32_t stop_state, stop_event_cc, stop_event_residue;
+    bool stop_attempted, stop_ok;
     bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
     struct mt76_prepare_session preparation;
     struct mt76_firmware_session upload;
@@ -1369,6 +1373,11 @@ static bool control_transfer_internal(struct xhci_device *device,
         &status_trb);
 
     if (actual) {
+        if(device->firmware.active) {
+            device->firmware.control_setup=setup_phys;
+            device->firmware.control_data=data_phys;
+            device->firmware.control_status=status_phys;
+        }
         strict_control.device = device;
         strict_control.setup = setup_phys; strict_control.data = data_phys;
         strict_control.status = status_phys; strict_control.length = length;

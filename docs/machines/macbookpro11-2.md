@@ -1805,3 +1805,10 @@ it did not resolve the post-reset failure. Photo/logs archived; Ubuntu default,
 consumed one-shot and recovery verified. Offline checks: 127 files, 439 clusters,
 zero leaks/mismatches/errors. Next investigate post-reset EP0/device behavior;
 no next boot armed and no firmware-readiness acceptance.
+
+Next scope: post-timeout Wi-Fi EP0 stop-and-snapshot diagnostic in xHCI, with
+exact command completion, cached submitted TRB addresses and stopped transfer
+event capture. Keep the endpoint quarantined, retain DMA, and never restart or
+retry the request. Host fault fixtures and exact-stage held VMs precede native
+test. Fetched main 961369b; only open PR remains #19. Prior integration/profile
+collision remains deferred; this does not change Air/battery or firmware gates.

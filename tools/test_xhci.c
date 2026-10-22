@@ -1094,6 +1094,50 @@ static void test_wifi_firmware_configuration(void) {
     puts("xhci-firmware-config: PASS dedicated EP08 context, aligned retained DMA, exact command pointer, failed command quarantine and identity gate");
 }
 
+static void test_wifi_firmware_stop(void) {
+    for(unsigned fault=0;fault<9;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},commands[64]={0},events[64]={0};
+        uint8_t output[4096]={0},buffer[4096]={0};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.ep0_quarantined=true,
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.descriptor_buffer=buffer,.output_context=output};
+        d->firmware=(struct xhci_wifi_firmware){.active=true,.configured=true,.control_timeout=true,
+            .control_setup=0x9000,.control_data=0x9010,.control_status=0x9020};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;
+        xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
+        xhci.event_ring=events;xhci.event_cycle=true;
+        /* Model the output context returned by a completed Stop Endpoint. */
+        context_write32(output,1,0,3);context_write32(output,1,2,0x9011);
+        events[0]=control_event(0x9010,26,4);
+        events[1]=(struct xhci_trb){.parameter_low=0xdead,.status=1u<<24,
+            .control=(33u<<10)|(1u<<24)|1}; /* Stale successful command. */
+        events[2]=(struct xhci_trb){.parameter_low=0xa000,.status=(fault==1?5u:1u)<<24,
+            .control=(33u<<10)|((fault==2?2u:1u)<<24)|1};
+        if(fault==3)events[2]=(struct xhci_trb){0};
+        if(fault==4)d->firmware.control_timeout=false;
+        if(fault==5)d->firmware.active=false;
+        if(fault==6)d->ep0_quarantined=false;
+        if(fault==7)firmware_command_failed=true;
+        if(fault==8)strict_control.device=d;
+        wifi_fw_stop_timeout(d);
+        bool attempted=fault<4,ok=fault==0;
+        assert(d->firmware.stop_attempted==attempted && d->firmware.stop_ok==ok);
+        assert(xhci.command_enqueue==(attempted?1u:0u));
+        assert(firmware_command_failed==((fault>=1 && fault<=3)||fault==7));
+        if(attempted) {
+            assert(commands[0].control==((15u<<10)|(1u<<16)|(1u<<24)|1));
+            assert(!commands[0].parameter_low && !commands[0].parameter_high && !commands[0].status);
+            assert(d->firmware.stop_event_cc==26 && d->firmware.stop_event_pointer==0x9010);
+            assert(d->firmware.stop_event_residue==4 && d->ep0_quarantined);
+        }
+        assert(d->firmware.stop_state==(ok?3u:0u) && d->firmware.stop_dequeue==(ok?0x9011u:0u));
+        wifi_fw_stop_timeout(d);assert(xhci.command_enqueue==(attempted?1u:0u));
+        assert(!d->ep0_enqueue && !freed && d->ep0_ring==ring && d->descriptor_buffer==buffer);
+        strict_control.device=0;
+    }
+    puts("xhci-firmware-stop: PASS exact stop command, stale/wrong-slot/error/timeout, refusal, retained DMA and no restart");
+}
+
 static void test_wifi_firmware_control_guards(void) {
     for(unsigned fault=0;fault<7;fault++) {
         reset_test();struct xhci_trb ring[64]={0},events[64]={0};uint8_t buffer[4096]={0};
@@ -1199,6 +1243,7 @@ static void test_wifi_firmware_transport(void) {
 
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_firmware_stop();
     test_wifi_firmware_control_guards();
     test_wifi_firmware_configuration();
     test_wifi_firmware_transport();
