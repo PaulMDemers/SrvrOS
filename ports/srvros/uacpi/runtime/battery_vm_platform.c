@@ -173,8 +173,11 @@ static void command(void *c,uint8_t v) {
                 again=!model.query_batch++;code=again?(model.fault==54?0x20:0x21):0xff;
             } else if(model.fault==48)code=0xff;
         }
+        if(model.fault==57 && model.pending)code=0x10;
+        if(model.fault==58){code=0;again=false;}
+        if((model.fault==59 || model.fault==60 || model.fault==61) && model.generation==2 && model.pending)code=0x10;
         model.output=code;model.pending=again;
-        model.obf=!(model.fault==46 && model.generation==2);
+        model.obf=!((model.fault==46 || model.fault==59) && model.generation==2);
     }
 }
 static void write_data(void *c,uint8_t v){
@@ -255,7 +258,7 @@ static void model_transfer_wait(void) {
     }
 }
 static void model_query_checkpoint(uint8_t code) {
-    if(model.fault==45 && code==0xff) {
+    if((model.fault==45 && code==0xff) || (model.fault==61 && code==0x10)) {
         uacpi_u32 sequence;
         if(uacpi_acquire_global_lock(100,&sequence)==UACPI_STATUS_OK)
             console_write("battery-vm: query Global Lock retained\n");
@@ -335,7 +338,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>56||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>61||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -363,7 +366,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
     if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
-    if(model.fault>=41 && model.fault<=47)p->model_query_checkpoint=model_query_checkpoint;
+    if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;
     if(model.fault>=33 && model.fault<=40) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }

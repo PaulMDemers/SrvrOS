@@ -11,9 +11,21 @@ or rewrite a QR_EC value. A bounded no-event run records not-exercised and retur
 Save/remount only after clean retirement; retain automatic parked-fault reset and
 Ubuntu recovery. Test native-style Q35 cases plus exact-stage native refusal before
 installing the automatic Air run. Touched: battery runtime, capture/stage/collector,
-VM fixtures and tests, guides/unit record. Pro PR19 `4dfde33` has shared staging
-files for independent Wi-Fi profiles; preserve its v39 flags and contract when
-integrating. No native Home/startup or sibling firmware admission.
+VM fixtures and tests, guides/unit record. Pro PR19 `20edb22` has shared main/staging/tests for independent Wi-Fi
+profiles, including a v44 collision with merged battery-controls. Preserve both
+historical recipes and give future Wi-Fi calibration a unique identity; see the
+coordination guide. No native Home/startup or sibling firmware admission.
+
+The implementation and complete 14-case boot-capture matrix pass locally:
+unknown/high/both OS states, both notification batches, generation-zero refusal,
+no-event timeout, shared20/21 effects, poisoned transport, failed disconnect,
+retained Global Lock and native-profile refusal. Successful retirement produces
+identical live/saved proofs plus clean exact tree/metadata/allocation/fsck checks.
+No-event saves a negative result; unsafe faults reset with no false final proof.
+Full kernel builds/core host tests pass; new proof and collector/staging tests
+pass. Physical install and exact-stage rehearsal are pending. Native acceptance
+must come from the matching run; the installed PR34 controls payload is unchanged
+at this source checkpoint.
 
 ### Native query admission policy (PR #43)
 

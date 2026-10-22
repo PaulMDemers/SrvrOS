@@ -705,3 +705,18 @@ Collect the matching `battery_controls` proof and verify unchanged prior USB fil
 and offline allocation before accepting the run. v44 does not replace or use the
 old disposable filesystem image. See the [control contract](battery-service.md#scoped-asynchronous-controls-in-development).
 Ordinary desktop battery startup and other models' native gates remain unchanged.
+
+
+### Automatic parked battery query capture
+
+The reference Air7,2 agent may stage `--laptop-probe-volume <this-host-volume-id>
+--battery-query` after building `acpi-battery-kernel`. This v45 profile requires
+an existing workspace and automatic return; it cannot be staged with hold-on-failure.
+Follow the normal exact-stage VM, recovery, saved run record, install and one-shot
+boot sequence above. No typing, AC change or other human action is required.
+It waits up to 30 seconds for a natural unsupported EC query while USB is parked,
+then retires and saves before returning. A no-event run is not exercised, not a
+pass. A contained fault may reset without a final report; collect and treat that
+as incomplete/failure. Require the collector's `battery_query` proof plus USB
+preservation/offline checks before physical acceptance. Ordinary startup remains
+off; other models must not reuse the Air firmware gate or acceptance.

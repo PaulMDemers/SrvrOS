@@ -1309,9 +1309,45 @@ remain unchanged; use the audit guide for the case matrix and remaining work.
 
 The exact Air7,2 adapter now selects the captured-firmware query policy before
 any query method executes. Unknown codes, GPU/power query80 and query10's mutable
-OS-dependent SMBus path are refused before AML; native refusal remains terminal.
+OS-dependent SMBus path are refused before AML. Native refusal remains terminal
+outside the explicit parked query capture described below.
 Query20/21 retain their audited shared writes, so they do not qualify as effect-free
 recovery batches. QueryCF is bounded under both OS states. See the
 [native policy and VM replay](battery-native-aml-audit.md#exact-air72-dispatch-policy)
 for the full table, evidence and remaining parked-workspace acceptance. No new
 register/firmware admission, ordinary startup or mounted Home support is enabled.
+
+
+### Parked native query-return capture (v45)
+
+`hardware_boot.py stage --laptop-probe-volume <local-volume-id> --battery-query`
+selects the native battery kernel and an unattended capture. It parks the exact
+workspace device before starting the service, with no filesystem/image I/O during
+the runtime. Only the existing exact Air7,2 firmware/resource profile and native
+query policy qualify. No QR_EC value is injected, substituted or requested outside
+the normal event path. The capture waits at most 30 seconds for natural refusal.
+
+A rejected query can return normally only after completed transport, zero attempted
+shared writes in that batch, equal AML call/return counts, drained notifications,
+idle work and the existing resource proof. The owner performs ordinary disconnect,
+worker/interpreter retirement, ACPI-mode/event restoration and heap cleanup before
+the workspace can remount. Rejection before the first sample is valid with an
+empty, nonfresh cache; it does not manufacture a battery reading. The resulting
+service is explicitly faulted. Partial effects, retained locks, poisoned transport
+or failed disconnect retain the existing parked-media fault reset, with missing
+final evidence treated as failure.
+
+`battery-native-query: outcome=returned-failure` is the scoped success receipt.
+No rejected event within the window yields `outcome=not-exercised`, clean=NO and
+completed=NO: save it and return to Ubuntu, but do not accept the feature. Both
+handled outcomes return automatically; no user input is requested. The collector
+requires exact native restored-event addresses plus ordered transport, resource,
+retirement and capture receipts. VM evidence uses separate synthetic addresses.
+This does not enable automatic battery startup, mounted Home or sibling models.
+
+`tools/battery_native_query_smoke.py` exercises the actual boot capture path with
+disposable exFAT media: unknown/high/OS-state refusal, drained notifications in
+both OS states, pre-sample rejection, no event, shared effects, retained lock,
+poisoned transport, failed disconnect and native-kernel platform refusal. Clean
+cases compare live/saved proofs and check exact tree, metadata, allocation and fsck.
+Physical acceptance remains pending until the matching Air session is collected.

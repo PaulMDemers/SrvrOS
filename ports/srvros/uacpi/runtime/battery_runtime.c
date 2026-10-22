@@ -69,7 +69,14 @@ enum runtime_owner { OWNER_NONE,OWNER_DIAGNOSTIC,OWNER_SERVICE };
 static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
-static bool query_study;
+static bool query_study,query_capture;
+static struct block_device *query_capture_volume;
+static bool query_tracking(void) { return query_study || query_capture; }
+static bool capture_storage_parked(void) {
+    return query_capture && query_capture_volume && auto_return &&
+        workspace_parked_device()==query_capture_volume && !workspace_active() &&
+        !workspace_image_busy() && !scheduler_io_active();
+}
 static struct {
     bool study,pending,completed,callback_study,callback_active,callback_failed,target_study,target_pending,target_handoff;
     uint64_t interrupted,peer,peer_complete,callback_entries,callback_faults,callback_locks,callback_depth;
@@ -540,7 +547,7 @@ void uacpi_kernel_io_unmap(uacpi_handle h){uacpi_kernel_free(h);}
 static uacpi_status port_io(struct io_region *r,size_t o,unsigned bits,bool write,uint32_t *v) {
     if(!runtime.engaged||!r||!contains(0,r->size,o,bits/8))goto denied;
     uint64_t a=r->base+o;
-    if(write && query_study && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
+    if(write && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
     if(write&&a==runtime.platform.ec.pm1_control&&bits==16&&runtime.worker.identity==scheduler_current_thread_id()) {
         uint64_t flags=irq_save();uint16_t before=inw(a);
         bool ok=acpi_event_io_global_release(&runtime.platform.events,a,bits,before,*v);
@@ -569,7 +576,7 @@ uacpi_status uacpi_kernel_io_write##B(uacpi_handle h,uacpi_size o,uacpi_u##B v){
 PORT(8) PORT(16) PORT(32)
 #define MEMORY(B) \
 uacpi_u##B uacpi_kernel_mmio_read##B(void *p){uint64_t v=0;if(!runtime.engaged||!battery_platform_memory(p,B,false,&v)){runtime.denied++;console_printf("battery: denied memory read ptr=%x width=%u\n",(uint64_t)(uintptr_t)p,(uint64_t)B);}return v;} \
-void uacpi_kernel_mmio_write##B(void *p,uacpi_u##B v){if(query_study&&runtime.query_receipt.in_aml)runtime.query_receipt.effects++;uint64_t n=v;if(!runtime.engaged||!battery_platform_memory(p,B,true,&n)){runtime.denied++;console_printf("battery: denied memory write ptr=%x width=%u value=%x\n",(uint64_t)(uintptr_t)p,(uint64_t)B,n);}}
+void uacpi_kernel_mmio_write##B(void *p,uacpi_u##B v){if(query_tracking()&&runtime.query_receipt.in_aml)runtime.query_receipt.effects++;uint64_t n=v;if(!runtime.engaged||!battery_platform_memory(p,B,true,&n)){runtime.denied++;console_printf("battery: denied memory write ptr=%x width=%u value=%x\n",(uint64_t)(uintptr_t)p,(uint64_t)B,n);}}
 MEMORY(8) MEMORY(16) MEMORY(32) MEMORY(64)
 uacpi_status uacpi_kernel_pci_device_open(uacpi_pci_address a,uacpi_handle *h){if(runtime.engaged&&battery_platform_pci_open(a,h))return UACPI_STATUS_OK;runtime.denied++;return UACPI_STATUS_DENIED;}
 void uacpi_kernel_pci_device_close(uacpi_handle h){(void)h;}
@@ -601,7 +608,7 @@ static uacpi_status region_handler(uacpi_region_op op,uacpi_handle data) {
     if(op!=UACPI_REGION_OP_READ&&op!=UACPI_REGION_OP_WRITE)goto denied;
     uacpi_region_rw_data *r=data;
     if(r->handler_context!=&runtime||r->region_context!=&runtime||r->byte_width!=1||r->address>255)goto denied;
-    if(op==UACPI_REGION_OP_WRITE && query_study && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
+    if(op==UACPI_REGION_OP_WRITE && query_tracking() && runtime.query_receipt.in_aml)runtime.query_receipt.effects++;
     uint8_t v=r->value;
     if(!transfer(op==UACPI_REGION_OP_WRITE,r->address,&v,false))goto denied;
     if(op==UACPI_REGION_OP_READ)r->value=v;return UACPI_STATUS_OK;
@@ -661,7 +668,7 @@ static bool queue_query(void) {
     if(recovery_irq.callback_failed)return false;
     if(runtime.stopping||runtime.query_scheduled)return true;
     if(!ec_query_budget_begin(&runtime.budget,timer_monotonic_us(),128,2000000))unsafe("query budget begin");
-    if(query_study) {
+    if(query_tracking()) {
         uint64_t sequence=runtime.query_receipt.sequence;
         if(sequence==UINT64_MAX)unsafe("query receipt overflow");
         runtime.query_receipt=(struct battery_query_receipt){.sequence=sequence+1,
@@ -707,7 +714,7 @@ static void query_work(void *ctx) {
     for(unsigned i=0;i<8;i++) {
         if(!ec_query_budget_take(&runtime.budget,timer_monotonic_us()))unsafe("query limit");
         uint8_t code=0;
-        if(query_study)runtime.query_receipt.transfer_done=false;
+        if(query_tracking())runtime.query_receipt.transfer_done=false;
         query_phase(SCI_QUERY_TRANSFER);
         if(!transfer(false,0,&code,true))unsafe("query transport");
         uint64_t observed_flags=irq_save();
@@ -720,16 +727,15 @@ static void query_work(void *ctx) {
         if(rejected) {
             console_printf("battery-query-policy: policy=%u code=%u class=%u; dispatch=refused\n",
                 (uint64_t)policy,(uint64_t)code,(uint64_t)query_class);
-            /* Native has no normal-return admission yet. Reject before AML,
-             * retaining the established terminal containment behavior. */
-            if(!query_study)unsafe("query policy");
+            /* Only the explicit parked capture admits native normal return. */
+            if(!query_study && !capture_storage_parked())unsafe("query policy");
         }
-        if(query_study) {
+        if(query_tracking()) {
             struct battery_query_receipt *r=&runtime.query_receipt;
             r->code=code;r->transfer_done=true;
             if(runtime.platform.model_query_checkpoint)runtime.platform.model_query_checkpoint(code);
             if(code && rejected) {
-                if(!battery_platform_workspace_study_allowed() || !runtime.service_mode ||
+                if(!(query_study?battery_platform_workspace_study_allowed():capture_storage_parked() && policy==BATTERY_QUERY_AIR72) || !runtime.service_mode ||
                    owner!=OWNER_SERVICE || !runtime.ready || service.stop ||
                    !ec_query_budget_finish(&runtime.budget,timer_monotonic_us()))unsafe("query refusal admission");
                 uint64_t f=irq_save();
@@ -744,11 +750,11 @@ static void query_work(void *ctx) {
             }
         }
         if(code) {
-            if(query_study){runtime.query_receipt.in_aml=true;runtime.query_receipt.aml_calls++;}
+            if(query_tracking()){runtime.query_receipt.in_aml=true;runtime.query_receipt.aml_calls++;}
             const char hex[]="0123456789ABCDEF";char method[]="_Q00";method[2]=hex[code>>4];method[3]=hex[code&15];
             if(!runtime.transition_mode)console_printf("battery: dispatch EC query=%x\n",(uint64_t)code);
             uacpi_status result=uacpi_execute_simple(runtime.node,method);
-            if(query_study){runtime.query_receipt.in_aml=false;runtime.query_receipt.aml_returns++;}
+            if(query_tracking()){runtime.query_receipt.in_aml=false;runtime.query_receipt.aml_returns++;}
             if(result||runtime.errors||runtime.denied)unsafe("query AML");runtime.queries++;
         }
         query_phase(SCI_QUERY_CHECK);
@@ -843,6 +849,9 @@ static bool runtime_open(void *rsdp,struct limine_memmap_response *map,bool tran
     if(runtime.engaged||!timer_reference_ready())return false;
     runtime=(typeof(runtime)){.transition_mode=transitions,.service_mode=service_mode};
     if(!battery_platform_open(&runtime.platform,rsdp,map)){console_write("battery: REFUSED platform/resource ownership preflight\n");return false;}
+    if(query_capture && runtime.platform.query_policy!=BATTERY_QUERY_AIR72) {
+        console_write("battery-native-query: REFUSED query policy profile\n");return false;
+    }
     struct sci_route route;uint32_t lo,hi;
     if(!sci_route_resolve(&route,runtime.platform.ec.sci,acpi_irq_override(runtime.platform.ec.sci))||
        !ioapic_read_gsi(route.gsi,&lo,&hi)||!(lo&(1u<<16))||(lo&((1u<<12)|(1u<<14)))) {
@@ -926,7 +935,7 @@ static void service_finish(enum battery_service_state state,enum battery_service
     /* Caller must return immediately: another start can now replace state. */
 }
 static void query_return_boundary(void) {
-    if(!query_study || !battery_platform_workspace_study_allowed() ||
+    if(!(query_study?battery_platform_workspace_study_allowed():capture_storage_parked() && runtime.platform.query_policy==BATTERY_QUERY_AIR72) ||
        owner!=OWNER_SERVICE || scheduler_current_thread_id()!=service.identity ||
        !runtime.stopping || !service.stop || service.quarantined)unsafe("query return context");
     if(!acpi_worker_drain(&runtime.worker,3000))unsafe("query return drain");
@@ -1665,6 +1674,37 @@ static void workspace_recovery_test(void *rsdp,struct limine_memmap_response *ma
     if(!unmounted || !battery_reset_allowed(true,workspace_active(),scheduler_io_active()))unsafe("recovery storage drain");
     console_write("battery-recovery: returning after storage drain; test outcome=contained-failure\n");
     arch_reboot_unattended();
+}
+/* No artificial query or method substitution: only naturally scheduled QR_EC
+ * exchanges can exercise this capture. No storage/client work while engaged. */
+bool battery_query_diagnostic_run(void *rsdp,struct limine_memmap_response *map) {
+    if(query_study || query_capture || owner!=OWNER_NONE || !auto_return ||
+       workspace_active() || workspace_image_busy() || scheduler_io_active() || !workspace_parked_device()) {
+        console_write("battery-native-query: REFUSED parked capture admission\n");return false;
+    }
+    query_capture=true;query_capture_volume=workspace_parked_device();
+    console_write("battery-native-query: waiting up to 30 seconds for a natural policy refusal; no input required\n");
+    if(!battery_service_start(rsdp,map)) {
+        query_capture=false;query_capture_volume=NULL;return false;
+    }
+    uint64_t until=timer_monotonic_us()+30000000;
+    while(service.running && timer_monotonic_us()<until)uacpi_kernel_sleep(10);
+    if(service.running && !battery_service_stop(10000))unsafe("capture stop deadline");
+    struct battery_service_status status;battery_service_status(&status);
+    bool clean=owner==OWNER_NONE && !runtime.engaged && !runtime.heap && !runtime.errors &&
+        !runtime.denied && !service.quarantined && capture_storage_parked();
+    bool exercised=clean && runtime.query_receipt.refused && runtime.worker.stopped &&
+        runtime.attached==runtime.detached && runtime.attached &&
+        status.state==BATTERY_SERVICE_FAULTED && status.error==BATTERY_SERVICE_CONTAINMENT &&
+        !(status.flags&BATTERY_CACHE_FRESH);
+    console_printf("battery-native-query: outcome=%s code=%u generation=%u state=%u error=%u fresh=%u valid=%u; retired=%s parked=%u\n",
+        exercised?"returned-failure":"not-exercised",(uint64_t)runtime.query_receipt.code,
+        runtime.query_receipt.generation,(uint64_t)status.state,(uint64_t)status.error,
+        (uint64_t)!!(status.flags&BATTERY_CACHE_FRESH),(uint64_t)!!(status.flags&BATTERY_CACHE_VALID),
+        clean?"yes":"NO",(uint64_t)capture_storage_parked());
+    if(!clean)unsafe("capture retirement proof");
+    query_capture=false;query_capture_volume=NULL;
+    return exercised;
 }
 /* Disposable model study: the command thread owns an unrelated storage scope
  * while both battery threads return and retire. No desktop/client teardown is

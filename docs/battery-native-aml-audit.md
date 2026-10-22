@@ -314,10 +314,11 @@ classified; a later refusal in that batch cannot claim the zero-effects boundary
 The diagnostic line `battery-query-policy: policy=2 code=... class=...;
 dispatch=refused` precedes containment. Class 4 is unknown, 5 is OS-dependent,
 6 is GPU/power policy; invalid policy identifiers fail closed. Native refusals
-currently halt with live state retained, before AML entry. They do not return
-normally, save success reports or enable mounted Home. The previously installed
-accepted release is unchanged. Native normal-return admission needs a separate
-parked-workspace trial, including the capture's explicit failed-service outcome.
+retain terminal containment outside the explicit v45 parked-workspace capture.
+That capture admits normal worker return only with the whole-batch/resource proof,
+then closes the runtime before saving its explicit failed-service outcome. See the
+[parked capture contract](battery-service.md#parked-native-query-return-capture-v45).
+Physical acceptance is pending; mounted Home and startup remain disabled.
 
 The Q35 backend can replay this same classifier with sanitized behavioral AML;
 it does not impersonate the native firmware/profile gate. Cases `policy-unknown`,

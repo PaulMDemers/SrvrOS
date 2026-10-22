@@ -356,3 +356,19 @@ mounted Home or automatic startup. The installed Air release is unchanged.
 Next Air work is scoped native normal-return admission followed by an automatic
 parked-workspace capture. Pro PR19 retains independent Wi-Fi scope; preserve its
 separate Makefile targets. Actions remain disabled and validation stays local.
+
+
+## Active Air parked capture integration
+
+The Air branch adds v45 `--battery-query`, a bounded natural query-refusal capture,
+with exact parked-device admission and normal retirement before remount/save/reset.
+Native firmware/register gates are unchanged; physical acceptance remains pending.
+Shared changes touch battery runtime, main capture dispatch, staging/collector,
+VM fixtures and tests. Local validation replaces disabled Actions.
+
+PR19 at `20edb22` now also edits main/staging/tests and uses v44 for Wi-Fi
+calibration, colliding with the already merged battery-controls v44. Integration
+must preserve both historical exact recipes and give new Wi-Fi calibration stages
+a descriptive, unique identity (as its firmware recipe already does). Do not
+reinterpret an installed v44 payload or discard either profile. The Air query
+profile uses v45; no Pro branch or installed payload is modified here.
