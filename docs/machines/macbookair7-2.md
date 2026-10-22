@@ -1,6 +1,16 @@
 # MacBookAir7,2 / A1466
 
-Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
+Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
+
+### Active parked SMBus capture work
+
+Base `24fd5f4` (PR45); Pro19 `9ecf749` remains independent Wi-Fi work.
+Prepare a distinct v46 automatic capture of native host-controller query10,
+with parked storage, exact existing Air firmware gates, bounded sampling and
+strict saved event/cache/retirement proof. Touched: battery runtime/platform,
+main capture dispatch, staging/collection, fixtures, tests and guides. Ordinary
+startup and mounted Home stay off. Validate exact stage and failures in VM before
+install/reboot; retain accepted query-refusal payload and desktop recovery.
 
 ### Query10 host-controller event study (PR #45)
 
