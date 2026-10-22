@@ -80,7 +80,7 @@ static struct {
     void *rsdp;
     struct limine_memmap_response *map;
     uint64_t identity;
-    bool running,stop,quarantined;
+    bool running,stop,quarantined,finishing;
 } service;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
 static void irq_restore(uint64_t f){if(f&(1ull<<9))__asm__ volatile("sti":::"memory");}
@@ -138,12 +138,12 @@ static void release_owner(void) {uint64_t f=irq_save();owner=OWNER_NONE;irq_rest
  * page-table setup finish before engaged. The audited service callbacks use
  * kernel mappings/serialized allocators and never VFS or user memory. Keep both
  * owner watchdog and worker runnable through teardown and final owner bookkeeping;
- * worker.stopped keeps the owner eligible after runtime_close clears engaged.
- * Other adapters and the
+ * an explicit finishing phase keeps the owner eligible after close. A new
+ * lifetime clears that phase before admission. Other adapters and the
  * direct diagnostic retain ordinary-thread scheduling. See battery-service.md. */
 static bool service_io_ready(void *arg) {
     (void)arg;return owner==OWNER_SERVICE && runtime.service_mode &&
-        (runtime.engaged || runtime.worker.stopped);
+        (runtime.engaged || service.finishing);
 }
 bool battery_diagnostic_auto_return(bool enabled) {
     uint64_t f=irq_save();
@@ -899,6 +899,7 @@ static void runtime_close(void) {
         if(h->mask)console_printf("battery: foreign-event restored enable=%x original=%x protected_writes=%u\n",
             (uint64_t)h->enable,(uint64_t)h->original,h->protected_writes);
     }
+    if(owner==OWNER_SERVICE)service.finishing=true;
     runtime.engaged=false;
     sci_report("retired");
 }
@@ -907,7 +908,7 @@ static void service_finish(enum battery_service_state state,enum battery_service
     uint64_t f=irq_save();
     service.cache.value.state=state;service.cache.value.error=error;
     service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
-    service.running=false;owner=OWNER_NONE;
+    service.running=false;service.finishing=false;owner=OWNER_NONE;
     scheduler_wake_all(&service.progress);
     irq_restore(f);
     /* Caller must return immediately: another start can now replace state. */
@@ -985,7 +986,7 @@ bool battery_service_start(void *rsdp,struct limine_memmap_response *map) {
     }
     owner=OWNER_SERVICE;
     battery_cache_begin(&service.cache,service.cache.value.epoch+1);
-    service.stop=false;service.running=true;service.identity=0;service.rsdp=rsdp;service.map=map;
+    service.stop=false;service.finishing=false;service.running=true;service.identity=0;service.rsdp=rsdp;service.map=map;
     /* Wait queues retain sleepers from an earlier epoch until they wake. Do
      * not clear their masks when admitting a new lifetime. */
     bool ok=scheduler_spawn_io_service("battery-owner",service_main,NULL,service_io_ready);

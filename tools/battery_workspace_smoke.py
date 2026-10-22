@@ -175,7 +175,7 @@ def verify_recovery(data,serial,query=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
+    parser.add_argument('--case',choices=('query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -190,7 +190,7 @@ def main():
         mbr=bytearray(512);mbr[450]=7
         struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        faults={'query-unknown':41,'query-high':42,'query-notify':43,'query-effects':44,'query-lock':45,'query-transport':46,'query-disconnect':47,'query-refusal':41,'query-outside':41,'recovery-resource-api':38,'recovery-resource-aml':39,'recovery-resource-ec':40,'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
+        faults={'query-unknown':41,'query-high':42,'query-notify':43,'query-effects':44,'query-lock':45,'query-transport':46,'query-disconnect':47,'query-refusal':41,'query-outside':41,'query-high-outside':42,'recovery-resource-api':38,'recovery-resource-aml':39,'recovery-resource-ec':40,'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
                 'recovery-callback-target-refusal':34,'recovery-callback-lock-refusal':35,
                 'recovery-callback-outside-scope':33,'recovery-irq-mask-refusal':32,
                 'recovery-irq-target-refusal':31,'recovery-irq':30,'recovery-irq-refusal':30,
@@ -220,7 +220,7 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-query' if args.case.startswith('query-') and args.case!='query-outside' else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-query' if args.case.startswith('query-') and args.case not in ('query-outside','query-high-outside') else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
                 if args.case in ('query-unknown','query-high','query-notify'):
                     data=wait_for(b'battery-query: returning after storage drain; test outcome=returned-failure',45)
@@ -234,9 +234,9 @@ def main():
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result.update(automatic_reset=True,offline_allocation='PASS')
                     (out/'workspace.exfat').write_bytes(volume.read_bytes())
-                elif args.case in ('query-effects','query-lock','query-transport','query-disconnect','query-outside'):
+                elif args.case in ('query-effects','query-lock','query-transport','query-disconnect','query-outside','query-high-outside'):
                     reason={'query-effects':b'query return receipt','query-lock':b'recovery resources retained',
-                            'query-transport':b'query transport','query-disconnect':b'EC disconnect','query-outside':b'query AML'}[args.case]
+                            'query-transport':b'query transport','query-disconnect':b'EC disconnect','query-outside':b'query AML','query-high-outside':b'query AML'}[args.case]
                     data=wait_for(b'battery: HALTED '+reason,45)
                     for forbidden in (b'battery-service: retired ',b'battery-query: saved=',b'battery-query: returning',b'battery-quarantine:',b'battery-query: state=',b'contained fault; returning'):
                         assert forbidden not in data

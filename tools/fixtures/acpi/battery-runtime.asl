@@ -60,6 +60,10 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
                     }
                 }
             }
+#if BATTERY_FAULT == 42
+            /* The study must refuse before entering this real, poisonous method. */
+            Method (_Q80, 0) { FAIL = One }
+#endif
             Method (_Q20, 0) {
 #if BATTERY_FAULT == 44
                 EACK = 7
