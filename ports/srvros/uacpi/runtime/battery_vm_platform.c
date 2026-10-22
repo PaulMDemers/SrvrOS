@@ -26,7 +26,7 @@ static struct {
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation,commands;
     unsigned ac_reads,query_batch;
-    bool obf,pending,io_started,io_entered,irq_injected,target_armed,alarm_sent,ack_stall;
+    bool obf,pending,io_started,io_entered,irq_injected,target_armed,alarm_sent,ack_stall,stop_injected;
     uint8_t injected_gpe;
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
@@ -186,11 +186,25 @@ static void command(void *c,uint8_t v) {
                 if(model.fault==67)model.memory[0x21]|=0x18;
             }
         }
+        if(model.fault>=76 && model.pending && model.generation>=2 && !(model.generation%2)) {
+            model.memory[0x21]=0xc0;
+            model.memory[0x45]=(model.fault==76 && model.generation%4)?0x60:0x16;
+            model.memory[0x46]=0x34;model.memory[0x47]=0x12;
+        }
         if(model.fault==73){code=0;again=false;}
         if(model.fault==75 && model.generation==2 && model.pending)code=0xff;
         model.output=code;model.pending=again;
         model.obf=!((model.fault==46 || model.fault==59) && model.generation==2);
     }
+}
+static void stop_during_alarm(bool acknowledgement) {
+    if(model.stop_injected || model.generation<4 || model.fault<77 || model.fault>79 ||
+       acknowledgement!=(model.fault>=78))return;
+    model.stop_injected=true;
+    bool synchronous=battery_service_stop(0);
+    struct battery_service_status s;battery_service_status(&s);
+    console_printf("battery-vm-smbus-stop: phase=%s generation=%u state=%u synchronous=%u\n",
+        acknowledgement?"ack":"read",model.generation,(uint64_t)s.state,(uint64_t)synchronous);
 }
 static void write_data(void *c,uint8_t v){
     (void)c;
@@ -198,6 +212,7 @@ static void write_data(void *c,uint8_t v){
         model.address=v;
         if(model.mode==0x80){
             if(v==0x20&&model.busy&&!--model.busy)model.memory[0x20]=0;
+            if(v==0x46)stop_during_alarm(false);
             model.output=model.memory[v];
             if(v==0x60&&model.fault==17&&model.generation==2&&model.ac_reads++)model.output^=2;
             model.obf=!(model.fault==68 && v==0x46);
@@ -205,7 +220,10 @@ static void write_data(void *c,uint8_t v){
         return;
     }
     model.memory[model.address]=v;
-    if(model.fault==69 && model.address==0x21)model.ack_stall=true;
+    if(model.address==0x21) {
+        stop_during_alarm(true);
+        if(model.fault==69 || (model.fault==79 && model.stop_injected))model.ack_stall=true;
+    }
     if(model.address==0x20&&v==9&&model.memory[0x22]==0x16&&model.memory[0x23]<32){
         uint16_t word=model.words[model.memory[0x23]];model.memory[0x24]=word;model.memory[0x25]=word>>8;model.busy=2;
     }
@@ -351,7 +369,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>75||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>79||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};

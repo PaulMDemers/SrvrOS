@@ -410,3 +410,19 @@ load in VM before another native coexistence trial. Pro PR19 `79132d6` remains
 independent Wi-Fi work and overlaps main/staging/tests; preserve both profiles
 and historical recipe identities. Actions remain disabled; all validation is
 local. No other machine's firmware or physical acceptance is implied.
+
+
+## Air SMBus workspace/Stop study (PR #47)
+
+Air implementation `b1e80f0` adds a VM-only mounted Text/file study with repeated
+SMBus completion and known/unknown alarms. The normal runs complete 60 edits and
+five file cycles; read/acknowledgement Stop races explicitly report interrupted
+workload with clean retirement. An uncertain acknowledgement retains containment.
+Consume the masked-drain-before-resource-check correction before duplicating the
+study. The native capture already checked after drain, and native invocation of
+the new command refuses before platform access.
+
+No native boot recipe or profile changed. The next Air scope is a parked
+exclusive-image coexistence capture with a measured event budget, first in VM.
+Native Home/startup stays off. Pro PR19 `79132d6` remains independent Wi-Fi work;
+shared scope is only separate Makefile test additions. Actions remain disabled.

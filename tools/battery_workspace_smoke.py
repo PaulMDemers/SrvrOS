@@ -8,6 +8,7 @@ import argparse,json,os,re,struct,subprocess,tempfile,time
 from pathlib import Path
 from battery_desktop_smoke import check_text_capture
 from battery_fault_records import check_fault
+from battery_smbus_workspace_records import CASES as SMBUS_CASES, check as check_smbus
 from battery_query_records import check_query,check_query_finish
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
@@ -189,9 +190,10 @@ def verify_recovery(data,serial,query=False):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=(*POLICY_FAULTS,'query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
+    parser.add_argument('--case',choices=(*SMBUS_CASES,*POLICY_FAULTS,'query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
+    (out/'result.json').unlink(missing_ok=True)
     output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-battery-workspace-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -209,10 +211,10 @@ def main():
                 'recovery-callback-outside-scope':33,'recovery-irq-mask-refusal':32,
                 'recovery-irq-target-refusal':31,'recovery-irq':30,'recovery-irq-refusal':30,
                 'recovery-owner-refusal':29,'runtime-fault':28,'recovery':28,'recovery-io':28,'recovery-refusal':28}
-        faults.update(POLICY_FAULTS)
+        faults.update(POLICY_FAULTS);faults.update(SMBUS_CASES)
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(faults.get(args.case,15))+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('query-refusal','refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else 'vm.elf')
+        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('smbus-refusal','query-refusal','refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
@@ -236,8 +238,15 @@ def main():
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
                 command=b'battery-workspace'+(b'-query' if (args.case.startswith('query-') or args.case in POLICY_FAULTS) and args.case not in ('query-outside','query-high-outside','policy-outside-high','policy-outside-os','policy-normal') else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                if args.case in SMBUS_CASES:command=b'battery-smbus-workspace'
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case in QUERY_EXPECTED:
+                if args.case=='smbus-stop-uncertain':
+                    data=wait_for(b'battery: HALTED SMBus event ',40)
+                    result=check_smbus(data,args.case)
+                    assert process.poll() is None
+                    # A live poisoned owner cannot claim filesystem cleanup.
+                    result['offline_storage']='not accepted after terminal fault'
+                elif args.case in QUERY_EXPECTED:
                     data=wait_for(b'battery-query: returning after storage drain; test outcome=returned-failure',45)
                     assert process.wait(timeout=10)==0
                     disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
@@ -323,12 +332,13 @@ def main():
                     result=dict(status='PASS',expected_failure='runtime deadline',reset_blocked=True,storage_retirement='NOT claimed',native_acceptance='not tested')
                     stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
                 else:
-                    wait_for(b'battery-recovery:' if args.case in ('recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else b'battery-workspace:',100)
+                    wait_for(b'battery-recovery:' if args.case in ('recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else b'battery-smbus-workspace:' if args.case in SMBUS_CASES else b'battery-workspace:',100)
                     serial.sendall(b'dmesg 65536\necho WORKSPACE_STUDY_END\n')
                     snapshot=wait_for(b'\nWORKSPACE_STUDY_END\r\n',15)
                     starts=list(re.finditer(rb'^WORKSPACE_STUDY_BEGIN\r?\n',snapshot,re.M));assert len(starts)==1
                     data=snapshot[starts[0].end():];(out/'boot.log').write_bytes(data)
-                    if args.case in ('normal','policy-normal'):result=check(data)
+                    if args.case in SMBUS_CASES:result=check_smbus(data,args.case)
+                    elif args.case in ('normal','policy-normal'):result=check(data)
                     elif args.case in ('refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal'):
                         assert (b'battery-recovery: REFUSED VM-only study' if args.case in ('recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else b'battery-workspace: REFUSED VM-only study') in data
                         assert b'battery-service:' not in data and b'battery-native:' not in data
@@ -341,13 +351,16 @@ def main():
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');wait_for(b'deskd: exited ')
                     serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
                     stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
-                    volume.write_bytes(disk[2048*512:]);verify_disk(volume.read_bytes(),args.case in ('normal','policy-normal'))
-                    if args.case not in ('normal','policy-normal'):assert volume.read_bytes()==bytes(fixture.data),'Read-only trial changed disk bytes'
+                    volume.write_bytes(disk[2048*512:]);verify_disk(volume.read_bytes(),args.case in ('normal','policy-normal','smbus-completion','smbus-sustained'))
+                    if args.case not in ('normal','policy-normal','smbus-completion','smbus-sustained'):assert volume.read_bytes()==bytes(fixture.data),'Read-only trial changed disk bytes'
                     (out/'fsck.txt').write_text(check_clean_image(volume))
                     allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
                     (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
                     result.update(replacement_compositor='PASS',workspace_unmount='PASS',offline_tree_metadata_allocation='PASS')
                     (out/'workspace.exfat').write_bytes(volume.read_bytes())
+                import hashlib
+                result['kernel_sha256']=hashlib.sha256(kernel.read_bytes()).hexdigest()
+                result['initramfs_sha256']=hashlib.sha256((root/'build/initramfs.tar').read_bytes()).hexdigest()
                 (out/'result.json').write_text(json.dumps(result,indent=2)+'\n');print(json.dumps(result),flush=True)
             finally:
                 (out/'serial.log').write_bytes(output);stop_process(process)

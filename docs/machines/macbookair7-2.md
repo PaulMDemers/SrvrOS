@@ -2,6 +2,40 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Completed VM SMBus/Text/file study (PR #47)
+
+Implementation `b1e80f0`, base `4ea10e1`. The VM-only mounted-workspace command
+reuses the real Text/file worker: both completion-only and mixed-alarm runs
+completed 60 generated/presented edits, five file cycles and 20 worker operations.
+The mixed run handled 31 events/15 acknowledged alarms: seven known senders
+invalidated the cache, eight unknown senders did not request refresh. Generation
+30 was fresh after the last invalidation at 28. Both runs retired all three
+clients and the service, launched a replacement compositor and passed exact
+filesystem contents/metadata, allocation and fsck checks.
+
+Directed Stop during alarm read and acknowledgement retired cleanly with a
+nonfresh stopped cache, while correctly reporting an interrupted workload.
+An uncertain acknowledgement remained halted without retirement or filesystem
+cleanup claims. Native command invocation refused before runtime activity.
+The initial read/Stop test caught the VM study checking idle resources before
+an in-flight event drained; the check now follows the existing masked worker
+drain, before disconnect. Native capture already used that ordering.
+
+Six strict-decoder tests reject missing/duplicate/torn receipts, invalid stop
+ordering, contradictory counts, false freshness and false completion. All six
+new VM cases passed. Both diagnostic builds, full build/core/documentation checks and three existing
+regressions passed: legacy late alarm, full-boot parked capture/save/reset and
+ordinary mounted Text/file workspace. The failed original fixture is retained
+with the passing results in the hash-verified archive outside `build`:
+`~/.local/share/srvros/local-validation/battery-smbus-workspace-b1e80f066271`. Pro PR19 `79132d6` remains separate
+Wi-Fi work; only independent Makefile test additions overlap.
+
+No physical stage, installed payload, reboot or hardware acceptance changed.
+Native alarms, mounted Home/startup and gauge accuracy remain unaccepted. Next:
+design an explicit parked, exclusive-image Text/file capture with sustained host
+events and a bounded event budget informed by the native completion rate; verify
+limit/stop failures in VM before a new physical trial.
+
 ### Accepted parked SMBus completion capture (PR #46)
 
 Release `a1451825851dc5f0`, source `10a4cbe`, session
