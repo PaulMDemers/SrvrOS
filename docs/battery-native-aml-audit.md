@@ -12,9 +12,9 @@ Read with the [resource audit](battery-resource-audit.md) and
 Do not treat an idle EC plus a free Global Lock as proof that arbitrary AML can
 be abandoned. Startup changes shared firmware state, `_REG(3,0)` does not undo
 those changes, and the query dispatcher can reach methods outside battery status.
-The next implementation should record operation boundaries and side effects,
-then propagate a **selected failure that returns normally** to the service owner.
-It must first pass disposable VM tests; native admission remains a separate step.
+The returned-query VM study records operation boundaries and side effects, then
+propagates a **selected failure that returns normally** to the service owner.
+Its model-only scope is described below; native admission remains a separate step.
 
 Keep namespace-load, connection, initialization, disconnect, partial EC/SMBus,
 firmware-lock waits and arbitrary interpreter faults terminal for now. Do not
@@ -130,9 +130,10 @@ be added without a shared-resource owner.
 
 ## All captured EC query methods
 
-Every nonzero QR_EC response currently constructs `_Qxx` and calls
-`uacpi_execute_simple`. Missing methods and errors are terminal. No method-class
-admission or side-effect ledger exists yet. QR_EC itself consumes a controller
+Outside the explicit VM study, every nonzero QR_EC response constructs `_Qxx`
+and calls `uacpi_execute_simple`. Missing methods and errors remain terminal.
+The study adds a model-only predispatch policy and whole-batch effect receipt;
+there is no native method-class admission yet. QR_EC itself consumes a controller
 query; declining its AML method cannot be described as replaying or undoing it.
 
 | Code | Intended Darwin behavior | Other effects / exclusion |
@@ -153,7 +154,7 @@ previous failure. Supporting it needs an explicit GPU/power ownership decision,
 not a wider address allowlist. Notification delivery is asynchronous; normal
 method return does not by itself prove the work queue is empty.
 
-## Normal-return boundary selected for the next implementation
+## Normal-return boundary and VM study
 
 The first candidate is a **ready service's controlled query-admission failure**
 after QR_EC completed and before unapproved AML starts. Start in the VM backend.
@@ -209,3 +210,74 @@ hardware meaning. There is no firmware lease for GNVS/CLID/GPIO, no rollback for
 ECSS, and no guarantee that FACS remains free after a snapshot. Those limits are
 why this milestone produces a narrow next experiment instead of enabling native
 recovery or ordinary desktop battery startup.
+
+
+## Implemented VM contract
+
+`acpiruntime battery-workspace-query` admits only the disposable VM backend and
+requires a mounted workspace with no image lease or existing battery owner.
+The native backend refuses before platform access. The model admits `_Q20` only;
+this is deliberately **not** the nine-method native firmware policy above.
+
+A receipt spans the whole query batch, including reschedules. It records sequence,
+sample generation, last query code, completed transport, AML calls/normal returns,
+attempted EC-region/MMIO/I/O writes and the worker completion count at refusal.
+An unsupported nonzero query is consumed but never dispatched. The worker masks
+sources, closes query/sample admission, marks the cache faulted and returns
+normally. It does not free its own interpreter or abandon its stack. Earlier
+notification work remains queued for normal delivery. The current notification
+handler only records delivery; it never invokes AML or EC I/O. Adding callback
+side effects requires extending this receipt boundary before using the study as
+recovery evidence. PCI writes remain denied, and firmware Global Lock ownership
+is checked separately from the write ledger.
+
+The service owner drains the worker, checks that its completion count advanced,
+requires equal AML calls/returns and zero attempted shared writes for the batch,
+and verifies queue, source and existing external-resource invariants. A receipt
+is not a hardware lease. An active Global Lock, poisoned EC, incomplete protocol,
+shared write or failed drain still enters terminal containment. Then the owner
+uses the existing disconnect/interpreter/worker/mode/event close sequence. A
+failure in that sequence is terminal, never reported as clean retirement.
+
+The resulting cache remains `FAULTED` with the existing containment error and a
+stale last valid sample. Retirement does not mean the rejected query succeeded.
+The study holds an unrelated storage scope across both battery threads' normal
+returns and checks both flushes before saving failure logs, unmounting and
+resetting automatically. It does not simulate pending DMA or physical gestures.
+
+The queued-notification fixture exposed a scheduling gap after `runtime_close`
+cleared `engaged` but before the owner finished reporting retirement. Service I/O
+eligibility now lasts through an explicit final bookkeeping phase. It ends when
+the service owner is released and is cleared before admitting a new lifetime. The study forces a yield at that
+exact point to avoid a timing-dependent pass.
+
+Run sequentially through `tools/host-env.sh` after building both battery kernels,
+matched userspace and the host allocation checker:
+
+```sh
+make test-battery-query
+python3 tools/battery_workspace_smoke.py --case query-unknown
+python3 tools/battery_workspace_smoke.py --case query-high
+python3 tools/battery_workspace_smoke.py --case query-notify
+python3 tools/battery_workspace_smoke.py --case query-effects
+python3 tools/battery_workspace_smoke.py --case query-lock
+python3 tools/battery_workspace_smoke.py --case query-transport
+python3 tools/battery_workspace_smoke.py --case query-disconnect
+python3 tools/battery_workspace_smoke.py --case query-refusal
+python3 tools/battery_workspace_smoke.py --case query-outside
+python3 tools/battery_workspace_smoke.py --case query-high-outside
+```
+
+The first three require matching live/saved receipts, a faulted nonfresh cache,
+normal resource retirement, foreign-event restoration, storage continuation,
+automatic reset and exact tree/metadata/allocation/fsck checks. The effect, lock,
+transport, disconnect and out-of-scope cases require expected VM halts with no
+false retirement/save/reset claims. The high-code fixture contains a real `_Q80`
+method that writes a denied port: the study refuses before dispatch, while the
+ordinary command reaches the write and halts. The harness terminates those disposable VMs
+and preserves their disks as interrupted evidence. Native admission refusal must
+leave the image byte-identical. This does not change physical test return policy.
+
+Next native prerequisites remain an exact firmware/OS-state query policy and
+an automatic parked-workspace capture prepared through the normal staging and
+recovery process. Native mounted Home and automatic startup remain off.

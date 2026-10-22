@@ -97,8 +97,8 @@ These are Q35/model tests, not physical firmware contention tests.
 
 1. Use the completed [native AML side-effect map](battery-native-aml-audit.md)
    for setup, `_REG`, `_INI`, all nine captured `_Qxx` methods and disconnect.
-   It selects a controlled predispatch failure after a completed query exchange
-   as the next VM experiment; shared writes and partial setup remain excluded.
+   The controlled predispatch VM study returns a completed query failure through
+   normal worker/owner retirement; shared writes and partial setup remain excluded.
 2. Establish a native policy for faults during each external protocol. A stalled
    EC/SMBus exchange or firmware lock wait cannot be solved by masking SCI and
    retaining a thread. Keep these terminal unless bounded recovery is demonstrated.

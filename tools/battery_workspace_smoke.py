@@ -8,6 +8,7 @@ import argparse,json,os,re,struct,subprocess,tempfile,time
 from pathlib import Path
 from battery_desktop_smoke import check_text_capture
 from battery_fault_records import check_fault
+from battery_query_records import check_query,check_query_finish
 from desktop_foundation_smoke import QMP
 from displayd_frame_smoke import stop_process
 from displayd_resolution_smoke import build_iso,read_for
@@ -124,25 +125,29 @@ def check_resource_refusal(data,case):
                 resource_blockers=values[-1],native_acceptance='not tested')
 
 
-def verify_recovery(data,serial):
-    live=check_recovery(serial)
+def verify_recovery(data,serial,query=False):
+    parse=check_query if query else check_recovery
+    live=parse(serial)
+    if query:check_query_finish(serial)
     image=ExfatFixture(data)
     assert {n for n,_ in image.entries(image.chain(image.root))}=={'srvros-work','battery-study','.srvros'}
     assert {n for n,_ in image.entries(image.read('srvros-work'))}=={'.workspace','anchor.txt','Logs'}
     assert image.read('srvros-work/.workspace')==MARKER and image.read('srvros-work/anchor.txt')==ANCHOR
     names={n for n,_ in image.entries(image.read('battery-study'))}
     assert 'anchor.txt' in names and image.read('battery-study/anchor.txt')==ANCHOR
-    if not live['io_at_quarantine']:assert names-{'anchor.txt'}
+    if query:assert names=={'anchor.txt'}
+    elif not live['io_at_quarantine']:assert names-{'anchor.txt'}
     assert names<={'anchor.txt','text-draft.txt',*(f'text-{i}.txt' for i in range(1,6))}
     for name in names-{'anchor.txt'}:assert image.read('battery-study/'+name)==b'AA'
     sessions=[n for n,_ in image.entries(image.read('srvros-work/Logs'))];assert len(sessions)==1
     directory='srvros-work/Logs/'+sessions[0]
     assert {n for n,_ in image.entries(image.read(directory))}=={'boot.log','exit.log'}
-    saved=image.read(directory+'/exit.log');result=check_recovery(saved)
+    saved=image.read(directory+'/exit.log');result=parse(saved)
     assert live==result
-    assert serial.count(b'battery-recovery: saved=yes unmounted=yes; runtime_retired=NO')==1
-    assert serial.index(b'workspace: unmounted; USB writes disabled')<serial.index(b'battery-recovery: returning after storage drain')
-    assert b'battery-recovery: held=yes' in image.read(directory+'/boot.log')
+    prefix=b'battery-query:' if query else b'battery-recovery:'
+    assert serial.count(prefix+b' saved=yes unmounted=yes; runtime_retired='+ (b'yes' if query else b'NO'))==1
+    assert serial.index(b'workspace: unmounted; USB writes disabled')<serial.index(prefix+b' returning after storage drain')
+    assert (b'battery-query: state=' if query else b'battery-recovery: held=yes') in image.read(directory+'/boot.log')
     # Validate all metadata against the actual tree, including log directories.
     paths={'/work':True}
     def walk(folder,depth=0):
@@ -170,7 +175,7 @@ def verify_recovery(data,serial):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
+    parser.add_argument('--case',choices=('query-unknown','query-high','query-notify','query-effects','query-lock','query-transport','query-disconnect','query-refusal','query-outside','query-high-outside', 'normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -185,14 +190,14 @@ def main():
         mbr=bytearray(512);mbr[450]=7
         struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        faults={'recovery-resource-api':38,'recovery-resource-aml':39,'recovery-resource-ec':40,'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
+        faults={'query-unknown':41,'query-high':42,'query-notify':43,'query-effects':44,'query-lock':45,'query-transport':46,'query-disconnect':47,'query-refusal':41,'query-outside':41,'query-high-outside':42,'recovery-resource-api':38,'recovery-resource-aml':39,'recovery-resource-ec':40,'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
                 'recovery-callback-target-refusal':34,'recovery-callback-lock-refusal':35,
                 'recovery-callback-outside-scope':33,'recovery-irq-mask-refusal':32,
                 'recovery-irq-target-refusal':31,'recovery-irq':30,'recovery-irq-refusal':30,
                 'recovery-owner-refusal':29,'runtime-fault':28,'recovery':28,'recovery-io':28,'recovery-refusal':28}
         (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(faults.get(args.case,15))+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
-        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else 'vm.elf')
+        kernel=root/'build/acpi-battery'/('srvros.elf' if args.case in ('query-refusal','refusal','recovery-refusal','recovery-irq-refusal','recovery-callback-refusal','recovery-target-refusal') else 'vm.elf')
         iso=build_iso(str(root),str(tmp),1280,800,os.environ.copy(),kernel,root/'build/initramfs.tar')
         cmd=['qemu-system-x86_64','-M','q35','-m','512M','-cdrom',iso,'-boot','d','-nic','none',
              '-acpitable',f'file={tmp}/battery.aml','-serial',f'unix:{tmp}/serial,server=on,wait=off',
@@ -215,9 +220,39 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-query' if args.case.startswith('query-') and args.case not in ('query-outside','query-high-outside') else b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case.startswith('recovery-resource-'):
+                if args.case in ('query-unknown','query-high','query-notify'):
+                    data=wait_for(b'battery-query: returning after storage drain; test outcome=returned-failure',45)
+                    assert process.wait(timeout=10)==0
+                    disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
+                    volume.write_bytes(disk[2048*512:]);result=verify_recovery(volume.read_bytes(),data,query=True)
+                    assert result['code']==(128 if args.case=='query-high' else 255)
+                    assert result['notifications_drained']==int(args.case=='query-notify')
+                    (out/'fsck.txt').write_text(check_clean_image(volume))
+                    allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
+                    (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0
+                    result.update(automatic_reset=True,offline_allocation='PASS')
+                    (out/'workspace.exfat').write_bytes(volume.read_bytes())
+                elif args.case in ('query-effects','query-lock','query-transport','query-disconnect','query-outside','query-high-outside'):
+                    reason={'query-effects':b'query return receipt','query-lock':b'recovery resources retained',
+                            'query-transport':b'query transport','query-disconnect':b'EC disconnect','query-outside':b'query AML','query-high-outside':b'query AML'}[args.case]
+                    data=wait_for(b'battery: HALTED '+reason,45)
+                    for forbidden in (b'battery-service: retired ',b'battery-query: saved=',b'battery-query: returning',b'battery-quarantine:',b'battery-query: state=',b'contained fault; returning'):
+                        assert forbidden not in data
+                    if args.case=='query-effects':assert b'effects=1 ' in data and b'aml_calls=1 aml_returns=1' in data
+                    if args.case=='query-lock':assert b'api=1 aml=0 mutex=1 pending=0 facs=2 blocked=96' in data
+                    output.extend(read_for(serial,1));assert process.poll() is None
+                    stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
+                    result=dict(status='PASS',expected_failure=args.case,automatic_reset=False,storage_retirement='NOT claimed',native_acceptance='not tested')
+                elif args.case=='query-refusal':
+                    data=wait_for(b'battery-query: REFUSED VM-only study')
+                    assert b'battery-service:' not in data and b'battery-native:' not in data
+                    serial.sendall(b'workspace unmount\n');wait_for(b'workspace: unmounted; USB writes disabled')
+                    stop_process(process);disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
+                    assert disk[2048*512:]==bytes(fixture.data)
+                    result=dict(status='PASS',native_study_admission='refused before runtime',unchanged_disk=True)
+                elif args.case.startswith('recovery-resource-'):
                     data=wait_for(b'battery: HALTED recovery resources retained',90)
                     result=check_resource_refusal(data,args.case)
                     output.extend(read_for(serial,1));assert process.poll() is None

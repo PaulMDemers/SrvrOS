@@ -32,6 +32,8 @@ struct battery_platform {
     void (*model_owner_irq)(void);
     /* VM-only pause after a real EC transport poll, with its lease still held. */
     void (*model_transfer_wait)(void);
+    /* VM-only fault at the completed query exchange boundary; native NULL. */
+    void (*model_query_checkpoint)(uint8_t code);
     uint64_t rsdp,facs;
     uint16_t original_control;
 };

@@ -320,3 +320,21 @@ Native mounted Home and automatic startup remain off. Pro PR #19 at `e871a1e8`
 is independent Wi-Fi work; this audit has no code overlap. Raw firmware stays
 machine-local. Other agents should consume the contracts, not copy Air firmware
 fingerprints or acceptance.
+
+
+## Air returned-query study handoff (PR #42)
+
+The explicit Q35 `battery-workspace-query` command now propagates an unsupported
+query as a normal worker return, drains notifications and retires the failed
+service through its existing close path. Reuse the batch receipt and resource
+checks; do not infer safe native recovery from them. Partial shared writes,
+retained firmware locks, poisoned protocols and failed disconnect still halt.
+The study also fixes final owner bookkeeping eligibility during unrelated storage
+I/O, with a forced yield after close to prevent a timing-dependent pass.
+
+The VM admits only `_Q20`; native query behavior and model gates are unchanged.
+Native mounted Home/startup remain off. Next Air scope is the exact captured
+firmware/OS-state admission policy before another parked-workspace native capture.
+Pro PR #19 at `faed5b7` retains independent Wi-Fi scope; only separate Makefile
+test targets overlap. Local tests replace disabled Actions. No hardware acceptance
+or installed payload changed in this milestone.
