@@ -3435,3 +3435,13 @@ test-mt76-firmware: build/tests/mt76-firmware-host$(HOST_EXE)
 build/tests/mt76-firmware-host$(HOST_EXE): tools/test_mt76_firmware.c kernel/src/initramfs.c kernel/src/sha256.c kernel/src/drivers/mt76_firmware.c kernel/src/drivers/mt76_probe.c kernel/include/srvros/sha256.h kernel/include/srvros/mt76_bringup.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< kernel/src/initramfs.c kernel/src/sha256.c kernel/src/drivers/mt76_firmware.c kernel/src/drivers/mt76_probe.c -o $@
+
+.PHONY: test-mt76-mcu test-wifi-channel-policy
+test-core: test-mt76-mcu test-wifi-channel-policy
+test-wifi-channel-policy:
+	$(PYTHON) tools/test_wifi_channel_policy.py
+test-mt76-mcu: build/tests/mt76-mcu-host$(HOST_EXE)
+	$<
+build/tests/mt76-mcu-host$(HOST_EXE): tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c kernel/include/srvros/mt76_mcu.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include tools/test_mt76_mcu.c kernel/src/drivers/mt76_mcu.c -o $@

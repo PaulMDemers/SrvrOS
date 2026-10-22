@@ -2113,3 +2113,24 @@ regulatory band edges/flags, calibration refusal, duplicate records and lower-ca
 selection. Calibration/firmware audit regressions also pass (12 tests). No native
 policy installed or reboot armed. Next: bounded native RF/receive initialization
 and power programming validation before any active scan.
+
+Next scope: native MCU command wire codec, required before radio initialization.
+Add freestanding bounded packet encoding and response correlation with host tests;
+no hardware commands or RF enables in this checkpoint. Linuxv6.18 mt76x02 USB
+command framing is the reference. Fetch shows main3c47b50 (merged battery PR49);
+inspected scope does not overlap this new driver module. Device branch still
+uses598fe27 integration baseline; no blind integration of capture-profile changes.
+Dependencies: exclusive bounded USB command transport, native calibration/power
+and RF tables remain unimplemented. No physical run or reboot armed.
+
+MCU prerequisite implemented: bounded freestanding packet codec and serialized
+non-reusing15-command diagnostic session. No xHCI command transport connection or
+radio initialization is claimed. Tests cover independently specified wire bytes,
+every payload length1–192, output canaries/padding, insufficient capacity,
+invalid fields, response bounds, outstanding-command exclusion, sequence
+exhaustion and uncertain/mismatched completion poisoning. Host and ASan/UBSan
+checks pass; US policy tests are now included in test-core. Next checkpoint is
+native command transport and saved response evidence, before RF initialization.
+No payload installed, USB adapter disturbed or reboot armed by this work.
+Full kernel build and existing preparation/upload/bring-up/xHCI regressions pass;
+documentation link checks pass. Native evidence remains firmware readiness only.

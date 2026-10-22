@@ -507,3 +507,28 @@ as dBm. Snapshots are historical reference evidence, not proof of current native
 radio constraints. This tool neither changes the driver nor authorizes active
 scan. Native RF initialization, validated power programming and native regulatory
 enforcement remain required before transmission.
+
+### Native MCU command prerequisite
+
+The freestanding `mt76_mcu` module provides bounded command framing and response
+field decoding, based on Linuxv6.18
+[USB framing](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_core.c)
+and [MCU command transport](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_usb_mcu.c).
+It emits little-endian CPU-port headers, four-byte payload alignment and zero
+trailer, with a192-byte payload ceiling. It does not authorize command IDs.
+Response decoding is explicitly not completion validation: event meanings,
+reported length and command-specific bodies still require a validated contract.
+
+The session helper serializes commands and refuses sequence reuse after15 issued
+commands. Failed or mismatched retirement poisons the session; an uncertain
+transfer cannot be retried simply by clearing the struct. A future transport must
+retain DMA on uncertainty and prove endpoint teardown/draining before starting a
+new session. This deliberately limited diagnostic model is not yet a sustained
+radio command scheduler. No MCU transport is connected to it and no RF registers
+are changed. Native endpoint ownership, command-response capture, initialization
+tables and calibration/power programming remain pending.
+
+`make test-mt76-mcu test-wifi-channel-policy` checks command framing, all payload
+lengths and padding, capacity refusal, malformed response bounds, sequence
+exhaustion, stale completion and poisoned-session behavior, plus the offline
+country/channel policy. Both targets participate in `test-core`.
