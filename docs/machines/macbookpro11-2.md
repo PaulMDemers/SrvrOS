@@ -2475,3 +2475,15 @@ tests and docs checks passed. Transport tests cover ordered submissions,
 prior-batch completion, exact packet mutations, read scope, stale events and
 retained-DMA quarantine. Preparing firmwarev8 exact-stage VM and hardware trial;
 new register responses/readbacks are still physically unaccepted.
+
+MAC basics native trial source facb862, release190ab5353ae2f8b6, firmwarev8:
+exact-stage GPT save/unmount/return and missing-workspace return VM checks passed.
+Installed unarmed with Ubuntu default and e47dca3a6b30c6c1 recovery preserved;
+accepted timing engine0c12150fc75d830c retained. Prior201acb491eb09532 payload
+removed from ESP only after matching its durable archive byte-for-byte.
+Workspace preboot filesystem/allocation checks passed. Payload, VM receipts,
+local checks and run record archived outside build in wifi-mac-native-facb862.
+Next cold trial requires Wi-Fi disconnected for10 seconds while off, then
+reconnected before power-on; workspace stays attached. Automatic log saving and
+return enabled. Accept only both unique replies, all four exact readbacks, MAC0
+and completion markers; RF/connectivity remain pending.
