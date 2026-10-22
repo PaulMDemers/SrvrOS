@@ -4,9 +4,29 @@ from serial_records import complete_lines
 from battery_controls_smoke import check as check_controls
 
 
+def check_hold(data, guarded=True):
+    data=complete_lines(data.replace(b'\r\n',b'\n'))
+    acquired=list(re.finditer(rb'^battery-workspace-hold: acquired token=([1-9][0-9]*)$',data,re.M))
+    released=list(re.finditer(rb'^battery-workspace-hold: released token=([1-9][0-9]*)$',data,re.M))
+    guards=list(re.finditer(rb'^battery-workspace-hold: guarded token=([1-9][0-9]*) unmount=blocked scratch=blocked image=blocked$',data,re.M))
+    assert len(acquired)==len(released)==1 and acquired[0][1]==released[0][1]
+    if guarded is not None:assert len(guards)==int(guarded)
+    else:assert len(guards)<=1
+    assert data.count(b'battery-workspace-hold:')==2+len(guards)
+    begin=data.find(b'battery-workspace-controls: begin')
+    end=data.find(b'battery-workspace-controls: complete=')
+    assert begin>=0 and end>=0
+    assert acquired[0].start()<begin<end<released[0].start()
+    for guard in guards:
+        assert guard[1]==acquired[0][1] and begin<guard.start()<end
+        assert 0<=data.find(b'battery-control: dispatched')<guard.start()<data.find(b'battery-service: retired')
+    return int(acquired[0][1])
+
+
 def check(data, serial_base=0, epoch_base=0):
     data=complete_lines(data.replace(b'\r\n',b'\n'))
     result=check_controls(data,serial_base,epoch_base)
+    token=check_hold(data)
     begin=b'battery-workspace-controls: begin mounted=yes native=disabled'
     end=f'battery-workspace-controls: complete=yes epoch={epoch_base+2} state=4; revoked=yes retired=yes mounted=yes native=disabled'.encode()
     assert data.count(b'battery-workspace-controls:')==2 and data.count(begin)==data.count(end)==1
@@ -45,5 +65,5 @@ def check(data, serial_base=0, epoch_base=0):
     for bad in (b'battery: HALTED',b'battery: FAILED',b'battery-smbus: FAILED',b'workspace: unmounted',b'battery-query-policy:'):
         assert bad not in data
     result.pop('physical_acceptance',None)
-    result.update(events=total,alarms=alarm_total,mounted_lifetimes=2,native_acceptance='disabled')
+    result.update(events=total,alarms=alarm_total,mounted_lifetimes=2,mount_token=token,native_acceptance='disabled')
     return result

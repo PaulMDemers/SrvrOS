@@ -11,7 +11,8 @@ def fixture():
         resources=b'battery-recovery-resources: known=1 lease=0 ec_phase=6 poison=0 sample=0 waiting=0 smbus=0 api=0 aml=0 mutex=0 pending=0 facs=0 blocked=0\n'
         summary=f'battery-controls-events: epoch={epoch} events=3 alarms=0 acknowledgements=0 unknown=0 invalid_through=0 generation=2; drained=yes\n'.encode()
         data=data.replace(row,events+resources+summary+row)
-    return b'battery-workspace-controls: begin mounted=yes native=disabled\n'+data+b'battery-workspace-controls: complete=yes epoch=2 state=4; revoked=yes retired=yes mounted=yes native=disabled\n'
+    data=data.replace(b'battery-ui: sampled cycle=1',b'battery-workspace-hold: guarded token=1 unmount=blocked scratch=blocked image=blocked\n'+b'battery-ui: sampled cycle=1')
+    return b'battery-workspace-hold: acquired token=1\nbattery-workspace-controls: begin mounted=yes native=disabled\n'+data+b'battery-workspace-controls: complete=yes epoch=2 state=4; revoked=yes retired=yes mounted=yes native=disabled\nbattery-workspace-hold: released token=1\n'
 
 
 class Records(unittest.TestCase):
@@ -32,7 +33,7 @@ class Records(unittest.TestCase):
     def test_missing_duplicate_torn_receipts(self):
         data=fixture()
         for row in data.splitlines(keepends=True):
-            if not row.startswith((b'battery-workspace-controls:',b'battery-controls-events:',b'battery-smbus:',b'battery-recovery-resources:')):continue
+            if not row.startswith((b'battery-workspace-hold:',b'battery-workspace-controls:',b'battery-controls-events:',b'battery-smbus:',b'battery-recovery-resources:')):continue
             for bad in (data.replace(row,b'',1),data+row,data.replace(row,row[:-2]+b'\n',1)):
                 with self.subTest(row=row),self.assertRaises(AssertionError):check(bad)
 
@@ -47,5 +48,16 @@ class Records(unittest.TestCase):
         resource=next(r for r in data.splitlines(keepends=True) if r.startswith(b'battery-recovery-resources:'))
         bad=data.replace(resource,b'',1).replace(b'battery-smbus: event=1',resource+b'battery-smbus: event=1',1)
         with self.assertRaises(AssertionError):check(bad)
+
+    def test_stale_identity_and_early_release(self):
+        data=fixture()
+        release=b'battery-workspace-hold: released token=1\n'
+        for bad in (data.replace(b'released token=1',b'released token=2'),
+                    data.replace(b'guarded token=1',b'guarded token=2'),
+                    data.replace(b'token=1',b'token=0'),
+                    data.replace(b'scratch=blocked',b'scratch=allowed'),
+                    release+data.replace(release,b''),
+                    data.replace(release,b'').replace(b'battery-controls: PASS',release+b'battery-controls: PASS')):
+            with self.subTest(bad=bad),self.assertRaises(AssertionError):check(bad)
 
 if __name__=='__main__':unittest.main()

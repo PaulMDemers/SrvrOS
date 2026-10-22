@@ -72,6 +72,7 @@ static enum runtime_owner owner;
 static bool auto_return;
 static bool recovery_study;
 static bool query_study,query_capture,smbus_study,smbus_capture,smbus_files,smbus_controls;
+static uint64_t smbus_workspace_hold;
 static struct battery_service_status smbus_files_snapshot;
 static struct block_device *query_capture_volume;
 static bool query_tracking(void) { return query_study || query_capture; }
@@ -87,7 +88,8 @@ static bool smbus_capture_parked(void) {
         (smbus_files?workspace_image_ready():!workspace_image_busy() && !scheduler_io_active());
 }
 static bool smbus_owned(void) {
-    return (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed()) ||
+    return (smbus_study && runtime.platform.model_smbus_queries && battery_platform_workspace_study_allowed() &&
+        (smbus_workspace_hold?workspace_mount_hold_valid(smbus_workspace_hold):!workspace_active())) ||
         (smbus_capture_parked() && runtime.platform.smbus_capture_profile &&
          runtime.platform.query_policy==BATTERY_QUERY_AIR72);
 }
@@ -1493,6 +1495,25 @@ static bool desktop_children_stop(struct desktop_tree *t,bool kill) {
     }
     return !live;
 }
+/* Explicit VM diagnostics exercise the storage boundary while the runtime is
+ * active. These refusals must precede even scratch-file allocation or sync. */
+static void mounted_study_guard(void) {
+    if(!workspace_mount_hold_valid(smbus_workspace_hold) || workspace_unmount() ||
+       workspace_scratch_prepare() || workspace_image_open() ||
+       !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("mounted workspace hold");
+    console_printf("battery-workspace-hold: guarded token=%u unmount=blocked scratch=blocked image=blocked\n",smbus_workspace_hold);
+}
+static bool mounted_study_acquire(void) {
+    if(smbus_workspace_hold)return false;
+    smbus_workspace_hold=workspace_mount_hold_acquire();
+    if(!smbus_workspace_hold)return false;
+    console_printf("battery-workspace-hold: acquired token=%u\n",smbus_workspace_hold);return true;
+}
+static void mounted_study_release(void) {
+    if(!workspace_mount_hold_release(smbus_workspace_hold))unsafe("mounted workspace release");
+    console_printf("battery-workspace-hold: released token=%u\n",smbus_workspace_hold);
+    smbus_workspace_hold=0;
+}
 static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned fault,bool text,bool filesystem,bool appfiles,bool workspace) {
     const char *failure="workspace mounted";
     struct battery_service_status before={0},after={0};
@@ -1502,7 +1523,8 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
     struct desktop_tree tree={0};
     if(workspace) {
         failure="workspace VM admission";
-        if(!battery_platform_workspace_study_allowed() || !workspace_active() || workspace_image_busy())goto done;
+        if(!battery_platform_workspace_study_allowed() || !workspace_active() || workspace_image_busy() ||
+           (smbus_study && !workspace_mount_hold_valid(smbus_workspace_hold)))goto done;
     } else if(workspace_active())goto done;
     if(filesystem || (appfiles && !workspace)) {
         failure="filesystem preparation";
@@ -1520,6 +1542,7 @@ static bool desktop_test(void *rsdp,struct limine_memmap_response *map,unsigned 
         }
         uacpi_kernel_sleep(10);
     }
+    if(workspace && smbus_study)mounted_study_guard();
     failure="desktop spawn";
     int64_t child=process_spawn_background_elf_args(fault==1?"/fat/bin/missing-coexist":"/fat/bin/deskd",workspace?"--coexist-workspace":appfiles?"--coexist-files":text?"--coexist-text":"--coexist-capture");
     if(child<=0)goto done;
@@ -1606,7 +1629,7 @@ done:
 /* Scope lasts for this desktop process group only. Native controls require
  * parked storage; mounted studies remain VM-only. No userspace firmware owner. */
 static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool automatic,bool workspace) {
-    if(workspace?(!battery_platform_workspace_study_allowed() || !workspace_active() || workspace_image_busy()):workspace_active())return false;
+    if(workspace?(!battery_platform_workspace_study_allowed() || !workspace_mount_hold_valid(smbus_workspace_hold) || workspace_image_busy()):workspace_active())return false;
     uint64_t f=irq_save();bool free=owner==OWNER_NONE && !controls.group;irq_restore(f);
     if(!free)return false;
     int64_t child=process_spawn_background_elf_args("/fat/bin/deskd",automatic?"--battery-controls":"--battery-controls-manual");
@@ -1615,9 +1638,16 @@ static bool controls_test(void *rsdp,struct limine_memmap_response *map,bool aut
     struct battery_service_status before;battery_service_status(&before);
     struct desktop_tree tree={.pids={pid},.count=1};
     f=irq_save();bool bound=process_group(pid)==pid && battery_control_bind(&controls,pid);irq_restore(f);
-    uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false;
+    uint64_t deadline=timer_monotonic_us()+110000000;bool reaped=false,ok=false,guarded=false;
     if(bound)for(;;) {
+        if(workspace && !workspace_mount_hold_valid(smbus_workspace_hold))unsafe("control workspace identity");
         desktop_tree_scan(&tree);controls_dispatch(rsdp,map);
+        if(workspace && !guarded) {
+            struct battery_service_status state;battery_service_status(&state);
+            if(state.state==BATTERY_SERVICE_ACTIVE && (state.flags&BATTERY_CACHE_FRESH)) {
+                mounted_study_guard();guarded=true;
+            }
+        }
         if(process_wait(pid,&status,true)==(int64_t)pid){reaped=true;ok=status==0;break;}
         if(timer_monotonic_us()>=deadline)break;
         uacpi_kernel_sleep(10);
@@ -1944,6 +1974,7 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
        query_study || query_capture || owner!=OWNER_NONE || !workspace_active() || workspace_image_busy()) {
         console_write("battery-smbus-workspace: REFUSED VM-only mounted study\n");return;
     }
+    if(!mounted_study_acquire()){console_write("battery-smbus-workspace: REFUSED mount hold\n");return;}
     smbus_study=true;
     bool complete=desktop_test(rsdp,map,0,true,false,true,true);
     struct battery_service_status final;battery_service_status(&final);
@@ -1951,12 +1982,13 @@ static void smbus_workspace_test(void *rsdp,struct limine_memmap_response *map) 
         !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
         runtime.attached && runtime.attached==runtime.detached &&
         final.state==BATTERY_SERVICE_STOPPED && final.error==BATTERY_SERVICE_OK &&
-        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING));
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_mount_hold_valid(smbus_workspace_hold);
     console_printf("battery-smbus-workspace: outcome=%s events=%u alarms=%u acknowledgements=%u unknown=%u invalid_through=%u generation=%u state=%u error=%u fresh=%u; retired=%s native=disabled\n",
         complete?"complete":"interrupted",runtime.smbus_events,runtime.smbus_alarms,runtime.smbus_acks,
         runtime.smbus_unknown,runtime.smbus_invalid_through,final.sample.generation,
         (uint64_t)final.state,(uint64_t)final.error,(uint64_t)!!(final.flags&BATTERY_CACHE_FRESH),retired?"yes":"NO");
     if(!retired)unsafe("SMBus workspace retirement");
+    mounted_study_release();
     smbus_study=false;
 }
 /* Mounted lifecycle admission is disposable-VM-only. Its terminal fault path
@@ -1966,16 +1998,18 @@ static void workspace_controls_test(void *rsdp,struct limine_memmap_response *ma
        smbus_study || smbus_capture || query_study || query_capture || owner!=OWNER_NONE || controls.group) {
         console_write("battery-workspace-controls: REFUSED VM-only mounted study\n");return;
     }
+    if(!mounted_study_acquire()){console_write("battery-workspace-controls: REFUSED mount hold\n");return;}
     smbus_study=true;smbus_controls=true;
     console_write("battery-workspace-controls: begin mounted=yes native=disabled\n");
     bool complete=controls_test(rsdp,map,automatic,true);
     struct battery_service_status final;battery_service_status(&final);
     bool retired=owner==OWNER_NONE && !controls.group && !service.running && !service.quarantined &&
         !runtime.engaged && !runtime.heap && !runtime.errors && !runtime.denied &&
-        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_active() && !workspace_image_busy();
+        !(final.flags&(BATTERY_CACHE_FRESH|BATTERY_CACHE_SAMPLING)) && workspace_mount_hold_valid(smbus_workspace_hold) && !workspace_image_busy();
     console_printf("battery-workspace-controls: complete=%s epoch=%u state=%u; revoked=%s retired=%s mounted=%s native=disabled\n",
         complete?"yes":"NO",final.epoch,(uint64_t)final.state,controls.group?"NO":"yes",retired?"yes":"NO",workspace_active()?"yes":"NO");
     if(!retired)unsafe("workspace controls retirement");
+    mounted_study_release();
     smbus_controls=false;smbus_study=false;
 }
 void acpi_runtime_test_command(const char *args) {

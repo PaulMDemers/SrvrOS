@@ -9,7 +9,7 @@ from serial_records import complete_lines
 from vm_sockets import connect_unix
 from battery_desktop_smoke import chord
 
-from battery_workspace_controls_records import check
+from battery_workspace_controls_records import check,check_hold
 from exfat_test_image import ExfatFixture,check_clean_image
 
 def main():
@@ -50,6 +50,14 @@ def main():
                     output.extend(mounted);assert b'workspace: ready at /work/srvros-work' in mounted
                 results=[]
                 for trial in range(2 if args.case=='normal' else 1):
+                    if trial:
+                        # A subsequent session must acquire a new lifetime even
+                        # when the same USB device and UUID are mounted again.
+                        serial.sendall(b'workspace unmount\nworkspace mount 51525354\n')
+                        remount=bytearray();due=time.monotonic()+15
+                        while b'workspace: ready at /work/srvros-work' not in remount and time.monotonic()<due:remount.extend(read_for(serial,.1))
+                        output.extend(remount)
+                        assert b'workspace: unmounted; USB writes disabled' in remount and b'workspace: ready at /work/srvros-work' in remount
                     begin=f'BATTERY_CONTROL_TRIAL_{trial}'.encode()
                     serial.sendall(b'echo '+begin+b'\n');marker=bytearray();due=time.monotonic()+5
                     while b'srv> ' not in marker and time.monotonic()<due:marker.extend(read_for(serial,.1))
@@ -109,6 +117,8 @@ def main():
                         assert b'contained fault; returning' not in data and b'workspace: unmounted' not in data
                         assert b'battery-workspace-controls: complete=' not in data
                         assert b'battery-controls: PASS' not in data and b'; retired=yes' not in data
+                        assert b'battery-workspace-hold: acquired token=1' in data
+                        assert b'battery-workspace-hold: released' not in data
                         result=dict(status='PASS',expected='live fault contained; no clean retirement claimed',automatic_reset=False,storage_retirement='NOT claimed')
                     elif args.case in ('refusal','unmounted-refusal'):
                         assert b'battery-workspace-controls: REFUSED VM-only mounted study' in data
@@ -121,7 +131,11 @@ def main():
                         if args.case=='early-exit':assert b'battery-service: retired epoch=1' in data
                         if args.case=='profile-refusal':assert b'battery-smbus-study: REFUSED model ownership profile' in data and b'battery-smbus: event=' not in data
                         result=dict(status='PASS',expected=args.case,scope_revoked=True)
-                if args.case=='normal':result=dict(status='PASS',runs=results)
+                    if args.case in ('manual','early-exit','profile-refusal'):
+                        result['mount_token']=check_hold(data,True if args.case=='manual' else False if args.case=='profile-refusal' else None)
+                if args.case=='normal':
+                    assert [r['mount_token'] for r in results]==[1,2]
+                    result=dict(status='PASS',runs=results,remount_new_lifetime=True)
                 if args.case!='runtime-fault':
                     serial.sendall(b'run /fat/bin/deskd --smoke\n');data=bytearray();deadline=time.monotonic()+30
                     while time.monotonic()<deadline and b'run: pid=' not in data:data.extend(read_for(serial,.1))
