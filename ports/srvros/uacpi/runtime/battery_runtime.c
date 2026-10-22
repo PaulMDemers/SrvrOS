@@ -3,6 +3,7 @@
 #include "battery_platform.h"
 #include "battery_transition.h"
 #include "battery_reset_policy.h"
+#include "battery_recovery_resources.h"
 #include "work_worker.h"
 #include "sci_owner.h"
 #include "sci_observe.h"
@@ -27,6 +28,8 @@
 #include <srvros/timer.h>
 #include <uacpi/uacpi.h>
 #include <uacpi/context.h>
+#include <uacpi/internal/context.h>
+#include <uacpi/internal/types.h>
 #include <uacpi/namespace.h>
 #include <uacpi/osi.h>
 #include <uacpi/notify.h>
@@ -351,6 +354,35 @@ static void mark_quarantined(void) {
     service.cache.value.flags&=~BATTERY_CACHE_SAMPLING;
     scheduler_wake_all(&service.progress);
 }
+/* Read only the pinned interpreter's Global Lock and our serialized protocol
+ * state. A free hardware lock is an observation, never a firmware ownership lease.
+ * In particular global_lock_acquired does NOT cover AML Acquire(\\_GL). */
+static void require_recovery_resources(void) {
+    struct battery_recovery_resources r={
+        .lease=runtime.lease,.ec_poisoned=runtime.transport.poisoned,.ec_phase=runtime.transport.phase,
+        .sampler_active=runtime.sampler.active,.sampler_waiting=runtime.sampler.waiting,
+        .smbus_busy=runtime.sampler.transaction.ec && (runtime.sampler.transaction.phase!=8 ||
+            runtime.sampler.transaction.pending || runtime.sampler.transaction.failed),
+        .global_api=g_uacpi_rt_ctx.global_lock_acquired,.global_pending=g_uacpi_rt_ctx.global_lock_pending
+    };
+    uacpi_mutex *mutex=g_uacpi_rt_ctx.global_lock_mutex;
+    uint64_t word=0;
+    if(runtime.ready && g_uacpi_rt_ctx.facs && mutex && mutex->handle &&
+       battery_platform_memory(&g_uacpi_rt_ctx.facs->global_lock,32,false,&word)) {
+        const struct kernel_semaphore *sem=mutex->handle;
+        r.known=true;r.facs_bits=word&3;
+        r.global_aml=mutex->depth || mutex->owner!=UACPI_THREAD_ID_NONE;
+        /* Covers acquisition/release windows before AML owner/API flags change. */
+        r.global_mutex_busy=sem->closed || sem->units!=1 || sem->waiters || sem->queue.waiters;
+    }
+    unsigned blocked=battery_recovery_blockers(r);
+    console_printf("battery-recovery-resources: known=%u lease=%u ec_phase=%u poison=%u sample=%u waiting=%u smbus=%u api=%u aml=%u mutex=%u pending=%u facs=%u blocked=%u\n",
+        (uint64_t)r.known,(uint64_t)r.lease,(uint64_t)r.ec_phase,(uint64_t)r.ec_poisoned,
+        (uint64_t)r.sampler_active,(uint64_t)r.sampler_waiting,(uint64_t)r.smbus_busy,
+        (uint64_t)r.global_api,(uint64_t)r.global_aml,(uint64_t)r.global_mutex_busy,
+        (uint64_t)r.global_pending,(uint64_t)r.facs_bits,(uint64_t)blocked);
+    if(blocked)unsafe("recovery resources retained");
+}
 static void report_quarantine(void) {
     console_printf("battery-quarantine: owner=%u worker=%u io=%u heap=%u completed=%u; sources=masked retained=yes\n",
         service.identity,runtime.worker.identity,(uint64_t)scheduler_io_active(),runtime.heap,runtime.worker.completed);
@@ -370,6 +402,7 @@ static __attribute__((noreturn)) void quarantine_irq_exit(void *context) {
        (!is_owner && current!=runtime.worker.identity) || runtime.sci_counts[0].in_flight ||
        runtime.sci_counts[1].in_flight || runtime.sci_counts[2].in_flight || !sources_quiet())
         unsafe("IRQ exit recovery admission");
+    require_recovery_resources();
     /* EOI and every registered completion have returned; the registry cleared
      * its deferred state before entering this hook. Retain the interrupt frame
      * with its service stack. Never IRET to the failed service or restore IF. */
@@ -398,6 +431,7 @@ static void quarantine_irq_pair(bool callback) {
         if(!irq_handler_defer_exit(runtime.sci.token,quarantine_irq_exit,NULL))unsafe("IRQ exit request refused");
         return; /* Finish the bridge, dispatcher and all post-EOI observers first. */
     }
+    require_recovery_resources();
     if(!sources_quiet() || !scheduler_quarantine_noncurrent_services(service.identity,runtime.worker.identity))
         unsafe(callback?"IRQ callback quarantine admission":"IRQ entry quarantine admission");
     mark_quarantined();
@@ -542,7 +576,13 @@ static bool transfer(bool write,uint8_t a,uint8_t *v,bool query) {
     bool ok=query?ec_transport_begin_query(&runtime.transport,timer_monotonic_us(),100000):
         ec_transport_begin(&runtime.transport,write,a,*v,timer_monotonic_us(),100000);
     int result=0;
-    for(unsigned polls=1;ok&&!result;polls++){result=ec_transport_poll(&runtime.transport,timer_monotonic_us());if(!result)pace(polls);}
+    for(unsigned polls=1;ok&&!result;polls++) {
+        result=ec_transport_poll(&runtime.transport,timer_monotonic_us());
+        if(!result) {
+            if(runtime.platform.model_transfer_wait)runtime.platform.model_transfer_wait();
+            pace(polls);
+        }
+    }
     if(result==1&&!write)*v=runtime.transport.result;
     runtime.lease=false;return ok&&result==1;
 }
@@ -724,6 +764,7 @@ static void quarantine_sample_deadline(void) {
         irq_restore(flags);return;
     }
     mask_sources();
+    require_recovery_resources();
     /* Once sources have changed, a refused quarantine is terminal. */
     if(!sources_quiet() || !scheduler_quarantine_service_pair(service.identity,runtime.worker.identity))
         unsafe("quarantine admission");

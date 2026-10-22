@@ -68,6 +68,8 @@ def verify_disk(data,normal):
 
 def check_recovery(data):
     data=complete_lines(data)
+    resources=re.findall(rb'^battery-recovery-resources: known=1 lease=0 ec_phase=(0|6) poison=0 sample=0 waiting=0 smbus=0 api=0 aml=0 mutex=0 pending=0 facs=0 blocked=0\r?$',data,re.M)
+    assert len(resources)==1 and sum(r.startswith(b'battery-recovery-resources:') for r in data.splitlines())==1
     quarantined=re.findall(rb'^battery-quarantine: owner=(\d+) worker=(\d+) io=([01]) heap=(\d+) completed=(\d+); sources=masked retained=yes\r?$',data,re.M)
     held=re.findall(rb'^battery-recovery: held=yes generation=(\d+) completed=(\d+) io=0; restart=refused runtime_retired=NO\r?$',data,re.M)
     assert len(quarantined)==len(held)==1
@@ -103,6 +105,23 @@ def check_recovery(data):
                 resumed_storage=int(resumed[0]) if resumed else None,
                 callback_lock_calls=int(callbacks[0]) if callbacks else 0,status='PASS',outcome='contained-failure',owner=owner,worker=worker,io_at_quarantine=io,
                 retained_heap=heap,worker_completed=completed,generation=generation,runtime_retired=False,native_acceptance='not tested')
+
+
+def check_resource_refusal(data,case):
+    data=complete_lines(data)
+    rows=[r for r in data.splitlines() if r.startswith(b'battery-recovery-resources:')]
+    common='battery-recovery-resources: known=1 lease={lease} ec_phase={phase} poison=0 sample=0 waiting=0 smbus=0 api={api} aml={aml} mutex={mutex} pending=0 facs={facs} blocked={blocked}'
+    values={'recovery-resource-api':(0,6,1,0,1,2,96),
+            'recovery-resource-aml':(0,6,0,1,1,2,96),
+            'recovery-resource-ec':(1,2,0,0,0,0,6)}[case]
+    expected=common.format(**dict(zip(('lease','phase','api','aml','mutex','facs','blocked'),values))).encode()
+    assert rows==[expected]
+    assert data.count(b'battery: HALTED recovery resources retained ')==1
+    for forbidden in (b'battery-quarantine:',b'battery-recovery: saved=',b'battery-recovery: returning',
+                      b'contained fault; returning',b'battery-service: retired ',b'battery-workspace: QUARANTINED'):
+        assert forbidden not in data
+    return dict(status='PASS',expected_failure=case,automatic_reset=False,storage_retirement='NOT claimed',
+                resource_blockers=values[-1],native_acceptance='not tested')
 
 
 def verify_recovery(data,serial):
@@ -151,7 +170,7 @@ def verify_recovery(data,serial):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal'),default='normal')
+    parser.add_argument('--case',choices=('normal','timeout','refusal','runtime-fault','recovery','recovery-io','recovery-refusal','recovery-owner-refusal','recovery-irq','recovery-irq-refusal','recovery-irq-target-refusal','recovery-irq-mask-refusal','recovery-callback','recovery-callback-refusal','recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope','recovery-target-worker','recovery-target-owner','recovery-target-refusal','recovery-resource-api','recovery-resource-aml','recovery-resource-ec'),default='normal')
     args=parser.parse_args();root=Path(__file__).resolve().parents[1]
     out=root/'build/review'/('battery-workspace-'+args.case);out.mkdir(parents=True,exist_ok=True)
     output=bytearray()
@@ -166,7 +185,7 @@ def main():
         mbr=bytearray(512);mbr[450]=7
         struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        faults={'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
+        faults={'recovery-resource-api':38,'recovery-resource-aml':39,'recovery-resource-ec':40,'recovery-target-worker':36,'recovery-target-owner':37,'recovery-target-refusal':36,'recovery-callback':33,'recovery-callback-refusal':33,
                 'recovery-callback-target-refusal':34,'recovery-callback-lock-refusal':35,
                 'recovery-callback-outside-scope':33,'recovery-irq-mask-refusal':32,
                 'recovery-irq-target-refusal':31,'recovery-irq':30,'recovery-irq-refusal':30,
@@ -196,9 +215,14 @@ def main():
                 assert b'srv> ' in output
                 serial.sendall(b'workspace mount 51525354\n');wait_for(b'workspace: ready at /work/srvros-work')
                 serial.sendall(b'echo WORKSPACE_STUDY_BEGIN\n');wait_for(b'\nWORKSPACE_STUDY_BEGIN\r\n')
-                command=b'battery-workspace'+(b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
+                command=b'battery-workspace'+(b'-recovery-io' if args.case.startswith('recovery-resource-') else b'-recovery-target' if args.case.startswith('recovery-target') else b'-recovery-callback' if args.case.startswith('recovery-callback') and args.case!='recovery-callback-outside-scope' else b'-recovery-irq' if args.case.startswith('recovery-irq') or args.case=='recovery-callback-outside-scope' else b'-recovery-io' if args.case=='recovery-io' else b'-recovery' if args.case in ('recovery','recovery-refusal','recovery-owner-refusal') else b'-fault' if args.case=='runtime-fault' else b'-timeout' if args.case=='timeout' else b'')
                 serial.sendall(b'acpiruntime '+command+b'\n')
-                if args.case in ('recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope'):
+                if args.case.startswith('recovery-resource-'):
+                    data=wait_for(b'battery: HALTED recovery resources retained',90)
+                    result=check_resource_refusal(data,args.case)
+                    output.extend(read_for(serial,1));assert process.poll() is None
+                    stop_process(process);(out/'interrupted-workspace.exfat').write_bytes(stick.read_bytes()[2048*512:])
+                elif args.case in ('recovery-callback-target-refusal','recovery-callback-lock-refusal','recovery-callback-outside-scope'):
                     reason=b'IRQ callback quarantine admission' if args.case=='recovery-callback-target-refusal' else b'callback lock balance' if args.case=='recovery-callback-lock-refusal' else b'query admission'
                     data=wait_for(b'battery: HALTED '+reason,90)
                     assert b'battery-quarantine:' not in data and b'battery-recovery: saved=' not in data

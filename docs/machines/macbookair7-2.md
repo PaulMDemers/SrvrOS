@@ -10,7 +10,8 @@ snapshot gate to the existing VM recovery boundaries and exercise real held-lock
 and partial-EC refusal fixtures. Native mounted Home and automatic startup remain
 off; this work cannot establish firmware independence from VM evidence. Touched:
 battery runtime/model, a pure admission policy, host/VM tests and current guides.
-Pro PR #19 `426f0cd` remains independent Wi-Fi work. No hardware reboot or payload
+Pro PR #19 `426f0cd` remains independent Wi-Fi work; Makefile additions are
+separate test targets, with no battery/runtime overlap. No hardware reboot or payload
 change is planned. Next checkpoint: audit, local validation and reviewable merge.
 
 ### Completed IRQ handoff (PR #39)

@@ -3,6 +3,14 @@
 #endif
 DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
 {
+#if BATTERY_FAULT == 39
+    Method (HOLD, 0) {
+        If (Acquire (\_GL, 0xFFFF)) { Return (Zero) }
+        Sleep (26000)
+        Release (\_GL)
+        Return (One)
+    }
+#endif
     Scope (\_SB) {
         Device (EC) {
             Name (_HID, EisaId ("PNP0C09"))

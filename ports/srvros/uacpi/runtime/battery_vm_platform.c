@@ -15,6 +15,8 @@
 #include <srvros/workspace.h>
 #include <uacpi/kernel_api.h>
 #include <uacpi/tables.h>
+#include <uacpi/uacpi.h>
+#include <uacpi/namespace.h>
 #include "../../../../kernel/src/arch/x86_64/io.h"
 static struct battery_platform *platform;
 static uint64_t dsdt;
@@ -228,8 +230,24 @@ static void target_irq(void) {
 static void model_owner_irq(void) {
     if(model.fault==37 && model.generation==3 && model.target_armed && !model.irq_injected)target_irq();
 }
+static void model_transfer_wait(void) {
+    if(model.fault==40 && model.generation==3 && !model.irq_injected) {
+        model.irq_injected=true;
+        console_write("battery-vm: partial EC transaction held\n");
+        uacpi_kernel_sleep(26000);
+    }
+}
 static void model_sample_begin(uint64_t generation) {
     model.generation=generation;model.ac_reads=0;
+    if(model.fault==38 && generation==3) {
+        uacpi_u32 seq;
+        if(uacpi_acquire_global_lock(100,&seq)==UACPI_STATUS_OK) {
+            console_write("battery-vm: API Global Lock held\n");
+            uacpi_kernel_sleep(26000);
+            (void)uacpi_release_global_lock(seq);
+        }
+    }
+    if(model.fault==39 && generation==3)(void)uacpi_execute_simple(NULL,"\\HOLD");
     /* Active-service fault. Model 27 exercises an armed parked-workspace reset;
      * model 28 retains a mounted workspace and must block that same reset. */
     if(model.fault==29 && generation==3) {
@@ -293,7 +311,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>37||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>40||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -320,6 +338,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         p->foreign_io=(struct battery_event_ops){.read=foreign_read,.write=foreign_write};
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
+    if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;
     if(model.fault>=33) { p->model_event=model_event;p->model_query_refuse=model_query_refuse; }
     if(model.fault>=30)p->model_irq_fault=model_irq_fault;

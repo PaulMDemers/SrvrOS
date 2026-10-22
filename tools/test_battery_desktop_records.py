@@ -220,7 +220,8 @@ class FaultResetRecords(unittest.TestCase):
             else:
                 with self.assertRaises(AssertionError):check_fault(blocked,allow_io_halt=True)
 
-RECOVERY=b'''battery-quarantine: owner=7 worker=8 io=0 heap=9000 completed=10; sources=masked retained=yes
+RECOVERY=b'''battery-recovery-resources: known=1 lease=0 ec_phase=6 poison=0 sample=0 waiting=0 smbus=0 api=0 aml=0 mutex=0 pending=0 facs=0 blocked=0
+battery-quarantine: owner=7 worker=8 io=0 heap=9000 completed=10; sources=masked retained=yes
 battery-workspace: QUARANTINED descendants=3; clients_retired=yes runtime_retired=NO
 battery-recovery: held=yes generation=2 completed=10 io=0; restart=refused runtime_retired=NO
 '''
@@ -302,5 +303,22 @@ class RecoveryRecords(unittest.TestCase):
             for extra in (b'battery-recovery-irq: interrupted=6 peer=1 completion=1 in_flight=0; returned=yes registry_released=yes claim=unclaimed\n',
                           b'battery-vm: ERROR target resumed after fault\n'):
                 with self.assertRaises(AssertionError):check_recovery(good+extra)
+
+    def test_resource_admission_records(self):
+        from battery_workspace_smoke import check_recovery,check_resource_refusal
+        fields=['known=1','lease=0','ec_phase=6','poison=0','sample=0','waiting=0','smbus=0',
+                'api=0','aml=0','mutex=0','pending=0','facs=0','blocked=0']
+        for field in fields:
+            new=field.split('=')[0]+'='+('0' if field=='known=1' else '1')
+            with self.assertRaises(AssertionError):check_recovery(RECOVERY.replace(field.encode(),new.encode(),1))
+        for case,vals in (('api',(0,6,1,0,1,2,96)),('aml',(0,6,0,1,1,2,96)),('ec',(1,2,0,0,0,0,6))):
+            lease,phase,api,aml,mutex,facs,blocked=vals
+            row=f'battery-recovery-resources: known=1 lease={lease} ec_phase={phase} poison=0 sample=0 waiting=0 smbus=0 api={api} aml={aml} mutex={mutex} pending=0 facs={facs} blocked={blocked}\n'.encode()
+            halt=b'battery: HALTED recovery resources retained errors=0; live state retained\n'
+            name='recovery-resource-'+case
+            self.assertEqual(check_resource_refusal(row+halt,name)['resource_blockers'],blocked)
+            for bad in (halt,row,row+row+halt,row+halt+halt,row.replace(b'known=1',b'known=0')+halt,
+                        row+halt+b'battery-quarantine: false success\n',row+halt+b'battery-recovery: saved=yes\n'):
+                with self.assertRaises(AssertionError):check_resource_refusal(bad,name)
 
 if __name__=='__main__':unittest.main()
