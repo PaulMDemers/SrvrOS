@@ -2,6 +2,19 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active native mounted-return boundary
+
+Base `85d5cb7` (PR51). Scope: an explicit mounted-Home battery diagnostic in the
+full runtime, held mount identity, normal completion and query-refusal retirement,
+and disposable VM evidence. Reuse the exact Air controller profile and query
+receipts; do not broaden firmware/register admission or enable ordinary startup.
+A mounted terminal failure retains storage/runtime and cannot reset. No desktop
+client integration in this first boundary; the owner must return cleanly before
+we attach the desktop session. Test fresh samples, refused query, unavailable
+profile, unmounted admission and uncertain effects/transport with exact disk
+preservation. Pro PR19 `77ba966` remains independent USB Wi-Fi work. Installed
+current/recovery remain `fda709928307b1b1` / `b427b78f21644bd2`; no reboot armed.
+
 ### Controls during submitted Text jobs (PR #51)
 
 Implementation `23837b9`, base `fb96ace` (PR50). The explicit VM fixture sends
