@@ -2051,3 +2051,23 @@ one-shot, current payload and accepted desktop recoverye47dca3a6b30c6c1 verified
 Offline checks pass:137 files,454 clusters,zero leaks/mismatches/errors. No new
 boot armed. Next phase: interpret captured calibration/regulatory data and add
 bounded radio/receive initialization before scan, then authentication and IP.
+
+Next radio-phase scope: decode receive-side calibration from the accepted logical
+EEPROM capture before hardware writes. Extend the offline audit with board/band
+hints, PA/LNA flags, frequency correction and receive gain/RSSI/temperature data;
+track missing fields explicitly and retain radio_authorized=false. Raw region
+bytes do not select a country or authorize channels. Use synthetic boundary tests
+and the local redacted capture; do not publish raw calibration or MAC data.
+Fetched main598fe27; only PR19 open. No shared battery changes or reboot planned
+for this offline prerequisite. Native RF initialization remains a later step.
+
+Offline receive-calibration audit completed against the existing accepted
+redacted512-byte capture, SHA2563969e4b2817fd02c1d5285614abc92fd9987af6c07a2444fdf68b85460a16749.
+All required receive fields are mapped. Decoded frequency68, temperature−8,
+5GHz LNA12/12/12, RSSI2GHz1/1 and5GHz0/0; hardware RF control and TSSI flags
+are clear. Board hint both bands is not regulatory/channel authorization.
+Five audit tests cover signed correction, RSSI boundaries, gain fallback,
+missing/unmapped fields and band-hint separation. No radio registers changed;
+firmware readiness remains accepted, RF/scanning pending. Next: per-channel power
+and regulatory constraints, then a bounded native receive initialization path.
+No reboot armed for this offline work.

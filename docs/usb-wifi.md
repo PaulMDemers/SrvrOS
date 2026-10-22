@@ -439,3 +439,22 @@ reset, bulk upload and other writes are never blindly replayed. Saved
 alone is not firmware acceptance: require the final result/chunks/MAC/quarantine
 and completion markers. Next work is calibrated radio initialization and
 receive/scan support, followed by station authentication and IP integration.
+
+### Receive-calibration audit
+
+`tools/wifi_calibration_audit.py` now decodes receive-side EEPROM metadata in
+addition to the structural checks: frequency base/correction, temperature,
+LNA gains, RSSI offsets, band hints and PA/LNA flags. The interpretation follows
+[Linux v6.18 mt76x0 EEPROM helpers](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x0/eeprom.c)
+and [shared receive helpers](https://github.com/torvalds/linux/blob/v6.18/drivers/net/wireless/mediatek/mt76/mt76x02_eeprom.c).
+Unmapped fields remain unknown and are listed; decoded fallback/clamped values
+are labeled separately from raw fields. Frequency arithmetic still needs hardware
+range validation. The audit never prints the MAC and never authorizes radio use.
+
+The accepted redacted logical capture has all receive fields mapped. Its decoded
+frequency offset is68, temperature offset−8, 5GHz low/mid/high LNA gains12/12/12,
+and RSSI offsets1/1 for2GHz and0/0 for5GHz. The board hint is both bands; it is
+not a country/channel policy or proof of usable bands on the finished product.
+Per-channel transmit power, physical usage-map validation and regulatory policy
+remain separate prerequisites. These offline results do not accept native RF
+initialization or scanning and need no reboot.
