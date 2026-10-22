@@ -1935,3 +1935,18 @@ or unchanged. Exact GPT VM saved-log/automatic-reset and missing-workspace retur
 checks pass. Installed unarmed with Ubuntu default and accepted recovery intact;
 offline checks pass (133 files, 448 clusters). Next cold hardware trial awaits
 readiness for adapter power cycling; no firmware-readiness acceptance yet.
+
+Native immediate-data trial `825373ebb599fa0d`, session
+`00065e7298d3f135-00`, confirms `wifi-firmware-data: immediate=1` but still
+fails request13/write6/index0x800/length4 after 300002 µs. Successful Stop
+Endpoint reports state3, dequeue0x1eb381, stopped event0x1eb380, cc26/residue4;
+setup/data/status addresses remain 0x1eb370/0x1eb380/0x1eb390. Clock and MAC
+startup passed, reset completed, preparation/upload did not; zero chunks,
+quarantine retained, RF/connectivity not tested. Immediate encoding did not
+resolve the native stall; this does not establish a wire handshake or cause.
+Matching exit log and run record archived under
+`~/.local/share/srvros/macbookpro11-2/wifi-idt-88d1cd0`. Ubuntu default, consumed
+one-shot and installed/current recovery verified. Offline checks pass: 135 files,
+451 clusters, no leaks/mismatches/errors. No next boot armed. Next compare the
+working Linux cold initialization sequence with SrvrOS before another speculative
+hardware trial; preserve the live Linux network connection during investigation.
