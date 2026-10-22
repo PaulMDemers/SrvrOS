@@ -2487,3 +2487,17 @@ Next cold trial requires Wi-Fi disconnected for10 seconds while off, then
 reconnected before power-on; workspace stays attached. Automatic log saving and
 return enabled. Accept only both unique replies, all four exact readbacks, MAC0
 and completion markers; RF/connectivity remain pending.
+
+Native MAC basics accepted, 2026-10-22: source facb862,
+release190ab5353ae2f8b6, session00065e75fad3378e-00. Firmware/reset/identity,
+single-write and timing prerequisites all passed. Sequence4 and5 each sent24,
+received16 with exact first-entry echoes. MAC initialization status0, submitted2,
+batches_attempted2/completed2, ack_mask3, complete1, reads12; MAC stayed0.
+Readbacks:1408 0->13f,140c 82008000->4003,1400 15f9f->17f97,
+1018 a7fff->a1fff. Firmware and laptop completion markers present.
+Matching collection archived in wifi-mac-native-facb862/native-collection.
+Ubuntu default, consumed one-shot and installed/recovery manifests verified.
+Workspace clean153files/478clusters with zero allocation errors; unmounted.
+Run/checkpoint collected and unarmed. Next extend remaining MAC/baseband setup
+with bounded commands and register-specific readbacks. RF, scan, association
+and connectivity remain pending; this accepts only the fixed four-register plan.

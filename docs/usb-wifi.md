@@ -758,7 +758,7 @@ reset, strict identity/single-write prerequisites and capture completion passed;
 post-return recovery/filesystem checks were clean. This accepts this exact
 two-register engine on the captured adapter, not larger tables or RF readiness.
 
-### Fixed MAC basics engine (native trial pending)
+### Fixed MAC basics engine (accepted on captured Pro adapter)
 
 `mt76_mcu_apply_mac_basics` defines exactly two two-pair commands after timing
 initialization: sequence4 sets legacy basic rate1408=13f and HT basic rate140c=4003;
@@ -773,8 +773,11 @@ and MAC0. Acknowledgement alone never accepts the second register. Failure stops
 before the next batch; the session cannot be reused. Authorization is checked
 before each I/O and before completing each batch. The transport must enforce
 pinned identity/firmware, accepted timing and exclusive unused sequences4/5.
-The shape of these new replies is inferred from the accepted timing pair; it
-is not yet a native acceptance result for these registers. The opt-in fw-v8
+The first-entry reply shape and all four register readbacks were validated on
+the captured Pro11,2 adapter in release190ab5353ae2f8b6,
+session00065e75fad3378e-00 (source facb862). Both commands sent24/received16;
+status0, submitted2, completed2, ack_mask3, reads12, MAC before/after0.
+The opt-in fw-v8
 diagnostic (`--wifi-mac-basics`, requiring `--wifi-timing-probe`) binds this
 engine after accepted timing initialization. Its xHCI transport enforces the
 five read offsets, exact packets, sequential unused submissions and completion
