@@ -370,3 +370,10 @@ type/request/value/index/length; `wifi-firmware-control-result` reports actual
 length, success, completion code, residue, stage (1 setup, 2 data, 3 status, 0 no
 matched event) and timeout. Unrelated/stale event pointers do not populate these
 fields. A reset-attempt flag alone never proves reset completion.
+
+Firmware-active EP0 waits now use the pinned reference driver's 300 ms vendor
+request deadline, measured by the monotonic clock, plus a bounded stalled-clock
+fallback. Generic control waits remain unchanged. There is no automatic retry
+or endpoint reset. `wifi-firmware-endpoint` records elapsed microseconds and the
+controller-owned EP0 state/dequeue after the wait. The MCU reset delay remains
+5 ms on the independent ACPI PM timer; timing changes require native validation.

@@ -1759,3 +1759,10 @@ Linux mt76 vendor timeout), retaining a bounded stalled-clock fallback and no
 retry. Existing generic control waits and reset delay remain unchanged. Cache
 request elapsed time and controller-owned EP0 state/dequeue after the wait to
 diagnose post-reset timeout; no endpoint recovery or new device writes.
+
+Deadline candidate `49375c8`, release `20ffa06db0f23758`, passes build/xHCI
+regressions, including delayed 250 ms completion, 300 ms timeout, frozen clock,
+endpoint snapshot and no mutation/retry after uncertainty. Exact GPT saved-log
+and missing-workspace held VMs pass. This measures the timeout and endpoint
+state; it does not yet establish why the device stops responding after reset.
+Native validation pending; recovery and the held-failure workflow are retained.
