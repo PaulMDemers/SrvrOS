@@ -2,20 +2,37 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active scope: ordinary Home desktop lifetime (VM only)
+### Ordinary Home desktop lifetime: VM/host validation (PR #62)
 
-Base `340f566` (merged PR60). This agent is extending the explicit VM battery
-session to the normal arbitrary-app desktop, Home-backed file jobs and periodic
-workspace logging. Touched subsystems: battery runtime session ownership,
-workspace logger retirement, serial TX-timeout recovery (VM serial loss reproduced),
-desktop mode admission, VM harnesses and these
-guides. Depends on PR60's inherited process lifetime; no sibling firmware gates
-or USB networking changes. Pro PR19 `301a640` remains separate.
+Source `4351910`, based on main `340f566`, connects the inherited lifetime to
+ordinary launcher apps, Home file workers and periodic workspace logging in the
+explicit VM-only `battery-home-desktop` command. Text, Files and Terminal use
+normal paths; session-changing orphan jobs remain owned through final release.
+Shutdown drains apps, battery work and logging before releasing the exact mount.
+Logger quiescence has a deadline; failure retains live ownership. A reproduced
+UART TX timeout now preserves RX and allows later TX recovery, with bounded
+polling. Timed-out serial bytes can still be lost; persisted logs remain required.
 
-The trial must revoke/drain every app descendant, stop battery work and drain
-logging before releasing the exact mount. A deadline retains ownership. Native
-ordinary startup and installed payloads remain unchanged; no reboot is armed.
-Actions stay disabled; validation is local.
+Full build/both battery kernels, complete core suite and 446 documentation links
+passed locally. All five ordinary Home cases passed: normal, exit with a submitted
+save, unavailable profile, uncertain-runtime containment and native refusal.
+Normal/cancel peaked at ten members, retired all of them and processed 424/552 battery events;
+unavailable-profile apps remained usable (eleven peak members). Clean cases
+verified exact Text/Terminal/orphan file bytes, the complete workspace file set,
+two periodic logs plus boot/exit logs, release ordering and offline allocation.
+The inherited-process/PTY regression (256 launches/32 waiter pairs), continuous
+alarm/Stop/restart and existing bounded Home pending-write cancellation passed.
+A submitted save proves outstanding app work, not physical USB DMA timing.
+
+Exact payloads, disposable images and checked receipts are retained outside
+`build` in `~/.local/share/srvros/local-validation/home-desktop-43519102297f`.
+Pro PR19 `cd2f274` remains separate USB Wi-Fi work; sibling gates are unchanged.
+No reboot or physical run is armed. Installed current `fd6f6b9d397c339f` and
+previous `b427b78f21644bd2` remain unchanged. Actions remain disabled.
+
+Next: explicit native ordinary-app continuous session testing, then attended
+AC/gauge/indicator acceptance before enabling ordinary native startup. This is
+VM/host acceptance only. See the [Home session lifecycle](../battery-home-lifecycle.md).
 
 ### Inherited desktop lifetime: VM/host validation (PR #60)
 

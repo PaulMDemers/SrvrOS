@@ -350,17 +350,17 @@ failed loads, synchronous/asynchronous spawn, `setsid`, exec and orphaned
 children/grandchildren; it drains the selected lifetime while leaving an unrelated
 process alive. `tools/process_lifetime_smoke.py` runs it twice and then runs the
 existing PTY regression. Each pass also runs 16 pairs of competing waiters,
-requiring exactly one successful reap per child. Periodic logs and shutdown during a real pending desktop
-file write still need overlap coverage using this new lifetime owner before
-ordinary native desktop integration.
+requiring exactly one successful reap per child. The ordinary Home VM session
+below adds periodic logging and shutdown with a submitted file write under this
+new owner. Native integration still requires physical evidence.
 
 The boot desktop path in `kernel/src/main.c` currently calls
 `process_run_elf_args` directly and owns logging/unmount around it. Integrate a
 session wrapper there only after the membership policy is proven. It must let
 unavailable battery hardware leave the desktop usable, preserve ordinary
 cached-only status reads, and retain mounted storage on uncertain ownership.
-Periodic workspace logging also needs explicit overlap validation: the accepted
-native v49 trial paused it. Finish that VM coverage before adding a native
+Periodic workspace logging now has VM overlap coverage below; the accepted
+native v49 trial paused it, so physical overlap acceptance remains pending. Finish that VM coverage before adding a native
 continuous-session recipe or changing the default startup path.
 
 During the VM rehearsal, one development payload lost its serial channel while
@@ -425,3 +425,14 @@ single readiness check per later byte while stalled; readiness resumes output.
 The timed-out bytes can still be lost: complete persisted logs and explicit
 completion records remain necessary evidence. Host fixtures check TX recovery,
 RX during the stall, bounded polling and preservation of the caller's IRQ state.
+
+
+Source `4351910` passed the full build, both battery kernels, full core suite,
+documentation checks and all five ordinary Home VM cases. Normal and submitted-save
+exit peaked at ten members, retired all members and processed 424/552 battery events; the unavailable
+profile remained usable with eleven peak members. Clean cases verified exact saved
+files, alternating and final logs, retirement ordering and offline allocation.
+The inherited-process/PTY, continuous alarm/restart and older bounded Home cancel
+regressions also passed. Durable evidence is under
+`~/.local/share/srvros/local-validation/home-desktop-43519102297f`.
+These checks do not enable or accept ordinary native startup.
