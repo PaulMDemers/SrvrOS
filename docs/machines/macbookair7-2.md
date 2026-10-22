@@ -2,6 +2,17 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Active native AML side-effect audit
+
+Base `origin/main` `d49ef02` (merged PR #40). Trace the captured DSDT and all
+eight admitted SSDTs through module loading, `_REG`, `_INI`, EC queries and
+disconnect; map shared NVS, graphics mailbox, GPIO, SMI and Global Lock effects.
+Produce a reviewed recovery-boundary decision and reproducible local evidence.
+Scope: battery audit documentation and this unit record; any runtime change needs
+a separate, tested implementation checkpoint. Pro PR #19 at `e871a1e8` remains
+independent Wi-Fi work with no planned overlap. Native mounted Home and automatic
+startup remain off. No physical trial, payload change or reboot is planned.
+
 ### Resource audit and recovery admission (PR #40)
 
 Base `origin/main` `3c98c42` (PR #39), tested code `2cc02b2`. The
