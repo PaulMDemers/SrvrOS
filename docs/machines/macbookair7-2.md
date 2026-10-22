@@ -2,6 +2,44 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Continuous service accounting: VM validation (PR #55)
+
+Compiled source `07c06da`, based on merged PR53 (`62067a1`), passed all nine
+continuous-session cases locally. The first lifetime handled 1,608 events beyond
+120 seconds between summaries; Stop/restart/close retired a second lifetime with
+72 events. Both lifetimes used 28 total bounded event-summary records. Alarms,
+early close, native/unmounted/profile refusal, normal-return query refusal,
+uncertain acknowledgement and effects preceding refusal passed their respective
+completion/containment checks. Clean cases preserved every workspace byte and
+passed offline allocation; fatal cases retained ownership without cleanup claims.
+
+The new `battery-home-monitor` command is VM-only. Native diagnostic limits and
+ordinary startup remain unchanged. Event telemetry is fixed-size and saturating,
+with periodic and final records emitted by the service thread. This preserves
+transport/query/shutdown deadlines; it does not validate native continuous
+monitoring, physical input latency, alarms or gauge accuracy.
+
+A development run lost its UART observation channel. A repeat captured
+`serial_ready=0`, an idle CPU and successful session retirement/monitor return on
+screen. Those incomplete captures remain separate from passing collections.
+The harness now retains UART/register/screen evidence when output stalls. The
+general serial transmit-timeout policy remains an open reliability issue.
+
+Integrated actual main `1b88c8a` (Air6,1 PR54/56/57/58), preserving that agent's
+measured profile and record. Source `05a50bc` passed full build/both kernels,
+the extended 1,680-event session (29 summaries), accepted Home capture, pending-write
+cancellation, full core and docs checks. Evidence is hash-verified outside `build`
+in `~/.local/share/srvros/local-validation/battery-continuous-05a50bc16bdf`
+(128 files, 13 compressed images verified by decompression). Directed and integrated
+payloads are retained separately, together with the incomplete UART-loss capture.
+Pro PR19 `45db188` retains Wi-Fi work. Next battery scope is
+an inherited kernel desktop lifetime identity, app churn/Terminal orphan handling
+and periodic logging overlap before ordinary startup or another native trial.
+See the [ownership follow-up](../battery-home-lifecycle.md#ordinary-desktop-ownership-follow-up).
+
+No physical run or reboot is armed. Current `fd6f6b9d397c339f` and previous
+`b427b78f21644bd2` remain the accepted PR53 payloads below. Actions remain disabled.
+
 ### Explicit Home desktop battery session accepted (PR #53)
 
 Base `9ca1922` (PR52); compiled source `faf40ab`; collector correction `7f1438d`.

@@ -191,7 +191,7 @@ static void command(void *c,uint8_t v) {
             model.memory[0x45]=(model.fault==76 && model.generation%4)?0x60:0x16;
             model.memory[0x46]=0x34;model.memory[0x47]=0x12;
         }
-        if((model.fault==80 || model.fault==81) && model.pending) {
+        if((model.fault==80 || model.fault==81 || model.fault==83) && model.pending) {
             unsigned batch=model.fault==80?15:32;
             again=++model.query_batch<batch;
         }
@@ -382,7 +382,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>82||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>83||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};

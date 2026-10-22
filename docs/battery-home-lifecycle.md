@@ -273,3 +273,87 @@ seconds to each fixture connection and throttles disposable USB writes. Its
 receipt must prove a file checkpoint exceeded the old budget, all five exact
 files, resource-checked retirement and saved automatic return. These injected
 latencies are VM regression evidence, not a measurement of native disk speed.
+
+## Continuous accounting rehearsal (VM only)
+
+`acpiruntime battery-home-monitor` is a separate disposable-VM session. The native
+backend refuses the command before acquiring the mount or starting the runtime.
+It acquires the same exact Home hold, opens System, starts the service once, and
+retains the scoped Start/Stop controls until System closes. Client teardown,
+runtime retirement and hold release still follow the accepted ordering. Normal
+startup and existing native diagnostic event/time limits are unchanged.
+
+The rehearsal replaces successful per-event records with fixed-size cumulative
+telemetry: events, alarms, acknowledgements, unknown alarms and cache invalidations.
+Counters saturate with an explicit saturation flag; they are not ownership tokens
+or admission limits. CPU0 serializes updates and snapshots. Dirty summaries emit
+at most once per five seconds per lifetime, without catch-up bursts, plus a final
+snapshot after masking/draining. Failure records remain immediate. Every event
+still executes its transport acknowledgement and cache policy; log coalescing does
+not coalesce device operations. Per-query attempt/time budgets and all setup,
+transaction, drain and shutdown deadlines remain intact.
+
+The fixed System/compositor pair can run beyond the diagnostic 110 seconds and
+512 events. It is not the ordinary app session: arbitrary app churn still needs
+a replacement for the diagnostic retained descendant history, and native continuous
+monitoring needs its own physical trial. No reboot/staging option selects this
+VM path. The user-space `--battery-monitor` flag only changes the fixed System
+client's lifetime; it cannot acquire a battery runtime capability on its own.
+
+Run `tools/host-env.sh python3 tools/battery_home_monitor_smoke.py --case normal`.
+The disposable model supplies 32 completion events per sample and the harness
+keeps the first lifetime open for over two minutes before mouse Stop/Start and
+close. It verifies counts, summary spacing, runtime retirement, replacement
+compositor, byte-identical workspace and offline allocation. Other cases cover
+alarms, early exit, native/unmounted/profile refusal, effect-free query refusal,
+uncertain acknowledgement and effects preceding a refused query. Fatal cases
+must retain the mount/runtime without cleanup or reset claims. VM results do not
+accept physical alarms, gauge accuracy, continuous native startup or input latency.
+
+### Ordinary desktop ownership follow-up
+
+The current diagnostic `desktop_tree` retains historical PIDs in a
+`PROCESS_MAX_PROCESSES` array. That bounds diagnostic memory, but a desktop that
+opens/closes enough apps would eventually exhaust it. Simply pruning reaped
+parents or scanning the original process group is insufficient: Terminal jobs
+can change process groups or create sessions, and a parent can exit between
+owner polls. The group's purpose is job control, not a permanent mount owner.
+
+Before general desktop integration, add a kernel-created lifetime identity that
+is installed before publishing the root as runnable and inherited by every
+spawn/fork, preserved through exec, job-control group changes and reparenting.
+It must not be assignable through a userspace group/session syscall. Bound live
+membership by process slots rather than retaining an unbounded PID history.
+Revoke admission at desktop exit, stop/reap all members, retire the battery owner,
+and only then release the mount. Test more than 64 sequential app launches,
+parent-before-child exit, job-control changes, failed spawn and shutdown during
+an asynchronous file write. This is a proposed next mechanism, not implemented
+or accepted behavior.
+
+The boot desktop path in `kernel/src/main.c` currently calls
+`process_run_elf_args` directly and owns logging/unmount around it. Integrate a
+session wrapper there only after the membership policy is proven. It must let
+unavailable battery hardware leave the desktop usable, preserve ordinary
+cached-only status reads, and retain mounted storage on uncertain ownership.
+Periodic workspace logging also needs explicit overlap validation: the accepted
+native v49 trial paused it. Finish that VM coverage before adding a native
+continuous-session recipe or changing the default startup path.
+
+During the VM rehearsal, one development payload lost its serial channel while
+printing retirement logs. A repeated run retained CPU/UART/screen evidence:
+`serial_ready` was zero, the CPU was in the scheduler idle worker, and the screen
+showed successful retirement, mount release and the monitor prompt. This was
+lost host-observation transport, not proof of a stuck battery owner. The timed-out
+runs remain incomplete evidence; they do not satisfy filesystem collection.
+The harness now captures registers, UART availability and a screenshot on stalled
+output. Periodic and final summaries have one service-thread writer so a
+preempted owner cannot emit an older periodic snapshot after the final record.
+This ordering change is not a claim that the general UART transmit-timeout policy
+has been fixed; its channel-loss behavior remains a separate reliability issue.
+
+Local validation: `07c06da` passed all nine directed continuous-session cases.
+After integrating Air6,1 main `1b88c8a`, source `05a50bc` passed full build/both
+kernels, a repeated extended session (1,680 events across two lifetimes), accepted
+Home capture, pending-write cancellation, full core and documentation checks.
+This is VM/host evidence only. The prior native PR53 release remains installed;
+no ordinary startup or native continuous-service trial was enabled.

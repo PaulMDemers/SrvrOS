@@ -1064,7 +1064,8 @@ int main(int argc,char **argv) {
         argc--; i--;
     }
     if (argc==2 && strcmp(argv[1],"--license")==0) { srv_puts(desk_font_license); return 0; }
-    int control_manual=argc==2 && !strcmp(argv[1],"--battery-controls-manual");
+    int control_monitor=argc==2 && !strcmp(argv[1],"--battery-monitor");
+    int control_manual=control_monitor || (argc==2 && !strcmp(argv[1],"--battery-controls-manual"));
     int control_capture=control_manual || (argc==2 && !strcmp(argv[1],"--battery-controls"));
     int control_files_cancel=argc==2 && !strcmp(argv[1],"--battery-control-files-cancel");
     int control_files=control_files_cancel || (argc==2 && !strcmp(argv[1],"--battery-control-files"));
@@ -1157,7 +1158,7 @@ int main(int argc,char **argv) {
         service(&s);
         if(control_capture) {
             if(s.child_reaped) { if(s.child_reaped!=1 || s.child_errors)failed=1;break; }
-            if((uint64_t)srv_ticks()-start>10000){failed=1;break;}
+            if(!control_monitor && (uint64_t)srv_ticks()-start>10000){failed=1;break;}
         }
         if(coexist) {
             uint64_t now=(uint64_t)srv_monotonic_us();

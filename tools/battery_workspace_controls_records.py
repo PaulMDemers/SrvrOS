@@ -5,7 +5,7 @@ from battery_native_smbus_records import expand_compact_records
 from battery_controls_smoke import check as check_controls
 
 
-def check_hold(data, guarded=True):
+def check_hold(data, guarded=True, automatic_start=False):
     data=complete_lines(data.replace(b'\r\n',b'\n'))
     acquired=list(re.finditer(rb'^battery-workspace-hold: acquired token=([1-9][0-9]*)$',data,re.M))
     released=list(re.finditer(rb'^battery-workspace-hold: released token=([1-9][0-9]*)$',data,re.M))
@@ -20,7 +20,8 @@ def check_hold(data, guarded=True):
     assert acquired[0].start()<begin<end<released[0].start()
     for guard in guards:
         assert guard[1]==acquired[0][1] and begin<guard.start()<end
-        assert 0<=data.find(b'battery-control: dispatched')<guard.start()<data.find(b'battery-service: retired')
+        start=b'battery-monitor: auto_start=1 native=disabled' if automatic_start else b'battery-control: dispatched'
+        assert 0<=data.find(start)<guard.start()<data.find(b'battery-service: retired')
     return int(acquired[0][1])
 
 
@@ -94,11 +95,15 @@ def check_events(data, epoch_base=0, epochs=2, refused=False, vm=True):
     return total,alarm_total
 
 
-def check_home_returns(data, epochs, refused=False, vm=True):
+def check_home_returns(data, epochs, refused=False, vm=True, continuous=False):
     """The explicit native path must add a checked return to every lifetime."""
     data=complete_lines(data.replace(b'\r\n',b'\n'))
-    assert data.count(b'battery-home-session:')==1
-    assert b'battery-home-session: limit=512 per_session=yes startup=disabled\n' in data
+    if continuous:
+        assert data.count(b'battery-home-monitor:')==1 and b'battery-home-session:' not in data
+        assert b'battery-home-monitor: begin continuous=yes log_interval_us=5000000 native=disabled\n' in data
+    else:
+        assert data.count(b'battery-home-session:')==1 and b'battery-home-monitor:' not in data
+        assert b'battery-home-session: limit=512 per_session=yes startup=disabled\n' in data
     pattern=rb'^battery-service: retired epoch=(\d+) .*heap=0 errors=0 denied=0$'
     retired=list(re.finditer(pattern,data,re.M));assert len(retired)==epochs
     previous=0
@@ -115,7 +120,7 @@ def check_home_returns(data, epochs, refused=False, vm=True):
     assert data.count(b'battery-home-return:')==epochs
     assert data.count(b'battery: foreign-event restored')==2*epochs
     assert data.count(b'battery-service: retired ')==epochs
-    assert data.index(b'battery-workspace-hold: acquired')<data.index(b'battery-home-session:')
+    assert data.index(b'battery-workspace-hold: acquired')<data.index(b'battery-home-monitor:' if continuous else b'battery-home-session:')
     assert not epochs or retired[-1].end()<data.index(b'battery-workspace-hold: released')
 
 
