@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Exercise held Home battery capture through actual boot flow on disposable USB only."""
-import argparse,json,os,struct,subprocess,tempfile,time
+import argparse,json,os,re,struct,subprocess,tempfile,time
 from pathlib import Path
 from battery_workspace_smoke import ANCHOR,MARKER
 from desktop_foundation_smoke import QMP
@@ -15,9 +15,14 @@ CASES={'completion':76,'query-refusal':75,'profile-refusal':15,'uncertain-ack':7
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--case',choices=CASES,default='completion');args=parser.parse_args()
+    parser.add_argument('--case',choices=CASES,default='completion')
+    parser.add_argument('--slow-connect',action='store_true',help='Add four seconds to each fixture EC connection')
+    parser.add_argument('--slow-storage',action='store_true',help='Throttle disposable USB to ten writes/second during desktop work')
+    args=parser.parse_args()
+    assert not args.slow_connect or args.case=='completion'
+    assert not args.slow_storage or args.case=='completion'
     capture=b'battery-home-session-capture'
-    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-session-capture-'+args.case)
+    root=Path(__file__).resolve().parents[1];out=root/'build/review'/('battery-home-session-capture-'+args.case+('-slow-connect' if args.slow_connect else '')+('-slow-storage' if args.slow_storage else ''))
     out.mkdir(parents=True,exist_ok=True);(out/'result.json').unlink(missing_ok=True);output=bytearray()
     with tempfile.TemporaryDirectory(prefix='srvros-home-capture-') as folder:
         tmp=Path(folder);volume=tmp/'workspace.exfat';stick=tmp/'workspace.img'
@@ -29,7 +34,7 @@ def main():
         fixture.add_directory_files('battery-study',{'anchor.txt':ANCHOR})
         mbr=bytearray(512);mbr[450]=7;struct.pack_into('<II',mbr,454,2048,len(fixture.data)//512);mbr[510:]=b'\x55\xaa'
         with stick.open('wb') as stream:stream.write(mbr);stream.seek(2048*512);stream.write(fixture.data)
-        (tmp/'battery.asl').write_text('#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
+        (tmp/'battery.asl').write_text(('#define BATTERY_CONNECT_DELAY 1\n' if args.slow_connect else '')+'#define BATTERY_FAULT '+str(CASES[args.case])+'\n'+(root/'tools/fixtures/acpi/battery-runtime.asl').read_text())
         subprocess.run(['iasl','-p',str(tmp/'battery'),str(tmp/'battery.asl')],check=True,stdout=subprocess.DEVNULL)
         kernel=root/'build/acpi-battery'/'vm.elf'
         cmdline='srvros.storage=ram srvros.workspace-volume=51525354 srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-session srvros.capture-failure=reboot'
@@ -44,10 +49,16 @@ def main():
         with (out/'qemu.txt').open('w') as errors:
             process=subprocess.Popen(cmd,stdout=errors,stderr=errors)
             try:
-                serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=QMP(tmp/'qmp');start=time.monotonic()
+                serial=connect_unix(tmp/'serial',20);serial.settimeout(.05);qmp=QMP(tmp/'qmp');start=time.monotonic();throttled=False;unthrottled=False
                 while process.poll() is None and time.monotonic()-start<150:
                     output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
                     qmp.boot_if_menu_stalled(output,time.monotonic()-start)
+                    if args.slow_storage and not throttled and b'desktop-coexist: ready' in output:
+                        qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':10})
+                        throttled=True
+                    if args.slow_storage and throttled and not unthrottled and b'battery-workspace-hold: released' in output:
+                        qmp.call('block_set_io_throttle',{'device':'stick','bps':0,'bps_rd':0,'bps_wr':0,'iops':0,'iops_rd':0,'iops_wr':0})
+                        unthrottled=True
                     if fatal and halt in output:break
                 assert (process.poll() is None if fatal else process.poll()==0),bytes(output[-6000:])
                 output.extend(read_for(serial,.1));(out/'serial.log').write_bytes(output)
@@ -57,7 +68,7 @@ def main():
         data=bytes(output)
         assert b'laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled' in data
         assert b'laptop-capture: battery media ' not in data
-        result=dict(status='PASS',case=args.case,native_acceptance=False)
+        result=dict(status='PASS',case=args.case,slow_connect=args.slow_connect,slow_storage=throttled,native_acceptance=False)
         if fatal:
             assert halt in data
             assert b'battery-workspace-hold: acquired token=1' in data
@@ -74,6 +85,16 @@ def main():
             saved=verify_image(volume.read_bytes(),data,args.case=='completion',checker=checker,capture=capture,compare_serial=False,study='complete' if args.case=='completion' else 'incomplete' if args.case=='query-refusal' else 'untouched')
             (out/'exit.log').write_bytes(saved)
             result.update(checker(saved))
+            if args.slow_connect:
+                setups=[int(n) for n in re.findall(rb'^battery: setup=complete elapsed_us=(\d+)$',saved,re.M)]
+                assert len(setups)==3 and min(setups)>=4000000,setups
+                result['setup_us']=setups
+            if args.slow_storage:
+                timings=re.findall(rb'^desktop-coexist: file-checkpoint serial=(\d+) elapsed_us=(\d+)$',saved,re.M)
+                assert [int(n) for n,_ in timings]==[12,24,36,48,60],timings
+                waits=[int(n) for _,n in timings]
+                assert 4700000<max(waits)<15700000,waits
+                result['file_checkpoint_us']=waits
             (out/'fsck.txt').write_text(check_clean_image(volume))
             allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
             (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0

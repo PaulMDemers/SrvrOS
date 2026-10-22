@@ -40,6 +40,10 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
             Method (_REG, 2) {
                 If (Arg0 == 3) {
                     If (Arg1) {
+#ifdef BATTERY_CONNECT_DELAY
+                        // Reproduce native setup latency without changing ownership.
+                        Sleep (2000); Sleep (2000)
+#endif
 #if BATTERY_FAULT == 1
                         FAIL = One
 #endif

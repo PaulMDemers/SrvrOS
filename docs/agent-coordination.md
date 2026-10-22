@@ -532,3 +532,14 @@ from a kernel runtime failure. A refused query can coincide with a submitted
 first save, requiring valid incomplete-draft preservation, not an untouched disk
 or a completed workload. Native acceptance remains pending. Pro PR19 `92a1bbc`
 retains independent Wi-Fi work; preserve its main/staging profiles and tests.
+
+The first v49 native session (`63333d27f5e5c064`) returned a **failed** workload
+after the compositor's diagnostic progress timeout, with clean runtime retirement
+and preserved existing files. A disposable VM reproduced the early stop with
+four-second EC connections and throttled USB writes. The correction gives only
+generated control/file checkpoints a 15.7-second wait and the study 90 seconds;
+normal desktop input/client deadlines and the 110-second owner limit stay intact.
+The slow regression completes all 60 edits and five exact file cycles, including
+7.98–8.43-second checkpoints. This remains VM evidence pending the native retry.
+Pro PR19 `fe5c0a8` and Air6,1 PR54 `953103b` were inspected; their Wi-Fi and
+inventory/setup scopes do not overlap this compositor diagnostic correction.

@@ -248,3 +248,19 @@ hashes after preparation. Logging pauses while Home remains mounted; final
 receipts are saved after client/runtime retirement and before unmount/return.
 The collector checks both the native session proof and exact study-file contents.
 This recipe requires its own exact-stage rehearsal and physical acceptance.
+
+The generated control/file study acknowledges each twelfth edit only after the
+save/stat/rename/reopen checkpoint. Native release `63333d27f5e5c064` failed the
+old 4.7-second checkpoint wait while the second service lifetime and file work
+were still progressing; it retired safely and preserved existing files. This
+is a failed workload, not acceptance. The diagnostic now budgets 15.7 seconds
+for these checkpoints, retaining 4.7 seconds for other generated edits and all
+ordinary desktop input/client deadlines. It allows up to 90 seconds to finish
+all 60 edits, with the existing 110-second owner deadline unchanged. Completion
+still requires every file cycle and at least one minute of activity.
+
+`battery_home_session_capture_smoke.py --slow-connect --slow-storage` adds four
+seconds to each fixture connection and throttles disposable USB writes. Its
+receipt must prove a file checkpoint exceeded the old budget, all five exact
+files, resource-checked retirement and saved automatic return. These injected
+latencies are VM regression evidence, not a measurement of native disk speed.
