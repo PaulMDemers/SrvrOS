@@ -263,3 +263,15 @@ is armed. This accepts bounded raw capture and keyboard coexistence. Desktop
 pointer calibration, click/drag, scrolling and sustained operation remain
 untested; normal pointer/gesture admission remains disabled for this PID.
 The next milestone is a separate bounded desktop pointer trial.
+
+## Active desktop pointer trial preparation (2026-10-22)
+
+Owner `device/macbookair6-1/desktop-pointer`, integration base `dc48846`.
+Use accepted capture `77ab86681e27132d` to admit the same revision/configuration
+for explicit pointer/gesture modes. Scope: xHCI admission/tests, native report
+fixtures, exact-stage v11/v12 VM rehearsal and this unit's test documentation.
+Retain existing pointer policy and sibling behavior; no calibration claims,
+firmware changes or USB workload expansion. PR #19's Wi-Fi/xHCI work and PR #55's
+battery work remain independent. Prepare an attended v12 desktop/scrolling trial,
+run host and exact-stage GPT checks, preserve console recovery, self-merge and
+install unarmed. Physical movement/click/drag/scroll acceptance awaits this run.
