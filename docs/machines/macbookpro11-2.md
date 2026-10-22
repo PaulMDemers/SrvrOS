@@ -1794,3 +1794,14 @@ missing-workspace VM holds with recovery instructions. Installed unarmed, Ubuntu
 default and accepted recovery retained; offline workspace checks clean. Native
 WLAN/clock and firmware readiness remain pending. Next: attended cold shutdown,
 then collect this release before further changes.
+
+Native clock trial `05573bcc8bb336a4`, session `00065e643293f201-00`, confirms
+WLAN enable/readback (`0xff000002` → `0xff000003`) and crystal/PLL readiness
+(CMB `0x00c017ff`). It still fails request13/write6/index0x800/length4, the
+first FCE write after completed MCU reset: no matched completion in 300003 µs,
+endpoint state=1, cached dequeue=0x1eb001. Preparation/upload remain incomplete,
+zero chunks and quarantine retained. Clock initialization is observed working;
+it did not resolve the post-reset failure. Photo/logs archived; Ubuntu default,
+consumed one-shot and recovery verified. Offline checks: 127 files, 439 clusters,
+zero leaks/mismatches/errors. Next investigate post-reset EP0/device behavior;
+no next boot armed and no firmware-readiness acceptance.
