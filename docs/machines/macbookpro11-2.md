@@ -2262,3 +2262,13 @@ phase/identity/ownership refusals, early-release refusal and USB failure
 quarantine.53 staging tests pass and documentation links check clean. New reset
 engine and strict native reply validator are included in v4; hardware acceptance
 remains pending. Preparing stage/VM checks before installation.
+
+Native reset candidate source2bc3689 releasebfa7235c397175da installed unarmed.
+Exact GPT saved-log/automatic-return and missing-workspace VMs pass; workspace
+fsck/allocation and Ubuntu/current/recovery verification pass. Durable payload,
+receipts and run record in wifi-reset-2bc3689 outside build. Accepted queue/read
+payload4a47cd57ac90c504 and known-good desktop recoverye47dca3a6b30c6c1 retained;
+older failed MCU payload8e87dabf5c918f1c removed from ESP after archive equality
+verification. Await attended cold cycle; collect matching session first after
+return. Require reset result0/prepared1/released1 and MCU validated1, disabled MAC;
+no RF or connectivity acceptance follows from this trial alone.
