@@ -38,6 +38,7 @@ class Proof(unittest.TestCase):
         end=b'battery-home-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\nlaptop-capture: completed=yes\n'
         data=boot+media+fixture().replace(b'enable=0x62f',b'enable=0x189c').replace(b'enable=0x62e',b'enable=0x189e')+end
         self.assertEqual(check_capture(data)['status'],'PASS')
+        self.assertEqual(check_capture(boot+media+fixture('alarm')+end,vm=True,case='alarm')['alarms'],1)
         self.assertIsNotNone(battery_home_result(data.decode()))
         for row in (media,)+tuple(end.splitlines(keepends=True)):
             with self.assertRaises(AssertionError):check_capture(data.replace(row,b''))

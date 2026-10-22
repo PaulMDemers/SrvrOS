@@ -66,10 +66,10 @@ def main():
             assert data.index(b'laptop-capture: saved=yes unmounted=yes')<data.index(b'laptop-capture: returning to Ubuntu')
             disk=stick.read_bytes();assert disk[:512]==mbr and not any(disk[512:2048*512])
             volume.write_bytes(disk[2048*512:])
-            def checker(raw,vm=True):return check_capture(raw,vm=True)
+            def checker(raw,vm=True):return check_capture(raw,vm=True,case='alarm' if args.case=='alarm' else 'normal')
             saved=verify_image(volume.read_bytes(),data,args.case!='query-refusal',checker=checker,capture=capture,compare_serial=False)
             (out/'exit.log').write_bytes(saved)
-            result.update(check(saved,'query-refusal') if args.case=='query-refusal' else check_capture(saved,vm=True))
+            result.update(check(saved,'query-refusal') if args.case=='query-refusal' else check_capture(saved,vm=True,case='alarm' if args.case=='alarm' else 'normal'))
             (out/'fsck.txt').write_text(check_clean_image(volume))
             allocation=subprocess.run([str(root/'build/tests/exfat-driver'),str(volume),'allocation-check'],capture_output=True,text=True)
             (out/'allocation.txt').write_text(allocation.stdout+allocation.stderr);assert allocation.returncode==0

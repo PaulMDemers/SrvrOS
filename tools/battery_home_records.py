@@ -86,9 +86,9 @@ def check(data, case='normal', vm=True):
     return dict(status='PASS',outcome=kind.decode(),generation=generation,events=events,alarms=alarms,runtime_retired=True,mount_released=True,native_acceptance=False)
 
 
-def check_capture(data, vm=False):
+def check_capture(data, vm=False, case='normal'):
     data=complete_lines(data.replace(b'\r\n',b'\n'))
-    result=check(data,vm=vm)
+    result=check(data,case=case,vm=vm)
     required=(b'laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled',
               b'battery-home-capture: returned=yes clean=yes; physical accuracy NOT_TESTED',
               b'laptop-capture: completed=yes')
