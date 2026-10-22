@@ -95,6 +95,19 @@ int64_t process_spawn_background_elf_args_fds(const char *path,
     const char *args,
     int64_t stdin_fd,
     int64_t stdout_fd);
+/* Kernel-only owner capability; no userspace setter or syscall. One root per
+ * token, inherited by all spawn paths; exec/job control do not change it.
+ * CPU0 only, matching process management. Members include preparation/release.
+ * Revoke, drain until members==0, then release. A timeout is not retirement. */
+struct process_lifetime_status { uint64_t members; bool revoked; };
+uint64_t process_lifetime_create(void);
+int64_t process_lifetime_spawn(uint64_t token,const char *path,const char *args);
+bool process_lifetime_revoke(uint64_t token);
+bool process_lifetime_drain(uint64_t token);
+bool process_lifetime_status(uint64_t token,struct process_lifetime_status *out);
+bool process_lifetime_release(uint64_t token);
+uint64_t process_lifetime_of(uint64_t pid);
+
 int64_t process_wait(uint64_t pid, uint64_t *status_out, bool nohang);
 /* Kernel-designated init may reap children whose userspace parent has exited. */
 bool process_set_reaper(uint64_t pid);
