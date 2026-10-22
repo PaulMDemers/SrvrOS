@@ -13,6 +13,18 @@ main/staging/collector, proof parser, VM fixtures and tests. Validate overlap,
 event-limit/stop faults, native refusal and exact-stage recovery before install.
 Physical acceptance remains pending; no ordinary Home/startup enablement.
 
+Implementation `029e344`, draft PR #48, passed the full local build/core/docs
+suite and nine full-boot VM cases. The modeled native-rate run completed 60
+edits, five file cycles and 383 events; mixed alarms completed 31 events with
+15 acknowledgements and fresh generation 30. Read/ack Stop returns save an
+incomplete result after clean retirement. Uncertain acknowledgement and the
+512-event cap reset without claiming retirement or a saved completion. No-event
+and unsupported-profile runs return without acceptance. Positive runs verify
+saved proof, exact image contents, metadata and both allocation graphs.
+The existing short v46 capture also passes. Exact-stage rehearsal and native
+collection remain required. Latest Pro PR19 `122fcda` adds separate Wi-Fi control
+retirement/capture work; its files do not overlap this bounded implementation.
+
 ### Completed VM SMBus/Text/file study (PR #47)
 
 Implementation `b1e80f0`, base `4ea10e1`. The VM-only mounted-workspace command
