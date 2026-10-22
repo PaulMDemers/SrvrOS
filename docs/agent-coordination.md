@@ -515,7 +515,7 @@ Pro PR19 `92a1bbc` retains independent Wi-Fi scope; preserve both main/staging
 profiles and Makefile tests. No other machine's acceptance changes.
 
 
-## Explicit Home desktop owner (PR #53, native trial pending)
+## Explicit Home desktop owner (PR #53)
 
 Implementation `0a670c8` reuses the System mailbox and descendant-retirement
 owner for an explicit held-Home session, including submitted Text saves and
@@ -543,3 +543,18 @@ The slow regression completes all 60 edits and five exact file cycles, including
 7.98–8.43-second checkpoints. This remains VM evidence pending the native retry.
 Pro PR19 `fe5c0a8` and Air6,1 PR54 `953103b` were inspected; their Wi-Fi and
 inventory/setup scopes do not overlap this compositor diagnostic correction.
+
+The retry `fd6f6b9d397c339f` (compiled `faf40ab`, collector `7f1438d`) accepts
+the explicit session on Air7,2: five requests, three lifetimes, 60 edits/five file
+cycles, 180 natural events, 12 handled/zero unclaimed SCI deliveries and clean
+retirement with Home held. No alarms occurred. All previous non-metadata files
+are preserved, allocation is clean and automatic Ubuntu recovery is verified.
+The host collector's filename loop no longer overwrites its JSON session label;
+both original and corrected collections retain identical raw logs. Reuse that
+fix when collecting v49. Original failed native evidence remains separate.
+
+Next Air scope is ordinary desktop ownership/startup and bounded continuous
+service accounting, followed by attended AC/gauge checks and the final indicator.
+Normal startup remains OFF until that integration is validated. Pro PR19
+`af779b0` and Air6,1 PR54 `c8dc0a0` remain separate Wi-Fi and console/inventory
+work; do not copy the Air7,2 firmware gate or acceptance onto those models.

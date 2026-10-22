@@ -5,6 +5,10 @@ SMBus completion events, but its outer workspace is parked. An exclusive image
 lease bounds which storage can change. Ordinary mounted Home removes that bound:
 apps, settings and logging can retain open files or asynchronous work. Native
 Home monitoring and automatic startup remain disabled outside the explicit diagnostic.
+The later v49 held-Home desktop session is now physically accepted on Air7,2:
+release `fd6f6b9d397c339f` completed three service lifetimes, all 60 generated
+edits and five exact file cycles, then retired before saving and unmounting.
+See the [machine record](machines/macbookair7-2.md) for native scope and limits.
 
 ## Ownership audit
 
@@ -190,12 +194,14 @@ startup enablement or a finished graphical indicator.
 
 The remaining delivery sequence is:
 
-1. Retain the VM combined-control/file proof above through native integration:
-   submitted jobs, cancellation, active-service close and mount release.
-2. Extend the accepted explicit native mounted boundary to a desktop-session
-   service owner, preserving terminal-fault storage containment. Normal completion
-   has native evidence; query refusal and uncertain-event cases retain VM evidence.
-   Enable normal startup only after desktop-session acceptance.
+1. Integrate the accepted explicit Home session owner into ordinary desktop
+   startup and exit, preserving descendant/mount lifetime and terminal-fault
+   containment. The bounded v49 workload has native acceptance; cancellation,
+   query refusal and uncertain-event cases retain their directed VM evidence.
+2. Replace diagnostic duration/event ceilings with bounded continuous-service
+   accounting and logging before enabling normal startup. Validate service
+   unavailable/failed states, Start/Stop/restart, session shutdown and file work;
+   do not turn the 512-event study into unlimited monitoring by deleting its guard.
 3. Validate real AC plug/unplug, charging/discharging, fresh-to-stale transitions,
    percentage plausibility and session shutdown with Home mounted. Announce any
    required human action before the corresponding hardware boot. An automatic
@@ -248,6 +254,9 @@ hashes after preparation. Logging pauses while Home remains mounted; final
 receipts are saved after client/runtime retirement and before unmount/return.
 The collector checks both the native session proof and exact study-file contents.
 This recipe requires its own exact-stage rehearsal and physical acceptance.
+Air7,2 release `fd6f6b9d397c339f` passed that acceptance with 180 natural completion
+events, no alarms and clean retirement/filesystem/Ubuntu return. Ordinary desktop
+startup, physical input latency and charging/gauge accuracy remain pending.
 
 The generated control/file study acknowledges each twelfth edit only after the
 save/stat/rename/reopen checkpoint. Native release `63333d27f5e5c064` failed the

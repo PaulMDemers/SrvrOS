@@ -2,63 +2,59 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active desktop-session ownership block
+### Explicit Home desktop battery session accepted (PR #53)
 
-Native release `63333d27f5e5c064` (source `b67d179`), session
-`session-00065e74e07682d9-00`, returned automatically but **failed** its workload:
-24 generated / 23 presented edits, three requests and two retired lifetimes.
-The compositor stopped while the second file checkpoint and restarted service
-were pending. Its 4.7-second diagnostic acknowledgement budget motivated the
-correction below; no native desktop-session acceptance is claimed. Both lifetimes
-retired with zero errors/denials, the mount was released afterward and the final
-failed report was saved. All 929 pre-existing non-metadata files are unchanged;
-two exact `AA` files and three session logs were added. Offline fsck/allocation
-passed (935 files, zero leaks). Ubuntu return, consumed one-shot and recovery
-were verified. Current is that diagnostic; previous remains `b427b78f21644bd2`.
-Failed evidence/payload are hash-verified outside `build` under
-`~/.local/share/srvros/failed-evidence/63333d27f5e5c064`; no reboot is armed.
+Base `9ca1922` (PR52); compiled source `faf40ab`; collector correction `7f1438d`.
+Release `fd6f6b9d397c339f`, session `session-00065e752131c4aa-00`, passed the
+explicit v49 held-Home session: five Start/Stop requests, three clean service
+lifetimes, all 60 generated edits, five exact file cycles and 20 worker operations.
+The workload lasted 62.170 seconds, with file checkpoints taking 2.91–6.06 seconds.
+It handled 180 natural SMBus completion events and 12 SCI deliveries with zero
+unclaimed deliveries. No alarms occurred. Every lifetime returned masked/idle
+with the exact mount held, checked resources and restored foreign sources.
+Clients and runtime retired before the mount was released and logs saved.
 
-Bounded correction: reproduce slower native startup in the disposable
-full-boot fixture and fix diagnostic checkpoint timing without loosening normal
-desktop input timeouts or runtime ownership checks. Touch compositor diagnostic
-policy, VM fixture/harness and evidence/docs. PR53 remains draft. Integration
-base is still `9ca1922`; inspected Pro PR19 `fe5c0a8` remains Wi-Fi work and
-Air6,1 PR54 `953103b` is inventory/setup documentation, with no controller overlap.
+All 935 pre-existing non-metadata files remained unchanged, including the earlier
+failed study and disposable filesystem image. Exactly five `AA` files and three
+session logs were added; only `.srvros/meta` changed. Offline exFAT/allocation
+passed (944 files, zero leaks). Automatic Ubuntu return, consumed one-shot,
+Ubuntu default and EFI recovery were verified. Current is `fd6f6b9d397c339f`;
+previous remains `b427b78f21644bd2`. Evidence/payload and an independent recovery
+copy are hash-verified outside `build` under
+`~/.local/share/srvros/accepted-evidence/fd6f6b9d397c339f`. No reboot is armed.
 
-The slower VM reproduction failed the original payload at its first file
-checkpoint. The corrected diagnostic completed 60 edits, five exact file cycles
-and three lifetimes in 79.70 seconds; checkpoints took 7.98–8.43 seconds with
-four-second EC connections and ten USB writes per second. Its exact files,
-metadata, allocation, retirement and automatic return passed. Normal completion,
-profile refusal, uncertain acknowledgement containment, cancellation and the
-existing VM-only file-control workload also passed on the corrected userspace.
-Full build, both battery kernels and host core tests passed locally. No firmware
-or ordinary input deadline changed. A new exact-stage native retry is required
-before accepting the session or merging PR53.
+The collector initially reused a filename variable for the JSON session label.
+`7f1438d` fixes that host-only error and adds successful/rejected-collection
+identity checks; all 21 collector tests pass. Both collections are retained;
+the corrected report references identical raw log bytes and verified file backups.
+This did not change the physical payload or relax its completion predicate.
 
-Base `9ca1922` (PR52). Add explicit native held-Home desktop session commands
-using the existing System control mailbox, descendant retirement and real Text
-file worker. Preserve exact profile admission and return proof across repeated
-Start/Stop and active-service session exit; uncertain effects retain the mount.
-Touch battery runtime, disposable VM harness/strict evidence, v49 automatic
-boot/collection and current guides.
-Keep ordinary startup disabled until the combined session
-has its own exact-stage and native acceptance. Pro PR19 `92a1bbc` remained
-independent Wi-Fi work; no overlapping controller implementation is planned.
-The new v49 capture runs the combined file session without human input; its
-dedicated battery-study directory and all unrelated files require exact checks.
-Implementation `0a670c8` and receipt correction `e2e9e01` pass 15 directed
-ownership cases and nine final full-payload boot/regression checks. Normal boot
-proved five requests/three lifetimes, 60 edits/five file cycles, 26 model events
-and 10 alarms. Expected query/profile refusals save failed results and return;
-uncertain acknowledgement/effects halt without releasing the mount. Actual
-System mouse Start/Stop/restart/active close, cancellation, old file-work and v48
-boundary regressions passed. Full build/core/docs and corruption/collection tests
-passed locally with Actions disabled. A refused query may race the first save;
-its valid partial draft remains failed/incomplete work. Compact records and a
-512-event session limit retain bounded evidence. Exact-stage rehearsal and the
-automatic v49 native trial were then run; the failed result and bounded timing
-correction are recorded above. Ordinary startup remains OFF.
+The first v49 attempt (`63333d27f5e5c064`, source `b67d179`, session
+`session-00065e74e07682d9-00`) remains a failed workload: 24 generated/23 presented
+edits and two retired lifetimes. All 929 previous non-metadata files were preserved,
+and filesystem/recovery checks passed. Its 4.7-second diagnostic progress budget
+was reproduced in Q35 with four-second EC connections and throttled USB writes.
+The corrected study gives only control/file checkpoints 15.7 seconds and the
+whole workload up to 90 seconds. Normal input/client deadlines and the 110-second
+owner limit remain unchanged. The slow VM completed all five checkpoints in
+7.98–8.43 seconds each, all edits and three lifetimes in 79.70 seconds.
+Failed native evidence is retained outside `build`; it is not a pass.
+
+Validation remains local with Actions disabled. The original ownership code
+passed 15 directed cases and nine full boot/regression cases, including actual
+System mouse controls, cancellation and fault containment. The corrected payload
+passed full build/core, both kernels, normal and slow full-boot workloads, query
+and profile refusal, uncertain-ack containment, cancellation and the existing
+VM-only file workload. Exact-stage refusal/save/return and missing-volume return
+passed before installation. This accepts the explicit automatic workload, not
+physical input latency, native alarms, gauge accuracy or unlimited monitoring.
+
+Next: ordinary desktop-session ownership/startup, attended AC and charging/gauge
+checks, then the finished graphical indicator in the
+[delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
+Ordinary startup remains OFF. Pro PR19 `af779b0` retains Wi-Fi work and Air6,1
+PR54 `c8dc0a0` retains inventory/console bring-up; their own hardware results do
+not inherit the Air7,2 firmware gate or this acceptance.
 
 ### Mounted Home battery boundary accepted (PR #52)
 
