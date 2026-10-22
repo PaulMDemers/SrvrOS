@@ -457,6 +457,13 @@ def battery_app_files_result(exit_text):
     except (AssertionError,ValueError):return None
 
 
+def battery_home_session_result(exit_text):
+    from battery_control_files_records import check_capture
+    if not battery_overlap_recipe(exit_text,'battery-home-session'):return None
+    try:return check_capture(exit_text.encode())
+    except (AssertionError,ValueError):return None
+
+
 def battery_home_result(exit_text):
     from battery_home_records import check_capture
     if not battery_overlap_recipe(exit_text,'battery-home'):return None
@@ -589,6 +596,24 @@ def collect(mount, volume, output):
                 image_proof['image_verified']=True
             except (OSError,ValueError,RuntimeError,subprocess.SubprocessError) as error:
                 attention.append("collection: "+str(error));image_proof=None
+        home_session_proof=battery_home_session_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
+        if re.search(r'srvros\.capture=battery-home-session(?:\s|$)',text) and home_session_proof is None:
+            attention.append('collection: Home desktop-session completion missing, invalid or refused')
+        if home_session_proof:
+            try:
+                study=mount/'battery-study'
+                if study.is_symlink() or not study.is_dir():raise ValueError('Home session study directory missing or unsafe')
+                expected={'anchor.txt',*(f'text-{i}.txt' for i in range(1,6))}
+                if {p.name for p in study.iterdir()}!=expected:raise ValueError('Home session file set differs')
+                for name in expected:
+                    p=study/name;want=b'Untouched ordinary workspace data\n' if name=='anchor.txt' else b'AA'
+                    if p.is_symlink() or not p.is_file() or p.stat().st_size!=len(want) or p.read_bytes()!=want:raise ValueError('Home session file content differs: '+name)
+                    target=saved/'battery-home-session';target.mkdir(exist_ok=True)
+                    (target/name).write_bytes(want)
+                    if (target/name).read_bytes()!=want:raise OSError('Home session backup verification failed')
+                home_session_proof['files_verified']=True
+            except (OSError,ValueError) as error:
+                attention.append('collection: '+str(error));home_session_proof=None
         home_proof=battery_home_result(payload.get("exit.log",b"").decode("utf-8",errors="replace"))
         if re.search(r'srvros\.capture=battery-home(?:\s|$)',text) and home_proof is None:
             attention.append('collection: mounted Home battery completion missing, invalid or refused')
@@ -647,7 +672,7 @@ def collect(mount, volume, output):
             "desktop_idle_sample": desktop_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "power_idle_sample": power_idle_sample(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
             "battery_transitions": battery_transitions(payload.get("exit.log",b"").decode("utf-8",errors="replace")),
-            "battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
+            "battery_home_session":home_session_proof,"battery_home": home_proof,"battery_smbus_files": smbus_files_proof,"battery_smbus": smbus_proof,"battery_query": query_proof,
             "battery_controls": controls_proof,
             "battery_app_files": app_files_proof,
             "battery_load": load_proof,

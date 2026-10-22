@@ -11,10 +11,10 @@ Home monitoring and automatic startup remain disabled outside the explicit diagn
 | Boundary | Existing behavior | Requirement before native Home enablement |
 | --- | --- | --- |
 | Start/Stop request | Process-group mailbox; syscalls only enqueue, session owner dispatches | Retain scoped admission, epoch checks and revocation before client teardown |
-| Mounted storage | VM SMBus/control studies hold the exact mounted device, parent and generation; native capture binds the parked device | Preserve the hold across file-worker activity and release only after owner retirement |
-| Controller events | Exact native profile owns query10 only inside the parked capture; serialized with sampling | Preserve profile, bank serialization and per-transaction/query bounds in a distinct mounted scope |
+| Mounted storage | Explicit mounted diagnostics hold the exact device, parent and generation; parked captures retain their separate image lease | Preserve the hold across file-worker activity and release only after owner retirement |
+| Controller events | Exact native profile owns query10 inside explicit parked or held-Home captures; serialized with sampling | Preserve profile, bank serialization and per-transaction/query bounds in a distinct mounted scope |
 | Stop | Mask sources, drain worker, verify resources, disconnect, then retire owner | Prove the same ordering across UI restart/cancel and file-worker activity |
-| Query refusal | Normal-return native refusal is scoped to parked capture; other unsafe queries are terminal | Prove a mounted return path before enabling it; no general AML unwind assumption |
+| Query refusal | Effect-free normal-return refusal is scoped to parked or held-Home ownership; other unsafe queries are terminal | Retain the checked mounted return across desktop lifetimes; no general AML unwind assumption |
 | Fatal failure | Reset is blocked with mounted Home or active storage I/O; no filesystem calls from the fatal context | Keep containment; never flush/unmount uncertain state to force automatic recovery |
 | Session exit | Revoke mailbox, retire all descendants, stop service, release storage after ownership ends | Preserve all clients and open-file lifetimes, including early exit |
 
@@ -209,3 +209,42 @@ The remaining delivery sequence is:
 
 Battery readout completion does not include suspend/resume, CPU power policy,
 fan control or sibling-model enablement. Those retain separate acceptance gates.
+
+## Explicit Home desktop sessions
+
+The full diagnostic kernel also exposes `acpiruntime battery-home-controls`,
+`battery-home-controls-manual`, `battery-home-controls-files` and
+`battery-home-controls-files-cancel`. These reuse the existing System control
+mailbox and desktop process-group owner. The exact mounted volume is held across
+Start/Stop/restart and released only after every descendant and runtime retires.
+A cached battery read or a control syscall from an unrelated process cannot
+acquire this ownership. Native admission still requires the captured Air profile.
+These commands do not change ordinary startup or install a hardware payload.
+
+The session has the existing 110-second outer deadline and a 512-event ceiling
+across the whole session, matching the bounded file-work duration. Every normal
+retirement checks a masked, idle controller with its mount still held before
+resource verification and disconnect. A clean refused query leaves a failed
+session; uncertain transport or effects retain ownership and halt. No reset or
+filesystem cleanup occurs from that fault context.
+
+Rehearse the same explicit path on disposable Q35 with
+`tools/host-env.sh python3 tools/battery_workspace_controls_smoke.py --home`
+and `tools/host-env.sh python3 tools/battery_control_files_smoke.py --home`.
+The original commands without `--home` retain their VM-only admission. System
+mouse controls, active close, new mount generations, submitted Text file jobs,
+cancellation, unavailable profiles and uncertain acknowledgement each require
+separate receipts. Compact records retain every event in the bounded saved log.
+Strict Home evidence adds a masked/idle/held return and
+foreign-event restoration for every service lifetime. VM evidence does not
+accept physical input latency, charging accuracy or another model's firmware.
+
+The distinct v49 `--battery-home-session` boot profile automates the combined
+Text/file session. Prepare a dedicated `/battery-study` directory on the USB
+volume containing only `anchor.txt` with `Untouched ordinary workspace data`
+and a final newline. The test creates five `text-N.txt` files, each containing
+`AA`; do not point it at an existing work directory. Record the pre-run file
+hashes after preparation. Logging pauses while Home remains mounted; final
+receipts are saved after client/runtime retirement and before unmount/return.
+The collector checks both the native session proof and exact study-file contents.
+This recipe requires its own exact-stage rehearsal and physical acceptance.

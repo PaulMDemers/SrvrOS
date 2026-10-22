@@ -8,12 +8,15 @@ Base `9ca1922` (PR52). Add explicit native held-Home desktop session commands
 using the existing System control mailbox, descendant retirement and real Text
 file worker. Preserve exact profile admission and return proof across repeated
 Start/Stop and active-service session exit; uncertain effects retain the mount.
-Touch battery runtime, disposable VM harness/strict evidence and current guides.
+Touch battery runtime, disposable VM harness/strict evidence, v49 automatic
+boot/collection and current guides.
 Keep ordinary startup and installed payload unchanged until the combined session
 has its own exact-stage and native acceptance. Pro PR19 `92a1bbc` remains
 independent Wi-Fi work; no overlapping controller implementation is planned.
-Next checkpoint: VM normal/manual/cancel, platform/profile refusal and live-fault
-containment, including file preservation and replacement compositor.
+The new v49 capture runs the combined file session without human input; its
+dedicated battery-study directory and all unrelated files require exact checks.
+Next checkpoint: final VM normal/manual/cancel, refusal and containment cases,
+boot save/return and exact staged payload, then the automated native trial.
 
 ### Mounted Home battery boundary accepted (PR #52)
 

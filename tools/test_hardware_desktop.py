@@ -402,6 +402,38 @@ class CollectionTests(unittest.TestCase):
                 self.assertIn('collection: native query return missing, invalid or not exercised',item['attention'])
             self.assertIsNone(desktop.battery_query_result((boot+native).replace(b'srvros.capture=battery-query',b'srvros.capture=battery-query-other').decode()))
 
+    def test_home_session_collects_exact_work_files_and_native_proof(self):
+        from test_battery_control_files_records import fixture,home_fixture
+        native=home_fixture(fixture()).replace(b'enable=0x62f',b'enable=0x189c').replace(b'enable=0x62e',b'enable=0x189e')
+        boot=b'laptop-capture: boot options=srvros.desktop-release=0123456789abcdef srvros.capture=battery-home-session\n'
+        before=b'laptop-capture: battery Home mounted=yes logging-paused=yes fault-reset=disabled\n'
+        after=b'battery-home-session-capture: returned=yes clean=yes; physical accuracy NOT_TESTED\nlaptop-capture: completed=yes\n'
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);mount=root/'usb';work=mount/'srvros-work'
+            folder=work/'Logs/session-0000000000000001-00';folder.mkdir(parents=True)
+            (work/'.workspace').write_text('SRVROS-WORKSPACE-V1 37d8c5d0\n')
+            study=mount/'battery-study';study.mkdir()
+            (study/'anchor.txt').write_bytes(b'Untouched ordinary workspace data\n')
+            for i in range(1,6):(study/f'text-{i}.txt').write_bytes(b'AA')
+            (folder/'boot.log').write_bytes(boot)
+            proof=boot+before+native+after
+            (folder/'exit.log').write_bytes(proof)
+            out,report=desktop.collect(mount,'37d8c5d0',root/'out');item=report['sessions'][0]
+            self.assertTrue(item['battery_home_session']['files_verified']);self.assertFalse(item['attention'])
+            backup=out/folder.name/'battery-home-session'
+            self.assertEqual((backup/'text-5.txt').read_bytes(),b'AA')
+            for bad in (proof.replace(b'held=1',b'held=0'),proof.replace(b'clean=yes',b'clean=NO'),
+                        proof.replace(b'complete=yes',b'complete=NO'),proof.replace(b'enable=0x189c',b'enable=0x62f'),
+                        proof+b'battery: HALTED bad\n',proof[:-1]):
+                (folder/'exit.log').write_bytes(bad)
+                _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+                self.assertIsNone(report['sessions'][0]['battery_home_session'])
+            (folder/'exit.log').write_bytes(proof)
+            (study/'text-5.txt').write_bytes(b'AB')
+            _,report=desktop.collect(mount,'37d8c5d0',root/'out')
+            self.assertIsNone(report['sessions'][0]['battery_home_session'])
+            self.assertTrue(report['sessions'][0]['attention'])
+
     def test_battery_controls_collection(self):
         from test_battery_controls_records import BASE
         with tempfile.TemporaryDirectory() as tmp:

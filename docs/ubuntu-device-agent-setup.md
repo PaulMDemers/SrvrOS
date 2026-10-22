@@ -467,6 +467,10 @@ Air7,2 release `71ab6b95892a9a8c` accepted this bounded no-client capture with
 fresh samples, clean retirement, unchanged unrelated files and automatic return.
 Desktop-session ownership and ordinary startup remain pending. See
 [Home lifecycle](battery-home-lifecycle.md) for proof and remaining acceptance.
+The subsequent v49 `--battery-home-session` capture adds explicit System-control
+lifetimes and Text file work with Home held. It requires a fresh dedicated
+`battery-study` directory as described in that guide, exact-stage VM validation,
+and its own physical acceptance. The ordinary desktop recipe is unchanged.
 
 ## 6. Install alongside Ubuntu and select one boot
 
