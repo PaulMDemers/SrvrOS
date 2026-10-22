@@ -15,8 +15,17 @@ has its own exact-stage and native acceptance. Pro PR19 `92a1bbc` remains
 independent Wi-Fi work; no overlapping controller implementation is planned.
 The new v49 capture runs the combined file session without human input; its
 dedicated battery-study directory and all unrelated files require exact checks.
-Next checkpoint: final VM normal/manual/cancel, refusal and containment cases,
-boot save/return and exact staged payload, then the automated native trial.
+Implementation `0a670c8` and receipt correction `e2e9e01` pass 15 directed
+ownership cases and nine final full-payload boot/regression checks. Normal boot
+proved five requests/three lifetimes, 60 edits/five file cycles, 26 model events
+and 10 alarms. Expected query/profile refusals save failed results and return;
+uncertain acknowledgement/effects halt without releasing the mount. Actual
+System mouse Start/Stop/restart/active close, cancellation, old file-work and v48
+boundary regressions passed. Full build/core/docs and corruption/collection tests
+passed locally with Actions disabled. A refused query may race the first save;
+its valid partial draft remains failed/incomplete work. Compact records and a
+512-event session limit retain bounded evidence. Exact-stage rehearsal and the
+automatic v49 native trial are next; ordinary startup remains OFF.
 
 ### Mounted Home battery boundary accepted (PR #52)
 

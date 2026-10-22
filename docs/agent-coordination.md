@@ -513,3 +513,22 @@ output are not promised atomicity. Local tests include deterministic competing
 writers and all 16 final VM/capture/regression checks; Actions remain disabled.
 Pro PR19 `92a1bbc` retains independent Wi-Fi scope; preserve both main/staging
 profiles and Makefile tests. No other machine's acceptance changes.
+
+
+## Explicit Home desktop owner (PR #53, native trial pending)
+
+Implementation `0a670c8` reuses the System mailbox and descendant-retirement
+owner for an explicit held-Home session, including submitted Text saves and
+active-service close. Preserve the exact mount across every Start/Stop epoch,
+revoke controls before client teardown, then retire runtime before release.
+The native profile stays exact and ordinary startup stays OFF. Compact event
+records share the existing decoder and the explicit session has a 512-event
+aggregate limit; do not infer unlimited desktop monitoring from this diagnostic.
+
+Fifteen directed ownership cases and nine final boot/regression cases pass in
+local VMs. The v49 automatic profile saves/returns on completed or handled failed
+sessions; uncertain live ownership still halts. Expected Text failure is distinct
+from a kernel runtime failure. A refused query can coincide with a submitted
+first save, requiring valid incomplete-draft preservation, not an untouched disk
+or a completed workload. Native acceptance remains pending. Pro PR19 `92a1bbc`
+retains independent Wi-Fi work; preserve its main/staging profiles and tests.
