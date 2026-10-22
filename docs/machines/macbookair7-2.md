@@ -2,6 +2,17 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
+### Active parked SMBus/Text/file capture
+
+Base `53a24a0` (PR47); Pro PR19 `37a6b12` inspected, independent Linux Wi-Fi
+capture tools. Add distinct v47 automatic SMBus/Text/file capture using the
+existing exclusive image while outer storage is parked. Keep native firmware
+and resource gates exact. Bound the full capture to 512 events (short v46 stays
+128); compact event receipts must fit saved logs. Touched: battery runtime,
+main/staging/collector, proof parser, VM fixtures and tests. Validate overlap,
+event-limit/stop faults, native refusal and exact-stage recovery before install.
+Physical acceptance remains pending; no ordinary Home/startup enablement.
+
 ### Completed VM SMBus/Text/file study (PR #47)
 
 Implementation `b1e80f0`, base `4ea10e1`. The VM-only mounted-workspace command
