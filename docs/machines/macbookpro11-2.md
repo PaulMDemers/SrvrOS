@@ -2272,3 +2272,17 @@ older failed MCU payload8e87dabf5c918f1c removed from ESP after archive equality
 verification. Await attended cold cycle; collect matching session first after
 return. Require reset result0/prepared1/released1 and MCU validated1, disabled MAC;
 no RF or connectivity acceptance follows from this trial alone.
+
+Native reset trialbfa7235c397175da/source2bc3689/session00065e747b16d8cb-00:
+**MAC/BBP reset and strict MCU identity exchange accepted** for this adapter.
+Reset result0,released1,prepared1,reads9,writes2,hold200000us; final idle MAC
+status1200=0. Queue OUT16/read OUT16/IN16, expected identity response, validated1,
+failed0 and final disabled MAC_SYS_CTRL=0. Firmware and laptop completed=yes.
+This accepts only this reset/identity sequence, not MAC/BBP tables, RF calibration,
+receive/scan, association, authentication or IP connectivity.
+
+Matching collection archived under wifi-reset-2bc3689/native-collection. Ubuntu
+default, consumed one-shot and current/recovery manifests verified. Offline
+workspace clean:143files,463clusters,zero leaks/mismatches/errors. Run record and
+checkpoint collected/unarmed. Next: bounded MAC/baseband table initialization
+with command-specific completions, then calibrated RF/receive setup.

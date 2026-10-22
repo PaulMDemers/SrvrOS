@@ -612,3 +612,10 @@ delay and last register/value. Success additionally requires the exact observed
 MCU reply and final MAC_SYS_CTRL=0 (v3 still requires0x20). No RF/channel/power
 tables or receive operation are enabled. Older profile recipes remain unchanged;
 v4 uses the existing saved-log automatic-return workflow.
+
+Native firmwarev4 reset capture accepted on the captured Pro11,2 Edimax adapter:
+source2bc3689/releasebfa7235c397175da/session00065e747b16d8cb-00. Reset completed
+with9reads,2writes and200000us hold; firmware identity reply passed strict
+validation afterward and final MAC_SYS_CTRL remained0. Saved capture completed,
+return/recovery and offline allocation checks passed. This establishes the reset
+prerequisite and firmware survival only; MAC/BBP tables and RF remain pending.
