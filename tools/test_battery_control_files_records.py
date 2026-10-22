@@ -53,6 +53,23 @@ class Records(unittest.TestCase):
             for bad in (data.replace(row,b'',1),data+row,data.replace(row,row[:-2]+b'\n',1)):
                 with self.subTest(row=row),self.assertRaises(AssertionError):check(bad)
 
+    def test_cancel_requires_explicit_child_retirement(self):
+        data=fixture();start=data.index(b'text-battery: request=2 serial=2')
+        end=data.index(b'desktools: file-result',start)
+        events=data.index(b'battery-smbus: event=1',end)
+        retired=data.index(b'battery-service: retired epoch=1',events)
+        retired=data.index(b'\n',retired)+1
+        prefix=data[:end]+b'text-battery: cancel serial=2 pending_file=1 submitted=1\ntext-files: cycles=0 pending=1 storage=workspace\ntext-battery: completed=NO\n'
+        suffix=data[events:retired]+b'battery-controls: FAIL requests=2 descendants=3 epoch=1; revoked=yes retired=yes\nbattery-workspace-controls: complete=NO epoch=1 state=4; revoked=yes retired=yes mounted=yes native=disabled\nbattery-workspace-hold: released token=1\n'
+        for status in (1,143):
+            child=f'deskd: child-exit pid=5 status={status} tick=900\n'.encode()
+            exit_log=b'desktools: exited role=text failure=1\n' if status==1 else b''
+            proof=prefix+exit_log+child+suffix
+            self.assertEqual(check(proof,'cancel')['clients_retired'],3)
+            with self.assertRaises(AssertionError):check(proof.replace(child,b''),'cancel')
+            with self.assertRaises(AssertionError):check(proof.replace(child,b'deskd: child-exit pid=5 status=0 tick=900\n'),'cancel')
+        with self.assertRaises(AssertionError):check(prefix+b'deskd: child-exit pid=5 status=1 tick=900\n'+suffix,'cancel')
+
     def test_false_overlap_and_retirement(self):
         data=fixture()
         for bad in (data.replace(b'submitted=1',b'submitted=0'),data.replace(b'pending_file=1',b'pending_file=0'),

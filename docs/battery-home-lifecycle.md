@@ -91,7 +91,11 @@ unconsumed application job is not proof that USB DMA is active at that instant.
 
 `battery-workspace-controls-files-cancel` exits after the first write has been
 submitted and Stop enqueued. Its application workload is incomplete, even when
-client/runtime cleanup succeeds. Offline checks permit only an absent draft or
+client/runtime cleanup succeeds. The compositor may terminate Text after its
+bounded close grace expires; require its explicit child-exit status plus all
+owner/worker retirement receipts and report that separately from a graceful
+reported exit. Never require or infer a final userspace log after termination.
+Offline checks permit only an absent draft or
 a prefix of the two-byte draft, preserve both anchors and require clean allocation
 and consistent metadata. Unsupported/native admission must leave the disk
 unchanged. Uncertain runtime acknowledgement retains live ownership and halts
