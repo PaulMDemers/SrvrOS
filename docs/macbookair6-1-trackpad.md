@@ -1,7 +1,8 @@
 # MacBookAir6,1 trackpad trials
 
 This is an opt-in trackpad bootstrap for the locally captured Apple
-`05ac:0290`, revision `0171`. It is not pointer/gesture acceptance.
+`05ac:0290`, revision `0171`. Bounded native pointer/drag/scroll acceptance is recorded in the
+[unit record](machines/macbookair6-1.md); remaining input filters are not fully accepted.
 
 The October 22 Linux inventory supplies an 84-byte USB configuration identical
 to the captured `0291` configuration: keyboard interface 1/EP82 and trackpad
@@ -10,12 +11,12 @@ Linux v6.12's [bcm5974 source](https://github.com/torvalds/linux/blob/v6.12/driv
 identifies 0290 as Wellspring8 ANSI, uses Type 3 and requires no mode switch.
 The existing bounded Type 3 decoder can therefore be exercised without a new
 feature-control write. Native packet evidence was collected in run `77ab86681e27132d`; see the
-[unit acceptance record](machines/macbookair6-1.md). Pointer calibration and
-desktop behavior remain untested.
+[unit acceptance record](machines/macbookair6-1.md). A later v12 run exercised pointer/drag/scroll behavior with positive user
+feedback; calibration and sustained-use coverage remain limited.
 
 Admission requires this PID/revision and explicit capture, pointer or gesture
-mode. Other revisions and mismatched endpoint descriptors refuse. Raw capture
-is accepted; pointer/gesture behavior is the next attended trial. Existing
+mode. Other revisions and mismatched endpoint descriptors refuse. Raw capture and a bounded pointer/gesture trial are accepted; new trials
+still require their own staged payload and evidence. Existing
 0291/0262 behavior remains covered by host regression tests. Synthetic completions
 exercise the new PID's reports, keyboard/bulk coexistence, stale events and errors;
 no synthetic result establishes physical coverage or coordinate calibration.
