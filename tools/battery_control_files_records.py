@@ -112,8 +112,9 @@ def check(data,case='normal',home=False,vm=True):
 
 def check_capture(data,vm=False,case="normal"):
     data=complete_lines(data.replace(b'\r\n',b'\n'))
-    for bad in (b'battery: HALTED',b'battery: FAILED',b'retired=NO',b'laptop-capture: saved=NO'):
-        assert bad not in data
+    assert b'retired=NO' not in data
+    for bad in (b'battery: HALTED',b'battery: FAILED',b'laptop-capture: saved=NO'):
+        assert not any(row.startswith(bad) for row in data.splitlines())
     # Check the session before ordinary final-log storage/unmount receipts.
     end=data.index(b'battery-workspace-hold: released')
     end=data.index(b'\n',end)+1

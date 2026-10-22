@@ -116,6 +116,10 @@ class Records(unittest.TestCase):
         proof=proof.replace(b'battery-home-return:',receipt+b'battery-home-return:')
         result=check(proof,'query-refusal',home=True)
         self.assertFalse(result['workload_complete']);self.assertEqual(result['events'],2)
+        # An expected Text failure must not be mistaken for a kernel failure
+        # by matching the suffix of its record prefix.
+        failed_text=proof.replace(b'text-battery: completed=NO',b'text-battery: FAILED requests=1 waiting=1\ntext-battery: completed=NO')
+        self.assertFalse(check(failed_text,'query-refusal',home=True)['workload_complete'])
         for bad in (proof.replace(b'effects=0',b'effects=1'),proof.replace(b'transfer=1',b'transfer=0'),
                     proof.replace(b'completed_after=7',b'completed_after=6'),proof.replace(b'notifications_after=1',b'notifications_after=2'),
                     proof.replace(b'state=6',b'state=4'),proof.replace(b'complete=NO',b'complete=yes'),

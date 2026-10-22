@@ -88,7 +88,7 @@ def check_events(data, epoch_base=0, epochs=2, refused=False, vm=True):
     assert data.count(b'battery-smbus: event=')==total
     assert data.count(b'battery-recovery-resources:')==epochs*(1+int(refused))
     for bad in (b'battery: HALTED',b'battery: FAILED',b'battery-smbus: FAILED',b'workspace: unmounted'):
-        assert bad not in data
+        assert not any(row.startswith(bad) for row in data.splitlines())
     if b'battery-home-session:' in data:assert total<=512
     if not refused:assert b'battery-query-policy:' not in data
     return total,alarm_total
