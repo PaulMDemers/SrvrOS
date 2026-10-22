@@ -64,6 +64,22 @@ def completion(line, pending):
         return
 
 
+def consume(line, records, pending):
+    parts = line.split()
+    # Linux reuses URB tags. An unselected submission must also retire any
+    # stale correlation, otherwise its callback can be assigned to an old read.
+    if len(parts) >= 3 and parts[2] == 'S':
+        old = pending.pop(parts[0], None)
+        if old is not None:
+            old['correlation'] = 'tag reused before observed completion'
+        r = submission(line)
+        if r is not None:
+            records.append(r)
+            pending[r['tag']] = r
+    else:
+        completion(line, pending)
+
+
 def identity(port):
     try:
         if tuple((port/x).read_text().strip() for x in ('idVendor','idProduct','bcdDevice')) != ('7392','a711','0100'):
@@ -92,7 +108,7 @@ def capture(port, output, seconds):
             current = identity(port)
             if current is None:
                 absent = True
-            elif current[0] == first[0]:
+            elif current[0] == first[0] and current[1] > 0:
                 addresses.add(current[1])
                 if absent and current[1] != first[1] and reconnected is None:
                     reconnected = time.monotonic()
@@ -115,12 +131,7 @@ def capture(port, output, seconds):
             while b'\n' in buffer:
                 line, buffer = buffer.split(b'\n', 1)
                 line = line.decode('ascii', errors='replace')
-                r = submission(line)
-                if r is not None:
-                    records.append(r)
-                    pending[r['tag']] = r
-                else:
-                    completion(line, pending)
+                consume(line, records, pending)
     finally:
         os.close(fd)
         # Address discovery may lag the first probe requests. Keep candidates in

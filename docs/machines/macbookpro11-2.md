@@ -1973,3 +1973,26 @@ Ubuntu smoke run passed; no device reset or network disruption was performed.
 A user-operated 10-second unplug/replug in Ubuntu is next; capture survives the
 brief network loss locally. This observes host requests, not physical USB wire
 handshakes. No new SrvrOS boot is staged or armed.
+
+Linux cold-replug capture completed on kernel 7.0.0-38-generic, port1-1,
+address2→8, with 53 selected requests. The captured first FCE write6/0x800/value1
+has callback status -2, actual0, duration307755 µs; the identical next submission
+is 10013 µs after that callback and completes status0/actual4 in95 µs. Later the
+first MCU-ready read7/0x730 has status-2/actual0 after306038 µs; the next read,
+10027 µs later, returns value1 successfully in71 µs. Status-2 is a cancelled URB,
+consistent with Linux's 300 ms timeout/unlink path, not a wire-level error code.
+This strongly motivates bounded timeout recovery/retry rather than another
+payload-encoding change. A retry must first retire the old EP0 transaction,
+account for late events and retain DMA until ownership is proven; current SrvrOS
+quarantine must not simply be cleared. Both FCE setup and MCU-ready polling need
+consideration. No SrvrOS fix or new boot is accepted/armed by this observation.
+
+Capture limitations: some earlier setup records and a later completion are
+missing; an implausible WLAN read payload exposed a parser correlation weakness
+when Linux reuses an URB tag for an unselected submission. The original capture
+is preserved, not silently corrected. The tool now invalidates such stale owners
+and marks reuse, excludes transient address0, and passes five parser fixtures.
+The retry pattern above is evidence for the next direction, not a complete
+validated trace; repeat with the corrected parser before relying on exact values
+or accepting a recovery implementation. Raw capture lives in
+`~/.local/share/srvros/macbookpro11-2/linux-cold-1792696794998436335`.
