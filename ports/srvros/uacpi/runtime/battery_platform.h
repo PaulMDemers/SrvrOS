@@ -35,6 +35,8 @@ struct battery_platform {
     void (*model_transfer_wait)(void);
     /* VM-only fault at the completed query exchange boundary; native NULL. */
     void (*model_query_checkpoint)(uint8_t code);
+    /* VM-only host-controller ownership study; native always leaves false. */
+    bool model_smbus_queries;
     enum battery_query_policy query_policy;
     uint64_t rsdp,facs;
     uint16_t original_control;

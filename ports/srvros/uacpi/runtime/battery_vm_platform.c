@@ -26,7 +26,7 @@ static struct {
     unsigned step,busy,fault,foreign_reads[2];
     uint64_t generation,commands;
     unsigned ac_reads,query_batch;
-    bool obf,pending,io_started,io_entered,irq_injected,target_armed;
+    bool obf,pending,io_started,io_entered,irq_injected,target_armed,alarm_sent,ack_stall;
     uint8_t injected_gpe;
 } model;
 static uint64_t irq_save(void){uint64_t f;__asm__ volatile("pushfq; popq %0; cli":"=r"(f)::"memory");return f;}
@@ -149,7 +149,7 @@ static void interleave_io(void) {
 }
 static bool contains(uint64_t a,uint64_t n,uint64_t p,uint64_t s){return s&&p>=a&&p-a<=n&&s<=n-(p-a);}
 static bool equal(const void *a,const char *b,unsigned n){const char *p=a;for(unsigned i=0;i<n;i++)if(p[i]!=b[i])return false;return true;}
-static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2?2:0)|(model.obf?1:0)|(model.pending?32:0);}
+static uint8_t status(void *c){(void)c;interleave_io();return (model.fault==2||model.ack_stall?2:0)|(model.obf?1:0)|(model.pending?32:0);}
 static uint8_t read_data(void *c){(void)c;model.obf=false;return model.output;}
 static void command(void *c,uint8_t v) {
     (void)c;model.commands++;model.mode=v;model.step=0;
@@ -176,6 +176,16 @@ static void command(void *c,uint8_t v) {
         if(model.fault==57 && model.pending)code=0x10;
         if(model.fault==58){code=0;again=false;}
         if((model.fault==59 || model.fault==60 || model.fault==61) && model.generation==2 && model.pending)code=0x10;
+        if(model.fault>=62 && model.pending) {
+            code=0x10;again=false;model.memory[0x21]=0x80;
+            if(((model.fault>=63 && model.fault<=69) || (model.fault==72 && model.generation>=2)) && !model.alarm_sent) {
+                model.alarm_sent=true;model.memory[0x21]=0xc0;
+                model.memory[0x45]=model.fault==65?0x60:0x16;
+                model.memory[0x46]=0x34;model.memory[0x47]=0x12;
+                if(model.fault==66)model.memory[0x20]=0x0b;
+                if(model.fault==67)model.memory[0x21]|=0x18;
+            }
+        }
         model.output=code;model.pending=again;
         model.obf=!((model.fault==46 || model.fault==59) && model.generation==2);
     }
@@ -188,11 +198,12 @@ static void write_data(void *c,uint8_t v){
             if(v==0x20&&model.busy&&!--model.busy)model.memory[0x20]=0;
             model.output=model.memory[v];
             if(v==0x60&&model.fault==17&&model.generation==2&&model.ac_reads++)model.output^=2;
-            model.obf=true;
+            model.obf=!(model.fault==68 && v==0x46);
         }
         return;
     }
     model.memory[model.address]=v;
+    if(model.fault==69 && model.address==0x21)model.ack_stall=true;
     if(model.address==0x20&&v==9&&model.memory[0x22]==0x16&&model.memory[0x23]<32){
         uint16_t word=model.words[model.memory[0x23]];model.memory[0x24]=word;model.memory[0x25]=word>>8;model.busy=2;
     }
@@ -338,7 +349,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
         const struct acpi_table_info *t=acpi_table_at(i);const struct acpi_sdt_hdr *h=pmm_phys_to_virt(t->physical_address);
         if(equal(t->signature,"DSDT",4)&&equal(h->oem_table_id,"BATTEST ",8)){if(dsdt)return false;dsdt=t->physical_address;model.fault=h->oem_revision;}
     }
-    if(!dsdt||model.fault>61||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
+    if(!dsdt||model.fault>72||acpi_event_resources_parse(&p->events.resources,(const uint8_t *)f,f->hdr.length)||inw(0x602))return false;
     for(unsigned port=0x628;port<0x630;port++)if(inb(port))return false;
     p->ec=(struct acpi_ec_resources){.data=0x62,.command=0x66,.sci=9,.smi_command=0xb2,.pm1_control=0x604,
         .gpe_status=0x620,.gpe_enable=0x628,.gpe=1,.gpe_mask=2,.acpi_enable=f->acpi_enable,.acpi_disable=f->acpi_disable,.path="\\_SB.EC"};
@@ -366,6 +377,7 @@ bool battery_platform_open(struct battery_platform *p,void *rsdp,struct limine_m
     }
     if((model.fault==19||model.fault==27)&&!battery_diagnostic_auto_return(true))return false;
     if(model.fault>=48)p->query_policy=BATTERY_QUERY_AIR72;
+    if(model.fault>=62)p->model_smbus_queries=true;
     if((model.fault>=41 && model.fault<=47) || model.fault==61)p->model_query_checkpoint=model_query_checkpoint;
     if(model.fault==40)p->model_transfer_wait=model_transfer_wait;
     if(model.fault==37)p->model_owner_irq=model_owner_irq;
