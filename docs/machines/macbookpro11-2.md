@@ -2550,3 +2550,13 @@ Frame-format engine/native binding implemented with fixed seq6/7 and separate
 phase ownership; prior basics must be complete. Build, basics/format/MCU/xHCI
 tests,65 boot-profile tests, ASan/UBSan format tests and docs checks passed.
 Firmwarev9 rehearsal is next; native replies/readbacks remain pending.
+
+Frame-format candidate installed unarmed: source7713556,
+release54d6def400fd2a6c, firmwarev9. Exact-stage GPT save/unmount/return and
+missing-workspace VM checks passed. Ubuntu default, accepted merged MAC image
+cb8cc153be25dac9 and desktop recoverye47dca3a6b30c6c1 retained. Original
+190ab5353ae2f8b6 removed from ESP only after durable archive equality.
+Workspace preboot checks clean. Payload/run/VM/local evidence archived outside
+build in wifi-mac-format-7713556. Next cold trial accepts only exact seq6/7
+replies, all four target readbacks, MAC0 boundaries and saved completion.
+Physical frame-format acceptance remains pending; RF/connectivity untested.
