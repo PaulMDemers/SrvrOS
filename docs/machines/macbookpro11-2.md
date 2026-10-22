@@ -1925,3 +1925,13 @@ devices unchanged. Preserve exact completion, publication ordering and timeout
 quarantine. Add a saved encoding flag and boundary/payload host tests, then
 build and verify automatic-return stage. This is not a proven native fix.
 Main remains 24fd5f4; Air PR46 covers SMBus/parked storage, outside this scope.
+
+Immediate-data candidate source `88d1cd0`, release `825373ebb599fa0d`, passes
+build/docs and xHCI host tests. Tests verify exact little-endian payload/high-word
+zeroing, unsupported ownership/buffer/direction/length/request refusal, and an
+actual guarded register transfer with IDT set. Saved diagnostics now include
+`wifi-firmware-data: immediate=...`. IN, no-data and 64-byte IVB remain buffered
+or unchanged. Exact GPT VM saved-log/automatic-reset and missing-workspace return
+checks pass. Installed unarmed with Ubuntu default and accepted recovery intact;
+offline checks pass (133 files, 448 clusters). Next cold hardware trial awaits
+readiness for adapter power cycling; no firmware-readiness acceptance yet.
