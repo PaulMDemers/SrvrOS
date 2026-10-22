@@ -24,7 +24,7 @@ CONFIG_VERSIONS = ("ram-usb-v2", "ram-usb-v3-inputdiag", CONFIG_VERSION, DIAGNOS
 RELEASE_RE = re.compile(r"[0-9a-f]{16}")
 AUTOTEST_RE = re.compile(r"ram-usb-v[5689]-autotest-([0-9a-f]{8})-([0-9a-f]{16})")
 WORKSPACE_RE = re.compile(r"ram-usb-v7-workspace-([0-9a-f]{8})")
-LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v[1234]|v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
+LAPTOP_PROBE_RE = re.compile(r"ram-usb-(?:wifi-fw-v[12345]|v(?:19|23|24|25|26|27|28|31|32|33|34|35|36|38|39|40|41|42|43|44))-laptop-probe-([0-9a-f]{8})(-auto-return)?")
 DESKTOP_RE = re.compile(r"ram-usb-v(?:17|18|20|21|22|29|30|31|36|37)-desktop-([0-9a-f]{8})")
 TRACKPAD_RE = re.compile(r"ram-usb-v(?:10|11|12|13|14|15|16)-trackpad-([0-9a-f]{8})-([0-9a-f]{16})")
 
@@ -82,12 +82,13 @@ def limine_config(release, version=CONFIG_VERSION, *, legacy_wifi_calibration=Fa
         if version.startswith("ram-usb-v44-") or legacy_wifi_calibration:
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=wifi-calibration srvros.usb-wifi=probe")
-        if version.startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-")):
+        if version.startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-")):
             cmdline = (f"srvros.storage=ram srvros.workspace-volume={probe[1]} "
                        f"srvros.desktop-release={release} srvros.capture=wifi-firmware srvros.usb-wifi=probe")
-        if version.startswith(("ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-")): cmdline += " srvros.wifi-mac-startup=1"
-        if version.startswith(("ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-")): cmdline += " srvros.wifi-mcu-probe=1"
-        if version.startswith("ram-usb-wifi-fw-v4-"): cmdline += " srvros.wifi-radio-reset=1"
+        if version.startswith(("ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-")): cmdline += " srvros.wifi-mac-startup=1"
+        if version.startswith(("ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-")): cmdline += " srvros.wifi-mcu-probe=1"
+        if version.startswith(("ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-")): cmdline += " srvros.wifi-radio-reset=1"
+        if version.startswith("ram-usb-wifi-fw-v5-"): cmdline += " srvros.wifi-write-probe=1"
         if probe[2]: cmdline += " srvros.capture-failure=reboot"
         if version.startswith(("ram-usb-v27-","ram-usb-v28-")): cmdline += " srvros.capture=keyboard"
     elif desktop:
@@ -169,13 +170,13 @@ def verify(directory):
     if manifest["release"] != release or config not in expected or (directory / "loader/limine.conf").read_text() != config:
         raise ValueError("Boot configuration or release identity mismatch")
 
-    if version.startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-")):
+    if version.startswith(("ram-usb-wifi-fw-v1-","ram-usb-wifi-fw-v2-","ram-usb-wifi-fw-v3-","ram-usb-wifi-fw-v4-","ram-usb-wifi-fw-v5-")):
         from wifi_firmware_package import verify_initramfs
         verify_initramfs(directory / "initramfs.tar")
     return manifest
 
 
-def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False):
+def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=None, repeat=1, trackpad_run=None, pointer=False, gestures=False, desktop_io=False, desktop_volume=None, laptop_probe_volume=None, idle_capture=False, aml_capture=False, desktop_idle_capture=False, power_telemetry=False, battery_capture=False, battery_transitions=False, battery_service=False, hold_on_failure=False, battery_usb_read=False, battery_usb_write=False, battery_filesystem=False, keyboard_capture=False, cpu_load_capture=False, desktop_scale=1, desktop_brightness=False, desktop_audio=False, desktop_sensors=False, desktop_network=False, battery_desktop=False, battery_text=False, battery_load=False, battery_app_files=False, wifi_capture=False, wifi_calibration=False, wifi_firmware_package=None, wifi_mac_startup=False, wifi_mcu_probe=False, wifi_radio_reset=False, wifi_write_probe=False):
     if (wifi_capture or wifi_calibration) and hold_on_failure:
         raise ValueError("Wi-Fi capture requires automatic return")
     if (battery_usb_read or battery_usb_write or battery_filesystem or battery_desktop or battery_text or battery_load or battery_app_files) and hold_on_failure:
@@ -196,6 +197,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
         raise ValueError("Desktop scale requires desktop volume and scale 1 or 2")
     if power_telemetry and not desktop_idle_capture:
         raise ValueError("Power telemetry requires the explicit desktop idle capture")
+    if wifi_write_probe and not wifi_radio_reset: raise ValueError("Write probe requires radio reset")
     if wifi_radio_reset and not wifi_mcu_probe: raise ValueError("Radio reset requires MCU probe")
     if wifi_mcu_probe and (not wifi_firmware_package or not wifi_mac_startup): raise ValueError("MCU probe requires firmware package and MAC startup")
     if wifi_mac_startup and not wifi_firmware_package: raise ValueError("MAC startup requires firmware package")
@@ -228,7 +230,7 @@ def stage(diagnostic=False, autotest_volume=None, run_id=None, workspace_volume=
             raise ValueError("Invalid or conflicting native desktop profile")
     if laptop_probe_volume is not None:
         version=f"ram-usb-v{44 if wifi_calibration else 39 if wifi_capture else 43 if battery_app_files else 42 if battery_load else 41 if battery_text else 40 if battery_desktop else 38 if battery_filesystem else 35 if cpu_load_capture else 28 if keyboard_capture else 36 if battery_usb_write else 34 if battery_usb_read else 33 if battery_service else 32 if battery_transitions else 31 if battery_capture else 26 if power_telemetry else 25 if desktop_idle_capture else 24 if aml_capture else 23 if idle_capture else 19}-laptop-probe-{laptop_probe_volume}"
-        if wifi_firmware_package: version=f"ram-usb-wifi-fw-v{4 if wifi_radio_reset else 3 if wifi_mcu_probe else 2 if wifi_mac_startup else 1}-laptop-probe-{laptop_probe_volume}"
+        if wifi_firmware_package: version=f"ram-usb-wifi-fw-v{5 if wifi_write_probe else 4 if wifi_radio_reset else 3 if wifi_mcu_probe else 2 if wifi_mac_startup else 1}-laptop-probe-{laptop_probe_volume}"
         if not hold_on_failure and not battery_transitions and not keyboard_capture and not cpu_load_capture: version += "-auto-return"
         if diagnostic or autotest_volume is not None or run_id is not None or workspace_volume is not None or trackpad_run is not None or pointer or repeat != 1 or desktop_volume is not None or not LAPTOP_PROBE_RE.fullmatch(version):
             raise ValueError("Invalid or conflicting automatic laptop probe profile")
@@ -438,6 +440,7 @@ def main():
     parser.add_argument("--hold-on-failure",action="store_true",help="explicit attended diagnostic: retain failure screen instead of automatic return")
     capture=parser.add_mutually_exclusive_group()
     capture.add_argument("--wifi-calibration",action="store_true",help="capture logical EFUSE after logging, redact MAC, save and return")
+    parser.add_argument("--wifi-write-probe",action="store_true",help="capture one disabled-MAC write reply; requires --wifi-radio-reset")
     parser.add_argument("--wifi-radio-reset",action="store_true",help="opt-in MAC/BBP reset before MCU probe; requires --wifi-mcu-probe")
     parser.add_argument("--wifi-mcu-probe",action="store_true",help="one-shot firmware register-read response capture; requires MAC startup and firmware package")
     parser.add_argument("--wifi-mac-startup",action="store_true",help="opt-in upstream MAC startup before MCU reset; requires firmware package")
@@ -459,6 +462,8 @@ def main():
     capture.add_argument("--aml-capture",action="store_true",help="run the isolated snapshot-only AML diagnostic with workspace logging; return only after clean completion")
     capture.add_argument("--idle-capture", action="store_true", help="sample idle scheduling and cached devices for 60 seconds, save, unmount and return")
     args = parser.parse_args()
+    if args.wifi_write_probe and (args.action != "stage" or not args.wifi_radio_reset):
+        parser.error("--wifi-write-probe requires stage --wifi-radio-reset")
     if args.wifi_radio_reset and (args.action != "stage" or not args.wifi_mcu_probe):
         parser.error("--wifi-radio-reset requires stage --wifi-mcu-probe")
     if args.wifi_mcu_probe and (args.action != "stage" or not args.wifi_mac_startup or not args.wifi_firmware_package):
@@ -491,7 +496,7 @@ def main():
         parser.error("--diagnostic applies only to stage")
     try:
         if args.action == "stage":
-            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset)
+            stage(args.diagnostic, desktop_volume=args.desktop_volume, laptop_probe_volume=args.laptop_probe_volume, idle_capture=args.idle_capture, aml_capture=args.aml_capture, desktop_idle_capture=args.desktop_idle_capture, power_telemetry=args.power_telemetry, battery_capture=args.battery_capture, battery_transitions=args.battery_transitions, battery_service=args.battery_service, hold_on_failure=args.hold_on_failure, battery_usb_read=args.battery_usb_read, battery_usb_write=args.battery_usb_write, battery_filesystem=args.battery_filesystem, battery_desktop=args.battery_desktop, battery_text=args.battery_text, battery_load=args.battery_load, battery_app_files=args.battery_app_files, keyboard_capture=args.keyboard_capture, cpu_load_capture=args.cpu_load_capture, desktop_scale=args.desktop_scale, desktop_brightness=args.desktop_brightness, desktop_audio=args.desktop_audio, desktop_sensors=args.desktop_sensors, desktop_network=args.desktop_network, wifi_capture=args.wifi_capture, wifi_calibration=args.wifi_calibration, wifi_firmware_package=args.wifi_firmware_package, wifi_mac_startup=args.wifi_mac_startup, wifi_mcu_probe=args.wifi_mcu_probe, wifi_radio_reset=args.wifi_radio_reset, wifi_write_probe=args.wifi_write_probe)
         else:
             install(args.release, keep_previous=args.keep_previous)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:

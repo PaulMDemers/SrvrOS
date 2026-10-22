@@ -1478,6 +1478,50 @@ static void test_wifi_mcu_queue_order(void) {
     puts("xhci-mcu-queue: PASS ordered no-reply selection/read/response and stop on each failure");
 }
 
+static void test_wifi_mcu_write_probe(void) {
+    for(unsigned fault=0;fault<10;fault++) {
+        reset_test();test_time=0;test_time_step=1000;
+        struct xhci_trb out[64]={0},in[64]={0},events[64]={0};
+        uint8_t tx[200]={0},rx[1024]={0};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,
+            .wifi_identity={0x76100002,0x76502000}};
+        struct xhci_wifi_firmware *f=&d->firmware;
+        *f=(struct xhci_wifi_firmware){.ready=true,.active=true,.configured=true,
+            .radio_reset={.prepared=true},.buffer=tx,.buffer_phys=0x10000,
+            .ep={.ring=out,.ring_phys=0x9000,.cycle=true,.dci=16}};
+        f->mcu=(struct xhci_wifi_mcu){.configured=true,.identity_validated=true,
+            .buffer=rx,.buffer_phys=0x20000,
+            .response={.ring=in,.ring_phys=0xb000,.cycle=true,.dci=11}};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.event_ring=events;xhci.event_cycle=true;
+        for(unsigned n=0;n<2;n++) {
+            events[n]=control_event(n?0xb000:0x9000,n?13:1,n?1016:0);
+            events[n].control=(32u<<10)|(1u<<24)|((n?11u:16u)<<16)|1;
+        }
+        if(fault==1)f->mcu.identity_validated=false;
+        if(fault==2)f->radio_reset.prepared=false;
+        if(fault==3)f->mcu.write_attempted=true;
+        if(fault==4)f->mcu.pending=true;
+        if(fault==5)f->active=false;
+        if(fault==6)d->wifi_identity.mac=0;
+        if(fault==7)events[0].status=6u<<24;
+        if(fault==8)events[1].status=6u<<24;
+        if(fault==9)events[1].parameter_low+=16;
+        int sent;int got=wifi_mcu_write_disabled(d,&sent);
+        assert(got==(fault?-1:8));assert(!freed);
+        if(fault>=1 && fault<=6)assert(f->ep.enqueue==0 && f->mcu.response.enqueue==0);
+        else {
+            const uint8_t expected[16]={8,0,0xc2,0x50,4,0x10,0x41,0,0,0,0,0,0,0,0,0};
+            assert(!memcmp(tx,expected,16));
+            assert(f->ep.enqueue==1 && f->mcu.write_attempted);
+            assert(wifi_mcu_write_disabled(d,&sent)==-1);
+            assert(f->ep.enqueue==1);
+            if(fault)assert(f->failed && f->mcu.failed && d->ep0_quarantined);
+        }
+    }
+    puts("xhci-mcu-write: PASS fixed disabled-MAC packet, prerequisites, one attempt, stale events and failure quarantine");
+}
+
 static void test_wifi_mcu_transport(void) {
     for(unsigned in=0;in<2;in++)for(unsigned fault=0;fault<9;fault++) {
         reset_test();test_time=0;test_time_step=1000;
@@ -1540,6 +1584,7 @@ int main(int argc, char **argv) {
     assert(argc == 3);
     test_wifi_radio_binding();
     test_wifi_mcu_queue_order();
+    test_wifi_mcu_write_probe();
     test_wifi_mcu_transport();
     test_wifi_recovery();
     test_firmware_immediate_data();

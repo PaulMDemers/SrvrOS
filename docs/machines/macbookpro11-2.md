@@ -2303,3 +2303,11 @@ existing native identity read uses the shared builder with identical wire bytes.
 Build, MCU/radio/xHCI host tests and MCU ASan/UBSan passed. No candidate installed
 or reboot armed for this pure encoding change; native write acknowledgement and
 MAC/baseband table execution remain pending.
+
+Active scope: opt-in firmwarev5 MCU write-response capture after the accepted
+reset and strict identity exchange. Permit exactly one sequence2 random write
+of MAC_SYS_CTRL1004=0, require disabled MAC before and after, retain bounded raw
+response words for inspection. No initialization tables or RF writes. Shared
+main remains9ca1922; current device branch inspected clean atf2dc195. Dependencies
+are accepted reset/identity transport and bounded register-pair encoder. Native
+write-response format remains unaccepted until the matching saved run is read.

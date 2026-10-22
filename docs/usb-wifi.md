@@ -641,3 +641,21 @@ Host tests cover all supported pair counts, exact wire bytes, buffer canaries,
 maximum offsets, oversized counts, invalid sequences/addresses, short capacity
 and unchanged output on rejection. Build, MCU/radio/xHCI tests and MCU ASan/UBSan
 checks passed; these checks do not establish native write acceptance.
+
+### One-shot disabled-MAC write-response capture
+
+Firmware profilev5 (`--wifi-write-probe`, requiring `--wifi-radio-reset` and its
+prerequisites) adds one diagnostic after strict identity validation. It reads
+MAC_SYS_CTRL1004 through EP0 and requires0, then sends a fixed sequence2
+CMD_RANDOM_WRITE pair1004=0. The helper accepts no register/value arguments and
+requires prepared reset, validated identity, active ownership and no pending or
+previous write. OUT must complete exactly before one bounded IN request. There
+are no retries or DMA reclamation on uncertainty.
+
+The log records at most16 response words, transfer status, decoded sequence/event
+and an EP0 MAC readback that must remain0. `observed=1` means a bounded response
+with sequence2/event0 was collected; `ack_validated=0` explicitly means its full
+framing has not been accepted. A completed capture accepts neither general MCU
+writes nor tables. Inspect the saved native response before defining a strict
+write-ACK validator. The v1–v4 profiles retain their previous commands. No RF,
+channel, PA, transmit-power or packet receive setup is added.
