@@ -2,23 +2,33 @@
 
 Updated: 2026-10-22. State: **active reference machine; partial device acceptance**.
 
-### Active controls with asynchronous file work
+### Controls during submitted Text jobs (PR #51)
 
-Base `fb96ace` (PR50). Scope: the explicit mounted VM battery-control diagnostic,
-Text/file capture, compositor capture-mode selection and strict host/VM evidence.
-The shared file-job API gains bounded submission without reply consumption;
-ordinary polling retains its existing combined behavior.
-The Text fixture will use the existing scoped control syscall during pending
-asynchronous saves, stop/restart across file cycles, and leave monitoring active
-for session-exit retirement. Test normal completion, cancellation during file
-work, unavailable/native admission and fault containment. Pending application
-jobs are not proof of active USB DMA; keep those claims distinct.
+Implementation `23837b9`, base `fb96ace` (PR50). The explicit VM fixture sends
+Stop/Start/Stop/Start through the shared System control syscall only after each
+Text save request is completely transmitted to its file worker. The shared
+`desk_file_job_submit` helper separates bounded submission from reply consumption;
+ordinary polling retains its combined behavior.
 
-Fetched main and inspected Pro PR19 `77ba966`: USB Wi-Fi MCU/capture work, no
-battery/Text ownership overlap. Native Home/startup and installed recovery stay
-unchanged (`fda709928307b1b1`, previous `b427b78f21644bd2`); no reboot pending.
-Actions stay disabled; validation runs locally. Next checkpoint is combined
-lifecycle/file receipts and exact disposable-volume contents/allocation checks.
+All six directed cases and three regressions passed locally. Normal completion
+proved five requests, three lifetimes, 60 edits, five file cycles/20 operations,
+26 synthetic events/10 alarms, exact saved contents and clean allocation. The
+last active service retired on session exit before releasing the mount hold.
+Cancellation after the first submitted write finished the accepted `AA` draft
+and retired all three descendants; its workload remains explicitly incomplete.
+Native/unmounted/profile refusal and uncertain-ack containment also passed.
+Actual System mouse controls and the sustained SMBus/Text workload passed as
+regressions. Full build, both diagnostic kernels, final core/docs and strict
+receipt-corruption checks passed; Actions remain disabled.
+
+Evidence is hash-verified outside `build` at
+`~/.local/share/srvros/local-validation/battery-control-files-23837b98fd45`.
+Pending application jobs do not prove active USB DMA or physical-input latency.
+Pro PR19 `77ba966` retains independent USB Wi-Fi scope. No native payload or
+reboot change: current `fda709928307b1b1`, previous `b427b78f21644bd2`.
+Native Home/startup remain OFF. Next: native mounted normal-return/refusal and
+desktop-session ownership, followed by physical charging transitions and the
+finished indicator in the [delivery plan](../battery-home-lifecycle.md#delivery-through-the-desktop-indicator).
 
 ### Mounted-volume ownership (PR #50)
 
