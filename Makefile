@@ -3406,3 +3406,11 @@ test-battery-reset-policy: build/tests/battery-reset-policy$(HOST_EXE)
 build/tests/battery-reset-policy$(HOST_EXE): tools/test_battery_reset_policy.c ports/srvros/uacpi/runtime/battery_reset_policy.h
 	@mkdir -p $(@D)
 	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror $< -o $@
+
+.PHONY: test-battery-recovery-resources
+test-core: test-battery-recovery-resources
+test-battery-recovery-resources: build/tests/battery-recovery-resources$(HOST_EXE)
+	$<
+build/tests/battery-recovery-resources$(HOST_EXE): tools/test_battery_recovery_resources.c ports/srvros/uacpi/runtime/battery_recovery_resources.h kernel/include/srvros/ec_transport.h
+	@mkdir -p $(@D)
+	$(HOST_CC) -std=c11 -O2 -Wall -Wextra -Werror -I kernel/include $< -o $@

@@ -2,6 +2,42 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Resource audit and recovery admission (PR #40)
+
+Base `origin/main` `3c98c42` (PR #39), tested code `2cc02b2`. The
+[resource audit](../battery-resource-audit.md) distinguishes thread retention from
+firmware Global Lock ownership and unfinished EC/SMBus protocols. All three VM
+quarantine boundaries now require an idle external-resource snapshot. `_GLK=0`
+and a clear public API ownership flag are insufficient: AML ownership/depth,
+the underlying semaphore, firmware pending state and FACS bits are checked too.
+An active lease, partial/poisoned EC, active sampler or incomplete SMBus transaction
+refuses recovery. No lock is released or protocol reset by this check.
+
+Ten disposable VM cases passed. Actual public-API and AML `Acquire(\_GL)` holds
+both refused with FACS Owned set, an occupied semaphore and blocker mask 96.
+The AML case had API ownership clear, demonstrating why that flag alone is not
+sufficient. A pause after EC command submission refused with lease=1, phase=address
+and blocker mask 6. These are expected halts without quarantine, clean-storage or
+automatic-reset claims. An initial AML fixture used a sleep longer than the
+interpreter's two-second cap and correctly failed; the final fixture uses repeated
+bounded sleeps across the watchdog. Failed evidence is preserved separately.
+
+Watchdog/I/O, returned-callback, IRQ-entry and both interrupted-target recovery
+passed with zero blockers, retained-state proofs, both storage flushes, saved logs,
+unmount, automatic reset and offline filesystem checks. Native study admission
+still refused before platform access with the disposable volume unchanged. Normal
+Text passed 60 edits, 20 worker operations, five file cycles and clean retirement.
+All kernel builds, full core host tests, 2,048 resource-policy combinations,
+21 proof-parser tests and documentation links passed. Evidence is archived outside
+`build` with verified hashes; Actions remain disabled.
+
+No physical reboot, installed payload or firmware gate changed. Pro PR #19 at
+`67f62a4` shares only independent Makefile test additions, with no battery/runtime
+overlap. Next: map reachable native AML/NVS/SMI side effects and define which fault
+boundaries can reach resource-idle state through normal returns. A clear snapshot
+is not a firmware ownership lease or native recovery acceptance. Native mounted
+Home and automatic battery startup remain off.
+
 ### Completed IRQ handoff (PR #39)
 
 Base `origin/main` `a1b9802` (PR #38), tested code `6c23fbd`. A token-bound

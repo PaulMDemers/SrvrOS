@@ -1287,3 +1287,13 @@ filesystem checks also apply. Returning to the failed target is a test failure.
 The older callback study still refuses target interruption without this scope.
 This does not accept native firmware locks, physical level-triggered SCI recovery,
 outstanding hardware DMA, or arbitrary nonreturning interpreter faults.
+
+
+### Recovery resource admission
+
+The [firmware resource audit](battery-resource-audit.md) distinguishes retained
+CPU state from an unfinished EC/SMBus protocol or firmware Global Lock. Every VM
+quarantine path now requires an observed idle protocol and unowned/nonpending
+Global Lock, including the AML and underlying semaphore paths. The snapshot only
+refuses unsafe recovery; it grants no native admission and performs no cleanup.
+Native mounted Home and ordinary automatic startup remain disabled.
