@@ -1208,7 +1208,7 @@ static void control_publish(struct xhci_device *device, uint64_t setup_phys, boo
     /* Keep setup unavailable until every stage and its completion owner exist.
      * Preserve the starting cycle even when data/status cross the Link TRB. */
     __atomic_thread_fence(__ATOMIC_RELEASE);
-    __atomic_store_n(&first->control, (first->control & ~1u) | (cycle ? 1u : 0u), __ATOMIC_RELEASE);
+    ((volatile struct xhci_trb *)first)->control = (first->control & ~1u) | (cycle ? 1u : 0u);
 }
 
 static bool wait_transfer_completion(uint8_t slot_id,
