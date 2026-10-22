@@ -1785,3 +1785,12 @@ Files: mt76 preparation engine, native xHCI allowlist/diagnostics, host fixtures
 Fetched main 065546f (Air battery audit); no open competing PR besides #19.
 Integration remains deferred for the recorded immutable-profile collision.
 Native evidence is required; no further boot armed.
+
+Clock prerequisite candidate `7f06de6`, release `05573bcc8bb336a4`, passes build,
+xHCI/preparation/upload/firmware host tests and docs. Fixtures cover preserved
+GPIO bits, reset/unreadable/readback refusal, readiness timeout/cancellation and
+every-operation failure without retry. Exact GPT VM saves/unmounts and holds;
+missing-workspace VM holds with recovery instructions. Installed unarmed, Ubuntu
+default and accepted recovery retained; offline workspace checks clean. Native
+WLAN/clock and firmware readiness remain pending. Next: attended cold shutdown,
+then collect this release before further changes.
