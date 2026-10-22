@@ -482,3 +482,28 @@ exclude DFS, no-IR, unsupported bandwidths and channels with missing calibration
 active scanning must not precede this gate. Linux's current domain is only a
 local observation, not automatic country selection for SrvrOS. Native receive,
 scan and transmit remain pending.
+
+### Offline US development channel filter
+
+`tools/wifi_channel_policy.py` intersects the calibration audit with paired
+`iw phy ... info` and `iw reg get` snapshots from the same adapter and explicitly
+confirmed country US. Its development set is 20MHz channels1–11,36/40/44/48 and
+149/153/157/161/165. This is a limited development set, not a regulatory database.
+Only whole unflagged PHY rows and unflagged/AUTO-BW regulatory snapshot rules
+covering the entire20MHz channel qualify. Unknown flags, no-IR, DFS, disabled or
+missing rows, inconsistent frequencies, missing calibration and other countries
+or widths refuse. Duplicate channel records are errors.
+
+```sh
+python3 tools/wifi_channel_policy.py --audit audit.json --phy linux-phy.txt \
+  --regulatory linux-regulatory.txt --country US > policy.json
+python3 -m unittest discover -s tools -p test_wifi_channel_policy.py
+```
+
+The report hashes its inputs and distinguishes `candidate` from
+`transmit_authorized` (always false). Its `snapshot_ceiling_dbm` is the lower PHY
+and regulatory snapshot ceiling; EEPROM calibration units are never interpreted
+as dBm. Snapshots are historical reference evidence, not proof of current native
+radio constraints. This tool neither changes the driver nor authorizes active
+scan. Native RF initialization, validated power programming and native regulatory
+enforcement remain required before transmission.

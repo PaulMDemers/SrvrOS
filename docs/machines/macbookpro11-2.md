@@ -2095,3 +2095,21 @@ User confirmed United States testing on2026-10-22. Use explicit countryUS for
 the initial channel-policy work; the earlier pending-country question is resolved.
 This records location, not completed regulatory-policy integration or permission
 to bypass calibration/driver gates. No radio writes or reboot armed.
+
+Next bounded scope (2026-10-22): offline US 20MHz candidate filter in
+`tools/wifi_channel_policy.py` with synthetic refusal tests. Intersect a deliberately
+small development channel set with the captured Linux PHY restrictions and valid
+calibration. This is not a regulatory database or native transmit authorization;
+unknown flags, DFS, no-IR and missing evidence fail closed. Main598fe27 inspected;
+Air PR49 concerns battery UI, separate from this tool. Native RF/power validation
+remains a dependency. No installed payload changes or reboot planned.
+
+Offline US candidate filter completed against the existing paired Linux snapshots
+and accepted calibration audit:20 candidates (1–11,36/40/44/48,149/153/157/161/165).
+Snapshot ceilings are2dBm on2GHz,11dBm on36–48 and12dBm on149–165, distinct from
+chipset calibration units. All other decoded channels refuse; transmit permission
+remains false throughout. Five policy tests cover country/width, PHY flags,
+regulatory band edges/flags, calibration refusal, duplicate records and lower-cap
+selection. Calibration/firmware audit regressions also pass (12 tests). No native
+policy installed or reboot armed. Next: bounded native RF/receive initialization
+and power programming validation before any active scan.
