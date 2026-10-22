@@ -2516,3 +2516,12 @@ Historical v43/v44 Wi-Fi recipes still verify exactly; new calibration uses
 wifi-cal-v1 to avoid battery profile collisions. PR60 process-lifetime work is
 separate and remains unmerged. Next rehearse/install firmwarev8 for a regression
 of the accepted MAC plan on this baseline before extending initialization.
+
+Merged-baseline regression installed unarmed: source285aa45,
+releasecb8cc153be25dac9, firmwarev8. Exact GPT workspace/save/return and
+missing-workspace VM rehearsals passed. Accepted190ab5353ae2f8b6 and desktop
+recoverye47dca3a6b30c6c1 retained; prior timing-only0c12150fc75d830c removed
+from ESP after full durable archive equality. Workspace preboot checks passed.
+Run/payload/VM/local evidence archived outside build in wifi-main-merge-285aa45.
+Next cold native run repeats the accepted sequence4/5/readback plan against
+main22fd266. No new radio registers or physical battery acceptance in this run.
