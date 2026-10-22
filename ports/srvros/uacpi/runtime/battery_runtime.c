@@ -356,7 +356,7 @@ static void mark_quarantined(void) {
 }
 /* Read only the pinned interpreter's Global Lock and our serialized protocol
  * state. A free hardware lock is an observation, never a firmware ownership lease.
- * In particular global_lock_acquired does NOT cover AML Acquire(\\_GL). */
+ * In particular global_lock_acquired does NOT cover AML Acquire(\_GL). */
 static void require_recovery_resources(void) {
     struct battery_recovery_resources r={
         .lease=runtime.lease,.ec_poisoned=runtime.transport.poisoned,.ec_phase=runtime.transport.phase,

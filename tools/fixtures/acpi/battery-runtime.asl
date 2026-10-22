@@ -6,7 +6,20 @@ DefinitionBlock ("", "DSDT", 2, "SRVROS", "BATTEST ", BATTERY_FAULT)
 #if BATTERY_FAULT == 39
     Method (HOLD, 0) {
         If (Acquire (\_GL, 0xFFFF)) { Return (Zero) }
-        Sleep (26000)
+        // The pinned interpreter caps each AML Sleep at 2000 ms.
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
+        Sleep (2000)
         Release (\_GL)
         Return (One)
     }
