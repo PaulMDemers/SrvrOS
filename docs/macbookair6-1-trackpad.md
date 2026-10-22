@@ -103,3 +103,33 @@ then type `AaZz09` and Enter. Require saved report and successful USB unmount.
 The test HALTS: manually restart into Ubuntu. Bring back observations about
 movement direction/speed, click/drag/release and scrolling; counters alone do
 not establish usable behavior. Do not rerun the consumed request.
+
+## Tap-to-click and typing suppression trial (v50)
+
+The v12 study leaves pointer options at zero; compositor cleanup also resets
+options. Its zero tap/typing counters therefore do not demonstrate hardware
+failure. Use the separate v50 profile with
+`python3 tools/hardware_trackpad.py prepare --tap-typing --uuid <observed-uuid>`.
+Rehearse the printed release using `trackpad_capture_smoke.py --release <release>
+--workspace-table gpt`, then install with `--keep-previous`. v50 enables primary
+and secondary taps plus disable-while-typing, at speed 3 without acceleration,
+only for this attended study. It restores these options for console checks
+after compositor exit and clears them before saving. Ordinary preferences and
+old profile recipes are unchanged. v50 cannot combine with desktop I/O.
+
+In the desktop, lightly tap **Text size** with one finger without pressing the
+physical click. It should activate once per short tap. Try several deliberate
+taps with a full lift between them. Hold A while brushing/moving a finger on
+the pad without pressing: the pointer should stay still. Release A AND lift
+fully, then touch again: movement should resume. Repeat taps after typing;
+physical click/drag and scrolling must not produce an extra tap on release.
+Long holds and movement should not tap. Secondary two-finger taps are optional
+in this study; record their behavior without assuming a context menu is present.
+
+Escape returns to live tap/typing counters. Require primary taps and typing
+suppression frames to increase; if they do not, report incomplete coverage.
+Follow the remaining physical click/scroll/keyboard prompts, Escape to clear,
+then `AaZz09` and Enter. Wait for saved report and successful unmount, then
+manually restart after HALT. The collector's `tap_typing_trial=EXERCISED` requires
+previous gesture coverage, primary taps, typing suppression and configured
+options. It does not prove click accuracy or recovery feel; report those.
