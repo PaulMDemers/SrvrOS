@@ -86,8 +86,58 @@ static void wifi_fw_stop_timeout(struct xhci_device *d) {
     }
     event_irq_restore(flags);
 }
+/* Recovery is limited to the two idempotent operations observed retrying on
+ * this adapter in Linux. New DMA addresses exclude stale transfer completions. */
+static bool wifi_fw_recover(struct xhci_device *d, const struct usb_setup_packet *setup,
+    uint64_t buffer, uint32_t length, bool in) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    unsigned bit=0;
+    if(!in && setup->request_type==0x40 && setup->request==6 && setup->index==0x800 &&
+        f->reset_seen && !f->preparation.prepared && !f->upload.attempted &&
+        d->descriptor_buffer && d->descriptor_buffer[0]==1 && !d->descriptor_buffer[1] &&
+        !d->descriptor_buffer[2] && !d->descriptor_buffer[3])bit=1;
+    if(in && setup->request_type==0xc0 && setup->request==7 && setup->index==0x730 &&
+        f->preparation.prepared && f->upload.attempted && f->phase==4)bit=2;
+    if(!bit || (f->retry_mask&bit) || f->recovery_attempts>=2 || setup->value ||
+        length!=4 || setup->length!=4 || buffer!=d->descriptor_buffer_phys ||
+        !f->active || !f->configured || f->failed || !d->wifi_probe_ok ||
+        d->wifi_identity.asic!=0x76100002 || d->wifi_identity.mac!=0x76502000 ||
+        !d->ep0_quarantined || !f->control_timeout || !f->stop_ok || f->stop_state!=3 ||
+        f->stop_event_cc!=26 || f->stop_event_residue!=4 ||
+        f->stop_event_pointer!=f->control_data || !f->control_data ||
+        (f->stop_dequeue&~15ull)!=f->control_data ||
+        !xhci.command_ring || firmware_command_failed || strict_control.device || !d->output_context)
+        return false;
+    uint64_t flags=event_irq_save(),slot=0;
+    if((context_read32(d->output_context,1,0)&7)!=3) {event_irq_restore(flags);return false;}
+    f->retry_mask|=bit;
+    unsigned n=f->recovery_attempts++;
+    f->retired_ring[n]=d->ep0_ring_phys;f->retired_buffer[n]=d->descriptor_buffer_phys;
+    void *ring=0,*data=0;
+    bool allocated=alloc_frame_zero(&f->recovery_ring,&ring) && alloc_frame_zero(&f->recovery_buffer,&data);
+    if(!allocated) {event_irq_restore(flags);return false;}
+    if(!in)copy_bytes(data,d->descriptor_buffer,4);
+    write_link_trb(ring,f->recovery_ring,true);
+    uint64_t target=f->recovery_ring|1;
+    struct xhci_trb cmd={.parameter_low=(uint32_t)target,.parameter_high=target>>32,
+        .control=(16u<<10)|(1u<<16)|((uint32_t)d->slot_id<<24)};
+    firmware_command_exact=true;
+    bool ok=submit_command_trb(&cmd,16,&slot) && slot==d->slot_id;
+    firmware_command_exact=false;
+    uint64_t dequeue=context_read32(d->output_context,1,2)|((uint64_t)context_read32(d->output_context,1,3)<<32);
+    if(!ok || (context_read32(d->output_context,1,0)&7)!=3 || dequeue!=target) {
+        firmware_command_failed=true;event_irq_restore(flags);return false;
+    }
+    d->ep0_ring=ring;d->ep0_ring_phys=f->recovery_ring;d->ep0_enqueue=0;d->ep0_cycle=true;
+    d->descriptor_buffer=data;d->descriptor_buffer_phys=f->recovery_buffer;
+    event_irq_restore(flags);
+    if(!timer_delay_us(10000))return false;
+    d->ep0_quarantined=false;f->recovery_success++;
+    return true;
+}
+
 /* Cache diagnostic metadata only; no extra transfer, retry or poll logging. */
-static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet *setup,
+static bool wifi_fw_control_once(struct xhci_device *d,const struct usb_setup_packet *setup,
     uint64_t buffer,uint32_t length,bool in,int *actual) {
     struct xhci_wifi_firmware *f=&d->firmware;
     f->control_count++;f->control_type=setup->request_type;f->control_request=setup->request;
@@ -104,6 +154,17 @@ static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet 
     if(f->control_timeout)wifi_fw_stop_timeout(d);
     return f->control_ok;
 }
+static bool wifi_fw_control(struct xhci_device *d,const struct usb_setup_packet *setup,
+    uint64_t buffer,uint32_t length,bool in,int *actual) {
+    struct xhci_wifi_firmware *f=&d->firmware;
+    /* Each request owns its stop snapshot. Previous retired DMA stays allocated. */
+    f->stop_attempted=f->stop_ok=false;f->stop_event_cc=0;
+    if(wifi_fw_control_once(d,setup,buffer,length,in,actual))return true;
+    if(!wifi_fw_recover(d,setup,buffer,length,in))return false;
+    f->stop_attempted=f->stop_ok=false;f->stop_event_cc=0;
+    return wifi_fw_control_once(d,setup,d->descriptor_buffer_phys,length,in,actual);
+}
+
 static bool wifi_fw_read(void *context,uint32_t address,uint32_t *value) {
     struct xhci_device *d=context;*value=0;
     if(!wifi_firmware_owned(d) || (address!=0x80 && address!=0x20 && address!=0x730 && address!=0x238 && address!=0x1004 && address!=0x9a8))return false;
@@ -239,6 +300,8 @@ bool xhci_wifi_capture_firmware(const uint8_t *image,uint64_t size) {
             (uint64_t)f->control_residue,(uint64_t)f->control_stage,(uint64_t)f->control_timeout);
         console_printf("wifi-firmware-endpoint: elapsed_us=%u state=%u dequeue=%x\n",
             f->control_elapsed_us,(uint64_t)f->control_ep_state,f->control_dequeue);
+        console_printf("wifi-firmware-recovery: attempts=%u successful=%u mask=%x ring=%x buffer=%x\n",
+            (uint64_t)f->recovery_attempts,(uint64_t)f->recovery_success,(uint64_t)f->retry_mask,f->recovery_ring,f->recovery_buffer);
         console_printf("wifi-firmware-data: immediate=%u\n", (uint64_t)f->control_idt);
         console_printf("wifi-firmware-td: setup=%x data=%x status=%x\n",
             f->control_setup,f->control_data,f->control_status);

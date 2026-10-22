@@ -2013,3 +2013,11 @@ EP0 timeout retirement and retry for these observed operations, including exact
 command ownership, stopped-ring dequeue advancement, late-event exclusion and
 retained DMA fault tests. Never simply clear quarantine or replay the reset.
 Native firmware acceptance remains pending.
+
+Recovery implementation scope: one retry each for post-reset FCE write0x800=1
+and post-IVB ready read0x730 only. Require successful Stop Endpoint with stopped
+state/data-stage evidence; switch EP0 to a fresh ring and buffer using exact
+Set TR Dequeue completion. Retain old/new DMA allocations on every failure;
+never reuse retired transfer addresses. Delay10 ms, retry once, quarantine on
+any uncertainty. Add fault/late-event fixtures and saved recovery diagnostics.
+Fetched main53a24a0; Air PR48 covers sustained SMBus/Text, outside this scope.

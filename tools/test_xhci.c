@@ -80,7 +80,44 @@ static struct xhci_device *mode_device;
 static unsigned mode_doorbells;
 static struct xhci_device *wifi_test_device;
 static unsigned wifi_doorbells;
+static struct xhci_device *recovery_device;
+static unsigned recovery_fault, recovery_calls;
+static bool recovery_integrated, recovery_delay_ok=true;
+bool timer_delay_us(uint64_t us) { assert(us==10000); return recovery_delay_ok; }
+
 static void xhci_test_write32(uint64_t offset, uint32_t value) {
+    if(recovery_device) {
+        struct xhci_device *d=recovery_device;
+        unsigned e=xhci.event_dequeue;unsigned cycle=xhci.event_cycle?1:0;
+        if(offset==xhci.db_base && value==0) {
+            unsigned ci=xhci.command_enqueue-1;
+            struct xhci_trb *cmd=&xhci.command_ring[ci];unsigned type=(cmd->control>>10)&63;
+            uint64_t ptr=cmd->parameter_low|((uint64_t)cmd->parameter_high<<32);
+            if(type==15) {
+                context_write32(d->output_context,1,0,3);
+                context_write32(d->output_context,1,2,(uint32_t)d->firmware.control_data|1);
+                xhci.event_ring[e++]=(struct xhci_trb){.parameter_low=d->firmware.control_data,.status=(26u<<24)|4,.control=(32u<<10)|(1u<<16)|(1u<<24)|cycle};
+            } else {
+                assert(type==16 && cmd->status==0);
+                if(recovery_fault!=4) {
+                    context_write32(d->output_context,1,2,(uint32_t)ptr);
+                    context_write32(d->output_context,1,3,ptr>>32);
+                }
+            }
+            if(recovery_fault!=3)xhci.event_ring[e]=(struct xhci_trb){
+                .parameter_low=(uint32_t)(xhci.command_ring_phys+ci*16),
+                .status=(recovery_fault==2?5u:1u)<<24,
+                .control=(33u<<10)|((recovery_fault==1?2u:1u)<<24)|cycle};
+        }
+        if(recovery_integrated && offset==xhci.db_base+4 && value==1 && recovery_calls++) {
+            uint64_t ptr=strict_control.status;
+            if(strict_control.data_in)d->descriptor_buffer[0]=1;
+            /* A stale success for the retired TD must not complete this retry. */
+            xhci.event_ring[e++]=(struct xhci_trb){.parameter_low=0x9020,.status=1u<<24,.control=(32u<<10)|(1u<<16)|(1u<<24)|cycle};
+            if(recovery_fault!=11)xhci.event_ring[e]=(struct xhci_trb){.parameter_low=(uint32_t)ptr,.parameter_high=ptr>>32,.status=1u<<24,.control=(32u<<10)|(1u<<16)|(1u<<24)|cycle};
+        }
+    }
+
     if (wifi_test_device && offset == xhci.db_base+4 && value == 1) {
         wifi_doorbells++;
         uint8_t *p = wifi_test_device->descriptor_buffer;
@@ -1318,8 +1355,63 @@ static void test_firmware_immediate_data(void) {
     }
 }
 
+static void test_wifi_recovery(void) {
+    for(unsigned in=0;in<2;in++) for(unsigned fault=0;fault<12;fault++) {
+        reset_test();struct xhci_trb ring[64]={0},commands[64]={0},events[64]={0};
+        uint8_t output[4096]={0},buffer[4096]={1};
+        struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+          .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.ep0_quarantined=true,.ep0_max_packet=64,
+          .descriptor_buffer=buffer,.descriptor_buffer_phys=(uintptr_t)buffer,.output_context=output};
+        d->firmware=(struct xhci_wifi_firmware){.active=true,.configured=true,.control_timeout=true,.reset_seen=true,
+          .stop_ok=true,.stop_state=3,.stop_event_cc=26,.stop_event_residue=4,.stop_event_pointer=0x9010,
+          .control_data=0x9010,.stop_dequeue=0x9011,.preparation={.prepared=in},.upload={.attempted=in},.phase=in?4:0};
+        context_write32(output,1,0,3);context_write32(output,1,2,0x9011);
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
+        xhci.event_ring=events;xhci.event_cycle=true;
+        recovery_device=d;recovery_fault=fault;recovery_integrated=false;recovery_delay_ok=fault!=10;
+        if(fault==5)d->firmware.stop_state=1;
+        if(fault==6)d->firmware.retry_mask=in?2:1;
+        if(fault==7)d->firmware.reset_seen=false,d->firmware.phase=0;
+        if(fault==8)d->wifi_identity.asic++;
+        if(fault==9)fail_after=pool_used+1;
+        if(fault==11)d->firmware.stop_event_pointer=0xdead;
+        struct usb_setup_packet req={.request_type=in?0xc0:0x40,.request=in?7:6,.index=in?0x730:0x800,.length=4};
+        uint64_t oldbuffer=d->descriptor_buffer_phys;
+        assert(wifi_fw_recover(d,&req,oldbuffer,4,in)==!fault);
+        assert(d->ep0_quarantined==!!fault && !freed);
+        if(!fault) {
+            assert(d->ep0_ring!=ring && d->descriptor_buffer!=buffer && d->ep0_cycle && !d->ep0_enqueue);
+            assert(d->descriptor_buffer[0]==(in?0:1));
+            assert(d->firmware.retired_ring[0]==0x9000 && d->firmware.retired_buffer[0]==oldbuffer);
+            assert(!wifi_fw_recover(d,&req,d->descriptor_buffer_phys,4,in));
+        }
+        recovery_device=NULL;
+    }
+    for(unsigned in=0;in<2;in++) for(unsigned fault=0;fault<=11;fault+=11) {
+        reset_test();struct xhci_trb ring[64]={0},commands[64]={0},events[64]={0};
+        uint8_t output[4096]={0},buffer[4096]={1};struct xhci_device *d=&xhci.devices[0];
+        *d=(struct xhci_device){.present=true,.slot_id=1,.wifi_probe_ok=true,.wifi_identity={0x76100002,0x76502000},
+            .ep0_ring=ring,.ep0_ring_phys=0x9000,.ep0_cycle=true,.ep0_max_packet=64,.descriptor_buffer=buffer,
+            .descriptor_buffer_phys=(uintptr_t)buffer,.output_context=output};
+        d->firmware=(struct xhci_wifi_firmware){.active=true,.configured=true,.reset_seen=true,.preparation={.prepared=in},.upload={.attempted=in},.phase=in?4:0};
+        xhci.db_base=0x1000;xhci.rt_base=0x2000;xhci.command_ring=commands;xhci.command_ring_phys=0xa000;xhci.command_cycle=true;
+        xhci.event_ring=events;xhci.event_cycle=true;
+        recovery_device=d;recovery_fault=fault;recovery_integrated=true;recovery_calls=0;recovery_delay_ok=true;
+        uint32_t value=0;
+        assert((in?wifi_fw_read(d,0x730,&value):wifi_fw_write(d,0x800,1))==!fault);
+        if(in && !fault)assert(value==1);
+        assert(recovery_calls==2 && d->firmware.recovery_success==1 && d->firmware.control_count==2);
+        assert(d->ep0_quarantined==!!fault && !freed);
+        recovery_device=NULL;recovery_integrated=false;
+    }
+    recovery_delay_ok=true;
+    puts("xhci-wifi-recovery: PASS fresh DMA, exact dequeue, faults, bounded retry and stale-event exclusion");
+}
+
 int main(int argc, char **argv) {
     assert(argc == 3);
+    test_wifi_recovery();
     test_firmware_immediate_data();
     test_control_publication();
     test_wifi_firmware_stop();

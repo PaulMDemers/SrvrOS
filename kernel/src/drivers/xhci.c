@@ -248,6 +248,8 @@ struct xhci_wifi_firmware {
     uint64_t stop_dequeue, stop_event_pointer;
     uint32_t stop_state, stop_event_cc, stop_event_residue;
     bool stop_attempted, stop_ok;
+    uint32_t retry_mask, recovery_attempts, recovery_success;
+    uint64_t retired_ring[2], retired_buffer[2], recovery_ring, recovery_buffer;
     bool configured, attempted, active, failed, pending, done, cfg_valid, descriptor_valid, reset_seen;
     struct mt76_prepare_session preparation;
     struct mt76_firmware_session upload;
