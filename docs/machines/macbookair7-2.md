@@ -2,6 +2,46 @@
 
 Updated: 2026-10-21. State: **active reference machine; partial device acceptance**.
 
+### Completed IRQ handoff (PR #39)
+
+Base `origin/main` `a1b9802` (PR #38), tested code `6c23fbd`. A token-bound
+terminal IRQ hook now runs after EOI, every completion callback and registry
+bookkeeping. The explicit VM battery study can retain an interrupted owner or
+worker without returning to that thread, then resume unrelated storage and save,
+unmount and reset. Touched: IRQ registry/dispatcher, scheduler contract, battery
+runtime/model, host/VM proofs and documentation. Pro PR #19 at `426f0cd` remains
+independent Wi-Fi work with no touched-file overlap. No hardware run or installed
+payload change occurred; native startup and mounted Home remain off.
+
+### Local terminal handoff results
+
+All ten disposable VM cases passed. Both new target cases balanced 12 callback
+spinlock acquisitions with no pending query. Worker 9 or owner 8 was interrupted;
+all shared handlers/completions finished before retaining the pair, and storage
+thread 7 resumed with its original scope and successful registry removal. Both
+flushes completed across a 28-second scope. Generation 2, completion 10 and 9,411
+bytes of interpreter heap remained held across wake attempts, sleep expiry and a
+late SCI. Three clients retired; saved failure logs matched serial, followed by
+unmount, automatic reset and clean exact-tree/metadata/allocation/fsck checks.
+The retained runtime is deliberately not reported as cleanly retired. No target
+resumed after the fault. Zero Text saves in these fixtures are not an input
+responsiveness or pending-DMA claim.
+
+Native study admission refused before platform access, leaving the disposable
+volume byte-identical. The older callback scope still halted for target
+interruption, unmatched callback locks and out-of-scope query refusal. Previous
+returned-callback, IRQ-entry and watchdog/I/O recovery passed. Normal Text passed
+60 edits, 20 worker operations, five file cycles and clean service retirement.
+All ordinary/native/VM builds, the full core host suite, 20 proof-parser tests and
+397 documentation links passed. Host IRQ tests prove token/request exclusions,
+EOI-before-completions-before-handoff ordering and fully released registry state.
+Evidence with verified hashes is retained outside `build`. Actions remain disabled.
+
+Next boundary: audit native firmware/EC/shared-resource ownership and the still
+terminal callback failures before enabling mounted Home with the battery service.
+This completes the interrupted-target VM milestone; it does not accept arbitrary
+interpreter faults, physical level-triggered SCI recovery or outstanding DMA.
+
 ### Returned GPE callback failures (PR #38)
 
 Base `origin/main` `a35cd5e` (PR #37). Add VM-only structured propagation for
@@ -37,9 +77,9 @@ local documentation links passed. Evidence is retained outside `build` with
 verified hashes. Actions remain disabled; no physical payload or reboot changed.
 
 The new boundary covers enqueue refusal after successful GPE suspend/clear and a
-normal interpreter return. Other callback failures and interrupts of a battery
-thread still halt. Shared native firmware/resource ownership and physical SCI/DMA
-recovery remain unaccepted; native mounted Home and automatic startup stay off.
+normal interpreter return. Other callback failures still halt; PR #39 above covers
+an explicit VM scope for IRQs interrupting a battery thread. Shared native
+firmware/resource ownership and physical SCI/DMA recovery remain unaccepted; native mounted Home and automatic startup stay off.
 
 ### IRQ entry fault containment (PR #37)
 

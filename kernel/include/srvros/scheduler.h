@@ -37,7 +37,9 @@ void scheduler_io_wait(void);
 void scheduler_io_set_user_safe(bool safe);
 void scheduler_user_enter(void);
 void scheduler_yield(void);
-/* CPU0 fatal service boundary only, IRQs already masked, NOT IRQ context.
+/* CPU0 fatal service boundary, IRQs already masked. Ordinary thread boundary
+ * or a terminal IRQ exit hook AFTER EOI, every completion callback and registry
+ * bookkeeping have drained. NEVER from a handler or completion callback.
  * Atomically retain current+peer kernel service slots/stacks until reboot.
  * Refuses userspace, idle, stale identities, a storage owner or no idle fallback.
  * On success only IRQ-masked terminal bookkeeping may precede yielding; caller
