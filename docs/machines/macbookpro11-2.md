@@ -2311,3 +2311,13 @@ response words for inspection. No initialization tables or RF writes. Shared
 main remains9ca1922; current device branch inspected clean atf2dc195. Dependencies
 are accepted reset/identity transport and bounded register-pair encoder. Native
 write-response format remains unaccepted until the matching saved run is read.
+
+Write-response candidate source63d7714/released8dca7885de3c61f installed unarmed.
+Build, MCU/radio/xHCI tests,54 boot-profile tests and docs passed. Exact-stage GPT
+saved-log/clean-unmount/automatic-return VM and missing-workspace refusal passed.
+VM does not validate native MCU writes. Durable archive wifi-write-63d7714 has
+payload, receipts and run record. Workspace offline checks passed; Ubuntu remains
+default, recoverye47dca3a6b30c6c1 and accepted resetbfa7235c397175da retained.
+Older queue payload4a47cd57ac90c504 removed from ESP only after archive equality
+verification. Native write reply pending; readiness needed for cold adapter
+power cycle. Results will save automatically; no photograph or commands needed.
