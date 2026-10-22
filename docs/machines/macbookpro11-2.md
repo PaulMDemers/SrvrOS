@@ -2090,3 +2090,8 @@ not treated as user country confirmation. Country question remains pending.
 No regulatory policy applied, radio writes performed or reboot armed. Next work
 is a country-scoped policy and bounded native receive initialization; firmware
 readiness remains accepted, radio/network functionality remains pending.
+
+User confirmed United States testing on2026-10-22. Use explicit countryUS for
+the initial channel-policy work; the earlier pending-country question is resolved.
+This records location, not completed regulatory-policy integration or permission
+to bypass calibration/driver gates. No radio writes or reboot armed.
